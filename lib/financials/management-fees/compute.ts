@@ -16,7 +16,7 @@ import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { resolvePropertyBudget } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { loadFullYearStatement } from "@/lib/financials/operating-statements/fullYear";
 import { leaseChangesByMonth, type LeaseChange } from "./leaseChanges";
-import { intercompanyTieOut, suggestedEntry, likRevenueByGroup, groupTieOuts, feeGaps, type IntercompanyTieOut, type SuggestedEntry, type GroupTie, type FeeGap } from "./intercompany";
+import { intercompanyTieOut, suggestedEntry, likRevenueByGroup, groupTieOuts, buildingFlags, type IntercompanyTieOut, type SuggestedEntry, type GroupTie, type BuildingFlag } from "./intercompany";
 import { listBudgets } from "@/lib/financials/budgets/storage";
 import { assembledGl, assembledTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -85,9 +85,12 @@ export type MgmtFeeData = {
    * posts per building.
    */
   groupTies: GroupTie[] | null;
-  /** Buildings that posted no fee in a month they normally post one. The one
-   *  finding that IS per building. */
-  feeGaps: FeeGap[];
+  /**
+   * Which buildings look wrong, from each building's own history. The one
+   * finding that IS per building — 2010 books two lump entries, so it can
+   * never point at one.
+   */
+  flags: BuildingFlag[];
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -235,7 +238,7 @@ export async function loadManagementFees(year: number): Promise<MgmtFeeData> {
     if (rows.length) groupTies = groupTieOuts(buildings, likRevenueByGroup(rows), tieThrough, NILLC_CODES);
   }
 
-  const gaps = feeGaps(buildings, completeThrough || 0);
+  const flags = buildingFlags(buildings, completeThrough || 0);
 
   return {
     year,
@@ -259,7 +262,7 @@ export async function loadManagementFees(year: number): Promise<MgmtFeeData> {
     suggestedEntry: entry,
     likActualMonthly,
     groupTies,
-    feeGaps: gaps,
+    flags,
   };
 }
 

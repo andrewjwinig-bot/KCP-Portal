@@ -260,46 +260,84 @@ export function groupTieOuts(
   }).filter((g) => g.codes.length > 0);
 }
 
-export type FeeGap = {
+export type FlagKind =
+  /** No fee posted in a month the building normally posts one. */
+  | "no-fee"
+  /** A negative fee — a reversal or prior-period correction sitting where a
+   *  charge should be. Almost always worth reading. */
+  | "negative"
+  /** Wildly out of line with the building's own usual fee. */
+  | "outlier";
+
+export type BuildingFlag = {
   code: string;
   name: string;
-  /** Months (1–12) with no fee posted, where the building normally posts one. */
-  months: number[];
+  month: number;
+  kind: FlagKind;
+  /** What was actually posted. */
+  amount: number;
   /** The building's usual monthly fee — the median of its posted months. */
   typical: number;
 };
 
+/** Ordered so the certain findings come before the suggestive one. */
+const FLAG_RANK: Record<FlagKind, number> = { negative: 0, "no-fee": 1, outlier: 2 };
+
 /**
- * Buildings that skipped a month.
+ * Which buildings look wrong — answered from each building's OWN history, with
+ * no reference to 2010.
  *
- * A building posting a fee in most months and nothing in one is the shape a
- * missing fee takes, and unlike the intercompany variance this points at a
- * specific building AND month. Requires at least three posted months before
- * calling a zero a gap, so a building that started mid-year is not accused of
- * missing the months before it existed.
+ * This is the question worth asking. "Which buildings tie to 2010" cannot be
+ * answered (2010 books two lump entries, not per building), but "which
+ * buildings' fees look wrong" can, and it is what someone actually wants when
+ * they ask. A fee is a percentage of collections, so a building's own fee is
+ * stable month to month; a month that breaks that pattern is where a keying
+ * error is.
+ *
+ * Deliberately conservative — a false positive here costs someone a search
+ * through a ledger for nothing, which is worse than a quiet month:
+ *   · three posted months are required before any judgement;
+ *   · only months INSIDE the building's own posting run count, so a building
+ *     that started billing in April is not accused of missing January;
+ *   · an outlier must be double or half the usual fee AND differ by a material
+ *     amount, so a building with a $300 fee is not flagged over $150.
  */
-export function feeGaps(
+export function buildingFlags(
   buildings: { code: string; name: string; feeMonthly: number[]; maxPosted: number }[],
   through: number,
-): FeeGap[] {
-  const out: FeeGap[] = [];
+  opts: { minMaterial?: number } = {},
+): BuildingFlag[] {
+  const minMaterial = opts.minMaterial ?? 500;
+  const out: BuildingFlag[] = [];
+
   for (const b of buildings) {
     const upto = Math.min(through, b.maxPosted || 0);
     if (upto < 3) continue;
-    const window = b.feeMonthly.slice(0, upto);
-    const posted = window.map((v, i) => ({ v: Math.round(v), m: i + 1 })).filter((x) => Math.abs(x.v) >= POSTED_FLOOR);
+    const window = b.feeMonthly.slice(0, upto).map((v, i) => ({ v: Math.round(v), m: i + 1 }));
+    const posted = window.filter((x) => Math.abs(x.v) >= POSTED_FLOOR);
     if (posted.length < 3) continue;
-    // Only months INSIDE the building's own posting run — a zero before its
-    // first fee is not a gap, it is a building that had not started.
-    const first = posted[0].m;
-    const months = window
-      .map((v, i) => ({ v: Math.round(v), m: i + 1 }))
-      .filter((x) => x.m > first && Math.abs(x.v) < POSTED_FLOOR)
-      .map((x) => x.m);
-    if (!months.length) continue;
-    const sorted = posted.map((x) => x.v).sort((a, b2) => a - b2);
+
+    const sorted = posted.map((x) => Math.abs(x.v)).sort((a, b2) => a - b2);
     const typical = sorted[Math.floor(sorted.length / 2)];
-    out.push({ code: b.code, name: b.name, months, typical });
+    const firstPosted = posted[0].m;
+
+    for (const { v, m } of window) {
+      if (v < 0) {
+        out.push({ code: b.code, name: b.name, month: m, kind: "negative", amount: v, typical });
+      } else if (Math.abs(v) < POSTED_FLOOR) {
+        // A zero before the building's first fee is not a gap — it had not
+        // started billing yet.
+        if (m > firstPosted) out.push({ code: b.code, name: b.name, month: m, kind: "no-fee", amount: 0, typical });
+      } else if (typical > 0 && (v > typical * 2 || v < typical / 2) && Math.abs(v - typical) >= minMaterial) {
+        out.push({ code: b.code, name: b.name, month: m, kind: "outlier", amount: v, typical });
+      }
+    }
   }
-  return out;
+
+  return out.sort(
+    (a, b2) =>
+      FLAG_RANK[a.kind] - FLAG_RANK[b2.kind] ||
+      Math.abs(b2.amount - b2.typical) - Math.abs(a.amount - a.typical) ||
+      a.code.localeCompare(b2.code),
+  );
 }

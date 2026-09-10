@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { intercompanyTieOut, suggestedEntry, likRevenueByGroup, groupTieOuts, feeGaps, feeGroupOfEntry } from "./intercompany";
+import { intercompanyTieOut, suggestedEntry, likRevenueByGroup, groupTieOuts, buildingFlags, feeGroupOfEntry } from "./intercompany";
 
 const m = (v: Partial<Record<number, number>>) =>
   Array.from({ length: 12 }, (_, i) => v[i + 1] ?? 0);
@@ -196,35 +196,54 @@ describe("narrowing the search — by entry", () => {
   });
 });
 
-describe("narrowing the search — by building", () => {
+describe("which buildings look wrong — from their own history, not from 2010", () => {
   const b = (code: string, months: Partial<Record<number, number>>, maxPosted = 7) =>
     ({ code, name: code, feeMonthly: m(months), maxPosted });
 
-  it("finds the building AND the month where a fee was never posted", () => {
-    // This is the one finding that IS per building, and it is the shape a
-    // missing fee actually takes.
-    const gaps = feeGaps([b("2300", { 1: 5_000, 2: 5_000, 3: 0, 4: 5_200, 5: 5_000, 6: 5_000, 7: 5_000 })], 7);
-    expect(gaps).toEqual([{ code: "2300", name: "2300", months: [3], typical: 5_000 }]);
+  it("names the building AND the month where a fee was never posted", () => {
+    const f = buildingFlags([b("2300", { 1: 5_000, 2: 5_000, 3: 0, 4: 5_200, 5: 5_000, 6: 5_000, 7: 5_000 })], 7);
+    expect(f).toEqual([{ code: "2300", name: "2300", month: 3, kind: "no-fee", amount: 0, typical: 5_000 }]);
+  });
+
+  it("flags a negative fee — a reversal sitting where a charge should be", () => {
+    const f = buildingFlags([b("4500", { 1: 8_000, 2: 8_000, 3: -1_200, 4: 8_000, 5: 8_000, 6: 8_000, 7: 8_000 })], 7);
+    expect(f[0]).toMatchObject({ code: "4500", month: 3, kind: "negative", amount: -1_200 });
+  });
+
+  it("flags a fee wildly out of line with the building's own usual figure", () => {
+    const f = buildingFlags([b("7010", { 1: 7_000, 2: 7_000, 3: 21_000, 4: 7_000, 5: 7_000, 6: 7_000, 7: 7_000 })], 7);
+    expect(f).toEqual([{ code: "7010", name: "7010", month: 3, kind: "outlier", amount: 21_000, typical: 7_000 }]);
+  });
+
+  it("does not flag a small building over a small swing", () => {
+    // $300 → $150 is half the usual fee, but it is $150. Chasing that costs
+    // more than it is worth, and a report that cries wolf stops being read.
+    const f = buildingFlags([b("1500", { 1: 300, 2: 300, 3: 150, 4: 300, 5: 300, 6: 300, 7: 300 })], 7);
+    expect(f).toEqual([]);
+  });
+
+  it("ranks the certain findings above the suggestive one", () => {
+    const f = buildingFlags([
+      b("7010", { 1: 7_000, 2: 7_000, 3: 21_000, 4: 7_000, 5: 7_000, 6: 7_000, 7: 7_000 }),
+      b("2300", { 1: 5_000, 2: 5_000, 3: 0, 4: 5_000, 5: 5_000, 6: 5_000, 7: 5_000 }),
+      b("4500", { 1: 8_000, 2: 8_000, 3: -1_200, 4: 8_000, 5: 8_000, 6: 8_000, 7: 8_000 }),
+    ], 7);
+    expect(f.map((x) => x.kind)).toEqual(["negative", "no-fee", "outlier"]);
   });
 
   it("does not accuse a building of missing months before it started billing", () => {
-    // A building whose first fee is in April has no gap in Jan–Mar; it simply
-    // did not exist as a fee payer yet.
-    const gaps = feeGaps([b("9510", { 4: 2_000, 5: 2_000, 6: 2_000, 7: 2_000 })], 7);
-    expect(gaps).toEqual([]);
+    expect(buildingFlags([b("9510", { 4: 2_000, 5: 2_000, 6: 2_000, 7: 2_000 })], 7)).toEqual([]);
   });
 
   it("says nothing about a building with too little history to judge", () => {
-    expect(feeGaps([b("1500", { 6: 300, 7: 300 })], 7)).toEqual([]);
+    expect(buildingFlags([b("1500", { 6: 300, 7: 300 })], 7)).toEqual([]);
   });
 
   it("never reports a month the building has not posted yet", () => {
-    // Posted only through March: April onwards is not a gap.
-    const gaps = feeGaps([b("7010", { 1: 1_000, 2: 1_000, 3: 1_000 }, 3)], 7);
-    expect(gaps).toEqual([]);
+    expect(buildingFlags([b("7010", { 1: 1_000, 2: 1_000, 3: 1_000 }, 3)], 7)).toEqual([]);
   });
 
-  it("stays quiet on a building that posts every month", () => {
-    expect(feeGaps([b("4500", { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1 })], 7)).toEqual([]);
+  it("stays quiet on a building that posts the same fee every month", () => {
+    expect(buildingFlags([b("4500", { 1: 1_000, 2: 1_000, 3: 1_000, 4: 1_000, 5: 1_000, 6: 1_000, 7: 1_000 })], 7)).toEqual([]);
   });
 });

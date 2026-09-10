@@ -252,7 +252,7 @@ export default function ManagementFeesPage() {
               tie={data.intercompany}
               entry={data.suggestedEntry}
               groups={data.groupTies}
-              gaps={data.feeGaps}
+              flags={data.flags}
               year={year}
             />
           )}
@@ -452,88 +452,95 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
  * removing the guess that causes it is worth more — so the card states the
  * figure to post, split the way the entries are actually keyed.
  */
-function IntercompanyCard({ tie, entry, groups, gaps, year }: {
+function IntercompanyCard({ tie, entry, groups, flags, year }: {
   tie: NonNullable<MgmtFeeData["intercompany"]>;
   entry: MgmtFeeData["suggestedEntry"];
   groups: MgmtFeeData["groupTies"];
-  gaps: MgmtFeeData["feeGaps"];
+  flags: MgmtFeeData["flags"];
   year: number;
 }) {
   const [open, setOpen] = useState(false);
-  const bad = !tie.clean;
-  const accent = bad ? "#b45309" : "#15803d";
+  const ok = tie.clean && flags.length === 0 && tie.missingGl.length === 0;
+  const accent = ok ? "#15803d" : "#b45309";
   const varColor = (v: number) => (Math.abs(v) <= 1 ? "var(--muted)" : v < 0 ? "#b91c1c" : "#b45309");
+  const FLAG_TEXT: Record<string, string> = {
+    negative: "negative fee — a reversal is sitting where a charge should be",
+    "no-fee": "no fee posted",
+    outlier: "fee far off this building's usual",
+  };
 
   return (
-    <div className="card" style={{ margin: 0, borderLeft: `4px solid ${accent}`, display: "grid", gap: 10 }}>
+    <div className="card" style={{ margin: 0, borderLeft: `4px solid ${accent}`, display: "grid", gap: 12 }}>
+      {/* The glance. One line, one answer. */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 13 }}>
-          <b style={{ color: accent }}>2010 tie-out — ACTUAL{tie.clean ? " ✓" : ""}:</b>{" "}
-          buildings expensed <b>{money(tie.buildingsYtd)}</b> on 6610 through {MONTHS_LONG[tie.through - 1]};
-          2010 booked <b>{money(tie.likYtd)}</b> on 4510.{" "}
-          {tie.clean
-            ? "Every month ties."
-            : <>No property pays an outside management fee, so these are two sides of one transaction and
-               must be equal. Any variance is an error of timing or amount.</>}
+        <div style={{ fontSize: 16, fontWeight: 800, color: accent }}>
+          {ok
+            ? `Management fees tie \u2014 through ${MONTHS_LONG[tie.through - 1]}`
+            : `Management fees don\u2019t tie \u2014 ${money(Math.abs(tie.varianceYtd))} ${tie.varianceYtd > 0 ? "over" : "under"} through ${MONTHS_LONG[tie.through - 1]}`}
         </div>
         <button type="button" className="btn" onClick={() => setOpen((o) => !o)} style={{ flexShrink: 0 }}>
-          {open ? "Hide detail" : "Show by month"}
+          {open ? "Hide detail" : "Show detail"}
         </button>
       </div>
 
       {tie.missingGl.length > 0 && (
         <div style={{ fontSize: 13, color: "#b91c1c" }}>
-          <b>This comparison is incomplete.</b> {tie.missingGl.length} fee-paying building
-          {tie.missingGl.length === 1 ? " has" : "s have"} no general ledger loaded for {year}
-          ({tie.missingGl.join(", ")}), so their fees are missing from the buildings column and read
-          here as 2010 over-booking. Upload those GLs before treating the variance below as an error.
+          <b>Incomplete \u2014 check this first.</b> {tie.missingGl.join(", ")} {tie.missingGl.length === 1 ? "has" : "have"} no
+          general ledger loaded for {year}, so {tie.missingGl.length === 1 ? "its fee is" : "their fees are"} missing from the
+          comparison. Upload {tie.missingGl.length === 1 ? "it" : "them"} before treating anything below as an error.
         </div>
       )}
 
-      {bad && (
-        <div style={{ fontSize: 13, display: "grid", gap: 4 }}>
-          {tie.missed.length > 0 && (
-            <div style={{ color: "#b91c1c" }}>
-              <b>No entry posted in {tie.missed.map((m) => MONTHS_LONG[m - 1]).join(", ")}.</b>{" "}
-              The buildings billed the fee; 2010 booked nothing. That is a missed journal entry, not a rounding difference.
-            </div>
-          )}
-          {tie.disagreeing.length > 0 && (
-            <div className="muted">
-              {tie.disagreeing.length} further month{tie.disagreeing.length === 1 ? "" : "s"} posted a different figure than the buildings billed
-              {tie.worstMonth ? <> — worst is {MONTHS_LONG[tie.worstMonth.month - 1]}, off by {money(Math.abs(tie.worstMonth.variance))}</> : null}.
-            </div>
-          )}
-          <div className="muted">
-            The year nets to <b>{money(Math.abs(tie.varianceYtd))}</b> {tie.varianceYtd > 0 ? "over" : "under"}, which is why this has gone unnoticed:
-            the annual figure looks close while no individual month is right.
-          </div>
+      {/* Which building to look at. The only per-building answer possible. */}
+      {flags.length > 0 && (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ ...secLabel, color: "#b91c1c" }}>Buildings to check ({flags.length})</div>
+          <table style={{ width: "100%", fontSize: 13 }}>
+            <tbody>
+              {flags.map((f) => (
+                <tr key={`${f.code}-${f.month}-${f.kind}`}>
+                  <td style={{ padding: "4px 8px 4px 0", whiteSpace: "nowrap" }}>
+                    <code style={{ fontSize: 12 }}>{f.code}</code> {f.name}
+                  </td>
+                  <td style={{ padding: "4px 8px", whiteSpace: "nowrap", fontWeight: 700 }}>{MONTHS_LONG[f.month - 1]}</td>
+                  <td style={{ padding: "4px 8px", color: f.kind === "outlier" ? "#b45309" : "#b91c1c" }}>
+                    {FLAG_TEXT[f.kind]}
+                  </td>
+                  <td style={{ padding: "4px 0 4px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                    {f.kind === "no-fee" ? <span className="muted">usually {money(f.typical)}</span>
+                      : <>{money(f.amount)} <span className="muted">vs {money(f.typical)}</span></>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {entry && entry.lines.length > 0 && (
+      {/* What to do about it. */}
+      {entry && entry.lines.length > 0 && entry.adjustment !== 0 && (
         <div style={{ background: "rgba(15,23,42,0.03)", borderRadius: 8, padding: "10px 12px" }}>
-          <div style={{ ...secLabel, marginBottom: 6 }}>Entry to post at 2010 — {MONTHS_LONG[entry.month - 1]} {year}</div>
+          <div style={{ ...secLabel, marginBottom: 6 }}>Post this at 2010 for {MONTHS_LONG[entry.month - 1]} {year}</div>
           <table style={{ width: "100%", fontSize: 13 }}>
             <tbody>
               {entry.lines.map((l) => (
                 <tr key={l.label}>
-                  <td style={{ padding: "3px 0" }}>{l.label} <span className="muted">({l.codes.length} buildings)</span></td>
+                  <td style={{ padding: "3px 0" }}>{l.label}</td>
                   <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(l.amount)}</td>
                 </tr>
               ))}
               <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}>
-                <td style={{ padding: "4px 0" }}>Total fees the buildings expensed</td>
+                <td style={{ padding: "4px 0" }}>Total the buildings expensed</td>
                 <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(entry.total)}</td>
               </tr>
               <tr className="muted">
-                <td style={{ padding: "3px 0" }}>Currently booked on 4510</td>
+                <td style={{ padding: "3px 0" }}>Currently booked</td>
                 <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(entry.posted)}</td>
               </tr>
               <tr style={{ fontWeight: 800 }}>
                 <td style={{ padding: "3px 0" }}>Adjustment</td>
                 <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", color: varColor(entry.adjustment) }}>
-                  {entry.adjustment === 0 ? "—" : money(entry.adjustment)}
+                  {money(entry.adjustment)}
                 </td>
               </tr>
             </tbody>
@@ -541,110 +548,73 @@ function IntercompanyCard({ tie, entry, groups, gaps, year }: {
         </div>
       )}
 
-      {groups && groups.length > 1 && (
-        <div style={{ display: "grid", gap: 6 }}>
-          <div style={secLabel}>Which entry the gap belongs to</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: -2 }}>
-            2010 books two journal entries a month, never per building — so this is as far as a
-            variance can be narrowed from the ledger. A clean entry rules its buildings out.
-          </div>
-          <table style={{ width: "100%", fontSize: 13 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: "5px 8px" }}>Entry</th>
-                <th style={{ textAlign: "right", padding: "5px 8px" }}>Buildings</th>
-                <th style={{ textAlign: "right", padding: "5px 8px" }}>Buildings billed</th>
-                <th style={{ textAlign: "right", padding: "5px 8px" }}>2010 booked</th>
-                <th style={{ textAlign: "right", padding: "5px 8px" }}>Variance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g) => (
-                <tr key={g.key}>
-                  <td style={{ padding: "5px 8px" }}>
-                    {g.label}{" "}
-                    {g.tie.clean
-                      ? <span style={{ color: "#15803d", fontWeight: 700 }}>ties ✓</span>
-                      : <span style={{ color: "#b45309", fontWeight: 700 }}>
-                          {g.tie.missed.length ? `${g.tie.missed.length} month(s) not posted` : `${g.tie.disagreeing.length} month(s) off`}
-                        </span>}
-                  </td>
-                  <td style={{ padding: "5px 8px", textAlign: "right" }} className="muted">{g.codes.length}</td>
-                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(g.tie.buildingsYtd)}</td>
-                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(g.tie.likYtd)}</td>
-                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: varColor(g.tie.varianceYtd) }}>
-                    {g.tie.clean ? "—" : money(g.tie.varianceYtd)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {gaps.length > 0 && (
-        <div style={{ display: "grid", gap: 6 }}>
-          <div style={{ ...secLabel, color: "#b91c1c" }}>Buildings that skipped a month</div>
-          <div className="muted" style={{ fontSize: 12, marginTop: -2 }}>
-            These posted no fee in a month they normally post one. Unlike the variance above, this
-            names a building and a month — start here.
-          </div>
-          <table style={{ width: "100%", fontSize: 13 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: "5px 8px" }}>Building</th>
-                <th style={{ textAlign: "left", padding: "5px 8px" }}>Month(s) with no fee</th>
-                <th style={{ textAlign: "right", padding: "5px 8px" }}>Usual monthly fee</th>
-              </tr>
-            </thead>
-            <tbody>
-              {gaps.map((g) => (
-                <tr key={g.code}>
-                  <td style={{ padding: "5px 8px" }}><code style={{ fontSize: 12 }}>{g.code}</code> {g.name}</td>
-                  <td style={{ padding: "5px 8px", color: "#b91c1c", fontWeight: 700 }}>
-                    {g.months.map((m) => MONTHS_LONG[m - 1]).join(", ")}
-                  </td>
-                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(g.typical)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
       {open && (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", fontSize: 13 }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: "6px 8px" }}>Month</th>
-                <th style={{ textAlign: "right", padding: "6px 8px" }}>Buildings (6610)</th>
-                <th style={{ textAlign: "right", padding: "6px 8px" }}>2010 (4510)</th>
-                <th style={{ textAlign: "right", padding: "6px 8px" }}>Variance</th>
-                <th style={{ textAlign: "left", padding: "6px 8px" }}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tie.months.filter((m) => m.status !== "pending").map((m) => (
-                <tr key={m.month}>
-                  <td style={{ padding: "5px 8px" }}>{MONTHS_LONG[m.month - 1]}</td>
-                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(m.buildingsFee)}</td>
-                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(m.likRevenue)}</td>
-                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: varColor(m.variance) }}>
-                    {m.status === "ties" ? "—" : money(m.variance)}
-                  </td>
-                  <td style={{ padding: "5px 8px" }}>
-                    {m.status === "ties" && <span style={{ color: "#15803d", fontWeight: 700 }}>Ties</span>}
-                    {m.status === "not-posted" && <span style={{ color: "#b91c1c", fontWeight: 700 }}>No entry posted</span>}
-                    {m.status === "off" && <span style={{ color: "#b45309", fontWeight: 700 }}>Different figure</span>}
-                  </td>
+        <div style={{ display: "grid", gap: 14, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+          <div className="muted" style={{ fontSize: 12 }}>
+            Account <b>6610</b> is the fee each building expenses; account <b>4510</b> is the revenue 2010 books.
+            No property pays an outside management fee, so they are two sides of one transaction and must be equal.
+            The buildings post automatically; 2010 is two hand-keyed entries a month, which is why they drift.
+          </div>
+
+          {tie.missed.length > 0 && (
+            <div style={{ fontSize: 13, color: "#b91c1c" }}>
+              <b>No entry posted at 2010 in {tie.missed.map((m) => MONTHS_LONG[m - 1]).join(", ")}.</b>
+            </div>
+          )}
+
+          {groups && groups.length > 1 && (
+            <div style={{ display: "grid", gap: 4 }}>
+              <div style={secLabel}>Which entry the gap belongs to</div>
+              <table style={{ width: "100%", fontSize: 13 }}>
+                <tbody>
+                  {groups.map((g) => (
+                    <tr key={g.key}>
+                      <td style={{ padding: "4px 8px 4px 0" }}>{g.label} <span className="muted">({g.codes.length} buildings)</span></td>
+                      <td style={{ padding: "4px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(g.tie.buildingsYtd)}</td>
+                      <td style={{ padding: "4px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(g.tie.likYtd)}</td>
+                      <td style={{ padding: "4px 0 4px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: varColor(g.tie.varianceYtd) }}>
+                        {g.tie.clean ? <span style={{ color: "#15803d", fontWeight: 700 }}>ties</span> : money(g.tie.varianceYtd)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div style={{ overflowX: "auto" }}>
+            <div style={secLabel}>Month by month</div>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
+              The <b>Running</b> column is the explanation. A gap that swings and returns toward zero is
+              timing — 2010&apos;s entry landing in the wrong month. A gap that keeps growing in one
+              direction is a real difference in the amounts.
+            </div>
+            <table style={{ width: "100%", fontSize: 13 }}>
+              <thead>
+                <tr>
+                  <th style={{ textAlign: "left", padding: "6px 8px" }}>Month</th>
+                  <th style={{ textAlign: "right", padding: "6px 8px" }}>Buildings (6610)</th>
+                  <th style={{ textAlign: "right", padding: "6px 8px" }}>2010 (4510)</th>
+                  <th style={{ textAlign: "right", padding: "6px 8px" }}>Variance</th>
+                  <th style={{ textAlign: "right", padding: "6px 8px" }}>Running</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-            Compared through {MONTHS_LONG[tie.through - 1]} — the last month both sides have posted. Later months
-            are not judged, so a building running behind can&apos;t read as 2010 over-booking.
+              </thead>
+              <tbody>
+                {(() => { let run = 0; return tie.months.filter((m) => m.status !== "pending").map((m) => { run += m.variance; return (
+                  <tr key={m.month}>
+                    <td style={{ padding: "5px 8px" }}>{MONTHS_LONG[m.month - 1]}</td>
+                    <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(m.buildingsFee)}</td>
+                    <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(m.likRevenue)}</td>
+                    <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: varColor(m.variance) }}>
+                      {m.status === "ties" ? "\u2014" : m.status === "not-posted" ? "no entry" : money(m.variance)}
+                    </td>
+                    <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: 700, color: varColor(run) }}>
+                      {money(run)}
+                    </td>
+                  </tr>
+                ); }); })()}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
