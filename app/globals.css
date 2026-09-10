@@ -709,11 +709,53 @@ code {
 }
 @keyframes sentDraw { to { stroke-dashoffset: 0; } }
 
-/* Anyone who asked not to be moved gets the same information, statically. */
+/* ── "All caught up" (DailyDigestModal) ─────────────────────────────────────
+ * The empty state is the GOOD state here — the week's tasks and imports are
+ * all done — so it gets the one flourish in the app rather than the plain
+ * green line it used to be. Same success mark as the send confirmation above
+ * (ring sweeps, tick draws), with a halo and a short spark burst on top.
+ * It plays once, on a modal you see once a day. */
+.caughtup-mark { position: relative; width: 72px; height: 72px; margin: 0 auto; }
+.caughtup-mark svg { position: relative; z-index: 1; overflow: visible; }
+
+/* A soft ring of colour that expands past the mark and fades — the "pop". */
+.cu-halo {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, rgba(22,163,74,0.28) 0%, rgba(22,163,74,0) 70%);
+  animation: cuHalo 0.9s 0.1s ease-out both;
+}
+@keyframes cuHalo {
+  from { opacity: 0; transform: scale(0.5); }
+  55%  { opacity: 1; }
+  to   { opacity: 0; transform: scale(1.9); }
+}
+
+/* Eight sparks thrown outward. Each is rotated by its own --a and travels
+ * along its own axis, so one keyframe set serves all of them. */
+.cu-spark {
+  position: absolute; top: 50%; left: 50%;
+  width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px;
+  border-radius: 999px; background: var(--cu-spark-color, #15803d);
+  transform: rotate(var(--a)) translateY(0);
+  animation: cuSpark 0.75s var(--d, 0.15s) cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+@keyframes cuSpark {
+  from { opacity: 0; transform: rotate(var(--a)) translateY(-6px)  scale(0.4); }
+  35%  { opacity: 1; }
+  to   { opacity: 0; transform: rotate(var(--a)) translateY(-42px) scale(1); }
+}
+
+.caughtup-copy { animation: sendRise 0.34s 0.3s ease-out both; }
+
+/* Anyone who asked not to be moved gets the same information, statically:
+ * the tick is simply drawn, and the celebration is skipped rather than
+ * replayed slowly — a flourish nobody asked to see is the first thing to go. */
 @media (prefers-reduced-motion: reduce) {
   .send-outcome { animation: none; }
   .sent-ring, .sent-check { animation: none; stroke-dashoffset: 0; }
   .spin-dot { animation-duration: 1.4s; }
+  .cu-halo, .cu-spark { display: none; }
+  .caughtup-copy { animation: none; }
 }
 
 /* Operating-statement drill-down cells — clickable Actual (→ GL transactions)

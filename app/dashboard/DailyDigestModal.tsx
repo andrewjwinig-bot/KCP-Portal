@@ -17,6 +17,62 @@ function todayStamp(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** Morning until noon, afternoon until five, evening after — the greeting
+ *  should match the room you're actually in. */
+function greeting(d = new Date()): string {
+  const h = d.getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+/**
+ * The all-clear.
+ *
+ * Everything else in this modal is a list of what still needs doing, so the
+ * EMPTY state is the good one — and it used to be a single green line, which
+ * read like a missing section rather than an achievement. It gets the one
+ * flourish in the app: the same success mark the send confirmation draws
+ * (so the two read as one language), plus a halo and a short spark burst.
+ *
+ * Cheap to justify: it plays once, on a modal shown once a day, and only when
+ * there is genuinely nothing outstanding.
+ */
+function CaughtUp() {
+  // Brand blue among the greens so the burst belongs to this app rather than
+  // being generic confetti.
+  const sparks = [
+    { a: "0deg", d: "0.14s", c: "#15803d" }, { a: "45deg", d: "0.20s", c: "#0b4a7d" },
+    { a: "90deg", d: "0.16s", c: "#15803d" }, { a: "135deg", d: "0.23s", c: "#22c55e" },
+    { a: "180deg", d: "0.18s", c: "#0b4a7d" }, { a: "225deg", d: "0.15s", c: "#15803d" },
+    { a: "270deg", d: "0.22s", c: "#22c55e" }, { a: "315deg", d: "0.17s", c: "#15803d" },
+  ];
+
+  return (
+    <div style={{ padding: "14px 0 6px", textAlign: "center" }}>
+      <div className="caughtup-mark">
+        <span className="cu-halo" aria-hidden />
+        {sparks.map((s, i) => (
+          <span key={i} className="cu-spark" aria-hidden
+            style={{ ["--a" as string]: s.a, ["--d" as string]: s.d, ["--cu-spark-color" as string]: s.c }} />
+        ))}
+        <svg width="72" height="72" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <circle cx="12" cy="12" r="10" fill="rgba(22,163,74,0.08)" stroke="#15803d" strokeWidth="1.6" className="sent-ring" />
+          <path d="M7.4 12.4l3.1 3.1 6.2-6.6" fill="none" stroke="#15803d" strokeWidth="2.2"
+            strokeLinecap="round" strokeLinejoin="round" className="sent-check" />
+        </svg>
+      </div>
+
+      <div className="caughtup-copy" style={{ marginTop: 12 }}>
+        <div style={{ fontSize: 17, fontWeight: 800, color: "#15803d" }}>You&rsquo;re all caught up</div>
+        <div className="muted small" style={{ marginTop: 4, lineHeight: 1.5 }}>
+          Nothing due this week — every task is done and every file is imported.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * First-visit-of-the-day popup that surfaces the week's open tasks + files to
  * import, so Drew can't miss them. Shows once per calendar day per user
@@ -116,7 +172,7 @@ export default function DailyDigestModal({ userId }: { userId: string }) {
         style={{ width: "100%", maxWidth: 540, margin: 0, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>Good morning 👋</div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>{greeting()} 👋</div>
           <button
             onClick={dismiss}
             style={{ border: "none", background: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)", lineHeight: 1 }}
@@ -125,14 +181,14 @@ export default function DailyDigestModal({ userId }: { userId: string }) {
             ×
           </button>
         </div>
-        <div className="muted small" style={{ marginBottom: 16 }}>
-          Here's your week — tasks due and files to import.
+        {/* The subtitle promised "tasks due and files to import" even when
+            there were none, which set up a list that never arrived. */}
+        <div className="muted small" style={{ marginBottom: nothing ? 0 : 16 }}>
+          {nothing ? "Here's your week." : "Here's your week — tasks due and files to import."}
         </div>
 
         {nothing ? (
-          <div className="muted small" style={{ color: "#15803d", fontWeight: 600, padding: "8px 0" }}>
-            ✓ You're all caught up — nothing due this week.
-          </div>
+          <CaughtUp />
         ) : (
           <>
             {/* ── Tasks ── */}
