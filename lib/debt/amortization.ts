@@ -24,6 +24,21 @@ export type Loan = {
   anchorDate: string;        // ISO YYYY-MM-DD the anchor balance is true
   interestOnly: boolean;
   /**
+   * Monthly escrow for taxes and insurance, collected alongside P&I.
+   *
+   * NOT debt service, and deliberately outside the amortization: escrow is a
+   * pass-through that pays the tax bill and the insurance premium, so it does
+   * not touch the balance, the interest or the payoff. It is here because it
+   * DOES leave the bank account — the debit at 2300 is $39,086.15 while the
+   * debt service is $25,031.18 — and cash planning that reads only
+   * `scheduledPayment` is short by the difference every month.
+   *
+   * The bank resets it annually as taxes and premiums move, so it carries the
+   * date the current figure takes effect.
+   */
+  escrowPerMonth?: number;
+  escrowEffective?: string;  // ISO YYYY-MM-DD the escrow figure starts
+  /**
    * Optional fixed-principal amendment. For payment dates within
    * [startDate, endDate] the borrower pays `principalPerMonth` of principal
    * plus interest on the declining balance, so the total payment varies.
@@ -36,6 +51,36 @@ export type Loan = {
   };
   notes: string;
 };
+
+/**
+ * What actually leaves the bank account each month: debt service plus escrow.
+ *
+ * `scheduledPayment` is P&I alone, which is the right figure for the
+ * amortization and the wrong one for cash planning — at 2300 the debit is
+ * $39,086.15 against debt service of $25,031.18, so anything budgeting from
+ * the payment alone is short by $14,054.97 a month.
+ *
+ * `on` lets a projection ask for the outlay at a date: escrow carries the date
+ * the bank's reset takes effect, and before that date the figure is not yet
+ * true. Omit it for the current outlay.
+ */
+export function escrowAt(loan: Loan, on?: string): number {
+  if (loan.escrowPerMonth == null) return 0;
+  if (loan.escrowEffective && on && on < loan.escrowEffective) return 0;
+  return loan.escrowPerMonth;
+}
+
+/**
+ * Takes DEBT SERVICE rather than computing it, because `scheduledPayment` is
+ * not the payment on every loan: 4000 is interest-only under a fixed-principal
+ * amendment, so its actual payment is $20,050 of principal plus interest on a
+ * declining balance and its `scheduledPayment` (the original P&I) is not paid
+ * at all. `loanSummary().monthlyDebtService` already resolves that from the
+ * schedule — pass it in rather than guessing here.
+ */
+export function monthlyOutlay(loan: Loan, debtService: number, on?: string): number {
+  return round2(debtService + escrowAt(loan, on));
+}
 
 export type ScheduleRow = {
   index: number;
@@ -246,13 +291,22 @@ export const JV_III_3600_LOAN: Loan = {
   anchorBalance: 6139294.10,
   anchorDate: "2026-04-01",
   interestOnly: true,
+  escrowPerMonth: 11908.90,
+  escrowEffective: "2026-10-01",
   notes:
     "Refinanced 7/11/2019 at $7,100,000 on a 25-yr amortization. Term " +
     "extended through 3/1/2028 alongside the NI LLC extension; remains " +
     "interest-only (no fixed-principal amendment). Per the 4/18/2026 " +
     "Liberty statement: principal balance $6,139,294.10, escrow balance " +
     "$115,895.31, rate 4.500%, YTD interest $92,089.42, prior-year " +
-    "interest $263,945.77. Payments auto-debit from account x5631.",
+    "interest $263,945.77. Payments auto-debit from account x5631. " +
+    "Liberty escrow analysis 10/2026: ESCROW SURPLUS of $41,923.65 refunded " +
+    "by cheque — expect the deposit, and the escrow balance drops to about " +
+    "$73,971.66. From 10/2026 the payment is interest plus escrow of " +
+    "$11,908.90; there is no principal and no stated total, because the " +
+    "interest moves with the balance. Still interest-only, so no P&I figure " +
+    "applies — `scheduledPayment` here is the original amortizing payment " +
+    "and is NOT what is billed.",
 };
 
 /**
@@ -284,13 +338,20 @@ export const NI_LLC_4000_LOAN: Loan = {
     endDate: "2028-03-01",
     principalPerMonth: 20050,
   },
+  escrowPerMonth: 39044.39,
+  escrowEffective: "2026-10-01",
   notes:
     "Refinanced 3/6/2019 at $26,500,000 on a 25-yr amortization; has been " +
-    "interest-only. PENDING AMENDMENT (effective 4/1/2026, not yet signed): " +
-    "fixed $20,050/mo principal plus interest on the declining balance " +
-    "through 3/1/2028 — the schedule below reflects it from the first " +
-    "projected payment; adjust the amendment start once it posts to the " +
-    "Liberty statements. Per the 4/18/2026 statement: principal balance " +
+    "interest-only. AMENDMENT NOW BILLING (effective 4/1/2026): fixed " +
+    "$20,050/mo principal plus interest on the declining balance through " +
+    "3/1/2028. Liberty's escrow-reset letter for 10/2026 bills exactly that " +
+    "— '$59,094.39, PLUS INTEREST, of which $20,050 will be for principal, " +
+    "$39,044.39 will go into escrow, and the remainder will be interest " +
+    "due' — which is the amendment structure, so it is no longer pending. " +
+    "NOTE the $59,094.39 is NOT the full debit: interest is charged on top " +
+    "of it, so the real monthly outlay is principal + escrow + interest on " +
+    "the declining balance (roughly $152K at the current balance and 4.900%) " +
+    "and it falls as the balance amortizes. Per the 4/18/2026 statement: principal balance " +
     "$22,789,590.83, escrow balance $324,622.90, rate 4.900%, YTD interest " +
     "$372,229.98, prior-year interest $1,119,319.73. Payments auto-debit " +
     "from account x2190.",
@@ -312,12 +373,17 @@ export const BROOKWOOD_2300_LOAN: Loan = {
   anchorBalance: 4228154.76,
   anchorDate: "2026-04-01",
   interestOnly: false,
+  escrowPerMonth: 14054.97,
+  escrowEffective: "2026-10-01",
   notes:
     "Refinanced 8/14/2020 at $5,000,000 @ 3.5% on a 25-yr amortization. " +
     "Prepayment with 30 days notice: 5/4/3/2/1% yrs 1-5. Per the latest " +
     "Liberty statement: principal balance $4,228,154.76, escrow balance " +
     "$86,228.40, rate 3.500%, YTD interest $49,696.71, prior-year interest " +
-    "$152,567.52. P&I $25,031.18/mo, payments auto-debit from account x5615.",
+    "$152,567.52. P&I $25,031.18/mo, payments auto-debit from account x5615. " +
+    "Liberty escrow reset effective 10/2026: total monthly debit $39,086.15 " +
+    "— P&I $25,031.18 unchanged, escrow $14,054.97. The loan terms did not " +
+    "change; only the tax/insurance escrow did.",
 };
 
 // Grays Ferry (property 4500) — Liberty Bank. Amortizing.
@@ -336,13 +402,19 @@ export const GRAYS_FERRY_4500_LOAN: Loan = {
   anchorBalance: 7908407.12,
   anchorDate: "2026-04-01",
   interestOnly: false,
+  escrowPerMonth: 15416.63,
+  escrowEffective: "2026-10-01",
   notes:
     "Originated 9/21/2021 at $9,000,000 @ 3.55% on a 25-yr amortization, " +
     "7-yr term — payments began 11/1/2021 and mature 10/1/2028. Prepayment " +
     "with 30 days notice: 5/4/3/2/1% yrs 1-5. Per the latest Liberty " +
     "statement: principal balance $7,908,407.12, escrow balance $33,678.44, " +
     "rate 3.550%, YTD interest $94,226.94, prior-year interest $288,762.04. " +
-    "P&I $45,297.82/mo, payments auto-debit from account x0598.",
+    "P&I $45,297.82/mo, payments auto-debit from account x0598. " +
+    "Liberty escrow reset effective 10/2026: total monthly debit $60,714.46 " +
+    "— P&I $45,297.83, escrow $15,416.63. NOTE the bank's letter states P&I " +
+    "one cent above the $45,297.82 previously on the statements; the loan " +
+    "terms did not change.",
 };
 
 // Parkwood (property 7010) — Liberty Bank. Amortizing.
@@ -361,12 +433,17 @@ export const PARKWOOD_7010_LOAN: Loan = {
   anchorBalance: 4016747.06,
   anchorDate: "2026-04-01",
   interestOnly: false,
+  escrowPerMonth: 13172.12,
+  escrowEffective: "2026-10-01",
   notes:
     "Refinanced 8/14/2020 at $4,750,000 @ 3.5% on a 25-yr amortization. " +
     "Prepayment with 30 days notice: 5/4/3/2/1% yrs 1-5. Per the latest " +
     "Liberty statement: principal balance $4,016,747.06, escrow balance " +
     "$23,109.62, rate 3.500%, YTD interest $47,211.88, prior-year interest " +
-    "$144,939.16. P&I $23,779.62/mo, payments auto-debit from account x5656.",
+    "$144,939.16. P&I $23,779.62/mo, payments auto-debit from account x5656. " +
+    "Liberty escrow reset effective 10/2026: total monthly debit $36,951.74 " +
+    "— P&I $23,779.62 unchanged, escrow $13,172.12. The loan terms did not " +
+    "change; only the tax/insurance escrow did.",
 };
 
 /** All loans are code-managed and reconciled to these definitions on load. */

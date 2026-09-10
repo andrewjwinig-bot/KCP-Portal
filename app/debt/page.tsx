@@ -629,6 +629,10 @@ function LoanForm({
           {numField("amortYears", "Amortization (years)", "1")}
 
           {numField("scheduledPayment", "Monthly P&I Payment")}
+          {/* Escrow is not debt service and never touches the amortization —
+              it is here because it leaves the account, and a cash figure taken
+              from P&I alone is short by it every month. */}
+          {numField("escrowPerMonth", "Monthly Escrow (taxes + insurance)")}
           {numField("anchorBalance", "Known Balance", "1")}
 
           <label style={{ display: "block" }}>
@@ -637,6 +641,16 @@ function LoanForm({
               variant="card"
               value={draft.anchorDate}
               onChange={(iso) => set("anchorDate", iso)}
+            />
+          </label>
+          {/* The bank resets escrow annually as taxes and premiums move, so
+              the figure is only true from a date. */}
+          <label style={{ display: "block" }}>
+            <span style={labelStyle}>Escrow Effective</span>
+            <Calendar
+              variant="card"
+              value={draft.escrowEffective ?? ""}
+              onChange={(iso) => set("escrowEffective", iso)}
             />
           </label>
           <label style={{ display: "block" }}>
