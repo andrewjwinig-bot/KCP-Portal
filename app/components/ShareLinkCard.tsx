@@ -34,6 +34,13 @@ const BRAND = "#0b4a7d";
  */
 const PENDING_LINK = "__pending__";
 
+/** A square icon action. Same footprint for every one, so a row of them lines
+ *  up whatever glyph each carries. */
+const ICON_BTN: React.CSSProperties = {
+  display: "inline-flex", alignItems: "center", justifyContent: "center",
+  width: 36, height: 34, padding: 0, flexShrink: 0,
+};
+
 /** The one section label in the dialog — every block is introduced the same way. */
 const SECTION: React.CSSProperties = {
   fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em",
@@ -53,6 +60,13 @@ export type SendOutcome = {
   sentTo: string[];
   /** Addresses the follow-up (the K-1 PIN) reached, when there is one. */
   pinSentTo?: string[];
+  /** Who was blind-copied. Named in the confirmation so the copy is EVIDENCE
+   *  rather than something to go and check an inbox for. */
+  copiedTo?: string[];
+  /** The provider's message id — the one hard, checkable fact behind "Sent". */
+  messageId?: string | null;
+  /** The provider accepted the send in TEST mode and delivered NOTHING. */
+  testMode?: boolean;
   /** Set when the send failed, or half-succeeded — shown instead of the tick. */
   error?: string | null;
 };
@@ -288,13 +302,9 @@ export function ShareLinkCard({
 
         <div style={{ padding: "16px 20px 20px" }}>
 
-          {viewAsHref && (
-            <a href={viewAsHref} target="_blank" rel="noopener noreferrer" className="btn"
-              style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 700, color: BRAND, textDecoration: "none", padding: "8px 14px", marginBottom: 16 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-              View their page
-            </a>
-          )}
+          {/* "View their page" is an icon, sitting with the send icon in the
+              footer — a full-width labelled button for a look-don't-touch
+              action was the loudest thing in the dialog. */}
 
           {recipientSlot && (
             <div style={{ marginBottom: 16 }}>
@@ -357,12 +367,23 @@ export function ShareLinkCard({
 
               <div className="muted" style={{ fontSize: 12, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span>{l.viewCount ? `${l.viewCount} view${l.viewCount === 1 ? "" : "s"}${l.lastViewedAt ? ` · last ${new Date(l.lastViewedAt).toLocaleDateString("en-US")}` : ""}` : "Not opened yet"}</span>
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                {/* One row of actions: look, send, revoke. The two safe ones
+                    are icons — the label was carrying no information a mail
+                    or an eye doesn't — and the destructive one keeps its word,
+                    because "Revoke" is not a thing to recognise from a glyph. */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {viewAsHref && (
+                    <a href={viewAsHref} target="_blank" rel="noopener noreferrer" className="btn"
+                      title="See their page as they see it — opens in a new tab, sends nothing"
+                      aria-label="View their page"
+                      style={{ ...ICON_BTN, color: BRAND, textDecoration: "none" }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                    </a>
+                  )}
                   {onSend && (
                     <button onClick={() => openConfirm(l.id)} disabled={busy} className="btn primary"
-                      style={{ fontSize: 13, fontWeight: 700, padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 5L2 7" /></svg>
-                      {sendLabel}
+                      title={sendLabel} aria-label={sendLabel} style={ICON_BTN}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 5L2 7" /></svg>
                     </button>
                   )}
                   {onRevoke && (
@@ -396,44 +417,102 @@ export function ShareLinkCard({
                   border: outcome.error ? "1.5px solid rgba(220,38,38,0.45)" : "1.5px solid rgba(22,163,74,0.45)",
                   background: outcome.error ? "rgba(220,38,38,0.06)" : "rgba(22,163,74,0.07)",
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    {outcome.error ? (
+                  {/* Centred mark and headline. A send you cannot take back
+                      deserves a confirmation that reads as an event rather
+                      than a status line — same success mark the daily digest
+                      draws when the week is clear, so the app has ONE way of
+                      saying "that worked". */}
+                  {outcome.error ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="13" /><line x1="12" y1="16.5" x2="12.01" y2="16.5" /></svg>
-                    ) : (
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-                        <circle cx="12" cy="12" r="10" fill="none" stroke="#15803d" strokeWidth="2" className="sent-ring" />
-                        <path d="M7.5 12.4l3 3 6-6.4" fill="none" stroke="#15803d" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" className="sent-check" />
-                      </svg>
-                    )}
-                    <div style={{ fontSize: 14.5, fontWeight: 800, color: outcome.error ? "#b91c1c" : "#15803d" }}>
-                      {outcome.error ? "Not sent" : outcome.sentTo.length ? "Sent" : "Link created — not emailed"}
+                      <div style={{ fontSize: 14.5, fontWeight: 800, color: "#b91c1c" }}>Not sent</div>
                     </div>
-                  </div>
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "2px 0 4px" }}>
+                      <div className="caughtup-mark" style={{ width: 54, height: 54 }}>
+                        <span className="cu-halo" aria-hidden />
+                        <svg width="54" height="54" viewBox="0 0 24 24" fill="none" aria-hidden>
+                          <circle cx="12" cy="12" r="10" fill="rgba(22,163,74,0.08)" stroke="#15803d" strokeWidth="1.6" className="sent-ring" />
+                          <path d="M7.4 12.4l3.1 3.1 6.2-6.6" fill="none" stroke="#15803d" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="sent-check" />
+                        </svg>
+                      </div>
+                      <div className="caughtup-copy" style={{ marginTop: 9 }}>
+                        <div style={{ fontSize: 16.5, fontWeight: 800, color: "#15803d" }}>
+                          {outcome.sentTo.length
+                            ? `Sent to ${outcome.sentTo.length === 1 ? subject || "them" : `${outcome.sentTo.length} recipients`}`
+                            : "Link created — not emailed"}
+                        </div>
+                        {outcome.sentTo.length > 0 && (
+                          <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>
+                            {new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} · {" "}
+                            {outcome.pinSentTo?.length ? "link and PIN, two emails" : "link only"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {outcome.error && (
                     <div style={{ fontSize: 12.5, marginTop: 8, color: "var(--text)" }}>{outcome.error}</div>
                   )}
 
+                  {/* The receipt: every address, each half of the send, and the
+                      blind copy — so "did it go, and to whom" is answered here
+                      rather than by going to look in an inbox. */}
                   {outcome.sentTo.length > 0 && (
-                    <ul style={{ margin: "9px 0 0", paddingLeft: 18 }}>
+                    <div className="caughtup-copy" style={{
+                      marginTop: 12, borderRadius: 9, border: "1px solid rgba(22,163,74,0.28)",
+                      background: "var(--card)", padding: "10px 12px", textAlign: "left",
+                    }}>
                       {outcome.sentTo.map((r) => (
-                        <li key={r} style={{ fontSize: 13, fontWeight: 700 }}>{r}</li>
+                        <div key={r} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 700, marginBottom: 3 }}>
+                          <span aria-hidden style={{ color: "#15803d" }}>✓</span>{r}
+                        </div>
                       ))}
-                    </ul>
-                  )}
-
-                  {/* Both halves reported separately: the one that matters is
-                      the PIN, since a link without it opens nothing. */}
-                  {outcome.sentTo.length > 0 && outcome.pinSentTo && (
-                    <div style={{ fontSize: 12.5, marginTop: 9, fontWeight: 600, color: outcome.pinSentTo.length ? "#15803d" : "#b91c1c" }}>
-                      {outcome.pinSentTo.length
-                        ? "✓ The PIN went out as its own email too."
-                        : "⚠ The PIN email did NOT go out — give them the PIN above yourself, or they can't open the link."}
+                      {outcome.pinSentTo && (
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 12.5, marginTop: 7, paddingTop: 7, borderTop: "1px solid var(--border)", fontWeight: 600, color: outcome.pinSentTo.length ? "var(--text)" : "#b91c1c" }}>
+                          <span aria-hidden style={{ color: outcome.pinSentTo.length ? "#15803d" : "#b91c1c" }}>{outcome.pinSentTo.length ? "✓" : "⚠"}</span>
+                          {outcome.pinSentTo.length
+                            ? "Their access PIN went as its own separate email."
+                            : "The PIN email did NOT go out — give them the PIN yourself, or they can't open the link."}
+                        </div>
+                      )}
+                      {outcome.copiedTo && outcome.copiedTo.length > 0 && (
+                        <div className="muted" style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 12, marginTop: 6 }}>
+                          <span aria-hidden style={{ color: "#15803d" }}>✓</span>
+                          <span>Blind copy of both emails to <b>{outcome.copiedTo.join(", ")}</b> — check that inbox to see exactly what they received.</span>
+                        </div>
+                      )}
+                      {/* The one hard fact behind the word "Sent". Everything
+                          above is our account of it; this is the provider's,
+                          and it is what you search for when someone says they
+                          never got it. */}
+                      {outcome.messageId && (
+                        <div className="muted" style={{ fontSize: 11.5, marginTop: 6, wordBreak: "break-all" }}>
+                          Postmark ID <code style={{ fontSize: 11 }}>{outcome.messageId}</code>
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  <div style={{ marginTop: 12 }}>
-                    <button onClick={closeConfirm} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "8px 15px" }}>Done</button>
+                  {/* Accepted by a TEST token: the API said yes and delivered
+                      nothing. Indistinguishable from a real send from in here,
+                      which is exactly why it has to be said out loud. */}
+                  {outcome.testMode && (
+                    <div style={{
+                      marginTop: 10, borderRadius: 9, padding: "10px 12px", textAlign: "left",
+                      border: "1.5px solid rgba(220,38,38,0.45)", background: "rgba(220,38,38,0.07)",
+                      fontSize: 12.5, color: "#b91c1c", fontWeight: 600,
+                    }}>
+                      <b>Nothing was actually delivered.</b> Postmark is using its TEST token, which
+                      accepts every message and sends none. Set a real <code>POSTMARK_SERVER_TOKEN</code>{" "}
+                      in the project&rsquo;s environment — until then no investor receives anything,
+                      however this dialog reads.
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: 12, textAlign: outcome.error ? "left" : "center" }}>
+                    <button onClick={closeConfirm} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "8px 22px" }}>Done</button>
                   </div>
                 </div>
               )}

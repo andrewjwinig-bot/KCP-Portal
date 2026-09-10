@@ -12,7 +12,7 @@ import {
   revokeInvestorLink, generatePin, linkOwnerIds, type InvestorLink,
 } from "@/lib/investors/k1Link";
 import { k1sForOwner, saveK1 } from "@/lib/investors/k1Store";
-import { sendMail, isMailConfigured } from "@/lib/mail";
+import { sendMail, sendMailDetailed, isMailConfigured, isMailTestMode } from "@/lib/mail";
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
@@ -61,6 +61,15 @@ type ShareResult = {
    *  it rather than letting a link sit unopenable. */
   pinSentTo: string[];
   pinError: string | null;
+  /** Who was blind-copied, reported back so the confirmation can SAY the copy
+   *  went rather than leaving staff to check an inbox to find out. */
+  copiedTo: string[];
+  /** Postmark's message id for the link email — searchable in Activity, and
+   *  the only hard evidence that a specific message was accepted. */
+  messageId?: string | null;
+  /** A TEST token accepted the send and delivered NOTHING. Reported loudly,
+   *  because from the app's side it is indistinguishable from a real send. */
+  testMode?: boolean;
   /** Set when this owner couldn't be shared at all — the batch continues. */
   error?: string;
 };
@@ -110,7 +119,7 @@ async function shareOne(
   ccSecondary?: boolean,
 ): Promise<ShareResult> {
   const found = personGroup(propertyCode, ownerId);
-  if (!found) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, pinSentTo: [], pinError: null, error: "That owner isn't on this partnership." };
+  if (!found) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, pinSentTo: [], pinError: null, copiedTo: [], error: "That owner isn't on this partnership." };
   const { owner, group } = found;
 
   // Sending IS the release. There is no separate publish step: an upload sits
@@ -133,7 +142,7 @@ async function shareOne(
   if (mine.length === 0) {
     return {
       ownerId, ownerName: owner.name, heldAs: owner.detailedName ?? null, sentTo: [], mailError: null,
-      pinSentTo: [], pinError: null,
+      pinSentTo: [], pinError: null, copiedTo: [],
       error: `${owner.name} has no ${year ?? ""} K-1 uploaded yet.`.replace("  ", " "),
     };
   }
@@ -184,6 +193,13 @@ async function shareOne(
   let sentTo: string[] = [];
   let pinSentTo: string[] = [];
   let pinError: string | null = null;
+  /** Only populated once mail actually went, so it reports the copy that was
+   *  really made rather than the one that was configured. */
+  let copiedTo: string[] = [];
+  /** Postmark's id for the link email — the thing to search Activity for. */
+  let messageId: string | null = null;
+  /** True when a TEST token accepted the send and delivered nothing. */
+  let testMode = false;
   let wasEdited = false;
   if (send) {
     const overrides = await allOwnerEmails();
@@ -217,12 +233,24 @@ async function shareOne(
       const { email: draftEmail, edited } = applyK1EmailEdit(canonical, draft, url);
       wasEdited = edited;
       const copyTo = shareCopyTo();
-      const ok = await sendMail({
+      // Detailed, because this result is REPORTED to a person as "Sent". A
+      // bare boolean made an accepted-but-undelivered send (a Postmark test
+      // token, an inactive recipient) look exactly like a real one.
+      const res = await sendMailDetailed({
         ...headers(), subject: draftEmail.subject, textBody: draftEmail.body,
         ...(copyTo ? { bcc: copyTo } : {}),
       });
-      if (ok) sentTo = recipients;
-      else mailError = "The email failed to send. The link is created — copy it and send it yourself.";
+      const ok = res.ok;
+      messageId = res.messageId ?? null;
+      testMode = !!res.testMode;
+      if (ok) {
+        sentTo = recipients;
+        copiedTo = copyTo ? copyTo.split(",").map((a) => a.trim()).filter(Boolean) : [];
+      } else {
+        mailError = res.error
+          ? `Postmark refused it: ${res.error} The link is created — copy it and send it yourself.`
+          : "The email failed to send. The link is created — copy it and send it yourself.";
+      }
 
       // The PIN follows as its OWN message, automatically. Staff used to have
       // to call or text it, and a delivery step that depends on remembering is
@@ -269,9 +297,9 @@ async function shareOne(
 
   await logAudit({
     event: "investor-k1.share", user: USERS[user]?.label ?? user, ip: auditIp(req),
-    detail: `${propertyCode} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}` : " · link only"}${wasEdited ? " · edited wording" : ""}${sentTo.length ? (pinSentTo.length ? " · PIN emailed" : " · PIN NOT emailed") : ""}`,
+    detail: `${propertyCode} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}` : " · link only"}${wasEdited ? " · edited wording" : ""}${sentTo.length ? (pinSentTo.length ? " · PIN emailed" : " · PIN NOT emailed") : ""}${messageId ? ` · postmark ${messageId}` : ""}${testMode ? " · TEST MODE, NOT DELIVERED" : ""}`,
   });
-  return { ownerId: owner.id, ownerName: owner.name, heldAs: owner.detailedName ?? null, url, pin: link.pin, sentTo, mailError, pinSentTo, pinError };
+  return { ownerId: owner.id, ownerName: owner.name, heldAs: owner.detailedName ?? null, url, pin: link.pin, sentTo, mailError, pinSentTo, pinError, copiedTo, messageId, testMode };
 }
 
 /** How many owners one request may share at once. Parkwood has 21; the cap is
