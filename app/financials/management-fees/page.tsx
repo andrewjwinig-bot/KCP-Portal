@@ -248,7 +248,13 @@ export default function ManagementFeesPage() {
           )}
 
           {data.intercompany && (
-            <IntercompanyCard tie={data.intercompany} entry={data.suggestedEntry} year={year} />
+            <IntercompanyCard
+              tie={data.intercompany}
+              entry={data.suggestedEntry}
+              groups={data.groupTies}
+              gaps={data.feeGaps}
+              year={year}
+            />
           )}
 
           {/* Chart */}
@@ -446,7 +452,13 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
  * removing the guess that causes it is worth more — so the card states the
  * figure to post, split the way the entries are actually keyed.
  */
-function IntercompanyCard({ tie, entry, year }: { tie: NonNullable<MgmtFeeData["intercompany"]>; entry: MgmtFeeData["suggestedEntry"]; year: number }) {
+function IntercompanyCard({ tie, entry, groups, gaps, year }: {
+  tie: NonNullable<MgmtFeeData["intercompany"]>;
+  entry: MgmtFeeData["suggestedEntry"];
+  groups: MgmtFeeData["groupTies"];
+  gaps: MgmtFeeData["feeGaps"];
+  year: number;
+}) {
   const [open, setOpen] = useState(false);
   const bad = !tie.clean;
   const accent = bad ? "#b45309" : "#15803d";
@@ -524,6 +536,77 @@ function IntercompanyCard({ tie, entry, year }: { tie: NonNullable<MgmtFeeData["
                   {entry.adjustment === 0 ? "—" : money(entry.adjustment)}
                 </td>
               </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {groups && groups.length > 1 && (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={secLabel}>Which entry the gap belongs to</div>
+          <div className="muted" style={{ fontSize: 12, marginTop: -2 }}>
+            2010 books two journal entries a month, never per building — so this is as far as a
+            variance can be narrowed from the ledger. A clean entry rules its buildings out.
+          </div>
+          <table style={{ width: "100%", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", padding: "5px 8px" }}>Entry</th>
+                <th style={{ textAlign: "right", padding: "5px 8px" }}>Buildings</th>
+                <th style={{ textAlign: "right", padding: "5px 8px" }}>Buildings billed</th>
+                <th style={{ textAlign: "right", padding: "5px 8px" }}>2010 booked</th>
+                <th style={{ textAlign: "right", padding: "5px 8px" }}>Variance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map((g) => (
+                <tr key={g.key}>
+                  <td style={{ padding: "5px 8px" }}>
+                    {g.label}{" "}
+                    {g.tie.clean
+                      ? <span style={{ color: "#15803d", fontWeight: 700 }}>ties ✓</span>
+                      : <span style={{ color: "#b45309", fontWeight: 700 }}>
+                          {g.tie.missed.length ? `${g.tie.missed.length} month(s) not posted` : `${g.tie.disagreeing.length} month(s) off`}
+                        </span>}
+                  </td>
+                  <td style={{ padding: "5px 8px", textAlign: "right" }} className="muted">{g.codes.length}</td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(g.tie.buildingsYtd)}</td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(g.tie.likYtd)}</td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: varColor(g.tie.varianceYtd) }}>
+                    {g.tie.clean ? "—" : money(g.tie.varianceYtd)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {gaps.length > 0 && (
+        <div style={{ display: "grid", gap: 6 }}>
+          <div style={{ ...secLabel, color: "#b91c1c" }}>Buildings that skipped a month</div>
+          <div className="muted" style={{ fontSize: 12, marginTop: -2 }}>
+            These posted no fee in a month they normally post one. Unlike the variance above, this
+            names a building and a month — start here.
+          </div>
+          <table style={{ width: "100%", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", padding: "5px 8px" }}>Building</th>
+                <th style={{ textAlign: "left", padding: "5px 8px" }}>Month(s) with no fee</th>
+                <th style={{ textAlign: "right", padding: "5px 8px" }}>Usual monthly fee</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gaps.map((g) => (
+                <tr key={g.code}>
+                  <td style={{ padding: "5px 8px" }}><code style={{ fontSize: 12 }}>{g.code}</code> {g.name}</td>
+                  <td style={{ padding: "5px 8px", color: "#b91c1c", fontWeight: 700 }}>
+                    {g.months.map((m) => MONTHS_LONG[m - 1]).join(", ")}
+                  </td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(g.typical)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

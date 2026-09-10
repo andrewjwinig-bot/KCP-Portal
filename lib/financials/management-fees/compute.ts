@@ -16,9 +16,9 @@ import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { resolvePropertyBudget } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { loadFullYearStatement } from "@/lib/financials/operating-statements/fullYear";
 import { leaseChangesByMonth, type LeaseChange } from "./leaseChanges";
-import { intercompanyTieOut, suggestedEntry, type IntercompanyTieOut, type SuggestedEntry } from "./intercompany";
+import { intercompanyTieOut, suggestedEntry, likRevenueByGroup, groupTieOuts, feeGaps, type IntercompanyTieOut, type SuggestedEntry, type GroupTie, type FeeGap } from "./intercompany";
 import { listBudgets } from "@/lib/financials/budgets/storage";
-import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
+import { assembledGl, assembledTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { groupOf, REPORT_GROUP_ORDER, REPORT_GROUP_LABELS, type ReportGroupKey } from "@/lib/reports/monthly";
 
@@ -78,6 +78,16 @@ export type MgmtFeeData = {
   suggestedEntry: SuggestedEntry | null;
   /** 2010's posted 4510 by month, revenue-positive. */
   likActualMonthly: number[] | null;
+  /**
+   * The same tie-out per JOURNAL ENTRY. 2010 books two entries a month, so a
+   * variance can be narrowed to the buildings one of them covers — which is as
+   * close to a per-building tie-out as the ledger allows, since 2010 never
+   * posts per building.
+   */
+  groupTies: GroupTie[] | null;
+  /** Buildings that posted no fee in a month they normally post one. The one
+   *  finding that IS per building. */
+  feeGaps: FeeGap[];
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -211,6 +221,22 @@ export async function loadManagementFees(year: number): Promise<MgmtFeeData> {
     ? suggestedEntry(buildings, likActualMonthly, tieThrough, NILLC_CODES)
     : null;
 
+  // Split 2010's postings by which of its two entries they belong to, so each
+  // entry can be tied to the buildings it covers.
+  let groupTies: GroupTie[] | null = null;
+  if (likActualMonthly && tieThrough > 0) {
+    const likTx = await assembledTransactions("2010", year);
+    const rows = Object.entries(likTx)
+      .filter(([acct]) => accountMatchesMask(LIK_MGMT_FEE_REVENUE_MASK, acct))
+      .flatMap(([, txns]) => txns);
+    // Only worth showing when the entries can actually be told apart; a GL with
+    // no transaction detail would put everything on "Other" and invent a
+    // variance for the NILLC side.
+    if (rows.length) groupTies = groupTieOuts(buildings, likRevenueByGroup(rows), tieThrough, NILLC_CODES);
+  }
+
+  const gaps = feeGaps(buildings, completeThrough || 0);
+
   return {
     year,
     months: MONTHS,
@@ -232,6 +258,8 @@ export async function loadManagementFees(year: number): Promise<MgmtFeeData> {
     intercompany,
     suggestedEntry: entry,
     likActualMonthly,
+    groupTies,
+    feeGaps: gaps,
   };
 }
 

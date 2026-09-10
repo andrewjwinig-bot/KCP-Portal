@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { intercompanyTieOut, suggestedEntry } from "./intercompany";
+import { intercompanyTieOut, suggestedEntry, likRevenueByGroup, groupTieOuts, feeGaps, feeGroupOfEntry } from "./intercompany";
 
 const m = (v: Partial<Record<number, number>>) =>
   Array.from({ length: 12 }, (_, i) => v[i + 1] ?? 0);
@@ -137,5 +137,94 @@ describe("an incomplete buildings column is the report's fault, not the ledger's
 
   it("is empty when every building has a ledger", () => {
     expect(intercompanyTieOut(BUILDINGS, LIK, 7).missingGl).toEqual([]);
+  });
+});
+
+describe("narrowing the search — by entry", () => {
+  const NILLC = ["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"];
+
+  it("identifies which of the two entries a 2010 posting belongs to", () => {
+    expect(feeGroupOfEntry("Management Fees - NILLC")).toBe("nillc");
+    expect(feeGroupOfEntry("Management Fees - NI LLC")).toBe("nillc");
+    expect(feeGroupOfEntry("Mgmt Fees - Other")).toBe("other");
+    // Anything that does not name NILLC is on the Other entry — including an
+    // empty description, which must not silently vanish from both columns.
+    expect(feeGroupOfEntry("")).toBe("other");
+  });
+
+  it("flips revenue positive and buckets it by entry", () => {
+    // 4510 is credit-normal, so the ledger carries these negative.
+    const byGroup = likRevenueByGroup([
+      { month: 7, description: "Management Fees - NILLC", amount: -21_437.72 },
+      { month: 7, description: "Mgmt Fees - Other", amount: -29_933.82 },
+      { month: 8, description: "Mgmt Fees - Other", amount: -30_000 },
+    ]);
+    expect(byGroup.nillc[6]).toBe(21_438);
+    expect(byGroup.other[6]).toBe(29_934);
+    expect(byGroup.other[7]).toBe(30_000);
+    expect(byGroup.nillc[7]).toBe(0);
+  });
+
+  it("ties each entry to the buildings it covers, so a variance has an owner", () => {
+    // The whole point: a portfolio gap of $13,828 that belongs entirely to the
+    // Other entry is a search across 13 buildings, not 20 — and the NILLC side
+    // is ruled out rather than merely unexamined.
+    const buildings = [
+      { code: "4050", feeMonthly: m({ 7: 10_000 }) },
+      { code: "4060", feeMonthly: m({ 7: 11_438 }) },
+      { code: "2300", feeMonthly: m({ 7: 7_971 }) },
+      { code: "4500", feeMonthly: m({ 7: 16_113 }) },
+    ];
+    const groups = groupTieOuts(
+      buildings,
+      { nillc: m({ 7: 21_438 }), other: m({ 7: 10_000 }) },
+      7,
+      NILLC,
+    );
+    const nillc = groups.find((g) => g.key === "nillc")!;
+    const other = groups.find((g) => g.key === "other")!;
+
+    expect(nillc.codes).toEqual(["4050", "4060"]);
+    expect(nillc.tie.clean).toBe(true);          // ruled out
+    expect(other.codes).toEqual(["2300", "4500"]);
+    expect(other.tie.varianceYtd).toBe(-14_084); // the gap lives here
+  });
+
+  it("drops an entry with no buildings rather than reporting a phantom variance", () => {
+    const groups = groupTieOuts([{ code: "2300", feeMonthly: m({ 7: 100 }) }], { nillc: m({}), other: m({ 7: 100 }) }, 7, NILLC);
+    expect(groups.map((g) => g.key)).toEqual(["other"]);
+  });
+});
+
+describe("narrowing the search — by building", () => {
+  const b = (code: string, months: Partial<Record<number, number>>, maxPosted = 7) =>
+    ({ code, name: code, feeMonthly: m(months), maxPosted });
+
+  it("finds the building AND the month where a fee was never posted", () => {
+    // This is the one finding that IS per building, and it is the shape a
+    // missing fee actually takes.
+    const gaps = feeGaps([b("2300", { 1: 5_000, 2: 5_000, 3: 0, 4: 5_200, 5: 5_000, 6: 5_000, 7: 5_000 })], 7);
+    expect(gaps).toEqual([{ code: "2300", name: "2300", months: [3], typical: 5_000 }]);
+  });
+
+  it("does not accuse a building of missing months before it started billing", () => {
+    // A building whose first fee is in April has no gap in Jan–Mar; it simply
+    // did not exist as a fee payer yet.
+    const gaps = feeGaps([b("9510", { 4: 2_000, 5: 2_000, 6: 2_000, 7: 2_000 })], 7);
+    expect(gaps).toEqual([]);
+  });
+
+  it("says nothing about a building with too little history to judge", () => {
+    expect(feeGaps([b("1500", { 6: 300, 7: 300 })], 7)).toEqual([]);
+  });
+
+  it("never reports a month the building has not posted yet", () => {
+    // Posted only through March: April onwards is not a gap.
+    const gaps = feeGaps([b("7010", { 1: 1_000, 2: 1_000, 3: 1_000 }, 3)], 7);
+    expect(gaps).toEqual([]);
+  });
+
+  it("stays quiet on a building that posts every month", () => {
+    expect(feeGaps([b("4500", { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1 })], 7)).toEqual([]);
   });
 });
