@@ -16,7 +16,7 @@ import { sendMail, sendMailDetailed, isMailConfigured, isMailTestMode, VERIFIED_
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
-import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
+import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, PREVIEW_URL_PLACEHOLDER, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
 import { addressRecipients, reached } from "@/lib/investors/recipients";
 
 export const runtime = "nodejs";
@@ -297,6 +297,11 @@ async function shareOne(
     link.sentTo = sentTo;
     link.pinSentAt = pinSentTo.length ? at : null;
     link.sendCount = (link.sendCount ?? 0) + 1;
+    // Overwrite any earlier `manual` stamp. A link marked sent by hand and
+    // then genuinely sent from the portal must stop claiming "Recorded by
+    // hand — sent from Outlook", and must stop asserting the PIN went by hand
+    // when the portal's own PIN email just failed.
+    link.sentVia = "portal";
     await saveInvestorLink(link);
   }
 
@@ -420,7 +425,7 @@ export async function GET(req: NextRequest) {
     .find((l) => !l.revoked && coveredOwnerIds(l).some((id) => ids.includes(id)));
   const url = link
     ? `${linkOrigin(req)}/investor/${await signInvestorToken(secret, { v: 1, id: link.id, o: link.ownerId, p: link.propertyCode })}`
-    : `${linkOrigin(req)}/investor/…`;
+    : `${linkOrigin(req)}${PREVIEW_URL_PLACEHOLDER}`;
 
   const overrides = await allOwnerEmails();
   const resolved = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email, await getContactOverrides());

@@ -157,6 +157,16 @@ export type ShareLinkCardProps = {
    * no record, because it is a wrong one.
    */
   onMarkSent?: () => void | Promise<unknown>;
+  /**
+   * Whether `onSend` can MINT the link on its way out.
+   *
+   * The K-1 route can, which is why "Create link" stopped being a separate
+   * step. The tenant CAM flow cannot — its `onSend` takes an existing link id
+   * and posts it — so offering a send with no link there sent the literal
+   * string `__pending__` as a link id and created nothing. Opt in explicitly
+   * rather than assuming every caller behaves like the one being built.
+   */
+  canSendWithoutLink?: boolean;
   onRevoke?: (id: string) => void;
   /** Omit to hide the PIN controls entirely (a K-1's PIN is not optional). */
   onManagePin?: (id: string, action: "reset" | "remove") => void;
@@ -182,7 +192,7 @@ export type ShareLinkCardProps = {
 export function ShareLinkCard({
   buttonLabel, title, subject, description, links, busy = false, error = null,
   recipients = [], sendLabel = "Email it", sentTo = null,
-  onOpen, onCreate, onSend, onRevoke, onManagePin, loadDraft, onOpenInMail, onMarkSent,
+  onOpen, onCreate, onSend, onRevoke, onManagePin, loadDraft, onOpenInMail, onMarkSent, canSendWithoutLink = false,
   pinOptional = true, small = false, align = "right", viewAsHref, recipientSlot, emptyNote,
   secondaryRecipients = [],
 }: ShareLinkCardProps) {
@@ -794,7 +804,7 @@ export function ShareLinkCard({
                   deliberate confirm — is satisfied by the confirm itself, which
                   now shows the whole message before anything goes. So the send
                   is offered straight away and mints the link on its way. */}
-              {onSend ? (
+              {onSend && canSendWithoutLink ? (
                 <>
                   <button onClick={() => openConfirm(PENDING_LINK)} disabled={busy || sending} className="btn primary"
                     style={{ fontSize: 13, fontWeight: 700, width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
