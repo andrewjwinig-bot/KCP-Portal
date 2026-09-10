@@ -54,6 +54,11 @@ export type ShareResult = {
   /** Who received the PIN's own email; empty means nobody did. */
   pinSentTo?: string[];
   pinError?: string | null;
+  /** Who was blind-copied, the provider's message id, and whether the send was
+   *  merely ACCEPTED by a test token rather than delivered. */
+  copiedTo?: string[];
+  messageId?: string | null;
+  testMode?: boolean;
   error?: string;
 };
 
@@ -318,6 +323,9 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
               outcome = {
                 sentTo: r.sentTo ?? [],
                 ...(send ? { pinSentTo: r.pinSentTo ?? [] } : {}),
+                copiedTo: r.copiedTo ?? [],
+                messageId: r.messageId ?? null,
+                testMode: !!r.testMode,
                 error: r.error ?? r.mailError ?? null,
               };
             }
@@ -430,6 +438,9 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
           return {
             sentTo: r?.sentTo ?? [],
             ...(send ? { pinSentTo: r?.pinSentTo ?? [] } : {}),
+            copiedTo: r?.copiedTo ?? [],
+            messageId: r?.messageId ?? null,
+            testMode: !!r?.testMode,
             error: r?.error ?? r?.mailError ?? null,
           };
         } catch (e) {

@@ -55,23 +55,71 @@ export function isMailConfigured(): boolean {
   return !!(process.env.POSTMARK_SERVER_TOKEN && process.env.MAINTENANCE_REPLY_FROM);
 }
 
-export async function sendMail(msg: MailMessage): Promise<boolean> {
-  const token = process.env.POSTMARK_SERVER_TOKEN;
-  const from = msg.from || process.env.MAINTENANCE_REPLY_FROM;
-  if (!token || !from) return false;
-  if (!msg.to || !msg.subject || !msg.textBody) return false;
-
+/** The Postmark request body. One builder, so the detailed and boolean send
+ *  paths cannot drift in what they actually transmit. */
+function buildPayload(msg: MailMessage, from: string) {
   const headers = [...(msg.headers ?? [])];
-  if (msg.isAutoReply) {
-    headers.push({ Name: "Auto-Submitted", Value: "auto-replied" });
-  }
-
+  if (msg.isAutoReply) headers.push({ Name: "Auto-Submitted", Value: "auto-replied" });
   const Attachments = (msg.attachments ?? []).map((a) => ({
     Name: a.name,
     Content: Buffer.from(a.content).toString("base64"),
     ContentType: a.contentType,
   }));
+  return {
+    From: from,
+    To: msg.to,
+    ...(msg.cc ? { Cc: msg.cc } : {}),
+    ...(msg.bcc ? { Bcc: msg.bcc } : {}),
+    Subject: msg.subject,
+    TextBody: msg.textBody,
+    MessageStream: "outbound",
+    Headers: headers,
+    ...(Attachments.length > 0 ? { Attachments } : {}),
+  };
+}
 
+/**
+ * Postmark's TEST token accepts every send, returns 200, and delivers
+ * NOTHING.
+ *
+ * Worth naming, because from the app's side a test-mode send is
+ * indistinguishable from a real one — the API says OK either way — so a
+ * "Sent ✓" can be perfectly truthful about the API call and completely wrong
+ * about the recipient's inbox. Anywhere we report a send, we report this too.
+ */
+export function isMailTestMode(): boolean {
+  return (process.env.POSTMARK_SERVER_TOKEN ?? "").trim().toUpperCase() === "POSTMARK_API_TEST";
+}
+
+/** What Postmark actually said. `ok` alone hides the useful half. */
+export type MailResult = {
+  ok: boolean;
+  /** Postmark's id for the message — the thing to search Activity for. */
+  messageId?: string;
+  /** Postmark's own error text when it refused (inactive recipient, unverified
+   *  sender, sandbox restriction), rather than a bare false. */
+  error?: string;
+  /** True when the send was accepted by a TEST token and delivered nowhere. */
+  testMode?: boolean;
+};
+
+/**
+ * Send, and report what came back.
+ *
+ * `sendMail` returns a bare boolean and throws the rest away: the message id,
+ * Postmark's error text, and whether the token was a test token. That made a
+ * failed or undelivered send look exactly like a successful one from
+ * everywhere in the app — so anything that tells a user "sent" should use
+ * this and quote the id.
+ */
+export async function sendMailDetailed(msg: MailMessage): Promise<MailResult> {
+  const token = process.env.POSTMARK_SERVER_TOKEN;
+  const from = msg.from || process.env.MAINTENANCE_REPLY_FROM;
+  if (!token) return { ok: false, error: "POSTMARK_SERVER_TOKEN is not set — no mail can be sent." };
+  if (!from) return { ok: false, error: "MAINTENANCE_REPLY_FROM is not set — no sender address." };
+  if (!msg.to || !msg.subject || !msg.textBody) return { ok: false, error: "Missing recipient, subject or body." };
+
+  const built = buildPayload(msg, from);
   try {
     const res = await fetch("https://api.postmarkapp.com/email", {
       method: "POST",
@@ -80,20 +128,26 @@ export async function sendMail(msg: MailMessage): Promise<boolean> {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        From: from,
-        To: msg.to,
-        ...(msg.cc ? { Cc: msg.cc } : {}),
-        ...(msg.bcc ? { Bcc: msg.bcc } : {}),
-        Subject: msg.subject,
-        TextBody: msg.textBody,
-        MessageStream: "outbound",
-        Headers: headers,
-        ...(Attachments.length > 0 ? { Attachments } : {}),
-      }),
+      body: JSON.stringify(built),
     });
-    return res.ok;
-  } catch {
-    return false;
+    const body = await res.json().catch(() => null) as
+      | { MessageID?: string; ErrorCode?: number; Message?: string }
+      | null;
+    // Postmark answers 200 with ErrorCode 0 on success. A non-zero code in a
+    // 200 body is still a refusal, so both are checked rather than trusting
+    // the status alone.
+    const code = body?.ErrorCode ?? 0;
+    if (!res.ok || code !== 0) {
+      return { ok: false, error: body?.Message ?? `Postmark returned ${res.status}.`, testMode: isMailTestMode() };
+    }
+    return { ok: true, messageId: body?.MessageID, testMode: isMailTestMode() };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not reach Postmark." };
   }
+}
+
+/** Best-effort send for the many callers that only branch on success. New code
+ *  that REPORTS a send to a user should call `sendMailDetailed` instead. */
+export async function sendMail(msg: MailMessage): Promise<boolean> {
+  return (await sendMailDetailed(msg)).ok;
 }
