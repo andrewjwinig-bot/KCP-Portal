@@ -627,6 +627,22 @@ const NAV = [
     ),
   },
   {
+    label: "Balance Sheet",
+    href: "/financials/balance-sheet",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "financials",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 3v18" />
+        <path d="M3 7h18" />
+        <path d="M6 7l-3 6a3 3 0 0 0 6 0z" />
+        <path d="M18 7l3 6a3 3 0 0 1-6 0z" />
+      </svg>
+    ),
+  },
+  {
     label: "Management Fees",
     href: "/financials/management-fees",
     external: false,

@@ -257,6 +257,75 @@ how-to-pay instructions. Sources of truth:
   tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
   to the token's one unit).
 
+# Balance Sheet — sources of truth
+
+`/financials/balance-sheet`, gated with the other statement pages
+(`/api/financials` → `/financials`). It exists because a lender's annual
+**Borrower Certification** asks for four things — balance sheet, detailed income
+and expense statement, rent roll, and each guarantor's financial statement — and
+the portal produced three of them.
+
+- **The Statement of Values is NOT a balance sheet and must never be sent as
+  one.** `entityValues.ts` is a market-value net-asset statement: real estate at
+  NOI ÷ cap rate, two asset lines, one liability, equity as a single figure,
+  hand-keyed and frozen at `STATEMENT_AS_OF`. Nothing forces it to balance and
+  it will not tie to the income statement filed beside it. It is the right
+  document for "what is my interest worth" and the wrong one for a lender. The
+  two are on different bases and are **not expected to agree** — the page says
+  so, in `BasisNote`.
+- **Every figure is a GL account balance — nothing is keyed.** The GL importer
+  has always captured `beginning` (the year's opening), twelve monthly nets and
+  `ytdTotal` per account with no P&L filtering; what was missing was any notion
+  of what an account IS. Balance = opening + the nets through the as-of month
+  (`balanceAt`), so ANY month can be asked for, not just December. Never read
+  `summaryForPeriod()` for this — it drops dormant accounts, and a balance-sheet
+  account with a real balance and no activity is exactly that.
+- **The sheet proves itself; it is never plugged.** A ledger is double-entry, so
+  every signed balance sums to zero. Assets are debit-normal (positive as the GL
+  signs them); liabilities and capital credit-normal and flipped for
+  presentation. **"Net income (loss) for the period" is the P&L accounts' own
+  net, not a plug** — including it is precisely what makes assets equal
+  liabilities plus capital. `proof.difference` is displayed either way, and on a
+  balanced ledger the gap is EXACTLY what the sheet failed to place, which is
+  why unclassified accounts are surfaced rather than dropped.
+- **Account classification is INFERRED and correctable, in that order**
+  (`classify.ts`): an explicit per-property override → the account-number range
+  map → a keyword rule on the GL's own account name → unclassified and surfaced.
+  **Ranges beat names deliberately**: "Security Deposits" names both the
+  restricted-cash asset (`0250-*`) and the liability owed back to the tenant
+  (`2130-0000`), so reading the name first puts one of them on the wrong half of
+  the sheet. `1940` splits on its SUB-account — `-0000` is accumulated
+  amortization, `-8501` the capitalized cost.
+- **This chart of accounts is offset from the usual convention**: balance sheet
+  is roughly **0110–3799**, revenue and expense **4000 up** (`isProfitAndLoss`).
+  The ranges were reconstructed from three artifacts describing the same CoA —
+  `cash-analysis/accountCodes.ts`, `data/operating-statements/line-mappings.json`
+  and the names the GL parser captures. They are an inference, which is why
+  overrides exist (`overrideStore.ts`, per property) and why the proof is shown.
+  Do NOT reuse `ACCOUNT_EXCLUDED`'s `"Depn"` tag to hide depreciation: it marks
+  those accounts non-cash for CASH-FLOW purposes, and accumulated depreciation
+  is essential here.
+- **It refuses to be confidently wrong.** A GL with no Beginning Balances yields
+  activity, not balances — cash would read as the year's cash flow and the
+  mortgage as principal paid, numbers that look plausible and are not balances.
+  That case warns and sets `usable: false` rather than rendering. Same for a
+  partial-year GL and an as-of month past coverage.
+- **The mortgage is cross-checked against the debt schedule.** The GL comes from
+  Skyline and `lib/debt/` from the lender's own statements, so agreement is real
+  evidence for a figure being certified, and a gap usually means a principal
+  payment posted to the wrong month.
+- **Excel totals are live formulas** per the export rule — a group total sums
+  its own accounts, a section total sums the GROUP totals (summing accounts
+  again double-counts), and the workbook carries its own proof row. **Keep
+  `wb.calcProperties.fullCalcOnLoad`**: ExcelJS drops a cached `result: 0`, and
+  the proof is the one cell meant to read zero, so without it the evidence the
+  sheet balances opens blank. Pinned by `exportSmoke.test.ts` against the file's
+  XML, because ExcelJS writes `calcPr` but does not parse it back.
+- **Say the basis on anything that leaves the building.** Books-basis, real
+  estate at cost less accumulated depreciation, unaudited, not reviewed or
+  compiled. A market-value statement that looks like audited cost-basis is the
+  thing that causes trouble.
+
 # 1099 Register — sources of truth
 
 A worksheet for the accountants, NOT a filing. `/financials/ten99`, gated with
