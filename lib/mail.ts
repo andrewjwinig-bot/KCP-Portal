@@ -137,12 +137,29 @@ export async function sendMailDetailed(msg: MailMessage): Promise<MailResult> {
     // 200 body is still a refusal, so both are checked rather than trusting
     // the status alone.
     const code = body?.ErrorCode ?? 0;
+    // One line per send, in the runtime log.
+    //
+    // There was NO record of a send anywhere: the audit log goes to blob
+    // storage, and the API's own answer was reduced to a boolean and dropped.
+    // So "the app says sent, nothing arrived" had nothing to inspect — which
+    // is how this went unexplained for two days. Recipients and status only;
+    // never the token, never the body, never the PIN.
+    console.log("[mail]", JSON.stringify({
+      to: msg.to, cc: msg.cc ?? null, bcc: msg.bcc ?? null, from,
+      subject: msg.subject,
+      status: res.status, errorCode: code,
+      messageId: body?.MessageID ?? null,
+      postmark: body?.Message ?? null,
+      testMode: isMailTestMode(),
+    }));
     if (!res.ok || code !== 0) {
       return { ok: false, error: body?.Message ?? `Postmark returned ${res.status}.`, testMode: isMailTestMode() };
     }
     return { ok: true, messageId: body?.MessageID, testMode: isMailTestMode() };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Could not reach Postmark." };
+    const error = e instanceof Error ? e.message : "Could not reach Postmark.";
+    console.log("[mail] request failed", JSON.stringify({ to: msg.to, subject: msg.subject, error }));
+    return { ok: false, error };
   }
 }
 
