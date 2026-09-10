@@ -239,12 +239,16 @@ export default function ManagementFeesPage() {
           {/* 2010 tie-out — Σ property 6610 budgets should equal the LIK 2010 fee plan */}
           {tieOut && (
             <div className="card" style={{ margin: 0, padding: "10px 14px", borderLeft: `4px solid ${tieOut.ok ? "#15803d" : "#d97706"}`, fontSize: 13 }}>
-              <b style={{ color: tieOut.ok ? "#15803d" : "#b45309" }}>2010 tie-out{tieOut.ok ? " ✓" : " — gap"}:</b>{" "}
+              <b style={{ color: tieOut.ok ? "#15803d" : "#b45309" }}>2010 tie-out — BUDGET{tieOut.ok ? " ✓" : " — gap"}:</b>{" "}
               property management-fee budgets (6610) sum to <b>{money(tieOut.bottomUp)}</b>; the LIK 2010 fee plan (4510) is <b>{money(tieOut.lik)}</b>.{" "}
               {tieOut.ok
                 ? "They tie."
                 : <>They should be equal (same fees, both sides of the intercompany), but the 2010 plan is <b>{money(Math.abs(tieOut.delta))}</b> {tieOut.delta > 0 ? "under" : "over"} the property budgets — the 2010 budget isn't a live roll-up of the property 6610 lines.</>}
             </div>
+          )}
+
+          {data.intercompany && (
+            <IntercompanyCard tie={data.intercompany} entry={data.suggestedEntry} year={year} />
           )}
 
           {/* Chart */}
@@ -424,6 +428,133 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The intercompany tie-out on ACTUALS — what the buildings expensed against
+ * what 2010 booked.
+ *
+ * The banner above it compares the two BUDGETS, which was the only check that
+ * existed. A budget agreeing says nothing about whether the entries were
+ * actually made: in 2026 the buildings posted a fee every month while 2010's
+ * revenue was two hand-keyed journal entries that drifted five figures in both
+ * directions, and February's was never posted at all. Nobody could see it.
+ *
+ * The suggested entry is the point. Reporting the drift is worth something;
+ * removing the guess that causes it is worth more — so the card states the
+ * figure to post, split the way the entries are actually keyed.
+ */
+function IntercompanyCard({ tie, entry, year }: { tie: NonNullable<MgmtFeeData["intercompany"]>; entry: MgmtFeeData["suggestedEntry"]; year: number }) {
+  const [open, setOpen] = useState(false);
+  const bad = !tie.clean;
+  const accent = bad ? "#b45309" : "#15803d";
+  const varColor = (v: number) => (Math.abs(v) <= 1 ? "var(--muted)" : v < 0 ? "#b91c1c" : "#b45309");
+
+  return (
+    <div className="card" style={{ margin: 0, borderLeft: `4px solid ${accent}`, display: "grid", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 13 }}>
+          <b style={{ color: accent }}>2010 tie-out — ACTUAL{tie.clean ? " ✓" : ""}:</b>{" "}
+          buildings expensed <b>{money(tie.buildingsYtd)}</b> on 6610 through {MONTHS_LONG[tie.through - 1]};
+          2010 booked <b>{money(tie.likYtd)}</b> on 4510.{" "}
+          {tie.clean
+            ? "Every month ties."
+            : <>These are two sides of one transaction and should be equal.</>}
+        </div>
+        <button type="button" className="btn" onClick={() => setOpen((o) => !o)} style={{ flexShrink: 0 }}>
+          {open ? "Hide detail" : "Show by month"}
+        </button>
+      </div>
+
+      {bad && (
+        <div style={{ fontSize: 13, display: "grid", gap: 4 }}>
+          {tie.missed.length > 0 && (
+            <div style={{ color: "#b91c1c" }}>
+              <b>No entry posted in {tie.missed.map((m) => MONTHS_LONG[m - 1]).join(", ")}.</b>{" "}
+              The buildings billed the fee; 2010 booked nothing. That is a missed journal entry, not a rounding difference.
+            </div>
+          )}
+          {tie.disagreeing.length > 0 && (
+            <div className="muted">
+              {tie.disagreeing.length} further month{tie.disagreeing.length === 1 ? "" : "s"} posted a different figure than the buildings billed
+              {tie.worstMonth ? <> — worst is {MONTHS_LONG[tie.worstMonth.month - 1]}, off by {money(Math.abs(tie.worstMonth.variance))}</> : null}.
+            </div>
+          )}
+          <div className="muted">
+            The year nets to <b>{money(Math.abs(tie.varianceYtd))}</b> {tie.varianceYtd > 0 ? "over" : "under"}, which is why this has gone unnoticed:
+            the annual figure looks close while no individual month is right.
+          </div>
+        </div>
+      )}
+
+      {entry && entry.lines.length > 0 && (
+        <div style={{ background: "rgba(15,23,42,0.03)", borderRadius: 8, padding: "10px 12px" }}>
+          <div style={{ ...secLabel, marginBottom: 6 }}>Entry to post at 2010 — {MONTHS_LONG[entry.month - 1]} {year}</div>
+          <table style={{ width: "100%", fontSize: 13 }}>
+            <tbody>
+              {entry.lines.map((l) => (
+                <tr key={l.label}>
+                  <td style={{ padding: "3px 0" }}>{l.label} <span className="muted">({l.codes.length} buildings)</span></td>
+                  <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(l.amount)}</td>
+                </tr>
+              ))}
+              <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}>
+                <td style={{ padding: "4px 0" }}>Total fees the buildings expensed</td>
+                <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(entry.total)}</td>
+              </tr>
+              <tr className="muted">
+                <td style={{ padding: "3px 0" }}>Currently booked on 4510</td>
+                <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(entry.posted)}</td>
+              </tr>
+              <tr style={{ fontWeight: 800 }}>
+                <td style={{ padding: "3px 0" }}>Adjustment</td>
+                <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", color: varColor(entry.adjustment) }}>
+                  {entry.adjustment === 0 ? "—" : money(entry.adjustment)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {open && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: "left", padding: "6px 8px" }}>Month</th>
+                <th style={{ textAlign: "right", padding: "6px 8px" }}>Buildings (6610)</th>
+                <th style={{ textAlign: "right", padding: "6px 8px" }}>2010 (4510)</th>
+                <th style={{ textAlign: "right", padding: "6px 8px" }}>Variance</th>
+                <th style={{ textAlign: "left", padding: "6px 8px" }}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tie.months.filter((m) => m.status !== "pending").map((m) => (
+                <tr key={m.month}>
+                  <td style={{ padding: "5px 8px" }}>{MONTHS_LONG[m.month - 1]}</td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(m.buildingsFee)}</td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(m.likRevenue)}</td>
+                  <td style={{ padding: "5px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: varColor(m.variance) }}>
+                    {m.status === "ties" ? "—" : money(m.variance)}
+                  </td>
+                  <td style={{ padding: "5px 8px" }}>
+                    {m.status === "ties" && <span style={{ color: "#15803d", fontWeight: 700 }}>Ties</span>}
+                    {m.status === "not-posted" && <span style={{ color: "#b91c1c", fontWeight: 700 }}>No entry posted</span>}
+                    {m.status === "off" && <span style={{ color: "#b45309", fontWeight: 700 }}>Different figure</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            Compared through {MONTHS_LONG[tie.through - 1]} — the last month both sides have posted. Later months
+            are not judged, so a building running behind can&apos;t read as 2010 over-booking.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
