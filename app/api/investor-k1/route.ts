@@ -71,6 +71,15 @@ export async function GET(req: NextRequest) {
         ...p,
         uploaded: docs.filter((d) => d.propertyCode === p.code && d.taxYear === y).length,
       })),
+      // Which OWNERS have one in, so By Investor can count a person's own K-1s
+      // rather than a partnership's. An investor in four partnerships is four
+      // separate documents, and "two of Carol's four are in" is not derivable
+      // from the per-property counts — each of those partnerships is mostly
+      // complete while hers is the one outstanding.
+      //
+      // Ids only. No names, no filenames, nothing about the document itself —
+      // the same shape as /api/investor-k1/sent, and for the same reason.
+      ownerIds: docs.filter((d) => d.taxYear === y).map((d) => d.ownerId),
     });
   }
 
