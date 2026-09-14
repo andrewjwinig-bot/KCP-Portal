@@ -515,3 +515,24 @@ describe("CWD Cherrywood Joint Venture", () => {
     expect(Math.round(a.ownerPct! * entityValue("CWD")!.equityValue!)).toBe(1576797);
   });
 });
+
+describe("an entity the property directory doesn't carry still groups correctly", () => {
+  it("3600 is an OFFICE park, not Misc", () => {
+    // It owns the three Neshaminy office buildings rather than being one, so
+    // the directory has 3610/3620/3640 and no 3600 — and a directory-only
+    // lookup filed an office park with the odd entities.
+    const p = PROPERTY_OWNERSHIP.find((x) => x.propertyCode === "3600")!;
+    expect(p.propertyType).toBe("Office");
+    expect(PROPERTY_DEFS.some((d) => d.id === "3600")).toBe(false);
+  });
+
+  it("a declared type never contradicts the directory", () => {
+    // The field exists to fill a gap, not to override the directory — two
+    // sources disagreeing about a property's category is how the roster and
+    // every other page stop matching.
+    for (const p of PROPERTY_OWNERSHIP) {
+      const def = PROPERTY_DEFS.find((d) => d.id.toUpperCase() === p.propertyCode.toUpperCase());
+      if (p.propertyType && def) expect(p.propertyType, p.propertyCode).toBe(def.type);
+    }
+  });
+});

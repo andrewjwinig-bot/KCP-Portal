@@ -592,7 +592,10 @@ export default function InvestorInfoPage() {
         return {
           propertyCode: p.propertyCode,
           propertyName: p.propertyName ?? def?.name ?? p.propertyCode,
-          type: (def?.type ?? "Misc") as PropType,
+          // The entity's own type wins: a JV that owns office buildings is not
+          // in the property directory, so a directory-only lookup filed it
+          // under Misc.
+          type: (p.propertyType ?? def?.type ?? "Misc") as PropType,
           fundGroup: def?.fundGroup,
           hasK1Distribution: !!p.hasK1Distribution,
           owners: p.owners,
