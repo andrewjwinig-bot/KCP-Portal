@@ -1,6 +1,8 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { groupByPropertyType } from "@/lib/properties/typeGroups";
 import { useSearchParams } from "next/navigation";
 import {
   REQUEST_CATEGORIES,
@@ -186,13 +188,23 @@ function MaintenancePageInner() {
     if (r) setSelected(r);
   }, [searchParams, visibleRequests]);
 
-  const properties = useMemo(() => {
-    const set = new Set<string>();
+  // The filter reads as the portfolio does — Office, Shopping Centers,
+  // Residential — using the SAME grouping as the public request form, so the
+  // two pages cannot drift into different orders. A property whose type can't
+  // be resolved (a free-text propertyName on an older record) still appears,
+  // under "Other".
+  const propertyGroups = useMemo(() => {
+    const byName = new Map<string, string | null>();
     for (const r of visibleRequests ?? []) {
-      const p = propertyOf(r);
-      if (p) set.add(p);
+      const name = propertyOf(r);
+      if (!name || byName.has(name)) continue;
+      const def =
+        (r.propertyCode ? PROPERTY_DEFS.find((d) => d.id === r.propertyCode) : undefined) ??
+        PROPERTY_DEFS.find((d) => d.name === name);
+      byName.set(name, def?.type ?? null);
     }
-    return ["All", ...Array.from(set).sort()];
+    const names = [...byName.keys()].sort();
+    return groupByPropertyType(names, (n) => byName.get(n) ?? null);
   }, [visibleRequests]);
 
   const filtered = useMemo(() => {
@@ -423,7 +435,12 @@ function MaintenancePageInner() {
           </Field>
           <Field label="Property">
             <select value={property} onChange={(e) => setProperty(e.target.value)} style={selectStyle}>
-              {properties.map((p) => <option key={p} value={p}>{p}</option>)}
+              <option value="All">All</option>
+              {propertyGroups.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.items.map((p) => <option key={p} value={p}>{p}</option>)}
+                </optgroup>
+              ))}
             </select>
           </Field>
           <Field label="Category">
