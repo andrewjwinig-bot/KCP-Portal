@@ -108,7 +108,9 @@ export type ShareLinkCardProps = {
    *  heading — not a name buried in a sentence of explanation. */
   subject?: string;
   /** One or two sentences on what this link is. */
-  description: React.ReactNode;
+  /** Optional blurb under the title. Omit it where the actions already say
+   *  what the link is — the K-1 card does. */
+  description?: React.ReactNode;
   links: ShareLink[];
   busy?: boolean;
   error?: string | null;
@@ -324,7 +326,7 @@ export function ShareLinkCard({
             {subject && (
               <div style={{ fontSize: 23, fontWeight: 800, lineHeight: 1.15, marginTop: 4, wordBreak: "break-word" }}>{subject}</div>
             )}
-            <p className="muted" style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5 }}>{description}</p>
+            {description && <p className="muted" style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5 }}>{description}</p>}
           </div>
           <button onClick={close} className="btn" style={{ fontSize: 12, padding: "6px 12px", flexShrink: 0 }}>Close</button>
         </div>
@@ -342,14 +344,15 @@ export function ShareLinkCard({
             </div>
           )}
 
+          {/* No empty-state box. It announced that no link existed and then
+              explained what creating one would do — directly above three
+              buttons that say it: Email the investor, Just create the link,
+              See their page first. `emptyNote` is still accepted for a caller
+              that has something to add BEYOND that, and rendered plainly. */}
           {links.length === 0 ? (
-            <div style={{
-              marginBottom: 14, padding: "12px 14px", borderRadius: 10,
-              border: "1px dashed var(--border)", background: "rgba(15,23,42,0.02)",
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 700 }}>No link yet — nothing has been sent.</div>
-              {emptyNote && <div className="muted" style={{ fontSize: 12.5, marginTop: 5, lineHeight: 1.5 }}>{emptyNote}</div>}
-            </div>
+            emptyNote ? (
+              <div className="muted" style={{ fontSize: 12.5, marginBottom: 12, lineHeight: 1.5 }}>{emptyNote}</div>
+            ) : null
           ) : links.map((l) => (
             <div key={l.id}>
               {/* Link, then PIN, each under its own label — the two things you
@@ -791,11 +794,7 @@ export function ShareLinkCard({
                   <input type="checkbox" checked={requirePin} onChange={(e) => setRequirePin(e.target.checked)} />
                   Protect this link with an access PIN
                 </label>
-              ) : (
-                <div className="muted small" style={{ marginBottom: 8 }}>
-                  This link always carries an access PIN.
-                </div>
-              )}
+              ) : null}
 
               {/* Emailing is ONE action, not two.
                   "Create link" used to be a prerequisite: you minted a link

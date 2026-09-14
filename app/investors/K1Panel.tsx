@@ -21,6 +21,7 @@ import { HoverCard } from "@/app/components/HoverCard";
 import { DocChip } from "@/app/components/DocChip";
 import { YearSelect } from "@/app/components/YearSelect";
 import { ShareLinkCard, type EmailDraft, type SendOutcome, type SendOptions } from "@/app/components/ShareLinkCard";
+import { addressAs } from "@/lib/investors/firstName";
 import type { K1Document } from "@/lib/investors/k1";
 import type { K1Interest, K1Owner, K1Slice, ShareBatch } from "./useK1";
 import { sendState, sendStateTone } from "./sendState";
@@ -508,7 +509,6 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // is not labelled with the trust this row happens to be — that name
         // belongs on the document, not on the link.
         subject={owner.name}
-        description="One private, revocable link, covering every K-1 they hold with us."
         links={links}
         busy={k1.busy}
         error={k1.error}
@@ -517,7 +517,7 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // address that only appears in the route is one nobody agreed to.
         recipients={recipientsOf(owner.email, owner.alsoEmail)}
         secondaryRecipients={owner.alsoEmail ?? []}
-        sendLabel="Email the investor"
+        sendLabel={`Email ${addressAs(owner.name, owner.detailedName)}`}
         pinOptional={false}
         viewAsHref={`/investor/preview?owner=${encodeURIComponent(owner.id)}`}
         recipientSlot={
@@ -526,9 +526,10 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
             <AlsoRecipients also={owner.alsoEmail} />
           </>
         }
-        emptyNote={doc
-          ? <>Create the link to make {owner.name}&rsquo;s {k1.year} K-1 readable. You can copy it and send it yourself, or email it from here.</>
-          : <>Their {k1.year} K-1 hasn&rsquo;t been uploaded yet — drop it on their row first, then a link can be created.</>}
+        // Only the case the buttons DON'T cover: with no K-1 uploaded there is
+        // nothing to link to, and the buttons alone would not say why.
+        emptyNote={doc ? undefined
+          : <>Their {k1.year} K-1 hasn&rsquo;t been uploaded yet — drop it on their row first.</>}
         onCreate={doc ? () => k1.share([owner.id], false) : undefined}
         // The confirm reads the real message first — see `loadDraft`. Whatever
         // it holds when you confirm is what gets sent.
@@ -593,13 +594,12 @@ export function K1InvestorShare({ name, inv }: {
       buttonLabel={inv.link ? "Link" : "Share"}
       title="Investor K-1 link"
       subject={name}
-      description={`One private, revocable link, covering ${withDocs.length || filing.length} partnership${(withDocs.length || filing.length) === 1 ? "" : "s"} they hold with us.`}
       links={links}
       busy={inv.busy}
       error={inv.error}
       recipients={recipientsOf(inv.email, inv.alsoEmail)}
       secondaryRecipients={inv.alsoEmail ?? []}
-      sendLabel="Email the investor"
+      sendLabel={`Email ${addressAs(name, target?.heldAs)}`}
       pinOptional={false}
       viewAsHref={target ? `/investor/preview?owner=${encodeURIComponent(target.ownerId)}` : undefined}
       recipientSlot={target
@@ -610,8 +610,7 @@ export function K1InvestorShare({ name, inv }: {
           </>
         )
         : undefined}
-      emptyNote={target && newest
-        ? <>Create the link to make {name}&rsquo;s {withDocs.length === 1 ? "K-1" : "K-1s"} readable. You can copy it and send it yourself, or email it from here.</>
+      emptyNote={target && newest ? undefined
         : <>No K-1 has been uploaded for {name} yet. They arrive as a batch per partnership, so upload one on the property card first.</>}
       // Create mints the link WITHOUT emailing; only onSend emails, and the
       // card puts a confirm in front of that.

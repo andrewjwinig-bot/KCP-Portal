@@ -134,6 +134,17 @@ const INVESTOR_NAME: React.CSSProperties = { fontWeight: 700, fontSize: 15 };
 const GROUP_ROW_BG = "rgba(11,74,125,0.07)";
 const GROUP_SUB_BG = "rgba(11,74,125,0.028)";
 const GROUP_RAIL: React.CSSProperties = { boxShadow: "inset 3px 0 0 rgba(11,74,125,0.5)" };
+/**
+ * The vendor code column, collapsed.
+ *
+ * A Skyline accounting code, leading every ownership table on a page about
+ * people and their K-1s. HIDDEN rather than removed: the band bar, the
+ * multi-stake roll-up and the property total all span this column, and
+ * re-deriving those colSpans would risk a misaligned table for a column nobody
+ * reads. It stays searchable — a query still matches an owner's vendor code —
+ * and bringing it back is deleting one spread.
+ */
+const VENDOR_COL: React.CSSProperties = { display: "none" };
 /** The count chip a collapsible band carries ("3 STAKES", "24 INVESTORS").
  *  One definition, so the entity band and the multi-stake roll-up read as the
  *  same control rather than two that happen to look similar. */
@@ -985,7 +996,7 @@ export default function InvestorInfoPage() {
               </td>
             )}
             {showK1 && !k1 && <td className="no-print" style={GROUP_RAIL} />}
-            <td style={{ padding: "12px 16px", ...(showK1 ? null : GROUP_RAIL) }}>
+            <td style={{ padding: "12px 16px", ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }}>
               {ent.vendorCode ? (
                 <span style={{
                   fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", padding: "2px 8px",
@@ -1037,7 +1048,7 @@ export default function InvestorInfoPage() {
           // entity — the same rule the multi-stake interests follow.
           <tr key={sub.id} className={secOpen ? undefined : "screen-collapsed"} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: GROUP_SUB_BG }}>
             {showK1 && <td className="no-print" style={GROUP_RAIL} />}
-            <td style={{ padding: "8px 16px", ...(showK1 ? null : GROUP_RAIL) }} />
+            <td style={{ padding: "8px 16px", ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }} />
             <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
               <div style={{ fontSize: 13, fontWeight: 600 }}>{sub.name}</div>
               <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>
@@ -1069,7 +1080,7 @@ export default function InvestorInfoPage() {
                       {showK1 && k1 && (
                         <td style={{ padding: "12px 0 12px 16px" }} className="no-print"><K1SelectCell ownerId={inv.id} k1={k1} /></td>
                       )}
-                      <td style={{ padding: "12px 16px" }}>
+                      <td style={{ padding: "12px 16px", ...VENDOR_COL }}>
                         {inv.vendorCode ? (
                           <span style={{
                             fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
@@ -1126,7 +1137,7 @@ export default function InvestorInfoPage() {
                       </td>
                     )}
                     {showK1 && !k1 && <td className="no-print" style={GROUP_RAIL} />}
-                    <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11, ...(showK1 ? null : GROUP_RAIL) }}>—</td>
+                    <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11, ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }}>—</td>
                     <td style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                         <span aria-hidden style={{ color: "#0b4a7d", fontSize: 10, width: 10, display: "inline-block" }}>{gOpen ? "\u25BC" : "\u25B6"}</span>
@@ -1145,12 +1156,15 @@ export default function InvestorInfoPage() {
                     {showK1 && k1 && (
                       <>
                         <td style={{ padding: "12px 16px" }} className="no-print">
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <Pill tone={onFile === g.owners.length ? TONE_GREEN : TONE_RED}>
-                              {onFile} OF {g.owners.length}
-                            </Pill>
-                            <span className="muted" style={{ fontSize: 11 }}>K-1s on file · one link</span>
-                          </span>
+                          {/* The pill alone. It sits under the "<year> K-1"
+                              header, in the column whose other rows read VIEW
+                              or MISSING, so "K-1s on file" only restated where
+                              it already was — and "one link" is the Portal
+                              column immediately beside it, which shows the one
+                              link this person holds. */}
+                          <Pill tone={onFile === g.owners.length ? TONE_GREEN : TONE_RED}>
+                            {onFile} OF {g.owners.length}
+                          </Pill>
                         </td>
                         <td style={{ padding: "12px 16px", textAlign: "right" }} className="no-print" onClick={(e) => e.stopPropagation()}>
                           {k1.ownerFor(g.owners[0].id) && <K1PortalCell owner={k1.ownerFor(g.owners[0].id)!} k1={k1} />}
@@ -1166,7 +1180,7 @@ export default function InvestorInfoPage() {
                     // full schedule, one row per interest.
                     <tr key={inv.id} className={gOpen ? undefined : "screen-collapsed"} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : GROUP_SUB_BG }}>
                       {showK1 && <td className="no-print" style={GROUP_RAIL} />}
-                      <td style={{ padding: "8px 16px", paddingLeft: 36, ...(showK1 ? null : GROUP_RAIL) }}>
+                      <td style={{ padding: "8px 16px", paddingLeft: 36, ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }}>
                         {inv.vendorCode ? (
                           <span style={{
                             fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
@@ -1247,10 +1261,10 @@ export default function InvestorInfoPage() {
             <thead>
               <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
                 {showK1 && <th style={{ ...k1Th, width: 34, paddingRight: 0 }} className="no-print" aria-label="Select" />}
-                <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap", ...VENDOR_COL }}>VENDOR CODE</th>
                 <th style={{ padding: "10px 16px", fontWeight: 700, ...(showK1 ? { minWidth: 190 } : null) }}>OWNER</th>
 
-                <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
+                <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>OWNERSHIP %</th>
                 {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>YEAR-END $</th>}
                 {hasVal && <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>ESTIMATED $</th>}
                 {showK1 && k1 && <th style={{ ...k1Th, whiteSpace: "nowrap" }} className="no-print">{k1.year} K-1</th>}
@@ -1310,7 +1324,7 @@ export default function InvestorInfoPage() {
           </div>
           {/* The rest of the return, which arrives with the K-1 batch. Staff
               only — never circulated to investors. */}
-          {canK1 && <PartnershipTaxDocs propertyCode={h.propertyCode} defaultOpen={false} />}
+          {canK1 && <PartnershipTaxDocs propertyCode={h.propertyCode} collapsible={false} />}
             </td>
           </tr>
         )}
@@ -1669,9 +1683,9 @@ export default function InvestorInfoPage() {
                           <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
                             <th style={{ padding: "10px 16px", fontWeight: 700, width: 70 }}>PROP</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700 }}>PROPERTY</th>
-                            <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap" }}>VENDOR CODE</th>
+                            <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap", ...VENDOR_COL }}>VENDOR CODE</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700 }}>ADDRESS</th>
-                            <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right" }}>OWNERSHIP %</th>
+                            <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>OWNERSHIP %</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>YEAR-END $</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>ESTIMATED $</th>
                             {inv && <th style={{ padding: "10px 16px", fontWeight: 700, whiteSpace: "nowrap" }} className="no-print">K-1</th>}
@@ -1711,7 +1725,7 @@ export default function InvestorInfoPage() {
                                   </button>
                                 )}
                               </td>
-                              <td style={{ padding: "12px 16px" }}>
+                              <td style={{ padding: "12px 16px", ...VENDOR_COL }}>
                                 {r.investor.vendorCode ? (
                                   <span style={{
                                     fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
@@ -2576,7 +2590,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
                 <th style={colHead}>ENTITY</th>
                 <th style={colHead}>PROPERTY / ENTITY</th>
                 <th style={colHead}>HELD THROUGH</th>
-                <th style={colHeadR}>OWNERSHIP %</th>
+                <th style={{ ...colHeadR, whiteSpace: "nowrap" }}>OWNERSHIP %</th>
                 <th style={colHeadR}>VALUE</th>
                 <th style={colHeadR}>{estLabel}</th>
               </tr>
