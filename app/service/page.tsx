@@ -5,6 +5,8 @@
 
 import Link from "next/link";
 
+// The public marketing site these forms are reached from.
+const SITE_URL = "https://kormancommercial.com";
 const NAVY = "#0e2238";
 const NAVY_DEEP = "#0a1a2c";
 const BG = "#f4f5f7";
@@ -94,8 +96,18 @@ function KormanHeader() {
       padding: "22px 24px",
       display: "flex", alignItems: "center", justifyContent: "center",
       borderBottom: "1px solid rgba(255,255,255,0.06)",
+      position: "relative",
     }}>
-      <Wordmark color="#fff" />
+      <a className="brand-back" href={SITE_URL} aria-label="Back to kormancommercial.com">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        <span>kormancommercial.com</span>
+      </a>
+      <a href={SITE_URL} aria-label="Korman Commercial Properties home" style={{ display: "inline-flex", textDecoration: "none", color: "inherit" }}>
+        <Wordmark color="#fff" />
+      </a>
     </header>
   );
 }
@@ -109,7 +121,9 @@ function KormanFooter() {
       color: "#5a657a",
       fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase",
     }}>
-      <Wordmark color={NAVY} small />
+      <a href={SITE_URL} aria-label="Korman Commercial Properties home" style={{ display: "inline-flex", textDecoration: "none", color: "inherit" }}>
+        <Wordmark color={NAVY} small />
+      </a>
       <span>&copy; {new Date().getFullYear()} Korman Commercial Properties</span>
     </footer>
   );

@@ -933,3 +933,34 @@ input.kcp-input,
 @media (prefers-reduced-motion: reduce) {
   .imp-anim, .imp-anim * { animation: none !important; }
 }
+
+/* Public request forms (/submit, /service, /reserve): "back to the website" in
+   the brand header. Absolutely positioned so the wordmark stays optically
+   centred, and the label collapses to the arrow alone on a phone, where it
+   would otherwise crowd the lockup. */
+.brand-back {
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.brand-back:hover,
+.brand-back:focus-visible {
+  color: #fff;
+}
+@media (max-width: 620px) {
+  .brand-back {
+    left: 14px;
+  }
+  .brand-back span {
+    display: none;
+  }
+}
