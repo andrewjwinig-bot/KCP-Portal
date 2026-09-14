@@ -7,6 +7,7 @@ import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { publishBlockers, type K1Document } from "@/lib/investors/k1";
 import { k1sFor, k1YearsFor, saveK1, getK1, removeK1, allK1s } from "@/lib/investors/k1Store";
 import { putK1File, removeK1File } from "@/lib/investors/k1Files";
+import { k1UploadError } from "@/lib/investors/k1Upload";
 import { listInvestorLinks, linkOwnerIds, investorLinkSecret, signInvestorToken } from "@/lib/investors/k1Link";
 import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
 import { allOwnerEmails, clearOwnerEmail, setOwnerEmail } from "@/lib/investors/ownerEmailStore";
@@ -191,9 +192,10 @@ export async function POST(req: NextRequest) {
 
   const file = form.get("file");
   if (!(file instanceof File)) return NextResponse.json({ error: "No file was uploaded." }, { status: 400 });
-  if (!/\.pdf$/i.test(file.name)) {
-    return NextResponse.json({ error: `${file.name} isn't a PDF. K-1s must be PDFs.` }, { status: 400 });
-  }
+  // Same rules as the drop target, from the same function — a filename's
+  // LENGTH is not among them and never has been.
+  const bad = k1UploadError({ name: file.name, size: file.size, type: file.type });
+  if (bad) return NextResponse.json({ error: bad }, { status: 400 });
 
   const existing = (await k1sFor(property, year)).find((d) => d.ownerId === owner.id);
   if (existing) {

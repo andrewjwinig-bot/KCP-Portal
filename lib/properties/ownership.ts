@@ -144,6 +144,11 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
 
   {
     propertyCode: "2300",
+    // Brookwood distributes: two partners, two K-1s. Without this flag the
+    // property is absent from the K-1 picker entirely — the API lists only
+    // partnerships marked here — so there was nowhere to drop its K-1s and no
+    // task for them on the tax tracker.
+    hasK1Distribution: true,
     owners: [
       { id: "own-2300-hyma1", name: "Hyman Korman Co.", vendorCode: "HYMA1", ownerPct: 0.475 },
       { id: "own-2300-thek1", name: "The Korman Co",    vendorCode: "THEK1", ownerPct: 0.525 },

@@ -292,14 +292,22 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
     );
   }
 
-  return (
+  // A failure on this row, said ON this row. The card's error line is above a
+  // roster that can run to twenty-four rows, so a message there is off-screen
+  // for anyone who dropped a file further down — the cell went back to MISSING
+  // and read as though the drop had simply not registered.
+  const failed = k1.uploadError?.ownerId === owner.id ? k1.uploadError.message : null;
+
+  const cell = (
     <label
       onDragOver={(e) => { e.preventDefault(); if (!k1.busy) setDragOver(true); }}
       onDragLeave={(e) => { e.preventDefault(); setDragOver(false); }}
       onDrop={(e) => {
         e.preventDefault(); setDragOver(false);
-        const f = e.dataTransfer.files?.[0];
-        if (f && !k1.busy) k1.upload(owner.id, f);
+        if (k1.busy) return;
+        // Pass whatever came through, including nothing — an empty drop is a
+        // failure worth naming, not a no-op.
+        k1.upload(owner.id, e.dataTransfer.files?.[0] ?? null);
       }}
       title={`Drop ${owner.name}'s ${owner.detailedName ? `“${owner.detailedName}” ` : ""}K-1 here`}
       style={{
@@ -312,10 +320,20 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         transition: "border-color .15s, background .15s, color .15s",
       }}
     >
-      {dragOver ? "DROP IT" : "MISSING"}
+      {dragOver ? "DROP IT" : failed ? "FAILED" : "MISSING"}
       <input type="file" accept="application/pdf,.pdf" disabled={k1.busy} style={{ display: "none" }}
         onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) k1.upload(owner.id, f); }} />
     </label>
+  );
+
+  if (!failed) return cell;
+  return (
+    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
+      {cell}
+      <span style={{ fontSize: 11, lineHeight: 1.45, color: "#b91c1c", fontWeight: 600, maxWidth: 280, textAlign: "right", whiteSpace: "normal" }}>
+        {failed}
+      </span>
+    </span>
   );
 }
 
