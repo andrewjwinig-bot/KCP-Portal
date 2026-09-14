@@ -42,10 +42,29 @@ const CONTACTS: Record<string, OwnerContact> = {
   "susan schurr": { name: "Susan Schurr", address: "6100 Sheaff Lane, Fort Washington, PA 19034", email: "susan.schurr@gmail.com" },
   "mark langsfeld": { name: "Mark Langsfeld", address: "1085 Herkness Drive, Meadowbrook, PA 19046", email: "langsfeld@gmail.com" },
   "elizabeth langsfeld": { name: "Elizabeth Langsfeld", address: "Bethesda, MD", email: "elangsfeld@yahoo.com" },
-  // Berton E. Korman TUA variants share the trust's address (no email on file).
-  "berton e korman tua as amended": { name: "Berton E. Korman TUA", address: "6114 Butler Pike, Blue Bell, PA 19422" },
-  "berton e korman tua dtd 02232018": { name: "Berton E. Korman TUA", address: "6114 Butler Pike, Blue Bell, PA 19422" },
-  "berton korman": { name: "Berton E. Korman", address: "6114 Butler Pike, Blue Bell, PA 19422" },
+  // Berton E. Korman TUA variants share the trust's address.
+  //
+  // The EMAIL is the trust's TRUSTEE, not Berton — he has died, the trust is
+  // the partner, and its K-1 goes to whoever administers it. Heike Sullivan at
+  // Ballard Spahr is named as trustee of "Berton E. Korman Trust (TUA
+  // 02/23/2018)" in the ownership workbook's own trustee directory, which is
+  // also where this address comes from.
+  //
+  // Seeded HERE rather than resolved from the trustee directory at runtime.
+  // The directory is indexed by trustee NAME, and reaching it from the trust
+  // instead would mean matching "Berton E Korman TUA Dtd 02232018 As Amended"
+  // against "Berton E. Korman Trust (TUA 02/23/2018)" — a fuzzy trust match,
+  // which is precisely what must never decide where a K-1 link is mailed. A
+  // keyed entry is a decision someone made and can see; a fuzzy match is a
+  // guess nobody reviews. Sallie Korman is a co-trustee with no address on
+  // file, so if her copy is wanted she goes on the row as an extra recipient.
+  "berton e korman tua as amended": {
+    name: "Berton E. Korman TUA",
+    address: "6114 Butler Pike, Blue Bell, PA 19422",
+    email: "sullivanh@ballardspahr.com",
+  },
+  "berton e korman tua dtd 02232018": { name: "Berton E. Korman TUA", address: "6114 Butler Pike, Blue Bell, PA 19422", email: "sullivanh@ballardspahr.com" },
+  "berton korman": { name: "Berton E. Korman TUA", address: "6114 Butler Pike, Blue Bell, PA 19422", email: "sullivanh@ballardspahr.com" },
 };
 
 /**

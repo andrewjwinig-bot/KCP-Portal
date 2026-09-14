@@ -149,11 +149,15 @@ describe("Airport Interplex Two, Inc. (0300) — a corporation that files its ow
     ]);
   });
 
-  it("names Berton's row as the TRUST, matching the K-1 it receives", () => {
-    // He has died; the trust is the shareholder. The file is titled
-    // "Berton E Korman TUA Dtd 02232018", and one link per investor groups by
-    // name — so a row in his personal name would pool a dead man's K-1s.
-    expect(p0300.owners[0].name).toBe("Berton E Korman TUA Dtd 02232018");
+  it("carries the TRUST as Berton's held-as, under his one investor name", () => {
+    // He has died; the trust is the shareholder and its K-1 goes to the
+    // trustee. The trust wording belongs in the held-as, NOT the name: keyed
+    // as the name it split one trust across two identities — "Berton E.
+    // Korman" at 7010/7200/4510 and the trust wording at 0300/WHIT — which
+    // one-link-per-investor would have honoured as two people, two links and
+    // two PINs with half his K-1s behind each.
+    expect(p0300.owners[0].name).toBe("Berton E. Korman");
+    expect(p0300.owners[0].detailedName).toBe("Berton E Korman TUA Dtd 02232018");
   });
 
   it("still holds its 0.50% of the joint venture, where it takes a K-1 too", () => {
@@ -431,12 +435,16 @@ describe("WHIT Whitpain Associates", () => {
     // Korman Co carries the 2012 Family Trust and the 1999 Irrevocable. Three
     // separate K-1s — treating the lists as the same one files his to the
     // wrong trust.
-    const names = p().owners.map((o) => o.name);
-    expect(names).toContain("Berton E Korman TUA Dtd 02232018");
+    // Named "Berton E. Korman" with the trust as the held-as, matching his
+    // six other interests — keying the trust wording as the NAME split one
+    // trust into two investors holding two links.
+    const held = p().owners.map((o) => o.detailedName ?? "");
+    expect(held).toContain("Berton E Korman TUA Dtd 02232018");
+    expect(p().owners.map((o) => o.name)).toContain("Berton E. Korman");
     const kco = p().owners[0].subOwners!.map((s) => s.name);
     expect(kco).toContain("The Berton E Korman 2012 Family Trust");
     expect(kco).toContain("The Berton E Korman Irrev TR Dtd 03031999");
-    expect(kco).not.toContain("Berton E Korman TUA Dtd 02232018");
+    expect(kco).not.toContain("Berton E. Korman");
   });
 
   it("reconciles to the beneficiary map, which carries BOTH of Steven's tiers", () => {
