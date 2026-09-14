@@ -248,6 +248,32 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
   },
 
   {
+    // Airport Interplex Two, Inc. — its own shareholders.
+    //
+    // Keyed from the entity's ownership schedule, which lists these five under
+    // the "TOTAL AIRPORT INTERPELX TWO, INC" subtotal. That schedule's SUBJECT
+    // is Eastwick JV XII (9200) — the Inc. is one of its three partners, at
+    // 0.50% — so the dollar figures beside these names are each holder's slice
+    // of the Inc.'s $2,011 stake in 9200, NOT their share of the Inc. Only the
+    // percentages carry over; the dollars are deliberately not imported.
+    //
+    // The schedule totals 99.990%, not 100%: it rounds to three decimals, and
+    // two thirds plus three ninths do not survive that (33.330 + 33.330 +
+    // 11.110 × 3). Keyed exactly as the document reads rather than silently
+    // rounded up to thirds — the gap is the source's, and inventing precision
+    // it does not have is how a percentage becomes wrong later.
+    propertyCode: "0300",
+    hasK1Distribution: true,
+    owners: [
+      { id: "k1-0300-bert4",  name: "Berton E. Korman",       detailedName: "Berton E Korman TUA Dtd 02232018",                        address: "410 Lancaster Ave",                  city: "Haverford",       state: "PA",           zip: "19041", ownerPct: 0.333300 },
+      { id: "k1-0300-stev1",  name: "Steven H. Korman",                                                                                address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333300 },
+      { id: "k1-0300-akgsts", name: "Alison Korman Feldman",  detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman",      address: "6015 Sheaff Lane",                   city: "Fort Washington", state: "PA",           zip: "19034", ownerPct: 0.111100 },
+      { id: "k1-0300-cagsts", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman",   address: "241 A South 6th St.",                city: "Philadelphia",    state: "PA",           zip: "19106", ownerPct: 0.111100 },
+      { id: "k1-0300-ssgsts", name: "Susan Korman Schurr",    detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr",        address: "6100 Sheaff Lane",                   city: "Fort Washington", state: "PA",           zip: "19034", ownerPct: 0.111100 },
+    ],
+  },
+
+  {
     propertyCode: "9510",
     hasK1Distribution: true,
     owners: [
