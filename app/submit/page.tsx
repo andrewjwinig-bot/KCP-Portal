@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
-import { groupByPropertyType } from "@/lib/properties/typeGroups";
+import { groupByPropertyType, propertyTypeLabel } from "@/lib/properties/typeGroups";
 import type { CompanyMatch } from "@/app/api/tenants/companies/route";
 
 // Public tenant-facing service request form, styled to match the
@@ -185,6 +185,7 @@ export default function SubmitPage() {
 
               <Field label="Property Name" required>
                 <UnderlineSelect
+                  large
                   value={propertyCode}
                   onChange={(v) => {
                     setPropertyCode(v);
@@ -200,6 +201,7 @@ export default function SubmitPage() {
                     options: g.items.map((p) => ({ value: p.id, label: p.name })),
                   }))}
                 />
+                <ChosenProperty code={propertyCode} />
               </Field>
 
               <Field label="Company Name" required>
@@ -415,8 +417,37 @@ function UnderlineInput({
   );
 }
 
+/**
+ * What you just picked, spelled out.
+ *
+ * The address used to sit on every row of the dropdown, which made the list
+ * long and no two rows the same length. It matters at exactly one moment —
+ * after choosing, to confirm you picked the right building — so it lives here
+ * instead, where it can be read properly.
+ */
+function ChosenProperty({ code }: { code: string }) {
+  const p = SUBMITTABLE_PROPERTIES.find((x) => x.id === code);
+  if (!p) return null;
+  const where = [p.address, [p.city, p.state].filter(Boolean).join(", "), p.zip].filter(Boolean).join(" · ");
+  const kind = propertyTypeLabel(p.type);
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+      {kind && (
+        <span style={{
+          fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
+          color: NAVY, background: "rgba(14,34,56,0.07)", border: `1px solid ${LINE}`,
+          borderRadius: 999, padding: "2px 8px", whiteSpace: "nowrap",
+        }}>
+          {kind}
+        </span>
+      )}
+      {where && <span style={{ fontSize: 13, color: MUTED, lineHeight: 1.5 }}>{where}</span>}
+    </div>
+  );
+}
+
 function UnderlineSelect({
-  value, onChange, options, groups, disabled, required, placeholder,
+  value, onChange, options, groups, disabled, required, placeholder, large,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -426,6 +457,9 @@ function UnderlineSelect({
   disabled?: boolean;
   required?: boolean;
   placeholder?: string;
+  /** The one field the form is really driven by — read it at a glance on a
+   *  phone, and make it an easy target. */
+  large?: boolean;
 }) {
   return (
     <select
@@ -433,7 +467,19 @@ function UnderlineSelect({
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       required={required}
-      style={{ ...underlineInputStyle, appearance: "none", WebkitAppearance: "none", paddingRight: 24, backgroundImage: caretSvg(), backgroundRepeat: "no-repeat", backgroundPosition: "right 4px center", backgroundSize: 14 }}
+      style={{
+        ...underlineInputStyle,
+        appearance: "none", WebkitAppearance: "none",
+        backgroundImage: caretSvg(), backgroundRepeat: "no-repeat",
+        ...(large
+          ? {
+              fontSize: 19, fontWeight: 600, color: value ? NAVY : MUTED,
+              padding: "12px 0 13px", paddingRight: 30,
+              borderBottomWidth: 2,
+              backgroundPosition: "right 2px center", backgroundSize: 18,
+            }
+          : { paddingRight: 24, backgroundPosition: "right 4px center", backgroundSize: 14 }),
+      }}
       onFocus={(e) => { e.currentTarget.style.borderBottomColor = NAVY; }}
       onBlur={(e) => { e.currentTarget.style.borderBottomColor = LINE; }}
     >
