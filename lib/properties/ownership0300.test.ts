@@ -189,3 +189,54 @@ describe("2300 Brookwood — two partners, two K-1s", () => {
     expect(p.owners.reduce((t, o) => t + (o.ownerPct ?? 0), 0)).toBe(1);
   });
 });
+
+describe("1500 Eastwick JV I — the same companies, no GP interest", () => {
+  const p1500 = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "1500")!;
+
+  it("is two partners at 75/25, and takes K-1 uploads", () => {
+    expect(p1500.hasK1Distribution).toBe(true);
+    expect(p1500.owners.map((o) => [o.name, o.ownerPct])).toEqual([
+      ["The Korman Co", 0.75],
+      ["New Eastwick Corporation", 0.25],
+    ]);
+    // No Airport Interplex Two, Inc. here — that GP interest is 0300/9200's.
+    expect(p1500.owners.some((o) => o.name.includes("Airport"))).toBe(false);
+  });
+
+  it("reuses the same entity definitions, not a third copy", () => {
+    // Three properties share these companies. The investors behind The Korman
+    // Co must be identical everywhere or the three quietly diverge.
+    const kcOf = (code: string) =>
+      PROPERTY_OWNERSHIP.find((p) => p.propertyCode === code)!
+        .owners.find((o) => o.name === "The Korman Co")!
+        .subOwners!.map((s) => [s.name, s.ownerPct]);
+    expect(kcOf("1500")).toEqual(kcOf("0300"));
+    expect(kcOf("1500")).toEqual(kcOf("9200"));
+  });
+
+  it("gives 1500 its own ids", () => {
+    const ids = (p: typeof p1500): string[] =>
+      p.owners.flatMap(function walk(o): string[] { return [o.id, ...(o.subOwners ?? []).flatMap(walk)]; });
+    const mine = ids(p1500);
+    expect(mine.every((id) => id.startsWith("k1-1500"))).toBe(true);
+    const others = new Set([
+      ...ids(PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "0300")!),
+      ...ids(PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "9200")!),
+    ]);
+    expect(mine.some((id) => others.has(id))).toBe(false);
+  });
+
+  it("values tie to the Statement of Values with nothing double-counted", () => {
+    // 401,544 + 133,848 = 535,392. Unlike the 0300/9200 schedule, this one
+    // describes a single entity — worth pinning, since that sheet's combined
+    // total is exactly the trap that overstated the portfolio.
+    expect(401_544 + 133_848).toBe(entityValue("1500")!.equityValue);
+  });
+
+  it("a partner's share of the property is its share × its entity's", () => {
+    const kc = p1500.owners.find((o) => o.name === "The Korman Co")!;
+    const steven = kc.subOwners!.find((o) => o.name === "Steven H. Korman")!;
+    // A third of 75% is 25% of the property — not 33%.
+    expect(steven.ownerPct! * kc.ownerPct!).toBeCloseTo(0.25, 6);
+  });
+});

@@ -57,24 +57,25 @@ export interface PropertyOwnership {
 }
 
 /**
- * The Eastwick airport ownership chain, shared by 0300 and 9200.
+ * The Eastwick / airport ownership chain.
  *
- * Airport Interplex Two (0300) and Eastwick Development JV XII (9200) are held
- * by the SAME three partners in the same proportions, so the structure is
- * written once and stamped onto both. Two hand-kept copies of a 21-row chain is
- * how the two quietly stop agreeing.
+ * Three properties are held by the same small set of entities in different
+ * proportions — Airport Interplex Two (0300), Eastwick Development JV XII
+ * (9200) and Eastwick JV I (1500) — so the entities are defined once here and
+ * composed per property. Three hand-kept copies of a twenty-row chain is how
+ * they quietly stop agreeing.
  *
- * Ids are prefixed per property because an id is a K-1 upload target and a
- * Filing Tracker key — the two properties issue their own K-1s and must not
- * share a row.
+ * Ids are prefixed per property throughout, because an id is a K-1 upload
+ * target and a Filing Tracker key: each property issues its own K-1s and must
+ * never share a row with another.
  *
- * SHAPE: an entity heads each band with its share of the PROPERTY; its
- * investors sit beneath with their share of THAT ENTITY, never of the property.
- * Steven Korman holds a third of The Korman Co, which holds 74.5% — so 24.8% of
- * the property, not 33%.
+ * SHAPE: an entity heads a band with its share of the PROPERTY; its investors
+ * sit beneath with their share of THAT ENTITY, never of the property. Steven
+ * Korman holds a third of The Korman Co — which is 75% of 1500, so 25% of it,
+ * and 74.5% of 0300, so 24.8% of that.
  */
-function eastwickAirportOwners(prefix: string): PropertyOwner[] {
-  const kormanCoInvestors = (p: string): PropertyOwner[] => [
+function kormanCoInvestors(p: string): PropertyOwner[] {
+  return [
     { id: `${p}-stev1`, name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333333 },
     { id: `${p}-akgst`, name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111111 },
     { id: `${p}-cagst`, name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111111 },
@@ -87,50 +88,64 @@ function eastwickAirportOwners(prefix: string): PropertyOwner[] {
     { id: `${p}-bk2012`, name: "The Berton E Korman 2012 Family Trust", ownerPct: 0.231333 },
     { id: `${p}-bkirr`, name: "The Berton E Korman Irrev TR Dtd 03031999", ownerPct: 0.102000 },
   ];
+}
 
+/** The Korman Co holding a property directly, at `pct` of it. */
+function kormanCoPartner(prefix: string, pct: number): PropertyOwner {
+  return { id: `${prefix}-kormanco`, name: "The Korman Co", ownerPct: pct, subOwners: kormanCoInvestors(`${prefix}-kc`) };
+}
+
+/** New Eastwick Corporation: Reynolds Metals, and The Korman Co again behind
+ *  it. That inner 9.6% is a further slice of the property for the same
+ *  company — carried so the chain is complete in the data, though the roster
+ *  draws two tiers. */
+function newEastwickPartner(prefix: string, pct: number): PropertyOwner {
+  return {
+    id: `${prefix}-neweastwick`,
+    name: "New Eastwick Corporation",
+    ownerPct: pct,
+    subOwners: [
+      { id: `${prefix}-ne-reynolds`, name: "Reynolds Metals Company", ownerPct: 0.904000 },
+      { id: `${prefix}-ne-kormanco`, name: "The Korman Co", ownerPct: 0.096000, subOwners: kormanCoInvestors(`${prefix}-ne-kc`) },
+    ],
+  };
+}
+
+/** Airport Interplex Two, Inc. as a partner — the corporate general partner,
+ *  a half point, which is what a GP interest usually looks like.
+ *
+ *  Its own investors total 99.990%, not 100%: the schedule rounds to three
+ *  decimals and two thirds plus three ninths do not survive it. Keyed as it
+ *  reads. */
+function airportInterplexIncPartner(prefix: string, pct: number): PropertyOwner {
+  return {
+    id: `${prefix}-aitwo`,
+    name: "Airport Interplex Two, Inc.",
+    ownerPct: pct,
+    subOwners: [
+      // Held through his Trust Under Agreement, which survives him — the trust
+      // is the partner, and the K-1 goes to its trustee.
+      { id: `${prefix}-aitwo-bert4`, name: "Berton E. Korman", detailedName: "Berton E Korman TUA Dtd 02232018", address: "410 Lancaster Ave", city: "Haverford", state: "PA", zip: "19041", ownerPct: 0.333300 },
+      { id: `${prefix}-aitwo-stev1`, name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333300 },
+      { id: `${prefix}-aitwo-akgst`, name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
+      { id: `${prefix}-aitwo-cagst`, name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111100 },
+      { id: `${prefix}-aitwo-ssgst`, name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
+    ],
+  };
+}
+
+/** 0300 and 9200: the Inc. as GP, then The Korman Co and New Eastwick. */
+function eastwickAirportOwners(prefix: string): PropertyOwner[] {
   return [
-    {
-      // The corporate general partner — a half point, which is what a GP
-      // interest usually looks like.
-      id: `${prefix}-aitwo`,
-      name: "Airport Interplex Two, Inc.",
-      ownerPct: 0.005000,
-      // 99.990%, not 100%: the schedule rounds to three decimals and two thirds
-      // plus three ninths do not survive it. Keyed as it reads.
-      subOwners: [
-        // Held through his Trust Under Agreement, which survives him — the
-        // trust is the partner, and the K-1 goes to its trustee.
-        { id: `${prefix}-aitwo-bert4`, name: "Berton E. Korman", detailedName: "Berton E Korman TUA Dtd 02232018", address: "410 Lancaster Ave", city: "Haverford", state: "PA", zip: "19041", ownerPct: 0.333300 },
-        { id: `${prefix}-aitwo-stev1`, name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333300 },
-        { id: `${prefix}-aitwo-akgst`, name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
-        { id: `${prefix}-aitwo-cagst`, name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111100 },
-        { id: `${prefix}-aitwo-ssgst`, name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
-      ],
-    },
-    {
-      id: `${prefix}-kormanco`,
-      name: "The Korman Co",
-      ownerPct: 0.745000,
-      subOwners: kormanCoInvestors(`${prefix}-kc`),
-    },
-    {
-      id: `${prefix}-neweastwick`,
-      name: "New Eastwick Corporation",
-      ownerPct: 0.250000,
-      subOwners: [
-        { id: `${prefix}-ne-reynolds`, name: "Reynolds Metals Company", ownerPct: 0.904000 },
-        {
-          // The Korman Co again — 9.6% of New Eastwick, so a further 2.4% of
-          // the property. Carried so the chain is complete in the data even
-          // though the roster draws two tiers.
-          id: `${prefix}-ne-kormanco`,
-          name: "The Korman Co",
-          ownerPct: 0.096000,
-          subOwners: kormanCoInvestors(`${prefix}-ne-kc`),
-        },
-      ],
-    },
+    airportInterplexIncPartner(prefix, 0.005000),
+    kormanCoPartner(prefix, 0.745000),
+    newEastwickPartner(prefix, 0.250000),
   ];
+}
+
+/** 1500 Eastwick JV I: the same two companies, no GP interest. */
+function eastwickJvOneOwners(prefix: string): PropertyOwner[] {
+  return [kormanCoPartner(prefix, 0.750000), newEastwickPartner(prefix, 0.250000)];
 }
 
 export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
@@ -345,6 +360,18 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
     propertyCode: "0300",
     hasK1Distribution: true,
     owners: eastwickAirportOwners("k1-0300"),
+  },
+
+  {
+    // Eastwick JV I — the same two companies as 9200 and 0300, without the
+    // Airport Interplex Two GP interest. 75/25 rather than 74.5/25/0.5.
+    //
+    // The schedule's dollars ($401,544 + $133,848 = $535,392) tie exactly to
+    // what ENTITY_VALUES carries for 1500, so unlike the 0300/9200 sheet this
+    // one describes a single entity and nothing is double-counted.
+    propertyCode: "1500",
+    hasK1Distribution: true,
+    owners: eastwickJvOneOwners("k1-1500"),
   },
 
   {
