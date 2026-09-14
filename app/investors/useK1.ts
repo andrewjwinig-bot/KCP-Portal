@@ -13,7 +13,7 @@
 // so opening Investor Info doesn't fetch every partnership's documents.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { k1UploadError, MAX_K1_MB } from "@/lib/investors/k1Upload";
+import { k1UploadError, requestFilename, MAX_K1_MB } from "@/lib/investors/k1Upload";
 import type { K1Document } from "@/lib/investors/k1";
 import type { EmailDraft, SendOutcome, SendOptions } from "@/app/components/ShareLinkCard";
 
@@ -317,7 +317,12 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
           fd.append("property", code);
           fd.append("year", String(year));
           fd.append("ownerId", ownerId);
-          fd.append("file", file);
+          // The file goes up under a SHORT name and its real one travels as an
+          // ordinary field. A long filename was breaking uploads outright —
+          // three 0800 K-1s failed until the names were shortened by hand — so
+          // the request simply never carries a long one now.
+          fd.append("file", file, requestFilename(file.name));
+          fd.append("filename", file.name);
           const res = await fetch("/api/investor-k1", { method: "POST", body: fd });
           if (!res.ok) {
             // A body the platform refuses never reaches the route, so the
