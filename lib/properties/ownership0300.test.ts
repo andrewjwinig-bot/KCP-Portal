@@ -159,6 +159,22 @@ describe("the two are valued separately — the schedule totals them", () => {
   });
 });
 
+describe("properties that must accept K-1 uploads", () => {
+  it("4500 Grays Ferry is flagged — eleven partners, eleven K-1s", () => {
+    const p = PROPERTY_OWNERSHIP.find((x) => x.propertyCode === "4500")!;
+    expect(p.hasK1Distribution).toBe(true);
+    expect(p.owners).toHaveLength(11);
+  });
+
+  it("every flagged partnership has owners to upload against", () => {
+    // A property flagged with an empty roster would appear in the picker with
+    // nowhere to drop anything, and would read as permanently incomplete.
+    for (const p of PROPERTY_OWNERSHIP.filter((x) => x.hasK1Distribution)) {
+      expect(p.owners.length, p.propertyCode).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe("2300 Brookwood — two partners, two K-1s", () => {
   it("is flagged as distributing, or it is absent from the K-1 picker", () => {
     // The API offers only partnerships marked hasK1Distribution. Unflagged,

@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { HoverCard } from "@/app/components/HoverCard";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "../../lib/properties/ownership";
@@ -172,6 +173,47 @@ function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
   // what this table is for — you come here to find a named person's row.
   out.sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
   return out;
+}
+
+/**
+ * How many of a partnership's K-1s are in, on the roster row.
+ *
+ * The tag here said only that the property FILES K-1s — true of every flagged
+ * partnership, and therefore no help at all on a day you are chasing the last
+ * few. Complete reads as a tick; short reads as the count, so the gap is a
+ * number you can act on rather than a colour you have to interpret.
+ *
+ * Falls back to the plain tag until the summary lands, so the row never
+ * flickers through a wrong "0 of N".
+ */
+function K1Progress({ got, year }: { got?: { owners: number; uploaded: number }; year: number }) {
+  const base: React.CSSProperties = {
+    marginLeft: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+    padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap", border: "1px solid",
+  };
+  if (!got) {
+    return <span style={{ ...base, background: "rgba(15,118,110,0.08)", color: "#0f766e", borderColor: "rgba(15,118,110,0.25)" }}>K-1</span>;
+  }
+  const done = got.owners > 0 && got.uploaded >= got.owners;
+  return (
+    <HoverCard
+      title={`${year} K-1s`}
+      rows={[
+        { label: "Uploaded", value: String(got.uploaded), color: done ? "#15803d" : "#b45309" },
+        { label: "Partners", value: String(got.owners) },
+      ]}
+      footer={{ label: "", value: done ? "Every partner's K-1 is in." : `${got.owners - got.uploaded} still to collect.` }}
+    >
+      <span style={{
+        ...base,
+        background: done ? "rgba(22,163,74,0.10)" : "rgba(217,119,6,0.10)",
+        color: done ? "#15803d" : "#b45309",
+        borderColor: done ? "rgba(22,163,74,0.30)" : "rgba(217,119,6,0.30)",
+      }}>
+        {done ? "K-1 \u2713" : `K-1 ${got.uploaded}/${got.owners}`}
+      </span>
+    </HoverCard>
+  );
 }
 
 export default function InvestorInfoPage() {

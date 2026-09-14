@@ -1,6 +1,6 @@
 // Partnership-level tax documents — the rest of the return that arrives with
-// the K-1 batch: the Client Copy, the Government Copy, Estimated Tax Vouchers,
-// and the bound Partner K-1 Copy.
+// the K-1 batch: the Client Copy, the Government Copy, the bound Partner K-1
+// Copy, and — where the partnership owes them — Estimated Tax Vouchers.
 //
 // These are NOT circulated to investors. They belong to the partnership, they
 // carry every partner's allocation, and the Government Copy is the filed
@@ -11,12 +11,21 @@
 // by any token route even if one were pointed at the wrong collection. The
 // separation is structural, not a flag someone could flip.
 
-/** The four copies an accountant sends per partnership per year. */
+/**
+ * The four copies an accountant sends per partnership per year, IN THE ORDER
+ * THEY ARE SHOWN.
+ *
+ * Every partnership has a Client Copy, a Government Copy and a Partner K-1
+ * Copy; only a few owe estimates. So the three that are always expected sit
+ * together and the vouchers come last — otherwise the common run of documents
+ * is broken by a slot that is legitimately empty most of the time, and an
+ * empty slot in the middle reads like something missing.
+ */
 export const TAX_DOC_KINDS = [
   { id: "client", label: "Client Copy", note: "The partnership's own copy of the return." },
   { id: "government", label: "Government Copy", note: "The copy as filed." },
-  { id: "vouchers", label: "Estimated Tax Vouchers", note: "Next year's estimates." },
   { id: "partner-k1", label: "Partner K-1 Copy", note: "All partners' K-1s bound together — not for circulation." },
+  { id: "vouchers", label: "Estimated Tax Vouchers", note: "Next year's estimates — only where the partnership owes them." },
 ] as const;
 
 export type TaxDocKind = (typeof TAX_DOC_KINDS)[number]["id"];

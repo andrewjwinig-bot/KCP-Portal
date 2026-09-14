@@ -151,6 +151,11 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
   // was reported entirely off-screen: the cell went back to MISSING and looked
   // like nothing had happened. The row needs to say it itself.
   const [uploadError, setUploadError] = useState<{ ownerId: string; message: string } | null>(null);
+  // How many K-1s are in per partnership, for EVERY partnership at once. The
+  // roster otherwise says only that a property files K-1s, so finding the one
+  // still short of a few meant opening every card in turn.
+  const [summary, setSummary] = useState<Record<string, { owners: number; uploaded: number }>>({});
+  const summaryYear = thisYear - 1;
   const [selection, setSelection] = useState<Record<string, Set<string>>>({});
   const [busyCode, setBusyCode] = useState<string | null>(null);
   const [uploading, setUploading] = useState<{ code: string; ownerId: string } | null>(null);
@@ -158,6 +163,18 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
   const [interests, setInterests] = useState<Record<string, K1Interest[]>>({});
   // Keyed `<code>@<year>` so changing the year refetches, but re-renders don't.
   const loaded = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    void (async () => {
+      const r = await fetch(`/api/investor-k1?summary=1&year=${summaryYear}`).then((x) => x.json()).catch(() => null);
+      if (!alive || !r?.properties) return;
+      setSummary(Object.fromEntries(r.properties.map((p: { code: string; owners: number; uploaded: number }) =>
+        [p.code, { owners: p.owners, uploaded: p.uploaded }])));
+    })();
+    return () => { alive = false; };
+  }, [enabled, summaryYear]);
 
   const yearOf = useCallback((code: string) => years[code] ?? thisYear - 1, [years]);
 
@@ -510,5 +527,8 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
     };
   }, [interests, busyCode, errors, loadInvestor]);
 
-  return { slice, batch, clearBatch: () => setBatch(null), ensureInvestor, investorSlice };
+  return {
+    /** Per-partnership K-1 collection progress for the roster's tick. */
+    summary,
+    summaryYear, slice, batch, clearBatch: () => setBatch(null), ensureInvestor, investorSlice };
 }
