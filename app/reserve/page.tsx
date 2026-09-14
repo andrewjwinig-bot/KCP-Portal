@@ -6,6 +6,8 @@ import { Calendar } from "@/app/components/Calendar";
 
 // Public conference-room reservation form. Matches the look of /submit.
 
+// The public marketing site these forms are reached from.
+const SITE_URL = "https://kormancommercial.com";
 const NAVY = "#0e2238";
 const NAVY_DEEP = "#0a1a2c";
 const LINE = "rgba(14,34,56,0.18)";
@@ -307,8 +309,18 @@ function KormanHeader() {
       background: NAVY_DEEP, padding: "22px 24px",
       display: "flex", alignItems: "center", justifyContent: "center",
       borderBottom: "1px solid rgba(255,255,255,0.06)",
+      position: "relative",
     }}>
-      <Wordmark color="#fff" />
+      <a className="brand-back" href={SITE_URL} aria-label="Back to kormancommercial.com">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        <span>kormancommercial.com</span>
+      </a>
+      <a href={SITE_URL} aria-label="Korman Commercial Properties home" style={{ display: "inline-flex", textDecoration: "none", color: "inherit" }}>
+        <Wordmark color="#fff" />
+      </a>
     </header>
   );
 }
@@ -319,7 +331,9 @@ function KormanFooter() {
       display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
       color: MUTED, fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase",
     }}>
-      <Wordmark color={NAVY} small />
+      <a href={SITE_URL} aria-label="Korman Commercial Properties home" style={{ display: "inline-flex", textDecoration: "none", color: "inherit" }}>
+        <Wordmark color={NAVY} small />
+      </a>
       <span>&copy; {new Date().getFullYear()} Korman Commercial Properties</span>
     </footer>
   );
