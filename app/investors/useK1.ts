@@ -155,6 +155,12 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
   // roster otherwise says only that a property files K-1s, so finding the one
   // still short of a few meant opening every card in turn.
   const [summary, setSummary] = useState<Record<string, { owners: number; uploaded: number }>>({});
+  // The owner ids that have a K-1 in for the summary year. Same fetch, but
+  // counted per PERSON rather than per partnership — By Investor needs to say
+  // how many of one investor's own K-1s are collected, which the per-property
+  // counts cannot answer. `null` until it loads, so a row can stay quiet
+  // rather than claiming none are in.
+  const [k1Owners, setK1Owners] = useState<Set<string> | null>(null);
   const summaryYear = thisYear - 1;
   const [selection, setSelection] = useState<Record<string, Set<string>>>({});
   const [busyCode, setBusyCode] = useState<string | null>(null);
@@ -172,6 +178,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       if (!alive || !r?.properties) return;
       setSummary(Object.fromEntries(r.properties.map((p: { code: string; owners: number; uploaded: number }) =>
         [p.code, { owners: p.owners, uploaded: p.uploaded }])));
+      if (Array.isArray(r.ownerIds)) setK1Owners(new Set<string>(r.ownerIds));
     })();
     return () => { alive = false; };
   }, [enabled, summaryYear]);
@@ -535,5 +542,6 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
   return {
     /** Per-partnership K-1 collection progress for the roster's tick. */
     summary,
+    k1Owners,
     summaryYear, slice, batch, clearBatch: () => setBatch(null), ensureInvestor, investorSlice };
 }

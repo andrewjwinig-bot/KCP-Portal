@@ -17,6 +17,7 @@ import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/prope
 import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../../lib/investors/structures";
 import { canEditOwnership, canManageK1 } from "../../lib/users";
 import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults, K1InvestorCells, K1EmailCell, K1InvestorShare } from "./K1Panel";
+import { k1CountFor } from "@/lib/investors/k1Counts";
 import { useK1Registry } from "./useK1";
 import { PartnershipTaxDocs } from "@/app/components/PartnershipTaxDocs";
 import { useUser } from "../components/UserProvider";
@@ -191,25 +192,31 @@ function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
  * The grey fallback matters: until the summary arrives the honest thing is to
  * say nothing about completeness, and the old teal said "done" by accident.
  */
+const K1_PILL: React.CSSProperties = {
+  fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+  padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap", border: "1px solid",
+};
+const K1_TONE_PENDING = { bg: "rgba(15,23,42,0.05)", fg: "#64748b", bd: "rgba(15,23,42,0.15)" };
+
+/** Green ONLY when every one is in — the same rule wherever a K-1 count shows. */
+function k1Tone(uploaded: number, total: number) {
+  if (total > 0 && uploaded >= total) return { bg: "rgba(22,163,74,0.10)", fg: "#15803d", bd: "rgba(22,163,74,0.30)" };
+  if (uploaded === 0) return { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", bd: "rgba(220,38,38,0.30)" };
+  return { bg: "rgba(217,119,6,0.12)", fg: "#b45309", bd: "rgba(217,119,6,0.35)" };
+}
+
 function K1Progress({ got, year }: { got?: { owners: number; uploaded: number }; year: number }) {
-  const base: React.CSSProperties = {
-    marginLeft: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-    padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap", border: "1px solid",
-  };
+  const base: React.CSSProperties = { ...K1_PILL, marginLeft: 8 };
   if (!got) {
     return (
-      <span style={{ ...base, background: "rgba(15,23,42,0.05)", color: "#64748b", borderColor: "rgba(15,23,42,0.15)" }}>
+      <span style={{ ...base, background: K1_TONE_PENDING.bg, color: K1_TONE_PENDING.fg, borderColor: K1_TONE_PENDING.bd }}>
         K-1
       </span>
     );
   }
   const done = got.owners > 0 && got.uploaded >= got.owners;
   const none = got.uploaded === 0;
-  const tone = done
-    ? { bg: "rgba(22,163,74,0.10)", fg: "#15803d", bd: "rgba(22,163,74,0.30)" }
-    : none
-      ? { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", bd: "rgba(220,38,38,0.30)" }
-      : { bg: "rgba(217,119,6,0.12)", fg: "#b45309", bd: "rgba(217,119,6,0.35)" };
+  const tone = k1Tone(got.uploaded, got.owners);
   const left = got.owners - got.uploaded;
   return (
     <HoverCard
@@ -227,6 +234,64 @@ function K1Progress({ got, year }: { got?: { owners: number; uploaded: number };
     >
       <span style={{ ...base, background: tone.bg, color: tone.fg, borderColor: tone.bd }}>
         {done ? "K-1 \u2713" : `K-1 ${got.uploaded}/${got.owners}`}
+      </span>
+    </HoverCard>
+  );
+}
+
+/**
+ * How many K-1s ONE INVESTOR receives, and how many of them are in.
+ *
+ * A person holding four interests gets four separate documents, and the
+ * per-property counts cannot tell you how many of HERS are collected: each of
+ * those four partnerships can be nearly complete while every one of the
+ * missing K-1s is hers. So the count is per person — which is the question
+ * actually asked on the phone, and the one this column exists to answer.
+ *
+ * Only interests in partnerships that DISTRIBUTE K-1s count. An investor also
+ * holding a stake in a property that issues none has fewer K-1s than
+ * properties, and saying "4" against three documents is how someone ends up
+ * hunting for a K-1 that was never going to arrive. Where none of an
+ * investor's holdings distribute, the cell is a dash rather than a zero.
+ *
+ * Green is the same rule as the property pill: every one in, nothing else.
+ */
+function K1InvestorCount({
+  expected, collected, year, missing,
+}: {
+  expected: number;
+  /** null until the summary loads — quiet rather than claiming none are in. */
+  collected: number | null;
+  year: number;
+  /** The partnerships still outstanding, for the hover. */
+  missing: string[];
+}) {
+  if (expected === 0) return <span style={{ color: "var(--muted)" }}>&mdash;</span>;
+  if (collected === null) {
+    return (
+      <span style={{ ...K1_PILL, background: K1_TONE_PENDING.bg, color: K1_TONE_PENDING.fg, borderColor: K1_TONE_PENDING.bd }}>
+        {expected}
+      </span>
+    );
+  }
+  const done = collected >= expected;
+  const tone = k1Tone(collected, expected);
+  return (
+    <HoverCard
+      title={`${year} K-1s`}
+      rows={[
+        { label: "Uploaded", value: String(collected), color: tone.fg },
+        { label: "Receives", value: `${expected} ${expected === 1 ? "K-1" : "separate K-1s"}` },
+      ]}
+      footer={{
+        label: "",
+        value: done
+          ? "Every one of this investor's K-1s is in."
+          : `Still to collect: ${missing.join(", ")}.`,
+      }}
+    >
+      <span style={{ ...K1_PILL, background: tone.bg, color: tone.fg, borderColor: tone.bd }}>
+        {done ? `${expected} \u2713` : `${collected}/${expected}`}
       </span>
     </HoverCard>
   );
@@ -1349,6 +1414,7 @@ export default function InvestorInfoPage() {
                 <tr>
                   <th style={thL}>Investor</th>
                   <th style={th}>Properties</th>
+                  {canK1 && <th style={th} className="no-print">K1s</th>}
                   <th style={th}>Year-end $</th>
                   <th style={th}>Estimated $</th>
                   <th style={{ ...thL, width: 1 }} aria-label="Actions" />
@@ -1367,6 +1433,17 @@ export default function InvestorInfoPage() {
                     const frac = ownershipFor(r.investor) ?? 0;
                     return { ye: a.ye + (p ? frac * p.ye : 0), est: a.est + (p ? frac * p.est : 0) };
                   }, { ye: 0, est: 0 });
+                  // How many K-1s this person receives, and how many are in.
+                  // Counted per PERSON — the partnership summary is taken along
+                  // a different axis and cannot answer it.
+                  const k1c = k1CountFor(
+                    agg.rows.map((r) => ({
+                      propertyCode: r.holding.propertyCode,
+                      hasK1Distribution: r.holding.hasK1Distribution,
+                      ownerId: r.investor.id,
+                    })),
+                    k1reg.k1Owners,
+                  );
                   return (
                     <Fragment key={agg.key}>
                       <tr
@@ -1381,6 +1458,16 @@ export default function InvestorInfoPage() {
                           <span style={{ fontWeight: 700, fontSize: 14.5 }}>{agg.name}</span>
                         </td>
                         <td style={{ ...td, color: "var(--muted)" }}>{agg.rows.length}</td>
+                        {canK1 && (
+                          <td style={td} className="no-print" onClick={(e) => e.stopPropagation()}>
+                            <K1InvestorCount
+                              expected={k1c.expected}
+                              collected={k1c.collected}
+                              year={k1reg.summaryYear}
+                              missing={k1c.missing}
+                            />
+                          </td>
+                        )}
                         <td style={td}>{money0(totals.ye)}</td>
                         <td style={{ ...td, fontWeight: 700 }}>{money0(totals.est)}</td>
                         {/* Actions live in the row, not a card header — but a click
@@ -1405,7 +1492,7 @@ export default function InvestorInfoPage() {
                       </tr>
                       {open && (
                         <tr>
-                          <td colSpan={6} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
+                          <td colSpan={canK1 ? 7 : 6} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
                       {/* The hub. An investor's details belong on the investor,
                           not spread over the Statement of Values tab and the
                           inside of a share popover. */}
@@ -1509,7 +1596,7 @@ export default function InvestorInfoPage() {
                   {/* Deliberately no totals: an investor holds a share of a
                       property, and two investors in the same property would
                       have their slices added to something that is not a figure. */}
-                  <td colSpan={5} />
+                  <td colSpan={canK1 ? 6 : 5} />
                 </tr>
               </tfoot>
             </table>
