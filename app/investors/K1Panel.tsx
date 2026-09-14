@@ -16,7 +16,7 @@
 // server-side, so the gate here is about not showing a control.
 
 import { useState } from "react";
-import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
+import { Pill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { DocChip } from "@/app/components/DocChip";
 import { YearSelect } from "@/app/components/YearSelect";
@@ -43,33 +43,25 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
 
   return (
     <div style={{ borderTop: "1px solid var(--border)", background: "rgba(15,118,110,0.04)", padding: "13px 16px 14px" }}>
+      {/* Title and year only.
+          The three KPI tiles that sat here are gone: "K-1s uploaded" and
+          "Still to collect" are the SAME number the roster row's pill carries
+          while collapsed, and "Links shared" is the Portal column on each row.
+          Three tiles restating what is already on screen cost a band of height
+          on every open card and pushed the roster — the thing you came to use —
+          below the fold.
+          "Preview investor view" is gone too: the per-investor preview sits on
+          the share card, where it shows THAT investor's page rather than a
+          fabricated sample.
+          The instructions are gone because the rows say it themselves — a
+          MISSING cell is the drop target, and the send confirm states that
+          sending is what publishes. */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ ...SECTION_LABEL, color: TEAL }}>Schedule K-1s</div>
-          <div className="muted small" style={{ marginTop: 3 }}>
-            Drop each investor&rsquo;s PDF on their row below, then send. Sending is what makes a
-            K-1 visible — nothing is readable until you send it.
-          </div>
-        </div>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <a href="/investor/preview" target="_blank" rel="noopener noreferrer" className="btn"
-            title="See exactly what an investor sees — sample data, nothing sent"
-            style={{ fontSize: 12, padding: "5px 10px", fontWeight: 700, textDecoration: "none" }}>
-            Preview investor view
-          </a>
-          <YearSelect value={k1.year} years={k1.years} onChange={k1.setYear} small aria-label="Tax year" />
-        </div>
+        <div style={{ ...SECTION_LABEL, color: TEAL }}>Schedule K-1s</div>
+        <YearSelect value={k1.year} years={k1.years} onChange={k1.setYear} small aria-label="Tax year" />
       </div>
 
       {k1.error && <div style={{ marginTop: 10, color: "#b91c1c", fontSize: 12.5, fontWeight: 600 }}>{k1.error}</div>}
-
-      <div className="pills" style={{ flexWrap: "wrap", justifyContent: "flex-start", marginTop: 11 }}>
-        <StatPill label="K-1s uploaded" value={`${k1.uploadedCount}/${k1.ownerCount}`} sub={`${k1.year} tax year`}
-          accent={k1.ownerCount && k1.uploadedCount === k1.ownerCount ? "#15803d" : "#b45309"} />
-        <StatPill label="Still to collect" value={k1.missingCount} sub={k1.missingCount === 1 ? "investor" : "investors"}
-          accent={k1.missingCount ? "#b45309" : undefined} />
-        <StatPill label="Links shared" value={k1.linkCount} sub={`${k1.openedCount} opened`} />
-      </div>
 
       {/* K-1s left behind by a roster change. They belong to no row, so without
           this they are invisible AND undeletable — a PDF carrying a taxpayer ID
@@ -109,13 +101,10 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
       )}
 
       {/* Bulk send. Only offered once something is publishable, because a link
-          can't be minted for an owner whose K-1 isn't published. */}
+          can't be minted for an owner whose K-1 isn't published.
+          Select-all sits WITH the send buttons rather than across the row from
+          them: it is the first half of that action, not a separate control. */}
       <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", marginTop: 12 }}>
-        <button className="btn" disabled={k1.busy || selectable.length === 0}
-          onClick={() => k1.setSelected(allChosen ? [] : selectable)}
-          style={{ fontSize: 12, padding: "5px 10px", fontWeight: 700 }}>
-          {allChosen ? "Clear selection" : `Select all ${selectable.length || ""}`.trim()}
-        </button>
         <span className="muted small">
           {selectable.length === 0
             ? "Upload a K-1 to enable sending."
@@ -126,6 +115,11 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
             <span style={{ color: "#b91c1c", fontWeight: 700 }}> · {k1.selectedWithoutEmail.length} with no email</span>
           )}
         </span>
+        <button className="btn" disabled={k1.busy || selectable.length === 0}
+          onClick={() => k1.setSelected(allChosen ? [] : selectable)}
+          style={{ fontSize: 12, padding: "5px 10px", fontWeight: 700, marginLeft: "auto" }}>
+          {allChosen ? "Clear selection" : `Select all ${selectable.length || ""}`.trim()}
+        </button>
         <button className="btn primary" disabled={k1.busy || chosen.length === 0}
           onClick={() => {
             const missing = k1.selectedWithoutEmail;
@@ -136,13 +130,18 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
               k1.share(chosen, true);
             }
           }}
-          style={{ fontSize: 12, padding: "5px 11px", fontWeight: 700, marginLeft: "auto" }}>
+          style={{ fontSize: 12, padding: "5px 11px", fontWeight: 700 }}>
           Email {chosen.length || ""} selected
         </button>
+        {/* NOT a step before emailing — that prerequisite is gone, and Email
+            mints the links on its way. This is the other way OUT: it creates
+            the links and sends nothing, so you can copy them and send them
+            yourself. It is the only route that works for an investor with no
+            address on file, which is currently most of them. */}
         <button className="btn" disabled={k1.busy || chosen.length === 0} onClick={() => k1.share(chosen, false)}
-          title="Create the links without emailing — you send them yourself"
+          title="Creates the links and sends no email — copy them and send them yourself. Use this for investors with no address on file."
           style={{ fontSize: 12, padding: "5px 10px" }}>
-          Links only
+          Create links, don&rsquo;t email
         </button>
       </div>
     </div>
