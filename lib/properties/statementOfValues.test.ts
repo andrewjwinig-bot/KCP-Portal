@@ -22,7 +22,14 @@ describe("statement of values — entity snapshot", () => {
   });
 
   it("portfolio equity totals the reconciled ~$112.1M", () => {
-    expect(Math.round(totalEquityValue())).toBe(112141554);
+    // Was 112,141,554 until 9200's double count came out. The master workbook
+    // carried 402,210 against Eastwick Development JV XII, which is that
+    // entity (396,227) and AIRPORT INTERPLEX TWO, INC. (5,983) TOGETHER — the
+    // two share one ownership schedule and it totals them. 0300 is also its own
+    // row, so its 5,983 was counted twice and the portfolio read that much
+    // high. Confirmed by the owner.
+    expect(Math.round(totalEquityValue())).toBe(112135571);
+    expect(112141554 - 112135571).toBe(entityValue("0300")!.equityValue);
   });
 });
 

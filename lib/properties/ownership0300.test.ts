@@ -2,7 +2,10 @@ import { describe, it, expect } from "vitest";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "./ownership";
 import { ownerSections } from "@/app/investors/ownerSections";
 
+import { entityValue } from "./entityValues";
+
 const p0300 = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "0300")!;
+const p9200 = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "9200")!;
 const byId = (id: string) => p0300.owners.find((o) => o.id === id)!;
 
 describe("Airport Interplex Two (0300) — entities own it, investors sit beneath", () => {
@@ -105,5 +108,53 @@ describe("Airport Interplex Two (0300) — entities own it, investors sit beneat
     // already sits on the roster under his name at 7010.
     const tua = byId("k1-0300-aitwo").subOwners!.find((o) => o.detailedName?.includes("TUA"))!;
     expect(tua.name).toBe("Berton E. Korman");
+  });
+});
+
+describe("9200 Eastwick Development JV XII — the same chain, its own rows", () => {
+  it("carries the identical ownership structure", () => {
+    // The two share one ownership schedule because they share one chain, which
+    // is why the structure is built once and stamped onto both.
+    const shape = (p: typeof p0300) =>
+      p.owners.map((o) => [o.name, o.ownerPct, (o.subOwners ?? []).map((s) => [s.name, s.ownerPct])]);
+    expect(shape(p9200)).toEqual(shape(p0300));
+    expect(p9200.hasK1Distribution).toBe(true);
+  });
+
+  it("gives every row its OWN id — the two issue their own K-1s", () => {
+    // An id is a K-1 upload target and a Filing Tracker key. Shared ids would
+    // put one property's K-1 on the other's row.
+    const ids = (p: typeof p0300): string[] =>
+      p.owners.flatMap(function walk(o): string[] {
+        return [o.id, ...(o.subOwners ?? []).flatMap(walk)];
+      });
+    const a = ids(p0300), b = ids(p9200);
+    expect(a.length).toBeGreaterThan(20);
+    expect(a.length).toBe(b.length);
+    expect(a.some((id) => b.includes(id))).toBe(false);
+    expect(new Set([...a, ...b]).size).toBe(a.length + b.length);
+    expect(a.every((id) => id.startsWith("k1-0300"))).toBe(true);
+    expect(b.every((id) => id.startsWith("k1-9200"))).toBe(true);
+  });
+});
+
+describe("the two are valued separately — the schedule totals them", () => {
+  it("9200 carries its own equity, not the pair's", () => {
+    // The ownership schedule prints one set of dollars totalling $402,210,
+    // which is BOTH entities. Carried as 402,210 against 9200, the portfolio
+    // double-counted 0300's 5,983 — 0300 being its own row as well.
+    expect(entityValue("9200")!.equityValue).toBe(396227);
+    expect(entityValue("0300")!.equityValue).toBe(5983);
+  });
+
+  it("and the two still reconcile to the schedule's total", () => {
+    const pair = entityValue("9200")!.equityValue! + entityValue("0300")!.equityValue!;
+    expect(pair).toBe(402210);
+    // The schedule's per-partner dollars are that combined figure split by the
+    // shared percentages — which is what makes them the pair's, not either
+    // one's, and why none of them is imported onto an owner row.
+    expect(Math.round(pair * 0.005)).toBe(2011);
+    expect(Math.round(pair * 0.745)).toBe(299646);
+    expect(Math.round(pair * 0.25)).toBe(100553);
   });
 });
