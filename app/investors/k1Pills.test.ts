@@ -137,3 +137,24 @@ describe("the K-1 card header carries only what is not elsewhere", () => {
     expect(panel).toContain("sends no email");
   });
 });
+
+// Chrome that told the reader nothing they could act on.
+describe("the page doesn't explain itself to itself", () => {
+  it("no source-code paths are shown to staff", () => {
+    // "Source: lib/properties/ownership.ts" is a note to whoever maintains the
+    // page, and it was the last line of every view.
+    expect(page).not.toContain("lib/properties/ownership.ts");
+    expect(page).not.toContain("lib/properties/entityValues.ts");
+  });
+
+  it("no subtitle counting the rows the table is about to show", () => {
+    expect(page).not.toContain("unique investor");
+    expect(page).not.toContain("Ownership detail across properties");
+  });
+
+  it("but the statement still states its BASIS", () => {
+    // A value there is a share of an entity's equity at a fixed snapshot, not
+    // a market quote — a real caveat for anyone quoting a figure.
+    expect(page).toContain("effective % of the entity");
+  });
+});
