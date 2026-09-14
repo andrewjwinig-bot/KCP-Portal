@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { PROPERTY_OWNERSHIP, type PropertyOwner } from "./ownership";
+import { PROPERTY_DEFS } from "./data";
 import { ownerSections } from "@/app/investors/ownerSections";
 
 import { entityValue } from "./entityValues";
@@ -238,5 +239,42 @@ describe("1500 Eastwick JV I — the same companies, no GP interest", () => {
     const steven = kc.subOwners!.find((o) => o.name === "Steven H. Korman")!;
     // A third of 75% is 25% of the property — not 33%.
     expect(steven.ownerPct! * kc.ownerPct!).toBeCloseTo(0.25, 6);
+  });
+});
+
+describe("4510 Grays Ferry SC Assoc., Inc. — a GP that files its own return", () => {
+  const p4510 = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "4510")!;
+
+  it("takes K-1 uploads for its five shareholders", () => {
+    // It sits inside 4500 as a 0.10% owner, and a sub-owner is not an upload
+    // target — so without a roster of its own there was nowhere to drop these.
+    expect(p4510.hasK1Distribution).toBe(true);
+    expect(p4510.owners).toHaveLength(5);
+    expect(p4510.owners.map((o) => o.ownerPct)).toEqual([0.333333, 0.333333, 0.111111, 0.111111, 0.111111]);
+    expect(p4510.owners.every((o) => !o.subOwners)).toBe(true);
+  });
+
+  it("carries its own display name, because it is not a property", () => {
+    // It owns no real estate and is deliberately absent from PROPERTY_DEFS, so
+    // the roster and the K-1 picker read this label instead of a bare "4510".
+    expect(p4510.propertyName).toBe("Grays Ferry SC Assoc., Inc. (GP)");
+    expect(PROPERTY_DEFS.some((d) => d.id === "4510")).toBe(false);
+  });
+
+  it("is NOT valued separately — that would double-count 4500", () => {
+    // Its $9,682 is 0.10% of Grays Ferry's $9,681,628 and already sits inside
+    // it. A row of its own is exactly what 9200 did to 0300.
+    expect(entityValue("4510")).toBeUndefined();
+    const gp = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "4500")!
+      .owners.find((o) => o.name.startsWith("GRAYS FERRY SC ASSOC"))!;
+    expect(gp.ownerPct).toBe(0.001);
+    expect(Math.round(entityValue("4500")!.equityValue! * gp.ownerPct!)).toBe(9682);
+  });
+
+  it("names its shareholders the way the rest of the roster does", () => {
+    const elsewhere = new Set(
+      PROPERTY_OWNERSHIP.filter((p) => p.propertyCode !== "4510").flatMap((p) => p.owners.map((o) => o.name)),
+    );
+    for (const o of p4510.owners) expect(elsewhere, o.name).toContain(o.name);
   });
 });
