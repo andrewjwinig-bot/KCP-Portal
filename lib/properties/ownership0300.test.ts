@@ -1,56 +1,109 @@
 import { describe, it, expect } from "vitest";
-import { PROPERTY_OWNERSHIP } from "./ownership";
+import { PROPERTY_OWNERSHIP, type PropertyOwner } from "./ownership";
+import { ownerSections } from "@/app/investors/ownerSections";
 
 const p0300 = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "0300")!;
+const byId = (id: string) => p0300.owners.find((o) => o.id === id)!;
 
-describe("Airport Interplex Two (0300) — its own shareholders", () => {
-  it("is on the roster and flagged as distributing K-1s", () => {
-    expect(p0300).toBeTruthy();
+describe("Airport Interplex Two (0300) — entities own it, investors sit beneath", () => {
+  it("has THREE partners, and they are entities — not the people", () => {
+    // The correction this entry exists for. Keyed flat at first, which read as
+    // though each person were a direct partner of the property. None is: they
+    // hold through three different companies at three different rates.
     expect(p0300.hasK1Distribution).toBe(true);
-    expect(p0300.owners).toHaveLength(5);
+    expect(p0300.owners.map((o) => o.name)).toEqual([
+      "Airport Interplex Two, Inc.",
+      "The Korman Co",
+      "New Eastwick Corporation",
+    ]);
+    expect(p0300.owners.map((o) => o.ownerPct)).toEqual([0.005, 0.745, 0.25]);
   });
 
-  it("carries the percentages the schedule states, gap and all", () => {
-    // 99.990%, not 100%. The source rounds to three decimals and two thirds
-    // plus three ninths do not survive that. Keyed as the document reads —
-    // inventing precision it does not have is how a percentage goes wrong.
+  it("the three partners account for the whole property", () => {
     const total = p0300.owners.reduce((t, o) => t + (o.ownerPct ?? 0), 0);
-    expect(Math.round(total * 1e6) / 1e6).toBe(0.9999);
-    expect(p0300.owners.map((o) => o.ownerPct)).toEqual([0.3333, 0.3333, 0.1111, 0.1111, 0.1111]);
+    expect(Math.round(total * 1e6) / 1e6).toBe(1);
   });
 
-  it("names each holder the way the rest of the roster names them", () => {
-    // These five all hold interests elsewhere. One link per investor matches
-    // by NAME across the whole roster, so a variant spelling here would mint a
-    // second link for someone who already has one.
-    const namesElsewhere = new Set(
+  it("every partner collapses to its own investors", () => {
+    for (const o of p0300.owners) expect(o.subOwners?.length, o.name).toBeGreaterThan(0);
+    expect(byId("k1-0300-aitwo").subOwners).toHaveLength(5);
+    expect(byId("k1-0300-kormanco").subOwners).toHaveLength(6);
+    expect(byId("k1-0300-neweastwick").subOwners).toHaveLength(2);
+  });
+
+  it("renders as three bands, biggest first, with nothing loose", () => {
+    // The screenshot's shape: an entity heads each band with its share of the
+    // property and its investors beneath. No "Other investors" section here,
+    // because no person holds the property directly.
+    const secs = ownerSections(p0300.owners);
+    expect(secs.map((s) => s.entity?.name)).toEqual([
+      "The Korman Co",
+      "New Eastwick Corporation",
+      "Airport Interplex Two, Inc.",
+    ]);
+    expect(secs.some((s) => s.label === "Other investors")).toBe(false);
+    expect(secs.map((s) => s.frac)).toEqual([0.745, 0.25, 0.005]);
+  });
+
+  it("a sub-owner's % is a share of ITS ENTITY, never of the property", () => {
+    // The trap this modelling exists to avoid. Steven holds a third of The
+    // Korman Co, which is 74.5% of the property — so 24.8% of it, not 33%.
+    const steven = byId("k1-0300-kormanco").subOwners!.find((o) => o.name === "Steven H. Korman")!;
+    expect(steven.ownerPct).toBeCloseTo(0.333333, 6);
+    expect(steven.ownerPct! * byId("k1-0300-kormanco").ownerPct!).toBeCloseTo(0.248333, 6);
+  });
+
+  it("each entity's investors sum to its own 100%", () => {
+    const sum = (o: PropertyOwner) => (o.subOwners ?? []).reduce((t, s) => t + (s.ownerPct ?? 0), 0);
+    expect(Math.round(sum(byId("k1-0300-kormanco")) * 1e6) / 1e6).toBe(1);
+    expect(Math.round(sum(byId("k1-0300-neweastwick")) * 1e6) / 1e6).toBe(1);
+    // …except the Inc., whose schedule rounds to three decimals: two thirds
+    // plus three ninths land on 99.990%. Keyed as the document reads.
+    expect(Math.round(sum(byId("k1-0300-aitwo")) * 1e6) / 1e6).toBe(0.9999);
+  });
+
+  it("carries the third tier — The Korman Co inside New Eastwick", () => {
+    // 9.6% of New Eastwick's 25% is another 2.4% of the property held by the
+    // same company. Stored so the chain is complete even though the roster
+    // draws two tiers.
+    const ne = byId("k1-0300-neweastwick");
+    const kc = ne.subOwners!.find((o) => o.name === "The Korman Co")!;
+    expect(kc.ownerPct).toBe(0.096);
+    expect(kc.subOwners).toHaveLength(6);
+    expect(Math.round(kc.ownerPct! * ne.ownerPct! * 1e6) / 1e6).toBe(0.024);
+    // Reynolds Metals is an outside partner with nobody behind it.
+    expect(ne.subOwners!.find((o) => o.name === "Reynolds Metals Company")!.subOwners).toBeUndefined();
+  });
+
+  it("names each person the way the rest of the roster names them", () => {
+    // One link per investor matches by NAME across every partnership, so a
+    // variant spelling would mint a second link for someone who has one.
+    const elsewhere = new Set(
       PROPERTY_OWNERSHIP.filter((p) => p.propertyCode !== "0300").flatMap((p) => p.owners.map((o) => o.name)),
     );
-    for (const o of p0300.owners) expect(namesElsewhere, o.name).toContain(o.name);
-  });
-
-  it("keeps the trust each interest is held through", () => {
-    // Four of the five are held through a trust, and "Held as" is what tells
-    // two rows bearing the same person's name apart.
-    expect(p0300.owners.filter((o) => o.detailedName)).toHaveLength(4);
-    expect(p0300.owners.map((o) => o.detailedName ?? "")).toEqual([
-      "Berton E Korman TUA Dtd 02232018",
-      "",
-      "Leonard I Korman GST Subject TR FBO Alison Feldman",
-      "Leonard I Korman GST Subject TR FBO Catherine Altman",
-      "Leonard I Korman GST Subject TR FBO Susan Schurr",
-    ]);
-  });
-
-  it("imports no dollar figures from the schedule", () => {
-    // The dollars beside these names on the source are each holder's slice of
-    // the Inc.'s $2,011 stake in Eastwick JV XII (9200) — the schedule's actual
-    // subject — not their share of this entity. Carrying them over would state
-    // another property's numbers as this one's.
-    for (const o of p0300.owners) {
-      expect(o).not.toHaveProperty("value");
-      expect(o.profitPct).toBeUndefined();
-      expect(o.capitalPct).toBeUndefined();
+    const PEOPLE = ["Berton E. Korman", "Steven H. Korman", "Alison Korman Feldman", "Catherine Korman Altman", "Susan Korman Schurr"];
+    const named = new Set(p0300.owners.flatMap((o) => o.subOwners ?? []).map((o) => o.name));
+    for (const n of PEOPLE) {
+      expect(named, n).toContain(n);
+      expect(elsewhere, n).toContain(n);
     }
+  });
+
+  it("leaves the two Berton trusts as TRUSTS, not attributed to a person", () => {
+    // A judgement worth stating rather than burying. On the schedule the
+    // beneficiary column names a person for the GST Subject trusts ("ALISON
+    // KORMAN FELDMAN") but simply repeats the trust for these two — so the
+    // document does not say whose interest they are, and guessing Berton
+    // would group them into his single investor link and put two more K-1s
+    // behind it. Keyed as the schedule reads; change only on instruction.
+    const kc = byId("k1-0300-kormanco").subOwners!;
+    const trusts = kc.filter((o) => /Berton E Korman (2012 Family Trust|Irrev)/.test(o.name));
+    expect(trusts).toHaveLength(2);
+    for (const t of trusts) expect(t.detailedName).toBeUndefined();
+
+    // Berton's own TUA, by contrast, IS attributed to him — that exact trust
+    // already sits on the roster under his name at 7010.
+    const tua = byId("k1-0300-aitwo").subOwners!.find((o) => o.detailedName?.includes("TUA"))!;
+    expect(tua.name).toBe("Berton E. Korman");
   });
 });
