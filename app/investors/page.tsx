@@ -31,7 +31,18 @@ import { Select } from "../components/YearSelect";
 
 type ContactOverrides = Record<string, Partial<OwnerContact>>;
 
-type View = "property" | "investor" | "statement";
+/**
+ * Two views, not three.
+ *
+ * "Statement of Values" was a third tab holding two unrelated things: the
+ * portfolio's ENTITY VALUATIONS (NOI, cap rate, indicated value, debt, equity
+ * — with the estimates editor), and ONE INVESTOR's statement. Each already had
+ * a home. The valuations are the detail behind the Year-end $ and Estimated $
+ * columns on By Property, so they sit at the foot of that view; an investor's
+ * statement is about that person, so it opens inside their own row on By
+ * Investor, reached from the SOV column.
+ */
+type View = "property" | "investor";
 
 const money0 = (n: number | null | undefined): string =>
   n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -393,12 +404,35 @@ export default function InvestorInfoPage() {
     const hits = benNames.filter((n) => shortKey(n) === k);
     return hits.length === 1 ? hits[0] : undefined;
   };
-  const goToOwnerStatement = (name: string) => {
+  /**
+   * Open this investor's statement of values, in their own row.
+   *
+   * ONE at a time, keyed by `beneficiary`: the PDF, Excel and send actions all
+   * read that single name, so letting several render at once would give every
+   * open block the same download. Picking another investor moves it.
+   */
+  /**
+   * Jump from a beneficiary NAME to their statement on By Investor.
+   *
+   * The two maps name people differently, so the roster row is found through
+   * the same reduction the SOV column uses. Where an owner has no roster row
+   * at all the view still changes and the search is set to their name, which
+   * is the honest outcome — better than a click that does nothing.
+   */
+  const pickOwner = (benName: string) => {
+    setBeneficiary(benName);
+    setView("investor");
+    const agg = investorIndex.find((i) => beneficiaryMatch(i.name) === benName);
+    if (agg) setOpenIds((o) => ({ ...o, [agg.key]: true }));
+    else setQuery(benName);
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const goToOwnerStatement = (name: string, key: string) => {
     const match = beneficiaryMatch(name);
     if (!match) return;
-    setBeneficiary(match);
-    setView("statement");
-    if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+    setBeneficiary((cur) => (cur === match ? "" : match));
+    setOpenIds((o) => ({ ...o, [key]: true }));
   };
   const { loggedInUser } = useUser();
   const canEdit = canEditOwnership(loggedInUser);
@@ -560,10 +594,13 @@ export default function InvestorInfoPage() {
     if (q) setQuery(q);
     // Deep-link into the Statement of Values (?view=statement&owner=Name).
     const v = params.get("view");
-    if (v === "statement" || v === "investor" || v === "property") setView(v);
+    if (v === "statement" || v === "investor") setView("investor");
+    else if (v === "property") setView("property");
     const owner = params.get("owner");
     if (owner) {
-      setView("statement");
+      // ?view=statement and ?owner= both predate the merge; they still land on
+      // the investor, which is where a statement now opens.
+      setView("investor");
       // Match case-insensitively to the canonical beneficiary name.
       const match = beneficiaryNames().find((n) => n.toLowerCase() === owner.toLowerCase());
       if (match) setBeneficiary(match);
@@ -1361,7 +1398,6 @@ export default function InvestorInfoPage() {
             {[
               { id: "property" as const, label: "By Property" },
               { id: "investor" as const, label: "By Investor" },
-              { id: "statement" as const, label: "Statement of Values" },
             ].map((v) => {
               const active = view === v.id;
               return (
@@ -1383,48 +1419,18 @@ export default function InvestorInfoPage() {
             })}
           </div>
 
-          {view === "statement" ? (
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, flex: 1, minWidth: 220 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", whiteSpace: "nowrap" }}>Owner</span>
-              {/* The control this tab is driven by, so it takes the brand tier.
-                  It sizes to its content — stretched across the toolbar it read
-                  as a text field rather than a picker. */}
-              <Select value={beneficiary} onChange={setBeneficiary} aria-label="Owner">
-                <option value="">All entities (portfolio)</option>
-                {benNames.map((n) => (
-                  <option key={n} value={n}>{n}</option>
-                ))}
-              </Select>
-            </label>
-          ) : (
-            /* Border, radius and focus ring come from the input baseline in
-               globals.css — only the width is this page's business. */
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search investors, vendor codes, properties…"
-              style={{ flex: 1, minWidth: 220 }}
-            />
-          )}
+          {/* Border, radius and focus ring come from the input baseline in
+             globals.css — only the width is this page's business. */}
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search investors, vendor codes, properties…"
+            style={{ flex: 1, minWidth: 220 }}
+          />
 
           <div style={{ display: "flex", gap: 8 }}>
-            {view === "statement" ? (
-              <DownloadMenu
-                label={zipping ? "Building…" : "Download"}
-                variant="primary"
-                disabled={zipping}
-                items={[
-                  { label: "PDF — presentation", description: beneficiary ? `${beneficiary}'s statement, ready to send` : "Portfolio statement, ready to circulate", onClick: () => { void exportStatementPdf(); } },
-                  { label: "Excel — workbook", description: "Live SUM totals; year-end + estimated values", onClick: exportStatement },
-                  ...(!beneficiary ? [{ label: "All owner statements (ZIP)", description: `One PDF per owner + the portfolio — the annual mailing (${benNames.length} owners)`, onClick: () => { void exportAllOwnerStatements(); } }] : []),
-                ]}
-              />
-            ) : null}
-            {view === "statement" && beneficiary && canEdit && (
-              <SendStatementButton beneficiary={beneficiary} email={resolveContact(beneficiary)?.email} />
-            )}
-            {view === "statement" ? null : (
+            {(
               <>
                 <button
                   type="button"
@@ -1514,6 +1520,46 @@ export default function InvestorInfoPage() {
           </div>
         )
       )}
+      {/* The entity valuations, at the foot of By Property.
+          They ARE the detail behind the Year-end $ and Estimated $ columns
+          above — NOI, cap rate, indicated value, debt, equity, per entity —
+          and they were a third tab you had to leave the roster to reach. The
+          estimates editor and the per-entity editor come with them, so nothing
+          is lost by the tab going. */}
+      {view === "property" && (
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+              Entity values
+            </span>
+            <DownloadMenu
+              label={zipping ? "Building…" : "Download"}
+              disabled={zipping}
+              items={[
+                { label: "PDF — presentation", description: "Portfolio statement, ready to circulate", onClick: () => { void exportStatementPdf(); } },
+                { label: "Excel — workbook", description: "Live SUM totals; year-end + estimated values", onClick: exportStatement },
+                { label: "All owner statements (ZIP)", description: `One PDF per owner + the portfolio — the annual mailing (${benNames.length} owners)`, onClick: () => { void exportAllOwnerStatements(); } },
+              ]}
+            />
+          </div>
+          <StatementView
+            beneficiary=""
+            estimates={estimates}
+            onSaveEstimates={saveEstimates}
+            resolveContact={resolveContact}
+            canEdit={canEdit}
+            onSaveContact={saveContact}
+            ownerNames={benNames}
+            onPickOwner={pickOwner}
+            entityOverrides={entityOverrides}
+            onSaveEntity={saveEntity}
+          />
+          <p className="muted small" style={{ margin: 0 }}>
+            Each owner&rsquo;s value is their effective % of the entity&rsquo;s equity value, from the {asOfLong()} snapshot.
+          </p>
+        </div>
+      )}
+
       {/* ── By Investor view ───────────────────────────────────────────── */}
       {/* The chase-list, one click. Hidden until the addresses load and absent
           when there is nothing to chase, so it never sits there reading zero. */}
@@ -1548,6 +1594,7 @@ export default function InvestorInfoPage() {
                   {canK1 && <th style={thL} className="no-print">Email</th>}
                   <th style={th}>Properties</th>
                   {canK1 && <th style={th} className="no-print">K1s</th>}
+                  <th style={{ ...th, width: 1, whiteSpace: "nowrap" }} className="no-print">SOV</th>
                   <th style={th}>Year-end $</th>
                   <th style={th}>Estimated $</th>
                   <th style={{ ...thL, width: 1 }} aria-label="Actions" />
@@ -1582,6 +1629,7 @@ export default function InvestorInfoPage() {
                         .map((r) => k1reg.emails![r.investor.id])
                         .filter(Boolean)
                     : null;
+                  const sovName = beneficiaryMatch(agg.name);
                   const k1c = k1CountFor(
                     agg.rows.map((r) => ({
                       propertyCode: r.holding.propertyCode,
@@ -1626,6 +1674,34 @@ export default function InvestorInfoPage() {
                             />
                           </td>
                         )}
+                        {/* An icon, not a labelled button. As "Statement of
+                            Values →" it was a wide near-empty strip down the
+                            whole table; as a column of one glyph it costs
+                            nothing and is where you'd look for a per-investor
+                            document. Where there is none the cell says WHY on
+                            hover rather than sitting blank. */}
+                        <td style={{ ...td, width: 1 }} className="no-print" onClick={(e) => e.stopPropagation()}>
+                          {sovName ? (
+                            <button
+                              type="button"
+                              onClick={() => goToOwnerStatement(agg.name, agg.key)}
+                              title={`${agg.name}'s Statement of Values`}
+                              aria-label={`${agg.name}'s Statement of Values`}
+                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "#0b4a7d", display: "inline-flex" }}
+                            >
+                              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="13" y2="17" /></svg>
+                            </button>
+                          ) : (
+                            <HoverCard
+                              title="No statement of values"
+                              rows={[{ label: "", value: entityInvestorCount > 0
+                                ? "The statement looks through this company to the investors behind it."
+                                : "This investor isn't in the beneficiary ownership map yet." }]}
+                            >
+                              <span style={{ color: "var(--muted)" }}>&mdash;</span>
+                            </HoverCard>
+                          )}
+                        </td>
                         <td style={td}>{money0(totals.ye)}</td>
                         <td style={{ ...td, fontWeight: 700 }}>{money0(totals.est)}</td>
                         {/* Actions live in the row, not a card header — but a click
@@ -1640,36 +1716,42 @@ export default function InvestorInfoPage() {
                       </tr>
                       {open && (
                         <tr>
-                          <td colSpan={canK1 ? 8 : 6} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
+                          <td colSpan={canK1 ? 9 : 7} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
                       {/* The hub. An investor's details belong on the investor,
                           not spread over the Statement of Values tab and the
                           inside of a share popover. */}
-                      {/* Statement of Values belongs HERE, not as a column.
-                          As a column it was a near-empty strip down the whole
-                          table; on the opened row it sits beside the person's
-                          own details, which is where you are when you want it. */}
-                      <div style={{ padding: "14px 16px 0" }}>
-                        {beneficiaryMatch(agg.name) ? (
-                          <button
-                            type="button"
-                            onClick={() => goToOwnerStatement(agg.name)}
-                            className="btn"
-                            style={{ fontSize: 12.5, fontWeight: 700, color: "#0b4a7d" }}
-                          >
-                            {agg.name}&rsquo;s Statement of Values &rarr;
-                          </button>
-                        ) : (
-                          // Said plainly rather than left blank: a company has
-                          // none BY DESIGN (the statement looks through to the
-                          // people behind it), while a person without one is a
-                          // gap in the ownership map worth seeing.
-                          <span className="muted small">
-                            {entityInvestorCount > 0
-                              ? "No statement of values — the statement looks through this company to the investors behind it."
-                              : "No statement of values — this investor isn't in the beneficiary ownership map yet."}
-                          </span>
-                        )}
-                      </div>
+                      {/* Their statement of values, opened by the SOV icon on
+                          this row. ONE at a time — the PDF, Excel and send
+                          actions all read a single `beneficiary`, so several
+                          open at once would give every block the same
+                          download. */}
+                      {beneficiary === sovName && sovName && (
+                        <div style={{ padding: "14px 16px 0" }}>
+                          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap", marginBottom: 10 }} className="no-print">
+                            <DownloadMenu
+                              label="Download"
+                              variant="primary"
+                              items={[
+                                { label: "PDF — presentation", description: `${sovName}'s statement, ready to send`, onClick: () => { void exportStatementPdf(); } },
+                                { label: "Excel — workbook", description: "Live SUM totals; year-end + estimated values", onClick: exportStatement },
+                              ]}
+                            />
+                            {canEdit && <SendStatementButton beneficiary={sovName} email={resolveContact(sovName)?.email} />}
+                          </div>
+                          <StatementView
+                            beneficiary={sovName}
+                            estimates={estimates}
+                            onSaveEstimates={saveEstimates}
+                            resolveContact={resolveContact}
+                            canEdit={canEdit}
+                            onSaveContact={saveContact}
+                            ownerNames={benNames}
+                            onPickOwner={pickOwner}
+                            entityOverrides={entityOverrides}
+                            onSaveEntity={saveEntity}
+                          />
+                        </div>
+                      )}
                       <div style={{ padding: "14px 16px 4px", maxWidth: 640 }}>
                         <InvestorContactCard
                           name={agg.name}
@@ -1818,7 +1900,7 @@ export default function InvestorInfoPage() {
                   {/* Deliberately no totals: an investor holds a share of a
                       property, and two investors in the same property would
                       have their slices added to something that is not a figure. */}
-                  <td colSpan={canK1 ? 7 : 5} />
+                  <td colSpan={canK1 ? 8 : 6} />
                 </tr>
               </tfoot>
             </table>
@@ -1829,20 +1911,6 @@ export default function InvestorInfoPage() {
         )
       )}
 
-      {/* ── Statement of Values view ───────────────────────────────────── */}
-      {view === "statement" && <StatementView beneficiary={beneficiary} estimates={estimates} onSaveEstimates={saveEstimates} resolveContact={resolveContact} canEdit={canEdit} onSaveContact={saveContact} ownerNames={benNames} onPickOwner={setBeneficiary} entityOverrides={entityOverrides} onSaveEntity={saveEntity} />}
-
-      {/* Where the numbers come from, stated for the person reading them —
-          not which FILE holds the data. A source-code path is a note to whoever
-          maintains the page, and it was the last line of every view.
-          The statement keeps its footnote because the METHOD is a real caveat:
-          a value here is a share of an entity's equity at a fixed snapshot, not
-          a market quote, and someone quoting a figure should know that. */}
-      {view === "statement" && (
-        <p className="muted small" style={{ marginTop: 4 }}>
-          Each owner&rsquo;s value is their effective % of the entity&rsquo;s equity value, from the {asOfLong()} snapshot.
-        </p>
-      )}
     </main>
   );
 }
@@ -2462,7 +2530,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
           <div style={{ padding: "16px 16px 12px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div>
               <div style={{ fontSize: 16, fontWeight: 700 }}>Statement of Values</div>
-              <div className="muted small" style={{ marginTop: 2 }}>Year-end equity as of {asOfLong()}, with a current estimate. Pick an owner above for a per-beneficiary statement.</div>
+              <div className="muted small" style={{ marginTop: 2 }}>Year-end equity as of {asOfLong()}, with a current estimate. An owner&rsquo;s own statement opens from the SOV column on By Investor.</div>
             </div>
             {editing ? (
               <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }} className="no-print">
