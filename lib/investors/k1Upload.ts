@@ -15,6 +15,38 @@ export const MAX_K1_BYTES = MAX_K1_MB * 1024 * 1024;
 
 export type K1UploadCandidate = { name: string; size: number; type?: string };
 
+/**
+ * The name the upload REQUEST carries, as distinct from the name we record.
+ *
+ * A long filename broke uploads — confirmed in the field: three 0800 K-1s
+ * failed repeatedly and went through the moment the names were shortened by
+ * hand. I argued it could not be the length, and was wrong. The exact
+ * component that choked is not reproducible from outside the deployment (the
+ * candidates are the multipart part header and the blob write), so rather than
+ * keep guessing at which, the request simply stops carrying a long name: the
+ * file is sent under a short, safe one and the real name travels beside it as
+ * an ordinary form field, where its length cannot matter.
+ *
+ * Nobody sees this name. The document keeps the original for display.
+ */
+export function requestFilename(name: string, max = 60): string {
+  const safe = String(name).replace(/[^\w.\-]+/g, "_").replace(/^_+/, "");
+  if (safe.length <= max && safe) return safe;
+  const m = /\.([A-Za-z0-9]{1,8})$/.exec(safe);
+  const ext = m ? m[0] : ".pdf";
+  return (safe.slice(0, Math.max(1, max - ext.length)) || "k1") + ext;
+}
+
+/** The filename kept ON the record, bounded so no consumer downstream has to
+ *  cope with an unbounded one. Generous — this is what staff read. */
+export function displayFilename(name: string, max = 180): string {
+  const n = String(name).trim();
+  if (n.length <= max) return n;
+  const m = /\.([A-Za-z0-9]{1,8})$/.exec(n);
+  const ext = m ? m[0] : "";
+  return n.slice(0, Math.max(1, max - ext.length - 1)) + "…" + ext;
+}
+
 /** The reason this file cannot be uploaded, or null when it can. */
 export function k1UploadError(file: K1UploadCandidate | null | undefined): string | null {
   // A drop that carried no file. Dragging an attachment straight out of

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { k1UploadError, storageName, MAX_K1_BYTES, MAX_K1_MB } from "./k1Upload";
+import { k1UploadError, storageName, requestFilename, displayFilename, MAX_K1_BYTES, MAX_K1_MB } from "./k1Upload";
 
 const f = (name: string, size = 1024, type = "application/pdf") => ({ name, size, type });
 
@@ -16,12 +16,15 @@ describe("what can be dropped on an owner's row", () => {
     expect(k1UploadError(undefined)).toMatch(/save it to your desktop/i);
   });
 
-  it("does not care how long the name is", () => {
-    // Worth pinning, because the length is the obvious thing to suspect when
-    // "the long ones fail". It has never been a reason to refuse an upload.
+  it("does not REFUSE a long name — the request just stops carrying one", () => {
+    // A long filename really was breaking uploads: three 0800 K-1s failed
+    // repeatedly and went through the moment the names were shortened by hand.
+    // The fix is not to reject them — it is requestFilename below, which keeps
+    // a long name out of the request altogether.
     const long = "2025 " + "Neshaminy Interplex Building Four Partnership ".repeat(6) + "FINAL SIGNED.pdf";
     expect(long.length).toBeGreaterThan(250);
     expect(k1UploadError(f(long))).toBeNull();
+    expect(requestFilename(long).length).toBeLessThanOrEqual(60);
   });
 
   it("takes a PDF by its type when the name has no extension", () => {
@@ -67,5 +70,35 @@ describe("storageName", () => {
   it("never returns an empty key", () => {
     expect(storageName("///")).toBe("_");
     expect(storageName("")).toBe("_");
+  });
+});
+
+describe("a long filename never reaches the request", () => {
+  it("shortens the name the file is SENT under, keeping the extension", () => {
+    const long = "2025 Bellmawr JV K-1 " + "TRUST U-I 7TH WILL OF MK FBO CATHERINE ALTMAN ".repeat(4) + "FINAL.pdf";
+    const sent = requestFilename(long);
+    expect(sent.length).toBeLessThanOrEqual(60);
+    expect(sent.endsWith(".pdf")).toBe(true);
+  });
+
+  it("leaves an ordinary name alone apart from unsafe characters", () => {
+    expect(requestFilename("2025 Korman K-1.pdf")).toBe("2025_Korman_K-1.pdf");
+  });
+
+  it("always produces something usable", () => {
+    // A name that is entirely unsafe characters must still yield a filename.
+    expect(requestFilename("///").endsWith(".pdf")).toBe(true);
+    expect(requestFilename("").length).toBeGreaterThan(0);
+  });
+
+  it("keeps the REAL name for display, bounded so nothing downstream chokes", () => {
+    // What staff read is the name the accountant gave it, not the short one
+    // the bytes travelled under.
+    const long = "A".repeat(400) + ".pdf";
+    const shown = displayFilename(long);
+    expect(shown.length).toBeLessThanOrEqual(180);
+    expect(shown.endsWith(".pdf")).toBe(true);
+    expect(shown).toContain("…");
+    expect(displayFilename("2025 Parkwood SC K1P V1 FINAL SIGNED.pdf")).toBe("2025 Parkwood SC K1P V1 FINAL SIGNED.pdf");
   });
 });

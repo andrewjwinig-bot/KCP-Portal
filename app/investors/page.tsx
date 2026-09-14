@@ -178,13 +178,18 @@ function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
 /**
  * How many of a partnership's K-1s are in, on the roster row.
  *
- * The tag here said only that the property FILES K-1s — true of every flagged
- * partnership, and therefore no help at all on a day you are chasing the last
- * few. Complete reads as a tick; short reads as the count, so the gap is a
- * number you can act on rather than a colour you have to interpret.
+ * GREEN MEANS COMPLETE AND NOTHING ELSE. The tag here was a single teal chip
+ * on every partnership that files K-1s, which reads as a tick — so a property
+ * still missing three of them looked exactly like one that was finished. The
+ * colour now carries the state:
  *
- * Falls back to the plain tag until the summary lands, so the row never
- * flickers through a wrong "0 of N".
+ *   green  ✓      every partner's K-1 is in
+ *   amber  7/21   some in, some outstanding
+ *   red    0/21   none collected yet
+ *   grey   K-1    files K-1s; the count has not loaded yet
+ *
+ * The grey fallback matters: until the summary arrives the honest thing is to
+ * say nothing about completeness, and the old teal said "done" by accident.
  */
 function K1Progress({ got, year }: { got?: { owners: number; uploaded: number }; year: number }) {
   const base: React.CSSProperties = {
@@ -192,24 +197,35 @@ function K1Progress({ got, year }: { got?: { owners: number; uploaded: number };
     padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap", border: "1px solid",
   };
   if (!got) {
-    return <span style={{ ...base, background: "rgba(15,118,110,0.08)", color: "#0f766e", borderColor: "rgba(15,118,110,0.25)" }}>K-1</span>;
+    return (
+      <span style={{ ...base, background: "rgba(15,23,42,0.05)", color: "#64748b", borderColor: "rgba(15,23,42,0.15)" }}>
+        K-1
+      </span>
+    );
   }
   const done = got.owners > 0 && got.uploaded >= got.owners;
+  const none = got.uploaded === 0;
+  const tone = done
+    ? { bg: "rgba(22,163,74,0.10)", fg: "#15803d", bd: "rgba(22,163,74,0.30)" }
+    : none
+      ? { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", bd: "rgba(220,38,38,0.30)" }
+      : { bg: "rgba(217,119,6,0.12)", fg: "#b45309", bd: "rgba(217,119,6,0.35)" };
+  const left = got.owners - got.uploaded;
   return (
     <HoverCard
       title={`${year} K-1s`}
       rows={[
-        { label: "Uploaded", value: String(got.uploaded), color: done ? "#15803d" : "#b45309" },
+        { label: "Uploaded", value: String(got.uploaded), color: tone.fg },
         { label: "Partners", value: String(got.owners) },
       ]}
-      footer={{ label: "", value: done ? "Every partner's K-1 is in." : `${got.owners - got.uploaded} still to collect.` }}
+      footer={{
+        label: "",
+        value: done
+          ? "Every partner's K-1 is in."
+          : `${left} still to collect${none ? " — none uploaded yet" : ""}.`,
+      }}
     >
-      <span style={{
-        ...base,
-        background: done ? "rgba(22,163,74,0.10)" : "rgba(217,119,6,0.10)",
-        color: done ? "#15803d" : "#b45309",
-        borderColor: done ? "rgba(22,163,74,0.30)" : "rgba(217,119,6,0.30)",
-      }}>
+      <span style={{ ...base, background: tone.bg, color: tone.fg, borderColor: tone.bd }}>
         {done ? "K-1 \u2713" : `K-1 ${got.uploaded}/${got.owners}`}
       </span>
     </HoverCard>
