@@ -67,10 +67,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       year: y,
-      properties: properties.map((p) => ({
-        ...p,
-        uploaded: docs.filter((d) => d.propertyCode === p.code && d.taxYear === y).length,
-      })),
+      // COUNTED AGAINST THE ROSTER, not against the property. A document whose
+      // ownerId is no longer a partner row is an ORPHAN — it belongs to a
+      // roster shape that has since changed — and counting it made 0800 read
+      // "28/15": more K-1s in than partners to receive them, with rows still
+      // showing MISSING underneath. The count has to mean "partners whose K-1
+      // is in" or it cannot mean complete.
+      properties: properties.map((p) => {
+        const roster = new Set(ownersOf(p.code).map((o) => o.id));
+        const mine = docs.filter((d) => d.propertyCode === p.code && d.taxYear === y);
+        return {
+          ...p,
+          uploaded: mine.filter((d) => roster.has(d.ownerId)).length,
+          // Surfaced, never silently dropped: an orphan is a real PDF carrying
+          // a taxpayer ID, sitting in storage, attached to no row — so it is
+          // unreachable AND undeletable from the UI unless the page is told.
+          orphaned: mine.filter((d) => !roster.has(d.ownerId)).length,
+        };
+      }),
       // Which OWNERS have one in, so By Investor can count a person's own K-1s
       // rather than a partnership's. An investor in four partnerships is four
       // separate documents, and "two of Carol's four are in" is not derivable
@@ -140,6 +154,24 @@ export async function GET(req: NextRequest) {
 
   const owners = ownersOf(property);
   const documents = await k1sFor(property, year);
+  // Documents uploaded against a partner row that no longer exists. The roster
+  // renders one row per CURRENT owner, so without this they are invisible: no
+  // row shows them and nothing can delete them.
+  const rosterIds = new Set(owners.map((o) => o.id));
+  const orphans = documents
+    .filter((d) => !rosterIds.has(d.ownerId))
+    .map((d) => ({
+      id: d.id, ownerId: d.ownerId, taxYear: d.taxYear, filename: d.filename,
+      // The name it was uploaded ONTO, recorded at upload time. It is the only
+      // thing that still identifies the orphan — the roster row it pointed at
+      // is gone.
+      ownerName: d.ownerName, uploadedAt: d.uploadedAt,
+    }));
+  // "K-1s uploaded" counts the ones that reached a PARTNER, so it can never
+  // exceed the roster. Counting every document for the property read "28/15"
+  // at 0800 — more K-1s in than partners to receive them, with rows still
+  // showing MISSING beneath it.
+  const onRoster = documents.filter((d) => rosterIds.has(d.ownerId));
   const links = await listInvestorLinks();
   const overrides = await allOwnerEmails();
   const contactHub = await getContactOverrides();
@@ -165,6 +197,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     properties,
     years: await k1YearsFor(property),
+    orphans,
     owners: owners.map((o) => ({
       id: o.id, name: o.name, detailedName: o.detailedName ?? null, vendorCode: o.vendorCode ?? null,
       ownerPct: o.ownerPct ?? null,
@@ -200,7 +233,7 @@ export async function GET(req: NextRequest) {
           }
         : null,
     })),
-    documents,
+    documents: onRoster,
     blockers: publishBlockers(documents),
   });
 }

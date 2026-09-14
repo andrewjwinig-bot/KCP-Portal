@@ -83,7 +83,13 @@ describe("the roster does not split one human across two spellings", () => {
   /** "Lawrence M. Isard" and "Lawrence Isard" reduce alike; the matcher does
    *  NOT unify them, so they would mint two links showing half each. */
   const reduce = (s: string) => {
-    const w = normName(s).replace(/[.,]/g, "").split(" ").filter((x) => x.length > 1);
+    // A leading "the" is an article, not a first name. Without dropping it,
+    // "The Honickman Foundation" and "The Steven H Korman Family Foundation"
+    // both reduce to "the foundation" and read as one investor split in two —
+    // they are two different charities.
+    const w = normName(s).replace(/[.,]/g, "").split(" ")
+      .filter((x) => x.length > 1)
+      .filter((x, i) => !(i === 0 && x === "the"));
     return w.length >= 2 ? `${w[0]} ${w[w.length - 1]}` : w.join(" ");
   };
 

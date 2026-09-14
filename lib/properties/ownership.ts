@@ -451,6 +451,55 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
     ],
   },
 
+
+  {
+    // Cherrywood Joint Venture. Twenty-three partners, all holding DIRECTLY —
+    // no entity tier, so every row is a K-1 the partnership issues itself.
+    //
+    // Keyed from the partnership's own schedule. The beneficiary map reached
+    // CWD independently and carries the same twenty-three rows at the same
+    // percentages, which is unusual: normally that map is a look-through and
+    // cannot substitute for a partner roster. Here the two levels coincide
+    // because nothing sits between the partnership and its partners.
+    //
+    // Names are the app's canonical ones, with the schedule's own wording kept
+    // as `detailedName` where it differs. That matters beyond tidiness: one
+    // link per investor groups by NAME, so keying "Shirley Hahn" rather than
+    // "Shirley Honickman Hahn" would hand her a SECOND link and PIN for the
+    // same person, and her Cherrywood K-1 would not appear alongside the rest.
+    //
+    // Eight partners appear nowhere else in the portfolio — Sarah Drotman,
+    // Mauri Honickman, Henry Hahn, Alec / Nicole / Jackson Korman, and the two
+    // foundations — so they have no contact details on file yet.
+    propertyCode: "CWD",
+    propertyName: "Cherrywood Joint Venture",
+    hasK1Distribution: true,
+    owners: [
+      { id: "k1-cwd-joan-r-sohn", name: "Joan R. Sohn", detailedName: "JOAN SOHN (from Estate of Sarah)", ownerPct: 0.333333333 },
+      { id: "k1-cwd-john-p-korman", name: "John P. Korman", detailedName: "ITEM 7 TRUST FBO John P Korman Trust", ownerPct: 0.03703704 },
+      { id: "k1-cwd-james-s-korman", name: "James S. Korman", detailedName: "ITEM 7 TRUST FBO James S Korman Trust", ownerPct: 0.03703704 },
+      { id: "k1-cwd-carolyn-korman-jacobs", name: "Carolyn Korman Jacobs", detailedName: "ITEM 7 TRUST FBO Caroline K Jacobs Trust", ownerPct: 0.03703703 },
+      { id: "k1-cwd-alison-korman-feldman", name: "Alison Korman Feldman", detailedName: "LEONARD I KORMAN GST SUBJECT TR FBO ALISON FELDMAN", ownerPct: 0.037037037 },
+      { id: "k1-cwd-susan-korman-schurr", name: "Susan Korman Schurr", detailedName: "LEONARD I KORMAN GST SUBJECT TR FBO SUSAN SCHURR", ownerPct: 0.037037036 },
+      { id: "k1-cwd-catherine-korman-altman", name: "Catherine Korman Altman", detailedName: "LEONARD I KORMAN GST SUBJECT TR FBO CATHERINE ALTMAN", ownerPct: 0.037037037 },
+      { id: "k1-cwd-judith-k-langsfeld", name: "Judith K. Langsfeld", detailedName: "ITEM 5 GST FOR JUDITH K. LANGSFELD U/W Matilda Korman", ownerPct: 0.11111111 },
+      { id: "k1-cwd-lynne-honickman", name: "Lynne Honickman", ownerPct: 0.00833333 },
+      { id: "k1-cwd-jeffrey-honickman", name: "Jeffrey Honickman", ownerPct: 0.00833333 },
+      { id: "k1-cwd-sarah-drotman", name: "Sarah Drotman", ownerPct: 0.00833333 },
+      { id: "k1-cwd-mauri-honickman", name: "Mauri Honickman", ownerPct: 0.00833333 },
+      { id: "k1-cwd-shirley-honickman-hahn", name: "Shirley Honickman Hahn", ownerPct: 0.016666666 },
+      { id: "k1-cwd-the-honickman-foundation", name: "The Honickman Foundation", ownerPct: 0.108333339 },
+      { id: "k1-cwd-the-steven-h-korman-family", name: "The Steven H Korman Family Foundation", ownerPct: 0.108333339 },
+      { id: "k1-cwd-henry-hahn", name: "Henry Hahn", ownerPct: 0.00833333 },
+      { id: "k1-cwd-steven-h-korman", name: "Steven H. Korman", ownerPct: 0.00833333 },
+      { id: "k1-cwd-lawrence-m-korman", name: "Lawrence M. Korman", ownerPct: 0.00833333 },
+      { id: "k1-cwd-alec-korman", name: "Alec Korman", ownerPct: 0.00833333 },
+      { id: "k1-cwd-nicole-korman", name: "Nicole Korman", ownerPct: 0.00833333 },
+      { id: "k1-cwd-bradley-j-korman", name: "Bradley J. Korman", ownerPct: 0.00833333 },
+      { id: "k1-cwd-jackson-korman", name: "Jackson Korman", ownerPct: 0.00833333 },
+      { id: "k1-cwd-mark-g-korman", name: "Mark G. Korman", ownerPct: 0.00833333 },
+    ],
+  },
   {
     // Whitpain Associates. The Korman Co holds three quarters; the remaining
     // quarter is held DIRECTLY by five partners, not through a company — so

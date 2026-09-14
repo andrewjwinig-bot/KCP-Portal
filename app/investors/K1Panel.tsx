@@ -71,6 +71,37 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
         <StatPill label="Links shared" value={k1.linkCount} sub={`${k1.openedCount} opened`} />
       </div>
 
+      {/* K-1s left behind by a roster change. They belong to no row, so without
+          this they are invisible AND undeletable — a PDF carrying a taxpayer ID
+          sitting in storage with nothing pointing at it. It also made the count
+          above read "28/15" at 0800: more K-1s in than partners to receive
+          them, while rows underneath still said MISSING. */}
+      {k1.orphans.length > 0 && (
+        <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.35)" }} className="no-print">
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#b45309" }}>
+            {k1.orphans.length} uploaded K-1{k1.orphans.length === 1 ? "" : "s"} no longer match a partner on this roster
+          </div>
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>
+            They were dropped on a row that has since changed or been removed, so nobody can see them —
+            not the investor, not the roster above. Re-upload each onto the right partner, then delete it here.
+          </div>
+          <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
+            {k1.orphans.map((o) => (
+              <div key={o.id} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, fontSize: 12 }}>
+                <span style={{ minWidth: 0 }}>
+                  <strong>{o.ownerName}</strong>
+                  <span className="muted"> · {o.taxYear} · {o.filename}</span>
+                </span>
+                <button type="button" className="linkBtn" onClick={() => k1.removeOrphan(o)}
+                  style={{ fontSize: 11.5, fontWeight: 700, color: "#b91c1c", whiteSpace: "nowrap" }}>
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {k1.data && k1.data.blockers.length > 0 && (
         <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: 12.5, color: "#b91c1c", fontWeight: 600 }}>
           {k1.data.blockers.map((b, i) => <div key={i} style={{ marginTop: i ? 4 : 0 }}>{b}</div>)}

@@ -449,3 +449,61 @@ describe("WHIT Whitpain Associates", () => {
     expect(steven.map((s) => s.effPct).sort((a, b) => b - a)[1]).toBeCloseTo(1 / 12, 6);
   });
 });
+
+describe("CWD Cherrywood Joint Venture", () => {
+  const p = () => PROPERTY_OWNERSHIP.find((x) => x.propertyCode === "CWD")!;
+
+  it("is 23 partners, all holding directly — no entity tier", () => {
+    expect(p().hasK1Distribution).toBe(true);
+    expect(p().owners).toHaveLength(23);
+    expect(p().owners.every((o) => !o.subOwners)).toBe(true);
+    expect(p().owners.reduce((s, o) => s + (o.ownerPct ?? 0), 0)).toBeCloseTo(1, 4);
+  });
+
+  it("ties to the beneficiary map row for row", () => {
+    // Unusually, the two levels coincide here: nothing sits between the
+    // partnership and its partners, so the look-through map IS the roster.
+    // That makes it a genuine cross-check rather than a circular one.
+    const ben = BENEFICIARY_STAKES.filter((b) => b.entity === "CWD");
+    expect(ben).toHaveLength(23);
+    // A row is matched on the trust wording where it has one, and otherwise on
+    // the person — with middle initials dropped, since the roster spells them
+    // canonically ("Steven H. Korman") and the schedule does not.
+    // First and last name only: the roster spells people canonically
+    // ("Steven H. Korman", "Shirley Honickman Hahn") and the schedule does not
+    // ("STEVEN KORMAN", "SHIRLEY HAHN").
+    const loose = (x: string) => {
+      const w = x.toUpperCase().replace(/[^A-Z ]/g, " ").split(/\s+/).filter((t) => t.length > 1);
+      return w.length > 1 ? `${w[0]} ${w[w.length - 1]}` : w.join(" ");
+    };
+    const used = new Set<string>();
+    for (const o of p().owners) {
+      const match = ben.find((b) =>
+        !used.has(b.partner) && (
+          (!!o.detailedName && o.detailedName.toUpperCase().replace(/\s+/g, " ").trim() === b.partner.toUpperCase().replace(/\s+/g, " ").trim())
+          || loose(o.name) === loose(b.beneficiary)
+        ));
+      expect(match, `no beneficiary row for ${o.name}`).toBeTruthy();
+      used.add(match!.partner);
+      expect(o.ownerPct).toBeCloseTo(match!.effPct, 8);
+    }
+    expect(used.size).toBe(23);
+  });
+
+  it("names partners canonically so their link is not split in two", () => {
+    // One link per investor groups by NAME. The schedule prints "SHIRLEY
+    // HAHN"; every other roster says "Shirley Honickman Hahn". Keyed as
+    // printed she would hold a SECOND link and PIN, and her Cherrywood K-1
+    // would not sit with the rest.
+    const names = p().owners.map((o) => o.name);
+    expect(names).toContain("Shirley Honickman Hahn");
+    expect(names).not.toContain("Shirley Hahn");
+    expect(names).toContain("Joan R. Sohn");
+    expect(names).toContain("Steven H. Korman");
+  });
+
+  it("Alison's share still ties to the workbook figure", () => {
+    const a = p().owners.find((o) => o.name === "Alison Korman Feldman")!;
+    expect(Math.round(a.ownerPct! * entityValue("CWD")!.equityValue!)).toBe(1576797);
+  });
+});
