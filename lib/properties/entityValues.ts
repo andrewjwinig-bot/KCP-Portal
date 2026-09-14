@@ -61,7 +61,14 @@ export const ENTITY_VALUES: EntityValue[] = [
   { entity: "9860", name: "Korman Homes LLC", propertyCode: "9860", noi: null, capRate: null, indicatedValue: 325000, debtBalance: 0, cash: null, futureCapital: 0, equityValue: 325000 },
   { entity: "1500", name: "EASTWICK JOINT VENTURE I", propertyCode: "1500", noi: 0, capRate: null, indicatedValue: 500000, debtBalance: 0, cash: 35392, futureCapital: 0, equityValue: 535392 },
   { entity: "0300", name: "AIRPORT INTERPLEX TWO, INC.", propertyCode: "0300", noi: null, capRate: null, indicatedValue: 0, debtBalance: 0, cash: 5983, futureCapital: 0, equityValue: 5983 },
-  { entity: "9200", name: "EASTWICK DEVELOPMENT JV XII", propertyCode: "9200", noi: null, capRate: null, indicatedValue: null, debtBalance: null, cash: null, futureCapital: null, equityValue: 402210 },
+  // 396,227 — NOT the 402,210 the master workbook carries. That figure is this
+  // entity and AIRPORT INTERPLEX TWO, INC. (0300) TOGETHER: 396,227 + 5,983 =
+  // 402,210 exactly. The two share one ownership schedule because they share
+  // one ownership chain, and the schedule totals them. Left as 402,210 the
+  // portfolio double-counted 0300's 5,983, since 0300 is also its own row
+  // above. Confirmed by the owner. The two entities are valued separately;
+  // do not re-merge them.
+  { entity: "9200", name: "EASTWICK DEVELOPMENT JV XII", propertyCode: "9200", noi: null, capRate: null, indicatedValue: null, debtBalance: null, cash: null, futureCapital: null, equityValue: 396227 },
   { entity: "0800", name: "BELLMAWR JOINT VENTURE, LLP", propertyCode: "0800", noi: null, capRate: null, indicatedValue: 1801, debtBalance: 0, cash: 341886, futureCapital: 0, equityValue: 343687 },
   { entity: "0900", name: "LINCOLN BLS", propertyCode: "0900", noi: null, capRate: null, indicatedValue: 325000, debtBalance: 0, cash: -25623, futureCapital: 0, equityValue: 299377 },
   { entity: "CWD", name: "CHERRYWOOD JOINT VENTURE", noi: null, capRate: null, indicatedValue: 56300000, debtBalance: 17251478, cash: 3525000, futureCapital: 0, equityValue: 42573522 },
