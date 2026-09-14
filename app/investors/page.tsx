@@ -718,8 +718,6 @@ export default function InvestorInfoPage() {
     );
   }, [investorIndex, query, onlyMissingEmail, missingEmailKeys]);
 
-  const totalInvestors = investorIndex.length;
-  const totalHoldings = holdings.length;
 
   function exportToExcel() {
     const fmtPct = (n: number | undefined) => (n == null ? "" : (n * 100).toFixed(4) + "%");
@@ -1323,11 +1321,12 @@ export default function InvestorInfoPage() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+        {/* Title only. The subtitle restated the page's own name and then
+            counted the rows the table below is about to show — two numbers
+            nobody acts on, above the tabs and filters that are the actual
+            controls. */}
         <div>
           <h1 style={{ margin: 0 }}>Investor Info</h1>
-          <p className="muted small" style={{ marginTop: 4 }}>
-            Ownership detail across properties · {totalInvestors} unique investor{totalInvestors === 1 ? "" : "s"} across {totalHoldings} {totalHoldings === 1 ? "property" : "properties"}
-          </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
@@ -1436,9 +1435,6 @@ export default function InvestorInfoPage() {
           </div>
         </div>
 
-        <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
-          Source: <code>lib/properties/ownership.ts</code> — the canonical ownership table. The Filing Tracker K-1 task investors derive from the same data.
-        </p>
       </div>
 
       {/* ── By Property view ───────────────────────────────────────────── */}
@@ -1822,13 +1818,17 @@ export default function InvestorInfoPage() {
       {/* ── Statement of Values view ───────────────────────────────────── */}
       {view === "statement" && <StatementView beneficiary={beneficiary} estimates={estimates} onSaveEstimates={saveEstimates} resolveContact={resolveContact} canEdit={canEdit} onSaveContact={saveContact} ownerNames={benNames} onPickOwner={setBeneficiary} entityOverrides={entityOverrides} onSaveEntity={saveEntity} />}
 
-      <p className="muted small" style={{ marginTop: 4 }}>
-        {view === "statement" ? (
-          <>Statement of values sourced from <code>lib/properties/entityValues.ts</code> (entity financials, {asOfLong()} snapshot) and <code>lib/properties/beneficiaries.ts</code> (ownership map). Each owner&rsquo;s value = their effective % × the entity&rsquo;s equity value.</>
-        ) : (
-          <>Source of truth: <code>lib/properties/ownership.ts</code>. Filing Tracker K-1 investors are derived from this file.</>
-        )}
-      </p>
+      {/* Where the numbers come from, stated for the person reading them —
+          not which FILE holds the data. A source-code path is a note to whoever
+          maintains the page, and it was the last line of every view.
+          The statement keeps its footnote because the METHOD is a real caveat:
+          a value here is a share of an entity's equity at a fixed snapshot, not
+          a market quote, and someone quoting a figure should know that. */}
+      {view === "statement" && (
+        <p className="muted small" style={{ marginTop: 4 }}>
+          Each owner&rsquo;s value is their effective % of the entity&rsquo;s equity value, from the {asOfLong()} snapshot.
+        </p>
+      )}
     </main>
   );
 }
