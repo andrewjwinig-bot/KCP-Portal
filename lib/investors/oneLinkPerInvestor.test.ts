@@ -113,3 +113,39 @@ describe("the roster does not split one human across two spellings", () => {
     expect(split, `Investors who would get TWO links:\n  ${split.join("\n  ")}`).toEqual([]);
   });
 });
+
+describe("one TRUST is one investor", () => {
+  /**
+   * The name reduction cannot catch a trust keyed two ways. "Berton E. Korman"
+   * reduces to "berton korman" and "Berton E Korman TUA Dtd 02232018" to
+   * "berton 02232018" — different keys, no warning, and the same trust would
+   * have received TWO links and TWO PINs with half its K-1s behind each.
+   *
+   * The held-as line is the trust's identity, so rows sharing one must share a
+   * name.
+   */
+  it("no investor is NAMED as a trust that another row holds as its held-as", () => {
+    // The precise failure: one row keyed the trust wording as the NAME while
+    // six others carried it as the held-as, so the same trust was two
+    // investors. A shared held-as alone is NOT the fault — Lawrence and Carol
+    // Isard both hold under "Irrev At Margaret C Isard Dtd 7-28-20", one
+    // instrument with a sub-trust each, and they are genuinely two people
+    // getting two K-1s.
+    const flat = (x: string) => normName(x).replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ");
+    const heldAs = new Map<string, string>();
+    for (const { o } of everyOwner) if (o.detailedName) heldAs.set(flat(o.detailedName), o.detailedName);
+    const split: string[] = [];
+    for (const { o } of everyOwner) {
+      const asHeld = heldAs.get(flat(o.name));
+      if (asHeld) split.push(`"${o.name}" is an investor NAME here and a held-as elsewhere ("${asHeld}") — one trust, two links`);
+    }
+    expect([...new Set(split)], `One trust, two investors:\n  ${split.join("\n  ")}`).toEqual([]);
+  });
+
+  it("every Berton TUA interest is one investor with an address", () => {
+    const rows = everyOwner.filter(({ o }) => /berton/i.test(o.name) || /berton/i.test(o.detailedName ?? ""));
+    const direct = rows.filter(({ o }) => /berton e\. korman/i.test(o.name));
+    expect(direct.length).toBeGreaterThanOrEqual(5);
+    expect(new Set(direct.map(({ o }) => normName(o.name))).size).toBe(1);
+  });
+});

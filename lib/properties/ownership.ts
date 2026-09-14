@@ -403,9 +403,12 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
     propertyName: "Airport Interplex Two, Inc.",
     hasK1Distribution: true,
     owners: [
-      // Keyed as the trust, which survives him — Berton E. Korman has died, so
-      // the trust is the shareholder and the K-1 goes to its trustee.
-      { id: "k1-0300-bert4",  name: "Berton E Korman TUA Dtd 02232018", address: "410 Lancaster Ave", city: "Haverford", state: "PA", zip: "19041", ownerPct: 0.333300 },
+      // The trust is the shareholder — Berton E. Korman has died — and its K-1
+      // goes to its trustee. Named "Berton E. Korman" with the trust as the
+      // held-as, matching his five other interests: keying the trust wording
+      // as the NAME split one trust across two identities and would have
+      // issued it TWO links and TWO PINs, with half its K-1s behind each.
+      { id: "k1-0300-bert4",  name: "Berton E. Korman", detailedName: "Berton E Korman TUA Dtd 02232018", address: "410 Lancaster Ave", city: "Haverford", state: "PA", zip: "19041", ownerPct: 0.333300 },
       { id: "k1-0300-stev1",  name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333300 },
       { id: "k1-0300-akgsts", name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
       { id: "k1-0300-cagsts", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111100 },
@@ -528,9 +531,10 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
     owners: [
       kormanCoPartner("k1-whit", 0.75),
       { id: "k1-whit-stev1", name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.0833333 },
-      // Keyed as the trust, not as Berton — he has died, and the schedule's
-      // beneficiary column repeats the trust rather than naming a person.
-      { id: "k1-whit-bktua", name: "Berton E Korman TUA Dtd 02232018", ownerPct: 0.0833333 },
+      // Same trust as his other six interests, so the same name — see 0300.
+      // The schedule's beneficiary column repeats the trust rather than naming
+      // a person, which is what this held-as records.
+      { id: "k1-whit-bktua", name: "Berton E. Korman", detailedName: "Berton E Korman TUA Dtd 02232018", address: "410 Lancaster Ave", city: "Haverford", state: "PA", zip: "19041", ownerPct: 0.0833333 },
       { id: "k1-whit-akgst", name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.0277778 },
       { id: "k1-whit-cagst", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.0277778 },
       { id: "k1-whit-ssgst", name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.0277778 },
