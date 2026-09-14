@@ -248,28 +248,78 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
   },
 
   {
-    // Airport Interplex Two, Inc. — its own shareholders.
+    // Airport Interplex Two — its THREE partners, each collapsing to its own
+    // investors. This is the shape the ownership schedule prints in: an entity
+    // heads a band carrying its share of the property, its investors sit
+    // beneath it, and the ENTITY is what receives the K-1.
     //
-    // Keyed from the entity's ownership schedule, which lists these five under
-    // the "TOTAL AIRPORT INTERPELX TWO, INC" subtotal. That schedule's SUBJECT
-    // is Eastwick JV XII (9200) — the Inc. is one of its three partners, at
-    // 0.50% — so the dollar figures beside these names are each holder's slice
-    // of the Inc.'s $2,011 stake in 9200, NOT their share of the Inc. Only the
-    // percentages carry over; the dollars are deliberately not imported.
+    // Listing the people flat, as this first was, lost the fact that they hold
+    // through three different companies at three different rates, and read as
+    // though each were a direct partner of the property. None of them is.
     //
-    // The schedule totals 99.990%, not 100%: it rounds to three decimals, and
-    // two thirds plus three ninths do not survive that (33.330 + 33.330 +
-    // 11.110 × 3). Keyed exactly as the document reads rather than silently
-    // rounded up to thirds — the gap is the source's, and inventing precision
-    // it does not have is how a percentage becomes wrong later.
+    // NOTE FOR THE NEXT PERSON: the schedule's three blocks total $402,210,
+    // which is to the dollar what ENTITY_VALUES carries as 9200 Eastwick
+    // Development JV XII's equity, while its 0300 row reads $5,983. One of
+    // those two rows is describing this property under the other's name. The
+    // OWNERSHIP below is what the schedule states and holds either way; the
+    // Statement of Values dollars do not, so reconcile those before quoting a
+    // value for either entity.
     propertyCode: "0300",
     hasK1Distribution: true,
     owners: [
-      { id: "k1-0300-bert4",  name: "Berton E. Korman",       detailedName: "Berton E Korman TUA Dtd 02232018",                        address: "410 Lancaster Ave",                  city: "Haverford",       state: "PA",           zip: "19041", ownerPct: 0.333300 },
-      { id: "k1-0300-stev1",  name: "Steven H. Korman",                                                                                address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333300 },
-      { id: "k1-0300-akgsts", name: "Alison Korman Feldman",  detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman",      address: "6015 Sheaff Lane",                   city: "Fort Washington", state: "PA",           zip: "19034", ownerPct: 0.111100 },
-      { id: "k1-0300-cagsts", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman",   address: "241 A South 6th St.",                city: "Philadelphia",    state: "PA",           zip: "19106", ownerPct: 0.111100 },
-      { id: "k1-0300-ssgsts", name: "Susan Korman Schurr",    detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr",        address: "6100 Sheaff Lane",                   city: "Fort Washington", state: "PA",           zip: "19034", ownerPct: 0.111100 },
+      {
+        // The corporate general partner — a half point, which is what a GP
+        // interest usually looks like.
+        id: "k1-0300-aitwo",
+        name: "Airport Interplex Two, Inc.",
+        ownerPct: 0.005000,
+        // 99.990%, not 100%: the schedule rounds to three decimals and two
+        // thirds plus three ninths do not survive it. Keyed as it reads.
+        subOwners: [
+          { id: "k1-0300-aitwo-bert4", name: "Berton E. Korman", detailedName: "Berton E Korman TUA Dtd 02232018", address: "410 Lancaster Ave", city: "Haverford", state: "PA", zip: "19041", ownerPct: 0.333300 },
+          { id: "k1-0300-aitwo-stev1", name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333300 },
+          { id: "k1-0300-aitwo-akgst", name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
+          { id: "k1-0300-aitwo-cagst", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111100 },
+          { id: "k1-0300-aitwo-ssgst", name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
+        ],
+      },
+      {
+        id: "k1-0300-kormanco",
+        name: "The Korman Co",
+        ownerPct: 0.745000,
+        subOwners: [
+          { id: "k1-0300-kc-stev1", name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333333 },
+          { id: "k1-0300-kc-akgst", name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111111 },
+          { id: "k1-0300-kc-cagst", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111111 },
+          { id: "k1-0300-kc-ssgst", name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111112 },
+          { id: "k1-0300-kc-bk2012", name: "The Berton E Korman 2012 Family Trust", ownerPct: 0.231333 },
+          { id: "k1-0300-kc-bkirr", name: "The Berton E Korman Irrev TR Dtd 03031999", ownerPct: 0.102000 },
+        ],
+      },
+      {
+        id: "k1-0300-neweastwick",
+        name: "New Eastwick Corporation",
+        ownerPct: 0.250000,
+        subOwners: [
+          { id: "k1-0300-ne-reynolds", name: "Reynolds Metals Company", ownerPct: 0.904000 },
+          {
+            // The Korman Co again — 9.6% of New Eastwick, so 2.4% of the
+            // property. Its holders are carried here so the chain is complete
+            // in the data even though the roster draws two tiers.
+            id: "k1-0300-ne-kormanco",
+            name: "The Korman Co",
+            ownerPct: 0.096000,
+            subOwners: [
+              { id: "k1-0300-ne-kc-stev1", name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333333 },
+              { id: "k1-0300-ne-kc-akgst", name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111111 },
+              { id: "k1-0300-ne-kc-cagst", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111111 },
+              { id: "k1-0300-ne-kc-ssgst", name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111112 },
+              { id: "k1-0300-ne-kc-bk2012", name: "The Berton E Korman 2012 Family Trust", ownerPct: 0.231333 },
+              { id: "k1-0300-ne-kc-bkirr", name: "The Berton E Korman Irrev TR Dtd 03031999", ownerPct: 0.102000 },
+            ],
+          },
+        ],
+      },
     ],
   },
 
