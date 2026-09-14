@@ -4,6 +4,7 @@ import { PROPERTY_DEFS } from "./data";
 import { ownerSections } from "@/app/investors/ownerSections";
 
 import { entityValue } from "./entityValues";
+import { BENEFICIARY_STAKES } from "./beneficiaries";
 
 const p0300 = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "0300")!;
 const p9200 = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "9200")!;
@@ -335,5 +336,78 @@ describe("the office parks — 3600 and 4000", () => {
     expect(ids[0]).toBe("own-0800-hkc-lawrence-m-korman-dba4ef");
     expect(ids.at(-1)).toBe("own-0800-hkc-lynne-honickman-dde0f5");
     expect(ids.every((id) => id.startsWith("own-0800-hkc-"))).toBe(true);
+  });
+});
+
+describe("4900 The Office Works", () => {
+  const p = () => PROPERTY_OWNERSHIP.find((x) => x.propertyCode === "4900")!;
+
+  it("is two K-1 rows, an even split between the family companies", () => {
+    const o = p().owners;
+    expect(o.map((x) => x.name)).toEqual(["Hyman Korman Co.", "The Korman Co"]);
+    expect(o.map((x) => x.ownerPct)).toEqual([0.5, 0.5]);
+    expect(p().hasK1Distribution).toBe(true);
+  });
+
+  it("the 50/50 is confirmed by the beneficiary map, independently sourced", () => {
+    // Every 4900 beneficiary row is exactly half that person's share of their
+    // company. Two maps built from different documents agreeing to the fifth
+    // decimal is the strongest evidence an ownership figure here gets.
+    const ben = (partner: string) =>
+      BENEFICIARY_STAKES.find((b) => b.entity === "4900" && b.partner === partner)!.effPct;
+    // Lawrence holds 5.4693% of Hyman Korman Co.
+    expect(ben("GST EXEMPT TRUST U/I 3 U/W SJK FBO STEVEN H. KORMAN/LMK")).toBeCloseTo(0.054693 * 0.5, 9);
+    // Steven holds a third of The Korman Co. The roster keys it to six
+    // figures and the map carries the repeating third, so they agree to a
+    // ten-thousandth of a percent rather than exactly.
+    expect(ben("STEVEN H KORMAN")).toBeCloseTo(1 / 3 * 0.5, 6);
+  });
+
+  it("collapses to the companies' own investors, who take no upload", () => {
+    const [hkc, kco] = p().owners;
+    expect(hkc.subOwners).toHaveLength(24);
+    expect(kco.subOwners).toHaveLength(6);
+  });
+});
+
+describe("WHIT Whitpain Associates", () => {
+  const p = () => PROPERTY_OWNERSHIP.find((x) => x.propertyCode === "WHIT")!;
+
+  it("is The Korman Co at 75% plus five DIRECT partners holding the rest", () => {
+    const o = p().owners;
+    expect(o).toHaveLength(6);
+    expect(o[0].name).toBe("The Korman Co");
+    expect(o[0].ownerPct).toBe(0.75);
+    expect(o.slice(1).every((x) => !x.subOwners)).toBe(true);
+    expect(o.reduce((s, x) => s + x.ownerPct, 0)).toBeCloseTo(1, 9);
+  });
+
+  it("the direct quarter is exact, not a rounded 24.99994%", () => {
+    // 2 × 1/12 + 3 × 1/36 = 1/4. The schedule prints 8.3333% and 2.77778%.
+    const direct = p().owners.slice(1).reduce((s, x) => s + x.ownerPct, 0);
+    expect(direct).toBeCloseTo(0.25, 6);
+  });
+
+  it("Berton's DIRECT trust is not the two trusts held through the company", () => {
+    // The direct quarter carries one BERTON E KORMAN TUA DTD 02232018; The
+    // Korman Co carries the 2012 Family Trust and the 1999 Irrevocable. Three
+    // separate K-1s — treating the lists as the same one files his to the
+    // wrong trust.
+    const names = p().owners.map((o) => o.name);
+    expect(names).toContain("Berton E Korman TUA Dtd 02232018");
+    const kco = p().owners[0].subOwners!.map((s) => s.name);
+    expect(kco).toContain("The Berton E Korman 2012 Family Trust");
+    expect(kco).toContain("The Berton E Korman Irrev TR Dtd 03031999");
+    expect(kco).not.toContain("Berton E Korman TUA Dtd 02232018");
+  });
+
+  it("reconciles to the beneficiary map, which carries BOTH of Steven's tiers", () => {
+    // Steven holds 25% through the company and 8.3333% directly. The map was
+    // built from the other direction and lists exactly that pair — which is
+    // what rules out the five direct partners being the company's own roster.
+    const steven = BENEFICIARY_STAKES.filter((b) => b.entity === "WHIT" && b.partner === "STEVEN H KORMAN");
+    expect(steven).toHaveLength(2);
+    expect(steven.map((s) => s.effPct).sort((a, b) => b - a)[0]).toBeCloseTo(0.333333 * 0.75, 6);
+    expect(steven.map((s) => s.effPct).sort((a, b) => b - a)[1]).toBeCloseTo(1 / 12, 6);
   });
 });

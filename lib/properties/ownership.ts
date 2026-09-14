@@ -408,6 +408,64 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
   },
 
   {
+    // The Office Works. An even split between the two family companies —
+    // Hyman Korman Co. and The Korman Co, half each — so two K-1s are issued
+    // by the property and the thirty people behind them are served by those
+    // companies' own returns.
+    //
+    // The 50/50 is CORROBORATED, not just keyed. The beneficiary map reached
+    // 4900 from the other direction years ago, and every one of its thirty
+    // rows is exactly half that person's share of their company: Lawrence
+    // Korman holds 5.4693% of HKC and 2.73465% of 4900; Steven Korman holds
+    // 33.3333% of The Korman Co and 16.666665% of 4900. Two independently
+    // sourced maps agreeing to the fifth decimal is about as much evidence as
+    // an ownership figure here ever gets.
+    propertyCode: "4900",
+    hasK1Distribution: true,
+    owners: [
+      hymanKormanCoPartner("k1-4900", 0.5),
+      kormanCoPartner("k1-4900", 0.5),
+    ],
+  },
+
+  {
+    // Whitpain Associates. The Korman Co holds three quarters; the remaining
+    // quarter is held DIRECTLY by five partners, not through a company — so
+    // five K-1s come off the property alongside the company's one.
+    //
+    // The five look like The Korman Co's own investor list and are not: the
+    // company's Berton interest is two trusts (the 2012 Family Trust and the
+    // 1999 Irrevocable), while the direct quarter carries a single BERTON E
+    // KORMAN TUA DTD 02232018. A separate trust, a separate K-1 — reading the
+    // two lists as the same one would post his K-1 to the wrong trust.
+    //
+    // Their percentages are of the PROPERTY, as the schedule prints them, and
+    // the quarter is exact: 2 × 1/12 + 3 × 1/36 = 1/4.
+    //
+    // Cross-checked against the beneficiary map, which reached WHIT from the
+    // other direction: it carries both tiers — Steven Korman at 25% through
+    // the company AND 8.3333% directly — and $133,228 ÷ 8.3333% returns the
+    // $1,598,741 equity the statement of values already holds for Whitpain.
+    //
+    // Not in PROPERTY_DEFS: it files the return and issues the K-1s without
+    // being a building in the directory, so it names itself the way 3600 and
+    // 4510 do.
+    propertyCode: "WHIT",
+    propertyName: "Whitpain Associates",
+    hasK1Distribution: true,
+    owners: [
+      kormanCoPartner("k1-whit", 0.75),
+      { id: "k1-whit-stev1", name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.0833333 },
+      // Keyed as the trust, not as Berton — he has died, and the schedule's
+      // beneficiary column repeats the trust rather than naming a person.
+      { id: "k1-whit-bktua", name: "Berton E Korman TUA Dtd 02232018", ownerPct: 0.0833333 },
+      { id: "k1-whit-akgst", name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.0277778 },
+      { id: "k1-whit-cagst", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.0277778 },
+      { id: "k1-whit-ssgst", name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.0277778 },
+    ],
+  },
+
+  {
     // Neshaminy Interplex MM LP. Three LIK GST Subject trusts hold a third
     // each; Steven Korman and LIK Management take a third of a point apiece,
     // and Hyman Korman Co. holds the small remainder.
