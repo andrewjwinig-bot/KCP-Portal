@@ -1436,6 +1436,11 @@ export default function InvestorInfoPage() {
                   // How many K-1s this person receives, and how many are in.
                   // Counted per PERSON — the partnership summary is taken along
                   // a different axis and cannot answer it.
+                  // An entity's own investor roster is the same wherever it
+                  // holds — 24 shareholders of Hyman Korman Co. whether you
+                  // reach it from 0800 or 4900 — so the largest is the count,
+                  // not a sum across its properties.
+                  const entityInvestorCount = agg.rows.reduce((n, r) => Math.max(n, (r.investor.subOwners ?? []).length), 0);
                   const k1c = k1CountFor(
                     agg.rows.map((r) => ({
                       propertyCode: r.holding.propertyCode,
@@ -1456,6 +1461,13 @@ export default function InvestorInfoPage() {
                       >
                         <td style={{ ...tdL, whiteSpace: "normal" }}>
                           <span style={{ fontWeight: 700, fontSize: 14.5 }}>{agg.name}</span>
+                          {/* An entity says so on its own row, not only once
+                              you open it — the same pill the property bands
+                              carry, so "Hyman Korman Co." reads as a company
+                              with people behind it on either tab. */}
+                          {entityInvestorCount > 0 && (
+                            <span style={{ ...BAND_COUNT_PILL, marginLeft: 8 }}>{entityInvestorCount} INVESTORS</span>
+                          )}
                         </td>
                         <td style={{ ...td, color: "var(--muted)" }}>{agg.rows.length}</td>
                         {canK1 && (
@@ -1519,16 +1531,36 @@ export default function InvestorInfoPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {agg.rows.map((r, i) => {
+                          {agg.rows.flatMap((r, i) => {
                             const ipv = propValue(r.holding.propertyCode);
                             const ifrac = ownershipFor(r.investor);
-                            return (
+                            // An ENTITY holding this property collapses to its
+                            // own investors, exactly as it does on By Property.
+                            // Hyman Korman Co. is one owner here and twenty-four
+                            // people behind it, and the tier was readable on one
+                            // tab and invisible on the other.
+                            const subs = r.investor.subOwners ?? [];
+                            const subKey = `inv::${agg.key}::${r.holding.propertyCode}::${r.investor.id}`;
+                            const subOpen = !!openGroups[subKey];
+                            return [
                             <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
                               <td style={{ padding: "12px 16px" }}>{r.holding.propertyCode}</td>
                               <td style={{ padding: "12px 16px" }}>
                                 <div style={{ fontWeight: 600 }}>{r.holding.propertyName}</div>
                                 {r.investor.detailedName && (
                                   <div className="muted small" style={{ marginTop: 2 }}>{r.investor.detailedName}</div>
+                                )}
+                                {subs.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleGroup(subKey)}
+                                    aria-expanded={subOpen}
+                                    className="linkBtn no-print"
+                                    style={{ marginTop: 4, fontSize: 11.5, fontWeight: 700, color: "#0b4a7d", display: "inline-flex", alignItems: "center", gap: 6 }}
+                                  >
+                                    <span aria-hidden style={{ fontSize: 9 }}>{subOpen ? "\u25BC" : "\u25B6"}</span>
+                                    {subs.length} investors in {r.investor.name}
+                                  </button>
                                 )}
                               </td>
                               <td style={{ padding: "12px 16px" }}>
@@ -1551,8 +1583,36 @@ export default function InvestorInfoPage() {
                               <td style={{ padding: "12px 16px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{ipv ? money0((ifrac ?? 0) * ipv.ye) : "—"}</td>
                               <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{ipv ? money0((ifrac ?? 0) * ipv.est) : "—"}</td>
                               {inv && <K1InvestorCells interest={inv.forOwner(r.investor.id)} inv={inv} />}
-                            </tr>
-                            );
+                            </tr>,
+                            // Their percentage is a share of THE ENTITY, so the
+                            // property columns carry sub × entity — that product
+                            // is the investor's own interest in this property and
+                            // the $ beside it is their net value in it.
+                            ...subs.map((sub) => {
+                              const eff = (ownershipFor(sub) ?? 0) * (ifrac ?? 0);
+                              return (
+                                <tr
+                                  key={`${i}-${sub.id}`}
+                                  className={subOpen ? undefined : "screen-collapsed"}
+                                  style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: GROUP_SUB_BG }}
+                                >
+                                  <td style={{ padding: "8px 16px" }} />
+                                  <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600 }}>{sub.name}</div>
+                                    <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>
+                                      {sub.detailedName ? `${sub.detailedName} · ` : ""}{pct(ownershipFor(sub))} of {r.investor.name}
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: "8px 16px" }} />
+                                  <td style={{ padding: "8px 16px" }} />
+                                  <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(eff)}</td>
+                                  <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{ipv ? money0(eff * ipv.ye) : "—"}</td>
+                                  <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{ipv ? money0(eff * ipv.est) : "—"}</td>
+                                  {inv && <td className="no-print" colSpan={2} />}
+                                </tr>
+                              );
+                            }),
+                            ];
                           })}
                         </tbody>
                         <tfoot>
