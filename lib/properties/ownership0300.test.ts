@@ -158,3 +158,18 @@ describe("the two are valued separately — the schedule totals them", () => {
     expect(Math.round(pair * 0.25)).toBe(100553);
   });
 });
+
+describe("2300 Brookwood — two partners, two K-1s", () => {
+  it("is flagged as distributing, or it is absent from the K-1 picker", () => {
+    // The API offers only partnerships marked hasK1Distribution. Unflagged,
+    // Brookwood could not be selected, so there was nowhere to drop its K-1s
+    // and no task for them on the tax tracker.
+    const p = PROPERTY_OWNERSHIP.find((x) => x.propertyCode === "2300")!;
+    expect(p.hasK1Distribution).toBe(true);
+    expect(p.owners.map((o) => o.name)).toEqual(["Hyman Korman Co.", "The Korman Co"]);
+    // Both are entities holding the property directly — no sub-owners, so both
+    // rows take an upload.
+    expect(p.owners.every((o) => !o.subOwners)).toBe(true);
+    expect(p.owners.reduce((t, o) => t + (o.ownerPct ?? 0), 0)).toBe(1);
+  });
+});

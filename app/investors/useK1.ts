@@ -13,6 +13,7 @@
 // so opening Investor Info doesn't fetch every partnership's documents.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { k1UploadError, MAX_K1_MB } from "@/lib/investors/k1Upload";
 import type { K1Document } from "@/lib/investors/k1";
 import type { EmailDraft, SendOutcome, SendOptions } from "@/app/components/ShareLinkCard";
 
@@ -95,6 +96,8 @@ export type K1Slice = {
   /** Owner id whose upload is in flight. */
   uploading: string | null;
   error: string | null;
+  /** The owner whose upload failed, and why — reported ON that row. */
+  uploadError: { ownerId: string; message: string } | null;
   docFor: (ownerId: string) => K1Document | undefined;
   ownerFor: (ownerId: string) => K1Owner | undefined;
   /** Every K-1 uploaded for the year is published. */
@@ -111,7 +114,7 @@ export type K1Slice = {
   toggleSelected: (ownerId: string) => void;
   setSelected: (ids: string[]) => void;
   setYear: (y: number) => void;
-  upload: (ownerId: string, file: File) => void;
+  upload: (ownerId: string, file: File | null | undefined) => void;
   remove: (doc: K1Document) => void;
   setPublished: (publish: boolean) => void;
   /** Mint links for these owners; `send` also emails each of them. */
@@ -143,6 +146,11 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
   const [years, setYears] = useState<Record<string, number>>({});
   const [data, setData] = useState<Record<string, K1Payload>>({});
   const [errors, setErrors] = useState<Record<string, string | null>>({});
+  // Which owner an upload failed for. The card's error line sits above a
+  // roster that runs to twenty-four rows, so a failure on a row further down
+  // was reported entirely off-screen: the cell went back to MISSING and looked
+  // like nothing had happened. The row needs to say it itself.
+  const [uploadError, setUploadError] = useState<{ ownerId: string; message: string } | null>(null);
   const [selection, setSelection] = useState<Record<string, Set<string>>>({});
   const [busyCode, setBusyCode] = useState<string | null>(null);
   const [uploading, setUploading] = useState<{ code: string; ownerId: string } | null>(null);
@@ -220,6 +228,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       years: Array.from(new Set([...(payload?.years ?? []), thisYear - 1, thisYear - 2])).sort((a, b) => b - a),
       busy: busyCode === code,
       uploading: uploading?.code === code ? uploading.ownerId : null,
+      uploadError,
       error: errors[code] ?? null,
       docFor,
       ownerFor: (ownerId: string) => owners.find((o) => o.id === ownerId),
@@ -278,7 +287,13 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
 
       setYear: (y: number) => setYears((s) => ({ ...s, [code]: y })),
 
-      upload: (ownerId: string, file: File) => {
+      upload: (ownerId: string, file: File | null | undefined) => {
+        // Checked before anything is sent, so the reason can be said on the
+        // row rather than read back from a status code. k1UploadError covers
+        // the empty drop, a non-PDF, an oversized scan and a zero-byte file.
+        const bad = k1UploadError(file);
+        if (bad || !file) { setUploadError({ ownerId, message: bad ?? "That drop didn’t carry a file." }); return; }
+        setUploadError(null);
         setUploading({ code, ownerId });
         void act(code, async () => {
           const fd = new FormData();
@@ -287,7 +302,16 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
           fd.append("ownerId", ownerId);
           fd.append("file", file);
           const res = await fetch("/api/investor-k1", { method: "POST", body: fd });
-          if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? `Upload failed (HTTP ${res.status})`);
+          if (!res.ok) {
+            // A body the platform refuses never reaches the route, so the
+            // reply is not JSON and a bare status is all there is.
+            const msg = (await res.json().catch(() => null))?.error
+              ?? (res.status === 413
+                ? `“${file.name}” is too large to upload (${MAX_K1_MB} MB limit).`
+                : `Upload failed (HTTP ${res.status}).`);
+            setUploadError({ ownerId, message: msg });
+            throw new Error(msg);
+          }
         }).finally(() => setUploading(null));
       },
 

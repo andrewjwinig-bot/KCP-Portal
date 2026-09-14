@@ -12,14 +12,19 @@ import path from "path";
 
 const USE_BLOB = !!process.env.BLOB_READ_WRITE_TOKEN;
 const LOCAL_DIR = path.join(process.cwd(), "data", "investor-k1-files");
+import { storageName } from "./k1Upload";
+
 const seg = (v: string) => String(v).replace(/[^\w.\-]+/g, "_").slice(0, 80) || "_";
+/** The filename inside the storage key — shortened, but keeping its extension.
+ *  The document keeps the full name; this is only the copy in the path. */
+const segName = (v: string) => storageName(v);
 
 export async function putK1File(
   opts: { propertyCode: string; taxYear: number; id: string; name: string; file: Blob },
 ): Promise<{ ref: string; local: boolean }> {
   const { propertyCode, taxYear, id, name, file } = opts;
   if (USE_BLOB) {
-    const res = await put(`investor-k1/${seg(propertyCode)}/${taxYear}/${id}-${seg(name)}`, file, {
+    const res = await put(`investor-k1/${seg(propertyCode)}/${taxYear}/${id}-${segName(name)}`, file, {
       access: "private",
       addRandomSuffix: true,
       contentType: file.type || "application/pdf",
@@ -27,7 +32,7 @@ export async function putK1File(
     return { ref: res.url, local: false };
   }
   await mkdir(LOCAL_DIR, { recursive: true });
-  const p = path.join(LOCAL_DIR, `${id}-${seg(name)}`);
+  const p = path.join(LOCAL_DIR, `${id}-${segName(name)}`);
   await writeFile(p, Buffer.from(await file.arrayBuffer()));
   return { ref: p, local: true };
 }
