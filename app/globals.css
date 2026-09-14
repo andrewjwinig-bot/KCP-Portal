@@ -438,6 +438,31 @@ select option {
   background: var(--card);
 }
 
+/* Section headings inside a grouped dropdown (Office / Shopping Centers /
+   Residential on the property pickers). Same reason as the rule above: the OS
+   draws these and inherits nothing, so a dark theme would otherwise render the
+   heading in its own default colour against the card. Muted and uppercase so a
+   heading reads as a heading rather than as a selectable row. */
+select optgroup {
+  color: var(--muted);
+  background: var(--card);
+  font-weight: 700;
+  font-style: normal;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* The options inside a group return to normal weight — the browser otherwise
+   inherits the heading's styling onto every row beneath it. */
+select optgroup option {
+  font-weight: 400;
+  font-size: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text);
+}
+
 /* The emphasis tier: the one dropdown a page is actually driven by. */
 select.select-brand {
   font-weight: 600;

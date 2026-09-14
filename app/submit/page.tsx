@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { groupByPropertyType } from "@/lib/properties/typeGroups";
 import type { CompanyMatch } from "@/app/api/tenants/companies/route";
 
 // Public tenant-facing service request form, styled to match the
@@ -191,9 +192,12 @@ export default function SubmitPage() {
                   }}
                   required
                   placeholder="Choose your building"
-                  options={SUBMITTABLE_PROPERTIES.map((p) => ({
-                    value: p.id,
-                    label: p.address ? `${p.name} · ${p.address}` : p.name,
+                  groups={groupByPropertyType(SUBMITTABLE_PROPERTIES, (p) => p.type).map((g) => ({
+                    label: g.label,
+                    // The name alone. The address was here to disambiguate, and
+                    // the section heading now does that job without making every
+                    // row a different length.
+                    options: g.items.map((p) => ({ value: p.id, label: p.name })),
                   }))}
                 />
               </Field>
@@ -412,11 +416,13 @@ function UnderlineInput({
 }
 
 function UnderlineSelect({
-  value, onChange, options, disabled, required, placeholder,
+  value, onChange, options, groups, disabled, required, placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
-  options: { value: string; label: string }[];
+  options?: { value: string; label: string }[];
+  /** Sectioned alternative to `options` — rendered as <optgroup>s. */
+  groups?: { label: string; options: { value: string; label: string }[] }[];
   disabled?: boolean;
   required?: boolean;
   placeholder?: string;
@@ -432,9 +438,13 @@ function UnderlineSelect({
       onBlur={(e) => { e.currentTarget.style.borderBottomColor = LINE; }}
     >
       <option value="" disabled={required}>{placeholder ?? "Select…"}</option>
-      {options.map((o) => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
+      {groups
+        ? groups.map((g) => (
+            <optgroup key={g.label} label={g.label}>
+              {g.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </optgroup>
+          ))
+        : (options ?? []).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   );
 }
