@@ -191,7 +191,26 @@ function Documents({ token }: { token: string }) {
             No K-1 has been published for you yet.
           </div>
         ) : (
-          <div style={{ marginTop: 26, border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "var(--card)", boxShadow: "var(--shadow)" }}>
+          <>
+          {/* One link per investor is the whole idea; taking it one file at a
+              time gives that back. Fifteen downloads also all arrive named
+              "K-1 2025 <their name>.pdf" and number against each other, which
+              is exactly the mess the zip avoids — inside it, each is named for
+              the partnership that issued it. Offered only where it saves
+              something: with a single K-1 the Download button IS the button. */}
+          {data.documents.length > 1 && (
+            <div style={{ marginTop: 22, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+              <span className="muted" style={{ fontSize: 13 }}>
+                {data.documents.length} documents
+              </span>
+              <a href={`/api/investor/${token}/all`}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 9, padding: "10px 16px", fontSize: 13.5, fontWeight: 700 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                Download all {data.documents.length} (.zip)
+              </a>
+            </div>
+          )}
+          <div style={{ marginTop: data.documents.length > 1 ? 12 : 26, border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "var(--card)", boxShadow: "var(--shadow)" }}>
             {data.documents.map((d, i) => (
               <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px", borderTop: i ? "1px solid var(--border)" : "none" }}>
                 <div style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 9, background: "rgba(11,74,125,0.09)", color: BRAND, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -218,6 +237,7 @@ function Documents({ token }: { token: string }) {
               </div>
             ))}
           </div>
+          </>
         )}
 
         <p className="muted" style={{ fontSize: 12.5, marginTop: 22, lineHeight: 1.6 }}>

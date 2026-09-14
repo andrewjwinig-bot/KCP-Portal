@@ -97,6 +97,31 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // ── Contact coverage, for every K-1 partner at once ───────────────────────
+  // Which investors have an address to send to and which do not. It was only
+  // answerable one property card at a time, so "who is still missing an email"
+  // meant opening twenty-one of them and reading every row.
+  //
+  // Resolved by the SAME function the send uses, per-owner-id overrides
+  // included, so the list cannot disagree with what actually happens when the
+  // K-1 goes out. Addresses only — no documents, no links.
+  if (req.nextUrl.searchParams.get("contacts")) {
+    const overrides = await allOwnerEmails();
+    const contactHub = await getContactOverrides();
+    return NextResponse.json({
+      ok: true,
+      owners: PROPERTY_OWNERSHIP.filter((p) => p.hasK1Distribution).flatMap((p) =>
+        p.owners.map((o) => {
+          const r = resolveOwnerEmail(o.name, o.detailedName ?? null, overrides[o.id]?.email, contactHub);
+          return {
+            ownerId: o.id, name: o.name, propertyCode: p.propertyCode,
+            email: r.email, alsoEmail: r.alsoEmail, emailSource: r.source, emailNote: r.note,
+          };
+        }),
+      ),
+    });
+  }
+
   // ── By-investor mode ──────────────────────────────────────────────────────
   // The Investor Info page groups by NAME, but an interest is a per-property
   // owner record — and one person can hold several (a trust and a personal
