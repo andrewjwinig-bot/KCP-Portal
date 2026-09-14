@@ -35,8 +35,27 @@ describe("data integrity", () => {
   });
 
   it("every PROPERTY_OWNERSHIP property code matches PROPERTY_DEFS", () => {
+    // The point of this guard is to catch a MISTYPED code, which would
+    // otherwise sit in the roster forever pointing at nothing.
+    //
+    // One deliberate exception: an entity that files its own return but owns no
+    // real estate — Grays Ferry SC Assoc., Inc. is the GP of 4500 and issues
+    // K-1s to its own shareholders, and has no place in the property
+    // directory. Such a record must declare its own `propertyName`, which is
+    // what the roster and the K-1 picker display instead of the bare code. A
+    // typo still fails, because a typo does not come with a display name.
     for (const p of PROPERTY_OWNERSHIP) {
+      if (p.propertyName) continue;
       expect(knownIds.has(p.propertyCode.toUpperCase()), `PROPERTY_OWNERSHIP has ${p.propertyCode} but PROPERTY_DEFS does not`).toBe(true);
+    }
+  });
+
+  it("an ownership record outside PROPERTY_DEFS says what it is called", () => {
+    // The other half of the exemption above: nothing may be invisible in both
+    // places at once.
+    for (const p of PROPERTY_OWNERSHIP) {
+      if (knownIds.has(p.propertyCode.toUpperCase())) continue;
+      expect(p.propertyName, `${p.propertyCode} is in neither PROPERTY_DEFS nor named`).toBeTruthy();
     }
   });
 });

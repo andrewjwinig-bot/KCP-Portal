@@ -35,7 +35,15 @@ async function currentUser(): Promise<UserId | null> {
 }
 
 const ownersOf = (code: string) => PROPERTY_OWNERSHIP.find((p) => p.propertyCode === code)?.owners ?? [];
-const propName = (code: string) => PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase())?.name ?? code;
+// An entity that files its own return is not necessarily a PROPERTY: Grays
+// Ferry SC Assoc., Inc. is the GP of 4500 and issues K-1s to its own five
+// shareholders, but it owns no real estate and has no place in the property
+// directory. So the ownership record's own label wins, and PROPERTY_DEFS is
+// the fallback rather than the source.
+const propName = (code: string) =>
+  PROPERTY_OWNERSHIP.find((p) => p.propertyCode.toUpperCase() === code.toUpperCase())?.propertyName
+  ?? PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase())?.name
+  ?? code;
 
 /** GET ?property=&year= — the roster, the uploaded K-1s, and what blocks publish. */
 export async function GET(req: NextRequest) {

@@ -363,6 +363,33 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
   },
 
   {
+    // Grays Ferry SC Assoc., Inc. — the corporate GP of Grays Ferry Partners
+    // LP (4500), where it already sits as a 0.10% owner. It files its OWN
+    // return and issues K-1s to its own five shareholders, which is why it
+    // needs a roster of its own: a sub-owner is not an upload target, so
+    // without this there was nowhere to drop those five.
+    //
+    // Deliberately NOT in PROPERTY_DEFS. It owns no real estate and has no
+    // place in the property directory — `propertyName` below is what the
+    // Investor Info roster and the K-1 picker read instead.
+    //
+    // Deliberately NOT in ENTITY_VALUES either. Its $9,682 is 0.10% of 4500's
+    // $9,681,628 and is already inside that entity's equity; a row of its own
+    // would double-count it, which is exactly what 9200 did to 0300.
+    propertyCode: "4510",
+    propertyName: "Grays Ferry SC Assoc., Inc. (GP)",
+    hasK1Distribution: true,
+    owners: [
+      { id: "k1-4510-stev1", name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333333 },
+      // Held through his Trust Under Agreement, which survives him.
+      { id: "k1-4510-bert4", name: "Berton E. Korman", detailedName: "Berton E Korman TUA Dtd 02232018", address: "410 Lancaster Ave", city: "Haverford", state: "PA", zip: "19041", ownerPct: 0.333333 },
+      { id: "k1-4510-akgst", name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111111 },
+      { id: "k1-4510-ssgst", name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111111 },
+      { id: "k1-4510-cagst", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111111 },
+    ],
+  },
+
+  {
     // Eastwick JV I — the same two companies as 9200 and 0300, without the
     // Airport Interplex Two GP interest. 75/25 rather than 74.5/25/0.5.
     //
