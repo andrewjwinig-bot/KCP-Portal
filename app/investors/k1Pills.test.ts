@@ -102,3 +102,38 @@ describe("By Investor shows where the K-1 link would go", () => {
     expect(page).not.toContain("Statement of Values →\n");
   });
 });
+
+// Comments stripped: these assertions are about what the card RENDERS, and the
+// comments explaining what was removed necessarily name the removed things.
+const panel = readFileSync(join(process.cwd(), "app/investors/K1Panel.tsx"), "utf8")
+  .replace(/\/\*[\s\S]*?\*\//g, "")
+  .replace(/^\s*\/\/.*$/gm, "");
+
+// The card header restated what was already on screen. "K-1s uploaded" and
+// "Still to collect" are the same number the collapsed roster row's pill
+// carries; "Links shared" is the Portal column on every row. Three tiles of it
+// cost a band of height on each open card and pushed the roster below the fold.
+describe("the K-1 card header carries only what is not elsewhere", () => {
+  it("has no KPI tiles", () => {
+    expect(panel).not.toContain("<StatPill");
+    expect(panel).not.toContain("K-1s uploaded");
+    expect(panel).not.toContain("Still to collect");
+  });
+
+  it("has no fabricated-sample preview — the real one is per investor", () => {
+    expect(panel).not.toContain("Preview investor view");
+  });
+
+  it("still carries the year and the bulk send", () => {
+    expect(panel).toContain("<YearSelect");
+    expect(panel).toContain("Email {chosen.length");
+  });
+
+  it("creating links without emailing is an ALTERNATIVE, never a step", () => {
+    // The prerequisite is gone — Email mints the links on its way. This is the
+    // other way out, and the only route that works for an investor with no
+    // address on file.
+    expect(panel).toContain("Create links, don");
+    expect(panel).toContain("sends no email");
+  });
+});

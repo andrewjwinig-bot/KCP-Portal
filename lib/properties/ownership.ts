@@ -1,3 +1,4 @@
+import type { PropType } from "./data";
 // ─── PROPERTY OWNERSHIP — SOURCE OF TRUTH ────────────────────────────────────
 // Canonical ownership data per property. The Filing Tracker K-1 distribution
 // task investors and the Investor Info page both read from here.
@@ -51,6 +52,18 @@ export interface PropertyOwnership {
   propertyCode: string;
   /** Optional display label; otherwise PROPERTY_DEFS lookup is used. */
   propertyName?: string;
+  /**
+   * Category, for an entity the property directory does not carry.
+   *
+   * An entity that files its own return is not always a building: Lincoln
+   * Subsidiary Joint Venture III owns the three Neshaminy office buildings
+   * rather than being one, so the directory has 3610/3620/3640 and not 3600.
+   * Absent from the directory it fell to "Misc", which grouped an office park
+   * with the odds and ends. The type is a fact about the entity, so it is
+   * recorded here beside its name rather than by adding a phantom building to
+   * the directory.
+   */
+  propertyType?: PropType;
   /** Whether this property files K-1 distributions (drives Filing Tracker). */
   hasK1Distribution?: boolean;
   owners: PropertyOwner[];
@@ -426,6 +439,9 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
     // does.
     propertyCode: "3600",
     propertyName: "Lincoln Subsidiary Joint Venture III",
+    // It owns the three Neshaminy office buildings, so it belongs with them
+    // rather than in Misc with the odd entities.
+    propertyType: "Office",
     hasK1Distribution: true,
     owners: [
       hymanKormanCoPartner("k1-3600", 0.708570),
