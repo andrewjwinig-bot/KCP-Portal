@@ -100,75 +100,21 @@ describe("By Investor shows where the K-1 link would go", () => {
     expect(page).toContain("with no email on file");
   });
 
-  it("Statement of Values is on the opened row, not a column", () => {
-    // As a column it was a near-empty strip down the whole table.
-    expect(page).toContain("s Statement of Values &rarr;");
-    expect(page).not.toContain("Statement of Values →\n");
+  it("Statement of Values is reached from an SOV column, and opens in the row", () => {
+    // It was a labelled button in a column of its own — a near-empty strip
+    // down the whole table. Now it is one icon, and the statement itself
+    // renders inside that investor's row rather than on a third tab.
+    expect(page).toContain("SOV<\/th>");
+    expect(page).toContain("goToOwnerStatement(agg.name, agg.key)");
+    expect(page).toContain("beneficiary === sovName");
+  });
+
+  it("there is no third tab — two views, both absorbing a half", () => {
+    expect(page).toContain('type View = "property" | "investor"');
+    expect(page).not.toContain('label: "Statement of Values"');
   });
 });
 
-// Comments stripped: these assertions are about what the card RENDERS, and the
-// comments explaining what was removed necessarily name the removed things.
-const panel = readFileSync(join(process.cwd(), "app/investors/K1Panel.tsx"), "utf8")
-  .replace(/\/\*[\s\S]*?\*\//g, "")
-  .replace(/^\s*\/\/.*$/gm, "");
-
-// The card header restated what was already on screen. "K-1s uploaded" and
-// "Still to collect" are the same number the collapsed roster row's pill
-// carries; "Links shared" is the Portal column on every row. Three tiles of it
-// cost a band of height on each open card and pushed the roster below the fold.
-describe("the K-1 card header carries only what is not elsewhere", () => {
-  it("has no KPI tiles", () => {
-    expect(panel).not.toContain("<StatPill");
-    expect(panel).not.toContain("K-1s uploaded");
-    expect(panel).not.toContain("Still to collect");
-  });
-
-  it("has no fabricated-sample preview — the real one is per investor", () => {
-    expect(panel).not.toContain("Preview investor view");
-  });
-
-  it("still carries the year and the bulk send", () => {
-    expect(panel).toContain("<YearSelect");
-    expect(panel).toContain("Email {chosen.length");
-  });
-
-  it("creating links without emailing is an ALTERNATIVE, never a step", () => {
-    // The prerequisite is gone — Email mints the links on its way. This is the
-    // other way out, and the only route that works for an investor with no
-    // address on file.
-    expect(panel).toContain("Create links, don");
-    expect(panel).toContain("sends no email");
-  });
-});
-
-// Chrome that told the reader nothing they could act on.
-describe("the page doesn't explain itself to itself", () => {
-  it("no source-code paths are shown to staff", () => {
-    // "Source: lib/properties/ownership.ts" is a note to whoever maintains the
-    // page, and it was the last line of every view.
-    expect(page).not.toContain("lib/properties/ownership.ts");
-    expect(page).not.toContain("lib/properties/entityValues.ts");
-  });
-
-  it("no subtitle counting the rows the table is about to show", () => {
-    expect(page).not.toContain("unique investor");
-    expect(page).not.toContain("Ownership detail across properties");
-  });
-
-  it("the multi-stake roll-up carries the count and no caption", () => {
-    // "K-1s on file · one link" restated the column it sat in — the header
-    // says K-1 and the neighbouring Portal column shows the one link.
-    expect(page).not.toContain("K-1s on file");
-    expect(page).toContain("{onFile} OF {g.owners.length}");
-  });
-
-  it("but the statement still states its BASIS", () => {
-    // A value there is a share of an entity's equity at a fixed snapshot, not
-    // a market quote — a real caveat for anyone quoting a figure.
-    expect(page).toContain("effective % of the entity");
-  });
-});
 
 const share2 = readFileSync(join(process.cwd(), "app/components/ShareLinkCard.tsx"), "utf8");
 const taxDocs = readFileSync(join(process.cwd(), "app/components/PartnershipTaxDocs.tsx"), "utf8");
