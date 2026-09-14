@@ -36,12 +36,22 @@ const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024)
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 const thisYear = new Date().getFullYear();
 
-export function PartnershipTaxDocs({ propertyCode, defaultOpen = false }: {
+export function PartnershipTaxDocs({ propertyCode, defaultOpen = false, collapsible = true }: {
   propertyCode: string;
-  /** Investor Info shows it expanded with the K-1s; Property Info folds it. */
+  /** Property Info folds it; Investor Info renders it open and fixed. */
   defaultOpen?: boolean;
+  /**
+   * Whether it folds at all.
+   *
+   * On the K-1 card these four documents are part of the batch you are already
+   * working through, and they sit at the bottom of the card — a fold there is
+   * a click between you and the thing you opened the card to reach, and the
+   * collapsed row said only that they exist. Property Info keeps the fold,
+   * where they are an aside rather than the task.
+   */
+  collapsible?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(defaultOpen || !collapsible);
   const [year, setYear] = useState(thisYear - 1);
   const [docs, setDocs] = useState<Doc[] | null>(null);
   const [years, setYears] = useState<number[]>([]);
@@ -88,26 +98,29 @@ export function PartnershipTaxDocs({ propertyCode, defaultOpen = false }: {
 
   return (
     <div style={{ borderTop: "1px solid var(--border)", background: "rgba(15,23,42,0.02)" }} className="no-print">
-      <button type="button" onClick={() => setOpen((v) => !v)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-          padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer",
-          fontFamily: "inherit", textAlign: "left",
-        }}>
-        <span style={{ display: "inline-flex", alignItems: "baseline", gap: 9, flexWrap: "wrap" }}>
-          <span style={{ ...SECTION_LABEL, color: TEAL }}>{open ? "▲" : "▼"} Partnership tax documents</span>
+      {collapsible ? (
+        <button type="button" onClick={() => setOpen((v) => !v)}
+          style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+            padding: "12px 16px", background: "transparent", border: "none", cursor: "pointer",
+            fontFamily: "inherit", textAlign: "left",
+          }}>
+          <span style={{ display: "inline-flex", alignItems: "baseline", gap: 9, flexWrap: "wrap" }}>
+            <span style={{ ...SECTION_LABEL, color: TEAL }}>{open ? "▲" : "▼"} Partnership tax documents</span>
+            <span className="muted small">Not circulated to investors</span>
+          </span>
+          {open ? null : <span className="muted small">{held ? `${held} on file` : ""}</span>}
+        </button>
+      ) : (
+        <div style={{ display: "flex", alignItems: "baseline", gap: 9, flexWrap: "wrap", padding: "12px 16px 0" }}>
+          <span style={{ ...SECTION_LABEL, color: TEAL }}>Partnership tax documents</span>
           <span className="muted small">Not circulated to investors</span>
-        </span>
-        {open ? null : <span className="muted small">{held ? `${held} on file` : ""}</span>}
-      </button>
+        </div>
+      )}
 
       {open && (
         <div style={{ padding: "0 16px 15px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 11 }}>
-            <span className="muted small" style={{ maxWidth: 620 }}>
-              The rest of the return that arrives with the K-1 batch. Staff only — these carry every partner&rsquo;s
-              allocation, so no investor link can reach them.
-            </span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, flexWrap: "wrap", marginBottom: 11 }}>
             <YearSelect value={year} years={yearOptions} onChange={setYear} small aria-label="Tax year" />
           </div>
 

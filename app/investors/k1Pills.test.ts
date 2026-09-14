@@ -2,7 +2,11 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const page = readFileSync(join(process.cwd(), "app/investors/page.tsx"), "utf8");
+// Comments stripped — these assertions are about what the page RENDERS, and a
+// comment explaining what was removed necessarily names the removed thing.
+const page = readFileSync(join(process.cwd(), "app/investors/page.tsx"), "utf8")
+  .replace(/\/\*[\s\S]*?\*\//g, "")
+  .replace(/^\s*\/\/.*$/gm, "");
 
 // A component that is written, typechecks, builds and is never RENDERED is
 // invisible to every other kind of test here. K1Progress shipped that way: the
@@ -152,9 +156,61 @@ describe("the page doesn't explain itself to itself", () => {
     expect(page).not.toContain("Ownership detail across properties");
   });
 
+  it("the multi-stake roll-up carries the count and no caption", () => {
+    // "K-1s on file · one link" restated the column it sat in — the header
+    // says K-1 and the neighbouring Portal column shows the one link.
+    expect(page).not.toContain("K-1s on file");
+    expect(page).toContain("{onFile} OF {g.owners.length}");
+  });
+
   it("but the statement still states its BASIS", () => {
     // A value there is a share of an entity's equity at a fixed snapshot, not
     // a market quote — a real caveat for anyone quoting a figure.
     expect(page).toContain("effective % of the entity");
+  });
+});
+
+const share2 = readFileSync(join(process.cwd(), "app/components/ShareLinkCard.tsx"), "utf8");
+const taxDocs = readFileSync(join(process.cwd(), "app/components/PartnershipTaxDocs.tsx"), "utf8");
+
+describe("the share dialog says it with buttons, not paragraphs", () => {
+  it("no empty-state box announcing that no link exists", () => {
+    // It sat directly above three buttons that say it: Email the investor,
+    // Just create the link, See their page first.
+    expect(share2).not.toContain("No link yet");
+  });
+
+  it("no sentence about a PIN that is not optional", () => {
+    expect(share2).not.toContain("This link always carries an access PIN");
+  });
+
+  it("the send button names the recipient", () => {
+    expect(page.includes("Email ${addressAs") || readFileSync(join(process.cwd(), "app/investors/K1Panel.tsx"), "utf8").includes("Email ${addressAs")).toBe(true);
+  });
+});
+
+describe("partnership tax documents sit open at the bottom", () => {
+  it("can render without a fold", () => {
+    expect(taxDocs).toContain("collapsible");
+  });
+
+  it("carries no paragraph restating who they are for", () => {
+    // "Not circulated to investors" beside the title already says it.
+    expect(taxDocs).not.toContain("The rest of the return that arrives");
+    expect(taxDocs).toContain("Not circulated to investors");
+  });
+});
+
+describe("the ownership tables", () => {
+  it("hide the vendor code column without disturbing the colSpans", () => {
+    expect(page).toContain("VENDOR_COL");
+    // Still searchable — the column is hidden, not the data dropped.
+    expect(page).toContain("vendorCode ?? \"\").toLowerCase().includes(q)");
+  });
+
+  it("keep OWNERSHIP % on one line", () => {
+    const heads = page.match(/<th[^>]*>OWNERSHIP %<\/th>/g) ?? [];
+    expect(heads.length).toBeGreaterThan(0);
+    for (const h of heads) expect(h, h).toContain("nowrap");
   });
 });
