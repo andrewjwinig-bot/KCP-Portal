@@ -1118,13 +1118,13 @@ export default function InvestorInfoPage() {
           </td>
           <td style={{ ...tdL, whiteSpace: "normal" }}>
             <span style={{ fontWeight: 700, fontSize: 14.5 }}>{h.propertyName}</span>
+            {/* The COUNT, not just the fact that the property files K-1s.
+                This was a flat teal chip on every flagged partnership, which
+                reads as a tick — so 7010 sitting on 12 of 21 looked exactly
+                like a property that was finished. Staff without K-1 access
+                load no summary and get the neutral tag, which claims nothing. */}
             {h.hasK1Distribution && (
-              <span style={{
-                marginLeft: 8, fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-                padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap",
-                background: "rgba(15,118,110,0.08)", color: "#0f766e",
-                border: "1px solid rgba(15,118,110,0.25)",
-              }}>K-1</span>
+              <K1Progress got={k1reg.summary[h.propertyCode]} year={k1reg.summaryYear} />
             )}
           </td>
           <td style={{ ...td, color: "var(--muted)" }}>{h.owners.length}</td>
