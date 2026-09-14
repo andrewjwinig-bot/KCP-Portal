@@ -49,6 +49,23 @@ export async function GET(req: NextRequest) {
     .filter((p) => p.hasK1Distribution)
     .map((p) => ({ code: p.propertyCode, name: propName(p.propertyCode), owners: p.owners.length }));
 
+  // ── Collection progress, for every partnership at once ────────────────────
+  // How many of each partnership's K-1s are in, without opening its card. The
+  // roster otherwise says only that a property FILES K-1s, so finding the one
+  // still missing three of them meant opening all of them in turn.
+  if (req.nextUrl.searchParams.get("summary")) {
+    const docs = await allK1s();
+    const y = Number.isFinite(year) ? year : new Date().getFullYear() - 1;
+    return NextResponse.json({
+      ok: true,
+      year: y,
+      properties: properties.map((p) => ({
+        ...p,
+        uploaded: docs.filter((d) => d.propertyCode === p.code && d.taxYear === y).length,
+      })),
+    });
+  }
+
   // ── By-investor mode ──────────────────────────────────────────────────────
   // The Investor Info page groups by NAME, but an interest is a per-property
   // owner record — and one person can hold several (a trust and a personal
