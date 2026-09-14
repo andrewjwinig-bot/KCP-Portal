@@ -6,41 +6,49 @@ import { ownerSections } from "@/app/investors/ownerSections";
 import { entityValue } from "./entityValues";
 import { BENEFICIARY_STAKES } from "./beneficiaries";
 
+/** AIRPORT INTERPLEX TWO, INC. — the S-corporation, which files its own return. */
 const p0300 = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "0300")!;
+/** EASTWICK DEVELOPMENT JV XII — the joint venture the Inc holds 0.50% of. */
 const p9200 = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "9200")!;
-const byId = (id: string) => p0300.owners.find((o) => o.id === id)!;
+const pJV = p9200;
+const byId = (id: string) => pJV.owners.find((o) => o.id === id)!;
 
-describe("Airport Interplex Two (0300) — entities own it, investors sit beneath", () => {
+describe("Eastwick Development JV XII (9200) — entities own it, investors sit beneath", () => {
   it("has THREE partners, and they are entities — not the people", () => {
     // The correction this entry exists for. Keyed flat at first, which read as
     // though each person were a direct partner of the property. None is: they
     // hold through three different companies at three different rates.
-    expect(p0300.hasK1Distribution).toBe(true);
-    expect(p0300.owners.map((o) => o.name)).toEqual([
+    //
+    // This schedule is the JOINT VENTURE's, and for a while it was keyed onto
+    // 0300 as well. 0300 is AIRPORT INTERPLEX TWO, INC. — the 0.50% partner
+    // heading a band INSIDE this sheet — and it files its own 1120-S. Both
+    // entities printing on one page is what made them read as one structure.
+    expect(pJV.hasK1Distribution).toBe(true);
+    expect(pJV.owners.map((o) => o.name)).toEqual([
       "Airport Interplex Two, Inc.",
       "The Korman Co",
       "New Eastwick Corporation",
     ]);
-    expect(p0300.owners.map((o) => o.ownerPct)).toEqual([0.005, 0.745, 0.25]);
+    expect(pJV.owners.map((o) => o.ownerPct)).toEqual([0.005, 0.745, 0.25]);
   });
 
   it("the three partners account for the whole property", () => {
-    const total = p0300.owners.reduce((t, o) => t + (o.ownerPct ?? 0), 0);
+    const total = pJV.owners.reduce((t, o) => t + (o.ownerPct ?? 0), 0);
     expect(Math.round(total * 1e6) / 1e6).toBe(1);
   });
 
   it("every partner collapses to its own investors", () => {
-    for (const o of p0300.owners) expect(o.subOwners?.length, o.name).toBeGreaterThan(0);
-    expect(byId("k1-0300-aitwo").subOwners).toHaveLength(5);
-    expect(byId("k1-0300-kormanco").subOwners).toHaveLength(6);
-    expect(byId("k1-0300-neweastwick").subOwners).toHaveLength(2);
+    for (const o of pJV.owners) expect(o.subOwners?.length, o.name).toBeGreaterThan(0);
+    expect(byId("k1-9200-aitwo").subOwners).toHaveLength(5);
+    expect(byId("k1-9200-kormanco").subOwners).toHaveLength(6);
+    expect(byId("k1-9200-neweastwick").subOwners).toHaveLength(2);
   });
 
   it("renders as three bands, biggest first, with nothing loose", () => {
     // The screenshot's shape: an entity heads each band with its share of the
     // property and its investors beneath. No "Other investors" section here,
     // because no person holds the property directly.
-    const secs = ownerSections(p0300.owners);
+    const secs = ownerSections(pJV.owners);
     expect(secs.map((s) => s.entity?.name)).toEqual([
       "The Korman Co",
       "New Eastwick Corporation",
@@ -53,25 +61,25 @@ describe("Airport Interplex Two (0300) — entities own it, investors sit beneat
   it("a sub-owner's % is a share of ITS ENTITY, never of the property", () => {
     // The trap this modelling exists to avoid. Steven holds a third of The
     // Korman Co, which is 74.5% of the property — so 24.8% of it, not 33%.
-    const steven = byId("k1-0300-kormanco").subOwners!.find((o) => o.name === "Steven H. Korman")!;
+    const steven = byId("k1-9200-kormanco").subOwners!.find((o) => o.name === "Steven H. Korman")!;
     expect(steven.ownerPct).toBeCloseTo(0.333333, 6);
-    expect(steven.ownerPct! * byId("k1-0300-kormanco").ownerPct!).toBeCloseTo(0.248333, 6);
+    expect(steven.ownerPct! * byId("k1-9200-kormanco").ownerPct!).toBeCloseTo(0.248333, 6);
   });
 
   it("each entity's investors sum to its own 100%", () => {
     const sum = (o: PropertyOwner) => (o.subOwners ?? []).reduce((t, s) => t + (s.ownerPct ?? 0), 0);
-    expect(Math.round(sum(byId("k1-0300-kormanco")) * 1e6) / 1e6).toBe(1);
-    expect(Math.round(sum(byId("k1-0300-neweastwick")) * 1e6) / 1e6).toBe(1);
+    expect(Math.round(sum(byId("k1-9200-kormanco")) * 1e6) / 1e6).toBe(1);
+    expect(Math.round(sum(byId("k1-9200-neweastwick")) * 1e6) / 1e6).toBe(1);
     // …except the Inc., whose schedule rounds to three decimals: two thirds
     // plus three ninths land on 99.990%. Keyed as the document reads.
-    expect(Math.round(sum(byId("k1-0300-aitwo")) * 1e6) / 1e6).toBe(0.9999);
+    expect(Math.round(sum(byId("k1-9200-aitwo")) * 1e6) / 1e6).toBe(0.9999);
   });
 
   it("carries the third tier — The Korman Co inside New Eastwick", () => {
     // 9.6% of New Eastwick's 25% is another 2.4% of the property held by the
     // same company. Stored so the chain is complete even though the roster
     // draws two tiers.
-    const ne = byId("k1-0300-neweastwick");
+    const ne = byId("k1-9200-neweastwick");
     const kc = ne.subOwners!.find((o) => o.name === "The Korman Co")!;
     expect(kc.ownerPct).toBe(0.096);
     expect(kc.subOwners).toHaveLength(6);
@@ -87,7 +95,7 @@ describe("Airport Interplex Two (0300) — entities own it, investors sit beneat
       PROPERTY_OWNERSHIP.filter((p) => p.propertyCode !== "0300").flatMap((p) => p.owners.map((o) => o.name)),
     );
     const PEOPLE = ["Berton E. Korman", "Steven H. Korman", "Alison Korman Feldman", "Catherine Korman Altman", "Susan Korman Schurr"];
-    const named = new Set(p0300.owners.flatMap((o) => o.subOwners ?? []).map((o) => o.name));
+    const named = new Set(pJV.owners.flatMap((o) => o.subOwners ?? []).map((o) => o.name));
     for (const n of PEOPLE) {
       expect(named, n).toContain(n);
       expect(elsewhere, n).toContain(n);
@@ -101,38 +109,68 @@ describe("Airport Interplex Two (0300) — entities own it, investors sit beneat
     // document does not say whose interest they are, and guessing Berton
     // would group them into his single investor link and put two more K-1s
     // behind it. Keyed as the schedule reads; change only on instruction.
-    const kc = byId("k1-0300-kormanco").subOwners!;
+    const kc = byId("k1-9200-kormanco").subOwners!;
     const trusts = kc.filter((o) => /Berton E Korman (2012 Family Trust|Irrev)/.test(o.name));
     expect(trusts).toHaveLength(2);
     for (const t of trusts) expect(t.detailedName).toBeUndefined();
 
     // Berton's own TUA, by contrast, IS attributed to him — that exact trust
     // already sits on the roster under his name at 7010.
-    const tua = byId("k1-0300-aitwo").subOwners!.find((o) => o.detailedName?.includes("TUA"))!;
+    const tua = byId("k1-9200-aitwo").subOwners!.find((o) => o.detailedName?.includes("TUA"))!;
     expect(tua.name).toBe("Berton E. Korman");
   });
 });
 
-describe("9200 Eastwick Development JV XII — the same chain, its own rows", () => {
-  it("carries the identical ownership structure", () => {
-    // The two share one ownership schedule because they share one chain, which
-    // is why the structure is built once and stamped onto both.
-    const shape = (p: typeof p0300) =>
-      p.owners.map((o) => [o.name, o.ownerPct, (o.subOwners ?? []).map((s) => [s.name, s.ownerPct])]);
-    expect(shape(p9200)).toEqual(shape(p0300));
-    expect(p9200.hasK1Distribution).toBe(true);
+describe("Airport Interplex Two, Inc. (0300) — a corporation that files its own return", () => {
+  it("is FIVE shareholders, not the joint venture's three entities", () => {
+    // It was keyed as the JV and that was wrong. The five K-1s that arrive are
+    // titled "Airport Interplex Two Inc … 1120s" — an S-corporation return —
+    // and name exactly these shareholders.
+    expect(p0300.hasK1Distribution).toBe(true);
+    expect(p0300.propertyName).toBe("Airport Interplex Two, Inc.");
+    expect(p0300.owners).toHaveLength(5);
+    expect(p0300.owners.every((o) => !o.subOwners)).toBe(true);
+    expect(p0300.owners.map((o) => o.ownerPct)).toEqual([0.3333, 0.3333, 0.1111, 0.1111, 0.1111]);
   });
 
-  it("gives every row its OWN id — the two issue their own K-1s", () => {
-    // An id is a K-1 upload target and a Filing Tracker key. Shared ids would
-    // put one property's K-1 on the other's row.
+  it("totals 99.99% — as the schedule prints it, not rounded up", () => {
+    // Inventing the missing hundredth to reach a round number hides whether it
+    // is rounding or a shareholder nobody keyed.
+    const total = p0300.owners.reduce((t, o) => t + (o.ownerPct ?? 0), 0);
+    expect(Math.round(total * 1e6) / 1e6).toBe(0.9999);
+  });
+
+  it("keeps the ORIGINAL ids — they are live upload targets", () => {
+    // 0300 was first keyed flat with these ids, then restructured as the JV,
+    // which orphaned them. Restoring the ids reconnects any K-1 already
+    // uploaded against them instead of stranding it.
+    expect(p0300.owners.map((o) => o.id)).toEqual([
+      "k1-0300-bert4", "k1-0300-stev1", "k1-0300-akgsts", "k1-0300-cagsts", "k1-0300-ssgsts",
+    ]);
+  });
+
+  it("names Berton's row as the TRUST, matching the K-1 it receives", () => {
+    // He has died; the trust is the shareholder. The file is titled
+    // "Berton E Korman TUA Dtd 02232018", and one link per investor groups by
+    // name — so a row in his personal name would pool a dead man's K-1s.
+    expect(p0300.owners[0].name).toBe("Berton E Korman TUA Dtd 02232018");
+  });
+
+  it("still holds its 0.50% of the joint venture, where it takes a K-1 too", () => {
+    // The two facts coexist: the Inc is a partner of 9200 AND a filer itself.
+    const inc = p9200.owners.find((o) => o.name === "Airport Interplex Two, Inc.")!;
+    expect(inc.ownerPct).toBe(0.005);
+    expect(inc.subOwners).toHaveLength(5);
+  });
+
+  it("gives every row its OWN id — the two entities issue their own K-1s", () => {
+    // An id is a K-1 upload target and a Filing Tracker key. A shared id would
+    // put the Inc's K-1 on the JV's row.
     const ids = (p: typeof p0300): string[] =>
       p.owners.flatMap(function walk(o): string[] {
         return [o.id, ...(o.subOwners ?? []).flatMap(walk)];
       });
     const a = ids(p0300), b = ids(p9200);
-    expect(a.length).toBeGreaterThan(20);
-    expect(a.length).toBe(b.length);
     expect(a.some((id) => b.includes(id))).toBe(false);
     expect(new Set([...a, ...b]).size).toBe(a.length + b.length);
     expect(a.every((id) => id.startsWith("k1-0300"))).toBe(true);
@@ -212,7 +250,7 @@ describe("1500 Eastwick JV I — the same companies, no GP interest", () => {
       PROPERTY_OWNERSHIP.find((p) => p.propertyCode === code)!
         .owners.find((o) => o.name === "The Korman Co")!
         .subOwners!.map((s) => [s.name, s.ownerPct]);
-    expect(kcOf("1500")).toEqual(kcOf("0300"));
+    expect(kcOf("1500")).toEqual(kcOf("9200"));
     expect(kcOf("1500")).toEqual(kcOf("9200"));
   });
 

@@ -377,17 +377,40 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
   },
 
   {
-    // Airport Interplex Two. Same three partners as 9200 — see
-    // eastwickAirportOwners above.
+    // AIRPORT INTERPLEX TWO, INC. — an S-corporation that files its OWN return
+    // (Form 1120-S) and issues these five K-1s. It is NOT the joint venture.
     //
-    // The schedule these came from prints ONE set of dollars totalling
-    // $402,210, which is 0300 ($5,983) and 9200 ($396,227) together. The two
-    // entities are valued separately in ENTITY_VALUES, so those dollars are not
-    // imported here; taking them would have stated the pair's combined value as
-    // either one's.
+    // This was keyed as the JV for a while and it was wrong. The schedule it
+    // came from describes EASTWICK DEVELOPMENT JV XII — that is 9200 — and the
+    // Inc appears INSIDE it as a 0.50% partner heading a band of its own five
+    // shareholders. Both entities are on the one sheet, which is what made it
+    // read as a single structure. ENTITY_VALUES has always kept them apart:
+    // 0300 is the Inc at $5,983, 9200 the JV at $396,227.
+    //
+    // Same shape as 4510 Grays Ferry — a small corporate GP that files
+    // separately from the partnership it holds an interest in. It still
+    // appears as a 0.50% partner of 9200, where it takes that partnership's
+    // K-1; these five are the ones IT issues.
+    //
+    // Ids are the ORIGINAL ones from when 0300 was first keyed flat. An id is
+    // a K-1 upload target, so restoring them reconnects any document uploaded
+    // against them rather than leaving it orphaned.
+    //
+    // 99.99% is what the schedule totals and it is left as printed. The
+    // missing hundredth is rounding in the source, not a shareholder we are
+    // short of — inventing one to reach a round number hides which it is.
     propertyCode: "0300",
+    propertyName: "Airport Interplex Two, Inc.",
     hasK1Distribution: true,
-    owners: eastwickAirportOwners("k1-0300"),
+    owners: [
+      // Keyed as the trust, which survives him — Berton E. Korman has died, so
+      // the trust is the shareholder and the K-1 goes to its trustee.
+      { id: "k1-0300-bert4",  name: "Berton E Korman TUA Dtd 02232018", address: "410 Lancaster Ave", city: "Haverford", state: "PA", zip: "19041", ownerPct: 0.333300 },
+      { id: "k1-0300-stev1",  name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333300 },
+      { id: "k1-0300-akgsts", name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
+      { id: "k1-0300-cagsts", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111100 },
+      { id: "k1-0300-ssgsts", name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
+    ],
   },
 
   {
