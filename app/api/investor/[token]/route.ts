@@ -8,14 +8,14 @@ import { ALL_USERS, canManageK1, type UserId } from "@/lib/users";
 import { PREVIEW_TOKEN, previewPayload, previewOwnerPayload } from "@/lib/investors/k1Preview";
 import { k1sForOwner } from "@/lib/investors/k1Store";
 import { PROPERTY_OWNERSHIP } from "@/lib/properties/ownership";
-import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
+import { partnershipName } from "@/lib/investors/partnershipName";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const propName = (code: string) => PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase())?.name ?? code;
+const propName = partnershipName;
 
 /** Public — one investor's own published K-1s, behind the signed link + PIN.
  *  Scoped entirely to the link's single owner id. */

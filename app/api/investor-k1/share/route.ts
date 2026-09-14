@@ -6,7 +6,6 @@ import { PROPERTY_OWNERSHIP } from "@/lib/properties/ownership";
 import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
 import { getContactOverrides } from "@/lib/properties/ownerContactsStore";
 import { allOwnerEmails } from "@/lib/investors/ownerEmailStore";
-import { PROPERTY_DEFS } from "@/lib/properties/data";
 import {
   investorLinkSecret, signInvestorToken, saveInvestorLink, listInvestorLinks,
   revokeInvestorLink, generatePin, linkOwnerIds, type InvestorLink,
@@ -18,6 +17,7 @@ import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
 import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, PREVIEW_URL_PLACEHOLDER, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
 import { addressRecipients, reached } from "@/lib/investors/recipients";
+import { partnershipName } from "@/lib/investors/partnershipName";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,7 +43,7 @@ async function currentUser(): Promise<UserId | null> {
  */
 const shareCopyTo = () => (process.env.K1_SHARE_COPY_TO ?? "dwinig@kormancommercial.com").trim();
 
-const propName = (code: string) => PROPERTY_DEFS.find((p) => p.id.toUpperCase() === code.toUpperCase())?.name ?? code;
+const propName = partnershipName;
 
 type ShareResult = {
   ownerId: string;

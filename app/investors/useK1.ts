@@ -41,7 +41,14 @@ export type K1Owner = {
   } | null;
 };
 
-export type K1Payload = { ok: true; years: number[]; owners: K1Owner[]; documents: K1Document[]; blockers: string[] };
+/** A K-1 uploaded against a partner row that no longer exists — the roster
+ *  shape changed under it. Carried explicitly because the roster renders one
+ *  row per CURRENT owner, so an orphan is otherwise invisible: no row shows it
+ *  and nothing can delete it, while the file sits in storage with a taxpayer
+ *  ID in it. */
+export type K1Orphan = { id: string; ownerId: string; taxYear: number; filename: string; ownerName: string; uploadedAt: string };
+
+export type K1Payload = { ok: true; years: number[]; owners: K1Owner[]; documents: K1Document[]; orphans?: K1Orphan[]; blockers: string[] };
 
 /** One owner's outcome from a share. The bulk and single paths return the same
  *  shape, so the result panel doesn't branch. */
@@ -116,6 +123,9 @@ export type K1Slice = {
   setYear: (y: number) => void;
   upload: (ownerId: string, file: File | null | undefined) => void;
   remove: (doc: K1Document) => void;
+  /** K-1s left behind by a roster change, and the way to clear one. */
+  orphans: K1Orphan[];
+  removeOrphan: (o: K1Orphan) => void;
   setPublished: (publish: boolean) => void;
   /** Mint links for these owners; `send` also emails each of them. */
   /** Resolves with what the send did, for a SINGLE owner — the share dialog
@@ -348,6 +358,15 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         if (!confirm(`Remove ${doc.ownerName}'s ${doc.taxYear} K-1 (${doc.filename})? The file is deleted permanently.`)) return;
         void act(code, async () => {
           const res = await fetch(`/api/investor-k1?id=${doc.id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Could not delete.");
+        });
+      },
+
+      orphans: payload?.orphans ?? [],
+      removeOrphan: (o: K1Orphan) => {
+        if (!confirm(`Delete the ${o.taxYear} K-1 uploaded onto "${o.ownerName}" (${o.filename})?\n\nIt is attached to a partner row that no longer exists, so nobody can see it. The file is deleted permanently.`)) return;
+        void act(code, async () => {
+          const res = await fetch(`/api/investor-k1?id=${o.id}`, { method: "DELETE" });
           if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "Could not delete.");
         });
       },
