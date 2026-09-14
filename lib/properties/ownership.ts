@@ -157,6 +157,10 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
 
   {
     propertyCode: "4500",
+    // Grays Ferry distributes to eleven partners. Unflagged, the property was
+    // absent from the K-1 picker entirely — the API lists only partnerships
+    // marked here — so there was nowhere to drop its K-1s.
+    hasK1Distribution: true,
     owners: [
       { id: "own-4500-19721", name: "Alison Korman Feldman",  detailedName: "1972 Tr for Alison Korman Feldman", vendorCode: "19721", address: "6015 Sheaff Lane",       city: "Fort Washington", state: "PA", zip: "19034",                              ownerPct: 0.055560 },
       { id: "own-4500-19722", name: "Catherine Korman Altman",    detailedName: "1972 Tr for Catherine S. Korman",   vendorCode: "19722", address: "241 S. 6th Street",      city: "Philadelphia",    state: "PA", zip: "19106",                              ownerPct: 0.055560 },
