@@ -63,3 +63,42 @@ describe("an entity reads the same on both tabs", () => {
     expect(page).toContain("(ownershipFor(sub) ?? 0) * (ifrac ?? 0)");
   });
 });
+
+const share = readFileSync(join(process.cwd(), "app/components/ShareLinkCard.tsx"), "utf8");
+const portal = readFileSync(join(process.cwd(), "app/investor/[token]/page.tsx"), "utf8");
+
+describe("nothing has to be created before you can look", () => {
+  it("the investor page can be previewed with no link yet", () => {
+    // The preview mints nothing, publishes nothing and records no view, but it
+    // only rendered beside an existing link — so checking what an investor
+    // would see meant creating one first. The check exists to happen BEFORE
+    // anything is created.
+    const noLinkBranch = share.slice(share.indexOf("links.length === 0 && (onCreate || onSend)"));
+    expect(noLinkBranch).toContain("viewAsHref");
+  });
+});
+
+describe("an investor downloads everything at once", () => {
+  it("the portal offers a zip of every K-1 on the link", () => {
+    expect(portal).toContain(`/all`);
+    expect(portal).toContain("Download all");
+  });
+
+  it("only when there is more than one — otherwise Download IS the button", () => {
+    expect(portal).toContain("data.documents.length > 1");
+  });
+});
+
+describe("By Investor shows where the K-1 link would go", () => {
+  it("carries an Email column and a chase-list for the ones missing", () => {
+    expect(page).toContain("<InvestorEmailCell");
+    expect(page).toContain("missingEmailKeys");
+    expect(page).toContain("with no email on file");
+  });
+
+  it("Statement of Values is on the opened row, not a column", () => {
+    // As a column it was a near-empty strip down the whole table.
+    expect(page).toContain("s Statement of Values &rarr;");
+    expect(page).not.toContain("Statement of Values →\n");
+  });
+});

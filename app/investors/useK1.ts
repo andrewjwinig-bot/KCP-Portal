@@ -48,6 +48,16 @@ export type K1Owner = {
  *  ID in it. */
 export type K1Orphan = { id: string; ownerId: string; taxYear: number; filename: string; ownerName: string; uploadedAt: string };
 
+/** One K-1 partner's send address, as the share route would resolve it. */
+export type OwnerEmail = {
+  name: string;
+  propertyCode: string;
+  email: string | null;
+  alsoEmail: string[];
+  emailSource: "override" | "contacts" | "trustee-directory" | "none";
+  emailNote: string;
+};
+
 export type K1Payload = { ok: true; years: number[]; owners: K1Owner[]; documents: K1Document[]; orphans?: K1Orphan[]; blockers: string[] };
 
 /** One owner's outcome from a share. The bulk and single paths return the same
@@ -171,6 +181,11 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
   // counts cannot answer. `null` until it loads, so a row can stay quiet
   // rather than claiming none are in.
   const [k1Owners, setK1Owners] = useState<Set<string> | null>(null);
+  // Where each K-1 partner's link would be emailed — resolved server-side by
+  // the SAME function the send uses, so the roster cannot disagree with what
+  // actually goes out. Keyed by owner id. `null` until it loads, so a row says
+  // nothing rather than claiming an address is missing.
+  const [emails, setEmails] = useState<Record<string, OwnerEmail> | null>(null);
   const summaryYear = thisYear - 1;
   const [selection, setSelection] = useState<Record<string, Set<string>>>({});
   const [busyCode, setBusyCode] = useState<string | null>(null);
@@ -189,6 +204,9 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       setSummary(Object.fromEntries(r.properties.map((p: { code: string; owners: number; uploaded: number }) =>
         [p.code, { owners: p.owners, uploaded: p.uploaded }])));
       if (Array.isArray(r.ownerIds)) setK1Owners(new Set<string>(r.ownerIds));
+      const c = await fetch("/api/investor-k1?contacts=1").then((x) => x.json()).catch(() => null);
+      if (!alive || !Array.isArray(c?.owners)) return;
+      setEmails(Object.fromEntries((c.owners as (OwnerEmail & { ownerId: string })[]).map((o) => [o.ownerId, o])));
     })();
     return () => { alive = false; };
   }, [enabled, summaryYear]);
@@ -562,5 +580,6 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
     /** Per-partnership K-1 collection progress for the roster's tick. */
     summary,
     k1Owners,
+    emails,
     summaryYear, slice, batch, clearBatch: () => setBatch(null), ensureInvestor, investorSlice };
 }

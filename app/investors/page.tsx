@@ -11,13 +11,14 @@ import { ENTITY_VALUES, entityValue, totalEquityValue, STATEMENT_AS_OF } from ".
 import { beneficiaryNames, statementForBeneficiary } from "../../lib/properties/beneficiaries";
 import type { OwnershipEstimates } from "../../lib/properties/estimateStore";
 import type { EntityOverrides, EntityOverride } from "../../lib/properties/entityOverrideStore";
-import { ownerContact, type OwnerContact } from "../../lib/properties/ownerContacts";
+import { ownerContact, shortKey, type OwnerContact } from "../../lib/properties/ownerContacts";
 import { residencyOf } from "../../lib/properties/residency";
 import { buildStatementOfValuesPdf, type StatementPdfRow } from "../../lib/properties/statementPdf";
 import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../../lib/investors/structures";
 import { canEditOwnership, canManageK1 } from "../../lib/users";
 import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults, K1InvestorCells, K1EmailCell, K1InvestorShare } from "./K1Panel";
 import { k1CountFor } from "@/lib/investors/k1Counts";
+import type { OwnerEmail } from "./useK1";
 import { useK1Registry } from "./useK1";
 import { PartnershipTaxDocs } from "@/app/components/PartnershipTaxDocs";
 import { useUser } from "../components/UserProvider";
@@ -297,6 +298,59 @@ function K1InvestorCount({
   );
 }
 
+/**
+ * Where this investor's K-1 link would be emailed.
+ *
+ * It sat one property card at a time — By Property carries the address because
+ * that is where a send happens from — so "who are we still missing an email
+ * for" meant opening twenty-one cards and reading every row. The person's own
+ * row is where that question is actually asked.
+ *
+ * Resolved by the SAME function the send uses, per-owner-id overrides
+ * included, so this cannot disagree with what goes out. A relaxed name match
+ * is flagged rather than presented as fact: a wrong address here mails one
+ * investor's K-1 link to another investor.
+ */
+function InvestorEmailCell({ resolved }: { resolved: OwnerEmail[] | null }) {
+  if (resolved === null) return <span style={{ color: "var(--muted)" }}>&hellip;</span>;
+  const withEmail = resolved.filter((r) => r.email);
+  if (withEmail.length === 0) {
+    return (
+      <span style={{ ...K1_PILL, background: "rgba(220,38,38,0.10)", color: "#b91c1c", borderColor: "rgba(220,38,38,0.30)" }}>
+        NO EMAIL
+      </span>
+    );
+  }
+  // One person, one link — so normally one address. Several means their
+  // interests are deliberately redirected, and the count says so rather than
+  // showing one and hiding the rest.
+  const unique = [...new Set(withEmail.map((r) => r.email!.toLowerCase()))];
+  const shaky = withEmail.some((r) => /check it/i.test(r.emailNote));
+  const extra = [...new Set(withEmail.flatMap((r) => r.alsoEmail))];
+  return (
+    <HoverCard
+      title="K-1 link goes to"
+      rows={[
+        ...unique.map((e) => ({ label: "", value: e })),
+        ...extra.map((e) => ({ label: "Also", value: e })),
+        { label: "Source", value: withEmail[0].emailNote || withEmail[0].emailSource },
+      ]}
+      footer={extra.length ? { label: "", value: "Additional recipients can open this investor's K-1." } : undefined}
+    >
+      <span style={{ display: "inline-flex", alignItems: "baseline", gap: 6, fontSize: 12.5 }}>
+        <span style={{ wordBreak: "break-all" }}>{unique[0]}</span>
+        {unique.length > 1 && <span className="muted" style={{ fontSize: 11 }}>+{unique.length - 1}</span>}
+        {extra.length > 0 && <span className="muted" style={{ fontSize: 11 }}>+{extra.length} cc</span>}
+        {shaky && (
+          <span style={{ ...K1_PILL, background: "rgba(217,119,6,0.12)", color: "#b45309", borderColor: "rgba(217,119,6,0.35)" }}>
+            CHECK
+          </span>
+        )}
+      </span>
+    </HoverCard>
+  );
+}
+
 export default function InvestorInfoPage() {
   const [view, setView] = useState<View>("property");
   const [query, setQuery] = useState("");
@@ -306,7 +360,28 @@ export default function InvestorInfoPage() {
   const benNames = useMemo(() => beneficiaryNames(), []);
   // Cross-link into a specific owner's Statement of Values (only when the
   // investor maps to a statement beneficiary).
-  const beneficiaryMatch = (name: string) => benNames.find((n) => n.toLowerCase() === name.toLowerCase());
+  /**
+   * The Statement-of-Values beneficiary this investor IS, if any.
+   *
+   * The two maps name people differently: the ownership roster uses the fuller
+   * legal name ("Catherine Korman Altman") and the statement uses the shorter
+   * one ("CATHERINE ALTMAN"). Matched exactly, twelve investors who DO have a
+   * statement showed no link to it — including everyone holding five
+   * partnerships or more. So the reduction the contact lookup already uses
+   * (first + last, single letters dropped) is applied as a fallback.
+   *
+   * Never ambiguously: a short name reached by two different beneficiaries
+   * resolves to NEITHER. Landing someone on another person's statement of
+   * values is worse than offering no link.
+   */
+  const beneficiaryMatch = (name: string) => {
+    const exact = benNames.find((n) => n.toLowerCase() === name.toLowerCase());
+    if (exact) return exact;
+    const k = shortKey(name);
+    if (!k) return undefined;
+    const hits = benNames.filter((n) => shortKey(n) === k);
+    return hits.length === 1 ? hits[0] : undefined;
+  };
   const goToOwnerStatement = (name: string) => {
     const match = beneficiaryMatch(name);
     if (!match) return;
@@ -502,6 +577,8 @@ export default function InvestorInfoPage() {
    * a printout of roll-ups alone would not tie to the K-1 schedule.
    */
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  /** By Investor: show only the people with no email on file. */
+  const [onlyMissingEmail, setOnlyMissingEmail] = useState(false);
   function toggleGroup(key: string) {
     setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   }
@@ -604,10 +681,31 @@ export default function InvestorInfoPage() {
     for (const h of rest) propertyBlocks.push({ kind: "prop", h });
   }
 
+  /**
+   * Investors with no address to send their K-1 link to.
+   *
+   * It was only answerable one property card at a time, so handing someone the
+   * list of who still needs chasing meant opening twenty-one cards. Counted
+   * over people rather than interests — one person needs one address.
+   */
+  const missingEmailKeys = useMemo(() => {
+    if (!k1reg.emails) return null;
+    const out = new Set<string>();
+    for (const agg of investorIndex) {
+      const due = agg.rows.filter((r) => r.holding.hasK1Distribution);
+      if (due.length === 0) continue;
+      if (!due.some((r) => k1reg.emails![r.investor.id]?.email)) out.add(agg.key);
+    }
+    return out;
+  }, [investorIndex, k1reg.emails]);
+
   const filteredInvestors = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return investorIndex;
-    return investorIndex.filter((i) =>
+    const base = onlyMissingEmail && missingEmailKeys
+      ? investorIndex.filter((i) => missingEmailKeys.has(i.key))
+      : investorIndex;
+    if (!q) return base;
+    return base.filter((i) =>
       i.name.toLowerCase().includes(q)
       || i.rows.some((r) =>
         r.holding.propertyName.toLowerCase().includes(q)
@@ -615,7 +713,7 @@ export default function InvestorInfoPage() {
         || (r.investor.detailedName ?? "").toLowerCase().includes(q)
         || (r.investor.vendorCode ?? "").toLowerCase().includes(q)),
     );
-  }, [investorIndex, query]);
+  }, [investorIndex, query, onlyMissingEmail, missingEmailKeys]);
 
   const totalInvestors = investorIndex.length;
   const totalHoldings = holdings.length;
@@ -1404,6 +1502,27 @@ export default function InvestorInfoPage() {
         )
       )}
       {/* ── By Investor view ───────────────────────────────────────────── */}
+      {/* The chase-list, one click. Hidden until the addresses load and absent
+          when there is nothing to chase, so it never sits there reading zero. */}
+      {view === "investor" && canK1 && !!missingEmailKeys?.size && (
+        <div className="no-print" style={{ marginBottom: 10 }}>
+          <button
+            type="button"
+            onClick={() => setOnlyMissingEmail((v) => !v)}
+            aria-pressed={onlyMissingEmail}
+            className="btn"
+            style={{
+              fontSize: 12.5, fontWeight: 700,
+              background: onlyMissingEmail ? "rgba(220,38,38,0.10)" : undefined,
+              color: onlyMissingEmail ? "#b91c1c" : undefined,
+              borderColor: onlyMissingEmail ? "rgba(220,38,38,0.35)" : undefined,
+            }}
+          >
+            {onlyMissingEmail ? "\u2715 " : ""}{missingEmailKeys.size} investor{missingEmailKeys.size === 1 ? "" : "s"} with no email on file
+          </button>
+        </div>
+      )}
+
       {view === "investor" && (
         filteredInvestors.length === 0 ? (
           <div className="card muted small">No matches.</div>
@@ -1413,6 +1532,7 @@ export default function InvestorInfoPage() {
               <thead>
                 <tr>
                   <th style={thL}>Investor</th>
+                  {canK1 && <th style={thL} className="no-print">Email</th>}
                   <th style={th}>Properties</th>
                   {canK1 && <th style={th} className="no-print">K1s</th>}
                   <th style={th}>Year-end $</th>
@@ -1441,6 +1561,14 @@ export default function InvestorInfoPage() {
                   // reach it from 0800 or 4900 — so the largest is the count,
                   // not a sum across its properties.
                   const entityInvestorCount = agg.rows.reduce((n, r) => Math.max(n, (r.investor.subOwners ?? []).length), 0);
+                  // Every K-1-bearing interest this person holds, with the
+                  // address each would be sent to. Normally one address; more
+                  // than one means an interest is deliberately redirected.
+                  const emailsFor = k1reg.emails
+                    ? agg.rows.filter((r) => r.holding.hasK1Distribution)
+                        .map((r) => k1reg.emails![r.investor.id])
+                        .filter(Boolean)
+                    : null;
                   const k1c = k1CountFor(
                     agg.rows.map((r) => ({
                       propertyCode: r.holding.propertyCode,
@@ -1469,6 +1597,11 @@ export default function InvestorInfoPage() {
                             <span style={{ ...BAND_COUNT_PILL, marginLeft: 8 }}>{entityInvestorCount} INVESTORS</span>
                           )}
                         </td>
+                        {canK1 && (
+                          <td style={{ ...tdL, whiteSpace: "normal" }} className="no-print" onClick={(e) => e.stopPropagation()}>
+                            <InvestorEmailCell resolved={emailsFor} />
+                          </td>
+                        )}
                         <td style={{ ...td, color: "var(--muted)" }}>{agg.rows.length}</td>
                         {canK1 && (
                           <td style={td} className="no-print" onClick={(e) => e.stopPropagation()}>
@@ -1487,27 +1620,43 @@ export default function InvestorInfoPage() {
                         <td style={{ ...tdL, whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
                           <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                             {inv && <K1InvestorShare name={agg.name} inv={inv} />}
-                            {beneficiaryMatch(agg.name) && (
-                              <button
-                                type="button"
-                                onClick={() => goToOwnerStatement(agg.name)}
-                                className="linkBtn"
-                                title={`View ${agg.name}'s Statement of Values`}
-                                style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" }}
-                              >
-                                Statement of Values →
-                              </button>
-                            )}
+
                           </span>
                         </td>
                         <td style={{ ...td, color: "var(--muted)", width: 30, paddingLeft: 0 }} aria-hidden>{open ? "▲" : "▼"}</td>
                       </tr>
                       {open && (
                         <tr>
-                          <td colSpan={canK1 ? 7 : 6} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
+                          <td colSpan={canK1 ? 8 : 6} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
                       {/* The hub. An investor's details belong on the investor,
                           not spread over the Statement of Values tab and the
                           inside of a share popover. */}
+                      {/* Statement of Values belongs HERE, not as a column.
+                          As a column it was a near-empty strip down the whole
+                          table; on the opened row it sits beside the person's
+                          own details, which is where you are when you want it. */}
+                      <div style={{ padding: "14px 16px 0" }}>
+                        {beneficiaryMatch(agg.name) ? (
+                          <button
+                            type="button"
+                            onClick={() => goToOwnerStatement(agg.name)}
+                            className="btn"
+                            style={{ fontSize: 12.5, fontWeight: 700, color: "#0b4a7d" }}
+                          >
+                            {agg.name}&rsquo;s Statement of Values &rarr;
+                          </button>
+                        ) : (
+                          // Said plainly rather than left blank: a company has
+                          // none BY DESIGN (the statement looks through to the
+                          // people behind it), while a person without one is a
+                          // gap in the ownership map worth seeing.
+                          <span className="muted small">
+                            {entityInvestorCount > 0
+                              ? "No statement of values — the statement looks through this company to the investors behind it."
+                              : "No statement of values — this investor isn't in the beneficiary ownership map yet."}
+                          </span>
+                        )}
+                      </div>
                       <div style={{ padding: "14px 16px 4px", maxWidth: 640 }}>
                         <InvestorContactCard
                           name={agg.name}
@@ -1656,7 +1805,7 @@ export default function InvestorInfoPage() {
                   {/* Deliberately no totals: an investor holds a share of a
                       property, and two investors in the same property would
                       have their slices added to something that is not a figure. */}
-                  <td colSpan={canK1 ? 6 : 5} />
+                  <td colSpan={canK1 ? 7 : 5} />
                 </tr>
               </tfoot>
             </table>

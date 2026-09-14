@@ -820,6 +820,20 @@ export function ShareLinkCard({
                       {busy ? "Working…" : "Just create the link — I'll send it myself"}
                     </button>
                   )}
+                  {/* LOOKING IS NOT A MUTATION, so it must not need a link.
+                      The preview renders the real page with no side effects —
+                      nothing minted, nothing published, no view recorded — yet
+                      it only appeared beside an existing link, so checking what
+                      an investor would see meant creating one first. That is
+                      the wrong way round: the check exists to be done BEFORE
+                      anything is created. */}
+                  {viewAsHref && (
+                    <a href={viewAsHref} target="_blank" rel="noopener noreferrer" className="btn"
+                      style={{ fontSize: 12.5, fontWeight: 700, width: "100%", marginTop: 8, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                      See their page first — creates nothing
+                    </a>
+                  )}
                 </>
               ) : onCreate ? (
                 <button onClick={() => onCreate(pinOptional ? requirePin : true)} disabled={busy} className="btn primary"
