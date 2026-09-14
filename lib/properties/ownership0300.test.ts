@@ -278,3 +278,62 @@ describe("4510 Grays Ferry SC Assoc., Inc. — a GP that files its own return", 
     for (const o of p4510.owners) expect(elsewhere, o.name).toContain(o.name);
   });
 });
+
+describe("the office parks — 3600 and 4000", () => {
+  const p3600 = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "3600")!;
+  const p4000 = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "4000")!;
+
+  it("3600 is two corporate partners, each collapsing to its investors", () => {
+    expect(p3600.hasK1Distribution).toBe(true);
+    expect(p3600.owners.map((o) => [o.name, o.ownerPct])).toEqual([
+      ["Hyman Korman Co.", 0.70857],
+      ["The Korman Co", 0.29143],
+    ]);
+    expect(p3600.owners[0].subOwners).toHaveLength(24);
+    expect(p3600.owners[1].subOwners).toHaveLength(6);
+  });
+
+  it("4000's derived HKC share closes the schedule to exactly 100%", () => {
+    // The schedule lists five partners and says the rest is HKC. 100 − 99.791
+    // = 0.209, which is not written anywhere — so it is asserted here, where a
+    // later "correction" would have to argue with the arithmetic.
+    const listed = p4000.owners.filter((o) => o.name !== "Hyman Korman Co.");
+    expect(Math.round(listed.reduce((t, o) => t + o.ownerPct!, 0) * 1e6) / 1e6).toBe(0.99791);
+    expect(p4000.owners.find((o) => o.name === "Hyman Korman Co.")!.ownerPct).toBe(0.00209);
+  });
+
+  it("both properties account for 100% of themselves", () => {
+    for (const p of [p3600, p4000]) {
+      expect(Math.round(p.owners.reduce((t, o) => t + (o.ownerPct ?? 0), 0) * 1e6) / 1e6, p.propertyCode).toBe(1);
+    }
+  });
+
+  it("LIK Management collapses to its investor rather than being renamed", () => {
+    // The schedule names Alison behind it, but the PARTNER is the company and
+    // the K-1 is issued to the company — so it reads as an entity band, the
+    // way every other corporate partner does.
+    const lik = p4000.owners.find((o) => o.name === "LIK Management, Inc.")!;
+    expect(lik.subOwners).toEqual([expect.objectContaining({ name: "Alison Korman Feldman", ownerPct: 1 })]);
+  });
+
+  it("Hyman Korman Co. has ONE shareholder roster, shared by every property", () => {
+    // Its shareholders are its own — the same people whatever it holds. Three
+    // hand-kept copies is how they would quietly stop agreeing.
+    const hkcOf = (code: string) =>
+      PROPERTY_OWNERSHIP.find((p) => p.propertyCode === code)!
+        .owners.find((o) => o.name === "Hyman Korman Co.")!
+        .subOwners!.map((s) => [s.name, s.detailedName, s.ownerPct]);
+    expect(hkcOf("3600")).toEqual(hkcOf("0800"));
+    expect(hkcOf("4000")).toEqual(hkcOf("0800"));
+  });
+
+  it("does NOT move 0800's existing ids — they are live upload targets", () => {
+    // Extracting the shared roster must not rename an id a K-1 may already be
+    // attached to. Suffixes are preserved; only the prefix varies.
+    const ids = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "0800")!
+      .owners.find((o) => o.name === "Hyman Korman Co.")!.subOwners!.map((s) => s.id);
+    expect(ids[0]).toBe("own-0800-hkc-lawrence-m-korman-dba4ef");
+    expect(ids.at(-1)).toBe("own-0800-hkc-lynne-honickman-dde0f5");
+    expect(ids.every((id) => id.startsWith("own-0800-hkc-"))).toBe(true);
+  });
+});
