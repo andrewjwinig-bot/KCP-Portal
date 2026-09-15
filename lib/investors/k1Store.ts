@@ -33,18 +33,30 @@ export async function k1sFor(propertyCode: string, taxYear: number): Promise<K1D
     .sort((a, b) => (b.uploadedAt ?? "").localeCompare(a.uploadedAt ?? ""));
 }
 
-/** The published K-1s belonging to one owner — what an investor may see. */
-/** Every K-1 held by one owner, newest year first — published or not. The
- *  share path uses this because sending is what publishes. */
+/** Every K-1 held by one owner, newest year first — what staff see. */
 export async function k1sForOwner(ownerId: string): Promise<K1Document[]> {
   return (await allK1s())
     .filter((d) => d.ownerId === ownerId)
     .sort((a, b) => b.taxYear - a.taxYear);
 }
 
-export async function publishedK1sForOwner(ownerId: string): Promise<K1Document[]> {
+/**
+ * What the INVESTOR may see: everything uploaded onto them, minus anything
+ * deliberately withheld.
+ *
+ * This used to require `published`, so a K-1 stayed invisible until a send
+ * released it — and a send released only the partnership it came from. An
+ * investor in fifteen partnerships therefore opened their link and saw one
+ * document, with fourteen uploaded, covered by the link, and hidden. The
+ * uploads were the answer to "what do I have"; withholding them by default
+ * answered a different question.
+ *
+ * Uploading is still a deliberate act onto a named owner row, and `withheld`
+ * pulls a mistake straight back.
+ */
+export async function visibleK1sForOwner(ownerId: string): Promise<K1Document[]> {
   return (await allK1s())
-    .filter((d) => d.published && d.ownerId === ownerId)
+    .filter((d) => d.ownerId === ownerId && !d.withheld)
     .sort((a, b) => b.taxYear - a.taxYear);
 }
 

@@ -621,6 +621,20 @@ preferences.
   same owner is refused (409) rather than silently replacing — delete the
   existing one first, so a document is never swapped out from under a link
   that's already shared.
+- **AN UPLOAD IS VISIBLE ON THE INVESTOR'S LINK AS SOON AS IT LANDS.** Visibility
+  is *uploaded-unless-withheld* (`K1Document.withheld`), not hidden-until-sent.
+  Catherine Altman held eleven interests, opened her link and saw the one K-1
+  from Grays Ferry — the other ten uploaded, covered by her link, and invisible,
+  with nothing on the page saying they existed. `visibleK1sForOwner` is the ONE
+  rule, read by the portal, the file route and the zip; a list route and a file
+  route that disagree means an investor sees a K-1 and gets a 404 on clicking
+  it. `withheld` is written as the EXCEPTION so it is absent on every existing
+  document and they all became visible with no migration — had it been
+  `visible === true`, the whole store would have gone dark on deploy. It is
+  also the retraction path: a K-1 dropped on the wrong row is pulled straight
+  back by unpublishing, which sets it. `published` survives but now records
+  only that a SEND happened, which is what the roster pill and the tax tracker
+  mean by "sent" — an upload must never tick either.
 - **SENDING is what publishes. There is no separate publish step** — do not
   reintroduce one. It was the second half of a two-step check whose first half
   (confirming a filename match) no longer exists, and the link is the real gate:

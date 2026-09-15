@@ -14,8 +14,8 @@ export const dynamic = "force-dynamic";
 
 /** Public — stream ONE K-1 belonging to this link's owner.
  *
- *  Every guard here matters: the document must exist, be published, and belong
- *  to the owner this token was minted for. An investor who guesses another
+ *  Every guard here matters: the document must exist, not be withheld, and
+ *  belong to the owner this token was minted for. An investor who guesses another
  *  document's id gets a 404, not somebody else's tax return. */
 
 /** Preview is STAFF only, checked before any token logic — it must never become
@@ -62,7 +62,10 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   }
   const link = access.link!;
   const doc = await getK1(req.nextUrl.searchParams.get("id") ?? "");
-  if (!doc || !doc.published || !coveredOwnerIds(link).includes(doc.ownerId)) {
+  // Uploaded-unless-withheld, matching the list route. Requiring `published`
+  // here would let an investor SEE a K-1 on their page and get a 404 when they
+  // clicked it.
+  if (!doc || doc.withheld || !coveredOwnerIds(link).includes(doc.ownerId)) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 

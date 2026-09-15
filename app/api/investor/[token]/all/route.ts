@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import JSZip from "jszip";
 import { checkInvestorAccess } from "@/lib/investors/k1Access";
-import { publishedK1sForOwner, saveK1 } from "@/lib/investors/k1Store";
+import { visibleK1sForOwner, saveK1 } from "@/lib/investors/k1Store";
 import { readK1Bytes } from "@/lib/investors/k1Files";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
 import { partnershipName } from "@/lib/investors/partnershipName";
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   const link = access.link!;
 
   const ids = coveredOwnerIds(link);
-  const docs = (await Promise.all(ids.map((id) => publishedK1sForOwner(id)))).flat();
+  const docs = (await Promise.all(ids.map((id) => visibleK1sForOwner(id)))).flat();
   if (docs.length === 0) return NextResponse.json({ error: "Nothing to download." }, { status: 404 });
 
   const zip = new JSZip();

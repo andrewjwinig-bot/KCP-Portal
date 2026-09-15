@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkInvestorAccess, logInvestorView } from "@/lib/investors/k1Access";
-import { publishedK1sForOwner } from "@/lib/investors/k1Store";
+import { visibleK1sForOwner } from "@/lib/investors/k1Store";
 import { linkOwnerIds } from "@/lib/investors/k1Link";
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
     return {
       heldAs: hit?.o.detailedName ?? null,
       propertyCode: hit?.code ?? link.propertyCode,
-      docs: await publishedK1sForOwner(id),
+      docs: await visibleK1sForOwner(id),
     };
   }));
   const docs = perOwner.flatMap(({ heldAs, propertyCode, docs }) =>

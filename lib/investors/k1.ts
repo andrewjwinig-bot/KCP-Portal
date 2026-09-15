@@ -23,9 +23,28 @@ export type K1Document = {
   /** The owner record it was uploaded onto — chosen by a person, never derived. */
   ownerId: string;
   ownerName: string;
-  /** Visible to the investor. */
+  /**
+   * Whether a SEND has released this document. It no longer gates what the
+   * investor sees — an upload is visible on their link as soon as it lands —
+   * but it still records that a deliberate send happened, which is what the
+   * roster pill and the tax tracker mean by "sent".
+   */
   published: boolean;
   publishedAt: string | null;
+  /**
+   * Deliberately hidden from the investor.
+   *
+   * Visibility is uploaded-unless-withheld rather than hidden-until-sent. An
+   * investor in fifteen partnerships was opening their link and seeing the one
+   * K-1 that happened to be sent from the property it was sent from, while the
+   * rest sat uploaded and invisible — and nothing on the page said so.
+   *
+   * Written as the exception, so it is absent on every existing document and
+   * they all become visible without a migration. It is also the retraction
+   * path: a K-1 dropped on the wrong row is pulled back by setting this, and
+   * it hides immediately.
+   */
+  withheld?: boolean;
   /** Access trail — a K-1 is worth knowing the reads of. */
   views: { at: string; ip?: string }[];
   viewCount: number;
