@@ -19,6 +19,7 @@ import { canEditOwnership, canManageK1 } from "../../lib/users";
 import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults, K1InvestorCells, K1EmailCell, K1InvestorShare } from "./K1Panel";
 import { k1CountFor } from "@/lib/investors/k1Counts";
 import { SendAllModal, type SendAllRow } from "./SendAllModal";
+import { compareInvestors, isEntityName } from "@/lib/investors/investorSort";
 import type { OwnerEmail } from "./useK1";
 import { useK1Registry } from "./useK1";
 import { PartnershipTaxDocs } from "@/app/components/PartnershipTaxDocs";
@@ -330,9 +331,13 @@ function K1InvestorCount({
  * row is where that question is actually asked.
  *
  * Resolved by the SAME function the send uses, per-owner-id overrides
- * included, so this cannot disagree with what goes out. A relaxed name match
- * is flagged rather than presented as fact: a wrong address here mails one
- * investor's K-1 link to another investor.
+ * included, so this cannot disagree with what goes out.
+ *
+ * A relaxed name match no longer carries a CHECK pill — the five it flagged
+ * were reviewed and confirmed, and a warning nobody needs to act on trains
+ * people to ignore warnings. The hover still SAYS where the address came from,
+ * which is information rather than an alarm, and `resolveOwnerEmail` is
+ * unchanged: it still refuses a name that resolves to two different addresses.
  */
 function InvestorEmailCell({ resolved }: { resolved: OwnerEmail[] | null }) {
   if (resolved === null) return <span style={{ color: "var(--muted)" }}>&hellip;</span>;
@@ -348,7 +353,6 @@ function InvestorEmailCell({ resolved }: { resolved: OwnerEmail[] | null }) {
   // interests are deliberately redirected, and the count says so rather than
   // showing one and hiding the rest.
   const unique = [...new Set(withEmail.map((r) => r.email!.toLowerCase()))];
-  const shaky = withEmail.some((r) => /check it/i.test(r.emailNote));
   const extra = [...new Set(withEmail.flatMap((r) => r.alsoEmail))];
   return (
     <HoverCard
@@ -364,11 +368,6 @@ function InvestorEmailCell({ resolved }: { resolved: OwnerEmail[] | null }) {
         <span style={{ wordBreak: "break-all" }}>{unique[0]}</span>
         {unique.length > 1 && <span className="muted" style={{ fontSize: 11 }}>+{unique.length - 1}</span>}
         {extra.length > 0 && <span className="muted" style={{ fontSize: 11 }}>+{extra.length} cc</span>}
-        {shaky && (
-          <span style={{ ...K1_PILL, background: "rgba(217,119,6,0.12)", color: "#b45309", borderColor: "rgba(217,119,6,0.35)" }}>
-            CHECK
-          </span>
-        )}
       </span>
     </HoverCard>
   );
@@ -678,7 +677,8 @@ export default function InvestorInfoPage() {
         agg.rows.push({ holding: h, investor: inv });
       }
     }
-    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+    // Read like a contact list: people by surname, companies after them.
+    return [...map.values()].sort((a, b) => compareInvestors(a.name, b.name));
   }, [holdings]);
 
   /** Does a person's set of interests answer the current search? */
@@ -1680,8 +1680,12 @@ export default function InvestorInfoPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredInvestors.map((agg) => {
+                {filteredInvestors.map((agg, idx) => {
                   const open = !!openIds[agg.key];
+                  // The one band, where the people end and the companies begin.
+                  // Without it the block just looks like the alphabet giving up.
+                  const entity = isEntityName(agg.name);
+                  const startsEntities = entity && !(idx > 0 && isEntityName(filteredInvestors[idx - 1].name));
                   // The K-1 columns join this table too — the standalone block under
                   // it repeated prop, name and vendor code from the rows above.
                   if (canK1 && open) k1reg.ensureInvestor(agg.name);
@@ -1718,6 +1722,18 @@ export default function InvestorInfoPage() {
                   );
                   return (
                     <Fragment key={agg.key}>
+                      {startsEntities && (
+                        <tr style={{ background: GROUP_ROW_BG, borderTop: "2px solid var(--border)" }}>
+                          <td colSpan={canK1 ? 9 : 7} style={{ padding: "9px 16px" }}>
+                            <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>
+                              Misc — companies &amp; trusts
+                            </span>
+                            <span className="muted" style={{ fontSize: 11.5, marginLeft: 8 }}>
+                              Each files its own return; the people behind it are on its own roster.
+                            </span>
+                          </td>
+                        </tr>
+                      )}
                       <tr
                         onClick={() => toggleOpen(agg.key)}
                         aria-expanded={open}
