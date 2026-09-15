@@ -1622,8 +1622,16 @@ export default function InvestorInfoPage() {
           year={k1reg.summaryYear}
           noEmailCount={missingEmailKeys?.size ?? 0}
           busy={k1reg.busyAll}
+          // The dialog STAYS OPEN through the send and becomes the report.
+          // Closing it on Send left a button reading "Sending…" and no way to
+          // tell a slow batch from a stuck one, or which of twenty-six failed.
+          results={k1reg.batch?.key === "all-investors" ? k1reg.batch.results : []}
+          error={k1reg.errorAll}
+          // The batch is NOT cleared on close: the results panel beneath holds
+          // each investor's PIN, which is the one thing you may still need
+          // after the dialog is gone.
           onClose={() => setSendAllOpen(false)}
-          onSend={(ids) => { setSendAllOpen(false); void k1reg.shareAll(ids, true); }}
+          onSend={(ids) => { void k1reg.shareAll(ids, true); }}
         />
       )}
 
