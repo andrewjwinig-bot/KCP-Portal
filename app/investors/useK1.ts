@@ -581,5 +581,52 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
     summary,
     k1Owners,
     emails,
+    /**
+     * Email every investor who can actually receive one, in a single pass.
+     *
+     * Through the SAME batch endpoint as every other send — `shareOne` per
+     * owner, sequentially — so the checks that matter cannot drift: a link is
+     * revoked and re-minted, the PIN goes as its own message, the mail carries
+     * a link and never the K-1, and one failure is reported on that row rather
+     * than aborting the rest. The blast radius is the only thing that is new,
+     * which is why the caller confirms against a NAMED list.
+     *
+     * `propertyCode` is deliberately empty: this batch spans partnerships, and
+     * the server resolves each owner's own from the id.
+     */
+    shareAll: async (ownerIds: string[], send: boolean) => {
+      if (ownerIds.length === 0) return;
+      setBatch(null);
+      const key = "all-investors";
+      setBusyCode(key);
+      setErrors((e) => ({ ...e, [key]: null }));
+      try {
+        // Chunked under the server's per-request cap rather than up against
+        // it. Forty-five investors fit in one call today and fifty-one would
+        // fail the whole batch on the last one — a roster that grows must not
+        // turn this button into an error.
+        const CHUNK = 40;
+        const results: ShareResult[] = [];
+        for (let i = 0; i < ownerIds.length; i += CHUNK) {
+          const res = await fetch("/api/investor-k1/share", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ propertyCode: "", ownerIds: ownerIds.slice(i, i + CHUNK), year: summaryYear, send }),
+          });
+          const j = await res.json();
+          if (!res.ok) throw new Error(j.error ?? "Could not send.");
+          results.push(...(j.results ?? []));
+          // Shown as it goes: forty-five sequential sends is not instant, and
+          // a button that sits silent invites a second click.
+          setBatch({ key, sent: send, results: [...results] });
+        }
+        setBatch({ key, sent: send, results });
+      } catch (e) {
+        setErrors((er) => ({ ...er, [key]: e instanceof Error ? e.message : "Could not send." }));
+      } finally {
+        setBusyCode(null);
+      }
+    },
+    busyAll: busyCode === "all-investors",
+    errorAll: errors["all-investors"] ?? null,
     summaryYear, slice, batch, clearBatch: () => setBatch(null), ensureInvestor, investorSlice };
 }

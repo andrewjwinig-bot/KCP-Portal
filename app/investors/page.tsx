@@ -750,6 +750,30 @@ export default function InvestorInfoPage() {
     return out;
   }, [investorIndex, k1reg.emails]);
 
+  /**
+   * The investors a bulk send can actually reach: at least one K-1 uploaded
+   * for the year AND an address on file.
+   *
+   * Both halves matter. Without a K-1 there is nothing to release; without an
+   * address the send would mint a link and deliver nothing, which reads as
+   * success and is not. One owner id per PERSON — the server collapses
+   * duplicates anyway, but sending the whole group would have it revoke the
+   * link it just minted.
+   */
+  const sendableInvestors = useMemo(() => {
+    if (!k1reg.emails || !k1reg.k1Owners) return null;
+    const out: { name: string; ownerId: string; email: string }[] = [];
+    for (const agg of investorIndex) {
+      const due = agg.rows.filter((r) => r.holding.hasK1Distribution);
+      const withDoc = due.find((r) => k1reg.k1Owners!.has(r.investor.id));
+      if (!withDoc) continue;
+      const email = due.map((r) => k1reg.emails![r.investor.id]?.email).find(Boolean);
+      if (!email) continue;
+      out.push({ name: agg.name, ownerId: withDoc.investor.id, email });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  }, [investorIndex, k1reg.emails, k1reg.k1Owners]);
+
   const filteredInvestors = useMemo(() => {
     const q = query.trim().toLowerCase();
     const base = onlyMissingEmail && missingEmailKeys
@@ -1561,6 +1585,46 @@ export default function InvestorInfoPage() {
       )}
 
       {/* ── By Investor view ───────────────────────────────────────────── */}
+      {/* Send everyone at once.
+          It goes through the SAME per-owner function as every other send, so
+          the checks that matter cannot drift — this only changes how many at
+          a time. That is exactly why the confirm NAMES them: forty-five
+          irreversible sends behind one button is the one place a count is not
+          enough to agree to. */}
+      {view === "investor" && canK1 && !!sendableInvestors?.length && (
+        <div className="no-print" style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="btn primary"
+            disabled={k1reg.busyAll}
+            onClick={() => {
+              const list = sendableInvestors;
+              const names = list.map((i) => `  ${i.name} — ${i.email}`).join("\n");
+              const ok = confirm(
+                `Email a K-1 link to ${list.length} investor${list.length === 1 ? "" : "s"}?\n\n`
+                + `Each gets their own link and their own PIN, in two separate emails, and every K-1 they hold for ${k1reg.summaryYear} becomes readable.\n\n`
+                + `${names}\n\nThis cannot be undone — an investor cannot be un-emailed. Revoking a link afterwards stops it opening, but the email has gone.`,
+              );
+              if (ok) void k1reg.shareAll(list.map((i) => i.ownerId), true);
+            }}
+            style={{ fontSize: 12.5, fontWeight: 700 }}
+          >
+            {k1reg.busyAll ? "Sending…" : `Email all ${sendableInvestors.length} investors`}
+          </button>
+          <span className="muted small">
+            {sendableInvestors.length} with a K-1 on file and an address
+            {missingEmailKeys?.size ? ` · ${missingEmailKeys.size} skipped, no email` : ""}
+          </span>
+          {k1reg.errorAll && (
+            <span style={{ color: "#b91c1c", fontSize: 12.5, fontWeight: 700 }}>{k1reg.errorAll}</span>
+          )}
+        </div>
+      )}
+
+      {view === "investor" && k1reg.batch?.key === "all-investors" && (
+        <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
+      )}
+
       {/* The chase-list, one click. Hidden until the addresses load and absent
           when there is nothing to chase, so it never sits there reading zero. */}
       {view === "investor" && canK1 && !!missingEmailKeys?.size && (

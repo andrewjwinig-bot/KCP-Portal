@@ -104,7 +104,11 @@ function personGroup(_propertyCode: string, ownerId: string) {
   const found = all.find((x) => x.o.id === ownerId);
   if (!found) return null;
   const group = all.filter((x) => normName(x.o.name) === normName(found.o.name)).map((x) => x.o);
-  return { owner: found.o, group };
+  // The owner's OWN partnership, resolved from the id rather than taken from
+  // the caller. Ids are unique across the roster (pinned by a test), so an id
+  // identifies its property on its own — which is what lets a batch span
+  // partnerships instead of being one property's at a time.
+  return { owner: found.o, group, code: found.code };
 }
 
 async function shareOne(
@@ -121,6 +125,11 @@ async function shareOne(
   const found = personGroup(propertyCode, ownerId);
   if (!found) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, pinSentTo: [], pinError: null, copiedTo: [], error: "That owner isn't on this partnership." };
   const { owner, group } = found;
+  // The owner's own partnership. Taking it from the request was fine while a
+  // batch was one property's rows; a batch spanning partnerships has no single
+  // code to pass, and the email names this partnership — so it is resolved
+  // from the owner, which is right in both cases.
+  const ownerProperty = found.code || propertyCode;
 
   // Sending IS the release. There is no separate publish step: an upload sits
   // invisible until someone deliberately sends it, and the send is that
@@ -179,7 +188,7 @@ async function shareOne(
   } else {
     link = {
       id: "il_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
-      ownerId: owner.id, ownerIds: ids, ownerName: owner.name, propertyCode,
+      ownerId: owner.id, ownerIds: ids, ownerName: owner.name, propertyCode: ownerProperty,
       createdAt: new Date().toISOString(), createdBy: USERS[user]?.label ?? user,
       revoked: false, expiresAt: null,
       pin: generatePin(),   // never optional for a K-1, and never reused between owners
@@ -232,7 +241,7 @@ async function shareOne(
       // Same composer the preview endpoint uses, then the staff edit folded in
       // — so what was read in the confirm is what leaves the building.
       const canonical = composeK1ShareEmail({
-        ownerName: owner.name, propertyName: propName(propertyCode),
+        ownerName: owner.name, propertyName: propName(ownerProperty),
         documentCount: published.length, taxYear: published[0].taxYear, url,
       });
       const { email: draftEmail, edited } = applyK1EmailEdit(canonical, draft, url);
@@ -312,7 +321,7 @@ async function shareOne(
 
   await logAudit({
     event: "investor-k1.share", user: USERS[user]?.label ?? user, ip: auditIp(req),
-    detail: `${propertyCode} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}` : " · link only"}${wasEdited ? " · edited wording" : ""}${sentTo.length ? (pinSentTo.length ? " · PIN emailed" : " · PIN NOT emailed") : ""}${messageId ? ` · postmark ${messageId}` : ""}${testMode ? " · TEST MODE, NOT DELIVERED" : ""}`,
+    detail: `${ownerProperty} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}` : " · link only"}${wasEdited ? " · edited wording" : ""}${sentTo.length ? (pinSentTo.length ? " · PIN emailed" : " · PIN NOT emailed") : ""}${messageId ? ` · postmark ${messageId}` : ""}${testMode ? " · TEST MODE, NOT DELIVERED" : ""}`,
   });
   return { ownerId: owner.id, ownerName: owner.name, heldAs: owner.detailedName ?? null, url, pin: link.pin, sentTo, mailError, pinSentTo, pinError, copiedTo, messageId, testMode };
 }
