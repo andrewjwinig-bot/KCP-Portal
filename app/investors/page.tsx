@@ -18,6 +18,7 @@ import { mergeTrusteeRows, normInvestorKey, type TrusteeRowOverride } from "../.
 import { canEditOwnership, canManageK1 } from "../../lib/users";
 import { K1Header, K1Cell, K1PortalCell, K1SelectCell, K1ShareResults, K1InvestorCells, K1EmailCell, K1InvestorShare } from "./K1Panel";
 import { k1CountFor } from "@/lib/investors/k1Counts";
+import { SendAllModal, type SendAllRow } from "./SendAllModal";
 import type { OwnerEmail } from "./useK1";
 import { useK1Registry } from "./useK1";
 import { PartnershipTaxDocs } from "@/app/components/PartnershipTaxDocs";
@@ -627,6 +628,8 @@ export default function InvestorInfoPage() {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   /** By Investor: show only the people with no email on file. */
   const [onlyMissingEmail, setOnlyMissingEmail] = useState(false);
+  /** The confirm in front of emailing every investor at once. */
+  const [sendAllOpen, setSendAllOpen] = useState(false);
   function toggleGroup(key: string) {
     setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   }
@@ -760,16 +763,27 @@ export default function InvestorInfoPage() {
    * duplicates anyway, but sending the whole group would have it revoke the
    * link it just minted.
    */
-  const sendableInvestors = useMemo(() => {
+  const sendableInvestors = useMemo((): SendAllRow[] | null => {
     if (!k1reg.emails || !k1reg.k1Owners) return null;
-    const out: { name: string; ownerId: string; email: string }[] = [];
+    const out: SendAllRow[] = [];
     for (const agg of investorIndex) {
       const due = agg.rows.filter((r) => r.holding.hasK1Distribution);
-      const withDoc = due.find((r) => k1reg.k1Owners!.has(r.investor.id));
-      if (!withDoc) continue;
-      const email = due.map((r) => k1reg.emails![r.investor.id]?.email).find(Boolean);
-      if (!email) continue;
-      out.push({ name: agg.name, ownerId: withDoc.investor.id, email });
+      const withDocs = due.filter((r) => k1reg.k1Owners!.has(r.investor.id));
+      if (withDocs.length === 0) continue;
+      const hit = due.map((r) => k1reg.emails![r.investor.id]).find((e) => e?.email);
+      if (!hit?.email) continue;
+      out.push({
+        name: agg.name,
+        ownerId: withDocs[0].investor.id,
+        email: hit.email,
+        alsoEmail: hit.alsoEmail ?? [],
+        // A relaxed name match is surfaced, never presented as fact: a wrong
+        // address here mails one investor's tax document to another person,
+        // and a bulk send is where that scales.
+        uncertain: /check it/i.test(hit.emailNote ?? ""),
+        properties: withDocs.map((r) => r.holding.propertyCode),
+        outstanding: due.length - withDocs.length,
+      });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name));
   }, [investorIndex, k1reg.emails, k1reg.k1Owners]);
@@ -1597,16 +1611,7 @@ export default function InvestorInfoPage() {
             type="button"
             className="btn primary"
             disabled={k1reg.busyAll}
-            onClick={() => {
-              const list = sendableInvestors;
-              const names = list.map((i) => `  ${i.name} — ${i.email}`).join("\n");
-              const ok = confirm(
-                `Email a K-1 link to ${list.length} investor${list.length === 1 ? "" : "s"}?\n\n`
-                + `Each gets their own link and their own PIN, in two separate emails, and every K-1 they hold for ${k1reg.summaryYear} becomes readable.\n\n`
-                + `${names}\n\nThis cannot be undone — an investor cannot be un-emailed. Revoking a link afterwards stops it opening, but the email has gone.`,
-              );
-              if (ok) void k1reg.shareAll(list.map((i) => i.ownerId), true);
-            }}
+            onClick={() => setSendAllOpen(true)}
             style={{ fontSize: 12.5, fontWeight: 700 }}
           >
             {k1reg.busyAll ? "Sending…" : `Email all ${sendableInvestors.length} investors`}
@@ -1619,6 +1624,17 @@ export default function InvestorInfoPage() {
             <span style={{ color: "#b91c1c", fontSize: 12.5, fontWeight: 700 }}>{k1reg.errorAll}</span>
           )}
         </div>
+      )}
+
+      {sendAllOpen && sendableInvestors && (
+        <SendAllModal
+          rows={sendableInvestors}
+          year={k1reg.summaryYear}
+          noEmailCount={missingEmailKeys?.size ?? 0}
+          busy={k1reg.busyAll}
+          onClose={() => setSendAllOpen(false)}
+          onSend={(ids) => { setSendAllOpen(false); void k1reg.shareAll(ids, true); }}
+        />
       )}
 
       {view === "investor" && k1reg.batch?.key === "all-investors" && (
