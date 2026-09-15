@@ -1470,6 +1470,23 @@ export default function InvestorInfoPage() {
           <div style={{ display: "flex", gap: 8 }}>
             {(
               <>
+                {/* The annual mailing sits with the other page-level actions
+                    rather than floating above the table. It is the only one of
+                    them that leaves the building, so it keeps the primary
+                    tier — and it appears only on By Investor, which is the
+                    view it acts on. */}
+                {view === "investor" && canK1 && !!sendableInvestors?.length && (
+                  <button
+                    type="button"
+                    className="btn primary"
+                    disabled={k1reg.busyAll}
+                    onClick={() => setSendAllOpen(true)}
+                    title={`Email a K-1 link to all ${sendableInvestors.length} investors with an address on file`}
+                    style={{ fontSize: 12, fontWeight: 700 }}
+                  >
+                    {k1reg.busyAll ? "Sending…" : `Email all ${sendableInvestors.length}`}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={exportToExcel}
@@ -1599,33 +1616,6 @@ export default function InvestorInfoPage() {
       )}
 
       {/* ── By Investor view ───────────────────────────────────────────── */}
-      {/* Send everyone at once.
-          It goes through the SAME per-owner function as every other send, so
-          the checks that matter cannot drift — this only changes how many at
-          a time. That is exactly why the confirm NAMES them: forty-five
-          irreversible sends behind one button is the one place a count is not
-          enough to agree to. */}
-      {view === "investor" && canK1 && !!sendableInvestors?.length && (
-        <div className="no-print" style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            className="btn primary"
-            disabled={k1reg.busyAll}
-            onClick={() => setSendAllOpen(true)}
-            style={{ fontSize: 12.5, fontWeight: 700 }}
-          >
-            {k1reg.busyAll ? "Sending…" : `Email all ${sendableInvestors.length} investors`}
-          </button>
-          <span className="muted small">
-            {sendableInvestors.length} with a K-1 on file and an address
-            {missingEmailKeys?.size ? ` · ${missingEmailKeys.size} skipped, no email` : ""}
-          </span>
-          {k1reg.errorAll && (
-            <span style={{ color: "#b91c1c", fontSize: 12.5, fontWeight: 700 }}>{k1reg.errorAll}</span>
-          )}
-        </div>
-      )}
-
       {sendAllOpen && sendableInvestors && (
         <SendAllModal
           rows={sendableInvestors}
@@ -1635,6 +1625,14 @@ export default function InvestorInfoPage() {
           onClose={() => setSendAllOpen(false)}
           onSend={(ids) => { setSendAllOpen(false); void k1reg.shareAll(ids, true); }}
         />
+      )}
+
+      {/* A batch that failed outright — no results panel renders in that case,
+          so without this the button would simply stop and say nothing. */}
+      {view === "investor" && k1reg.errorAll && (
+        <div className="card no-print" style={{ borderLeft: "3px solid #b91c1c", background: "rgba(220,38,38,0.05)", color: "#b91c1c", fontSize: 13, fontWeight: 700 }}>
+          {k1reg.errorAll}
+        </div>
       )}
 
       {view === "investor" && k1reg.batch?.key === "all-investors" && (

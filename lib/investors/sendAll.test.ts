@@ -50,7 +50,6 @@ describe("email all investors", () => {
   it("the modal states who is skipped, and who will see fewer K-1s", () => {
     // Silently sending to 15 of 45 and reporting success is the failure this
     // prevents; so is an investor opening a link to 3 of their 11.
-    expect(page).toContain("skipped, no email");
     expect(modal).toContain("no address on file");
     expect(modal).toContain("fewer K-1s than they hold");
   });
