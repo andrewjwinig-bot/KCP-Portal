@@ -160,7 +160,7 @@ export function K1SelectCell({ ownerId, k1 }: { ownerId: string; k1: K1Slice }) 
       disabled={!shareable || k1.busy}
       onChange={() => k1.toggleSelected(ownerId)}
       aria-label="Select for sending"
-      title={shareable ? "Include in the send" : doc ? "Publish the year first" : "Upload their K-1 first"}
+      title={shareable ? "Include in the send" : "Upload their K-1 first"}
       style={{ cursor: shareable ? "pointer" : "not-allowed" }}
     />
   );
@@ -340,7 +340,10 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // failure worth naming, not a no-op.
         k1.upload(owner.id, e.dataTransfer.files?.[0] ?? null);
       }}
-      title={`Drop ${owner.name}'s ${owner.detailedName ? `“${owner.detailedName}” ` : ""}K-1 here`}
+      // Says what an upload DOES now: it is live on their link the moment it
+      // lands, rather than waiting for a send. That is the whole change, and
+      // the drop target is where someone needs to know it.
+      title={`Drop ${owner.name}'s ${owner.detailedName ? `“${owner.detailedName}” ` : ""}K-1 here — it becomes visible on their link straight away`}
       style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5,
         cursor: k1.busy ? "default" : "pointer", minWidth: 62,

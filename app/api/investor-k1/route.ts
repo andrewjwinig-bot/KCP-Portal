@@ -304,7 +304,11 @@ export async function POST(req: NextRequest) {
     id, propertyCode: property, taxYear: year, filename: realName, size: file.size, ref, local,
     uploadedAt: new Date().toISOString(), uploadedBy: USERS[user]?.label ?? user,
     ownerId: owner.id, ownerName: owner.name,
-    published: false, publishedAt: null, views: [], viewCount: 0, lastViewedAt: null,
+    // Visible to the investor as soon as it lands — see `withheld` on
+    // K1Document. `published` stays false until a send actually releases it,
+    // because that is what the roster pill and the tax tracker mean by "sent".
+    published: false, publishedAt: null, withheld: false,
+    views: [], viewCount: 0, lastViewedAt: null,
   };
   await saveK1(doc);
 
@@ -358,6 +362,11 @@ export async function PATCH(req: NextRequest) {
   for (const d of docs) {
     d.published = action === "publish";
     d.publishedAt = action === "publish" ? (d.publishedAt ?? at) : null;
+    // What actually hides a document from the investor. `published` now only
+    // records that a SEND happened, so unpublish had stopped hiding anything
+    // once visibility became uploaded-unless-withheld — it would have been a
+    // retraction button that retracted nothing.
+    d.withheld = action !== "publish";
     await saveK1(d);
   }
   await logAudit({
