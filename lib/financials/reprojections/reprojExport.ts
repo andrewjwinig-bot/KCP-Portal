@@ -78,10 +78,29 @@ function collectFootnotes(rows: Row[], notes: Notes) {
 const BRAND = "FF0B4A7D", BRAND_DARK = "FF0A3E69", BRAND_TINT = "FFE6EEF5", ROLLUP_FILL = "FFD9E4EE", ACTUAL_FILL = "FFE7F2EA", BORDER = "FFB7C2CC";
 const colLetter = (c: number) => { let s = ""; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; };
 
-export async function buildReprojXlsx(r: Reprojection, meta: ReprojMeta, notes: Notes = {}): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "KCP Portal";
-  const ws = wb.addWorksheet("Reprojection", { views: [{ state: "frozen", xSplit: 1, ySplit: 4 }] });
+/**
+ * Excel forbids \\ / ? * [ ] : in a sheet name and caps it at 31 characters, and
+ * a duplicate name throws — so a workbook of thirteen buildings has to make its
+ * own tab names rather than trusting the data. The CODE leads, because it is
+ * unique and short and it is what the tabs are scanned by; the name follows for
+ * as much room as is left.
+ */
+function sheetName(code: string, name: string, taken: Set<string>): string {
+  const clean = (v: string) => v.replace(/[\\/?*[\]:]/g, " ").replace(/\s+/g, " ").trim();
+  let base = clean(`${code} ${name}`).slice(0, 31).trim() || clean(code).slice(0, 31) || "Sheet";
+  let out = base;
+  for (let n = 2; taken.has(out.toLowerCase()); n++) {
+    const suffix = ` (${n})`;
+    out = `${base.slice(0, 31 - suffix.length)}${suffix}`;
+  }
+  taken.add(out.toLowerCase());
+  return out;
+}
+
+/** One property's reprojection, written onto a sheet of a workbook it does not
+ *  own — so one building and thirteen share exactly the same layout. */
+function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection, meta: ReprojMeta, notes: Notes) {
+  const ws = wb.addWorksheet(tabName, { views: [{ state: "frozen", xSplit: 1, ySplit: 4 }] });
   const through = r.actualThroughMonth;
   const nCols = 16;
   const rows = reprojRows(r);
@@ -266,7 +285,37 @@ export async function buildReprojXlsx(r: Reprojection, meta: ReprojMeta, notes: 
   ws.addRow([]);
   const stamp = ws.addRow([`Report run ${reportStamp()}`]);
   stamp.getCell(1).font = { italic: true, size: 9, color: { argb: "FF6B7280" } };
+}
 
+export async function buildReprojXlsx(r: Reprojection, meta: ReprojMeta, notes: Notes = {}): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "KCP Portal";
+  writeReprojSheet(wb, "Reprojection", r, meta, notes);
+  return (await wb.xlsx.writeBuffer()) as Buffer;
+}
+
+/**
+ * Many properties, one workbook, a sheet each — the shopping centers, or a
+ * fund, downloaded in one go instead of opened one building at a time and
+ * pasted together.
+ *
+ * The SAME sheet writer as the single download, so a group workbook cannot
+ * drift from the one people already check figures against: same layout, same
+ * live SUM formulas, same footnotes.
+ *
+ * Order is the caller's, which is the order the page lists them in. A property
+ * that failed to load is skipped rather than written as an empty sheet — a
+ * blank tab in a workbook reads as a building with no activity.
+ */
+export async function buildReprojGroupXlsx(
+  items: { r: Reprojection; meta: ReprojMeta; notes?: Notes }[],
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "KCP Portal";
+  const taken = new Set<string>();
+  for (const it of items) {
+    writeReprojSheet(wb, sheetName(it.meta.propertyCode, it.meta.propertyName, taken), it.r, it.meta, it.notes ?? {});
+  }
   return (await wb.xlsx.writeBuffer()) as Buffer;
 }
 

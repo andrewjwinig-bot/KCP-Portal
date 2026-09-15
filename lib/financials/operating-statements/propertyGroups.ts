@@ -63,7 +63,7 @@ export type RentRollGroup = typeof RENTROLL_GROUP_ORDER[number];
 const RENTROLL_GROUPS: { label: RentRollGroup; codes: string[] }[] = [
   { label: "JV III LLC",       codes: ["3610", "3620", "3640", "PJV3", "PIIICO"] },
   { label: "NI LLC",           codes: ["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0", "PNIPLX"] },
-  { label: "Shopping Centers", codes: ["1100", "1500", "2300", "4500", "5600", "7010", "7200", "7300", "8200", "9200", "9510"] },
+  { label: "Shopping Centers", codes: ["1100", "1500", "2300", "4500", "5600", "7010", "7200", "7300", "8200", "9000", "9200", "9510"] },
   { label: "Korman Homes",     codes: ["9800", "9820", "9840", "9860", "PHOMES"] },
 ];
 const RENTROLL_GROUP_BY_CODE = new Map<string, RentRollGroup>();
