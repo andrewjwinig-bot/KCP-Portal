@@ -6,6 +6,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
 const page = read("app/investors/page.tsx");
 const hook = read("app/investors/useK1.ts");
 const route = read("app/api/investor-k1/share/route.ts");
+const modal = read("app/investors/SendAllModal.tsx");
 
 /**
  * Emailing every investor at once is the largest blast radius in the app: one
@@ -25,18 +26,38 @@ describe("email all investors", () => {
     // and delivers nothing, which reads as success and is not.
     expect(page).toContain("sendableInvestors");
     expect(page).toContain("k1reg.k1Owners!.has(r.investor.id)");
-    expect(page).toContain("if (!email) continue;");
+    expect(page).toContain("if (!hit?.email) continue;");
   });
 
-  it("confirms against a NAMED list, not just a count", () => {
-    expect(page).toContain("i.name} — ${i.email}");
-    expect(page).toContain("cannot be undone");
+  it("confirms in a real dialog, against a NAMED list", () => {
+    // A native confirm() could carry a name and an address and nothing else —
+    // and the things worth stopping on are exactly what it could not show.
+    expect(page).toContain("<SendAllModal");
+    expect(page).not.toContain("const ok = confirm(");
+    expect(modal).toContain("{r.name}");
+    expect(modal).toContain("{r.email}");
+    expect(modal).toContain("cannot be undone");
   });
 
-  it("says how many it skipped for want of an address", () => {
+  it("the modal flags addresses matched on NAME rather than found", () => {
+    // A wrong address mails one investor's tax document to another person,
+    // and a bulk send is where that scales.
+    expect(page).toContain("uncertain: /check it/i.test");
+    expect(modal).toContain("matched on name");
+    expect(modal).toContain("CHECK");
+  });
+
+  it("the modal states who is skipped, and who will see fewer K-1s", () => {
     // Silently sending to 15 of 45 and reporting success is the failure this
-    // prevents.
+    // prevents; so is an investor opening a link to 3 of their 11.
     expect(page).toContain("skipped, no email");
+    expect(modal).toContain("no address on file");
+    expect(modal).toContain("fewer K-1s than they hold");
+  });
+
+  it("is dismissable without sending, and cannot be dismissed mid-send", () => {
+    expect(modal).toContain("Cancel");
+    expect(modal).toContain('if (e.key === "Escape" && !busy)');
   });
 
   it("chunks under the server cap instead of up against it", () => {
