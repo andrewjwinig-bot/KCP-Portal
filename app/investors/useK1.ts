@@ -601,11 +601,15 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       setBusyCode(key);
       setErrors((e) => ({ ...e, [key]: null }));
       try {
-        // Chunked under the server's per-request cap rather than up against
-        // it. Forty-five investors fit in one call today and fifty-one would
-        // fail the whole batch on the last one — a roster that grows must not
-        // turn this button into an error.
-        const CHUNK = 40;
+        // SMALL chunks, for progress rather than for the cap.
+        //
+        // Forty fit under the server's fifty, but the server sends each chunk
+        // sequentially and answers once — so twenty-six investors in one
+        // request meant a button that said "Sending…" for a long minute and
+        // then produced everything at once, with no way to tell a slow send
+        // from a stuck one. Five at a time reports five times as often; the
+        // extra requests cost nothing next to the mail they carry.
+        const CHUNK = 5;
         const results: ShareResult[] = [];
         for (let i = 0; i < ownerIds.length; i += CHUNK) {
           const res = await fetch("/api/investor-k1/share", {
