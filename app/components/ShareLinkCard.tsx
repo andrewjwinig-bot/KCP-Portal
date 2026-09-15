@@ -88,6 +88,15 @@ export type EmailDraft = {
   /** Addresses blind-copied on both messages. Named in the confirm because a
    *  copy the UI never mentions is what surprises someone later. */
   copyTo?: string[];
+  /**
+   * What this send makes READABLE, named.
+   *
+   * A K-1 send releases every document the investor holds for the year, not
+   * just the one you sent from — that is what "one link, all their K-1s"
+   * means. Releasing more than the page named would be exactly the silent
+   * exposure the old narrow scope guarded against, so the confirm lists them.
+   */
+  releases?: { propertyCode: string; propertyName: string }[];
 };
 
 export type ShareLink = {
@@ -608,6 +617,16 @@ export function ShareLinkCard({
                           ? "Their PIN follows as its own separate email — nothing to hand over."
                           : "The PIN is not emailed — give it to them separately."}
                       </div>
+                      {draft?.releases && draft.releases.length > 0 && (
+                        <div style={{ fontSize: 12, marginTop: 7, padding: "8px 11px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.18)" }}>
+                          <div style={{ fontWeight: 700 }}>
+                            Makes {draft.releases.length === 1 ? "this K-1" : `these ${draft.releases.length} K-1s`} readable on their link:
+                          </div>
+                          <div className="muted" style={{ marginTop: 3 }}>
+                            {draft.releases.map((r) => r.propertyName).join(" · ")}
+                          </div>
+                        </div>
+                      )}
                       {draft?.copyTo && draft.copyTo.length > 0 && (
                         <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                           Blind-copied on both, so you can confirm they went out:{" "}

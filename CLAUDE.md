@@ -518,10 +518,20 @@ preferences.
   `PROPERTY_OWNERSHIP`, the same identity the By Investor view has always used.
   **The link is DURABLE**: a send reuses the person's existing live link and
   widens its `ownerIds`, so releasing a second partnership never invalidates the
-  link (or PIN) they already have. Only Revoke kills a link. **But a SEND
-  releases only the partnership it was sent from**, for that year — otherwise
-  releasing a finished 7010 K-1 would also expose an unfinalised 9510 draft.
-  Later releases simply appear on the same link, with no re-send.
+  link (or PIN) they already have. Only Revoke kills a link. **A SEND RELEASES
+  THE WHOLE PERSON** — every K-1 they hold for that year, across every
+  partnership, not just the one it was sent from. It was scoped to a single
+  partnership so a finished 7010 K-1 could not also expose an unfinalised 9510
+  draft, and that broke the promise in the place it is felt: an investor in
+  fifteen partnerships opened their link and saw the one K-1 sent last, with
+  the other fourteen uploaded, covered by the link, and invisible — nothing
+  telling them or us that the rest existed. The draft risk is upstream instead:
+  don't upload a draft onto an owner's row (the row IS the assignment, and a
+  second upload for the same year is refused). And the widening is never
+  silent — the confirm LISTS every partnership the send makes readable, from
+  `releases` on the draft endpoint, which computes it over exactly the scope
+  the send publishes. Later uploads still appear on the same link with no
+  re-send, once sent.
 - **A link's coverage is resolved through the PERSON at read time**
   (`lib/investors/linkCoverage.ts`, `coveredOwnerIds`), never from the
   `ownerIds` snapshot alone. `ownerIds` is written once at mint from
