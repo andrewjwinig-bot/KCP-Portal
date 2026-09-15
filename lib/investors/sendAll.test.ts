@@ -39,12 +39,13 @@ describe("email all investors", () => {
     expect(modal).toContain("cannot be undone");
   });
 
-  it("the modal flags addresses matched on NAME rather than found", () => {
-    // A wrong address mails one investor's tax document to another person,
-    // and a bulk send is where that scales.
-    expect(page).toContain("uncertain: /check it/i.test");
-    expect(modal).toContain("matched on name");
-    expect(modal).toContain("CHECK");
+  it("no CHECK flag — the relaxed matches were reviewed and confirmed", () => {
+    // A warning nobody needs to act on trains people past the ones that
+    // matter. The resolution is unchanged: resolveOwnerEmail still refuses a
+    // name that reaches two different addresses.
+    expect(modal).not.toContain("CHECK");
+    expect(modal).not.toContain("matched on name");
+    expect(page).not.toContain(">CHECK<");
   });
 
   it("the modal states who is skipped, and who will see fewer K-1s", () => {

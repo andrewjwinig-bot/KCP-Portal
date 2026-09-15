@@ -12,7 +12,7 @@
 
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Pill, TONE_AMBER, TONE_NEUTRAL } from "@/app/components/Pill";
+import { Pill, TONE_NEUTRAL } from "@/app/components/Pill";
 
 export type SendAllRow = {
   name: string;
@@ -20,7 +20,14 @@ export type SendAllRow = {
   ownerId: string;
   email: string;
   alsoEmail: string[];
-  /** The address came from a relaxed name match, not an exact one. */
+  /**
+   * The address came from a relaxed name match rather than an exact one.
+   *
+   * No longer shown: the five it flagged were reviewed and confirmed, and a
+   * warning nobody acts on trains people past warnings that matter. Kept on
+   * the row because it costs nothing and the day a new investor resolves this
+   * way, it is already here.
+   */
   uncertain: boolean;
   /** Partnerships whose K-1 is already uploaded for them. */
   properties: string[];
@@ -52,7 +59,6 @@ export function SendAllModal({
     return () => window.removeEventListener("keydown", esc);
   }, [busy, onClose]);
 
-  const uncertain = rows.filter((r) => r.uncertain);
   const partial = rows.filter((r) => r.outstanding > 0);
   const docs = rows.reduce((n, r) => n + r.properties.length, 0);
 
@@ -86,12 +92,6 @@ export function SendAllModal({
 
         {/* The things worth stopping on, before the list rather than inside it. */}
         <div style={{ padding: "12px 18px 0", display: "grid", gap: 8 }}>
-          {uncertain.length > 0 && (
-            <Note tone="amber" title={`${uncertain.length} address${uncertain.length === 1 ? "" : "es"} matched on name — check before sending`}>
-              Found by a loosened name match rather than an exact one. A wrong address here mails one
-              investor&rsquo;s tax document to another person: {uncertain.map((r) => r.name).join(", ")}.
-            </Note>
-          )}
           {noEmailCount > 0 && (
             <Note tone="neutral" title={`${noEmailCount} investor${noEmailCount === 1 ? "" : "s"} skipped — no address on file`}>
               They are not in this send and will receive nothing. Add an address on their row to include them.
@@ -123,7 +123,6 @@ export function SendAllModal({
                     </div>
                   </td>
                   <td style={{ padding: "8px 0", textAlign: "right", verticalAlign: "top", whiteSpace: "nowrap" }}>
-                    {r.uncertain && <Pill tone={TONE_AMBER}>CHECK</Pill>}{" "}
                     <Pill tone={TONE_NEUTRAL}>
                       {r.properties.length} K-1{r.properties.length === 1 ? "" : "s"}
                     </Pill>
