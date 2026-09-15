@@ -124,19 +124,24 @@ async function shareOne(
 
   // Sending IS the release. There is no separate publish step: an upload sits
   // invisible until someone deliberately sends it, and the send is that
-  // deliberate act. This matters because an investor holding a live link from a
-  // previous year would otherwise see a new upload the instant it landed —
-  // including one dropped on the wrong row by mistake.
-  // The link spans every partnership, but a SEND releases only the partnership
-  // you sent from, for that year. Otherwise releasing a finished 7010 K-1 would
-  // also expose a 9510 draft that isn't finalised. The link is durable: later
-  // releases appear on it automatically, without re-sending.
-  const inScope = new Set(
-    (PROPERTY_OWNERSHIP.find((p) => p.propertyCode === propertyCode)?.owners ?? [])
-      .filter((o) => group.some((g) => g.id === o.id))
-      .map((o) => o.id),
-  );
-  const mine = (await Promise.all([...inScope].map((id) => k1sForOwner(id))))
+  // deliberate act. That still holds — nothing becomes readable without
+  // somebody choosing to send it.
+  //
+  // WHAT A SEND RELEASES IS THE WHOLE PERSON, not the partnership it was sent
+  // from. One link per investor is the promise, and half-releasing it broke
+  // that promise in the place it is felt: an investor in fifteen partnerships
+  // opened their link and saw the one K-1 that happened to be sent last, with
+  // the other fourteen uploaded, covered by the link, and invisible. Nothing
+  // told them — or us — that the rest existed.
+  //
+  // It was scoped to one partnership so that releasing a finished 7010 K-1
+  // could not also expose an unfinalised 9510 draft. That risk is real but it
+  // is upstream: the protection is not uploading a draft onto an owner's row,
+  // which is already the rule (the row is the assignment, and a second upload
+  // for the same year is refused outright). And it is no longer silent — the
+  // confirm names every partnership the send will release, so what becomes
+  // readable is read before it goes, not discovered afterwards.
+  const mine = (await Promise.all(group.map((o) => k1sForOwner(o.id))))
     .flat()
     .filter((d) => year == null || d.taxYear === year);
   if (mine.length === 0) {
@@ -407,13 +412,11 @@ export async function GET(req: NextRequest) {
   const rawYear = Number(q.get("year"));
   const year = Number.isFinite(rawYear) && rawYear > 0 ? rawYear : null;
 
-  // The same scope the send releases: this partnership, this year.
-  const inScope = new Set(
-    (PROPERTY_OWNERSHIP.find((p) => p.propertyCode === propertyCode)?.owners ?? [])
-      .filter((o) => group.some((g) => g.id === o.id))
-      .map((o) => o.id),
-  );
-  const mine = (await Promise.all([...inScope].map((id) => k1sForOwner(id))))
+  // EXACTLY the scope the send releases — every K-1 this person holds for the
+  // year, across every partnership. A preview narrower than the send would
+  // understate what is about to become readable, which is the one thing the
+  // confirm exists to prevent.
+  const mine = (await Promise.all(group.map((o) => k1sForOwner(o.id))))
     .flat()
     .filter((d) => year == null || d.taxYear === year);
   if (mine.length === 0) {
@@ -440,8 +443,13 @@ export async function GET(req: NextRequest) {
   // an edit could get wrong.
   const pinEmail = link?.pin ? composeK1PinEmail({ ownerName: owner.name, pin: link.pin }) : null;
   const copyTo = shareCopyTo();
+  // What this send makes readable, named. A send releases the whole person, so
+  // the confirm has to say which partnerships that is — otherwise the widening
+  // is exactly the silent exposure the narrow scope was guarding against.
+  const releases = [...new Set(mine.map((d) => d.propertyCode))]
+    .map((code) => ({ propertyCode: code, propertyName: propName(code) }));
   return NextResponse.json({
-    ok: true, ...email, followUp: pinEmail, recipients, hasLink: !!link,
+    ok: true, ...email, followUp: pinEmail, recipients, hasLink: !!link, releases,
     // Reported so the confirm can say who is blind-copied. A copy nobody can
     // see in the UI is the kind of thing that surprises someone later.
     copyTo: copyTo ? copyTo.split(",").map((a) => a.trim()).filter(Boolean) : [],
