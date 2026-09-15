@@ -7,11 +7,11 @@ import LoadingState from "@/app/components/LoadingState";
 // + subtotal cards) so it reads as the budget with the elapsed months replaced
 // by real GL actuals (shaded green) and the rest projected from budget.
 
-import React, { Fragment, useCallback, useEffect, useState } from "react";
+import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { AccountListCard } from "@/app/components/AccountListCard";
-import { groupStatementOptions } from "@/lib/financials/operating-statements/propertyGroups";
+import { groupStatementOptions, groupByRentRoll } from "@/lib/financials/operating-statements/propertyGroups";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
@@ -154,6 +154,20 @@ export default function ReprojectionsPage() {
   useEffect(() => { load(); }, [load]);
 
   const cur = available.find((a) => a.key === key);
+
+  /**
+   * The portfolio groups worth downloading whole, in the order the rent roll
+   * lists them, each with how many properties it would produce.
+   *
+   * Only groups that have something in them — a menu item promising "All NI
+   * LLC" and yielding an error is worse than no item. "Other Properties" is
+   * left out: it is the leftovers bucket, not a portfolio anyone reports on.
+   */
+  const groupDownloads = useMemo(() => {
+    return groupByRentRoll(available)
+      .filter((g) => g.label !== "Other Properties" && g.items.length > 0)
+      .map((g) => ({ label: g.label, count: g.items.length }));
+  }, [available]);
   const yearOptions = cur?.years.length ? cur.years : [year || new Date().getFullYear()];
   const sqft = PROPERTY_DEFS.find((p) => p.id === key)?.sqft ?? 0;
   const through = data?.actualThroughMonth ?? 0;
@@ -202,6 +216,15 @@ export default function ReprojectionsPage() {
                 items={[
                   { label: "Excel (.xlsx)", description: "Full-year blended reprojection by month", href: `/api/financials/reprojections/download?key=${encodeURIComponent(key)}&year=${year}` },
                   { label: "PDF", description: "Presentation-ready reprojection summary", href: `/api/financials/reprojections/download/pdf?key=${encodeURIComponent(key)}&year=${year}` },
+                  // A whole portfolio group in one workbook, a sheet per
+                  // property — the alternative was opening each building and
+                  // pasting the tabs together. Same sheet writer as the single
+                  // download above, so the figures cannot differ.
+                  ...(groupDownloads.map((g) => ({
+                    label: `All ${g.label} (.xlsx)`,
+                    description: `${g.count} propert${g.count === 1 ? "y" : "ies"}, one sheet each`,
+                    href: `/api/financials/reprojections/download/group?group=${encodeURIComponent(g.label)}&year=${year}`,
+                  }))),
                 ]}
               />
             )}
