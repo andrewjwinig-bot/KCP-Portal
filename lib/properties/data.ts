@@ -74,6 +74,11 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "7300", name: "Revere Partnership",   type: "Retail", ein: "23-6450183", allocGroup: "SC", ccAccounts: ["8501"], address: "7201 Roosevelt Blvd",  city: "Philadelphia", state: "PA", zip: "19149", sqft: 14821, yearBuilt: 1968 },
   { id: "1500", name: "Eastwick JV I",                    type: "Retail", ein: "23-2393292", allocGroup: "SC", ccAccounts: ["8501"], address: "2448 Island Ave", city: "Philadelphia", state: "PA", zip: "19153", sqft: 2280, yearBuilt: 1950 },
   { id: "9200", name: "Eastwick JV XII",                  type: "Retail", ein: "23-2921345", acres: 0.82, ccAccounts: ["8501"], address: "8675 Tinicum Blvd", city: "Philadelphia", state: "PA", zip: "19153" },
+  // New. Keyed so the rent roll lands on it — until a code is in here the
+  // parser has nowhere to put its units and holds them in `unknownUnits`.
+  // Still to come, and neither follows from the rent roll: a partner roster in
+  // `ownership.ts` if it issues K-1s, and a CAM expense seed for a recon.
+  { id: "9000", name: "Butler & Main",                    type: "Retail", ein: "42-4128308", allocGroup: "SC", ccAccounts: ["8501"], address: "9 W Butler Ave", city: "Ambler", state: "PA", zip: "19002" },
 
   // ── Residential ───────────────────────────────────────────────────────────
   { id: "9800", name: "Bellaire Avenue",  type: "Residential", ownerEntity: "KH 509 LLC",                address: "509 Bellaire Ave",         city: "Fort Washington", state: "PA", zip: "19034", yearBuilt: 1910 },
