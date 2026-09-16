@@ -30,6 +30,18 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 - **Downloads/exports** → `DownloadMenu` from `app/components/DownloadMenu.tsx` (the "Download ▾" dropdown used by Operating Statements, Reprojections, Budgets). Items take `href` (link) or `onClick` (client-side Excel/PDF). Never hand-roll separate per-format download buttons.
 - **Collapsible "accounts that didn't fit" lists** → `AccountListCard` from `app/components/AccountListCard.tsx` (collapsed by default, Account/Name/Amount table + total) — shared by Operating Statements ("Non-operating accounts") and the Cash Sheet ("Accounts not mapped to a bucket").
 - **Sharing a private link** → `ShareLinkCard` from `app/components/ShareLinkCard.tsx` — a centred MODAL (portal-rendered, since the trigger usually sits in a scrolling table cell that would crop a popover): a link box with Copy, the access PIN with its own Copy, view count, an email action behind a deliberate confirm step, and Revoke. Used by the CAM statement (`TenantShareLink`) and the K-1 roster; a third share flow should use it too rather than growing its own. The component owns the look and interaction; each caller passes its own actions, because a tenant link and a K-1 link are different objects (`pinOptional={false}` for a K-1, whose PIN is mandatory). **Always offer both ways out**: copy the link and send it yourself, or have the app email it — copying mutates nothing, which is how you demo or test a link without touching an investor's stored data.
+- **The message is ADDRESSED to whoever is actually being mailed.** Greet by
+  FIRST name via `addressAs` (which leaves a company or a trust its full name —
+  "Hello Hyman," and "Hello Berton," name something that is not the recipient),
+  and when the investor is NOT among the recipients the mail names them as the
+  SUBJECT instead of saying "your": "Jeffrey Honickman's 6 Schedule K-1s are
+  ready in their secure investor portal". "Your 6 Schedule K-1s" to someone who
+  holds none of them is the sentence that makes a recipient check whether the
+  mail is real. `onBehalf` is decided by NAME, never by which address was the
+  primary — and requires a name to be on file, because with none we cannot tell
+  an accountant's address from the investor's own second one. The confirm's
+  button names the real recipients too. Both messages of a send are addressed
+  identically.
 - **Each recipient on the confirm is TICKABLE, so a send can go to some of the
   addresses on file.** "Add my accountant" and "send it to my accountant" are
   different instructions, and the list used to be all-or-nothing. Ticked by
@@ -55,7 +67,9 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
   you cannot unsend an investor their tax document — so the wording is read
   before, not found in a reply afterwards. `lib/investors/k1ShareEmail.ts`
   composes it and **the send and the preview call the same function**, so a
-  preview cannot drift from what goes out; an edit that drops the signed link
+  preview cannot drift from what goes out — and both compose against the
+  PICKED recipients (`addressedAs`), so unticking someone changes the wording
+  that is READ, not only the wording that is sent; an edit that drops the signed link
   gets it appended back, and the audit line records `· edited wording`. **Minting a link
   and emailing it must never be the same call**: `useK1`'s investor `send`
   takes an explicit flag, because for a while the By Investor card's "Create

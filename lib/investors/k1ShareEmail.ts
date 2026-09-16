@@ -18,6 +18,8 @@
  * the staff member's wording. Emailing it would put a 404 under the word
  * "link" and leave the real one appended below the signature.
  */
+import { addressAs } from "./firstName";
+
 export const PREVIEW_URL_PLACEHOLDER = "/investor/…";
 
 export type K1ShareEmail = {
@@ -50,27 +52,70 @@ export type K1ShareEmailInput = {
   documentCount: number;
   taxYear: number;
   url: string;
+  /**
+   * The people this send is actually ADDRESSED to.
+   *
+   * Recipients are pickable, and an investor's accountant is often the only
+   * one ticked — so greeting the investor on a mail that never reaches them
+   * reads as misdirected. Empty falls back to a bare "Hello,", which is what
+   * every send did before names existed.
+   */
+  greetNames?: string[];
+  /**
+   * True when the investor is NOT among the recipients — the mail is about
+   * their documents rather than to them, so it names them as the SUBJECT
+   * ("Jeffrey Honickman's 6 Schedule K-1s") instead of saying "your".
+   */
+  onBehalf?: boolean;
 };
+
+/**
+ * "Hello Antoinette," / "Hello Antoinette and Jeff," / "Hello,".
+ *
+ * FIRST NAME only, through `addressAs` — which leaves a company or a trust its
+ * full name, because "Hello Hyman," and "Hello Berton," (a trust in a dead
+ * man's name) address something that is not the recipient. An address with no
+ * name on file is left out rather than greeted as itself.
+ */
+export function greeting(names: readonly string[] | undefined): string {
+  const list = (names ?? []).map((n) => addressAs((n ?? "").trim())).filter(Boolean);
+  if (list.length === 0) return "Hello,";
+  if (list.length === 1) return `Hello ${list[0]},`;
+  return `Hello ${list.slice(0, -1).join(", ")} and ${list[list.length - 1]},`;
+}
 
 export function composeK1ShareEmail(i: K1ShareEmailInput): K1ShareEmail {
   const many = i.documentCount > 1;
+  const who = i.onBehalf ? i.ownerName.trim() : "";
   // Wording as Drew rewrote it by hand on the first real send: the ask is
   // "use this link to access the documents", and the closing invites a reply
   // about access rather than warning against forwarding — the PIN already
   // makes a forwarded link harmless, so the warning was spending goodwill on
   // a risk the design had removed.
-  const opening = many
-    ? `Your ${i.documentCount} Schedule K-1s are ready in your secure investor portal — one link covers every partnership you hold an interest in.`
-    : `Your Schedule K-1 for ${i.propertyName} is ready in your secure investor portal.`;
+  //
+  // Addressed to an accountant instead, it says whose documents these are and
+  // stops saying "your" — "your 6 Schedule K-1s" to someone who holds none of
+  // them is the sentence that makes a recipient check whether the mail is real.
+  // "They" throughout, because nothing here knows an investor's pronouns.
+  const opening = who
+    ? (many
+        ? `${who}'s ${i.documentCount} Schedule K-1s are ready in their secure investor portal — one link covers every partnership they hold an interest in.`
+        : `${who}'s Schedule K-1 for ${i.propertyName} is ready in their secure investor portal.`)
+    : (many
+        ? `Your ${i.documentCount} Schedule K-1s are ready in your secure investor portal — one link covers every partnership you hold an interest in.`
+        : `Your Schedule K-1 for ${i.propertyName} is ready in your secure investor portal.`);
   const pinLine = "You'll be asked for a 6-digit access PIN. It arrives in a separate email, just after this one.";
-  const closing = "This link is private to you. If you need a copy sent elsewhere or have any issues accessing the files, reply and we'll arrange it.";
+  const closing = who
+    ? `This link is private to ${who}. If you need a copy sent elsewhere or have any issues accessing the files, reply and we'll arrange it.`
+    : "This link is private to you. If you need a copy sent elsewhere or have any issues accessing the files, reply and we'll arrange it.";
+  const hello = greeting(i.greetNames);
 
   return {
     subject: many
-      ? `Your ${i.taxYear} Schedule K-1s — Korman Commercial Properties`
-      : `Your ${i.taxYear} Schedule K-1 — ${i.propertyName}`,
+      ? `${who ? `${who}'s` : "Your"} ${i.taxYear} Schedule K-1s — Korman Commercial Properties`
+      : `${who ? `${who}'s` : "Your"} ${i.taxYear} Schedule K-1 — ${i.propertyName}`,
     body: [
-      "Hello,",
+      hello,
       "",
       `${opening} Please use this link to access the documents:`,
       "",
@@ -84,7 +129,7 @@ export function composeK1ShareEmail(i: K1ShareEmailInput): K1ShareEmail {
     ].join("\n"),
     html: [
       `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.55;color:#111">`,
-      `<p>Hello,</p>`,
+      `<p>${esc(hello)}</p>`,
       `<p>${esc(opening)} Please use this <a href="${esc(i.url)}">link</a> to access the documents.</p>`,
       `<p>${esc(pinLine)}</p>`,
       `<p>${esc(closing)}</p>`,
@@ -144,13 +189,23 @@ export function applyK1EmailEdit(
  * own is enough. It is weaker than a genuinely separate channel (a text), and
  * if a real second channel is ever added this is the function it replaces.
  */
-export function composeK1PinEmail(i: { ownerName: string; pin: string }): K1ShareEmail {
+export function composeK1PinEmail(i: {
+  ownerName: string;
+  pin: string;
+  greetNames?: string[];
+  onBehalf?: boolean;
+}): K1ShareEmail {
+  // Addressed to an accountant, this greets THEM and names whose PIN it is —
+  // which is also what an accountant handling several investors needs to read.
+  const who = i.onBehalf ? i.ownerName.trim() : "";
   return {
     subject: "Your access PIN — Korman Commercial Properties",
     body: [
-      `Hello ${i.ownerName},`,
+      greeting(i.greetNames?.length ? i.greetNames : [i.ownerName]),
       "",
-      "This is the 6-digit PIN for the secure investor portal link we've just sent you:",
+      who
+        ? `This is the 6-digit PIN for ${who}'s secure investor portal link we've just sent you:`
+        : "This is the 6-digit PIN for the secure investor portal link we've just sent you:",
       "",
       `    ${i.pin}`,
       "",

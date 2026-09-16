@@ -153,7 +153,7 @@ export type K1Slice = {
   share: (ownerIds: string[], send: boolean, draft?: EmailDraft, opts?: SendOptions) => Promise<SendOutcome | void>;
   /** The message a send to this owner would deliver. Read-only — the endpoint
    *  publishes nothing and mints nothing, so previewing is free. */
-  loadDraft: (ownerId: string) => Promise<EmailDraft>;
+  loadDraft: (ownerId: string, only?: string[]) => Promise<EmailDraft>;
   /** Set (or clear, with "") where one owner's link is emailed. */
   setEmail: (ownerId: string, email: string) => void;
   /** Kill a link. The way to undo a test send, or a link sent to the wrong
@@ -457,8 +457,12 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         });
       },
 
-      loadDraft: async (ownerId: string) => {
+      loadDraft: async (ownerId: string, only?: string[]) => {
         const q = new URLSearchParams({ propertyCode: code, ownerId, year: String(year ?? "") });
+        // The preview composes against the SAME recipients the send will, so
+        // unticking the investor changes the message that is read, not just
+        // the one that goes.
+        if (only) q.set("only", only.join(","));
         const res = await fetch(`/api/investor-k1/share?${q}`);
         const j = await res.json();
         if (!res.ok) throw new Error(j.error ?? "Couldn't load the message.");
@@ -547,8 +551,9 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         } finally { setBusyCode(null); }
       },
 
-      loadDraft: async (interest: K1Interest, taxYear: number) => {
+      loadDraft: async (interest: K1Interest, taxYear: number, only?: string[]) => {
         const q = new URLSearchParams({ propertyCode: interest.propertyCode, ownerId: interest.ownerId, year: String(taxYear) });
+        if (only) q.set("only", only.join(","));
         const res = await fetch(`/api/investor-k1/share?${q}`);
         const j = await res.json();
         if (!res.ok) throw new Error(j.error ?? "Couldn't load the message.");

@@ -66,3 +66,35 @@ export function addressRecipients(
 export function reached(a: Addressing): string[] {
   return [...a.to, ...a.cc];
 }
+
+const normName = (s: string) => (s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * How a send should be ADDRESSED, given who it actually reaches.
+ *
+ * Recipients are pickable and an investor's accountant is often the only one
+ * ticked, so the wording has to follow the selection: greet the people who
+ * will read it, and — when the investor is not among them — name the investor
+ * as the subject rather than saying "your".
+ *
+ * `onBehalf` is decided by NAME, not by which address was the primary: an
+ * investor whose only address on file is their accountant's is not a recipient
+ * of their own mail even when that address is ticked.
+ */
+export function addressedAs(
+  ownerName: string,
+  picked: readonly string[],
+  names: Readonly<Record<string, string>> | undefined,
+): { greetNames: string[]; onBehalf: boolean } {
+  const greetNames = picked
+    .map((a) => (names?.[a.trim().toLowerCase()] ?? "").trim())
+    .filter(Boolean);
+  const owner = normName(ownerName);
+  // On-behalf only where a name actually says so. With no name on file we
+  // cannot tell an accountant's address from the investor's own second one,
+  // and "Jeffrey Honickman's K-1s are ready in their portal" sent to Jeffrey
+  // is the worse of the two mistakes — so an unknown recipient keeps the
+  // second-person wording every send used before names existed.
+  const onBehalf = greetNames.length > 0 && !!owner && !greetNames.some((n) => normName(n) === owner);
+  return { greetNames, onBehalf };
+}

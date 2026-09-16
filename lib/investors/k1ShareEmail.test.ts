@@ -211,3 +211,67 @@ describe("applyK1PinEdit — the PIN email is editable, the PIN is not losable",
     expect(out.email.body).not.toMatch(/https?:\/\//);
   });
 });
+
+describe("the message is addressed to whoever is actually being mailed", () => {
+  const base = { ownerName: "Jeffrey Honickman", propertyName: "Parkwood", documentCount: 6, taxYear: 2025, url: "https://x/y" };
+
+  it("greets by FIRST name only", () => {
+    const e = composeK1ShareEmail({ ...base, greetNames: ["Antoinette Czop"], onBehalf: true });
+    expect(e.body).toMatch(/^Hello Antoinette,/);
+    expect(e.body).not.toContain("Hello Antoinette Czop,");
+  });
+
+  it("leaves a company or a trust its full name", () => {
+    // "Hello Hyman," and "Hello Berton," (a trust in a dead man's name) address
+    // something that is not the recipient.
+    expect(composeK1ShareEmail({ ...base, greetNames: ["Hyman Korman Co."] }).body).toMatch(/^Hello Hyman Korman Co\.,/);
+    expect(composeK1ShareEmail({ ...base, greetNames: ["The Korman Co"] }).body).toMatch(/^Hello The Korman Co,/);
+  });
+
+  it("joins two recipients", () => {
+    const e = composeK1ShareEmail({ ...base, greetNames: ["Antoinette Czop", "Jeffrey Honickman"] });
+    expect(e.body).toMatch(/^Hello Antoinette and Jeffrey,/);
+  });
+
+  it("falls back to a bare Hello with no names — what every send did before", () => {
+    expect(composeK1ShareEmail(base).body).toMatch(/^Hello,/);
+  });
+
+  it("names the investor as the SUBJECT when the mail is not to them", () => {
+    // "Your 6 Schedule K-1s" to someone who holds none of them is the sentence
+    // that makes a recipient check whether the mail is real.
+    const e = composeK1ShareEmail({ ...base, greetNames: ["Antoinette Czop"], onBehalf: true });
+    expect(e.subject).toBe("Jeffrey Honickman's 2025 Schedule K-1s — Korman Commercial Properties");
+    expect(e.body).toContain("Jeffrey Honickman's 6 Schedule K-1s are ready in their secure investor portal");
+    expect(e.body).toContain("This link is private to Jeffrey Honickman.");
+    expect(e.body).not.toContain("Your 6 Schedule K-1s");
+  });
+
+  it("keeps the second-person wording when the investor IS a recipient", () => {
+    const e = composeK1ShareEmail({ ...base, greetNames: ["Jeffrey Honickman"] });
+    expect(e.subject).toBe("Your 2025 Schedule K-1s — Korman Commercial Properties");
+    expect(e.body).toContain("Your 6 Schedule K-1s are ready in your secure investor portal");
+  });
+
+  it("carries the same addressing into the HTML alternative", () => {
+    // The HTML rides along on an unedited send, so a greeting that differed
+    // between the two parts would reach whichever the client rendered.
+    const e = composeK1ShareEmail({ ...base, greetNames: ["Antoinette Czop"], onBehalf: true });
+    expect(e.html).toContain("<p>Hello Antoinette,</p>");
+    expect(e.html).toContain("Jeffrey Honickman&#039;s 6 Schedule K-1s".replace("&#039;", "'"));
+  });
+
+  it("addresses the PIN email the same way, and says whose PIN it is", () => {
+    const p = composeK1PinEmail({ ownerName: "Jeffrey Honickman", pin: "825074", greetNames: ["Antoinette Czop"], onBehalf: true });
+    expect(p.body).toMatch(/^Hello Antoinette,/);
+    expect(p.body).toContain("Jeffrey Honickman's secure investor portal link");
+    expect(p.body).toContain("825074");
+    // Still no link — the two messages stay disjoint whoever they go to.
+    expect(p.body).not.toMatch(/https?:\/\//);
+  });
+
+  it("greets the investor by first name on their own PIN email", () => {
+    const p = composeK1PinEmail({ ownerName: "Jeffrey Honickman", pin: "825074" });
+    expect(p.body).toMatch(/^Hello Jeffrey,/);
+  });
+});

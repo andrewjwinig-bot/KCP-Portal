@@ -94,3 +94,33 @@ describe("a send can be narrowed to some of an investor's contacts", () => {
     expect(hook.match(/only: opts\?\.only/g)?.length).toBe(2);
   });
 });
+
+describe("the preview and the send are addressed identically", () => {
+  it("both compose against the picked recipients, through the same helper", () => {
+    // CLAUDE.md's rule: the send and the preview call the same function, so a
+    // preview cannot drift from what goes out. Recipients being pickable makes
+    // that sharper — unticking someone changes the WORDING, not just the
+    // addressing, so a preview built from the full list would greet the
+    // investor while the sent mail greeted their accountant.
+    expect(route.match(/addressedAs\(owner\.name,/g)?.length).toBe(2);
+    expect(route).toContain("...addressedTo");
+  });
+
+  it("the preview filters its pick through the SAME rule as the send", () => {
+    // Or a preview could be composed for a recipient the send would refuse.
+    expect(route).toContain("selectRecipients(primary, also, only)");
+  });
+
+  it("both messages of a send are addressed the same way", () => {
+    // A PIN greeting a different person than the link email reads as a
+    // different conversation.
+    expect(route).toContain("composeK1PinEmail({ ownerName: owner.name, pin: link.pin ?? \"\", ...addressedTo })");
+  });
+
+  it("the confirm re-composes when the pick changes, and never clobbers an edit", () => {
+    expect(card).toContain("void loadDraft(confirmSend, picked)");
+    expect(card).toContain("editedRef.current");
+    // The button names who is actually being mailed, not the investor.
+    expect(card).toContain("const confirmLabel =");
+  });
+});
