@@ -41,6 +41,12 @@ describe("Eastwick Development JV XII (9200) — entities own it, investors sit 
     for (const o of pJV.owners) expect(o.subOwners?.length, o.name).toBeGreaterThan(0);
     expect(byId("k1-9200-aitwo").subOwners).toHaveLength(5);
     expect(byId("k1-9200-kormanco").subOwners).toHaveLength(6);
+    // Still six members and still 100% after the 2012 Family Trust assigned
+    // its interest to BEK 2012 LLC — a succession replaces a member, it does
+    // not add or remove one, and a tier that stopped totalling would put every
+    // downstream value attribution slightly wrong.
+    const kcSum = byId("k1-9200-kormanco").subOwners!.reduce((t, o) => t + (o.ownerPct ?? 0), 0);
+    expect(kcSum).toBeCloseTo(1, 6);
     expect(byId("k1-9200-neweastwick").subOwners).toHaveLength(2);
   });
 
@@ -102,17 +108,28 @@ describe("Eastwick Development JV XII (9200) — entities own it, investors sit 
     }
   });
 
-  it("leaves the two Berton trusts as TRUSTS, not attributed to a person", () => {
+  it("leaves Berton's remaining TRUST as a trust, not attributed to a person", () => {
     // A judgement worth stating rather than burying. On the schedule the
     // beneficiary column names a person for the GST Subject trusts ("ALISON
-    // KORMAN FELDMAN") but simply repeats the trust for these two — so the
-    // document does not say whose interest they are, and guessing Berton
-    // would group them into his single investor link and put two more K-1s
-    // behind it. Keyed as the schedule reads; change only on instruction.
+    // KORMAN FELDMAN") but simply repeats the trust here — so the document
+    // does not say whose interest it is, and guessing Berton would group it
+    // into his single investor link and put another K-1 behind it. Keyed as
+    // the schedule reads; change only on instruction.
     const kc = byId("k1-9200-kormanco").subOwners!;
-    const trusts = kc.filter((o) => /Berton E Korman (2012 Family Trust|Irrev)/.test(o.name));
-    expect(trusts).toHaveLength(2);
+    const trusts = kc.filter((o) => /Berton E Korman Irrev/.test(o.name));
+    expect(trusts).toHaveLength(1);
     for (const t of trusts) expect(t.detailedName).toBeUndefined();
+
+    // The 2012 Family Trust is no longer a member: its 23.13% was assigned to
+    // BEK 2012 LLC, which succeeded to the whole interest. The ID is the same
+    // row — it is a K-1 upload target, and the member changed, not the
+    // interest.
+    const bek = kc.find((o) => o.id === "k1-9200-kc-bk2012")!;
+    expect(bek.name).toBe("BEK 2012 LLC");
+    expect(bek.ownerPct).toBeCloseTo(0.231333, 6);
+    expect(bek.ein).toBe("42-2968946");
+    // The predecessor stays visible, so the row's history reads off the page.
+    expect(bek.detailedName).toContain("2012 Family Trust");
 
     // Berton's own TUA, by contrast, IS attributed to him — that exact trust
     // already sits on the roster under his name at 7010.
@@ -430,11 +447,10 @@ describe("WHIT Whitpain Associates", () => {
     expect(direct).toBeCloseTo(0.25, 6);
   });
 
-  it("Berton's DIRECT trust is not the two trusts held through the company", () => {
+  it("Berton's DIRECT trust is not the two interests held through the company", () => {
     // The direct quarter carries one BERTON E KORMAN TUA DTD 02232018; The
-    // Korman Co carries the 2012 Family Trust and the 1999 Irrevocable. Three
-    // separate K-1s — treating the lists as the same one files his to the
-    // wrong trust.
+    // Korman Co carries BEK 2012 LLC and the 1999 Irrevocable. Three separate
+    // K-1s — treating the lists as the same one files his to the wrong trust.
     // Named "Berton E. Korman" with the trust as the held-as, matching his
     // six other interests — keying the trust wording as the NAME split one
     // trust into two investors holding two links.
@@ -442,8 +458,11 @@ describe("WHIT Whitpain Associates", () => {
     expect(held).toContain("Berton E Korman TUA Dtd 02232018");
     expect(p().owners.map((o) => o.name)).toContain("Berton E. Korman");
     const kco = p().owners[0].subOwners!.map((s) => s.name);
-    expect(kco).toContain("The Berton E Korman 2012 Family Trust");
+    expect(kco).toContain("BEK 2012 LLC");
     expect(kco).toContain("The Berton E Korman Irrev TR Dtd 03031999");
+    // The trust it succeeded is gone from the member list entirely — a
+    // schedule listing both would be double-counting one 23.13% interest.
+    expect(kco).not.toContain("The Berton E Korman 2012 Family Trust");
     expect(kco).not.toContain("Berton E. Korman");
   });
 
