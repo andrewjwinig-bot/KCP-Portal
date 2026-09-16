@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getGl, getTransactions, assembledTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { buildTenantDirectory } from "@/lib/financials/operating-statements/tenants";
+import { identifyTx } from "@/lib/financials/operating-statements/txUnits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,44 +35,16 @@ export async function GET(req: Request) {
     : await assembledTransactions(key, year);
   if (!Object.keys(byAccount).length) return NextResponse.json({ transactions: [], total: 0, count: 0 });
   const accounts = Object.keys(byAccount).filter((a) => accountMatchesMask(mask, a));
-  const { tenantForAccount, unitForName, findUnit } = await buildTenantDirectory();
+  const dir = await buildTenantDirectory();
 
-  // Tenant/payer for a transaction. Three chart patterns are supported:
-  //  A) per-unit accounts — the account itself maps to a rent-roll tenant;
-  //  B) one revenue account with the unit ref written into the charge's own
-  //     text ("RNT to 9510-406") — the Skyline rent pattern. Read the unit out
-  //     of the text and resolve it against the rent roll, so the row names the
-  //     suite and its tenant instead of echoing the raw posting description;
-  //  C) one account, a named payer on each charge — use the transaction's
-  //     vendor (parsed out of the merged description for GLs imported before
-  //     vendor was stored separately) and match it back to a unit by name.
-  const vendorOf = (t: { vendor?: string; description: string }): string =>
-    (t.vendor && t.vendor.trim()) || (t.description || "").split(" — ")[0].trim();
-
+  // Suite/tenant per transaction — `identifyTx` is the one rule, shared with
+  // the rent-roll check so a suite shown as billed here is never shown as
+  // missing there.
   const rows: { account: string; unit: string | null; tenant: string | null; groupKey: string; date: string | null; description: string; ref: string; amount: number; month: number }[] = [];
   for (const account of accounts) {
-    const acctTenant = tenantForAccount(account);
     for (const t of byAccount[account]) {
       if (scope === "month" ? t.month !== period : t.month > period) continue;
-      const payer = vendorOf(t);
-      // Pattern B: the unit ref lives in the charge text. Checked before the
-      // payer fallback, since that fallback is what was putting "RNT to
-      // 9510-406" in the Tenant column with no suite at all.
-      const hit = acctTenant ? null : (findUnit(t.description) ?? findUnit(t.vendor || ""));
-      let unit: string | null;
-      let tenant: string | null;
-      let groupKey: string;
-      if (acctTenant) {
-        unit = account; tenant = acctTenant; groupKey = `A:${account}`;
-      } else if (hit) {
-        // A vacant/expired suite resolves its unit but has no occupant — say
-        // the suite rather than falling back to the posting text.
-        unit = hit.unitRef; tenant = hit.tenant; groupKey = `U:${hit.unitRef}`;
-      } else {
-        tenant = payer || null;
-        unit = tenant ? unitForName(tenant) : null;
-        groupKey = `P:${payer || account}`;
-      }
+      const { unit, tenant, groupKey } = identifyTx(dir, account, t);
       rows.push({ account, unit, tenant, groupKey, date: t.date, description: t.description, ref: t.ref, amount: t.amount * sign, month: t.month });
     }
   }
