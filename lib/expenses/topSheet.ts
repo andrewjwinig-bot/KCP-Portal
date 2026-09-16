@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { newWorkbook, COLOR, FMT } from "@/lib/excel/theme";
 
 export type TopSheetTx = {
   date: string;
@@ -27,10 +28,13 @@ export type BuildTopSheetArgs = {
   reimbursement?: { vendorCode: string; payeeName: string; total: number };
 };
 
-const TEAL = "FF0A4655";
+// The TOP SHEET used to be teal on a portfolio where everything else is navy,
+// and plain `$#,##0.00` where every other workbook uses the accounting format.
+// Nothing was behind either choice — it was just written first and separately.
+const TEAL = COLOR.brand;
 const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: TEAL } };
-const HEADER_FONT: Partial<ExcelJS.Font> = { bold: true, color: { argb: "FFFFFFFF" } };
-const MONEY_FMT = '$#,##0.00';
+const HEADER_FONT: Partial<ExcelJS.Font> = { bold: true, color: { argb: COLOR.white } };
+const MONEY_FMT = FMT.moneyCents;
 
 /** 1-indexed column number → letter (1→A, 27→AA). */
 function colLetter(n: number): string {
@@ -50,8 +54,7 @@ function formatStatementMonth(yyyymm: string): string {
 // sheet (so the two always reconcile), row/column totals are SUM formulas, and
 // a reference header records the period, who processed it, and when.
 export async function buildTopSheetXlsx(args: BuildTopSheetArgs): Promise<Blob> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "KCP Portal";
+  const wb = newWorkbook();
 
   // Charges data is built into its own sheet below; the Summary is added first
   // so it's the leading tab. Formulas reference the Charges sheet by name, so

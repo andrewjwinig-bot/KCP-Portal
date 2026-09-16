@@ -7,10 +7,11 @@ import "server-only";
 import ExcelJS from "exceljs";
 import { PDFDocument, rgb, StandardFonts, type PDFPage, type PDFFont } from "pdf-lib";
 import type { Reprojection, ReprojSection, ReprojTotals } from "./compute";
-import { drawKormanLogo, KORMAN_TEXT } from "@/lib/financials/exportBrand";
+import { drawKormanLogo } from "@/lib/financials/exportBrand";
+import { newWorkbook, liveFormula, COLOR, FMT, PRINT_WIDE, KORMAN_TEXT } from "@/lib/excel/theme";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const MONEY_FMT = '_("$"* #,##0_);[Red]_("$"* (#,##0);_("$"* "—"_);_(@_)';
+const MONEY_FMT = FMT.money;
 
 export type ReprojMeta = { propertyCode: string; propertyName: string; year: number; budgetYear: number | null };
 type Notes = Record<string, string>;
@@ -75,7 +76,7 @@ function collectFootnotes(rows: Row[], notes: Notes) {
 }
 
 // ── Excel ────────────────────────────────────────────────────────────────────
-const BRAND = "FF0B4A7D", BRAND_DARK = "FF0A3E69", BRAND_TINT = "FFE6EEF5", ROLLUP_FILL = "FFD9E4EE", ACTUAL_FILL = "FFE7F2EA", BORDER = "FFB7C2CC";
+const BRAND = COLOR.brand, BRAND_DARK = COLOR.brandDark, BRAND_TINT = COLOR.brandTint, ROLLUP_FILL = COLOR.rollupTint, ACTUAL_FILL = "FFE7F2EA", BORDER = COLOR.border;
 const colLetter = (c: number) => { let s = ""; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; };
 
 /**
@@ -100,7 +101,7 @@ function sheetName(code: string, name: string, taken: Set<string>): string {
 /** One property's reprojection, written onto a sheet of a workbook it does not
  *  own — so one building and thirteen share exactly the same layout. */
 function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection, meta: ReprojMeta, notes: Notes) {
-  const ws = wb.addWorksheet(tabName, { views: [{ state: "frozen", xSplit: 1, ySplit: 4 }] });
+  const ws = wb.addWorksheet(tabName, { views: [{ state: "frozen", xSplit: 1, ySplit: 4 }], pageSetup: { ...PRINT_WIDE } });
   const through = r.actualThroughMonth;
   const nCols = 16;
   const rows = reprojRows(r);
@@ -162,6 +163,13 @@ function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection
   const rowT = new Map<number, ReprojTotals>();
   const valBlended = (rn: number, i: number) => { const v = rowT.get(rn)?.blended[i]; return typeof v === "number" ? v : 0; };
   const valBudget = (rn: number) => { const v = rowT.get(rn)?.budgetTotal; return typeof v === "number" ? v : 0; };
+  // `liveFormula` owns the decision — write the formula only if it reconciles —
+  // and this shapes its answer into what `money` already takes: `{f, result}`,
+  // or undefined meaning "put the static number in".
+  const asCell = (formula: string, expected: number, evaluated: number) => {
+    const v = liveFormula(formula, expected, evaluated);
+    return typeof v === "object" && v !== null && "formula" in v ? { f: v.formula, result: expected } : undefined;
+  };
   const buildSum = (groups: Grp[], L: string, get: (rn: number) => number): { formula: string; val: number } => {
     let val = 0; const parts: string[] = [];
     for (const g of groups) {
@@ -180,18 +188,18 @@ function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection
   const colSum = (groups: Grp[], col: number, get: (rn: number) => number, expected: number | null) => {
     if (expected == null) return undefined;
     const { formula, val } = buildSum(groups, colLetter(col), get);
-    return formula && Math.abs(val - expected) < 0.5 ? { f: formula, result: expected } : undefined;
+    return asCell(formula, expected, val);
   };
   const fyFormula = (rn: number, t: ReprojTotals) => {
     let s = 0; for (let i = 0; i < 12; i++) if (typeof t.blended[i] === "number") s += t.blended[i];
-    return Math.abs(s - t.reprojTotal) < 0.5 ? { f: `SUM(${colLetter(2)}${rn}:${colLetter(13)}${rn})`, result: t.reprojTotal } : undefined;
+    return asCell(`SUM(${colLetter(2)}${rn}:${colLetter(13)}${rn})`, t.reprojTotal, s);
   };
   const varFormula = (rn: number, t: ReprojTotals) => {
     if (t.variance == null) return undefined;
+    // Variance is favourability-signed, so which way round the subtraction goes
+    // depends on the line. Try both and take whichever reconciles.
     const N = `${colLetter(14)}${rn}`, O = `${colLetter(15)}${rn}`, d = t.reprojTotal - t.budgetTotal;
-    if (Math.abs(d - t.variance) < 0.5) return { f: `${N}-${O}`, result: t.variance };
-    if (Math.abs(-d - t.variance) < 0.5) return { f: `${O}-${N}`, result: t.variance };
-    return undefined;
+    return asCell(`${N}-${O}`, t.variance, d) ?? asCell(`${O}-${N}`, t.variance, -d);
   };
 
   const secLines: number[] = [];
@@ -288,8 +296,7 @@ function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection
 }
 
 export async function buildReprojXlsx(r: Reprojection, meta: ReprojMeta, notes: Notes = {}): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "KCP Portal";
+  const wb = newWorkbook();
   writeReprojSheet(wb, "Reprojection", r, meta, notes);
   return (await wb.xlsx.writeBuffer()) as Buffer;
 }
@@ -310,8 +317,7 @@ export async function buildReprojXlsx(r: Reprojection, meta: ReprojMeta, notes: 
 export async function buildReprojGroupXlsx(
   items: { r: Reprojection; meta: ReprojMeta; notes?: Notes }[],
 ): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "KCP Portal";
+  const wb = newWorkbook();
   const taken = new Set<string>();
   for (const it of items) {
     writeReprojSheet(wb, sheetName(it.meta.propertyCode, it.meta.propertyName, taken), it.r, it.meta, it.notes ?? {});

@@ -9,10 +9,11 @@ import ExcelJS from "exceljs";
 import { PDFDocument, rgb, StandardFonts, type PDFPage, type PDFFont } from "pdf-lib";
 import type { PropertyStatement, StatementSection, StatementTotals, ExpectedMissing, FullyFundedYtd } from "./types";
 import { fullYearRows, type FullYearPayload } from "./fullYear";
-import { drawKormanLogo, KORMAN_TEXT } from "@/lib/financials/exportBrand";
+import { drawKormanLogo } from "@/lib/financials/exportBrand";
+import { newWorkbook, liveFormula, COLOR, FMT, PRINT_WIDE, repeatHeader, KORMAN_TEXT } from "@/lib/excel/theme";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const MONEY_FMT = '_("$"* #,##0_);[Red]_("$"* (#,##0);_("$"* "—"_);_(@_)';
+const MONEY_FMT = FMT.money;
 
 export type StatementMeta = { propertyCode: string; propertyName: string; year: number; period: number; budgetYear: number | null };
 export type FullYearMeta = { propertyCode: string; propertyName: string; year: number; label: string };
@@ -86,12 +87,11 @@ function collectFootnotes(rows: Row[], notes: Notes): { byKey: Map<string, numbe
 }
 
 // ── Excel ────────────────────────────────────────────────────────────────────
-const BRAND = "FF0B4A7D", BRAND_DARK = "FF0A3E69", BRAND_TINT = "FFE6EEF5", ROLLUP_FILL = "FFD9E4EE", BORDER = "FFB7C2CC";
+const BRAND = COLOR.brand, BRAND_DARK = COLOR.brandDark, BRAND_TINT = COLOR.brandTint, ROLLUP_FILL = COLOR.rollupTint, BORDER = COLOR.border;
 
 export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMeta, notes: Notes = {}): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "KCP Portal";
-  const ws = wb.addWorksheet("Operating Statement", { views: [{ state: "frozen", xSplit: 1, ySplit: 4 }] });
+  const wb = newWorkbook();
+  const ws = wb.addWorksheet("Operating Statement", { views: [{ state: "frozen", xSplit: 1, ySplit: 4 }], pageSetup: { ...PRINT_WIDE } });
   const mon = MONTHS[meta.period - 1];
   const nCols = 8;
   ws.getColumn(1).width = 34;
@@ -203,8 +203,7 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
   };
   const totalMoney = (cell: ExcelJS.Cell, groups: Grp[], col: number, field: keyof StatementTotals, expected: number | null, brand2: boolean) => {
     const { formula, val } = formulaFor(groups, col, field);
-    if (formula && expected != null && Math.abs(val - expected) < 0.5) cell.value = { formula, result: expected };
-    else cell.value = expected == null ? null : expected;
+    cell.value = expected == null ? null : liveFormula(formula, expected, val);
     cell.numFmt = MONEY_FMT;
     cell.alignment = { horizontal: "right" };
     cell.font = { size: 10, bold: true, color: { argb: brand2 ? BRAND : "FF1A1A1A" } };
@@ -322,9 +321,8 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
 const colLetter = (c: number) => { let s = ""; while (c > 0) { const m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); } return s; };
 
 export async function buildFullYearXlsx(payload: FullYearPayload, meta: FullYearMeta, notes: Notes = {}): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "KCP Portal";
-  const ws = wb.addWorksheet(meta.label, { views: [{ state: "frozen", xSplit: 1, ySplit: 4 }] });
+  const wb = newWorkbook();
+  const ws = wb.addWorksheet(meta.label, { views: [{ state: "frozen", xSplit: 1, ySplit: 4 }], pageSetup: { ...PRINT_WIDE } });
   const nCols = 14; // Line + 12 months + Full Year
   const FY_COL = 14, FIRST_M = 2, LAST_M = 13;
   ws.getColumn(1).width = 32;
