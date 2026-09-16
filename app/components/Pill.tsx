@@ -162,6 +162,22 @@ export function reconBalanceTone(balance: number): PillTone {
   return TONE_NEUTRAL;
 }
 
+/** Rent-roll check: how a suite's billed rent compares to its contract rent.
+ *  A charge that never posted is the finding worth acting on (red); an amount
+ *  that is merely off, or a prorated part-month, wants a look (amber); a suite
+ *  that ties, or has nothing due and nothing billed, is calm. */
+export function rentCheckTone(status: string): PillTone {
+  switch (status) {
+    case "not-billed": return TONE_RED;
+    case "short":      return TONE_RED;
+    case "over":       return TONE_AMBER;
+    case "unexpected": return TONE_AMBER;
+    case "partial":    return TONE_BLUE;
+    case "ok":         return TONE_GREEN;
+    default:           return TONE_NEUTRAL; // idle — nothing due, nothing billed
+  }
+}
+
 export function debtStatusTone(status: string): PillTone {
   switch (status) {
     case "Interest-Only":   return TONE_AMBER;
