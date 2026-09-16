@@ -21,6 +21,7 @@ import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { buildDataset, type DatasetYear } from "@/lib/assistant/dataset";
 import { validateTable } from "@/lib/assistant/validateTable";
+import { validateClarify } from "@/lib/assistant/clarify";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
@@ -343,7 +344,49 @@ const FINANCIAL_TOOLS: ToolDef[] = [
     description: "List the managed loans with lender, property, current projected balance, rate, monthly debt service, maturity date, and status.",
     input_schema: { type: "object", properties: {} },
   },
+  {
+    name: "get_data_coverage",
+    description:
+      "What operating-statement data actually EXISTS: every property with a GL loaded, the years it has, and the last month posted in each year — plus the properties with NO statements at all. " +
+      "Call this FIRST for anything spanning the portfolio or 'as far back as we have', so the range comes from the data instead of a guess, and so you can name up front which properties will be missing from the answer. Cheap — one read.",
+    input_schema: { type: "object", properties: {} },
+  },
 ];
+
+// What each lookup is CALLED while it runs. A three-minute question showed a
+// spinner reading "Reading live portal data…" the whole way, so a slow answer
+// and a stuck one were indistinguishable — and the one thing the user could
+// have judged (whether it was looking at the right data) was the one thing the
+// spinner never said.
+const TOOL_STATUS: Record<string, string> = {
+  list_properties: "Listing the portfolio",
+  get_property: "Looking up the property",
+  search_tenants: "Searching the rent roll",
+  list_expirations: "Checking lease expirations",
+  get_cam_config: "Reading the CAM methodology",
+  get_tasks: "Checking the task tracker",
+  list_service_requests: "Reading service requests",
+  aggregate_tenants: "Aggregating tenants",
+  get_occupancy: "Calculating occupancy",
+  get_property_rent_roll: "Pulling the rent roll",
+  get_security_deposit: "Looking up the security deposit",
+  find_tenants_by_cam_term: "Searching CAM terms",
+  get_operating_statement: "Reading the operating statement",
+  get_noi_trend: "Building the NOI trend",
+  get_statement_detail: "Reading statement line detail",
+  rank_properties: "Ranking properties",
+  portfolio_rollup: "Rolling up the portfolio",
+  build_dataset: "Building the dataset across properties and years",
+  debt_summary: "Summarizing the debt",
+  get_monthly_report: "Reading the Monthly Review",
+  list_debt: "Listing the loans",
+  get_data_coverage: "Checking which years and properties have data",
+};
+function statusFor(names: string[]): string {
+  const labels = [...new Set(names.map((n) => TOOL_STATUS[n] ?? n.replace(/_/g, " ")))];
+  const head = labels.slice(0, 2).join(" · ");
+  return (labels.length > 2 ? `${head} · +${labels.length - 2} more` : head) + "…";
+}
 
 // ── Tool executors (read-only against existing stores) ─────────────────────
 async function currentRoll(): Promise<RentRollData | null> {
@@ -751,6 +794,35 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
       } catch (e) { return { error: e instanceof Error ? e.message : "Failed to compute detail." }; }
     }
 
+    case "get_data_coverage": {
+      if (!showFinancials) return { error: "Not authorized to view financials." };
+      const { mappings, byKeyYear } = await loadStatementInputs();
+      // Last period posted, not just the year — a 2026 that stops at April is a
+      // different answer from a full one, and a table that mixes the two
+      // without saying so is the quiet way a year-over-year comparison lies.
+      const properties = mappings.map((m) => {
+        const years = yearsForKey(byKeyYear, m.key).map((year) => {
+          const gls = byKeyYear.get(`${m.key}::${year}`) ?? [];
+          const throughPeriod = gls.reduce((mx, g) => Math.max(mx, Number(g.maxPeriodInFile) || 0), 0);
+          return { year, throughPeriod: throughPeriod || null };
+        });
+        return { propertyCode: m.propertyCode, entityName: m.entityName, glKey: m.key, years };
+      }).filter((p) => p.years.length);
+      const covered = new Set(properties.map((p) => p.propertyCode.toUpperCase()));
+      const noStatements = PROPERTY_DEFS
+        .filter((p) => !covered.has(p.id.toUpperCase()))
+        .map((p) => ({ propertyCode: p.id, name: p.name }));
+      const allYears = [...new Set(properties.flatMap((p) => p.years.map((y) => y.year)))].sort((a, b) => a - b);
+      return {
+        properties,
+        propertiesWithStatements: properties.length,
+        noStatements,
+        earliestYear: allYears[0] ?? null,
+        latestYear: allYears[allYears.length - 1] ?? null,
+        note: "A property in `noStatements` has no GL loaded — it cannot appear in any figure, and an answer covering 'all properties' must say so.",
+      };
+    }
+
     case "build_dataset": {
       if (!showFinancials) return { error: "Not authorized to view financials." };
       const include = (Array.isArray(input.include) ? input.include : []).map(String).filter(Boolean);
@@ -998,7 +1070,7 @@ export async function POST(req: Request) {
     `Every figure in your answer must come from a tool result. For totals, rankings, year-over-year, averages, or any cross-record math, ALWAYS use the aggregate/rank/rollup/trend tools that compute the number in code — do NOT add, subtract, or average figures yourself. When comparing years, prefer get_noi_trend's period-aligned series. Today is ${new Date().toISOString().slice(0, 10)}.\n\n` +
     (showFinancials ? "" : "You do NOT have access to financial figures (NOI, budget, debt) for this user — do not attempt to state them.\n\n") +
     `When you have enough to answer, reply with ONLY a JSON object (no prose around it): ` +
-    `{"answer": "markdown string", "links": [{"label": "...", "href": "/route"}], "chart": null | {"type": "bar"|"line", "title": "...", "unit": "dollars"|"percent"|"sqft"|"count", "series": [{"label": "...", "value": number}]}, "letter": null | {"kind": "...", "to": "...", "subject": "...", "body": "..."}, "table": null | {"title": "...", "subtitle": "...", "columns": [{"key": "...", "label": "...", "format": "text"|"money"|"percent"|"number", "ratioOf": {"numerator": "<col key>", "denominator": "<col key>"}}], "rows": [{"<col key>": number|string|null}], "notes": ["..."]}}. ` +
+    `{"answer": "markdown string", "links": [{"label": "...", "href": "/route"}], "chart": null | {"type": "bar"|"line", "title": "...", "unit": "dollars"|"percent"|"sqft"|"count", "series": [{"label": "...", "value": number}]}, "letter": null | {"kind": "...", "to": "...", "subject": "...", "body": "..."}, "table": null | {"title": "...", "subtitle": "...", "columns": [{"key": "...", "label": "...", "format": "text"|"money"|"percent"|"number", "ratioOf": {"numerator": "<col key>", "denominator": "<col key>"}}], "rows": [{"<col key>": number|string|null}], "notes": ["..."]}, "clarify": null | {"question": "...", "options": ["...", "..."]}}. ` +
     `Put 1-4 relevant page links in "links", choosing hrefs from this list of routes: ${ROUTES.map((r) => r.path).join(", ")}. ` +
     `Prefer DEEP links straight to the specific record when you know it, using these exact shapes: /units/<unitRef> (a unit's tenant + CAM config page, e.g. /units/2300-01), /properties/<code> (a property page, e.g. /properties/4500), /maintenance?property=<code> (also tab=completed, priority, status, assignee, category), /rentroll/base-years?property=<code> (a property's expense history), /cam-recon/interim?property=<code>&unitRef=<ref>&asOf=<month 1-12> (the move-out close-out — pre-fills and computes the exact interim CAM/RET balance, the security deposit, and a letter), /reservations?openId=<id>, /debt?openId=<id>. Use real unit refs / property codes from your tool results — never guess an id you don't have. ` +
     `Include a "chart" ONLY when the answer is naturally visual — a multi-year/YoY trend (use "line"), a ranking or a breakdown/comparison across properties or categories (use "bar"). Otherwise set "chart" to null. ` +
@@ -1008,6 +1080,9 @@ export async function POST(req: Request) {
     `Include a "table" whenever the answer IS a grid — "a table of all properties …", a per-property or multi-year breakdown, anything the user says they want to download. The user gets it on screen AND as an Excel workbook, so build it properly: one row per record, a "key" per column that matches the keys in "rows", and "format" so the workbook renders money and percentages correctly. ` +
     `A percentage column derived from two money columns MUST carry "ratioOf" naming them — the workbook then recomputes the total as numerator-total ÷ denominator-total instead of summing the percentage column, which would be a different and wrong number. ` +
     `Use null for a cell where there is NO value (build_dataset returns null when no line matched) — never write 0, which says the figure is zero rather than absent. Put what was counted, the basis, and any caveat (periods not aligned, properties with no matching line) in "notes" and "subtitle": a table leaves the building, so it has to state what it is. Otherwise set "table" to null. ` +
+    `ASKING FIRST: set "clarify" to ask ONE short question INSTEAD of answering, when — and only when — the request is BOTH expensive (a portfolio-wide or multi-year table, a dataset build, anything that will take you several tool calls) AND genuinely ambiguous in a way that changes the numbers: which years, which GL lines count, which properties, actual vs budget. Give 2-4 short concrete options the user can click, phrased as answers ("2023-2025", "Every year we have", "Just 2025") — never as yes/no. Prefer resolving it yourself: if get_data_coverage or a cheap lookup settles it, look it up instead of asking. Do NOT ask about a straightforward lookup, do NOT ask for something you can see in the tools, and ask AT MOST ONCE in a conversation — if you have already asked, or the user has already told you, commit to a reading, state it in the answer, and go. When you ask: run NO tools first, set answer/chart/table/letter/links all to null-or-empty, and put ONLY the question in "clarify". Otherwise set "clarify" to null.
+
+` +
     `Answer style: DEFAULT to ONE concise sentence that directly answers the question. Add a second short sentence only if genuinely needed. Never put tabular data in the ANSWER TEXT as a markdown table — it renders poorly; use "table" (or "chart" for something visual) instead. Bold the single key figure or name where it helps. ` +
     `This may be a multi-turn conversation — resolve follow-ups ("now just the business parks", "chart that", "what about 2024") against the earlier turns, and re-run whatever tools you need for the new question.` +
     prefsBlock;
@@ -1019,104 +1094,155 @@ export async function POST(req: Request) {
     { role: "user", content: q },
   ];
 
-  try {
-    const MAX_TURNS = 10;
-    // A DEADLINE, not just a turn count. Turns are not the thing that runs out
-    // — wall clock is, and a route that exceeds the platform ceiling returns a
-    // 504 the browser reports as "Couldn't reach the assistant": no answer, no
-    // reason, and the work already done thrown away. Past the budget the loop
-    // stops asking for more tools and tells the model to answer with what it
-    // has, which is always better than nothing.
-    const DEADLINE_MS = 210_000;
-    const startedAt = Date.now();
-    let finalText = "";
-    for (let turn = 0; turn < MAX_TURNS; turn++) {
-      const outOfTime = Date.now() - startedAt > DEADLINE_MS;
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        // Opus with adaptive thinking: the questions that were failing are
-        // multi-step analysis ("this line, across every property, over N
-        // years, as a ratio"), not lookups. A bigger max_tokens because a
-        // 30-row × 3-year table is the answer, and 2000 could not hold one.
-        body: JSON.stringify({
-          model: "claude-opus-5",
-          max_tokens: 16000,
-          thinking: { type: "adaptive" },
-          system,
-          // Out of time: take the tools away so the model must answer from
-          // what it already gathered rather than starting another lookup.
-          ...(outOfTime ? {} : { tools }),
-          messages: outOfTime
-            ? [...messages, { role: "user", content: "You are out of time. Answer NOW from the tool results you already have, in the required JSON. If the data is partial, say so in the answer and in the table's notes rather than looking anything else up." }]
-            : messages,
-        }),
-      });
-      if (!res.ok) return NextResponse.json({ error: `Assistant failed (${res.status}).` }, { status: 502 });
-      const j = await res.json();
-      const content = (j?.content ?? []) as Block[];
-      messages.push({ role: "assistant", content });
-
-      const toolUses = content.filter((b): b is Extract<Block, { type: "tool_use" }> => b.type === "tool_use");
-      if (outOfTime || j?.stop_reason !== "tool_use" || toolUses.length === 0) {
-        finalText = content.filter((b) => b.type === "text").map((b) => (b as { text?: string }).text ?? "").join("");
-        break;
-      }
-
-      // Execute every requested tool and return all results in one user message.
-      const results = await Promise.all(
-        toolUses.map(async (tu) => {
-          let out: unknown;
-          try { out = await runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, showFinancials); }
-          catch (e) { out = { error: e instanceof Error ? e.message : "tool failed" }; }
-          return { type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out).slice(0, 40000) };
-        })
-      );
-      messages.push({ role: "user", content: results });
-    }
-
-    if (!finalText) return NextResponse.json({ answer: "I couldn't complete that lookup — try rephrasing or a more specific question.", links: [] });
-
-    const match = finalText.match(/\{[\s\S]*\}/);
-    if (!match) return NextResponse.json({ answer: finalText.trim() || "No answer.", links: [] });
-    type ChartIn = { type?: string; title?: string; unit?: string; series?: { label?: unknown; value?: unknown }[] };
-    type LetterIn = { kind?: string; to?: string; subject?: string; body?: string };
-    let parsed: { answer?: string; links?: { label?: string; href?: string }[]; chart?: ChartIn | null; letter?: LetterIn | null; table?: unknown };
-    try { parsed = JSON.parse(match[0]); } catch { return NextResponse.json({ answer: finalText.trim(), links: [] }); }
-    const validPaths = new Set(ROUTES.map((r) => r.path));
-    const links = (parsed.links ?? [])
-      .map((l) => ({ raw: l, href: sanitizeDeepLink(l?.href, validPaths) }))
-      .filter((l): l is { raw: { label?: string; href?: string }; href: string } => l.href !== null)
-      .slice(0, 4)
-      .map((l) => ({ label: String(l.raw.label ?? l.href), href: l.href }));
-    // Validate the chart: only a bar/line with finite numeric series survives.
-    let chart: { type: "bar" | "line"; title: string; unit: string; series: { label: string; value: number }[] } | null = null;
-    const c = parsed.chart;
-    if (c && (c.type === "bar" || c.type === "line") && Array.isArray(c.series)) {
-      const series = c.series
-        .map((p) => ({ label: String(p?.label ?? ""), value: Number(p?.value) }))
-        .filter((p) => p.label && Number.isFinite(p.value))
-        .slice(0, 12);
-      const unit = ["dollars", "percent", "sqft", "count"].includes(String(c.unit)) ? String(c.unit) : "count";
-      if (series.length >= 2) chart = { type: c.type, title: String(c.title ?? "").slice(0, 80), unit, series };
-    }
-    // Validate the letter: it's a review-and-send draft, so only body is required.
-    let letter: { kind: string; to: string; subject: string; body: string } | null = null;
-    const lt = parsed.letter;
-    if (lt && typeof lt.body === "string" && lt.body.trim().length > 20) {
-      letter = {
-        kind: String(lt.kind ?? "Letter").slice(0, 60),
-        to: String(lt.to ?? "").slice(0, 200),
-        subject: String(lt.subject ?? "").slice(0, 200),
-        body: lt.body.slice(0, 6000),
+  // The answer streams back as NDJSON — one JSON object per line:
+  //   {"type":"status","text":"…"}  progress, as each round of lookups runs
+  //   {"type":"result", …}          the validated answer
+  //   {"type":"error","error":"…"}  a failure that happened mid-flight
+  //
+  // Not for a typing effect: the answer is a single JSON object, so there is
+  // nothing to type out. It is for the two things a silent three-minute POST
+  // got wrong. A cross-portfolio dataset takes minutes behind a spinner that
+  // said the same four words throughout, so a slow question and a broken one
+  // looked identical. And a connection carrying no bytes is exactly what a
+  // platform gateway kills — which is how a finished answer arrived as
+  // "Couldn't reach the assistant". Bytes on the wire are both the progress
+  // report and the keep-alive.
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      // The client can navigate away mid-answer; enqueueing to a closed
+      // controller throws, and an uncaught throw here takes down the loop that
+      // is still holding the model turn.
+      let closed = false;
+      const send = (o: unknown) => {
+        if (closed) return;
+        try { controller.enqueue(encoder.encode(JSON.stringify(o) + "\n")); }
+        catch { closed = true; }
       };
-    }
-    // The table is validated like the chart: shapes checked, sizes capped, and
-    // a ratio reference that names a column which doesn't exist dropped rather
-    // than shipped as a formula pointing somewhere arbitrary.
-    const table = validateTable(parsed.table);
-    return NextResponse.json({ answer: (parsed.answer ?? "").trim() || "No answer.", links, chart, letter, table });
-  } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Assistant failed" }, { status: 500 });
-  }
+
+      try {
+        send({ type: "status", text: "Reading live portal data…" });
+        const MAX_TURNS = 10;
+        // A DEADLINE, not just a turn count. Turns are not the thing that runs
+        // out — wall clock is. Past the budget the loop stops asking for more
+        // tools and tells the model to answer with what it has, which is
+        // always better than nothing.
+        const DEADLINE_MS = 210_000;
+        const startedAt = Date.now();
+        let finalText = "";
+        for (let turn = 0; turn < MAX_TURNS; turn++) {
+          const outOfTime = Date.now() - startedAt > DEADLINE_MS;
+          if (outOfTime) send({ type: "status", text: "Out of time — answering from what I have…" });
+          const res = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            // Opus with adaptive thinking: the questions that were failing are
+            // multi-step analysis ("this line, across every property, over N
+            // years, as a ratio"), not lookups. A bigger max_tokens because a
+            // 30-row × 3-year table is the answer, and 2000 could not hold one.
+            body: JSON.stringify({
+              model: "claude-opus-5",
+              max_tokens: 16000,
+              thinking: { type: "adaptive" },
+              system,
+              // Out of time: take the tools away so the model must answer from
+              // what it already gathered rather than starting another lookup.
+              ...(outOfTime ? {} : { tools }),
+              messages: outOfTime
+                ? [...messages, { role: "user", content: "You are out of time. Answer NOW from the tool results you already have, in the required JSON. If the data is partial, say so in the answer and in the table's notes rather than looking anything else up." }]
+                : messages,
+            }),
+          });
+          if (!res.ok) { send({ type: "error", error: `Assistant failed (${res.status}).` }); return; }
+          const j = await res.json();
+          const content = (j?.content ?? []) as Block[];
+          messages.push({ role: "assistant", content });
+
+          const toolUses = content.filter((b): b is Extract<Block, { type: "tool_use" }> => b.type === "tool_use");
+          if (outOfTime || j?.stop_reason !== "tool_use" || toolUses.length === 0) {
+            finalText = content.filter((b) => b.type === "text").map((b) => (b as { text?: string }).text ?? "").join("");
+            break;
+          }
+
+          send({ type: "status", text: statusFor(toolUses.map((t) => t.name)) });
+
+          // Execute every requested tool and return all results in one user message.
+          const results = await Promise.all(
+            toolUses.map(async (tu) => {
+              let out: unknown;
+              try { out = await runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, showFinancials); }
+              catch (e) { out = { error: e instanceof Error ? e.message : "tool failed" }; }
+              return { type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out).slice(0, 40000) };
+            })
+          );
+          messages.push({ role: "user", content: results });
+          send({ type: "status", text: "Working through what came back…" });
+        }
+
+        if (!finalText) { send({ type: "result", answer: "I couldn't complete that lookup — try rephrasing or a more specific question.", links: [] }); return; }
+
+        const match = finalText.match(/\{[\s\S]*\}/);
+        if (!match) { send({ type: "result", answer: finalText.trim() || "No answer.", links: [] }); return; }
+        type ChartIn = { type?: string; title?: string; unit?: string; series?: { label?: unknown; value?: unknown }[] };
+        type LetterIn = { kind?: string; to?: string; subject?: string; body?: string };
+        let parsed: { answer?: string; links?: { label?: string; href?: string }[]; chart?: ChartIn | null; letter?: LetterIn | null; table?: unknown; clarify?: unknown };
+        try { parsed = JSON.parse(match[0]); } catch { send({ type: "result", answer: finalText.trim(), links: [] }); return; }
+
+        // A question INSTEAD of an answer. Exclusive by construction: a figure
+        // rendered beside the question that was meant to decide how it is
+        // computed is the worst of both — the user reads the number, and the
+        // number rests on the assumption still being asked about.
+        const clarify = validateClarify(parsed.clarify);
+        if (clarify) { send({ type: "result", answer: "", links: [], chart: null, letter: null, table: null, clarify }); return; }
+
+        const validPaths = new Set(ROUTES.map((r) => r.path));
+        const links = (parsed.links ?? [])
+          .map((l) => ({ raw: l, href: sanitizeDeepLink(l?.href, validPaths) }))
+          .filter((l): l is { raw: { label?: string; href?: string }; href: string } => l.href !== null)
+          .slice(0, 4)
+          .map((l) => ({ label: String(l.raw.label ?? l.href), href: l.href }));
+        // Validate the chart: only a bar/line with finite numeric series survives.
+        let chart: { type: "bar" | "line"; title: string; unit: string; series: { label: string; value: number }[] } | null = null;
+        const c = parsed.chart;
+        if (c && (c.type === "bar" || c.type === "line") && Array.isArray(c.series)) {
+          const series = c.series
+            .map((pt) => ({ label: String(pt?.label ?? ""), value: Number(pt?.value) }))
+            .filter((pt) => pt.label && Number.isFinite(pt.value))
+            .slice(0, 12);
+          const unit = ["dollars", "percent", "sqft", "count"].includes(String(c.unit)) ? String(c.unit) : "count";
+          if (series.length >= 2) chart = { type: c.type, title: String(c.title ?? "").slice(0, 80), unit, series };
+        }
+        // Validate the letter: it's a review-and-send draft, so only body is required.
+        let letter: { kind: string; to: string; subject: string; body: string } | null = null;
+        const lt = parsed.letter;
+        if (lt && typeof lt.body === "string" && lt.body.trim().length > 20) {
+          letter = {
+            kind: String(lt.kind ?? "Letter").slice(0, 60),
+            to: String(lt.to ?? "").slice(0, 200),
+            subject: String(lt.subject ?? "").slice(0, 200),
+            body: lt.body.slice(0, 6000),
+          };
+        }
+        // The table is validated like the chart: shapes checked, sizes capped, and
+        // a ratio reference that names a column which doesn't exist dropped rather
+        // than shipped as a formula pointing somewhere arbitrary.
+        const table = validateTable(parsed.table);
+        send({ type: "result", answer: (parsed.answer ?? "").trim() || "No answer.", links, chart, letter, table, clarify: null });
+      } catch (e) {
+        send({ type: "error", error: e instanceof Error ? e.message : "Assistant failed" });
+      } finally {
+        if (!closed) { try { controller.close(); } catch { /* already closed */ } }
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "application/x-ndjson; charset=utf-8",
+      "cache-control": "no-store, no-transform",
+      // Proxies that buffer would defeat the whole point — the first byte is
+      // what keeps the gateway from timing the request out.
+      "x-accel-buffering": "no",
+    },
+  });
 }

@@ -27,6 +27,8 @@ import {
   type AiChartSpec,
   type AiTableSpec,
   type AiLetterSpec,
+  type AiClarifySpec,
+  ClarifyCard,
 } from "./ai/AiKit";
 
 // Minimal shapes — keeps us off the server-only Reservation export.
@@ -318,7 +320,7 @@ const SAMPLE_SEARCHES = [
 
 type ChatTurn =
   | { role: "user"; text: string }
-  | { role: "assistant"; answer: string; links: { label: string; href: string }[]; chart: AiChartSpec | null; letter: AiLetterSpec | null; table: AiTableSpec | null };
+  | { role: "assistant"; answer: string; links: { label: string; href: string }[]; chart: AiChartSpec | null; letter: AiLetterSpec | null; table: AiTableSpec | null; clarify: AiClarifySpec | null };
 
 export default function GlobalSearch() {
   const { user } = useUser();
@@ -334,38 +336,100 @@ export default function GlobalSearch() {
   const [budgetKpis, setBudgetKpis] = useState<BudgetKpi[] | null>(null);
   // AI assistant ("ask the brain") — a running conversation: grounded answers
   // with page links + optional charts, and follow-ups that keep prior context.
-  const [chat, setChat] = useState<{ turns: ChatTurn[]; loading: boolean; error: string | null }>({ turns: [], loading: false, error: null });
+  const [chat, setChat] = useState<{ turns: ChatTurn[]; loading: boolean; error: string | null; status: string }>({ turns: [], loading: false, error: null, status: "" });
   const askAi = (qOverride?: string) => {
     const q = (typeof qOverride === "string" ? qOverride : query).trim();
     if (!q || chat.loading) return;
     // Send the prior turns as plain text so follow-ups ("now just the business
     // parks", "chart that", "make the letter more formal") resolve against what
-    // was already asked/answered — include any drafted letter so it can revise.
+    // was already asked/answered — include any drafted letter so it can revise,
+    // and any question it asked, so a one-word reply ("2023-2025") has
+    // something to attach to.
     const history = chat.turns.slice(-8).map((t) => ({
       role: t.role,
-      content: t.role === "user" ? t.text : t.answer + (t.letter ? `\n\n[Draft ${t.letter.kind}]\nTo: ${t.letter.to}\nSubject: ${t.letter.subject}\n\n${t.letter.body}` : ""),
+      content: t.role === "user"
+        ? t.text
+        : t.clarify
+          ? `[Asked the user] ${t.clarify.question}`
+          : t.answer + (t.letter ? `\n\n[Draft ${t.letter.kind}]\nTo: ${t.letter.to}\nSubject: ${t.letter.subject}\n\n${t.letter.body}` : ""),
     }));
-    setChat((c) => ({ turns: [...c.turns, { role: "user", text: q }], loading: true, error: null }));
+    setChat((c) => ({ turns: [...c.turns, { role: "user", text: q }], loading: true, error: null, status: "Reading live portal data…" }));
     setQuery("");
+
+    const fail = (error: string) => setChat((c) => ({ ...c, loading: false, error, status: "" }));
+    const finish = (j: Record<string, unknown>) => setChat((c) => ({
+      turns: [...c.turns, {
+        role: "assistant",
+        answer: String(j.answer ?? "No answer."),
+        links: (j.links as { label: string; href: string }[] | undefined) ?? [],
+        chart: (j.chart as AiChartSpec | null) ?? null,
+        letter: (j.letter as AiLetterSpec | null) ?? null,
+        table: (j.table as AiTableSpec | null) ?? null,
+        clarify: (j.clarify as AiClarifySpec | null) ?? null,
+      }],
+      loading: false, error: null, status: "",
+    }));
+
+    // The endpoint streams NDJSON — one JSON object per line: `status` while it
+    // works, then exactly one `result` or `error`. Reading it as a stream is
+    // what turns a silent three-minute wait into a running account of which
+    // data is being read, and it is also why a long answer no longer dies at
+    // the gateway: the connection is never idle.
     fetch("/api/search/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q, history }) })
-      // A 504 returns an HTML error page, so `r.json()` throws and the catch
-      // below reported "Couldn't reach the assistant" — true, but it reads as
-      // the network being down when the real cause is a question too big to
-      // finish. Name it, and say what to do about it.
       .then(async (r) => {
         if (r.status === 504 || r.status === 408) {
-          return { error: "That took too long to finish. Try narrowing it — fewer years, one property group, or one metric at a time." };
+          fail("That took too long to finish. Try narrowing it — fewer years, one property group, or one metric at a time.");
+          return;
         }
-        try { return await r.json(); }
-        catch { return { error: `The assistant failed (${r.status}). Try again, or narrow the question.` }; }
+        // Pre-flight refusals (not configured, bad request) still come back as
+        // a plain JSON body with a non-200 status.
+        if (!r.ok || !r.body) {
+          let msg = `The assistant failed (${r.status}). Try again, or narrow the question.`;
+          try { const j = await r.json(); if (j?.error) msg = String(j.error); } catch { /* not JSON */ }
+          fail(msg);
+          return;
+        }
+        const reader = r.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        let settled = false;
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          // A chunk can split a line anywhere, so the trailing fragment stays
+          // in the buffer until its newline arrives.
+          let nl: number;
+          while ((nl = buf.indexOf("\n")) >= 0) {
+            const line = buf.slice(0, nl).trim();
+            buf = buf.slice(nl + 1);
+            if (!line) continue;
+            let msg: Record<string, unknown>;
+            try { msg = JSON.parse(line); } catch { continue; }
+            if (msg.type === "status") setChat((c) => (c.loading ? { ...c, status: String(msg.text ?? "") } : c));
+            else if (msg.type === "error") { settled = true; fail(String(msg.error ?? "The assistant failed.")); }
+            else if (msg.type === "result") { settled = true; finish(msg); }
+          }
+        }
+        // The stream ended without saying how. Treat it as a failure rather
+        // than leaving the spinner running forever.
+        if (!settled) fail("The assistant stopped before finishing. Try again, or narrow the question.");
       })
-      .then((j) => setChat((c) => j.error
-        ? { ...c, loading: false, error: j.error }
-        : { turns: [...c.turns, { role: "assistant", answer: j.answer ?? "No answer.", links: j.links ?? [], chart: j.chart ?? null, letter: j.letter ?? null, table: j.table ?? null }], loading: false, error: null }))
-      .catch(() => setChat((c) => ({ ...c, loading: false, error: "Couldn't reach the assistant." })));
+      .catch(() => fail("Couldn't reach the assistant."));
   };
-  const resetChat = () => setChat({ turns: [], loading: false, error: null });
+  const resetChat = () => setChat({ turns: [], loading: false, error: null, status: "" });
   const askSample = (text: string) => { setQuery(text); askAi(text); };
+
+  // The ask shortcut has always accepted Ctrl+Enter as well as Cmd+Enter — but
+  // every hint on the page said "⌘⏎", a key a Windows keyboard does not have.
+  // So the shortcut worked and looked unavailable. Start on the Windows label
+  // (which is also what the server renders, so there is no hydration mismatch)
+  // and switch to ⌘ only once we can see the platform.
+  const [askKey, setAskKey] = useState("Ctrl ⏎");
+  useEffect(() => {
+    const p = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? navigator.platform ?? "";
+    if (/mac|iphone|ipad/i.test(p)) setAskKey("⌘⏎");
+  }, []);
 
   // Standing preferences the assistant remembers ("learn from feedback").
   const [prefs, setPrefs] = useState<string[]>([]);
@@ -827,7 +891,7 @@ export default function GlobalSearch() {
       >
         <SparkleMark size={30} twinkle fast={chat.loading} />
         {inputEl}
-        <span style={{ flex: "0 0 auto", fontFamily: MONO, fontSize: 11, color: "var(--ai-text)", background: "var(--ai-soft)", border: "1px solid var(--ai-border)", borderBottomWidth: 2, borderRadius: 5, padding: "3px 7px" }}>⌘⏎ ask</span>
+        <button type="button" onClick={() => askAi()} title="Ask the assistant" style={{ all: "unset", flex: "0 0 auto", cursor: "pointer", fontFamily: MONO, fontSize: 11, color: "var(--ai-text)", background: "var(--ai-soft)", border: "1px solid var(--ai-border)", borderBottomWidth: 2, borderRadius: 5, padding: "3px 7px" }}>{askKey} ask</button>
       </div>
     </div>
   ) : (
@@ -840,7 +904,7 @@ export default function GlobalSearch() {
         ) : (
           <>
             <Kbd>↵ search</Kbd>
-            <span style={{ border: "1px solid var(--ai-border)", borderBottomWidth: 2, borderRadius: 5, padding: "2px 6px", color: "var(--ai-text)", background: "var(--ai-soft)" }}>⌘⏎ ask</span>
+            <span style={{ border: "1px solid var(--ai-border)", borderBottomWidth: 2, borderRadius: 5, padding: "2px 6px", color: "var(--ai-text)", background: "var(--ai-soft)" }}>{askKey} ask</span>
           </>
         )}
       </span>
@@ -867,6 +931,8 @@ export default function GlobalSearch() {
       )}
       {chat.turns.map((t, ti) => t.role === "user" ? (
         <div key={ti} style={{ alignSelf: "flex-end", maxWidth: "78%", background: "var(--ai-bubble-bg)", color: "var(--ai-bubble-text)", fontSize: 14, lineHeight: 1.45, borderRadius: "12px 12px 4px 12px", padding: "9px 13px" }}>{t.text}</div>
+      ) : t.clarify ? (
+        <ClarifyCard key={ti} clarify={t.clarify} onPick={(a) => askAi(a)} />
       ) : t.letter ? (
         <div key={ti} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ border: "1px solid var(--ai-border-card)", borderLeft: "3px solid var(--ai)", borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
@@ -897,7 +963,7 @@ export default function GlobalSearch() {
           {teachFor === ti && teachBox(ti)}
         </div>
       ))}
-      {chat.loading && <ThinkingCard status="Reading live portal data…" />}
+      {chat.loading && <ThinkingCard status={chat.status || "Reading live portal data…"} />}
       {chat.error && <div style={{ color: "#b91c1c", fontSize: 13 }}>{chat.error}</div>}
     </div>
   );
@@ -990,7 +1056,7 @@ export default function GlobalSearch() {
   if (chat.loading) {
     footer = (
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 18px", borderTop: "1px solid var(--ai-border-soft)", background: "var(--ai-header-grad)", fontFamily: MONO, fontSize: 11, color: "var(--muted)" }}>
-        <span style={{ color: "var(--ai)" }}>✦</span> Thinking · querying live portal data
+        <span style={{ color: "var(--ai)" }}>✦</span> {chat.status || "Thinking · querying live portal data"}
         <span style={{ marginLeft: "auto" }}>esc to cancel</span>
       </div>
     );
@@ -1004,14 +1070,15 @@ export default function GlobalSearch() {
     );
   } else if (hasQuery) {
     footer = (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "11px 18px", borderTop: "1px solid var(--border)", background: "var(--ai-tint-panel-2)", fontSize: 12.5, color: "var(--ai-text)" }}>
-        <GradientSparkle /> Press <b style={{ fontFamily: MONO }}>⌘⏎</b> to ask the assistant about &ldquo;{query.trim()}&rdquo; instead
-      </div>
+      <button type="button" onClick={() => askAi()}
+        style={{ all: "unset", display: "flex", alignItems: "center", gap: 8, width: "100%", boxSizing: "border-box", cursor: "pointer", padding: "11px 18px", borderTop: "1px solid var(--border)", background: "var(--ai-tint-panel-2)", fontSize: 12.5, color: "var(--ai-text)" }}>
+        <GradientSparkle /> Ask the assistant about &ldquo;{query.trim()}&rdquo; instead <b style={{ fontFamily: MONO, marginLeft: "auto", opacity: 0.75 }}>{askKey}</b>
+      </button>
     );
   } else {
     footer = (
       <div style={{ display: "flex", gap: 18, padding: "11px 18px", borderTop: "1px solid var(--border)", background: "var(--footer-bg, var(--card))", fontFamily: MONO, fontSize: 11, color: "var(--kbd-color)" }}>
-        <span>↑↓ navigate</span><span>↵ open</span><span>⌘⏎ ask</span><span style={{ marginLeft: "auto" }}>esc</span>
+        <span>↑↓ navigate</span><span>↵ open</span><span>{askKey} ask</span><span style={{ marginLeft: "auto" }}>esc</span>
       </div>
     );
   }
