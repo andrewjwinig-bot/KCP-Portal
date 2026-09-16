@@ -34,9 +34,21 @@ export type ResolvedEmail = {
    * rather than to widen who sees it.
    */
   alsoEmail: string[];
-  /** Display names for those additional addresses, keyed by lowercased
-   *  address. A label over the address — never what decides who receives. */
-  alsoNames: AlsoNames;
+  /**
+   * Who each address belongs to, keyed by lowercased address — the PRIMARY
+   * included, not just the extras.
+   *
+   * The primary address was assumed to be the investor's and went out with no
+   * addressee at all. It often isn't theirs: plenty of investors have only
+   * their accountant's or their trustee's address on file, and that person
+   * should be the one the mail greets. So the name defaults to whoever the
+   * address actually resolved THROUGH — the trustee when it came from the
+   * trustee directory — falling back to the investor, and staff can set it
+   * outright on the contact card.
+   *
+   * A label over the address: never what decides who receives.
+   */
+  recipientNames: AlsoNames;
   source: EmailSource;
   /** Shown on the roster so staff can see why an address was chosen. */
   note: string;
@@ -56,12 +68,14 @@ function shortKey(name: string): string {
   return `${parts[0]} ${parts[parts.length - 1]}`;
 }
 
-/** Every email the trustee directory knows, by trustee name. */
-function directoryEmails(): Map<string, string> {
-  const out = new Map<string, string>();
+/** Every email the trustee directory knows, by trustee name — WITH the name,
+ *  because an address resolved through a trustee should be addressed to that
+ *  trustee rather than to the investor whose trust they act for. */
+function directoryEmails(): Map<string, { name: string; email: string }> {
+  const out = new Map<string, { name: string; email: string }>();
   for (const s of Object.values(INVESTOR_STRUCTURES)) {
     for (const r of s.directory?.rows ?? []) {
-      if (r.email) out.set(norm(r.name), r.email);
+      if (r.email) out.set(norm(r.name), { name: r.name, email: r.email });
     }
   }
   return out;
@@ -112,16 +126,32 @@ export function resolveOwnerEmail(
   // itself to whatever address takes its place.
   const alsoNames = pruneNames(also, contact?.alsoNames);
 
+  /** One result, with the primary address's name folded into the same map the
+   *  extras use — so every consumer reads ONE lookup and none of them has to
+   *  know which address was the primary. */
+  const resolved = (email: string | null, source: EmailSource, note: string, name?: string | null): ResolvedEmail => {
+    const recipientNames = { ...alsoNames };
+    if (email) {
+      // An explicit name on the contact record wins; then whoever the address
+      // resolved through; then the investor themselves.
+      const who = (contact?.emailName ?? "").trim() || (name ?? "").trim() || ownerName.trim();
+      if (who) recipientNames[email.trim().toLowerCase()] = who;
+    }
+    return { email, alsoEmail: also, recipientNames, source, note };
+  };
+
   const trimmed = (override ?? "").trim();
-  if (trimmed) return { email: trimmed, alsoEmail: also, alsoNames, source: "override", note: "Entered here" };
+  if (trimmed) return resolved(trimmed, "override", "Entered here");
 
   const exactContact = ownerContactExact(ownerName, contacts)?.email;
-  if (exactContact) return { email: exactContact, alsoEmail: also, alsoNames, source: "contacts", note: "Owner contacts" };
+  if (exactContact) return resolved(exactContact, "contacts", "Owner contacts");
 
   const dir = directoryEmails();
   for (const candidate of [detailedName, ownerName]) {
     const hit = candidate ? dir.get(norm(candidate)) : undefined;
-    if (hit) return { email: hit, alsoEmail: also, alsoNames, source: "trustee-directory", note: "Trustee directory" };
+    // Named for the TRUSTEE: the address is theirs, and "Dear <the trust's
+    // beneficiary>" on a mail to their lawyer reads as a misdirected email.
+    if (hit) return resolved(hit.email, "trustee-directory", "Trustee directory", hit.name);
   }
 
   // Relaxed, and only where the short name is unique across BOTH sources —
@@ -129,11 +159,11 @@ export function resolveOwnerEmail(
   // `ownerContact` carries its own unambiguous short-key index, so the contact
   // map is searched properly rather than probed with one guessed key.
   const relaxedContact = ownerContact(ownerName, contacts)?.email;
-  if (relaxedContact) return { email: relaxedContact, alsoEmail: also, alsoNames, source: "contacts", note: "Matched on name — check it" };
+  if (relaxedContact) return resolved(relaxedContact, "contacts", "Matched on name — check it");
 
-  const shortIndex = uniqueShortIndex([...dir.entries()].map(([n, e]) => [n, e] as [string, string]));
+  const shortIndex = uniqueShortIndex([...dir.entries()].map(([n, v]) => [n, v.email] as [string, string]));
   const relaxed = shortIndex.get(shortKey(ownerName));
-  if (relaxed) return { email: relaxed, alsoEmail: also, alsoNames, source: "trustee-directory", note: "Matched on name — check it" };
+  if (relaxed) return resolved(relaxed, "trustee-directory", "Matched on name — check it");
 
-  return { email: null, alsoEmail: also, alsoNames, source: "none", note: "No address on file" };
+  return resolved(null, "none", "No address on file");
 }

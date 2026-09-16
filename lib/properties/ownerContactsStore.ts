@@ -15,6 +15,14 @@ export interface OwnerContactOverride {
   name?: string;
   address?: string;
   email?: string;
+  /**
+   * Who the PRIMARY address belongs to, when it isn't the investor.
+   *
+   * Plenty of investors have only their accountant's or their trustee's
+   * address on file, and that person is who the mail should greet. Blank means
+   * the investor themselves (or the trustee the address resolved through).
+   */
+  emailName?: string;
   /** Additional recipients — an accountant, a manager, a trustee. */
   alsoEmail?: string[];
   /**
@@ -47,7 +55,7 @@ export async function saveContactOverride(key: string, override: OwnerContactOve
     delete map[k];
   } else {
     const clean: OwnerContactOverride = {};
-    for (const f of ["name", "address", "email", "phone", "notes"] as const) {
+    for (const f of ["name", "address", "email", "emailName", "phone", "notes"] as const) {
       const v = (override[f] ?? "").toString().trim();
       if (v) clean[f] = v;
     }

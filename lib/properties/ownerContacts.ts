@@ -15,6 +15,14 @@ export interface OwnerContact {
   /** The investor's own address — the one a statement is addressed to. */
   email?: string;
   /**
+   * Who the PRIMARY address belongs to, when it isn't the investor.
+   *
+   * Plenty of investors have only their accountant's or their trustee's
+   * address on file, and that person is who the mail should greet. Blank means
+   * the investor themselves (or the trustee the address resolved through).
+   */
+  emailName?: string;
+  /**
    * Anyone else who should receive what this investor receives — an
    * accountant, a manager, a trustee. Every one of them gets the same email,
    * so adding an address here lets that person open this investor's K-1.

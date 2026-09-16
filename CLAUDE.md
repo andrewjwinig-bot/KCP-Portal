@@ -610,14 +610,21 @@ preferences.
   (an address on the SoV tab, a K-1 email inside the share popover, a trustee
   directory nobody thought of as contact info) and there was no phone field at
   all.
-- **An additional recipient carries a NAME as well as an address**
-  (`alsoNames`, keyed by lowercased address; `lib/investors/mailAddress.ts`).
+- **EVERY address carries a NAME, the primary included** (`recipientNames` on
+  `resolveOwnerEmail`, keyed by lowercased address; `lib/investors/mailAddress.ts`).
+  The primary was assumed to be the investor's and went out with no addressee
+  at all — but plenty of investors have only their accountant's or their
+  trustee's address on file, and that person is who the mail should greet. It
+  defaults to whoever the address resolved THROUGH (the trustee, when it came
+  from the trustee directory), falling back to the investor, and `emailName` on
+  the contact record sets it outright. ONE map over every address, so no
+  consumer has to know which one was the primary.
   The send confirm is the one place a bare `cborgmann@gmmsfoundation.com` is
   read before mailing somebody a tax document, and the outgoing mail addresses
   them by name — a K-1 link arriving with no addressee reads like something
   that leaked. The ADDRESS stays the source of truth for who receives; a name
-  is a label over it, pruned to the live addresses so a removed recipient's
-  name can't reattach to a later one. `formatAddress` always quotes and escapes
+  is a label over it, and the extras' names are pruned to the live addresses so
+  a removed recipient's name can't reattach to a later one. `formatAddress` always quotes and escapes
   it, and strips CR/LF — a name is user input reaching a mail header.
 - **`alsoEmail` is a list of ADDITIONAL RECIPIENTS — an accountant, a manager,
   a trustee — and every one of them receives the investor's K-1 link.** That is

@@ -519,7 +519,7 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // all — the share route mails the additional recipients too, and an
         // address that only appears in the route is one nobody agreed to.
         recipients={recipientsOf(owner.email, owner.alsoEmail)}
-        recipientNames={owner.alsoNames}
+        recipientNames={owner.recipientNames}
         secondaryRecipients={owner.alsoEmail ?? []}
         sendLabel={`Email ${addressAs(owner.name, owner.detailedName)}`}
         pinOptional={false}
@@ -573,7 +573,7 @@ export function K1InvestorShare({ name, inv }: {
     link: K1Interest["link"];
     email: string | null;
     alsoEmail: string[];
-    alsoNames?: Record<string, string>;
+    recipientNames?: Record<string, string>;
     sendableFrom: K1Interest | null;
     interests: K1Interest[];
     send: (i: K1Interest, taxYear: number, send?: boolean, draft?: EmailDraft, opts?: SendOptions) => Promise<SendOutcome | void>;
@@ -603,7 +603,7 @@ export function K1InvestorShare({ name, inv }: {
       busy={inv.busy}
       error={inv.error}
       recipients={recipientsOf(inv.email, inv.alsoEmail)}
-      recipientNames={inv.alsoNames}
+      recipientNames={inv.recipientNames}
       secondaryRecipients={inv.alsoEmail ?? []}
       sendLabel={`Email ${addressAs(name, target?.heldAs)}`}
       pinOptional={false}

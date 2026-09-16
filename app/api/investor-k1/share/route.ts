@@ -253,7 +253,7 @@ async function shareOne(
     // was sent. The name is a label over the address — delivery never depends
     // on one being present, and `formatAddress` quotes it so a comma in a name
     // cannot split the joined header.
-    const names = resolved.alsoNames;
+    const names = resolved.recipientNames;
     const headers = () => ({
       to: formatAddressList(addressed.to, names),
       ...(addressed.cc.length ? { cc: formatAddressList(addressed.cc, names) } : {}),
