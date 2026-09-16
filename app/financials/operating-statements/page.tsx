@@ -1744,6 +1744,12 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               // 2+ accounts (e.g. rental income) so each tenant can be isolated.
               const groups = glGroups;
               const multi = groups.length >= 2;
+              // The billed breakdown only earns its space when it actually
+              // SUMMARISES. Rent posts one charge per suite a month, so on a
+              // rent line it reproduced the transaction list below it row for
+              // row. Shown only when some group holds more than one
+              // transaction — a repairs line across 40 vendors still gets it.
+              const summarizes = multi && txns.length > groups.length;
               const shown = tenantFilter ? txns.filter((t) => t.groupKey === tenantFilter) : txns;
               const glTotal = shown.reduce((s, t) => s + t.amount, 0);
               // Standout drivers — transactions that are a large share of the
@@ -1761,13 +1767,13 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               const activeTenantName = tenantFilter ? (groups.find((g) => g.groupKey === tenantFilter)?.tenant || tenantFilter) : null;
               return (
               <div>
-                {multi && (
+                {(showRentCheck || summarizes) && (
                   <div style={{ padding: "10px 10px 0" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
                       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
                         {showRentCheck ? "By suite — contract rent vs. what was billed" : "By tenant / unit — click to isolate"}
                       </div>
-                      {!showRentCheck && tenantFilter && <button type="button" onClick={() => setTenantFilter(null)} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>Clear ✕</button>}
+                      {summarizes && !showRentCheck && tenantFilter && <button type="button" onClick={() => setTenantFilter(null)} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>Clear ✕</button>}
                     </div>
                     {showRentCheck ? (
                       <RentCheckTable viewKey={viewKey} property={property} year={year} period={period}
