@@ -204,8 +204,16 @@ export const USERS: Record<UserId, UserDef> = {
     label: "ALISON",
     // President — a high-level view: dashboard, properties, investors,
     // rent roll, debt. No operational tools or action items.
-    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/investors", "/debt", "/bank-transfers", "/financials", "/cam-recon", "/reports"],
+    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "investor-k1"]),
+    allowedPathPrefixes: [
+      "/dashboard", "/properties", "/rentroll", "/units", "/investors", "/debt",
+      "/bank-transfers", "/financials", "/cam-recon", "/reports",
+      // Capability key, not a page — the K-1 tooling renders inside /investors.
+      // Granted by the owner in full knowledge that Alison is herself a
+      // Parkwood owner, so this shows her every co-owner's K-1. See the note
+      // on `canManageK1`.
+      "/investor-k1",
+    ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
@@ -259,16 +267,29 @@ export function canEditOwnership(userId: UserId): boolean {
   return userId === "admin" || userId === "drew" || userId === "harry" || userId === "alison";
 }
 
-/** May this user import, confirm and share Schedule K-1s?
+/**
+ * May this user import, view, send and revoke Schedule K-1s?
  *
- *  Deliberately NARROWER than canEditOwnership, which includes Alison — she can
- *  edit the ownership table and is herself a Parkwood owner, so granting her the
- *  K-1 tooling would show her every co-owner's tax document. The K-1 sections on
- *  the Investor Info page are gated on THIS, not on canEditOwnership.
+ * Drew, Harry, Alison and admin. It was deliberately narrower for a while:
+ * Alison can edit the ownership table and is herself a Parkwood owner, so
+ * granting it shows her co-owners' tax documents — taxpayer IDs, income
+ * allocations, capital accounts. The owner granted it anyway, knowing that;
+ * she is an executive of the business, not an outside investor. Recorded here
+ * because it is a real widening and not an oversight.
  *
- *  "/investor-k1" is a capability key rather than a page: the UI lives inside
- *  /investors, but the key keeps the client gate and the API's own
- *  isPathAllowed check reading from one place. */
+ * There is no finer grain. The capability is one thing — upload, delete, send,
+ * revoke, preview — so "view and send" necessarily carries the rest. Splitting
+ * it would mean a second key and a second server check on every K-1 route, and
+ * a half-applied split is worse than none.
+ *
+ * Still NOT the /investors prefix: Marie, Nancy and the rest reach Investor
+ * Info without reaching K-1s, and that separation is what keeps this a
+ * deliberate grant rather than a side effect of seeing the ownership page.
+ *
+ * "/investor-k1" is a capability key rather than a page: the UI lives inside
+ * /investors, but the key keeps the client gate and the API's own
+ * isPathAllowed check reading from one place.
+ */
 export function canManageK1(userId: UserId): boolean {
   return isPathAllowed(userId, "/investor-k1");
 }

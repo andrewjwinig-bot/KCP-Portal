@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { publishBlockers, type K1Document } from "./k1";
 import { PROPERTY_OWNERSHIP } from "@/lib/properties/ownership";
-import { canEditOwnership, canManageK1 } from "@/lib/users";
+import { canEditOwnership, canManageK1, isPathAllowed } from "@/lib/users";
 
 const parkwood = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "7010")!.owners;
 
@@ -63,19 +63,42 @@ describe("publishBlockers", () => {
 });
 
 describe("canManageK1", () => {
-  it("is narrower than ownership editing — Alison is a Parkwood owner", () => {
-    // She can edit the ownership table, but must never see co-owners' K-1s.
-    expect(canEditOwnership("alison")).toBe(true);
-    expect(canManageK1("alison")).toBe(false);
-  });
-
   it("grants the people who run the distribution", () => {
     expect(canManageK1("drew")).toBe(true);
     expect(canManageK1("harry")).toBe(true);
     expect(canManageK1("admin")).toBe(true);
   });
 
-  it("denies everyone else", () => {
+  it("includes Alison, who is herself a Parkwood owner", () => {
+    // This was deliberately false: granting it shows her co-owners' taxpayer
+    // IDs and capital accounts. The owner granted it knowing that — she is an
+    // executive of the business. Pinned so the widening stays a decision
+    // somebody made rather than something that drifted in.
+    expect(canEditOwnership("alison")).toBe(true);
+    expect(canManageK1("alison")).toBe(true);
+  });
+
+  it("denies everyone who was not granted it", () => {
     for (const u of ["marie", "nancy", "maint"] as const) expect(canManageK1(u)).toBe(false);
+  });
+
+  it("is a SEPARATE key, not the /investors prefix", () => {
+    // With Alison granted, everyone who can reach Investor Info can also
+    // manage K-1s — the two lists now coincide, so nothing observable
+    // distinguishes them and only the MECHANISM can be tested.
+    //
+    // It still matters: "/investors" must not prefix-match "/investor-k1", or
+    // the next person granted the ownership page would silently receive every
+    // investor's tax documents with it. (Same shape as the middleware trap
+    // where bare "investor" matches "/investors".)
+    for (const u of ["drew", "harry", "alison"] as const) {
+      expect(isPathAllowed(u, "/investors")).toBe(true);
+    }
+    expect(isPathAllowed("marie", "/investors")).toBe(false);
+    // The prefix rule itself: a grant of /investors alone reaches neither
+    // /investor-k1 nor the public investor portal.
+    const investorsOnly = (path: string) => path === "/investors" || path.startsWith("/investors/");
+    expect(investorsOnly("/investor-k1")).toBe(false);
+    expect(investorsOnly("/investor/abc")).toBe(false);
   });
 });

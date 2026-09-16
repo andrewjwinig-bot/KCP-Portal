@@ -723,14 +723,24 @@ preferences.
   green `VIEW` (opens it) or red `MISSING` (which is also the drop target).
   Sent-ness is the Portal column's job (`NO LINK` / `SHARED` / `OPENED n×`);
   carrying it in both columns was redundant.
-- **Access is its own gate — deliberately NOT the `/investors` prefix.** Alison
-  can reach the ownership page and is herself a Parkwood owner, so inheriting
-  that prefix would show her every co-owner's K-1. The K-1 UI lives INSIDE
-  `/investors` (`K1Panel` on the property card, `K1InvestorDocs` on the By
-  Investor card) but is gated on `canManageK1` — the `investor-k1` capability
-  key, granted to Drew and Harry only — never on `canEditOwnership`, which
-  includes Alison. The API enforces the same rule server-side. `/investor-k1` is
-  no longer a page; the key outlived it.
+- **Access is its own gate — deliberately NOT the `/investors` prefix.** The
+  K-1 UI lives INSIDE `/investors` (`K1Panel` on the property card,
+  `K1InvestorDocs` on the By Investor card) but is gated on `canManageK1` — the
+  `investor-k1` capability key — never on `canEditOwnership`. The API enforces
+  the same rule server-side. `/investor-k1` is no longer a page; the key
+  outlived it.
+  **Granted to Drew, Harry, Alison and admin.** Alison was deliberately excluded
+  for a while: she is herself a Parkwood owner, so the grant shows her
+  co-owners' taxpayer IDs, income allocations and capital accounts. The owner
+  granted it knowing that — she is an executive of the business, not an outside
+  investor. There is NO finer grain: the capability is one thing (upload,
+  delete, send, revoke, preview), so "view and send" carries the rest; a
+  half-applied split across every K-1 route would be worse than none.
+  **The two lists now coincide** — everyone who can reach Investor Info can also
+  manage K-1s — so keeping the key separate is now about the MECHANISM: the next
+  person granted the ownership page must not receive tax documents with it.
+  `k1.test.ts` pins that `/investors` cannot prefix-match `/investor-k1` (the
+  same shape as the middleware trap where bare `investor` matches `/investors`).
 - **The tax tracker's K-1 ticks sync from actual sends.**
   `/api/investor-k1/sent?year=` returns booleans keyed by owner id — no names,
   no filenames — and `isTaskEffectivelyDone(task, checked, sent)` merges them
