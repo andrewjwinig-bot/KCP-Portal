@@ -35,8 +35,9 @@ describe("filingEntityFor", () => {
   });
 
   it("falls back to the owning entity when there is no EIN", () => {
-    // The residentials record ownerEntity but no EIN.
-    expect(filingEntityFor("9800")).toMatchObject({ name: "KH 509 LLC", ein: null });
+    // 9860 records an ownerEntity but no EIN yet. (9800/9820/9840 had none
+    // either until their EINs were supplied — see the Korman Homes block.)
+    expect(filingEntityFor("9860")).toMatchObject({ name: "Korman Homes LLC", ein: null });
   });
 
   it("treats a recorded \"N/A\" as no EIN rather than an EIN named N/A", () => {
@@ -173,5 +174,30 @@ describe("registerTotals", () => {
     expect(registerTotals(out)).toEqual({
       entities: 1, reportable: 1, amount: 900, unnamed: 1, scanned: 975,
     });
+  });
+});
+
+describe("Korman Homes EINs", () => {
+  it("files each Korman Homes LLC under its own EIN", () => {
+    // Each is a single-property LLC with its own filer. Keyed here because a
+    // 1099 goes out under an EIN and a wrong one lands on somebody's form —
+    // 84-4615492 in particular was first given for 9840 and corrected to 9800.
+    expect(filingEntityFor("9800").ein).toBe("84-4615492");
+    expect(filingEntityFor("9820").ein).toBe("33-3306642");
+    expect(filingEntityFor("9840").ein).toBe("33-4103140");
+  });
+
+  it("gives each its own filer — no vendor totals merge across them", () => {
+    // The register sums a vendor PER FILING ENTITY, so two properties sharing
+    // an id would pool their payments and manufacture a reportable vendor.
+    const ids = ["9800", "9820", "9840", "9860"].map((c) => filingEntityFor(c).id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("still groups the one without an EIN by its owning entity", () => {
+    // Not an oversight — 9860 has none on file yet, and the register falls
+    // back to the entity name rather than dropping it.
+    expect(filingEntityFor("9860").ein).toBeNull();
+    expect(filingEntityFor("9860").name).toBe("Korman Homes LLC");
   });
 });

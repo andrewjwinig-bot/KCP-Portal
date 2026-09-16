@@ -81,9 +81,9 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "9000", name: "Butler & Main",                    type: "Retail", ein: "42-4128308", allocGroup: "SC", ccAccounts: ["8501"], address: "9 W Butler Ave", city: "Ambler", state: "PA", zip: "19002" },
 
   // ── Residential ───────────────────────────────────────────────────────────
-  { id: "9800", name: "Bellaire Avenue",  type: "Residential", ownerEntity: "KH 509 LLC",                address: "509 Bellaire Ave",         city: "Fort Washington", state: "PA", zip: "19034", yearBuilt: 1910 },
-  { id: "9820", name: "Spring Garden St", type: "Residential", ownerEntity: "KH - SPRING GARDEN STREET", address: "120-122 N Spring Garden St", city: "Ambler",          state: "PA", zip: "19002", sqft: 1904, yearBuilt: 1994 },
-  { id: "9840", name: "Joshua Road",      type: "Residential", ownerEntity: "KH - JOSHUA 3044 LLC",      address: "3044 Joshua Rd",           city: "Lafayette Hill",  state: "PA", zip: "19444", sqft: 1628, yearBuilt: 1949 },
+  { id: "9800", name: "Bellaire Avenue",  type: "Residential", ownerEntity: "KH 509 LLC",                ein: "84-4615492", address: "509 Bellaire Ave",         city: "Fort Washington", state: "PA", zip: "19034", yearBuilt: 1910 },
+  { id: "9820", name: "Spring Garden St", type: "Residential", ownerEntity: "KH - SPRING GARDEN STREET", ein: "33-3306642", address: "120-122 N Spring Garden St", city: "Ambler",          state: "PA", zip: "19002", sqft: 1904, yearBuilt: 1994 },
+  { id: "9840", name: "Joshua Road",      type: "Residential", ownerEntity: "KH - JOSHUA 3044 LLC",      ein: "33-4103140", address: "3044 Joshua Rd",           city: "Lafayette Hill",  state: "PA", zip: "19444", sqft: 1628, yearBuilt: 1949 },
   { id: "9860", name: "KH Fort Washington", type: "Residential", ownerEntity: "Korman Homes LLC",         address: "233 Fort Washington Ave",  city: "Fort Washington", state: "PA", zip: "19034", sqft: 1603, yearBuilt: 1900 },
 
   // ── Other Commercial / Holding ────────────────────────────────────────────
