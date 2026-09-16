@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, mailtoUrl, PREVIEW_URL_PLACEHOLDER } from "./k1ShareEmail";
+import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, mailtoUrl, PREVIEW_URL_PLACEHOLDER, applyK1PinEdit } from "./k1ShareEmail";
 
 const URL = "https://portal.kormancommercial.com/investor/tok123";
 const base = { ownerName: "Lawrence Isard", propertyName: "Parkwood SC", taxYear: 2025, url: URL };
@@ -173,5 +173,41 @@ describe("a draft previewed before the link existed", () => {
     const r = applyK1EmailEdit(canonical, { body: `Larry — your K-1 is up.\n\n${URL}` }, URL);
     expect(r.edited).toBe(true);
     expect(r.email.body.startsWith("Larry")).toBe(true);
+  });
+});
+
+describe("applyK1PinEdit — the PIN email is editable, the PIN is not losable", () => {
+  const canonical = composeK1PinEmail({ ownerName: "Susan Korman Schurr", pin: "477860" });
+
+  it("leaves the canonical message alone when nothing was typed", () => {
+    expect(applyK1PinEdit(canonical, null, "477860").edited).toBe(false);
+    expect(applyK1PinEdit(canonical, { subject: "", body: "" }, "477860").email).toEqual(canonical);
+  });
+
+  it("takes a rewritten body that still carries the PIN", () => {
+    const body = "Hi Susan,\n\nYour PIN is 477860.\n\n— KCP";
+    const out = applyK1PinEdit(canonical, { body }, "477860");
+    expect(out.edited).toBe(true);
+    expect(out.email.body).toBe(body);
+  });
+
+  it("appends the PIN back when an edit drops it", () => {
+    // The one thing an edit here can get wrong. An investor holding a link
+    // with no PIN cannot open the document at all.
+    const out = applyK1PinEdit(canonical, { body: "Hi Susan, here you go. — KCP" }, "477860");
+    expect(out.email.body).toContain("477860");
+  });
+
+  it("takes a rewritten subject", () => {
+    const out = applyK1PinEdit(canonical, { subject: "Your PIN" }, "477860");
+    expect(out.email.subject).toBe("Your PIN");
+    expect(out.email.body).toBe(canonical.body);
+  });
+
+  it("still carries no link, whatever was typed", () => {
+    // The split is the whole point: neither message on its own opens the
+    // document, so a forwarded email hands over nothing.
+    const out = applyK1PinEdit(canonical, { body: "Your PIN is 477860" }, "477860");
+    expect(out.email.body).not.toMatch(/https?:\/\//);
   });
 });

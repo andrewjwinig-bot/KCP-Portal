@@ -18,6 +18,7 @@
 
 import { ownerContact, ownerContactExact, type ContactOverrides } from "@/lib/properties/ownerContacts";
 import { INVESTOR_STRUCTURES } from "@/lib/investors/structures";
+import { pruneNames, type AlsoNames } from "./mailAddress";
 
 export type EmailSource = "override" | "contacts" | "trustee-directory" | "none";
 
@@ -33,6 +34,9 @@ export type ResolvedEmail = {
    * rather than to widen who sees it.
    */
   alsoEmail: string[];
+  /** Display names for those additional addresses, keyed by lowercased
+   *  address. A label over the address — never what decides who receives. */
+  alsoNames: AlsoNames;
   source: EmailSource;
   /** Shown on the roster so staff can see why an address was chosen. */
   note: string;
@@ -102,18 +106,22 @@ export function resolveOwnerEmail(
   // The contact record is the source of the extra recipients whichever way
   // the primary address resolves — redirecting one interest's mail with an
   // override must not silently drop the investor's accountant.
-  const also = ownerContact(ownerName, contacts)?.alsoEmail ?? [];
+  const contact = ownerContact(ownerName, contacts);
+  const also = contact?.alsoEmail ?? [];
+  // Pruned to the live addresses, so a removed recipient's name can't reattach
+  // itself to whatever address takes its place.
+  const alsoNames = pruneNames(also, contact?.alsoNames);
 
   const trimmed = (override ?? "").trim();
-  if (trimmed) return { email: trimmed, alsoEmail: also, source: "override", note: "Entered here" };
+  if (trimmed) return { email: trimmed, alsoEmail: also, alsoNames, source: "override", note: "Entered here" };
 
   const exactContact = ownerContactExact(ownerName, contacts)?.email;
-  if (exactContact) return { email: exactContact, alsoEmail: also, source: "contacts", note: "Owner contacts" };
+  if (exactContact) return { email: exactContact, alsoEmail: also, alsoNames, source: "contacts", note: "Owner contacts" };
 
   const dir = directoryEmails();
   for (const candidate of [detailedName, ownerName]) {
     const hit = candidate ? dir.get(norm(candidate)) : undefined;
-    if (hit) return { email: hit, alsoEmail: also, source: "trustee-directory", note: "Trustee directory" };
+    if (hit) return { email: hit, alsoEmail: also, alsoNames, source: "trustee-directory", note: "Trustee directory" };
   }
 
   // Relaxed, and only where the short name is unique across BOTH sources —
@@ -121,11 +129,11 @@ export function resolveOwnerEmail(
   // `ownerContact` carries its own unambiguous short-key index, so the contact
   // map is searched properly rather than probed with one guessed key.
   const relaxedContact = ownerContact(ownerName, contacts)?.email;
-  if (relaxedContact) return { email: relaxedContact, alsoEmail: also, source: "contacts", note: "Matched on name — check it" };
+  if (relaxedContact) return { email: relaxedContact, alsoEmail: also, alsoNames, source: "contacts", note: "Matched on name — check it" };
 
   const shortIndex = uniqueShortIndex([...dir.entries()].map(([n, e]) => [n, e] as [string, string]));
   const relaxed = shortIndex.get(shortKey(ownerName));
-  if (relaxed) return { email: relaxed, alsoEmail: also, source: "trustee-directory", note: "Matched on name — check it" };
+  if (relaxed) return { email: relaxed, alsoEmail: also, alsoNames, source: "trustee-directory", note: "Matched on name — check it" };
 
-  return { email: null, alsoEmail: also, source: "none", note: "No address on file" };
+  return { email: null, alsoEmail: also, alsoNames, source: "none", note: "No address on file" };
 }

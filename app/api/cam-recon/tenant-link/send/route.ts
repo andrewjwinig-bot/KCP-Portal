@@ -77,6 +77,9 @@ export async function POST(req: NextRequest) {
 
   const sent = await sendMail({
     to: recipients.join(", "),
+    // The tenant must see the portal's own domain, not a tracking
+    // redirector — see `noLinkTracking`.
+    noLinkTracking: true,
     subject: `Your ${link.year} CAM / RET statement — Korman Commercial Properties`,
     textBody: emailBody(tenantName, link.year, url),
   });

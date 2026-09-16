@@ -46,8 +46,10 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
   click apart in the same dialog, so the send cannot be a click you make by
   accident. **The confirm shows the MESSAGE, not just the recipients**
   (`loadDraft` on `ShareLinkCard`): subject and body as they will send, typed
-  IN PLACE with no edit mode to enter, plus a read-only preview of the
-  follow-up. The subject/body controls are deliberately stripped of the global
+  IN PLACE with no edit mode to enter, and the PIN follow-up is typed in place
+  too — the guard belongs in the code, not in a disabled box, so an edit that
+  drops the PIN gets it appended back (`applyK1PinEdit`), exactly as a dropped
+  link is. The subject/body controls are deliberately stripped of the global
   input styling — the one place in the app that does that — so the card reads
   as the email rather than as a form; don't "fix" them back to the pill. A send is irreversible —
   you cannot unsend an investor their tax document — so the wording is read
@@ -129,6 +131,14 @@ custom domain was attached carried `kcp-portal.vercel.app` forever. A link is
 emailed and then lives for months; the host baked into it matters more than the
 one that happened to serve the request.
 
+- **Link tracking is OFF on anything carrying a signed portal link**
+  (`noLinkTracking` on `sendMail`, → Postmark `TrackLinks: "None"`). Left on,
+  Postmark rewrites every URL to `track.pstmrk.it/...`: the investor sees a wall
+  of tracking URL on a mail about their tax documents, which is what a phishing
+  attempt looks like, and it puts a THIRD-PARTY domain between the sending
+  domain and the link domain — the exact separation this section exists to
+  avoid. Omitting the field falls back to the server setting, so it must be set
+  explicitly on every such send.
 - Set **`PORTAL_ORIGIN`** in the Vercel project (e.g.
   `https://portal.kormancommercial.com`). Unset, it falls back to the request
   host, so nothing breaks before the domain exists.
@@ -600,6 +610,15 @@ preferences.
   (an address on the SoV tab, a K-1 email inside the share popover, a trustee
   directory nobody thought of as contact info) and there was no phone field at
   all.
+- **An additional recipient carries a NAME as well as an address**
+  (`alsoNames`, keyed by lowercased address; `lib/investors/mailAddress.ts`).
+  The send confirm is the one place a bare `cborgmann@gmmsfoundation.com` is
+  read before mailing somebody a tax document, and the outgoing mail addresses
+  them by name — a K-1 link arriving with no addressee reads like something
+  that leaked. The ADDRESS stays the source of truth for who receives; a name
+  is a label over it, pruned to the live addresses so a removed recipient's
+  name can't reattach to a later one. `formatAddress` always quotes and escapes
+  it, and strips CR/LF — a name is user input reaching a mail header.
 - **`alsoEmail` is a list of ADDITIONAL RECIPIENTS — an accountant, a manager,
   a trustee — and every one of them receives the investor's K-1 link.** That is
   the point (investors ask for it), and it means adding an address here lets

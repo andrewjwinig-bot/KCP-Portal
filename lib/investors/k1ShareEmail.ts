@@ -164,6 +164,31 @@ export function composeK1PinEmail(i: { ownerName: string; pin: string }): K1Shar
 }
 
 /**
+ * A staff edit to the PIN email, with the PIN itself guaranteed.
+ *
+ * The same shape as `applyK1EmailEdit`, and for the same reason: the message is
+ * read in the confirm, so the confirm is where it should be changeable. The one
+ * thing an edit here could get wrong is the number — and an investor holding a
+ * link with no PIN cannot open the document at all — so a body that no longer
+ * contains the PIN gets it appended back, exactly as a dropped link is.
+ */
+export function applyK1PinEdit(
+  canonical: K1ShareEmail,
+  edit: { subject?: unknown; body?: unknown } | null | undefined,
+  pin: string,
+): { email: K1ShareEmail; edited: boolean } {
+  const subject = typeof edit?.subject === "string" ? edit.subject.trim().slice(0, MAX_SUBJECT) : "";
+  const bodyRaw = typeof edit?.body === "string" ? edit.body.slice(0, MAX_BODY).trim() : "";
+  if (!subject && !bodyRaw) return { email: canonical, edited: false };
+  const code = (pin ?? "").trim();
+  const body = bodyRaw
+    ? (code && !bodyRaw.includes(code) ? `${bodyRaw}\n\n    ${code}` : bodyRaw)
+    : canonical.body;
+  const email = { subject: subject || canonical.subject, body };
+  return { email, edited: email.subject !== canonical.subject || email.body !== canonical.body };
+}
+
+/**
  * The same message, as a `mailto:` your own mail client opens.
  *
  * The portal sending for you is the right default at 21 owners; sending it

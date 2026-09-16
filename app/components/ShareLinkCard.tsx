@@ -130,6 +130,10 @@ export type ShareLinkCardProps = {
   error?: string | null;
   /** Who an email would go to. Empty means the send is offered but blocked. */
   recipients?: string[];
+  /** Who those addresses belong to, keyed by lowercased address. A bare
+   *  address is the one thing read before mailing somebody a tax document, and
+   *  it says nothing about who they are. */
+  recipientNames?: Record<string, string>;
   /** Wording for the send action, e.g. "Email to tenant". */
   sendLabel?: string;
   /** Shown after a successful send. */
@@ -207,7 +211,7 @@ export type ShareLinkCardProps = {
 
 export function ShareLinkCard({
   buttonLabel, title, subject, description, links, busy = false, error = null,
-  recipients = [], sendLabel = "Email it", sentTo = null,
+  recipients = [], recipientNames, sendLabel = "Email it", sentTo = null,
   onOpen, onCreate, onSend, onRevoke, onManagePin, loadDraft, onOpenInMail, onMarkSent, canSendWithoutLink = false,
   pinOptional = true, small = false, align = "right", viewAsHref, recipientSlot, emptyNote,
   secondaryRecipients = [],
@@ -625,7 +629,9 @@ export function ShareLinkCard({
                               <input type="checkbox" checked={on} disabled={sending || recipients.length < 2}
                                 onChange={() => toggleRecipient(r)} />
                               <span style={{ fontSize: 13, fontWeight: 700, color: on ? "var(--text)" : "var(--muted)", textDecoration: on ? undefined : "line-through" }}>
-                                {r}
+                                {recipientNames?.[r.toLowerCase()]
+                                  ? <>{recipientNames[r.toLowerCase()]} <span className="muted" style={{ fontWeight: 400 }}>· {r}</span></>
+                                  : r}
                               </span>
                               {on && secondaryRecipients.length > 0 && (
                                 <span className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em" }}>
@@ -658,11 +664,11 @@ export function ShareLinkCard({
                           </span>
                         </label>
                       )}
-                      <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>
-                        {loadDraft
-                          ? "Their PIN follows as its own separate email — nothing to hand over."
-                          : "The PIN is not emailed — give it to them separately."}
-                      </div>
+                      {!loadDraft && (
+                        <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>
+                          The PIN is not emailed — give it to them separately.
+                        </div>
+                      )}
                       {/* The message itself. A send is irreversible — you
                           cannot unsend someone their tax document — so the
                           words are read here, before, rather than found in a
@@ -718,11 +724,6 @@ export function ShareLinkCard({
                               />
                             </div>
                           )}
-                          <div className="muted" style={{ fontSize: 11.5, marginTop: 5 }}>
-                            Keep the link in the message — if you delete it we add it back, because
-                            the investor has no other way to reach the document.
-                          </div>
-
                           {/* The second message, sent straight after. Read-only
                               on purpose: it is three lines and a number, and
                               the number is the one thing an edit could get
@@ -730,13 +731,37 @@ export function ShareLinkCard({
                           {draft?.followUp && (
                             <div style={{ marginTop: 10 }}>
                               <div style={{ ...SECTION, marginBottom: 6 }}>Then, separately</div>
+                              {/* Editable in place like the message above. It
+                                  used to be read-only on the grounds that the
+                                  PIN is the one thing an edit could get wrong —
+                                  but the guard belongs in the code, not in a
+                                  disabled box: drop the PIN and the server puts
+                                  it back (`applyK1PinEdit`). */}
                               <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", overflow: "hidden" }}>
-                                <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 700 }}>
-                                  {draft.followUp.subject}
-                                </div>
-                                <div style={{ padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 200, overflowY: "auto" }}>
-                                  {draft.followUp.body}
-                                </div>
+                                <input
+                                  value={draft.followUp.subject}
+                                  onChange={(e) => setDraft({ ...draft, followUp: { ...draft.followUp!, subject: e.target.value } })}
+                                  aria-label="PIN email subject"
+                                  disabled={sending}
+                                  style={{
+                                    width: "100%", padding: "8px 12px", fontSize: 13, fontWeight: 700,
+                                    border: "none", borderBottom: "1px solid var(--border)", borderRadius: 0,
+                                    background: "transparent", color: "var(--text)",
+                                  }}
+                                />
+                                <textarea
+                                  value={draft.followUp.body}
+                                  onChange={(e) => setDraft({ ...draft, followUp: { ...draft.followUp!, body: e.target.value } })}
+                                  aria-label="PIN email message"
+                                  rows={9}
+                                  disabled={sending}
+                                  style={{
+                                    width: "100%", padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55,
+                                    fontFamily: "inherit", border: "none", borderRadius: 0,
+                                    background: "transparent", color: "var(--text)", resize: "vertical",
+                                    display: "block",
+                                  }}
+                                />
                               </div>
                             </div>
                           )}

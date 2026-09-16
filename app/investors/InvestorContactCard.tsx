@@ -29,6 +29,9 @@ export type ContactForm = {
   address: string;
   email: string;
   alsoEmail: string[];
+  /** Who each of those addresses belongs to, positionally — an accountant, a
+   *  trustee. Optional: an address with no name still receives. */
+  alsoName: string[];
   phone: string;
   notes: string;
 };
@@ -38,6 +41,7 @@ function formOf(c: OwnerContact | undefined): ContactForm {
     address: c?.address ?? "",
     email: c?.email ?? "",
     alsoEmail: c?.alsoEmail?.length ? [...c.alsoEmail] : [],
+    alsoName: (c?.alsoEmail ?? []).map((e) => c?.alsoNames?.[e.trim().toLowerCase()] ?? ""),
     phone: c?.phone ?? "",
     notes: c?.notes ?? "",
   };
@@ -73,10 +77,18 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
 
   /** The stored shape. Blank extra recipients are dropped — a half-typed row
    *  saved mid-keystroke must not become an address we try to mail. */
-  const payload = (f: ContactForm): Partial<OwnerContact> => ({
-    address: f.address, email: f.email, phone: f.phone, notes: f.notes,
-    alsoEmail: f.alsoEmail.map((e) => e.trim()).filter((e) => e.includes("@")),
-  });
+  const payload = (f: ContactForm): Partial<OwnerContact> => {
+    const rows = f.alsoEmail
+      .map((e, i) => ({ email: e.trim(), name: (f.alsoName[i] ?? "").trim() }))
+      .filter((r) => r.email.includes("@"));
+    const alsoNames: Record<string, string> = {};
+    for (const r of rows) if (r.name) alsoNames[r.email.toLowerCase()] = r.name;
+    return {
+      address: f.address, email: f.email, phone: f.phone, notes: f.notes,
+      alsoEmail: rows.map((r) => r.email),
+      alsoNames,
+    };
+  };
 
   async function commit() {
     setSaving(true);
@@ -132,18 +144,32 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
           <div style={{ display: "grid", gap: 6 }}>
             {form.alsoEmail.map((addr, i) => (
               <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {/* Named, because the send confirm is where a bare address is
+                    least useful: it is the one thing read before mailing
+                    somebody a tax document. Optional — an address with no name
+                    still receives, it just shows as itself. */}
+                <input placeholder="Name (optional)" value={form.alsoName[i] ?? ""}
+                  onChange={(e) => setForm((f) => {
+                    const next = [...f.alsoName]; next[i] = e.target.value; return { ...f, alsoName: next };
+                  })} style={{ width: 160 }} />
                 <input type="email" placeholder="accountant@example.com" value={addr}
                   onChange={(e) => setForm((f) => {
                     const next = [...f.alsoEmail]; next[i] = e.target.value; return { ...f, alsoEmail: next };
                   })} style={{ flex: 1 }} />
                 <button type="button" className="btn" title="Remove this recipient"
-                  onClick={() => setForm((f) => ({ ...f, alsoEmail: f.alsoEmail.filter((_, n) => n !== i) }))}
+                  onClick={() => setForm((f) => ({
+                    ...f,
+                    alsoEmail: f.alsoEmail.filter((_, n) => n !== i),
+                    // Dropped positionally with it, or every name below would
+                    // shift up onto the wrong address.
+                    alsoName: f.alsoName.filter((_, n) => n !== i),
+                  }))}
                   style={{ fontSize: 12, padding: "5px 10px", color: "#b91c1c" }}>Remove</button>
               </div>
             ))}
             <div>
               <button type="button" className="btn"
-                onClick={() => setForm((f) => ({ ...f, alsoEmail: [...f.alsoEmail, ""] }))}
+                onClick={() => setForm((f) => ({ ...f, alsoEmail: [...f.alsoEmail, ""], alsoName: [...f.alsoName, ""] }))}
                 style={{ fontSize: 12, padding: "5px 10px" }}>+ Add a recipient</button>
               <span className="muted" style={{ fontSize: 11.5, marginLeft: 10 }}>
                 An accountant or manager who should receive what {name} receives.
@@ -208,7 +234,14 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
     label: also.length === 1 ? "Also to" : `Also to (${also.length})`,
     node: (
       <span style={{ display: "inline-flex", flexWrap: "wrap", gap: "2px 10px" }}>
-        {also.map((a) => <a key={a} href={`mailto:${a}`} style={{ color: "var(--brand)" }}>{a}</a>)}
+        {also.map((a) => {
+          const who = contact?.alsoNames?.[a.trim().toLowerCase()];
+          return (
+            <a key={a} href={`mailto:${a}`} style={{ color: "var(--brand)" }}>
+              {who ? `${who} · ${a}` : a}
+            </a>
+          );
+        })}
       </span>
     ),
   });

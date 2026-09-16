@@ -5,6 +5,7 @@
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
+import { pruneNames } from "@/lib/investors/mailAddress";
 
 const PREFIX = "ownership-contacts";
 const ID = "current";
@@ -16,6 +17,13 @@ export interface OwnerContactOverride {
   email?: string;
   /** Additional recipients — an accountant, a manager, a trustee. */
   alsoEmail?: string[];
+  /**
+   * Display names for those addresses, keyed by lowercased address — so the
+   * send confirm can say WHO "cborgmann@gmmsfoundation.com" is, and the email
+   * can address them by name. A label over the address: delivery never depends
+   * on one being present or correct.
+   */
+  alsoNames?: Record<string, string>;
   phone?: string;
   notes?: string;
 }
@@ -49,6 +57,10 @@ export async function saveContactOverride(key: string, override: OwnerContactOve
       .map((e) => (e ?? "").toString().trim())
       .filter((e, i, a) => e && a.indexOf(e) === i && e.toLowerCase() !== (clean.email ?? "").toLowerCase());
     if (also.length) clean.alsoEmail = also;
+    // Names are pruned to the addresses that survived, so a removed recipient
+    // cannot leave its name behind to reattach to a later one.
+    const names = pruneNames(also, override.alsoNames);
+    if (Object.keys(names).length) clean.alsoNames = names;
     if (Object.keys(clean).length === 0) delete map[k];
     else map[k] = clean;
   }
