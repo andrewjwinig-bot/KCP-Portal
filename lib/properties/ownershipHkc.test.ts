@@ -5,7 +5,7 @@ import { ownerSections } from "@/app/investors/ownerSections";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
 
 /** HYMAN KORMAN COMPANY — the partnership itself, which files its own 1065. */
-const hkc = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "HKC")!;
+const hkc = PROPERTY_OWNERSHIP.find((p) => p.propertyCode === "HKCo")!;
 /** The buildings HKC holds an interest IN, where it is a partner rather than
  *  the filer. */
 const asPartner = PROPERTY_OWNERSHIP.filter((p) =>
@@ -16,7 +16,7 @@ describe("Hyman Korman Company (HKC) — the entity's own K-1 roster", () => {
     expect(hkc.hasK1Distribution).toBe(true);
     expect(hkc.propertyName).toBe("Hyman Korman Company");
     // Like WHIT and 3600: files the return without being in the directory.
-    expect(PROPERTY_DEFS.some((d) => d.id === "HKC")).toBe(false);
+    expect(PROPERTY_DEFS.some((d) => d.id === "HKCo")).toBe(false);
   });
 
   it("has all 24 partners holding DIRECTLY — every row an upload target", () => {
@@ -25,6 +25,8 @@ describe("Hyman Korman Company (HKC) — the entity's own K-1 roster", () => {
     // not by the building. Here HKC IS the filer, so each row is a document.
     expect(hkc.owners.length).toBe(24);
     expect(hkc.owners.filter((o) => o.subOwners).length).toBe(0);
+    // Ids keep the `k1-hkc-` prefix although the code reads HKCo — an id is an
+    // upload target, and renaming one orphans the document attached to it.
     expect(hkc.owners.every((o) => o.id.startsWith("k1-hkc-"))).toBe(true);
     expect(new Set(hkc.owners.map((o) => o.id)).size).toBe(24);
   });
@@ -106,7 +108,7 @@ describe("Hyman Korman Company (HKC) — the entity's own K-1 roster", () => {
     // link: coverage resolves through the PERSON at read time.
     const steven = hkc.owners.find((o) => o.name === "Steven H. Korman")!;
     const elsewhere = PROPERTY_OWNERSHIP
-      .filter((p) => p.propertyCode !== "HKC")
+      .filter((p) => p.propertyCode !== "HKCo")
       .flatMap((p) => p.owners)
       .find((o) => o.name === "Steven H. Korman")!;
     const covered = coveredOwnerIds({ ownerId: elsewhere.id, ownerIds: [elsewhere.id], ownerName: "Steven H. Korman" });
