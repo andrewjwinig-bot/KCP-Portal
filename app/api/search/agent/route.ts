@@ -29,6 +29,10 @@ import { isPathAllowed, ALL_USERS, type UserId } from "@/lib/users";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+// Stated rather than inherited. A cross-portfolio dataset plus several model
+// turns is the slowest thing this route does, and a silent platform default is
+// how it came to 504 with "Couldn't reach the assistant" and no explanation.
+export const maxDuration = 300;
 
 // Financial data (NOI / budget / debt) is gated to the same users who may see
 // the company-wide Monthly Review; everyone else gets operations + occupancy.
@@ -775,20 +779,48 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
         // Capped so one question cannot walk the entire GL store.
         const CAP = 240;
         const used = pairs.slice(0, CAP);
-        const loaded = await Promise.all(used.map(async ({ m, year, gls }) => {
-          const mapping = await getMapping(m.key);
-          if (!mapping) return null;
-          const f = await computeYearFinancials(mapping, m.propertyCode, year, gls);
-          if (!f) return null;
-          return {
-            propertyCode: m.propertyCode, propertyName: mapping.entityName ?? m.propertyCode,
-            year, throughPeriod: f.period, noi: f.noi, revenue: f.revenue,
-            sections: f.statement.sections.map((sec) => ({
-              name: sec.name, role: sec.role,
-              lines: sec.lines.map((l) => ({ label: l.label, ytdActual: l.ytdActual })),
-            })),
-          } as DatasetYear;
-        }));
+
+        // The mapping is per PROPERTY, not per property-year — reading it once
+        // per pair was three identical blob reads for a three-year question.
+        const mappingCache = new Map<string, StatementMapping | null>();
+        const mappingFor = async (key: string) => {
+          if (!mappingCache.has(key)) mappingCache.set(key, (await getMapping(key)) ?? null);
+          return mappingCache.get(key)!;
+        };
+
+        // Bounded concurrency. `Promise.all` over 240 pairs opened that many
+        // storage reads at once, which is what put this past the 300s ceiling.
+        const loaded: (DatasetYear | null)[] = [];
+        const BATCH = 8;
+        for (let i = 0; i < used.length; i += BATCH) {
+          const chunk = await Promise.all(used.slice(i, i + BATCH).map(async ({ m, year, gls }) => {
+            const mapping = await mappingFor(m.key);
+            if (!mapping) return null;
+            const stored = assembleGls(gls);
+            if (!stored) return null;
+            const period = Math.max(1, stored.maxPeriodInFile);
+            if (period < 1) return null;
+            // Deliberately NO budget lookup. `computeYearFinancials` resolves
+            // one per property-year, and this dataset reports actuals, NOI and
+            // revenue only — so that was a blob read per pair for a figure
+            // nothing here uses.
+            const st = computeStatement({
+              mapping, propertyName: mapping.entityName, year, period,
+              gl: summaryForPeriod(stored.monthly, period),
+            });
+            return {
+              propertyCode: m.propertyCode, propertyName: mapping.entityName ?? m.propertyCode,
+              year, throughPeriod: period,
+              noi: st.rollups.netOperatingIncome.ytdActual,
+              revenue: st.rollups.totalRevenues.ytdActual,
+              sections: st.sections.map((sec) => ({
+                name: sec.name, role: sec.role,
+                lines: sec.lines.map((l) => ({ label: l.label, ytdActual: l.ytdActual })),
+              })),
+            } as DatasetYear;
+          }));
+          loaded.push(...chunk);
+        }
         const ds = buildDataset(loaded.filter((x): x is DatasetYear => !!x), { include, exclude, roles });
         return {
           ...ds,
@@ -989,8 +1021,17 @@ export async function POST(req: Request) {
 
   try {
     const MAX_TURNS = 10;
+    // A DEADLINE, not just a turn count. Turns are not the thing that runs out
+    // — wall clock is, and a route that exceeds the platform ceiling returns a
+    // 504 the browser reports as "Couldn't reach the assistant": no answer, no
+    // reason, and the work already done thrown away. Past the budget the loop
+    // stops asking for more tools and tells the model to answer with what it
+    // has, which is always better than nothing.
+    const DEADLINE_MS = 210_000;
+    const startedAt = Date.now();
     let finalText = "";
     for (let turn = 0; turn < MAX_TURNS; turn++) {
+      const outOfTime = Date.now() - startedAt > DEADLINE_MS;
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
@@ -1002,7 +1043,13 @@ export async function POST(req: Request) {
           model: "claude-opus-5",
           max_tokens: 16000,
           thinking: { type: "adaptive" },
-          system, tools, messages,
+          system,
+          // Out of time: take the tools away so the model must answer from
+          // what it already gathered rather than starting another lookup.
+          ...(outOfTime ? {} : { tools }),
+          messages: outOfTime
+            ? [...messages, { role: "user", content: "You are out of time. Answer NOW from the tool results you already have, in the required JSON. If the data is partial, say so in the answer and in the table's notes rather than looking anything else up." }]
+            : messages,
         }),
       });
       if (!res.ok) return NextResponse.json({ error: `Assistant failed (${res.status}).` }, { status: 502 });
@@ -1011,7 +1058,7 @@ export async function POST(req: Request) {
       messages.push({ role: "assistant", content });
 
       const toolUses = content.filter((b): b is Extract<Block, { type: "tool_use" }> => b.type === "tool_use");
-      if (j?.stop_reason !== "tool_use" || toolUses.length === 0) {
+      if (outOfTime || j?.stop_reason !== "tool_use" || toolUses.length === 0) {
         finalText = content.filter((b) => b.type === "text").map((b) => (b as { text?: string }).text ?? "").join("");
         break;
       }
