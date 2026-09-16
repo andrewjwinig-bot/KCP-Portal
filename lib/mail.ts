@@ -44,6 +44,24 @@ export type MailMessage = {
   headers?: { Name: string; Value: string }[];
   /** RFC 3834 marker — set true for system-generated confirmations. */
   isAutoReply?: boolean;
+  /**
+   * Send the links exactly as written, with no click tracking.
+   *
+   * Postmark rewrites every URL to `track.pstmrk.it/...` when link tracking is
+   * on for the server. For a shared portal link that is wrong twice over:
+   *
+   *   • the recipient sees a wall of tracking URL instead of
+   *     `portal.kormancommercial.com`, on a mail about their tax documents —
+   *     which is what a phishing attempt looks like;
+   *   • it puts a THIRD-PARTY domain between the sending domain and the link
+   *     domain, the exact separation `linkOrigin` exists to avoid, and one a
+   *     spam filter scores against.
+   *
+   * A K-1 or tenant-statement link is also long-lived: it is opened months
+   * later, and it should not depend on a tracking redirector still resolving.
+   * Set on anything carrying a signed portal link.
+   */
+  noLinkTracking?: boolean;
   /** Optional binary attachments — currently used by the quarterly
    *  AvidBill commission-invoice batch. */
   attachments?: MailAttachment[];
@@ -97,6 +115,9 @@ function buildPayload(msg: MailMessage, from: string) {
     TextBody: msg.textBody,
     ...(msg.htmlBody ? { HtmlBody: msg.htmlBody } : {}),
     MessageStream: "outbound",
+    // "None" is Postmark's explicit off — omitting the field falls back to the
+    // SERVER's setting, which is what rewrote the links in the first place.
+    ...(msg.noLinkTracking ? { TrackLinks: "None", TrackOpens: false } : {}),
     Headers: headers,
     ...(Attachments.length > 0 ? { Attachments } : {}),
   };

@@ -96,6 +96,9 @@ export async function POST(req: NextRequest) {
       const url = `${linkOrigin(req)}/portal/${token}`;
       const sent = await sendMail({
         to: recipients.join(", "),
+      // The tenant must see the portal's own domain, not a tracking
+      // redirector — see `noLinkTracking`.
+      noLinkTracking: true,
         subject: `We received your payment of ${money(amount)} — which charges should it cover?`,
         textBody: [
           statement.tenantName ? `Hi ${statement.tenantName},` : "Hello,",

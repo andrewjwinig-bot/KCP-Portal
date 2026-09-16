@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { sendMail, sendMailDetailed, isMailTestMode } from "./mail";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * The Bcc plumbing, pinned.
@@ -127,5 +129,39 @@ describe("isMailTestMode", () => {
   it("is false for a real token", () => {
     process.env.POSTMARK_SERVER_TOKEN = "a1b2c3";
     expect(isMailTestMode()).toBe(false);
+  });
+});
+
+describe("link tracking is off for anything carrying a portal link", () => {
+  it("sends Postmark an explicit TrackLinks: None", () => {
+    // Omitting the field falls back to the SERVER setting, which is what
+    // rewrote an investor's link to track.pstmrk.it/... — a wall of tracking
+    // URL on a mail about their tax documents, which is what a phishing
+    // attempt looks like, and a third-party domain between the sending domain
+    // and the link domain that `linkOrigin` exists to keep together.
+    const mail = readFileSync(join(process.cwd(), "lib/mail.ts"), "utf8");
+    expect(mail).toContain('TrackLinks: "None"');
+    expect(mail).toContain("msg.noLinkTracking");
+  });
+
+  it("every route that emails a signed portal link opts out", () => {
+    // A link email left on the server default is one nobody notices until an
+    // investor forwards a mangled URL back asking if it is real.
+    for (const route of [
+      "app/api/investor-k1/share/route.ts",
+      "app/api/cam-recon/tenant-link/send/route.ts",
+      "app/api/tenant-statements/allocation-request/route.ts",
+    ]) {
+      const src = readFileSync(join(process.cwd(), route), "utf8");
+      expect(src, `${route} must set noLinkTracking`).toContain("noLinkTracking: true");
+    }
+  });
+
+  it("turns it off for BOTH halves of a K-1 send", () => {
+    // The PIN email carries no link today, but it is addressed and tracked
+    // identically to the one that does — a pair that behaves differently is
+    // how one of them quietly regresses.
+    const share = readFileSync(join(process.cwd(), "app/api/investor-k1/share/route.ts"), "utf8");
+    expect(share.match(/noLinkTracking: true/g)?.length).toBe(2);
   });
 });

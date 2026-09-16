@@ -15,8 +15,10 @@ import { sendMail, sendMailDetailed, isMailConfigured, isMailTestMode, VERIFIED_
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
-import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, PREVIEW_URL_PLACEHOLDER, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
+import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit,
+  applyK1PinEdit, PREVIEW_URL_PLACEHOLDER, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
 import { addressRecipients, reached, selectRecipients } from "@/lib/investors/recipients";
+import { formatAddressList } from "@/lib/investors/mailAddress";
 import { partnershipName } from "@/lib/investors/partnershipName";
 
 export const runtime = "nodejs";
@@ -116,7 +118,7 @@ async function shareOne(
   /** A staff edit of the draft, from the confirm step. Single sends only —
    *  a batch reaches many different investors, so one hand-written body
    *  cannot be right for all of them and the canonical draft is used. */
-  draft?: { subject?: unknown; body?: unknown } | null,
+  draft?: { subject?: unknown; body?: unknown; followUp?: { subject?: unknown; body?: unknown } | null } | null,
   /** Put the additional recipients on Cc rather than addressing them all on
    *  To. Same people either way — it changes how the mail reads, not who
    *  receives it. */
@@ -246,9 +248,15 @@ async function shareOne(
     const recipients = reached(addressed);
     onFileCount = [email, ...(resolved.alsoEmail ?? [])].filter(Boolean).length;
     narrowed = recipients.length < onFileCount;
+    // Addressed BY NAME where we have one: a K-1 link arriving with no
+    // addressee reads like something that leaked rather than something that
+    // was sent. The name is a label over the address — delivery never depends
+    // on one being present, and `formatAddress` quotes it so a comma in a name
+    // cannot split the joined header.
+    const names = resolved.alsoNames;
     const headers = () => ({
-      to: addressed.to.join(", "),
-      ...(addressed.cc.length ? { cc: addressed.cc.join(", ") } : {}),
+      to: formatAddressList(addressed.to, names),
+      ...(addressed.cc.length ? { cc: formatAddressList(addressed.cc, names) } : {}),
     });
     if (!email && !recipients.length) mailError = `No email on file for ${owner.name}. Copy the link and send it yourself.`;
     // Distinct from having no address at all: there ARE addresses, none was
@@ -275,6 +283,9 @@ async function shareOne(
       // edit, and the edit is the whole point of showing the message first.
       const res = await sendMailDetailed({
         ...headers(), from: VERIFIED_FROM, subject: draftEmail.subject, textBody: draftEmail.body,
+        // The investor must see portal.kormancommercial.com, not a tracking
+        // redirector — see `noLinkTracking`.
+        noLinkTracking: true,
         ...(edited ? {} : canonical.html ? { htmlBody: canonical.html } : {}),
         ...(copyTo ? { bcc: copyTo } : {}),
       });
@@ -300,7 +311,12 @@ async function shareOne(
       // SAME list, because an additional recipient who can't open the document
       // is not an additional recipient.
       if (ok) {
-        const pinMail = composeK1PinEmail({ ownerName: owner.name, pin: link.pin ?? "" });
+        const canonicalPin = composeK1PinEmail({ ownerName: owner.name, pin: link.pin ?? "" });
+        // Editable in the confirm like the link email, and guarded the same
+        // way: an edit that drops the PIN gets it appended back, because an
+        // investor holding a link with no PIN cannot open the document.
+        const { email: pinMail, edited: pinEdited } = applyK1PinEdit(canonicalPin, draft?.followUp, link.pin ?? "");
+        if (pinEdited) wasEdited = true;
         // Copied as well, so the inbox record shows BOTH halves went out. A
         // copy of only the link email would confirm the half that was never
         // in doubt and stay silent on the one that was.
@@ -310,6 +326,7 @@ async function shareOne(
         const pinOk = link.pin
           ? await sendMail({
               ...headers(), from: VERIFIED_FROM, subject: pinMail.subject, textBody: pinMail.body,
+              noLinkTracking: true,
               ...(copyTo ? { bcc: copyTo } : {}),
             })
           : false;

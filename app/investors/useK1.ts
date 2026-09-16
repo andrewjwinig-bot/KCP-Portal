@@ -25,6 +25,9 @@ export type K1Owner = {
    *  manager, a trustee. The share route mails every one of them the same
    *  link, so the UI has to name them all in the confirm. */
   email: string | null; alsoEmail: string[]; emailSource: string; emailNote: string;
+  /** Who those additional addresses belong to, keyed by lowercased address —
+   *  so the confirm can say who a bare address is. */
+  alsoNames?: Record<string, string>;
   /** The live link, including the URL and PIN so the roster can show and copy
    *  exactly what the investor holds. Re-signed from the stored link — reading
    *  it mints nothing. */
@@ -54,6 +57,7 @@ export type OwnerEmail = {
   propertyCode: string;
   email: string | null;
   alsoEmail: string[];
+  alsoNames?: Record<string, string>;
   emailSource: "override" | "contacts" | "trustee-directory" | "none";
   emailNote: string;
 };
@@ -89,6 +93,9 @@ export type K1Interest = {
   ownerId: string; propertyCode: string; propertyName: string; filesK1: boolean;
   heldAs: string | null; vendorCode: string | null;
   email: string | null; alsoEmail: string[]; emailSource: string; emailNote: string;
+  /** Who those additional addresses belong to, keyed by lowercased address —
+   *  so the confirm can say who a bare address is. */
+  alsoNames?: Record<string, string>;
   documents: { id: string; taxYear: number; filename: string; published: boolean; viewCount: number }[];
   link: {
     id: string; createdAt: string; viewCount: number; lastViewedAt: string | null;
@@ -481,6 +488,9 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
       // interest carrying them speaks for the investor. De-duplicated because
       // the same list resolves on every interest they hold.
       alsoEmail: [...new Set((rows ?? []).flatMap((i) => i.alsoEmail ?? []))],
+      // Merged the same way and for the same reason: the names belong to the
+      // person, so any interest carrying them speaks for the investor.
+      alsoNames: Object.assign({}, ...(rows ?? []).map((i) => i.alsoNames ?? {})) as Record<string, string>,
       /** An interest whose K-1 is uploaded, to create the link from. */
       sendableFrom: (rows ?? []).find((i) => i.documents.length > 0) ?? null,
       busy: busyCode === `inv:${name}`,

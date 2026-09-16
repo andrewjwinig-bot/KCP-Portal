@@ -21,6 +21,13 @@ export interface OwnerContact {
    * Deliberate and visible: the send confirms the full list first.
    */
   alsoEmail?: string[];
+  /**
+   * Display names for those addresses, keyed by lowercased address — so the
+   * send confirm can say WHO "cborgmann@gmmsfoundation.com" is, and the email
+   * can address them by name. A label over the address: delivery never depends
+   * on one being present or correct.
+   */
+  alsoNames?: Record<string, string>;
   phone?: string;
   notes?: string;
 }
