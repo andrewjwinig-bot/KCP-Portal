@@ -348,7 +348,17 @@ export default function GlobalSearch() {
     setChat((c) => ({ turns: [...c.turns, { role: "user", text: q }], loading: true, error: null }));
     setQuery("");
     fetch("/api/search/agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ q, history }) })
-      .then((r) => r.json())
+      // A 504 returns an HTML error page, so `r.json()` throws and the catch
+      // below reported "Couldn't reach the assistant" — true, but it reads as
+      // the network being down when the real cause is a question too big to
+      // finish. Name it, and say what to do about it.
+      .then(async (r) => {
+        if (r.status === 504 || r.status === 408) {
+          return { error: "That took too long to finish. Try narrowing it — fewer years, one property group, or one metric at a time." };
+        }
+        try { return await r.json(); }
+        catch { return { error: `The assistant failed (${r.status}). Try again, or narrow the question.` }; }
+      })
       .then((j) => setChat((c) => j.error
         ? { ...c, loading: false, error: j.error }
         : { turns: [...c.turns, { role: "assistant", answer: j.answer ?? "No answer.", links: j.links ?? [], chart: j.chart ?? null, letter: j.letter ?? null, table: j.table ?? null }], loading: false, error: null }))
@@ -369,12 +379,32 @@ export default function GlobalSearch() {
     const t = text.trim();
     if (!t) { setTeachFor(null); return; }
     fetch("/api/search/preferences", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: t }) })
-      .then((r) => r.json()).then((j) => setPrefs(j.instructions ?? [])).catch(() => {});
+      // A 504 returns an HTML error page, so `r.json()` throws and the catch
+      // below reported "Couldn't reach the assistant" — true, but it reads as
+      // the network being down when the real cause is a question too big to
+      // finish. Name it, and say what to do about it.
+      .then(async (r) => {
+        if (r.status === 504 || r.status === 408) {
+          return { error: "That took too long to finish. Try narrowing it — fewer years, one property group, or one metric at a time." };
+        }
+        try { return await r.json(); }
+        catch { return { error: `The assistant failed (${r.status}). Try again, or narrow the question.` }; }
+      }).then((j) => setPrefs(j.instructions ?? [])).catch(() => {});
     setTeachFor(null); setTeachText("");
   };
   const removePref = (text: string) => {
     fetch("/api/search/preferences", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) })
-      .then((r) => r.json()).then((j) => setPrefs(j.instructions ?? [])).catch(() => {});
+      // A 504 returns an HTML error page, so `r.json()` throws and the catch
+      // below reported "Couldn't reach the assistant" — true, but it reads as
+      // the network being down when the real cause is a question too big to
+      // finish. Name it, and say what to do about it.
+      .then(async (r) => {
+        if (r.status === 504 || r.status === 408) {
+          return { error: "That took too long to finish. Try narrowing it — fewer years, one property group, or one metric at a time." };
+        }
+        try { return await r.json(); }
+        catch { return { error: `The assistant failed (${r.status}). Try again, or narrow the question.` }; }
+      }).then((j) => setPrefs(j.instructions ?? [])).catch(() => {});
   };
 
   // ── Keyboard shortcut ⌘K / Ctrl+K + Esc + custom 'open-global-search' ──
