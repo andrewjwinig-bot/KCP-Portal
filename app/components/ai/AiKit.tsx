@@ -28,6 +28,7 @@ export type AiChartSpec = {
   series: { label: string; value: number }[];
 };
 export type AiLetterSpec = { kind: string; to: string; subject: string; body: string };
+export type AiClarifySpec = { question: string; options: string[] };
 
 // ── Sparkle mark ───────────────────────────────────────────────────────────
 // The AI signature glyph ✦ (U+2726) in a rounded gradient square. Use as a
@@ -391,6 +392,39 @@ export function AiTable({ spec }: { spec: AiTableSpec }) {
 // one-sentence answer with the key figure bolded violet, an optional chart,
 // page links, and the action row. Left violet accent bar distinguishes AI
 // output from everything else.
+// ── Clarifying question ────────────────────────────────────────────────────
+// The assistant asking one thing before it spends two minutes on the wrong
+// reading. Rendered as chips rather than a prompt to retype, because the cost
+// this exists to remove is the re-typing.
+//
+// The last chip is ALWAYS "You decide" and is added here, not by the model: a
+// question you can only answer on the asker's terms is a wall, and the user
+// must always be able to say "just go". It carries the escape as an
+// instruction the model can act on, not as a dismissal.
+export function ClarifyCard({ clarify, onPick }: { clarify: AiClarifySpec; onPick: (answer: string) => void }) {
+  return (
+    <div style={{ border: "1px solid var(--ai-border-card)", borderLeft: "3px solid var(--ai)", borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
+        <InlineSparkle />
+        <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>One quick thing</span>
+      </div>
+      <div style={{ fontSize: 16, lineHeight: 1.5, color: "var(--text)", fontWeight: 500, marginBottom: 13 }}>{clarify.question}</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 9 }}>
+        {clarify.options.map((o) => (
+          <button key={o} type="button" onClick={() => onPick(o)}
+            style={{ all: "unset", cursor: "pointer", padding: "8px 13px", borderRadius: 999, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", color: "var(--ai-text)", fontSize: 13, fontWeight: 600 }}>
+            {o}
+          </button>
+        ))}
+        <button type="button" onClick={() => onPick("You decide — pick the most sensible reading, state which one you used, and go.")}
+          style={{ all: "unset", cursor: "pointer", padding: "8px 13px", borderRadius: 999, border: "1px dashed var(--ai-border)", background: "transparent", color: "var(--muted)", fontSize: 13, fontWeight: 600 }}>
+          You decide
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AnswerCard({
   answer,
   contextTag,
