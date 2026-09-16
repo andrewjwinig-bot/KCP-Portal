@@ -1,5 +1,6 @@
 import { PROPERTY_OWNERSHIP } from "@/lib/properties/ownership";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { canonicalPropertyCode } from "@/lib/investors/propertyCodeAlias";
 
 /**
  * What to call the entity that ISSUED a K-1.
@@ -19,7 +20,10 @@ import { PROPERTY_DEFS } from "@/lib/properties/data";
  * which is exactly the wrong way round.
  */
 export function partnershipName(code: string): string {
-  const c = code.toUpperCase();
+  // Resolve through the alias first: a document stores the code it was
+  // uploaded with, and a code corrected since would otherwise fall through to
+  // the raw spelling — "HKC 2025 Schedule K-1" on an investor's own page.
+  const c = canonicalPropertyCode(code).toUpperCase();
   return (
     PROPERTY_OWNERSHIP.find((p) => p.propertyCode.toUpperCase() === c)?.propertyName
     ?? PROPERTY_DEFS.find((p) => p.id.toUpperCase() === c)?.name

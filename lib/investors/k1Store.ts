@@ -4,6 +4,7 @@
 import "server-only";
 import { createCollectionStore } from "@/lib/collectionStore";
 import type { K1Document } from "./k1";
+import { isSameProperty } from "./propertyCodeAlias";
 
 const store = createCollectionStore<K1Document>({
   prefix: "investor-k1",
@@ -26,30 +27,10 @@ export async function allK1s(): Promise<K1Document[]> {
   return (await store.all()).filter(Boolean);
 }
 
-/**
- * Codes a partnership has been stored under, so a roster rename cannot hide a
- * document that is already filed.
- *
- * A document carries the code it was uploaded with. Owner ids are stable by
- * rule — they are the upload target — but a CODE is a label and can be
- * corrected, and when it is, `k1sFor` would stop finding what came before it.
- * The portal keys on `ownerId` and so keeps working either way; it is the
- * staff roster that would quietly read empty.
- *
- * Hyman Korman Company shipped briefly as "HKC" before being corrected to
- * "HKCo". Safe to drop once nothing is stored under the old spelling.
- */
-const CODE_ALIASES: Record<string, string[]> = {
-  HKCo: ["HKC"],
-};
-
-const codesFor = (propertyCode: string): string[] => [propertyCode, ...(CODE_ALIASES[propertyCode] ?? [])];
-
 /** Every K-1 for one partnership year, newest upload first. */
 export async function k1sFor(propertyCode: string, taxYear: number): Promise<K1Document[]> {
-  const codes = codesFor(propertyCode);
   return (await allK1s())
-    .filter((d) => codes.includes(d.propertyCode) && d.taxYear === taxYear)
+    .filter((d) => isSameProperty(d.propertyCode, propertyCode) && d.taxYear === taxYear)
     .sort((a, b) => (b.uploadedAt ?? "").localeCompare(a.uploadedAt ?? ""));
 }
 
@@ -82,7 +63,6 @@ export async function visibleK1sForOwner(ownerId: string): Promise<K1Document[]>
 
 /** Which tax years this partnership has documents for, newest first. */
 export async function k1YearsFor(propertyCode: string): Promise<number[]> {
-  const codes = codesFor(propertyCode);
-  const years = new Set((await allK1s()).filter((d) => codes.includes(d.propertyCode)).map((d) => d.taxYear));
+  const years = new Set((await allK1s()).filter((d) => isSameProperty(d.propertyCode, propertyCode)).map((d) => d.taxYear));
   return [...years].sort((a, b) => b - a);
 }
