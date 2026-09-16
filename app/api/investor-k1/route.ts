@@ -18,6 +18,7 @@ import { getContactOverrides } from "@/lib/properties/ownerContactsStore";
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
+import { isSameProperty } from "@/lib/investors/propertyCodeAlias";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,7 +76,11 @@ export async function GET(req: NextRequest) {
       // is in" or it cannot mean complete.
       properties: properties.map((p) => {
         const roster = new Set(ownersOf(p.code).map((o) => o.id));
-        const mine = docs.filter((d) => d.propertyCode === p.code && d.taxYear === y);
+        // Matched through `isSameProperty`, not `===`: a document carries the
+        // code it was uploaded with, so a later correction to the roster's
+        // code would read "0 of 24" here while every row below showed VIEW —
+        // the count is per-property, the rows are per-owner.
+        const mine = docs.filter((d) => isSameProperty(d.propertyCode, p.code) && d.taxYear === y);
         return {
           ...p,
           uploaded: mine.filter((d) => roster.has(d.ownerId)).length,

@@ -4,6 +4,7 @@
 import "server-only";
 import { createCollectionStore } from "@/lib/collectionStore";
 import type { PropertyTaxDoc } from "./taxDocs";
+import { isSameProperty } from "./propertyCodeAlias";
 
 const store = createCollectionStore<PropertyTaxDoc>({
   prefix: "property-tax-docs",
@@ -28,11 +29,11 @@ export async function allTaxDocs(): Promise<PropertyTaxDoc[]> {
 
 /** One partnership's documents for one year. */
 export async function taxDocsFor(propertyCode: string, taxYear: number): Promise<PropertyTaxDoc[]> {
-  return (await allTaxDocs()).filter((d) => d.propertyCode === propertyCode && d.taxYear === taxYear);
+  return (await allTaxDocs()).filter((d) => isSameProperty(d.propertyCode, propertyCode) && d.taxYear === taxYear);
 }
 
 /** Years this partnership has any document for, newest first. */
 export async function taxDocYearsFor(propertyCode: string): Promise<number[]> {
-  const years = new Set((await allTaxDocs()).filter((d) => d.propertyCode === propertyCode).map((d) => d.taxYear));
+  const years = new Set((await allTaxDocs()).filter((d) => isSameProperty(d.propertyCode, propertyCode)).map((d) => d.taxYear));
   return [...years].sort((a, b) => b - a);
 }
