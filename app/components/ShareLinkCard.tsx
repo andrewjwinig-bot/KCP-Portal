@@ -76,6 +76,11 @@ export type SendOptions = {
   /** Address the additional recipients on Cc rather than all on To. Same
    *  people receive it either way — it changes how the mail reads. */
   ccSecondary: boolean;
+  /** WHICH of the addresses on file to mail — unlike `ccSecondary`, this does
+   *  change who receives it. Undefined means all of them. The server filters
+   *  the pick against the owner's own record, so this narrows a send and can
+   *  never widen it. */
+  only?: string[];
 };
 
 /** The email a send would deliver — previewed, optionally edited, then sent. */
@@ -234,6 +239,22 @@ export function ShareLinkCard({
    * decision — it was just how the recipient list happened to be built.
    */
   const [ccSecondary, setCcSecondary] = useState(true);
+  /**
+   * Recipients to leave OUT of this send, by address.
+   *
+   * Held as the exclusions rather than the inclusions so the default is
+   * "everyone" with no initialisation: a recipient list that arrives late, or
+   * changes while the confirm is open, is included rather than silently
+   * dropped. "Send it to just my accountant" is the case it exists for.
+   */
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  /** Who this send actually goes to, in the order the list renders. */
+  const picked = recipients.filter((r) => !excluded.has(r));
+  const toggleRecipient = (addr: string) => setExcluded((prev) => {
+    const next = new Set(prev);
+    if (next.has(addr)) next.delete(addr); else next.add(addr);
+    return next;
+  });
   const [requirePin, setRequirePin] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -245,6 +266,7 @@ export function ShareLinkCard({
     setEditing(false);
     setSending(false);
     setOutcome(null);
+    setExcluded(new Set());
   }
 
   /**
@@ -258,7 +280,7 @@ export function ShareLinkCard({
     if (!onSend) return;
     setSending(true);
     try {
-      const result = await onSend(id, draft ?? undefined, { ccSecondary });
+      const result = await onSend(id, draft ?? undefined, { ccSecondary, only: picked });
       if (!result) { closeConfirm(); return; }
       setOutcome(result);
     } catch (e) {
@@ -575,7 +597,11 @@ export function ShareLinkCard({
                     <div style={{ margin: "8px 0 12px" }}>
                       <div style={{ fontSize: 12.5, color: "var(--text)" }}>
                         This emails the private link — and the document it opens — to
-                        {recipients.length === 1 ? "" : ` all ${recipients.length} of these addresses`}:
+                        {recipients.length === 1
+                          ? ""
+                          : picked.length === recipients.length
+                            ? ` all ${recipients.length} of these addresses`
+                            : ` ${picked.length} of these ${recipients.length} addresses`}:
                       </div>
                       {/* Every recipient named on its own line. A second address
                           is someone who can then open this person's document, so
@@ -583,30 +609,53 @@ export function ShareLinkCard({
                           The To/Cc tag says how each is addressed — it never
                           changes WHO is on the list, which is the thing this
                           confirm exists to state. */}
-                      <ul style={{ margin: "7px 0 0", paddingLeft: 18 }}>
+                      {/* Each recipient is TICKABLE, because "send it to just
+                          my accountant" is a real instruction and the list used
+                          to be all-or-nothing. Ticked by default: sending to
+                          everyone on file is the norm, and an untouched confirm
+                          must behave exactly as it always did. The To/Cc tag
+                          follows the selection, since dropping the investor
+                          makes whoever is left the addressee. */}
+                      <div style={{ margin: "7px 0 0" }}>
                         {recipients.map((r) => {
-                          const isCc = ccSecondary && secondaryRecipients.includes(r);
+                          const on = !excluded.has(r);
+                          // With the primary deselected there is nobody to Cc
+                          // ONTO, so the rest are addressed directly.
+                          const primaryPicked = recipients.some((x) => !secondaryRecipients.includes(x) && !excluded.has(x));
+                          const isCc = on && ccSecondary && primaryPicked && secondaryRecipients.includes(r);
                           return (
-                            <li key={r} style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
-                              {r}
-                              {secondaryRecipients.length > 0 && (
-                                <span className="muted" style={{ fontSize: 11, fontWeight: 700, marginLeft: 7, letterSpacing: "0.04em" }}>
+                            <label key={r} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", cursor: recipients.length > 1 ? "pointer" : "default" }}>
+                              <input type="checkbox" checked={on} disabled={sending || recipients.length < 2}
+                                onChange={() => toggleRecipient(r)} />
+                              <span style={{ fontSize: 13, fontWeight: 700, color: on ? "var(--text)" : "var(--muted)", textDecoration: on ? undefined : "line-through" }}>
+                                {r}
+                              </span>
+                              {on && secondaryRecipients.length > 0 && (
+                                <span className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em" }}>
                                   {isCc ? "CC" : "TO"}
                                 </span>
                               )}
-                            </li>
+                            </label>
                           );
                         })}
-                      </ul>
+                      </div>
+                      {picked.length === 0 && (
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c", marginTop: 6 }}>
+                          Nobody is selected, so there is no one to send to.
+                        </div>
+                      )}
 
                       {/* Only worth a control when there IS somebody else to
                           address differently. */}
-                      {secondaryRecipients.length > 0 && (
+                      {picked.some((r) => secondaryRecipients.includes(r))
+                        && picked.some((r) => !secondaryRecipients.includes(r)) && (
                         <label style={{ display: "flex", alignItems: "flex-start", gap: 7, marginTop: 9, fontSize: 12.5, cursor: "pointer", color: "var(--text)" }}>
                           <input type="checkbox" checked={ccSecondary} disabled={sending}
                             onChange={(e) => setCcSecondary(e.target.checked)} style={{ marginTop: 2 }} />
                           <span>
-                            Cc {secondaryRecipients.length === 1 ? "the extra recipient" : `the ${secondaryRecipients.length} extra recipients`} instead of
+                            Cc {picked.filter((r) => secondaryRecipients.includes(r)).length === 1
+                              ? "the extra recipient"
+                              : `the ${picked.filter((r) => secondaryRecipients.includes(r)).length} extra recipients`} instead of
                             addressing everyone together.
                             <span className="muted"> Same people either way — it only changes how the email reads.</span>
                           </span>
@@ -720,8 +769,8 @@ export function ShareLinkCard({
                     {/* Nothing sends while the message is still loading: the
                         whole point is that it was read first. */}
                     <button onClick={() => void runSend(confirmSend)}
-                      disabled={busy || sending || recipients.length === 0 || (!!loadDraft && !draft && !draftError)}
-                      className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", display: "inline-flex", alignItems: "center", gap: 7, opacity: busy || sending || recipients.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
+                      disabled={busy || sending || picked.length === 0 || (!!loadDraft && !draft && !draftError)}
+                      className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", display: "inline-flex", alignItems: "center", gap: 7, opacity: busy || sending || picked.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
                       {(busy || sending) && <span className="spin-dot" aria-hidden />}
                       {busy || sending ? "Sending…" : `Yes, ${sendLabel.toLowerCase()}`}
                     </button>

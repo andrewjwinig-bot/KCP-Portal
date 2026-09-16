@@ -13,6 +13,40 @@
 
 export type Addressing = { to: string[]; cc: string[] };
 
+/**
+ * Narrow a send to the recipients a person actually ticked.
+ *
+ * An investor may nominate an accountant, and the reason to name them is often
+ * that THEY are the one who needs this copy — "send it to my accountant" is a
+ * real instruction and used to mean mailing the investor too.
+ *
+ * The selection is FILTERED against the addresses on file, never taken as the
+ * list. A client-supplied address would otherwise be a way to mail an
+ * investor's K-1 link anywhere, which is the same reason `personGroup` is
+ * derived server-side. Anything not already on this owner's record is dropped
+ * silently — it was never a legitimate recipient.
+ *
+ * `only` undefined means everyone, so an older caller that doesn't send the
+ * field keeps the behaviour it had.
+ */
+export function selectRecipients(
+  primary: string | null | undefined,
+  secondary: readonly string[] | undefined,
+  only: readonly string[] | undefined,
+): { primary: string | null; secondary: string[] } {
+  const p = (primary ?? "").trim();
+  const rest = (secondary ?? []).map((e) => e.trim()).filter(Boolean).filter((e) => e !== p);
+  if (!only) return { primary: p || null, secondary: rest };
+  const wanted = new Set(only.map((e) => e.trim().toLowerCase()).filter(Boolean));
+  const keep = (e: string) => wanted.has(e.toLowerCase());
+  return {
+    // Dropping the investor is deliberate and supported: the accountant alone
+    // is then the addressee, which `addressRecipients` already handles.
+    primary: p && keep(p) ? p : null,
+    secondary: rest.filter(keep),
+  };
+}
+
 export function addressRecipients(
   primary: string | null | undefined,
   secondary: readonly string[] | undefined,
