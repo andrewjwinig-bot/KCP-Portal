@@ -1767,7 +1767,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                           <tr key={g.groupKey} onClick={() => setTenantFilter(active ? null : g.groupKey)} className="os-cell"
                             style={{ cursor: "pointer", background: active ? "rgba(11,74,125,0.10)" : undefined }}>
                             <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{g.unit || "—"}</td>
-                            <td style={{ ...tdc, fontWeight: active ? 800 : undefined }}>{g.tenant || <span className="muted">— (unmatched)</span>}</td>
+                            <td style={{ ...tdc, fontWeight: active ? 800 : undefined }}>{g.tenant || <span className="muted">{g.unit ? "— (no current tenant)" : "— (unmatched)"}</span>}</td>
                             <td style={{ ...tdc, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>{g.count}</td>
                             <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: active ? 800 : undefined, color: g.amount < 0 ? "#b91c1c" : undefined }}>{money2(g.amount)}</td>
                           </tr>
