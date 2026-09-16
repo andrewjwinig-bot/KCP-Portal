@@ -20,6 +20,10 @@ export interface PropertyOwner {
   name: string;
   /** GL vendor key (e.g. "THEK1"). */
   vendorCode?: string;
+  /** Federal EIN, where the partner is an ENTITY that files its own return.
+   *  People and most trusts carry none here; it is recorded for a member
+   *  company so the K-1 it receives can be addressed to the right filer. */
+  ein?: string;
   /** Trust/UWO/etc. subtitle that follows the name in source docs. */
   detailedName?: string;
   address?: string;
@@ -93,12 +97,28 @@ function kormanCoInvestors(p: string): PropertyOwner[] {
     { id: `${p}-akgst`, name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111111 },
     { id: `${p}-cagst`, name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111111 },
     { id: `${p}-ssgst`, name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111112 },
-    // Keyed as the trusts themselves. The schedule's beneficiary column names a
-    // person for the GST Subject trusts but merely repeats the trust for these
-    // two, so it does not say whose interest they are — and Berton E. Korman
-    // has died, so attributing them to him would group two further K-1s behind
-    // a link in the name of someone who cannot receive it.
-    { id: `${p}-bk2012`, name: "The Berton E Korman 2012 Family Trust", ownerPct: 0.231333 },
+    // BEK 2012 LLC — the 23.13% the Berton E. Korman 2012 Family Trust used to
+    // hold, assigned to it by the trustees (Heike K. Sullivan, John P. Korman,
+    // James S. Korman, Carolyn K. Jacobs) under an Assignment and Assumption
+    // of Membership Interest. The trust ceased to be a member on that
+    // assignment; the LLC succeeded to the whole interest, so the percentage
+    // is unchanged — the document's "23.13%" is the schedule's 23.1333%
+    // rounded for prose, not a new figure.
+    //
+    // THE ID DOES NOT CHANGE. `-bk2012` is a K-1 upload target and a Filing
+    // Tracker key: renaming it orphans any document already filed against it.
+    // The member changed, the interest did not.
+    //
+    // Its own members are Berton's eight grandchildren, sharing equally. They
+    // are NOT keyed as `subOwners` — the names have not been supplied, and a
+    // partial tier reads as the whole one. The K-1 comes off The Korman Co to
+    // the LLC either way; the tier only matters for value attribution.
+    { id: `${p}-bk2012`, name: "BEK 2012 LLC", detailedName: "Successor to The Berton E Korman 2012 Family Trust Dtd 12/21/2012", ein: "42-2968946", address: "410 Lancaster Ave, Suite 5A", city: "Haverford", state: "PA", zip: "19041", ownerPct: 0.231333 },
+    // Still a TRUST, and keyed as one. The schedule's beneficiary column names
+    // a person for the GST Subject trusts but merely repeats the trust here,
+    // so it does not say whose interest it is — and Berton E. Korman has died,
+    // so attributing it to him would group a further K-1 behind a link in the
+    // name of someone who cannot receive it.
     { id: `${p}-bkirr`, name: "The Berton E Korman Irrev TR Dtd 03031999", ownerPct: 0.102000 },
   ];
 }
@@ -534,8 +554,8 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
     // five K-1s come off the property alongside the company's one.
     //
     // The five look like The Korman Co's own investor list and are not: the
-    // company's Berton interest is two trusts (the 2012 Family Trust and the
-    // 1999 Irrevocable), while the direct quarter carries a single BERTON E
+    // company's Berton interest is BEK 2012 LLC and the 1999 Irrevocable
+    // Trust, while the direct quarter carries a single BERTON E
     // KORMAN TUA DTD 02232018. A separate trust, a separate K-1 — reading the
     // two lists as the same one would post his K-1 to the wrong trust.
     //

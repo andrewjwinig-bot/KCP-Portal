@@ -520,6 +520,17 @@ preferences.
   entity subtotals (e.g. "TOTAL HYMAN KORMAN COMPANY: 100.000%") are the tier
   boundary: rows under a heading are that entity's `subOwners`, and rows under
   "OTHER INVESTORS" are direct partners of the property.
+- **When an interest is ASSIGNED to a new entity, change the NAME, never the
+  ID.** An id is a K-1 upload target and a Filing Tracker key, so renaming it
+  orphans every document already filed against it — the member changed, the
+  interest did not. Worked example: the Berton E. Korman 2012 Family Trust
+  assigned its 23.13% of The Korman Co to **BEK 2012 LLC** (EIN 42-2968946,
+  410 Lancaster Ave Suite 5A, Haverford PA 19041); `-bk2012` kept its id, took
+  the new name, and records the predecessor in `detailedName` so the row's
+  history reads off the page. The percentage does NOT move to the assignment's
+  rounded "23.13%" — the schedule's 23.1333% is the real figure and the tier
+  has to keep totalling 100%. One edit to `kormanCoInvestors` propagates to all
+  seven rosters that compose it, which is the point of defining it once.
 - **The owner roster is `lib/properties/ownership.ts`** (`PROPERTY_OWNERSHIP`).
   Nothing about who holds an interest is re-keyed for K-1s. `hasK1Distribution`
   marks the partnerships that actually distribute; 7010 Parkwood was added to
