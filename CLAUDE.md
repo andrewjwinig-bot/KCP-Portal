@@ -123,6 +123,45 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 - **On an HTML element** (a table cell, a chip/pill, an inline callout) → `HoverCard` from `app/components/HoverCard.tsx` — same card look, portal-rendered so table/card overflow never clips it. Pass `title`, `rows`, optional `footer`.
 - A bare `title=` is fine ONLY for a trivial action/label affordance (a "Close"/"Download"/"Open in new tab" icon button) — never for numbers, breakdowns, lease terms, variances, or any figure a user would want to read clearly.
 
+# Excel exports — one look, from `lib/excel/theme.ts`
+
+**Every workbook is built with `newWorkbook()` and styled from the shared
+theme.** Five ExcelJS exports had each styled themselves from scratch and had
+drifted exactly the way pages drift — the same navy re-typed in five files, the
+accounting number format re-typed in four and written a fifth way in the TOP
+SHEET, `wb.creator` disagreeing, and print setup configured in one workbook out
+of five, so a lender who opened a balance sheet and hit Print got whatever Excel
+guessed. Two workbooks from the same portal did not read as coming from the same
+company. `noDrift.test.ts` now fails the build if an export re-types a brand hex,
+re-types a money format, or calls `new ExcelJS.Workbook()` directly.
+
+- **Tokens**: `COLOR` (brand navy `FF0B4A7D`, tints, border, semantic
+  positive/negative/warn), `FMT` (accounting money — red parens, em-dash zero —
+  plus cents, percent, date, sqft), `FONT_NAME` (Calibri), `PRINT_WIDE` /
+  `PRINT_TALL`. A new semantic goes in `theme.ts`, never inline in an export —
+  the same rule `Pill.tsx` has for the UI.
+- **Primitives**: `titleBlock` (the letterhead — entity, what the document IS,
+  as-of, EIN; a workbook is forwarded far more often than it is read in place,
+  so it must say what it is without the email it arrived in), `headerBand`,
+  `sectionBar`, `totalEmphasis`, `footNote` (the basis of presentation — always,
+  on anything that leaves the building), `freezeAbove`, `repeatHeader`.
+- **`newWorkbook()` sets `calcProperties.fullCalcOnLoad`, and that is
+  CORRECTNESS, not tidiness.** ExcelJS DROPS a cached `result: 0` when it writes
+  a formula cell (pinned by a round-trip in `theme.test.ts`), so any total that
+  legitimately nets to zero opens BLANK until Excel recalculates. The balance
+  sheet found this the hard way: the proof row is the one cell meant to read
+  zero, and it was the one cell that opened empty. Every workbook with formulas
+  has the same exposure, so the flag belongs to the constructor rather than to
+  whoever remembers.
+- **The theme is deliberately NOT `server-only`.** The TOP SHEET is built in the
+  browser, and the client-side exports still on SheetJS are the ones the theme
+  most needs to reach once they migrate.
+- **Still un-themed: the ~16 SheetJS exports** (rent roll, payroll, cash sheet,
+  management fees, 1099, allocation, allocated-invoicer, the assistant's table).
+  `xlsx@0.18.5` community edition **cannot style cells at all** — fills, fonts
+  and borders are Pro — so they can only be themed by migrating them to ExcelJS.
+  Do that a few at a time; don't add a second theme for them.
+
 # Excel exports — totals must be live formulas, never static numbers
 
 The user wants downloaded workbooks to stay accurate and be easy to edit. **Any total, subtotal, or rollup row/column in an .xlsx export MUST be written as a live Excel formula (`=SUM(...)`, cross-references, etc.), NOT a value computed in JS and dropped in as a static number.** Line-item cells carry the source values; every cell that aggregates them is a formula that references the exact source cells above/beside it — so editing a line flows through and the numbers always tie. This applies to both export stacks:
@@ -130,7 +169,7 @@ The user wants downloaded workbooks to stay accurate and be easy to edit. **Any 
 - **ExcelJS** (server-side, styled — `statementExport.ts`, `reprojExport.ts`, `budgetDownload.ts`, `topSheet.ts`): `cell.value = { formula: "SUM(C5:C9)", result: <cachedValue> }`. Always cache the JS-computed `result` so the value shows before Excel recalcs.
 - **SheetJS/xlsx** (mostly client-side AoA — `cash-sheet/export.ts`, `payroll/export.ts`, `allocation/export.ts`, `allocated-invoicer/export.ts`): after `aoa_to_sheet`, set `ws[addr] = { t: "n", f: "SUM(D5:D6)", v: <cachedValue> }` (or add `.f` to an existing numeric cell). Address cells with `XLSX.utils.encode_cell` / `encode_col`.
 
-**Safety pattern (follow it):** when a total's relationship to its sources is anything beyond a trivial column sum (rollups, signed differences like `NOI = Rev − Opex`, favorability-signed variance), evaluate the formula's expected value in JS and compare it to the known total; **write the formula only if it reconciles (within ~$0.50), else fall back to a static number** so a displayed value is never wrong on an unusual data shape. See `formulaFor`/`totalMoney` in `statementExport.ts` and `buildSum`/`colSum`/`varFormula` in `reprojExport.ts` for the reference implementation — copy that approach, don't reinvent it.
+**Safety pattern (follow it):** when a total's relationship to its sources is anything beyond a trivial column sum (rollups, signed differences like `NOI = Rev − Opex`, favorability-signed variance), evaluate the formula's expected value in JS and compare it to the known total; **write the formula only if it reconciles (within ~$0.50), else fall back to a static number** so a displayed value is never wrong on an unusual data shape. **There is ONE implementation — `liveFormula` / `liveSum` / `liveAdd` in `lib/excel/theme.ts`** — and it had been copied into `statementExport.ts` and `reprojExport.ts` separately before that. Call it; don't re-type the tolerance. Each export still builds its own EXPRESSION (a signed multi-group sum, a favorability-signed difference) — that part is export-specific — but the reconcile-or-fall-back decision is shared. `liveAdd` is for a total that sums SUBTOTALS: summing the line items again double-counts, the trap the 1099 register and the balance sheet both document.
 
 Reference points already converted: single-period Operating Statement, Full-Year statement, Reprojection, Budget download (all tabs), Cash Sheet Portfolio Total, Payroll summary + GL offset (`=-SUM(...)` so column H nets to $0), Allocation template, allocated-invoicer. **Exceptions that legitimately have no total row:** the Skyline import (one row per GL, no footer) and the rent-roll trend workbook (its "Total" is a per-period column, and percentages can't be summed). If you build a NEW export, wire its totals as formulas from the start.
 

@@ -11,11 +11,12 @@
 import "server-only";
 import ExcelJS from "exceljs";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
-import { drawKormanLogo, KORMAN_TEXT } from "@/lib/financials/exportBrand";
+import { drawKormanLogo } from "@/lib/financials/exportBrand";
+import { newWorkbook, liveSum, liveAdd, liveFormula, COLOR, FMT, PRINT_TALL, repeatHeader, KORMAN_TEXT } from "@/lib/excel/theme";
 import type { BalanceSheet } from "./compute";
 
-const MONEY_FMT = '_("$"* #,##0_);[Red]_("$"* (#,##0);_("$"* "—"_);_(@_)';
-const BRAND = "FF0B4A7D";
+const MONEY_FMT = FMT.money;
+const BRAND = COLOR.brand;
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export type BsMeta = { entityName: string; propertyName: string; ein: string | null };
@@ -45,16 +46,11 @@ function sections(s: BalanceSheet) {
 }
 
 export async function balanceSheetXlsx(s: BalanceSheet, meta: BsMeta): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "Korman Commercial Properties";
-  // Excel recalculates every formula the moment the file opens.
-  //
-  // Not cosmetic: ExcelJS DROPS a cached result of 0 when it writes a formula
-  // cell (verified — `{formula, result: 0}` round-trips back as `{formula}`
-  // alone), and the one cell that is meant to read zero is the proof. Without
-  // this the balance sheet's own evidence that it balances would open blank.
-  wb.calcProperties.fullCalcOnLoad = true;
-  const ws = wb.addWorksheet("Balance Sheet", { views: [{ showGridLines: false }] });
+  // `newWorkbook` carries the recalc flag: ExcelJS drops a cached result of 0,
+  // and the proof row is the one cell meant to read zero, so without it the
+  // sheet's own evidence that it balances would open blank.
+  const wb = newWorkbook();
+  const ws = wb.addWorksheet("Balance Sheet", { views: [{ showGridLines: false }], pageSetup: { ...PRINT_TALL } });
   ws.columns = [{ width: 14 }, { width: 52 }, { width: 18 }];
 
   let r = 1;
@@ -84,7 +80,7 @@ export async function balanceSheetXlsx(s: BalanceSheet, meta: BsMeta): Promise<B
     bar.height = 18;
     r++;
 
-    const groupTotalRows: number[] = [];
+    const groupTotals: { row: number; amount: number }[] = [];
     for (const g of sec.groups) {
       put(2, r++, g.label, { size: 10, bold: true });
       const first = r;
@@ -99,14 +95,14 @@ export async function balanceSheetXlsx(s: BalanceSheet, meta: BsMeta): Promise<B
       // formula only when it reconciles to the computed total, so an odd data
       // shape can never put a wrong number in front of a lender.
       const cell = ws.getCell(r, 3);
-      const summed = g.accounts.reduce((t, a) => t + a.amount, 0);
-      if (last >= first && Math.abs(summed - g.total) < 0.5) cell.value = { formula: `SUM(C${first}:C${last})`, result: g.total };
-      else cell.value = g.total;
+      cell.value = last >= first
+        ? liveSum(`C${first}:C${last}`, g.total, g.accounts.map((a) => a.amount))
+        : g.total;
       cell.numFmt = MONEY_FMT;
       cell.font = { size: 10, bold: true };
       cell.border = { top: { style: "thin" } };
       put(2, r, `Total ${g.label.replace(/^Less: /, "").toLowerCase()}`, { size: 10, bold: true });
-      groupTotalRows.push(r);
+      groupTotals.push({ row: r, amount: g.total });
       r++;
       r++; // a blank line between groups
     }
@@ -114,17 +110,14 @@ export async function balanceSheetXlsx(s: BalanceSheet, meta: BsMeta): Promise<B
     if (sec.extra) {
       put(2, r, sec.extra.label, { size: 10 });
       put(3, r, sec.extra.amount, undefined, MONEY_FMT);
-      groupTotalRows.push(r);
+      groupTotals.push({ row: r, amount: sec.extra.amount });
       r++;
     }
 
     // The section total sums the GROUP totals, never the accounts again.
     put(2, r, sec.totalLabel, { size: 11, bold: true, color: { argb: BRAND } });
     const tc = ws.getCell(r, 3);
-    const expr = groupTotalRows.map((x) => `C${x}`).join("+");
-    const summed = groupTotalRows.reduce((t, x) => t + (Number((ws.getCell(x, 3).value as any)?.result ?? ws.getCell(x, 3).value) || 0), 0);
-    if (expr && Math.abs(summed - sec.total) < 0.5) tc.value = { formula: expr, result: sec.total };
-    else tc.value = sec.total;
+    tc.value = liveAdd(groupTotals.map((g) => `C${g.row}`), sec.total, groupTotals.map((g) => g.amount));
     tc.numFmt = MONEY_FMT;
     tc.font = { size: 11, bold: true, color: { argb: BRAND } };
     tc.border = { top: { style: "thin" }, bottom: { style: "double" } };
@@ -137,8 +130,9 @@ export async function balanceSheetXlsx(s: BalanceSheet, meta: BsMeta): Promise<B
   put(2, r, "TOTAL LIABILITIES AND PARTNERS' CAPITAL", { size: 11, bold: true, color: { argb: BRAND } });
   const lRow = sectionTotalRows["LIABILITIES"], eRow = sectionTotalRows["PARTNERS' CAPITAL"];
   const tle = ws.getCell(r, 3);
-  if (lRow && eRow) tle.value = { formula: `C${lRow}+C${eRow}`, result: s.totalLiabilitiesAndEquity };
-  else tle.value = s.totalLiabilitiesAndEquity;
+  tle.value = lRow && eRow
+    ? liveAdd([`C${lRow}`, `C${eRow}`], s.totalLiabilitiesAndEquity, [s.totalLiabilities, s.totalEquity])
+    : s.totalLiabilitiesAndEquity;
   tle.numFmt = MONEY_FMT;
   tle.font = { size: 11, bold: true, color: { argb: BRAND } };
   tle.border = { top: { style: "thin" }, bottom: { style: "double" } };
@@ -149,8 +143,9 @@ export async function balanceSheetXlsx(s: BalanceSheet, meta: BsMeta): Promise<B
   put(2, r, "Proof — total assets less total liabilities and partners' capital", { size: 9, italic: true, color: { argb: "FF666666" } });
   const aRow = sectionTotalRows["ASSETS"];
   const pc = ws.getCell(r, 3);
-  if (aRow) pc.value = { formula: `C${aRow}-C${tleRow}`, result: s.proof.difference };
-  else pc.value = s.proof.difference;
+  pc.value = aRow
+    ? liveFormula(`C${aRow}-C${tleRow}`, s.proof.difference, s.totalAssets - s.totalLiabilitiesAndEquity)
+    : s.proof.difference;
   pc.numFmt = MONEY_FMT;
   pc.font = { size: 9, bold: true, color: { argb: s.proof.balances ? "FF15803D" : "FFB91C1C" } };
   r += 2;
@@ -171,6 +166,7 @@ export async function balanceSheetXlsx(s: BalanceSheet, meta: BsMeta): Promise<B
   ws.getCell(r, 1).alignment = { wrapText: true, vertical: "top" };
   ws.mergeCells(r, 1, r, 3);
 
+  repeatHeader(ws, 1, 1);
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 

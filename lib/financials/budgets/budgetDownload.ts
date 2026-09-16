@@ -21,20 +21,22 @@
 // look-and-feel of the source workbook files staff are used to.
 
 import ExcelJS from "exceljs";
+import { newWorkbook, COLOR, FMT } from "@/lib/excel/theme";
 import type { BudgetLine, BudgetWorkbook, PropertyBudget } from "./types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
-const MONEY_FMT = '_("$"* #,##0_);[Red]_("$"* (#,##0);_("$"* "—"_);_(@_)';
+const MONEY_FMT = FMT.money;
 
-// Brand palette — matches the portal's --brand / --brand2 navy.
-const BRAND = "FF0B4A7D";       // deep navy
-const BRAND_DARK = "FF0A3E69";  // darker shade for top banner
-const BRAND_TINT = "FFE6EEF5";  // very light navy wash for section header
-const ROLLUP_FILL = "FFD9E4EE"; // slightly stronger wash for cross-section subtotals
+// Brand palette — from the shared workbook theme, so this file and the five
+// other exports cannot drift apart again.
+const BRAND = COLOR.brand;
+const BRAND_DARK = COLOR.brandDark;
+const BRAND_TINT = COLOR.brandTint;
+const ROLLUP_FILL = COLOR.rollupTint;
 const SUBTOTAL_FILL = "FFF3F6F9"; // soft gray for in-section subtotals
 const DETAIL_HEADER = "FFDDE6EF"; // column header inside detail tables
 const DETAIL_BAND = "FFFBFCFD";   // alternating band inside detail tables
-const BORDER_GRAY = "FFB7C2CC";
+const BORDER_GRAY = COLOR.border;
 
 // Rent-category tints — blend of the modal's rgba overlays against
 // white, since Excel fills are opaque. Matches the in-place / renewal /
@@ -990,9 +992,7 @@ export async function generateBudgetDownloadXlsx(
   wb: BudgetWorkbook,
   property: PropertyBudget,
 ): Promise<Buffer> {
-  const book = new ExcelJS.Workbook();
-  book.creator = "KCP Portal";
-  book.created = new Date();
+  const book = newWorkbook();
 
   buildMainBudgetTab(book, wb, property);
   buildRentRollTab(book, wb, property);
