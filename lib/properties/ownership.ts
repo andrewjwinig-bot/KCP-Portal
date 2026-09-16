@@ -129,8 +129,14 @@ function hymanKormanCoInvestors(p: string): PropertyOwner[] {
             { id: `${p}-alison-korman-feldman-99b3a2`, name: "Alison Korman Feldman", detailedName: "LEONARD I KORMAN GST SUBJECT TR FBO ALISON FELDMAN", ownerPct: 0.008668 },
             { id: `${p}-catherine-korman-altman-113d18`, name: "Catherine Korman Altman", detailedName: "LEONARD I KORMAN GST SUBJECT TR FBO CATHERINE ALTMAN", ownerPct: 0.008668 },
             { id: `${p}-susan-korman-schurr-36d3e9`, name: "Susan Korman Schurr", detailedName: "LEONARD I KORMAN GST SUBJECT TR FBO SUSAN SCHURR", ownerPct: 0.008668 },
-            { id: `${p}-steven-h-korman-a1a668`, name: "Steven H. Korman", detailedName: "STEVEN H. KORMAN", ownerPct: 0.026005 },
-            { id: `${p}-lynne-honickman-547796`, name: "Lynne Honickman", detailedName: "LYNNE HONICKMAN", ownerPct: 0.016644 },
+            // Holds PERSONALLY. The schedule repeats the partner's own name in
+            // its beneficiary column; carrying that as a held-as made "Steven H.
+            // Korman" read as a trust that another row is NAMED for, which is
+            // how one investor becomes two links (oneLinkPerInvestor.test.ts).
+            { id: `${p}-steven-h-korman-a1a668`, name: "Steven H. Korman", ownerPct: 0.026005 },
+            // Holds personally, as above — and her other interest below is the
+            // 42 Trust, so the two rows still tell themselves apart.
+            { id: `${p}-lynne-honickman-547796`, name: "Lynne Honickman", ownerPct: 0.016644 },
             { id: `${p}-judith-k-langsfeld-dc0e90`, name: "Judith K. Langsfeld", detailedName: "JUDITH K. LANGSFELD eff. 04/19/10", ownerPct: 0.016644 },
             { id: `${p}-john-p-korman-597afb`, name: "John P. Korman", detailedName: "JOHN KORMAN - TRUST U/W OF MAX KORMAN", ownerPct: 0.030385 },
             { id: `${p}-carolyn-korman-jacobs-669c8b`, name: "Carolyn Korman Jacobs", detailedName: "CAROLYN K JACOBS - TRUST U/W OF MAX KORMAN", ownerPct: 0.030385 },
@@ -259,6 +265,9 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
 
   {
     propertyCode: "5600",
+    // Wholly owned by HKC, so it issues no K-1s of its own — a partnership
+    // needs more than one partner. Its income flows into HKC's return, and
+    // HKC's twenty-four partners take their K-1s on the "HKC" roster below.
     owners: [
       { id: "own-5600-hyma1", name: "Hyman Korman Co.", vendorCode: "HYMA1", ownerPct: 1.0 },
     ],
@@ -555,6 +564,42 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
       { id: "k1-whit-cagst", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.0277778 },
       { id: "k1-whit-ssgst", name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.0277778 },
     ],
+  },
+
+  {
+    // Hyman Korman Company — the partnership itself, not a building.
+    //
+    // HKC appears all over this file as a PARTNER: 80% of 0800, 70.857% of
+    // 3600, 50% of 4900, 100% of 5600, a fifth of a point of 4000. Everywhere
+    // it holds, its own twenty-four partners ride underneath as `subOwners`,
+    // and sub-owners deliberately take no upload — their K-1 is issued by the
+    // entity above them, not by the building.
+    //
+    // Which left the entity's OWN K-1s with nowhere to go. HKC is a PA general
+    // partnership (see `INVESTOR_STRUCTURES`), so it files a 1065 and issues
+    // one K-1 per partner covering ALL of its activity — not one per property.
+    // Here those twenty-four partners hold DIRECTLY, which makes each of them
+    // a real upload target, and makes the resulting document read "Hyman
+    // Korman Company" on the investor's portal rather than the name of
+    // whichever building it happened to be filed from.
+    //
+    // NOT on 5600. That is the one property HKC owns outright, so it is the
+    // natural place to reach for — but a partnership needs more than one
+    // partner, and 5600 has exactly one. Its income flows into HKC's return,
+    // and HKC issues the K-1s. Filing these against 5600 would label
+    // twenty-four investors' tax documents "Castor Ave - USPS" and would
+    // collide with the same documents arriving from 0800 or 3600.
+    //
+    // Not in PROPERTY_DEFS: like WHIT and 3600, it files the return and issues
+    // the K-1s without being a building, so it names itself.
+    propertyCode: "HKC",
+    propertyName: "Hyman Korman Company",
+    hasK1Distribution: true,
+    // The same twenty-four rows every other HKC tier draws, from the one
+    // definition — a second copy here is exactly how the two would drift.
+    // Sixteen people across twenty-four interests: several partners hold more
+    // than one (Joan Sohn holds four), and each interest is its own K-1.
+    owners: hymanKormanCoInvestors("k1-hkc"),
   },
 
   {
