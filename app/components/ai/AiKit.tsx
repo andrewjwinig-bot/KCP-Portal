@@ -300,6 +300,92 @@ export function AnswerActions({
   );
 }
 
+// ── AI table ────────────────────────────────────────────────────────────────
+// A grid the assistant built, on screen and as a workbook.
+//
+// The answer shapes used to be text / chart / letter, so "a table I can
+// download" had nowhere to land and the assistant declined outright. This is
+// that shape. It renders scrollable (a 30-row × 3-year table is wider than the
+// panel) and downloads through the same SheetJS path the app's other client
+// exports use, with live formulas in the total row.
+export type AiTableSpec = {
+  title: string;
+  subtitle?: string;
+  columns: { key: string; label: string; format?: "money" | "percent" | "number" | "text"; ratioOf?: { numerator: string; denominator: string } }[];
+  rows: Record<string, string | number | null>[];
+  notes?: string[];
+};
+
+const fmtCell = (v: string | number | null, format?: string): string => {
+  // A blank means "no value", which is NOT zero — it renders as an em dash so
+  // an absent figure can never be read as a real one.
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v !== "number") return String(v);
+  if (format === "money") return Math.round(v).toLocaleString("en-US");
+  if (format === "percent") return `${v.toFixed(1)}%`;
+  if (format === "number") return v.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return String(v);
+};
+
+export function AiTable({ spec }: { spec: AiTableSpec }) {
+  const [busy, setBusy] = useState(false);
+
+  async function download() {
+    setBusy(true);
+    try {
+      // Imported on demand: SheetJS is large and most answers are not tables.
+      const { buildTableXlsx } = await import("@/lib/assistant/tableXlsx");
+      const buf = buildTableXlsx(spec);
+      const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${spec.title.replace(/[\\/:*?"<>|]/g, "-").slice(0, 80)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally { setBusy(false); }
+  }
+
+  const th: React.CSSProperties = { textAlign: "right", fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px", whiteSpace: "nowrap", position: "sticky", top: 0, background: "var(--ai-modal)" };
+  const td: React.CSSProperties = { textAlign: "right", fontSize: 12.5, padding: "5px 10px", borderTop: "1px solid var(--ai-border-soft)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
+
+  return (
+    <div style={{ marginBottom: 14, border: "1px solid var(--ai-border-soft)", borderRadius: 9, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 11px", borderBottom: "1px solid var(--ai-border-soft)" }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)" }}>{spec.title}</div>
+          {spec.subtitle && <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{spec.subtitle}</div>}
+        </div>
+        <button type="button" onClick={() => void download()} disabled={busy} className="btn"
+          style={{ fontSize: 11.5, fontWeight: 700, padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
+          {busy ? "…" : "⤓ Excel"}
+        </button>
+      </div>
+      <div style={{ overflowX: "auto", maxHeight: 340, overflowY: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr>{spec.columns.map((c, i) => (
+            <th key={c.key} style={{ ...th, textAlign: i === 0 ? "left" : "right" }}>{c.label}</th>
+          ))}</tr></thead>
+          <tbody>
+            {spec.rows.map((r, ri) => (
+              <tr key={ri}>{spec.columns.map((c, i) => (
+                <td key={c.key} style={{ ...td, textAlign: i === 0 ? "left" : "right", color: r[c.key] === null ? "var(--muted)" : undefined }}>
+                  {fmtCell(r[c.key], c.format)}
+                </td>
+              ))}</tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {(spec.notes ?? []).length > 0 && (
+        <div style={{ padding: "8px 11px", borderTop: "1px solid var(--ai-border-soft)" }}>
+          {spec.notes!.map((n, i) => <div key={i} className="muted" style={{ fontSize: 11.5, lineHeight: 1.45 }}>{n}</div>)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Answer card ─────────────────────────────────────────────────────────────
 // The atomic AI output: ASSISTANT header (+ optional context tag), a
 // one-sentence answer with the key figure bolded violet, an optional chart,
@@ -309,6 +395,7 @@ export function AnswerCard({
   answer,
   contextTag,
   chart,
+  table,
   links,
   onTeach,
   onExport,
@@ -318,6 +405,7 @@ export function AnswerCard({
   answer: string;
   contextTag?: string | null;
   chart?: AiChartSpec | null;
+  table?: AiTableSpec | null;
   links: { label: string; href: string }[];
   onTeach: () => void;
   onExport: () => void;
@@ -331,12 +419,13 @@ export function AnswerCard({
         <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>Assistant</span>
         {contextTag && <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, color: "var(--muted)" }}>{contextTag}</span>}
       </div>
-      <div style={{ fontSize: 16, lineHeight: 1.5, color: "var(--text)", fontWeight: 500, marginBottom: chart || links.length ? 14 : 0 }}>
+      <div style={{ fontSize: 16, lineHeight: 1.5, color: "var(--text)", fontWeight: 500, marginBottom: chart || table || links.length ? 14 : 0 }}>
         {renderAiMarkdown(answer)}
       </div>
+      {table && table.rows.length > 0 && <AiTable spec={table} />}
       {chart && chart.series.length >= 2 && <div style={{ marginBottom: 14 }}><AiChart spec={chart} /></div>}
       {links.length > 0 && <PageLinks links={links} onLinkClick={onLinkClick} />}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", borderTop: "1px solid var(--ai-border-soft)", paddingTop: 11, marginTop: links.length || chart ? 0 : 13 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", borderTop: "1px solid var(--ai-border-soft)", paddingTop: 11, marginTop: links.length || chart || table ? 0 : 13 }}>
         <AnswerActions onTeach={onTeach} onExport={onExport} copyText={copyText} />
       </div>
     </div>
@@ -364,6 +453,7 @@ export function HeroAnswerCard({
   metricSub?: string;
   answer: string;
   chart?: AiChartSpec | null;
+  table?: AiTableSpec | null;
   links: { label: string; href: string }[];
   onTeach: () => void;
   onExport: () => void;

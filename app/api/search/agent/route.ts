@@ -19,6 +19,8 @@ import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
+import { buildDataset, type DatasetYear } from "@/lib/assistant/dataset";
+import { validateTable } from "@/lib/assistant/validateTable";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
@@ -299,6 +301,25 @@ const FINANCIAL_TOOLS: ToolDef[] = [
         year: { type: "number", description: "Year (defaults to current year)" },
         group: { type: "string", enum: ["bp", "sc", "lik", "other"], description: "Optional: restrict to one group; omit for the whole portfolio" },
       },
+    },
+  },
+  {
+    name: "build_dataset",
+    description:
+      "Build a CROSS-PROPERTY, MULTI-YEAR table of any operating-statement line(s), with each year's dollars, the property's NOI and revenue, and the line as a % of NOI and of revenue. ONE call covers every property and every year — use this instead of calling get_statement_detail per property per year, which cannot finish. " +
+      "Give `include` as the words that appear in the line labels you want (e.g. ['salaries','payroll']) and `exclude` for what to leave out (e.g. ['reimbursable'] for 'non-reimbursable'). Omit `years` to get every year with data. " +
+      "The result names EVERY line label it summed (`matchedLines`) and lists properties where nothing matched (`unmatchedProperties`) — say both in your answer, because which lines were counted is part of the number. A property with no matching line comes back null, NOT zero. " +
+      "Use this for: 'a table of all properties …', 'X as a % of NOI across the portfolio', 'how has <expense> moved over the years', any question whose answer is a grid.",
+    input_schema: {
+      type: "object",
+      properties: {
+        include: { type: "array", items: { type: "string" }, description: "Words to match in the statement line label (any one matches)" },
+        exclude: { type: "array", items: { type: "string" }, description: "Words that disqualify a line — e.g. ['reimbursable']" },
+        roles: { type: "array", items: { type: "string" }, description: "Optional section roles to restrict to, e.g. ['opex']" },
+        years: { type: "array", items: { type: "number" }, description: "Specific years. Omit for every year that has data." },
+        property_codes: { type: "array", items: { type: "string" }, description: "Optional: limit to these properties. Omit for all." },
+      },
+      required: ["include"],
     },
   },
   {
@@ -726,6 +747,57 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
       } catch (e) { return { error: e instanceof Error ? e.message : "Failed to compute detail." }; }
     }
 
+    case "build_dataset": {
+      if (!showFinancials) return { error: "Not authorized to view financials." };
+      const include = (Array.isArray(input.include) ? input.include : []).map(String).filter(Boolean);
+      if (!include.length) return { error: "include is required — give the words that appear in the line labels." };
+      const exclude = (Array.isArray(input.exclude) ? input.exclude : []).map(String).filter(Boolean);
+      const roles = (Array.isArray(input.roles) ? input.roles : []).map(String).filter(Boolean);
+      const wantYears = (Array.isArray(input.years) ? input.years : []).map(Number).filter(Number.isFinite);
+      const wantCodes = new Set((Array.isArray(input.property_codes) ? input.property_codes : []).map((c) => String(c).toUpperCase()));
+      try {
+        const { mappings, byKeyYear } = await loadStatementInputs();
+        // Every (property, year) that actually has a GL — so "as far back as we
+        // have" is answered by the data rather than by a guess at the range.
+        const pairs: { m: (typeof mappings)[number]; year: number; gls: StoredGl[] }[] = [];
+        for (const m of mappings) {
+          if (wantCodes.size && !wantCodes.has(m.propertyCode.toUpperCase()) && !wantCodes.has(m.key.toUpperCase())) continue;
+          for (const [k, gls] of byKeyYear) {
+            const [key, yr] = k.split("::");
+            if (key !== m.key) continue;
+            const year = Number(yr);
+            if (!Number.isFinite(year) || !gls.length) continue;
+            if (wantYears.length && !wantYears.includes(year)) continue;
+            pairs.push({ m, year, gls });
+          }
+        }
+        if (!pairs.length) return { error: "No operating statements match that request." };
+        // Capped so one question cannot walk the entire GL store.
+        const CAP = 240;
+        const used = pairs.slice(0, CAP);
+        const loaded = await Promise.all(used.map(async ({ m, year, gls }) => {
+          const mapping = await getMapping(m.key);
+          if (!mapping) return null;
+          const f = await computeYearFinancials(mapping, m.propertyCode, year, gls);
+          if (!f) return null;
+          return {
+            propertyCode: m.propertyCode, propertyName: mapping.entityName ?? m.propertyCode,
+            year, throughPeriod: f.period, noi: f.noi, revenue: f.revenue,
+            sections: f.statement.sections.map((sec) => ({
+              name: sec.name, role: sec.role,
+              lines: sec.lines.map((l) => ({ label: l.label, ytdActual: l.ytdActual })),
+            })),
+          } as DatasetYear;
+        }));
+        const ds = buildDataset(loaded.filter((x): x is DatasetYear => !!x), { include, exclude, roles });
+        return {
+          ...ds,
+          truncated: pairs.length > CAP ? `Only the first ${CAP} property-years were read.` : null,
+          note: "amount null = no line matched for that property-year (NOT zero spend). pctOfNoi null = NOI was zero or negative, so a ratio would be meaningless.",
+        };
+      } catch (e) { return { error: e instanceof Error ? e.message : "Failed to build the dataset." }; }
+    }
+
     case "rank_properties": {
       if (!showFinancials) return { error: "Not authorized to view financials." };
       const metric = String(input.metric ?? "noi");
@@ -894,14 +966,17 @@ export async function POST(req: Request) {
     `Every figure in your answer must come from a tool result. For totals, rankings, year-over-year, averages, or any cross-record math, ALWAYS use the aggregate/rank/rollup/trend tools that compute the number in code — do NOT add, subtract, or average figures yourself. When comparing years, prefer get_noi_trend's period-aligned series. Today is ${new Date().toISOString().slice(0, 10)}.\n\n` +
     (showFinancials ? "" : "You do NOT have access to financial figures (NOI, budget, debt) for this user — do not attempt to state them.\n\n") +
     `When you have enough to answer, reply with ONLY a JSON object (no prose around it): ` +
-    `{"answer": "markdown string", "links": [{"label": "...", "href": "/route"}], "chart": null | {"type": "bar"|"line", "title": "...", "unit": "dollars"|"percent"|"sqft"|"count", "series": [{"label": "...", "value": number}]}, "letter": null | {"kind": "...", "to": "...", "subject": "...", "body": "..."}}. ` +
+    `{"answer": "markdown string", "links": [{"label": "...", "href": "/route"}], "chart": null | {"type": "bar"|"line", "title": "...", "unit": "dollars"|"percent"|"sqft"|"count", "series": [{"label": "...", "value": number}]}, "letter": null | {"kind": "...", "to": "...", "subject": "...", "body": "..."}, "table": null | {"title": "...", "subtitle": "...", "columns": [{"key": "...", "label": "...", "format": "text"|"money"|"percent"|"number", "ratioOf": {"numerator": "<col key>", "denominator": "<col key>"}}], "rows": [{"<col key>": number|string|null}], "notes": ["..."]}}. ` +
     `Put 1-4 relevant page links in "links", choosing hrefs from this list of routes: ${ROUTES.map((r) => r.path).join(", ")}. ` +
     `Prefer DEEP links straight to the specific record when you know it, using these exact shapes: /units/<unitRef> (a unit's tenant + CAM config page, e.g. /units/2300-01), /properties/<code> (a property page, e.g. /properties/4500), /maintenance?property=<code> (also tab=completed, priority, status, assignee, category), /rentroll/base-years?property=<code> (a property's expense history), /cam-recon/interim?property=<code>&unitRef=<ref>&asOf=<month 1-12> (the move-out close-out — pre-fills and computes the exact interim CAM/RET balance, the security deposit, and a letter), /reservations?openId=<id>, /debt?openId=<id>. Use real unit refs / property codes from your tool results — never guess an id you don't have. ` +
     `Include a "chart" ONLY when the answer is naturally visual — a multi-year/YoY trend (use "line"), a ranking or a breakdown/comparison across properties or categories (use "bar"). Otherwise set "chart" to null. ` +
-    `CRITICAL: every value in chart.series must be an exact number copied from a tool result — never invent, round differently, or interpolate. For year-over-year use the period-aligned series so the years are comparable. Pick the single most useful chart; keep it to at most ~12 points. When you include a chart, keep "answer" to a SINGLE sentence stating the headline — do NOT restate the chart's rows as text, and NEVER output a markdown table (it renders poorly); the chart carries the detail. ` +
+    `CRITICAL: every value in chart.series must be an exact number copied from a tool result — never invent, round differently, or interpolate. For year-over-year use the period-aligned series so the years are comparable. Pick the single most useful chart; keep it to at most ~12 points. When you include a chart, keep "answer" to a SINGLE sentence stating the headline — do NOT restate the chart's rows as text. ` +
     `Include a "letter" ONLY when the user asks you to write/draft a letter, memo, email, or notice (e.g. a CAM statement cover letter, a lease-renewal inquiry, a move-out close-out notice). Compose it professionally on behalf of Korman Commercial Properties, using the tenant name, property, unit, and lease dates you looked up via tools. ` +
     `The letter is a DRAFT the user will review and send themselves — do NOT claim it has been sent. For a move-out close-out letter, call get_security_deposit for the tenant's real deposit amount and status and reference it. For any figure you still do not have from a tool result (e.g. a reconciled CAM balance, which isn't a tool), insert a clearly-bracketed placeholder like [CAM balance due: $____] rather than inventing a number — and add a link to /cam-recon/interim?property=<code>&unitRef=<ref> so the user gets the exact computed balance and full close-out package. Set "kind" to a short label ("Renewal inquiry", "CAM cover letter", "Move-out close-out", etc.). When you include a letter, keep "answer" to one short line (e.g. "Draft renewal letter for Acme Corp — review before sending.") Otherwise set "letter" to null. ` +
-    `Answer style: DEFAULT to ONE concise sentence that directly answers the question. Add a second short sentence only if genuinely needed. Never output markdown tables — put any tabular / ranking / breakdown data in the chart, not the text. Bold the single key figure or name where it helps. ` +
+    `Include a "table" whenever the answer IS a grid — "a table of all properties …", a per-property or multi-year breakdown, anything the user says they want to download. The user gets it on screen AND as an Excel workbook, so build it properly: one row per record, a "key" per column that matches the keys in "rows", and "format" so the workbook renders money and percentages correctly. ` +
+    `A percentage column derived from two money columns MUST carry "ratioOf" naming them — the workbook then recomputes the total as numerator-total ÷ denominator-total instead of summing the percentage column, which would be a different and wrong number. ` +
+    `Use null for a cell where there is NO value (build_dataset returns null when no line matched) — never write 0, which says the figure is zero rather than absent. Put what was counted, the basis, and any caveat (periods not aligned, properties with no matching line) in "notes" and "subtitle": a table leaves the building, so it has to state what it is. Otherwise set "table" to null. ` +
+    `Answer style: DEFAULT to ONE concise sentence that directly answers the question. Add a second short sentence only if genuinely needed. Never put tabular data in the ANSWER TEXT as a markdown table — it renders poorly; use "table" (or "chart" for something visual) instead. Bold the single key figure or name where it helps. ` +
     `This may be a multi-turn conversation — resolve follow-ups ("now just the business parks", "chart that", "what about 2024") against the earlier turns, and re-run whatever tools you need for the new question.` +
     prefsBlock;
 
@@ -913,13 +988,22 @@ export async function POST(req: Request) {
   ];
 
   try {
-    const MAX_TURNS = 6;
+    const MAX_TURNS = 10;
     let finalText = "";
     for (let turn = 0; turn < MAX_TURNS; turn++) {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 2000, system, tools, messages }),
+        // Opus with adaptive thinking: the questions that were failing are
+        // multi-step analysis ("this line, across every property, over N
+        // years, as a ratio"), not lookups. A bigger max_tokens because a
+        // 30-row × 3-year table is the answer, and 2000 could not hold one.
+        body: JSON.stringify({
+          model: "claude-opus-5",
+          max_tokens: 16000,
+          thinking: { type: "adaptive" },
+          system, tools, messages,
+        }),
       });
       if (!res.ok) return NextResponse.json({ error: `Assistant failed (${res.status}).` }, { status: 502 });
       const j = await res.json();
@@ -950,7 +1034,7 @@ export async function POST(req: Request) {
     if (!match) return NextResponse.json({ answer: finalText.trim() || "No answer.", links: [] });
     type ChartIn = { type?: string; title?: string; unit?: string; series?: { label?: unknown; value?: unknown }[] };
     type LetterIn = { kind?: string; to?: string; subject?: string; body?: string };
-    let parsed: { answer?: string; links?: { label?: string; href?: string }[]; chart?: ChartIn | null; letter?: LetterIn | null };
+    let parsed: { answer?: string; links?: { label?: string; href?: string }[]; chart?: ChartIn | null; letter?: LetterIn | null; table?: unknown };
     try { parsed = JSON.parse(match[0]); } catch { return NextResponse.json({ answer: finalText.trim(), links: [] }); }
     const validPaths = new Set(ROUTES.map((r) => r.path));
     const links = (parsed.links ?? [])
@@ -980,7 +1064,11 @@ export async function POST(req: Request) {
         body: lt.body.slice(0, 6000),
       };
     }
-    return NextResponse.json({ answer: (parsed.answer ?? "").trim() || "No answer.", links, chart, letter });
+    // The table is validated like the chart: shapes checked, sizes capped, and
+    // a ratio reference that names a column which doesn't exist dropped rather
+    // than shipped as a formula pointing somewhere arbitrary.
+    const table = validateTable(parsed.table);
+    return NextResponse.json({ answer: (parsed.answer ?? "").trim() || "No answer.", links, chart, letter, table });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Assistant failed" }, { status: 500 });
   }
