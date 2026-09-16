@@ -735,11 +735,14 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
 
   return (
     <div id={`prop-${prop.propertyCode.toUpperCase()}`} className="card" style={{ padding: 0, overflow: "hidden", scrollMarginTop: 80 }}>
-      {/* Card header */}
+      {/* Card header.
+          The download sits OUTSIDE the toggle button rather than inside it —
+          a button nested in a button is invalid and swallows the keyboard. */}
+      <div style={{ display: "flex", alignItems: "center" }}>
       <button
         className="linkBtn"
         onClick={() => setOpen(!open)}
-        style={{ padding: "16px 20px", textAlign: "left", width: "100%" }}
+        style={{ padding: "16px 20px", textAlign: "left", flex: 1, minWidth: 0 }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
@@ -805,9 +808,32 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
               )}
             </div>
           </div>
-          <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
         </div>
       </button>
+      {/* This building's roll on its own, which is what a lender, a broker or
+          an appraiser asks for — the portfolio export makes them find it.
+          Hidden from the maintenance persona along with every other lease
+          financial on this page. */}
+      {!hideRent && (
+        <a
+          className="btn"
+          href={`/api/rentroll/property/export?code=${encodeURIComponent(prop.propertyCode)}`}
+          onClick={(e) => e.stopPropagation()}
+          title={`Download ${name}'s rent roll as an Excel workbook`}
+          style={{ fontSize: 12, fontWeight: 700, padding: "5px 11px", flexShrink: 0, whiteSpace: "nowrap" }}
+        >
+          ⤓ Excel
+        </a>
+      )}
+      <button
+        className="linkBtn"
+        onClick={() => setOpen(!open)}
+        aria-label={open ? "Collapse" : "Expand"}
+        style={{ padding: "16px 20px", color: "var(--muted)", fontSize: 18, flexShrink: 0 }}
+      >
+        {open ? "▲" : "▼"}
+      </button>
+      </div>
 
       {open && (
         <div style={{ borderTop: "1px solid var(--border)", padding: "0 20px 20px" }}>
