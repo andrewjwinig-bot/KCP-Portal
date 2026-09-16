@@ -25,6 +25,7 @@ import {
   exportAnswerPdf,
   MONO,
   type AiChartSpec,
+  type AiTableSpec,
   type AiLetterSpec,
 } from "./ai/AiKit";
 
@@ -317,7 +318,7 @@ const SAMPLE_SEARCHES = [
 
 type ChatTurn =
   | { role: "user"; text: string }
-  | { role: "assistant"; answer: string; links: { label: string; href: string }[]; chart: AiChartSpec | null; letter: AiLetterSpec | null };
+  | { role: "assistant"; answer: string; links: { label: string; href: string }[]; chart: AiChartSpec | null; letter: AiLetterSpec | null; table: AiTableSpec | null };
 
 export default function GlobalSearch() {
   const { user } = useUser();
@@ -350,7 +351,7 @@ export default function GlobalSearch() {
       .then((r) => r.json())
       .then((j) => setChat((c) => j.error
         ? { ...c, loading: false, error: j.error }
-        : { turns: [...c.turns, { role: "assistant", answer: j.answer ?? "No answer.", links: j.links ?? [], chart: j.chart ?? null, letter: j.letter ?? null }], loading: false, error: null }))
+        : { turns: [...c.turns, { role: "assistant", answer: j.answer ?? "No answer.", links: j.links ?? [], chart: j.chart ?? null, letter: j.letter ?? null, table: j.table ?? null }], loading: false, error: null }))
       .catch(() => setChat((c) => ({ ...c, loading: false, error: "Couldn't reach the assistant." })));
   };
   const resetChat = () => setChat({ turns: [], loading: false, error: null });
@@ -852,6 +853,7 @@ export default function GlobalSearch() {
           <AnswerCard
             answer={t.answer}
             chart={t.chart}
+            table={t.table}
             links={t.links}
             onTeach={() => { setTeachFor(teachFor === ti ? null : ti); setTeachText(""); }}
             onExport={() => {
