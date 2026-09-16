@@ -9,9 +9,31 @@
 
 import "server-only";
 import { getJSON } from "@/lib/storage";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 
 export type TenantLookup = (account: string) => string | null;
+
+/** A unit ref resolved out of a GL row: the suite it belongs to, and the
+ *  rent-roll occupant when the unit is currently leased. */
+export type UnitHit = { unitRef: string; tenant: string | null };
+
+/** Unit-ref shaped tokens inside free text — "RNT to 9510-406",
+ *  "CAM to 2300-1817-CU". A property code is 3–5 leading chars (40A0, 3610A),
+ *  then one or more dashed segments. Candidates only: every hit is checked
+ *  against the rent roll / PROPERTY_DEFS before it is believed, so a date or a
+ *  invoice number that happens to share the shape is discarded. */
+const UNIT_TOKEN = /\b[0-9][0-9A-Z]{2,4}-[0-9A-Z]+(?:-[0-9A-Z]+)*\b/g;
+
+const PROPERTY_CODES = new Set(PROPERTY_DEFS.map((p) => p.id.toUpperCase()));
+
+/** Skyline suffixes a charge account with "-CU" (`2300-1817-CU` → `2300-1817`);
+ *  the portal stores the stripped form, matching the rent roll and the portal
+ *  token. Strip it before any lookup — per CLAUDE.md this is the first thing to
+ *  check when a unit lookup misses. */
+export function canonicalUnitRef(code: string): string {
+  return code.toUpperCase().replace(/-CU$/, "");
+}
 
 /** Normalize a code to "<property>-<unit-without-leading-zeros>" so GL accounts
  *  match rent-roll unit refs even when one side zero-pads the unit segment. */
@@ -35,6 +57,10 @@ export type TenantDirectory = {
   tenantForAccount: (account: string) => string | null;
   /** Tenant/payer name → unit ref / suite (null when no match). */
   unitForName: (name: string) => string | null;
+  /** Pull a unit ref out of a GL description/vendor ("RNT to 9510-406") and
+   *  resolve it against the rent roll. Null when the text carries no unit ref
+   *  the portal recognises. */
+  findUnit: (text: string) => UnitHit | null;
 };
 
 /** Build the rent-roll lookups once: account→tenant and tenant-name→unit. */
@@ -42,8 +68,14 @@ export async function buildTenantDirectory(): Promise<TenantDirectory> {
   const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
   const byCode = new Map<string, string>();
   const unitByName = new Map<string, string>();
+  // Every unit ref in the roll, VACANT ONES INCLUDED, so a charge posted to a
+  // suite between tenants still resolves its suite — it just has no name.
+  const refByCode = new Map<string, string>();
   if (rentroll) {
     for (const p of rentroll.properties) for (const u of p.units) {
+      const ref = canonicalUnitRef(u.unitRef);
+      refByCode.set(ref, u.unitRef);
+      refByCode.set(normUnit(ref), u.unitRef);
       const name = (u.occupantName || "").trim();
       if (!name || u.isVacant) continue;
       byCode.set(u.unitRef.toUpperCase(), name);
@@ -61,10 +93,29 @@ export async function buildTenantDirectory(): Promise<TenantDirectory> {
     for (const [k, unit] of unitByName) if (k.includes(nn) || nn.includes(k)) return unit;
     return null;
   };
-  return {
-    tenantForAccount: (account) => byCode.get(account.toUpperCase()) ?? byCode.get(normUnit(account)) ?? null,
-    unitForName,
+  const tenantForAccount = (account: string): string | null =>
+    byCode.get(account.toUpperCase()) ?? byCode.get(normUnit(account)) ?? null;
+
+  const findUnit = (text: string): UnitHit | null => {
+    if (!text) return null;
+    const hits = text.toUpperCase().match(UNIT_TOKEN);
+    if (!hits) return null;
+    let shapeOnly: UnitHit | null = null;
+    for (const raw of hits) {
+      const code = canonicalUnitRef(raw);
+      // The rent roll is the evidence: an exact (or zero-pad-normalised) hit
+      // gives the suite and, when it is leased, the occupant.
+      const ref = refByCode.get(code) ?? refByCode.get(normUnit(code));
+      if (ref) return { unitRef: canonicalUnitRef(ref), tenant: tenantForAccount(ref) };
+      // A unit that has since dropped off the roll still names its suite, as
+      // long as it leads with a property code the portal knows. Held back so a
+      // later token with a real rent-roll match wins over it.
+      if (!shapeOnly && PROPERTY_CODES.has(code.split("-")[0])) shapeOnly = { unitRef: code, tenant: null };
+    }
+    return shapeOnly;
   };
+
+  return { tenantForAccount, unitForName, findUnit };
 }
 
 /** Build a GL-account → tenant-name lookup from the current rent roll. Returns
