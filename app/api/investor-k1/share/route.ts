@@ -16,7 +16,7 @@ import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
 import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit, PREVIEW_URL_PLACEHOLDER, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
-import { addressRecipients, reached } from "@/lib/investors/recipients";
+import { addressRecipients, reached, selectRecipients } from "@/lib/investors/recipients";
 import { partnershipName } from "@/lib/investors/partnershipName";
 
 export const runtime = "nodejs";
@@ -121,6 +121,8 @@ async function shareOne(
    *  To. Same people either way — it changes how the mail reads, not who
    *  receives it. */
   ccSecondary?: boolean,
+  /** Addresses staff ticked in the confirm. Undefined = everyone on file. */
+  only?: string[],
 ): Promise<ShareResult> {
   const found = personGroup(propertyCode, ownerId);
   if (!found) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, pinSentTo: [], pinError: null, copiedTo: [], error: "That owner isn't on this partnership." };
@@ -215,6 +217,11 @@ async function shareOne(
   /** True when a TEST token accepted the send and delivered nothing. */
   let testMode = false;
   let wasEdited = false;
+  /** How many addresses this owner has on file, and whether the send was
+   *  narrowed to fewer — recorded so the audit line says "2 of 3" rather than
+   *  leaving a deliberate omission to look like a missing address. */
+  let onFileCount = 0;
+  let narrowed = false;
   if (send) {
     const overrides = await allOwnerEmails();
     const resolved = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email, await getContactOverrides());
@@ -229,13 +236,25 @@ async function shareOne(
     // they are co-addressees. `sentTo` still records everyone, because a K-1
     // reaching a second person is a deliberate act whichever header carried
     // them. `addressRecipients` is tested on exactly that invariant.
-    const addressed = addressRecipients(email, resolved.alsoEmail, ccSecondary !== false);
+    // Narrowed to what was ticked FIRST, then addressed. The selection is a
+    // filter over the addresses on file — never the list itself — so a
+    // client-supplied address can't become a way to mail this K-1 link
+    // anywhere. Sending to the accountant alone is a real instruction, and
+    // with the investor dropped the accountant simply becomes the addressee.
+    const picked = selectRecipients(email, resolved.alsoEmail, only);
+    const addressed = addressRecipients(picked.primary, picked.secondary, ccSecondary !== false);
     const recipients = reached(addressed);
+    onFileCount = [email, ...(resolved.alsoEmail ?? [])].filter(Boolean).length;
+    narrowed = recipients.length < onFileCount;
     const headers = () => ({
       to: addressed.to.join(", "),
       ...(addressed.cc.length ? { cc: addressed.cc.join(", ") } : {}),
     });
-    if (!email) mailError = `No email on file for ${owner.name}. Copy the link and send it yourself.`;
+    if (!email && !recipients.length) mailError = `No email on file for ${owner.name}. Copy the link and send it yourself.`;
+    // Distinct from having no address at all: there ARE addresses, none was
+    // ticked. Falling through to everyone would mail an investor their tax
+    // document when staff had chosen not to.
+    else if (!recipients.length) mailError = "No recipients were selected, so the link was created but not sent.";
     else if (!isMailConfigured()) mailError = "Email isn't configured, so the link was created but not sent.";
     else {
       // Same composer the preview endpoint uses, then the staff edit folded in
@@ -321,7 +340,7 @@ async function shareOne(
 
   await logAudit({
     event: "investor-k1.share", user: USERS[user]?.label ?? user, ip: auditIp(req),
-    detail: `${ownerProperty} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}` : " · link only"}${wasEdited ? " · edited wording" : ""}${sentTo.length ? (pinSentTo.length ? " · PIN emailed" : " · PIN NOT emailed") : ""}${messageId ? ` · postmark ${messageId}` : ""}${testMode ? " · TEST MODE, NOT DELIVERED" : ""}`,
+    detail: `${ownerProperty} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}${narrowed ? ` (${sentTo.length} of ${onFileCount} on file)` : ""}` : " · link only"}${wasEdited ? " · edited wording" : ""}${sentTo.length ? (pinSentTo.length ? " · PIN emailed" : " · PIN NOT emailed") : ""}${messageId ? ` · postmark ${messageId}` : ""}${testMode ? " · TEST MODE, NOT DELIVERED" : ""}`,
   });
   return { ownerId: owner.id, ownerName: owner.name, heldAs: owner.detailedName ?? null, url, pin: link.pin, sentTo, mailError, pinSentTo, pinError, copiedTo, messageId, testMode };
 }
@@ -351,6 +370,13 @@ export async function POST(req: NextRequest) {
   const rawYear = Number(body?.year);
   const year = Number.isFinite(rawYear) && rawYear > 0 ? rawYear : null;
 
+  // Which of THIS owner's addresses to mail. Absent means everyone on file, so
+  // a caller that never sends the field behaves as before. An empty array is a
+  // real choice — nobody — and is NOT read as unset.
+  const only: string[] | undefined = Array.isArray(body?.only)
+    ? body.only.map((x: unknown) => String(x)).filter(Boolean)
+    : undefined;
+
   if (Array.isArray(body?.ownerIds)) {
     // De-duplicated: two entries for one owner would revoke the link the first
     // pass just minted and email them twice.
@@ -379,14 +405,19 @@ export async function POST(req: NextRequest) {
     // Unlike the draft, this applies to a batch as happily as to one: it is a
     // convention about addressing, not wording meant for one person.
     const ccSecondary = body?.ccSecondary !== false;
+    // A recipient pick is one person's addresses, so it cannot describe a
+    // batch — applied across many owners it would match almost none of them
+    // and quietly send to nobody. Honoured only where the UI offers it: a
+    // batch of one, which is the path the single-investor Share card posts.
+    const pickOnly = ids.length === 1 ? only : undefined;
     const results: ShareResult[] = [];
-    for (const id of ids) results.push(await shareOne(req, user, secret, propertyCode, id, year, send, draft, ccSecondary));
+    for (const id of ids) results.push(await shareOne(req, user, secret, propertyCode, id, year, send, draft, ccSecondary, pickOnly));
     return NextResponse.json({ ok: true, results }, { status: 201 });
   }
 
   // The draft edit belongs to a single send: a batch addresses many different
   // investors, so one hand-written body cannot be right for all of them.
-  const one = await shareOne(req, user, secret, propertyCode, String(body?.ownerId ?? ""), year, send, body?.draft ?? null, body?.ccSecondary !== false);
+  const one = await shareOne(req, user, secret, propertyCode, String(body?.ownerId ?? ""), year, send, body?.draft ?? null, body?.ccSecondary !== false, only);
   if (one.error) return NextResponse.json({ error: one.error }, { status: 400 });
   return NextResponse.json({
     ok: true, url: one.url, pin: one.pin, sentTo: one.sentTo, mailError: one.mailError,

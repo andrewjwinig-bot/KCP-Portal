@@ -410,7 +410,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         await act(code, async () => {
           const res = await fetch("/api/investor-k1/share", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ propertyCode: code, ownerIds, year, send, draft: draft ?? null, ccSecondary: opts?.ccSecondary !== false }),
+            body: JSON.stringify({ propertyCode: code, ownerIds, year, send, draft: draft ?? null, ccSecondary: opts?.ccSecondary !== false, only: opts?.only }),
           });
           const j = await res.json();
           if (!res.ok) throw new Error(j.error ?? "Could not create the links.");
@@ -551,7 +551,7 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
         try {
           const res = await fetch("/api/investor-k1/share", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ propertyCode: interest.propertyCode, ownerIds: [interest.ownerId], year: taxYear, send, draft: draft ?? null, ccSecondary: opts?.ccSecondary !== false }),
+            body: JSON.stringify({ propertyCode: interest.propertyCode, ownerIds: [interest.ownerId], year: taxYear, send, draft: draft ?? null, ccSecondary: opts?.ccSecondary !== false, only: opts?.only }),
           });
           const j = await res.json();
           if (!res.ok) throw new Error(j.error ?? "Could not send.");

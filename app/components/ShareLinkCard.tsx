@@ -76,6 +76,11 @@ export type SendOptions = {
   /** Address the additional recipients on Cc rather than all on To. Same
    *  people receive it either way — it changes how the mail reads. */
   ccSecondary: boolean;
+  /** WHICH of the addresses on file to mail — unlike `ccSecondary`, this does
+   *  change who receives it. Undefined means all of them. The server filters
+   *  the pick against the owner's own record, so this narrows a send and can
+   *  never widen it. */
+  only?: string[];
 };
 
 /** The email a send would deliver — previewed, optionally edited, then sent. */
@@ -215,7 +220,6 @@ export function ShareLinkCard({
    *  can never be the thing that gets sent. */
   const [draft, setDraft] = useState<EmailDraft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
   /**
    * The send in flight, then what it did.
    *
@@ -234,6 +238,22 @@ export function ShareLinkCard({
    * decision — it was just how the recipient list happened to be built.
    */
   const [ccSecondary, setCcSecondary] = useState(true);
+  /**
+   * Recipients to leave OUT of this send, by address.
+   *
+   * Held as the exclusions rather than the inclusions so the default is
+   * "everyone" with no initialisation: a recipient list that arrives late, or
+   * changes while the confirm is open, is included rather than silently
+   * dropped. "Send it to just my accountant" is the case it exists for.
+   */
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  /** Who this send actually goes to, in the order the list renders. */
+  const picked = recipients.filter((r) => !excluded.has(r));
+  const toggleRecipient = (addr: string) => setExcluded((prev) => {
+    const next = new Set(prev);
+    if (next.has(addr)) next.delete(addr); else next.add(addr);
+    return next;
+  });
   const [requirePin, setRequirePin] = useState(true);
   const [mounted, setMounted] = useState(false);
 
@@ -242,9 +262,9 @@ export function ShareLinkCard({
     setConfirmSend(null);
     setDraft(null);
     setDraftError(null);
-    setEditing(false);
     setSending(false);
     setOutcome(null);
+    setExcluded(new Set());
   }
 
   /**
@@ -258,7 +278,7 @@ export function ShareLinkCard({
     if (!onSend) return;
     setSending(true);
     try {
-      const result = await onSend(id, draft ?? undefined, { ccSecondary });
+      const result = await onSend(id, draft ?? undefined, { ccSecondary, only: picked });
       if (!result) { closeConfirm(); return; }
       setOutcome(result);
     } catch (e) {
@@ -278,7 +298,6 @@ export function ShareLinkCard({
     setConfirmSend(id);
     setDraft(null);
     setDraftError(null);
-    setEditing(false);
     if (!loadDraft) return;
     void loadDraft(id)
       .then((d) => setDraft(d))
@@ -322,7 +341,7 @@ export function ShareLinkCard({
         aria-label={title}
         className="card"
         style={{
-          width: 620, maxWidth: "100%", textAlign: "left", padding: 0,
+          width: 920, maxWidth: "100%", textAlign: "left", padding: 0,
           boxShadow: "0 30px 70px rgba(15,23,42,0.38)",
         }}
       >
@@ -575,7 +594,11 @@ export function ShareLinkCard({
                     <div style={{ margin: "8px 0 12px" }}>
                       <div style={{ fontSize: 12.5, color: "var(--text)" }}>
                         This emails the private link — and the document it opens — to
-                        {recipients.length === 1 ? "" : ` all ${recipients.length} of these addresses`}:
+                        {recipients.length === 1
+                          ? ""
+                          : picked.length === recipients.length
+                            ? ` all ${recipients.length} of these addresses`
+                            : ` ${picked.length} of these ${recipients.length} addresses`}:
                       </div>
                       {/* Every recipient named on its own line. A second address
                           is someone who can then open this person's document, so
@@ -583,30 +606,53 @@ export function ShareLinkCard({
                           The To/Cc tag says how each is addressed — it never
                           changes WHO is on the list, which is the thing this
                           confirm exists to state. */}
-                      <ul style={{ margin: "7px 0 0", paddingLeft: 18 }}>
+                      {/* Each recipient is TICKABLE, because "send it to just
+                          my accountant" is a real instruction and the list used
+                          to be all-or-nothing. Ticked by default: sending to
+                          everyone on file is the norm, and an untouched confirm
+                          must behave exactly as it always did. The To/Cc tag
+                          follows the selection, since dropping the investor
+                          makes whoever is left the addressee. */}
+                      <div style={{ margin: "7px 0 0" }}>
                         {recipients.map((r) => {
-                          const isCc = ccSecondary && secondaryRecipients.includes(r);
+                          const on = !excluded.has(r);
+                          // With the primary deselected there is nobody to Cc
+                          // ONTO, so the rest are addressed directly.
+                          const primaryPicked = recipients.some((x) => !secondaryRecipients.includes(x) && !excluded.has(x));
+                          const isCc = on && ccSecondary && primaryPicked && secondaryRecipients.includes(r);
                           return (
-                            <li key={r} style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
-                              {r}
-                              {secondaryRecipients.length > 0 && (
-                                <span className="muted" style={{ fontSize: 11, fontWeight: 700, marginLeft: 7, letterSpacing: "0.04em" }}>
+                            <label key={r} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", cursor: recipients.length > 1 ? "pointer" : "default" }}>
+                              <input type="checkbox" checked={on} disabled={sending || recipients.length < 2}
+                                onChange={() => toggleRecipient(r)} />
+                              <span style={{ fontSize: 13, fontWeight: 700, color: on ? "var(--text)" : "var(--muted)", textDecoration: on ? undefined : "line-through" }}>
+                                {r}
+                              </span>
+                              {on && secondaryRecipients.length > 0 && (
+                                <span className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em" }}>
                                   {isCc ? "CC" : "TO"}
                                 </span>
                               )}
-                            </li>
+                            </label>
                           );
                         })}
-                      </ul>
+                      </div>
+                      {picked.length === 0 && (
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c", marginTop: 6 }}>
+                          Nobody is selected, so there is no one to send to.
+                        </div>
+                      )}
 
                       {/* Only worth a control when there IS somebody else to
                           address differently. */}
-                      {secondaryRecipients.length > 0 && (
+                      {picked.some((r) => secondaryRecipients.includes(r))
+                        && picked.some((r) => !secondaryRecipients.includes(r)) && (
                         <label style={{ display: "flex", alignItems: "flex-start", gap: 7, marginTop: 9, fontSize: 12.5, cursor: "pointer", color: "var(--text)" }}>
                           <input type="checkbox" checked={ccSecondary} disabled={sending}
                             onChange={(e) => setCcSecondary(e.target.checked)} style={{ marginTop: 2 }} />
                           <span>
-                            Cc {secondaryRecipients.length === 1 ? "the extra recipient" : `the ${secondaryRecipients.length} extra recipients`} instead of
+                            Cc {picked.filter((r) => secondaryRecipients.includes(r)).length === 1
+                              ? "the extra recipient"
+                              : `the ${picked.filter((r) => secondaryRecipients.includes(r)).length} extra recipients`} instead of
                             addressing everyone together.
                             <span className="muted"> Same people either way — it only changes how the email reads.</span>
                           </span>
@@ -617,23 +663,6 @@ export function ShareLinkCard({
                           ? "Their PIN follows as its own separate email — nothing to hand over."
                           : "The PIN is not emailed — give it to them separately."}
                       </div>
-                      {draft?.releases && draft.releases.length > 0 && (
-                        <div style={{ fontSize: 12, marginTop: 7, padding: "8px 11px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.18)" }}>
-                          <div style={{ fontWeight: 700 }}>
-                            Makes {draft.releases.length === 1 ? "this K-1" : `these ${draft.releases.length} K-1s`} readable on their link:
-                          </div>
-                          <div className="muted" style={{ marginTop: 3 }}>
-                            {draft.releases.map((r) => r.propertyName).join(" · ")}
-                          </div>
-                        </div>
-                      )}
-                      {draft?.copyTo && draft.copyTo.length > 0 && (
-                        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                          Blind-copied on both, so you can confirm they went out:{" "}
-                          <b>{draft.copyTo.join(", ")}</b>. The investor doesn&rsquo;t see this.
-                        </div>
-                      )}
-
                       {/* The message itself. A send is irreversible — you
                           cannot unsend someone their tax document — so the
                           words are read here, before, rather than found in a
@@ -641,51 +670,58 @@ export function ShareLinkCard({
                           server sends is what this box holds. */}
                       {loadDraft && (
                         <div style={{ marginTop: 12 }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-                            <div style={{ ...SECTION, marginBottom: 0 }}>The message</div>
-                            {draft && (
-                              <button type="button" onClick={() => setEditing((v) => !v)}
-                                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, fontWeight: 700, color: BRAND }}>
-                                {editing ? "Done editing" : "Edit"}
-                              </button>
-                            )}
-                          </div>
+                          <div style={{ ...SECTION, marginBottom: 6 }}>The message</div>
                           {draftError ? (
                             <div className="small" style={{ color: "#b91c1c" }}>
                               {draftError} You can still send — the standard message will be used.
                             </div>
                           ) : !draft ? (
                             <div className="muted small">Loading the message…</div>
-                          ) : editing ? (
-                            <div style={{ display: "grid", gap: 8 }}>
+                          ) : (
+                            /* Typed IN PLACE — there is no edit mode to enter.
+                               The box IS the email: click the subject or the
+                               body and change it. A send is irreversible, so
+                               the words are read here rather than found in a
+                               reply afterwards, and reading is where a change
+                               occurs to you.
+
+                               The controls are stripped back deliberately —
+                               the only place in the app that does this. The
+                               global input styling exists so a row of filters
+                               reads as one calm strip; here the opposite is
+                               wanted, a control that disappears so the card
+                               reads as the message rather than as a form. */
+                            <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", overflow: "hidden" }}>
                               <input
                                 value={draft.subject}
                                 onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
                                 aria-label="Subject"
-                                style={{ width: "100%", fontSize: 13, fontWeight: 700 }}
+                                disabled={sending}
+                                style={{
+                                  width: "100%", padding: "8px 12px", fontSize: 13, fontWeight: 700,
+                                  border: "none", borderBottom: "1px solid var(--border)", borderRadius: 0,
+                                  background: "transparent", color: "var(--text)",
+                                }}
                               />
                               <textarea
                                 value={draft.body}
                                 onChange={(e) => setDraft({ ...draft, body: e.target.value })}
                                 aria-label="Message"
-                                rows={12}
-                                style={{ width: "100%", fontSize: 12.5, lineHeight: 1.55, fontFamily: "inherit", resize: "vertical" }}
+                                rows={13}
+                                disabled={sending}
+                                style={{
+                                  width: "100%", padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55,
+                                  fontFamily: "inherit", border: "none", borderRadius: 0,
+                                  background: "transparent", color: "var(--text)", resize: "vertical",
+                                  display: "block",
+                                }}
                               />
-                              <div className="muted" style={{ fontSize: 11.5 }}>
-                                Keep the link in the message — if you delete it we add it back, because
-                                the investor has no other way to reach the document.
-                              </div>
-                            </div>
-                          ) : (
-                            <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", overflow: "hidden" }}>
-                              <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 700 }}>
-                                {draft.subject}
-                              </div>
-                              <div style={{ padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 260, overflowY: "auto" }}>
-                                {draft.body}
-                              </div>
                             </div>
                           )}
+                          <div className="muted" style={{ fontSize: 11.5, marginTop: 5 }}>
+                            Keep the link in the message — if you delete it we add it back, because
+                            the investor has no other way to reach the document.
+                          </div>
 
                           {/* The second message, sent straight after. Read-only
                               on purpose: it is three lines and a number, and
@@ -702,10 +738,6 @@ export function ShareLinkCard({
                                   {draft.followUp.body}
                                 </div>
                               </div>
-                              <div className="muted" style={{ fontSize: 11.5, marginTop: 5 }}>
-                                Sent automatically as its own email. It carries no link, and the
-                                message above carries no PIN — so neither one on its own opens the document.
-                              </div>
                             </div>
                           )}
                         </div>
@@ -720,10 +752,10 @@ export function ShareLinkCard({
                     {/* Nothing sends while the message is still loading: the
                         whole point is that it was read first. */}
                     <button onClick={() => void runSend(confirmSend)}
-                      disabled={busy || sending || recipients.length === 0 || (!!loadDraft && !draft && !draftError)}
-                      className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", display: "inline-flex", alignItems: "center", gap: 7, opacity: busy || sending || recipients.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
+                      disabled={busy || sending || picked.length === 0 || (!!loadDraft && !draft && !draftError)}
+                      className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", display: "inline-flex", alignItems: "center", gap: 7, opacity: busy || sending || picked.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
                       {(busy || sending) && <span className="spin-dot" aria-hidden />}
-                      {busy || sending ? "Sending…" : `Yes, ${sendLabel.toLowerCase()}`}
+                      {busy || sending ? "Sending…" : `Yes, ${sendLabel.charAt(0).toLowerCase()}${sendLabel.slice(1)}`}
                     </button>
                     <button onClick={closeConfirm} disabled={sending} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px" }}>Cancel</button>
 
@@ -793,9 +825,7 @@ export function ShareLinkCard({
                         )}
                       </div>
                       <div className="muted" style={{ fontSize: 11.5, marginTop: 7 }}>
-                        Each opens its own draft. Send them as two separate emails — the link
-                        carries no PIN and the PIN carries no link, which is what makes a
-                        forwarded email harmless.
+                        Each opens its own draft. Send them as two separate emails.
                       </div>
                     </div>
                   )}
