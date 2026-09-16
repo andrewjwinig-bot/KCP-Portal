@@ -38,10 +38,6 @@ const STATUS_LABEL: Record<string, string> = {
   partial: "PART MONTH", ok: "TIES", idle: "NO RENT DUE",
 };
 
-// The statuses worth a second look. "Ties" and "no rent due" are the norm and
-// are hidden by default so a finding isn't buried in sixty calm rows.
-const ATTENTION = new Set(["not-billed", "short", "over", "unexpected", "partial"]);
-
 const money0 = (v: number): string => {
   const s = Math.round(Math.abs(v)).toLocaleString("en-US");
   return v < 0 ? `(${s})` : s;
@@ -53,7 +49,6 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
 }) {
   const [data, setData] = useState<Result | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -74,14 +69,16 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
     return <div className="muted small" style={{ padding: 18 }}>No rent roll has been imported, so there is nothing to compare against.</div>;
   }
 
-  const attention = data.rows.filter((r) => ATTENTION.has(r.status));
-  const shown = showAll ? data.rows : attention;
+  // Every suite, in one table. Sorted worst-first by the engine, so a suite
+  // that was never billed leads and the calm rows fall in behind it — no
+  // second view to switch into.
+  const shown = data.rows;
   const t = data.totals;
   const window = scope === "month" ? monthLabel : `YTD through ${monthLabel}`;
   const hasAr = t.openAr !== null;
 
   return (
-    <div style={{ padding: "12px 10px 18px" }}>
+    <div style={{ paddingBottom: 14 }}>
       <div className="pills" style={{ marginBottom: 12 }}>
         <StatPill label={`Contract rent · ${window}`} value={money0(t.expected)} />
         <StatPill label="Billed (GL)" value={money0(t.billed)} />
@@ -90,28 +87,14 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
         {hasAr && <StatPill label="Past due" value={money0(t.pastDue!)} accent={(t.pastDue ?? 0) > 1 ? "#b45309" : undefined} />}
       </div>
 
-      {data.counts["not-billed"] > 0 && (
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c", background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)", borderRadius: 8, padding: "8px 10px", marginBottom: 10 }}>
-          {data.counts["not-billed"]} leased suite{data.counts["not-billed"] === 1 ? " is" : "s are"} owed rent in {window} with nothing posted to the GL.
-        </div>
-      )}
       {Math.abs(data.unplacedBilled) > 1 && (
         <div className="muted small" style={{ marginBottom: 10 }}>
           {money0(data.unplacedBilled)} of rental income names no suite, so it isn&apos;t in the billed column above. It is still in the line&apos;s total.
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 6 }}>
-        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
-          {showAll ? `All ${data.rows.length} suites` : `${attention.length} suite${attention.length === 1 ? "" : "s"} to look at`}
-        </div>
-        <button type="button" className="btn" onClick={() => setShowAll(!showAll)} style={{ padding: "4px 10px", fontSize: 12, fontWeight: 700 }}>
-          {showAll ? "Only what needs a look" : `Show all ${data.rows.length}`}
-        </button>
-      </div>
-
       {shown.length === 0 ? (
-        <div className="muted small" style={{ padding: "10px 0" }}>Every leased suite was billed its contract rent in {window}.</div>
+        <div className="muted small" style={{ padding: "10px 0" }}>No suites to compare for {window}.</div>
       ) : (
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
@@ -159,7 +142,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
           </tbody>
           <tfoot><tr>
             <td colSpan={3} style={{ ...td, fontWeight: 800, borderTop: "2px solid var(--border)" }}>
-              {showAll ? "Total · all suites" : "Total · suites shown"}
+              {`Total · ${shown.length} suites`}
             </td>
             <td style={{ ...tdR, fontWeight: 900, borderTop: "2px solid var(--border)" }}>{money0(shown.reduce((s, r) => s + r.expected, 0))}</td>
             <td style={{ ...tdR, fontWeight: 900, borderTop: "2px solid var(--border)" }}>{money0(shown.reduce((s, r) => s + r.billed, 0))}</td>
