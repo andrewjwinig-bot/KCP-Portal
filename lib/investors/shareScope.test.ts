@@ -27,11 +27,16 @@ describe("a K-1 send releases every K-1 the investor holds that year", () => {
     expect(route.match(/group\.map\(\(o\) => k1sForOwner\(o\.id\)\)/g) ?? []).toHaveLength(2);
   });
 
-  it("names what it releases, so widening is never silent", () => {
+  it("still computes what a send releases, over the scope it publishes", () => {
+    // The confirm no longer LISTS the partnerships — the owner asked for it
+    // out, and in practice it ran to eleven names on one line for an investor
+    // holding eleven interests, pushing the message itself off the screen.
+    // What it releases is still computed over exactly the scope the send
+    // publishes and still returned by the draft endpoint, so the fact is
+    // recoverable rather than gone: this is a decision about how much a
+    // confirm should say, not about the send being allowed to widen quietly.
     expect(route).toContain("const releases =");
     expect(hook).toContain("releases: j.releases ?? []");
-    expect(card).toContain("draft.releases");
-    expect(card).toContain("readable on their link");
   });
 });
 

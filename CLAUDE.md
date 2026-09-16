@@ -30,13 +30,26 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 - **Downloads/exports** → `DownloadMenu` from `app/components/DownloadMenu.tsx` (the "Download ▾" dropdown used by Operating Statements, Reprojections, Budgets). Items take `href` (link) or `onClick` (client-side Excel/PDF). Never hand-roll separate per-format download buttons.
 - **Collapsible "accounts that didn't fit" lists** → `AccountListCard` from `app/components/AccountListCard.tsx` (collapsed by default, Account/Name/Amount table + total) — shared by Operating Statements ("Non-operating accounts") and the Cash Sheet ("Accounts not mapped to a bucket").
 - **Sharing a private link** → `ShareLinkCard` from `app/components/ShareLinkCard.tsx` — a centred MODAL (portal-rendered, since the trigger usually sits in a scrolling table cell that would crop a popover): a link box with Copy, the access PIN with its own Copy, view count, an email action behind a deliberate confirm step, and Revoke. Used by the CAM statement (`TenantShareLink`) and the K-1 roster; a third share flow should use it too rather than growing its own. The component owns the look and interaction; each caller passes its own actions, because a tenant link and a K-1 link are different objects (`pinOptional={false}` for a K-1, whose PIN is mandatory). **Always offer both ways out**: copy the link and send it yourself, or have the app email it — copying mutates nothing, which is how you demo or test a link without touching an investor's stored data.
+- **Each recipient on the confirm is TICKABLE, so a send can go to some of the
+  addresses on file.** "Add my accountant" and "send it to my accountant" are
+  different instructions, and the list used to be all-or-nothing. Ticked by
+  default (an untouched confirm behaves as it always did) and held as
+  EXCLUSIONS, so a recipient arriving late is included rather than dropped. The
+  pick is a FILTER applied server-side over that owner's own record
+  (`selectRecipients`) — never the address list itself, or a client-supplied
+  address becomes a way to mail a K-1 link anywhere. An empty pick reaches
+  nobody and is NOT read as "unset"; a real batch ignores the pick, since one
+  address list cannot describe many owners.
 - **Sending a link to a tenant or investor is ALWAYS behind a confirm that
   names every recipient**, one address per line, and says how the PIN travels
   (for a K-1, as its own separate email). Copying a link and mailing it are one
   click apart in the same dialog, so the send cannot be a click you make by
   accident. **The confirm shows the MESSAGE, not just the recipients**
-  (`loadDraft` on `ShareLinkCard`): subject and body as they will send, editable
-  in place, plus a read-only preview of the follow-up. A send is irreversible —
+  (`loadDraft` on `ShareLinkCard`): subject and body as they will send, typed
+  IN PLACE with no edit mode to enter, plus a read-only preview of the
+  follow-up. The subject/body controls are deliberately stripped of the global
+  input styling — the one place in the app that does that — so the card reads
+  as the email rather than as a form; don't "fix" them back to the pill. A send is irreversible —
   you cannot unsend an investor their tax document — so the wording is read
   before, not found in a reply afterwards. `lib/investors/k1ShareEmail.ts`
   composes it and **the send and the preview call the same function**, so a
@@ -527,10 +540,11 @@ preferences.
   the other fourteen uploaded, covered by the link, and invisible — nothing
   telling them or us that the rest existed. The draft risk is upstream instead:
   don't upload a draft onto an owner's row (the row IS the assignment, and a
-  second upload for the same year is refused). And the widening is never
-  silent — the confirm LISTS every partnership the send makes readable, from
-  `releases` on the draft endpoint, which computes it over exactly the scope
-  the send publishes. Later uploads still appear on the same link with no
+  second upload for the same year is refused). The scope a send publishes is still
+  computed by `releases` on the draft endpoint, but the confirm NO LONGER lists
+  those partnerships — for an investor holding eleven interests it ran to eleven
+  names and pushed the message itself off the screen. Do not reinstate the list;
+  the send is still bounded by that scope and `releases` still reports it. Later uploads still appear on the same link with no
   re-send, once sent.
 - **A link's coverage is resolved through the PERSON at read time**
   (`lib/investors/linkCoverage.ts`, `coveredOwnerIds`), never from the

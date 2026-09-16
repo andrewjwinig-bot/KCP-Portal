@@ -220,7 +220,6 @@ export function ShareLinkCard({
    *  can never be the thing that gets sent. */
   const [draft, setDraft] = useState<EmailDraft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
   /**
    * The send in flight, then what it did.
    *
@@ -263,7 +262,6 @@ export function ShareLinkCard({
     setConfirmSend(null);
     setDraft(null);
     setDraftError(null);
-    setEditing(false);
     setSending(false);
     setOutcome(null);
     setExcluded(new Set());
@@ -300,7 +298,6 @@ export function ShareLinkCard({
     setConfirmSend(id);
     setDraft(null);
     setDraftError(null);
-    setEditing(false);
     if (!loadDraft) return;
     void loadDraft(id)
       .then((d) => setDraft(d))
@@ -344,7 +341,7 @@ export function ShareLinkCard({
         aria-label={title}
         className="card"
         style={{
-          width: 620, maxWidth: "100%", textAlign: "left", padding: 0,
+          width: 920, maxWidth: "100%", textAlign: "left", padding: 0,
           boxShadow: "0 30px 70px rgba(15,23,42,0.38)",
         }}
       >
@@ -666,23 +663,6 @@ export function ShareLinkCard({
                           ? "Their PIN follows as its own separate email — nothing to hand over."
                           : "The PIN is not emailed — give it to them separately."}
                       </div>
-                      {draft?.releases && draft.releases.length > 0 && (
-                        <div style={{ fontSize: 12, marginTop: 7, padding: "8px 11px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.18)" }}>
-                          <div style={{ fontWeight: 700 }}>
-                            Makes {draft.releases.length === 1 ? "this K-1" : `these ${draft.releases.length} K-1s`} readable on their link:
-                          </div>
-                          <div className="muted" style={{ marginTop: 3 }}>
-                            {draft.releases.map((r) => r.propertyName).join(" · ")}
-                          </div>
-                        </div>
-                      )}
-                      {draft?.copyTo && draft.copyTo.length > 0 && (
-                        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                          Blind-copied on both, so you can confirm they went out:{" "}
-                          <b>{draft.copyTo.join(", ")}</b>. The investor doesn&rsquo;t see this.
-                        </div>
-                      )}
-
                       {/* The message itself. A send is irreversible — you
                           cannot unsend someone their tax document — so the
                           words are read here, before, rather than found in a
@@ -690,51 +670,58 @@ export function ShareLinkCard({
                           server sends is what this box holds. */}
                       {loadDraft && (
                         <div style={{ marginTop: 12 }}>
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-                            <div style={{ ...SECTION, marginBottom: 0 }}>The message</div>
-                            {draft && (
-                              <button type="button" onClick={() => setEditing((v) => !v)}
-                                style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 12, fontWeight: 700, color: BRAND }}>
-                                {editing ? "Done editing" : "Edit"}
-                              </button>
-                            )}
-                          </div>
+                          <div style={{ ...SECTION, marginBottom: 6 }}>The message</div>
                           {draftError ? (
                             <div className="small" style={{ color: "#b91c1c" }}>
                               {draftError} You can still send — the standard message will be used.
                             </div>
                           ) : !draft ? (
                             <div className="muted small">Loading the message…</div>
-                          ) : editing ? (
-                            <div style={{ display: "grid", gap: 8 }}>
+                          ) : (
+                            /* Typed IN PLACE — there is no edit mode to enter.
+                               The box IS the email: click the subject or the
+                               body and change it. A send is irreversible, so
+                               the words are read here rather than found in a
+                               reply afterwards, and reading is where a change
+                               occurs to you.
+
+                               The controls are stripped back deliberately —
+                               the only place in the app that does this. The
+                               global input styling exists so a row of filters
+                               reads as one calm strip; here the opposite is
+                               wanted, a control that disappears so the card
+                               reads as the message rather than as a form. */
+                            <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", overflow: "hidden" }}>
                               <input
                                 value={draft.subject}
                                 onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
                                 aria-label="Subject"
-                                style={{ width: "100%", fontSize: 13, fontWeight: 700 }}
+                                disabled={sending}
+                                style={{
+                                  width: "100%", padding: "8px 12px", fontSize: 13, fontWeight: 700,
+                                  border: "none", borderBottom: "1px solid var(--border)", borderRadius: 0,
+                                  background: "transparent", color: "var(--text)",
+                                }}
                               />
                               <textarea
                                 value={draft.body}
                                 onChange={(e) => setDraft({ ...draft, body: e.target.value })}
                                 aria-label="Message"
-                                rows={12}
-                                style={{ width: "100%", fontSize: 12.5, lineHeight: 1.55, fontFamily: "inherit", resize: "vertical" }}
+                                rows={13}
+                                disabled={sending}
+                                style={{
+                                  width: "100%", padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55,
+                                  fontFamily: "inherit", border: "none", borderRadius: 0,
+                                  background: "transparent", color: "var(--text)", resize: "vertical",
+                                  display: "block",
+                                }}
                               />
-                              <div className="muted" style={{ fontSize: 11.5 }}>
-                                Keep the link in the message — if you delete it we add it back, because
-                                the investor has no other way to reach the document.
-                              </div>
-                            </div>
-                          ) : (
-                            <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", overflow: "hidden" }}>
-                              <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--border)", fontSize: 13, fontWeight: 700 }}>
-                                {draft.subject}
-                              </div>
-                              <div style={{ padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 260, overflowY: "auto" }}>
-                                {draft.body}
-                              </div>
                             </div>
                           )}
+                          <div className="muted" style={{ fontSize: 11.5, marginTop: 5 }}>
+                            Keep the link in the message — if you delete it we add it back, because
+                            the investor has no other way to reach the document.
+                          </div>
 
                           {/* The second message, sent straight after. Read-only
                               on purpose: it is three lines and a number, and
@@ -750,10 +737,6 @@ export function ShareLinkCard({
                                 <div style={{ padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", maxHeight: 200, overflowY: "auto" }}>
                                   {draft.followUp.body}
                                 </div>
-                              </div>
-                              <div className="muted" style={{ fontSize: 11.5, marginTop: 5 }}>
-                                Sent automatically as its own email. It carries no link, and the
-                                message above carries no PIN — so neither one on its own opens the document.
                               </div>
                             </div>
                           )}
@@ -772,7 +755,7 @@ export function ShareLinkCard({
                       disabled={busy || sending || picked.length === 0 || (!!loadDraft && !draft && !draftError)}
                       className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", display: "inline-flex", alignItems: "center", gap: 7, opacity: busy || sending || picked.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
                       {(busy || sending) && <span className="spin-dot" aria-hidden />}
-                      {busy || sending ? "Sending…" : `Yes, ${sendLabel.toLowerCase()}`}
+                      {busy || sending ? "Sending…" : `Yes, ${sendLabel.charAt(0).toLowerCase()}${sendLabel.slice(1)}`}
                     </button>
                     <button onClick={closeConfirm} disabled={sending} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px" }}>Cancel</button>
 
@@ -842,9 +825,7 @@ export function ShareLinkCard({
                         )}
                       </div>
                       <div className="muted" style={{ fontSize: 11.5, marginTop: 7 }}>
-                        Each opens its own draft. Send them as two separate emails — the link
-                        carries no PIN and the PIN carries no link, which is what makes a
-                        forwarded email harmless.
+                        Each opens its own draft. Send them as two separate emails.
                       </div>
                     </div>
                   )}
