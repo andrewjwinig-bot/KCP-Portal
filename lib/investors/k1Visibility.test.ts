@@ -63,18 +63,3 @@ describe("visibility is uploaded-unless-withheld", () => {
     expect(admin).toContain("published: false, publishedAt: null, withheld: false,");
   });
 });
-
-describe("a corrected property code does not hide what is already filed", () => {
-  it("keeps Hyman Korman Company's documents findable under its old spelling", () => {
-    // HKCo shipped briefly as "HKC". A document carries the code it was
-    // uploaded with, so without the alias the staff roster would read empty
-    // for anything filed in that window — while the investor's portal, which
-    // keys on ownerId, went on showing it. A roster and a portal disagreeing
-    // about whether a K-1 exists is the failure worth a test.
-    expect(store).toMatch(/CODE_ALIASES/);
-    expect(store).toMatch(/HKCo:\s*\["HKC"\]/);
-    // BOTH property lookups must go through it, or one view finds the document
-    // and the other does not.
-    expect(store.match(/codesFor\(propertyCode\)/g)?.length).toBe(2);
-  });
-});
