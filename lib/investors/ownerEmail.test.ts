@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveOwnerEmail } from "./ownerEmail";
+import { INVESTOR_STRUCTURES } from "./structures";
 
 describe("resolveOwnerEmail", () => {
   it("an entered address always wins", () => {
@@ -83,5 +84,76 @@ describe("resolveOwnerEmail — contact-hub records", () => {
 
   it("without the hub, resolves nobody — which is the bug this replaced", () => {
     expect(resolveOwnerEmail("Lawrence Isard", null, null).email).toBeNull();
+  });
+});
+
+describe("who the PRIMARY address belongs to", () => {
+  it("defaults to the investor, so an ordinary record is unchanged", () => {
+    const hub = { "lawrence isard": { email: "larry@example.com" } } as any;
+    const r = resolveOwnerEmail("Lawrence Isard", null, null, hub);
+    expect(r.recipientNames["larry@example.com"]).toBe("Lawrence Isard");
+  });
+
+  it("takes the name on the contact record when the address is somebody else's", () => {
+    // The case this exists for: plenty of investors have only their
+    // accountant's address on file, and that person is who the mail greets.
+    const hub = {
+      "lawrence isard": { email: "jhoffman@isdanerllc.com", emailName: "Jeff Hoffman" },
+    } as any;
+    const r = resolveOwnerEmail("Lawrence Isard", null, null, hub);
+    expect(r.recipientNames["jhoffman@isdanerllc.com"]).toBe("Jeff Hoffman");
+  });
+
+  it("names a per-owner override's address too", () => {
+    const hub = { "lawrence isard": { email: "larry@example.com" } } as any;
+    const r = resolveOwnerEmail("Lawrence Isard", null, "redirect@example.com", hub);
+    expect(r.source).toBe("override");
+    expect(r.recipientNames["redirect@example.com"]).toBe("Lawrence Isard");
+  });
+
+  it("carries the extra recipients' names alongside the primary's", () => {
+    const hub = {
+      "lawrence isard": {
+        email: "larry@example.com",
+        alsoEmail: ["cpa@example.com"],
+        alsoNames: { "cpa@example.com": "Jeff Hoffman" },
+      },
+    } as any;
+    const r = resolveOwnerEmail("Lawrence Isard", null, null, hub);
+    // ONE map over every address, so no consumer has to know which was primary.
+    expect(r.recipientNames).toEqual({
+      "larry@example.com": "Lawrence Isard",
+      "cpa@example.com": "Jeff Hoffman",
+    });
+  });
+
+  it("names nobody when there is no address to name", () => {
+    const r = resolveOwnerEmail("Nobody At All", null, null, {} as any);
+    expect(r.email).toBeNull();
+    expect(r.recipientNames).toEqual({});
+  });
+});
+
+describe("an address resolved THROUGH a trustee is addressed to the trustee", () => {
+  const trusteeRows = Object.values(INVESTOR_STRUCTURES)
+    .flatMap((st) => st.directory?.rows ?? [])
+    .filter((r) => r.email);
+
+  it("has seeded trustee emails to resolve against", () => {
+    // Without this the case below passes vacuously.
+    expect(trusteeRows.length).toBeGreaterThan(0);
+  });
+
+  it("names the trustee, not the beneficiary whose trust they act for", () => {
+    // "Dear <the trust's beneficiary>" on a mail to their lawyer reads as a
+    // misdirected email — and the directory is exactly the path that resolves
+    // an address belonging to someone other than the investor.
+    const viaDirectory = trusteeRows
+      .map((r) => ({ row: r, res: resolveOwnerEmail(r.name, null, null, {}) }))
+      .filter((x) => x.res.source === "trustee-directory");
+    expect(viaDirectory.length, "no trustee resolves through the directory").toBeGreaterThan(0);
+    for (const { row, res } of viaDirectory) {
+      expect(res.recipientNames[res.email!.toLowerCase()]).toBe(row.name);
+    }
   });
 });

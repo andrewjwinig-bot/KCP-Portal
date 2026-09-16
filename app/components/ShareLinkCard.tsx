@@ -20,7 +20,7 @@
 // confirm that names every recipient. Rendered through a portal so no table
 // overflow can crop it.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 const BRAND = "#0b4a7d";
@@ -157,7 +157,7 @@ export type ShareLinkCardProps = {
    * was — a tenant statement link is not the same irreversible act as an
    * investor's tax document.
    */
-  loadDraft?: (id: string) => Promise<EmailDraft>;
+  loadDraft?: (id: string, only?: string[]) => Promise<EmailDraft>;
   /**
    * Hand the composed draft to the user's own mail client instead of sending
    * it from the app.
@@ -253,6 +253,19 @@ export function ShareLinkCard({
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   /** Who this send actually goes to, in the order the list renders. */
   const picked = recipients.filter((r) => !excluded.has(r));
+  /**
+   * What the send button says.
+   *
+   * `sendLabel` names the INVESTOR ("Email Jeffrey Honickman"), which is wrong
+   * the moment the pick excludes them — "Yes, email Jeffrey Honickman" on a
+   * message going only to his accountant is precisely the kind of thing a
+   * confirm exists to stop. So the button names whoever is actually being
+   * mailed, and falls back to the caller's label when no name is on file.
+   */
+  const pickedNames = picked.map((r) => (recipientNames?.[r.toLowerCase()] ?? "").trim()).filter(Boolean);
+  const confirmLabel = pickedNames.length && pickedNames.length === picked.length
+    ? `Email ${pickedNames.length <= 2 ? pickedNames.join(" and ") : `${pickedNames.length} recipients`}`
+    : sendLabel;
   const toggleRecipient = (addr: string) => setExcluded((prev) => {
     const next = new Set(prev);
     if (next.has(addr)) next.delete(addr); else next.add(addr);
@@ -269,6 +282,7 @@ export function ShareLinkCard({
     setSending(false);
     setOutcome(null);
     setExcluded(new Set());
+    editedRef.current = false;
   }
 
   /**
@@ -303,10 +317,34 @@ export function ShareLinkCard({
     setDraft(null);
     setDraftError(null);
     if (!loadDraft) return;
-    void loadDraft(id)
+    void loadDraft(id, recipients)
       .then((d) => setDraft(d))
       .catch((e) => setDraftError(e instanceof Error ? e.message : "Couldn't load the message."));
   }
+
+  /**
+   * Re-load the preview when the recipients change.
+   *
+   * The message names who it greets and, when the investor is not among the
+   * recipients, whose documents it is about — so unticking someone changes the
+   * WORDING, not just the addressing. Without this the confirm would show a
+   * message greeting the investor while the send greeted their accountant, and
+   * the preview is the thing that was read.
+   *
+   * A staff EDIT is never clobbered: once the draft differs from what the
+   * server composed, the wording belongs to the person who typed it.
+   */
+  const pickedKey = picked.join(",");
+  const editedRef = useRef(false);
+  useEffect(() => {
+    if (confirmSend === null || !loadDraft || editedRef.current) return;
+    let cancelled = false;
+    void loadDraft(confirmSend, picked)
+      .then((d) => { if (!cancelled) setDraft(d); })
+      .catch(() => { /* the open already reported a draft failure */ });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickedKey, confirmSend]);
 
   useEffect(() => setMounted(true), []);
   useEffect(() => { if (open) onOpen?.(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [open]);
@@ -700,7 +738,7 @@ export function ShareLinkCard({
                             <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", overflow: "hidden" }}>
                               <input
                                 value={draft.subject}
-                                onChange={(e) => setDraft({ ...draft, subject: e.target.value })}
+                                onChange={(e) => { editedRef.current = true; setDraft({ ...draft, subject: e.target.value }); }}
                                 aria-label="Subject"
                                 disabled={sending}
                                 style={{
@@ -711,7 +749,7 @@ export function ShareLinkCard({
                               />
                               <textarea
                                 value={draft.body}
-                                onChange={(e) => setDraft({ ...draft, body: e.target.value })}
+                                onChange={(e) => { editedRef.current = true; setDraft({ ...draft, body: e.target.value }); }}
                                 aria-label="Message"
                                 rows={13}
                                 disabled={sending}
@@ -740,7 +778,7 @@ export function ShareLinkCard({
                               <div style={{ border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", overflow: "hidden" }}>
                                 <input
                                   value={draft.followUp.subject}
-                                  onChange={(e) => setDraft({ ...draft, followUp: { ...draft.followUp!, subject: e.target.value } })}
+                                  onChange={(e) => { editedRef.current = true; setDraft({ ...draft, followUp: { ...draft.followUp!, subject: e.target.value } }); }}
                                   aria-label="PIN email subject"
                                   disabled={sending}
                                   style={{
@@ -751,7 +789,7 @@ export function ShareLinkCard({
                                 />
                                 <textarea
                                   value={draft.followUp.body}
-                                  onChange={(e) => setDraft({ ...draft, followUp: { ...draft.followUp!, body: e.target.value } })}
+                                  onChange={(e) => { editedRef.current = true; setDraft({ ...draft, followUp: { ...draft.followUp!, body: e.target.value } }); }}
                                   aria-label="PIN email message"
                                   rows={9}
                                   disabled={sending}
@@ -780,7 +818,7 @@ export function ShareLinkCard({
                       disabled={busy || sending || picked.length === 0 || (!!loadDraft && !draft && !draftError)}
                       className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", display: "inline-flex", alignItems: "center", gap: 7, opacity: busy || sending || picked.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
                       {(busy || sending) && <span className="spin-dot" aria-hidden />}
-                      {busy || sending ? "Sending…" : `Yes, ${sendLabel.charAt(0).toLowerCase()}${sendLabel.slice(1)}`}
+                      {busy || sending ? "Sending…" : `Yes, ${confirmLabel.charAt(0).toLowerCase()}${confirmLabel.slice(1)}`}
                     </button>
                     <button onClick={closeConfirm} disabled={sending} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px" }}>Cancel</button>
 

@@ -519,7 +519,7 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // all — the share route mails the additional recipients too, and an
         // address that only appears in the route is one nobody agreed to.
         recipients={recipientsOf(owner.email, owner.alsoEmail)}
-        recipientNames={owner.alsoNames}
+        recipientNames={owner.recipientNames}
         secondaryRecipients={owner.alsoEmail ?? []}
         sendLabel={`Email ${addressAs(owner.name, owner.detailedName)}`}
         pinOptional={false}
@@ -538,7 +538,7 @@ export function K1PortalCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         // The confirm reads the real message first — see `loadDraft`. Whatever
         // it holds when you confirm is what gets sent.
         canSendWithoutLink
-        loadDraft={() => k1.loadDraft(owner.id)}
+        loadDraft={(_id, only) => k1.loadDraft(owner.id, only)}
         // Send it yourself from Outlook instead — same message, your mailbox.
         onOpenInMail={(m) => openDraftInMail(m, owner.email ? [owner.email] : [], owner.alsoEmail ?? [])}
         onMarkSent={owner.link ? () => k1.markSent(owner.link!.id, recipientsOf(owner.email, owner.alsoEmail)) : undefined}
@@ -573,12 +573,12 @@ export function K1InvestorShare({ name, inv }: {
     link: K1Interest["link"];
     email: string | null;
     alsoEmail: string[];
-    alsoNames?: Record<string, string>;
+    recipientNames?: Record<string, string>;
     sendableFrom: K1Interest | null;
     interests: K1Interest[];
     send: (i: K1Interest, taxYear: number, send?: boolean, draft?: EmailDraft, opts?: SendOptions) => Promise<SendOutcome | void>;
     markSent?: (linkId: string, sentTo: string[]) => Promise<void>;
-    loadDraft: (i: K1Interest, taxYear: number) => Promise<EmailDraft>;
+    loadDraft: (i: K1Interest, taxYear: number, only?: string[]) => Promise<EmailDraft>;
     revoke: (linkId: string) => void;
     setEmail: (ownerId: string, email: string) => void;
   };
@@ -603,7 +603,7 @@ export function K1InvestorShare({ name, inv }: {
       busy={inv.busy}
       error={inv.error}
       recipients={recipientsOf(inv.email, inv.alsoEmail)}
-      recipientNames={inv.alsoNames}
+      recipientNames={inv.recipientNames}
       secondaryRecipients={inv.alsoEmail ?? []}
       sendLabel={`Email ${addressAs(name, target?.heldAs)}`}
       pinOptional={false}
@@ -622,7 +622,7 @@ export function K1InvestorShare({ name, inv }: {
       // card puts a confirm in front of that.
       onCreate={target && newest ? () => inv.send(target, newest.taxYear, false) : undefined}
       canSendWithoutLink={!!(target && newest)}
-      loadDraft={target && newest ? () => inv.loadDraft(target, newest.taxYear) : undefined}
+      loadDraft={target && newest ? (_id, only) => inv.loadDraft(target, newest.taxYear, only) : undefined}
       onOpenInMail={(m) => openDraftInMail(m, inv.email ? [inv.email] : [], inv.alsoEmail ?? [])}
       onMarkSent={inv.link && inv.markSent ? () => inv.markSent!(inv.link!.id, recipientsOf(inv.email, inv.alsoEmail)) : undefined}
       onSend={target && newest ? (_id, draft, opts) => inv.send(target, newest.taxYear, true, draft, opts) : undefined}

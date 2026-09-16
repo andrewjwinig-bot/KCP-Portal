@@ -28,6 +28,8 @@ const FIELD_LABEL: React.CSSProperties = { ...LABEL, fontSize: 10, marginBottom:
 export type ContactForm = {
   address: string;
   email: string;
+  /** Who the main address belongs to. Blank = the investor. */
+  emailName: string;
   alsoEmail: string[];
   /** Who each of those addresses belongs to, positionally — an accountant, a
    *  trustee. Optional: an address with no name still receives. */
@@ -40,6 +42,7 @@ function formOf(c: OwnerContact | undefined): ContactForm {
   return {
     address: c?.address ?? "",
     email: c?.email ?? "",
+    emailName: c?.emailName ?? "",
     alsoEmail: c?.alsoEmail?.length ? [...c.alsoEmail] : [],
     alsoName: (c?.alsoEmail ?? []).map((e) => c?.alsoNames?.[e.trim().toLowerCase()] ?? ""),
     phone: c?.phone ?? "",
@@ -84,7 +87,7 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
     const alsoNames: Record<string, string> = {};
     for (const r of rows) if (r.name) alsoNames[r.email.toLowerCase()] = r.name;
     return {
-      address: f.address, email: f.email, phone: f.phone, notes: f.notes,
+      address: f.address, email: f.email, emailName: f.emailName, phone: f.phone, notes: f.notes,
       alsoEmail: rows.map((r) => r.email),
       alsoNames,
     };
@@ -130,11 +133,21 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
       }}>
         <div style={LABEL}>Contact · {name}</div>
 
-        <label>
+        {/* The main address, and WHO it belongs to. Not always the investor:
+            plenty have only their accountant's or their trustee's address on
+            file, and that person is who the mail should greet. Blank means the
+            investor themselves, so an untouched record is unchanged. */}
+        <div>
           <span style={FIELD_LABEL}>Email</span>
-          <input type="email" placeholder="name@example.com" value={form.email}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} style={{ width: "100%" }} />
-        </label>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input placeholder={name} value={form.emailName}
+              onChange={(e) => setForm((f) => ({ ...f, emailName: e.target.value }))}
+              title={`Who this address belongs to. Leave blank for ${name}.`}
+              style={{ width: 160 }} />
+            <input type="email" placeholder="name@example.com" value={form.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} style={{ flex: 1 }} />
+          </div>
+        </div>
 
         {/* Anyone else who should get what this investor gets. Each of them can
             open the K-1 the link leads to, so they are listed one per row and
@@ -229,7 +242,16 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
   }
 
   const rows: { label: string; node: React.ReactNode }[] = [];
-  if (contact!.email) rows.push({ label: "Email", node: <a href={`mailto:${contact!.email}`} style={{ color: "var(--brand)" }}>{contact!.email}</a> });
+  if (contact!.email) rows.push({
+    label: "Email",
+    // Named only when it is NOT the investor — repeating their own name on
+    // their own row says nothing.
+    node: (
+      <a href={`mailto:${contact!.email}`} style={{ color: "var(--brand)" }}>
+        {contact!.emailName ? `${contact!.emailName} · ${contact!.email}` : contact!.email}
+      </a>
+    ),
+  });
   if (also.length) rows.push({
     label: also.length === 1 ? "Also to" : `Also to (${also.length})`,
     node: (

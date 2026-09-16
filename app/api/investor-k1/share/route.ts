@@ -17,9 +17,17 @@ import { linkOrigin } from "@/lib/linkOrigin";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
 import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit,
   applyK1PinEdit, PREVIEW_URL_PLACEHOLDER, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
-import { addressRecipients, reached, selectRecipients } from "@/lib/investors/recipients";
+import { addressRecipients, reached, selectRecipients, addressedAs } from "@/lib/investors/recipients";
 import { formatAddressList } from "@/lib/investors/mailAddress";
 import { partnershipName } from "@/lib/investors/partnershipName";
+
+/** The preview's `only` param, filtered through the same rule the send uses —
+ *  so a pick can narrow the preview and can never widen it either. */
+function selectRecipientList(primary: string | null, also: string[], onlyParam: string): string[] {
+  const only = onlyParam.split(",").map((a) => a.trim()).filter(Boolean);
+  const sel = selectRecipients(primary, also, only);
+  return reached(addressRecipients(sel.primary, sel.secondary, false));
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -253,7 +261,7 @@ async function shareOne(
     // was sent. The name is a label over the address — delivery never depends
     // on one being present, and `formatAddress` quotes it so a comma in a name
     // cannot split the joined header.
-    const names = resolved.alsoNames;
+    const names = resolved.recipientNames;
     const headers = () => ({
       to: formatAddressList(addressed.to, names),
       ...(addressed.cc.length ? { cc: formatAddressList(addressed.cc, names) } : {}),
@@ -267,9 +275,15 @@ async function shareOne(
     else {
       // Same composer the preview endpoint uses, then the staff edit folded in
       // — so what was read in the confirm is what leaves the building.
+      // Composed against WHO IS ACTUALLY BEING MAILED. Greeting the investor
+      // on a message that only reaches their accountant reads as misdirected,
+      // and "your 6 Schedule K-1s" to someone who holds none of them is the
+      // sentence that makes a recipient check whether the mail is real.
+      const addressedTo = addressedAs(owner.name, recipients, names);
       const canonical = composeK1ShareEmail({
         ownerName: owner.name, propertyName: propName(ownerProperty),
         documentCount: published.length, taxYear: published[0].taxYear, url,
+        ...addressedTo,
       });
       const { email: draftEmail, edited } = applyK1EmailEdit(canonical, draft, url);
       wasEdited = edited;
@@ -311,7 +325,8 @@ async function shareOne(
       // SAME list, because an additional recipient who can't open the document
       // is not an additional recipient.
       if (ok) {
-        const canonicalPin = composeK1PinEmail({ ownerName: owner.name, pin: link.pin ?? "" });
+        // Addressed identically to the link email — the two are a pair.
+        const canonicalPin = composeK1PinEmail({ ownerName: owner.name, pin: link.pin ?? "", ...addressedTo });
         // Editable in the confirm like the link email, and guarded the same
         // way: an edit that drops the PIN gets it appended back, because an
         // investor holding a link with no PIN cannot open the document.
@@ -490,15 +505,22 @@ export async function GET(req: NextRequest) {
   const overrides = await allOwnerEmails();
   const resolved = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email, await getContactOverrides());
   const recipients = [resolved.email ?? "", ...resolved.alsoEmail].filter(Boolean);
+  // The confirm posts the addresses it has ticked, so the preview composes
+  // against exactly the same set the send will. Without it, unticking the
+  // investor would leave the preview greeting them and the sent mail not —
+  // and the preview is the thing that was read.
+  const onlyParam = req.nextUrl.searchParams.get("only");
+  const picked = onlyParam === null
+    ? recipients
+    : selectRecipientList(resolved.email, resolved.alsoEmail, onlyParam);
+  const addressedTo = addressedAs(owner.name, picked, resolved.recipientNames);
 
   const email: K1ShareEmail = composeK1ShareEmail({
     ownerName: owner.name, propertyName: propName(propertyCode),
-    documentCount: mine.length, taxYear: mine[0].taxYear, url,
+    documentCount: mine.length, taxYear: mine[0].taxYear, url, ...addressedTo,
   });
-  // The second message the send delivers. Shown in the confirm but not
-  // editable: it is three lines and a number, and the number is the one thing
-  // an edit could get wrong.
-  const pinEmail = link?.pin ? composeK1PinEmail({ ownerName: owner.name, pin: link.pin }) : null;
+  // The second message the send delivers, addressed identically.
+  const pinEmail = link?.pin ? composeK1PinEmail({ ownerName: owner.name, pin: link.pin, ...addressedTo }) : null;
   const copyTo = shareCopyTo();
   // What this send makes readable, named. A send releases the whole person, so
   // the confirm has to say which partnerships that is — otherwise the widening
