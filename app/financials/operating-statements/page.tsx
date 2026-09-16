@@ -1663,9 +1663,6 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
   const [loading, setLoading] = useState(false);
   // When set, the GL list is isolated to one tenant/unit account.
   const [tenantFilter, setTenantFilter] = useState<string | null>(null);
-  // The by-tenant table has two readings: what was billed, and that billing
-  // checked against the rent roll. Only offered when suites actually resolved.
-  const [rentCheck, setRentCheck] = useState(false);
   const effScope: "month" | "ytd" | "annual" = tab === "gl" && scope === "annual" ? "ytd" : scope;
 
   useEffect(() => {
@@ -1677,7 +1674,6 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
   useEffect(() => {
     setLoading(true);
     setTenantFilter(null);
-    setRentCheck(false);
     if (tab === "gl") {
       const qs = new URLSearchParams({ key: viewKey, year: String(year), mask: line.mask, period: String(period), scope: effScope === "month" ? "month" : "ytd", sign: String(line.sign) });
       fetch(`/api/financials/operating-statements/transactions?${qs}`)
@@ -1701,9 +1697,17 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
   const budRows = (bud?.rows ?? []).filter((r) => Math.abs(budAmt(r)) >= 0.005);
   const budTotal = budRows.reduce((s, r) => s + budAmt(r), 0);
 
+  // Per-tenant/unit breakdown of the GL (non-zero).
+  const glGroups = (gl?.byTenant ?? []).filter((g) => Math.abs(g.amount) >= 0.005);
+  // A rent line's charges land on SUITES, and those are the lines worth
+  // checking against the rent roll — so that check IS the by-suite view here,
+  // no toggle. An expense line grouped by a payer has nothing to compare
+  // against, and keeps the plain billed breakdown with its click-to-isolate.
+  const showRentCheck = tab === "gl" && glGroups.filter((g) => g.unit).length >= 2;
+
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--card)", borderRadius: 12, maxWidth: (tab === "budget" && bud?.rentDetail && (effScope === "annual" ? 12 : period) > 7) || (tab === "gl" && rentCheck) ? 1240 : 820, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", maxHeight: "82vh" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--card)", borderRadius: 12, maxWidth: (tab === "budget" && bud?.rentDetail && (effScope === "annual" ? 12 : period) > 7) || showRentCheck ? 1240 : 820, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", maxHeight: "82vh" }}>
         <div style={{ padding: "16px 18px 0", borderBottom: "1px solid var(--border)" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div>
@@ -1738,12 +1742,14 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               if (txns.length === 0) return <div className="muted small" style={{ padding: 18 }}>No transactions for this line in {scopeWord}.</div>;
               // Per-tenant/unit breakdown (non-zero). Shown when the line spans
               // 2+ accounts (e.g. rental income) so each tenant can be isolated.
-              const groups = (gl.byTenant ?? []).filter((g) => Math.abs(g.amount) >= 0.005);
+              const groups = glGroups;
               const multi = groups.length >= 2;
-              // The rent-roll check only means something when the line's
-              // charges actually landed on suites — an expense line grouped by
-              // payer has nothing to compare against.
-              const canRentCheck = groups.filter((g) => g.unit).length >= 2;
+              // The billed breakdown only earns its space when it actually
+              // SUMMARISES. Rent posts one charge per suite a month, so on a
+              // rent line it reproduced the transaction list below it row for
+              // row. Shown only when some group holds more than one
+              // transaction — a repairs line across 40 vendors still gets it.
+              const summarizes = multi && txns.length > groups.length;
               const shown = tenantFilter ? txns.filter((t) => t.groupKey === tenantFilter) : txns;
               const glTotal = shown.reduce((s, t) => s + t.amount, 0);
               // Standout drivers — transactions that are a large share of the
@@ -1761,23 +1767,18 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               const activeTenantName = tenantFilter ? (groups.find((g) => g.groupKey === tenantFilter)?.tenant || tenantFilter) : null;
               return (
               <div>
-                {multi && (
+                {(showRentCheck || summarizes) && (
                   <div style={{ padding: "10px 10px 0" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
                       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
-                        {rentCheck ? "By suite — contract rent vs. what was billed" : "By tenant / unit — click to isolate"}
+                        {showRentCheck ? "By suite — contract rent vs. what was billed" : "By tenant / unit — click to isolate"}
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        {!rentCheck && tenantFilter && <button type="button" onClick={() => setTenantFilter(null)} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>Clear ✕</button>}
-                        {canRentCheck && (
-                          <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
-                            <button type="button" onClick={() => setRentCheck(false)} style={{ ...seg(!rentCheck), borderRadius: "6px 0 0 6px", padding: "3px 10px", fontSize: 12 }}>Billed</button>
-                            <button type="button" onClick={() => setRentCheck(true)} style={{ ...seg(rentCheck), borderLeft: "none", borderRadius: "0 6px 6px 0", padding: "3px 10px", fontSize: 12 }}>vs. rent roll</button>
-                          </div>
-                        )}
-                      </div>
+                      {summarizes && !showRentCheck && tenantFilter && <button type="button" onClick={() => setTenantFilter(null)} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>Clear ✕</button>}
                     </div>
-                    {rentCheck ? null : <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    {showRentCheck ? (
+                      <RentCheckTable viewKey={viewKey} property={property} year={year} period={period}
+                        scope={effScope === "month" ? "month" : "ytd"} mask={line.mask} sign={line.sign} monthLabel={monthLabel} />
+                    ) : <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead><tr><th style={th}>Suite</th><th style={th}>Tenant</th><th style={{ ...th, textAlign: "right" }}>Txns</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
                       <tbody>
                         {groups.map((g) => {
@@ -1793,10 +1794,6 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                         );})}
                       </tbody>
                     </table>}
-                    {rentCheck && (
-                      <RentCheckTable viewKey={viewKey} property={property} year={year} period={period}
-                        scope={effScope === "month" ? "month" : "ytd"} mask={line.mask} sign={line.sign} monthLabel={monthLabel} />
-                    )}
                     <div style={{ borderTop: "2px solid var(--border)", marginTop: 10 }} />
                   </div>
                 )}

@@ -154,6 +154,12 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
     const caveats: string[] = [];
     if (partial) caveats.push("Lease starts or ends inside this window — the real charge is prorated.");
     if (scope === "ytd" && expected > 0) caveats.push("Rent roll carries today's rate; a mid-year escalation isn't in it.");
+    // Vacant space should carry no rent. When it does, the usual cause is a
+    // lease signed since the rent roll was last imported — say so, because
+    // "unexpected" on its own reads like a posting error when it often isn't.
+    if (u.isVacant && billed > RENT_TOL) {
+      caveats.push("The rent roll shows this suite vacant but rent is posting — most often a new lease signed since the roll was last imported. Re-import the rent roll, or check the charge is on the right suite.");
+    }
 
     let status: RentCheckStatus;
     if (expected <= RENT_TOL && billed <= RENT_TOL) status = "idle";

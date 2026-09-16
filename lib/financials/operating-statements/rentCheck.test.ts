@@ -64,6 +64,9 @@ describe("rentCheck — billing variance, suite by suite", () => {
     const r = rowFor(res, "9510-412");
     expect(r.expected).toBe(0);
     expect(r.status).toBe("unexpected");
+    // The usual cause is a lease signed since the roll was imported, and the
+    // row says so — "unexpected" alone reads as a posting error.
+    expect(r.caveats.join(" ")).toMatch(/new lease signed since/i);
   });
 
   it("a vacant suite with nothing billed is idle, not a finding", () => {
