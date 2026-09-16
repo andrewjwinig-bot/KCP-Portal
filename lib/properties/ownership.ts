@@ -267,7 +267,7 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
     propertyCode: "5600",
     // Wholly owned by HKC, so it issues no K-1s of its own — a partnership
     // needs more than one partner. Its income flows into HKC's return, and
-    // HKC's twenty-four partners take their K-1s on the "HKC" roster below.
+    // HKC's twenty-four partners take their K-1s on the "HKCo" roster below.
     owners: [
       { id: "own-5600-hyma1", name: "Hyman Korman Co.", vendorCode: "HYMA1", ownerPct: 1.0 },
     ],
@@ -592,11 +592,14 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
     //
     // Not in PROPERTY_DEFS: like WHIT and 3600, it files the return and issues
     // the K-1s without being a building, so it names itself.
-    propertyCode: "HKC",
+    propertyCode: "HKCo",
     propertyName: "Hyman Korman Company",
     hasK1Distribution: true,
     // The same twenty-four rows every other HKC tier draws, from the one
     // definition — a second copy here is exactly how the two would drift.
+    // The id prefix stays `k1-hkc-` though the code reads HKCo: an id is an
+    // upload target and a Filing Tracker key, so renaming one orphans any
+    // document already attached to it. The code is a label; the id is not.
     // Sixteen people across twenty-four interests: several partners hold more
     // than one (Joan Sohn holds four), and each interest is its own K-1.
     owners: hymanKormanCoInvestors("k1-hkc"),
