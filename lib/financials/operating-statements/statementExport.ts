@@ -11,6 +11,7 @@ import type { PropertyStatement, StatementSection, StatementTotals, ExpectedMiss
 import { fullYearRows, type FullYearPayload } from "./fullYear";
 import { drawKormanLogo } from "@/lib/financials/exportBrand";
 import { newWorkbook, liveFormula, COLOR, FMT, PRINT_WIDE, repeatHeader, KORMAN_TEXT } from "@/lib/excel/theme";
+import { marksPeriodUnposted, marksYtdUnposted } from "./flagRules";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONEY_FMT = FMT.money;
@@ -248,13 +249,13 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
         ? `Already paid${ffMonth ? ` in ${ffMonth}` : ""} — the full-year budget (${money0s(ff.annualBudget)}) is booked year-to-date (${money0s(ff.ytdActual)}). A $0 this month is expected (e.g. taxes / insurance paid up front), not a shortfall.`
         : undefined;
       // Period actual — ⚠ if unposted, ✓ if a paid-up-front $0, else the figure.
-      if (em && Math.abs(row.t.periodActual) < 0.5) warnCell(gr.getCell(2), 2, emNote);
+      if (marksPeriodUnposted(em, row.t.periodActual, row.t.periodBudget)) warnCell(gr.getCell(2), 2, emNote);
       else if (ff && Math.abs(row.t.periodActual) < 0.5) paidCell(gr.getCell(2), 2, ffMonth ? `✓ paid ${ffMonth}` : "✓ paid", ffNote);
       else money(gr.getCell(2), row.t.periodActual, false, false, 2);
       money(gr.getCell(3), row.t.periodBudget, false, false, 3);
       pct(gr.getCell(4), row.t.periodVariance, row.t.periodBudget, false, 4);
       // YTD actual — ⚠ only when nothing is posted all year (budget-basis scope).
-      if (em && em.scope === "ytd" && Math.abs(row.t.ytdActual) < 0.5) warnCell(gr.getCell(5), 5, emNote);
+      if (marksYtdUnposted(em, row.t.ytdActual)) warnCell(gr.getCell(5), 5, emNote);
       else money(gr.getCell(5), row.t.ytdActual, false, false, 5);
       money(gr.getCell(6), row.t.ytdBudget, false, false, 6);
       pct(gr.getCell(7), row.t.ytdVariance, row.t.ytdBudget, false, 7);
@@ -541,9 +542,9 @@ export async function buildStatementPdf(s: PropertyStatement, meta: StatementMet
     const ff = row.kind === "line" ? row.ff : null;
     const warnCols = new Set<number>();
     const paidCols = new Set<number>();
-    if (em && Math.abs(row.t.periodActual) < 0.5) warnCols.add(0);
+    if (marksPeriodUnposted(em, row.t.periodActual, row.t.periodBudget)) warnCols.add(0);
     else if (ff && Math.abs(row.t.periodActual) < 0.5) paidCols.add(0);
-    if (em && em.scope === "ytd" && Math.abs(row.t.ytdActual) < 0.5) warnCols.add(3);
+    if (marksYtdUnposted(em, row.t.ytdActual)) warnCols.add(3);
     const centerText = (str: string, col: { x: number; w: number }, size: number, ff2: PDFFont, color: typeof AMBER) => {
       const w = ff2.widthOfTextAtSize(str, size);
       page.drawText(str, { x: col.x + (col.w - w) / 2, y: PAGE_H - (y + 9.5), size, font: ff2, color });

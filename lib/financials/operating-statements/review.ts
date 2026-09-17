@@ -148,7 +148,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     // Pass 1 (in-memory): which (line, month) trip a flag. The monthly series is
     // computed once per line; a flag at month M evaluates the series 1..M.
     type Hit = { period: number; flags: string[] };
-    const hitsByLine = new Map<string, { section: string; line: string; hits: Hit[] }>();
+    const hitsByLine = new Map<string, { section: string; line: string; hits: Hit[]; history: number[] }>();
     const flaggedPeriods = new Set<number>();
     for (const sec of statementMax.sections) {
       const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
@@ -162,10 +162,10 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
           const pySame = pyAmounts.length >= M ? pyAmounts[M - 1] : null;
           const base = trendFlags(series, [], series[M - 1] ?? null, pySame);
           // Same seasonal / lumpy adjustment as the per-property page + export.
-          const f = seasonalTrendFlags(sec.role, l, M, series[M - 1] ?? 0, base);
+          const f = seasonalTrendFlags(sec.role, l, M, series[M - 1] ?? 0, base, null, series);
           if (f.length) { hits.push({ period: M, flags: f }); flaggedPeriods.add(M); }
         }
-        if (hits.length) hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits });
+        if (hits.length) hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits, history: amounts });
       }
     }
 
@@ -199,7 +199,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     // Assemble, dropping dismissed (line, month) instances.
     const lines: ReviewLine[] = [];
     let flaggedMonthCount = 0;
-    for (const [lineKey, { section, line, hits }] of hitsByLine) {
+    for (const [lineKey, { section, line, hits, history }] of hitsByLine) {
       const months: ReviewMonth[] = [];
       for (const h of hits) {
         const pp = perPeriod.get(h.period);
@@ -208,7 +208,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
         // Same floor as the statement page. It is applied HERE rather than in
         // pass 1 because pass 1 deliberately never computes a month's budget —
         // that is what makes scanning every month of every property affordable.
-        if (!meetsFlagFloor(a?.variance ?? null)) continue;
+        if (!meetsFlagFloor(a?.variance ?? null, { label: line }, history)) continue;
         months.push({
           period: h.period, monthLabel: MONTHS[h.period - 1], flags: h.flags,
           actual: a?.actual ?? 0, budget: a?.budget ?? null, variance: a?.variance ?? null,

@@ -16,6 +16,8 @@ import { LastImported } from "@/app/components/LastImported";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import { AccountListCard } from "@/app/components/AccountListCard";
 import LoadingState from "@/app/components/LoadingState";
+import { marksPeriodUnposted, marksYtdUnposted } from "@/lib/financials/operating-statements/flagRules";
+import { driverIndexes } from "@/lib/financials/operating-statements/drivers";
 import { groupStatementOptions } from "@/lib/financials/operating-statements/propertyGroups";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type {
@@ -1400,17 +1402,17 @@ function RollupCard({ label, t, view, strong }: { label: string; t: StatementTot
 function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string; noBorder?: boolean; psf?: boolean; sqft?: number; varMode?: VarMode; flag?: Thresh; drill?: (tab: "gl" | "budget", scope: "month" | "ytd" | "annual") => void; expectedMissing?: { expected: number; basis: "budget" | "debt"; scope: "ytd" | "period" } | null; fullyFunded?: { ytdActual: number; annualBudget: number; paidPeriod?: number | null } | null } = {}) {
   const { bold, color, noBorder, psf = false, sqft = 0, varMode = "pct", flag, drill, expectedMissing, fullyFunded } = opts;
   // Amber highlight on an actual cell that reads ~$0 but has evidence it should
-  // carry a figure — i.e. nothing posted to the GL yet. A budget-based signal
-  // marks both actual columns (nothing posted all year); a debt signal marks the
-  // period (this month's scheduled P&I isn't posted).
+  // carry a figure — i.e. nothing posted to the GL yet. Which cell that is lives
+  // in flagRules (shared with the Excel + PDF exports, which each used to decide
+  // it themselves and each got it wrong the same way).
   const missTitle = expectedMissing
     ? expectedMissing.basis === "debt"
       ? `Debt service isn't posted — the Debt Tracker schedules ~${money0(expectedMissing.expected)}/mo P&I on this property. This $0 is unposted, not final.`
       : `Nothing posted year-to-date, but this line is budgeted ~${money0(expectedMissing.expected)}. Looks unposted — not a complete $0.`
     : undefined;
   const missStyle: React.CSSProperties = { background: "rgba(180,83,9,0.10)", color: "#b45309", textAlign: "center", fontSize: 18, lineHeight: 1 };
-  const missPeriod = !!expectedMissing && Math.abs(t.periodActual) < 0.5; // period-actual is ~0
-  const missYtd = !!expectedMissing && expectedMissing.scope === "ytd" && Math.abs(t.ytdActual) < 0.5;
+  const missPeriod = marksPeriodUnposted(expectedMissing, t.periodActual, t.periodBudget);
+  const missYtd = marksYtdUnposted(expectedMissing, t.ytdActual);
   const missIcon = <span aria-label="Not posted to the GL">⚠️</span>;
   // Green reassurance on a $0 month whose full-year budget is already booked YTD
   // (front-loaded taxes/insurance) — an expected $0, not a shortfall.
@@ -1783,18 +1785,11 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               const summarizes = multi && txns.length > groups.length;
               const shown = tenantFilter ? txns.filter((t) => t.groupKey === tenantFilter) : txns;
               const glTotal = shown.reduce((s, t) => s + t.amount, 0);
-              // Standout drivers — transactions that are a large share of the
-              // shown activity (≥ a third of the total absolute, or the single
-              // biggest when it's a meaningful slice). Highlighted so the items
-              // worth investigating jump out.
-              const totalAbs = shown.reduce((s, t) => s + Math.abs(t.amount), 0);
-              // A transaction "drives" the line when it's a large share of the
-              // shown activity — a third or more on its own, or (once there are
-              // several transactions) a fifth or more. Share-based, so two
-              // near-equal large items are flagged the same rather than singling
-              // out only the single biggest. Needs ≥2 transactions — a lone one
-              // is trivially 100% of the line, so flagging it tells you nothing.
-              const isDriver = (amt: number) => shown.length >= 2 && totalAbs > 0 && (Math.abs(amt) >= totalAbs / 3 || (shown.length >= 3 && Math.abs(amt) >= 0.2 * totalAbs));
+              // Standout drivers — the charge worth looking at. A driver has to
+              // be both a meaningful slice of the line AND materially bigger
+              // than the typical charge on it, so a recurring series (four
+              // near-identical monthly invoices) marks nothing. See drivers.ts.
+              const driverIdx = driverIndexes(shown.map((t) => t.amount));
               const activeTenantName = tenantFilter ? (groups.find((g) => g.groupKey === tenantFilter)?.tenant || tenantFilter) : null;
               return (
               <div>
@@ -1832,7 +1827,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                   <thead><tr><th style={th}>Date</th><th style={th}>Description</th>{multi && <th style={th}>Suite</th>}{multi && <th style={th}>Tenant</th>}<th style={th}>Ref</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
                   <tbody>
                     {shown.map((t, i) => {
-                      const driver = isDriver(t.amount);
+                      const driver = driverIdx.has(i);
                       return (
                       <tr key={i} style={driver ? { background: "rgba(180,83,9,0.10)" } : undefined}>
                         <td style={{ ...tdc, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{fmtTxDate(t.date)}</td>

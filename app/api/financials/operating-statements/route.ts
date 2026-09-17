@@ -184,7 +184,11 @@ export async function GET(req: Request) {
       // Seasonal / lumpy adjustment (snow, RET, capital) — shared with the Review.
       // The variance is the last word: a line on budget is not worth a "?",
       // however much it moved against its own recent months or last year.
-      const flags = seasonalTrendFlags(sec.role, l, period, l.periodActual, base, l.periodVariance);
+      // `amounts` is this line's month-by-month history at THIS property — it
+      // is what decides whether an ambiguous line (landscaping: a contract at
+      // some properties, a call-someone line at others) is held to the tight
+      // floor or the loose one.
+      const flags = seasonalTrendFlags(sec.role, l, period, l.periodActual, base, l.periodVariance, amounts);
       if (flags.length) l.flags = flags;
     }
   }
