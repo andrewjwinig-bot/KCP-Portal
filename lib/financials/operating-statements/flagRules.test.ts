@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { seasonalTrendFlags, meetsFlagFloor, flagFloorFor, postsRegularly, nothingPosted, FLAG_MIN_DOLLARS, LOOSE_FLAG_MIN_DOLLARS, marksPeriodUnposted, marksYtdUnposted, isDiscretionaryLine, isGroundsLine } from "./flagRules";
+import { seasonalTrendFlags, meetsFlagFloor, flagFloorFor, postsRegularly, nothingPosted, FLAG_MIN_DOLLARS, LOOSE_FLAG_MIN_DOLLARS, marksPeriodUnposted, marksYtdUnposted, isDiscretionaryLine, isGroundsLine, isCapitalLine } from "./flagRules";
 
 const line = (label: string, mask = "6500-*") => ({ label, mask });
 const MOVED = ["amount differs sharply from recent months"];
@@ -256,6 +256,29 @@ describe("grounds work is seasonal, the mirror of snow", () => {
     }
     for (const n of ["Electric", "Snow Removal", "Parking Lot Cleaning"]) {
       expect(isGroundsLine({ label: n })).toBe(false);
+    }
+  });
+});
+
+describe("a capital / tenant-improvement line", () => {
+  // The whole point: on these lines the note must not make the $0 budget the
+  // finding. TI is spent because a lease was signed; a budget set a year
+  // earlier could not have known which suites would lease.
+  it("recognises TI by its capital ACCOUNT, whatever the section is called", () => {
+    expect(isCapitalLine({ label: "Tenant Improvements", mask: "1440-*" })).toBe(true);
+    expect(isCapitalLine({ label: "Suite Fit-Out", mask: "*", accounts: ["1440-0000"] })).toBe(true);
+    expect(isCapitalLine({ label: "Building Improvements", mask: "1430-0000" })).toBe(true);
+  });
+
+  it("recognises it by name and by section role", () => {
+    expect(isCapitalLine({ label: "Tenant Improvement Allowance", mask: "6500-*" })).toBe(true);
+    expect(isCapitalLine({ label: "Leasing Commissions", mask: "6500-*" })).toBe(true);
+    expect(isCapitalLine({ label: "Roof Replacement", mask: "6500-*" }, "capital")).toBe(true);
+  });
+
+  it("leaves ordinary operating lines alone", () => {
+    for (const n of ["Electric", "Landscaping", "Parking Lot Maintenance", "Building Maintenance", "Snow Removal"]) {
+      expect(isCapitalLine({ label: n, mask: "6300-*" })).toBe(false);
     }
   });
 });
