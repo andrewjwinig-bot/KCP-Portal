@@ -7,7 +7,7 @@ import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { buildTenantLookup } from "@/lib/financials/operating-statements/tenants";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
-import { seasonalTrendFlags, FLAG_MIN_DOLLARS } from "@/lib/financials/operating-statements/flagRules";
+import { seasonalTrendFlags, isCapitalLine, FLAG_MIN_DOLLARS } from "@/lib/financials/operating-statements/flagRules";
 import { lineMonthly, lineTxnCounts } from "@/lib/financials/operating-statements/lineSeries";
 
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -170,6 +170,9 @@ export async function POST(req: Request) {
         budgetedFor: bd.map((b) => ({ label: b.label, ytd: r0(b.ytd) })),
         ...(tenants.length ? { tenants } : {}),
         accountsOnThisLine: accts,
+        // Deal-driven spend: the budget is not a commitment here, so the note
+        // must not make a $0 budget the finding. The KEY NAME carries the rule.
+        ...(isCapitalLine(l, sec.role) ? { budgetIsNotACommitment_thisIsCapitalOrTI: true } : {}),
         scope: ytdOnly ? "year-to-date" : "this month",
         transactionCountYtd: txs.length,
         // SEPARATE LISTS, deliberately — one merged list is how a July note
@@ -252,7 +255,8 @@ export async function POST(req: Request) {
     `6. No filler, no hedging, no restating the flag reason back.\n` +
     `7. SEASONALITY IS NOT A MISSING INVOICE. Grounds and landscaping post roughly April–November; nothing grows in January, so a $0 winter month is the expected state, not an unbilled contract. Snow is the mirror, Nov–Mar. Never read an off-season month as evidence that something is missing.\n` +
     `8. NEVER REPORT THAT A BUDGETED PROJECT HAS NOT HAPPENED. A budget is a plan, not a commitment — money set aside for a repaving or a big landscape job that was not needed is a good outcome, and "the budgeted project also has not happened" is speculation dressed as a finding. Report what DID post and what looks wrong with it.\n` +
-    `9. A CONTRACT THAT STOPPED INVOICING is one of the most valuable things you can catch — a monthly service with months missing. Judge it only over the months the line should actually post, and name the vendor to chase.\n\n` +
+    `10. A CAPITAL OR TENANT-IMPROVEMENT LINE'S BUDGET IS NOT A COMMITMENT, AND A $0 BUDGET IS NOT A FINDING. Where the line carries budgetIsNotACommitment_thisIsCapitalOrTI, the spend is deal-driven: TI is spent because a lease was signed, and a budget set a year earlier could not have known which suites would lease or what allowance they would carry. So NEVER make the zero or missing budget the point, and never tell them to tie the spend to lease allowances, secure funding, or get anything approved \u2014 they approved it when they signed the lease. Say what was spent and whether it is coded correctly; if it is, that is one short line and you stop.` +
+    `11. A CONTRACT THAT STOPPED INVOICING is one of the most valuable things you can catch — a monthly service with months missing. Judge it only over the months the line should actually post, and name the vendor to chase.\n\n` +
     `GOOD: "$21,750 to ABC Paving on 7/14 for lot resurfacing — that is a capital item, not maintenance. Capitalize and depreciate it; left here it overstates the CAM pool tenants are billed on."\n` +
     `GOOD: "Only one PECO payment posted this month vs two in prior months — a utility bill may be unposted. Confirm the second meter was paid."\n` +
     `GOOD: "Insurance is ~30% above the same month last year after the renewal. Verify the new premium and that it isn't double-booked with escrow."\n` +
@@ -264,6 +268,7 @@ export async function POST(req: Request) {
     `BAD (too long for what it says): "Thirteen About Time Snow invoices Jan–Mar, seven in March alone, against a season budgeted near $10.8K. Genuine heavy-winter overrun, but confirm the 3/12 $8,700 isn't a re-bill of the 2/16 $9,355, then set a realistic snow budget." — the answer is "it snowed a lot", the re-bill is a guess, and the budget advice is unasked-for. "Thirteen snow invoices Jan–Mar; a heavy winter, genuinely over." says it.\n` +
     `BAD (never, in a ${through} note): "March's $745.39 PECO charge is on the wrong GL." — a few hundred dollars in a month you are not looking at. Sending someone to ${through} for it wastes the trip.\n` +
     `BAD (never): "…and the Termite Proofing charges are miscoded here." — miscoded to WHERE, and why? Name the account or leave it out.\n` +
+    `BAD (a zero budget treated as the finding): "July's Exit Design $7,000 and J.W. Electrical $6,202/$3,694 are correctly on 1440-0000, but the whole year's TI spend sits against a zero budget. Tie it to the tenant allowances in the new leases and get the funding approved." \u2014 the first sentence is the whole note. TI is unbudgeted by nature and the funding was approved when the lease was signed. "July: Exit Design $7,000 and J.W. Electrical $6,202/$3,694, all correctly on 1440-0000." says it.` +
     `BAD (seasonality read as absence): "No grounds spend at all Jan–Apr … chase the landscaper for missing invoices. The budgeted big project also has not happened." — winter is why, and an unspent provision is not a finding. Only four landscaping invoices since April against a monthly contract, chase them for the missing months: that is the note.\n` +
     `GOOD (year-to-date scope): "Year to date: three unbudgeted tree removals (Feb, Apr, Jun) put the line 80% over. ${through} itself is on budget — raise next year's provision."\n\n` +
     `Amounts are dollars; a "favorable" variance is good (revenue over / expense under budget). ` +

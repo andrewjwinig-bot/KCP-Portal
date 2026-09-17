@@ -113,6 +113,34 @@ export function isSnowLine(l: LineLike): boolean {
   return /snow/i.test(l.label) || /6370/.test(l.mask) || (l.accounts?.some((a) => a.startsWith("6370")) ?? false);
 }
 
+/**
+ * A line whose spend is DEAL-DRIVEN, so its budget is not a commitment and a
+ * $0 budget is not a finding.
+ *
+ * Tenant improvements are the clearest case: TI is spent because a lease was
+ * signed, and a budget set a year earlier cannot have known which suites would
+ * lease or what allowance they would carry. So "the whole year's TI spend sits
+ * against a zero budget" describes how the business works, not an error — and
+ * "tie it to the tenant allowances in the new leases and get the funding
+ * approved" tells the owner to approve funding they already approved when they
+ * signed the lease.
+ *
+ * Capital accounts (14xx here) are the same shape as the `capital` section
+ * role, which has always been exempt from trend flags for exactly this reason
+ * ("lumpy and unplannable"). This catches the line wherever it sits, since a
+ * TI line does not always live in a section typed `capital`.
+ *
+ * It does NOT suppress the flag: naming what the capital spend WAS, and
+ * whether it landed on the right account, is the useful half of that note.
+ * It tells the note not to make the BUDGET the finding.
+ */
+export function isCapitalLine(l: LineLike, role?: SectionRole): boolean {
+  if (role === "capital") return true;
+  if (/(tenant\s*improvement|leasehold|leasing\s*commission|build[\s-]*out|capital)/i.test(l.label)) return true;
+  if (/\b14\d\d/.test(l.mask)) return true;
+  return l.accounts?.some((a) => /^14\d\d/.test(a)) ?? false;
+}
+
 export function isRetLine(l: LineLike): boolean {
   return /real\s*estate\s*tax/i.test(l.label) || /6410/.test(l.mask) || (l.accounts?.some((a) => a.startsWith("6410")) ?? false);
 }

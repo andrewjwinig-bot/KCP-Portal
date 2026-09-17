@@ -515,6 +515,21 @@ time — and the team does not have time to open the GL over $80.
     it contradicts the provision principle above: money set aside for work that
     was not needed is a good outcome. Report what DID post and what looks wrong
     with it.
+  - **A CAPITAL / TI LINE'S BUDGET IS NOT A COMMITMENT, AND A $0 BUDGET IS NOT
+    A FINDING** (`isCapitalLine` in `flagRules.ts` → the payload key
+    `budgetIsNotACommitment_thisIsCapitalOrTI`). Real note: *"July's Exit Design
+    $7,000 and J.W. Electrical $6,202/$3,694 are correctly on 1440-0000, but the
+    whole year's TI spend sits against a zero budget. Tie it to the tenant
+    allowances in the new leases and get the funding approved."* The first
+    sentence IS the note. TI is spent because a lease was signed, and a budget
+    set a year earlier cannot have known which suites would lease or what
+    allowance they would carry — so an unbudgeted TI line describes how the
+    business works, not an error, and telling the owner to "get the funding
+    approved" tells them to approve what they approved when they signed the
+    lease. This does NOT suppress the flag: naming the spend and confirming it
+    landed on the right account is the useful half. The line is caught by its
+    ACCOUNT (14xx) as well as its label and section role, because a TI line does
+    not always sit in a section typed `capital`.
   - **THE NOTE IS ABOUT THE MONTH IT SITS BESIDE.** Two separate lists go to
     the model — `thisMonthsCharges` (where the finding must come from) and
     `priorMonthsForContextOnly` (there only to say whether this month's amount
