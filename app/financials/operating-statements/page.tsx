@@ -12,6 +12,7 @@ import { useImport } from "@/app/components/import/ImportProvider";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { StatPill } from "@/app/components/Pill";
 import { RentCheckTable } from "./RentCheckTable";
+import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { LastImported } from "@/app/components/LastImported";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import { AccountListCard } from "@/app/components/AccountListCard";
@@ -1824,7 +1825,13 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
   // checking against the rent roll — so that check IS the by-suite view here,
   // no toggle. An expense line grouped by a payer has nothing to compare
   // against, and keeps the plain billed breakdown with its click-to-isolate.
-  const showRentCheck = tab === "gl" && glGroups.filter((g) => g.unit).length >= 2;
+  // The rent-roll check needs a rent-roll COLUMN to check against. Base rent,
+  // CAM, RE tax and Other each have one; electric reimbursement, condo fees and
+  // percentage rents do not — and before `basisForLine` existed every one of
+  // them was silently compared to BASE RENT. A line with no basis falls back to
+  // the per-tenant GL summary, which claims nothing it cannot support.
+  const rentCheckBasis = tab === "gl" ? basisForLine(line.label, line.mask) : null;
+  const showRentCheck = !!rentCheckBasis && glGroups.filter((g) => g.unit).length >= 2;
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
@@ -1903,14 +1910,14 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                   <div style={{ padding: "10px 10px 0" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
                       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
-                        {showRentCheck ? "By suite — contract rent vs. what was billed" : "By tenant / unit — click to isolate"}
+                        {showRentCheck ? "By suite — the rent roll vs. what was billed" : "By tenant / unit — click to isolate"}
                       </div>
                       {summarizes && !showRentCheck && tenantFilter && <button type="button" onClick={() => setTenantFilter(null)} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>Clear ✕</button>}
                     </div>
                     {showRentCheck ? (
                       <RentCheckTable viewKey={viewKey} property={property} year={year} period={period}
                         scope={effScope === "month" ? "month" : "ytd"} mask={line.mask} sign={line.sign} monthLabel={monthLabel}
-                        refByUnit={refByUnit} />
+                        label={line.label} refByUnit={refByUnit} />
                     ) : <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead><tr><th style={th}>Suite</th><th style={th}>Tenant</th><th style={{ ...th, textAlign: "right" }}>Txns</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
                       <tbody>

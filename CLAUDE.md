@@ -622,6 +622,33 @@ time — and the team does not have time to open the GL over $80.
   budgeted nothing — Parking Lot Maintenance read `⚠ | 0` for July. **A month
   that budgeted nothing cannot be missing anything.** A DEBT finding is
   per-month by nature and still marks the month.
+- **THE RENT-ROLL CHECK MUST NAME WHICH RENT-ROLL COLUMN IT IS CHECKING**
+  (`basisForLine` / `RentCheckBasis` in `rentCheck.ts`). The Skyline rent roll
+  bills FOUR things per suite, in four columns — **BASE RENT**, **OPERATING
+  EXPENSE** (CAM), **REAL ESTATE TAX** and **OTHER EXPENSE** — and the statement
+  has a reimbursement line for each. Every line was being checked against BASE
+  RENT. 4500's July Common Area is the worked example: the GL billed $30,030 of
+  CAM, the rent roll's OPERATING EXPENSE column says **$30,030 exactly**, and
+  the table reported a **$109,301 "billing variance"** plus three NOT BILLED
+  pills — because it had compared against $139,331 of base rent. A month that
+  ties to the dollar read as the worst billing failure in the portfolio.
+  - The map: `4230` → base, `4910`/`4901` → cam, `4920` → ret, `4930`
+    (Insurance) → other. **The LABEL is read before the mask**, because the
+    masks overlap — Electric is `4710-*,4910-8503` and 4910 is the CAM family.
+    `4910-8503` is the ELECTRIC sub-account and is excluded from CAM explicitly;
+    the CAM sub-accounts in use are `-0000`, `-8501`, `-8502`, `-8506`.
+  - **NULL IS THE IMPORTANT ANSWER.** Electric reimbursement, condo fees,
+    percentage rents and the 8502 service-centre lines are billed per suite and
+    NONE of them is a rent-roll column, so there is nothing to reconcile
+    against. Those lines now show the per-tenant GL summary instead of a table
+    asserting a variance it cannot support — which is what they did before,
+    against base rent.
+  - **The rent roll has NO INSURANCE COLUMN**, so an insurance line is checked
+    against OTHER EXPENSE, Skyline's catch-all. That is a real approximation
+    and the footnote says so; do not present its difference as a billing error.
+  - The column, the KPI tile and the hover all carry `BASIS_LABEL` ("Rent roll
+    · CAM"), because a table that does not say which column it compared is how
+    this went unnoticed.
 - **A LINE-DETAIL MODAL SHOWS THE SUITE TABLE OR THE TRANSACTION LIST, NOT
   BOTH.** On a rent or CAM line the two ARE the same data: rent posts one
   charge per suite a month, so the raw GL list under the suite table repeated

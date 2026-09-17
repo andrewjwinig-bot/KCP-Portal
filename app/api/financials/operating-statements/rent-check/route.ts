@@ -3,7 +3,7 @@ import { getGl, getTransactions, assembledTransactions } from "@/lib/financials/
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { buildTenantDirectory, canonicalUnitRef } from "@/lib/financials/operating-statements/tenants";
 import { identifyTx } from "@/lib/financials/operating-statements/txUnits";
-import { rentCheck, type RentCheckUnit } from "@/lib/financials/operating-statements/rentCheck";
+import { rentCheck, basisForLine, type RentCheckUnit, type RentCheckBasis } from "@/lib/financials/operating-statements/rentCheck";
 import { getJSON } from "@/lib/storage";
 import { allRuns } from "@/lib/statements/store";
 import { summarize } from "@/lib/statements/summary";
@@ -28,6 +28,15 @@ export async function GET(req: Request) {
   const scope = url.searchParams.get("scope") === "month" ? "month" : "ytd";
   const sign = url.searchParams.get("sign") === "-1" ? -1 : 1;
   const versionId = url.searchParams.get("version");
+  // WHICH rent-roll column to expect. Sent by the caller, but resolved here
+  // from the line's own label + mask when it isn't, so the answer cannot
+  // differ between the page and the API.
+  const label = url.searchParams.get("label") ?? "";
+  const sent = url.searchParams.get("basis");
+  const basis: RentCheckBasis =
+    (sent === "cam" || sent === "ret" || sent === "other" || sent === "base")
+      ? sent
+      : (basisForLine(label, mask ?? "") ?? "base");
 
   if (!key || !year || !mask) {
     return NextResponse.json({ error: "key, year and mask are required" }, { status: 400 });
@@ -84,6 +93,9 @@ export async function GET(req: Request) {
         isVacant: u.isVacant,
         sqft: u.sqft || null,
         baseRent: u.baseRent || 0,
+        opexMonth: u.opexMonth || 0,
+        reTaxMonth: u.reTaxMonth || 0,
+        otherMonth: u.otherMonth || 0,
         leaseFrom: u.leaseFrom,
         leaseTo: u.leaseTo,
       });
@@ -110,6 +122,6 @@ export async function GET(req: Request) {
     break;
   }
 
-  const result = rentCheck({ year, period, scope, units, billedByUnit, arByUnit, unplacedBilled });
-  return NextResponse.json({ ...result, arPeriod, arAsOf, properties: [...codes].sort() });
+  const result = rentCheck({ year, period, scope, units, billedByUnit, arByUnit, unplacedBilled, basis });
+  return NextResponse.json({ ...result, basis, arPeriod, arAsOf, properties: [...codes].sort() });
 }

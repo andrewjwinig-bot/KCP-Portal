@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { Pill, StatPill, rentCheckTone } from "@/app/components/Pill";
+import { BASIS_LABEL, BASIS_SOURCE, type RentCheckBasis } from "@/lib/financials/operating-statements/rentCheck";
 import { HoverCard } from "@/app/components/HoverCard";
 
 type Row = {
@@ -31,6 +32,7 @@ type Result = {
   arPeriod: string | null;
   arAsOf: string | null;
   noRentRoll?: boolean;
+  basis?: RentCheckBasis;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -55,9 +57,11 @@ const money0 = (v: number): string => {
   return v < 0 ? `(${s})` : s;
 };
 
-export function RentCheckTable({ viewKey, property, year, period, scope, mask, sign, version, monthLabel, refByUnit }: {
+export function RentCheckTable({ viewKey, property, year, period, scope, mask, sign, version, monthLabel, label, refByUnit }: {
   viewKey: string; property: string; year: number; period: number;
   scope: "month" | "ytd"; mask: string; sign: 1 | -1; version?: string | null; monthLabel: string;
+  /** The statement line's label — the API resolves the rent-roll column from it. */
+  label?: string;
   /**
    * The GL reference for each suite's charge, when there is exactly one.
    *
@@ -75,10 +79,11 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
   useEffect(() => {
     setLoading(true);
     const qs = new URLSearchParams({ key: viewKey, property, year: String(year), mask, period: String(period), scope, sign: String(sign) });
+    if (label) qs.set("label", label);
     if (version) qs.set("version", version);
     fetch(`/api/financials/operating-statements/rent-check?${qs}`)
       .then((r) => r.json()).then(setData).catch(() => setData(null)).finally(() => setLoading(false));
-  }, [viewKey, property, year, period, scope, mask, sign, version]);
+  }, [viewKey, property, year, period, scope, mask, sign, version, label]);
 
   const th: React.CSSProperties = { textAlign: "left", fontSize: 11, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px", position: "sticky", top: 0, background: "var(--card)" };
   const thR: React.CSSProperties = { ...th, textAlign: "right" };
@@ -99,11 +104,15 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
   const window = scope === "month" ? monthLabel : `YTD through ${monthLabel}`;
   const hasAr = t.openAr !== null;
   const hasRef = !!refByUnit && shown.some((r) => refByUnit[r.unitRef]);
+  // The column NAMES its source. A CAM line checked against base rent read a
+  // six-figure "billing variance" on a month that ties to the dollar, and
+  // nothing on the table said which column it had compared.
+  const basis: RentCheckBasis = data.basis ?? "base";
 
   return (
     <div style={{ paddingBottom: 14 }}>
       <div className="pills" style={{ marginBottom: 12 }}>
-        <StatPill label={`Rent roll · ${window}`} value={money0(t.expected)} />
+        <StatPill label={`${BASIS_LABEL[basis]} · ${window}`} value={money0(t.expected)} />
         <StatPill label="General ledger" value={money0(t.billed)} />
         <StatPill label="Billing variance" value={money0(t.variance)} accent={Math.abs(t.variance) > 1 ? "#b91c1c" : "#15803d"} />
         {hasAr && <StatPill label="Open A/R · statement" value={money0(t.openAr!)} />}
@@ -125,7 +134,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
             <th style={th}>Tenant</th>
             {hasRef && <th style={th}>Ref</th>}
             <th style={thR}>SF</th>
-            <th style={thR}>Rent roll</th>
+            <th style={thR}>{BASIS_LABEL[basis]}</th>
             <th style={thR}>GL</th>
             {hasAr && <th style={thR}>Open A/R</th>}
             <th style={th} />
@@ -154,7 +163,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
                   <HoverCard
                     title={`${r.unitRef}${r.tenant ? ` · ${r.tenant}` : ""}`}
                     rows={[
-                      { label: `Rent roll · ${window}`, value: money0(r.expected) },
+                      { label: `${BASIS_LABEL[basis]} · ${window}`, value: money0(r.expected) },
                       { label: "Billed to the GL", value: money0(r.billed) },
                       { label: "Difference", value: money0(r.variance), color: r.variance < -1 ? "#b91c1c" : undefined },
                       { label: "Months of the window leased", value: `${r.monthsCovered} of ${r.monthsInScope}` },
@@ -183,7 +192,8 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
       )}
 
       <div className="muted small" style={{ marginTop: 12, lineHeight: 1.5 }}>
-        <strong>Rent roll:</strong> contract base rent for the suite. <strong>GL:</strong> what was charged against it in the general ledger (a charge posts whether or not the cheque arrives).
+        <strong>{BASIS_LABEL[basis]}:</strong> {BASIS_SOURCE[basis]}. <strong>GL:</strong> what was charged against it in the general ledger (a charge posts whether or not the cheque arrives).
+        {basis === "other" ? " The rent roll has no insurance column, so this is OTHER EXPENSE — Skyline's catch-all, which may carry more than insurance." : ""}
         {hasAr
           ? <> <strong>Open A/R:</strong> open charges only{data.arPeriod ? `, from the ${data.arPeriod} Skyline statement import` : ""}.</>
           : <> Import a Skyline statement on Monthly Statements to see open A/R beside it.</>}
