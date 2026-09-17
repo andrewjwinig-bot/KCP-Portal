@@ -603,7 +603,17 @@ export default function OperatingStatementsPage() {
         const now = new Date().toISOString();
         setNoteMeta((m) => { const next = { ...m }; for (const k of aiKeys) next[k] = { editedAt: now, editedBy: "Auto-explain" }; return next; });
       }
-      setAnalyzeMsg(j.analyzed ? `Explained ${Object.keys(j.notes ?? {}).length} of ${j.analyzed} flagged lines.` : (j.message ?? "Nothing to analyze."));
+      // Lines it reviewed and found nothing to do on lose their "?" — say so,
+      // or the count reads as a failure ("explained 3 of 7") when the other
+      // four were simply fine.
+      const cleared: string[] = Array.isArray(j.cleared) ? j.cleared : [];
+      if (cleared.length) setDismissedFlags((s2) => { const n = new Set(s2); for (const k of cleared) n.add(k); return n; });
+      const wrote = Object.keys(j.notes ?? {}).length;
+      setAnalyzeMsg(
+        j.analyzed
+          ? `Explained ${wrote} of ${j.analyzed} flagged lines${cleared.length ? ` · ${cleared.length} had nothing to investigate` : ""}.`
+          : (j.message ?? "Nothing to analyze."),
+      );
     } catch {
       setAnalyzeMsg("Analysis failed.");
     } finally {
