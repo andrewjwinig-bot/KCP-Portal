@@ -5,10 +5,11 @@
 // The GL's rental income line is what was BILLED, not what was collected: a
 // charge posts whether or not the cheque arrives. So this reconciles BILLING —
 // a lease that was never keyed, a suite still billed at last year's rate, a
-// vacated tenant still being charged. Whether the money came IN is the open
-// A/R question, which the Skyline statement import answers; `openAr` carries
-// it alongside so both halves read on one row, but the variance column is a
-// billing variance and is labelled as one.
+// vacated tenant still being charged. Whether the money came IN is a different
+// question and it is NOT answered here: open A/R is a tenant's whole account
+// balance, every charge type, unaged — so beside one line's figures it could
+// only mislead (on a CAM line it put $13,226 of balance next to $723 of CAM).
+// Collections lives on Monthly Statements, which ages it and splits it.
 //
 // THE RENT ROLL IS A POINT-IN-TIME SNAPSHOT carrying today's rate. A single
 // month compares exactly; a YTD window cannot know a rate that changed inside
@@ -60,9 +61,6 @@ export type RentCheckRow = {
   billed: number;
   /** billed − expected. Negative means under-billed. */
   variance: number;
-  /** Open A/R from the latest statement import, when one covers this suite. */
-  openAr: number | null;
-  pastDue: number | null;
   status: RentCheckStatus;
   /** Why the expectation may not be exact. Empty means it is. */
   caveats: string[];
@@ -77,8 +75,6 @@ export type RentCheckResult = {
     expected: number;
     billed: number;
     variance: number;
-    openAr: number | null;
-    pastDue: number | null;
   };
   /** Rental income that could not be placed on a suite at all (a payer-named
    *  charge, a posting with no unit ref). Reported rather than hidden, because
@@ -189,8 +185,6 @@ export type RentCheckInput = {
   units: RentCheckUnit[];
   /** Canonical unit ref → rental income posted in the window. */
   billedByUnit: Record<string, number>;
-  /** Canonical unit ref → open A/R from the latest statement import. */
-  arByUnit?: Record<string, { totalDue: number; pastDue: number }>;
   /** Billed rental income that resolved to no suite. */
   unplacedBilled?: number;
   /** Which rent-roll column to expect. Defaults to base rent. */
@@ -203,7 +197,7 @@ const STATUS_RANK: Record<RentCheckStatus, number> = {
 };
 
 export function rentCheck(input: RentCheckInput): RentCheckResult {
-  const { year, scope, units, billedByUnit, arByUnit } = input;
+  const { year, scope, units, billedByUnit } = input;
   const basis = input.basis ?? "base";
   const period = Math.min(12, Math.max(1, input.period));
   const months = scope === "month" ? [period] : Array.from({ length: period }, (_, i) => i + 1);
@@ -228,7 +222,6 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
     seen.add(key);
     const billed = round(billedByUnit[key] ?? 0);
     const variance = round(billed - expected);
-    const ar = arByUnit?.[key] ?? null;
 
     const caveats: string[] = [];
     if (partial) caveats.push("Lease starts or ends inside this window — the real charge is prorated.");
@@ -251,8 +244,6 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
     return {
       unitRef: u.unitRef, suite: suiteOf(u.unitRef), tenant: u.tenant, sqft: u.sqft,
       expected, billed, variance,
-      openAr: ar ? round(ar.totalDue) : null,
-      pastDue: ar ? round(ar.pastDue) : null,
       status, caveats, monthsCovered: covered, monthsInScope: months.length,
     };
   });
@@ -262,12 +253,9 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
   // billed column still ties to the GL line.
   for (const [key, amt] of Object.entries(billedByUnit)) {
     if (seen.has(key) || Math.abs(amt) <= RENT_TOL) continue;
-    const ar = arByUnit?.[key] ?? null;
     rows.push({
       unitRef: key, suite: suiteOf(key), tenant: null, sqft: null,
       expected: 0, billed: round(amt), variance: round(amt),
-      openAr: ar ? round(ar.totalDue) : null,
-      pastDue: ar ? round(ar.pastDue) : null,
       status: "unexpected",
       caveats: ["This suite isn't on the current rent roll — a prior tenant, or a unit not yet imported."],
       monthsCovered: 0, monthsInScope: months.length,
@@ -282,7 +270,6 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
   const counts = Object.fromEntries(Object.keys(STATUS_RANK).map((k) => [k, 0])) as Record<RentCheckStatus, number>;
   for (const r of rows) counts[r.status] += 1;
 
-  const hasAr = !!arByUnit;
   const sum = (pick: (r: RentCheckRow) => number) => round(rows.reduce((s, r) => s + pick(r), 0));
   return {
     rows,
@@ -290,8 +277,6 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
       expected: sum((r) => r.expected),
       billed: sum((r) => r.billed),
       variance: sum((r) => r.variance),
-      openAr: hasAr ? sum((r) => r.openAr ?? 0) : null,
-      pastDue: hasAr ? sum((r) => r.pastDue ?? 0) : null,
     },
     unplacedBilled: round(input.unplacedBilled ?? 0),
     counts,

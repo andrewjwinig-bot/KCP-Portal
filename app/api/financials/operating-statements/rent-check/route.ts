@@ -5,8 +5,6 @@ import { buildTenantDirectory, canonicalUnitRef } from "@/lib/financials/operati
 import { identifyTx } from "@/lib/financials/operating-statements/txUnits";
 import { rentCheck, basisForLine, type RentCheckUnit, type RentCheckBasis } from "@/lib/financials/operating-statements/rentCheck";
 import { getJSON } from "@/lib/storage";
-import { allRuns } from "@/lib/statements/store";
-import { summarize } from "@/lib/statements/summary";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 
 export const runtime = "nodejs";
@@ -102,26 +100,11 @@ export async function GET(req: Request) {
     }
   }
 
-  // Open A/R from the newest statement import that covers any suite in scope.
-  // Newest-first so a stale month can't mask a paid-down balance; null when no
-  // import covers these suites, which the engine reports as "not loaded"
-  // rather than as "nothing owed".
-  let arByUnit: Record<string, { totalDue: number; pastDue: number }> | undefined;
-  let arPeriod: string | null = null;
-  let arAsOf: string | null = null;
-  for (const run of await allRuns()) {
-    const hits = run.statements.filter((s) => codes.has(canonicalUnitRef(s.unitRef).split("-")[0]));
-    if (!hits.length) continue;
-    arByUnit = {};
-    for (const s of hits) {
-      const sum = summarize(s, run.period);
-      arByUnit[canonicalUnitRef(s.unitRef)] = { totalDue: sum.totalDue, pastDue: sum.pastDueAmount };
-    }
-    arPeriod = run.period;
-    arAsOf = hits.map((s) => s.importedAt).filter(Boolean).sort().pop() ?? null;
-    break;
-  }
-
-  const result = rentCheck({ year, period, scope, units, billedByUnit, arByUnit, unplacedBilled, basis });
-  return NextResponse.json({ ...result, basis, arPeriod, arAsOf, properties: [...codes].sort() });
+  // Open A/R is deliberately NOT read here. It is a tenant's whole account
+  // balance, every charge type and unaged, so beside one line's figures it can
+  // only mislead. Collections lives on Monthly Statements, which ages it and
+  // splits it by charge. Dropping it also drops a scan of every statement
+  // import from every open of this modal.
+  const result = rentCheck({ year, period, scope, units, billedByUnit, unplacedBilled, basis });
+  return NextResponse.json({ ...result, basis, properties: [...codes].sort() });
 }

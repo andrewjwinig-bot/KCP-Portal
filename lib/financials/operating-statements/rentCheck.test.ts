@@ -137,18 +137,6 @@ describe("rentCheck — billing variance, suite by suite", () => {
     expect(res.totals.billed).toBe(6200);
   });
 
-  it("carries open A/R through, and reports it as absent rather than zero when no import covers it", () => {
-    const withAr = rentCheck({
-      ...base, units: [unit({ unitRef: "9510-406" })], billedByUnit: { "9510-406": 5000 },
-      arByUnit: { "9510-406": { totalDue: 1250.5, pastDue: 1250.5 } },
-    });
-    expect(rowFor(withAr, "9510-406").openAr).toBe(1250.5);
-    expect(withAr.totals.pastDue).toBe(1250.5);
-
-    const noAr = rentCheck({ ...base, units: [unit({ unitRef: "9510-406" })], billedByUnit: { "9510-406": 5000 } });
-    expect(rowFor(noAr, "9510-406").openAr).toBeNull();
-    expect(noAr.totals.openAr).toBeNull(); // null = not loaded, NOT "nothing owed"
-  });
 
   it("reports rental income it could not place on any suite", () => {
     const res = rentCheck({ ...base, units: [unit({ unitRef: "9510-406" })], billedByUnit: { "9510-406": 5000 }, unplacedBilled: 840 });
