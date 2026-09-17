@@ -468,8 +468,18 @@ time — and the team does not have time to open the GL over $80.
     into the line (`accountsOnThisLine`). A coding call cannot be made without
     knowing where the charge currently sits — that was missing, and it is why
     notes could only ever say "there is a charge".
-  - **This month's transactions come first**, then the largest YTD ones for
-    context. The note is about this month.
+  - **THE NOTE IS ABOUT THE MONTH IT SITS BESIDE.** Two separate lists go to
+    the model — `thisMonthsCharges` (where the finding must come from) and
+    `priorMonthsForContextOnly` (there only to say whether this month's amount
+    is normal, never reportable as the finding). Handing it one merged list is
+    how a July note ended up about March's electricity bill, and sending
+    someone to look at July for a March charge wastes the trip.
+  - **`cls` reads THIS MONTH first, then YTD** — it used to read YTD first, so a
+    line surfaced on a year-to-date variance and the note described whatever
+    charge was biggest across the year. When only the YEAR is off (`scope:
+    "year-to-date"`, this month on budget), the note must OPEN with "Year to
+    date:" so it reads as a different kind of statement rather than as this
+    month's news.
   - **It runs on Opus**, because the job is a judgement (is this capital? is it
     on the right account?) rather than a summary. Affordable only because the
     variance floor keeps the flagged set small — do not widen the set without
