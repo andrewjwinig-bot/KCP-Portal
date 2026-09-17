@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import * as XLSX from "xlsx";
+import { describe, it, expect, beforeAll } from "vitest";
+import ExcelJS from "exceljs";
 import { buildTableXlsx, sheetName, type TableSpec } from "./tableXlsx";
 
 const spec: TableSpec = {
@@ -18,72 +18,102 @@ const spec: TableSpec = {
   notes: ["Counted: Management Salaries, Leasing Salaries."],
 };
 
-const sheetOf = (buf: ArrayBuffer) => {
-  const wb = XLSX.read(buf, { type: "array" });
-  return wb.Sheets[wb.SheetNames[0]];
+// Read the workbook back the way Excel would, so the assertions are about the
+// FILE rather than about the builder's own bookkeeping.
+async function sheetOf(buf: ArrayBuffer): Promise<ExcelJS.Worksheet> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  return wb.worksheets[0];
+}
+const val = (ws: ExcelJS.Worksheet, addr: string) => ws.getCell(addr).value;
+/** A formula cell's expression, or undefined when the cell holds a plain value. */
+const formula = (ws: ExcelJS.Worksheet, addr: string) => {
+  const v = ws.getCell(addr).value as { formula?: string } | null;
+  return v && typeof v === "object" && "formula" in v ? v.formula : undefined;
+};
+/** A cell's number, whether it is static or the cached result of a formula.
+ *  A formula whose cached result ExcelJS dropped reads as undefined. */
+const num = (ws: ExcelJS.Worksheet, addr: string) => {
+  const v = ws.getCell(addr).value as { formula?: string; result?: number } | number | null;
+  if (v !== null && typeof v === "object") return "formula" in v ? v.result : undefined;
+  return v;
 };
 
+// The letterhead is three rows, so the header lands on 4 and the body on 5.
+const HEADER = 4, FIRST = 5, LAST = 6, TOTAL = 7;
+
 describe("the assistant's table as a workbook", () => {
-  const ws = sheetOf(buildTableXlsx(spec));
+  let ws: ExcelJS.Worksheet;
+  beforeAll(async () => { ws = await sheetOf(await buildTableXlsx(spec)); });
 
   it("leads with the title and the basis, because it leaves the building", () => {
-    expect(ws["A1"].v).toBe(spec.title);
-    expect(ws["A2"].v).toBe(spec.subtitle);
+    expect(val(ws, "A2")).toBe(spec.title);
+    expect(String(val(ws, "A3"))).toContain(spec.subtitle!);
   });
 
   it("writes the header and rows where the reader expects them", () => {
-    expect(["A4", "B4", "C4", "D4"].map((a) => ws[a].v)).toEqual(["Property", "2025 Salaries", "2025 NOI", "2025 % of NOI"]);
-    expect(ws["A5"].v).toBe("2300 Brookwood");
-    expect(ws["B6"].v).toBe(90_000);
+    expect(["A", "B", "C", "D"].map((c) => val(ws, `${c}${HEADER}`)))
+      .toEqual(["Property", "2025 Salaries", "2025 NOI", "2025 % of NOI"]);
+    expect(val(ws, `A${FIRST}`)).toBe("2300 Brookwood");
+    expect(val(ws, `B${LAST}`)).toBe(90_000);
   });
 
   it("totals money columns as live formulas with cached values", () => {
-    expect(ws["A7"].v).toBe("Total · 2 rows");
-    expect(ws["B7"].f).toBe("SUM(B5:B6)");
-    expect(ws["B7"].v).toBe(115_000);
-    expect(ws["C7"].f).toBe("SUM(C5:C6)");
-    expect(ws["C7"].v).toBe(850_000);
+    expect(val(ws, `A${TOTAL}`)).toBe("Total · 2 rows");
+    expect(formula(ws, `B${TOTAL}`)).toBe(`SUM(B${FIRST}:B${LAST})`);
+    expect(num(ws, `B${TOTAL}`)).toBe(115_000);
+    expect(formula(ws, `C${TOTAL}`)).toBe(`SUM(C${FIRST}:C${LAST})`);
+    expect(num(ws, `C${TOTAL}`)).toBe(850_000);
   });
 
   it("RECOMPUTES a ratio total instead of summing the percentage column", () => {
     // 10% + 15% is 25%, which is not the portfolio's ratio. 115k ÷ 850k is.
-    expect(ws["D7"].f).toBe('IFERROR(B7/C7*100,"")');
-    expect(ws["D7"].v).toBeCloseTo(13.53, 2);
-    expect(ws["D7"].v).not.toBe(25);
+    expect(formula(ws, `D${TOTAL}`)).toBe(`IFERROR(B${TOTAL}/C${TOTAL}*100,"")`);
+    expect(num(ws, `D${TOTAL}`)).toBeCloseTo(13.53, 2);
+    expect(num(ws, `D${TOTAL}`)).not.toBe(25);
   });
 
-  it("guards the ratio against a zero denominator", () => {
+  it("guards the ratio against a zero denominator", async () => {
     // A portfolio at break-even is a real shape; #DIV/0! in a sent workbook
     // reads as a broken file rather than as "not meaningful".
-    const zero = sheetOf(buildTableXlsx({ ...spec, rows: [{ property: "X", salaries: 10, noi: 0, pct: null }] }));
-    expect(zero["D6"].f).toContain("IFERROR");
-    expect(zero["D6"].v).toBe(0);
+    const zero = await sheetOf(await buildTableXlsx({ ...spec, rows: [{ property: "X", salaries: 10, noi: 0, pct: null }] }));
+    expect(formula(zero, `D${FIRST + 1}`)).toContain("IFERROR");
+    // The cached 0 does NOT survive the write — ExcelJS drops a `result: 0` —
+    // which is exactly the case `newWorkbook()`'s fullCalcOnLoad covers: Excel
+    // recalculates on open and the cell reads blank rather than #DIV/0!.
+    expect(num(zero, `D${FIRST + 1}`)).toBeUndefined();
   });
 
-  it("treats a blank as 'no such line', not as zero", () => {
+  it("treats a blank as 'no such line', not as zero", async () => {
     // SUM skips blanks, so a property with no matching line does not drag the
     // total — and it is not written as a 0 that reads as real spend.
-    const withGap = sheetOf(buildTableXlsx({
+    const withGap = await sheetOf(await buildTableXlsx({
       ...spec,
       rows: [{ property: "A", salaries: null, noi: 100_000, pct: null }, { property: "B", salaries: 40_000, noi: 100_000, pct: 40 }],
     }));
-    expect(withGap["B5"]).toBeUndefined();
-    expect(withGap["B7"].f).toBe("SUM(B5:B6)");
-    expect(withGap["B7"].v).toBe(40_000);
+    expect(val(withGap, `B${FIRST}`)).toBeNull();
+    expect(formula(withGap, `B${TOTAL}`)).toBe(`SUM(B${FIRST}:B${LAST})`);
+    expect(num(withGap, `B${TOTAL}`)).toBe(40_000);
   });
 
   it("never totals a text column", () => {
-    expect(ws["A7"].f).toBeUndefined();
+    expect(formula(ws, `A${TOTAL}`)).toBeUndefined();
   });
 
   it("prints the notes below the grid, where what-was-counted belongs", () => {
-    expect(ws["A9"].v).toBe("Counted: Management Salaries, Leasing Salaries.");
+    expect(val(ws, `A${TOTAL + 2}`)).toBe("Counted: Management Salaries, Leasing Salaries.");
   });
 
-  it("survives a table with no rows rather than writing a broken total", () => {
-    const empty = sheetOf(buildTableXlsx({ ...spec, rows: [] }));
-    expect(empty["A4"].v).toBe("Property");
-    expect(empty["A5"]).toBeUndefined();
+  it("carries the house look, so it matches the statements it was derived from", () => {
+    expect((ws.getCell(`A${HEADER}`).fill as ExcelJS.FillPattern).fgColor?.argb).toBe("FF0B4A7D");
+    expect(ws.getCell(`B${FIRST}`).numFmt).toContain("[Red]");
+    expect(ws.views[0]).toMatchObject({ state: "frozen", ySplit: HEADER });
+  });
+
+  it("survives a table with no rows rather than writing a broken total", async () => {
+    const empty = await sheetOf(await buildTableXlsx({ ...spec, rows: [] }));
+    expect(val(empty, `A${HEADER}`)).toBe("Property");
+    expect(val(empty, `A${FIRST}`)).toBeNull();
   });
 
   it("makes a sheet name Excel will accept", () => {

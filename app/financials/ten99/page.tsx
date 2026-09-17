@@ -114,7 +114,7 @@ export default function Ten99Page() {
             items={[{
               label: "Excel workbook",
               description: "Register by filing entity + every payment behind it, with live totals",
-              onClick: () => data && exportTen99Xlsx({ year: data.year, threshold: data.threshold, entities: data.entities }),
+              onClick: () => { if (data) void exportTen99Xlsx({ year: data.year, threshold: data.threshold, entities: data.entities }); },
             }]}
             disabled={!data || totals.reportable === 0}
           />

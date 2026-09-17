@@ -25,12 +25,17 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 const files = ROOTS.flatMap((r) => walk(r)).map((path) => ({ path, src: readFileSync(path, "utf8") }));
-const excelJsBuilders = files.filter((f) => /from ["']exceljs["']/.test(f.src));
+// A workbook builder is anything reaching for ExcelJS *or* the theme. Filtering
+// on the ExcelJS import alone would have quietly dropped a file from coverage
+// the moment it stopped naming the namespace directly — which is exactly what
+// happened to the rent roll and the assistant's table once the theme did the
+// constructing for them.
+const excelJsBuilders = files.filter((f) => /from ["']exceljs["']/.test(f.src) || /lib\/excel\/theme/.test(f.src));
 
 describe("workbook theme", () => {
   it("finds the ExcelJS exports it is meant to cover", () => {
     // A guard that silently matches nothing is worse than no guard.
-    expect(excelJsBuilders.length).toBeGreaterThanOrEqual(5);
+    expect(excelJsBuilders.length).toBeGreaterThanOrEqual(8);
   });
 
   it("builds every workbook through newWorkbook()", () => {

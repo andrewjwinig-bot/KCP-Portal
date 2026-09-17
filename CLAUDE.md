@@ -156,11 +156,28 @@ re-types a money format, or calls `new ExcelJS.Workbook()` directly.
 - **The theme is deliberately NOT `server-only`.** The TOP SHEET is built in the
   browser, and the client-side exports still on SheetJS are the ones the theme
   most needs to reach once they migrate.
-- **Still un-themed: the ~16 SheetJS exports** (rent roll, payroll, cash sheet,
-  management fees, 1099, allocation, allocated-invoicer, the assistant's table).
-  `xlsx@0.18.5` community edition **cannot style cells at all** — fills, fonts
-  and borders are Pro — so they can only be themed by migrating them to ExcelJS.
-  Do that a few at a time; don't add a second theme for them.
+- **Migration off SheetJS is in progress, a few at a time.** `xlsx@0.18.5`
+  community edition **cannot style cells at all** — fills, fonts and borders are
+  Pro — so a SheetJS export can only be themed by moving it to ExcelJS. Done so
+  far: the per-property **rent roll**, the assistant's **table**, the **1099
+  register** — the three that go to an outsider (lender, whoever you forward the
+  table to, the accountants). **Still on SheetJS**: payroll, cash sheet,
+  management fees, allocation, allocated-invoicer, commissions journal entry,
+  Skyline budget import, rent-roll trend, plus the inline `aoa_to_sheet` calls
+  in `app/commissions`, `app/expenses`, `app/expenses/history`,
+  `app/financials/operating-statements/review` and `app/investors`. Don't add a
+  second theme for them — migrate them.
+- **Migrating one means it becomes `async`.** ExcelJS's `writeBuffer()` is a
+  promise where SheetJS's `write` was synchronous, so the builder and every
+  caller change shape. A client-side export that used `XLSX.writeFile` also has
+  to build the Blob and trigger the download itself.
+- **A migrated export's test should read the workbook BACK** (`wb.xlsx.load`),
+  so the assertions are about the file rather than the builder's bookkeeping.
+  Two ExcelJS quirks to expect: a formula cell whose cached `result` was `0`
+  comes back with no result at all, and `calcPr` is written but never parsed
+  back — so `fullCalcOnLoad` cannot be asserted on a round-trip (it is pinned in
+  `theme.test.ts` and, against raw XML, in the balance sheet's
+  `exportSmoke.test.ts`).
 
 # Excel exports — totals must be live formulas, never static numbers
 
