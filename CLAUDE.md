@@ -156,7 +156,6 @@ re-types a money format, or calls `new ExcelJS.Workbook()` directly.
 - **The theme is deliberately NOT `server-only`.** The TOP SHEET is built in the
   browser, and the client-side exports still on SheetJS are the ones the theme
   most needs to reach once they migrate.
-<<<<<<< HEAD
 - **Migration off SheetJS is in progress, a few at a time.** `xlsx@0.18.5`
   community edition **cannot style cells at all** — fills, fonts and borders are
   Pro — so a SheetJS export can only be themed by moving it to ExcelJS. Done so
@@ -179,13 +178,6 @@ re-types a money format, or calls `new ExcelJS.Workbook()` directly.
   back — so `fullCalcOnLoad` cannot be asserted on a round-trip (it is pinned in
   `theme.test.ts` and, against raw XML, in the balance sheet's
   `exportSmoke.test.ts`).
-=======
-- **Still un-themed: the ~16 SheetJS exports** (rent roll, payroll, cash sheet,
-  management fees, 1099, allocation, allocated-invoicer, the assistant's table).
-  `xlsx@0.18.5` community edition **cannot style cells at all** — fills, fonts
-  and borders are Pro — so they can only be themed by migrating them to ExcelJS.
-  Do that a few at a time; don't add a second theme for them.
->>>>>>> origin/main
 
 # Excel exports — totals must be live formulas, never static numbers
 
