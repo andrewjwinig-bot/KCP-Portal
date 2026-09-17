@@ -95,3 +95,70 @@ describe("operating-statement compute", () => {
     expect(st.unmappedAccounts).toEqual([{ account: "6810-8501", ytdActual: 999 }]);
   });
 });
+
+// The green "✓ paid <month>" marker claims the year's obligation has ALREADY
+// BEEN MET, so a $0 month is expected. Two ways that claim can be wrong.
+describe("the fully-funded (prepaid) marker", () => {
+  const fundedMapping: StatementMapping = {
+    propertyCode: "TEST",
+    entityName: "Test Center LP",
+    sections: [
+      {
+        name: "Non-Reimbursable Expenses",
+        role: "non-reimbursable-expense",
+        lines: [
+          { label: "Insurance", mask: "6400-*" },
+          { label: "Legal & Accounting", mask: "6500-*" },
+        ],
+      },
+    ],
+  };
+  const run = (rows: GlSummaryRow[], b: Record<string, LineBudget>) =>
+    computeStatement({
+      mapping: fundedMapping,
+      propertyName: "Test Center",
+      year: 2026,
+      period: 7,
+      gl: rows,
+      budgetLookup: (s, mask) => b[`${s}|${mask}`] ?? null,
+    }).sections[0].lines;
+
+  it("still marks a genuine prepaid annual obligation", () => {
+    // Nothing posted in July; the whole annual premium already booked.
+    const [ins] = run(
+      [{ account: "6400-8501", periodActual: 0, ytdActual: 12_000 }],
+      { "Non-Reimbursable Expenses|6400-*": { periodBudget: 1_000, ytdBudget: 7_000, annualBudget: 12_000 } },
+    );
+    expect(ins.fullyFundedYtd).toEqual({ ytdActual: 12_000, annualBudget: 12_000 });
+  });
+
+  it("does not mark an AS-NEEDED line — its budget is a provision, not an obligation", () => {
+    // 9510's July, the real numbers: $103 budgeted for the month, nothing
+    // posted, $10,460 spent YTD against a ~$1,236 annual provision. That line
+    // is 1,350% over and it was carrying a green "✓ paid Jun".
+    const [, legal] = run(
+      [{ account: "6500-8501", periodActual: 0, ytdActual: 10_460 }],
+      { "Non-Reimbursable Expenses|6500-*": { periodBudget: 103, ytdBudget: 721, annualBudget: 1_236 } },
+    );
+    expect(legal.fullyFundedYtd).toBeNull();
+  });
+
+  it("does not mark a contractual line that blew through its annual budget", () => {
+    // 8x the annual premium is an overrun, not a prepayment — whatever the
+    // line is called.
+    const [ins] = run(
+      [{ account: "6400-8501", periodActual: 0, ytdActual: 96_000 }],
+      { "Non-Reimbursable Expenses|6400-*": { periodBudget: 1_000, ytdBudget: 7_000, annualBudget: 12_000 } },
+    );
+    expect(ins.fullyFundedYtd).toBeNull();
+  });
+
+  it("leaves room for a renewal increase", () => {
+    // A premium up 35% on renewal is still a prepaid annual obligation.
+    const [ins] = run(
+      [{ account: "6400-8501", periodActual: 0, ytdActual: 16_200 }],
+      { "Non-Reimbursable Expenses|6400-*": { periodBudget: 1_000, ytdBudget: 7_000, annualBudget: 12_000 } },
+    );
+    expect(ins.fullyFundedYtd).toEqual({ ytdActual: 16_200, annualBudget: 12_000 });
+  });
+});

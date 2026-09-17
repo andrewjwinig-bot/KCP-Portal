@@ -564,10 +564,16 @@ time — and the team does not have time to open the GL over $80.
     to ~45 when a coding or capitalization call needs them. Never padding.
 - **Every AI note is editable and a manual edit is permanent.** Auto-explain
   never overwrites a `user` note, and skips its own `ai` notes unless `force`.
-  Both the statement page and the Review carry a **"re-explain done"** checkbox
-  for that — without it a month explained once could never be explained again,
-  so a note written under an older prompt was stuck there and "All N flagged
-  lines already explained" was a dead end.
+  **On the statement page the way back is "Clear AI notes"**
+  (`clearAiNotes` → `POST .../clear-notes`), not a checkbox: it deletes that
+  month's `ai` notes, keeps anything a person wrote or edited, and restores the
+  month's dismissed "?" flags. The old **"re-explain done"** checkbox was
+  removed because it could not do the job it was there for — it walks the
+  CURRENTLY flagged set, and a note outlives the flag that earned it, so a line
+  explained under looser rules keeps its wording and `force` never reaches it.
+  That is exactly how "it isn't overriding the comments" happened. The Review
+  page keeps its checkbox, since there is no cross-property clear; `force`
+  stays on the endpoint either way.
 - **THE MONTH'S CHECKLIST IS EMAILED ON IMPORT.** One workbook, every
   property's open items, built server-side on the shared Excel theme
   (`reviewWorkbook.ts`) and sent by
@@ -632,6 +638,22 @@ time — and the team does not have time to open the GL over $80.
   The figure stays (0 against a $653 budget is worth seeing) but loses the green
   and never counts as a "favorable line"; whatever is really going on is already
   said by the ⚠ / ✅ marker in the actual column.
+- **The green ✓ "paid <month>" claims the YEAR'S OBLIGATION IS ALREADY MET, so
+  it needs a real obligation and a believable figure** (`fullyFundedYtd` in
+  `compute.ts`). Two ways that claim went wrong, both fixed:
+  - **An AS-NEEDED line has no obligation to have met.** It now takes the same
+    `isDiscretionaryLine` exemption `budgetExpectedMissing` does, one level up:
+    a provision that has been spent is not a prepayment. 9510's July is the
+    worked example — Legal & Accounting, $103 budgeted for the month, nothing
+    posted, **$10,460 spent year-to-date against a ~$1,236 annual provision**.
+    A line running 1,350% over was carrying a reassuring green tick.
+  - **Several times the annual budget is an OVERRUN, not a prepayment**
+    (`FULLY_FUNDED_MAX_MULTIPLE`, 1.5×). A prepaid premium lands near budget;
+    8× it does not. The band is generous because a renewal can jump 30–40%.
+- **The auto-explain status line says NOTHING on success.** "Explained 9 of 18
+  flagged lines · 9 had nothing to investigate" tallies what is already on the
+  screen — the notes appeared and nine "?" went away. A run that did nothing
+  still has to say why, or it reads as broken.
 - **The red/green VARIANCE TINT needs real dollars on the percent route.**
   `cellFlag` fired on `dollar OR percent`, so at the default 10% and a $500
   floor it caught Electric at $689 on a $4,080 budget — true, and not worth a

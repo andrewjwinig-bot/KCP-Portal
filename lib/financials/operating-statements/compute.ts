@@ -150,7 +150,7 @@ function computeLine(
     expectedMissing,
     fullyFundedYtd: expectedMissing
       ? null
-      : fullyFundedYtd(role, periodActual, b?.periodBudget ?? null, ytdActual, b?.annualBudget ?? null),
+      : fullyFundedYtd(role, line, periodActual, b?.periodBudget ?? null, ytdActual, b?.annualBudget ?? null),
   };
 }
 
@@ -162,8 +162,20 @@ function computeLine(
 // shortfall to reassure about) and the YTD actual to have essentially met the
 // annual budget. Expense-like lines only.
 const FULLY_FUNDED_FRACTION = 0.98;
+/**
+ * How far over the annual budget a line can run and still read as "prepaid".
+ *
+ * The marker's claim is that the obligation for the year has ALREADY BEEN MET —
+ * the insurance premium was paid in one shot, the taxes went out in June. A
+ * figure that lands near the annual budget supports that. A figure several
+ * times the budget does not: it is an overrun, and "✓ paid Jun" is reassurance
+ * on the one line that wanted a question. A renewal can jump 30–40%, so the
+ * band has to be generous; 1.5× leaves that room and still rejects 8×.
+ */
+const FULLY_FUNDED_MAX_MULTIPLE = 1.5;
 function fullyFundedYtd(
   role: SectionRole,
+  line: { label: string; mask: string },
   periodActual: number,
   periodBudget: number | null,
   ytdActual: number,
@@ -176,10 +188,19 @@ function fullyFundedYtd(
     role === "non-reimbursable-expense" ||
     role === "residential-expense";
   if (!expenseLike) return null;
+  // The SAME exemption `budgetExpectedMissing` has, for the same reason one
+  // level up: an as-needed line's budget is a provision, so booking it does not
+  // mean an obligation has been satisfied — there was no obligation. Legal &
+  // Accounting is the worked example: $103 budgeted for July, nothing posted,
+  // and $10,460 spent year-to-date against a ~$1,200 annual provision. That is
+  // a line running 1,350% over, and it was carrying a green "✓ paid Jun".
+  if (isDiscretionaryLine(line)) return null;
   if (annualBudget == null || annualBudget <= EXPECTED_MISSING_MIN) return null;
   if (periodBudget == null || periodBudget <= 0) return null; // no monthly run-rate → no apparent shortfall
   if (Math.abs(periodActual) >= 0.5) return null; // something posted this month → not a $0 month
   if (ytdActual < annualBudget * FULLY_FUNDED_FRACTION) return null; // annual not yet booked
+  // Booked SEVERAL TIMES the annual budget is an overrun, not a prepayment.
+  if (ytdActual > annualBudget * FULLY_FUNDED_MAX_MULTIPLE) return null;
   return { ytdActual, annualBudget };
 }
 
