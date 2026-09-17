@@ -91,6 +91,22 @@ export function meetsFlagFloor(
 /** Snow removal is seasonal — expensed Nov–Mar. */
 const SNOW_SEASON = new Set([11, 12, 1, 2, 3]);
 
+/**
+ * Grounds work is seasonal too, and it is snow's mirror image: nothing grows
+ * Dec–Mar, so a $0 landscaping month in winter is the expected state.
+ *
+ * Snow had this rule from the start and grounds did not, which produced
+ * "No grounds spend at all Jan–Apr … the recurring landscape contract appears
+ * unbilled or unposted. Chase Sharp's Landscaping for missing invoices." The
+ * observation is a good one — a contract that stops invoicing IS worth
+ * catching — but it was counting winter as evidence.
+ */
+const GROUNDS_SEASON = new Set([4, 5, 6, 7, 8, 9, 10, 11]);
+
+export function isGroundsLine(l: { label: string; mask?: string }): boolean {
+  return /(landscap|ground|lawn|mow|mulch|irrigat|\btree)/i.test(l.label);
+}
+
 type LineLike = { label: string; mask: string; accounts?: string[] };
 
 export function isSnowLine(l: LineLike): boolean {
@@ -134,6 +150,10 @@ export function seasonalTrendFlags(
     return Math.abs(periodActual) >= FLAG_MIN_DOLLARS
       ? ["snow charge posted outside the Nov–Mar season — verify the GL coding"]
       : [];
+  }
+  if (isGroundsLine(line) && !GROUNDS_SEASON.has(period) && Math.abs(periodActual) < FLAG_MIN_DOLLARS) {
+    // Nothing grows in January. The mirror of the snow rule above.
+    return [];
   }
   if (isRetLine(line) && Math.abs(periodActual) < 100) return [];
   return baseFlags;

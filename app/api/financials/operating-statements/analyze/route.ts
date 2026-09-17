@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
-import { assembledGl, assembledTransactions, saveNote, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
+import { assembledGl, assembledTransactions, saveNote, getNotesBundle, setFlagDismissed } from "@/lib/financials/operating-statements/statementStore";
 import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/lib/financials/operating-statements/budgetCrosswalk";
@@ -243,7 +243,10 @@ export async function POST(req: Request) {
     `3. Cite a transaction's own amount freely (that is the point); never the line/budget totals.\n` +
     `4. Use tenant NAMES, never raw unit codes (e.g. "1100-12330"). A GL ACCOUNT number is fine when the point is where a charge sits.\n` +
     `5. Commit. "May be capital" is fine; "could be various things, please review" is not. If the description genuinely does not say, name what you would look at to find out.\n` +
-    `6. No filler, no hedging, no restating the flag reason back.\n\n` +
+    `6. No filler, no hedging, no restating the flag reason back.\n` +
+    `7. SEASONALITY IS NOT A MISSING INVOICE. Grounds and landscaping post roughly April–November; nothing grows in January, so a $0 winter month is the expected state, not an unbilled contract. Snow is the mirror, Nov–Mar. Never read an off-season month as evidence that something is missing.\n` +
+    `8. NEVER REPORT THAT A BUDGETED PROJECT HAS NOT HAPPENED. A budget is a plan, not a commitment — money set aside for a repaving or a big landscape job that was not needed is a good outcome, and "the budgeted project also has not happened" is speculation dressed as a finding. Report what DID post and what looks wrong with it.\n` +
+    `9. A CONTRACT THAT STOPPED INVOICING is one of the most valuable things you can catch — a monthly service with months missing. Judge it only over the months the line should actually post, and name the vendor to chase.\n\n` +
     `GOOD: "$21,750 to ABC Paving on 7/14 for lot resurfacing — that is a capital item, not maintenance. Capitalize and depreciate it; left here it overstates the CAM pool tenants are billed on."\n` +
     `GOOD: "Only one PECO payment posted this month vs two in prior months — a utility bill may be unposted. Confirm the second meter was paid."\n` +
     `GOOD: "Insurance is ~30% above the same month last year after the renewal. Verify the new premium and that it isn't double-booked with escrow."\n` +
@@ -255,8 +258,10 @@ export async function POST(req: Request) {
     `BAD (too long for what it says): "Thirteen About Time Snow invoices Jan–Mar, seven in March alone, against a season budgeted near $10.8K. Genuine heavy-winter overrun, but confirm the 3/12 $8,700 isn't a re-bill of the 2/16 $9,355, then set a realistic snow budget." — the answer is "it snowed a lot", the re-bill is a guess, and the budget advice is unasked-for. "Thirteen snow invoices Jan–Mar; a heavy winter, genuinely over." says it.\n` +
     `BAD (never, in a ${through} note): "March's $745.39 PECO charge is on the wrong GL." — a few hundred dollars in a month you are not looking at. Sending someone to ${through} for it wastes the trip.\n` +
     `BAD (never): "…and the Termite Proofing charges are miscoded here." — miscoded to WHERE, and why? Name the account or leave it out.\n` +
+    `BAD (seasonality read as absence): "No grounds spend at all Jan–Apr … chase the landscaper for missing invoices. The budgeted big project also has not happened." — winter is why, and an unspent provision is not a finding. Only four landscaping invoices since April against a monthly contract, chase them for the missing months: that is the note.\n` +
     `GOOD (year-to-date scope): "Year to date: three unbudgeted tree removals (Feb, Apr, Jun) put the line 80% over. ${through} itself is on budget — raise next year's provision."\n\n` +
     `Amounts are dollars; a "favorable" variance is good (revenue over / expense under budget). ` +
+    `WHEN THERE IS NOTHING TO SAY, SAY NOTHING. If a line has no error and nothing to do — a clean recurring pattern, one invoice a month, a cost simply running above last year on rate escalation — return the single word NONE for it. Do NOT write a note explaining that everything is fine: "Single Waste Management invoice each month, clean pattern; costs running ~8% over last year on rate escalation. No error — raise the budget and confirm surcharges are CAM-billable" spends four lines saying nothing needs doing. NONE removes the mark from the statement, which is the useful outcome.\n\n` +
     `Return ONLY a JSON object mapping each line's exact "lineKey" to its note string.\n\n` +
     `FLAGGED LINES:\n${JSON.stringify(flagged, null, 1)}\n\n` +
     `ACCOUNT DIRECTORY for ${statement.propertyCode} — every operating account on this property, for naming where a mis-coded charge belongs:\n${JSON.stringify(accountDirectory.slice(0, 400))}`;
@@ -280,15 +285,25 @@ export async function POST(req: Request) {
     const notes = JSON.parse(match[0]) as Record<string, string>;
 
     const saved: Record<string, string> = {};
+    const cleared: string[] = [];
     for (const f of flagged) {
       const lk = f.lineKey as string;
       const note = notes[lk];
-      if (typeof note === "string" && note.trim()) {
-        await saveNote(key, year, period, lk, note.trim(), "ai");
-        saved[lk] = note.trim();
+      if (typeof note !== "string" || !note.trim()) continue;
+      const body = note.trim();
+      // NONE = looked at it, nothing to do. Writing "no error, everything is
+      // fine" as a note is how a review list fills up with lines that need no
+      // review; dismissing the flag instead is the useful outcome. Reversible —
+      // the same endpoint the ✕ on the statement uses restores it.
+      if (/^none\.?$/i.test(body)) {
+        await setFlagDismissed(key, year, period, lk, true).catch(() => {});
+        cleared.push(lk);
+        continue;
       }
+      await saveNote(key, year, period, lk, body, "ai");
+      saved[lk] = body;
     }
-    return NextResponse.json({ notes: saved, analyzed: flagged.length });
+    return NextResponse.json({ notes: saved, cleared, analyzed: flagged.length });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Analysis failed" }, { status: 500 });
   }

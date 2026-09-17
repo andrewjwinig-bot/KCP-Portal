@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { seasonalTrendFlags, meetsFlagFloor, flagFloorFor, postsRegularly, nothingPosted, FLAG_MIN_DOLLARS, LOOSE_FLAG_MIN_DOLLARS, marksPeriodUnposted, marksYtdUnposted, isDiscretionaryLine } from "./flagRules";
+import { seasonalTrendFlags, meetsFlagFloor, flagFloorFor, postsRegularly, nothingPosted, FLAG_MIN_DOLLARS, LOOSE_FLAG_MIN_DOLLARS, marksPeriodUnposted, marksYtdUnposted, isDiscretionaryLine, isGroundsLine } from "./flagRules";
 
 const line = (label: string, mask = "6500-*") => ({ label, mask });
 const MOVED = ["amount differs sharply from recent months"];
@@ -228,5 +228,34 @@ describe("nothing posted is not a favorable variance", () => {
     expect(nothingPosted(0, 0)).toBe(false);
     expect(nothingPosted(0, null)).toBe(false);
     expect(nothingPosted(null, 653)).toBe(false);
+  });
+});
+
+describe("grounds work is seasonal, the mirror of snow", () => {
+  const LAND = { label: "Landscaping", mask: "6380-*" };
+  const MOVED3 = ["amount differs sharply from recent months"];
+
+  it.each([12, 1, 2, 3])("expects a $0 landscaping month in month %i", (m) => {
+    // "No grounds spend at all Jan–Apr … chase the landscaper for missing
+    // invoices" counted winter as evidence. Nothing grows in January.
+    expect(seasonalTrendFlags("reimbursable-expense", LAND, m, 0, MOVED3, null)).toEqual([]);
+  });
+
+  it("still flags a growing-season month", () => {
+    expect(seasonalTrendFlags("reimbursable-expense", LAND, 7, 0, MOVED3, null)).toEqual(MOVED3);
+  });
+
+  it("still flags a real off-season charge", () => {
+    // A $6,000 January landscaping bill is worth a question.
+    expect(seasonalTrendFlags("reimbursable-expense", LAND, 1, 6_000, MOVED3, null)).toEqual(MOVED3);
+  });
+
+  it("recognises the grounds lines by name", () => {
+    for (const n of ["Landscaping", "Grounds Maintenance", "Lawn Care", "Tree Removal", "Irrigation"]) {
+      expect(isGroundsLine({ label: n })).toBe(true);
+    }
+    for (const n of ["Electric", "Snow Removal", "Parking Lot Cleaning"]) {
+      expect(isGroundsLine({ label: n })).toBe(false);
+    }
   });
 });

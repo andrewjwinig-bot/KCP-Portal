@@ -495,6 +495,26 @@ time — and the team does not have time to open the GL over $80.
     they know it was low. A possible DOUBLE-PAY is raised only on evidence (same
     vendor, same amount, twice; or a transaction count that broke its pattern),
     never on a hunch.
+  - **"NONE" MEANS NOTHING TO DO, AND IT DROPS THE MARK.** A line with a clean
+    recurring pattern and a cost simply running above last year does not need a
+    note saying so — *"Single Waste Management invoice each month, clean
+    pattern; costs running ~8% over last year on rate escalation. No error…"* is
+    four lines confirming nothing needs doing. The model returns `NONE` and the
+    route DISMISSES the flag (`setFlagDismissed`) rather than writing a note, so
+    the "?" goes away and the checklist doesn't carry it. Reversible — the same
+    endpoint the ✕ on the statement uses restores it.
+  - **SEASONALITY IS NOT A MISSING INVOICE.** Grounds and landscaping post
+    roughly April–November (`isGroundsLine` / `GROUNDS_SEASON` in
+    `flagRules.ts`), the mirror of the snow rule that existed from the start.
+    Without it: *"No grounds spend at all Jan–Apr … chase Sharp's Landscaping
+    for missing monthly invoices"* — the observation is a good one, a contract
+    that stops invoicing IS worth catching, but it was counting winter as
+    evidence. Judge a missing contract only over the months the line should post.
+  - **NEVER REPORT THAT A BUDGETED PROJECT HAS NOT HAPPENED.** *"The budgeted
+    big project also has not happened"* is speculation dressed as a finding, and
+    it contradicts the provision principle above: money set aside for work that
+    was not needed is a good outcome. Report what DID post and what looks wrong
+    with it.
   - **THE NOTE IS ABOUT THE MONTH IT SITS BESIDE.** Two separate lists go to
     the model — `thisMonthsCharges` (where the finding must come from) and
     `priorMonthsForContextOnly` (there only to say whether this month's amount
