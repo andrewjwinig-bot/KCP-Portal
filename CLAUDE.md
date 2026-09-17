@@ -415,6 +415,39 @@ buildings may be managed by a third party" as an explanation for a gap.
   4230-8501 at 2010, so it is cosmetic — do NOT "fix" it expecting the numbers to
   move. `2000` (Clearing) carries the identical mask.
 
+# Operating statements — the "?" is a signal, so keep it scarce
+
+The amber **"?"** next to a statement line means "this month looks off, go look".
+It is only worth anything if it appears where someone would actually spend the
+time — and the team does not have time to open the GL over $80.
+
+- **A line's VARIANCE is the last word** (`meetsFlagFloor` / `FLAG_MIN_DOLLARS`
+  in `lib/financials/operating-statements/flagRules.ts`, currently **$500**). The
+  trend checks in `trends.ts` already ignore a move under $500, but they measure
+  a line against ITS OWN recent months or against last year — **not against
+  budget** — so a line sitting on budget could still earn a "?" for having
+  moved. 9510's July statement is the worked example: Maintenance Salaries 577
+  vs 615, Building Maintenance 422 vs 500, Landscaping 212 vs 515 — $38, $78 and
+  $303 of variance, each carrying a "?", while the one line that mattered
+  (Parking Lot Maintenance, 28,350 vs 592) carried the same mark and no more
+  weight. A mark on four lines that means something on one is not a signal.
+- **Dollars, not percent.** 577 vs 615 is −6.2%, which looks dramatic and is
+  $38. Every floor here is absolute dollars.
+- **An UNBUDGETED line passes the floor** and falls back to the trend checks'
+  own $500 gate — there is no variance to measure, and suppressing it here would
+  mean a line with no budget could never be flagged at all.
+- **Both "?" paths share the rule and must keep sharing it**: the per-property
+  statement (`/api/financials/operating-statements`, which passes
+  `l.periodVariance` into `seasonalTrendFlags`) and the cross-property Review
+  (`review.ts`). The Review applies it in its SECOND pass, on purpose — pass 1
+  never computes a month's budget, which is what makes scanning every month of
+  every property affordable. Pinned by `flagRules.test.ts` against the real 9510
+  numbers.
+- **`countAnomaly` is deliberately NOT gated.** It has no dollar floor, but it
+  is inert on both "?" paths (both call `trendFlags` with an empty counts array);
+  it only feeds auto-explain's written notes, where a missed or doubled bill is
+  worth mentioning whatever the amount.
+
 # Balance Sheet — sources of truth
 
 `/financials/balance-sheet`, gated with the other statement pages

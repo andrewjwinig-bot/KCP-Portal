@@ -16,7 +16,7 @@ import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import { lineMonthly } from "./lineSeries";
 import { trendFlags } from "./trends";
 import { reconcileGl } from "./glParser";
-import { seasonalTrendFlags } from "./flagRules";
+import { seasonalTrendFlags, meetsFlagFloor } from "./flagRules";
 import { markMissingDebt } from "./debtFlag";
 import { expectedPostedThrough } from "./outstanding";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -205,6 +205,10 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
         const pp = perPeriod.get(h.period);
         if (!pp || pp.dismissed.has(lineKey)) continue;
         const a = pp.amounts.get(lineKey);
+        // Same floor as the statement page. It is applied HERE rather than in
+        // pass 1 because pass 1 deliberately never computes a month's budget —
+        // that is what makes scanning every month of every property affordable.
+        if (!meetsFlagFloor(a?.variance ?? null)) continue;
         months.push({
           period: h.period, monthLabel: MONTHS[h.period - 1], flags: h.flags,
           actual: a?.actual ?? 0, budget: a?.budget ?? null, variance: a?.variance ?? null,
