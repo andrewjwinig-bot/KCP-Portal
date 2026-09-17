@@ -491,9 +491,9 @@ export default function Page() {
     }
   }
 
-  function downloadExcel() {
+  async function downloadExcel() {
     if (!invoices.length) return;
-    const blob = buildPayrollExportXlsx({ payDate: payroll?.payDate, invoices });
+    const blob = await buildPayrollExportXlsx({ payDate: payroll?.payDate, invoices });
     const name = payroll?.payDate ? `${formatDateForZip(payroll.payDate)}payroll-summary.xlsx` : "payroll-summary.xlsx";
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -502,11 +502,11 @@ export default function Page() {
     URL.revokeObjectURL(url);
   }
 
-  function downloadAllocTemplate() {
+  async function downloadAllocTemplate() {
     const source = employees.length
       ? employees.map((e) => ({ name: e.name, employeeNumber: e.employeeNumber, recoverable: e.recoverable, allocations: e.allocations }))
       : allocEmployees;
-    const blob = buildAllocationTemplateXlsx(source);
+    const blob = await buildAllocationTemplateXlsx(source);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "allocation-template.xlsx";

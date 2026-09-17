@@ -98,7 +98,7 @@ export async function POST(req: Request) {
 
     // Property allocation summary + GL Journal Entry (both property-level) — team
     // references only.
-    const summaryBuf = Buffer.from(await buildPayrollExportXlsx({ payDate, invoices }).arrayBuffer());
+    const summaryBuf = Buffer.from(await (await buildPayrollExportXlsx({ payDate, invoices })).arrayBuffer());
     const glBuf = Buffer.from(await buildPayrollGLXlsx({ payDate, invoices }).arrayBuffer());
 
     const result = await deliverInvoicesToAvid({

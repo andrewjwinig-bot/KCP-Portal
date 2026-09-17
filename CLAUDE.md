@@ -156,17 +156,38 @@ re-types a money format, or calls `new ExcelJS.Workbook()` directly.
 - **The theme is deliberately NOT `server-only`.** The TOP SHEET is built in the
   browser, and the client-side exports still on SheetJS are the ones the theme
   most needs to reach once they migrate.
+- **A MACHINE IMPORT IS NOT A DOCUMENT — never theme one.** Several workbooks
+  are read back by software, not by a person: they carry no header row, no
+  title, data from row 1, and positional columns. A letterhead shifts every row
+  and breaks the import on its first line. These stay on SheetJS and stay bare,
+  and that is a correctness decision, not an oversight — say so in a comment on
+  each so a later migration pass doesn't "finish the job":
+  - `lib/payroll/export.ts` → `buildPayrollGLXlsx` ("GL Journal Entry") —
+    `JRNL | entity | account | DW | date | description | period | amount`.
+  - `lib/commissions/journalEntryExcel.ts` — the JE imported into accounting.
+  - `lib/financials/budgets/skylineExport.ts` — its own comment already says it
+    deliberately drops the title, header and total rows because Skyline wants
+    raw data.
+  - `lib/allocation/export.ts` → the **"Upload Template"** SHEET (sheet 1,
+    "Allocations", IS themed) — `parseAllocationWorkbook` finds its header by
+    scanning for a row carrying both `EmployeeName` and `Recoverable`.
+  A file can be mixed, so decide per SHEET, not per file. Each of these is
+  pinned by a test asserting row 1 is still data/header.
 - **Migration off SheetJS is in progress, a few at a time.** `xlsx@0.18.5`
   community edition **cannot style cells at all** — fills, fonts and borders are
-  Pro — so a SheetJS export can only be themed by moving it to ExcelJS. Done so
-  far: the per-property **rent roll**, the assistant's **table**, the **1099
-  register** — the three that go to an outsider (lender, whoever you forward the
-  table to, the accountants). **Still on SheetJS**: payroll, cash sheet,
-  management fees, allocation, allocated-invoicer, commissions journal entry,
-  Skyline budget import, rent-roll trend, plus the inline `aoa_to_sheet` calls
-  in `app/commissions`, `app/expenses`, `app/expenses/history`,
+  Pro — so a SheetJS export can only be themed by moving it to ExcelJS.
+  **Themed so far**: the per-property **rent roll**, the assistant's **table**,
+  the **1099 register** (the three that go to an outsider), the **payroll
+  summary**, and the allocation template's **Allocations** sheet.
+  **Still to do**: cash sheet, management fees, allocated-invoicer, rent-roll
+  trend, plus the inline `aoa_to_sheet` calls in `app/commissions`,
+  `app/expenses`, `app/expenses/history`,
   `app/financials/operating-statements/review` and `app/investors`. Don't add a
   second theme for them — migrate them.
+- **A very wide sheet gets a ONE-LINE letterhead, not the three-band
+  `titleBlock`.** The allocation grid already spends two rows on its own group
+  and column headers; a full block pushed the data off the first screen. The
+  brand bar carries the wordmark and what the sheet is, on one row.
 - **Migrating one means it becomes `async`.** ExcelJS's `writeBuffer()` is a
   promise where SheetJS's `write` was synchronous, so the builder and every
   caller change shape. A client-side export that used `XLSX.writeFile` also has

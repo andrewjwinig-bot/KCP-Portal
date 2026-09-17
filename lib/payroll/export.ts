@@ -1,4 +1,20 @@
 import * as XLSX from "xlsx";
+import {
+  newWorkbook, titleBlock, headerBand, footNote, freezeAbove, repeatHeader,
+  liveSum, liveFormula, totalEmphasis, COLOR, FMT, FONT_NAME, PRINT_WIDE,
+} from "@/lib/excel/theme";
+
+// TWO workbooks, and only ONE of them is a document.
+//
+// The Payroll Summary rides the AvidXchange team email to Marie, Drew and
+// Harry, who READ it — so it carries the house letterhead and formatting like
+// every other workbook the portal hands a person.
+//
+// The GL Journal Entry below does NOT. It is a machine import: no header row,
+// no title, data from row 1, positional columns
+// (JRNL | entity | account | DW | date | description | period | amount). A
+// letterhead would shift every row and break the import on the first line. It
+// stays raw deliberately — see the note above `buildPayrollGLXlsx`.
 
 export type PayrollExportInvoice = {
   propertyKey: string;
@@ -26,11 +42,22 @@ export type BuildPayrollExportArgs = {
   invoices: PayrollExportInvoice[];
 };
 
-export function buildPayrollExportXlsx(args: BuildPayrollExportArgs): Blob {
+export async function buildPayrollExportXlsx(args: BuildPayrollExportArgs): Promise<Blob> {
   const { payDate, invoices } = args;
-  const wb = XLSX.utils.book_new();
+  const wb = newWorkbook();
+  const ws = wb.addWorksheet("Payroll Summary", { pageSetup: { ...PRINT_WIDE } });
 
-  const header = ["Property", "Property Code", "Salary REC", "Salary NR", "Overtime", "HOL REC", "HOL NR", "401K (ER)", "Other", "Taxes (ER)", "Total"];
+  const HEAD = ["Property", "Property Code", "Salary REC", "Salary NR", "Overtime", "HOL REC", "HOL NR", "401K (ER)", "Other", "Taxes (ER)", "Total"];
+  ws.columns = [{ width: 30 }, { width: 14 }, ...Array.from({ length: 9 }, () => ({ width: 13 }))];
+
+  const headerRow = titleBlock(ws, {
+    entity: "Korman Commercial Properties",
+    document: "Payroll Allocation Summary",
+    asOf: payDate ? `Pay date ${payDate}` : null,
+    width: HEAD.length,
+  });
+  headerBand(ws, headerRow, HEAD);
+
   const rows = invoices.map((r) => [
     r.propertyLabel || r.propertyKey,
     r.propertyCode || r.propertyKey,
@@ -43,66 +70,53 @@ export function buildPayrollExportXlsx(args: BuildPayrollExportArgs): Blob {
     r.other ?? 0,
     r.taxesEr ?? 0,
     r.total ?? 0,
-  ]);
+  ] as (string | number)[]);
 
-  // Totals row
-  const totals = [
-    "Total", "",
-    rows.reduce((s, r) => s + (r[2] as number), 0),
-    rows.reduce((s, r) => s + (r[3] as number), 0),
-    rows.reduce((s, r) => s + (r[4] as number), 0),
-    rows.reduce((s, r) => s + (r[5] as number), 0),
-    rows.reduce((s, r) => s + (r[6] as number), 0),
-    rows.reduce((s, r) => s + (r[7] as number), 0),
-    rows.reduce((s, r) => s + (r[8] as number), 0),
-    rows.reduce((s, r) => s + (r[9] as number), 0),
-    rows.reduce((s, r) => s + (r[10] as number), 0),
-  ];
-
-  const aoa: (string | number)[][] = [
-    ...(payDate ? [[`Pay Date: ${payDate}`], []] : []),
-    header,
-    ...rows,
-    totals,
-  ];
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-  // Format columns C:K as currency (2 decimals, thousands separator)
-  const currencyFmt = "#,##0.00";
-  const headerRowIdx = payDate ? 2 : 0;
-  const lastRowIdx = headerRowIdx + rows.length + 1;
-  for (let r = headerRowIdx + 1; r <= lastRowIdx; r++) {
-    for (let c = 2; c <= 10; c++) {
-      const addr = XLSX.utils.encode_cell({ r, c });
-      const cell = ws[addr];
-      if (cell && typeof cell.v === "number") {
-        cell.t = "n";
-        cell.z = currencyFmt;
-      }
+  const firstBody = headerRow + 1;
+  rows.forEach((values, i) => {
+    const row = ws.getRow(firstBody + i);
+    values.forEach((v, c) => {
+      const cell = row.getCell(c + 1);
+      cell.value = v;
+      cell.font = { name: FONT_NAME, size: 10, color: { argb: COLOR.text } };
+      if (typeof v === "number") { cell.numFmt = FMT.moneyCents; cell.alignment = { horizontal: "right" }; }
+    });
+    // Each row's Total = SUM(its own components), so editing a component flows
+    // through rather than leaving a stale hand-computed figure. A row that does
+    // not reconcile keeps its static value.
+    const components = values.slice(2, 10).map((v) => Number(v) || 0);
+    const r1 = firstBody + i;
+    row.getCell(11).value = liveSum(`C${r1}:J${r1}`, Number(values[10]) || 0, components);
+    row.getCell(11).numFmt = FMT.moneyCents;
+    row.getCell(11).alignment = { horizontal: "right" };
+    if (i % 2 === 1) for (let c = 1; c <= HEAD.length; c++) {
+      row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.zebra } };
     }
-  }
-
-  // Live totals: each row's Total = SUM(its components) and the bottom Total row
-  // = SUM(down each column), so the workbook recomputes if a figure is edited
-  // rather than showing a stale hand-computed number. Cached values stay in place;
-  // a per-row Total that doesn't reconcile keeps its static value.
-  const dataFirst = headerRowIdx + 1;          // 0-based first data row
-  const dataLast = headerRowIdx + rows.length; // 0-based last data row
-  const a1 = (c: number, r0: number) => `${XLSX.utils.encode_col(c)}${r0 + 1}`;
-  rows.forEach((r, idx) => {
-    const r0 = dataFirst + idx;
-    let sum = 0; for (let c = 2; c <= 9; c++) sum += r[c] as number;
-    const cell = ws[a1(10, r0)];
-    if (cell && Math.abs(sum - (r[10] as number)) < 0.5) cell.f = `SUM(${a1(2, r0)}:${a1(9, r0)})`;
   });
-  if (rows.length > 0) for (let c = 2; c <= 10; c++) {
-    const cell = ws[a1(c, lastRowIdx)];
-    if (cell && typeof cell.v === "number") cell.f = `SUM(${a1(c, dataFirst)}:${a1(c, dataLast)})`;
+
+  const lastBody = firstBody + rows.length - 1;
+  const totalRow = ws.getRow(lastBody + 1);
+  totalRow.getCell(1).value = "Total";
+  for (let c = 1; c <= HEAD.length; c++) totalEmphasis(totalRow.getCell(c), { grand: true });
+  if (rows.length > 0) for (let c = 3; c <= HEAD.length; c++) {
+    const L = ws.getColumn(c).letter;
+    const sources = rows.map((r) => Number(r[c - 1]) || 0);
+    const cell = totalRow.getCell(c);
+    cell.value = liveSum(`${L}${firstBody}:${L}${lastBody}`, sources.reduce((s, v) => s + v, 0), sources);
+    cell.numFmt = FMT.moneyCents;
+    cell.alignment = { horizontal: "right" };
   }
 
-  XLSX.utils.book_append_sheet(wb, ws, "Payroll Summary");
-  const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  freezeAbove(ws, headerRow);
+  repeatHeader(ws, headerRow);
+  footNote(
+    ws, lastBody + 3,
+    "REC lines are recoverable through CAM; NR lines are not. Figures are the employer cost allocated to each property " +
+    "for this pay period, matching the per-property invoice PDFs sent to AP.",
+    HEAD.length, 30,
+  );
+
+  const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
 
@@ -142,6 +156,14 @@ function glPeriodCode(payDate: string): string {
   return `PR${mm}${payPeriodNum(payDate)}`;
 }
 
+/**
+ * The GL Journal Entry — a MACHINE IMPORT, deliberately unthemed.
+ *
+ * No header row, no title, data from row 1, positional columns. The accounting
+ * system reads it by position, so a letterhead would shift every row and break
+ * the import on its first line. It stays on SheetJS and stays raw; the
+ * workbook theme is for documents a person reads.
+ */
 export function buildPayrollGLXlsx(args: BuildPayrollExportArgs): Blob {
   const { payDate, invoices } = args;
 
