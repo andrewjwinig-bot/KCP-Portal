@@ -622,6 +622,18 @@ time — and the team does not have time to open the GL over $80.
   budgeted nothing — Parking Lot Maintenance read `⚠ | 0` for July. **A month
   that budgeted nothing cannot be missing anything.** A DEBT finding is
   per-month by nature and still marks the month.
+- **A LINE-DETAIL MODAL SHOWS THE SUITE TABLE OR THE TRANSACTION LIST, NOT
+  BOTH.** On a rent or CAM line the two ARE the same data: rent posts one
+  charge per suite a month, so the raw GL list under the suite table repeated
+  it row for row — same eight tenants, same eight amounts, stacked. The suite
+  table wins because it carries the rent roll and open A/R beside the charge.
+  The list stays only where it adds something: a suite billed more than once in
+  the window (`summarizes`, which is YTD scope by construction) or a charge
+  naming NO suite, which the suite table cannot show. Its **Ref** was the one
+  column the suite table lacked, so `refByUnit` carries it up — populated only
+  where a suite has exactly one charge, since two charges have no single ref.
+  The same `summarizes` rule already governed the per-tenant summary ABOVE the
+  list; this is it applied in the other direction.
 - **The ▲ "driver" mark in the GL drill-down must STAND OUT, not just be big**
   (`drivers.ts`). It tested share alone — a third of the line, or a fifth once
   there were three transactions — but N roughly-equal charges are each 1/N of

@@ -1871,6 +1871,24 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               // row. Shown only when some group holds more than one
               // transaction — a repairs line across 40 vendors still gets it.
               const summarizes = multi && txns.length > groups.length;
+              // THE SAME REASONING, APPLIED TO THE LIST BELOW. On a rent or CAM
+              // line the suite table IS the transaction list — one charge per
+              // suite, same amounts, in a table that also carries the rent roll
+              // and open A/R beside them. Stacking the raw list under it says
+              // everything twice. It stays only where it adds something: a
+              // suite billed more than once in the window, or a charge naming
+              // no suite, which the suite table cannot show.
+              const unplaced = txns.some((t) => !t.unit);
+              const showTxnList = !showRentCheck || summarizes || unplaced;
+              // Its Ref was the one column the suite table lacked, so carry it
+              // up — but only where a suite has exactly one charge, since two
+              // charges have no single ref.
+              const refByUnit: Record<string, string> = {};
+              if (showRentCheck && !showTxnList) {
+                const seen: Record<string, number> = {};
+                for (const t of txns) if (t.unit) seen[t.unit] = (seen[t.unit] ?? 0) + 1;
+                for (const t of txns) if (t.unit && seen[t.unit] === 1 && t.ref) refByUnit[t.unit] = t.ref;
+              }
               const shown = tenantFilter ? txns.filter((t) => t.groupKey === tenantFilter) : txns;
               const glTotal = shown.reduce((s, t) => s + t.amount, 0);
               // Standout drivers — the charge worth looking at. A driver has to
@@ -1891,7 +1909,8 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                     </div>
                     {showRentCheck ? (
                       <RentCheckTable viewKey={viewKey} property={property} year={year} period={period}
-                        scope={effScope === "month" ? "month" : "ytd"} mask={line.mask} sign={line.sign} monthLabel={monthLabel} />
+                        scope={effScope === "month" ? "month" : "ytd"} mask={line.mask} sign={line.sign} monthLabel={monthLabel}
+                        refByUnit={refByUnit} />
                     ) : <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead><tr><th style={th}>Suite</th><th style={th}>Tenant</th><th style={{ ...th, textAlign: "right" }}>Txns</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
                       <tbody>
@@ -1908,10 +1927,10 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                         );})}
                       </tbody>
                     </table>}
-                    <div style={{ borderTop: "2px solid var(--border)", marginTop: 10 }} />
+                    {showTxnList && <div style={{ borderTop: "2px solid var(--border)", marginTop: 10 }} />}
                   </div>
                 )}
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                {showTxnList && <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr><th style={th}>Date</th><th style={th}>Description</th>{multi && <th style={th}>Suite</th>}{multi && <th style={th}>Tenant</th>}<th style={th}>Ref</th><th style={th}>Acct</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
                   <tbody>
                     {shown.map((t, i) => {
@@ -1932,7 +1951,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                     <td colSpan={multi ? 6 : 4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>{activeTenantName ? `${activeTenantName} · ` : ""}Total · {shown.length} transaction{shown.length === 1 ? "" : "s"}</td>
                     <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(glTotal)}</td>
                   </tr></tfoot>
-                </table>
+                </table>}
               </div>
               );
             })()

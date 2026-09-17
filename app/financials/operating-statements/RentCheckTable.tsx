@@ -55,9 +55,19 @@ const money0 = (v: number): string => {
   return v < 0 ? `(${s})` : s;
 };
 
-export function RentCheckTable({ viewKey, property, year, period, scope, mask, sign, version, monthLabel }: {
+export function RentCheckTable({ viewKey, property, year, period, scope, mask, sign, version, monthLabel, refByUnit }: {
   viewKey: string; property: string; year: number; period: number;
   scope: "month" | "ytd"; mask: string; sign: 1 | -1; version?: string | null; monthLabel: string;
+  /**
+   * The GL reference for each suite's charge, when there is exactly one.
+   *
+   * Passed in rather than fetched: where rent posts one charge per suite a
+   * month, the transaction list under this table repeats it row for row and is
+   * hidden — and its Ref was the one column this table did not already carry.
+   * A suite with two charges has no single ref, so it is left out of the map
+   * and that is also the case where the transaction list stays.
+   */
+  refByUnit?: Record<string, string>;
 }) {
   const [data, setData] = useState<Result | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,6 +98,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
   const t = data.totals;
   const window = scope === "month" ? monthLabel : `YTD through ${monthLabel}`;
   const hasAr = t.openAr !== null;
+  const hasRef = !!refByUnit && shown.some((r) => refByUnit[r.unitRef]);
 
   return (
     <div style={{ paddingBottom: 14 }}>
@@ -112,6 +123,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
           <thead><tr>
             <th style={th}>Suite</th>
             <th style={th}>Tenant</th>
+            {hasRef && <th style={th}>Ref</th>}
             <th style={thR}>SF</th>
             <th style={thR}>Rent roll</th>
             <th style={thR}>GL</th>
@@ -123,6 +135,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
               <tr key={r.unitRef}>
                 <td style={{ ...td, whiteSpace: "nowrap" }}><code style={{ fontSize: 12 }}>{r.unitRef}</code></td>
                 <td style={td}>{r.tenant || <span className="muted">— vacant</span>}</td>
+                {hasRef && <td style={{ ...td, whiteSpace: "nowrap", color: "var(--muted)" }}>{refByUnit?.[r.unitRef] || "—"}</td>}
                 <td style={{ ...tdR, color: "var(--muted)" }}>{r.sqft ? r.sqft.toLocaleString("en-US") : "—"}</td>
                 <td style={tdR}>{money0(r.expected)}</td>
                 <td style={{ ...tdR, fontWeight: Math.abs(r.variance) > 1 ? 800 : undefined }}>{money0(r.billed)}</td>
@@ -152,7 +165,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
             ))}
           </tbody>
           <tfoot><tr>
-            <td colSpan={3} style={{ ...td, fontWeight: 800, borderTop: "2px solid var(--border)" }}>
+            <td colSpan={hasRef ? 4 : 3} style={{ ...td, fontWeight: 800, borderTop: "2px solid var(--border)" }}>
               {`Total · ${shown.length} suites`}
             </td>
             <td style={{ ...tdR, fontWeight: 900, borderTop: "2px solid var(--border)" }}>{money0(shown.reduce((s, r) => s + r.expected, 0))}</td>
