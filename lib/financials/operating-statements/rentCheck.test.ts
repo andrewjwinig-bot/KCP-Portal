@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { rentCheck, mdyToISO, suiteOf, type RentCheckUnit } from "./rentCheck";
+import { rentCheck, basisForLine, mdyToISO, suiteOf, type RentCheckUnit } from "./rentCheck";
 
 const unit = (over: Partial<RentCheckUnit> & { unitRef: string }): RentCheckUnit => ({
   tenant: "Tenant", isVacant: false, sqft: 1000, baseRent: 5000,
+  opexMonth: 0, reTaxMonth: 0, otherMonth: 0,
   leaseFrom: "01/01/2020", leaseTo: "12/31/2030", ...over,
 });
 
@@ -178,5 +179,55 @@ describe("rentCheck — billing variance, suite by suite", () => {
     expect(res.totals.expected).toBe(7500);
     expect(res.totals.billed).toBe(5000);
     expect(res.totals.variance).toBe(-2500);
+  });
+});
+
+// WHICH rent-roll column a line is checked against. 4500's Common Area is the
+// case that exposed it: the GL billed $30,030 of CAM, the rent roll's
+// OPERATING EXPENSE column says $30,030 — and the table reported a $109,301
+// "billing variance" because it had compared against $139,331 of base rent.
+describe("the rent-roll column a line is checked against", () => {
+  it("routes the four lines that have a column", () => {
+    expect(basisForLine("Common Area", "4910-8501,4910-8502,4901-8506")).toBe("cam");
+    expect(basisForLine("Common Area", "4910-0000,4910-8501,4910-8502,4910-8506")).toBe("cam");
+    expect(basisForLine("Real Estate Taxes", "4920-*")).toBe("ret");
+    expect(basisForLine("Insurance", "4930-*")).toBe("other");
+    expect(basisForLine("Rental income", "4230-*")).toBe("base");
+  });
+
+  it("returns NULL where the rent roll has no column — never base rent", () => {
+    // Each of these is billed per suite and each was being checked against
+    // base rent. No basis means the table is not shown at all.
+    expect(basisForLine("Electric", "4710-*,4910-8503")).toBeNull();
+    expect(basisForLine("Condo Assn", "4970-*")).toBeNull();
+    expect(basisForLine("Percentage Rents", "4240-*")).toBeNull();
+    expect(basisForLine("Miscellaneous", "4980..4999-*")).toBeNull();
+  });
+
+  it("reads the LABEL before the mask, because the masks overlap", () => {
+    // Electric's mask carries 4910-8503, and 4910 is the Common Area family.
+    expect(basisForLine("Electric", "4910-8503")).toBeNull();
+  });
+
+  it("expects the CAM column on a CAM line — 4500's real July figures", () => {
+    const units = [
+      unit({ unitRef: "4500-2851", tenant: "McDonald's Corp", baseRent: 6666.67, opexMonth: 1550 }),
+      unit({ unitRef: "4500-3021", tenant: "Wakefern Food Corp", baseRent: 61368.67, opexMonth: 23100 }),
+      // Billed no CAM and owed none — must read as idle, not "NOT BILLED $26,057".
+      unit({ unitRef: "4500-3007", tenant: "Pennsylvania LCB", baseRent: 26056.67, opexMonth: 0 }),
+    ];
+    const billedByUnit = { "4500-2851": 1550, "4500-3021": 23100 };
+    const res = rentCheck({ year: 2026, period: 7, scope: "month", units, billedByUnit, basis: "cam" });
+    expect(res.totals.expected).toBe(24650);
+    expect(res.totals.variance).toBe(0);
+    expect(rowFor(res, "4500-2851").status).toBe("ok");
+    expect(rowFor(res, "4500-3021").status).toBe("ok");
+    expect(rowFor(res, "4500-3007").status).toBe("idle");
+  });
+
+  it("still checks base rent against base rent", () => {
+    const units = [unit({ unitRef: "4500-2851", baseRent: 6666.67, opexMonth: 1550 })];
+    const res = rentCheck({ year: 2026, period: 7, scope: "month", units, billedByUnit: { "4500-2851": 6666.67 } });
+    expect(rowFor(res, "4500-2851").status).toBe("ok");
   });
 });

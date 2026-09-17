@@ -28,6 +28,12 @@ export type RentCheckUnit = {
   sqft: number | null;
   /** Monthly base rent as the rent roll reports it today. */
   baseRent: number;
+  /** The rent roll's OPERATING EXPENSE month column — the suite's CAM charge. */
+  opexMonth: number;
+  /** The rent roll's REAL ESTATE TAX month column. */
+  reTaxMonth: number;
+  /** The rent roll's OTHER EXPENSE month column. */
+  otherMonth: number;
   /** Lease term as "MM/DD/YYYY", the rent roll's own format. */
   leaseFrom: string | null;
   leaseTo: string | null;
@@ -105,6 +111,76 @@ export function suiteOf(unitRef: string): string {
   return i < 0 ? unitRef : unitRef.slice(i + 1);
 }
 
+/**
+ * WHICH rent-roll column a line is checked against.
+ *
+ * The rent roll bills four things per suite, in four columns — BASE RENT,
+ * OPERATING EXPENSE (CAM), REAL ESTATE TAX and OTHER EXPENSE — and the
+ * statement has a line for each. Checking every one of them against BASE RENT
+ * is how 4500's Common Area read a $109,301 "billing variance" on a month that
+ * ties to the dollar: the GL had billed $30,030 of CAM, the rent roll's CAM
+ * column says $30,030, and the comparison was against $139,331 of base rent.
+ *
+ * The rent roll has NO insurance column, so an insurance line is checked
+ * against OTHER EXPENSE, which is Skyline's catch-all and may carry more than
+ * insurance. That is a real approximation and the table says so rather than
+ * presenting the difference as a billing error.
+ */
+export type RentCheckBasis = "base" | "cam" | "ret" | "other";
+
+export const BASIS_LABEL: Record<RentCheckBasis, string> = {
+  base: "Rent roll", cam: "Rent roll · CAM", ret: "Rent roll · RE tax", other: "Rent roll · Other",
+};
+
+export const BASIS_SOURCE: Record<RentCheckBasis, string> = {
+  base: "contract base rent for the suite",
+  cam: "the suite's monthly CAM charge, from the rent roll's OPERATING EXPENSE column",
+  ret: "the suite's monthly tax charge, from the rent roll's REAL ESTATE TAX column",
+  other: "the rent roll's OTHER EXPENSE column",
+};
+
+const monthlyFor = (u: RentCheckUnit, basis: RentCheckBasis): number =>
+  basis === "cam" ? (u.opexMonth || 0)
+  : basis === "ret" ? (u.reTaxMonth || 0)
+  : basis === "other" ? (u.otherMonth || 0)
+  : (u.baseRent || 0);
+
+const maskParts = (mask: string): string[] =>
+  mask.split(",").map((m) => m.trim()).filter(Boolean);
+
+/**
+ * The rent-roll column a statement line should be checked against, or null
+ * when there isn't one.
+ *
+ * NULL IS THE IMPORTANT ANSWER. Electric reimbursement, condo fees and
+ * percentage rents are all billed per suite and none of them is a column on
+ * the rent roll, so there is nothing to reconcile against — and before this
+ * they were all silently compared to base rent. A line with no basis shows the
+ * per-tenant GL summary instead, which claims nothing it cannot support.
+ *
+ * The LABEL is read first because the masks overlap: Electric is
+ * `4710-*,4910-8503`, and 4910 is the Common Area family.
+ */
+export function basisForLine(label: string, mask: string): RentCheckBasis | null {
+  if (/real\s*estate\s*tax/i.test(label)) return "ret";
+  if (/insurance/i.test(label)) return "other";
+  if (/common\s*area/i.test(label)) return "cam";
+  if (/rental\s*income|base\s*rent/i.test(label)) return "base";
+  const parts = maskParts(mask);
+  if (!parts.length) return null;
+  const all = (re: RegExp) => parts.every((p) => re.test(p));
+  // 4910-8503 is the ELECTRIC sub-account, not CAM. Electric's mask is
+  // normally `4710-*,4910-8503` and fails the all-4910 test anyway, but a
+  // property mapped to 4910-8503 alone would otherwise resolve to CAM and be
+  // checked against the wrong column — the exact bug this function exists to
+  // stop. The CAM sub-accounts in use are -0000, -8501, -8502 and -8506.
+  if (all(/^(4910|4901)/) && !parts.some((p) => /^4910-8503/.test(p))) return "cam";
+  if (all(/^4920/)) return "ret";
+  if (all(/^4930/)) return "other";
+  if (all(/^4230/)) return "base";
+  return null;
+}
+
 export type RentCheckInput = {
   year: number;
   /** 1–12, the statement period in view. */
@@ -117,6 +193,8 @@ export type RentCheckInput = {
   arByUnit?: Record<string, { totalDue: number; pastDue: number }>;
   /** Billed rental income that resolved to no suite. */
   unplacedBilled?: number;
+  /** Which rent-roll column to expect. Defaults to base rent. */
+  basis?: RentCheckBasis;
 };
 
 /** Rank worst-first: what needs doing before what merely needs reading. */
@@ -126,6 +204,7 @@ const STATUS_RANK: Record<RentCheckStatus, number> = {
 
 export function rentCheck(input: RentCheckInput): RentCheckResult {
   const { year, scope, units, billedByUnit, arByUnit } = input;
+  const basis = input.basis ?? "base";
   const period = Math.min(12, Math.max(1, input.period));
   const months = scope === "month" ? [period] : Array.from({ length: period }, (_, i) => i + 1);
 
@@ -144,7 +223,7 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
       if ((from && from > start) || (to && to < end)) partial = true;
     }
     // A vacant suite is owed nothing regardless of what dates the roll carries.
-    const expected = round(u.isVacant ? 0 : u.baseRent * covered);
+    const expected = round(u.isVacant ? 0 : monthlyFor(u, basis) * covered);
     const key = u.unitRef.toUpperCase();
     seen.add(key);
     const billed = round(billedByUnit[key] ?? 0);
