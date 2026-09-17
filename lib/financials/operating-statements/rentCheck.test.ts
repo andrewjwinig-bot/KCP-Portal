@@ -219,3 +219,48 @@ describe("the rent-roll column a line is checked against", () => {
     expect(rowFor(res, "4500-2851").status).toBe("ok");
   });
 });
+
+// The lease term is carried for the HOVER, not as columns — and the caveats
+// name the actual date, because "starts or ends inside this window" leaves the
+// reader to go and find out which, and when.
+describe("what the lease dates explain", () => {
+  const cam = (over: Partial<RentCheckUnit> & { unitRef: string }) => unit({ opexMonth: 4000, baseRent: 0, ...over });
+  const july = (units: RentCheckUnit[], billedByUnit: Record<string, number>) =>
+    rentCheck({ year: 2026, period: 7, scope: "month", units, billedByUnit, basis: "cam" });
+
+  it("carries the term on every row, for the hover", () => {
+    const r = rowFor(july([cam({ unitRef: "9510-406" })], { "9510-406": 4000 }), "9510-406");
+    expect(r.leaseFrom).toBe("01/01/2020");
+    expect(r.leaseTo).toBe("12/31/2030");
+  });
+
+  it("names the date on a lease that starts mid-window", () => {
+    const r = rowFor(july([cam({ unitRef: "9510-414", leaseFrom: "07/15/2026" })], { "9510-414": 2000 }), "9510-414");
+    expect(r.status).toBe("partial");
+    expect(r.caveats.join(" ")).toContain("starts 07/15/2026");
+  });
+
+  it("names the date on a lease that ends mid-window", () => {
+    const r = rowFor(july([cam({ unitRef: "9510-416", leaseTo: "07/20/2026" })], { "9510-416": 2600 }), "9510-416");
+    expect(r.caveats.join(" ")).toContain("ends 07/20/2026");
+  });
+
+  it("calls out rent still posting after the lease ENDED", () => {
+    // Its own finding. The row read "unexpected" before and said nothing about
+    // why — and the suite need not be flagged vacant for this to be true.
+    const r = rowFor(july([cam({ unitRef: "9510-418", tenant: "Gone Inc", leaseTo: "05/31/2026" })], { "9510-418": 4000 }), "9510-418");
+    expect(r.status).toBe("unexpected");
+    expect(r.caveats.join(" ")).toContain("lease ended 05/31/2026 and rent is still posting");
+  });
+
+  it("does not call a not-yet-started lease a missed bill", () => {
+    const r = rowFor(july([cam({ unitRef: "9510-420", leaseFrom: "10/01/2026" })], {}), "9510-420");
+    expect(r.status).toBe("idle");
+    expect(r.caveats.join(" ")).toContain("does not start until 10/01/2026");
+  });
+
+  it("keeps the vacant-suite caveat for a suite with no expiry to blame", () => {
+    const r = rowFor(july([cam({ unitRef: "9510-422", tenant: null, isVacant: true })], { "9510-422": 900 }), "9510-422");
+    expect(r.caveats.join(" ")).toContain("shows this suite vacant");
+  });
+});

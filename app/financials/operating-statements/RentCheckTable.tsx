@@ -19,6 +19,7 @@ import { HoverCard } from "@/app/components/HoverCard";
 
 type Row = {
   unitRef: string; suite: string; tenant: string | null; sqft: number | null;
+  leaseFrom: string | null; leaseTo: string | null;
   expected: number; billed: number; variance: number;
   status: string; caveats: string[]; monthsCovered: number; monthsInScope: number;
 };
@@ -154,6 +155,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
                       { label: `${BASIS_LABEL[basis]} · ${window}`, value: money0(r.expected) },
                       { label: "Billed to the GL", value: money0(r.billed) },
                       { label: "Difference", value: money0(r.variance), color: r.variance < -1 ? "#b91c1c" : undefined },
+                      { label: "Lease term", value: r.leaseFrom || r.leaseTo ? `${r.leaseFrom ?? "—"} → ${r.leaseTo ?? "—"}` : "Not on the rent roll" },
                       { label: "Months of the window leased", value: `${r.monthsCovered} of ${r.monthsInScope}` },
                     ]}
                     footer={r.caveats.length ? { label: "Note", value: r.caveats.join(" ") } : { label: "Difference", value: money0(r.variance) }}
