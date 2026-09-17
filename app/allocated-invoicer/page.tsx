@@ -1,11 +1,23 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import JSZip from "jszip";
 import { parseGLExcel, GLParseResult, GLTransaction } from "../../lib/allocated-invoicer/glParser";
+import { reconcileAllocation } from "../../lib/allocated-invoicer/tieOut";
 import { buildAllocInvoicePdf, makeAllocInvoiceId, AllocLineItem } from "../../lib/allocated-invoicer/invoice";
 import { buildAllocExportXlsx, AllocExportRow } from "../../lib/allocated-invoicer/export";
+import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
 import { toMoney } from "../../lib/expenses/utils";
+import { ALLOC_PCT } from "../../lib/properties/data";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { AvidReviewModal, AvidSuccessModal } from "@/app/components/AvidSend";
+import {
+  CARRYOVER_THRESHOLD,
+  isYearEndMonth,
+  baseAccountCode,
+  type PropertyCarry,
+  type MonthExpense,
+} from "../../lib/allocated-invoicer/carryover";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -32,30 +44,8 @@ const ALLOC_PROPERTIES = [
   { id: "9510", name: "Shops at Lafayette Hill" },
 ] as const;
 
-type PropId = (typeof ALLOC_PROPERTIES)[number]["id"];
-
-const ALLOCATION_TABLE: Record<PropId, Record<"9301" | "9302" | "9303", number>> = {
-  "3610": { "9301": 0.0779, "9302": 0.0000, "9303": 0.0514 },
-  "3620": { "9301": 0.0913, "9302": 0.0000, "9303": 0.0602 },
-  "3640": { "9301": 0.0909, "9302": 0.0000, "9303": 0.0600 },
-  "4050": { "9301": 0.1006, "9302": 0.0000, "9303": 0.0664 },
-  "4060": { "9301": 0.2009, "9302": 0.0000, "9303": 0.1326 },
-  "4070": { "9301": 0.1146, "9302": 0.0000, "9303": 0.0756 },
-  "4080": { "9301": 0.2380, "9302": 0.0000, "9303": 0.1571 },
-  "40A0": { "9301": 0.0281, "9302": 0.0000, "9303": 0.0185 },
-  "40B0": { "9301": 0.0242, "9302": 0.0000, "9303": 0.0159 },
-  "40C0": { "9301": 0.0335, "9302": 0.0000, "9303": 0.0221 },
-  "1100": { "9301": 0.0000, "9302": 0.0299, "9303": 0.0102 },
-  "1500": { "9301": 0.0000, "9302": 0.0082, "9303": 0.0028 },
-  "2300": { "9301": 0.0000, "9302": 0.2224, "9303": 0.0757 },
-  "4500": { "9301": 0.0000, "9302": 0.2993, "9303": 0.1018 },
-  "5600": { "9301": 0.0000, "9302": 0.0048, "9303": 0.0016 },
-  "7010": { "9301": 0.0000, "9302": 0.2645, "9303": 0.0900 },
-  "7200": { "9301": 0.0000, "9302": 0.0535, "9303": 0.0182 },
-  "7300": { "9301": 0.0000, "9302": 0.0813, "9303": 0.0276 },
-  "8200": { "9301": 0.0000, "9302": 0.0361, "9303": 0.0123 },
-  "9510": { "9301": 0.0000, "9302": 0.0000, "9303": 0.0000 },
-};
+// Overhead-allocation shares — single source of truth in lib/properties/data.ts.
+const ALLOCATION_TABLE = ALLOC_PCT;
 
 const PIE_COLORS = [
   "#1e3a5f","#2563eb","#0891b2","#059669","#65a30d",
@@ -152,10 +142,24 @@ function DonutChart({ data }: { data: PieSlice[] }) {
   );
 }
 
+// One base GL account's allocation to one property, decorated with its carried
+// balance and hold decision for the current statement month.
+type DecoratedAccount = {
+  propertyId: string;
+  propertyName: string;
+  accountCode: string; // base code, e.g. "8220"
+  accountName: string;
+  thisMonth: number;
+  prior: number;
+  accrued: number;
+  billed: boolean;
+  sinceMonth: string;
+  rows: AllocExportRow[]; // this-month suffix rows (empty for a pure carryover flush)
+};
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AllocatedInvoicerPage() {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [glResult, setGlResult] = useState<GLParseResult | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [acctFilter, setAcctFilter] = useState<"all" | "9301" | "9302" | "9303">("all");
@@ -167,6 +171,148 @@ export default function AllocatedInvoicerPage() {
   const [allocPreviewOpen, setAllocPreviewOpen] = useState(true);
   const [showAllocModal, setShowAllocModal] = useState(false);
 
+  // ── Carryover ("hold under $100" per expense) ──────────────────────────────
+  // Each GL account's allocation to a property accrues on its own; an account
+  // under the threshold is held and rolls forward until it crosses $100 (or
+  // December, when everything posts). Loaded on mount; updated on Finalize.
+  const [carryover, setCarryover] = useState<Record<string, PropertyCarry>>({});
+  const [committedPeriods, setCommittedPeriods] = useState<string[]>([]);
+  const [finalizing, setFinalizing] = useState(false);
+  const [heldModal, setHeldModal] = useState<{ propName: string; accounts: DecoratedAccount[] } | null>(null);
+  useEffect(() => {
+    fetch("/api/allocation/carryover")
+      .then((r) => r.json())
+      .then((j) => {
+        setCarryover(j.ledger?.balances ?? {});
+        setCommittedPeriods(j.ledger?.committedPeriods ?? []);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Run log — the last allocation that was generated (period invoiced + when),
+  // so staff know where to pick up. Loaded on mount; updated when invoices are
+  // generated.
+  type AllocRun = { periodText: string; periodEndDate: string; statementMonth: string; ranAt: string; ranBy?: string; byProperty?: { code: string; name: string; amount: number }[]; total?: number };
+  const [runs, setRuns] = useState<AllocRun[] | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  useEffect(() => {
+    fetch("/api/allocation/last-run").then((r) => r.json()).then((j) => setRuns(j.runs ?? [])).catch(() => setRuns([]));
+  }, []);
+
+  // Hand-off from Operating Statements: when the 2000 G&A GL is uploaded there,
+  // it's stashed for us. Offer to load + generate the allocated invoices from
+  // the same file instead of re-uploading it.
+  type PendingGl = { fileName: string; year: number; month: number; statementMonth: string; uploadedAt: string; uploadedBy?: string | null; alreadyProcessed: boolean };
+  const [pendingGl, setPendingGl] = useState<PendingGl | null>(null);
+  const [pendingDismissed, setPendingDismissed] = useState(false);
+  const [loadingPending, setLoadingPending] = useState(false);
+
+  // ── Review-before-send gate ────────────────────────────────────────────────
+  // When the 2000 G&A GL imports, the allocation is PREPARED (computed + staged)
+  // but not sent. The reviewer sees the per-building summary here and clicks
+  // "Send to AvidXchange" to release the invoices. Nothing goes out on its own.
+  type LiveReview = { period: string; label: string; byProperty: { code: string; name: string; amount: number }[]; total: number; invoiceCount: number };
+  const [reviewSend, setReviewSend] = useState<LiveReview | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sentResult, setSentResult] = useState<{ period: string; total: number; invoiceCount: number; byProperty: { code: string; name: string; amount: number }[]; sentAt: string; mailSent: boolean } | null>(null);
+  // A range GL prepares several months at once ("2026-01_to_2026-06").
+  const isRangePeriod = (period: string) => period.includes("_to_");
+  const rangeMonthCount = (period: string) => {
+    const m = period.match(/^(\d{4})-(\d{2})_to_(\d{4})-(\d{2})$/);
+    if (!m) return 1;
+    return (Number(m[3]) * 12 + Number(m[4])) - (Number(m[1]) * 12 + Number(m[2])) + 1;
+  };
+  const sendLabel = (rec: { period: string; label?: string }) =>
+    isRangePeriod(rec.period) ? `${rec.label || rec.period} (${rangeMonthCount(rec.period)} months)` : rec.label || rec.period;
+
+  async function confirmSend(rec: LiveReview) {
+    setSending(true);
+    try {
+      const res = await fetch("/api/allocation/pending-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period: rec.period }),
+      });
+      const j = await res.json();
+      if (!res.ok) { alert(j?.error ?? "Failed to send to AvidXchange."); return; }
+      setReviewSend(null);
+      setSentResult({
+        period: sendLabel(rec),
+        total: j.total ?? 0,
+        invoiceCount: j.invoiceCount ?? 0,
+        byProperty: j.byProperty ?? [],
+        sentAt: j.sentAt ?? new Date().toISOString(),
+        mailSent: j.emailed !== false,
+      });
+      // Reflect the newly-finalized carryover / run log on the page (this also
+      // clears the live Review & Send banner, since the month is now committed).
+      fetch("/api/allocation/carryover").then((r) => r.json()).then((c) => {
+        setCarryover(c.ledger?.balances ?? {});
+        setCommittedPeriods(c.ledger?.committedPeriods ?? []);
+      }).catch(() => {});
+      fetch("/api/allocation/last-run").then((r) => r.json()).then((c) => setRuns(c.runs ?? [])).catch(() => {});
+    } catch (e: any) {
+      alert("Failed to send to AvidXchange: " + (e?.message ?? String(e)));
+    } finally {
+      setSending(false);
+    }
+  }
+  useEffect(() => {
+    fetch("/api/allocation/pending-gl").then((r) => r.json()).then(async (j) => {
+      const p = j.pending ?? null;
+      setPendingGl(p);
+      if (p && !p.alreadyProcessed) {
+        // The 2000 G&A GL handed off from Operating Statements is the ONLY
+        // source here. Stage it for the send (idempotent) and load it for the
+        // on-screen preview — the Review & Send summary is then derived live
+        // from that preview. No manual upload, no "Load" click.
+        try { await fetch("/api/allocation/prepare", { method: "POST" }); } catch { /* best-effort */ }
+        loadPendingGl();
+      }
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadPendingGl() {
+    setLoadingPending(true);
+    try {
+      const j = await fetch("/api/allocation/pending-gl?file=1").then((r) => r.json());
+      if (!j.fileBase64) throw new Error("File not available");
+      const bin = atob(j.fileBase64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const result = parseGLExcel(bytes.buffer);
+      setGlResult(result);
+      setFileName(j.fileName ?? pendingGl?.fileName ?? "2000 G&A GL");
+      setAcctFilter("all");
+      setSearch("");
+      setTxDetailModal(null);
+      setAllocPropModal(null);
+    } catch (e: any) {
+      alert("Failed to load the imported 2000 GL: " + (e?.message ?? String(e)));
+    } finally {
+      setLoadingPending(false);
+    }
+  }
+  async function recordRun() {
+    if (!glResult) return;
+    // Snapshot the per-property allocated amounts invoiced this run, so the
+    // allocation history can be referenced later (it isn't computed in Skyline).
+    const byProperty = ALLOC_PROPERTIES
+      .map((p) => ({ code: p.id, name: p.name, amount: billingTotals.get(p.id) ?? 0 }))
+      .filter((x) => x.amount > 0);
+    const total = byProperty.reduce((s, x) => s + x.amount, 0);
+    try {
+      const res = await fetch("/api/allocation/last-run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ periodText: glResult.periodText, periodEndDate: glResult.periodEndDate, statementMonth: glResult.statementMonth, byProperty, total }),
+      });
+      const j = await res.json();
+      if (res.ok && j.runs) setRuns(j.runs);
+    } catch { /* non-fatal */ }
+  }
+
   // ── Derived: allocation rows ────────────────────────────────────────────────
 
   const allocationRows = useMemo((): AllocExportRow[] => {
@@ -175,6 +321,12 @@ export default function AllocatedInvoicerPage() {
     for (const [, accData] of glResult.accountTotals.entries()) {
       const suffix = accData.accountSuffix;
       for (const prop of ALLOC_PROPERTIES) {
+        // Suffix-matched basis: each G&A account is allocated by the share that
+        // matches its own suffix — 9301 spreads only across business parks, 9302
+        // only across shopping centers, and 9303 across all properties. Because a
+        // property's 9302 share is 0 when it's a business park (and 9301 is 0 when
+        // it's a shopping center), no single property ever receives both a 9301 and
+        // a 9302 contribution — they're mutually-exclusive property types.
         const pctVal = ALLOCATION_TABLE[prop.id]?.[suffix] ?? 0;
         if (pctVal === 0) continue;
         result.push({
@@ -204,6 +356,115 @@ export default function AllocatedInvoicerPage() {
     [...new Set(allocationRows.map((r) => r.accountCode))].sort(),
     [allocationRows]
   );
+
+  // ── Derived: per-expense carryover decoration ──────────────────────────────
+  const statementMonth = glResult?.statementMonth ?? "";
+  const yearEnd = isYearEndMonth(statementMonth);
+  const alreadyFinalized = !!statementMonth && committedPeriods.includes(statementMonth);
+
+  // This month's allocation grouped by property + base account (the coded -8501
+  // line), decorated with each account's prior carried balance + hold decision.
+  const decoratedAccounts = useMemo((): DecoratedAccount[] => {
+    // property → base account → { thisMonth, name, suffix rows }
+    const byProp = new Map<string, Map<string, { name: string; thisMonth: number; rows: AllocExportRow[] }>>();
+    for (const r of allocationRows) {
+      const base = baseAccountCode(r.accountCode);
+      if (!byProp.has(r.propertyId)) byProp.set(r.propertyId, new Map());
+      const am = byProp.get(r.propertyId)!;
+      const cur = am.get(base) ?? { name: r.accountName, thisMonth: 0, rows: [] as AllocExportRow[] };
+      cur.thisMonth = roundCents(cur.thisMonth + r.allocAmount);
+      cur.rows.push(r);
+      am.set(base, cur);
+    }
+
+    const out: DecoratedAccount[] = [];
+    for (const prop of ALLOC_PROPERTIES) {
+      const am = byProp.get(prop.id);
+      const seen = new Set<string>();
+      if (am) {
+        for (const [base, g] of am) {
+          seen.add(base);
+          const carry = carryover[prop.id]?.accounts?.[base];
+          const prior = roundCents(carry?.heldTotal ?? 0);
+          const accrued = roundCents(g.thisMonth + prior);
+          const billed = yearEnd || accrued >= CARRYOVER_THRESHOLD;
+          out.push({
+            propertyId: prop.id, propertyName: prop.name, accountCode: base, accountName: g.name,
+            thisMonth: g.thisMonth, prior, accrued, billed,
+            sinceMonth: carry?.sinceMonth || statementMonth, rows: g.rows,
+          });
+        }
+      }
+      // Accounts held from prior months with no activity this month: still held
+      // (carry forward), unless it's year-end, when they flush and bill.
+      const pc = carryover[prop.id];
+      if (pc) {
+        for (const [base, carry] of Object.entries(pc.accounts)) {
+          if (seen.has(base)) continue;
+          const prior = roundCents(carry.heldTotal);
+          out.push({
+            propertyId: prop.id, propertyName: prop.name, accountCode: base, accountName: carry.accountName,
+            thisMonth: 0, prior, accrued: prior, billed: yearEnd,
+            sinceMonth: carry.sinceMonth || statementMonth, rows: [],
+          });
+        }
+      }
+    }
+    return out;
+  }, [allocationRows, carryover, yearEnd, statementMonth]);
+
+  // Per-property billing totals (sum of billed accounts' accrued amounts).
+  const billingTotals = useMemo((): Map<string, number> => {
+    const m = new Map<string, number>();
+    for (const a of decoratedAccounts) {
+      if (!a.billed) continue;
+      m.set(a.propertyId, roundCents((m.get(a.propertyId) ?? 0) + a.accrued));
+    }
+    return m;
+  }, [decoratedAccounts]);
+
+  // Per-property held rows (accounts under the threshold, rolled forward).
+  const heldRows = useMemo(() => {
+    const m = new Map<string, { propId: string; propName: string; thisMonth: number; prior: number; accrued: number; accounts: DecoratedAccount[] }>();
+    for (const a of decoratedAccounts) {
+      if (a.billed) continue;
+      const cur = m.get(a.propertyId) ?? { propId: a.propertyId, propName: a.propertyName, thisMonth: 0, prior: 0, accrued: 0, accounts: [] as DecoratedAccount[] };
+      cur.thisMonth = roundCents(cur.thisMonth + a.thisMonth);
+      cur.prior = roundCents(cur.prior + a.prior);
+      cur.accrued = roundCents(cur.accrued + a.accrued);
+      cur.accounts.push(a);
+      m.set(a.propertyId, cur);
+    }
+    return [...m.values()].sort((x, y) => y.accrued - x.accrued);
+  }, [decoratedAccounts]);
+
+  const heldGrandTotal = useMemo(() => heldRows.reduce((s, r) => s + r.accrued, 0), [heldRows]);
+  const grandBillingTotal = useMemo(() => [...billingTotals.values()].reduce((s, v) => s + v, 0), [billingTotals]);
+  // Per-property held balance, so the Allocation Preview can show an "Accrued"
+  // column beside "Billed" (the two tables merged into one).
+  const heldByProp = useMemo(() => new Map(heldRows.map((h) => [h.propId, h])), [heldRows]);
+
+  // The Review & Send summary is derived LIVE from the loaded GL's billing (the
+  // exact figures in the Allocation Preview below), so what you review always
+  // matches what's on screen — never a separately-staged snapshot that can drift.
+  const liveReview = useMemo<LiveReview | null>(() => {
+    if (!glResult || !statementMonth || alreadyFinalized) return null;
+    // Keep ALLOC_PROPERTIES order so the review modal lines up 1:1 with the
+    // Allocation Preview table (which iterates the same list).
+    const byProperty = ALLOC_PROPERTIES
+      .map((p) => ({ code: p.id, name: p.name, amount: billingTotals.get(p.id) ?? 0 }))
+      .filter((x) => x.amount > 0);
+    if (!byProperty.length) return null;
+    const total = roundCents(byProperty.reduce((s, x) => s + x.amount, 0));
+    return { period: statementMonth, label: glResult.periodText || statementMonth, byProperty, total, invoiceCount: byProperty.length };
+  }, [glResult, statementMonth, alreadyFinalized, billingTotals]);
+  // Everything this month is under the $100-per-account threshold and is held /
+  // carried forward — so nothing bills to Avid yet (unless it's December).
+  const allHeldThisMonth = !!glResult && !alreadyFinalized && grandBillingTotal === 0 && allocationRows.length > 0;
+
+  // Allocation tie-out: does the split add back up to the source GL? Flags a
+  // suffix whose property shares don't sum to 100% (expense that would leak).
+  const allocTie = useMemo(() => (glResult ? reconcileAllocation(glResult) : null), [glResult]);
 
   // ── Derived: filtered GL transactions ──────────────────────────────────────
 
@@ -260,10 +521,16 @@ export default function AllocatedInvoicerPage() {
 
   const chartDataByAccount = useMemo((): PieSlice[] => {
     if (!glResult) return [];
-    return [...glResult.accountTotals.values()]
-      .filter((a) => a.netTotal > 0)
-      .sort((a, b) => b.netTotal - a.netTotal)
-      .map((a, i) => ({ label: `${a.accountCode} — ${a.accountName}`, value: a.netTotal, color: PIE_COLORS[i % PIE_COLORS.length] }));
+    // Group by account NAME, combining the 9301/9302/9303 suffixes (e.g. all
+    // "Telephone" into one slice) — the suffix split is noise at this level.
+    const byName = new Map<string, number>();
+    for (const a of glResult.accountTotals.values()) {
+      if (a.netTotal <= 0) continue;
+      byName.set(a.accountName, (byName.get(a.accountName) ?? 0) + a.netTotal);
+    }
+    return [...byName.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value], i) => ({ label: name, value, color: PIE_COLORS[i % PIE_COLORS.length] }));
   }, [glResult]);
 
   // ── Totals for TX table footer ─────────────────────────────────────────────
@@ -273,53 +540,42 @@ export default function AllocatedInvoicerPage() {
     credit: filteredTx.reduce((a, t) => a + t.credit, 0),
     net:    filteredTx.reduce((a, t) => a + t.net,    0),
   }), [filteredTx]);
+  // G&A allocation accounts are debit-only in practice — only show the Credit
+  // column if the imported GL actually has a credit somewhere (a reversal/refund).
+  const anyCredit = useMemo(() => (glResult?.transactions ?? []).some((t) => Math.abs(t.credit) > 0.005), [glResult]);
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
-  async function importFile(file: File) {
-    try {
-      const buf = await file.arrayBuffer();
-      const result = parseGLExcel(buf);
-      setGlResult(result);
-      setFileName(file.name);
-      setAcctFilter("all");
-      setSearch("");
-      setTxDetailModal(null);
-      setAllocPropModal(null);
-    } catch (e: any) {
-      alert("Failed to parse GL file: " + (e?.message ?? String(e)));
+
+  // Build the invoice inputs for a property: only its BILLED accounts (those
+  // that crossed $100 this month, or everything at year-end). Each billed
+  // account's -8501 total is its this-month suffix rows plus any carried-forward
+  // balance, surfaced to the PDF via the carriedForward map.
+  function buildInvoiceForProp(propId: string): {
+    lineItems: AllocLineItem[];
+    carriedForward: Record<string, { amount: number; accountName: string }>;
+    grandTotal: number;
+  } {
+    const billed = decoratedAccounts.filter((a) => a.propertyId === propId && a.billed);
+    const lineItems: AllocLineItem[] = [];
+    const carriedForward: Record<string, { amount: number; accountName: string }> = {};
+    for (const a of billed) {
+      for (const r of a.rows) {
+        lineItems.push({
+          accountCode: r.accountCode, accountName: r.accountName, accountSuffix: r.accountSuffix,
+          grossAmount: r.grossAmount, allocPct: r.allocPct, allocAmount: r.allocAmount,
+        });
+      }
+      if (a.prior > 0) carriedForward[a.accountCode] = { amount: a.prior, accountName: a.accountName };
     }
-  }
-
-  function clearAll() {
-    if (!confirm("Clear imported General Ledger?")) return;
-    setGlResult(null);
-    setFileName("");
-    setAcctFilter("all");
-    setSearch("");
-    setTxDetailModal(null);
-    setAllocPropModal(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  function buildLineItemsForProp(propId: string): AllocLineItem[] {
-    return allocationRows
-      .filter((r) => r.propertyId === propId)
-      .map((r) => ({
-        accountCode:  r.accountCode,
-        accountName:  r.accountName,
-        accountSuffix: r.accountSuffix,
-        grossAmount:  r.grossAmount,
-        allocPct:     r.allocPct,
-        allocAmount:  r.allocAmount,
-      }));
+    const grandTotal = billed.reduce((s, a) => s + a.accrued, 0);
+    return { lineItems, carriedForward, grandTotal };
   }
 
   function downloadSinglePdf(propId: string) {
     const prop = ALLOC_PROPERTIES.find((p) => p.id === propId);
     if (!prop || !glResult) return;
-    const lineItems = buildLineItemsForProp(propId);
-    const grandTotal = lineItems.reduce((a, r) => a + r.allocAmount, 0);
+    const { lineItems, carriedForward, grandTotal } = buildInvoiceForProp(propId);
     const blob = buildAllocInvoicePdf({
       propertyId:    prop.id,
       propertyName:  prop.name,
@@ -329,6 +585,7 @@ export default function AllocatedInvoicerPage() {
       invoiceDate:   glResult.periodEndDate || todayYYYYMMDD(),
       invoiceId:     makeAllocInvoiceId(prop.id),
       lineItems,
+      carriedForward,
       grandTotal,
     });
     const month = glResult.statementMonth || "Statement";
@@ -337,14 +594,13 @@ export default function AllocatedInvoicerPage() {
 
   async function generateAllPdfsZip() {
     if (!glResult) return;
-    const activeProps = ALLOC_PROPERTIES.filter((p) => (perPropertyTotals.get(p.id) ?? 0) > 0);
-    if (!activeProps.length) return;
+    const activeProps = ALLOC_PROPERTIES.filter((p) => (billingTotals.get(p.id) ?? 0) > 0);
+    if (!activeProps.length) { alert("No properties bill this month — all allocated amounts are held under the threshold."); return; }
     if (!confirm(`Generate ${activeProps.length} property invoice${activeProps.length !== 1 ? "s" : ""} as a ZIP?`)) return;
     const zip = new JSZip();
     const month = glResult.statementMonth || "Statement";
     for (const prop of activeProps) {
-      const lineItems = buildLineItemsForProp(prop.id);
-      const grandTotal = lineItems.reduce((a, r) => a + r.allocAmount, 0);
+      const { lineItems, carriedForward, grandTotal } = buildInvoiceForProp(prop.id);
       if (grandTotal <= 0) continue;
       const blob = buildAllocInvoicePdf({
         propertyId:    prop.id,
@@ -355,12 +611,31 @@ export default function AllocatedInvoicerPage() {
         invoiceDate:   glResult.periodEndDate || todayYYYYMMDD(),
         invoiceId:     makeAllocInvoiceId(prop.id),
         lineItems,
+        carriedForward,
         grandTotal,
       });
       zip.file(`${month} - ${prop.id} - ${prop.name}.pdf`, blob);
     }
     const zipBlob = await zip.generateAsync({ type: "blob" });
     download(`${month} - Allocated Invoices.zip`, zipBlob);
+    recordRun();
+
+    // Email the GL allocation import + summary report to the controller (same as
+    // payroll). Best-effort, deduped once per period.
+    try {
+      const summaryBlob = buildAllocExportXlsx({
+        periodText: glResult.periodText,
+        rows: allocationRows,
+        propertyOrder: ALLOC_PROPERTIES.map((p) => ({ id: p.id, name: p.name })),
+        accountCodes: allAccountCodes,
+      });
+      const period = glResult.statementMonth || glResult.periodEndDate || "Statement";
+      void emailInvoicerReport({
+        source: "allocated",
+        period,
+        attachments: [{ name: `${month} - Allocated Expenses.xlsx`, blob: summaryBlob, contentType: XLSX_CONTENT_TYPE }],
+      });
+    } catch { /* best-effort: never block invoice generation */ }
   }
 
   function downloadExcel() {
@@ -373,6 +648,66 @@ export default function AllocatedInvoicerPage() {
     });
     const month = glResult.statementMonth || "Statement";
     download(`${month} - Allocated Expenses.xlsx`, blob);
+    recordRun();
+  }
+
+  // Finalize the statement month: accrue held expenses, reset billed ones. The
+  // ONLY carryover mutation point — run once after this month's invoices are
+  // sent. Idempotent (a month can't be finalized twice).
+  async function finalizeMonthAction() {
+    if (!glResult || !statementMonth) { alert("Load a GL with a statement month first."); return; }
+    if (alreadyFinalized) { alert(`${statementMonth} has already been finalized.`); return; }
+    const expenses: MonthExpense[] = decoratedAccounts
+      .filter((a) => a.thisMonth !== 0)
+      .map((a) => ({ propertyId: a.propertyId, accountCode: a.accountCode, accountName: a.accountName, amount: a.thisMonth }));
+    const msg = yearEnd
+      ? `Finalize ${statementMonth} (YEAR-END)?\n\nEvery held balance will be flushed and billed to clear the year — nothing carries into next year.`
+      : `Finalize ${statementMonth}?\n\nExpenses under $${CARRYOVER_THRESHOLD} carry forward; billed expenses reset to $0. Run this once, after you've sent this month's invoices.`;
+    if (!confirm(msg)) return;
+    setFinalizing(true);
+    try {
+      const res = await fetch("/api/allocation/carryover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statementMonth, expenses }),
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        alert(j?.error ?? "Failed to finalize month.");
+        if (j?.ledger) { setCarryover(j.ledger.balances ?? {}); setCommittedPeriods(j.ledger.committedPeriods ?? []); }
+        return;
+      }
+      setCarryover(j.ledger?.balances ?? {});
+      setCommittedPeriods(j.ledger?.committedPeriods ?? []);
+      alert(`Finalized ${statementMonth}. Carryover updated.`);
+    } catch (e: any) {
+      alert("Failed to finalize month: " + (e?.message ?? String(e)));
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
+  // Download the allocation % per property (the applied 9303 basis) so staff can
+  // verify the allocations independently of any GL run.
+  function downloadAllocationPct() {
+    const esc = (s: string) => `"${String(s).replace(/"/g, '""')}"`;
+    const lines = [
+      ["Code", "Property", "Applied Allocation % (9303)", "Group", "BP sub-split (9301)", "SC sub-split (9302)"].map(esc).join(","),
+    ];
+    for (const p of ALLOC_PROPERTIES) {
+      const row = ALLOCATION_TABLE[p.id];
+      const group = row["9301"] > 0 ? "Business Park" : row["9302"] > 0 ? "Shopping Center" : "—";
+      lines.push([
+        esc(p.id), esc(p.name),
+        (row["9303"] * 100).toFixed(2) + "%",
+        esc(group),
+        row["9301"] ? (row["9301"] * 100).toFixed(2) + "%" : "—",
+        row["9302"] ? (row["9302"] * 100).toFixed(2) + "%" : "—",
+      ].join(","));
+    }
+    const total = ALLOC_PROPERTIES.reduce((s, p) => s + ALLOCATION_TABLE[p.id]["9303"], 0);
+    lines.push([esc(""), esc("TOTAL"), (total * 100).toFixed(2) + "%", esc(""), esc(""), esc("")].join(","));
+    download("Allocation Percentages.csv", new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" }));
   }
 
   // ── Render helpers ─────────────────────────────────────────────────────────
@@ -397,51 +732,225 @@ export default function AllocatedInvoicerPage() {
         </div>
       </header>
 
-      {/* ── Import GL ── */}
+      {/* ── Last allocation run ── */}
+      {runs !== null && (
+        runs.length === 0 ? (
+          <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)", color: "var(--muted)", fontWeight: 600 }}>
+            No allocation runs recorded yet — generate the invoices and the period will be logged here.
+          </div>
+        ) : (
+          <div className="small" style={{ padding: "7px 12px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.2)", color: "#0b4a7d", fontWeight: 600, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span>Last sent <b>{runs[0].statementMonth || runs[0].periodText || "—"}</b>{runs[0].total ? <> · <b>{toMoney(runs[0].total)}</b></> : null}</span>
+            <button type="button" onClick={() => setHistoryOpen((o) => !o)} style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#0b4a7d", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>
+              {historyOpen ? "Hide history" : "View history"}
+            </button>
+          </div>
+        )
+      )}
+
+      {/* ── Allocation history detail (per-building, for later justification) ── */}
+      {historyOpen && runs && runs.length > 0 && (
+        <div className="card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <b>Allocation history</b>
+            <span className="muted small">Per-building amounts invoiced each run — reference to justify what was allocated (this isn&rsquo;t computed in Skyline).</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
+            {runs.map((r, i) => (
+              <div key={`${r.periodEndDate || r.statementMonth}-${i}`} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "8px 12px", background: "rgba(11,74,125,0.04)" }}>
+                  <b style={{ color: "#0b4a7d" }}>{r.statementMonth || r.periodText || "—"}</b>
+                  {r.periodText && r.periodText !== r.statementMonth && <span className="muted small">{r.periodText}</span>}
+                  <span className="muted small">Run {new Date(r.ranAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}{r.ranBy ? ` by ${r.ranBy}` : ""}</span>
+                  <span style={{ marginLeft: "auto", fontWeight: 800 }}>{r.total != null ? toMoney(r.total) : "—"}</span>
+                </div>
+                {r.byProperty && r.byProperty.length > 0 ? (
+                  <div className="tableWrap">
+                    <table>
+                      <thead>
+                        <tr><th>Property</th><th style={{ textAlign: "right" }}>Allocated</th></tr>
+                      </thead>
+                      <tbody>
+                        {r.byProperty.map((b) => (
+                          <tr key={b.code}>
+                            <td><code style={{ fontSize: 12 }}>{b.code}</code> {b.name}</td>
+                            <td style={{ textAlign: "right" }}>{toMoney(b.amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      <tfoot>
+                        <tr><td style={{ fontWeight: 700 }}>Total</td><td style={{ textAlign: "right", fontWeight: 800 }}>{toMoney(r.byProperty.reduce((s, b) => s + b.amount, 0))}</td></tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="small muted" style={{ padding: "8px 12px" }}>No per-building detail recorded for this run (run before detail was tracked).</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Allocation tie-out — the split must add back up to the source GL ── */}
+      {allocTie && (
+        allocTie.ties ? (
+          <div className="card small" style={{ borderColor: "rgba(22,163,74,0.4)", background: "rgba(22,163,74,0.06)", color: "#15803d", fontWeight: 600 }}>
+            ✓ Allocation ties out — {toMoney(allocTie.sourceTotal)} of G&amp;A fully allocated across properties (every suffix’s shares sum to 100%).
+          </div>
+        ) : (
+          <div className="card" style={{ borderColor: "rgba(220,38,38,0.6)", background: "rgba(220,38,38,0.07)", padding: "14px 16px" }}>
+            <div style={{ fontWeight: 800, color: "#b91c1c" }}>⚠ Allocation does not tie to the source GL</div>
+            <div className="small" style={{ marginTop: 6, color: "#7f1d1d" }}>
+              {toMoney(Math.abs(allocTie.unallocated))} of G&amp;A {allocTie.unallocated >= 0 ? "never lands on any building" : "is over-allocated"} — a suffix’s property shares don’t sum to 100%. Fix the allocation percentages and re-import before sending.
+            </div>
+            <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
+              {allocTie.bySuffix.filter((s) => !s.ok).map((s) => (
+                <li key={s.suffix} className="small">
+                  Suffix <code>{s.suffix}</code>: shares sum to {(s.pctSum * 100).toFixed(2)}% — {s.leak >= 0 ? "under" : "over"} by <b>{toMoney(Math.abs(s.leak))}</b> on {toMoney(s.sourceAmount)} of source
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      )}
+
+      {/* ── Prepared & awaiting review — Review & Send to AvidXchange ── */}
+      {liveReview && (
+        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 17 }}>
+              {sendLabel(liveReview)} — ready to send
+            </div>
+            <div className="muted small" style={{ marginTop: 4 }}>
+              <b style={{ color: "var(--fg)" }}>{toMoney(liveReview.total)}</b> across <b style={{ color: "var(--fg)" }}>{liveReview.byProperty.length}</b> propert{liveReview.byProperty.length === 1 ? "y" : "ies"}
+              {isRangePeriod(liveReview.period) ? ` · ${rangeMonthCount(liveReview.period)} months` : ""}
+            </div>
+          </div>
+          <button
+            className="btn"
+            style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10 }}
+            onClick={() => setReviewSend(liveReview)}
+          >
+            Review &amp; Send to AvidXchange →
+          </button>
+        </div>
+      )}
+
+      {/* ── Everything held under $100 this month — nothing bills yet ── */}
+      {allHeldThisMonth && (
+        <div className="card small" style={{ borderColor: "rgba(180,83,9,0.4)", background: "rgba(180,83,9,0.06)", color: "#92400e", fontWeight: 600 }}>
+          ⏳ {glResult?.periodText || statementMonth}: every allocation is under the ${CARRYOVER_THRESHOLD}-per-account threshold, so nothing bills to AvidXchange yet — the balances are held and carry forward until they cross ${CARRYOVER_THRESHOLD} (December posts everything). See the Allocation Preview below for the held detail.
+        </div>
+      )}
+
+      {/* ── Already sent this month ── */}
+      {!liveReview && !allHeldThisMonth && glResult && alreadyFinalized && (
+        <div className="card small" style={{ borderColor: "rgba(11,74,125,0.4)", background: "rgba(11,74,125,0.05)", color: "#0b4a7d", fontWeight: 600 }}>
+          ✓ {glResult?.periodText || statementMonth} has already been reviewed and sent to AvidXchange. Its carryover is finalized — re-download the invoices from the Download menu if you need them.
+        </div>
+      )}
+
+      {/* ── Ready-to-process hand-off from Operating Statements ── */}
+      {/* Superseded by the "Review & Send" banner above once the run is staged. */}
+      {pendingGl && !pendingDismissed && !glResult && !pendingGl.alreadyProcessed && !liveReview && (
+        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 20 }}>✅</span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 800, color: "#15803d" }}>
+                {loadingPending
+                  ? `Parsing ${pendingGl.statementMonth} 2000 G&A GL…`
+                  : `${pendingGl.statementMonth} 2000 G&A GL is ready to process`}
+              </div>
+              <div className="muted small" style={{ marginTop: 2 }}>
+                Imported on Operating Statements{pendingGl.uploadedBy ? ` by ${pendingGl.uploadedBy}` : ""}
+                {pendingGl.uploadedAt ? ` · ${new Date(pendingGl.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}.
+                {loadingPending ? " Loading it now — the invoices will be ready to review and send." : " Same file — no re-upload needed. Review before sending."}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              {!loadingPending && (
+                <button className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={loadPendingGl}>Load & generate →</button>
+              )}
+              <button className="btn" style={{ fontWeight: 700 }} onClick={() => setPendingDismissed(true)}>Dismiss</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Already auto-processed hand-off — offer the invoice PDFs ── */}
+      {pendingGl && !pendingDismissed && !glResult && pendingGl.alreadyProcessed && (
+        <div className="card" style={{ borderColor: "rgba(11,74,125,0.4)", background: "rgba(11,74,125,0.05)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 20 }}>✅</span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 800, color: "#0b4a7d" }}>
+                {loadingPending ? `Loading ${pendingGl.statementMonth}…` : `${pendingGl.statementMonth} has been sent to AvidXchange`}
+              </div>
+              <div className="muted small" style={{ marginTop: 2 }}>
+                It was reviewed and released — allocation ran, carryover was finalized, and the invoices were emailed to Avid (cc Marie &amp; Drew) with a per-building summary. Load it here only if you need to re-download the PDFs.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              {!loadingPending && (
+                <button className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={loadPendingGl}>Load to download invoices →</button>
+              )}
+              <button className="btn" style={{ fontWeight: 700 }} onClick={() => setPendingDismissed(true)}>Dismiss</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 2000 G&A General Ledger (pulled from Operating Statements) ── */}
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-          <b>Import General Ledger</b>
+          <b>2000 G&amp;A General Ledger</b>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
+            <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={() => setShowAllocModal(true)} title="View / download the allocation percentages">Allocation %</button>
+            <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={downloadAllocationPct} title="Download the allocation percentages as CSV">⭳ %</button>
+            <DownloadMenu
+              label="Download"
+              variant="primary"
+              disabled={!glResult || billingTotals.size === 0}
+              items={[
+                { label: "All Invoices (ZIP)", description: "One PDF per billing property", onClick: generateAllPdfsZip },
+                { label: "Excel Summary", description: "Allocated expenses workbook (all allocations)", onClick: downloadExcel },
+              ]}
+            />
           </div>
         </div>
-        <p className="muted small" style={{ marginTop: 8 }}>
-          Upload the monthly General Ledger Excel export (.xlsx or .xls). Accounts ending in <b>9301</b>, <b>9302</b>, and <b>9303</b> will be extracted and allocated.
+        <p className="muted small" style={{ marginTop: 6 }}>
+          Pulled from the latest <a href="/financials/operating-statements" style={{ color: "#0b4a7d", fontWeight: 700 }}>Operating Statements</a> import.
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            style={{ display: "none" }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
-          />
-          <button
-            className="btn large"
-            onClick={() => fileInputRef.current?.click()}
-            style={{ whiteSpace: "nowrap" }}
-          >
-            Choose GL File…
-          </button>
-          {fileName && (
-            <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-              {fileName}
-            </span>
-          )}
-          <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={clearAll} disabled={!glResult}>
-            Clear
-          </button>
-        </div>
-        {glResult && (
-          <div className="pills">
-            <div className="pill"><b>{glResult.accountTotals.size}</b><span className="small muted">Accounts</span></div>
-            <div className="pill"><b>{glResult.transactions.length}</b><span className="small muted">Transactions</span></div>
-            <div className="pill pill-total"><b>{toMoney(grandAllocTotal)}</b><span className="small muted">Total Allocated</span></div>
-          </div>
-        )}
-        {glResult?.periodText && (
-          <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}>
-            <b>Period:</b> {glResult.periodText}
+        {loadingPending ? (
+          <div className="small muted" style={{ marginTop: 12 }}>Loading the imported 2000 G&amp;A GL…</div>
+        ) : glResult ? (
+          <>
+            {pendingGl && (
+              <div className="small" style={{ marginTop: 12, color: "var(--muted)" }}>
+                Imported{pendingGl.uploadedBy ? ` by ${pendingGl.uploadedBy}` : ""}{pendingGl.uploadedAt ? ` on ${new Date(pendingGl.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}
+              </div>
+            )}
+            <div className="pills">
+              <div className="pill"><b>{glResult.accountTotals.size}</b><span className="small muted">Accounts</span></div>
+              <div className="pill"><b>{glResult.transactions.length}</b><span className="small muted">Transactions</span></div>
+              <div className="pill pill-total"><b>{toMoney(grandAllocTotal)}</b><span className="small muted">Total Allocated</span></div>
+            </div>
+            {glResult.periodText && (
+              <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}>
+                <b>Period:</b> {glResult.periodText}
+              </div>
+            )}
+          </>
+        ) : (
+          <div style={{ marginTop: 12, padding: "14px 16px", borderRadius: 10, background: "rgba(15,23,42,0.03)", border: "1px dashed var(--border)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 20 }}>📥</span>
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ fontWeight: 700 }}>No 2000 G&amp;A GL imported yet</div>
+              <div className="muted small" style={{ marginTop: 2 }}>Import the month&rsquo;s 2000 G&amp;A General Ledger on the Operating Statements page — it&rsquo;ll load here automatically, ready to review &amp; send.</div>
+            </div>
+            <a href="/financials/operating-statements" className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap", textDecoration: "none" }}>Go to Operating Statements →</a>
           </div>
         )}
       </div>
@@ -463,7 +972,7 @@ export default function AllocatedInvoicerPage() {
               </div>
               <div style={{ width: 1, background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
               <div style={{ flex: 1, minWidth: 340 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Account Code</div>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Account</div>
                 <DonutChart data={chartDataByAccount} />
               </div>
             </div>
@@ -511,13 +1020,13 @@ export default function AllocatedInvoicerPage() {
                   <th>Account Code</th>
                   <th>Account Name</th>
                   <th style={{ textAlign: "right" }}>Debit</th>
-                  <th style={{ textAlign: "right" }}>Credit</th>
+                  {anyCredit && <th style={{ textAlign: "right" }}>Credit</th>}
                   <th style={{ textAlign: "right" }}>Net</th>
                 </tr>
               </thead>
               <tbody>
                 {groupedTx.length === 0 && (
-                  <tr><td colSpan={5} className="muted">No transactions found.</td></tr>
+                  <tr><td colSpan={anyCredit ? 5 : 4} className="muted">No transactions found.</td></tr>
                 )}
                 {groupedTx.map((group) => (
                   <tr key={group.accountCode}>
@@ -533,7 +1042,7 @@ export default function AllocatedInvoicerPage() {
                       </span>
                     </td>
                     <td style={{ textAlign: "right" }}>{group.totalDebit ? toMoney(group.totalDebit) : "—"}</td>
-                    <td style={{ textAlign: "right" }}>{group.totalCredit ? toMoney(group.totalCredit) : "—"}</td>
+                    {anyCredit && <td style={{ textAlign: "right" }}>{group.totalCredit ? toMoney(group.totalCredit) : "—"}</td>}
                     <td style={{ textAlign: "right" }}><b>{toMoney(group.totalNet)}</b></td>
                   </tr>
                 ))}
@@ -542,7 +1051,7 @@ export default function AllocatedInvoicerPage() {
                 <tr>
                   <td colSpan={2} className="muted" style={{ fontWeight: 400, fontSize: 12 }}>{groupedTx.length} accounts · {filteredTx.length} transactions</td>
                   <td style={{ textAlign: "right" }}>{toMoney(txTotals.debit)}</td>
-                  <td style={{ textAlign: "right" }}>{toMoney(txTotals.credit)}</td>
+                  {anyCredit && <td style={{ textAlign: "right" }}>{toMoney(txTotals.credit)}</td>}
                   <td style={{ textAlign: "right" }}>{toMoney(txTotals.net)}</td>
                 </tr>
               </tfoot>
@@ -551,7 +1060,7 @@ export default function AllocatedInvoicerPage() {
         </div>
       )}
 
-      {/* ── Allocation Preview ── */}
+      {/* ── Allocation Preview (billed + accrued/held, merged) ── */}
       {glResult && allocationRows.length > 0 && (
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -561,10 +1070,13 @@ export default function AllocatedInvoicerPage() {
               </button>
               <div>
                 <b>Allocation Preview</b>
-                <div className="small muted" style={{ marginTop: 4 }}>One row per property. Click a property to see account code detail.</div>
+                <div className="small muted" style={{ marginTop: 4 }}>
+                  One invoice per billing property. Click <b>Billed</b> for its account breakdown or <b>Accrued</b> for the held detail; <b>⭳</b> downloads the invoice. Accounts:{" "}
+                  <span style={{ color: "#15803d", fontWeight: 700 }}>green = billing this period</span>,{" "}
+                  <span style={{ color: "#b91c1c", fontWeight: 700 }}>red = held under ${CARRYOVER_THRESHOLD} (accrued, carried forward{yearEnd ? " — December posts everything" : ""})</span>.
+                </div>
               </div>
             </div>
-            <button className="btn" onClick={() => setShowAllocModal(true)}>Allocations</button>
           </div>
           {allocPreviewOpen && <div className="tableWrap">
             <table>
@@ -572,42 +1084,81 @@ export default function AllocatedInvoicerPage() {
                 <tr>
                   <th>Property</th>
                   <th>Accounts</th>
-                  <th style={{ textAlign: "right" }}># Accounts</th>
-                  <th style={{ textAlign: "right" }}>Total</th>
+                  <th style={{ textAlign: "right" }}>Billed</th>
+                  <th style={{ textAlign: "right" }}>Accrued</th>
+                  <th style={{ textAlign: "center", whiteSpace: "nowrap" }}>Invoice</th>
                 </tr>
               </thead>
               <tbody>
+                {grandBillingTotal === 0 && heldGrandTotal === 0 && (
+                  <tr><td colSpan={5} className="muted" style={{ padding: "14px 4px" }}>No allocations this month.</td></tr>
+                )}
                 {ALLOC_PROPERTIES.map((prop) => {
-                  const propRows = allocationRows.filter((r) => r.propertyId === prop.id);
-                  const propTotal = perPropertyTotals.get(prop.id) ?? 0;
-                  if (propTotal === 0) return null;
-                  const accountNames = [...new Set(propRows.map((r) => r.accountName))];
+                  const propTotal = billingTotals.get(prop.id) ?? 0;
+                  const heldRow = heldByProp.get(prop.id);
+                  const accrued = heldRow?.accrued ?? 0;
+                  if (propTotal === 0 && accrued === 0) return null;
+                  const billed = decoratedAccounts.filter((a) => a.propertyId === prop.id && a.billed);
+                  const propRows = billed.flatMap((a) => a.rows);
+                  const billedNames = [...new Set(billed.map((a) => a.accountName))];
+                  const heldNames = [...new Set((heldRow?.accounts.map((a) => a.accountName) ?? []).filter((n) => !billedNames.includes(n)))];
+                  const hasCarry = billed.some((a) => a.prior > 0);
                   return (
                     <tr key={prop.id}>
                       <td>
-                        <button className="linkBtn left" onClick={() => setAllocPropModal({ propId: prop.id, propName: prop.name, rows: propRows })}>
-                          {prop.id} — {prop.name}
-                        </button>
+                        {prop.id} — {prop.name}
+                        {hasCarry && <span title="Includes a balance carried forward from prior months" style={{ marginLeft: 6, fontSize: 10, background: "#fef3c7", color: "#92400e", borderRadius: 999, padding: "1px 6px", fontWeight: 700 }}>+ carried</span>}
                       </td>
                       <td>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                          {accountNames.map((name) => (
-                            <span key={name} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
+                          {billedNames.map((name) => (
+                            <span key={`b-${name}`} title="Billing this period" style={{ fontSize: 11, background: "rgba(22,163,74,0.12)", color: "#15803d", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>
+                              {name}
+                            </span>
+                          ))}
+                          {heldNames.map((name) => (
+                            <span key={`h-${name}`} title="Held under $100 — carried forward" style={{ fontSize: 11, background: "rgba(220,38,38,0.10)", color: "#b91c1c", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>
                               {name}
                             </span>
                           ))}
                         </div>
                       </td>
-                      <td style={{ textAlign: "right" }}>{propRows.length}</td>
-                      <td style={{ textAlign: "right" }}>{toMoney(propTotal)}</td>
+                      <td style={{ textAlign: "right" }}>
+                        {propTotal > 0 ? (
+                          <button className="linkBtn" style={{ fontWeight: 700 }} title="See the account code breakdown" onClick={() => setAllocPropModal({ propId: prop.id, propName: prop.name, rows: propRows })}>
+                            {toMoney(propTotal)}
+                          </button>
+                        ) : <span className="muted">—</span>}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        {accrued > 0 ? (
+                          <button className="linkBtn" style={{ fontWeight: 700, color: "#9a3412" }} title="See the expenses being held" onClick={() => setHeldModal({ propName: `${prop.id} — ${prop.name}`, accounts: heldRow!.accounts })}>
+                            {toMoney(accrued)}
+                          </button>
+                        ) : <span className="muted">—</span>}
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        {propTotal > 0 && (
+                          <button
+                            className="btn"
+                            style={{ padding: "3px 10px", fontSize: 15, lineHeight: 1 }}
+                            title={`Download ${prop.id} — ${prop.name} invoice`}
+                            onClick={() => downloadSinglePdf(prop.id)}
+                          >
+                            ⭳
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={3}>Total</td>
-                  <td style={{ textAlign: "right" }}>{toMoney(grandAllocTotal)}</td>
+                  <td colSpan={2}>Total</td>
+                  <td style={{ textAlign: "right" }}>{toMoney(grandBillingTotal)}</td>
+                  <td style={{ textAlign: "right", color: heldGrandTotal > 0 ? "#9a3412" : undefined }}>{heldGrandTotal > 0 ? toMoney(heldGrandTotal) : "—"}</td>
+                  <td />
                 </tr>
               </tfoot>
             </table>
@@ -615,38 +1166,23 @@ export default function AllocatedInvoicerPage() {
         </div>
       )}
 
-      {/* ── Generate Invoices ── */}
+      {/* ── Finalize ── */}
       {glResult && (
         <div className="card">
-          <b>Generate Invoices</b>
-          <div className="small muted" style={{ marginBottom: 14 }}>One PDF invoice per property. Only properties with allocated amounts greater than $0 are included.</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <button
-              className="btn primary large"
-              onClick={generateAllPdfsZip}
-              disabled={!allocationRows.length}
+              className="btn"
+              style={{ background: alreadyFinalized ? "#94a3b8" : "#16a34a", color: "#fff", fontWeight: 700, borderColor: "transparent", whiteSpace: "nowrap", opacity: (!statementMonth || alreadyFinalized || finalizing) ? 0.7 : 1 }}
+              disabled={!statementMonth || alreadyFinalized || finalizing}
+              onClick={finalizeMonthAction}
             >
-              Download All Invoices
+              {finalizing ? "Finalizing…" : alreadyFinalized ? `✓ ${statementMonth} Finalized` : "Finalize Month & Update Carryover"}
             </button>
-            <button
-              className="btn large"
-              onClick={downloadExcel}
-              disabled={!allocationRows.length}
-            >
-              Download Excel Summary
-            </button>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {ALLOC_PROPERTIES.filter((p) => (perPropertyTotals.get(p.id) ?? 0) > 0).map((prop) => (
-              <button
-                key={prop.id}
-                className="btn"
-                style={{ fontSize: 12, padding: "5px 10px" }}
-                onClick={() => downloadSinglePdf(prop.id)}
-              >
-                {prop.id} — {prop.name} <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(perPropertyTotals.get(prop.id) ?? 0)})</span>
-              </button>
-            ))}
+            <span className="small muted" style={{ flex: 1, minWidth: 220 }}>
+              {yearEnd
+                ? "Year-end: finalizing flushes every held balance so nothing carries into next year."
+                : `Run once, after you've downloaded and sent this month's invoices. Held expenses accrue until they cross $${CARRYOVER_THRESHOLD}.`}
+            </span>
           </div>
         </div>
       )}
@@ -658,9 +1194,12 @@ export default function AllocatedInvoicerPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
               <div>
                 <b style={{ fontSize: 15 }}>Allocation Percentages</b>
-                <div className="small muted" style={{ marginTop: 2 }}>Allocations based on property square feet.</div>
+                <div className="small muted" style={{ marginTop: 2 }}>Based on property square feet. Each G&amp;A account is allocated by the share matching its own suffix — <b>9301</b> across business parks, <b>9302</b> across shopping centers, and <b>9303</b> across all properties. A property only carries a share for its own type, so no property receives both a 9301 and a 9302 contribution.</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}>✕</button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button className="btn" style={{ padding: "4px 10px", fontWeight: 700 }} onClick={downloadAllocationPct}>⭳ Download %</button>
+                <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}>✕</button>
+              </div>
             </div>
             <div className="tableWrap" style={{ overflowY: "auto" }}>
               <table>
@@ -669,7 +1208,7 @@ export default function AllocatedInvoicerPage() {
                     <th>Property</th>
                     <th style={{ textAlign: "right" }}>9301 (BP)</th>
                     <th style={{ textAlign: "right" }}>9302 (SC)</th>
-                    <th style={{ textAlign: "right" }}>BP &amp; SC (9303)</th>
+                    <th style={{ textAlign: "right" }}>9303 (All)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -797,6 +1336,85 @@ export default function AllocatedInvoicerPage() {
           </div>
         </div>
       )}
+
+      {/* Held expenses modal */}
+      {heldModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setHeldModal(null)}>
+          <div className="card" style={{ maxWidth: 640, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <b style={{ fontSize: 15 }}>{heldModal.propName}</b>
+                <div className="small muted" style={{ marginTop: 2 }}>Expenses held under ${CARRYOVER_THRESHOLD} — carried forward until they cross the threshold.</div>
+              </div>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setHeldModal(null)}>✕</button>
+            </div>
+            <div className="tableWrap" style={{ overflowY: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Account</th>
+                    <th style={{ textAlign: "right" }}>This Month</th>
+                    <th style={{ textAlign: "right" }}>Prior</th>
+                    <th style={{ textAlign: "right" }}>Accrued</th>
+                    <th style={{ textAlign: "right" }}>Since</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {heldModal.accounts.slice().sort((a, b) => b.accrued - a.accrued).map((a) => (
+                    <tr key={a.accountCode}>
+                      <td>{a.accountCode} — <span className="muted">{a.accountName}</span></td>
+                      <td style={{ textAlign: "right" }}>{toMoney(a.thisMonth)}</td>
+                      <td style={{ textAlign: "right" }}>{toMoney(a.prior)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 700 }}>{toMoney(a.accrued)}</td>
+                      <td style={{ textAlign: "right" }} className="muted">{a.sinceMonth || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Total held</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(heldModal.accounts.reduce((s, a) => s + a.thisMonth, 0))}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(heldModal.accounts.reduce((s, a) => s + a.prior, 0))}</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(heldModal.accounts.reduce((s, a) => s + a.accrued, 0))}</td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review-before-send + success confirmation (shared with CC & Payroll) */}
+      <AvidReviewModal
+        open={!!reviewSend}
+        title="Allocated Expenses"
+        period={reviewSend ? sendLabel(reviewSend) : ""}
+        byProperty={reviewSend?.byProperty ?? []}
+        total={reviewSend?.total ?? 0}
+        invoiceCount={reviewSend?.invoiceCount}
+        note={reviewSend && isRangePeriod(reviewSend.period)
+          ? `This range covers ${rangeMonthCount(reviewSend.period)} months — each month is invoiced separately and carryover is chained month to month.`
+          : undefined}
+        attachments={reviewSend ? [
+          `${reviewSend.period} - Allocated Invoices.zip`,
+          `${reviewSend.period} - Allocated Expenses.xlsx`,
+        ] : []}
+        sending={sending}
+        onCancel={() => { if (!sending) setReviewSend(null); }}
+        onConfirm={() => reviewSend && confirmSend(reviewSend)}
+      />
+      <AvidSuccessModal
+        open={!!sentResult}
+        title="Allocated Expenses"
+        period={sentResult?.period ?? ""}
+        byProperty={sentResult?.byProperty ?? []}
+        total={sentResult?.total ?? 0}
+        invoiceCount={sentResult?.invoiceCount}
+        sentAt={sentResult?.sentAt ?? ""}
+        mailSent={sentResult?.mailSent}
+        onClose={() => setSentResult(null)}
+      />
 
     </main>
   );

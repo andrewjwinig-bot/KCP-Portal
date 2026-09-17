@@ -1,0 +1,57 @@
+import { dailyExpiry } from "./auth-expiry";
+
+export const HISTORY_COOKIE = "history_auth";
+
+function b64urlEncode(bytes: Uint8Array): string {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function b64urlDecode(s: string): Uint8Array {
+  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
+  const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + pad);
+  const out = new Uint8Array(b.length);
+  for (let i = 0; i < b.length; i++) out[i] = b.charCodeAt(i);
+  return out;
+}
+
+async function hmac(secret: string, data: string): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
+  return new Uint8Array(sig);
+}
+
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
+/** Build a signed cookie value: "<expiresAtSec>.<hmac>". */
+export async function signHistoryToken(secret: string): Promise<{ value: string; maxAge: number }> {
+  const { expiresSec, maxAge } = dailyExpiry();
+  const sig = await hmac(secret, String(expiresSec));
+  return { value: `${expiresSec}.${b64urlEncode(sig)}`, maxAge };
+}
+
+export async function verifyHistoryToken(token: string | undefined, secret: string): Promise<boolean> {
+  if (!token) return false;
+  const dot = token.indexOf(".");
+  if (dot <= 0) return false;
+  const expiresStr = token.slice(0, dot);
+  const sigStr = token.slice(dot + 1);
+  const expires = Number(expiresStr);
+  if (!Number.isFinite(expires) || expires < Math.floor(Date.now() / 1000)) return false;
+  const expected = await hmac(secret, expiresStr);
+  let provided: Uint8Array;
+  try { provided = b64urlDecode(sigStr); } catch { return false; }
+  return timingSafeEqual(expected, provided);
+}

@@ -21,6 +21,14 @@ export type BuildAllocInvoicePdfArgs = {
   invoiceDate: string;     // YYYY-MM-DD
   invoiceId: string;
   lineItems: AllocLineItem[];
+  /**
+   * Per base-account balance carried forward from prior months (held under $100
+   * and now billing). Keyed by base account code (e.g. "8220"). The account's
+   * -8501 total is its this-month suffix rows PLUS this carried amount, with a
+   * small "incl. $X carried forward" note beneath. A base present here with no
+   * suffix rows is a pure carryover flush (e.g. a year-end December bill).
+   */
+  carriedForward?: Record<string, { amount: number; accountName: string }>;
   grandTotal: number;
 };
 
@@ -175,11 +183,9 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
   const xAllocPct = xGross    + colGross;
   const xAmount   = xAllocPct + colAllocPct;
 
-  const tableTop   = 280;
+  const tableTop   = 278;
   const headerH    = 18;
-  const rowH       = 20;
-  const subRowH    = 20;
-  const bottomMgn  = 110;
+  const bottomMgn  = 98;
 
   const drawTableHeader = (yTop: number) => {
     doc.setFillColor(TEAL.r, TEAL.g, TEAL.b);
@@ -198,65 +204,124 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
   drawTableHeader(tableTop);
   let y = tableTop + headerH;
 
-  // Group line items by suffix for subtotal separators
-  const suffixOrder: Array<"9301" | "9302" | "9303"> = ["9301", "9302", "9303"];
-  const bySuffix = new Map<string, AllocLineItem[]>();
+  // Group line items by base account code (7110, 8220, …). Within each group
+  // list a row per allocation suffix (9301, 9302, …) and then an 8501 subtotal
+  // — the property's payable account — so the total owed per account is easy to
+  // read. (Previously this grouped by suffix, which listed every account twice.)
+  const suffixRank: Record<string, number> = { "9301": 0, "9302": 1, "9303": 2 };
+  const baseOf = (code: string) => code.replace(/-\d{3,4}$/, "");
+  const byBase = new Map<string, AllocLineItem[]>();
   for (const item of args.lineItems) {
-    const g = bySuffix.get(item.accountSuffix) ?? [];
+    const b = baseOf(item.accountCode);
+    const g = byBase.get(b) ?? [];
     g.push(item);
-    bySuffix.set(item.accountSuffix, g);
+    byBase.set(b, g);
+  }
+  // Carried-forward-only accounts (held in prior months, now billing with no
+  // current-month activity — e.g. a year-end flush) still need a group.
+  const cf = args.carriedForward ?? {};
+  for (const b of Object.keys(cf)) if (!byBase.has(b)) byBase.set(b, []);
+  const bases = [...byBase.keys()].sort((a, b) => a.localeCompare(b));
+
+  // Adaptive vertical rhythm: start from comfortable spacing and, if the whole
+  // invoice would spill past page 1, compress the reference rows, the -8501
+  // subtotal rows, and the inter-group gaps (each down to a legible floor) to
+  // pull it back onto a single page. Beyond the floor it page-breaks as before.
+  const ROW_MAX = 20, ROW_MIN = 14;
+  const SUB_MAX = 20, SUB_MIN = 15;
+  const GAP_MAX = 13, GAP_MIN = 3;
+  const NOTE_H  = 11; // "incl. $X carried forward" note (fixed, not scaled)
+  const numGroups = bases.length;
+  const numRows   = args.lineItems.length;
+  const numNotes  = Object.values(cf).filter((v) => (v?.amount ?? 0) > 0).length;
+  const notesH    = numNotes * NOTE_H;
+  const availH    = (pageH - bottomMgn) - (tableTop + headerH);
+
+  let rowH = ROW_MAX, subRowH = SUB_MAX, gap = GAP_MAX;
+  const naturalH = numRows * ROW_MAX + numGroups * (SUB_MAX + GAP_MAX) + notesH;
+  if (naturalH > availH && numGroups > 0) {
+    const minH = numRows * ROW_MIN + numGroups * (SUB_MIN + GAP_MIN) + notesH;
+    // Largest uniform scale t∈[0,1] (max→min) whose total height still fits.
+    const span = numRows * (ROW_MAX - ROW_MIN)
+      + numGroups * ((SUB_MAX - SUB_MIN) + (GAP_MAX - GAP_MIN));
+    const t = span > 0 ? Math.max(0, Math.min(1, (availH - minH) / span)) : 0;
+    rowH    = ROW_MIN + t * (ROW_MAX - ROW_MIN);
+    subRowH = SUB_MIN + t * (SUB_MAX - SUB_MIN);
+    gap     = GAP_MIN + t * (GAP_MAX - GAP_MIN);
   }
 
-  for (const suffix of suffixOrder) {
-    const group = bySuffix.get(suffix);
-    if (!group || group.length === 0) continue;
+  const pageBreak = () => {
+    drawPageFooter(doc, margin, pageH, contentW, args.grandTotal);
+    doc.addPage();
+    y = margin;
+    drawTableHeader(y);
+    y += headerH;
+  };
 
+  for (const base of bases) {
+    const group = (byBase.get(base) ?? []).slice()
+      .sort((a, b) => (suffixRank[a.accountSuffix] ?? 9) - (suffixRank[b.accountSuffix] ?? 9));
+    const prior = cf[base]?.amount ?? 0;
+    const accName = group[0]?.accountName ?? cf[base]?.accountName ?? "";
+
+    // Keep an account's rows + its subtotal (+ carry note) together on one page.
+    const blockH = group.length * rowH + subRowH + (prior > 0 ? NOTE_H : 0) + gap;
+    if (y + blockH > pageH - bottomMgn) pageBreak();
+
+    // The per-suffix rows (9301, 9303, …) are reference detail — muted — and
+    // the -8501 row below is the billed total for the account.
     for (const item of group) {
-      // Page overflow check
-      if (y + rowH > pageH - bottomMgn) {
-        // Footer on current page
-        drawPageFooter(doc, margin, pageH, contentW, args.grandTotal);
-        doc.addPage();
-        y = margin;
-        drawTableHeader(y);
-        y += headerH;
-      }
-
       // Row separator
-      doc.setDrawColor(210, 210, 210);
+      doc.setDrawColor(225, 225, 225);
       doc.line(margin, y, margin + contentW, y);
 
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(0, 0, 0);
-      doc.text(item.accountCode.replace(/-\w+$/, "-8501"),    xAccCode  + 6,               y + 14);
-      doc.text(truncate(item.accountName, 32),                 xAccName  + 6,               y + 14);
-      doc.text(toMoney(item.grossAmount),                      xGross    + colGross   - 6,  y + 14, { align: "right" });
-      doc.text((item.allocPct * 100).toFixed(2) + "%",        xAllocPct + colAllocPct - 6, y + 14, { align: "right" });
-      doc.text(toMoney(item.allocAmount),                      xAmount   + colAmount   - 6, y + 14, { align: "right" });
+      doc.setFontSize(9.5);
+      doc.setTextColor(140, 140, 140);
+      const ry = y + rowH - 6;
+      doc.text(`${base}-${item.accountSuffix}`,               xAccCode  + 6,               ry);
+      doc.text(truncate(item.accountName, 32),                 xAccName  + 6,               ry);
+      doc.text(toMoney(item.grossAmount),                      xGross    + colGross   - 6,  ry, { align: "right" });
+      doc.text((item.allocPct * 100).toFixed(2) + "%",        xAllocPct + colAllocPct - 6, ry, { align: "right" });
+      doc.text(toMoney(item.allocAmount),                      xAmount   + colAmount   - 6, ry, { align: "right" });
 
       y += rowH;
     }
 
-    // Subtotal row for this suffix group
-    if (y + subRowH > pageH - bottomMgn) {
-      drawPageFooter(doc, margin, pageH, contentW, args.grandTotal);
-      doc.addPage();
-      y = margin;
-      drawTableHeader(y);
-      y += headerH;
-    }
-
-    const groupTotal = group.reduce((a, r) => a + r.allocAmount, 0);
+    // The -8501 total (the property's payable account) — the sum of the suffix
+    // rows above and the amount actually billed for this account. This is the
+    // headline figure, so it's emphasized.
+    const groupTotal = group.reduce((a, r) => a + r.allocAmount, 0) + prior;
     doc.setFillColor(SUBTOTAL_BG.r, SUBTOTAL_BG.g, SUBTOTAL_BG.b);
     doc.rect(margin, y, contentW, subRowH, "F");
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
-    doc.text(`8501 Subtotal`, xAccName + 6, y + 14);
+    const sy = y + subRowH - 6;
+    doc.text(`${base}-8501`, xAccCode + 6, sy);
+    doc.text(`${truncate(accName, 28)} — Total`, xAccName + 6, sy);
+    doc.setFontSize(11.5);
+    doc.text(toMoney(groupTotal), xAmount + colAmount - 6, sy, { align: "right" });
     doc.setTextColor(0, 0, 0);
-    doc.text(toMoney(groupTotal), xAmount + colAmount - 6, y + 14, { align: "right" });
-    y += subRowH + 4;
+    y += subRowH;
+
+    // Carried-forward note: this account was held under $100 in prior months and
+    // is now billing the accrued total. Show what portion rolled forward.
+    if (prior > 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(7.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text(`incl. ${toMoney(prior)} carried forward from prior months`, xAccName + 6, y + 8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      y += NOTE_H;
+    }
+
+    // Divider + whitespace between account groups so each account's block is
+    // easy to read and code.
+    doc.setDrawColor(190, 190, 190);
+    doc.line(margin, y + gap * 0.5, margin + contentW, y + gap * 0.5);
+    y += gap;
   }
 
   // Footer / TOTAL box on last page

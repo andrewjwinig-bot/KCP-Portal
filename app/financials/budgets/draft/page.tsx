@@ -1,0 +1,354 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, type PillTone } from "../../../components/Pill";
+import type { BudgetDraft, DraftSource } from "../../../../lib/financials/budgets/draft";
+import type { LeaseAssumption } from "../../../../lib/financials/budgets/leasingAssumptions";
+import { SELECT_BRAND } from "@/app/components/YearSelect";
+import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
+import { BudgetSteps } from "./BudgetSteps";
+import { BookMasthead } from "./BookMasthead";
+import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
+import { LineHistoryModal } from "./LineHistoryModal";
+
+const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; startMonth?: number };
+
+const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
+const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+
+function sourceBadge(source: DraftSource, growthPct: number): { tone: PillTone; text: string } {
+  switch (source) {
+    case "reproj-growth": return { tone: TONE_BLUE, text: `Reproj ${growthPct >= 0 ? "+" : ""}${growthPct}%` };
+    case "reproj-flat": return { tone: TONE_NEUTRAL, text: "Reproj (flat)" };
+    case "leases": return { tone: TONE_GREEN, text: "Leases" };
+    case "cam-estimate": return { tone: TONE_TEAL, text: "CAM est." };
+  }
+}
+
+type PropRow = { key: string; propertyCode: string; entityName: string };
+
+export default function BudgetDraftPage() {
+  // Operating data runs a year behind the wall clock (the "2026" workbooks
+  // represent 2025), so budget season now targets the current calendar year,
+  // seeded from the prior year — not currentYear+1.
+  const thisYear = new Date().getFullYear();
+  const [props, setProps] = useState<PropRow[]>([]);
+  const [key, setKey] = useState<string>("");
+  const [year, setYear] = useState(thisYear);
+  const [growth, setGrowth] = useState(3);
+  const [draft, setDraft] = useState<BudgetDraft | null>(null);
+  const [missingBasis, setMissingBasis] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/financials/budgets/draft", { cache: "no-store" })
+      .then((r) => r.json()).then((j) => { setProps(j.properties ?? []); if (j.properties?.[0]) setKey(j.properties[0].key); }).catch(() => {});
+  }, []);
+
+  const [refreshTick, setRefreshTick] = useState(0);
+  // The line whose history is open. Clicking a line is how you argue its
+  // number from its own five years rather than from last year plus a percent.
+  const [histLine, setHistLine] = useState<{ label: string; mask: string; sign: 1 | -1 } | null>(null);
+  // Which BOOK is open. A property's budget is a sheet inside its book, so the
+  // book leads and the property follows — picking a property inside a book
+  // never changes which book you are in.
+  const [bookId, setBookId] = useState<string>("shopping-centers");
+  const book = bookById(bookId) ?? bookById("shopping-centers")!;
+
+  useEffect(() => {
+    if (!key) return;
+    setLoading(true);
+    const t = setTimeout(() => {
+      fetch(`/api/financials/budgets/draft?key=${encodeURIComponent(key)}&year=${year}&growth=${growth}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((j) => { if (j.missingBasis) { setDraft(null); setMissingBasis(true); } else { setDraft(j); setMissingBasis(false); } })
+        .catch(() => { setDraft(null); setMissingBasis(false); })
+        .finally(() => setLoading(false));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [key, year, growth, refreshTick]);
+
+  // Save one unit's leasing assumption, then re-project the draft.
+  async function saveAssumption(payload: { unitRef: string; kind: string | null; monthlyRent?: number; startMonth?: number }) {
+    if (!draft?.leasing) return;
+    await fetch("/api/financials/budgets/leasing-assumptions", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.leasing.propertyCode, ...payload }),
+    }).catch(() => {});
+    setRefreshTick((n) => n + 1);
+  }
+
+  const label = useMemo(() => props.find((p) => p.key === key), [props, key]);
+
+  return (
+    <main style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 250px", gap: 18, maxWidth: 1360, width: "100%", alignItems: "start" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+      <BookMasthead
+        book={book}
+        year={year}
+        propertyCode={label?.propertyCode ?? null}
+        years={[thisYear, thisYear + 1]}
+        onYear={setYear}
+        onBook={(id) => {
+          setBookId(id);
+          // Land on the book's first property, so switching books never leaves
+          // the page showing a building that is not in the book you opened.
+          const b = bookById(id);
+          const first = b?.properties[0];
+          const match = first ? props.find((p) => p.propertyCode === first) : undefined;
+          if (match) setKey(match.key);
+        }}
+        onProperty={(code) => {
+          if (!code) return;
+          const match = props.find((p) => p.propertyCode === code);
+          if (match) setKey(match.key);
+        }}
+      />
+
+      {/* Controls */}
+      <div className="card" style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={secLabel}>Expense Growth %</span>
+          <input type="number" value={growth} step={0.5} onChange={(e) => setGrowth(Number(e.target.value))}
+            style={{ width: 100, borderRadius: 999, padding: "7px 13px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "var(--brand)" }} />
+        </label>
+        <span className="muted small" style={{ paddingBottom: 8 }}>Applied to every expense line; you’ll fine-tune per line next.</span>
+      </div>
+
+      {/* STEP 1, above everything, because the rest depends on it. The
+          contracted-rent schedule is the input the vacancy and renewal list is
+          DERIVED from — and while Harry and Nancy work that list, Greg and
+          Drew work the expenses on the same draft. The parts are independent
+          by design; only the order of this one is fixed. */}
+      <InPlaceRevenueCard
+        year={year}
+        category="Shopping Centers"
+        propertyCode={label?.propertyCode ?? null}
+        editorLabel={typeof document !== "undefined" ? (document.cookie.match(/kcp_user=([^;]+)/)?.[1] ?? "Unknown") : "Unknown"}
+      />
+
+      {loading && <div className="card muted">Building draft…</div>}
+
+      {missingBasis && !loading && (
+        <div className="card" style={{ borderColor: "rgba(217,119,6,0.5)", background: "rgba(217,119,6,0.07)", color: "#b45309" }}>
+          No {year - 1} reprojection is available for {label?.propertyCode ?? key} yet — import its {year - 1} GL so the draft has an expense baseline to grow from.
+        </div>
+      )}
+
+      {draft && !loading && (
+        <>
+          <div className="pills">
+            <StatPill label="Total Revenue" value={money0(draft.rollups.totalRevenues.total)} sub={draft.leasing ? `${draft.leasing.inPlaceUnits} in-place leases` : "reproj placeholder"} />
+            <StatPill label="Total Operating Expenses" value={money0(draft.rollups.totalOperatingExpenses.total)} sub={`grown ${growth >= 0 ? "+" : ""}${growth}%`} />
+            <StatPill label="NOI" value={money0(draft.rollups.netOperatingIncome.total)} accent={draft.rollups.netOperatingIncome.total >= 0 ? "#15803d" : "#b91c1c"} />
+          </div>
+
+          {draft.leasing && (draft.leasing.expiring.length > 0 || draft.leasing.vacant.length > 0) && (
+            <div className="card" style={{ borderColor: "rgba(217,119,6,0.45)", background: "rgba(217,119,6,0.05)" }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                <div style={{ ...secLabel, color: "#b45309" }}>Leasing assumptions — {draft.budgetYear}</div>
+                <span className="muted small">{draft.leasing.assumptionsApplied} applied · rental income updates as you set them</span>
+              </div>
+              <p className="muted small" style={{ marginTop: 0 }}>
+                Rental income holds current rents flat until you decide. For each expiring / holdover lease choose <b>renew</b> (hold or step to a new rent) or <b>vacate</b>; for vacant space set a <b>lease-up</b>. Revenue and NOI above re-project on save.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+                {draft.leasing.expiring.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>Expiring / holdover ({draft.leasing.expiring.length})</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {draft.leasing.expiring.map((e) => (
+                        <LeasingRow key={e.unitRef} mode="inplace"
+                          unitRef={e.unitRef} title={`${e.tenant}`} sub={`${money0(e.monthlyRent)}/mo · ends ${e.leaseTo ?? "—"}`}
+                          holdover={e.holdover} currentRent={e.monthlyRent} leaseTo={e.leaseTo}
+                          assumption={e.assumption} onSave={saveAssumption} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {draft.leasing.vacant.length > 0 && (
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 6 }}>Vacant spaces ({draft.leasing.vacant.length})</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {draft.leasing.vacant.map((v) => (
+                        <LeasingRow key={v.unitRef} mode="vacant"
+                          unitRef={v.unitRef} title={v.unitRef} sub={`${v.sqft.toLocaleString()} sf vacant`}
+                          currentRent={0} leaseTo={null}
+                          assumption={v.assumption} onSave={saveAssumption} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {draft.sections.map((sec) => (
+            <div key={sec.name} className="card" style={{ padding: 0, overflow: "hidden" }}>
+              <div style={{ ...secLabel, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--card)" }}>{sec.name}</div>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                <tbody>
+                  {sec.lines.map((l) => {
+                    const b = sourceBadge(l.source, growth);
+                    return (
+                      <tr key={l.label + l.mask} className="os-cell"
+                        onClick={() => setHistLine({ label: l.label, mask: l.mask, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1 })}
+                        style={{ cursor: "pointer" }}
+                        title="Open this line's trailing years">
+                        <td style={tdL}>{l.label}</td>
+                        <td style={{ ...tdL, width: 130 }}><Pill tone={b.tone}>{b.text}</Pill></td>
+                        <td style={{ ...tdR, color: "var(--muted)" }}>{l.basisTotal ? money0(l.basisTotal) : ""}</td>
+                        <td style={tdR}>{money0(l.total)}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{ borderTop: "2px solid var(--border)" }}>
+                    <td style={{ ...tdL, fontWeight: 800 }} colSpan={3}>{sec.name} — Total</td>
+                    <td style={{ ...tdR, fontWeight: 800 }}>{money0(sec.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ))}
+
+          {draft.reimbursementEstimate && draft.reimbursementEstimate.tenants.length > 0 && (() => {
+            const est = draft.reimbursementEstimate!;
+            return (
+              <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: "rgba(13,148,136,0.4)" }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
+                  <div style={{ ...secLabel, color: "#0d9488" }}>CAM / INS / RET reimbursement estimate — {est.budgetYear} preview</div>
+                  <span className="muted small"><b>display-only, not in the budget yet</b></span>
+                </div>
+                <div style={{ padding: "8px 14px" }} className="muted small">
+                  <b>Estimates are on {est.budgetYear} expense levels with each tenant’s CAM recovery methodology applied</b> — PRS share, admin fee, expense-line exclusions, gross-lease and property-INS-pool rules all respected ({est.kind} reconciliation engine). The pool is the {est.reconYear} recon grown to {est.budgetYear} by this draft’s {est.growthPct}% expense assumption (×{est.factor}) — a close proxy for the line-by-line budgeted pool (recoveries are linear in the pool); tying each category to its exact budgeted line is the next refinement. <b>Display-only — verify against the building’s actual recon before these drive the reimbursement lines or tenant escrows.</b>
+                </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 560 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...tdL, ...thS }}>Tenant</th>
+                        <th style={{ ...tdR, ...thS }}>CAM/yr</th>
+                        {est.kind === "retail" && <th style={{ ...tdR, ...thS }}>INS/yr</th>}
+                        <th style={{ ...tdR, ...thS }}>RET/yr</th>
+                        <th style={{ ...tdR, ...thS }}>Escrow/mo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {est.tenants.map((t) => (
+                        <tr key={t.unitRef}>
+                          <td style={tdL}><code style={{ fontSize: 12 }}>{t.unitRef}</code> {t.name}</td>
+                          <td style={tdR}>{money0(t.camAnnual)}</td>
+                          {est.kind === "retail" && <td style={tdR}>{money0(t.insAnnual)}</td>}
+                          <td style={tdR}>{money0(t.retAnnual)}</td>
+                          <td style={{ ...tdR, fontWeight: 700 }}>{money0(t.camMonthly + t.insMonthly + t.retMonthly)}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ borderTop: "2px solid var(--border)" }}>
+                        <td style={{ ...tdL, fontWeight: 800 }}>Total reimbursements</td>
+                        <td style={{ ...tdR, fontWeight: 800 }}>{money0(est.totals.camAnnual)}</td>
+                        {est.kind === "retail" && <td style={{ ...tdR, fontWeight: 800 }}>{money0(est.totals.insAnnual)}</td>}
+                        <td style={{ ...tdR, fontWeight: 800 }}>{money0(est.totals.retAnnual)}</td>
+                        <td style={{ ...tdR, fontWeight: 800 }}>{money0((est.totals.camAnnual + est.totals.insAnnual + est.totals.retAnnual) / 12)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          <p className="muted small">
+            <b>Reproj +N%</b> = this year’s reprojected full-year expense grown by the assumption, month by month (seasonality preserved). <b>Leases</b> = rental income projected from the rent roll’s in-place leases (current rents held flat; expiring leases flagged above). <b>Reproj (flat)</b> = carried unchanged (reimbursements, other income, debt service). The middle column is the {draft.basisYear} reprojection it grew from. The CAM/INS/RET reimbursement estimate above is a <b>display-only preview</b> from the recon engine — verify it, then it can drive the reimbursement lines and tenant escrows.
+          </p>
+        </>
+      )}
+      {/* Always visible while you work the budget — the question "what is
+          holding this up" is asked continuously in a room with four people in
+          it, not once when the page loads. */}
+      {histLine && label && (
+        <LineHistoryModal
+          viewKey={key}
+          propertyCode={label.propertyCode}
+          label={histLine.label}
+          mask={histLine.mask}
+          sign={histLine.sign}
+          year={year}
+          onClose={() => setHistLine(null)}
+        />
+      )}
+
+      </div>
+
+      {/* The rail, not a bar along the bottom. "How much is left" is the
+          smaller question; the one asked in the room is "where are we" — and
+          that has a SHAPE. The schedule has to land before the vacancy list
+          means anything, while the expenses run in parallel and wait for
+          neither. A rail can show that; a percentage cannot. */}
+      <BudgetSteps year={year} category="Shopping Centers" refreshTick={refreshTick} />
+    </main>
+  );
+}
+
+function LeasingRow({ mode, unitRef, title, sub, holdover, currentRent, leaseTo, assumption, onSave }: {
+  mode: "inplace" | "vacant";
+  unitRef: string; title: string; sub: string; holdover?: boolean;
+  currentRent: number; leaseTo: string | null;
+  assumption?: LeaseAssumption;
+  onSave: (p: SavePayload) => void;
+}) {
+  const expMonth = (() => { const m = (leaseTo ?? "").match(/^(\d{1,2})\//); return m ? Number(m[1]) : 1; })();
+  const [kind, setKind] = useState<string>(assumption?.kind ?? (mode === "vacant" ? "none" : "hold"));
+  const [rent, setRent] = useState<string>(assumption?.monthlyRent != null ? String(assumption.monthlyRent) : "");
+  const [month, setMonth] = useState<number>(assumption?.startMonth ?? (assumption?.kind === "vacate" ? expMonth : 1));
+
+  function push(k = kind, r = rent, mo = month) {
+    const apiKind = k === "hold" || k === "none" ? null : k;
+    onSave({ unitRef, kind: apiKind, monthlyRent: r !== "" ? Number(r) : undefined, startMonth: mo });
+  }
+
+  const showRent = kind === "renew" || kind === "leaseup";
+  const showMonth = kind === "renew" || kind === "vacate" || kind === "leaseup";
+  const tone = kind === "vacate" ? TONE_RED : kind === "leaseup" ? TONE_GREEN : kind === "renew" ? TONE_BLUE : TONE_NEUTRAL;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "6px 10px", borderRadius: 8, background: "var(--card)", border: "1px solid var(--border)" }}>
+      <div style={{ minWidth: 190, flex: "1 1 190px" }}>
+        <div style={{ fontWeight: 600, fontSize: 13 }}><code style={{ fontSize: 12 }}>{unitRef}</code> {title} {holdover && <Pill tone={TONE_AMBER}>holdover</Pill>}</div>
+        <div className="muted small">{sub}</div>
+      </div>
+      <select value={kind} onChange={(e) => { setKind(e.target.value); push(e.target.value); }} style={rowSel}>
+        {mode === "inplace" ? (
+          <>
+            <option value="hold">Hold current</option>
+            <option value="renew">Renew</option>
+            <option value="vacate">Vacate</option>
+          </>
+        ) : (
+          <>
+            <option value="none">Leave vacant</option>
+            <option value="leaseup">Lease up</option>
+          </>
+        )}
+      </select>
+      {showRent && (
+        <input type="number" value={rent} placeholder={currentRent ? String(currentRent) : "rent/mo"} step={50}
+          onChange={(e) => { setRent(e.target.value); }} onBlur={() => push()}
+          style={{ ...rowSel, width: 110 }} title="New monthly rent" />
+      )}
+      {showMonth && (
+        <select value={month} onChange={(e) => { setMonth(Number(e.target.value)); push(kind, rent, Number(e.target.value)); }} style={rowSel}
+          title={kind === "vacate" ? "Paid through this month, then $0" : "Effective month"}>
+          {MONTHS_ABBR.map((mo, i) => <option key={mo} value={i + 1}>{kind === "vacate" ? `thru ${mo}` : `from ${mo}`}</option>)}
+        </select>
+      )}
+      <Pill tone={tone}>{kind === "hold" ? "flat" : kind === "none" ? "vacant" : kind}</Pill>
+    </div>
+  );
+}
+
+const rowSel: React.CSSProperties = { borderRadius: 6, padding: "5px 8px", fontSize: 12.5, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };
+
+const thS: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" };
+const tdL: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "left", whiteSpace: "nowrap" };
+const tdR: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
