@@ -204,3 +204,26 @@ export function isDiscretionaryLine(l: { label: string }): boolean {
   if (CONTRACTUAL.test(l.label)) return false;
   return DISCRETIONARY.test(l.label);
 }
+
+/**
+ * Nothing posted against a real budget.
+ *
+ * A $0 actual makes the variance EXACTLY the budget and the percentage exactly
+ * 100% — by arithmetic, not by performance. Rendered the normal way that came
+ * out as a green "+100.0%", which reads as money saved. It isn't: it means the
+ * charge hasn't landed yet (insurance paid elsewhere, taxes paid up front, a
+ * bill still to post). 9510's July showed three of them in one section —
+ * Insurance 0 vs 653, Real Estate Taxes 0 vs 1,391, Building Maintenance 1 vs
+ * 200 at +99.5%.
+ *
+ * Whatever is actually going on is already said by the ⚠ (unposted) or the ✅
+ * (paid up front) marker in the actual column. The percentage adds a claim on
+ * top of it, and the claim is wrong.
+ */
+export function nothingPosted(
+  actual: number | null | undefined,
+  budget: number | null | undefined,
+): boolean {
+  return actual != null && Math.abs(actual) < 0.5
+    && budget != null && Math.abs(budget) >= 0.5;
+}

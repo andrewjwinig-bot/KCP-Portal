@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { seasonalTrendFlags, meetsFlagFloor, flagFloorFor, postsRegularly, FLAG_MIN_DOLLARS, LOOSE_FLAG_MIN_DOLLARS, marksPeriodUnposted, marksYtdUnposted, isDiscretionaryLine } from "./flagRules";
+import { seasonalTrendFlags, meetsFlagFloor, flagFloorFor, postsRegularly, nothingPosted, FLAG_MIN_DOLLARS, LOOSE_FLAG_MIN_DOLLARS, marksPeriodUnposted, marksYtdUnposted, isDiscretionaryLine } from "./flagRules";
 
 const line = (label: string, mask = "6500-*") => ({ label, mask });
 const MOVED = ["amount differs sharply from recent months"];
@@ -205,5 +205,28 @@ describe("landscaping depends on the property, so the ledger decides", () => {
 
   it("never lets history tighten an unambiguously as-needed line", () => {
     expect(flagFloorFor({ label: "Parking Lot Maintenance" }, CONTRACT)).toBe(LOOSE_FLAG_MIN_DOLLARS);
+  });
+});
+
+describe("nothing posted is not a favorable variance", () => {
+  it("catches a $0 actual against a real budget", () => {
+    // 9510's July: Insurance 0 vs 653 and Real Estate Taxes 0 vs 1,391 both
+    // read "+100.0%" in green — money saved, except nothing was spent.
+    expect(nothingPosted(0, 653)).toBe(true);
+    expect(nothingPosted(0, 1_391)).toBe(true);
+  });
+
+  it("leaves a line that actually posted alone", () => {
+    expect(nothingPosted(1_155, 479)).toBe(false);
+    // $1 posted against a $200 budget is 99.5% "favorable" — but something DID
+    // post, so it is a real (if tiny) variance rather than an arithmetic one.
+    expect(nothingPosted(1, 200)).toBe(false);
+  });
+
+  it("is not triggered by a line with no budget to be under", () => {
+    // 0 against 0 is the ordinary state of an unused line.
+    expect(nothingPosted(0, 0)).toBe(false);
+    expect(nothingPosted(0, null)).toBe(false);
+    expect(nothingPosted(null, 653)).toBe(false);
   });
 });

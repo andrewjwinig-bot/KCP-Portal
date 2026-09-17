@@ -16,7 +16,8 @@ import { LastImported } from "@/app/components/LastImported";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import { AccountListCard } from "@/app/components/AccountListCard";
 import LoadingState from "@/app/components/LoadingState";
-import { marksPeriodUnposted, marksYtdUnposted } from "@/lib/financials/operating-statements/flagRules";
+import { marksPeriodUnposted, marksYtdUnposted, nothingPosted, LOOSE_FLAG_MIN_DOLLARS } from "@/lib/financials/operating-statements/flagRules";
+import { AnalyzingBar } from "@/app/components/ai/AiKit";
 import { driverIndexes } from "@/lib/financials/operating-statements/drivers";
 import { groupStatementOptions } from "@/lib/financials/operating-statements/propertyGroups";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -176,15 +177,34 @@ const threshInput: React.CSSProperties = {
 
 type Thresh = { dollar: number; pct: number; min: number };
 
-// Is a single variance "high" — beyond EITHER the dollar or the percent
-// threshold — and if so, favorable or unfavorable? A minimum-dollar floor keeps
-// trivially small variances (e.g. $6 vs $3 = 100%) from flagging.
-function cellFlag(variance: number | null, budget: number | null, th: Thresh): "fav" | "unf" | null {
+// Is a single variance "high" — and if so, favorable or unfavorable?
+//
+// Two guards keep this from painting half the section red, which is what it
+// was doing: five of ten rows tinted leaves the eye nowhere to land.
+//
+//  • NOTHING POSTED is never "favorable". A $0 actual makes the variance
+//    exactly the budget and the percentage exactly 100%, by arithmetic — the
+//    charge hasn't landed, no money was saved. The ⚠ / ✅ marker in the actual
+//    column already says which.
+//  • THE PERCENT ROUTE NEEDS REAL DOLLARS. `dollar` (default $5,000) is "big
+//    enough on its own whatever the percentage"; the percent route exists to
+//    catch a smaller line that moved proportionally hard. At a 10% threshold
+//    and a $500 floor that caught Electric at $689 on a $4,080 budget — true,
+//    and not worth a red cell. It now has to clear the line's LOOSE floor as
+//    well, the same $1,500 an as-needed line is held to elsewhere.
+function cellFlag(
+  variance: number | null,
+  budget: number | null,
+  th: Thresh,
+  actual?: number | null,
+): "fav" | "unf" | null {
   if (variance == null || budget == null) return null;
   if (Math.abs(variance) < (th.min ?? 0)) return null;
+  if (actual !== undefined && nothingPosted(actual, budget)) return null;
   const vp = varPct(variance, budget);
-  const hot = Math.abs(variance) > th.dollar || (vp != null && Math.abs(vp) > th.pct);
-  if (!hot) return null;
+  const bigOnItsOwn = Math.abs(variance) > th.dollar;
+  const proportionallyBig = vp != null && Math.abs(vp) > th.pct && Math.abs(variance) >= LOOSE_FLAG_MIN_DOLLARS;
+  if (!bigOnItsOwn && !proportionallyBig) return null;
   return variance >= 0 ? "fav" : "unf";
 }
 
@@ -194,7 +214,7 @@ const flagTint = (f: "fav" | "unf" | null) =>
 // Does a line have a high-variance cell of the given class for the current
 // month? (Matches the month-based favorable/unfavorable pills.)
 function lineMatchesClass(l: StatementTotals, cls: "fav" | "unf", th: Thresh): boolean {
-  return cellFlag(l.periodVariance, l.periodBudget, th) === cls;
+  return cellFlag(l.periodVariance, l.periodBudget, th, l.periodActual) === cls;
 }
 
 // Count line items whose variance vs budget is "high", split favorable vs
@@ -203,9 +223,9 @@ type VarCounts = { monthFav: number; monthUnf: number; ytdFav: number; ytdUnf: n
 function varianceCounts(s: PropertyStatement, th: Thresh): VarCounts {
   let monthFav = 0, monthUnf = 0, ytdFav = 0, ytdUnf = 0;
   for (const sec of s.sections) for (const l of sec.lines) {
-    const m = cellFlag(l.periodVariance, l.periodBudget, th);
+    const m = cellFlag(l.periodVariance, l.periodBudget, th, l.periodActual);
     if (m === "fav") monthFav++; else if (m === "unf") monthUnf++;
-    const y = cellFlag(l.ytdVariance, l.ytdBudget, th);
+    const y = cellFlag(l.ytdVariance, l.ytdBudget, th, l.ytdActual);
     if (y === "fav") ytdFav++; else if (y === "unf") ytdUnf++;
   }
   return { monthFav, monthUnf, ytdFav, ytdUnf };
@@ -826,6 +846,14 @@ export default function OperatingStatementsPage() {
                   <StatPill label={`Lines Favorable · ${mon}`} value={variance.monthFav} accent={variance.monthFav > 0 ? "#15803d" : undefined} />
                 </ClickablePill>
               </div>
+              {analyzing && (
+                <div style={{ marginTop: 10 }}>
+                  <AnalyzingBar
+                    label={reexplain ? "Re-reading the GL behind each flagged line" : "Reading the GL behind each flagged line"}
+                    sub={`${statement?.propertyCode ?? ""} ${statement?.propertyName ?? ""} · ${mon} ${year}`.trim()}
+                  />
+                </div>
+              )}
               <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <button type="button" className="btn ai" disabled={analyzing} onClick={analyzeFlagged}
@@ -843,7 +871,7 @@ export default function OperatingStatementsPage() {
                     style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
                     {briefing ? "Writing…" : brief ? "✨ Regenerate brief" : "✨ Monthly brief"}
                   </button>
-                  {analyzeMsg && <span className="muted small">{analyzeMsg}</span>}
+                  {analyzeMsg && !analyzing && <span className="muted small">{analyzeMsg}</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }} className="muted small">
                   <span style={{ fontWeight: 700 }}>Flag Lines Over</span>
@@ -1432,14 +1460,20 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
   const pV = varPct(t.periodVariance, t.periodBudget);
   const yV = varPct(t.ytdVariance, t.ytdBudget);
   const amt = (v: number | null) => fmtAmt(v, psf, sqft);
-  const mFlag = flag ? cellFlag(t.periodVariance, t.periodBudget, flag) : null;
-  const yFlag = flag ? cellFlag(t.ytdVariance, t.ytdBudget, flag) : null;
+  const mFlag = flag ? cellFlag(t.periodVariance, t.periodBudget, flag, t.periodActual) : null;
+  const yFlag = flag ? cellFlag(t.ytdVariance, t.ytdBudget, flag, t.ytdActual) : null;
   // The Var column shows either the % (default) or the signed $ variance. Color
   // tracks favorability — sign of the $ variance matches the sign of the %.
   const varText = (variance: number | null, pct: number | null) =>
     varMode === "dollar" ? fmtVarAmt(variance, psf, sqft) : fmtPct(pct);
   const varCell = (colorVal: number | null, f: "fav" | "unf" | null): React.CSSProperties =>
     ({ ...base, color: color ?? varColor(colorVal), ...(f ? { background: flagTint(f), fontWeight: 800 } : {}) });
+  // A $0 actual is a timing fact, not a win. The figure stays — 0 against a
+  // $653 budget is worth seeing — but it loses the green, because green says
+  // "we came in under" and nothing came in at all.
+  const structuralPeriod = nothingPosted(t.periodActual, t.periodBudget);
+  const structuralYtd = nothingPosted(t.ytdActual, t.ytdBudget);
+  const neutral: React.CSSProperties = { ...base, color: color ?? "var(--muted)" };
   // Actual cells drill into GL transactions; Budget/Annual cells into the
   // budget detail. Clickable only on real line rows (drill provided) AND when
   // the cell holds activity — a $0 cell has nothing to drill into.
@@ -1451,10 +1485,10 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
     <>
       <td {...click("gl", "month", t.periodActual)} title={missPeriod ? missTitle : paidPeriod ? paidTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missPeriod ? missStyle : paidPeriod ? paidStyle : {}) }}>{missPeriod ? missIcon : paidPeriod ? paidIcon : amt(t.periodActual)}</td>
       <td {...click("budget", "month", t.periodBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
-      <td style={paidPeriod ? { ...base, color: "#15803d" } : varCell(varMode === "dollar" ? t.periodVariance : pV, mFlag)} title={paidPeriod ? paidTitle : undefined}>{varText(t.periodVariance, pV)}</td>
+      <td style={paidPeriod ? { ...base, color: "#15803d" } : structuralPeriod ? neutral : varCell(varMode === "dollar" ? t.periodVariance : pV, mFlag)} title={paidPeriod ? paidTitle : structuralPeriod ? "Nothing posted this month — the variance is the whole budget, so the percentage is 100% by arithmetic rather than by coming in under." : undefined}>{varText(t.periodVariance, pV)}</td>
       <td {...click("gl", "ytd", t.ytdActual)} title={missYtd ? missTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missYtd ? missStyle : {}) }}>{missYtd ? missIcon : amt(t.ytdActual)}</td>
       <td {...click("budget", "ytd", t.ytdBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
-      <td style={varCell(varMode === "dollar" ? t.ytdVariance : yV, yFlag)}>{varText(t.ytdVariance, yV)}</td>
+      <td style={structuralYtd ? neutral : varCell(varMode === "dollar" ? t.ytdVariance : yV, yFlag)} title={structuralYtd ? "Nothing posted year-to-date — the variance is the whole budget, so the percentage is 100% by arithmetic rather than by coming in under." : undefined}>{varText(t.ytdVariance, yV)}</td>
       <td {...click("budget", "annual", t.annualBudget)} style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>
     </>
   );

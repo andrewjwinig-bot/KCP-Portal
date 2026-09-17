@@ -392,6 +392,61 @@ export function AiTable({ spec }: { spec: AiTableSpec }) {
 // one-sentence answer with the key figure bolded violet, an optional chart,
 // page links, and the action row. Left violet accent bar distinguishes AI
 // output from everything else.
+// ── Working indicator ──────────────────────────────────────────────────────
+// "It is doing something" — for the AI actions that run on a page rather than
+// in the assistant panel (auto-explain on a statement, auto-explain across
+// every property). Those showed a disabled button reading "Analyzing…" and
+// nothing else, so a run that takes a minute per property was indistinguishable
+// from a click that didn't register.
+//
+// Same visual language as ThinkingCard on purpose — twinkling sparkle, shimmer
+// text, pulsing dots — so AI work looks like AI work wherever it happens. The
+// bar is DETERMINATE when the caller knows how many steps there are (the
+// cross-property run does) and an indeterminate sweep when it doesn't (one
+// property is one opaque call).
+export function AnalyzingBar({ label, done, total, sub }: { label: string; done?: number; total?: number; sub?: string }) {
+  const determinate = typeof done === "number" && typeof total === "number" && total > 0;
+  const pct = determinate ? Math.min(100, Math.round((done! / total!) * 100)) : 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 11, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", borderRadius: 11, padding: "10px 14px" }}>
+      <span className="imp-anim" style={{ animation: "impFloat 3.5s ease-in-out infinite", flexShrink: 0 }}>
+        <SparkleMark size={26} twinkle fast />
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span
+            className="kcp-shimmer"
+            style={{
+              fontSize: 13.5, fontWeight: 700,
+              background: "var(--ai-shimmer)", backgroundSize: "200% 100%",
+              WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
+              animation: "kcpShimmer 1.9s linear infinite", display: "inline-block",
+            }}
+          >
+            {label}
+          </span>
+          {determinate && (
+            <span className="muted" style={{ fontSize: 12, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{done} of {total}</span>
+          )}
+          <span style={{ marginLeft: "auto", display: "inline-flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
+            {[0, 0.18, 0.36].map((d) => (
+              <span key={d} className="kcp-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--ai)", animation: "kcpDot 1.2s ease-in-out infinite", animationDelay: `${d}s` }} />
+            ))}
+          </span>
+        </div>
+        <div style={{ marginTop: 7, height: 4, borderRadius: 999, background: "var(--ai-border)", overflow: "hidden", position: "relative" }}>
+          {determinate ? (
+            <div style={{ height: "100%", width: `${pct}%`, background: "var(--ai-sparkle)", borderRadius: 999, transition: "width .35s ease" }} />
+          ) : (
+            <div className="imp-anim" style={{ position: "absolute", top: 0, bottom: 0, width: "30%", background: "var(--ai-sparkle)", borderRadius: 999, animation: "kcpProg 1.25s ease-in-out infinite" }} />
+          )}
+        </div>
+        {sub && <div className="muted" style={{ fontSize: 11.5, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
+
 // ── Clarifying question ────────────────────────────────────────────────────
 // The assistant asking one thing before it spends two minutes on the wrong
 // reading. Rendered as chips rather than a prompt to retype, because the cost

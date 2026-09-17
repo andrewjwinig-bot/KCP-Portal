@@ -79,7 +79,16 @@ export async function POST(req: Request) {
       if (hasManualNote(lineKey)) continue; // keep the user's manual note
       if (!force && hasAiNote(lineKey)) { skippedExplained++; continue; } // already auto-explained
 
-      const cls = hot(l.ytdVariance, l.ytdBudget, dollar, pct, min) ?? hot(l.periodVariance, l.periodBudget, dollar, pct, min);
+      // THIS MONTH FIRST. It used to read YTD first, so a line surfaced on a
+      // year-to-date variance and the note then described whatever charge was
+      // biggest across the year — in July, often a March one. The note sits
+      // beside a July figure; it has to be about July.
+      const periodCls = hot(l.periodVariance, l.periodBudget, dollar, pct, min);
+      const ytdCls = hot(l.ytdVariance, l.ytdBudget, dollar, pct, min);
+      const cls = periodCls ?? ytdCls;
+      // When only the YEAR is off, the note must say so rather than presenting
+      // a year-to-date finding as this month's news.
+      const ytdOnly = !periodCls && !!ytdCls;
       const amounts = lineMonthly(stored.monthly, l.mask, sign, period);
       const counts = lineTxnCounts(txByAccount, l.mask, period);
       const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
@@ -98,7 +107,7 @@ export async function POST(req: Request) {
       if (!cls && trend.length === 0) continue;
 
       const flagReasons = [
-        ...(cls ? [cls === "unf" ? "unfavorable vs budget" : "favorable vs budget"] : []),
+        ...(cls ? [`${cls === "unf" ? "unfavorable" : "favorable"} vs budget${ytdOnly ? " (year-to-date only — this month is on budget)" : ""}`] : []),
         ...trend,
       ];
       const bd = budget ? budgetDetailForMask(budget, l.mask, period) : [];
@@ -130,13 +139,16 @@ export async function POST(req: Request) {
         budgetedFor: bd.map((b) => ({ label: b.label, ytd: r0(b.ytd) })),
         ...(tenants.length ? { tenants } : {}),
         accountsOnThisLine: accts,
-        transactionCount: txs.length,
-        // This month's charges FIRST — the note is about this month — then the
-        // largest YTD ones for context.
-        topTransactions: [
-          ...txs.filter((t) => t.month === period).slice(0, 12),
-          ...txs.filter((t) => t.month !== period).slice(0, 6),
-        ].map((t) => ({ month: MONTHS_SHORT[t.month - 1], date: t.date, account: t.account, description: t.description.slice(0, 110), amount: r2(t.amount) })),
+        scope: ytdOnly ? "year-to-date" : "this month",
+        transactionCountYtd: txs.length,
+        // TWO SEPARATE LISTS, deliberately. The finding has to come from this
+        // month's charges; the earlier ones exist only to tell you whether this
+        // month's amount is normal for the line. Handing the model one merged
+        // list is how a July note ended up about March's electricity bill.
+        thisMonthsCharges: txs.filter((t) => t.month === period).slice(0, 12)
+          .map((t) => ({ date: t.date, account: t.account, description: t.description.slice(0, 110), amount: r2(t.amount) })),
+        priorMonthsForContextOnly: txs.filter((t) => t.month !== period).slice(0, 6)
+          .map((t) => ({ month: MONTHS_SHORT[t.month - 1], account: t.account, description: t.description.slice(0, 80), amount: r2(t.amount) })),
       });
     }
   }
@@ -156,11 +168,15 @@ export async function POST(req: Request) {
     `• monthlyTrend / monthlyTxnCount — this year's amount and number of transactions for each month so far, in order (${trendMonths}).\n` +
     `• priorYear (when present) — the same line LAST year: this same month's amount ("sameMonth"), the prior-year YTD, and its month-by-month trend.\n` +
     `• flagReasons — why it surfaced (budget variance and/or a trend/inconsistency signal).\n` +
-    `• topTransactions — this month's charges first, each with the GL ACCOUNT it actually posted to, the vendor/description, the date and the amount.\n` +
+    `• thisMonthsCharges — what posted in ${through}, each with the GL ACCOUNT it actually posted to, the vendor/description, the date and the amount. YOUR FINDING COMES FROM HERE.\n` +
+    `• priorMonthsForContextOnly — earlier months, provided ONLY so you can tell whether this month's amount is normal for the line. NEVER report one of these as the finding.\n` +
+    `• scope — "this month" or "year-to-date". See the rule below.\n` +
     `• accountsOnThisLine — every GL account rolling into this line, so you can tell whether a charge sits on the right one.\n` +
     `• budgetedFor / tenants — what the budget expected, and who the money relates to.\n\n` +
+    `THE NOTE IS ABOUT ${through.toUpperCase()}. It sits beside ${through}'s figure, so it has to be about ${through}. Lead with a charge that posted in ${through}. A charge from an earlier month is NEVER the finding — you may mention one only as a comparison ("roughly double the March bill"), never as the thing to look into.\n` +
+    `THE ONE EXCEPTION: when "scope" is "year-to-date", ${through} itself is on budget and only the YEAR is off. Then begin the note with "Year to date:" so it reads as a different kind of statement, and say what is driving the year rather than pretending something happened this month.\n\n` +
     `THE ANALYSIS TO ACTUALLY DO, in order:\n` +
-    `1. FIND THE CHARGE. Which single transaction (or which two) accounts for the move? Name the vendor, the date and the amount.\n` +
+    `1. FIND THE CHARGE, in ${through}. Which single transaction (or which two) accounts for the move? Name the vendor, the date and the amount.\n` +
     `2. DECIDE WHAT IT IS, from the vendor and the description. Repaving, roof, HVAC or unit replacement, parking-lot resurfacing, structural work, a build-out — these have a multi-year life and read as CAPITAL, not operating expense. Patching, cleaning, striping, a service call, a part — these are genuinely repairs.\n` +
     `3. SAY WHICH OF THESE IT LOOKS LIKE, and why:\n` +
     `   (a) CAPITAL sitting on an operating line — say it should probably be capitalized and depreciated, and that it will distort NOI and the CAM pool if it stays.\n` +
@@ -182,7 +198,9 @@ export async function POST(req: Request) {
     `GOOD: "Insurance is ~30% above the same month last year after the renewal. Verify the new premium and that it isn't double-booked with escrow."\n` +
     `GOOD: "$4,100 to Sherwin-Williams coded to Landscaping — reads as a paint/build-out charge. Move it to Building Maintenance or the tenant's TI account."\n` +
     `BAD (never): "Electric is $785 vs $660 budget. Verify…"\n` +
-    `BAD (never): "There is a large charge on this line. Review the detail."\n\n` +
+    `BAD (never): "There is a large charge on this line. Review the detail."\n` +
+    `BAD (never, in a ${through} note): "The March electricity bill posted twice." — that is not ${through}'s news, and sending someone to look at ${through} for it wastes the trip.\n` +
+    `GOOD (year-to-date scope): "Year to date: three unbudgeted tree removals (Feb, Apr, Jun) put the line 80% over. ${through} itself is on budget — raise next year's provision."\n\n` +
     `Amounts are dollars; a "favorable" variance is good (revenue over / expense under budget). ` +
     `Return ONLY a JSON object mapping each line's exact "lineKey" to its note string.\n\n` +
     `FLAGGED LINES:\n${JSON.stringify(flagged, null, 1)}`;
