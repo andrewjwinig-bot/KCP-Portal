@@ -110,3 +110,63 @@ describe("the month's checklist", () => {
     expect(String(val(wb.worksheets[0], "A6"))).toContain("Nothing to resolve");
   });
 });
+
+describe("a billing mismatch on the checklist", () => {
+  const REASON = "2 suites do not tie to the rent roll's CAM column: Wawa (not billed $7,917), Touch of Class (short $1,885)";
+
+  const withBilling = (note: string | null) => {
+    const d = structuredClone(data);
+    d.properties[0].lines.push({
+      lineKey: "REIMBURSEMENTS::Common Area",
+      section: "REIMBURSEMENTS", line: "Common Area",
+      months: [{
+        period: 7, monthLabel: "July", flags: [REASON], billing: REASON,
+        actual: 30_030, budget: 30_500, variance: -470, note,
+      }],
+    });
+    return d;
+  };
+
+  const load = async (d: ReviewResult) => {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await buildReviewChecklistXlsx(d) as unknown as ArrayBuffer);
+    return wb.worksheets[0];
+  };
+  const column = (ws: ExcelJS.Worksheet, col: string) =>
+    Array.from({ length: 20 }, (_, i) => String(val(ws, `${col}${i + 1}`) ?? ""));
+
+  it("names the tenants, in its own BILLING row", async () => {
+    const ws = await load(withBilling(null));
+    const kinds = column(ws, "B");
+    const row = kinds.findIndex((k) => k === "BILLING");
+    expect(row).toBeGreaterThan(0);
+    expect(String(val(ws, `F${row + 1}`))).toContain("Wawa (not billed $7,917)");
+    expect(String(val(ws, `E${row + 1}`))).toBe("Common Area");
+  });
+
+  it("is NOT displaced by an auto-explain note — both are shown", async () => {
+    // The note is an opinion about why a line moved; the billing reason is the
+    // list of tenants charged the wrong amount. Losing the second to the first
+    // loses the only one you can act on directly.
+    const ws = await load(withBilling("CAM tracking a little under budget."));
+    const row = column(ws, "B").findIndex((k) => k === "BILLING");
+    const what = String(val(ws, `F${row + 1}`));
+    expect(what).toContain("Wawa");
+    expect(what).toContain("under budget");
+  });
+
+  it("sorts above REVIEW despite carrying far fewer dollars", async () => {
+    // $470 of billing error leads $27,758 of variance: one is a fact about
+    // what tenants were charged, the other is a judgement about a movement.
+    const ws = await load(withBilling(null));
+    const kinds = column(ws, "B");
+    expect(kinds.indexOf("BILLING")).toBeLessThan(kinds.indexOf("REVIEW"));
+    // And MISSING still leads everything.
+    expect(kinds.indexOf("MISSING")).toBeLessThan(kinds.indexOf("BILLING"));
+  });
+
+  it("counts them in the letterhead", async () => {
+    const ws = await load(withBilling(null));
+    expect(String(val(ws, "A4"))).toContain("1 billing mismatch");
+  });
+});

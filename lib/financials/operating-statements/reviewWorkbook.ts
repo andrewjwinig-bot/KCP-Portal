@@ -5,10 +5,15 @@
 // grid of flagged lines that dropped the not-posted issues entirely, so the
 // thing most likely to be a real error was the thing missing from the file.
 //
-// TWO KINDS OF ITEM, and the order between them is deliberate:
+// THREE KINDS OF ITEM, and the order between them is deliberate — the first
+// two are errors of FACT, the third is a judgement call:
 //   MISSING  — a line that should carry a figure and reads ~$0 (a budgeted
 //              expense, a scheduled debt payment). That is an error of
 //              omission: the statement is not finished. These lead.
+//   BILLING  — named tenants charged something other than what their lease
+//              says, from the rent roll. Invisible to every trend check by
+//              construction: the same wrong amount posts every month, so the
+//              GL agrees with itself all year.
 //   REVIEW   — a line that posted something that looks off. Worth a look, but
 //              the statement is at least complete.
 // Within each, largest dollars first, because that is the order you would work
@@ -22,7 +27,7 @@ import {
 import type { ReviewResult, ReviewProperty } from "./review";
 
 type Item = {
-  kind: "MISSING" | "REVIEW";
+  kind: "MISSING" | "BILLING" | "REVIEW";
   month: string;
   section: string;
   line: string;
@@ -59,14 +64,20 @@ function itemsFor(p: ReviewProperty): Item[] {
 
   for (const l of p.lines) {
     for (const mo of l.months) {
+      // A BILLING mismatch is never displaced by a note. The note is an
+      // opinion about why a line moved; this is the list of tenants who were
+      // charged the wrong amount, which is the thing you work from. Where a
+      // month has both, both are shown — billing first, because it names
+      // something to go and fix rather than something to go and look at.
+      const trendHalf = mo.note?.trim() || mo.flags.filter((f) => f !== mo.billing).join("; ");
+      const whatToCheck = [mo.billing, trendHalf].filter(Boolean).join(" — ")
+        || "Looks off this month.";
       items.push({
-        kind: "REVIEW",
+        kind: mo.billing ? "BILLING" : "REVIEW",
         month: mo.monthLabel,
         section: l.section,
         line: l.line,
-        // The note is the useful half. Without one, say why it surfaced — never
-        // leave the cell blank, or the row is a line item with no question.
-        whatToCheck: mo.note?.trim() || mo.flags.join("; ") || "Looks off this month.",
+        whatToCheck,
         actual: mo.actual,
         budget: mo.budget,
         variance: mo.variance,
@@ -75,7 +86,10 @@ function itemsFor(p: ReviewProperty): Item[] {
     }
   }
 
-  const rank = (k: Item["kind"]) => (k === "MISSING" ? 0 : 1);
+  // MISSING and BILLING are errors of FACT — a figure that should be there and
+  // is not, a tenant charged the wrong amount. They sort above REVIEW, which is
+  // a judgement call about whether a movement matters.
+  const rank = (k: Item["kind"]) => (k === "MISSING" ? 0 : k === "BILLING" ? 1 : 2);
   items.sort((a, b) => rank(a.kind) - rank(b.kind) || b.weight - a.weight);
   return items;
 }
@@ -91,6 +105,7 @@ export async function buildReviewChecklistXlsx(data: ReviewResult): Promise<Buff
 
   const total = withItems.reduce((s, x) => s + x.items.length, 0);
   const missing = withItems.reduce((s, x) => s + x.items.filter((i) => i.kind === "MISSING").length, 0);
+  const billing = withItems.reduce((s, x) => s + x.items.filter((i) => i.kind === "BILLING").length, 0);
 
   const headerRow = titleBlock(ws, {
     entity: "Korman Commercial Properties",
@@ -98,6 +113,7 @@ export async function buildReviewChecklistXlsx(data: ReviewResult): Promise<Buff
     meta: [
       `${total} item${total === 1 ? "" : "s"} across ${withItems.length} propert${withItems.length === 1 ? "y" : "ies"}`,
       missing ? `${missing} missing / not posted` : null,
+      billing ? `${billing} billing mismatch${billing === 1 ? "" : "es"}` : null,
       `Prepared ${new Date(data.generatedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`,
     ],
     width: HEAD.length,
@@ -107,10 +123,12 @@ export async function buildReviewChecklistXlsx(data: ReviewResult): Promise<Buff
   let r = headerRow + 1;
   for (const { p, items } of withItems) {
     const miss = items.filter((i) => i.kind === "MISSING").length;
+    const bill = items.filter((i) => i.kind === "BILLING").length;
     sectionBar(
       ws, r,
       `${p.propertyCode} — ${p.propertyName}   ·   ${items.length} item${items.length === 1 ? "" : "s"}` +
       (miss ? `, ${miss} missing` : "") +
+      (bill ? `, ${bill} billing` : "") +
       (p.coverage?.behind ? `   ·   GL only through ${p.latestMonthLabel}` : ""),
       HEAD.length,
     );
@@ -138,7 +156,8 @@ export async function buildReviewChecklistXlsx(data: ReviewResult): Promise<Buff
       };
 
       const isMissing = it.kind === "MISSING";
-      put(2, it.kind, undefined, { bold: true, color: { argb: isMissing ? COLOR.negative : COLOR.warn } });
+      const isBilling = it.kind === "BILLING";
+      put(2, it.kind, undefined, { bold: true, color: { argb: isMissing || isBilling ? COLOR.negative : COLOR.warn } });
       put(3, it.month);
       put(4, it.section);
       put(5, it.line, undefined, { bold: true });
@@ -148,9 +167,9 @@ export async function buildReviewChecklistXlsx(data: ReviewResult): Promise<Buff
       put(8, it.budget, FMT.money);
       put(9, it.variance, FMT.money);
 
-      // A missing posting is an error, not a swing — tint the row so it stands
-      // out on a printed page that is otherwise uniform.
-      if (isMissing) for (let c = 2; c <= HEAD.length; c++) {
+      // An error of fact is not a swing — tint the row so it stands out on a
+      // printed page that is otherwise uniform.
+      if (isMissing || isBilling) for (let c = 2; c <= HEAD.length; c++) {
         row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.warnTint } };
       }
       row.alignment = { vertical: "top" };
@@ -172,6 +191,7 @@ export async function buildReviewChecklistXlsx(data: ReviewResult): Promise<Buff
   footNote(
     ws, r + 1,
     "MISSING = a line that should carry a figure and reads $0 — the statement isn't finished until it's posted or ruled out. " +
+    "BILLING = the named tenants were charged something other than what the rent roll says their lease calls for; open the line's GL detail to see them suite by suite. " +
     "REVIEW = a line that posted something that looks off. Dismissing an item on the statement or in Flags to Investigate drops it from next month's list. " +
     "Only variances of $500 or more are listed; anything smaller isn't worth the time.",
     HEAD.length, 32,

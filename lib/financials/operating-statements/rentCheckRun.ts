@@ -18,15 +18,34 @@ export type RentCheckContext = {
   dir: Awaited<ReturnType<typeof buildTenantDirectory>>;
 };
 
+/**
+ * The parts that are the same for every property: the rent roll and the tenant
+ * directory. Split out because the cross-property Review asks this question of
+ * thirteen properties in one pass, and re-reading both blobs for each of them
+ * is thirteen times the work for one answer.
+ */
+export type RentCheckShared = { rentroll: RentRollData; dir: RentCheckContext["dir"] };
+
 /** Null when there is no rent roll — the check simply doesn't run. */
-export async function loadRentCheckContext(key: string, year: number, versionId?: string | null): Promise<RentCheckContext | null> {
+export async function loadRentCheckShared(): Promise<RentCheckShared | null> {
   const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
   if (!rentroll) return null;
+  return { rentroll, dir: await buildTenantDirectory() };
+}
+
+/** Null when there is no rent roll — the check simply doesn't run. */
+export async function loadRentCheckContext(
+  key: string,
+  year: number,
+  versionId?: string | null,
+  shared?: RentCheckShared | null,
+): Promise<RentCheckContext | null> {
+  const base = shared ?? (await loadRentCheckShared());
+  if (!base) return null;
   const byAccount = versionId
     ? await (async () => { const v = await getGl(versionId); return v ? getTransactions(v.id) : {}; })()
     : await assembledTransactions(key, year);
-  const dir = await buildTenantDirectory();
-  return { rentroll, byAccount, dir } as RentCheckContext;
+  return { ...base, byAccount } as RentCheckContext;
 }
 
 export function runRentCheck(ctx: RentCheckContext, opts: {

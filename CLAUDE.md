@@ -649,6 +649,48 @@ time — and the team does not have time to open the GL over $80.
   - The column, the KPI tile and the hover all carry `BASIS_LABEL` ("Rent roll
     · CAM"), because a table that does not say which column it compared is how
     this went unnoticed.
+- **A TENANT NOT BILLED WHAT THEIR LEASE SAYS IS A THIRD KIND OF FINDING, AND
+  IT IS INVISIBLE TO EVERY TREND CHECK** (`billingFlagReason` /
+  `runRentCheck` in `rentCheckRun.ts`). The same wrong amount posts every
+  month, so the GL agrees with last month AND with last year — which is exactly
+  how a lease that was never keyed survives a year of statements.
+  - **All three consumers call ONE runner.** The statement's "?", the Review /
+    emailed checklist, and the drill-down table go through `runRentCheck`; the
+    modal's route is a thin wrapper over it. A mark that disagreed with the
+    table it opens would be worse than no mark.
+  - **WHEN EVERY SUITE TIES IT SAYS NOTHING** — the first test. Otherwise the
+    reason NAMES them, worst first: *"3 suites do not tie to the rent roll's
+    CAM column: Wawa (not billed $7,917), Lafayette Hill Cleaners (short
+    $2,445)…"*. Four names in the statement's hover; **twelve on the
+    checklist** (`BILLING_NAMES_ON_CHECKLIST`), because that reader has the
+    spreadsheet open and a name they must look up is a trip they should not make.
+  - **It is NOT put through the seasonal / variance trend filter.** It is
+    evidence, not a signal, and it carries its own floor — `FLAG_MIN_DOLLARS`
+    on the TOTAL untied dollars, not per suite, so a rate change that left nine
+    suites $60 short each surfaces where a per-suite test would never see it.
+    In `review.ts` the trend floor gates the TREND half of a month only.
+  - **The Review runs it over EVERY month, not just the ones pass 1 flagged.**
+    Restricting it to `flaggedPeriods` would miss precisely the case it exists
+    for. Cost is bounded: ≤4 lines per property have a rent-roll column at all,
+    and `loadRentCheckShared` reads the rent roll and tenant directory ONCE for
+    the whole sweep.
+  - **On the checklist it is its own kind, `BILLING`, and a note never
+    displaces it.** MISSING and BILLING are errors of FACT and sort above
+    REVIEW, a judgement call — $470 of billing error leads $27,758 of variance.
+    Where a month has both, `whatToCheck` shows the tenants AND the note.
+  - The check never fails the statement or the review: no rent roll imported,
+    or anything thrown, and it simply does not run.
+- **THE LEASE TERM IS IN THE HOVER, NOT IN COLUMNS**, and the CAVEATS NAME THE
+  DATE. On most rows the lease spans the whole window, so two date columns
+  would be noise beside seven others; it decides the rows carrying a pill,
+  which is where someone hovers. *"Lease starts 07/15/2026, inside this window
+  — the real charge is prorated"* beats "starts or ends inside this window",
+  which left the reader to find out which end and when. **Rent still posting
+  after a lease ENDED is its own finding** — it read `UNEXPECTED` and said
+  nothing, indistinguishable from a charge on the wrong suite, and it does NOT
+  require the roll to have marked the suite vacant (a tenant can be gone and
+  the suite not yet re-flagged). The mirror too: a lease that has not STARTED
+  is owed nothing, so its $0 is not a missed bill.
 - **A LINE-DETAIL MODAL SHOWS THE SUITE TABLE OR THE TRANSACTION LIST, NOT
   BOTH.** On a rent or CAM line the two ARE the same data: rent posts one
   charge per suite a month, so the raw GL list under the suite table repeated
