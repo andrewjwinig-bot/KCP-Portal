@@ -178,6 +178,24 @@ export function rentCheckTone(status: string): PillTone {
   }
 }
 
+/**
+ * Does a set of figures reconcile?
+ *
+ * Deliberately the SAME green the rent check's TIES pill uses, because it is
+ * the same claim — these numbers agree — and two different greens for one
+ * meaning is the drift this file exists to stop.
+ *
+ * WHERE TO SHOW IT, AND WHERE NOT TO: one per VIEW, show the tie; one per ROW
+ * in a long list, show only the exception. A green pill on 66 of 67 tenant
+ * rows makes the eye filter 66 greens to find the one red, which is why the
+ * monthly-statements roster deliberately has no ties-out column. A single mark
+ * at the top of a statement is the opposite case: there is one of it, and it
+ * answers a question you would otherwise leave the page to ask.
+ */
+export function tiesTone(ok: boolean): PillTone {
+  return ok ? TONE_GREEN : TONE_RED;
+}
+
 export function debtStatusTone(status: string): PillTone {
   switch (status) {
     case "Interest-Only":   return TONE_AMBER;

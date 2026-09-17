@@ -283,7 +283,17 @@ export async function GET(req: Request) {
     }
   }
 
+  // Does the loaded GL reconcile with itself — the stored monthly nets against
+  // the ending balances the file reports? It was computed on UPLOAD and then
+  // only visible on the cross-property Review, so the page you actually work
+  // in all month never said whether its own numbers hang together.
+  const glTieOut = (() => {
+    const r = reconcileGl(stored);
+    return r.checked > 0 ? { checked: r.checked, reconciled: r.reconciled, mismatches: r.mismatches.length } : null;
+  })();
+
   return NextResponse.json({
+    glTieOut,
     debtCheck,
     allocatedGA,
     available,
