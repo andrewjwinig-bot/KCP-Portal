@@ -9,7 +9,41 @@ const LABEL: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 
-export function ImportInstructions({ stop, variant = "charges" }: { stop?: boolean; variant?: "charges" | "statements" }) {
+export function ImportInstructions({ stop, variant = "charges" }: { stop?: boolean; variant?: "charges" | "statements" | "budget-rent" }) {
+  // variant "budget-rent" — pulling next year's SCHEDULED rent out of Skyline
+  // for the budget. The two warnings are not decoration: both were handwritten
+  // notes in the margin of the 2026 workbook, which is to say both have
+  // already gone wrong once and neither checked itself.
+  if (variant === "budget-rent") {
+    return (
+      <div style={{ marginTop: 14 }}>
+        <div style={LABEL}>Skyline Export Steps</div>
+        <ol style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 12.5, color: "var(--muted)", lineHeight: 1.7 }}>
+          <li>
+            Skyline → <strong>General Ledger</strong> → <strong>G/L Information</strong> → <strong>Budget Rent Increase Calculation</strong>.
+            <div style={{ fontSize: 12, marginTop: 2 }}>
+              This report — not the rent roll. The rent roll carries <em>today&rsquo;s</em> rate, so it cannot know a step that has not happened yet; this one carries the scheduled charge for every month of the budget year.
+            </div>
+          </li>
+          <li>Run it for <strong>every</strong> centre in the group, then export to Excel.</li>
+          <li>
+            Upload the file here as it comes out.
+            <div style={{ fontSize: 12, marginTop: 2 }}>
+              If you paste it into another workbook first, <strong>convert Charge Amount to a number</strong> — Skyline pastes it as text, and text sums to zero.
+              You do not need to here: the importer reads text amounts, and says so when it cannot read one.
+            </div>
+          </li>
+          <li>
+            <strong>Check the coverage line after importing.</strong>
+            <div style={{ fontSize: 12, marginTop: 2 }}>
+              The export can quietly leave a centre out — the 2026 workbook was missing 1100 and 1500 and it was caught by eye. The importer names any centre it did not receive, and any unit whose rent came through blank.
+            </div>
+          </li>
+        </ol>
+      </div>
+    );
+  }
+
   if (variant === "statements") {
     return (
       <div style={{ marginTop: 14 }}>
