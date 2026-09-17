@@ -17,6 +17,27 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+/**
+ * How big a PRIOR-MONTH charge has to be before it earns a mention on THIS
+ * month's note.
+ *
+ * The rule is materiality, not recency. Two real notes set the boundary:
+ *
+ *   NOT WORTH IT — "March's $745.39 PECO charge is on the wrong GL." True, and
+ *   sending someone to look at July for it wastes the trip.
+ *
+ *   WORTH IT — "HDL Servicing $121,000 on 1/27, plus $9,050 (Feb) and $13,920
+ *   (Mar) — HDL is the redevelopment GC billing to capital accounts all year.
+ *   This is construction, not maintenance: capitalize it. Left here it grossly
+ *   inflates tenant CAM." Whenever that happened, you want to know now.
+ *
+ * Measured on the LARGEST SINGLE prior charge rather than their total, because
+ * a total catches every ordinary recurring line by June — a $5,000/month
+ * contract is $30,000 by then and entirely unremarkable. One enormous invoice
+ * is the thing that stands out.
+ */
+const PRIOR_MONTH_MIN_DOLLARS = 10_000;
+
 const r0 = (v: number) => Math.round(v);
 const r2 = (v: number) => Math.round(v * 100) / 100;
 function varPct(v: number | null, b: number | null): number | null {
@@ -118,6 +139,10 @@ export async function POST(req: Request) {
       const txs: { date: string | null; description: string; amount: number; account: string; month: number }[] = [];
       for (const a of accts) for (const t of txByAccount[a]) if (t.month <= period) txs.push({ date: t.date, description: t.description, amount: t.amount * sign, account: a, month: t.month });
       txs.sort((x, y) => Math.abs(y.amount) - Math.abs(x.amount));
+      const thisMonths = txs.filter((t) => t.month === period);
+      const priors = txs.filter((t) => t.month !== period);
+      // One enormous earlier invoice earns its mention; an ordinary one does not.
+      const priorIsMaterial = priors.some((t) => Math.abs(t.amount) >= PRIOR_MONTH_MIN_DOLLARS);
       // A single transaction is self-evidently the cause — no note adds value,
       // unless the line was surfaced for a trend reason (e.g. a missing 2nd bill).
       if (trend.length === 0 && txs.length === 1) continue;
@@ -141,14 +166,16 @@ export async function POST(req: Request) {
         accountsOnThisLine: accts,
         scope: ytdOnly ? "year-to-date" : "this month",
         transactionCountYtd: txs.length,
-        // TWO SEPARATE LISTS, deliberately. The finding has to come from this
-        // month's charges; the earlier ones exist only to tell you whether this
-        // month's amount is normal for the line. Handing the model one merged
-        // list is how a July note ended up about March's electricity bill.
-        thisMonthsCharges: txs.filter((t) => t.month === period).slice(0, 12)
+        // SEPARATE LISTS, deliberately — one merged list is how a July note
+        // ended up about March's $745 electricity bill.
+        thisMonthsCharges: thisMonths.slice(0, 12)
           .map((t) => ({ date: t.date, account: t.account, description: t.description.slice(0, 110), amount: r2(t.amount) })),
-        priorMonthsForContextOnly: txs.filter((t) => t.month !== period).slice(0, 6)
-          .map((t) => ({ month: MONTHS_SHORT[t.month - 1], account: t.account, description: t.description.slice(0, 80), amount: r2(t.amount) })),
+        // Prior months split by whether they are big enough to be worth pulling
+        // attention off this month. The key NAME carries the rule, so the model
+        // cannot mistake one list for the other.
+        ...(priorIsMaterial
+          ? { priorMonthsWorthMentioning: priors.slice(0, 8).map((t) => ({ month: MONTHS_SHORT[t.month - 1], date: t.date, account: t.account, description: t.description.slice(0, 110), amount: r2(t.amount) })) }
+          : { priorMonthsForContextOnly: priors.slice(0, 6).map((t) => ({ month: MONTHS_SHORT[t.month - 1], account: t.account, description: t.description.slice(0, 80), amount: r2(t.amount) })) }),
       });
     }
   }
@@ -158,12 +185,33 @@ export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "AI analysis isn't configured (ANTHROPIC_API_KEY not set)." }, { status: 503 });
 
+  // WHERE ELSE A CHARGE COULD LIVE.
+  //
+  // "The $68.90 Termite Proofing charges are miscoded here" is half a finding:
+  // it says a charge is wrong and not where it belongs, which leaves the reader
+  // to go hunting. It could not do better, because the only accounts it ever
+  // saw were the ones on the line it was looking at. This is the property's
+  // whole operating chart — account, name, and the line it rolls into — so a
+  // note can say "move it to 6350-0000 Pest Control" and name why.
+  const acctNames = stored.names ?? {};
+  const accountDirectory: { account: string; name: string; line: string }[] = [];
+  for (const sec of statement.sections) {
+    for (const l of sec.lines) {
+      for (const a of l.accounts ?? []) {
+        accountDirectory.push({ account: a, name: acctNames[a] ?? "", line: `${sec.name} › ${l.label}` });
+      }
+    }
+  }
+
   const through = MONTHS_LONG[period - 1];
   const trendMonths = MONTHS_SHORT.slice(0, period).join(", ");
   const prompt =
     `You are a commercial real estate accountant reviewing ${statement.propertyCode} ${statement.propertyName}'s operating statement for ${through} ${year} (YTD through ${through}). ` +
     `Your goal is to SPOT POSSIBLE MISTAKES and REACH A CONCLUSION about them — not to restate budget variance and not to describe what you see. A note that only says a charge exists is worthless: the charge is already on the statement. Say what it IS, what is probably wrong with it, and what to do.\n\n` +
-    `LENGTH: as short as the finding allows. A routine line needs ~20 words. A single large charge that needs a coding or capitalization call may take up to ~45 — take the words only when the extra words carry a conclusion. Never pad.\n\n` +
+    `LENGTH IS PROPORTIONAL TO WHAT THERE IS TO DO, not to what you noticed:\n` +
+    `  • Something to FIX — recode, capitalize, chase a missing invoice, a likely double-pay → up to ~45 words: the charge, the call, the action.\n` +
+    `  • NOTHING to fix — it genuinely cost more than planned → ONE SHORT LINE, about twelve words. "Thirteen snow invoices Jan–Mar; a heavy winter, genuinely over." Then STOP. Do not append a cross-check you have no evidence for, and do not advise re-budgeting — they set the budget and they know it was low.\n` +
+    `  • Only raise a possible DOUBLE-PAY when the evidence is there: the same vendor and the same amount twice, or a count that broke its own pattern. Two different amounts from one vendor in one season is a busy month, not a re-bill; saying "confirm X isn't a re-bill of Y" on a hunch sends someone to check something you already had the data to rule out.\n\n` +
     `EACH LINE INCLUDES:\n` +
     `• monthlyTrend / monthlyTxnCount — this year's amount and number of transactions for each month so far, in order (${trendMonths}).\n` +
     `• priorYear (when present) — the same line LAST year: this same month's amount ("sameMonth"), the prior-year YTD, and its month-by-month trend.\n` +
@@ -172,15 +220,18 @@ export async function POST(req: Request) {
     `• priorMonthsForContextOnly — earlier months, provided ONLY so you can tell whether this month's amount is normal for the line. NEVER report one of these as the finding.\n` +
     `• scope — "this month" or "year-to-date". See the rule below.\n` +
     `• accountsOnThisLine — every GL account rolling into this line, so you can tell whether a charge sits on the right one.\n` +
+    `• accountDirectory (at the end of this prompt, shared by every line) — the property's whole operating chart: account, name, and the line it rolls into. THIS IS WHERE A MIS-CODED CHARGE SHOULD BE SENT.\n` +
     `• budgetedFor / tenants — what the budget expected, and who the money relates to.\n\n` +
     `THE NOTE IS ABOUT ${through.toUpperCase()}. It sits beside ${through}'s figure, so it has to be about ${through}. Lead with a charge that posted in ${through}. A charge from an earlier month is NEVER the finding — you may mention one only as a comparison ("roughly double the March bill"), never as the thing to look into.\n` +
-    `THE ONE EXCEPTION: when "scope" is "year-to-date", ${through} itself is on budget and only the YEAR is off. Then begin the note with "Year to date:" so it reads as a different kind of statement, and say what is driving the year rather than pretending something happened this month.\n\n` +
+    `TWO EXCEPTIONS, both about MATERIALITY rather than recency:\n` +
+    `  (a) A line may carry "priorMonthsWorthMentioning" — earlier charges big enough to be worth knowing about whenever they happened. When it does, report them: a $121,000 January invoice sitting on a maintenance line matters in July. A line carrying "priorMonthsForContextOnly" instead has nothing earlier worth the trip, and those charges are comparison material only.\n` +
+    `  (b) When "scope" is "year-to-date", ${through} itself is on budget and only the YEAR is off. Begin the note with "Year to date:" so it reads as a different kind of statement, and say what is driving the year rather than pretending something happened this month.\n\n` +
     `THE ANALYSIS TO ACTUALLY DO, in order:\n` +
     `1. FIND THE CHARGE, in ${through}. Which single transaction (or which two) accounts for the move? Name the vendor, the date and the amount.\n` +
     `2. DECIDE WHAT IT IS, from the vendor and the description. Repaving, roof, HVAC or unit replacement, parking-lot resurfacing, structural work, a build-out — these have a multi-year life and read as CAPITAL, not operating expense. Patching, cleaning, striping, a service call, a part — these are genuinely repairs.\n` +
     `3. SAY WHICH OF THESE IT LOOKS LIKE, and why:\n` +
     `   (a) CAPITAL sitting on an operating line — say it should probably be capitalized and depreciated, and that it will distort NOI and the CAM pool if it stays.\n` +
-    `   (b) WRONG GL ACCOUNT — it belongs on a different account than the one in "account". Name the better fit from accountsOnThisLine or describe it.\n` +
+    `   (b) WRONG GL ACCOUNT — it belongs on a different account than the one in "account". **NAME THE DESTINATION.** Pick a real account from accountDirectory (number AND name) and say why that is its home — "the other Termite Proofing charges post there", "that is the pest-control account". NEVER write that something "is miscoded" and stop: a finding with no destination leaves the reader hunting, which is the work the note was supposed to do. If nothing in the directory fits, say what KIND of account it belongs in and that the property has none.\n` +
     `   (c) WRONG PROPERTY — the vendor or description points somewhere else in the portfolio.\n` +
     `   (d) A MISSED or DOUBLED bill — the transaction count broke its pattern; say which and name the vendor.\n` +
     `   (e) A GENUINE unbudgeted one-off — say so plainly, and that the budget line was set too low or the work was unplanned.\n` +
@@ -196,14 +247,19 @@ export async function POST(req: Request) {
     `GOOD: "$21,750 to ABC Paving on 7/14 for lot resurfacing — that is a capital item, not maintenance. Capitalize and depreciate it; left here it overstates the CAM pool tenants are billed on."\n` +
     `GOOD: "Only one PECO payment posted this month vs two in prior months — a utility bill may be unposted. Confirm the second meter was paid."\n` +
     `GOOD: "Insurance is ~30% above the same month last year after the renewal. Verify the new premium and that it isn't double-booked with escrow."\n` +
-    `GOOD: "$4,100 to Sherwin-Williams coded to Landscaping — reads as a paint/build-out charge. Move it to Building Maintenance or the tenant's TI account."\n` +
+    `GOOD: "$4,100 to Sherwin-Williams coded to Landscaping — reads as a paint/build-out charge. Move it to 6300-0000 Building Maintenance, where the other interior work posts."\n` +
+    `GOOD (a prior month that earns its place): "HDL Servicing $121,000 on 1/27, plus $9,050 (Feb) and $13,920 (Mar) — HDL is the redevelopment GC billing to capital accounts 1430/1440 all year. This is construction, not maintenance: capitalize it, along with Robison Roofing's $4,400/$3,850 roof work. Left here it grossly inflates tenant CAM."\n` +
+    `GOOD (two findings, both landed): "Associated Paving $21,750 on 7/6 and $6,600 on 7/16 — lot resurfacing, a multi-year capital item. Capitalize and depreciate; left on a recoverable line it overstates the CAM pool. The $68.90 Termite Proofing charges belong on 6350-0000 Pest Control, where the rest of them post."\n` +
     `BAD (never): "Electric is $785 vs $660 budget. Verify…"\n` +
     `BAD (never): "There is a large charge on this line. Review the detail."\n` +
-    `BAD (never, in a ${through} note): "The March electricity bill posted twice." — that is not ${through}'s news, and sending someone to look at ${through} for it wastes the trip.\n` +
+    `BAD (too long for what it says): "Thirteen About Time Snow invoices Jan–Mar, seven in March alone, against a season budgeted near $10.8K. Genuine heavy-winter overrun, but confirm the 3/12 $8,700 isn't a re-bill of the 2/16 $9,355, then set a realistic snow budget." — the answer is "it snowed a lot", the re-bill is a guess, and the budget advice is unasked-for. "Thirteen snow invoices Jan–Mar; a heavy winter, genuinely over." says it.\n` +
+    `BAD (never, in a ${through} note): "March's $745.39 PECO charge is on the wrong GL." — a few hundred dollars in a month you are not looking at. Sending someone to ${through} for it wastes the trip.\n` +
+    `BAD (never): "…and the Termite Proofing charges are miscoded here." — miscoded to WHERE, and why? Name the account or leave it out.\n` +
     `GOOD (year-to-date scope): "Year to date: three unbudgeted tree removals (Feb, Apr, Jun) put the line 80% over. ${through} itself is on budget — raise next year's provision."\n\n` +
     `Amounts are dollars; a "favorable" variance is good (revenue over / expense under budget). ` +
     `Return ONLY a JSON object mapping each line's exact "lineKey" to its note string.\n\n` +
-    `FLAGGED LINES:\n${JSON.stringify(flagged, null, 1)}`;
+    `FLAGGED LINES:\n${JSON.stringify(flagged, null, 1)}\n\n` +
+    `ACCOUNT DIRECTORY for ${statement.propertyCode} — every operating account on this property, for naming where a mis-coded charge belongs:\n${JSON.stringify(accountDirectory.slice(0, 400))}`;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {

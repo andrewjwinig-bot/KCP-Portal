@@ -468,6 +468,33 @@ time — and the team does not have time to open the GL over $80.
     into the line (`accountsOnThisLine`). A coding call cannot be made without
     knowing where the charge currently sits — that was missing, and it is why
     notes could only ever say "there is a charge".
+  - **A PRIOR MONTH EARNS ITS MENTION BY SIZE, NOT BY RECENCY**
+    (`PRIOR_MONTH_MIN_DOLLARS`, $10,000). Two real notes set the boundary.
+    NOT worth it: *"March's $745.39 PECO charge is on the wrong GL"* — true, and
+    sending someone to look at July for it wastes the trip. WORTH it: *"HDL
+    Servicing $121,000 on 1/27 … the redevelopment GC billing to capital
+    accounts all year. Capitalize it; left here it grossly inflates tenant
+    CAM."* The route splits the payload by the LARGEST SINGLE prior charge —
+    never their total, which catches every ordinary recurring line by June — into
+    `priorMonthsWorthMentioning` (reportable) or `priorMonthsForContextOnly`
+    (comparison material, never the finding). **The key NAME carries the rule**,
+    so the model cannot mistake one list for the other.
+  - **NEVER "miscoded" WITHOUT A DESTINATION.** *"The $68.90 Termite Proofing
+    charges are miscoded here"* is half a finding: it says a charge is wrong and
+    not where it belongs, leaving the reader to go hunting — which is the work
+    the note existed to do. It could not do better, because the only accounts it
+    ever saw were the ones on the line it was looking at. `accountDirectory` now
+    carries the property's whole operating chart (account, name, the line it
+    rolls into) so a note can say *"move it to 6350-0000 Pest Control, where the
+    rest of them post"*.
+  - **LENGTH TRACKS WHAT THERE IS TO DO, not what was noticed.** Something to fix
+    (recode, capitalize, chase an invoice) earns ~45 words. Nothing to fix — it
+    genuinely cost more than planned — is ONE LINE of about twelve words:
+    *"Thirteen snow invoices Jan–Mar; a heavy winter, genuinely over."* No
+    speculative cross-check, and no re-budgeting advice: they set the budget and
+    they know it was low. A possible DOUBLE-PAY is raised only on evidence (same
+    vendor, same amount, twice; or a transaction count that broke its pattern),
+    never on a hunch.
   - **THE NOTE IS ABOUT THE MONTH IT SITS BESIDE.** Two separate lists go to
     the model — `thisMonthsCharges` (where the finding must come from) and
     `priorMonthsForContextOnly` (there only to say whether this month's amount
