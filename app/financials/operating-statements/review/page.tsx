@@ -12,6 +12,7 @@ import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import { StatPill } from "@/app/components/Pill";
 import LoadingState from "@/app/components/LoadingState";
+import { AnalyzingBar } from "@/app/components/ai/AiKit";
 import { groupByRentRoll, type RentRollGroup } from "@/lib/financials/operating-statements/propertyGroups";
 
 type ReviewMonth = {
@@ -160,7 +161,7 @@ export default function OperatingStatementsReviewPage() {
   const [openLines, setOpenLines] = useState<Set<string>>(new Set());
   const [monthFilter, setMonthFilter] = useState<number | null>(null);
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
-  const [explaining, setExplaining] = useState<{ done: number; total: number } | null>(null);
+  const [explaining, setExplaining] = useState<{ done: number; total: number; now: string } | null>(null);
   const [forceReexplain, setForceReexplain] = useState(false);
 
   // Dismiss a flagged line-month right here (no round-trip to the statement),
@@ -199,23 +200,26 @@ export default function OperatingStatementsReviewPage() {
   // AI note for each, so the whole report is annotated without opening each
   // property. Runs sequentially (per property/period) with visible progress.
   const autoExplainAll = useCallback(async () => {
-    const pairs: { key: string; period: number }[] = [];
+    const pairs: { key: string; period: number; label: string }[] = [];
     for (const p of (data?.properties ?? [])) {
       if (!p.hasData) continue;
       const periods = new Set<number>();
       for (const l of p.lines) for (const m of l.months) periods.add(m.period);
-      for (const period of periods) pairs.push({ key: p.key, period });
+      for (const period of periods) pairs.push({ key: p.key, period, label: `${p.propertyCode} ${p.propertyName}` });
     }
     if (!pairs.length) return;
-    setExplaining({ done: 0, total: pairs.length });
+    setExplaining({ done: 0, total: pairs.length, now: pairs[0].label });
     for (let i = 0; i < pairs.length; i++) {
+      // Name the property BEFORE the call, not after — the interesting moment
+      // is the minute it is being read, not the instant it finishes.
+      setExplaining({ done: i, total: pairs.length, now: `${pairs[i].label} · ${MONTHS[pairs[i].period - 1]}` });
       try {
         await fetch("/api/financials/operating-statements/analyze", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ key: pairs[i].key, year, period: pairs[i].period, force: forceReexplain }),
         });
       } catch { /* skip a failed property, keep going */ }
-      setExplaining({ done: i + 1, total: pairs.length });
+      setExplaining({ done: i + 1, total: pairs.length, now: pairs[i + 1]?.label ?? "Finishing up…" });
     }
     setExplaining(null);
     load(); // refresh so the freshly-written notes show
@@ -341,6 +345,14 @@ export default function OperatingStatementsReviewPage() {
 
       {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>· {error}</div>}
       {emailMsg && <div className="muted small">{emailMsg}</div>}
+      {explaining && (
+        <AnalyzingBar
+          label="Reading the GL behind each flagged line"
+          done={explaining.done}
+          total={explaining.total}
+          sub={explaining.now}
+        />
+      )}
 
       <div className="pills" style={{ justifyContent: "flex-start" }}>
         <StatPill label="Not Posted / Missing Debt" value={allIssues.length} accent={allIssues.length > 0 ? "#b91c1c" : "#15803d"} />

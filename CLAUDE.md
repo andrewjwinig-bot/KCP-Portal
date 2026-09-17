@@ -538,6 +538,28 @@ time — and the team does not have time to open the GL over $80.
   a meaningful slice AND at least 1.8× the median of the OTHER charges, so a
   recurring series marks nothing. A lone transaction is never marked — it is
   trivially 100% of its line.
+- **NOTHING POSTED IS NOT A FAVORABLE VARIANCE** (`nothingPosted`). A $0 actual
+  makes the variance exactly the budget and the percentage exactly 100% — by
+  arithmetic, not performance — and it rendered as a GREEN "+100.0%", which
+  reads as money saved. 9510's July showed three in one section: Insurance 0 vs
+  653, Real Estate Taxes 0 vs 1,391, Building Maintenance 1 vs 200 at +99.5%.
+  The figure stays (0 against a $653 budget is worth seeing) but loses the green
+  and never counts as a "favorable line"; whatever is really going on is already
+  said by the ⚠ / ✅ marker in the actual column.
+- **The red/green VARIANCE TINT needs real dollars on the percent route.**
+  `cellFlag` fired on `dollar OR percent`, so at the default 10% and a $500
+  floor it caught Electric at $689 on a $4,080 budget — true, and not worth a
+  red cell. Five of ten rows tinted leaves the eye nowhere to land. `dollar`
+  ($5,000) still fires on its own; the PERCENT route now also has to clear
+  `LOOSE_FLAG_MIN_DOLLARS`, the same $1,500 an as-needed line is held to.
+- **AI work in progress shows `AnalyzingBar`** (`app/components/ai/AiKit.tsx`),
+  not a disabled button reading "Analyzing…". Same visual language as
+  `ThinkingCard` — twinkling sparkle, shimmer text, pulsing dots — so AI work
+  looks like AI work wherever it runs. DETERMINATE with `done`/`total` (the
+  cross-property run knows its steps, and names the property being read) and an
+  indeterminate sweep without them (one property is one opaque call). Used by
+  Flags to Investigate's "Auto-explain all" and the statement page's
+  "Auto-explain flagged lines".
 - **`countAnomaly` is deliberately NOT gated.** It has no dollar floor, but it
   is inert on both "?" paths (both call `trendFlags` with an empty counts array);
   it only feeds auto-explain's written notes, where a missed or doubled bill is
