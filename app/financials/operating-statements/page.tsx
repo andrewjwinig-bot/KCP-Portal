@@ -10,7 +10,8 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
 import { useImport } from "@/app/components/import/ImportProvider";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
-import { StatPill } from "@/app/components/Pill";
+import { Pill, StatPill, tiesTone } from "@/app/components/Pill";
+import { HoverCard } from "@/app/components/HoverCard";
 import { RentCheckTable } from "./RentCheckTable";
 import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { LastImported } from "@/app/components/LastImported";
@@ -330,6 +331,10 @@ export default function OperatingStatementsPage() {
   const [noteMeta, setNoteMeta] = useState<Record<string, { editedAt: string; editedBy: string }>>({});
   const [dismissedFlags, setDismissedFlags] = useState<Set<string>>(new Set()); // "?" flags dismissed this session
   const [debtCheck, setDebtCheck] = useState<{ scheduled: number; posted: number; missing: boolean } | null>(null);
+  // Does the loaded GL reconcile with itself? Null when the file carries no
+  // ending balances to check against — which is "not checkable", not "fine",
+  // so the pill is absent rather than green.
+  const [glTieOut, setGlTieOut] = useState<{ checked: number; reconciled: number; mismatches: number } | null>(null);
   const [allocatedGA, setAllocatedGA] = useState<{ pct: number; periodShare: number; ytdShare: number; poolPeriod: number; poolYtd: number } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -396,6 +401,7 @@ export default function OperatingStatementsPage() {
       setFullYear(j.fullYear ?? null);
       setLastImport(j.uploadedAt ? { at: j.uploadedAt, by: j.uploadedBy ?? null } : null);
       setDebtCheck(j.debtCheck ?? null);
+      setGlTieOut(j.glTieOut ?? null);
       setAllocatedGA(j.allocatedGA ?? null);
       setNotes(j.notes ?? {});
       setDismissedFlags(new Set()); // server already filtered dismissed flags
@@ -905,6 +911,21 @@ export default function OperatingStatementsPage() {
                     question, and not one anybody acted on: 1100 read "0 / 0"
                     on a month with items open. A favorable-variance count in
                     particular is not a to-do list. */}
+                {glTieOut && (
+                  <HoverCard
+                    title="General ledger tie-out"
+                    rows={[
+                      { label: "Accounts checked", value: String(glTieOut.checked) },
+                      { label: "Reconciled", value: String(glTieOut.reconciled), color: "#15803d" },
+                      ...(glTieOut.mismatches ? [{ label: "Do not reconcile", value: String(glTieOut.mismatches), color: "#b91c1c" }] : []),
+                    ]}
+                    footer={{ label: "Checks", value: "Each account's monthly nets against the ending balance the file reports" }}
+                  >
+                    <div><Pill tone={tiesTone(glTieOut.mismatches === 0)}>
+                      {glTieOut.mismatches === 0 ? "GL TIES" : `${glTieOut.mismatches} DON'T TIE`}
+                    </Pill></div>
+                  </HoverCard>
+                )}
                 <ClickablePill active={flagFilter === "flagged"} activeColor="#b45309" onClick={() => setFlagFilter((f) => (f === "flagged" ? null : "flagged"))} title={openItems ? `Click to show only the ${openItems} line${openItems === 1 ? "" : "s"} still to investigate in ${mon}` : `Nothing open in ${mon}`}>
                   <StatPill label={`Items to Investigate · ${mon}`} value={openItems} accent={openItems > 0 ? "#b45309" : "#15803d"} />
                 </ClickablePill>

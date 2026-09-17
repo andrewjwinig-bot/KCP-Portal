@@ -83,41 +83,6 @@ export const TASK_DEFS: TaskDef[] = [
 
   // ── MONTHLY ROUTINE — appears every month ─────────────────────────────────
   {
-    id: "m-checks",
-    label: "1st of the Month Checks",
-    category: "routine",
-    dueDay: 1,
-    notes: "Print checks and cover sheet",
-    instructions: {
-      intro: "Processing 1st of the Month to Avid from Skyline",
-      steps: [
-        {
-          title: "Send the invoices to Avid",
-          path: "Property Management → Billing → Invoicing",
-          items: [
-            "Unit Ref. Number: 2000-First – 2000-Last (this captures all properties set up as individual units)",
-            "Billing Date: 1st of the month being processed",
-            "Email Format: Acrobat Format PDF",
-            "Select Preview",
-            "Save report to: Data\\Shared\\...\\Avid Processing\\1st of Month LIKM\\2026",
-            "Do you wish to record these invoice charges?: NO",
-            "Would you like to email Statements to the selected Occupants: YES",
-          ],
-          note: "CC yourself to receive confirmation of export.",
-        },
-        {
-          title: "Record the charges",
-          path: "Property Management → Billing → Record Scheduled Charges",
-          items: [
-            "Select the 2000 units",
-            "Select the first of the month for the date",
-            "Save the report",
-          ],
-        },
-      ],
-    },
-  },
-  {
     id: "m-lbr",
     label: "Liberty Bank Report",
     category: "routine",
@@ -370,6 +335,52 @@ export const TASK_DEFS: TaskDef[] = [
     dueDay: 20,
     link: "/financials/operating-statements",
     notes: "Update and record variances.",
+  },
+  // Due on the 5th, after the 1st-of-month billing has posted: the Skyline
+  // Statement report is an OPEN-ITEMS report, so running it before the month's
+  // charges land publishes a balance that is missing what was just billed.
+  // Re-running it later in the month is how payments are picked up — the
+  // portal reflects the last import — so this is the earliest useful date
+  // rather than the only one.
+  {
+    id: "m-stmts",
+    label: "Tenant Monthly Statements",
+    category: "routine",
+    dueDay: 5,
+    link: "/tenant-statements",
+    notes: "Import the Skyline Statement report; a month where every tenant ties publishes itself.",
+    instructions: {
+      intro: "Open A/R for every tenant, imported from Skyline and published to the tenant portal.",
+      steps: [
+        {
+          title: "Run the Statement report in Skyline",
+          path: "Property Management → Reports → Statement",
+          items: [
+            "Run it AFTER the 1st-of-month charges have posted",
+            "Shopping centers and business parks run separately — both are needed",
+            "Export each to Excel",
+          ],
+          note: "It is an open-items report: it lists what is UNPAID as of the moment it runs, so a tenant who has paid simply has fewer lines.",
+        },
+        {
+          title: "Import both exports into the same month",
+          path: "/tenant-statements",
+          items: [
+            "Uploading the second export MERGES into the month — it never replaces the first",
+            "Check the roster for any REVIEW pill: that tenant's statement does not reconcile to its own printed subtotals",
+          ],
+          note: "The tie-out is the publish gate. A month where every tenant reconciles publishes itself; a single untied tenant holds the whole month back until it is resolved.",
+        },
+        {
+          title: "Check the tenant portal links",
+          path: "/tenant-statements",
+          items: [
+            "Mint or re-send a link for any tenant who needs one",
+            "Re-import later in the month to pick up payments — the portal reflects the last import",
+          ],
+        },
+      ],
+    },
   },
   {
     id: "m-tenant",

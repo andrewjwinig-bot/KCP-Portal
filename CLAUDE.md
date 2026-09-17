@@ -649,6 +649,20 @@ time — and the team does not have time to open the GL over $80.
   - The column, the KPI tile and the hover all carry `BASIS_LABEL` ("Rent roll
     · CAM"), because a table that does not say which column it compared is how
     this went unnoticed.
+- **A "TIES" MARK GOES ONE PER VIEW, NEVER ONE PER ROW OF A LONG LIST**
+  (`tiesTone` in `Pill.tsx` — deliberately the SAME green the rent check's TIES
+  pill uses, because it is the same claim). A green pill on 66 of 67 tenant
+  rows makes the eye filter 66 greens to find the one red, which is exactly why
+  the monthly-statements roster has NO ties-out column and flags only the
+  exception — do not "improve" that. A single mark at the top of a statement is
+  the opposite case: there is one of it, it costs nothing, and it answers a
+  question you would otherwise leave the page to ask.
+  The worked example is **GL TIES** on the statement header: `reconcileGl` runs
+  each account's monthly nets against the ending balance the file reports, and
+  it was computed on UPLOAD and then surfaced only on the cross-property Review
+  — so the page you work in all month never said whether its own numbers hang
+  together. **A file with no ending balances to check against shows NOTHING**,
+  not a green pill: "not checkable" is not "fine".
 - **THE HEADER CARRIES ONE NUMBER: "Items to Investigate", AND IT TICKS DOWN.**
   It counts the lines still carrying a "?" and is recomputed from the SAME
   `dismissedFlags` state the mark itself reads, so dismissing one drops the
