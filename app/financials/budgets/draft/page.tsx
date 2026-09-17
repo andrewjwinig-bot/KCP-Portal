@@ -6,7 +6,9 @@ import type { BudgetDraft, DraftSource } from "../../../../lib/financials/budget
 import type { LeaseAssumption } from "../../../../lib/financials/budgets/leasingAssumptions";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
-import { BudgetProgressBar } from "./BudgetProgressBar";
+import { BudgetSteps } from "./BudgetSteps";
+import { BookMasthead } from "./BookMasthead";
+import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
 
 const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -48,6 +50,11 @@ export default function BudgetDraftPage() {
   // The line whose history is open. Clicking a line is how you argue its
   // number from its own five years rather than from last year plus a percent.
   const [histLine, setHistLine] = useState<{ label: string; mask: string; sign: 1 | -1 } | null>(null);
+  // Which BOOK is open. A property's budget is a sheet inside its book, so the
+  // book leads and the property follows — picking a property inside a book
+  // never changes which book you are in.
+  const [bookId, setBookId] = useState<string>("shopping-centers");
+  const book = bookById(bookId) ?? bookById("shopping-centers")!;
 
   useEffect(() => {
     if (!key) return;
@@ -75,29 +82,32 @@ export default function BudgetDraftPage() {
   const label = useMemo(() => props.find((p) => p.key === key), [props, key]);
 
   return (
-    <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Budget Draft</h1>
-        <span className="muted small">FY{year} · auto-seeded from the {year - 1} reprojection</span>
-      </div>
-      <p className="muted" style={{ marginTop: -6 }}>
-        A starting draft built from data we already have — expenses grown from this year’s reprojection and rental income projected from the rent roll’s in-place leases, so Nancy/Harry adjust instead of keying from scratch. Reimbursements (CAM/RET) are refined in the next step.
-      </p>
+    <main style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 250px", gap: 18, maxWidth: 1360, width: "100%", alignItems: "start" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+      <BookMasthead
+        book={book}
+        year={year}
+        propertyCode={label?.propertyCode ?? null}
+        years={[thisYear, thisYear + 1]}
+        onYear={setYear}
+        onBook={(id) => {
+          setBookId(id);
+          // Land on the book's first property, so switching books never leaves
+          // the page showing a building that is not in the book you opened.
+          const b = bookById(id);
+          const first = b?.properties[0];
+          const match = first ? props.find((p) => p.propertyCode === first) : undefined;
+          if (match) setKey(match.key);
+        }}
+        onProperty={(code) => {
+          if (!code) return;
+          const match = props.find((p) => p.propertyCode === code);
+          if (match) setKey(match.key);
+        }}
+      />
 
       {/* Controls */}
       <div className="card" style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={secLabel}>Building / Fund</span>
-          <select value={key} onChange={(e) => setKey(e.target.value)} className={SELECT_BRAND}>
-            {props.map((p) => <option key={p.key} value={p.key}>{p.propertyCode} — {p.entityName}</option>)}
-          </select>
-        </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={secLabel}>Budget Year</span>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={SELECT_BRAND}>
-            {[thisYear, thisYear + 1].map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={secLabel}>Expense Growth %</span>
           <input type="number" value={growth} step={0.5} onChange={(e) => setGrowth(Number(e.target.value))}
@@ -268,7 +278,14 @@ export default function BudgetDraftPage() {
         />
       )}
 
-      <BudgetProgressBar year={year} category="Shopping Centers" refreshTick={refreshTick} />
+      </div>
+
+      {/* The rail, not a bar along the bottom. "How much is left" is the
+          smaller question; the one asked in the room is "where are we" — and
+          that has a SHAPE. The schedule has to land before the vacancy list
+          means anything, while the expenses run in parallel and wait for
+          neither. A rail can show that; a percentage cannot. */}
+      <BudgetSteps year={year} category="Shopping Centers" refreshTick={refreshTick} />
     </main>
   );
 }
