@@ -490,7 +490,27 @@ export default function OperatingStatementsPage() {
                 : []),
           ],
           autoExplain: targets.length
-            ? { run: async () => { for (const t of targets) { try { await fetch("/api/financials/operating-statements/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }); } catch { /* skip */ } } setReloadNonce((n) => n + 1); } }
+            ? {
+                title: "Explaining the flagged lines",
+                subtitle: "Reading the GL behind each line that looks off, then emailing the month's checklist.",
+                run: async () => {
+                  for (const t of targets) {
+                    try { await fetch("/api/financials/operating-statements/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }); }
+                    catch { /* skip a property, keep going */ }
+                  }
+                  setReloadNonce((n) => n + 1);
+                  // ONE email per import, not one per property — several files
+                  // usually land together — and only AFTER the notes are
+                  // written, or the checklist arrives with its most useful
+                  // column empty. The route declines to send when there is
+                  // nothing to resolve.
+                  const years = [...new Set(targets.map((t) => t.year))];
+                  for (const y of years) {
+                    try { await fetch("/api/financials/operating-statements/review/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ year: y }) }); }
+                    catch { /* a checklist that didn't send is not a failed import */ }
+                  }
+                },
+              }
             : null,
         };
       },

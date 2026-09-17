@@ -221,6 +221,26 @@ export default function OperatingStatementsReviewPage() {
     load(); // refresh so the freshly-written notes show
   }, [data, year, load, forceReexplain]);
 
+  // Email the month's checklist on demand. The import sends it automatically;
+  // this is for "send it to me again", and for a month where items were
+  // dismissed or resolved since.
+  const [emailing, setEmailing] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<string | null>(null);
+  const emailChecklist = useCallback(async () => {
+    setEmailing(true);
+    setEmailMsg(null);
+    try {
+      const j = await fetch("/api/financials/operating-statements/review/email", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ year }),
+      }).then((r) => r.json());
+      setEmailMsg(j.error ? j.error : j.sent ? `Sent — ${j.items} item${j.items === 1 ? "" : "s"} to ${(j.to ?? []).join(", ")}.` : (j.reason ?? "Nothing sent."));
+    } catch {
+      setEmailMsg("Couldn't send the checklist.");
+    } finally {
+      setEmailing(false);
+    }
+  }, [year]);
+
   // Properties with an uploaded GL, grouped like the rent roll; worst (most
   // flagged months) first within each group. When a month filter is set, each
   // property's lines are narrowed to that month (counts recompute to match).
@@ -310,11 +330,17 @@ export default function OperatingStatementsReviewPage() {
             re-explain done
           </label>
           <button className="btn" onClick={() => data && exportExcel(data)} disabled={!totalMonths} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Download Excel</button>
+          <button className="btn" onClick={emailChecklist} disabled={emailing}
+            title="Email the printable checklist — every property's open items, missing postings first. Sent automatically after each import."
+            style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>
+            {emailing ? "Sending…" : "Email checklist"}
+          </button>
           <button className="btn primary" onClick={() => data && exportPdf(data, grouped)} disabled={!totalMonths} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Download PDF</button>
         </div>
       </div>
 
       {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>· {error}</div>}
+      {emailMsg && <div className="muted small">{emailMsg}</div>}
 
       <div className="pills" style={{ justifyContent: "flex-start" }}>
         <StatPill label="Not Posted / Missing Debt" value={allIssues.length} accent={allIssues.length > 0 ? "#b91c1c" : "#15803d"} />

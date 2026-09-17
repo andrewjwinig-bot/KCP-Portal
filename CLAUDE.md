@@ -482,6 +482,26 @@ time — and the team does not have time to open the GL over $80.
   for that — without it a month explained once could never be explained again,
   so a note written under an older prompt was stuck there and "All N flagged
   lines already explained" was a dead end.
+- **THE MONTH'S CHECKLIST IS EMAILED ON IMPORT.** One workbook, every
+  property's open items, built server-side on the shared Excel theme
+  (`reviewWorkbook.ts`) and sent by
+  `POST /api/financials/operating-statements/review/email`. It is one email per
+  IMPORT, not per property (several files usually land together), and it fires
+  only AFTER auto-explain has finished — otherwise the checklist arrives with
+  its most useful column empty. Also on demand from Flags to Investigate
+  ("Email checklist"). Recipients: `REVIEW_CHECKLIST_TO` (comma-separated),
+  falling back to `VERIFIED_FROM` so it works before anyone configures it.
+- **The checklist carries BOTH kinds of item, and MISSING leads.** A line that
+  should carry a figure and reads ~$0 (budgeted, or a scheduled debt payment) is
+  an error of omission — the statement is not finished — and it sorts above
+  every trend flag, tinted, whatever the dollars. The Review page's old Excel
+  export dropped these entirely, so the item most likely to be a real error was
+  the one missing from the file. Within each kind, largest dollars first, which
+  is the order you would work them in.
+- **Every row has a real tick box** (a bordered empty cell) and the "What to
+  check" column carries the auto-explain note, falling back to the flag reason —
+  never blank, or the row is a line item with no question on it. It never mails
+  an empty checklist: nothing to resolve means no email.
 - **`countAnomaly` is deliberately NOT gated.** It has no dollar floor, but it
   is inert on both "?" paths (both call `trendFlags` with an empty counts array);
   it only feeds auto-explain's written notes, where a missed or doubled bill is
