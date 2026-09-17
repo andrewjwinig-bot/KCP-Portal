@@ -7,6 +7,7 @@ import type { LeaseAssumption } from "../../../../lib/financials/budgets/leasing
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
 import { BudgetProgressBar } from "./BudgetProgressBar";
+import { LineHistoryModal } from "./LineHistoryModal";
 
 const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; startMonth?: number };
@@ -44,6 +45,9 @@ export default function BudgetDraftPage() {
   }, []);
 
   const [refreshTick, setRefreshTick] = useState(0);
+  // The line whose history is open. Clicking a line is how you argue its
+  // number from its own five years rather than from last year plus a percent.
+  const [histLine, setHistLine] = useState<{ label: string; mask: string; sign: 1 | -1 } | null>(null);
 
   useEffect(() => {
     if (!key) return;
@@ -178,7 +182,10 @@ export default function BudgetDraftPage() {
                   {sec.lines.map((l) => {
                     const b = sourceBadge(l.source, growth);
                     return (
-                      <tr key={l.label + l.mask}>
+                      <tr key={l.label + l.mask} className="os-cell"
+                        onClick={() => setHistLine({ label: l.label, mask: l.mask, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1 })}
+                        style={{ cursor: "pointer" }}
+                        title="Open this line's trailing years">
                         <td style={tdL}>{l.label}</td>
                         <td style={{ ...tdL, width: 130 }}><Pill tone={b.tone}>{b.text}</Pill></td>
                         <td style={{ ...tdR, color: "var(--muted)" }}>{l.basisTotal ? money0(l.basisTotal) : ""}</td>
@@ -249,6 +256,18 @@ export default function BudgetDraftPage() {
       {/* Always visible while you work the budget — the question "what is
           holding this up" is asked continuously in a room with four people in
           it, not once when the page loads. */}
+      {histLine && label && (
+        <LineHistoryModal
+          viewKey={key}
+          propertyCode={label.propertyCode}
+          label={histLine.label}
+          mask={histLine.mask}
+          sign={histLine.sign}
+          year={year}
+          onClose={() => setHistLine(null)}
+        />
+      )}
+
       <BudgetProgressBar year={year} category="Shopping Centers" refreshTick={refreshTick} />
     </main>
   );
