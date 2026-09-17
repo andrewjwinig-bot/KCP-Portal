@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     const payDate: string = body.payroll?.payDate ?? "";
     const datePrefix = formatPayDateForFilename(payDate);
 
-    const summaryBlob = buildPayrollExportXlsx({ payDate, invoices });
+    const summaryBlob = await buildPayrollExportXlsx({ payDate, invoices });
     const summaryBuf = Buffer.from(await summaryBlob.arrayBuffer());
     archive.append(summaryBuf, { name: `${datePrefix} payroll-summary.xlsx` });
 
