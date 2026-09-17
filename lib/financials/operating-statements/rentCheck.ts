@@ -55,6 +55,13 @@ export type RentCheckRow = {
   suite: string;
   tenant: string | null;
   sqft: number | null;
+  /** Lease term as the rent roll reports it, "MM/DD/YYYY". Carried for the
+   *  hover, NOT as columns: on most rows the lease spans the whole window and
+   *  two date columns would be noise beside seven others. It is the rows
+   *  carrying a pill — prorated, never billed, billed after expiry — where the
+   *  term is the answer, and that is exactly where someone hovers. */
+  leaseFrom: string | null;
+  leaseTo: string | null;
   /** Contract rent over the window. */
   expected: number;
   /** Rental income posted to the suite over the window. */
@@ -224,14 +231,41 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
     const variance = round(billed - expected);
 
     const caveats: string[] = [];
-    if (partial) caveats.push("Lease starts or ends inside this window — the real charge is prorated.");
+    // NAME THE DATE. "Lease starts or ends inside this window" tells you the
+    // charge is prorated and leaves you to go and find out why; the date is
+    // the whole answer and it is already in hand.
+    if (partial) {
+      const windowStart = monthStart(year, months[0]);
+      const windowEnd = monthEnd(year, months[months.length - 1]);
+      const starts = from && from > windowStart;
+      const ends = to && to <= windowEnd;
+      const which = starts && ends ? `starts ${u.leaseFrom} and ends ${u.leaseTo}`
+        : starts ? `starts ${u.leaseFrom}`
+        : `ends ${u.leaseTo}`;
+      caveats.push(`Lease ${which}, inside this window — the real charge is prorated, so a difference here is expected.`);
+    }
     if (scope === "ytd" && expected > 0) caveats.push("Rent roll carries today's rate; a mid-year escalation isn't in it.");
+    // STILL BILLING AFTER THE LEASE ENDED. Its own finding, and one worth
+    // money: the row reads "unexpected" either way, but a lease that expired
+    // months ago and is still posting a charge is a different problem from a
+    // charge on the wrong suite, and the expiry date settles which it is. It
+    // does not require the roll to mark the suite vacant, which is the case
+    // that was falling through — a tenant can be gone and the suite not yet
+    // re-flagged.
+    const endedBefore = to && to < monthStart(year, months[0]);
+    if (endedBefore && billed > RENT_TOL) {
+      caveats.push(`The lease ended ${u.leaseTo} and rent is still posting to this suite. Either the charge should have stopped, or a renewal was signed and the rent roll has not been re-imported.`);
+    }
     // Vacant space should carry no rent. When it does, the usual cause is a
     // lease signed since the rent roll was last imported — say so, because
     // "unexpected" on its own reads like a posting error when it often isn't.
-    if (u.isVacant && billed > RENT_TOL) {
+    if (u.isVacant && billed > RENT_TOL && !endedBefore) {
       caveats.push("The rent roll shows this suite vacant but rent is posting — most often a new lease signed since the roll was last imported. Re-import the rent roll, or check the charge is on the right suite.");
     }
+    // Owed a charge and none posted, with a lease that has not yet started —
+    // nothing is wrong, and without the date it reads as a missed bill.
+    const startsAfter = from && from > monthEnd(year, months[months.length - 1]);
+    if (startsAfter) caveats.push(`Lease does not start until ${u.leaseFrom}, so no rent is due in this window.`);
 
     let status: RentCheckStatus;
     if (expected <= RENT_TOL && billed <= RENT_TOL) status = "idle";
@@ -243,6 +277,7 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
 
     return {
       unitRef: u.unitRef, suite: suiteOf(u.unitRef), tenant: u.tenant, sqft: u.sqft,
+      leaseFrom: u.leaseFrom, leaseTo: u.leaseTo,
       expected, billed, variance,
       status, caveats, monthsCovered: covered, monthsInScope: months.length,
     };
@@ -255,6 +290,7 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
     if (seen.has(key) || Math.abs(amt) <= RENT_TOL) continue;
     rows.push({
       unitRef: key, suite: suiteOf(key), tenant: null, sqft: null,
+      leaseFrom: null, leaseTo: null,
       expected: 0, billed: round(amt), variance: round(amt),
       status: "unexpected",
       caveats: ["This suite isn't on the current rent roll — a prior tenant, or a unit not yet imported."],
