@@ -32,12 +32,22 @@ export type ImportFileResult = Partial<ImportFile> & { status: ImportFileStatus 
 export type ImportStat = { value: string; label: string };
 export type ImportUnlock = { id: string; title: string; subtitle: string; href: string; cta?: string };
 export type ImportAutoExplain = { run: () => Promise<void>; title?: string; subtitle?: string };
+export type AutoExplainState = "none" | "running" | "done" | "dismissed";
 
 export type ImportReport = {
   stats?: ImportStat[];
   /** Conditional downstream actions — render only what applies to this import. */
   unlocks?: ImportUnlock[];
-  /** Opt-in AI follow-up (violet). Never auto-starts. */
+  /**
+   * The AI follow-up (violet). STARTS ON ITS OWN once the import lands.
+   *
+   * It used to ask first, and asking was the wrong default: the explanation is
+   * most useful at the moment the numbers arrive, and the person who just
+   * imported is the person who would have clicked yes. It is also cheap by
+   * construction — it skips any line already carrying a note (manual or AI), so
+   * a re-import costs nothing, and it now explains only the lines the statement
+   * marks with a "?", which the variance floor keeps scarce.
+   */
   autoExplain?: ImportAutoExplain | null;
 };
 
@@ -58,7 +68,6 @@ export type ImportRequest = {
 };
 
 export type ImportState = "uploading" | "done" | "partial" | "error";
-export type AutoExplainState = "none" | "prompt" | "running" | "done" | "dismissed";
 
 export type ImportRun = {
   kind: string;

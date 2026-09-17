@@ -443,6 +443,24 @@ time — and the team does not have time to open the GL over $80.
   never computes a month's budget, which is what makes scanning every month of
   every property affordable. Pinned by `flagRules.test.ts` against the real 9510
   numbers.
+- **AUTO-EXPLAIN RUNS ON IMPORT, and explains exactly the lines carrying a
+  "?".** It used to ask first, and asking was the wrong default: the explanation
+  is most useful the moment the numbers land, and the person who just imported
+  is the person who would have clicked yes. The card is now a status line, not a
+  choice. It is cheap by construction — it skips any line already carrying a
+  note (manual OR AI, so a re-import costs nothing) and it now runs the SAME
+  `seasonalTrendFlags` + variance floor as the "?", where before it ran on the
+  raw trend signal and would spend a note on a line the statement had already
+  decided not to mark. `analyze/route.ts` must keep passing `l.periodVariance`
+  in, or the floor never bites; pinned by `flagRules.test.ts`.
+- **The note names the CHARGE and says what it looks like.** Auto-explain gets
+  each line's top transactions, budget sub-lines, tenants, monthly trend and
+  prior year, and is told to lead with the concrete item — never to restate the
+  actual/budget/variance, which sit beside it. For a single charge that dwarfs
+  the budget it must say WHICH of these it reads as: capital posted to an
+  operating line, the wrong GL account, the wrong property, or a genuine
+  unbudgeted one-off. 9510's Parking Lot Maintenance (a $21,750 charge against a
+  $592 budget) is the shape this exists for.
 - **`countAnomaly` is deliberately NOT gated.** It has no dollar floor, but it
   is inert on both "?" paths (both call `trendFlags` with an empty counts array);
   it only feeds auto-explain's written notes, where a missed or doubled bill is

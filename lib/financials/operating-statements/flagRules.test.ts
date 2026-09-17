@@ -15,21 +15,21 @@ describe("the variance floor on a '?'", () => {
   ];
 
   it.each(july9510)("drops the '?' on $name ($actual vs $budget)", ({ name, actual, budget }) => {
-    expect(seasonalTrendFlags("opex", line(name), 7, actual, MOVED, actual - budget)).toEqual([]);
+    expect(seasonalTrendFlags("reimbursable-expense", line(name), 7, actual, MOVED, actual - budget)).toEqual([]);
   });
 
   it("keeps the '?' on the line that actually matters", () => {
     // Parking Lot Maintenance: 28,350 against a 592 budget.
-    expect(seasonalTrendFlags("opex", line("Parking Lot Maintenance"), 7, 28_350, MOVED, 28_350 - 592))
+    expect(seasonalTrendFlags("reimbursable-expense", line("Parking Lot Maintenance"), 7, 28_350, MOVED, 28_350 - 592))
       .toEqual(MOVED);
   });
 
   it("treats the floor as inclusive, and reads the variance either way round", () => {
-    expect(seasonalTrendFlags("opex", line("X"), 7, 1000, MOVED, FLAG_MIN_DOLLARS)).toEqual(MOVED);
-    expect(seasonalTrendFlags("opex", line("X"), 7, 1000, MOVED, -FLAG_MIN_DOLLARS)).toEqual(MOVED);
-    expect(seasonalTrendFlags("opex", line("X"), 7, 1000, MOVED, FLAG_MIN_DOLLARS - 1)).toEqual([]);
+    expect(seasonalTrendFlags("reimbursable-expense", line("X"), 7, 1000, MOVED, FLAG_MIN_DOLLARS)).toEqual(MOVED);
+    expect(seasonalTrendFlags("reimbursable-expense", line("X"), 7, 1000, MOVED, -FLAG_MIN_DOLLARS)).toEqual(MOVED);
+    expect(seasonalTrendFlags("reimbursable-expense", line("X"), 7, 1000, MOVED, FLAG_MIN_DOLLARS - 1)).toEqual([]);
     // Favourable is still a variance — a line $4,000 UNDER budget is worth a look.
-    expect(seasonalTrendFlags("opex", line("X"), 7, 1000, MOVED, -4000)).toEqual(MOVED);
+    expect(seasonalTrendFlags("reimbursable-expense", line("X"), 7, 1000, MOVED, -4000)).toEqual(MOVED);
   });
 });
 
@@ -58,15 +58,29 @@ describe("the seasonal rules still apply", () => {
   it("ignores an off-season snow charge too small to chase", () => {
     // The rule is about mis-coding, but the floor is the floor: nobody opens
     // the GL over $200 of July snow.
-    expect(seasonalTrendFlags("opex", line("Snow Removal", "6370-0000"), 7, 200, [], null)).toEqual([]);
+    expect(seasonalTrendFlags("reimbursable-expense", line("Snow Removal", "6370-0000"), 7, 200, [], null)).toEqual([]);
   });
 
   it("still flags an off-season snow charge worth chasing", () => {
-    expect(seasonalTrendFlags("opex", line("Snow Removal", "6370-0000"), 7, 5_000, [], null))
+    expect(seasonalTrendFlags("reimbursable-expense", line("Snow Removal", "6370-0000"), 7, 5_000, [], null))
       .toEqual(["snow charge posted outside the Nov–Mar season — verify the GL coding"]);
   });
 
   it("expects a $0 RET month rather than flagging it", () => {
-    expect(seasonalTrendFlags("opex", line("Real Estate Taxes", "6410-0000"), 7, 0, MOVED, null)).toEqual([]);
+    expect(seasonalTrendFlags("reimbursable-expense", line("Real Estate Taxes", "6410-0000"), 7, 0, MOVED, null)).toEqual([]);
+  });
+});
+
+describe("the floor is ONE number across the feature", () => {
+  it("is what auto-explain uses too", async () => {
+    // The "?" and the note must agree on what is too small to chase. Auto-explain
+    // used to run on the RAW trend signal, so it would spend a note explaining a
+    // line the statement had already decided not to mark.
+    const src = await import("node:fs").then((fs) =>
+      fs.readFileSync("app/api/financials/operating-statements/analyze/route.ts", "utf8"));
+    expect(src).toContain("FLAG_MIN_DOLLARS");
+    expect(src).toContain("seasonalTrendFlags(");
+    // …and it passes the line's variance in, or the floor would never bite.
+    expect(src).toMatch(/l\.periodVariance,/);
   });
 });
