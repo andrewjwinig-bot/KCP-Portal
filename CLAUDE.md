@@ -649,6 +649,17 @@ time — and the team does not have time to open the GL over $80.
   - The column, the KPI tile and the hover all carry `BASIS_LABEL` ("Rent roll
     · CAM"), because a table that does not say which column it compared is how
     this went unnoticed.
+- **THE HEADER CARRIES ONE NUMBER: "Items to Investigate", AND IT TICKS DOWN.**
+  It counts the lines still carrying a "?" and is recomputed from the SAME
+  `dismissedFlags` state the mark itself reads, so dismissing one drops the
+  count with no refetch — which is the whole point: how much is left to do on
+  this property, right now. Clicking it filters the statement to those lines.
+  `carriesInvestigateMark` is the ONE predicate behind the mark, the count and
+  the filter; before it, the header counted **Lines Favorable / Lines
+  Unfavorable** — lines whose VARIANCE cleared a threshold, which is a
+  different question and not one anyone acts on. 1100's July read `0 / 0`, and
+  a favorable-variance count is not a to-do list in any case. `varianceCounts`
+  and `lineMatchesClass` went with them rather than being left to rot.
 - **A TENANT NOT BILLED WHAT THEIR LEASE SAYS IS A THIRD KIND OF FINDING, AND
   IT IS INVISIBLE TO EVERY TREND CHECK** (`billingFlagReason` /
   `runRentCheck` in `rentCheckRun.ts`). The same wrong amount posts every

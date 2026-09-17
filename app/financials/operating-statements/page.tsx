@@ -26,6 +26,7 @@ import type {
   PropertyStatement,
   StatementSection,
   StatementTotals,
+  StatementLine,
   SectionRole,
 } from "@/lib/financials/operating-statements/types";
 
@@ -212,24 +213,26 @@ function cellFlag(
 const flagTint = (f: "fav" | "unf" | null) =>
   f === "unf" ? "rgba(185,28,28,0.13)" : f === "fav" ? "rgba(21,128,61,0.13)" : undefined;
 
-// Does a line have a high-variance cell of the given class for the current
-// month? (Matches the month-based favorable/unfavorable pills.)
-function lineMatchesClass(l: StatementTotals, cls: "fav" | "unf", th: Thresh): boolean {
-  return cellFlag(l.periodVariance, l.periodBudget, th, l.periodActual) === cls;
+/**
+ * Does this line carry the amber "?" — an item still to investigate?
+ *
+ * ONE definition, read by the mark itself, by the count in the header and by
+ * the filter. Two of those used to be different questions entirely: the header
+ * counted lines whose VARIANCE cleared a threshold, which is not what the "?"
+ * means and not what anyone works from, so a property could read "0 / 0" with
+ * half a dozen marks down the page.
+ *
+ * `fullyFundedYtd` and `expectedMissing` are excluded because those lines
+ * already carry their OWN marker (the ✓ and the ⚠) saying what is going on —
+ * a second mark asking the same question is the noise every rule here fights.
+ */
+function carriesInvestigateMark(sectionName: string, l: StatementLine, dismissed: Set<string>): boolean {
+  return !!l.flags?.length && !l.fullyFundedYtd && !l.expectedMissing && !dismissed.has(`${sectionName}::${l.label}`);
 }
 
-// Count line items whose variance vs budget is "high", split favorable vs
-// unfavorable, for the current month and YTD.
-type VarCounts = { monthFav: number; monthUnf: number; ytdFav: number; ytdUnf: number };
-function varianceCounts(s: PropertyStatement, th: Thresh): VarCounts {
-  let monthFav = 0, monthUnf = 0, ytdFav = 0, ytdUnf = 0;
-  for (const sec of s.sections) for (const l of sec.lines) {
-    const m = cellFlag(l.periodVariance, l.periodBudget, th, l.periodActual);
-    if (m === "fav") monthFav++; else if (m === "unf") monthUnf++;
-    const y = cellFlag(l.ytdVariance, l.ytdBudget, th, l.ytdActual);
-    if (y === "fav") ytdFav++; else if (y === "unf") ytdUnf++;
-  }
-  return { monthFav, monthUnf, ytdFav, ytdUnf };
+/** How many items are still open on this statement. Ticks down as they are dismissed. */
+function investigateCount(s: PropertyStatement, dismissed: Set<string>): number {
+  return s.sections.reduce((n, sec) => n + sec.lines.filter((l) => carriesInvestigateMark(sec.name, l, dismissed)).length, 0);
 }
 
 // Segmented two-button toggle, matching the Operating Budgets controls.
@@ -345,7 +348,7 @@ export default function OperatingStatementsPage() {
   const [varPctThresh, setVarPctThresh] = useState(10);
   const [varFloor, setVarFloor] = useState(500); // ignore variances smaller than this
   // Click a Favorable/Unfavorable pill to filter the statement to those lines.
-  const [flagFilter, setFlagFilter] = useState<"fav" | "unf" | null>(null);
+  const [flagFilter, setFlagFilter] = useState<"flagged" | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const glDrop = useFileDrop((files) => processFiles(files), { accept: byExt([".xls", ".xlsx", ".xlsm"]) });
 
@@ -725,7 +728,9 @@ export default function OperatingStatementsPage() {
   }, [isGandA]);
 
   const thresh: Thresh = { dollar: varDollar, pct: varPctThresh, min: varFloor };
-  const variance = statement ? varianceCounts(statement, thresh) : null;
+  // The header's one number, recomputed from the SAME dismissed-flag state the
+  // "?" reads — so dismissing a mark ticks it down without a refetch.
+  const openItems = statement ? investigateCount(statement, dismissedFlags) : 0;
   const isFullYear = period === FULL_YEAR;
 
   return (
@@ -880,7 +885,7 @@ export default function OperatingStatementsPage() {
           {cur && <LastImported at={lastImport?.at} by={lastImport?.by} label={`${cur.name} GL last imported`} />}
         </div>
 
-        {statement && variance && !isFullYear && (() => {
+        {statement && !isFullYear && (() => {
           const noi = statement.rollups.netOperatingIncome;
           const mPct = varPct(noi.periodVariance, noi.periodBudget);
           const yPct = varPct(noi.ytdVariance, noi.ytdBudget);
@@ -892,11 +897,16 @@ export default function OperatingStatementsPage() {
                 {operatingCash != null && <StatPill label={`Starting Cash · ${mon} (Per GL)`} value={`$${money0(operatingCash)}`} accent="#0b4a7d" />}
                 <StatPill label={`Net Operating Income · ${mon} vs Budget`} value={fmtVarValueNode(noi.periodVariance, mPct)} accent={pctAccent(mPct)} />
                 <StatPill label="Net Operating Income · YTD vs Budget" value={fmtVarValueNode(noi.ytdVariance, yPct)} accent={pctAccent(yPct)} />
-                <ClickablePill active={flagFilter === "unf"} activeColor="#b91c1c" onClick={() => setFlagFilter((f) => (f === "unf" ? null : "unf"))} title={`Click to show only unfavorable lines in ${mon}`}>
-                  <StatPill label={`Lines Unfavorable · ${mon}`} value={variance.monthUnf} accent={variance.monthUnf > 0 ? "#b91c1c" : undefined} />
-                </ClickablePill>
-                <ClickablePill active={flagFilter === "fav"} activeColor="#15803d" onClick={() => setFlagFilter((f) => (f === "fav" ? null : "fav"))} title={`Click to show only favorable lines in ${mon}`}>
-                  <StatPill label={`Lines Favorable · ${mon}`} value={variance.monthFav} accent={variance.monthFav > 0 ? "#15803d" : undefined} />
+                {/* ONE number, and it is the one you work from: how many lines
+                    still carry a "?". It ticks DOWN as they are dismissed,
+                    because `dismissedFlags` is the same state the mark reads.
+                    It replaced a Favorable / Unfavorable pair that counted
+                    lines whose VARIANCE cleared a threshold — a different
+                    question, and not one anybody acted on: 1100 read "0 / 0"
+                    on a month with items open. A favorable-variance count in
+                    particular is not a to-do list. */}
+                <ClickablePill active={flagFilter === "flagged"} activeColor="#b45309" onClick={() => setFlagFilter((f) => (f === "flagged" ? null : "flagged"))} title={openItems ? `Click to show only the ${openItems} line${openItems === 1 ? "" : "s"} still to investigate in ${mon}` : `Nothing open in ${mon}`}>
+                  <StatPill label={`Items to Investigate · ${mon}`} value={openItems} accent={openItems > 0 ? "#b45309" : "#15803d"} />
                 </ClickablePill>
               </div>
               {analyzing && (
@@ -1064,7 +1074,7 @@ function HeaderRow({ monthLabel, varMode }: { monthLabel: string; varMode: VarMo
 
 function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSources, noteMeta, editorLabel, onSaveNote, dismissedFlags, onDismissFlag, view, thresh, flagFilter, onClearFilter }: {
   s: PropertyStatement; viewKey: string; budgetYear: number | null; budgetFallback: boolean; view: ViewOpts;
-  thresh: Thresh; flagFilter: "fav" | "unf" | null; onClearFilter: () => void;
+  thresh: Thresh; flagFilter: "flagged" | null; onClearFilter: () => void;
 } & NoteFns) {
   const byRole = (roles: SectionRole[]) => s.sections.filter((x) => roles.includes(x.role));
   const revenueSecs = byRole(["revenue", "reimbursement"]);
@@ -1114,20 +1124,20 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
   // Filter mode — show only the flagged lines of the clicked class, grouped by
   // their section (no subtotals, rollups or group headers).
   if (flagFilter) {
-    const matchSecs = s.sections.filter((sec) => sec.lines.some((l) => lineMatchesClass(l, flagFilter, thresh)));
-    const count = matchSecs.reduce((n, sec) => n + sec.lines.filter((l) => lineMatchesClass(l, flagFilter, thresh)).length, 0);
-    const color = flagFilter === "unf" ? "#b91c1c" : "#15803d";
-    const word = flagFilter === "unf" ? "unfavorable" : "favorable";
+    const matchSecs = s.sections.filter((sec) => sec.lines.some((l) => carriesInvestigateMark(sec.name, l, dismissedFlags)));
+    const count = matchSecs.reduce((n, sec) => n + sec.lines.filter((l) => carriesInvestigateMark(sec.name, l, dismissedFlags)).length, 0);
+    const color = "#b45309";
+    const word = "still to investigate";
     return (
       <>
-        <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", borderColor: color, background: flagFilter === "unf" ? "rgba(185,28,28,0.05)" : "rgba(21,128,61,0.05)" }}>
+        <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", borderColor: color, background: "rgba(180,83,9,0.05)" }}>
           <span style={{ fontWeight: 700, color }}>
-            Showing {count} {word} line{count === 1 ? "" : "s"} — variance beyond ${thresh.dollar.toLocaleString()} or {thresh.pct}% of budget
+            Showing {count} line{count === 1 ? "" : "s"} {word} — dismiss the &ldquo;?&rdquo; on a line once you have confirmed it is right
           </span>
           <button type="button" className="btn" onClick={onClearFilter} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>Clear filter</button>
         </div>
         {matchSecs.length === 0
-          ? <div className="card"><div className="muted small">No {word} lines beyond the threshold.</div></div>
+          ? <div className="card"><div className="muted small">Nothing left to investigate this month.</div></div>
           : matchSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} thresh={thresh} onOpenDetail={openDetail} filterClass={flagFilter} />)}
         {footerCard}
         {detailModal}
@@ -1413,9 +1423,9 @@ function CoverageModal({ coverage, onClose, onPick }: { coverage: Coverage[]; on
 const subtotalLabel = (sec: StatementSection) =>
   sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`;
 
-function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterClass, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; view: ViewOpts; thresh: Thresh; onOpenDetail: (sec: StatementSection, l: { mask: string; label: string }, tab: "gl" | "budget", scope: "month" | "ytd" | "annual") => void; filterClass?: "fav" | "unf"; hideSubtotal?: boolean }) {
+function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterClass, hideSubtotal }: { sec: StatementSection; nf: NoteFns; monthLabel: string; view: ViewOpts; thresh: Thresh; onOpenDetail: (sec: StatementSection, l: { mask: string; label: string }, tab: "gl" | "budget", scope: "month" | "ytd" | "annual") => void; filterClass?: "flagged"; hideSubtotal?: boolean }) {
   const lines = filterClass
-    ? sec.lines.filter((l) => lineMatchesClass(l, filterClass, thresh))
+    ? sec.lines.filter((l) => carriesInvestigateMark(sec.name, l, nf.dismissedFlags))
     : view.hideEmpty ? sec.lines.filter((l) => !isLineEmpty(l) || l.expectedMissing) : sec.lines;
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
