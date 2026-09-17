@@ -6,6 +6,7 @@ import type { BudgetDraft, DraftSource } from "../../../../lib/financials/budget
 import type { LeaseAssumption } from "../../../../lib/financials/budgets/leasingAssumptions";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
+import { BudgetProgressBar } from "./BudgetProgressBar";
 
 const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; startMonth?: number };
@@ -245,6 +246,10 @@ export default function BudgetDraftPage() {
           </p>
         </>
       )}
+      {/* Always visible while you work the budget — the question "what is
+          holding this up" is asked continuously in a room with four people in
+          it, not once when the page loads. */}
+      <BudgetProgressBar year={year} category="Shopping Centers" refreshTick={refreshTick} />
     </main>
   );
 }
