@@ -131,10 +131,16 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
             <th style={th} />
           </tr></thead>
           <tbody>
-            {shown.map((r) => (
-              <tr key={r.unitRef}>
+            {shown.map((r) => {
+              // A vacant suite is greyed WHOLE. Every figure on the row is
+              // legitimately zero, so dimming it lets the eye fall straight to
+              // the suites that carry rent — the same treatment a gross-lease
+              // row gets on the CAM statements.
+              const vacant = !r.tenant;
+              return (
+              <tr key={r.unitRef} style={vacant ? { opacity: 0.55 } : undefined}>
                 <td style={{ ...td, whiteSpace: "nowrap" }}><code style={{ fontSize: 12 }}>{r.unitRef}</code></td>
-                <td style={td}>{r.tenant || <span className="muted">— vacant</span>}</td>
+                <td style={td}>{r.tenant || <span className="muted" style={{ fontWeight: 700, letterSpacing: "0.04em" }}>VACANT</span>}</td>
                 {hasRef && <td style={{ ...td, whiteSpace: "nowrap", color: "var(--muted)" }}>{refByUnit?.[r.unitRef] || "—"}</td>}
                 <td style={{ ...tdR, color: "var(--muted)" }}>{r.sqft ? r.sqft.toLocaleString("en-US") : "—"}</td>
                 <td style={tdR}>{money0(r.expected)}</td>
@@ -162,7 +168,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
                   </HoverCard>
                 </td>
               </tr>
-            ))}
+            );})}
           </tbody>
           <tfoot><tr>
             <td colSpan={hasRef ? 4 : 3} style={{ ...td, fontWeight: 800, borderTop: "2px solid var(--border)" }}>
@@ -177,10 +183,10 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
       )}
 
       <div className="muted small" style={{ marginTop: 12, lineHeight: 1.5 }}>
-        <strong>Three different sources, one row.</strong> <strong>Rent roll</strong> is contract base rent for the suite. <strong>GL</strong> is what was <em>charged</em> against it in the general ledger — so a gap between the two is a BILLING problem: a lease that was never keyed, a suite still at last year&apos;s rate, a vacated tenant still being billed.
+        <strong>Rent roll:</strong> contract base rent for the suite. <strong>GL:</strong> what was charged against it in the general ledger (a charge posts whether or not the cheque arrives).
         {hasAr
-          ? <> A charge posts whether or not the cheque arrives, so whether the money came IN is the third source: <strong>Open A/R</strong>, open charges only{data.arPeriod ? `, from the ${data.arPeriod} Skyline statement import` : ""}.</>
-          : <> A charge posts whether or not the cheque arrives; import a Skyline statement on Monthly Statements to see open A/R beside it.</>}
+          ? <> <strong>Open A/R:</strong> open charges only{data.arPeriod ? `, from the ${data.arPeriod} Skyline statement import` : ""}.</>
+          : <> Import a Skyline statement on Monthly Statements to see open A/R beside it.</>}
         {scope === "ytd" ? " The rent roll carries today's rate, so a mid-year escalation isn't in it and YTD is indicative." : ""}
       </div>
     </div>
