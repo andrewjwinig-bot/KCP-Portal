@@ -15,6 +15,12 @@ const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "Ju
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// STATED, not inherited. This was fine on Sonnet with a 2,000-token ceiling and
+// a small prompt; moving it to Opus with 6,000 tokens, the account directory and
+// the split transaction lists pushed a single call past Vercel's short default,
+// and every run came back 502 with nothing written. The same omission is what
+// made the assistant 504 — see `/api/search/agent`.
+export const maxDuration = 300;
 export const revalidate = 0;
 
 /**
@@ -277,7 +283,19 @@ export async function POST(req: Request) {
       // over every line of every statement.
       body: JSON.stringify({ model: "claude-opus-5", max_tokens: 6000, messages: [{ role: "user", content: prompt }] }),
     });
-    if (!res.ok) return NextResponse.json({ error: `Analysis failed (${res.status}).` }, { status: 502 });
+    if (!res.ok) {
+      // Say WHAT went wrong. "Analysis failed (502)" told nobody anything — the
+      // model's own message (bad model id, rate limit, prompt too long) is the
+      // only thing that identifies the cause, and it was being thrown away.
+      const detail = await res.text().catch(() => "");
+      console.error("[analyze] model call failed", res.status, detail.slice(0, 500));
+      let msg = `Analysis failed (${res.status}).`;
+      try {
+        const j = JSON.parse(detail) as { error?: { message?: string } };
+        if (j?.error?.message) msg = `Analysis failed (${res.status}): ${j.error.message}`;
+      } catch { /* not JSON — the status is all we have */ }
+      return NextResponse.json({ error: msg }, { status: 502 });
+    }
     const j = await res.json();
     const text: string = (j?.content ?? []).filter((b: { type?: string }) => b?.type === "text").map((b: { text?: string }) => b.text ?? "").join("");
     const match = text.match(/\{[\s\S]*\}/);

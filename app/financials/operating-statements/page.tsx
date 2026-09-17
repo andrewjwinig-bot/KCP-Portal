@@ -580,6 +580,7 @@ export default function OperatingStatementsPage() {
 
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeMsg, setAnalyzeMsg] = useState<string | null>(null);
+  const [analyzeFailed, setAnalyzeFailed] = useState(false);
   // Re-explain lines that already carry an AI note. Matches the checkbox the
   // Review page has had: without it, a month explained once can never be
   // explained again, so a note written under an older prompt is stuck there —
@@ -595,7 +596,8 @@ export default function OperatingStatementsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key, year, period, dollar: varDollar, pct: varPctThresh, min: varFloor, force: reexplain }),
       }).then((r) => r.json());
-      if (j.error) { setAnalyzeMsg(j.error); return; }
+      if (j.error) { setAnalyzeMsg(j.error); setAnalyzeFailed(true); return; }
+      setAnalyzeFailed(false);
       if (j.notes) {
         setNotes((n) => ({ ...n, ...j.notes }));
         const aiKeys = Object.keys(j.notes as Record<string, string>);
@@ -616,6 +618,7 @@ export default function OperatingStatementsPage() {
       );
     } catch {
       setAnalyzeMsg("Analysis failed.");
+      setAnalyzeFailed(true);
     } finally {
       setAnalyzing(false);
     }
@@ -881,7 +884,9 @@ export default function OperatingStatementsPage() {
                     style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
                     {briefing ? "Writing…" : brief ? "✨ Regenerate brief" : "✨ Monthly brief"}
                   </button>
-                  {analyzeMsg && !analyzing && <span className="muted small">{analyzeMsg}</span>}
+                  {analyzeMsg && !analyzing && (
+                    <span className="small" style={analyzeFailed ? { color: "#b91c1c", fontWeight: 700 } : { color: "var(--muted)" }}>{analyzeMsg}</span>
+                  )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }} className="muted small">
                   <span style={{ fontWeight: 700 }}>Flag Lines Over</span>

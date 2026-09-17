@@ -530,7 +530,21 @@ time — and the team does not have time to open the GL over $80.
   - **It runs on Opus**, because the job is a judgement (is this capital? is it
     on the right account?) rather than a summary. Affordable only because the
     variance floor keeps the flagged set small — do not widen the set without
-    revisiting the model.
+    revisiting the model. Roughly $0.12–0.16 per property-month at Opus 5's
+    $5/$25 per MTok, so ~$2 for a thirteen-property import. **Note that Opus 5
+    runs ADAPTIVE THINKING when `thinking` is omitted** (unlike 4.8/4.7, where
+    omitting it meant none) — that is most of the output spend and most of the
+    latency. `output_config: { effort: "medium" }` is the dial if it ever needs
+    trimming; quality is why it is on `high` (the default) now.
+  - **`maxDuration = 300` IS REQUIRED ON THIS ROUTE.** It was never set, which
+    was survivable on Sonnet with a 2,000-token ceiling and a small prompt.
+    Moving to Opus with 6,000 tokens, adaptive thinking, the account directory
+    and the split transaction lists pushed one call past Vercel's short default
+    and **every run came back 502 with nothing written** — the same omission
+    that made the assistant 504. A model call that fails must also SAY WHY: the
+    route now logs and returns the API's own message rather than a bare
+    "Analysis failed (502)", and the statement page renders a failure in red
+    instead of as a muted status line.
   - Length is "as short as the finding allows": ~20 words for a routine line, up
     to ~45 when a coding or capitalization call needs them. Never padding.
 - **Every AI note is editable and a manual edit is permanent.** Auto-explain
