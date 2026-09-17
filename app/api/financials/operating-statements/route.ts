@@ -182,7 +182,9 @@ export async function GET(req: Request) {
       const pySame = pyAmounts.length >= period ? pyAmounts[period - 1] : null;
       const base = trendFlags(amounts, [], amounts[period - 1] ?? null, pySame);
       // Seasonal / lumpy adjustment (snow, RET, capital) — shared with the Review.
-      const flags = seasonalTrendFlags(sec.role, l, period, l.periodActual, base);
+      // The variance is the last word: a line on budget is not worth a "?",
+      // however much it moved against its own recent months or last year.
+      const flags = seasonalTrendFlags(sec.role, l, period, l.periodActual, base, l.periodVariance);
       if (flags.length) l.flags = flags;
     }
   }
