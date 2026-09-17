@@ -91,6 +91,13 @@ export const PROPERTY_DEFS: PropertyDef[] = [
   { id: "8200", name: "Trust #4",         type: "Retail", ein: "23-6290409", einLabel: "EIN (Joan)", ein2: "23-6290313", ein2Label: "EIN (Judith)", allocGroup: "SC", ccAccounts: ["8501"], address: "2801-2811 Cottman Ave", city: "Philadelphia", state: "PA", sqft: 10000, yearBuilt: 1990, notes: "McDonald's (2801) + Four Seasons Diner (2811)" },
   { id: "4900", name: "The Office Works",            type: "Misc", ein: "23-2393492",                    ccAccounts: ["8501"], notes: "OW payroll group" },
   { id: "2010", name: "LIK Management, Inc.",        type: "Misc", ein: "04-3627076",                    ccAccounts: ["8501"], notes: "Management entity — LIK payroll group" },
+  // The Korman Co is a HOLDING COMPANY, not a building: it owns interests in
+  // several partnerships and issues its own K-1s to its six members. It is
+  // here so it can BE a K-1 target — before this its members existed only as
+  // `subOwners` beneath a property's "The Korman Co" band, and a sub-owner
+  // takes no upload, because their K-1 comes from the entity rather than from
+  // the property. It carries no GL, no rent roll and no allocation group.
+  { id: "TKCO", name: "The Korman Co",               type: "Misc",                                        notes: "Holding company — issues its own K-1s to its six members; no GL or rent roll" },
 
   { id: "0800", name: "Interstate Business Park",    type: "Land", ein: "23-2403675", acres: 13,          ccAccounts: ["8501"], notes: "Bellmawr, NJ — quarterly Net Profits Tax" },
 

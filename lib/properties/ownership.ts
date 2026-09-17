@@ -766,6 +766,32 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
       { id: "k1-9860-hfeldman", name: "Harry Feldman",         address: "7524 Fir Rd",    city: "Ambler",          state: "Pennsylvania", zip: "19002", profitPct: 0.250000000, lossPct: 0.250000000, capitalPct: 0.250000000 },
     ],
   },
+
+  // ─── The Korman Co — an ENTITY, not a building ────────────────────────────
+  //
+  // TKCo owns interests in several partnerships and issues its own K-1s to its
+  // six members. Those six already existed in this file — `kormanCoInvestors`
+  // composes them into every property band The Korman Co heads — but ONLY as
+  // `subOwners`, and a sub-owner takes no K-1 upload: their K-1 comes from the
+  // entity above, not from the property. So there was nowhere to put TKCo's
+  // own K-1s.
+  //
+  // Here the six are DIRECT owners of TKCo, which is what they actually are,
+  // and their `ownerPct` is their share of the company — the same figure
+  // `kormanCoInvestors` already carries, which is why the same function builds
+  // both. One edit still propagates everywhere. They total 100.0000%.
+  //
+  // NOTE on the 23.1333%: the K-1 schedule prints it as "The Berton E Korman
+  // 2012 Family Trust", and the roster names it BEK 2012 LLC. That is not a
+  // discrepancy — the trust assigned the whole interest to the LLC, the id
+  // `-bk2012` is deliberately unchanged, and `detailedName` records the
+  // predecessor. If the K-1s themselves were issued to the trust, the NAME is
+  // what to revisit, never the id.
+  {
+    propertyCode: "TKCO",
+    hasK1Distribution: true,
+    owners: kormanCoInvestors("own-tkco"),
+  },
 ];
 
 export function getOwnersForProperty(propertyCode: string): PropertyOwner[] {

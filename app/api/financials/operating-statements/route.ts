@@ -12,7 +12,9 @@ import crypto from "node:crypto";
 import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
-import { seasonalTrendFlags } from "@/lib/financials/operating-statements/flagRules";
+import { seasonalTrendFlags, FLAG_MIN_DOLLARS } from "@/lib/financials/operating-statements/flagRules";
+import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
+import { loadRentCheckContext, runRentCheck, billingFlagReason } from "@/lib/financials/operating-statements/rentCheckRun";
 import { markPaidMonths } from "@/lib/financials/operating-statements/paidMonth";
 import { collectNotPosted } from "@/lib/financials/operating-statements/notPosted";
 import { emailNotPostedSummary } from "@/lib/financials/operating-statements/notPostedEmail";
@@ -173,6 +175,30 @@ export async function GET(req: Request) {
   // richer transaction-count checks run inside auto-explain.) Lines the user has
   // investigated + dismissed are suppressed.
   const dismissed = new Set(await getDismissedFlags(key, year, period));
+  // A BILLED line can also be off in a way no trend check can see: the GL
+  // agrees with last month and with last year, and a tenant is simply not
+  // being charged what their lease says. That is a rent-roll question, so it
+  // is asked here — the SAME `runRentCheck` the drill-down table calls, so the
+  // "?" and the table cannot disagree. Loaded once for the whole statement and
+  // only used by the handful of lines that have a rent-roll column at all.
+  // No rent roll imported → no context → the check simply doesn't run.
+  const billingReasons: Record<string, string> = {};
+  const billedLines = statement.sections.flatMap((sec) =>
+    sec.lines.map((l) => ({ sec, l, basis: basisForLine(l.label, l.mask) }))
+  ).filter((x) => !!x.basis && !dismissed.has(`${x.sec.name}::${x.l.label}`));
+  if (billedLines.length) {
+    try {
+      const ctx = await loadRentCheckContext(key, year, versionId);
+      if (ctx) {
+        for (const { sec, l, basis } of billedLines) {
+          const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
+          const res = runRentCheck(ctx, { property: statement.propertyCode ?? null, year, period, scope: "month", mask: l.mask, sign, basis: basis! });
+          const reason = billingFlagReason(res, basis!, FLAG_MIN_DOLLARS);
+          if (reason) billingReasons[`${sec.name}::${l.label}`] = reason;
+        }
+      }
+    } catch { /* the check is an extra; it must never fail the statement */ }
+  }
   for (const sec of statement.sections) {
     const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
     for (const l of sec.lines) {
@@ -189,7 +215,13 @@ export async function GET(req: Request) {
       // some properties, a call-someone line at others) is held to the tight
       // floor or the loose one.
       const flags = seasonalTrendFlags(sec.role, l, period, l.periodActual, base, l.periodVariance, amounts);
-      if (flags.length) l.flags = flags;
+      // A billing mismatch stands on its own — it is evidence, not a trend
+      // signal, so it is NOT put through the seasonal/variance filter above.
+      // A line can sit exactly on budget and still have a tenant who was never
+      // charged, which is precisely the case those filters are built to ignore.
+      const billing = billingReasons[`${sec.name}::${l.label}`];
+      const all = billing ? [billing, ...flags] : flags;
+      if (all.length) l.flags = all;
     }
   }
   // Record which month a paid-up-front line's cost posted (for "paid in March").

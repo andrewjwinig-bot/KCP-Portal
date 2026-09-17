@@ -20,17 +20,14 @@ import { HoverCard } from "@/app/components/HoverCard";
 type Row = {
   unitRef: string; suite: string; tenant: string | null; sqft: number | null;
   expected: number; billed: number; variance: number;
-  openAr: number | null; pastDue: number | null;
   status: string; caveats: string[]; monthsCovered: number; monthsInScope: number;
 };
 
 type Result = {
   rows: Row[];
-  totals: { expected: number; billed: number; variance: number; openAr: number | null; pastDue: number | null } | null;
+  totals: { expected: number; billed: number; variance: number } | null;
   unplacedBilled: number;
   counts: Record<string, number>;
-  arPeriod: string | null;
-  arAsOf: string | null;
   noRentRoll?: boolean;
   basis?: RentCheckBasis;
 };
@@ -102,7 +99,6 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
   const shown = data.rows;
   const t = data.totals;
   const window = scope === "month" ? monthLabel : `YTD through ${monthLabel}`;
-  const hasAr = t.openAr !== null;
   const hasRef = !!refByUnit && shown.some((r) => refByUnit[r.unitRef]);
   // The column NAMES its source. A CAM line checked against base rent read a
   // six-figure "billing variance" on a month that ties to the dollar, and
@@ -115,8 +111,6 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
         <StatPill label={`${BASIS_LABEL[basis]} · ${window}`} value={money0(t.expected)} />
         <StatPill label="General ledger" value={money0(t.billed)} />
         <StatPill label="Billing variance" value={money0(t.variance)} accent={Math.abs(t.variance) > 1 ? "#b91c1c" : "#15803d"} />
-        {hasAr && <StatPill label="Open A/R · statement" value={money0(t.openAr!)} />}
-        {hasAr && <StatPill label="Past due" value={money0(t.pastDue!)} accent={(t.pastDue ?? 0) > 1 ? "#b45309" : undefined} />}
       </div>
 
       {Math.abs(data.unplacedBilled) > 1 && (
@@ -136,7 +130,6 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
             <th style={thR}>SF</th>
             <th style={thR}>{BASIS_LABEL[basis]}</th>
             <th style={thR}>GL</th>
-            {hasAr && <th style={thR}>Open A/R</th>}
             <th style={th} />
           </tr></thead>
           <tbody>
@@ -154,11 +147,6 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
                 <td style={{ ...tdR, color: "var(--muted)" }}>{r.sqft ? r.sqft.toLocaleString("en-US") : "—"}</td>
                 <td style={tdR}>{money0(r.expected)}</td>
                 <td style={{ ...tdR, fontWeight: Math.abs(r.variance) > 1 ? 800 : undefined }}>{money0(r.billed)}</td>
-                {hasAr && (
-                  <td style={{ ...tdR, color: (r.pastDue ?? 0) > 1 ? "#b45309" : "var(--muted)", fontWeight: (r.pastDue ?? 0) > 1 ? 800 : undefined }}>
-                    {r.openAr === null ? "—" : money0(r.openAr)}
-                  </td>
-                )}
                 <td style={{ ...td, whiteSpace: "nowrap" }}>
                   <HoverCard
                     title={`${r.unitRef}${r.tenant ? ` · ${r.tenant}` : ""}`}
@@ -167,8 +155,6 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
                       { label: "Billed to the GL", value: money0(r.billed) },
                       { label: "Difference", value: money0(r.variance), color: r.variance < -1 ? "#b91c1c" : undefined },
                       { label: "Months of the window leased", value: `${r.monthsCovered} of ${r.monthsInScope}` },
-                      ...(r.openAr !== null ? [{ label: "Open A/R", value: money0(r.openAr) }] : []),
-                      ...(r.pastDue ? [{ label: "Past due", value: money0(r.pastDue), color: "#b45309" }] : []),
                     ]}
                     footer={r.caveats.length ? { label: "Note", value: r.caveats.join(" ") } : { label: "Difference", value: money0(r.variance) }}
                     width={300}
@@ -185,7 +171,6 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
             </td>
             <td style={{ ...tdR, fontWeight: 900, borderTop: "2px solid var(--border)" }}>{money0(shown.reduce((s, r) => s + r.expected, 0))}</td>
             <td style={{ ...tdR, fontWeight: 900, borderTop: "2px solid var(--border)" }}>{money0(shown.reduce((s, r) => s + r.billed, 0))}</td>
-            {hasAr && <td style={{ ...tdR, fontWeight: 900, borderTop: "2px solid var(--border)" }}>{money0(shown.reduce((s, r) => s + (r.openAr ?? 0), 0))}</td>}
             <td style={{ ...td, borderTop: "2px solid var(--border)" }} />
           </tr></tfoot>
         </table>
@@ -194,9 +179,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
       <div className="muted small" style={{ marginTop: 12, lineHeight: 1.5 }}>
         <strong>{BASIS_LABEL[basis]}:</strong> {BASIS_SOURCE[basis]}. <strong>GL:</strong> what was charged against it in the general ledger (a charge posts whether or not the cheque arrives).
         {basis === "other" ? " The rent roll has no insurance column, so this is OTHER EXPENSE — Skyline's catch-all, which may carry more than insurance." : ""}
-        {hasAr
-          ? <> <strong>Open A/R:</strong> open charges only{data.arPeriod ? `, from the ${data.arPeriod} Skyline statement import` : ""}.</>
-          : <> Import a Skyline statement on Monthly Statements to see open A/R beside it.</>}
+        {" "}The pill judges those two columns and nothing else — whether the charge was BILLED correctly. Whether it was PAID is a different question, on <strong>Monthly Statements</strong>, where open A/R is aged and broken out by charge.
         {scope === "ytd" ? " The rent roll carries today's rate, so a mid-year escalation isn't in it and YTD is indicative." : ""}
       </div>
     </div>
