@@ -291,6 +291,30 @@ export async function saveNote(
   }
 }
 
+/**
+ * Wipe a month's AUTO-EXPLAIN notes so it can be explained fresh.
+ *
+ * Deletes only `source === "ai"` notes — a note a person wrote or edited is
+ * real work and survives, which is the same line auto-explain itself draws
+ * (it never overwrites a `user` note). Dismissed "?" flags are cleared too:
+ * a line the model answered NONE on dismissed its own flag, so leaving the
+ * dismissal behind would hide the very line a re-run is meant to reconsider.
+ */
+export async function clearAiNotes(key: string, year: number, period: number): Promise<{ cleared: number; kept: number; undismissed: number }> {
+  const scope = noteScope(key, year, period);
+  const recs = (await listJSON(scope)) as NoteLineRecord[];
+  let cleared = 0;
+  let kept = 0;
+  for (const r of recs) {
+    if (!r?.lineKey) continue;
+    if ((r.source ?? "ai") === "user") { kept++; continue; }
+    await deleteJSON(scope, noteSlug(r.lineKey));
+    cleared++;
+  }
+  const undismissed = (await clearDismissedFlags(key, year, period)).length;
+  return { cleared, kept, undismissed };
+}
+
 // ── "?" investigate-flag dismissals ──────────────────────────────────────────
 // When a line's "looks off" flag has been investigated and confirmed fine, it's
 // dismissed for that (property, year, period). Stored ONE BLOB PER dismissed line
@@ -338,6 +362,14 @@ export async function setFlagDismissed(key: string, year: number, period: number
     await deleteJSON(scope, slug);
   }
   return getDismissedFlags(key, year, period);
+}
+
+/** Restore every dismissed "?" on a month. Returns the line keys that were dismissed. */
+export async function clearDismissedFlags(key: string, year: number, period: number): Promise<string[]> {
+  const lineKeys = await getDismissedFlags(key, year, period);
+  const scope = dismissScope(key, year, period);
+  for (const lk of lineKeys) await deleteJSON(scope, dismissSlug(lk));
+  return lineKeys;
 }
 
 // ── Note feedback log (AI note → human correction) ───────────────────────────
