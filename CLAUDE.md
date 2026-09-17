@@ -453,14 +453,35 @@ time — and the team does not have time to open the GL over $80.
   raw trend signal and would spend a note on a line the statement had already
   decided not to mark. `analyze/route.ts` must keep passing `l.periodVariance`
   in, or the floor never bites; pinned by `flagRules.test.ts`.
-- **The note names the CHARGE and says what it looks like.** Auto-explain gets
-  each line's top transactions, budget sub-lines, tenants, monthly trend and
-  prior year, and is told to lead with the concrete item — never to restate the
-  actual/budget/variance, which sit beside it. For a single charge that dwarfs
-  the budget it must say WHICH of these it reads as: capital posted to an
-  operating line, the wrong GL account, the wrong property, or a genuine
-  unbudgeted one-off. 9510's Parking Lot Maintenance (a $21,750 charge against a
-  $592 budget) is the shape this exists for.
+- **The note REACHES A CONCLUSION; it does not describe.** "There is a large
+  charge on this line" is worthless — the charge is already on the statement.
+  The prompt walks a fixed analysis: find the charge (vendor, date, amount) →
+  decide what it IS from the description (repaving / roof / HVAC / build-out
+  read as CAPITAL; patching, cleaning, a service call read as repairs) → say
+  which of **capital on an operating line / wrong GL account / wrong property /
+  missed or doubled bill / genuine unbudgeted one-off** it looks like → say the
+  one action. On a CAM-recoverable line it must also say whether the treatment
+  changes what tenants are billed, because a capital item left in a reimbursable
+  line overstates the CAM pool. 9510's Parking Lot Maintenance — $21,750 against
+  a $592 budget — is the shape this exists for.
+  - **It sees the ACCOUNT each charge posted to**, plus every account rolling
+    into the line (`accountsOnThisLine`). A coding call cannot be made without
+    knowing where the charge currently sits — that was missing, and it is why
+    notes could only ever say "there is a charge".
+  - **This month's transactions come first**, then the largest YTD ones for
+    context. The note is about this month.
+  - **It runs on Opus**, because the job is a judgement (is this capital? is it
+    on the right account?) rather than a summary. Affordable only because the
+    variance floor keeps the flagged set small — do not widen the set without
+    revisiting the model.
+  - Length is "as short as the finding allows": ~20 words for a routine line, up
+    to ~45 when a coding or capitalization call needs them. Never padding.
+- **Every AI note is editable and a manual edit is permanent.** Auto-explain
+  never overwrites a `user` note, and skips its own `ai` notes unless `force`.
+  Both the statement page and the Review carry a **"re-explain done"** checkbox
+  for that — without it a month explained once could never be explained again,
+  so a note written under an older prompt was stuck there and "All N flagged
+  lines already explained" was a dead end.
 - **`countAnomaly` is deliberately NOT gated.** It has no dollar floor, but it
   is inert on both "?" paths (both call `trendFlags` with an empty counts array);
   it only feeds auto-explain's written notes, where a missed or doubled bill is

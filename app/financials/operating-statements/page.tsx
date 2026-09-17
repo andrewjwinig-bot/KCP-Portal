@@ -538,6 +538,12 @@ export default function OperatingStatementsPage() {
 
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeMsg, setAnalyzeMsg] = useState<string | null>(null);
+  // Re-explain lines that already carry an AI note. Matches the checkbox the
+  // Review page has had: without it, a month explained once can never be
+  // explained again, so a note written under an older prompt is stuck there —
+  // and "All N flagged lines already explained" is a dead end rather than an
+  // answer. Off by default; re-running spends tokens on work already done.
+  const [reexplain, setReexplain] = useState(false);
   const analyzeFlagged = useCallback(async () => {
     setAnalyzing(true);
     setAnalyzeMsg(null);
@@ -545,7 +551,7 @@ export default function OperatingStatementsPage() {
       const j = await fetch("/api/financials/operating-statements/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, year, period, dollar: varDollar, pct: varPctThresh, min: varFloor }),
+        body: JSON.stringify({ key, year, period, dollar: varDollar, pct: varPctThresh, min: varFloor, force: reexplain }),
       }).then((r) => r.json());
       if (j.error) { setAnalyzeMsg(j.error); return; }
       if (j.notes) {
@@ -561,7 +567,7 @@ export default function OperatingStatementsPage() {
     } finally {
       setAnalyzing(false);
     }
-  }, [key, year, period, varDollar, varPctThresh, varFloor]);
+  }, [key, year, period, varDollar, varPctThresh, varFloor, reexplain]);
 
   // Monthly brief — a short AI narrative of how the property is tracking.
   const [brief, setBrief] = useState<string | null>(null);
@@ -803,8 +809,13 @@ export default function OperatingStatementsPage() {
                   <button type="button" className="btn ai" disabled={analyzing} onClick={analyzeFlagged}
                     title="Use AI to explain each flagged line and auto-fill its note (from budget detail + GL transactions)"
                     style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
-                    {analyzing ? "Analyzing…" : "✨ Auto-explain flagged lines"}
+                    {analyzing ? "Analyzing…" : reexplain ? "✨ Re-explain flagged lines" : "✨ Auto-explain flagged lines"}
                   </button>
+                  <label className="muted small" style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }}
+                    title="Rewrite notes on lines already explained — use this to refresh notes written before a change to how they are worded (spends tokens again)">
+                    <input type="checkbox" checked={reexplain} onChange={(e) => setReexplain(e.target.checked)} style={{ cursor: "pointer" }} />
+                    re-explain done
+                  </label>
                   <button type="button" className="btn ai" disabled={briefing} onClick={generateBrief}
                     title="Generate a short AI monthly brief — how this property is tracking vs budget, the drivers, and what to watch"
                     style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>

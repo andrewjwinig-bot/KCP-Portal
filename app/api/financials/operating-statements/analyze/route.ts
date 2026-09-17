@@ -103,8 +103,11 @@ export async function POST(req: Request) {
       ];
       const bd = budget ? budgetDetailForMask(budget, l.mask, period) : [];
       const accts = Object.keys(txByAccount).filter((a) => accountMatchesMask(l.mask, a));
-      const txs: { date: string | null; description: string; amount: number }[] = [];
-      for (const a of accts) for (const t of txByAccount[a]) if (t.month <= period) txs.push({ date: t.date, description: t.description, amount: t.amount * sign });
+      // The ACCOUNT each charge actually posted to, not just the line it rolls
+      // into — a coding call ("this belongs in repairs, or in a capital
+      // account") cannot be made without knowing where it currently sits.
+      const txs: { date: string | null; description: string; amount: number; account: string; month: number }[] = [];
+      for (const a of accts) for (const t of txByAccount[a]) if (t.month <= period) txs.push({ date: t.date, description: t.description, amount: t.amount * sign, account: a, month: t.month });
       txs.sort((x, y) => Math.abs(y.amount) - Math.abs(x.amount));
       // A single transaction is self-evidently the cause — no note adds value,
       // unless the line was surfaced for a trend reason (e.g. a missing 2nd bill).
@@ -126,8 +129,14 @@ export async function POST(req: Request) {
         ...(storedPY ? { priorYear: { sameMonth: pySameMonth, ytd: pyAmounts.length ? r0(pyAmounts.slice(0, period).reduce((a, b) => a + b, 0)) : null, monthlyTrend: pyAmounts.slice(0, period) } } : {}),
         budgetedFor: bd.map((b) => ({ label: b.label, ytd: r0(b.ytd) })),
         ...(tenants.length ? { tenants } : {}),
+        accountsOnThisLine: accts,
         transactionCount: txs.length,
-        topTransactions: txs.slice(0, 8).map((t) => ({ date: t.date, description: t.description.slice(0, 80), amount: r2(t.amount) })),
+        // This month's charges FIRST — the note is about this month — then the
+        // largest YTD ones for context.
+        topTransactions: [
+          ...txs.filter((t) => t.month === period).slice(0, 12),
+          ...txs.filter((t) => t.month !== period).slice(0, 6),
+        ].map((t) => ({ month: MONTHS_SHORT[t.month - 1], date: t.date, account: t.account, description: t.description.slice(0, 110), amount: r2(t.amount) })),
       });
     }
   }
@@ -141,27 +150,39 @@ export async function POST(req: Request) {
   const trendMonths = MONTHS_SHORT.slice(0, period).join(", ");
   const prompt =
     `You are a commercial real estate accountant reviewing ${statement.propertyCode} ${statement.propertyName}'s operating statement for ${through} ${year} (YTD through ${through}). ` +
-    `Your goal is to SPOT POSSIBLE MISTAKES and things that look OFF — not merely restate budget variance. For each flagged line write ONE note that is SHORT and DIRECT (aim for ~20 words, max ~30): the specific thing to look into, then what to verify. Be terse — no descriptive filler, no narrating the obvious; only add detail when it points to the fix.\n\n` +
+    `Your goal is to SPOT POSSIBLE MISTAKES and REACH A CONCLUSION about them — not to restate budget variance and not to describe what you see. A note that only says a charge exists is worthless: the charge is already on the statement. Say what it IS, what is probably wrong with it, and what to do.\n\n` +
+    `LENGTH: as short as the finding allows. A routine line needs ~20 words. A single large charge that needs a coding or capitalization call may take up to ~45 — take the words only when the extra words carry a conclusion. Never pad.\n\n` +
     `EACH LINE INCLUDES:\n` +
     `• monthlyTrend / monthlyTxnCount — this year's amount and number of transactions for each month so far, in order (${trendMonths}).\n` +
     `• priorYear (when present) — the same line LAST year: this same month's amount ("sameMonth"), the prior-year YTD, and its month-by-month trend.\n` +
     `• flagReasons — why it surfaced (budget variance and/or a trend/inconsistency signal).\n` +
-    `• topTransactions / budgetedFor / tenants — the underlying detail.\n\n` +
-    `THINGS TO CALL OUT (be specific — name the vendor, tenant, and month):\n` +
-    `• A line that jumped or dropped vs its recent months or vs the same month last year — and the likely cause.\n` +
-    `• A recurring item with a different transaction count than usual — e.g. a utility that posts twice most months but once here (a missed bill) or three times (a possible double-payment).\n` +
-    `• A one-time / unusual charge, a missing expected payment, or a likely posting/coding error.\n` +
-    `• A SINGLE charge that dwarfs the line's budget. Don't stop at naming it — say what it LOOKS like and which of these to check: (a) CAPITAL posted to an operating line (repaving, roof, HVAC or unit replacement, structural work — anything with a multi-year life), (b) coded to the wrong GL account (e.g. a paving job in Parking Lot Maintenance vs Parking Lot Repairs vs a capital account), (c) coded to the wrong PROPERTY, (d) a genuine one-time repair that simply wasn't budgeted. Say which one it reads as and why, from the vendor and the description.\n\n` +
+    `• topTransactions — this month's charges first, each with the GL ACCOUNT it actually posted to, the vendor/description, the date and the amount.\n` +
+    `• accountsOnThisLine — every GL account rolling into this line, so you can tell whether a charge sits on the right one.\n` +
+    `• budgetedFor / tenants — what the budget expected, and who the money relates to.\n\n` +
+    `THE ANALYSIS TO ACTUALLY DO, in order:\n` +
+    `1. FIND THE CHARGE. Which single transaction (or which two) accounts for the move? Name the vendor, the date and the amount.\n` +
+    `2. DECIDE WHAT IT IS, from the vendor and the description. Repaving, roof, HVAC or unit replacement, parking-lot resurfacing, structural work, a build-out — these have a multi-year life and read as CAPITAL, not operating expense. Patching, cleaning, striping, a service call, a part — these are genuinely repairs.\n` +
+    `3. SAY WHICH OF THESE IT LOOKS LIKE, and why:\n` +
+    `   (a) CAPITAL sitting on an operating line — say it should probably be capitalized and depreciated, and that it will distort NOI and the CAM pool if it stays.\n` +
+    `   (b) WRONG GL ACCOUNT — it belongs on a different account than the one in "account". Name the better fit from accountsOnThisLine or describe it.\n` +
+    `   (c) WRONG PROPERTY — the vendor or description points somewhere else in the portfolio.\n` +
+    `   (d) A MISSED or DOUBLED bill — the transaction count broke its pattern; say which and name the vendor.\n` +
+    `   (e) A GENUINE unbudgeted one-off — say so plainly, and that the budget line was set too low or the work was unplanned.\n` +
+    `4. SAY WHAT TO DO. One action: reclassify, capitalize, move to <property>, chase the missing invoice, confirm with the vendor, or raise next year's budget.\n\n` +
+    `WHEN IT IS A CAM-RECOVERABLE LINE, say whether the treatment changes what tenants get billed — a capital item left in a reimbursable operating line overstates the CAM pool.\n\n` +
     `HARD RULES:\n` +
     `1. NEVER restate the line's actual, budget, or variance totals — they're shown beside the note. Don't open with totals.\n` +
-    `2. LEAD with the concrete item: a specific transaction (vendor + what it was) from topTransactions, a specific budget sub-line from budgetedFor, a specific tenant from tenants, or the specific month-over-month / year-over-year change.\n` +
-    `3. You MAY cite one transaction's amount when it pinpoints the cause (e.g. "a one-time $848 charge from ABC Paving"); never the line/budget totals.\n` +
-    `4. Use tenant NAMES, never raw GL/unit codes (e.g. "1100-12330").\n` +
-    `5. End with what to verify. No generic filler or hedging.\n\n` +
+    `2. LEAD with the concrete item: the specific transaction, vendor and amount.\n` +
+    `3. Cite a transaction's own amount freely (that is the point); never the line/budget totals.\n` +
+    `4. Use tenant NAMES, never raw unit codes (e.g. "1100-12330"). A GL ACCOUNT number is fine when the point is where a charge sits.\n` +
+    `5. Commit. "May be capital" is fine; "could be various things, please review" is not. If the description genuinely does not say, name what you would look at to find out.\n` +
+    `6. No filler, no hedging, no restating the flag reason back.\n\n` +
+    `GOOD: "$21,750 to ABC Paving on 7/14 for lot resurfacing — that is a capital item, not maintenance. Capitalize and depreciate it; left here it overstates the CAM pool tenants are billed on."\n` +
     `GOOD: "Only one PECO payment posted this month vs two in prior months — a utility bill may be unposted. Confirm the second meter was paid."\n` +
     `GOOD: "Insurance is ~30% above the same month last year after the renewal. Verify the new premium and that it isn't double-booked with escrow."\n` +
-    `GOOD: "$21,750 to ABC Paving on 7/14 — a repaving job reads as capital, not maintenance. Confirm whether it should be capitalized or moved to a repairs account."\n` +
-    `BAD (never): "Electric is $785 vs $660 budget. Verify…"\n\n` +
+    `GOOD: "$4,100 to Sherwin-Williams coded to Landscaping — reads as a paint/build-out charge. Move it to Building Maintenance or the tenant's TI account."\n` +
+    `BAD (never): "Electric is $785 vs $660 budget. Verify…"\n` +
+    `BAD (never): "There is a large charge on this line. Review the detail."\n\n` +
     `Amounts are dollars; a "favorable" variance is good (revenue over / expense under budget). ` +
     `Return ONLY a JSON object mapping each line's exact "lineKey" to its note string.\n\n` +
     `FLAGGED LINES:\n${JSON.stringify(flagged, null, 1)}`;
@@ -170,7 +191,12 @@ export async function POST(req: Request) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 2000, messages: [{ role: "user", content: prompt }] }),
+      // Opus, because the job is a JUDGEMENT — is this charge capital, is it on
+      // the wrong account — not a summary. The volume it runs over is small by
+      // construction (only lines carrying a "?", which the variance floor keeps
+      // scarce), so the better model is affordable here in a way it would not be
+      // over every line of every statement.
+      body: JSON.stringify({ model: "claude-opus-5", max_tokens: 6000, messages: [{ role: "user", content: prompt }] }),
     });
     if (!res.ok) return NextResponse.json({ error: `Analysis failed (${res.status}).` }, { status: 502 });
     const j = await res.json();
