@@ -7,6 +7,7 @@
 // importer, and budget wiring all layer on top.
 
 import { claimAccounts } from "./mask";
+import { isDiscretionaryLine } from "./flagRules";
 import {
   EXPENSE_ROLES,
   type GlSummaryRow,
@@ -140,7 +141,7 @@ function computeLine(
     b?.annualBudget ?? null,
     favorability(role)
   );
-  const expectedMissing = budgetExpectedMissing(role, ytdActual, b?.ytdBudget ?? null);
+  const expectedMissing = budgetExpectedMissing(role, line, ytdActual, b?.ytdBudget ?? null);
   return {
     label: line.label,
     mask: line.mask,
@@ -191,6 +192,7 @@ function fullyFundedYtd(
 const EXPECTED_MISSING_MIN = 250;
 function budgetExpectedMissing(
   role: SectionRole,
+  line: { label: string; mask: string },
   ytdActual: number,
   ytdBudget: number | null,
 ): StatementLine["expectedMissing"] {
@@ -202,6 +204,12 @@ function budgetExpectedMissing(
     role === "residential-expense" ||
     role === "debt-service";
   if (!expenseLike) return null;
+  // Same reasoning as capital, one level down: an AS-NEEDED line's budget is a
+  // provision, not a commitment. Nothing about parking lot maintenance is
+  // contractual, so a year that needed none is a good year — not a missing
+  // charge. Only lines that were going to be spent either way (utilities,
+  // contracts, payroll, taxes) can be "not posted".
+  if (isDiscretionaryLine(line)) return null;
   if (ytdBudget == null || ytdBudget <= EXPECTED_MISSING_MIN) return null;
   if (Math.abs(ytdActual) >= 0.5) return null; // something posted YTD — not missing
   return { expected: ytdBudget, basis: "budget", scope: "ytd" };

@@ -502,6 +502,42 @@ time — and the team does not have time to open the GL over $80.
   check" column carries the auto-explain note, falling back to the flag reason —
   never blank, or the row is a line item with no question on it. It never mails
   an empty checklist: nothing to resolve means no email.
+- **NOT EVERY LINE DESERVES THE SAME BAR.** A budget on Electric is a bill that
+  is coming; a budget on Parking Lot Maintenance is money set aside in case the
+  lot needs patching. Three kinds, in `flagRules.ts`:
+  - **CONTRACTUAL** (utilities, insurance, taxes, payroll, security, cleaning,
+    snow, management fee) → the tight `FLAG_MIN_DOLLARS` floor, and a $0 year
+    IS a missing posting.
+  - **DISCRETIONARY / as-needed** (repairs, maintenance, paving, painting,
+    legal, misc) → the loose `LOOSE_FLAG_MIN_DOLLARS` floor ($1,500), and NO
+    not-posted flag at all: a year that needed no repaving is a good year, not
+    an unposted charge. This is the same exemption capital already had.
+  - **AMBIGUOUS** (landscaping, grounds, pest, window washing) → a contract at
+    SOME properties and call-someone at others. The label cannot settle it, so
+    **the property's own ledger does**: `postsRegularly(history)` — posted in
+    ≥70% of the months so far, needing at least three — picks the tight floor,
+    otherwise the loose one. Under three months it declines to guess and takes
+    the loose floor, because the direction here is less noise.
+  - CONTRACTUAL is checked FIRST because the words overlap: "Maintenance
+    Salaries" is payroll and "Parking Lot Cleaning" is a sweeping contract;
+    only "Parking Lot Maintenance" is the as-needed one, and the difference is
+    one word.
+- **The ⚠ "not posted" mark: which CELL it belongs on lives in `flagRules`**
+  (`marksPeriodUnposted` / `marksYtdUnposted`), shared by the statement page,
+  the Excel export and the PDF. All three used to decide it themselves and all
+  three were wrong the same way: a budget finding is YTD-scoped ("nothing
+  posted all year") and yet painted the MONTHLY cell too, on a month that had
+  budgeted nothing — Parking Lot Maintenance read `⚠ | 0` for July. **A month
+  that budgeted nothing cannot be missing anything.** A DEBT finding is
+  per-month by nature and still marks the month.
+- **The ▲ "driver" mark in the GL drill-down must STAND OUT, not just be big**
+  (`drivers.ts`). It tested share alone — a third of the line, or a fifth once
+  there were three transactions — but N roughly-equal charges are each 1/N of
+  the line, so any set of five or fewer marked EVERY row. Four monthly
+  landscaping invoices within 1% of each other lit up entirely. A driver is now
+  a meaningful slice AND at least 1.8× the median of the OTHER charges, so a
+  recurring series marks nothing. A lone transaction is never marked — it is
+  trivially 100% of its line.
 - **`countAnomaly` is deliberately NOT gated.** It has no dollar floor, but it
   is inert on both "?" paths (both call `trendFlags` with an empty counts array);
   it only feeds auto-explain's written notes, where a missed or doubled bill is
