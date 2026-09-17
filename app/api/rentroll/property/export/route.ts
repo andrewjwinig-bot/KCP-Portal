@@ -31,7 +31,7 @@ export async function GET(req: Request) {
   // rolls imported before the report dates were captured.
   const asOf = rentroll.reportTo || (rentroll.uploadedAt ?? "").slice(0, 10) || null;
 
-  const buf = buildPropertyRollXlsx(prop, name, asOf || null);
+  const buf = await buildPropertyRollXlsx(prop, name, asOf || null);
   // Filename leads with the code so a folder of these sorts the way the
   // portfolio does.
   const file = `${code} ${name} Rent Roll.xlsx`.replace(/[\\/:*?"<>|]/g, "-");

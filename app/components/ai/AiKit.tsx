@@ -334,9 +334,9 @@ export function AiTable({ spec }: { spec: AiTableSpec }) {
   async function download() {
     setBusy(true);
     try {
-      // Imported on demand: SheetJS is large and most answers are not tables.
+      // Imported on demand: ExcelJS is large and most answers are not tables.
       const { buildTableXlsx } = await import("@/lib/assistant/tableXlsx");
-      const buf = buildTableXlsx(spec);
+      const buf = await buildTableXlsx(spec);
       const blob = new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

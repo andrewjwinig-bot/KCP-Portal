@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import * as XLSX from "xlsx";
+import { describe, it, expect, beforeAll } from "vitest";
+import ExcelJS from "exceljs";
 import { buildPropertyRollXlsx } from "./buildPropertyRollXlsx";
 import type { RentRollProperty, RentRollUnit } from "./parseRentRollExcel";
 
@@ -20,9 +20,29 @@ const prop = (units: RentRollUnit[]): RentRollProperty => ({
   units,
 });
 
-const sheetOf = (buf: Buffer) => {
-  const wb = XLSX.read(buf, { type: "buffer" });
-  return wb.Sheets[wb.SheetNames[0]];
+// Read the workbook back the way Excel would, so the assertions are about the
+// FILE rather than about the builder's own bookkeeping.
+async function bookOf(buf: Buffer) {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf as unknown as ArrayBuffer);
+  return wb;
+}
+async function sheetOf(buf: Buffer) {
+  return (await bookOf(buf)).worksheets[0];
+}
+type Cell = { value: unknown };
+const val = (ws: ExcelJS.Worksheet, addr: string) => ws.getCell(addr).value;
+/** A formula cell's expression, or undefined when the cell holds a plain value. */
+const formula = (ws: ExcelJS.Worksheet, addr: string) => {
+  const v = ws.getCell(addr).value as { formula?: string } | null;
+  return v && typeof v === "object" && "formula" in v ? v.formula : undefined;
+};
+/** A cell's number, whether it is static or the cached result of a formula.
+ *  A formula whose cached result ExcelJS dropped reads as undefined. */
+const num = (ws: ExcelJS.Worksheet, addr: string) => {
+  const v = ws.getCell(addr).value as { formula?: string; result?: number } | number | null;
+  if (v !== null && typeof v === "object") return "formula" in v ? v.result : undefined;
+  return v;
 };
 
 describe("one property's rent roll as a workbook", () => {
@@ -30,23 +50,33 @@ describe("one property's rent roll as a workbook", () => {
     unit({ unitRef: "9510-406" }),
     unit({ unitRef: "9510-412", sqft: 2000, baseRent: 7000, opexMonth: 700, reTaxMonth: 350, otherMonth: 140, grossRentTotal: 8190 }),
   ];
-  const buf = buildPropertyRollXlsx(prop(units), "Shops at Lafayette Hill", "2026-07-31");
-  const ws = sheetOf(buf);
+  // The letterhead is three rows (wordmark, entity, document · as-of), so the
+  // column headers land on row 4 and the first tenant on row 5.
+  const HEADER = 4, FIRST = 5, LAST = 6, TOTAL = 7;
+
+  let ws: ExcelJS.Worksheet;
+  let wb: ExcelJS.Workbook;
+  beforeAll(async () => {
+    const buf = await buildPropertyRollXlsx(prop(units), "Shops at Lafayette Hill", "2026-07-31");
+    wb = await bookOf(buf);
+    ws = wb.worksheets[0];
+  });
 
   it("names the sheet within Excel's limits and leads with the code", () => {
-    const wb = XLSX.read(buf, { type: "buffer" });
-    expect(wb.SheetNames[0]).toBe("9510 Rent Roll");
-    expect(wb.SheetNames[0].length).toBeLessThanOrEqual(31);
-    expect(wb.SheetNames[0]).not.toMatch(/[\\/?*[\]:]/);
+    expect(ws.name).toBe("9510 Rent Roll");
+    expect(ws.name.length).toBeLessThanOrEqual(31);
+    expect(ws.name).not.toMatch(/[\\/?*[\]:]/);
   });
 
   it("says which property and as of when, since it leaves the building", () => {
-    expect(ws["A1"].v).toBe("9510 — Shops at Lafayette Hill");
-    expect(ws["A2"].v).toBe("Rent roll as of 2026-07-31");
+    expect(String(val(ws, "A1"))).toContain("KORMAN");
+    expect(val(ws, "A2")).toBe("9510 — Shops at Lafayette Hill");
+    expect(String(val(ws, "A3"))).toContain("Rent Roll");
+    expect(String(val(ws, "A3"))).toContain("As of 2026-07-31");
   });
 
   it("carries the page's columns, in the page's order", () => {
-    const headers = ["A4", "B4", "C4", "D4", "E4", "F4", "G4", "H4", "I4", "J4", "K4"].map((a) => ws[a].v);
+    const headers = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K"].map((c) => val(ws, `${c}${HEADER}`));
     expect(headers).toEqual([
       "Tenant", "Unit", "Sq Ft", "Lease From", "Lease To",
       "Ann. $/SF", "Base Rent", "CAM", "INS", "RET", "Gross",
@@ -56,37 +86,53 @@ describe("one property's rent roll as a workbook", () => {
   it("writes the TOTAL row as live formulas over the rows above it", () => {
     // Per the export rule: a total that is a static number stops tying the
     // moment somebody edits a line.
-    expect(ws["A7"].v).toBe("Total · 2 units");
-    expect(ws["C7"].f).toBe("SUM(C5:C6)");  // Sq Ft
-    expect(ws["G7"].f).toBe("SUM(G5:G6)");  // Base Rent
-    expect(ws["K7"].f).toBe("SUM(K5:K6)");  // Gross
+    expect(val(ws, `A${TOTAL}`)).toBe("Total · 2 units");
+    expect(formula(ws, `C${TOTAL}`)).toBe(`SUM(C${FIRST}:C${LAST})`);  // Sq Ft
+    expect(formula(ws, `G${TOTAL}`)).toBe(`SUM(G${FIRST}:G${LAST})`);  // Base Rent
+    expect(formula(ws, `K${TOTAL}`)).toBe(`SUM(K${FIRST}:K${LAST})`);  // Gross
   });
 
   it("caches each total's value, so the figure shows before Excel recalculates", () => {
-    expect(ws["C7"].v).toBe(3000);
-    expect(ws["G7"].v).toBe(12000);
-    expect(ws["K7"].v).toBe(14040);
+    expect(num(ws, `C${TOTAL}`)).toBe(3000);
+    expect(num(ws, `G${TOTAL}`)).toBe(12000);
+    expect(num(ws, `K${TOTAL}`)).toBe(14040);
   });
 
   it("does not total a column that cannot be summed", () => {
     // $/SF is a rate; adding two of them produces a number that means nothing.
-    expect(ws["F7"]).toBeUndefined();
+    expect(num(ws, `F${TOTAL}`)).toBeNull();
     // Nor the text columns.
-    expect(ws["D7"]).toBeUndefined();
-    expect(ws["E7"]).toBeUndefined();
+    expect(num(ws, `D${TOTAL}`)).toBeNull();
+    expect(num(ws, `E${TOTAL}`)).toBeNull();
   });
 
-  it("labels a vacant unit rather than leaving its tenant blank", () => {
-    const one = sheetOf(buildPropertyRollXlsx(
+  it("carries the house look, so it matches the statements in the same package", () => {
+    // The whole reason for the migration: on SheetJS community edition none of
+    // this was expressible, so the lender's rent roll was a bare grid beside a
+    // branded balance sheet.
+    // `fullCalcOnLoad` is deliberately NOT asserted here: ExcelJS WRITES
+    // `calcPr` but does not parse it back, so a round-trip cannot see it. It is
+    // pinned in theme.test.ts, and against raw XML in the balance sheet's
+    // exportSmoke.test.ts.
+    expect((ws.getCell(`A${HEADER}`).fill as ExcelJS.FillPattern).fgColor?.argb).toBe("FF0B4A7D");
+    expect(ws.getCell(`G${FIRST}`).numFmt).toContain("[Red]");
+    expect(ws.pageSetup.orientation).toBe("landscape");
+    expect(ws.pageSetup.printTitlesRow).toBe(`${HEADER}:${HEADER}`);
+    expect(ws.views[0]).toMatchObject({ state: "frozen", ySplit: HEADER });
+  });
+
+  it("labels a vacant unit rather than leaving its tenant blank", async () => {
+    const one = await sheetOf(await buildPropertyRollXlsx(
       prop([unit({ unitRef: "9510-400", isVacant: true, occupantName: "", baseRent: 0, grossRentTotal: 0 })]),
       "Shops at Lafayette Hill", null));
-    expect(one["A5"].v).toBe("VACANT");
-    expect(one["A2"].v).toBe("Rent roll"); // no date claimed when none is known
+    expect(val(one, `A${FIRST}`)).toBe("VACANT");
+    // No date is claimed when none is known.
+    expect(String(val(one, "A3"))).toBe("Rent Roll");
   });
 
-  it("survives a property with no units instead of writing a broken total", () => {
-    const empty = sheetOf(buildPropertyRollXlsx(prop([]), "Shops at Lafayette Hill", "2026-07-31"));
-    expect(empty["A4"].v).toBe("Tenant");
-    expect(empty["A5"]).toBeUndefined();
+  it("survives a property with no units instead of writing a broken total", async () => {
+    const empty = await sheetOf(await buildPropertyRollXlsx(prop([]), "Shops at Lafayette Hill", "2026-07-31"));
+    expect(val(empty, `A${HEADER}`)).toBe("Tenant");
+    expect(val(empty, `A${FIRST}`)).toBeNull();
   });
 });

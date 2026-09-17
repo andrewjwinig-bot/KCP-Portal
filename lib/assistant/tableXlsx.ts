@@ -1,15 +1,19 @@
-import * as XLSX from "xlsx";
+import {
+  newWorkbook, titleBlock, headerBand, footNote, freezeAbove, repeatHeader,
+  liveSum, liveFormula, totalEmphasis, COLOR, FMT, FONT_NAME, PRINT_WIDE,
+} from "@/lib/excel/theme";
 
 // A table the assistant produced, as a workbook.
 //
 // The assistant's answers were text, a chart, or a letter — so "make me a table
 // I can download" had no shape to land in, and the system prompt told it to
 // refuse tables outright. This is the missing shape: a grid the UI renders AND
-// exports, built client-side with SheetJS like the app's other exports.
+// exports, on the shared workbook theme so a table the assistant built opens
+// looking like the operating statement it was derived from.
 //
 // Per the Excel rule, anything that AGGREGATES is a live formula over the exact
 // cells above it, with the JS value cached so the figure shows before Excel
-// recalculates. Two aggregations are deliberately NOT written as formulas:
+// recalculates. Two aggregations are deliberately NOT written as plain sums:
 //   • a ratio column (a % of NOI) is recomputed from its own row's cells, not
 //     summed — averaging percentages down a column is a different number from
 //     the portfolio ratio, and the wrong one;
@@ -48,9 +52,27 @@ export function sheetName(title: string): string {
   return safe || "Table";
 }
 
-export function buildTableXlsx(spec: TableSpec): ArrayBuffer {
+const numFmt = (c: TableColumn) =>
+  c.format === "money" ? FMT.money
+  : c.format === "percent" ? FMT.percentPoints
+  : c.format === "number" ? FMT.numberCents
+  : undefined;
+
+export async function buildTableXlsx(spec: TableSpec): Promise<ArrayBuffer> {
   const cols = spec.columns;
-  const header = cols.map((c) => c.label);
+  const wb = newWorkbook();
+  const ws = wb.addWorksheet(sheetName(spec.title), { pageSetup: { ...PRINT_WIDE } });
+  ws.columns = cols.map((c, i) => ({ width: i === 0 ? 32 : Math.max(12, c.label.length + 3) }));
+
+  const headerRow = titleBlock(ws, {
+    entity: spec.title,
+    // The title IS the document here — the assistant names what it built — so
+    // the letterhead carries the basis line instead of repeating it.
+    document: spec.subtitle ?? "",
+    width: cols.length,
+  });
+  headerBand(ws, headerRow, cols.map((c) => c.label));
+
   // `null` leaves the cell genuinely EMPTY. An empty string writes a text cell,
   // which is not the same thing: SUM would still skip it, but the grid would
   // carry a value where the answer is "no such line".
@@ -62,81 +84,82 @@ export function buildTableXlsx(spec: TableSpec): ArrayBuffer {
     }),
   );
 
-  const aoa: (string | number | null)[][] = [[spec.title]];
-  if (spec.subtitle) aoa.push([spec.subtitle]);
-  aoa.push([]);
-  const headerRow = aoa.length;          // 0-indexed sheet row of the header
-  aoa.push(header, ...body);
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
   const firstBody = headerRow + 1;
-  const lastBody = firstBody + body.length - 1;
-
-  const fmt = (c: TableColumn) =>
-    c.format === "money" ? "#,##0" : c.format === "percent" ? "0.00\"%\"" : c.format === "number" ? "#,##0.00" : undefined;
-
-  for (let ci = 0; ci < cols.length; ci++) {
-    const f = fmt(cols[ci]);
-    if (!f) continue;
-    for (let r = firstBody; r <= lastBody; r++) {
-      const cell = ws[XLSX.utils.encode_cell({ r, c: ci })];
-      if (cell && cell.t === "n") cell.z = f;
+  body.forEach((values, i) => {
+    const row = ws.getRow(firstBody + i);
+    values.forEach((v, ci) => {
+      const cell = row.getCell(ci + 1);
+      cell.value = v;
+      cell.font = { name: FONT_NAME, size: 10, color: { argb: COLOR.text } };
+      const f = numFmt(cols[ci]);
+      if (f && typeof v === "number") { cell.numFmt = f; cell.alignment = { horizontal: "right" }; }
+    });
+    if (i % 2 === 1) for (let c = 1; c <= cols.length; c++) {
+      row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.zebra } };
     }
-  }
+  });
+
+  const lastBody = firstBody + body.length - 1;
 
   // ── Total row ────────────────────────────────────────────────────────────
   let totalRow = lastBody;
   if (body.length > 0) {
     totalRow = lastBody + 1;
-    const colIndex = (key: string) => cols.findIndex((c) => c.key === key);
-    ws[XLSX.utils.encode_cell({ r: totalRow, c: 0 })] = { t: "s", v: `Total · ${body.length} rows` };
+    const row = ws.getRow(totalRow);
+    const letterOf = (key: string) => {
+      const i = cols.findIndex((c) => c.key === key);
+      return i < 0 ? null : ws.getColumn(i + 1).letter;
+    };
+    const label = row.getCell(1);
+    label.value = `Total · ${body.length} rows`;
+    totalEmphasis(label);
 
     for (let ci = 1; ci < cols.length; ci++) {
       const col = cols[ci];
-      const addr = XLSX.utils.encode_cell({ r: totalRow, c: ci });
+      const cell = row.getCell(ci + 1);
+      totalEmphasis(cell);
 
       if (col.ratioOf) {
         // Recomputed from the totals of its own two source columns. Summing a
         // percentage column gives a number that is not the portfolio's ratio.
-        const nI = colIndex(col.ratioOf.numerator);
-        const dI = colIndex(col.ratioOf.denominator);
-        if (nI < 0 || dI < 0) continue;
-        const nL = XLSX.utils.encode_col(nI), dL = XLSX.utils.encode_col(dI);
+        const nL = letterOf(col.ratioOf.numerator), dL = letterOf(col.ratioOf.denominator);
+        if (!nL || !dL) continue;
         const nSum = spec.rows.reduce((s, r) => s + (numeric(r[col.ratioOf!.numerator]) ?? 0), 0);
         const dSum = spec.rows.reduce((s, r) => s + (numeric(r[col.ratioOf!.denominator]) ?? 0), 0);
         const cached = dSum > 0 ? round2((nSum / dSum) * 100) : 0;
-        ws[addr] = {
-          t: "n",
-          // IFERROR, because a denominator that totals zero is a real shape
-          // here (a portfolio at break-even) and #DIV/0! in a sent workbook
-          // reads as a broken file rather than as "not meaningful".
-          f: `IFERROR(${nL}${totalRow + 1}/${dL}${totalRow + 1}*100,"")`,
-          v: cached,
-          z: "0.00\"%\"",
-        };
+        // IFERROR, because a denominator that totals zero is a real shape here
+        // (a portfolio at break-even) and #DIV/0! in a sent workbook reads as a
+        // broken file rather than as "not meaningful". The formula is the same
+        // arithmetic as `cached`, so it is written unconditionally rather than
+        // through liveFormula's reconcile check.
+        cell.value = liveFormula(`IFERROR(${nL}${totalRow}/${dL}${totalRow}*100,"")`, cached, cached);
+        cell.numFmt = FMT.percentPoints;
+        cell.alignment = { horizontal: "right" };
         continue;
       }
 
       if (!SUMMABLE.has(col.format ?? "text")) continue;
-      const letter = XLSX.utils.encode_col(ci);
+      const L = ws.getColumn(ci + 1).letter;
       // SUM skips blanks, which is what a "no such line" cell must do.
-      const cached = round2(spec.rows.reduce((s, r) => s + (numeric(r[col.key]) ?? 0), 0));
-      ws[addr] = { t: "n", f: `SUM(${letter}${firstBody + 1}:${letter}${lastBody + 1})`, v: cached, z: fmt(col) };
+      const sources = spec.rows.map((r) => numeric(r[col.key]) ?? 0);
+      cell.value = liveSum(`${L}${firstBody}:${L}${lastBody}`, round2(sources.reduce((s, v) => s + v, 0)), sources);
+      cell.numFmt = numFmt(col);
+      cell.alignment = { horizontal: "right" };
     }
   }
 
   // ── Notes ────────────────────────────────────────────────────────────────
+  // What was counted and on what basis. A table leaves the building, so it has
+  // to state what it is without the conversation it came out of.
   let r = totalRow + 2;
   for (const note of spec.notes ?? []) {
-    ws[XLSX.utils.encode_cell({ r, c: 0 })] = { t: "s", v: note };
+    footNote(ws, r, note, cols.length, 16);
     r += 1;
   }
 
-  ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: Math.max(r, totalRow), c: Math.max(0, cols.length - 1) } });
-  ws["!cols"] = cols.map((c, i) => ({ wch: i === 0 ? 32 : Math.max(12, c.label.length + 3) }));
-  ws["!freeze"] = { xSplit: "0", ySplit: String(firstBody), topLeftCell: `A${firstBody + 1}`, activePane: "bottomLeft", state: "frozen" };
+  freezeAbove(ws, headerRow);
+  repeatHeader(ws, headerRow);
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, sheetName(spec.title));
-  return XLSX.write(wb, { type: "array", bookType: "xlsx" }) as ArrayBuffer;
+  const out = await wb.xlsx.writeBuffer();
+  return out as ArrayBuffer;
 }
