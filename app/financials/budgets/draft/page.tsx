@@ -5,6 +5,7 @@ import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AM
 import type { BudgetDraft, DraftSource } from "../../../../lib/financials/budgets/draft";
 import type { LeaseAssumption } from "../../../../lib/financials/budgets/leasingAssumptions";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
+import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
 
 const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; startMonth?: number };
@@ -99,6 +100,18 @@ export default function BudgetDraftPage() {
         </label>
         <span className="muted small" style={{ paddingBottom: 8 }}>Applied to every expense line; you’ll fine-tune per line next.</span>
       </div>
+
+      {/* STEP 1, above everything, because the rest depends on it. The
+          contracted-rent schedule is the input the vacancy and renewal list is
+          DERIVED from — and while Harry and Nancy work that list, Greg and
+          Drew work the expenses on the same draft. The parts are independent
+          by design; only the order of this one is fixed. */}
+      <InPlaceRevenueCard
+        year={year}
+        category="Shopping Centers"
+        propertyCode={label?.propertyCode ?? null}
+        editorLabel={typeof document !== "undefined" ? (document.cookie.match(/kcp_user=([^;]+)/)?.[1] ?? "Unknown") : "Unknown"}
+      />
 
       {loading && <div className="card muted">Building draft…</div>}
 
