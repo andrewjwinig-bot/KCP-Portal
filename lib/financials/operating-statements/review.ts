@@ -16,18 +16,41 @@ import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import { lineMonthly } from "./lineSeries";
 import { trendFlags } from "./trends";
 import { reconcileGl } from "./glParser";
-import { seasonalTrendFlags, meetsFlagFloor } from "./flagRules";
+import { seasonalTrendFlags, meetsFlagFloor, FLAG_MIN_DOLLARS } from "./flagRules";
+import { basisForLine } from "./rentCheck";
+import { loadRentCheckShared, loadRentCheckContext, runRentCheck, billingFlagReason } from "./rentCheckRun";
 import { markMissingDebt } from "./debtFlag";
 import { expectedPostedThrough } from "./outstanding";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+/**
+ * How many tenants the checklist names before "and N more".
+ *
+ * Higher than the statement's "?" hover (four), because these two consumers
+ * are a page and a SPREADSHEET CELL — someone works this list with the file
+ * open, and a name they have to go and look up is a trip they should not have
+ * to make. Twelve covers every real case seen so far without turning one row
+ * into a paragraph.
+ */
+const BILLING_NAMES_ON_CHECKLIST = 12;
+
 /** One month where a line tripped a flag. */
 export type ReviewMonth = {
   period: number;
   monthLabel: string;
   flags: string[];
+  /**
+   * A tenant not billed what their lease says, named.
+   *
+   * Held APART from `flags` because it must never be displaced by an
+   * auto-explain note the way a trend reason is: a trend flag is a heuristic
+   * saying "this looks odd, and here is a written opinion about it", while
+   * this is evidence — these specific tenants were charged the wrong amount.
+   * The checklist shows both.
+   */
+  billing?: string;
   actual: number;
   budget: number | null;
   variance: number | null;
@@ -96,6 +119,10 @@ function propertyName(key: string, fallback: string): string {
 export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
   const [mappings, fulls] = await Promise.all([availableStatements(), listFullGls()]);
   const properties: ReviewProperty[] = [];
+  // The rent roll and the tenant directory are the same for every property, so
+  // they are read ONCE for the whole sweep rather than thirteen times.
+  // Null (no rent roll imported) simply means the billing check does not run.
+  const rentCheckShared = await loadRentCheckShared().catch(() => null);
 
   for (const m of mappings) {
     const name = propertyName(m.key, m.entityName);
@@ -169,6 +196,43 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
       }
     }
 
+    // BILLING PASS — a tenant not charged what their lease says.
+    //
+    // It runs over EVERY month, not only the ones pass 1 flagged, and that is
+    // the point: a billing mismatch is invisible to a trend check by
+    // construction. The GL agrees with last month and with last year because
+    // the same wrong amount posts every month — which is precisely how a lease
+    // that was never keyed survives a year of statements.
+    //
+    // Only lines with a rent-roll column to check against (base rent, CAM, RE
+    // tax, other) — four per property at most — and the same `runRentCheck`
+    // the statement and the drill-down table call, so all three agree.
+    const billingByLineMonth = new Map<string, string>();
+    const billedLines = statementMax.sections.flatMap((sec) =>
+      sec.lines.map((l) => ({ sec, l, basis: basisForLine(l.label, l.mask) }))
+    ).filter((x) => !!x.basis);
+    if (rentCheckShared && billedLines.length) {
+      try {
+        const ctx = await loadRentCheckContext(m.key, year, null, rentCheckShared);
+        if (ctx) {
+          for (const { sec, l, basis } of billedLines) {
+            const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
+            for (let M = 1; M <= max; M++) {
+              const res = runRentCheck(ctx, { property: m.propertyCode, year, period: M, scope: "month", mask: l.mask, sign, basis: basis! });
+              const reason = billingFlagReason(res, basis!, FLAG_MIN_DOLLARS, BILLING_NAMES_ON_CHECKLIST);
+              if (!reason) continue;
+              billingByLineMonth.set(`${sec.name}::${l.label}|${M}`, reason);
+              flaggedPeriods.add(M);
+              const lineKey = `${sec.name}::${l.label}`;
+              if (!hitsByLine.has(lineKey)) {
+                hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits: [], history: lineMonthly(stored.monthly, l.mask, sign, max) });
+              }
+            }
+          }
+        }
+      } catch { /* the check is an extra; it must never fail the review */ }
+    }
+
     // Pass 2: only for months that actually have flags, pull that month's
     // statement (for per-month actual/budget/variance) + notes + dismissals.
     type PeriodData = {
@@ -201,16 +265,32 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     let flaggedMonthCount = 0;
     for (const [lineKey, { section, line, hits, history }] of hitsByLine) {
       const months: ReviewMonth[] = [];
-      for (const h of hits) {
-        const pp = perPeriod.get(h.period);
+      // Every month with something to say about this line: a trend hit, a
+      // billing mismatch, or both on the same month.
+      const periods = [...new Set([
+        ...hits.map((h) => h.period),
+        ...[...billingByLineMonth.keys()].filter((k) => k.startsWith(`${lineKey}|`)).map((k) => Number(k.split("|")[1])),
+      ])].sort((a, b) => a - b);
+      for (const period of periods) {
+        const pp = perPeriod.get(period);
         if (!pp || pp.dismissed.has(lineKey)) continue;
         const a = pp.amounts.get(lineKey);
-        // Same floor as the statement page. It is applied HERE rather than in
-        // pass 1 because pass 1 deliberately never computes a month's budget —
-        // that is what makes scanning every month of every property affordable.
-        if (!meetsFlagFloor(a?.variance ?? null, { label: line }, history)) continue;
+        const billing = billingByLineMonth.get(`${lineKey}|${period}`);
+        const trend = hits.find((h) => h.period === period)?.flags ?? [];
+        // The trend floor gates the TREND flags only. A billing mismatch is
+        // evidence and carries its own floor (the untied dollars), so it must
+        // not be filtered on this line's budget variance — the line can sit
+        // exactly on budget and still have a tenant nobody charged, which is
+        // the case that floor exists to ignore.
+        //
+        // Same floor as the statement page, applied HERE rather than in pass 1
+        // because pass 1 deliberately never computes a month's budget — that is
+        // what makes scanning every month of every property affordable.
+        const keepTrend = trend.length > 0 && meetsFlagFloor(a?.variance ?? null, { label: line }, history);
+        const flags = [...(billing ? [billing] : []), ...(keepTrend ? trend : [])];
+        if (!flags.length) continue;
         months.push({
-          period: h.period, monthLabel: MONTHS[h.period - 1], flags: h.flags,
+          period, monthLabel: MONTHS[period - 1], flags, ...(billing ? { billing } : {}),
           actual: a?.actual ?? 0, budget: a?.budget ?? null, variance: a?.variance ?? null,
           note: pp.notes[lineKey] ?? null,
         });
