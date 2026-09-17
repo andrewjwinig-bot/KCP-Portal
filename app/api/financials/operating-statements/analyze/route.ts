@@ -7,6 +7,7 @@ import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { buildTenantLookup } from "@/lib/financials/operating-statements/tenants";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
+import { seasonalTrendFlags, FLAG_MIN_DOLLARS } from "@/lib/financials/operating-statements/flagRules";
 import { lineMonthly, lineTxnCounts } from "@/lib/financials/operating-statements/lineSeries";
 
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -40,7 +41,9 @@ export async function POST(req: Request) {
   const force = body.force === true; // re-explain lines that already have an AI note
   const dollar = body.dollar ?? 5000;
   const pct = body.pct ?? 10;
-  const min = body.min ?? 500;
+  // One floor across the whole feature — the "?" and the note agree on what
+  // counts as too small to chase.
+  const min = body.min ?? FLAG_MIN_DOLLARS;
   if (!key || !year) return NextResponse.json({ error: "key and year are required" }, { status: 400 });
 
   const mapping = await getMapping(key);
@@ -81,7 +84,16 @@ export async function POST(req: Request) {
       const counts = lineTxnCounts(txByAccount, l.mask, period);
       const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
       const pySameMonth = pyAmounts.length >= period ? pyAmounts[period - 1] : null;
-      const trend = trendFlags(amounts, counts, amounts[period - 1] ?? null, pySameMonth);
+      // The SAME rules the "?" uses — seasonal/lumpy adjustments and the
+      // variance floor — so auto-explain writes a note for exactly the lines
+      // that carry a mark. Before this it ran on the raw trend signal, so it
+      // would spend a note on a line sitting $38 off budget that the statement
+      // had already decided was not worth anyone's time.
+      const trend = seasonalTrendFlags(
+        sec.role, l, period, l.periodActual,
+        trendFlags(amounts, counts, amounts[period - 1] ?? null, pySameMonth),
+        l.periodVariance,
+      );
       // Surface a line if it's off budget OR shows a month-over-month / YoY signal.
       if (!cls && trend.length === 0) continue;
 
@@ -138,7 +150,8 @@ export async function POST(req: Request) {
     `THINGS TO CALL OUT (be specific — name the vendor, tenant, and month):\n` +
     `• A line that jumped or dropped vs its recent months or vs the same month last year — and the likely cause.\n` +
     `• A recurring item with a different transaction count than usual — e.g. a utility that posts twice most months but once here (a missed bill) or three times (a possible double-payment).\n` +
-    `• A one-time / unusual charge, a missing expected payment, or a likely posting/coding error.\n\n` +
+    `• A one-time / unusual charge, a missing expected payment, or a likely posting/coding error.\n` +
+    `• A SINGLE charge that dwarfs the line's budget. Don't stop at naming it — say what it LOOKS like and which of these to check: (a) CAPITAL posted to an operating line (repaving, roof, HVAC or unit replacement, structural work — anything with a multi-year life), (b) coded to the wrong GL account (e.g. a paving job in Parking Lot Maintenance vs Parking Lot Repairs vs a capital account), (c) coded to the wrong PROPERTY, (d) a genuine one-time repair that simply wasn't budgeted. Say which one it reads as and why, from the vendor and the description.\n\n` +
     `HARD RULES:\n` +
     `1. NEVER restate the line's actual, budget, or variance totals — they're shown beside the note. Don't open with totals.\n` +
     `2. LEAD with the concrete item: a specific transaction (vendor + what it was) from topTransactions, a specific budget sub-line from budgetedFor, a specific tenant from tenants, or the specific month-over-month / year-over-year change.\n` +
@@ -147,6 +160,7 @@ export async function POST(req: Request) {
     `5. End with what to verify. No generic filler or hedging.\n\n` +
     `GOOD: "Only one PECO payment posted this month vs two in prior months — a utility bill may be unposted. Confirm the second meter was paid."\n` +
     `GOOD: "Insurance is ~30% above the same month last year after the renewal. Verify the new premium and that it isn't double-booked with escrow."\n` +
+    `GOOD: "$21,750 to ABC Paving on 7/14 — a repaving job reads as capital, not maintenance. Confirm whether it should be capitalized or moved to a repairs account."\n` +
     `BAD (never): "Electric is $785 vs $660 budget. Verify…"\n\n` +
     `Amounts are dollars; a "favorable" variance is good (revenue over / expense under budget). ` +
     `Return ONLY a JSON object mapping each line's exact "lineKey" to its note string.\n\n` +

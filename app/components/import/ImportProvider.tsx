@@ -88,10 +88,27 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
       files: rows.map((r) => ({ ...r })),
       state,
       report,
-      autoExplain: report?.autoExplain ? "prompt" : "none",
+      autoExplain: report?.autoExplain ? "running" : "none",
       minimized: false,
     };
-    setRun((prev) => (prev ? finalRun : prev)); // don't reopen if cancelled/closed
+    let opened = false;
+    setRun((prev) => { opened = !!prev; return prev ? finalRun : prev; }); // don't reopen if cancelled/closed
+
+    // The AI follow-up runs ON ITS OWN rather than asking first. Asking was the
+    // wrong default: the explanation is most useful the moment the numbers
+    // land, and the person who just imported is the person who would have
+    // clicked yes. Cheap by construction — it skips any line already carrying a
+    // note and only explains lines the statement marks with a "?".
+    //
+    // Deliberately NOT awaited: the import is finished and its report is on
+    // screen, so the modal must not sit blocked behind a model call. Failures
+    // are swallowed for the same reason they always were — a note that didn't
+    // get written is not a failed import.
+    if (opened && report?.autoExplain) {
+      void report.autoExplain.run()
+        .catch(() => { /* a missing note is not a failed import */ })
+        .finally(() => setRun((r) => (r && r.autoExplain === "running" ? { ...r, autoExplain: "done" } : r)));
+    }
     return finalRun;
   }, []);
 
@@ -99,13 +116,6 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
   const minimize = useCallback(() => setRun((r) => (r ? { ...r, minimized: true } : r)), []);
   const restore = useCallback(() => setRun((r) => (r ? { ...r, minimized: false } : r)), []);
   const dismissAutoExplain = useCallback(() => setRun((r) => (r ? { ...r, autoExplain: "dismissed" } : r)), []);
-  const acceptAutoExplain = useCallback(async () => {
-    let fn: (() => Promise<void>) | undefined;
-    setRun((r) => { fn = r?.report?.autoExplain?.run; return r ? { ...r, autoExplain: "running" } : r; });
-    try { await fn?.(); } catch { /* surfaced elsewhere */ }
-    setRun((r) => (r ? { ...r, autoExplain: "done" } : r));
-  }, []);
-
   const value = useMemo(() => ({ startImport }), [startImport]);
   return (
     <ImportContext.Provider value={value}>
@@ -117,7 +127,6 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
           onCancel={close}
           onMinimize={minimize}
           onRestore={restore}
-          onAcceptAutoExplain={acceptAutoExplain}
           onDismissAutoExplain={dismissAutoExplain}
         />
       )}

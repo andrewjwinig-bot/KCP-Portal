@@ -18,7 +18,7 @@ type Handlers = {
   onCancel: () => void;
   onMinimize: () => void;
   onRestore: () => void;
-  onAcceptAutoExplain: () => void;
+
   onDismissAutoExplain: () => void;
 };
 
@@ -159,7 +159,7 @@ function StatusDot({ status }: { status: ImportFile["status"] }) {
 }
 
 // ── State B — report ─────────────────────────────────────────────────────────
-function ReportState({ run, done, failed, total, onClose, onAcceptAutoExplain, onDismissAutoExplain }: { run: ImportRun; done: number; failed: number; total: number } & Handlers) {
+function ReportState({ run, done, failed, total, onClose, onDismissAutoExplain }: { run: ImportRun; done: number; failed: number; total: number } & Handlers) {
   const allOk = failed === 0;
   const heading = allOk ? `All ${total} file${total === 1 ? "" : "s"} imported` : `${done} of ${total} imported · ${failed} failed`;
   const rep = run.report;
@@ -210,7 +210,7 @@ function ReportState({ run, done, failed, total, onClose, onAcceptAutoExplain, o
         ))}
 
         {rep?.autoExplain && run.autoExplain !== "dismissed" && run.autoExplain !== "none" && (
-          <AutoExplainCard state={run.autoExplain} spec={rep.autoExplain} onAccept={onAcceptAutoExplain} onDismiss={onDismissAutoExplain} />
+          <AutoExplainCard state={run.autoExplain} spec={rep.autoExplain} onDismiss={onDismissAutoExplain} />
         )}
       </div>
 
@@ -221,21 +221,20 @@ function ReportState({ run, done, failed, total, onClose, onAcceptAutoExplain, o
   );
 }
 
-function AutoExplainCard({ state, spec, onAccept, onDismiss }: { state: ImportRun["autoExplain"]; spec: NonNullable<ImportRun["report"]>["autoExplain"]; onAccept: () => void; onDismiss: () => void }) {
+// It no longer ASKS — it reports. The work starts with the import, so this is
+// a status line with a way to dismiss it once it's finished, not a choice.
+function AutoExplainCard({ state, spec, onDismiss }: { state: ImportRun["autoExplain"]; spec: NonNullable<ImportRun["report"]>["autoExplain"]; onDismiss: () => void }) {
   const running = state === "running";
   const doneState = state === "done";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", borderRadius: 12, padding: "12px 15px" }}>
       <span className="imp-anim" style={{ animation: "impFloat 3.5s ease-in-out infinite", flexShrink: 0 }}><SparkleMark size={30} twinkle={running} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ai-text)" }}>{spec?.title ?? "Auto-explain flagged lines?"}</div>
-        <div className="muted" style={{ fontSize: 12.5 }}>{running ? "Auditing the imported GLs…" : doneState ? "Done — the Flags to Investigate report is annotated." : (spec?.subtitle ?? "Audit the imported GLs for the Flags to Investigate report.")}</div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ai-text)" }}>{spec?.title ?? "Explaining the flagged lines"}</div>
+        <div className="muted" style={{ fontSize: 12.5 }}>{running ? "Reading the GL behind each line that looks off…" : doneState ? "Done — every flagged line carries a note, on the statement and in Flags to Investigate." : (spec?.subtitle ?? "Reading the GL behind each line that looks off.")}</div>
       </div>
-      {!running && !doneState && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-          <button onClick={onDismiss} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ai-hero-sub)", fontSize: 12.5, fontWeight: 700 }}>Not now</button>
-          <button onClick={onAccept} className="btn ai" style={{ fontSize: 12.5, padding: "7px 13px", fontWeight: 700 }}>✦ Auto-explain</button>
-        </div>
+      {doneState && (
+        <button onClick={onDismiss} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ai-hero-sub)", fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>Dismiss</button>
       )}
       {running && <span className="imp-anim" style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--ai-border)", borderTopColor: "var(--ai)", animation: "spin .8s linear infinite", flexShrink: 0 }} />}
       {doneState && <span style={{ color: "var(--ai-text)", fontWeight: 800, flexShrink: 0 }}>✓</span>}
