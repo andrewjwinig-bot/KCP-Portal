@@ -624,6 +624,54 @@ export default function OperatingStatementsPage() {
     }
   }, [key, year, period, varDollar, varPctThresh, varFloor, reexplain]);
 
+  // Clear this month's auto-explain notes so it can be read fresh.
+  //
+  // A note outlives the flag that earned it: a line explained under looser flag
+  // rules keeps its note after the rules tighten and the "?" goes away, so a
+  // re-explain never touches it and the stale wording sits there looking like
+  // the run did nothing. This is the way back to a clean month. Notes a person
+  // wrote or edited are kept — auto-explain never overwrites those either.
+  const [clearing, setClearing] = useState(false);
+  const clearAiNotes = useCallback(async () => {
+    if (!key || !year || !period) return;
+    if (!confirm(`Delete every auto-explain note on ${MONTHS[(period || 1) - 1]} ${year} for this property?\n\nNotes you wrote or edited yourself are kept. Dismissed "?" flags come back.`)) return;
+    setClearing(true);
+    setAnalyzeMsg(null);
+    try {
+      const j = await fetch("/api/financials/operating-statements/clear-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, year, period }),
+      }).then((r) => r.json());
+      if (j.error) { setAnalyzeMsg(j.error); setAnalyzeFailed(true); return; }
+      setAnalyzeFailed(false);
+      // Drop the AI notes locally rather than refetching — the server is the
+      // record and it has already deleted them.
+      setNotes((n) => {
+        const next = { ...n };
+        for (const k of Object.keys(next)) if (noteSources[k] !== "user") delete next[k];
+        return next;
+      });
+      setNoteSources((s2) => {
+        const next = { ...s2 };
+        for (const k of Object.keys(next)) if (next[k] !== "user") delete next[k];
+        return next;
+      });
+      setNoteMeta((m) => {
+        const next = { ...m };
+        for (const k of Object.keys(next)) if (noteSources[k] !== "user") delete next[k];
+        return next;
+      });
+      setDismissedFlags(new Set());
+      setAnalyzeMsg(`Cleared ${j.cleared ?? 0} auto-explain note(s)${j.kept ? ` · kept ${j.kept} you edited` : ""}${j.undismissed ? ` · restored ${j.undismissed} dismissed flag(s)` : ""}.`);
+    } catch {
+      setAnalyzeMsg("Could not clear the notes.");
+      setAnalyzeFailed(true);
+    } finally {
+      setClearing(false);
+    }
+  }, [key, year, period, noteSources]);
+
   // Monthly brief — a short AI narrative of how the property is tracking.
   const [brief, setBrief] = useState<string | null>(null);
   const [briefing, setBriefing] = useState(false);
@@ -879,6 +927,11 @@ export default function OperatingStatementsPage() {
                     <input type="checkbox" checked={reexplain} onChange={(e) => setReexplain(e.target.checked)} style={{ cursor: "pointer" }} />
                     re-explain done
                   </label>
+                  <button type="button" className="btn" disabled={clearing || analyzing} onClick={clearAiNotes}
+                    title="Delete every auto-explain note on this month so it can be explained from scratch — notes you wrote or edited yourself are kept"
+                    style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
+                    {clearing ? "Clearing…" : "Clear AI notes"}
+                  </button>
                   <button type="button" className="btn ai" disabled={briefing} onClick={generateBrief}
                     title="Generate a short AI monthly brief — how this property is tracking vs budget, the drivers, and what to watch"
                     style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
