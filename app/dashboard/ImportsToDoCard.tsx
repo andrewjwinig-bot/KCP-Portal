@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { HoverCard } from "@/app/components/HoverCard";
 import { IMPORT_REMINDERS, sortByUrgency, reminderStatus, reminderPeriodLabel, type ImportCoverage, type ImportEvent, type ReminderStatus } from "@/lib/tracker/imports";
 
 function fmtDate(iso?: string): string {
@@ -90,30 +91,21 @@ function Row({
   coverage?: ImportCoverage;
 }) {
   const done = status === "done";
-  // A date alone does not say whether you are behind: "Imported Sep 1" reads
-  // the same on the 2nd and on the 28th. Outstanding rows lead with WHEN IT IS
-  // DUE, and carry the last import as context rather than as the answer.
-  // Where the app can COUNT what is missing, say the count — "4 of 13 still to
-  // import — 1100, 2300, 4500…" is a morning's work stated plainly, where
-  // "due now" leaves you to go and find out how much of it there is.
-  const missing = coverage && coverage.total > 0 ? coverage.total - coverage.done : 0;
-  const behindText = coverage && missing > 0
-    ? `${missing} of ${coverage.total} still to import${coverage.behind.length ? ` — ${coverage.behind.slice(0, 4).join(", ")}${coverage.behind.length > 4 ? "…" : ""}` : ""}`
-    : null;
+  // THE SUB-LINE IS AN INSTRUCTION, NOT A REPORT. "August · overdue · 37 of 37
+  // still to import — 0800, 0900, 1100, 1500…" ran to two lines and said one
+  // thing: import August. The count moves to the pill (where a number belongs)
+  // and the property names to its hover (where a list can be read), leaving
+  // the row to say what to do.
   const sub = done
     ? coverage
       // The ledger said every property is in — a stronger claim than a
       // timestamp, so make it.
-      ? `All ${coverage.total} properties in${ev?.at ? ` · last ${fmtDate(ev.at)}` : ""}`
+      ? `All ${coverage.total} in${ev?.at ? ` · ${fmtDate(ev.at)}` : ""}`
       : `Imported ${fmtDate(ev?.at)}${ev?.by ? ` · by ${String(ev.by).toUpperCase()}` : ""}`
     : status === "not-yet-due"
-      // Not due yet is not "behind": say when it opens, and what is waiting for
-      // it, so the 19th of the month reads as on track rather than as silence.
-      ? `Due ${when.toLowerCase()}${behindText ? ` · ${behindText}` : ""}`
-      // Name the PERIOD: "Due now" is a nag, "August · due now" is an
-      // instruction you can act on without working out which month is missing.
-      : `${period ? `${period[0].toUpperCase()}${period.slice(1)} · ` : ""}${status === "overdue" ? "overdue" : "due now"}${
-          behindText ? ` · ${behindText}` : ev?.at ? ` · last ${fmtDate(ev.at)}` : " · never imported"}`;
+      // Not due yet is not "behind" — say when it opens rather than nothing.
+      ? `Due ${when.toLowerCase()}`
+      : `Import ${period ?? when.toLowerCase()}`;
   return (
     <div style={{
       display: "flex", alignItems: "flex-start", gap: 10,
@@ -132,6 +124,29 @@ function Row({
             biggest, most obvious thing to click. */}
         <Link href={link} style={{ fontWeight: 700, fontSize: 14, color: "inherit", textDecoration: "none" }}
           className="row-link">{title}</Link>
+        {!loading && coverage && coverage.total > 0 && (
+          // PROGRESS, so it ticks UP to 37/37 as the month goes in — a count
+          // of what is LEFT would make 0 the good state, which reads wrong on
+          // a green row. The property names live in the hover: a list of
+          // thirty-seven codes is unreadable in a dashboard row and perfectly
+          // readable in a card.
+          <HoverCard
+            title={`${title}${period ? ` · ${period[0].toUpperCase()}${period.slice(1)}` : ""}`}
+            rows={[
+              { label: "Imported", value: `${coverage.done} of ${coverage.total}`, color: DOT.done },
+              ...(coverage.total > coverage.done
+                ? [{ label: "Still to import", value: String(coverage.total - coverage.done), color: DOT[status] }]
+                : []),
+            ]}
+            footer={coverage.behind.length ? { label: "Waiting on", value: coverage.behind.join(", ") } : undefined}
+          >
+            <span style={{
+              marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999,
+              letterSpacing: "0.04em", whiteSpace: "nowrap", cursor: "default",
+              background: EDGE[status].border, color: DOT[status],
+            }}>{coverage.done}/{coverage.total}</span>
+          </HoverCard>
+        )}
         <div className="muted small" style={{ marginTop: 2 }}>
           {loading ? "Loading…" : sub}
         </div>
