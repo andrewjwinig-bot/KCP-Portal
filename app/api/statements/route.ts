@@ -13,6 +13,7 @@ export async function GET() {
       .map((d) => ({
         id: d.id,
         savedAt: d.savedAt,
+        savedBy: d.savedBy ?? null,
         periodText: d.periodText,
         statementMonth: d.statementMonth,
         source: d.source ?? "manual",
@@ -29,7 +30,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { periodText, statementMonth, tx, source } = body;
+    const { periodText, statementMonth, tx, source, savedBy } = body;
     if (!tx || !Array.isArray(tx)) {
       return NextResponse.json({ error: "tx array is required" }, { status: 400 });
     }
@@ -45,6 +46,9 @@ export async function POST(req: NextRequest) {
     const statement = {
       id,
       savedAt: new Date().toISOString(),
+      // Who saved it — the dashboard says "Processed Sep 1 by HARRY" from
+      // this rather than assuming from who usually does it.
+      savedBy: typeof savedBy === "string" && savedBy.trim() ? savedBy.trim() : null,
       periodText: periodText ?? "",
       statementMonth: statementMonth ?? "",
       source: source === "generated" ? "generated" : "manual",

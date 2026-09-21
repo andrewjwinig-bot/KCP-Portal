@@ -10,7 +10,7 @@ import type { ImportEvent } from "./imports";
 // reminderSatisfied + ImportEvent live in ./imports (client-safe); re-export the
 // type so server callers can import both from here.
 export type { ImportEvent } from "./imports";
-export { reminderSatisfied } from "./imports";
+export { reminderSatisfied, reminderDueYet, reminderOutstanding } from "./imports";
 
 const store = createMapStore<ImportEvent>({ prefix: "tracker-import-events" });
 

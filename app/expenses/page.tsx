@@ -818,7 +818,7 @@ export default function ExpensesPage() {
       const res = await fetch("/api/statements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodText: label, statementMonth: statementMonth || "", source: silent ? "generated" : "manual", tx: coded.map((t) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, category: t.category, propertyId: t.propertyId, suite: t.suite, amount: t.amount })) }),
+        body: JSON.stringify({ periodText: label, statementMonth: statementMonth || "", source: silent ? "generated" : "manual", savedBy: user.label, tx: coded.map((t) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, category: t.category, propertyId: t.propertyId, suite: t.suite, amount: t.amount })) }),
       });
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j?.error ?? `Save failed (${res.status})`); }
       if (!silent) alert("Saved to history.");

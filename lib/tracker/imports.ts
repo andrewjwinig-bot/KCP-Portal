@@ -17,6 +17,15 @@ export type ImportReminder = {
   link: string;
   /** What it feeds / why it matters. */
   feeds: string;
+  /**
+   * The earliest weekday this can be done (0 = Sunday … 6 = Saturday).
+   *
+   * A weekly import is not outstanding just because the week has started. The
+   * AP Selection Report reflects bills that are PAID on Wednesday, so before
+   * Wednesday there is nothing to import — flagging it on Monday is a false
+   * alarm, and a reminder that cries wolf twice a week stops being read.
+   */
+  dueFromWeekday?: number;
 };
 
 export const IMPORT_REMINDERS: ImportReminder[] = [
@@ -24,8 +33,8 @@ export const IMPORT_REMINDERS: ImportReminder[] = [
     link: "/rentroll", feeds: "Rent Roll, CAM recon, deposits, commissions" },
   { id: "imp-gl", label: "General Ledger (Skyline)", cadence: "monthly", when: "At monthly close",
     link: "/financials/operating-statements", feeds: "Operating Statements & Cash Analysis" },
-  { id: "imp-ap", label: "AP Selection Report", cadence: "weekly", when: "Each pay week",
-    link: "/financials/cash-analysis", feeds: "Est. Available Cash (Avid bills)" },
+  { id: "imp-ap", label: "AP Selection Report", cadence: "weekly", when: "Every Wednesday",
+    link: "/financials/cash-analysis", feeds: "Import Paid Bills to Cash Sheet", dueFromWeekday: 3 },
   { id: "imp-alloc-gl", label: "2000 G&A GL", cadence: "monthly", when: "At monthly close",
     link: "/allocated-invoicer", feeds: "Allocated Expense invoices" },
   { id: "imp-cc", label: "Credit-card statement", cadence: "monthly", when: "At monthly close",
@@ -34,6 +43,31 @@ export const IMPORT_REMINDERS: ImportReminder[] = [
 
 /** A recorded import event (client-safe mirror of the server store's value). */
 export type ImportEvent = { at: string; by?: string | null };
+
+/**
+ * Has this week reached the day the import can actually be done?
+ *
+ * Only meaningful for a weekly reminder carrying `dueFromWeekday`. Everything
+ * else is due as soon as its period starts.
+ */
+export function reminderDueYet(reminder: ImportReminder, now: Date): boolean {
+  if (reminder.cadence !== "weekly" || reminder.dueFromWeekday == null) return true;
+  // Days elapsed since Monday, for both — so a Sunday reminder is the END of
+  // its week rather than the start of the next one.
+  const sinceMon = (d: number) => (d + 6) % 7;
+  return sinceMon(now.getDay()) >= sinceMon(reminder.dueFromWeekday);
+}
+
+/**
+ * Is there anything to do about this reminder right now?
+ *
+ * The question the dashboard and the digest are actually asking. A reminder
+ * whose day has not come is NOT outstanding — it is simply not yet due, which
+ * is a different thing from having been missed.
+ */
+export function reminderOutstanding(reminder: ImportReminder, lastAt: string | undefined, now: Date): boolean {
+  return reminderDueYet(reminder, now) && !reminderSatisfied(reminder, lastAt, now);
+}
 
 /** Is a reminder satisfied by its last import, given its cadence?
  *  weekly → imported within the current week (Mon–now); monthly/quarterly →

@@ -28,7 +28,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, payroll, invoices, employees } = body;
+    const { name, payroll, invoices, employees, savedBy } = body;
     if (!name?.trim() || !invoices) {
       return NextResponse.json({ error: "name and invoices are required" }, { status: 400 });
     }
@@ -38,6 +38,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       payDate: payroll?.payDate ?? null,
       savedAt: new Date().toISOString(),
+      savedBy: typeof savedBy === "string" && savedBy.trim() ? savedBy.trim() : null,
       payroll,
       invoices,
       employees,

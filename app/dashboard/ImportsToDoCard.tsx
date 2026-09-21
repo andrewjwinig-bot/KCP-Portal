@@ -15,7 +15,9 @@ function fmtDate(iso?: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? "—"
-    : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    // No year: every one of these is from the current cycle, and "Sep 1, 2026"
+    // spends four characters saying what nobody was wondering.
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export default function ImportsToDoCard() {
@@ -73,14 +75,15 @@ function Row({
         background: done ? "#16a34a" : "#64748b",
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>{title}</div>
+        {/* The TITLE is the link. A row whose whole point is "go here" does
+            not need a separate "Open →" to say so — and the bold text is the
+            biggest, most obvious thing to click. */}
+        <Link href={link} style={{ fontWeight: 700, fontSize: 14, color: "inherit", textDecoration: "none" }}
+          className="row-link">{title}</Link>
         <div className="muted small" style={{ marginTop: 2 }}>
           {loading ? "Loading…" : sub}
         </div>
       </div>
-      <Link href={link} style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-        Open →
-      </Link>
     </div>
   );
 }

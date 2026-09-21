@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence } from "../../lib/tracker/taskDefs";
-import { importsForWeek, reminderSatisfied, type ImportReminder, type ImportEvent } from "../../lib/tracker/imports";
+import { importsForWeek, reminderOutstanding, type ImportReminder, type ImportEvent } from "../../lib/tracker/imports";
 
 // Same per-month localStorage bucket the Tracker + Tasks-This-Week card use,
 // so "done" state is shared.
@@ -152,7 +152,7 @@ export default function DailyDigestModal({ userId }: { userId: string }) {
   // Once a file is imported it drops off, exactly as it does on the
   // Tasks-This-Week card. The digest is a list of what still needs doing —
   // a completed row is only there to be scrolled past.
-  const openImports = imports.filter((r) => !reminderSatisfied(r, importEvents[r.id]?.at, new Date()));
+  const openImports = imports.filter((r) => reminderOutstanding(r, importEvents[r.id]?.at, new Date()));
   const nothing = openTasks.length === 0 && openImports.length === 0;
   const todayKey = new Date().toDateString();
 

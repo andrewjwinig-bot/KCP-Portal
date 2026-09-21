@@ -964,3 +964,9 @@ input.kcp-input,
     display: none;
   }
 }
+
+/* A row whose bold title IS the link — the dashboard status cards. The row
+   already reads as a thing you act on, so the title carries no link colour
+   until you are over it; an underline on hover is what says it is clickable. */
+.row-link:hover { text-decoration: underline !important; }
+.row-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 3px; }
