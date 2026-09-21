@@ -1,10 +1,17 @@
 "use client";
 
-// Dashboard callout: what isn't posted to the GL yet across the portfolio —
-// a budgeted line reading $0 all year, or debt the Debt Tracker schedules but
-// that isn't posted. Reads the shared not-posted scan. Green "all posted" when
-// clear; otherwise a compact table (top few, largest first) linking into the
-// Statement Review hub. Styled to match the other dashboard status cards.
+// Dashboard callout: what isn't posted to the GL yet across the portfolio.
+//
+// KNOWN OBLIGATIONS ONLY — real-estate taxes, insurance, the management fee,
+// and debt the lender's schedule says was due. Not "every budgeted line": a
+// budget is a plan, and a plan with nothing against it is usually timing (the
+// Electric bill has not been keyed yet) or the right outcome (the lot needed no
+// patching). Those belong to the variance checks. The rule is `isKnownObligation`
+// in flagRules, applied where the finding is made, so this card, the ⚠ on the
+// statement, the review checklist and the weekly alert cannot disagree.
+//
+// Green "all posted" when clear; otherwise a compact table (top few, largest
+// first) linking into the Statement Review hub.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -51,12 +58,12 @@ export default function NotPostedCard({ order = -1 }: { order?: number }) {
 
       {items.length === 0 ? (
         <div className="small" style={{ display: "flex", alignItems: "center", gap: 8, color: "#15803d", fontWeight: 600 }}>
-          <span style={{ fontSize: 15 }}>✅</span> Every budgeted / scheduled line is posted on the latest statements.
+          <span style={{ fontSize: 15 }}>✅</span> Taxes, insurance, management fees and debt are all posted on the latest statements.
         </div>
       ) : (
         <>
           <div className="small" style={{ marginBottom: 10, color: "#9a3412", fontWeight: 600 }}>
-            {items.length} line{items.length === 1 ? "" : "s"} across {data!.propertiesWithIssues} propert{data!.propertiesWithIssues === 1 ? "y" : "ies"} — a budgeted or scheduled figure still reads $0.
+            {items.length} line{items.length === 1 ? "" : "s"} across {data!.propertiesWithIssues} propert{data!.propertiesWithIssues === 1 ? "y" : "ies"} — an obligation that gets billed either way still reads $0.
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {items.slice(0, TOP).map((it) => (

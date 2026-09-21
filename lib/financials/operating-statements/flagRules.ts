@@ -275,3 +275,48 @@ export function nothingPosted(
   return actual != null && Math.abs(actual) < 0.5
     && budget != null && Math.abs(budget) >= 0.5;
 }
+
+/**
+ * A line where NOTHING POSTED ALL YEAR is evidence of an error rather than an
+ * observation about a budget.
+ *
+ * The "not posted" signal answers one question: is a figure the statement
+ * should be carrying simply absent? Debt answers it with evidence — the Debt
+ * Tracker holds the lender's own schedule, so we KNOW a payment was due. A
+ * budget is not evidence of the same kind. It is a plan, and a plan that was
+ * not spent is frequently the correct outcome.
+ *
+ * `isDiscretionaryLine` already removed the worst of that (Parking Lot
+ * Maintenance's $2,500 provision), but it left every contractual line behind:
+ * a $0 Electric line in month three, a landscaping contract between seasons,
+ * a snow line in July. Each reads as "not posted to the GL" and each is
+ * ordinary timing — so the card the owner scans for real omissions filled up
+ * with lines that simply had not been billed yet, and the one that mattered
+ * sat among them.
+ *
+ * What survives is the narrow set where a whole year at $0 CANNOT be timing:
+ *
+ *   - real-estate taxes — billed by the municipality whether or not anyone acts
+ *   - insurance — a bound policy is invoiced
+ *   - the management fee — LIK bills every building, every month (see the
+ *     intercompany rule: no property pays an outside manager). Spelled
+ *     "Mgmt Fees - Other" as well as "Management Fees" in this chart, so both
+ *     forms are matched.
+ *   - debt service — the lender's schedule says the payment was due
+ *
+ * Those are obligations, not intentions, and each is large enough that a
+ * missing one distorts the statement. Everything else is left to the variance
+ * and trend checks, which is where a line that is merely running light belongs.
+ *
+ * This was ALREADY the rule for the weekly alert email (`isSignificantNotPosted`
+ * gated it on the same four categories) and only for that email — the
+ * dashboard card, the ⚠ on the statement and the review checklist each showed
+ * every budgeted line. One signal cannot mean two things, so the rule moves
+ * here, to the point where the finding is made.
+ */
+const KNOWN_OBLIGATION =
+  /(manage(?:ment)?\s*fee|mgmt\s*fee|insurance|real\s*estate\s*tax|\br\.?e\.?\s*tax|property\s*tax|\btaxes?\b|debt|mortgage)/i;
+
+export function isKnownObligation(l: { label: string; section?: string }): boolean {
+  return KNOWN_OBLIGATION.test(l.label) || (!!l.section && KNOWN_OBLIGATION.test(l.section));
+}
