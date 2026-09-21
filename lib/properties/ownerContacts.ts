@@ -45,6 +45,18 @@ function normKey(s: string): string {
 }
 
 const CONTACTS: Record<string, OwnerContact> = {
+  // ── Chesterbrook (CWD) partners ───────────────────────────────────────────
+  // Keyed by their roster names exactly, so these resolve on the EXACT lookup
+  // rather than the relaxed one — a K-1 send reports a relaxed hit as "matched
+  // on name — check it", and there is nothing to check here.
+  "alec korman": { name: "Alec Korman", email: "ajk@korman.com" },
+  "jackson korman": { name: "Jackson Korman", email: "jkorman@korman.com" },
+  "nicole korman": { name: "Nicole Korman", email: "niki@nikikorman.com" },
+  // The address is the foundation's contact, not the foundation itself. Left
+  // without an `emailName` deliberately: `addressAs` leaves a company or a
+  // trust its FULL name, so the mail greets the Foundation, which is what it
+  // is addressed to. Set `emailName` if it should name the person instead.
+  "the steven h korman family foundation": { name: "The Steven H Korman Family Foundation", email: "kthomas@korman.com" },
   "joan sohn": { name: "Joan R. Sohn", address: "110 Bloor St. West, Apt. 1903, Toronto, Ontario M5S 2W7, Canada", email: "joanrsohn@gmail.com" },
   "steven korman": { name: "Steven H. Korman", address: "580 W. Germantown Pike #200, Plymouth Meeting, PA 19462", email: "skorman@kormancommunities.com" },
   "judith langsfeld": { name: "Judith K. Langsfeld", address: "c/o Mark Langsfeld, 1085 Herkness Drive, Meadowbrook, PA 19046", email: "langsfeld@gmail.com" },
