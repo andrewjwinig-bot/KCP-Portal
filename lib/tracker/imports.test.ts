@@ -95,3 +95,67 @@ describe("the AP reminder itself", () => {
     expect(ap.feeds).toBe("Import Paid Bills to Cash Sheet");
   });
 });
+
+describe("a reminder with a real deadline — the GL's 20th", () => {
+  const gl = IMPORT_REMINDERS.find((r) => r.id === "imp-gl")!;
+  const on = (day: number) => new Date(2026, 8, day); // September 2026
+
+  it("is not due before the 20th — Skyline cannot export the month yet", () => {
+    // Asking for August's GL on September 3rd is the monthly version of
+    // nagging about the AP report on a Monday: the file does not exist.
+    expect(reminderStatus(gl, undefined, on(3))).toBe("not-yet-due");
+    expect(reminderStatus(gl, undefined, on(19))).toBe("not-yet-due");
+  });
+
+  it("is due ON the 20th and overdue after it", () => {
+    expect(reminderStatus(gl, undefined, on(20))).toBe("due");
+    expect(reminderStatus(gl, undefined, on(21))).toBe("overdue");
+  });
+});
+
+describe("coverage beats the timestamp", () => {
+  const gl = IMPORT_REMINDERS.find((r) => r.id === "imp-gl")!;
+  const sep21 = new Date(2026, 8, 21);
+  const importedToday = new Date(2026, 8, 21).toISOString();
+
+  it("a PARTIAL import is not done, however recent", () => {
+    // The defect this exists for: the GL is thirteen files, and the click-log
+    // only knows that SOMETHING was uploaded this calendar month. Re-uploading
+    // one property on the 21st marked the whole month done.
+    expect(reminderStatus(gl, importedToday, sep21, { done: 9, total: 13, behind: ["1100", "2300"] }))
+      .toBe("overdue");
+  });
+
+  it("is done only when every property is in", () => {
+    expect(reminderStatus(gl, importedToday, sep21, { done: 13, total: 13, behind: [] })).toBe("done");
+  });
+
+  it("with NO coverage available it falls back to the timestamp", () => {
+    // The ledger check is best-effort — if it throws, the row must still work.
+    expect(reminderStatus(gl, importedToday, sep21, null)).toBe("done");
+  });
+
+  it("an empty total is not evidence of anything", () => {
+    // No mappings loaded yet: `done >= total` would be trivially true and the
+    // row would go green on an app with no GLs at all.
+    expect(reminderStatus(gl, undefined, sep21, { done: 0, total: 0, behind: [] })).toBe("overdue");
+  });
+
+  it("sorts a partially-imported GL above a finished weekly", () => {
+    const ap = IMPORT_REMINDERS.find((r) => r.id === "imp-ap")!;
+    const order = sortByUrgency([ap, gl], () => importedToday, sep21,
+      (r) => (r.id === "imp-gl" ? { done: 9, total: 13, behind: [] } : null));
+    expect(order[0].id).toBe("imp-gl");
+  });
+});
+
+describe("labels read as proper nouns", () => {
+  it("every reminder is title case", () => {
+    // "Credit-card statement" sat among four proper-case labels.
+    for (const r of IMPORT_REMINDERS) {
+      expect(r.label, r.id).toBe(r.label.trim());
+      expect(r.label[0], r.id).toBe(r.label[0].toUpperCase());
+    }
+    expect(IMPORT_REMINDERS.find((r) => r.id === "imp-cc")!.label).toBe("Credit Card Statement");
+  });
+});

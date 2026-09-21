@@ -40,10 +40,6 @@ function fmtDate(iso?: string): string {
 function processed(at?: string, by?: string | null): string {
   return `Processed ${fmtDate(at)}${by ? ` by ${String(by).toUpperCase()}` : ""}`;
 }
-function money(n: number): string {
-  return "$" + Math.round(n ?? 0).toLocaleString("en-US");
-}
-
 type AllocRun = { periodText: string; periodEndDate: string; statementMonth: string; ranAt: string; ranBy?: string };
 
 /** Drew's at-a-glance status: the most recent Payroll, CC Expenses, and
@@ -86,8 +82,7 @@ export default function DrewSavedStatus() {
           loading={periods == null}
           saved={!!payroll}
           period={periodPill(payroll?.name)}
-          line1={payroll ? `${payroll.employeeCount} employee${payroll.employeeCount === 1 ? "" : "s"} · ${money(payroll.total)}` : "Nothing saved yet"}
-          line2={payroll ? processed(payroll.savedAt, payroll.savedBy) : undefined}
+          line={payroll ? processed(payroll.savedAt, payroll.savedBy) : "Nothing saved yet"}
         />
         <Row
           title="Credit Card Expenses"
@@ -95,8 +90,7 @@ export default function DrewSavedStatus() {
           loading={statements == null}
           saved={!!cc}
           period={periodPill(cc?.periodText || cc?.statementMonth)}
-          line1={cc ? `${cc.txCount} transaction${cc.txCount === 1 ? "" : "s"} · ${money(cc.total)}` : "Nothing saved yet"}
-          line2={cc ? processed(cc.savedAt, cc.savedBy) : undefined}
+          line={cc ? processed(cc.savedAt, cc.savedBy) : "Nothing saved yet"}
         />
         <Row
           title="Allocated Expenses"
@@ -104,8 +98,7 @@ export default function DrewSavedStatus() {
           loading={runs == null}
           saved={!!alloc}
           period={periodPill(alloc?.statementMonth || alloc?.periodText)}
-          line1={alloc ? (alloc.statementMonth || alloc.periodText || "Last run") : "Nothing run yet"}
-          line2={alloc ? processed(alloc.ranAt, alloc.ranBy) : undefined}
+          line={alloc ? processed(alloc.ranAt, alloc.ranBy) : "Nothing run yet"}
         />
       </div>
     </div>
@@ -118,8 +111,7 @@ function Row({
   loading,
   saved,
   period,
-  line1,
-  line2,
+  line,
 }: {
   title: string;
   href: string;
@@ -127,8 +119,16 @@ function Row({
   saved: boolean;
   /** The period this covers — the pill. Null when it could not be read. */
   period: string | null;
-  line1: string;
-  line2?: string;
+  /** ONE line: who processed it and when.
+   *
+   *  The employee/transaction counts and the dollar total used to sit above
+   *  it. They read as the card's subject and they are not — nobody is checking
+   *  the dashboard to learn that payroll had fifteen employees, and the raw
+   *  "2026-01_to_2026-06" under Allocated Expenses was the period repeated in
+   *  its worst form, next to a pill already carrying it. The question this card
+   *  answers is whether the run HAPPENED; the figures live on the page one
+   *  click away. */
+  line: string;
 }) {
   return (
     <div style={{
@@ -161,11 +161,8 @@ function Row({
           )}
         </div>
         <div className="muted small" style={{ marginTop: 2 }}>
-          {loading ? "Loading…" : line1}
+          {loading ? "Loading…" : line}
         </div>
-        {!loading && line2 && (
-          <div className="muted small" style={{ marginTop: 1 }}>{line2}</div>
-        )}
       </div>
     </div>
   );

@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { IMPORT_REMINDERS, sortByUrgency, reminderStatus, reminderPeriodLabel, type ImportEvent, type ReminderStatus } from "@/lib/tracker/imports";
+import { IMPORT_REMINDERS, sortByUrgency, reminderStatus, reminderPeriodLabel, type ImportCoverage, type ImportEvent, type ReminderStatus } from "@/lib/tracker/imports";
 
 function fmtDate(iso?: string): string {
   if (!iso) return "—";
@@ -22,11 +22,14 @@ function fmtDate(iso?: string): string {
 
 export default function ImportsToDoCard() {
   const [events, setEvents] = useState<Record<string, ImportEvent> | null>(null);
+  // How much of a multi-file import actually landed. The GL is thirteen files,
+  // so a timestamp cannot say whether the MONTH is in — this can.
+  const [coverage, setCoverage] = useState<Record<string, ImportCoverage>>({});
 
   useEffect(() => {
     fetch("/api/tracker/import-events", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setEvents(j?.events ?? {}))
+      .then((j) => { setEvents(j?.events ?? {}); setCoverage(j?.coverage ?? {}); })
       .catch(() => setEvents({}));
   }, []);
 
@@ -40,11 +43,12 @@ export default function ImportsToDoCard() {
             of these", and recency is the opposite of that signal: newest-first
             puts what you just did at the top and buries what you forgot at the
             bottom. */}
-        {sortByUrgency(IMPORT_REMINDERS, (r) => events?.[r.id]?.at, new Date()).map((r) => {
+        {sortByUrgency(IMPORT_REMINDERS, (r) => events?.[r.id]?.at, new Date(), (r) => coverage[r.id]).map((r) => {
           const ev = events?.[r.id];
-          const status = reminderStatus(r, ev?.at, new Date());
+          const cov = coverage[r.id];
+          const status = reminderStatus(r, ev?.at, new Date(), cov);
           return <Row key={r.id} title={r.label} link={r.link} loading={events == null}
-            status={status} when={r.when} period={reminderPeriodLabel(r, new Date())} ev={ev} />;
+            status={status} when={r.when} period={reminderPeriodLabel(r, new Date())} ev={ev} coverage={cov} />;
         })}
       </div>
     </div>
@@ -71,6 +75,7 @@ function Row({
   when,
   period,
   ev,
+  coverage,
 }: {
   title: string;
   link: string;
@@ -81,18 +86,34 @@ function Row({
   /** Which period is waiting — "August", "this week". */
   period: string | null;
   ev?: ImportEvent;
+  /** For a multi-file import, how many properties are actually in. */
+  coverage?: ImportCoverage;
 }) {
   const done = status === "done";
   // A date alone does not say whether you are behind: "Imported Sep 1" reads
   // the same on the 2nd and on the 28th. Outstanding rows lead with WHEN IT IS
   // DUE, and carry the last import as context rather than as the answer.
+  // Where the app can COUNT what is missing, say the count — "4 of 13 still to
+  // import — 1100, 2300, 4500…" is a morning's work stated plainly, where
+  // "due now" leaves you to go and find out how much of it there is.
+  const missing = coverage && coverage.total > 0 ? coverage.total - coverage.done : 0;
+  const behindText = coverage && missing > 0
+    ? `${missing} of ${coverage.total} still to import${coverage.behind.length ? ` — ${coverage.behind.slice(0, 4).join(", ")}${coverage.behind.length > 4 ? "…" : ""}` : ""}`
+    : null;
   const sub = done
-    ? `Imported ${fmtDate(ev?.at)}${ev?.by ? ` · by ${String(ev.by).toUpperCase()}` : ""}`
+    ? coverage
+      // The ledger said every property is in — a stronger claim than a
+      // timestamp, so make it.
+      ? `All ${coverage.total} properties in${ev?.at ? ` · last ${fmtDate(ev.at)}` : ""}`
+      : `Imported ${fmtDate(ev?.at)}${ev?.by ? ` · by ${String(ev.by).toUpperCase()}` : ""}`
     : status === "not-yet-due"
-      ? `Due ${when.toLowerCase()}`
+      // Not due yet is not "behind": say when it opens, and what is waiting for
+      // it, so the 19th of the month reads as on track rather than as silence.
+      ? `Due ${when.toLowerCase()}${behindText ? ` · ${behindText}` : ""}`
       // Name the PERIOD: "Due now" is a nag, "August · due now" is an
       // instruction you can act on without working out which month is missing.
-      : `${period ? `${period[0].toUpperCase()}${period.slice(1)} · ` : ""}${status === "overdue" ? "overdue" : "due now"}${ev?.at ? ` · last ${fmtDate(ev.at)}` : " · never imported"}`;
+      : `${period ? `${period[0].toUpperCase()}${period.slice(1)} · ` : ""}${status === "overdue" ? "overdue" : "due now"}${
+          behindText ? ` · ${behindText}` : ev?.at ? ` · last ${fmtDate(ev.at)}` : " · never imported"}`;
   return (
     <div style={{
       display: "flex", alignItems: "flex-start", gap: 10,
