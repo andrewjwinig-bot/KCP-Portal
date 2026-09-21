@@ -6,6 +6,7 @@ import { summaryForPeriod } from "./glParser";
 import { computeStatement } from "./compute";
 import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import { markMissingDebt } from "./debtFlag";
+import { isKnownObligation } from "./flagRules";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -33,19 +34,23 @@ function propertyName(key: string, fallback: string): string {
   return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
 }
 
-// Which "not posted" lines warrant an alert email. Routine monthly CAM lines
-// (utilities, landscaping, repairs, snow, etc.) post every month, so a line
-// briefly reading $0 is normal and emailing on it is just noise. We only alert
-// on the big, easy-to-miss, often non-monthly postings: management fees,
-// insurance, real estate taxes, and debt service. Extend the pattern to add
-// more categories. (The dashboard / Review page still surfaces every line — this
-// gate is only for the alert emails.)
-export const SIGNIFICANT_NOT_POSTED = /manage(?:ment)?\s*fee|insurance|real\s*estate\s*tax|\br\.?e\.?\s*tax|property\s*tax|\btaxes?\b|debt|mortgage/i;
-
-/** Is this a not-posted line worth an alert email (vs routine monthly CAM)? */
+/**
+ * Which "not posted" lines warrant an alert email.
+ *
+ * This was once its own rule — the scan surfaced every budgeted line and this
+ * regex narrowed the EMAIL to management fees, insurance, taxes and debt. The
+ * rule was right and the scope was wrong: the dashboard card, the ⚠ on the
+ * statement and the review checklist all kept showing every budgeted line, so
+ * the same signal meant two different things depending on where you read it.
+ *
+ * `isKnownObligation` now applies at the point the finding is MADE
+ * (`budgetExpectedMissing`), so a not-posted item is already one of these by
+ * the time it reaches here. This stays as the email's own guarantee — it costs
+ * nothing and a filter the alert relies on should not be implicit.
+ */
 export function isSignificantNotPosted(item: Pick<NotPostedItem, "type" | "line" | "section">): boolean {
-  if (item.type === "missing-debt") return true; // debt service is always significant
-  return SIGNIFICANT_NOT_POSTED.test(item.line) || SIGNIFICANT_NOT_POSTED.test(item.section);
+  if (item.type === "missing-debt") return true; // the lender's schedule is evidence
+  return isKnownObligation({ label: item.line, section: item.section });
 }
 
 /** Narrow a not-posted list to the alert-worthy (significant) lines. */

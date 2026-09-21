@@ -598,8 +598,8 @@ time — and the team does not have time to open the GL over $80.
   is coming; a budget on Parking Lot Maintenance is money set aside in case the
   lot needs patching. Three kinds, in `flagRules.ts`:
   - **CONTRACTUAL** (utilities, insurance, taxes, payroll, security, cleaning,
-    snow, management fee) → the tight `FLAG_MIN_DOLLARS` floor, and a $0 year
-    IS a missing posting.
+    snow, management fee) → the tight `FLAG_MIN_DOLLARS` floor. This sets the
+    VARIANCE floor only — see the not-posted rule below, which is narrower.
   - **DISCRETIONARY / as-needed** (repairs, maintenance, paving, painting,
     legal, misc) → the loose `LOOSE_FLAG_MIN_DOLLARS` floor ($1,500), and NO
     not-posted flag at all: a year that needed no repaving is a good year, not
@@ -614,6 +614,28 @@ time — and the team does not have time to open the GL over $80.
     Salaries" is payroll and "Parking Lot Cleaning" is a sweeping contract;
     only "Parking Lot Maintenance" is the as-needed one, and the difference is
     one word.
+- **"NOT POSTED" NEEDS AN OBLIGATION, NOT A BUDGET** (`isKnownObligation` in
+  `flagRules.ts`, applied inside `budgetExpectedMissing`). The signal answers
+  one question — is a figure the statement should be carrying simply ABSENT —
+  and a budget cannot answer it. A budget is a plan; a plan with nothing
+  against it is usually timing (the Electric bill has not been keyed yet) or
+  the right outcome (the lot needed no patching). Only four things can be
+  accused on a budget alone, because each gets billed whether or not anyone
+  acts: **real-estate taxes, insurance, the management fee, and debt**. Debt
+  does not come through the budget path at all — `markMissingDebt` writes its
+  own finding from the lender's schedule, which IS evidence, and that is the
+  shape the whole rule is modelled on. Everything else is left to the variance
+  and trend checks, where a line merely running light belongs.
+  The earlier rule ("a CONTRACTUAL line with a $0 year IS a missing posting")
+  was too wide and the owner said so: a $0 Electric line in March, a
+  landscaping contract between seasons and a July snow line each read as "not
+  posted to the GL", and the card kept for real omissions filled with lines
+  nobody acted on. **The narrow rule already existed** — `isSignificantNotPosted`
+  gated the weekly ALERT EMAIL on exactly these four categories and only that
+  email, while the dashboard card, the statement's ⚠ and the review checklist
+  each showed every budgeted line. One signal meaning two things depending on
+  where it is read is the defect; the rule now lives at the point the finding is
+  MADE, and `isSignificantNotPosted` delegates to it.
 - **The ⚠ "not posted" mark: which CELL it belongs on lives in `flagRules`**
   (`marksPeriodUnposted` / `marksYtdUnposted`), shared by the statement page,
   the Excel export and the PDF. All three used to decide it themselves and all

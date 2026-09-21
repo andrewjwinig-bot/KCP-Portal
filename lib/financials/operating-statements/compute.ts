@@ -7,7 +7,7 @@
 // importer, and budget wiring all layer on top.
 
 import { claimAccounts } from "./mask";
-import { isDiscretionaryLine } from "./flagRules";
+import { isDiscretionaryLine, isKnownObligation } from "./flagRules";
 import {
   EXPENSE_ROLES,
   type GlSummaryRow,
@@ -141,7 +141,7 @@ function computeLine(
     b?.annualBudget ?? null,
     favorability(role)
   );
-  const expectedMissing = budgetExpectedMissing(role, line, ytdActual, b?.ytdBudget ?? null);
+  const expectedMissing = budgetExpectedMissing(role, line, ytdActual, b?.ytdBudget ?? null, sectionName);
   return {
     label: line.label,
     mask: line.mask,
@@ -216,6 +216,7 @@ function budgetExpectedMissing(
   line: { label: string; mask: string },
   ytdActual: number,
   ytdBudget: number | null,
+  sectionName?: string,
 ): StatementLine["expectedMissing"] {
   // Capital is intentionally excluded — capital spend is lumpy and hard to plan,
   // so a $0 against a budget isn't a "missing" figure worth flagging.
@@ -231,6 +232,13 @@ function budgetExpectedMissing(
   // charge. Only lines that were going to be spent either way (utilities,
   // contracts, payroll, taxes) can be "not posted".
   if (isDiscretionaryLine(line)) return null;
+  // And the other half of the same argument: a budget is a PLAN, not evidence.
+  // Only a line carrying a real obligation — taxes, insurance, the management
+  // fee — can be "not posted" on the strength of a budget alone. A $0 Electric
+  // line in March is timing; the bill has not been keyed yet. Debt does not
+  // come through here at all: `markMissingDebt` writes its own finding from
+  // the lender's schedule, which IS evidence.
+  if (!isKnownObligation({ label: line.label, section: sectionName })) return null;
   if (ytdBudget == null || ytdBudget <= EXPECTED_MISSING_MIN) return null;
   if (Math.abs(ytdActual) >= 0.5) return null; // something posted YTD — not missing
   return { expected: ytdBudget, basis: "budget", scope: "ytd" };
