@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { periodPill } from "@/lib/tracker/periodLabel";
 
 type Period = {
   id: string;
@@ -8,6 +10,7 @@ type Period = {
   savedAt: string;
   total: number;
   employeeCount: number;
+  savedBy?: string | null;
 };
 type Statement = {
   id: string;
@@ -16,6 +19,7 @@ type Statement = {
   statementMonth?: string;
   txCount: number;
   total: number;
+  savedBy?: string | null;
 };
 
 function fmtDate(iso?: string): string {
@@ -23,7 +27,18 @@ function fmtDate(iso?: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? "—"
-    : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    // No year — these are all from the current cycle.
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+/**
+ * "Processed Sep 7 by HARRY" — the same sentence for all three.
+ *
+ * The name is omitted when it was not recorded rather than filled in from who
+ * usually does it: a dashboard that states a fact it does not hold is worse
+ * than one that says less.
+ */
+function processed(at?: string, by?: string | null): string {
+  return `Processed ${fmtDate(at)}${by ? ` by ${String(by).toUpperCase()}` : ""}`;
 }
 function money(n: number): string {
   return "$" + Math.round(n ?? 0).toLocaleString("en-US");
@@ -67,32 +82,30 @@ export default function DrewSavedStatus() {
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <Row
           title="Payroll"
+          href="/payroll"
           loading={periods == null}
           saved={!!payroll}
-          line1={payroll ? payroll.name : "Nothing saved yet"}
-          line2={
-            payroll
-              ? `Saved ${fmtDate(payroll.savedAt)} · ${payroll.employeeCount} employee${payroll.employeeCount === 1 ? "" : "s"} · ${money(payroll.total)}`
-              : undefined
-          }
+          period={periodPill(payroll?.name)}
+          line1={payroll ? `${payroll.employeeCount} employee${payroll.employeeCount === 1 ? "" : "s"} · ${money(payroll.total)}` : "Nothing saved yet"}
+          line2={payroll ? processed(payroll.savedAt, payroll.savedBy) : undefined}
         />
         <Row
           title="Credit Card Expenses"
+          href="/expenses"
           loading={statements == null}
           saved={!!cc}
-          line1={cc ? (cc.periodText || cc.statementMonth || "Saved batch") : "Nothing saved yet"}
-          line2={
-            cc
-              ? `Saved ${fmtDate(cc.savedAt)} · ${cc.txCount} transaction${cc.txCount === 1 ? "" : "s"} · ${money(cc.total)}`
-              : undefined
-          }
+          period={periodPill(cc?.periodText || cc?.statementMonth)}
+          line1={cc ? `${cc.txCount} transaction${cc.txCount === 1 ? "" : "s"} · ${money(cc.total)}` : "Nothing saved yet"}
+          line2={cc ? processed(cc.savedAt, cc.savedBy) : undefined}
         />
         <Row
           title="Allocated Expenses"
+          href="/allocated-invoicer"
           loading={runs == null}
           saved={!!alloc}
+          period={periodPill(alloc?.statementMonth || alloc?.periodText)}
           line1={alloc ? (alloc.statementMonth || alloc.periodText || "Last run") : "Nothing run yet"}
-          line2={alloc ? `Generated ${fmtDate(alloc.ranAt)}${alloc.ranBy ? ` · by ${alloc.ranBy}` : ""}` : undefined}
+          line2={alloc ? processed(alloc.ranAt, alloc.ranBy) : undefined}
         />
       </div>
     </div>
@@ -101,14 +114,19 @@ export default function DrewSavedStatus() {
 
 function Row({
   title,
+  href,
   loading,
   saved,
+  period,
   line1,
   line2,
 }: {
   title: string;
+  href: string;
   loading: boolean;
   saved: boolean;
+  /** The period this covers — the pill. Null when it could not be read. */
+  period: string | null;
   line1: string;
   line2?: string;
 }) {
@@ -126,7 +144,8 @@ function Row({
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14 }}>
-          {title}
+          {/* Click the title, not an "Open →" beside it. */}
+          <Link href={href} style={{ color: "inherit", textDecoration: "none" }} className="row-link">{title}</Link>
           {!loading && (
             <span style={{
               marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999,
@@ -134,7 +153,10 @@ function Row({
               background: saved ? "rgba(22,163,74,0.15)" : "rgba(100,116,139,0.15)",
               color: saved ? "#15803d" : "#475569",
             }}>
-              {saved ? "SAVED" : "NONE YET"}
+              {/* The PERIOD, not "SAVED". The dot and the green border already
+                  say it is saved; which month is done is the thing you cannot
+                  tell by looking. Falls back when the period is unreadable. */}
+              {!saved ? "NONE YET" : (period ?? "SAVED")}
             </span>
           )}
         </div>

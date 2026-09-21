@@ -4,7 +4,7 @@ import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { taskOccurrencesBetween, CATEGORIES, type TaskOccurrence } from "@/lib/tracker/taskDefs";
 import { getCompletions, completionKey } from "@/lib/tracker/completionStore";
 import { importsForWeek } from "@/lib/tracker/imports";
-import { getImportEvents, reminderSatisfied, type ImportEvent } from "@/lib/tracker/importEvents";
+import { getImportEvents, reminderSatisfied, reminderOutstanding, type ImportEvent } from "@/lib/tracker/importEvents";
 import { outstandingGlUploads, type OutstandingGl } from "@/lib/financials/operating-statements/outstanding";
 import { recentlyVacatedTenants, type VacatedTenant } from "@/lib/leasing/recentlyVacated";
 import { collectNotPosted, significantNotPosted, type NotPostedItem } from "@/lib/financials/operating-statements/notPosted";
@@ -107,7 +107,9 @@ function buildDigest(
 
   // ── Files to import (with what's already been imported this period) ──────
   const imports = importsForWeek(start, end);
-  const outstandingImports = imports.filter((r) => !reminderSatisfied(r, importEvents[r.id]?.at, now));
+  // Not-yet-due is not outstanding: the AP report covers bills paid on
+  // Wednesday, so it cannot be missing on a Monday.
+  const outstandingImports = imports.filter((r) => reminderOutstanding(r, importEvents[r.id]?.at, now));
   const doneImports = imports.filter((r) => reminderSatisfied(r, importEvents[r.id]?.at, now));
   if (imports.length) {
     lines.push(outstandingImports.length ? `FILES TO IMPORT (${outstandingImports.length} outstanding)` : `FILES TO IMPORT — ✓ all done`);

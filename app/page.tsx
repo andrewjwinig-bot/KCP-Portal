@@ -305,7 +305,9 @@ export default function Page() {
       const res = await fetch("/api/periods", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, payroll, invoices: invoicesSlim, employees }),
+        // Who saved it, so the dashboard can say "Processed Sep 7 by HARRY"
+        // rather than assuming from who usually does it.
+        body: JSON.stringify({ name, payroll, invoices: invoicesSlim, employees, savedBy: user.label }),
       });
       if (!res.ok) {
         const text = await res.text().catch(() => "");

@@ -740,7 +740,11 @@ export function tasksForMonth(year: number, month: number): TaskDef[] { // month
         result.push({
           ...t,
           id: `${t.id}-${year}-${m}-${day}`,
-          label: `${t.label} — ${MONTHS[month].slice(0, 3)} ${day}`,
+          // The date is not in the label: every surface that shows one of these
+          // already shows its date beside it, so "Pay Avid Bills — Sep 23" next
+          // to "Wed, Sep 23" says it twice. The ID still carries the day, so
+          // the occurrences stay distinct.
+          label: t.label,
           dueDay: day,
           everyWednesday: false,
         });
@@ -750,7 +754,7 @@ export function tasksForMonth(year: number, month: number): TaskDef[] { // month
         result.push({
           ...t,
           id: `${t.id}-${year}-${m}-${day}`,
-          label: `${t.label} — ${MONTHS[month].slice(0, 3)} ${day}`,
+          label: t.label,
           dueDay: day,
           everyMonday: false,
         });
