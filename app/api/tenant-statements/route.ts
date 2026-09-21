@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseSkylineStatements } from "@/lib/statements/parseSkylineStatements";
+import { recordImport } from "@/lib/tracker/importEvents";
 import { allRuns, mergeIntoPeriod, PERIOD_RE, setPublished, shouldAutoPublish } from "@/lib/statements/store";
 import { summarize } from "@/lib/statements/summary";
 import { logAudit, auditIp } from "@/lib/audit";
@@ -95,6 +96,10 @@ export async function POST(req: NextRequest) {
   const wantsAutoPublish = String(form.get("autoPublish") ?? "1") !== "0";
   const autoPublish = shouldAutoPublish({ wants: wantsAutoPublish, untied: untied.length, alreadyPublished: run.published });
   if (autoPublish) run = (await setPublished(period, true)) ?? run;
+
+  // Mark the Data Imports reminder satisfied. Best-effort — a bookkeeping
+  // failure must never fail an import that has already been stored.
+  try { await recordImport("imp-stmts", { at: new Date().toISOString(), by: uploadedBy }); } catch { /* best-effort */ }
 
   const openBalance = parsed.statements.reduce((a, s) => a + s.chargeTotal, 0);
   await logAudit({

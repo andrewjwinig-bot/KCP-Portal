@@ -53,14 +53,22 @@ export type ImportReminder = {
 export const IMPORT_REMINDERS: ImportReminder[] = [
   { id: "imp-rentroll", label: "Rent Roll", cadence: "monthly", when: "By the 1st",
     link: "/rentroll", feeds: "Rent Roll, CAM recon, deposits, commissions" },
-  { id: "imp-gl", label: "General Ledger (Skyline)", cadence: "monthly", when: "At monthly close",
+  { id: "imp-gl", label: "General Ledger", cadence: "monthly", when: "By the 20th",
     link: "/financials/operating-statements", feeds: "Operating Statements & Cash Analysis", periodIs: "prior-month", dueFromDay: 20 },
   { id: "imp-ap", label: "AP Selection Report", cadence: "weekly", when: "Every Wednesday",
     link: "/financials/cash-analysis", feeds: "Import Paid Bills to Cash Sheet", dueFromWeekday: 3 },
-  { id: "imp-alloc-gl", label: "2000 G&A GL", cadence: "monthly", when: "At monthly close",
+  { id: "imp-alloc-gl", label: "2000 G&A GL", cadence: "monthly", when: "By the 20th",
     link: "/allocated-invoicer", feeds: "Allocated Expense invoices", periodIs: "prior-month", dueFromDay: 20 },
   { id: "imp-cc", label: "Credit Card Statement", cadence: "monthly", when: "At monthly close",
     link: "/expenses", feeds: "Credit Card Expense Coder", periodIs: "prior-month" },
+  // The Skyline "Statement" report — every tenant's open charges. It is an
+  // OPEN-ITEMS report read as of WHEN IT IS RUN, so it is THIS month's, not
+  // last month's, and the portal shows whatever the last import said: a tenant
+  // who has paid keeps showing the charge until it is re-run. Due with the
+  // tracker's own "Tenant Monthly Statements" task on the 5th.
+  { id: "imp-stmts", label: "Tenant Monthly Statements", cadence: "monthly", when: "By the 5th",
+    link: "/tenant-statements", feeds: "Tenant portal open A/R + statement PDFs",
+    periodIs: "current-month", dueFromDay: 5 },
 ];
 
 /** A recorded import event (client-safe mirror of the server store's value). */

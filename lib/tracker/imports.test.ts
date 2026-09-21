@@ -159,3 +159,20 @@ describe("labels read as proper nouns", () => {
     expect(IMPORT_REMINDERS.find((r) => r.id === "imp-cc")!.label).toBe("Credit Card Statement");
   });
 });
+
+describe("the tenant statement import", () => {
+  const st = IMPORT_REMINDERS.find((r) => r.id === "imp-stmts")!;
+
+  it("asks for THIS month, not last", () => {
+    // The Skyline Statement report is an OPEN-ITEMS report read as of when it
+    // is run. September's run is September's picture — asking for August's
+    // would be asking for a snapshot nobody wants.
+    expect(st.periodIs).toBe("current-month");
+  });
+
+  it("is not due before the 5th", () => {
+    expect(reminderStatus(st, undefined, new Date(2026, 8, 3))).toBe("not-yet-due");
+    expect(reminderStatus(st, undefined, new Date(2026, 8, 5))).toBe("due");
+    expect(reminderStatus(st, undefined, new Date(2026, 8, 6))).toBe("overdue");
+  });
+});
