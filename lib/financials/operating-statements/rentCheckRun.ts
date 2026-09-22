@@ -5,36 +5,67 @@
 
 import { getGl, getTransactions, assembledTransactions } from "./statementStore";
 import { accountMatchesMask } from "./mask";
-import { buildTenantDirectory, canonicalUnitRef } from "./tenants";
+import { directoryFromRoll, canonicalUnitRef, type TenantDirectory } from "./tenants";
 import { identifyTx } from "./txUnits";
 import { rentCheck, basisForLine, BASIS_LABEL, type RentCheckUnit, type RentCheckBasis, type RentCheckResult, type RentCheckStatus } from "./rentCheck";
-import { loadCurrentRentRoll } from "@/lib/rentroll/loadCurrent";
+import { getJSON, listJSON } from "@/lib/storage";
+import { rollAsOf } from "@/lib/rentroll/current";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
+
+/**
+ * WHICH ROLL, AND FROM WHERE.
+ *
+ * The rent roll HISTORY, not the stored "current" pointer. The pointer is a
+ * copy that is only rewritten when someone opens the Rent Roll page, so after
+ * a re-import (or a parser fix) it can carry figures the Rent Roll page no
+ * longer shows. 1100's August: the Rent Roll page read Ferry Good Treats at
+ * $2,000, the pointer still had $0, and the statement called the correctly
+ * billed $2,000 "UNEXPECTED". Reading the snapshots the page itself composes
+ * from makes the two impossible to disagree.
+ *
+ * And the roll AS OF THE STATEMENT'S MONTH (`rollAsOf`): an August statement
+ * is checked against the August roll, so importing September's cannot move
+ * August's expectation.
+ */
+export type RentCheckShared = {
+  snapshots: RentRollData[];
+  /** Per month key — the roll and its tenant directory, built once. */
+  byMonth: Map<string, { rentroll: RentRollData; dir: TenantDirectory } | null>;
+};
 
 /** Loaded once per request and handed to every line, rather than per line. */
 export type RentCheckContext = {
-  rentroll: RentRollData;
+  shared: RentCheckShared;
   byAccount: Record<string, { month: number; amount: number; date: string | null; description: string; ref: string }[]>;
-  dir: Awaited<ReturnType<typeof buildTenantDirectory>>;
 };
 
 /**
- * The parts that are the same for every property: the rent roll and the tenant
- * directory. Split out because the cross-property Review asks this question of
- * thirteen properties in one pass, and re-reading both blobs for each of them
- * is thirteen times the work for one answer.
+ * The parts that are the same for every property. Split out because the
+ * cross-property Review asks this question of thirteen properties in one
+ * pass, and re-reading the history for each of them is thirteen times the
+ * work for one answer. Null when there is no rent roll — the check simply
+ * doesn't run.
  */
-export type RentCheckShared = { rentroll: RentRollData; dir: RentCheckContext["dir"] };
-
-/** Null when there is no rent roll — the check simply doesn't run. */
 export async function loadRentCheckShared(): Promise<RentCheckShared | null> {
-  // COMPOSED, not the stored pointer — see `loadCurrentRentRoll`. The pointer
-  // can lag a re-import, which is how the statement kept reporting a
-  // correctly-billed $2,000 as "UNEXPECTED" while the Rent Roll page, which
-  // composes, showed the right figure.
-  const rentroll = await loadCurrentRentRoll<RentRollData>();
-  if (!rentroll) return null;
-  return { rentroll, dir: await buildTenantDirectory() };
+  let snapshots = ((await listJSON("rentroll-history")) ?? []) as RentRollData[];
+  snapshots = snapshots.filter((s) => s && Array.isArray(s.properties));
+  if (!snapshots.length) {
+    // Before any history existed the pointer was the only copy.
+    const legacy = (await getJSON("rentroll", "current")) as RentRollData | null;
+    if (!legacy) return null;
+    snapshots = [legacy];
+  }
+  return { snapshots, byMonth: new Map() };
+}
+
+/** The roll (and directory) a statement month is checked against. */
+export function rollForMonth(shared: RentCheckShared, year: number, period: number) {
+  const key = `${year}-${String(period).padStart(2, "0")}`;
+  if (!shared.byMonth.has(key)) {
+    const rentroll = rollAsOf(shared.snapshots, key);
+    shared.byMonth.set(key, rentroll ? { rentroll, dir: directoryFromRoll(rentroll) } : null);
+  }
+  return shared.byMonth.get(key)!;
 }
 
 /** Null when there is no rent roll — the check simply doesn't run. */
@@ -49,7 +80,7 @@ export async function loadRentCheckContext(
   const byAccount = versionId
     ? await (async () => { const v = await getGl(versionId); return v ? getTransactions(v.id) : {}; })()
     : await assembledTransactions(key, year);
-  return { ...base, byAccount } as RentCheckContext;
+  return { shared: base, byAccount } as RentCheckContext;
 }
 
 export function runRentCheck(ctx: RentCheckContext, opts: {
@@ -61,8 +92,11 @@ export function runRentCheck(ctx: RentCheckContext, opts: {
   sign: 1 | -1;
   basis: RentCheckBasis;
 }): RentCheckResult & { properties: string[] } {
-  const { rentroll, byAccount, dir } = ctx;
   const { property, year, period, scope, mask, sign, basis } = opts;
+  const { byAccount } = ctx;
+  const resolved = rollForMonth(ctx.shared, year, period);
+  if (!resolved) return { ...rentCheck({ year, period, scope, units: [], billedByUnit: {}, basis }), properties: [] };
+  const { rentroll, dir } = resolved;
 
   // Bill the window, suite by suite. A charge that resolves to no suite is
   // totalled separately — dropping it would make the billed column short and

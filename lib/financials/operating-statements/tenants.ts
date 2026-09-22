@@ -8,7 +8,7 @@
 // transaction drill-down, and anything else agree.
 
 import "server-only";
-import { loadCurrentRentRoll } from "@/lib/rentroll/loadCurrent";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 
@@ -63,11 +63,19 @@ export type TenantDirectory = {
   findUnit: (text: string) => UnitHit | null;
 };
 
-/** Build the rent-roll lookups once: account→tenant and tenant-name→unit. */
-export async function buildTenantDirectory(): Promise<TenantDirectory> {
-  // Composed, not the stored pointer — the directory is built on the same
-  // call as the rent check and must describe the same roll it does.
-  const rentroll = await loadCurrentRentRoll<RentRollData>();
+/** Build the rent-roll lookups once: account→tenant and tenant-name→unit.
+ *
+ *  Reads the roll COMPOSED FROM HISTORY — what the Rent Roll page shows — not
+ *  the stored "current" pointer. The pointer is only rewritten when someone
+ *  opens the Rent Roll page, so after a parser fix it went on carrying the old
+ *  figures: 1100's Ferry Good Treats read $2,000 on the Rent Roll page and $0
+ *  on the operating statement, which then called the correct charge
+ *  "UNEXPECTED $2,000". */
+export async function buildTenantDirectory(roll?: RentRollData | null): Promise<TenantDirectory> {
+  return directoryFromRoll(roll !== undefined ? roll : await resolveCurrentRentroll());
+}
+
+export function directoryFromRoll(rentroll: RentRollData | null): TenantDirectory {
   const byCode = new Map<string, string>();
   const unitByName = new Map<string, string>();
   // Every unit ref in the roll, VACANT ONES INCLUDED, so a charge posted to a
