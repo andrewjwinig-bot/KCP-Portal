@@ -281,10 +281,23 @@ export default function OperatingStatementsReviewPage() {
     return out;
   }, [data]);
 
-  // Data-health: GL files that don't tie out, and properties imported behind the
-  // expected posted-through month. Trustworthiness/completeness of the data.
-  const tieOutBad = useMemo(() => (data?.properties ?? []).filter((p) => (p.tieOut?.mismatches ?? 0) > 0), [data]);
-  const coverageBehind = useMemo(() => (data?.properties ?? []).filter((p) => p.coverage?.behind), [data]);
+  // THIS PAGE IS THE CHECKLIST, AND ONLY THE CHECKLIST.
+  //
+  // It used to carry a "Data health" card and two KPI tiles for it — GL
+  // accounts that don't reconcile, and properties imported behind the expected
+  // month. Both were answering a question the page is not for, and both are now
+  // answered somewhere you would actually see them:
+  //
+  //   • TIE-OUT → the GL TIES pill on the statement's own header, on the page
+  //     you work in all month. And it near-never fired: Skyline will not post an
+  //     unbalanced entry, so a mismatch here means a corrupt or truncated
+  //     export, which the per-property pill reports the moment you open it.
+  //   • BEHIND ON COVERAGE → the dashboard's Data Imports card, which counts
+  //     the whole portfolio ("12/37") and names the properties still missing.
+  //     Better placed, and a dormant property no longer reads as behind.
+  //
+  // What is left is one list of things to go and look at. The response still
+  // carries `tieOut` and `coverage` per property for the API's other readers.
 
   function toggleProp(key: string) {
     setOpenProps((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
@@ -356,8 +369,6 @@ export default function OperatingStatementsReviewPage() {
 
       <div className="pills" style={{ justifyContent: "flex-start" }}>
         <StatPill label="Not Posted / Missing Debt" value={allIssues.length} accent={allIssues.length > 0 ? "#b91c1c" : "#15803d"} />
-        <StatPill label="GL Doesn’t Tie Out" value={tieOutBad.length} accent={tieOutBad.length > 0 ? "#b91c1c" : "#15803d"} />
-        <StatPill label="Behind on Coverage" value={coverageBehind.length} accent={coverageBehind.length > 0 ? "#b45309" : "#15803d"} />
         <StatPill label="Flagged Line-Months" value={totalMonths} accent={totalMonths > 0 ? "#b45309" : "#15803d"} />
         <StatPill label="Properties Flagged" value={propsWithFlags} accent={propsWithFlags > 0 ? "#b45309" : undefined} />
         <StatPill label="Properties Reviewed" value={reviewed.length} accent="#0b4a7d" />
@@ -402,32 +413,6 @@ export default function OperatingStatementsReviewPage() {
                 ))}
               </tbody>
             </table>
-          </div>
-        </div>
-      )}
-
-      {(tieOutBad.length > 0 || coverageBehind.length > 0) && (
-        <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: "rgba(180,83,9,0.4)" }}>
-          <div style={{ padding: "10px 16px", background: "rgba(180,83,9,0.06)", borderBottom: "1px solid rgba(180,83,9,0.25)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 15 }}>🩺</span>
-            <b style={{ color: "#9a3412" }}>Data health</b>
-            <span className="muted small">Is the imported GL trustworthy and current? These don&rsquo;t depend on any single line.</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {tieOutBad.map((p) => (
-              <Link key={`tie-${p.key}`} href={`/financials/operating-statements?key=${encodeURIComponent(p.key)}&year=${year}&period=${p.latestPeriod}`}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderTop: "1px solid var(--border)", textDecoration: "none", color: "var(--text)" }}>
-                <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: "rgba(185,28,28,0.10)", color: "#b91c1c", border: "1px solid rgba(185,28,28,0.30)", whiteSpace: "nowrap" }}>Doesn’t tie out</span>
-                <span style={{ flex: 1, minWidth: 0 }}><code style={{ fontSize: 11, color: "var(--muted)" }}>{p.propertyCode}</code> <b>{p.propertyName}</b> — <b style={{ color: "#b91c1c" }}>{p.tieOut!.mismatches}</b> of {p.tieOut!.checked} accounts don&rsquo;t reconcile. The GL export may be corrupt or partial — re-import.</span>
-              </Link>
-            ))}
-            {coverageBehind.map((p) => (
-              <Link key={`cov-${p.key}`} href={`/financials/operating-statements?key=${encodeURIComponent(p.key)}&year=${year}&period=${p.latestPeriod}`}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderTop: "1px solid var(--border)", textDecoration: "none", color: "var(--text)" }}>
-                <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: "rgba(180,83,9,0.10)", color: "#b45309", border: "1px solid rgba(180,83,9,0.30)", whiteSpace: "nowrap" }}>Behind</span>
-                <span style={{ flex: 1, minWidth: 0 }}><code style={{ fontSize: 11, color: "var(--muted)" }}>{p.propertyCode}</code> <b>{p.propertyName}</b> — imported through <b>{MONTHS[p.coverage!.through - 1]}</b>, expected through <b>{MONTHS[p.coverage!.expected - 1]}</b>. The statement is stale until the newer month is posted.</span>
-              </Link>
-            ))}
           </div>
         </div>
       )}
