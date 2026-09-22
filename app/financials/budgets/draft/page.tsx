@@ -332,9 +332,6 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
           <Pill tone={TONE_AMBER}>{decided.length} OF {all.length} DECIDED</Pill>
         )}
       </div>
-      <p className="muted small" style={{ marginTop: 0 }}>
-        {owner.label} owns these. For each expiring or holdover lease choose <b>hold</b>, <b>renew</b> (a new rent from the day after the term ends) or <b>vacate</b>; for vacant space, <b>leave vacant</b> or <b>lease up</b> from a month. Every row needs a decision — rental income and the recoveries re-project on save.
-      </p>
       {error && <div style={{ color: "#b91c1c", fontSize: 13, marginBottom: 8 }}>{error}</div>}
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
         {leasing.expiring.length > 0 && (
