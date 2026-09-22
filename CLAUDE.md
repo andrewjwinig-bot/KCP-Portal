@@ -118,6 +118,19 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
   summed, since a person holding two stakes would be counted twice.
 - When a section's purpose mirrors something on another page (a download menu, a hidden-accounts list, a KPI row, a tab+filter+table), copy that page's component/markup/spacing rather than approximating it inline.
 
+**Chart series colours are the `--series-1…6` / `--series-other` tokens in
+`globals.css`** (the validated categorical palette, light and dark each checked
+against `--card`). Colour follows the ENTITY in fixed order — rank it once per
+chart, never cycle, and fold a 7th into `--series-other`. A bar chart's y axis
+comes from `tightScale` (`lib/charts/tightScale.ts`): bars start at zero, the
+top sits just above the data, and a small credit gets only the room it needs.
+Reference: the line-detail modal's stacked **By month** chart
+(`app/financials/operating-statements/MonthlyBars.tsx`) — YTD only, one
+segment per vendor per month, and it is ALSO the filter (click a month, click a
+vendor in the legend) for the charge list below. It replaced the "By tenant /
+unit" table in YTD, which only restated that list; the rent-roll suite table
+stays, because it is a check rather than a restatement.
+
 **Hovers / tooltips — ALWAYS use the shared rich style, never a plain native `title=` or a tiny SVG `<title>`, whenever the hover conveys real data.** The user wants every data-bearing hover to feel considered: a styled card with a title, colored value rows, and an optional footer/delta line — not a small plain browser tooltip. This is the default for ALL future hovers where applicable; do not ship a plain `title=` tooltip for a value/breakdown and wait to be asked to upgrade it.
 - **In an SVG chart** → `ChartTooltip` (+ `HoverBands`) from `app/components/ChartTooltip.tsx`. Track a hovered index in the chart, render `HoverBands` last (full-height hit bands + dashed guide line), enlarge the point(s) on the active index, and render `ChartTooltip` with pre-formatted string rows (title = the x label; one row per series with its color; footer = the delta/variance). Reference implementation: the Management Fees chart (`app/financials/management-fees/page.tsx`).
 - **On an HTML element** (a table cell, a chip/pill, an inline callout) → `HoverCard` from `app/components/HoverCard.tsx` — same card look, portal-rendered so table/card overflow never clips it. Pass `title`, `rows`, optional `footer`.
