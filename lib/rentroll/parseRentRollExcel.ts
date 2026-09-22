@@ -20,12 +20,42 @@ import { PROPERTY_DEFS } from "../properties/data";
  * Only units whose property code matches a known entry in PROPERTY_DEFS are included.
  */
 
+/** The first populated numeric cell in [from, to) — how a value is found when
+ *  it floats inside a merged header block rather than sitting at one index. */
+function firstNumberIn(row: unknown[], [from, to]: readonly [number, number]): number {
+  for (let c = from; c < to; c++) {
+    const raw = row[c];
+    if (raw === null || raw === undefined || String(raw).trim() === "") continue;
+    return toNumber(raw);
+  }
+  return 0;
+}
+
 const COL_OCCUPANT    =  1; // B  (merged B:G)
 const COL_UNIT_REF    =  8; // I
 const COL_SQFT        = 12; // M  (merged M:N)
 const COL_LEASE_FROM  = 15; // P  (merged P:Q)
 const COL_LEASE_TO    = 17; // R  (merged R:T)
-const COL_BASE_RENT   = 20; // U  (merged U:X)
+// A VALUE FLOATS INSIDE ITS MERGED BLOCK, so a single index cannot find it.
+//
+// The report's own header row declares "UNIT INFO / BASE RENT" at column 18,
+// but the value lands at 20 for a tenant WITH lease dates and at 18 for one
+// WITHOUT — the dates in the preceding block push it right. Every tenant at
+// every property had lease dates except one, so a hardcoded 20 worked
+// everywhere it was ever looked at.
+//
+// 1100's Ferry Good Treats is the exception: no lease dates, $2,000 of base
+// rent at column 18, and the parser read column 20 and found nothing. The
+// property's rent roll totalled $3,054.38 against Skyline's $5,054.38 — the
+// missing $2,000 exactly — and the operating statement then reported the
+// correctly-billed $2,000 as "UNEXPECTED". The two VACANT rows above it sit at
+// 18 as well, which is why this survived: their base rent is 0 either way.
+//
+// So base rent is the first populated cell in the header's own span, 18 up to
+// but not including 22 ("PRORATED BASE RENT ANNUAL"). Bounded by the next
+// header column, it cannot reach past its own field.
+const COL_BASE_RENT   = 20; // U  (merged U:X) — kept for the fixed-position read
+const BASE_RENT_SPAN: readonly [number, number] = [18, 22];
 const COL_OPEX_MONTH  = 39; // AN (merged AN:AR) — CAM
 import { amenityFor, type AmenityInfo } from "./amenities";
 
@@ -257,7 +287,7 @@ export function parseRentRollExcel(
     const sqft      = toNumber(row[COL_SQFT]);
     const leaseFrom = parseDateStr(row[COL_LEASE_FROM]);
     const leaseTo   = parseDateStr(row[COL_LEASE_TO]);
-    const baseRent  = toNumber(row[COL_BASE_RENT]);
+    const baseRent  = firstNumberIn(row, BASE_RENT_SPAN);
     const opexMonth  = toNumber(row[COL_OPEX_MONTH]);
     const reTaxMonth = toNumber(row[COL_RETAX_MONTH]);
     const otherMonth = toNumber(row[COL_OTHER_MONTH]);
