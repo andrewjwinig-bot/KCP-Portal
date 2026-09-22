@@ -20,6 +20,43 @@ import { PROPERTY_DEFS } from "../properties/data";
  * Only units whose property code matches a known entry in PROPERTY_DEFS are included.
  */
 
+/**
+ * The row's populated cells from SQUARE FEET rightward, in column order.
+ *
+ * The money columns after base rent are read from the END of this list, not by
+ * index, because a value floats inside its merged header block and the drift is
+ * NOT a constant: measured against the header row, base rent moves 2 columns,
+ * rent/sq-ft 1 and gross 4. What IS fixed is the ORDER and the count — every
+ * tenant row ends with the same eight figures:
+ *
+ *   … CAM/mo, CAM/sf, RET/mo, RET/sf, Other/mo, Other/sf, Gross, Gross/sf
+ *
+ * so counting back from the last cell finds each one wherever it landed.
+ *
+ * Checked against the whole August 2026 roll — 441 tenant rows across 46
+ * properties. Against the fixed indices this changes CAM on 1 row, RET on 1 and
+ * OTHER on 42, and all 42 are the same error: column 53 is where GROSS RENTS
+ * begins, so a row whose Other sat at 51 had its GROSS read as its Other.
+ * 1100's Ferry Good Treats showed $2,159 of "other expense" that was its whole
+ * gross rent; 2000's clearing rows showed their entire billing as Other.
+ */
+function tailValues(row: unknown[]): unknown[] {
+  const out: unknown[] = [];
+  for (let c = COL_SQFT; c < 62; c++) {
+    const v = row[c];
+    if (v === null || v === undefined || String(v).trim() === "") continue;
+    out.push(v);
+  }
+  return out;
+}
+
+/** The n-th value counting back from the end (1 = last). 0 when the row is too
+ *  short to hold the full run — a malformed row must not read a neighbour's
+ *  figure, and every such row in the sample is an all-zero vacancy anyway. */
+function fromEnd(tail: unknown[], n: number): number {
+  return tail.length >= 10 ? toNumber(tail[tail.length - n]) : 0;
+}
+
 /** The first populated numeric cell in [from, to) — how a value is found when
  *  it floats inside a merged header block rather than sitting at one index. */
 function firstNumberIn(row: unknown[], [from, to]: readonly [number, number]): number {
@@ -56,11 +93,13 @@ const COL_LEASE_TO    = 17; // R  (merged R:T)
 // header column, it cannot reach past its own field.
 const COL_BASE_RENT   = 20; // U  (merged U:X) — kept for the fixed-position read
 const BASE_RENT_SPAN: readonly [number, number] = [18, 22];
-const COL_OPEX_MONTH  = 39; // AN (merged AN:AR) — CAM
+// Superseded by the end-anchored reads in `tailValues` — kept only as the
+// record of where the header row puts each block, since the constants are what
+// a reader reaches for first and they are no longer where the value is:
+//   CAM header col 37 (value drifts to 39), RET 44 (to 48), Other 51 (to 53,
+//   which is where GROSS RENTS starts — the collision that caused the bug).
 import { amenityFor, type AmenityInfo } from "./amenities";
 
-const COL_RETAX_MONTH = 48; // AW (merged AW:AZ) — RE Tax
-const COL_OTHER_MONTH = 53; // BB (merged BB:BC) — Other
 
 export interface RentRollEscalation {
   date: string;
@@ -288,9 +327,12 @@ export function parseRentRollExcel(
     const leaseFrom = parseDateStr(row[COL_LEASE_FROM]);
     const leaseTo   = parseDateStr(row[COL_LEASE_TO]);
     const baseRent  = firstNumberIn(row, BASE_RENT_SPAN);
-    const opexMonth  = toNumber(row[COL_OPEX_MONTH]);
-    const reTaxMonth = toNumber(row[COL_RETAX_MONTH]);
-    const otherMonth = toNumber(row[COL_OTHER_MONTH]);
+    // Counted back from the row's last figure — see `tailValues`. The trailing
+    // run is Gross/sf, Gross, Other/sf, Other, RET/sf, RET, CAM/sf, CAM.
+    const tail = tailValues(row);
+    const opexMonth  = fromEnd(tail, 8);
+    const reTaxMonth = fromEnd(tail, 6);
+    const otherMonth = fromEnd(tail, 4);
 
     prop.units.push({
       occupantName,
