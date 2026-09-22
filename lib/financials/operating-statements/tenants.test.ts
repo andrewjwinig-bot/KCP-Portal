@@ -23,7 +23,8 @@ const rentroll = {
   ],
 };
 
-vi.mock("@/lib/storage", () => ({ getJSON: vi.fn(async () => rentroll) }));
+// No history → the directory falls back to the stored pointer.
+vi.mock("@/lib/storage", () => ({ getJSON: vi.fn(async () => rentroll), listJSON: vi.fn(async () => []) }));
 
 import { buildTenantDirectory, canonicalUnitRef } from "./tenants";
 
