@@ -28,6 +28,7 @@
 // like the finish line.
 
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type { InstructionStep, TaskInstructions } from "@/lib/tracker/taskDefs";
 
 export type WizardTask = { id?: string; label: string; instructions?: TaskInstructions };
@@ -348,6 +349,67 @@ function StepHeader({ index, title, done, onToggle }: {
   );
 }
 
+/** The screen as it should look, with click-to-enlarge.
+ *
+ *  A 975px-wide Skyline form inside a 720px modal makes every dropdown value
+ *  a squint, and the values ARE the instruction — so the inline render is the
+ *  orientation ("this is the screen, this is roughly where things sit") and
+ *  the full-size overlay is where you actually read it. The settings table
+ *  above carries the same values in text for the times you do not want to
+ *  open anything at all.
+ */
+function StepImage({ image }: { image: NonNullable<InstructionStep["image"]> }) {
+  const [zoom, setZoom] = useState(false);
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setZoom(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoom]);
+  return (
+    <div style={{ marginTop: 12, marginLeft: 8 }}>
+      <button
+        type="button"
+        onClick={() => setZoom(true)}
+        title="Click to enlarge"
+        style={{
+          display: "block", padding: 0, cursor: "zoom-in", width: "100%",
+          border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden",
+          background: "var(--card)", position: "relative",
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={image.src} alt={image.alt} style={{ display: "block", width: "100%", height: "auto" }} />
+        <span style={{
+          position: "absolute", right: 8, bottom: 8,
+          fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
+          padding: "3px 8px", borderRadius: 999,
+          background: "rgba(15,23,42,0.75)", color: "#fff",
+        }}>CLICK TO ENLARGE</span>
+      </button>
+      {image.caption && (
+        <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6, fontStyle: "italic" }}>{image.caption}</div>
+      )}
+
+      {zoom && typeof document !== "undefined" && createPortal(
+        <div
+          onClick={() => setZoom(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.80)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 24, cursor: "zoom-out",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={image.src} alt={image.alt}
+            style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 8, boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }} />
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
 /** A navigation path — the Skyline screen to open, or the folder to file the
  *  output in. Copies on click, because the save path is typed into Explorer
  *  and "Year End 20## → Skyline → Posting Reports" is not a thing anyone should
@@ -476,6 +538,31 @@ function StepBody({ step, runState, onToggleRun }: {
           ))}
         </div>
       )}
+
+      {/* THE FIELD VALUES, as a table — which is what they are. Transcribed as
+          well as pictured: an image cannot be searched, read out over the
+          phone or copied, and a screenshot that fails to load must not take
+          the instruction with it. */}
+      {step.settings && step.settings.length > 0 && (
+        <div style={{
+          marginTop: 12, marginLeft: 8, borderRadius: 8, overflow: "hidden",
+          border: "1px solid rgba(11,74,125,0.20)",
+        }}>
+          {step.settings.map((row, i) => (
+            <div key={row.field} style={{
+              display: "flex", gap: 12, alignItems: "baseline",
+              padding: "6px 11px", fontSize: 12.5,
+              background: i % 2 ? "transparent" : "rgba(11,74,125,0.04)",
+              borderTop: i ? "1px solid rgba(11,74,125,0.10)" : undefined,
+            }}>
+              <span style={{ flex: 1, minWidth: 0, color: "var(--muted)", fontWeight: 600 }}>{row.field}</span>
+              <span style={{ fontWeight: 800, fontFamily: "monospace", color: BRAND, textAlign: "right" }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {step.image && <StepImage image={step.image} />}
 
       {step.saveTo && (
         // Its own chip, not a bullet: you navigate here in Explorer rather than

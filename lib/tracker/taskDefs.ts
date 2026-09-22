@@ -78,6 +78,20 @@ export interface InstructionStep {
    * screen, pushing the instruction you came for below the fold.
    */
   troubleshooting?: string[];
+  /**
+   * A screenshot of the screen as it should be filled in.
+   *
+   * For a form like Skyline's Consolidation Process — a dozen dropdowns whose
+   * correct values are not guessable from their labels — a picture of the
+   * right answer beats any prose description of it. The fields are ALSO
+   * transcribed in `settings`, because an image cannot be searched, read out
+   * or copied, and a screenshot that fails to load must not take the
+   * instruction with it.
+   */
+  image?: { src: string; alt: string; caption?: string };
+  /** Exact field → value pairs to mirror on the screen. Rendered as a table,
+   *  because that is what they are. */
+  settings?: { field: string; value: string }[];
   links?: { label: string; url: string }[]; // quick-access buttons (e.g. bank logins)
 }
 
@@ -265,8 +279,27 @@ export const TASK_DEFS: TaskDef[] = [
         {
           title: "Consolidate Portfolios",
           path: "General Ledger → Portfolio Consolidation → Consolidation Process",
-          items: [],
-          context: ["Keeps the consolidated portfolio reports accurate."],
+          items: [
+            "Set Portfolio Number, then mirror the settings below",
+          ],
+          settings: [
+            { field: "Recursive Consolidation", value: "Yes" },
+            { field: "Verify Current Periods", value: "Yes" },
+            { field: "Chart of Accounts", value: "Yes" },
+            { field: "Current Year Balances", value: "Yes" },
+            { field: "Current Transactions", value: "Detail" },
+            { field: "Historical Transactions", value: "Detail — File: Current" },
+            { field: "Prior Year Balances", value: "No" },
+            { field: "Budget Figures", value: "No" },
+            { field: "Vendor Information", value: "No" },
+            { field: "Report Destination", value: "Preview" },
+          ],
+          image: {
+            src: "/tracker/skyline-consolidation-process.png",
+            alt: "Skyline Consolidation Process screen filled in for PNIPLX",
+            caption: "PNIPLX shown — the Portfolio Number is the only field that changes between passes.",
+          },
+          context: ["Keeps the consolidated portfolio reports accurate.", "Recursive Consolidation consolidates every portfolio below the one selected."],
           runs: ["PNIPLX", "PJV3"],
           note: "Do not save the consolidation reports.",
         },
