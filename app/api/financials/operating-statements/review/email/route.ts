@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 import { reviewFlaggedLines } from "@/lib/financials/operating-statements/review";
 import { buildReviewChecklistXlsx } from "@/lib/financials/operating-statements/reviewWorkbook";
 import { sendMail, isMailConfigured, VERIFIED_FROM } from "@/lib/mail";
-import { cookies } from "next/headers";
-import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
-import { isPathAllowed, ALL_USERS, type UserId } from "@/lib/users";
+import { canReadChecklist } from "@/lib/financials/operating-statements/reviewAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,23 +24,13 @@ function recipients(): string[] {
   return raw.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-/** Gated with the other statement pages — the checklist carries GL figures. */
-async function authorized(): Promise<boolean> {
-  const secret = process.env.SITE_AUTH_SECRET;
-  if (!secret) return process.env.NODE_ENV !== "production";
-  try {
-    const id = await verifySiteToken((await cookies()).get(SITE_COOKIE)?.value, secret);
-    return !!id && (ALL_USERS as readonly string[]).includes(id) && isPathAllowed(id as UserId, "/financials");
-  } catch { return false; }
-}
-
 // POST { year? } — build the cross-property checklist and email it as one xlsx.
 //
 // Fired automatically once an import's auto-explain has finished (so the notes
 // are IN the file rather than arriving empty), and available on demand from the
 // Flags to Investigate page.
 export async function POST(req: Request) {
-  if (!(await authorized())) return NextResponse.json({ error: "Not authorized." }, { status: 403 });
+  if (!(await canReadChecklist())) return NextResponse.json({ error: "Not authorized." }, { status: 403 });
 
   let body: { year?: number } = {};
   try { body = await req.json(); } catch { /* year is optional */ }

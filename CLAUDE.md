@@ -597,6 +597,19 @@ time — and the team does not have time to open the GL over $80.
   That is exactly how "it isn't overriding the comments" happened. The Review
   page keeps its checkbox, since there is no cross-property clear; `force`
   stays on the endpoint either way.
+- **FLAGS TO INVESTIGATE IS A REVIEW-SESSION PAGE, and the goal is an EMPTY
+  LIST** (`app/financials/operating-statements/review/page.tsx`). One property
+  at a time (brand `Select` + ← / →, rent-roll order, "Next: <property> (n) →"
+  once one is clear), its open items YEAR TO DATE in ONE table banded by month,
+  January down. A row is line → actual → budget → variance → WHY (the note,
+  ✨ AI-tagged, else the rule's reason; BILLING and NOT POSTED pills lead).
+  **Every row can be dismissed, missing postings included** — they used to
+  ignore dismissals, so the list could never reach zero. A dismissed row stays
+  dimmed with Undo until you leave the property. A note written on the row is
+  a `user` note (auto-explain never overwrites it). The Excel download is the
+  SAME themed workbook the import emails (`review/checklist`), not a second
+  export. Don't go back to cards-per-property with nested expanders — three
+  clicks to read one variance is what this replaced.
 - **THE MONTH'S CHECKLIST IS EMAILED ON IMPORT.** One workbook, every
   property's open items, built server-side on the shared Excel theme
   (`reviewWorkbook.ts`) and sent by

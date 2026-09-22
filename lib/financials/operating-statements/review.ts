@@ -55,6 +55,9 @@ export type ReviewMonth = {
   budget: number | null;
   variance: number | null;
   note: string | null;
+  /** Who wrote the note: "ai" (auto-explain) or "user" (a person wrote or
+   *  edited it). Null when there is no note. */
+  noteSource?: "ai" | "user" | null;
 };
 
 /** A statement line and every month of the year it was flagged. */
@@ -150,10 +153,16 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     // Latest-month data-completeness issues: budget-expected-but-unposted lines
     // (set by computeStatement) + debt scheduled but not posted (Debt Tracker).
     await markMissingDebt(statementMax, m.key, m.propertyCode, year, max);
+    // A DISMISSED ITEM IS DONE, whatever kind it is. Missing postings used to
+    // ignore dismissals, so the list could never reach zero: a line someone had
+    // checked and ruled out ("no insurance bill this month, it's annual") sat
+    // on it for good. The page is meant to be chipped down to nothing.
+    const dismissedLatest = new Set(await getDismissedFlags(m.key, year, max).catch(() => [] as string[]));
     const issues: ReviewIssue[] = [];
     for (const sec of statementMax.sections) {
       for (const l of sec.lines) {
         if (!l.expectedMissing) continue;
+        if (dismissedLatest.has(`${sec.name}::${l.label}`)) continue;
         issues.push({
           type: l.expectedMissing.basis === "debt" ? "missing-debt" : "not-posted",
           lineKey: `${sec.name}::${l.label}`, section: sec.name, line: l.label,
@@ -238,6 +247,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     type PeriodData = {
       amounts: Map<string, { actual: number; budget: number | null; variance: number | null }>;
       notes: Record<string, string>;
+      sources: Record<string, string>;
       dismissed: Set<string>;
     };
     const perPeriod = new Map<number, PeriodData>();
@@ -253,11 +263,11 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
           amounts.set(`${sec.name}::${l.label}`, { actual: l.periodActual, budget: l.periodBudget, variance: l.periodVariance });
         }
       }
-      const [{ notes }, dismissedArr] = await Promise.all([
+      const [{ notes, sources }, dismissedArr] = await Promise.all([
         getNotesBundle(m.key, year, P),
         getDismissedFlags(m.key, year, P),
       ]);
-      perPeriod.set(P, { amounts, notes, dismissed: new Set(dismissedArr) });
+      perPeriod.set(P, { amounts, notes, sources, dismissed: new Set(dismissedArr) });
     }));
 
     // Assemble, dropping dismissed (line, month) instances.
@@ -293,6 +303,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
           period, monthLabel: MONTHS[period - 1], flags, ...(billing ? { billing } : {}),
           actual: a?.actual ?? 0, budget: a?.budget ?? null, variance: a?.variance ?? null,
           note: pp.notes[lineKey] ?? null,
+          noteSource: pp.notes[lineKey] ? (pp.sources[lineKey] === "user" ? "user" : "ai") : null,
         });
       }
       if (months.length) {
