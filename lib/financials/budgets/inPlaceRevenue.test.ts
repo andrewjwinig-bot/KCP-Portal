@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
 import { chargeAmount, chargeMonth, canonicalUnit, missingProperties, parseInPlaceRevenue } from "./inPlaceRevenue";
 
@@ -43,7 +43,11 @@ describe("reading a row", () => {
 const FIXTURE = "/root/.claude/uploads/19896df1-1028-5d0d-bf4b-87a01774483b/3abfbc93-Shopping_Centers_-_2026_Monthly_Operating_Budget.xlsx";
 
 describe.runIf(existsSync(FIXTURE))("against the real 2026 workbook", () => {
-  const res = parseInPlaceRevenue(readFileSync(FIXTURE));
+  // Read in beforeAll, NOT in the describe body: vitest still runs a skipped
+  // describe's body to collect its tests, so a top-level read crashed the
+  // whole file on every machine without the workbook — the skip never helped.
+  let res: ReturnType<typeof parseInPlaceRevenue>;
+  beforeAll(() => { res = parseInPlaceRevenue(readFileSync(FIXTURE)); });
 
   it("reads every readable charge row", () => {
     expect(res.charges.length).toBe(617);
