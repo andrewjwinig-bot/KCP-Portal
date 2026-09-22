@@ -200,6 +200,9 @@ export const BANK_ACCOUNTS: Record<string, BankAccount[]> = {
   "1100": [
     { bank: "Chase",   label: "Operating",               last4: "x9879", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/911051276/DDA/CHK" },
   ],
+  "9000": [
+    { bank: "Chase",   label: "Operating",               last4: "x1896", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/1294245435/DDA/CHK" },
+  ],
   "9800": [
     { bank: "Chase",   label: "Operating",               last4: "x7857", link: "https://secure.chase.com/web/auth/dashboard#/dashboard/summary/789298739/DDA/CHK" },
   ],
