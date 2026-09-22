@@ -40,14 +40,45 @@ function normalizeOccupantNames(data: any): any {
  * so direct readers (budgets, status report, tenant lookups) see the same
  * union.
  */
-// Cheap identity of a roll for self-heal comparison: report month + the set of
-// property codes + total unit count. Enough to catch a drifted pointer or a
-// property carried back in by the union, without deep-comparing the whole roll.
+// Cheap identity of a roll for self-heal comparison: report month, the set of
+// property codes, total unit count — AND THE MONEY.
+//
+// The money was missing, and that made the self-heal unable to heal the case
+// it most needed to. Shape-only, a roll re-imported after a PARSER FIX is
+// identical to the stale one: same month, same properties, same units. So the
+// pointer was never rewritten and every reader of it kept the old figures,
+// while `/api/rentroll` looked right because it returns the freshly composed
+// roll rather than the stored pointer. That is exactly what happened to 1100:
+// the Rent Roll page showed Ferry Good Treats' corrected $2,000 while the
+// operating statement, which reads the pointer, still had $0 and reported the
+// correct charge as "UNEXPECTED $2,000".
+//
+// Ten modules read that pointer directly (the rent check, tenant directory,
+// move-out candidates, reservations, the monthly report…), so a signature that
+// cannot see a value change leaves all ten stale with nothing to say so.
+// Summing a few hundred units is nothing next to the work of composing the
+// roll, and it makes the next read of /api/rentroll repair the pointer for
+// everyone.
 function rollSig(r: any): string {
   if (!r?.properties) return "none";
   const codes = (r.properties as any[]).map((p) => String(p.propertyCode ?? "").toUpperCase()).sort();
   const units = (r.properties as any[]).reduce((n, p) => n + (p.units?.length ?? 0), 0);
-  return `${snapshotMonthKey(r)}|${codes.join(",")}|${units}`;
+  // A HASH, NOT A SUM. Summing the four columns cannot see a figure MOVING
+  // between them, which is exactly what the parser fix did: Ferry Good Treats
+  // went from base 0 / other 2,159 to base 2,000 / other 159. Same total. A
+  // total would have left the signature identical and the pointer stale — the
+  // bug this exists to heal, surviving the fix for it.
+  let h = 0x811c9dc5; // FNV-1a over each unit's four figures, in order
+  for (const p of r.properties as any[]) {
+    for (const u of (p.units ?? []) as any[]) {
+      const cells = `${u.baseRent ?? 0}|${u.opexMonth ?? 0}|${u.reTaxMonth ?? 0}|${u.otherMonth ?? 0};`;
+      for (let i = 0; i < cells.length; i++) {
+        h ^= cells.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+      }
+    }
+  }
+  return `${snapshotMonthKey(r)}|${codes.join(",")}|${units}|${(h >>> 0).toString(36)}`;
 }
 
 async function resolveCurrentRentroll(): Promise<any | null> {
