@@ -785,6 +785,21 @@ time — and the team does not have time to open the GL over $80.
     Where a month has both, `whatToCheck` shows the tenants AND the note.
   - The check never fails the statement or the review: no rent roll imported,
     or anything thrown, and it simply does not run.
+- **A LEASE-BILLED REVENUE LINE SHORT OF BUDGET IS A FOURTH KIND OF "?"**
+  (`revenueShortfallReason` in `flagRules.ts`). Trend flags need a line to MOVE
+  and the rent-roll check needs a suite to be billed wrong; a lease the budget
+  assumed that isn't billing, a CAM or tax recovery keyed low, or a tenant who
+  left is short by the same amount every month and trips neither — when the
+  suite reads vacant on the roll it even TIES. Only the budget remembers what
+  should have come in. Rules: revenue/reimbursement role, a line with a
+  rent-roll basis (`basisForLine` — base rent, CAM, RE tax, insurance: billed
+  on a lease every month, so it lands near budget), and ≥ `FLAG_MIN_DOLLARS`
+  SHORT. Never over (a new lease or escalation), never lumpy income
+  (percentage rent, recon true-ups, late fees are budgeted evenly and post in
+  lumps). Its own floor, like billing — NOT put through the trend filters,
+  which exist to ignore a steady gap. All three consumers call it: the
+  statement's "?", the Review (its own pass over EVERY month, reusing the month
+  statements it builds in pass 2), and auto-explain's selection.
 - **THE LEASE TERM IS IN THE HOVER, NOT IN COLUMNS**, and the CAVEATS NAME THE
   DATE. On most rows the lease spans the whole window, so two date columns
   would be noise beside seven others; it decides the rows carrying a pill,

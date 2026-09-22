@@ -7,7 +7,7 @@ import { resolvePropertyBudget, makeBudgetLookup, budgetDetailForMask } from "@/
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { buildTenantLookup } from "@/lib/financials/operating-statements/tenants";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
-import { seasonalTrendFlags, isCapitalLine, FLAG_MIN_DOLLARS } from "@/lib/financials/operating-statements/flagRules";
+import { seasonalTrendFlags, isCapitalLine, FLAG_MIN_DOLLARS, revenueShortfallReason } from "@/lib/financials/operating-statements/flagRules";
 import { lineMonthly, lineTxnCounts } from "@/lib/financials/operating-statements/lineSeries";
 
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -130,10 +130,14 @@ export async function POST(req: Request) {
         trendFlags(amounts, counts, amounts[period - 1] ?? null, pySameMonth),
         l.periodVariance,
       );
+      // The same revenue-shortfall rule the statement's "?" uses, so a line
+      // flagged for coming in short of budget gets its note too.
+      const shortfall = revenueShortfallReason(sec.role, l, l.periodActual, l.periodBudget);
       // Surface a line if it's off budget OR shows a month-over-month / YoY signal.
-      if (!cls && trend.length === 0) continue;
+      if (!cls && trend.length === 0 && !shortfall) continue;
 
       const flagReasons = [
+        ...(shortfall ? [shortfall] : []),
         ...(cls ? [`${cls === "unf" ? "unfavorable" : "favorable"} vs budget${ytdOnly ? " (year-to-date only — this month is on budget)" : ""}`] : []),
         ...trend,
       ];
