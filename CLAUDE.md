@@ -899,8 +899,20 @@ time — and the team does not have time to open the GL over $80.
 - **Keying a figure IS completing it.** A saved input ticks its contribution
   on the Expenses step (`deriveContributions`' `entered` map); there is no
   separate tick to remember.
+- **ONE MASTER BUDGET PAGE** — `/financials/budgets/draft` is where Drew,
+  Harry, Nancy and admin collaborate: Steps 1–5 top to bottom, with a slim
+  progress strip (steps + who owes what) pinned under the masthead instead of
+  a 250px side rail that took width from the grid. **Step 3 IS the Budget
+  Inputs table** (`ExpenseInputsPanel`, `embedded`): every line shown, each
+  editable only by its owner (the route's `canEdit`), read-only for the rest.
+  `/api/budget-inputs` is authorized for `/budget-inputs` OR
+  `/financials/budgets` (`SENSITIVE_API_PREFIXES` takes a list). Harry was
+  granted `/financials/budgets` (scoped to the shopping centres, as Nancy is to
+  the parks) — he owns the SC leasing calls and could not open the page. The
+  page opens on the viewer's own book, and the strip/Step 1 follow the BOOK's
+  category (they were hard-coded to Shopping Centers).
 - **Greg's page is `/budget-inputs`, and it is his whole view of the budget.**
-  He alone of the service logins is granted it; its API returns only the three
+  It renders the SAME `ExpenseInputsPanel` as Step 3. He alone of the service logins is granted it; its API returns only the three
   keyed lines, never rents or NOI, and the SERVER checks `canEdit` on every save.
   Drew and admin see and key all three.
 - **An existing tenant's leasing dates come from the LEASE, not an
