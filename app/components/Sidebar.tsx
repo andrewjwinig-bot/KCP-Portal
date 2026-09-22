@@ -47,7 +47,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Cash Analysis":      "financials-statements",
   "Operating Statements": "financials-statements",
   "Management Fees":    "financials-statements",
-  "Statement Review": "financials-statements",
+  "Flags to Investigate": "financials-statements",
   "Reprojections":      "financials-statements",
   "1099 Register":      "financials-statements",
   "Budgets":            "financials-budgets",
@@ -657,11 +657,23 @@ const NAV = [
     ),
   },
   {
-    label: "Statement Review",
+    // NAMED FOR WHAT IT HOLDS, AND ALWAYS REACHABLE.
+    //
+    // It was "Statement Review" in the nav while the page's own content, its
+    // Excel and PDF exports ("Operating Statements - Flags to Investigate -
+    // 2026.xlsx") and every other link to it said "Flags to Investigate" — so
+    // looking for the thing by the name it is called everywhere else found
+    // nothing in the sidebar.
+    //
+    // And `showFor` meant it only appeared once you were ALREADY on Operating
+    // Statements, which is the one place you can reach it from by other means.
+    // It is a monthly destination — the checklist email is sent from here —
+    // not a detail of the page above it, so it stays indented and stays put.
+    label: "Flags to Investigate",
     href: "/financials/operating-statements/review",
     external: false,
     indent: true,
-    showFor: "/financials/operating-statements" as string | null,
+    showFor: null as string | null,
     groupId: "financials",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

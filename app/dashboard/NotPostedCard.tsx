@@ -11,7 +11,7 @@
 // statement, the review checklist and the weekly alert cannot disagree.
 //
 // Green "all posted" when clear; otherwise a compact table (top few, largest
-// first) linking into the Statement Review hub.
+// first) linking into Flags to Investigate.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -52,7 +52,7 @@ export default function NotPostedCard({ order = -1 }: { order?: number }) {
           Not Posted to the GL
         </div>
         <Link href="/financials/operating-statements/review" style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
-          Statement Review →
+          Flags to Investigate →
         </Link>
       </div>
 

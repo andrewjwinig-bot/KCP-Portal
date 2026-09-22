@@ -302,7 +302,7 @@ export default function OperatingStatementsReviewPage() {
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
         <div>
-          <h1 style={{ marginBottom: 4 }}>Statement Review</h1>
+          <h1 style={{ marginBottom: 4 }}>Flags to Investigate</h1>
           <p className="muted small" style={{ margin: 0 }}>
             One place to scan every property for accuracy: <b>not-posted</b> items (a budgeted or scheduled figure reading $0) at the top, then the <b>&ldquo;?&rdquo;</b> lines that look off across every uploaded month. Click any row to jump to that line on the statement.{" "}
             <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>← Operating Statements</Link>
