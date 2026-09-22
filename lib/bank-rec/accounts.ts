@@ -42,6 +42,7 @@ export const UNIQUE_BANK_ACCOUNTS: UniqueBankAccount[] = [
   { bank: "JPM-Chase",   key: "JPM 1100",             last4: "x9879", accountName: "1100 Pkwood Prof Op", propertyCode: "1100" },
   { bank: "JPM-Chase",   key: "JPM 3610A",            last4: "x1993", accountName: "3610A JVIII Condo OP", propertyCode: "3610A" },
   { bank: "JPM-Chase",   key: "JPM 9510 - ACTIVE",    last4: "x1235", accountName: "9510 LH SC OP", propertyCode: "9510" },
+  { bank: "JPM-Chase",   key: "JPM 9000",             last4: "x1896", accountName: "9000 Butler & Main OP", propertyCode: "9000" },
   { bank: "JPM-Chase",   key: "KH 509 9800",          last4: "x7857", accountName: "9800 KH BELLAIRE", propertyCode: "9800" },
   { bank: "JPM-Chase",   key: "JPM 9820",             last4: "x2296", accountName: "9820 KH SPRING GARDE", propertyCode: "9820" },
   { bank: "JPM-Chase",   key: "JPM 9840",             last4: "x9579", accountName: "KH Joshua", propertyCode: "9840" },
