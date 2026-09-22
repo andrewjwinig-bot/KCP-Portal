@@ -958,7 +958,7 @@ time — and the team does not have time to open the GL over $80.
   (`DecisionChoice`), not a dropdown. **Rent is keyed as ANNUAL $/SF**, starting
   at the tenant's current $/SF (so a flat renewal needs no typing); `monthlyRent`
   is derived (× SF ÷ 12) and a renewal left at today's $/SF holds today's rent
-  exactly. **TI $/SF and LC $/SF × the suite's SF land on the Capital section's
+  exactly. **TI is $/SF × the suite's SF; the leasing commission is a PERCENT OF THE RENT over the term** (`leasingCommission`: LC % × new annual rent × term years — no term, no commission). Both land on the Capital section's
   Tenant improvements (1440) and Capitalized Lease Costs (1940-8501) lines in
   the month the new rent starts** (`tiMonthly`/`lcMonthly` in `leaseRevenue.ts`);
   where any deal carries one, that line IS the deals rather than last year's
