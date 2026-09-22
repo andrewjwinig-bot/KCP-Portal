@@ -952,6 +952,18 @@ time — and the team does not have time to open the GL over $80.
   set one figure is how they would disagree. Only a CHANGE commits: tabbing
   across a month leaves it computed.
 
+- **PENDING (build when the 2027 draft is finished): "Publish to Budgets".**
+  The Budget Draft is a WORKSPACE — nothing reads it. The budget of record is
+  the workbook store on `/financials/budgets` (`lib/financials/budgets/storage.ts`),
+  which the operating statements' budget-vs-actual and "?" flags, the Cash
+  Sheet, management fees and the monthly report all read. The plan the owner
+  agreed to defer: a publish step on the draft (Drew/admin) that writes it as a
+  `BudgetWorkbook` (draft/final) so the existing downloads and Skyline export
+  work on it, then retire "+ Create Live Budget" (`build.ts`), an older parallel
+  builder with a master growth % and none of the leasing / recoveries / Budget
+  Inputs / typed-month work. Until then, do not wire anything else to read the
+  draft.
+
 # Balance Sheet — sources of truth
 
 `/financials/balance-sheet`, gated with the other statement pages
