@@ -27,7 +27,7 @@ import { savePendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
 import { prepareAllocation, prepareAllocationFromGl } from "@/lib/allocated-invoicer/autoProcess";
 import { glFromPosting } from "@/lib/allocated-invoicer/postingIntake";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
-import { expectedPostedThrough } from "@/lib/financials/operating-statements/outstanding";
+import { expectedPostedThrough, outstandingGlUploads } from "@/lib/financials/operating-statements/outstanding";
 import { recordImport } from "@/lib/tracker/importEvents";
 
 export const runtime = "nodejs";
@@ -479,22 +479,32 @@ export async function POST(req: Request) {
     const recon = { checked: aggChecked, reconciled: aggReconciled, mismatchCount: aggMismatches.length, mismatches: aggMismatches.slice(0, 8) };
     await logAudit({ event: "gl.upload", user: uploadedBy ?? key, ip: auditIp(req), detail: `${key} ${savedYears.map((s) => s.year).join(",")} · ${file.name}` });
 
-    // The 2000 G&A GL is the same Detailed GL the Allocated Expense Invoicer
-    // runs on. Stash it so the invoicer can pick it up (prompt to generate the
-    // allocated invoices) instead of re-uploading the identical file.
     // Exporting a month's Detailed GL from Skyline is only possible AFTER posting
-    // + closing that period — so importing the prior-month GL is proof those
-    // tracker tasks are done. When the GL brings a property current through the
-    // expected prior month, auto-complete Post PM & AP, Close Prior Month, and
-    // Operating Statements for the month the work falls in (idempotent).
+    // + closing that period, so a complete import is proof the month's Skyline
+    // work is done: Post PM & AP, Close Prior Month, and Operating Statements
+    // all cross off together (idempotent).
+    //
+    // COMPLETE, NOT FIRST. This used to fire on the first file that reached the
+    // expected period, so importing 1 property of 37 crossed off all three —
+    // and the owner's actual sequence is "post PM & AP, THEN import all the
+    // GLs", which leaves the task reading done with a morning's work still to
+    // do. The month is done when every mapped property is posted through the
+    // expected period, which `outstandingGlUploads` already answers for the
+    // dashboard and the weekly digest. Read AFTER the save so this upload
+    // counts toward it.
     let tasksCompleted: string[] = [];
+    let glBehind: number | null = null;
     try {
       const now = new Date();
       const expected = expectedPostedThrough(now);
       if (primary.year === expected.year && primary.maxPeriodInFile === expected.period) {
-        tasksCompleted = ["m-post", "m-close", "m-opstmt"];
-        for (const taskId of tasksCompleted) {
-          await markTaskComplete(now.getFullYear(), now.getMonth(), taskId, { at: now.toISOString(), source: "gl-upload" });
+        const { behind } = await outstandingGlUploads(now);
+        glBehind = behind.length;
+        if (behind.length === 0) {
+          tasksCompleted = ["m-post", "m-close", "m-opstmt"];
+          for (const taskId of tasksCompleted) {
+            await markTaskComplete(now.getFullYear(), now.getMonth(), taskId, { at: now.toISOString(), source: "gl-upload" });
+          }
         }
       }
     } catch { /* best-effort — the statement upload still succeeds */ }
@@ -552,6 +562,7 @@ export async function POST(req: Request) {
       // Auto-processed allocated-invoicer result (2000 G&A GL only).
       allocated,
       tasksCompleted,
+      glBehind,
       // Import health: aggregate tie-out across every year stored.
       reconciliation: recon,
       // What still isn't posted on this property's latest statement.

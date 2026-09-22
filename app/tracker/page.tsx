@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
+import InstructionWizard from "./InstructionWizard";
 import Link from "next/link";
 import {
   TAX_TASKS, TAX_CATEGORIES,
@@ -47,6 +48,38 @@ function saveChecked(year: number, month: number, data: Record<string, boolean>)
   localStorage.setItem(storageKey(year, month), JSON.stringify(data));
 }
 
+/**
+ * A single STEP inside a task's instructions, as a key in the same per-month
+ * blob the task ticks live in.
+ *
+ * Deliberately not its own store: the month is already in `storageKey`, so a
+ * new month starts with every step clear and nothing has to expire anything.
+ * Post PM & AP is seven Skyline screens run in order, some of them twice for
+ * different portfolios — the kind of list where "did I do PFUNDS or just
+ * PALL?" is a real question twenty minutes in, and re-running a post is not
+ * free. Ticking as you go is the whole point.
+ *
+ * The `::` is what keeps a step from ever colliding with a task id.
+ */
+/**
+ * What actually crosses a task off, where the steps alone do not.
+ *
+ * The month-end chain is finished by the GL IMPORT: Skyline will not export a
+ * Detailed GL until the period is posted and closed, so the imported GLs are
+ * the evidence the work took — and the owner's own sequence is "post PM & AP,
+ * then import all the GLs". Saying so on the last step stops the wizard's
+ * finish button reading as the finish line.
+ */
+const COMPLETED_BY: Record<string, string> = {
+  "m-post": "Crosses off once every property's GL is imported — that is what proves the posting took.",
+  "m-close": "Crosses off once every property's GL is imported.",
+  "m-opstmt": "Crosses off once every property's GL is imported.",
+};
+
+function stepKey(taskId: string, stepIndex: number): string {
+  return `${taskId}::step${stepIndex}`;
+}
+
 // ─── HELPERS ────────────────────────────────────────────────────────────────
 
 // ─── PAGE ───────────────────────────────────────────────────────────────────
@@ -64,7 +97,7 @@ export default function TrackerPage() {
   const [taxSent, setTaxSent] = useState<Record<string, boolean>>({});
   const [selDay,    setSelDay]    = useState<number | null>(null);
   const [filterCat, setFilterCat] = useState<Category | "all">("all");
-  const [detailTask, setDetailTask] = useState<{ label: string; instructions?: TaskInstructions } | null>(null);
+  const [detailTask, setDetailTask] = useState<{ id?: string; label: string; instructions?: TaskInstructions } | null>(null);
 
   // ── Owner filter: Drew (default for admin/maint), Marie (default for marie), Both ──
   const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>(
@@ -983,163 +1016,16 @@ export default function TrackerPage() {
       )}
 
       {/* ── Detail modal ─────────────────────────────────────────────────── */}
-      {detailTask?.instructions && (() => {
-        const instr = detailTask.instructions!;
-        return (
-          <div
-            onClick={() => setDetailTask(null)}
-            style={{
-              position: "fixed", inset: 0, zIndex: 100,
-              background: "rgba(0,0,0,0.45)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              padding: 24,
-            }}
-          >
-            <div
-              onClick={e => e.stopPropagation()}
-              style={{
-                background: "var(--card)", borderRadius: 14,
-                boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
-                width: "100%", maxWidth: 720,
-                maxHeight: "80vh", overflowY: "auto",
-                display: "flex", flexDirection: "column",
-              }}
-            >
-              {/* Modal header */}
-              <div style={{
-                display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-                padding: "20px 24px 16px",
-                borderBottom: "1px solid var(--border)",
-                position: "sticky", top: 0, background: "var(--card)", zIndex: 1,
-              }}>
-                <div>
-                  <div style={{ fontWeight: 900, fontSize: 17, letterSpacing: "-0.02em" }}>
-                    {detailTask.label}
-                  </div>
-                  {instr.intro && (
-                    <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4, fontWeight: 500 }}>
-                      {instr.intro}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => setDetailTask(null)}
-                  style={{
-                    background: "none", border: "none", cursor: "pointer",
-                    color: "var(--muted)", fontSize: 22, lineHeight: 1,
-                    padding: "0 0 0 16px", flexShrink: 0, fontWeight: 300,
-                  }}
-                >×</button>
-              </div>
-
-              {/* Steps */}
-              <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
-                {instr.steps.map((step, si) => (
-                  <div key={si}>
-                    {/* Step header */}
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 10 }}>
-                      <span style={{
-                        display: "inline-flex", alignItems: "center", justifyContent: "center",
-                        width: 24, height: 24, borderRadius: "50%",
-                        background: "var(--brand)", color: "#fff",
-                        fontSize: 12, fontWeight: 800, flexShrink: 0,
-                      }}>
-                        {si + 1}
-                      </span>
-                      <span style={{ fontWeight: 800, fontSize: 15 }}>{step.title}</span>
-                    </div>
-
-                    {/* Navigation path */}
-                    {step.path && (
-                      <div style={{
-                        display: "inline-flex", alignItems: "center",
-                        fontSize: 12, fontWeight: 700,
-                        color: "var(--brand)",
-                        background: "rgba(11,74,125,0.07)",
-                        border: "1px solid rgba(11,74,125,0.18)",
-                        borderRadius: 6, padding: "5px 10px",
-                        marginBottom: 10, gap: 4,
-                        fontFamily: "monospace",
-                      }}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                          <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
-                        </svg>
-                        {step.path}
-                      </div>
-                    )}
-
-                    {/* Bullet items */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 8 }}>
-                      {step.items.map((item, ii) => (
-                        <div key={ii} style={{ display: "flex", gap: 10, fontSize: 13 }}>
-                          <span style={{ color: "var(--brand)", fontWeight: 900, flexShrink: 0, marginTop: 1 }}>·</span>
-                          <span style={{ color: "var(--text)", lineHeight: 1.5 }}>{item}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Quick-access links (bank logins, etc.) */}
-                    {step.links && step.links.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10, paddingLeft: 8 }}>
-                        {step.links.map((lk) => (
-                          <a
-                            key={lk.url + lk.label}
-                            href={lk.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              display: "inline-flex", alignItems: "center", gap: 5,
-                              fontSize: 12, fontWeight: 700,
-                              color: "var(--brand)",
-                              background: "rgba(11,74,125,0.07)",
-                              border: "1px solid rgba(11,74,125,0.25)",
-                              borderRadius: 6, padding: "5px 10px",
-                              textDecoration: "none",
-                            }}
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                              <line x1="3" y1="21" x2="21" y2="21" /><line x1="5" y1="21" x2="5" y2="10" /><line x1="19" y1="21" x2="19" y2="10" /><line x1="9" y1="21" x2="9" y2="14" /><line x1="15" y1="21" x2="15" y2="14" /><polygon points="12 2 21 9 3 9" />
-                            </svg>
-                            {lk.label} →
-                          </a>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Asterisk note */}
-                    {step.note && (
-                      <div style={{
-                        marginTop: 10, paddingLeft: 8,
-                        fontSize: 12, fontStyle: "italic", color: "var(--muted)",
-                        display: "flex", gap: 6,
-                      }}>
-                        <span style={{ fontWeight: 700, fontStyle: "normal" }}>*</span>
-                        {step.note}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* Modal footer */}
-              <div style={{
-                padding: "14px 24px",
-                borderTop: "1px solid var(--border)",
-                display: "flex", justifyContent: "flex-end",
-                position: "sticky", bottom: 0, background: "var(--card)",
-              }}>
-                <button
-                  className="btn"
-                  onClick={() => setDetailTask(null)}
-                  style={{ padding: "8px 20px", fontWeight: 700 }}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {detailTask?.instructions && (
+        <InstructionWizard
+          task={detailTask}
+          onClose={() => setDetailTask(null)}
+          checked={checked}
+          stepKey={stepKey}
+          onSetSteps={(next) => { setChecked(next); saveChecked(viewYear, viewMonth, next); }}
+          completedBy={COMPLETED_BY[detailTask.id ?? ""]}
+        />
+      )}
     </main>
   );
 }
