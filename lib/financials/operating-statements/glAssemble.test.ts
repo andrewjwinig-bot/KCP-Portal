@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { assembleGls, coverageStart, mergeTransactions, postedThrough, type AssembleInput, type TxnVersion } from "./glAssemble";
+import { reconcileGl } from "./glParser";
+import { assembleGls, reconcileGlFiles, coverageStart, mergeTransactions, postedThrough, type AssembleInput, type TxnVersion } from "./glAssemble";
 
 // Build a GL fixture: monthly nets for one account "X" at the given months.
 function gl(uploadedAt: string, maxPeriod: number, monthsX: Record<number, number>, beginningX?: number): AssembleInput {
@@ -137,3 +138,31 @@ describe("postedThrough — a quiet month is not a missing one", () => {
     expect(postedThrough(asm)).toBe(8);
   });
 });
+
+describe("reconcileGlFiles — the GL TIES pill", () => {
+  // A P&L account: Jan–Jul upload opens at 0 and closes at its YTD; an
+  // August-only export opens at 0 AGAIN (Skyline's basis for a mid-year range)
+  // and closes at August's net. Each file ties; the stitched composite cannot.
+  const julYtd = gl("2026-08-05T00:00:00Z", 7, { 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 100, 7: 100 }, 0);
+  const augOnly = gl("2026-09-05T00:00:00Z", 8, { 8: 120 }, 0);
+
+  it("does not report a mismatch that only exists in the stitched ledger", () => {
+    const composite = assembleGls([julYtd, augOnly])!;
+    expect(reconcileGl(composite).mismatches.length).toBe(1); // the false alarm
+    const r = reconcileGlFiles([julYtd, augOnly]);
+    expect(r.checked).toBe(2);
+    expect(r.mismatches).toEqual([]);
+  });
+
+  it("still catches a file that does not tie with itself", () => {
+    const broken = { ...augOnly, ytdTotal: { X: 999 } };
+    expect(reconcileGlFiles([julYtd, broken]).mismatches.length).toBe(1);
+  });
+
+  it("ignores an upload a later re-upload fully replaced", () => {
+    const bad = { ...gl("2026-08-01T00:00:00Z", 7, { 1: 100, 7: 100 }, 0), ytdTotal: { X: 5 } };
+    const fixed = gl("2026-08-02T00:00:00Z", 7, { 1: 100, 7: 100 }, 0);
+    expect(reconcileGlFiles([bad, fixed]).mismatches).toEqual([]);
+  });
+});
+

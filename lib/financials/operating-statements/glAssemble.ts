@@ -8,6 +8,8 @@
 //
 // Pure (operates on plain GL-shaped objects) so it's unit-tested.
 
+import { reconcileGl, type GlReconciliation } from "./glParser";
+
 export type AssembleInput = {
   uploadedAt: string;
   maxPeriodInFile: number;
@@ -147,3 +149,43 @@ export function assembleGls<T extends AssembleInput>(gls: T[]): T | null {
   const base = ordered[ordered.length - 1]; // newest, for id/key/fileName/etc.
   return { ...base, monthly, beginning, ytdTotal, names, maxPeriodInFile, uploadedAt, coverageStartMonth, coverageEnd: maxRangeEnd };
 }
+
+/**
+ * Does the ledger TIE — judged one uploaded FILE at a time, never on the
+ * assembled composite.
+ *
+ * `assembleGls` stitches several uploads together: the opening balances come
+ * from the earliest file and the ending balances from the furthest-reaching
+ * one. Reconciling THAT against itself compares one file's opening with
+ * another file's close, and the two are not on the same basis — a Skyline GL
+ * run for August alone opens its income and expense accounts at zero, not at
+ * their Jan–Jul total. So a Jan–Jul upload plus an August one reported every
+ * active P&L account as broken: 4500 read "48 DON'T TIE" on a ledger whose
+ * files each tied on upload. The question the pill asks is "did an import come
+ * in whole", and that is a property of each file.
+ *
+ * Only files that still CONTRIBUTE a month are judged: a bad upload that a
+ * later re-upload fully replaced is not what the statement is reading, and
+ * must not keep the pill red.
+ */
+export function reconcileGlFiles<T extends AssembleInput & { names?: Record<string, string> }>(gls: T[]): GlReconciliation {
+  const ordered = [...gls].sort((a, b) => (a.uploadedAt < b.uploadedAt ? -1 : 1));
+  const out: GlReconciliation = { checked: 0, reconciled: 0, mismatches: [], trialBalanceNet: 0 };
+  ordered.forEach((g, i) => {
+    const start = coverageStart(g);
+    const end = Math.min(12, g.maxPeriodInFile || 0);
+    const newer = ordered.slice(i + 1);
+    let contributes = false;
+    for (let m = start; m <= end && !contributes; m++) {
+      if (!newer.some((n) => coverageStart(n) <= m && m <= Math.min(12, n.maxPeriodInFile || 0))) contributes = true;
+    }
+    if (!contributes) return;
+    const r = reconcileGl(g);
+    out.checked += r.checked;
+    out.reconciled += r.reconciled;
+    out.mismatches.push(...r.mismatches);
+    out.trialBalanceNet += r.trialBalanceNet;
+  });
+  return out;
+}
+

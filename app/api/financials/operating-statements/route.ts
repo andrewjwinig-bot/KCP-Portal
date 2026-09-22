@@ -5,7 +5,7 @@ import { computeStatement } from "@/lib/financials/operating-statements/compute"
 import { availableStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { saveGl, getGl, versionsFor, listFullGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions, getDismissedFlags, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
-import { assembleGls, postedThrough } from "@/lib/financials/operating-statements/glAssemble";
+import { assembleGls, postedThrough, reconcileGlFiles } from "@/lib/financials/operating-statements/glAssemble";
 import { detectPostingFormat, parsePostingReport } from "@/lib/financials/operating-statements/postingReport";
 import { savePostingDelta, type PostingDelta } from "@/lib/financials/operating-statements/postingDeltaStore";
 import crypto from "node:crypto";
@@ -291,8 +291,13 @@ export async function GET(req: Request) {
   // the ending balances the file reports? It was computed on UPLOAD and then
   // only visible on the cross-property Review, so the page you actually work
   // in all month never said whether its own numbers hang together.
+  //
+  // Judged PER UPLOADED FILE (`reconcileGlFiles`), never on the stitched
+  // composite — see that function for why the composite reads false alarms.
+  // A picked version is one file already; a fund is its members' files.
   const glTieOut = (() => {
-    const r = reconcileGl(stored);
+    const files = versionId ? [stored] : fulls.filter((g) => [key, ...(fundParts ?? [])].includes(g.key) && g.year === year);
+    const r = reconcileGlFiles(files);
     return r.checked > 0 ? { checked: r.checked, reconciled: r.reconciled, mismatches: r.mismatches.length } : null;
   })();
 

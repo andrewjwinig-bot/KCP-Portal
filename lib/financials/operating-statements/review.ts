@@ -9,13 +9,12 @@
 import "server-only";
 import { availableStatements, getMapping } from "./mappingStore";
 import { listFullGls, getDismissedFlags, getNotesBundle } from "./statementStore";
-import { assembleGls } from "./glAssemble";
+import { assembleGls, reconcileGlFiles } from "./glAssemble";
 import { summaryForPeriod } from "./glParser";
 import { computeStatement } from "./compute";
 import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import { lineMonthly } from "./lineSeries";
 import { trendFlags } from "./trends";
-import { reconcileGl } from "./glParser";
 import { seasonalTrendFlags, meetsFlagFloor, FLAG_MIN_DOLLARS } from "./flagRules";
 import { basisForLine } from "./rentCheck";
 import { loadRentCheckShared, loadRentCheckContext, runRentCheck, billingFlagReason } from "./rentCheckRun";
@@ -172,9 +171,9 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     }
     issues.sort((a, b) => b.expected - a.expected);
 
-    // GL tie-out: does the file reconcile with itself? (recomputed from the
-    // stored monthly nets vs the reported ending balances).
-    const recon = reconcileGl(stored);
+    // GL tie-out: does each uploaded FILE reconcile with itself? Per file, not
+    // on the stitched composite, which false-alarms (see reconcileGlFiles).
+    const recon = reconcileGlFiles(fulls.filter((g) => g.key === m.key && g.year === year));
     const tieOut = recon.checked > 0 ? { checked: recon.checked, mismatches: recon.mismatches.length } : null;
     // Coverage vs expected posted-through — only meaningful for the current year.
     const exp = expectedPostedThrough();
