@@ -671,6 +671,34 @@ export default function TrackerPage() {
                             }}>i</span>
                           )}
                         </span>
+                        {/* PART-WAY THROUGH reads differently from not started,
+                            and on a seven-screen procedure that is most of the
+                            month. Shown only while genuinely mid-run: nothing
+                            before the first tick, nothing once the task itself
+                            is crossed off. */}
+                        {!isDone && hasDetail && (() => {
+                          const steps = task.instructions?.steps ?? [];
+                          if (steps.length < 2) return null;
+                          const n = steps.filter((_, i) => checked[stepKey(task.id, i)]).length;
+                          if (n === 0) return null;
+                          const all = n === steps.length;
+                          return (
+                            <span
+                              onClick={() => setDetailTask(task)}
+                              title={all ? "All steps done — waiting on the GL imports" : `Resume at step ${n + 1}`}
+                              style={{
+                                display: "inline-flex", alignItems: "center", gap: 5,
+                                fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0,
+                                padding: "2px 8px", borderRadius: 999,
+                                background: all ? "rgba(22,163,74,0.12)" : "rgba(11,74,125,0.08)",
+                                color: all ? "#15803d" : "var(--brand)",
+                                border: `1px solid ${all ? "rgba(22,163,74,0.30)" : "rgba(11,74,125,0.22)"}`,
+                              }}
+                            >
+                              {all ? "✓ steps done" : `${n}/${steps.length} steps`}
+                            </span>
+                          );
+                        })()}
                         {task.link && (
                           <Link
                             href={task.link}

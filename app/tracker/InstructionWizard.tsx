@@ -57,6 +57,27 @@ export default function InstructionWizard({
   const steps = instr?.steps ?? [];
   const trackable = !!task.id && steps.length > 1;
   const keyAt = (i: number) => (task.id ? stepKey(task.id, i) : "");
+  // A pass is a key under its step, so it clears with the month like everything
+  // else and can never collide with another step's identically-named pass.
+  const runKey = (i: number, run: string) => `${keyAt(i)}:run:${run}`;
+  const runStateFor = (i: number): Record<string, boolean> | undefined => {
+    const runs = steps[i]?.runs;
+    if (!runs || !trackable) return undefined;
+    return Object.fromEntries(runs.map((r) => [r, !!checked[runKey(i, r)]]));
+  };
+  /** Ticking the LAST pass finishes the step — the passes ARE the step, so
+   *  making you tick the heading as well would be asking twice. Un-ticking one
+   *  reopens it, for the same reason. */
+  function toggleRun(i: number, run: string) {
+    if (!trackable) return;
+    const next = { ...checked };
+    const k = runKey(i, run);
+    if (next[k]) delete next[k]; else next[k] = true;
+    const runs = steps[i].runs ?? [];
+    if (runs.every((r) => next[runKey(i, r)])) next[keyAt(i)] = true;
+    else delete next[keyAt(i)];
+    onSetSteps(next);
+  }
   const isDone = (i: number) => trackable && !!checked[keyAt(i)];
   const doneCount = steps.filter((_, i) => isDone(i)).length;
   const allDone = trackable && doneCount === steps.length;
@@ -85,18 +106,36 @@ export default function InstructionWizard({
   function setStep(i: number, done: boolean) {
     if (!trackable) return;
     const next = { ...checked };
-    if (done) next[keyAt(i)] = true;
-    else delete next[keyAt(i)];
+    // The heading and its passes must agree: marking the step done ticks every
+    // pass, and clearing it clears them. A step reading done over three of
+    // seven unticked portfolios is the exact confusion this was built to end.
+    const runs = steps[i]?.runs ?? [];
+    if (done) { next[keyAt(i)] = true; runs.forEach((r) => { next[runKey(i, r)] = true; }); }
+    else { delete next[keyAt(i)]; runs.forEach((r) => { delete next[runKey(i, r)]; }); }
     onSetSteps(next);
   }
   function resetAll() {
     const next = { ...checked };
-    steps.forEach((_, i) => delete next[keyAt(i)]);
+    steps.forEach((st, i) => {
+      delete next[keyAt(i)];
+      (st.runs ?? []).forEach((r) => { delete next[runKey(i, r)]; });
+    });
     onSetSteps(next);
     setAt(0);
   }
+  /** Passes still outstanding on the step being viewed. */
+  const openRuns = (i: number): string[] => {
+    const runs = steps[i]?.runs;
+    if (!runs || !trackable) return [];
+    return runs.filter((r) => !checked[runKey(i, r)]);
+  };
+
   function doneAndNext() {
-    setStep(at, true);
+    // A step with passes is finished BY its passes. Pressing Next with three of
+    // seven ticked must not silently claim the other four — the chips are the
+    // record of what you actually ran, and inventing entries in it is worse
+    // than an unticked step. So this only advances; the chips do the marking.
+    if (openRuns(at).length === 0) setStep(at, true);
     if (at < steps.length - 1) setAt(at + 1);
   }
 
@@ -172,7 +211,7 @@ export default function InstructionWizard({
                     done={isDone(si)}
                     onToggle={trackable ? () => setStep(si, !isDone(si)) : undefined}
                   />
-                  <StepBody step={step} />
+                  <StepBody step={step} runState={runStateFor(si)} onToggleRun={trackable ? (r) => toggleRun(si, r) : undefined} />
                 </div>
               ))}
             </div>
@@ -184,8 +223,8 @@ export default function InstructionWizard({
               }}>
                 Step {at + 1} of {steps.length}
               </div>
-              <StepHeader index={at} title={steps[at].title} done={isDone(at)} />
-              <StepBody step={steps[at]} />
+              <StepHeader index={at} title={steps[at].title} done={isDone(at)} onToggle={trackable ? () => setStep(at, !isDone(at)) : undefined} />
+              <StepBody step={steps[at]} runState={runStateFor(at)} onToggleRun={trackable ? (r) => toggleRun(at, r) : undefined} />
 
               {/* The dots are navigation AND a map: a filled dot is a step you
                   finished, so you can jump back to the one you are unsure of. */}
@@ -232,17 +271,35 @@ export default function InstructionWizard({
                     {completedBy}
                   </span>
                 )}
-                {at === steps.length - 1 ? (
-                  <button type="button" className="btn" onClick={() => { setStep(at, true); onClose(); }}
-                    style={{ padding: "8px 20px", fontWeight: 700, background: GREEN, color: "#fff", borderColor: GREEN }}>
-                    ✓ Finish
-                  </button>
-                ) : (
-                  <button type="button" className="btn" onClick={doneAndNext}
-                    style={{ padding: "8px 20px", fontWeight: 700 }}>
-                    {isDone(at) ? "Next →" : "Done — next →"}
-                  </button>
-                )}
+                {(() => {
+                  const open = openRuns(at);
+                  if (open.length) {
+                    // Name what is left rather than greying a button and making
+                    // you work out why.
+                    return (
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#b45309" }}>
+                          {open.length} left: {open.join(", ")}
+                        </span>
+                        {at < steps.length - 1 && (
+                          <button type="button" className="btn" onClick={() => setAt(at + 1)}
+                            style={{ padding: "8px 16px", fontWeight: 700 }}>Skip ahead →</button>
+                        )}
+                      </div>
+                    );
+                  }
+                  return at === steps.length - 1 ? (
+                    <button type="button" className="btn" onClick={() => { setStep(at, true); onClose(); }}
+                      style={{ padding: "8px 20px", fontWeight: 700, background: GREEN, color: "#fff", borderColor: GREEN }}>
+                      ✓ Finish
+                    </button>
+                  ) : (
+                    <button type="button" className="btn" onClick={doneAndNext}
+                      style={{ padding: "8px 20px", fontWeight: 700 }}>
+                      {isDone(at) ? "Next →" : "Done — next →"}
+                    </button>
+                  );
+                })()}
               </div>
             </>
           ) : (
@@ -291,33 +348,173 @@ function StepHeader({ index, title, done, onToggle }: {
   );
 }
 
-/** Path chip, bullets, quick links and the asterisk note — unchanged from the
- *  original modal, extracted so the guide and the full list cannot drift. */
-function StepBody({ step }: { step: InstructionStep }) {
+/** A navigation path — the Skyline screen to open, or the folder to file the
+ *  output in. Copies on click, because the save path is typed into Explorer
+ *  and "Year End 20## → Skyline → Posting Reports" is not a thing anyone should
+ *  retype. */
+function PathChip({ text, kind }: { text: string; kind: "screen" | "save" }) {
+  const [copied, setCopied] = useState(false);
+  const isSave = kind === "save";
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard?.writeText(text).then(
+          () => { setCopied(true); setTimeout(() => setCopied(false), 1400); },
+          () => {},
+        );
+      }}
+      title="Copy"
+      style={{
+        display: "inline-flex", alignItems: "center", textAlign: "left",
+        fontSize: 12, fontWeight: 700, cursor: "pointer",
+        color: isSave ? "#b45309" : BRAND,
+        background: isSave ? "rgba(180,83,9,0.06)" : "rgba(11,74,125,0.07)",
+        border: `1px solid ${isSave ? "rgba(180,83,9,0.25)" : "rgba(11,74,125,0.18)"}`,
+        borderRadius: 6, padding: "5px 10px", gap: 6, fontFamily: "monospace",
+        maxWidth: "100%",
+      }}
+    >
+      {isSave ? (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        </svg>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
+        </svg>
+      )}
+      {isSave && <span style={{ fontFamily: "inherit", opacity: 0.75, fontWeight: 800 }}>Save to</span>}
+      <span style={{ overflowWrap: "anywhere" }}>{text}</span>
+      <span style={{ fontSize: 10, opacity: copied ? 1 : 0.45, flexShrink: 0, fontFamily: "system-ui" }}>
+        {copied ? "copied" : "copy"}
+      </span>
+    </button>
+  );
+}
+
+/** Path chip, run ticks, bullets, save-to, troubleshooting, links and the note.
+ *  Extracted so the guide and the full list cannot drift. */
+function StepBody({ step, runState, onToggleRun }: {
+  step: InstructionStep;
+  /** Which of this step's passes are done. Absent when the step is untracked. */
+  runState?: Record<string, boolean>;
+  onToggleRun?: (run: string) => void;
+}) {
+  const [showFix, setShowFix] = useState(false);
   return (
     <>
-      {step.path && (
-        <div style={{
-          display: "inline-flex", alignItems: "center", fontSize: 12, fontWeight: 700,
-          color: BRAND, background: "rgba(11,74,125,0.07)",
-          border: "1px solid rgba(11,74,125,0.18)", borderRadius: 6, padding: "5px 10px",
-          marginBottom: 10, gap: 4, fontFamily: "monospace",
-        }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-            <rect x="2" y="3" width="20" height="14" rx="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
-          </svg>
-          {step.path}
+      {step.path && <PathChip text={step.path} kind="screen" />}
+
+      {/* THE PASSES. Each portfolio is a trip out to Skyline and back, so each
+          one gets its own tick — this is the line you actually lose your place
+          in, and a chip you have already pressed is the only reliable answer to
+          "did I run PFUNDS?". */}
+      {step.runs && step.runs.length > 0 && (
+        <div style={{ margin: "12px 0 12px", paddingLeft: 8 }}>
+          <div style={{
+            fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em",
+            textTransform: "uppercase", color: "var(--muted)", marginBottom: 7,
+          }}>
+            Run once for each — {step.runs.filter((r) => runState?.[r]).length} of {step.runs.length} done
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {step.runs.map((r) => {
+              const on = !!runState?.[r];
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  disabled={!onToggleRun}
+                  onClick={() => onToggleRun?.(r)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    fontSize: 12, fontWeight: 800, fontFamily: "monospace",
+                    padding: "5px 11px", borderRadius: 999,
+                    cursor: onToggleRun ? "pointer" : "default",
+                    border: `1px solid ${on ? GREEN : "rgba(11,74,125,0.28)"}`,
+                    background: on ? "rgba(22,163,74,0.10)" : "rgba(11,74,125,0.05)",
+                    color: on ? GREEN_TEXT : BRAND,
+                    transition: "background 140ms ease, border-color 140ms ease",
+                  }}
+                >
+                  <span style={{ fontSize: 11 }}>{on ? "✓" : "○"}</span>{r}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 8 }}>
-        {step.items.map((item, ii) => (
-          <div key={ii} style={{ display: "flex", gap: 10, fontSize: 13 }}>
-            <span style={{ color: BRAND, fontWeight: 900, flexShrink: 0, marginTop: 1 }}>·</span>
-            <span style={{ color: "var(--text)", lineHeight: 1.5 }}>{item}</span>
-          </div>
-        ))}
-      </div>
+      {/* THE ACTIONS. Full-strength text with a square marker — the things you
+          came to this screen to do. */}
+      {step.items.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingLeft: 8 }}>
+          {step.items.map((item, ii) => (
+            <div key={ii} style={{ display: "flex", gap: 10, fontSize: 13.5 }}>
+              <span style={{ color: BRAND, fontSize: 9, flexShrink: 0, marginTop: 5 }}>■</span>
+              <span style={{ color: "var(--text)", lineHeight: 1.5, fontWeight: 500 }}>{item}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* THE BACKGROUND. Deliberately NOT a bullet and deliberately quieter:
+          why the step exists, what it produces, where to read more. It sat in
+          the same list as the actions, so "Catches out-of-balance entries…"
+          looked exactly like something to go and do, and the one real
+          instruction had to be found among the explanation. Prose in a rail
+          reads as prose. */}
+      {step.context && step.context.length > 0 && (
+        <div style={{
+          marginTop: step.items.length ? 11 : 0, marginLeft: 8,
+          paddingLeft: 11, borderLeft: "2px solid rgba(15,23,42,0.13)",
+          display: "flex", flexDirection: "column", gap: 4,
+        }}>
+          {step.context.map((c, ci) => (
+            <div key={ci} style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--muted)" }}>{c}</div>
+          ))}
+        </div>
+      )}
+
+      {step.saveTo && (
+        // Its own chip, not a bullet: you navigate here in Explorer rather than
+        // read it, which is also why it copies.
+        <div style={{ marginTop: 11 }}>
+          <PathChip text={step.saveTo} kind="save" />
+        </div>
+      )}
+
+      {step.troubleshooting && step.troubleshooting.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <button
+            type="button"
+            onClick={() => setShowFix((v) => !v)}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: "none", border: "none", padding: 0, cursor: "pointer",
+              fontSize: 12, fontWeight: 700, color: "#b45309",
+            }}
+          >
+            <span style={{ fontSize: 10, transform: showFix ? "rotate(90deg)" : "none", transition: "transform 140ms ease", display: "inline-block" }}>▶</span>
+            If it reports errors
+          </button>
+          {showFix && (
+            <div style={{
+              marginTop: 8, padding: "10px 12px", borderRadius: 8,
+              background: "rgba(180,83,9,0.05)", border: "1px solid rgba(180,83,9,0.22)",
+              display: "flex", flexDirection: "column", gap: 6,
+            }}>
+              {step.troubleshooting.map((t, i) => (
+                <div key={i} style={{ display: "flex", gap: 9, fontSize: 12.5, lineHeight: 1.5 }}>
+                  <span style={{ color: "#b45309", fontWeight: 900, flexShrink: 0 }}>·</span>
+                  <span>{t}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {step.links && step.links.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10, paddingLeft: 8 }}>

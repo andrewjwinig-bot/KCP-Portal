@@ -31,7 +31,19 @@ export const CATEGORIES: Record<Category, { label: string; pill: string; dot: st
 export interface InstructionStep {
   title: string;
   path?: string;   // software navigation path, e.g. "Module → Menu → Sub"
-  items: string[]; // bullet points
+  /**
+   * THE ACTIONS — what to actually do on this screen, imperative.
+   *
+   * Kept strictly separate from `context` because they were one list and read
+   * as one: Journal Posting Prep showed "Catches out-of-balance entries…"
+   * (why the step exists) in the same bullet style as "When clean, run Monthly
+   * Close" (a thing to do), so the instruction had to be found among the
+   * explanation. Anything that is not a thing to DO belongs in `context`.
+   */
+  items: string[];
+  /** WHY / WHAT IT PRODUCES — background, rendered quietly and never as a
+   *  bullet, so it cannot be mistaken for a step to perform. */
+  context?: string[];
   note?: string;   // asterisk note at the end of the step
   /**
    * The note is a WARNING, not a footnote — render it so it cannot be skimmed.
@@ -43,6 +55,29 @@ export interface InstructionStep {
    * missing it is real work to undo; if everything is a warning, nothing is.
    */
   warn?: boolean;
+  /**
+   * The separate passes this step is run for — portfolios, entities, funds.
+   *
+   * "Run twice, once for PALL and once for PFUNDS" and "Run for: PALL,
+   * PFUNDS, PIIICO, PNIPLX, PJV3, PHOMES, PSHOP" are the lines you actually
+   * lose your place in, because each one is a trip out to Skyline and back.
+   * As a bullet they are a sentence you have to remember your way through; as
+   * ticks they are a list that remembers for you, and the step finishes itself
+   * when the last one is done.
+   */
+  runs?: string[];
+  /** Where the step's output is filed. Its own chip because you navigate to it
+   *  in Explorer rather than read it, and it is copyable for that reason. */
+  saveTo?: string;
+  /**
+   * What to do when the step reports errors — collapsed by default.
+   *
+   * Journal Posting Prep's recovery is five lines about correcting journal
+   * transactions and the side-effects of the PP option. Needed perhaps one
+   * month in four, and in the other three it is the longest thing on the
+   * screen, pushing the instruction you came for below the fold.
+   */
+  troubleshooting?: string[];
   links?: { label: string; url: string }[]; // quick-access buttons (e.g. bank logins)
 }
 
@@ -196,58 +231,66 @@ export const TASK_DEFS: TaskDef[] = [
             "Leave Property Number blank — this picks up all properties in Skyline",
             "Posting Date: last day of the period being posted",
             "Posting Method and Report Format: leave at defaults",
-            "Save to: Data → Accounting → Year End 20## → Skyline → Posting Reports → [month]",
           ],
+          saveTo: "Data → Accounting → Year End 20## → Skyline → Posting Reports → [month]",
           note: "If a warning appears about posting to prior periods, continue. Dates can be corrected via General Ledger → Transaction Entry → Correct Journal Entries.",
         },
         {
           title: "Post AP to GL (Expenses)",
           path: "Accounts Payable → AP Post to General Ledger",
           items: [
-            "Run twice — once for PALL, once for PFUNDS",
-            "Save to: Data → Accounting → Year End #### → Skyline → Posting Reports → [month]",
+            "Save the posting report for each pass",
           ],
+          runs: ["PALL", "PFUNDS"],
+          saveTo: "Data → Accounting → Year End #### → Skyline → Posting Reports → [month]",
         },
         {
           title: "Complete Journal Posting Prep Report",
           path: "General Ledger → Period Processing → Journal Posting Prep",
           items: [
-            "Run twice — once for PALL, once for PFUNDS",
-            "Catches out-of-balance entries, inactive account numbers, and wrong-date transactions before consolidation",
-            "If errors: General Ledger → Transaction Entry → Correct Journal Transactions → search by property and transaction number → edit dates to current period",
-            "Alternative fix: change journal to PP (this changes opening balances — remember to update prior periods when posting)",
-            "When clean, run Monthly Close. Full month-end and year-end instructions are in: Data → Shared → Accounting Process Procedures",
+            "When it comes back clean, run Monthly Close",
+          ],
+          context: [
+            "Catches out-of-balance entries, inactive account numbers and wrong-date transactions before consolidation.",
+            "Full month-end and year-end instructions are in Data → Shared → Accounting Process Procedures.",
+          ],
+          runs: ["PALL", "PFUNDS"],
+          troubleshooting: [
+            "General Ledger → Transaction Entry → Correct Journal Transactions",
+            "Search by property and transaction number, then edit the dates to the current period — the activity then shows on reports as current and ties out correctly",
+            "Alternative: change the journal to PP. This CHANGES YOUR OPENING BALANCES, so if you use it, remember to update prior periods when posting",
+            "Address the errors, then re-run the Journal Posting Report before going on",
           ],
         },
         {
           title: "Consolidate Portfolios",
           path: "General Ledger → Portfolio Consolidation → Consolidation Process",
-          items: [
-            "Run twice — once for PNIPLX, once for PJV3",
-          ],
+          items: [],
+          context: ["Keeps the consolidated portfolio reports accurate."],
+          runs: ["PNIPLX", "PJV3"],
           note: "Do not save the consolidation reports.",
         },
         {
           title: "Run Journal Posting Preparation Report — All Portfolios",
           path: "General Ledger → Period Processing → Journal Posting Preparation",
-          items: [
-            "Run for: PALL, PFUNDS, PIIICO, PNIPLX, PJV3, PHOMES, PSHOP",
-          ],
+          items: [],
+          context: ["Everything is posted by this point — this is the pass that sets up the close."],
+          runs: ["PALL", "PFUNDS", "PIIICO", "PNIPLX", "PJV3", "PHOMES", "PSHOP"],
         },
         {
           title: "Repeat Consolidation Process for All Portfolios Above",
           path: "General Ledger → Portfolio Consolidation → Consolidation Process",
-          items: [
-            "Run for each portfolio: PALL, PFUNDS, PIIICO, PNIPLX, PJV3, PHOMES, PSHOP",
-          ],
+          items: [],
+          context: ["The same seven portfolios as the step before."],
+          runs: ["PALL", "PFUNDS", "PIIICO", "PNIPLX", "PJV3", "PHOMES", "PSHOP"],
         },
         {
           title: "Run Property / Company Status Report",
           path: "General Ledger → Period Processing → Property/Company Status Report",
           items: [
             "Save as Excel",
-            "This shows which period each Prop/Co is in and which ones need to be closed",
           ],
+          context: ["Shows which period each Prop/Co is in, and which ones still need closing."],
           note: "Carry this report into the Close Prior Month task — it drives which periods to close.",
         },
       ],
@@ -277,9 +320,9 @@ export const TASK_DEFS: TaskDef[] = [
         {
           title: "Repeat Consolidation Process (Post-Close)",
           path: "General Ledger → Portfolio Consolidation → Consolidation Process",
-          items: [
-            "Run consolidation again for each portfolio from the status report",
-          ],
+          items: [],
+          context: ["Run again now that the periods are closed, so the consolidated reports pick them up."],
+          runs: ["PALL", "PFUNDS", "PIIICO", "PNIPLX", "PJV3", "PHOMES", "PSHOP"],
         },
         {
           title: "Verify Final Status",
