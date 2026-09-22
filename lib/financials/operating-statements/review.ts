@@ -156,6 +156,12 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
       budgetLookup: sameYearBudget ? makeBudgetLookup(sameYearBudget, max) : undefined,
     });
     // Month statements, built once each and shared by every pass below.
+    //
+    // The every-month passes start at the FIRST MONTH THE GL COVERS. Months
+    // before it are zeros the assembler filled in, not months where nothing
+    // posted — an August-only upload would otherwise report "debt not posted"
+    // and "billed $0" for January through July.
+    const firstMonth = Math.min(max, Math.max(1, stored.coverageStartMonth ?? 1));
     const stmtByMonth = new Map<number, ReturnType<typeof computeStatement>>([[max, statementMax]]);
     const monthStatement = (P: number) => {
       let st = stmtByMonth.get(P);
@@ -163,7 +169,10 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
         st = computeStatement({
           mapping, propertyName: name, year, period: P,
           gl: summaryForPeriod(stored.monthly, P),
-          budgetLookup: budget ? makeBudgetLookup(budget, P) : undefined,
+          // The SAME-year budget, as the statement page and statementMax use —
+          // a prior-year fallback plan is hidden there, so measuring a month's
+          // variance against it here would make the two disagree.
+          budgetLookup: sameYearBudget ? makeBudgetLookup(sameYearBudget, P) : undefined,
         });
         stmtByMonth.set(P, st);
       }
@@ -186,7 +195,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     // on it for good. The page is meant to be chipped down to nothing.
     const issues: ReviewIssue[] = [];
     const hasDebt = statementMax.sections.some((sec) => sec.role === "debt-service" && sec.lines.length);
-    for (let M = hasDebt ? 1 : max; M <= max; M++) {
+    for (let M = hasDebt ? firstMonth : max; M <= max; M++) {
       const st = monthStatement(M);
       await markMissingDebt(st, m.key, m.propertyCode, year, M, await debtFor(M));
       const dismissedM = new Set(await getDismissedFlags(m.key, year, M).catch(() => [] as string[]));
@@ -228,7 +237,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
         const amounts = lineMonthly(stored.monthly, l.mask, sign, max);
         const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
         const hits: Hit[] = [];
-        for (let M = 1; M <= max; M++) {
+        for (let M = firstMonth; M <= max; M++) {
           const series = amounts.slice(0, M);
           const pySame = pyAmounts.length >= M ? pyAmounts[M - 1] : null;
           const base = trendFlags(series, [], series[M - 1] ?? null, pySame);
@@ -261,7 +270,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
         if (ctx) {
           for (const { sec, l, basis } of billedLines) {
             const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
-            for (let M = 1; M <= max; M++) {
+            for (let M = firstMonth; M <= max; M++) {
               const res = runRentCheck(ctx, { property: m.propertyCode, year, period: M, scope: "month", mask: l.mask, sign, basis: basis! });
               const reason = billingFlagReason(res, basis!, FLAG_MIN_DOLLARS, BILLING_NAMES_ON_CHECKLIST);
               if (!reason) continue;
@@ -288,7 +297,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     const revenueLines = statementMax.sections.flatMap((sec) =>
       (sec.role === "revenue" || sec.role === "reimbursement") ? sec.lines.filter((l) => basisForLine(l.label, l.mask)).map((l) => ({ sec, l })) : []);
     if (sameYearBudget && revenueLines.length) {
-      for (let M = 1; M <= max; M++) {
+      for (let M = firstMonth; M <= max; M++) {
         const st = monthStatement(M);
         for (const sec of st.sections) {
           for (const l of sec.lines) {

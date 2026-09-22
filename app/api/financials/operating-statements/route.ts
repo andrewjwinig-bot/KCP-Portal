@@ -266,7 +266,20 @@ export async function GET(req: Request) {
   // posted to the debt-service line — flag each debt line's $0 so the statement
   // shows the debt as unposted rather than a complete $0. Shared with the
   // Excel/PDF export loader so both flag it identically.
-  const debtCheck = await markMissingDebt(statement, key, mapping.propertyCode, year, period);
+  const debtCheckRaw = await markMissingDebt(statement, key, mapping.propertyCode, year, period);
+  // A DISMISSED LINE IS DONE — its not-posted warning included. The page resets
+  // its own dismissed set on every load (this response is already filtered),
+  // so a warning left on a dismissed line came back on every reload and
+  // disagreed with Flags to Investigate, which honours the dismissal.
+  let debtStillMissing = false;
+  for (const sec of statement.sections) {
+    for (const l of sec.lines) {
+      if (!l.expectedMissing) continue;
+      if (dismissed.has(`${sec.name}::${l.label}`)) l.expectedMissing = null;
+      else if (sec.role === "debt-service") debtStillMissing = true;
+    }
+  }
+  const debtCheck = { ...debtCheckRaw, missing: debtCheckRaw.missing && debtStillMissing };
 
   // Allocated G&A — this property's slice of the 2000 G&A pool (accounts ending
   // -9301/-9302/-9303) for the period, by the 9303 basis (ALLOC_PCT). It's a
@@ -299,8 +312,13 @@ export async function GET(req: Request) {
   // composite — see that function for why the composite reads false alarms.
   // A picked version is one file already; a fund is its members' files.
   const glTieOut = (() => {
-    const files = versionId ? [stored] : fulls.filter((g) => [key, ...(fundParts ?? [])].includes(g.key) && g.year === year);
-    const r = reconcileGlFiles(files);
+    // Per BUILDING: "a newer upload replaced this one" only makes sense
+    // between files of the same building — across a fund's members it would
+    // skip every member but the most recently uploaded.
+    const keys = versionId ? [null] : [key, ...(fundParts ?? [])];
+    const r = keys.map((k) => reconcileGlFiles(k == null ? [stored] : fulls.filter((g) => g.key === k && g.year === year)))
+      .reduce((a, x) => ({ checked: a.checked + x.checked, reconciled: a.reconciled + x.reconciled, mismatches: [...a.mismatches, ...x.mismatches], trialBalanceNet: a.trialBalanceNet + x.trialBalanceNet }),
+        { checked: 0, reconciled: 0, mismatches: [] as GlReconciliation["mismatches"], trialBalanceNet: 0 });
     return r.checked > 0 ? { checked: r.checked, reconciled: r.reconciled, mismatches: r.mismatches.length } : null;
   })();
 
