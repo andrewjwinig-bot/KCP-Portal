@@ -472,7 +472,7 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
     const monthlyRent = psf == null || same || !(sqft > 0) ? undefined : Math.round((psf * sqft) / 12);
     onSave({
       unitRef, kind: apiKind, monthlyRent,
-      rentPsf: psf ?? undefined,
+      rentPsf: k === "renew" || k === "leaseup" ? psf ?? undefined : undefined,
       tiPsf: tiV !== "" ? Number(tiV) : undefined,
       lcPct: lcV !== "" ? Number(lcV) : undefined,
       startMonth: mo, termYears: t !== "" ? Number(t) : undefined,
@@ -484,8 +484,11 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
   // before the budget year (11/30/26 is still a live lease in September).
   const holdover = !!end && end.getTime() < Date.now();
   const deal = kind === "renew" || kind === "leaseup";
+  // A tenant HELD at today's rent is still a deal for a new term: TI, a
+  // commission and the term apply; only the rent is fixed at today's.
+  const costs = deal || (kind === "hold" && mode === "inplace");
   // The commission as it will be budgeted: % of the new annual rent × term.
-  const newMonthly = rent !== "" && sqft > 0 ? (Number(rent) * sqft) / 12 : currentRent;
+  const newMonthly = deal && rent !== "" && sqft > 0 ? (Number(rent) * sqft) / 12 : currentRent;
   const commission = lc !== "" && term !== "" ? (Number(lc) / 100) * newMonthly * 12 * Number(term) : 0;
   const effect = kind === "" && mode === "vacant" ? "Vacant, until decided" : effectText(kind, end, budgetYear, month, rent);
   const dash = <span className="muted">—</span>;
@@ -523,10 +526,13 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
           </div>
         )}
       </td>
-      <td style={tdRR}>{deal ? psfInput(rent, setRent, "r", "Rent, annual $ per SF") : dash}</td>
-      <td style={tdRR}>{deal ? psfInput(ti, setTi, "ti", "Tenant improvements, $ per SF") : dash}</td>
       <td style={tdRR}>
-        {deal ? (
+        {deal ? psfInput(rent, setRent, "r", "Rent, annual $ per SF")
+          : costs && curPsf != null ? <span className="muted" style={{ paddingRight: 10 }}>${curPsf.toFixed(2)}</span> : dash}
+      </td>
+      <td style={tdRR}>{costs ? psfInput(ti, setTi, "ti", "Tenant improvements, $ per SF") : dash}</td>
+      <td style={tdRR}>
+        {costs ? (
           <>
             {psfInput(lc, setLc, "lc", "Leasing commission, percent of the rent over the term", true)}
             {/* The dollars it comes to — % × annual rent × term — or why none. */}
@@ -539,7 +545,7 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
         ) : dash}
       </td>
       <td style={tdLL}>
-        {deal ? (
+        {costs ? (
           <select value={term} className="select-sm" aria-label="Lease term"
             onChange={(e) => { setTerm(e.target.value); push({ t: e.target.value }); }}>
             <option value="">Term…</option>

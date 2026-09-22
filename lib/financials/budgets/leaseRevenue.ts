@@ -149,7 +149,10 @@ export async function projectLeaseRevenue(
       const months = inPlaceMonths(cur, expMonth, a);
       for (let m = 0; m < 12; m++) rentalMonthly[m] += months[m];
       if (a) assumptionsApplied++;
+      // A renewal — or a tenant HELD at today's rent for a new term, who can
+      // still be given TI and a broker paid — costs its deal when the term rolls.
       if (a?.kind === "renew") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth), a.monthlyRent ?? cur);
+      if (a?.kind === "hold") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth), cur);
 
       if (end && end.y <= budgetYear) {
         expiring.push({

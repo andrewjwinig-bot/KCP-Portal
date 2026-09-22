@@ -50,12 +50,14 @@ export async function POST(req: Request) {
     const termYears = b?.termYears != null && b.termYears !== "" && Number(b.termYears) > 0 ? Math.min(30, Number(b.termYears)) : undefined;
     // Rent is keyed as ANNUAL $/SF; the monthly figure the projection reads is
     // derived from it by the page (× SF ÷ 12) and sent alongside. TI and the
-    // leasing commission are $/SF too, and only mean anything on a new deal.
+    // commission belong to a DEAL — a renewal, a lease-up, or a tenant held at
+    // today's rent for a new term (who can still be given TI and a broker paid).
     const psf = (v: unknown) => (v != null && v !== "" && Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : undefined);
-    const deal = kind === "renew" || kind === "leaseup";
+    const newRent = kind === "renew" || kind === "leaseup";
+    const deal = newRent || kind === "hold";
     await setLeasingAssumption(year, propertyCode, {
-      unitRef, kind, monthlyRent, startMonth: keepStart, termYears,
-      rentPsf: deal ? psf(b?.rentPsf) : undefined,
+      unitRef, kind, monthlyRent: newRent ? monthlyRent : undefined, startMonth: keepStart, termYears,
+      rentPsf: newRent ? psf(b?.rentPsf) : undefined,
       tiPsf: deal ? psf(b?.tiPsf) : undefined,
       lcPct: deal && psf(b?.lcPct) != null && Number(b.lcPct) <= 100 ? Number(b.lcPct) : undefined,
       notes: b?.notes, updatedBy: USERS[user]?.label ?? user,

@@ -961,7 +961,7 @@ time — and the team does not have time to open the GL over $80.
   exactly. **TI is $/SF × the suite's SF; the leasing commission is a PERCENT OF THE RENT over the term** (`leasingCommission`: LC % × new annual rent × term years — no term, no commission). Both land on the Capital section's
   Tenant improvements (1440) and Capitalized Lease Costs (1940-8501) lines in
   the month the new rent starts** (`tiMonthly`/`lcMonthly` in `leaseRevenue.ts`);
-  where any deal carries one, that line IS the deals rather than last year's
+  **A HOLD is a deal too** — a tenant staying at today's rent for a new term can still get TI and a broker is still paid, so Hold rows take TI, LC % and term (rent fixed at today's) and cost them when the term rolls. Where any deal carries one, that line IS the deals rather than last year's
   TI grown. "Holdover" means the lease has ALREADY ended — 11/30/26 in
   September is a live lease, not a holdover.
 - **The page's cards are numbered to match the rail**: 1 Rent schedule, 2
