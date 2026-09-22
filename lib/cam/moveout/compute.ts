@@ -8,8 +8,6 @@
 
 import "server-only";
 import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
-import { getJSON } from "@/lib/storage";
-import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 import { RETAIL_RECON_FIXTURES } from "@/lib/cam/retail/registry";
@@ -28,6 +26,7 @@ import { reconcileInterimTenant, type InterimReconResult } from "@/lib/cam/offic
 import { type OfficeLeaseConfig } from "@/lib/cam/office/assemble";
 import { getOverrides, mergeConfig } from "@/lib/cam/office/configStore";
 import { getUnitConfigs } from "@/lib/cam/office/unitConfig";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 export const JV_III = new Set(["3610", "3620", "3640"]);
 
@@ -93,7 +92,7 @@ export async function computeMoveoutStatement(
   unitRef: string,
   asOf?: number,
 ): Promise<MoveoutComputed> {
-  const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
+  const rentroll = await resolveCurrentRentroll();
   const liveUnits = (rentroll?.properties.flatMap((p) => p.units) ?? []).filter((u) => !u.isVacant);
   const liveByRef = new Map(liveUnits.map((u) => [u.unitRef, u]));
 

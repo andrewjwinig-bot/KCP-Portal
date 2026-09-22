@@ -3,9 +3,8 @@
 // the free-text Company Name to a canonical tenant.
 
 import "server-only";
-import { getJSON } from "@/lib/storage";
-import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "@/lib/rentroll/amenities";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 export type CompanyMatch = {
   name: string;
@@ -20,7 +19,7 @@ export async function companiesForProperty(
   const code = propertyCode.trim();
   if (!code) return [];
 
-  const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
+  const rentroll = await resolveCurrentRentroll();
   if (!rentroll) return [];
 
   const prop = rentroll.properties.find(

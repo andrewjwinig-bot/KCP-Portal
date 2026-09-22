@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import { buildMonthlyReport } from "@/lib/reports/monthly";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { ownerNamesForProperty } from "@/lib/properties/ownership";
-import { getJSON } from "@/lib/storage";
-import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
 import { listRequests } from "@/lib/maintenance/requestsStorage";
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { isPathAllowed, ALL_USERS, type UserId } from "@/lib/users";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 // Resolve the signed-in user so financial data can be gated to those who may
 // see the Monthly Review (limited users get everything except financials).
@@ -70,7 +69,7 @@ export async function POST(req: Request) {
     sqft: p.sqft ?? null,
   }));
 
-  const roll = (await getJSON("rentroll", "current").catch(() => null)) as RentRollData | null;
+  const roll = (await resolveCurrentRentroll().catch(() => null));
   const tenants: { tenant: string; property: string; unit: string; sqft: number; leaseTo: string | null }[] = [];
   for (const p of roll?.properties ?? []) for (const u of p.units ?? []) {
     if (u.isVacant || u.amenity || !u.occupantName) continue;

@@ -16,6 +16,7 @@ import { computeStatement } from "@/lib/financials/operating-statements/compute"
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { listBudgets } from "@/lib/financials/budgets/storage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { composeCurrentRoll } from "@/lib/rentroll/current";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const HISTORY_PREFIX = "rentroll-history";
@@ -92,7 +93,7 @@ export async function buildMonthlyReport(year: number, month: number, now: Date)
   // Rent roll for the month (fall back to current if that month isn't stored).
   const history = ((await listJSON(HISTORY_PREFIX)) as RentRollData[]) ?? [];
   const byKey = new Map(history.map((h) => [monthKeyOf(h), h]));
-  const roll = byKey.get(monthKey) ?? ((await getJSON("rentroll", "current")) as RentRollData | null);
+  const roll = byKey.get(monthKey) ?? (composeCurrentRoll(history) ?? ((await getJSON("rentroll", "current")) as RentRollData | null));
   const rentRollMonth = roll ? monthKeyOf(roll) : null;
 
   // Prior month (for occupancy MoM + leasing diff).

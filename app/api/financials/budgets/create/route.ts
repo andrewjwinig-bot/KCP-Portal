@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getJSON } from "@/lib/storage";
 import { listLoans } from "@/lib/debt/storage";
 import { buildLiveBudget } from "@/lib/financials/budgets/build";
 import { getBudget, saveBudget, listBudgets } from "@/lib/financials/budgets/storage";
 import type { BudgetCategory } from "@/lib/financials/budgets/types";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     }
 
-    const rentroll = (await getJSON("rentroll", "current")) as
+    const rentroll = (await resolveCurrentRentroll()) as
       | { properties: any[]; uploadedAt?: string }
       | null;
     const loans = await listLoans();

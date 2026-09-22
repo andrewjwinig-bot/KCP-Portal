@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJSON } from "@/lib/storage";
-import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "@/lib/rentroll/amenities";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 // Public — feeds the Tenant dropdown on /reserve. Any office tenant can
 // book any conference / training room regardless of which building they
@@ -24,7 +23,7 @@ export async function GET(req: NextRequest) {
       .map((p) => p.id.toUpperCase()),
   );
 
-  const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
+  const rentroll = (await resolveCurrentRentroll());
   if (!rentroll) return NextResponse.json({ tenants: [] });
 
   const names = new Set<string>();

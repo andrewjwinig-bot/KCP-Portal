@@ -4,12 +4,11 @@
 // picker (via the route) and the daily watcher, so both see the same set.
 
 import "server-only";
-import { getJSON } from "@/lib/storage";
-import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { recentlyVacatedTenants } from "@/lib/leasing/recentlyVacated";
 import { RETAIL_RECON_FIXTURES } from "@/lib/cam/retail/registry";
 import { OFFICE_RECON_FIXTURES } from "@/lib/cam/office/registry";
 import { parseUS, propName } from "./compute";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 export type MoveoutCandidate = {
   propertyCode: string;
@@ -68,7 +67,7 @@ export async function moveoutCandidates(now = new Date()): Promise<MoveoutCandid
   }
 
   // Expiring soon / recently expired but still on the roll (−60…+90 days).
-  const rr = (await getJSON("rentroll", "current")) as RentRollData | null;
+  const rr = await resolveCurrentRentroll();
   for (const prop of rr?.properties ?? []) {
     const reconKind = reconKindFor(prop.propertyCode);
     if (!reconKind) continue;

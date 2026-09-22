@@ -4,6 +4,7 @@ import { PROPERTY_DEFS } from "../../../lib/properties/data";
 import { getJSON } from "@/lib/storage";
 import { resolveDbaMap, dbaLabel } from "@/lib/centers/dba";
 import { EMPTY_LEASING_ACTIVITY, type LeasingActivity } from "@/lib/leasing/types";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 export const runtime = "nodejs";
 
@@ -501,7 +502,7 @@ export async function POST(req: Request) {
       // Pull the unfiltered current rent roll so the Occupancy Summary can
       // always include Office Works (4900) regardless of the category filter.
       try {
-        const cur = (await getJSON("rentroll", "current")) as { properties?: any[] } | null;
+        const cur = (await resolveCurrentRentroll()) as { properties?: any[] } | null;
         fullProperties = cur?.properties?.length ? cur.properties : properties;
       } catch {
         fullProperties = properties;

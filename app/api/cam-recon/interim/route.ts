@@ -5,8 +5,6 @@ import { OFFICE_RECON_FIXTURES } from "@/lib/cam/office/registry";
 import { getOverrides, mergeConfig } from "@/lib/cam/office/configStore";
 import { getUnitConfigs } from "@/lib/cam/office/unitConfig";
 import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
-import { getJSON } from "@/lib/storage";
-import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { RETAIL_RECON_FIXTURES } from "@/lib/cam/retail/registry";
 import { reconcileInterimRetailTenant } from "@/lib/cam/retail/interim";
@@ -17,6 +15,7 @@ import { getFinalOverrides, RET_FINAL_KEY } from "@/lib/cam/retail/finalStore";
 import type { RetailTenantInput } from "@/lib/cam/retail/types";
 import type { OfficeTenantInput, OfficeExpensePool } from "@/lib/cam/office/types";
 import { computeMoveoutStatement, moveoutOk } from "@/lib/cam/moveout/compute";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -386,7 +385,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Expiring soon / recently expired but still on the roll (−60…+90 days).
-    const rr = (await getJSON("rentroll", "current")) as RentRollData | null;
+    const rr = (await resolveCurrentRentroll());
     for (const prop of rr?.properties ?? []) {
       if (!fixtureCodes.has(prop.propertyCode)) continue;
       for (const u of prop.units) {
@@ -408,7 +407,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ properties, candidates });
   }
 
-  const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
+  const rentroll = (await resolveCurrentRentroll());
   const liveUnits = (rentroll?.properties.flatMap((p) => p.units) ?? []).filter((u) => !u.isVacant);
   const liveByRef = new Map(liveUnits.map((u) => [u.unitRef, u]));
   const asOfParam = Number(searchParams.get("asOf"));

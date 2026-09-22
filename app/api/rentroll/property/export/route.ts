@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { getJSON } from "@/lib/storage";
-import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { buildPropertyRollXlsx } from "@/lib/rentroll/buildPropertyRollXlsx";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 export const runtime = "nodejs";
 // Reads the live rent roll, not a build-time snapshot.
@@ -15,7 +14,7 @@ export async function GET(req: Request) {
   const code = (new URL(req.url).searchParams.get("code") ?? "").trim();
   if (!code) return NextResponse.json({ error: "code is required" }, { status: 400 });
 
-  const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
+  const rentroll = (await resolveCurrentRentroll());
   if (!rentroll) return NextResponse.json({ error: "No rent roll has been imported yet." }, { status: 404 });
 
   const prop = rentroll.properties.find((p) => p.propertyCode.toUpperCase() === code.toUpperCase());
