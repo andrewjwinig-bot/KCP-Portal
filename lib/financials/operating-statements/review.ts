@@ -18,7 +18,7 @@ import { trendFlags } from "./trends";
 import { seasonalTrendFlags, meetsFlagFloor, FLAG_MIN_DOLLARS, revenueShortfallReason } from "./flagRules";
 import { basisForLine } from "./rentCheck";
 import { loadRentCheckShared, loadRentCheckContext, runRentCheck, billingFlagReason } from "./rentCheckRun";
-import { markMissingDebt } from "./debtFlag";
+import { markMissingDebt, mortgagePaymentsFor } from "./debtFlag";
 import { expectedPostedThrough } from "./outstanding";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
@@ -125,6 +125,12 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
   // they are read ONCE for the whole sweep rather than thirteen times.
   // Null (no rent roll imported) simply means the billing check does not run.
   const rentCheckShared = await loadRentCheckShared().catch(() => null);
+  // The Debt Tracker's schedule for a month, read once for the whole sweep.
+  const debtCache = new Map<number, Promise<Record<string, number>>>();
+  const debtFor = (M: number) => {
+    if (!debtCache.has(M)) debtCache.set(M, mortgagePaymentsFor(year, M).catch(() => ({})));
+    return debtCache.get(M)!;
+  };
 
   for (const m of mappings) {
     const name = propertyName(m.key, m.entityName);
@@ -149,27 +155,57 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
       gl: summaryForPeriod(stored.monthly, max),
       budgetLookup: sameYearBudget ? makeBudgetLookup(sameYearBudget, max) : undefined,
     });
-    // Latest-month data-completeness issues: budget-expected-but-unposted lines
-    // (set by computeStatement) + debt scheduled but not posted (Debt Tracker).
-    await markMissingDebt(statementMax, m.key, m.propertyCode, year, max);
+    // Month statements, built once each and shared by every pass below.
+    const stmtByMonth = new Map<number, ReturnType<typeof computeStatement>>([[max, statementMax]]);
+    const monthStatement = (P: number) => {
+      let st = stmtByMonth.get(P);
+      if (!st) {
+        st = computeStatement({
+          mapping, propertyName: name, year, period: P,
+          gl: summaryForPeriod(stored.monthly, P),
+          budgetLookup: budget ? makeBudgetLookup(budget, P) : undefined,
+        });
+        stmtByMonth.set(P, st);
+      }
+      return st;
+    };
+
+    // NOT-POSTED KNOWN OBLIGATIONS — taxes, insurance, the management fee and
+    // debt, the four things billed whether or not anyone acts.
+    //
+    // The budget-based three are judged YEAR TO DATE ("nothing posted all year
+    // against the YTD budget"), so the latest month is the whole answer and
+    // asking every month would list the same finding eight times. DEBT is
+    // per-month by nature — the lender schedules each payment — so every month
+    // is asked: a June mortgage never posted used to vanish the moment July's
+    // did, because only the latest month was checked.
+    //
     // A DISMISSED ITEM IS DONE, whatever kind it is. Missing postings used to
     // ignore dismissals, so the list could never reach zero: a line someone had
     // checked and ruled out ("no insurance bill this month, it's annual") sat
     // on it for good. The page is meant to be chipped down to nothing.
-    const dismissedLatest = new Set(await getDismissedFlags(m.key, year, max).catch(() => [] as string[]));
     const issues: ReviewIssue[] = [];
-    for (const sec of statementMax.sections) {
-      for (const l of sec.lines) {
-        if (!l.expectedMissing) continue;
-        if (dismissedLatest.has(`${sec.name}::${l.label}`)) continue;
-        issues.push({
-          type: l.expectedMissing.basis === "debt" ? "missing-debt" : "not-posted",
-          lineKey: `${sec.name}::${l.label}`, section: sec.name, line: l.label,
-          period: max, monthLabel: MONTHS[max - 1], expected: l.expectedMissing.expected,
-        });
+    const hasDebt = statementMax.sections.some((sec) => sec.role === "debt-service" && sec.lines.length);
+    for (let M = hasDebt ? 1 : max; M <= max; M++) {
+      const st = monthStatement(M);
+      await markMissingDebt(st, m.key, m.propertyCode, year, M, await debtFor(M));
+      const dismissedM = new Set(await getDismissedFlags(m.key, year, M).catch(() => [] as string[]));
+      for (const sec of st.sections) {
+        for (const l of sec.lines) {
+          const em = l.expectedMissing;
+          if (!em) continue;
+          // Earlier months: debt only (the budget kind is YTD, asked at the latest).
+          if (M < max && em.basis !== "debt") continue;
+          if (dismissedM.has(`${sec.name}::${l.label}`)) continue;
+          issues.push({
+            type: em.basis === "debt" ? "missing-debt" : "not-posted",
+            lineKey: `${sec.name}::${l.label}`, section: sec.name, line: l.label,
+            period: M, monthLabel: MONTHS[M - 1], expected: em.expected,
+          });
+        }
       }
     }
-    issues.sort((a, b) => b.expected - a.expected);
+    issues.sort((a, b) => b.period - a.period || b.expected - a.expected);
 
     // GL tie-out: does each uploaded FILE reconcile with itself? Per file, not
     // on the stitched composite, which false-alarms (see reconcileGlFiles).
@@ -249,19 +285,6 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     // it only runs when the property HAS a budget and a lease-billed revenue
     // line, and the month statements it builds are kept for pass 2 to reuse.
     const shortfallByLineMonth = new Map<string, string>();
-    const stmtByMonth = new Map<number, ReturnType<typeof computeStatement>>([[max, statementMax]]);
-    const monthStatement = (P: number) => {
-      let st = stmtByMonth.get(P);
-      if (!st) {
-        st = computeStatement({
-          mapping, propertyName: name, year, period: P,
-          gl: summaryForPeriod(stored.monthly, P),
-          budgetLookup: budget ? makeBudgetLookup(budget, P) : undefined,
-        });
-        stmtByMonth.set(P, st);
-      }
-      return st;
-    };
     const revenueLines = statementMax.sections.flatMap((sec) =>
       (sec.role === "revenue" || sec.role === "reimbursement") ? sec.lines.filter((l) => basisForLine(l.label, l.mask)).map((l) => ({ sec, l })) : []);
     if (sameYearBudget && revenueLines.length) {

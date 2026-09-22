@@ -9,14 +9,19 @@ import type { PropertyStatement } from "./types";
  * (scheduled / posted / missing). Shared by the on-screen statement route and
  * the Excel/PDF export loader so both flag the missing debt identically.
  */
+export { mortgagePaymentsFor };
+
 export async function markMissingDebt(
   statement: PropertyStatement,
   key: string,
   propertyCode: string | null | undefined,
   year: number,
   period: number,
+  /** The month's schedule, when the caller already has it — the cross-property
+   *  Review asks every month of every property and reads the loans once. */
+  preloaded?: Record<string, number>,
 ): Promise<{ scheduled: number; posted: number; missing: boolean }> {
-  const debtByCode = await mortgagePaymentsFor(year, period);
+  const debtByCode = preloaded ?? await mortgagePaymentsFor(year, period);
   const scheduled = debtByCode[key.toUpperCase()] ?? debtByCode[(propertyCode || "").toUpperCase()] ?? 0;
   let posted = 0;
   for (const sec of statement.sections) {

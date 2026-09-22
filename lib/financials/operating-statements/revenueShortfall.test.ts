@@ -29,7 +29,7 @@ describe("revenueShortfallReason — a lease-billed line short of budget", () =>
   });
 
   it("ignores expense lines and unbudgeted lines", () => {
-    expect(revenueShortfallReason("expense", { label: "Electric", mask: "6100-*" }, 0, 4080)).toBeNull();
+    expect(revenueShortfallReason("reimbursable-expense", { label: "Electric", mask: "6100-*" }, 0, 4080)).toBeNull();
     expect(revenueShortfallReason("revenue", rent, 0, null)).toBeNull();
   });
 });
