@@ -49,6 +49,17 @@ export async function resolveCurrentRentroll(): Promise<RentRollData | null> {
   return (await getJSON(RENTROLL_PREFIX, RENTROLL_ID)) as RentRollData | null;
 }
 
+/**
+ * The roll AS OF a month: each property from the latest snapshot at or before
+ * `monthKey` ("YYYY-MM"). An August statement is checked against the August
+ * roll, so a later import can't move August's expectation. With no snapshot
+ * that early, falls back to the current composition. Null for empty history.
+ */
+export function rollAsOf<T extends { properties?: any[] }>(snapshots: T[], monthKey: string): T | null {
+  const eligible = snapshots.filter((s) => s && snapshotMonthKey(s as any).localeCompare(monthKey) <= 0);
+  return composeCurrentRoll(eligible) ?? composeCurrentRoll(snapshots);
+}
+
 /** Find one unit by ref in the current rent roll (case-insensitive). */
 export async function findRentRollUnit(unitRef: string): Promise<RentRollUnit | null> {
   const data = await resolveCurrentRentroll();
