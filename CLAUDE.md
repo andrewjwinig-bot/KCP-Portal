@@ -884,6 +884,33 @@ time — and the team does not have time to open the GL over $80.
   it only feeds auto-explain's written notes, where a missed or doubled bill is
   worth mentioning whatever the amount.
 
+# Budget season — the Expenses step and leasing assumptions
+
+- **Three expense lines are KEYED, not grown** (`lib/financials/budgets/expenseInputs.ts`,
+  stored per budget-year + property in `expenseInputStore.ts`). Every other
+  expense line is this year's forecast × the book's growth %.
+  - **Real estate taxes** (Drew): default this year + 3% (`RET_DEFAULT_GROWTH_PCT`)
+    in the months they post; an annual override is spread the same way.
+  - **Insurance** (Drew): the renewal premium, annual, spread LIKE THIS YEAR
+    (`spreadLike`) — a March lump stays a March lump. Grows with the book until keyed.
+  - **Building maintenance** (Greg): twelve months.
+  `expenseInputKindOf` matches EXPENSE sections only — the revenue side carries
+  "Real Estate Taxes"/"Insurance" recovery lines with the same names.
+- **Keying a figure IS completing it.** A saved input ticks its contribution
+  on the Expenses step (`deriveContributions`' `entered` map); there is no
+  separate tick to remember.
+- **Greg's page is `/budget-inputs`, and it is his whole view of the budget.**
+  He alone of the service logins is granted it; its API returns only the three
+  keyed lines, never rents or NOI, and the SERVER checks `canEdit` on every save.
+  Drew and admin see and key all three.
+- **An existing tenant's leasing dates come from the LEASE, not an
+  assumption** (`renewalStartMonth` in `leaseRevenue.ts`). A renewal's new rent
+  starts the day after the term expires (11/30/26 → 12/1/26); a vacate is paid
+  through the term; a holdover renews, or is gone, from January. Only a VACANT
+  space takes an assumed start month. Both a renewal and a lease-up take an
+  assumed TERM in years (`termYears`) — it does not move this year's rent; it
+  records the deal for later years and the commission estimate.
+
 # Balance Sheet — sources of truth
 
 `/financials/balance-sheet`, gated with the other statement pages

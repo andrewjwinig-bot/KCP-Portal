@@ -39,19 +39,31 @@ describe("projectLeaseRevenue", () => {
     expect((await projectLeaseRevenue(["1100"], 2027)).hasData).toBe(false);
   });
 
-  it("applies a vacate assumption — pays through the vacate month, then $0", async () => {
+  it("a vacate pays through the month the term ends — no date to assume", async () => {
     resolveCurrentRentroll.mockResolvedValue(roll([u("1100-1", { baseRent: 1000, leaseTo: "6/30/2027" })]));
-    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "vacate", startMonth: 6 } });
-    // Jan–Jun paid, Jul–Dec zero.
+    // A stale startMonth on the saved assumption is ignored: the lease decides.
+    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "vacate", startMonth: 2 } });
     expect(p.rentalMonthly).toEqual([1000, 1000, 1000, 1000, 1000, 1000, 0, 0, 0, 0, 0, 0]);
     expect(p.rentalTotal).toBe(6000);
     expect(p.assumptionsApplied).toBe(1);
   });
 
-  it("applies a renewal step-up from a start month", async () => {
+  it("a renewal's new rent starts the day after the term expires", async () => {
     resolveCurrentRentroll.mockResolvedValue(roll([u("1100-1", { baseRent: 1000, leaseTo: "6/30/2027" })]));
-    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "renew", monthlyRent: 1200, startMonth: 7 } });
+    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "renew", monthlyRent: 1200, startMonth: 1 } });
     expect(p.rentalMonthly).toEqual([1000, 1000, 1000, 1000, 1000, 1000, 1200, 1200, 1200, 1200, 1200, 1200]);
+  });
+
+  it("a lease ending 11/30 renews from 12/1", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([u("1100-1", { baseRent: 1000, leaseTo: "11/30/2027" })]));
+    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "renew", monthlyRent: 1100 } });
+    expect(p.rentalMonthly.slice(9)).toEqual([1000, 1000, 1100]);
+  });
+
+  it("a holdover renews from January", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([u("1100-1", { baseRent: 1000, leaseTo: "3/31/2025" })]));
+    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "renew", monthlyRent: 1100 } });
+    expect(p.rentalMonthly.every((m) => m === 1100)).toBe(true);
   });
 
   it("applies a lease-up on a vacant space from a start month", async () => {

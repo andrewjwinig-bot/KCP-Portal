@@ -49,16 +49,31 @@ export type LeaseRevenueProjection = {
 /** In-place unit's 12 monthly rents given its current rent, budget-year
  *  expiration month (0 = holdover, 13 = doesn't expire this year), and any
  *  assumption. */
+//
+// AN EXISTING TENANT'S DATES COME FROM THE LEASE, NOT FROM AN ASSUMPTION.
+// A renewal's new rent starts the day after the current term expires — a lease
+// ending 11/30 renews from 12/1 — and a tenant who vacates pays through the
+// month the term ends. Only a VACANT space needs someone to assume a start
+// month, so `startMonth` is read for a lease-up and ignored here (an older
+// saved assumption carrying one follows the lease too). A holdover — term
+// already over — renews, or is gone, from January.
+export function renewalStartMonth(expMonth: number): number {
+  if (expMonth === 0) return 1;                 // holdover
+  if (expMonth >= 1 && expMonth <= 12) return expMonth + 1; // 13 = next year
+  return 13;                                    // doesn't expire this year
+}
+
 function inPlaceMonths(cur: number, expMonth: number, a?: LeaseAssumption): number[] {
   const out = new Array(12).fill(0);
   if (a?.kind === "vacate") {
-    const vacateMonth = a.startMonth ?? (expMonth >= 1 && expMonth <= 12 ? expMonth : 1);
-    for (let m = 0; m < 12; m++) out[m] = m + 1 <= vacateMonth ? cur : 0;
+    // Paid through the month the term ends; a holdover pays nothing more.
+    const lastPaid = expMonth >= 1 && expMonth <= 12 ? expMonth : expMonth === 0 ? 0 : 12;
+    for (let m = 0; m < 12; m++) out[m] = m + 1 <= lastPaid ? cur : 0;
     return out;
   }
   if (a?.kind === "renew") {
     const newRent = a.monthlyRent != null ? a.monthlyRent : cur;
-    const start = a.monthlyRent != null ? (a.startMonth ?? 1) : 1;
+    const start = renewalStartMonth(expMonth);
     for (let m = 0; m < 12; m++) out[m] = m + 1 < start ? cur : newRent;
     return out;
   }

@@ -15,6 +15,8 @@ import { EXPENSE_ROLES, type SectionRole } from "@/lib/financials/operating-stat
 import { projectLeaseRevenue, type ExpiringLease, type VacantUnit } from "./leaseRevenue";
 import { getLeasingAssumptions } from "./leasingAssumptions";
 import { estimateReimbursements, type ReimbursementEstimate } from "./reimbursementEstimate";
+import { expenseInputKindOf, resolveKind, splitAcrossLines, type ExpenseInputKind } from "./expenseInputs";
+import { getExpenseInputs } from "./expenseInputStore";
 
 /** The revenue line the lease projection replaces — base/rental income. */
 const RENTAL_LINE_RE = /rental|rent income|base rent|minimum rent/i;
@@ -25,7 +27,11 @@ const sum = (a: number[]) => a.reduce((s, n) => s + (n || 0), 0);
 
 /** How a drafted line's numbers were produced — shown as a badge so the source
  *  is transparent and the subjective bits are obvious. */
-export type DraftSource = "reproj-growth" | "reproj-flat" | "leases" | "cam-estimate";
+export type DraftSource = "reproj-growth" | "reproj-flat" | "leases" | "cam-estimate"
+  /** Real estate taxes at their default: this year + 3%, same months. */
+  | "ret-default"
+  /** A figure someone keyed in the Expenses step (tax, insurance, maintenance). */
+  | "entered";
 
 export type BudgetDraftLine = {
   label: string;
@@ -108,6 +114,31 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   const reimbursementEstimate = (await estimateReimbursements(meta.propertyCode, budgetYear, growthPct).catch(() => null)) ?? undefined;
   let rentalReplaced = false;
 
+  // THE EXPENSES STEP. Real estate taxes, insurance and building maintenance
+  // take the figure their owner keyed (or, for taxes, this year + 3%) rather
+  // than the book's growth %. A kind can sit on more than one line, so each
+  // kind is resolved ONCE across all its lines and then split between them.
+  const inputs = await getExpenseInputs(budgetYear, meta.propertyCode).catch(() => ({}));
+  const kindLines = new Map<ExpenseInputKind, { key: string; basis: number[] }[]>();
+  for (const sec of r.sections) {
+    for (const l of sec.lines) {
+      const k = expenseInputKindOf(sec.role, l.label);
+      if (!k) continue;
+      const arr = kindLines.get(k) ?? [];
+      arr.push({ key: `${sec.name}::${l.label}`, basis: l.blended });
+      kindLines.set(k, arr);
+    }
+  }
+  const keyedMonths = new Map<string, { months: number[]; source: DraftSource }>();
+  for (const [k, lines] of kindLines) {
+    const basis = new Array(12).fill(0);
+    for (const x of lines) addInto(basis, x.basis);
+    const res = resolveKind(k, basis, growthPct, inputs[k]);
+    const parts = splitAcrossLines(res.months, lines.map((x) => x.basis));
+    const source: DraftSource = res.entered ? "entered" : k === "ret" ? "ret-default" : "reproj-growth";
+    lines.forEach((x, i) => keyedMonths.set(x.key, { months: parts[i], source }));
+  }
+
   const sections: BudgetDraftSection[] = r.sections.map((sec) => {
     const isExpense = EXPENSE_ROLE_SET.has(sec.role);
     const isDebt = sec.role === "debt-service";
@@ -123,6 +154,16 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
           total: r0(sum(lease.rentalMonthly)),
           basisTotal: r0(l.reprojTotal),
           source: "leases",
+        };
+      }
+      const keyed = keyedMonths.get(`${sec.name}::${l.label}`);
+      if (keyed) {
+        return {
+          label: l.label, mask: l.mask,
+          months: keyed.months.map(r0),
+          total: r0(sum(keyed.months)),
+          basisTotal: r0(l.reprojTotal),
+          source: keyed.source,
         };
       }
       // Expenses/capital grow by the assumption; debt + other revenue/

@@ -31,12 +31,15 @@ export function deriveContributions(
   properties: BudgetProperty[],
   inPlace: InPlaceRevenueRecord | null,
   filled: FilledMap = {},
+  /** Parts done BY BEING ENTERED — a figure keyed in the Expenses step is the
+   *  part, so it needs no separate tick. Keyed by contribution id. */
+  entered: FilledMap = {},
 ): Contribution[] {
   const out: Contribution[] = [];
 
   const push = (kind: ContributionKind, p: BudgetProperty, unitRef?: string, tenant?: string) => {
     const id = contributionId(year, kind, p.code, unitRef);
-    const done = filled[id];
+    const done = filled[id] ?? entered[id];
     out.push({
       id, year, kind, propertyCode: p.code,
       ...(unitRef ? { unitRef } : {}),
