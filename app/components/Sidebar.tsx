@@ -627,6 +627,39 @@ const NAV = [
     ),
   },
   {
+    // NAMED FOR WHAT IT HOLDS, AND ALWAYS REACHABLE.
+    //
+    // It was "Statement Review" in the nav while the page's own content, its
+    // Excel and PDF exports ("Operating Statements - Flags to Investigate -
+    // 2026.xlsx") and every other link to it said "Flags to Investigate" — so
+    // looking for the thing by the name it is called everywhere else found
+    // nothing in the sidebar.
+    //
+    // And `showFor` meant it only appeared once you were ALREADY on Operating
+    // Statements, which is the one place you can reach it from by other means.
+    // It is a monthly destination — the checklist email is sent from here —
+    // not a detail of the page above it, so it stays indented and stays put.
+    //
+    // ITS POSITION IS NOW LOAD-BEARING. While `showFor` hid it everywhere but
+    // its parent route, where it sat in this array did not matter. Always
+    // visible, an indented row reads as belonging to whatever is directly
+    // above it — and it was below Management Fees, which is the wrong parent.
+    // It goes immediately after Operating Statements and must stay there.
+    label: "Flags to Investigate",
+    href: "/financials/operating-statements/review",
+    external: false,
+    indent: true,
+    showFor: null as string | null,
+    groupId: "financials",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    ),
+  },
+  {
     label: "Balance Sheet",
     href: "/financials/balance-sheet",
     external: false,
@@ -653,33 +686,6 @@ const NAV = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <line x1="12" y1="1" x2="12" y2="23" />
         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-      </svg>
-    ),
-  },
-  {
-    // NAMED FOR WHAT IT HOLDS, AND ALWAYS REACHABLE.
-    //
-    // It was "Statement Review" in the nav while the page's own content, its
-    // Excel and PDF exports ("Operating Statements - Flags to Investigate -
-    // 2026.xlsx") and every other link to it said "Flags to Investigate" — so
-    // looking for the thing by the name it is called everywhere else found
-    // nothing in the sidebar.
-    //
-    // And `showFor` meant it only appeared once you were ALREADY on Operating
-    // Statements, which is the one place you can reach it from by other means.
-    // It is a monthly destination — the checklist email is sent from here —
-    // not a detail of the page above it, so it stays indented and stays put.
-    label: "Flags to Investigate",
-    href: "/financials/operating-statements/review",
-    external: false,
-    indent: true,
-    showFor: null as string | null,
-    groupId: "financials",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-        <line x1="12" y1="9" x2="12" y2="13" />
-        <line x1="12" y1="17" x2="12.01" y2="17" />
       </svg>
     ),
   },
