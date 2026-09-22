@@ -98,6 +98,7 @@ export const USERS: Record<UserId, UserDef> = {
       "bank-transfers",
       "bank-rec-tracker",
       "financials-budgets",
+      "budget-inputs",
       "financials-statements",
       "cash-analysis-draft",
       "tenant-statements",
@@ -105,6 +106,7 @@ export const USERS: Record<UserId, UserDef> = {
     ]),
     allowedPathPrefixes: [
       "/dashboard",
+      "/budget-inputs",
       "/tracker",
       "/properties",
       "/investors",
@@ -196,7 +198,14 @@ export const USERS: Record<UserId, UserDef> = {
   maint: serviceUser("maint", "SERVICE"),
   // Individual service-staff users — identical access to SERVICE, but each
   // enrolls their own 2FA on their own phone.
-  greg: serviceUser("greg", "GREG"),
+  // Greg keys the budget's BUILDING MAINTENANCE, on his own page and nowhere
+  // else in the budget — so he alone of the service logins gets /budget-inputs,
+  // and its API returns only the three keyed expense lines, never rents or NOI.
+  greg: {
+    ...serviceUser("greg", "GREG"),
+    navKeys: new Set([...SERVICE_NAV, "budget-inputs"]),
+    allowedPathPrefixes: [...SERVICE_PATHS, "/budget-inputs"],
+  },
   charles: serviceUser("charles", "CHARLES"),
   jay: serviceUser("jay", "JAY"),
   alison: {
@@ -316,6 +325,8 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string][] = [
   // Budgets API maps to the Budgets page specifically (Nancy is limited to it);
   // listed before the broad /api/financials → /financials mapping.
   ["/api/financials/budgets", "/financials/budgets"],
+  // The Expenses-step inputs: governed by their own page, which Greg can reach.
+  ["/api/budget-inputs", "/budget-inputs"],
   ["/api/financials", "/financials"],
   ["/api/cam-recon", "/cam-recon"],
   ["/api/cam-config", "/cam-recon"],

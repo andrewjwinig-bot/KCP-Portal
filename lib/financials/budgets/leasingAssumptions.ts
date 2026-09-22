@@ -22,6 +22,11 @@ export type LeaseAssumption = {
   /** 1–12: the month the change takes effect — when the new/renewal rent starts,
    *  the vacate takes hold, or the lease-up space starts paying. */
   startMonth?: number;
+  /** The assumed lease TERM in years — for a renewal, the new term; for a
+   *  lease-up, the new lease's. It does not move this year's rent (the budget
+   *  is one year); it records the deal, which later years and the leasing
+   *  commission estimate need. */
+  termYears?: number;
   notes?: string;
   updatedAt?: string;
 };
@@ -54,7 +59,7 @@ export async function setLeasingAssumption(
   } else {
     doc.assumptions[a.unitRef] = {
       unitRef: a.unitRef, kind: a.kind,
-      monthlyRent: a.monthlyRent, startMonth: a.startMonth, notes: a.notes,
+      monthlyRent: a.monthlyRent, startMonth: a.startMonth, termYears: a.termYears, notes: a.notes,
       updatedAt: new Date().toISOString(),
     };
   }

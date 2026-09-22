@@ -12,7 +12,7 @@ import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
 
 const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; startMonth?: number };
+type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; startMonth?: number; termYears?: number };
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
@@ -23,6 +23,8 @@ function sourceBadge(source: DraftSource, growthPct: number): { tone: PillTone; 
     case "reproj-flat": return { tone: TONE_NEUTRAL, text: "Reproj (flat)" };
     case "leases": return { tone: TONE_GREEN, text: "Leases" };
     case "cam-estimate": return { tone: TONE_TEAL, text: "CAM est." };
+    case "ret-default": return { tone: TONE_BLUE, text: "Tax +3%" };
+    case "entered": return { tone: TONE_GREEN, text: "Entered" };
   }
 }
 
@@ -70,7 +72,7 @@ export default function BudgetDraftPage() {
   }, [key, year, growth, refreshTick]);
 
   // Save one unit's leasing assumption, then re-project the draft.
-  async function saveAssumption(payload: { unitRef: string; kind: string | null; monthlyRent?: number; startMonth?: number }) {
+  async function saveAssumption(payload: SavePayload) {
     if (!draft?.leasing) return;
     await fetch("/api/financials/budgets/leasing-assumptions", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -297,18 +299,22 @@ function LeasingRow({ mode, unitRef, title, sub, holdover, currentRent, leaseTo,
   assumption?: LeaseAssumption;
   onSave: (p: SavePayload) => void;
 }) {
-  const expMonth = (() => { const m = (leaseTo ?? "").match(/^(\d{1,2})\//); return m ? Number(m[1]) : 1; })();
   const [kind, setKind] = useState<string>(assumption?.kind ?? (mode === "vacant" ? "none" : "hold"));
   const [rent, setRent] = useState<string>(assumption?.monthlyRent != null ? String(assumption.monthlyRent) : "");
-  const [month, setMonth] = useState<number>(assumption?.startMonth ?? (assumption?.kind === "vacate" ? expMonth : 1));
+  const [month, setMonth] = useState<number>(assumption?.startMonth ?? 1);
+  const [term, setTerm] = useState<string>(assumption?.termYears != null ? String(assumption.termYears) : "");
 
-  function push(k = kind, r = rent, mo = month) {
+  function push(k = kind, r = rent, mo = month, t = term) {
     const apiKind = k === "hold" || k === "none" ? null : k;
-    onSave({ unitRef, kind: apiKind, monthlyRent: r !== "" ? Number(r) : undefined, startMonth: mo });
+    onSave({ unitRef, kind: apiKind, monthlyRent: r !== "" ? Number(r) : undefined, startMonth: mo, termYears: t !== "" ? Number(t) : undefined });
   }
 
   const showRent = kind === "renew" || kind === "leaseup";
-  const showMonth = kind === "renew" || kind === "vacate" || kind === "leaseup";
+  // Only a VACANT space needs an assumed start. An existing tenant's dates come
+  // from the lease: a renewal starts the day after the term expires, a vacate
+  // is paid through it. Said in words rather than picked.
+  const showMonth = kind === "leaseup";
+  const leaseDate = leaseTermDates(leaseTo, holdover);
   const tone = kind === "vacate" ? TONE_RED : kind === "leaseup" ? TONE_GREEN : kind === "renew" ? TONE_BLUE : TONE_NEUTRAL;
 
   return (
@@ -338,13 +344,34 @@ function LeasingRow({ mode, unitRef, title, sub, holdover, currentRent, leaseTo,
       )}
       {showMonth && (
         <select value={month} onChange={(e) => { setMonth(Number(e.target.value)); push(kind, rent, Number(e.target.value)); }} style={rowSel}
-          title={kind === "vacate" ? "Paid through this month, then $0" : "Effective month"}>
-          {MONTHS_ABBR.map((mo, i) => <option key={mo} value={i + 1}>{kind === "vacate" ? `thru ${mo}` : `from ${mo}`}</option>)}
+          title="The month this space starts paying">
+          {MONTHS_ABBR.map((mo, i) => <option key={mo} value={i + 1}>{`from ${mo}`}</option>)}
         </select>
       )}
+      {/* The assumed TERM — the renewal's new term, or the new lease's on a
+          vacancy. A vacate has no term to assume. */}
+      {(kind === "renew" || kind === "leaseup") && (
+        <select value={term} onChange={(e) => { setTerm(e.target.value); push(kind, rent, month, e.target.value); }} style={rowSel} title="Assumed lease term">
+          <option value="">term…</option>
+          {[1, 2, 3, 5, 7, 10, 15].map((y) => <option key={y} value={y}>{y} yr{y === 1 ? "" : "s"}</option>)}
+        </select>
+      )}
+      {kind === "renew" && <span className="muted small">new rent from {leaseDate.renewFrom}</span>}
+      {kind === "vacate" && <span className="muted small">paid through {leaseDate.paidThrough}</span>}
       <Pill tone={tone}>{kind === "hold" ? "flat" : kind === "none" ? "vacant" : kind}</Pill>
     </div>
   );
+}
+
+/** The dates an existing tenant's lease sets: the renewal starts the day after
+ *  the term expires (11/30/26 → 12/1/26); a vacate is paid through the term. */
+function leaseTermDates(leaseTo: string | null, holdover?: boolean): { renewFrom: string; paidThrough: string } {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(leaseTo ?? "");
+  if (!m || holdover) return { renewFrom: "January", paidThrough: holdover ? "nothing more (holdover)" : "the term's end" };
+  const y = Number(m[3]) < 100 ? 2000 + Number(m[3]) : Number(m[3]);
+  const next = new Date(Date.UTC(y, Number(m[1]) - 1, Number(m[2]) + 1));
+  const fmt = (d: Date) => `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${String(d.getUTCFullYear()).slice(-2)}`;
+  return { renewFrom: fmt(next), paidThrough: `${Number(m[1])}/${Number(m[2])}/${String(y).slice(-2)}` };
 }
 
 const rowSel: React.CSSProperties = { borderRadius: 6, padding: "5px 8px", fontSize: 12.5, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" };

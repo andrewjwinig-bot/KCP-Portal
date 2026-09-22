@@ -25,6 +25,8 @@ type Step = {
   id: string;
   title: string;
   who: string;
+  /** Where the step's work is done, when it has its own page. */
+  href?: string;
   /** The contribution kinds this step is made of. Empty = not a task step. */
   kinds: ContributionKind[];
   done: number;
@@ -67,6 +69,7 @@ function buildSteps(items: Contribution[], hasSchedule: boolean): Step[] {
     },
     {
       id: "expenses", title: "Expenses", who: "Greg · Drew", kinds: ["ret", "insurance", "building-maintenance"],
+      href: "/budget-inputs",
       ...expenses,
       // Deliberately NOT blocked by the schedule — this half runs in parallel,
       // which is the point of splitting the work by person.
@@ -146,6 +149,9 @@ export function BudgetSteps({ year, category, refreshTick }: { year: number; cat
                   </>
                 )}
                 {s.note && <div className="muted" style={{ fontSize: 11, marginTop: 3, fontStyle: "italic" }}>{s.note}</div>}
+                {s.href && s.state !== "waiting" && (
+                  <a href={s.href} style={{ display: "inline-block", marginTop: 4, fontSize: 12, fontWeight: 700, color: "var(--brand)", textDecoration: "none" }}>Enter figures →</a>
+                )}
               </div>
             );
           })}

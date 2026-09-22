@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   return NextResponse.json({ assumptions: await getLeasingAssumptions(year, [code]) });
 }
 
-// POST { year, propertyCode, unitRef, kind, monthlyRent?, startMonth?, notes? }
+// POST { year, propertyCode, unitRef, kind, monthlyRent?, startMonth?, termYears?, notes? }
 //   kind null → clear the unit's assumption.
 export async function POST(req: Request) {
   try {
@@ -31,7 +31,11 @@ export async function POST(req: Request) {
     }
     const startMonth = b?.startMonth != null ? Math.min(12, Math.max(1, Number(b.startMonth))) : undefined;
     const monthlyRent = b?.monthlyRent != null && b.monthlyRent !== "" ? Number(b.monthlyRent) : undefined;
-    await setLeasingAssumption(year, propertyCode, { unitRef, kind, monthlyRent, startMonth, notes: b?.notes });
+    // A start month is an assumption only for a VACANT space; an existing
+    // tenant's dates come from the lease (see leaseRevenue), so it is not kept.
+    const keepStart = kind === "leaseup" ? startMonth : undefined;
+    const termYears = b?.termYears != null && b.termYears !== "" && Number(b.termYears) > 0 ? Math.min(30, Number(b.termYears)) : undefined;
+    await setLeasingAssumption(year, propertyCode, { unitRef, kind, monthlyRent, startMonth: keepStart, termYears, notes: b?.notes });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 500 });
