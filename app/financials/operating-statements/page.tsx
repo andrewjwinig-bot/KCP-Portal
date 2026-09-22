@@ -225,12 +225,23 @@ const flagTint = (f: "fav" | "unf" | null) =>
  * means and not what anyone works from, so a property could read "0 / 0" with
  * half a dozen marks down the page.
  *
- * `fullyFundedYtd` and `expectedMissing` are excluded because those lines
- * already carry their OWN marker (the ✓ and the ⚠) saying what is going on —
- * a second mark asking the same question is the noise every rule here fights.
+ * A NOT-POSTED KNOWN OBLIGATION COUNTS TOO — taxes, insurance, the
+ * management fee or a scheduled mortgage payment reading $0. It carries its
+ * own ⚠ rather than a "?", but it is the most likely real error on the page,
+ * and a to-do count that skipped it was counting everything except the thing
+ * most worth doing. It counts only where the ⚠ is actually drawn for the month
+ * in view (`showsUnposted`), and a dismissal clears it like any other item.
+ *
+ * `fullyFundedYtd` stays excluded: its ✓ says the year's bill is already paid,
+ * so there is nothing to investigate.
  */
+function showsUnposted(l: StatementLine): boolean {
+  return marksPeriodUnposted(l.expectedMissing, l.periodActual, l.periodBudget) || marksYtdUnposted(l.expectedMissing, l.ytdActual);
+}
 function carriesInvestigateMark(sectionName: string, l: StatementLine, dismissed: Set<string>): boolean {
-  return !!l.flags?.length && !l.fullyFundedYtd && !l.expectedMissing && !dismissed.has(`${sectionName}::${l.label}`);
+  if (dismissed.has(`${sectionName}::${l.label}`)) return false;
+  if (showsUnposted(l)) return true;
+  return !!l.flags?.length && !l.fullyFundedYtd && !l.expectedMissing;
 }
 
 /** How many items are still open on this statement. Ticks down as they are dismissed. */
@@ -1053,7 +1064,10 @@ export default function OperatingStatementsPage() {
         </div>
       )}
 
-      {!loading && statement && debtCheck?.missing && !isFullYear && (
+      {/* Gone once the debt line is dismissed — the same "checked, it doesn't
+          apply" the ! on the line records. */}
+      {!loading && statement && debtCheck?.missing && !isFullYear
+        && statement.sections.some((sec) => sec.role === "debt-service" && sec.lines.some((l) => l.expectedMissing && !dismissedFlags.has(lineKeyOf(sec.name, l.label)))) && (
         <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>
           ⚠ Debt service not posted — scheduled P&amp;I is <b>${money0(debtCheck.scheduled)}/mo</b>. Post the mortgage charge.
         </div>
@@ -1511,9 +1525,19 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
                       style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.45)", color: "#b45309", fontSize: 10, fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
                     >?</button>
                   ) : null}
+                  {/* A not-posted known obligation: the ⚠ in its cells says
+                      what is wrong; this is the way to clear it once checked. */}
+                  {showsUnposted(l) && !nf.dismissedFlags.has(lineKeyOf(sec.name, l.label)) ? (
+                    <button
+                      type="button"
+                      onClick={() => nf.onDismissFlag(lineKeyOf(sec.name, l.label))}
+                      title="Not posted — click to dismiss once you've confirmed it doesn't apply this month"
+                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "rgba(185,28,28,0.10)", border: "1px solid rgba(185,28,28,0.45)", color: "#b91c1c", fontSize: 10, fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
+                    >!</button>
+                  ) : null}
                   {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
-                {figureCells(l, { psf: view.psf, sqft: view.sqft, varMode: view.varMode, flag: thresh, drill: (tab, scope) => onOpenDetail(sec, l, tab, scope), expectedMissing: l.expectedMissing, fullyFunded: l.fullyFundedYtd })}
+                {figureCells(l, { psf: view.psf, sqft: view.sqft, varMode: view.varMode, flag: thresh, drill: (tab, scope) => onOpenDetail(sec, l, tab, scope), expectedMissing: nf.dismissedFlags.has(lineKeyOf(sec.name, l.label)) ? null : l.expectedMissing, fullyFunded: l.fullyFundedYtd })}
                 <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
               </tr>
             ))}

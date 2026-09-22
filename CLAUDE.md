@@ -754,6 +754,16 @@ time — and the team does not have time to open the GL over $80.
   different question and not one anyone acts on. 1100's July read `0 / 0`, and
   a favorable-variance count is not a to-do list in any case. `varianceCounts`
   and `lineMatchesClass` went with them rather than being left to rot.
+  **A NOT-POSTED KNOWN OBLIGATION COUNTS AS AN ITEM** (taxes, insurance, the
+  management fee, a scheduled mortgage payment reading $0). It was excluded
+  because it carries its own ⚠ rather than a "?", which meant the to-do count
+  skipped the likeliest real error on the page. It counts only where the ⚠ is
+  actually drawn for the month in view (`showsUnposted`), carries a red `!` to
+  dismiss it, and a dismissal clears the ⚠, the count and the "Debt service not
+  posted" banner alike. In the Review, DEBT is asked for EVERY month (the lender
+  schedules each payment — a June mortgage never posted used to vanish once
+  July's posted); the budget-based three stay latest-month, because they are
+  judged year to date and asking every month would repeat one finding.
 - **A TENANT NOT BILLED WHAT THEIR LEASE SAYS IS A THIRD KIND OF FINDING, AND
   IT IS INVISIBLE TO EVERY TREND CHECK** (`billingFlagReason` /
   `runRentCheck` in `rentCheckRun.ts`). The same wrong amount posts every
