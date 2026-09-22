@@ -162,6 +162,9 @@ export default function OperatingStatementsReviewPage() {
   const [monthFilter, setMonthFilter] = useState<number | null>(null);
   const [dismissing, setDismissing] = useState<Set<string>>(new Set());
   const [explaining, setExplaining] = useState<{ done: number; total: number; now: string } | null>(null);
+  // Failed calls, named. `fetch` does not throw on a 502, so a run where every
+  // call failed used to finish silently and look like it had worked.
+  const [explainFailures, setExplainFailures] = useState<string[]>([]);
   const [forceReexplain, setForceReexplain] = useState(false);
 
   // Dismiss a flagged line-month right here (no round-trip to the statement),
@@ -208,20 +211,29 @@ export default function OperatingStatementsReviewPage() {
       for (const period of periods) pairs.push({ key: p.key, period, label: `${p.propertyCode} ${p.propertyName}` });
     }
     if (!pairs.length) return;
+    const failures: string[] = [];
+    setExplainFailures([]);
     setExplaining({ done: 0, total: pairs.length, now: pairs[0].label });
     for (let i = 0; i < pairs.length; i++) {
       // Name the property BEFORE the call, not after — the interesting moment
       // is the minute it is being read, not the instant it finishes.
       setExplaining({ done: i, total: pairs.length, now: `${pairs[i].label} · ${MONTHS[pairs[i].period - 1]}` });
+      const where = `${pairs[i].label} · ${MONTHS[pairs[i].period - 1]}`;
       try {
-        await fetch("/api/financials/operating-statements/analyze", {
+        const res = await fetch("/api/financials/operating-statements/analyze", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ key: pairs[i].key, year, period: pairs[i].period, force: forceReexplain }),
         });
-      } catch { /* skip a failed property, keep going */ }
+        const j = await res.json().catch(() => ({}));
+        if (!res.ok || j.error) failures.push(`${where}: ${j.error ?? `HTTP ${res.status}`}`);
+      } catch (e) {
+        // skip a failed property, keep going — but say so
+        failures.push(`${where}: ${e instanceof Error ? e.message : "request failed"}`);
+      }
       setExplaining({ done: i + 1, total: pairs.length, now: pairs[i + 1]?.label ?? "Finishing up…" });
     }
     setExplaining(null);
+    setExplainFailures(failures);
     load(); // refresh so the freshly-written notes show
   }, [data, year, load, forceReexplain]);
 
@@ -358,6 +370,11 @@ export default function OperatingStatementsReviewPage() {
 
       {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>· {error}</div>}
       {emailMsg && <div className="muted small">{emailMsg}</div>}
+      {explainFailures.length > 0 && (
+        <div className="small" style={{ color: "#b91c1c" }}>
+          {explainFailures.length} could not be explained: {explainFailures.slice(0, 4).join("; ")}{explainFailures.length > 4 ? `; and ${explainFailures.length - 4} more` : ""}
+        </div>
+      )}
       {explaining && (
         <AnalyzingBar
           label="Reading the GL behind each flagged line"

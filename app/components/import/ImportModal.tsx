@@ -210,7 +210,7 @@ function ReportState({ run, done, failed, total, onClose, onDismissAutoExplain }
         ))}
 
         {rep?.autoExplain && run.autoExplain !== "dismissed" && run.autoExplain !== "none" && (
-          <AutoExplainCard state={run.autoExplain} spec={rep.autoExplain} onDismiss={onDismissAutoExplain} />
+          <AutoExplainCard state={run.autoExplain} outcome={run.autoExplainOutcome ?? null} spec={rep.autoExplain} onDismiss={onDismissAutoExplain} />
         )}
       </div>
 
@@ -223,21 +223,31 @@ function ReportState({ run, done, failed, total, onClose, onDismissAutoExplain }
 
 // It no longer ASKS — it reports. The work starts with the import, so this is
 // a status line with a way to dismiss it once it's finished, not a choice.
-function AutoExplainCard({ state, spec, onDismiss }: { state: ImportRun["autoExplain"]; spec: NonNullable<ImportRun["report"]>["autoExplain"]; onDismiss: () => void }) {
+function AutoExplainCard({ state, outcome, spec, onDismiss }: { state: ImportRun["autoExplain"]; outcome: ImportRun["autoExplainOutcome"]; spec: NonNullable<ImportRun["report"]>["autoExplain"]; onDismiss: () => void }) {
   const running = state === "running";
   const doneState = state === "done";
+  const failed = outcome?.failed ?? [];
+  // REPORT WHAT HAPPENED. "Done — every flagged line carries a note" used to
+  // show after a run where every call had failed and nothing was written.
+  const doneText = !outcome
+    ? "Done — see the statement and Flags to Investigate."
+    : failed.length
+      ? `${failed.length} propert${failed.length === 1 ? "y" : "ies"} could not be explained${outcome.explained ? ` · ${outcome.explained} note${outcome.explained === 1 ? "" : "s"} written for the rest` : ""}: ${failed.slice(0, 3).map((f) => `${f.label} — ${f.error}`).join("; ")}${failed.length > 3 ? `; and ${failed.length - 3} more` : ""}`
+      : outcome.explained || outcome.cleared
+        ? `Done — ${outcome.explained} note${outcome.explained === 1 ? "" : "s"} written${outcome.cleared ? `, ${outcome.cleared} "?" cleared as nothing to do` : ""}.`
+        : "Done — no flagged line needed a new note.";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", borderRadius: 12, padding: "12px 15px" }}>
       <span className="imp-anim" style={{ animation: "impFloat 3.5s ease-in-out infinite", flexShrink: 0 }}><SparkleMark size={30} twinkle={running} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ai-text)" }}>{spec?.title ?? "Explaining the flagged lines"}</div>
-        <div className="muted" style={{ fontSize: 12.5 }}>{running ? "Reading the GL behind each line that looks off…" : doneState ? "Done — every flagged line carries a note, on the statement and in Flags to Investigate." : (spec?.subtitle ?? "Reading the GL behind each line that looks off.")}</div>
+        <div className="muted" style={{ fontSize: 12.5 }}>{running ? "Reading the GL behind each line that looks off…" : doneState ? <span style={failed.length ? { color: "#b91c1c" } : undefined}>{doneText}</span> : (spec?.subtitle ?? "Reading the GL behind each line that looks off.")}</div>
       </div>
       {doneState && (
         <button onClick={onDismiss} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ai-hero-sub)", fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>Dismiss</button>
       )}
       {running && <span className="imp-anim" style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--ai-border)", borderTopColor: "var(--ai)", animation: "spin .8s linear infinite", flexShrink: 0 }} />}
-      {doneState && <span style={{ color: "var(--ai-text)", fontWeight: 800, flexShrink: 0 }}>✓</span>}
+      {doneState && <span style={{ color: failed.length ? "#b91c1c" : "var(--ai-text)", fontWeight: 800, flexShrink: 0 }}>{failed.length ? "!" : "✓"}</span>}
     </div>
   );
 }

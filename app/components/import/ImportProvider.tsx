@@ -105,8 +105,11 @@ export function ImportProvider({ children }: { children: React.ReactNode }) {
     // are swallowed for the same reason they always were — a note that didn't
     // get written is not a failed import.
     if (opened && report?.autoExplain) {
+      // A missing note is not a failed import — but it IS reported. The run
+      // returns what it did, and the card says so rather than assuming success.
       void report.autoExplain.run()
-        .catch(() => { /* a missing note is not a failed import */ })
+        .then((outcome) => setRun((r) => (r ? { ...r, autoExplainOutcome: outcome || null } : r)))
+        .catch((e) => setRun((r) => (r ? { ...r, autoExplainOutcome: { explained: 0, cleared: 0, failed: [{ label: "Auto-explain", error: e instanceof Error ? e.message : "failed" }] } } : r)))
         .finally(() => setRun((r) => (r && r.autoExplain === "running" ? { ...r, autoExplain: "done" } : r)));
     }
     return finalRun;
