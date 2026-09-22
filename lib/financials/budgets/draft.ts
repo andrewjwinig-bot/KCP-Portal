@@ -16,7 +16,10 @@ import { projectLeaseRevenue, type ExpiringLease, type VacantUnit } from "./leas
 import { getLeasingAssumptions } from "./leasingAssumptions";
 import { estimateReimbursements, type ReimbursementEstimate } from "./reimbursementEstimate";
 import { expenseInputKindOf, resolveKind, splitAcrossLines, type ExpenseInputKind } from "./expenseInputs";
+import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { getExpenseInputs } from "./expenseInputStore";
+import { ownerFor } from "./contributors";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 /** The revenue line the lease projection replaces — base/rental income. */
 const RENTAL_LINE_RE = /rental|rent income|base rent|minimum rent/i;
@@ -78,6 +81,8 @@ export type BudgetDraft = {
     assumptionsApplied: number;
     /** The property code assumptions are saved under (for the save endpoint). */
     propertyCode: string;
+    /** Who owns these calls — Harry (shopping centres) or Nancy (office parks). */
+    owner: { id: string; label: string };
   };
   /** DISPLAY-ONLY per-tenant CAM/INS/RET reimbursement estimate (Phase 3). Does
    *  not yet drive the reimbursement lines — surfaced for verification first. */
@@ -110,8 +115,6 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   // shaped by any saved leasing assumptions (renew / vacate / lease-up).
   const assumptions = await getLeasingAssumptions(budgetYear, [meta.propertyCode]);
   const lease = await projectLeaseRevenue([meta.propertyCode], budgetYear, assumptions);
-  // Display-only CAM/INS/RET reimbursement estimate from the real recon engine.
-  const reimbursementEstimate = (await estimateReimbursements(meta.propertyCode, budgetYear, growthPct).catch(() => null)) ?? undefined;
   let rentalReplaced = false;
 
   // THE EXPENSES STEP. Real estate taxes, insurance and building maintenance
@@ -141,7 +144,6 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
 
   const sections: BudgetDraftSection[] = r.sections.map((sec) => {
     const isExpense = EXPENSE_ROLE_SET.has(sec.role);
-    const isDebt = sec.role === "debt-service";
     const lines: BudgetDraftLine[] = sec.lines.map((l) => {
       // The primary rental line on a revenue section is projected from the
       // rent roll's in-place leases; the first such line wins (avoids catching
@@ -181,10 +183,61 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     });
     const subtotal = new Array(12).fill(0);
     for (const l of lines) addInto(subtotal, l.months);
-    if (isExpense) addInto(expMonths, subtotal);
-    else if (!isDebt) addInto(revMonths, subtotal); // revenue + reimbursement
     return { name: sec.name, role: sec.role, lines, subtotal: subtotal.map(r0), total: r0(sum(subtotal)) };
   });
+
+  // RECOVERIES. The budget's CAM, insurance and tax pools against this year's,
+  // read off the draft's own expense lines — so the taxes and premium keyed in
+  // the Expenses step move what tenants are billed. Then each tenant's share
+  // from the last reconciliation, cut to the months the leasing assumptions
+  // say they are there (recoveryMath.ts), replaces the recovery income lines.
+  const pool = { cam: [0, 0], ins: [0, 0], ret: [0, 0] }; // [budget, basis]
+  for (const sec of sections) {
+    for (const l of sec.lines) {
+      const k = expenseInputKindOf(sec.role, l.label);
+      const bucket = k === "ret" ? pool.ret : k === "insurance" ? pool.ins : sec.role === "reimbursable-expense" ? pool.cam : null;
+      if (!bucket) continue;
+      bucket[0] += l.total; bucket[1] += l.basisTotal;
+    }
+  }
+  const ratioOf = ([budget, basis]: number[]) => (basis > 0 ? budget / basis : 1);
+  const reimbursementEstimate = (await estimateReimbursements(meta.propertyCode, budgetYear, growthPct, {
+    poolRatios: { cam: ratioOf(pool.cam), ins: ratioOf(pool.ins), ret: ratioOf(pool.ret) },
+    assumptions,
+  }).catch(() => null)) ?? undefined;
+
+  if (reimbursementEstimate) {
+    const est = reimbursementEstimate;
+    // Each recovery income line takes the category the rent roll bills it
+    // under (`basisForLine`: CAM, RE tax, and insurance on "other"). Office
+    // recovers insurance inside CAM, so its insurance line is left as it was.
+    const byBasis: Record<string, { sec: BudgetDraftSection; idx: number }[]> = {};
+    for (const sec of sections) {
+      if (sec.role !== "revenue" && sec.role !== "reimbursement") continue;
+      sec.lines.forEach((l, idx) => {
+        const b = basisForLine(l.label, l.mask);
+        if (b === "cam" || b === "ret" || (b === "other" && est.kind === "retail")) (byBasis[b] ??= []).push({ sec, idx });
+      });
+    }
+    const monthsFor: Record<string, number[]> = { cam: est.monthly.cam, ret: est.monthly.ret, other: est.monthly.ins };
+    for (const [b, targets] of Object.entries(byBasis)) {
+      const parts = splitAcrossLines(monthsFor[b], targets.map((t) => t.sec.lines[t.idx].months));
+      targets.forEach((t, i) => {
+        const l = t.sec.lines[t.idx];
+        t.sec.lines[t.idx] = { ...l, months: parts[i].map(r0), total: r0(sum(parts[i])), source: "cam-estimate" };
+      });
+    }
+    for (const sec of sections) {
+      const subtotal = new Array(12).fill(0);
+      for (const l of sec.lines) addInto(subtotal, l.months);
+      sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
+    }
+  }
+
+  for (const sec of sections) {
+    if (EXPENSE_ROLE_SET.has(sec.role)) addInto(expMonths, sec.subtotal);
+    else if (sec.role !== "debt-service") addInto(revMonths, sec.subtotal); // revenue + reimbursement
+  }
 
   const noiMonths = revMonths.map((v, i) => r0(v - expMonths[i]));
   return {
@@ -206,6 +259,11 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       vacant: lease.vacant,
       assumptionsApplied: lease.assumptionsApplied,
       propertyCode: meta.propertyCode,
+      owner: (() => {
+        const def = PROPERTY_DEFS.find((d) => d.id === String(meta.propertyCode).toUpperCase());
+        const id = ownerFor("renewal", def?.allocGroup);
+        return { id, label: id.charAt(0).toUpperCase() + id.slice(1) };
+      })(),
     } : undefined,
     reimbursementEstimate,
   };

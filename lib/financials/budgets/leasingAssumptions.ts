@@ -11,7 +11,11 @@ import { getJSON, storeJSON } from "@/lib/storage";
 const PREFIX = "budget-leasing-assumptions";
 const idFor = (budgetYear: number, propertyCode: string) => `${budgetYear}-${propertyCode.toUpperCase()}`;
 
-export type LeaseAssumptionKind = "renew" | "vacate" | "leaseup";
+/** `hold` is a DECISION too — "no change" (hold the current lease, or leave a
+ *  vacancy vacant). It used to be saved as nothing, so a space someone had
+ *  looked at and a space nobody had touched were indistinguishable, and the
+ *  card could never say it was finished. */
+export type LeaseAssumptionKind = "renew" | "vacate" | "leaseup" | "hold";
 
 export type LeaseAssumption = {
   unitRef: string;
@@ -29,6 +33,8 @@ export type LeaseAssumption = {
   termYears?: number;
   notes?: string;
   updatedAt?: string;
+  /** Who made the call — the owner (Harry / Nancy), or Drew in the review. */
+  updatedBy?: string;
 };
 
 type Doc = { assumptions: Record<string, LeaseAssumption> };
@@ -51,7 +57,7 @@ export async function getLeasingAssumptions(budgetYear: number, codes: string[])
 export async function setLeasingAssumption(
   budgetYear: number,
   propertyCode: string,
-  a: (Omit<LeaseAssumption, "updatedAt"> & { kind: LeaseAssumptionKind | null }),
+  a: (Omit<LeaseAssumption, "updatedAt" | "kind"> & { kind: LeaseAssumptionKind | null }),
 ): Promise<void> {
   const doc = await loadDoc(budgetYear, propertyCode);
   if (a.kind === null) {
@@ -60,6 +66,7 @@ export async function setLeasingAssumption(
     doc.assumptions[a.unitRef] = {
       unitRef: a.unitRef, kind: a.kind,
       monthlyRent: a.monthlyRent, startMonth: a.startMonth, termYears: a.termYears, notes: a.notes,
+      updatedBy: a.updatedBy,
       updatedAt: new Date().toISOString(),
     };
   }

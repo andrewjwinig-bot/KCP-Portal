@@ -911,6 +911,34 @@ time — and the team does not have time to open the GL over $80.
   assumed TERM in years (`termYears`) — it does not move this year's rent; it
   records the deal for later years and the commission estimate.
 
+- **The budget year is NEXT year by default** (2027 in 2026) — the page, Budget
+  Inputs and both APIs. It is built from this year's forecast.
+- **The draft reads as a FULL-YEAR OPERATING STATEMENT**
+  (`app/financials/budgets/draft/BudgetStatementTable.tsx`): a column per month,
+  then Budget, this year's Forecast and the change — the same ladder and
+  styling as the statement's Full-Year grid. Do NOT go back to a card per
+  section showing one annual figure; the monthly shape (taxes in May/Nov, a March
+  premium, snow in winter, a lease-up starting in June) IS the budget. There is
+  no master growth-% control: every line carries its own basis (entered, tax
+  +3%, leases, the recovery estimate), and what is left grows by a fixed 3%.
+- **Recoveries (CAM / INS / RET) are IN the draft** (`recoveryMath.ts`,
+  `reimbursementEstimate.ts`): each tenant keeps their share from the last
+  reconciliation, applied to the BUDGET's own pools (so keyed taxes and
+  insurance flow straight to tenants). Retail scales the share by the pool
+  change (a capped tenant no faster than its cap); office recomputes the
+  increase over each tenant's base year. The leasing assumptions set who pays
+  and when — a vacate stops after its term, a retail lease-up pays pro-rata from
+  its start month, a suite vacant on the roll pays nothing. The monthly totals
+  replace the reimbursement lines by `basisForLine`.
+- **The leasing card is visibly the OWNER'S work** — Harry's (SC) or Nancy's
+  (BP), in their `contributorTone` colour, "N OF M DECIDED" until every row has a
+  decision, then "COMPLETED BY <who> · <timestamp>". Each row carries who made
+  that call and when (`updatedBy`/`updatedAt`, set server-side from the signed-in
+  user, and the save is checked with `canEdit`). **"Hold current" / "Leave
+  vacant" are saved as `kind: "hold"`**, not as nothing — otherwise a space
+  someone decided and a space nobody looked at read the same. A saved decision
+  completes that suite's vacancy/renewal contribution on the progress rail.
+
 # Balance Sheet — sources of truth
 
 `/financials/balance-sheet`, gated with the other statement pages

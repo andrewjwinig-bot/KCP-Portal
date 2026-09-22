@@ -70,7 +70,7 @@ export async function GET(req: Request) {
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
   const url = new URL(req.url);
-  const year = Number(url.searchParams.get("year")) || new Date().getFullYear();
+  const year = Number(url.searchParams.get("year")) || new Date().getFullYear() + 1;
   const book = bookById(url.searchParams.get("book") ?? "shopping-centers");
   if (!book) return NextResponse.json({ error: "Unknown book." }, { status: 400 });
   const g = Number(url.searchParams.get("growth"));
