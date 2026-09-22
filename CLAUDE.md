@@ -952,6 +952,23 @@ time — and the team does not have time to open the GL over $80.
   set one figure is how they would disagree. Only a CHANGE commits: tabbing
   across a month leaves it computed.
 
+- **The leasing card is ONE table** (suite → decision → rent $/SF/yr → TI $/SF
+  → LC $/SF → term → what it does in the budget year), banded "Expiring or
+  holdover" / "Vacant space". The decision is a one-click segmented choice
+  (`DecisionChoice`), not a dropdown. **Rent is keyed as ANNUAL $/SF**, starting
+  at the tenant's current $/SF (so a flat renewal needs no typing); `monthlyRent`
+  is derived (× SF ÷ 12) and a renewal left at today's $/SF holds today's rent
+  exactly. **TI $/SF and LC $/SF × the suite's SF land on the Capital section's
+  Tenant improvements (1440) and Capitalized Lease Costs (1940-8501) lines in
+  the month the new rent starts** (`tiMonthly`/`lcMonthly` in `leaseRevenue.ts`);
+  where any deal carries one, that line IS the deals rather than last year's
+  TI grown. "Holdover" means the lease has ALREADY ended — 11/30/26 in
+  September is a live lease, not a holdover.
+- **The page's cards are numbered to match the rail**: 1 Rent schedule, 2
+  Vacancies & renewals, 3 Expenses (a status card linking to Budget Inputs —
+  never a second place to key them), 4 Recoveries, 5 Review & finalize (the
+  monthly grid). A step on the rail with no card is what "there's no step 2"
+  meant.
 - **PENDING (build when the 2027 draft is finished): "Publish to Budgets".**
   The Budget Draft is a WORKSPACE — nothing reads it. The budget of record is
   the workbook store on `/financials/budgets` (`lib/financials/budgets/storage.ts`),

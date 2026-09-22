@@ -88,6 +88,8 @@ export type BudgetDraft = {
     assumptionsApplied: number;
     /** The property code assumptions are saved under (for the save endpoint). */
     propertyCode: string;
+    /** The TI and leasing commissions the deals carry, for the year. */
+    dealCapital: { ti: number; lc: number };
     /** Who owns these calls — Harry (shopping centres) or Nancy (office parks). */
     owner: { id: string; label: string };
   };
@@ -215,6 +217,23 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     return { name: sec.name, role: sec.role, lines, subtotal: subtotal.map(r0), total: r0(sum(subtotal)) };
   });
 
+  // THE DEALS' CAPITAL. A renewal or lease-up that carries TI $/sf or a
+  // commission $/sf puts those dollars on the Capital section's Tenant
+  // improvements (1440) and Capitalized Lease Costs (1940-8501) lines, in the
+  // month its new rent starts. Where any deal carries one, the line IS the
+  // deals — growing this year's TI by a percent budgets last year's leases
+  // again; TI is spent because a lease was signed.
+  const dealLine = (re: RegExp, months: number[] | undefined) => {
+    if (!months || !months.some((m) => m)) return;
+    const sec = sections.find((x) => x.role === "capital" && x.lines.some((l) => re.test(l.label) || re.test(l.mask)));
+    const idx = sec?.lines.findIndex((l) => re.test(l.label) || re.test(l.mask)) ?? -1;
+    if (!sec || idx < 0) return;
+    const l = sec.lines[idx];
+    sec.lines[idx] = { ...l, months: months.map(r0), total: r0(sum(months)), source: "leases" };
+  };
+  dealLine(/tenant improvement|^1440/i, lease.tiMonthly);
+  dealLine(/lease cost|leasing commission|1940-8501/i, lease.lcMonthly);
+
   // TYPED MONTHS win over whatever computed them — applied BEFORE the pools
   // are read, so a CAM expense typed into the grid moves what tenants are
   // billed, and again after the recoveries replace their income lines.
@@ -289,6 +308,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       vacant: lease.vacant,
       assumptionsApplied: lease.assumptionsApplied,
       propertyCode: meta.propertyCode,
+      dealCapital: { ti: r0(sum(lease.tiMonthly ?? [])), lc: r0(sum(lease.lcMonthly ?? [])) },
       owner: (() => {
         const def = PROPERTY_DEFS.find((d) => d.id === String(meta.propertyCode).toUpperCase());
         const id = ownerFor("renewal", def?.allocGroup);
