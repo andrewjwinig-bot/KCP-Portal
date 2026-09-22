@@ -12,7 +12,7 @@ import crypto from "node:crypto";
 import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
-import { seasonalTrendFlags, FLAG_MIN_DOLLARS } from "@/lib/financials/operating-statements/flagRules";
+import { seasonalTrendFlags, FLAG_MIN_DOLLARS, revenueShortfallReason } from "@/lib/financials/operating-statements/flagRules";
 import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { loadRentCheckContext, runRentCheck, billingFlagReason } from "@/lib/financials/operating-statements/rentCheckRun";
 import { markPaidMonths } from "@/lib/financials/operating-statements/paidMonth";
@@ -224,7 +224,10 @@ export async function GET(req: Request) {
       // A line can sit exactly on budget and still have a tenant who was never
       // charged, which is precisely the case those filters are built to ignore.
       const billing = billingReasons[`${sec.name}::${l.label}`];
-      const all = billing ? [billing, ...flags] : flags;
+      // A lease-billed revenue line short of budget — the steady gap no trend
+      // check can see. Its own floor; see revenueShortfallReason.
+      const shortfall = revenueShortfallReason(sec.role, l, l.periodActual, l.periodBudget);
+      const all = [...(billing ? [billing] : []), ...(shortfall ? [shortfall] : []), ...flags];
       if (all.length) l.flags = all;
     }
   }

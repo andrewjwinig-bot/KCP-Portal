@@ -15,7 +15,7 @@ import { computeStatement } from "./compute";
 import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import { lineMonthly } from "./lineSeries";
 import { trendFlags } from "./trends";
-import { seasonalTrendFlags, meetsFlagFloor, FLAG_MIN_DOLLARS } from "./flagRules";
+import { seasonalTrendFlags, meetsFlagFloor, FLAG_MIN_DOLLARS, revenueShortfallReason } from "./flagRules";
 import { basisForLine } from "./rentCheck";
 import { loadRentCheckShared, loadRentCheckContext, runRentCheck, billingFlagReason } from "./rentCheckRun";
 import { markMissingDebt } from "./debtFlag";
@@ -241,6 +241,48 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
       } catch { /* the check is an extra; it must never fail the review */ }
     }
 
+    // REVENUE PASS — a lease-billed revenue line short of budget.
+    //
+    // Like billing, it runs over EVERY month: a steady shortfall never trips a
+    // trend check, so pass 1 would never have flagged the month for it. It
+    // needs each month's budget, which pass 1 deliberately never computes — so
+    // it only runs when the property HAS a budget and a lease-billed revenue
+    // line, and the month statements it builds are kept for pass 2 to reuse.
+    const shortfallByLineMonth = new Map<string, string>();
+    const stmtByMonth = new Map<number, ReturnType<typeof computeStatement>>([[max, statementMax]]);
+    const monthStatement = (P: number) => {
+      let st = stmtByMonth.get(P);
+      if (!st) {
+        st = computeStatement({
+          mapping, propertyName: name, year, period: P,
+          gl: summaryForPeriod(stored.monthly, P),
+          budgetLookup: budget ? makeBudgetLookup(budget, P) : undefined,
+        });
+        stmtByMonth.set(P, st);
+      }
+      return st;
+    };
+    const revenueLines = statementMax.sections.flatMap((sec) =>
+      (sec.role === "revenue" || sec.role === "reimbursement") ? sec.lines.filter((l) => basisForLine(l.label, l.mask)).map((l) => ({ sec, l })) : []);
+    if (sameYearBudget && revenueLines.length) {
+      for (let M = 1; M <= max; M++) {
+        const st = monthStatement(M);
+        for (const sec of st.sections) {
+          for (const l of sec.lines) {
+            const reason = revenueShortfallReason(sec.role, l, l.periodActual, l.periodBudget);
+            if (!reason) continue;
+            const lineKey = `${sec.name}::${l.label}`;
+            shortfallByLineMonth.set(`${lineKey}|${M}`, reason);
+            flaggedPeriods.add(M);
+            if (!hitsByLine.has(lineKey)) {
+              const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
+              hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits: [], history: lineMonthly(stored.monthly, l.mask, sign, max) });
+            }
+          }
+        }
+      }
+    }
+
     // Pass 2: only for months that actually have flags, pull that month's
     // statement (for per-month actual/budget/variance) + notes + dismissals.
     type PeriodData = {
@@ -251,11 +293,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     };
     const perPeriod = new Map<number, PeriodData>();
     await Promise.all([...flaggedPeriods].map(async (P) => {
-      const stmtP = P === max ? statementMax : computeStatement({
-        mapping, propertyName: name, year, period: P,
-        gl: summaryForPeriod(stored.monthly, P),
-        budgetLookup: budget ? makeBudgetLookup(budget, P) : undefined,
-      });
+      const stmtP = monthStatement(P);
       const amounts = new Map<string, { actual: number; budget: number | null; variance: number | null }>();
       for (const sec of stmtP.sections) {
         for (const l of sec.lines) {
@@ -279,6 +317,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
       const periods = [...new Set([
         ...hits.map((h) => h.period),
         ...[...billingByLineMonth.keys()].filter((k) => k.startsWith(`${lineKey}|`)).map((k) => Number(k.split("|")[1])),
+        ...[...shortfallByLineMonth.keys()].filter((k) => k.startsWith(`${lineKey}|`)).map((k) => Number(k.split("|")[1])),
       ])].sort((a, b) => a - b);
       for (const period of periods) {
         const pp = perPeriod.get(period);
@@ -296,7 +335,9 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
         // because pass 1 deliberately never computes a month's budget — that is
         // what makes scanning every month of every property affordable.
         const keepTrend = trend.length > 0 && meetsFlagFloor(a?.variance ?? null, { label: line }, history);
-        const flags = [...(billing ? [billing] : []), ...(keepTrend ? trend : [])];
+        // The shortfall carries its own floor, like billing — not the trend's.
+        const shortfall = shortfallByLineMonth.get(`${lineKey}|${period}`);
+        const flags = [...(billing ? [billing] : []), ...(shortfall ? [shortfall] : []), ...(keepTrend ? trend : [])];
         if (!flags.length) continue;
         months.push({
           period, monthLabel: MONTHS[period - 1], flags, ...(billing ? { billing } : {}),

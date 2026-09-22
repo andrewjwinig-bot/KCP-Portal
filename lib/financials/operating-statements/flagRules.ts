@@ -4,6 +4,7 @@
 // statement route, so the Review still flagged summer snow etc.
 
 import type { SectionRole } from "./types";
+import { basisForLine } from "./rentCheck";
 
 /**
  * The smallest variance worth anyone's time.
@@ -320,3 +321,41 @@ const KNOWN_OBLIGATION =
 export function isKnownObligation(l: { label: string; section?: string }): boolean {
   return KNOWN_OBLIGATION.test(l.label) || (!!l.section && KNOWN_OBLIGATION.test(l.section));
 }
+
+/**
+ * A LEASE-BILLED REVENUE LINE THAT CAME IN SHORT OF BUDGET.
+ *
+ * Every other "?" on a revenue line is a TREND — the line moved against its own
+ * recent months or last year — or a rent-roll BILLING mismatch. Neither sees a
+ * line that is short by the same amount every month: a lease the budget assumed
+ * that is not billing, a CAM or tax recovery keyed low, a tenant who left. It
+ * does not move, so no trend fires, and when the suite is vacant on the roll it
+ * ties there too. The budget is the only thing that remembers what should have
+ * come in.
+ *
+ * Limited to lines billed on a lease every month (`basisForLine`: base rent,
+ * CAM, RE tax, insurance) — those land near budget month after month, so a
+ * shortfall means something. Percentage rent, recon true-ups, late fees and
+ * other income are budgeted evenly and post in lumps; a monthly gap on them is
+ * arithmetic, not a finding. Short only: revenue OVER budget on these lines is
+ * a new lease or an escalation, and a suite billed twice is the rent-roll
+ * check's job.
+ *
+ * Its own floor ($500 of shortfall), NOT put through the trend filters — a
+ * steady gap is exactly what they are built to ignore.
+ */
+export function revenueShortfallReason(
+  role: SectionRole,
+  line: { label: string; mask: string },
+  periodActual: number,
+  periodBudget: number | null | undefined,
+): string | null {
+  if (role !== "revenue" && role !== "reimbursement") return null;
+  if (periodBudget == null || periodBudget < 1) return null;
+  if (!basisForLine(line.label, line.mask)) return null;
+  const short = periodBudget - periodActual;
+  if (short < FLAG_MIN_DOLLARS) return null;
+  const $ = (v: number) => `$${Math.round(v).toLocaleString("en-US")}`;
+  return `${$(short)} under budget — billed ${$(periodActual)} against ${$(periodBudget)}. A lease the budget assumed that is not billing, or a charge not keyed.`;
+}
+
