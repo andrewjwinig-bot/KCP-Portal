@@ -89,4 +89,25 @@ describe("buildBudgetDraft", () => {
     const exp = d.sections.find((s) => s.role === "non-reimbursable-expense")!.lines[0];
     expect(exp.months.every((m) => m === 1000)).toBe(true);
   });
+
+  it("keeps a multi-account line's GL sub-lines, each grown on its own months, the line their sum", async () => {
+    const r = fakeReproj();
+    const bm = line("Building Maintenance", "6220-8502,6220-8503", 700) as any;
+    bm.accounts = [
+      { account: "6220-8502", actual: [], budget: [], blended: new Array(12).fill(500) },
+      { account: "6220-8503", actual: [], budget: [], blended: new Array(12).fill(200) },
+    ];
+    (r.reprojection.sections[1].lines as any[]).push(bm);
+    (r.reprojection as any).accountNames = { "6220-8502": "Bldg Maint - CAM" };
+    loadReprojection.mockResolvedValue(r);
+    projectLeaseRevenue.mockResolvedValue(noLeases);
+    const d = (await buildBudgetDraft("1100", 2027, 3))!;
+    const l = d.sections.find((s) => s.role === "non-reimbursable-expense")!.lines.find((x) => x.label === "Building Maintenance")!;
+    expect(l.subLines?.map((x) => x.account)).toEqual(["6220-8502", "6220-8503"]);
+    expect(l.subLines?.[0].months[0]).toBe(515);   // 500 × 1.03
+    expect(l.subLines?.[1].months[0]).toBe(206);   // 200 × 1.03
+    expect(l.months[0]).toBe(721);                  // their sum
+    expect(l.subLines?.[0].name).toBe("Bldg Maint - CAM");
+    expect(l.subLines?.every((x) => x.typeable)).toBe(true);
+  });
 });

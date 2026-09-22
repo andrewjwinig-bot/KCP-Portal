@@ -11,6 +11,7 @@
 
 import "server-only";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
+import type { ReprojLine } from "@/lib/financials/reprojections/compute";
 import { EXPENSE_ROLES, type SectionRole } from "@/lib/financials/operating-statements/types";
 import { projectLeaseRevenue, type ExpiringLease, type VacantUnit } from "./leaseRevenue";
 import { getLeasingAssumptions } from "./leasingAssumptions";
@@ -49,9 +50,23 @@ export type BudgetDraftLine = {
   source: DraftSource;
   /** Months typed straight into the grid (true = that month is typed). */
   typed?: boolean[];
+  /** The GL accounts the line is built from — its SUB-LINES — when there is
+   *  more than one. `typeable` sub-lines are budgeted one by one (the line is
+   *  their sum); otherwise they show how a keyed/derived line splits. */
+  subLines?: BudgetSubLine[];
   /** Set on a line the Budget Inputs page owns (taxes, insurance, building
    *  maintenance) — keyed there, by its owner, never typed into the grid. */
   inputKind?: ExpenseInputKind;
+};
+
+export type BudgetSubLine = {
+  account: string;
+  name?: string;
+  months: number[];
+  total: number;
+  basisTotal: number;
+  typed?: boolean[];
+  typeable: boolean;
 };
 
 export type BudgetDraftSection = {
@@ -109,13 +124,55 @@ function addInto(acc: number[], add: number[]) {
   for (let i = 0; i < 12; i++) acc[i] += add[i] ?? 0;
 }
 
+/** A line's sub-lines, one per GL account, when it has more than one. A line
+ *  grown from the forecast is budgeted sub-line by sub-line (each account
+ *  grown on its own months); a line whose figure comes from elsewhere (a
+ *  lease, a keyed input) is split across its accounts in proportion, for
+ *  reading only. */
+function withSubLines(
+  line: BudgetDraftLine, accounts: ReprojLine["accounts"], names: Record<string, string>, factor: number | null,
+): BudgetDraftLine {
+  const accts = accounts ?? [];
+  if (accts.length < 2) return line;
+  const computed = line.source === "reproj-growth" || line.source === "reproj-flat";
+  if (computed) {
+    const subLines: BudgetSubLine[] = accts.map((a) => {
+      const months = factor != null ? grow(a.blended, factor) : a.blended.map(r0);
+      return { account: a.account, name: names[a.account], months, total: r0(sum(months)), basisTotal: r0(sum(a.blended)), typeable: true };
+    });
+    const months = new Array(12).fill(0);
+    for (const s of subLines) addInto(months, s.months);
+    return { ...line, months: months.map(r0), total: r0(sum(months)), subLines };
+  }
+  const parts = splitAcrossLines(line.months, accts.map((a) => a.blended));
+  return {
+    ...line,
+    subLines: accts.map((a, i) => ({
+      account: a.account, name: names[a.account], months: parts[i].map(r0), total: r0(sum(parts[i])), basisTotal: r0(sum(a.blended)), typeable: false,
+    })),
+  };
+}
+
 /** Lay typed months over the computed ones and re-total each section. A line
- *  the Budget Inputs page owns is marked and never takes a typed month. */
+ *  the Budget Inputs page owns is marked and never takes a typed month. A line
+ *  with typeable sub-lines is typed THROUGH them — its months are their sum. */
 function applyTyped(sections: BudgetDraftSection[], doc: LineOverrides) {
   for (const sec of sections) {
     sec.lines = sec.lines.map((l) => {
       const inputKind = expenseInputKindOf(sec.role, l.label) ?? undefined;
       if (inputKind) return { ...l, inputKind };
+      if (l.subLines?.some((s) => s.typeable)) {
+        const subLines = l.subLines.map((s) => {
+          const ov = doc[`${lineKey(sec.name, l.label)}#${s.account}`];
+          if (!ov) return s;
+          const { months, typed } = mergeMonths(s.months, ov);
+          return { ...s, months, typed, total: r0(sum(months)) };
+        });
+        const months = new Array(12).fill(0);
+        for (const s of subLines) addInto(months, s.months);
+        const typed = months.map((_, i) => subLines.some((s) => s.typed?.[i]));
+        return { ...l, subLines, months: months.map(r0), total: r0(sum(months)), typed: typed.some(Boolean) ? typed : undefined };
+      }
       const ov = doc[lineKey(sec.name, l.label)];
       if (!ov) return l;
       const { months, typed } = mergeMonths(l.months, ov);
@@ -175,7 +232,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
 
   const sections: BudgetDraftSection[] = r.sections.map((sec) => {
     const isExpense = EXPENSE_ROLE_SET.has(sec.role);
-    const lines: BudgetDraftLine[] = sec.lines.map((l) => {
+    const built: BudgetDraftLine[] = sec.lines.map((l) => {
       // The primary rental line on a revenue section is projected from the
       // rent roll's in-place leases; the first such line wins (avoids catching
       // "rent reimbursement" etc.).
@@ -212,6 +269,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
         source: grown ? "reproj-growth" : "reproj-flat",
       };
     });
+    const lines = built.map((b, i) => withSubLines(b, sec.lines[i].accounts, r.accountNames ?? {}, isExpense ? factor : null));
     const subtotal = new Array(12).fill(0);
     for (const l of lines) addInto(subtotal, l.months);
     return { name: sec.name, role: sec.role, lines, subtotal: subtotal.map(r0), total: r0(sum(subtotal)) };
@@ -229,7 +287,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     const idx = sec?.lines.findIndex((l) => re.test(l.label) || re.test(l.mask)) ?? -1;
     if (!sec || idx < 0) return;
     const l = sec.lines[idx];
-    sec.lines[idx] = { ...l, months: months.map(r0), total: r0(sum(months)), source: "leases" };
+    sec.lines[idx] = { ...l, months: months.map(r0), total: r0(sum(months)), source: "leases", subLines: undefined };
   };
   dealLine(/tenant improvement|^1440/i, lease.tiMonthly);
   dealLine(/lease cost|leasing commission|1940-8501/i, lease.lcMonthly);
@@ -277,7 +335,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       const parts = splitAcrossLines(monthsFor[b], targets.map((t) => t.sec.lines[t.idx].months));
       targets.forEach((t, i) => {
         const l = t.sec.lines[t.idx];
-        t.sec.lines[t.idx] = { ...l, months: parts[i].map(r0), total: r0(sum(parts[i])), source: "cam-estimate" };
+        t.sec.lines[t.idx] = { ...l, months: parts[i].map(r0), total: r0(sum(parts[i])), source: "cam-estimate", subLines: undefined };
       });
     }
     applyTyped(sections, typedDoc);

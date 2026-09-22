@@ -26,24 +26,22 @@
 // to set one figure is how they would disagree.
 
 import { Fragment, useRef, useState } from "react";
-import { Pill, TONE_BLUE, type PillTone } from "@/app/components/Pill";
-
-const TONE_TYPED = TONE_BLUE;
+import { Pill, type PillTone } from "@/app/components/Pill";
 import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/draft";
 import type { SectionRole } from "@/lib/financials/operating-statements/types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const COLOR_BRAND = "#0b4a7d";
 const GROUP_DIV = "1px solid var(--border)";
-const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, padding: "6px 8px", whiteSpace: "nowrap", verticalAlign: "middle" };
-const lab: React.CSSProperties = { textAlign: "left", fontSize: 13, padding: "6px 10px", verticalAlign: "middle" };
+const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, padding: "5px 8px", whiteSpace: "nowrap", verticalAlign: "middle" };
+const lab: React.CSSProperties = { textAlign: "left", fontSize: 13, padding: "5px 10px", verticalAlign: "middle" };
 const head: React.CSSProperties = { fontSize: 11, fontWeight: 800, color: "var(--muted)", padding: "6px 8px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom" };
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const sum = (a: number[]) => a.reduce((s, n) => s + (n || 0), 0);
 const addInto = (acc: number[], xs: number[]) => { for (let i = 0; i < 12; i++) acc[i] += xs[i] || 0; };
 
-type Variant = "line" | "subtotal" | "rollup" | "rollupStrong";
+type Variant = "line" | "sub" | "subtotal" | "rollup" | "rollupStrong";
 type Line = BudgetDraftSection["lines"][number];
 /** Which cell is open for typing: a line key and a month (12 = the Budget column). */
 type EditAt = { row: string; m: number } | null;
@@ -83,7 +81,7 @@ function CellInput({ initial, onDone }: { initial: number; onDone: (v: number | 
   );
 }
 
-function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref }: {
+function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle }: {
   label: string; months: number[]; total: number; basis: number | null; variant?: Variant;
   badge?: { tone: PillTone; text: string }; onLabel?: () => void;
   /** Revenue-like: up is good. Expense-like: down is good. */
@@ -94,8 +92,11 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   onCommit?: (m: number | "all", v: number | null) => void;
   onReset?: () => void;
   badgeHref?: string;
+  /** A line with sub-lines carries a disclosure to open them. */
+  toggle?: { open: boolean; onToggle: () => void };
 }) {
-  const bold = variant !== "line";
+  const sub = variant === "sub";
+  const bold = variant !== "line" && !sub;
   const upper = variant === "rollup" || variant === "rollupStrong";
   const rowStyle: React.CSSProperties | undefined =
     variant === "subtotal" ? { background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }
@@ -133,20 +134,30 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   const good = change == null || Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
   return (
     <tr style={rowStyle}>
-      <td style={{ ...lab, ...(bold ? { fontWeight: 800, color: COLOR_BRAND } : {}), ...(upper ? { textTransform: "uppercase", letterSpacing: "0.04em" } : {}), minWidth: 210 }}>
+      <td style={{ ...lab, ...(bold ? { fontWeight: 800, color: COLOR_BRAND } : {}), ...(upper ? { textTransform: "uppercase", letterSpacing: "0.04em" } : {}), minWidth: 210, whiteSpace: "nowrap" }}>
+        {/* The name and its source pill on ONE line, so every row is one row tall. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, ...(sub ? { paddingLeft: 22, fontSize: 12, color: "var(--muted)" } : {}) }}>
+        {toggle && (
+          <button type="button" onClick={toggle.onToggle} aria-expanded={toggle.open} aria-label={toggle.open ? "Hide sub-lines" : "Show sub-lines"}
+            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, width: 14, color: "var(--muted)", fontSize: 11, lineHeight: 1 }}>
+            {toggle.open ? "▾" : "▸"}
+          </button>
+        )}
+        {!toggle && variant === "line" && <span style={{ width: 14 }} />}
         {onLabel ? (
           <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
             style={{ cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: 3 }}>{label}</span>
         ) : label}
-        {badge && (
-          <div style={{ marginTop: 2, display: "flex", gap: 6, alignItems: "center" }}>
-            {badgeHref ? <a href={badgeHref} style={{ textDecoration: "none" }}><Pill tone={badge.tone}>{badge.text} →</Pill></a> : <Pill tone={badge.tone}>{badge.text}</Pill>}
-            {typed?.some(Boolean) && !typed.every(Boolean) && <Pill tone={TONE_TYPED}>{typed.filter(Boolean).length} typed</Pill>}
+        {(badge || (onReset && typed?.some(Boolean))) && (
+          <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto" }}>
+            {badge && (badgeHref ? <a href={badgeHref} style={{ textDecoration: "none" }}><Pill tone={badge.tone}>{badge.text} →</Pill></a> : <Pill tone={badge.tone}>{badge.text}</Pill>)}
             {onReset && typed?.some(Boolean) && (
-              <button type="button" className="btn" onClick={onReset} style={{ padding: "0 8px", fontSize: 11, lineHeight: "18px" }}>Reset</button>
+              <button type="button" onClick={onReset} title="Reset typed months" aria-label="Reset typed months"
+                style={{ border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>↺</button>
             )}
-          </div>
+          </span>
         )}
+        </div>
       </td>
       {months.map((m, i) => cell(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined, i))}
       {cell(total, "t", { borderLeft: GROUP_DIV, color: COLOR_BRAND, fontWeight: 800 }, editable ? 12 : undefined)}
@@ -162,10 +173,16 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
   draft: BudgetDraft;
   badgeFor: (source: Line["source"]) => { tone: PillTone; text: string };
   onLine: (sec: BudgetDraftSection, line: Line) => void;
-  /** Present when the viewer may type months; month "all" = an annual spread evenly. */
-  onEdit?: (sec: BudgetDraftSection, line: Line, month: number | "all", value: number | null) => void;
+  /** Present when the viewer may type months; month "all" = an annual spread
+   *  evenly; `account` types one sub-line (a GL account) of the line. */
+  onEdit?: (sec: BudgetDraftSection, line: Line, month: number | "all", value: number | null, account?: string) => void;
 }) {
   const [edit, setEdit] = useState<EditAt>(null);
+  // Lines opened to their sub-lines. Closed by default, so the statement reads
+  // at the level it is presented; open one to budget its GL accounts.
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const withSubs = draft.sections.flatMap((sec) => sec.lines.filter((l) => l.subLines?.length).map((l) => `${sec.name}::${l.label}`));
+  const allOpen = withSubs.length > 0 && withSubs.every((k) => open.has(k));
   const byRole = (roles: SectionRole[]) => draft.sections.filter((s) => roles.includes(s.role));
   const revenue = byRole(["revenue", "reimbursement"]);
   const expense = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
@@ -194,14 +211,33 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
         <td colSpan={cols} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
       </tr>
       {sec.lines.map((l) => {
-        const typeable = !!onEdit && !l.inputKind;
+        const key = `${sec.name}::${l.label}`;
+        const subs = l.subLines ?? [];
+        const viaSubs = subs.some((x) => x.typeable);
+        // A line budgeted through its sub-lines is their SUM — typed there, not here.
+        const typeable = !!onEdit && !l.inputKind && !viaSubs;
+        const isOpen = open.has(key);
         return (
-          <Row key={l.label + l.mask} label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
-            badge={badgeFor(l.source)} badgeHref={l.inputKind ? "/budget-inputs" : undefined}
-            onLabel={() => onLine(sec, l)} favorableUp={favorableUp} typed={l.typed}
-            rowKey={typeable ? `${sec.name}::${l.label}` : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
-            onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
-            onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined} />
+          <Fragment key={l.label + l.mask}>
+            <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
+              badge={badgeFor(l.source)} badgeHref={l.inputKind ? "/budget-inputs" : undefined}
+              onLabel={() => onLine(sec, l)} favorableUp={favorableUp} typed={viaSubs ? undefined : l.typed}
+              rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
+              onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
+              onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}
+              toggle={subs.length ? { open: isOpen, onToggle: () => setOpen((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />
+            {isOpen && subs.map((x) => {
+              const subTypeable = !!onEdit && x.typeable;
+              const subKey = `${key}#${x.account}`;
+              return (
+                <Row key={subKey} variant="sub" label={`${x.account}${x.name ? ` · ${x.name}` : ""}`}
+                  months={x.months} total={x.total} basis={x.basisTotal} favorableUp={favorableUp} typed={x.typed}
+                  rowKey={subTypeable ? subKey : undefined} edit={edit} setEdit={subTypeable ? setEdit : undefined}
+                  onCommit={subTypeable ? (m, v) => onEdit!(sec, l, m, v, x.account) : undefined}
+                  onReset={subTypeable ? () => onEdit!(sec, l, "all", null, x.account) : undefined} />
+              );
+            })}
+          </Fragment>
         );
       })}
       {subtotal && <Row label={`Total ${sec.name}`} months={sec.subtotal} total={sec.total} basis={sum(sec.lines.map((l) => l.basisTotal))} variant="subtotal" favorableUp={favorableUp} />}
@@ -235,7 +271,15 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
         <table style={{ width: "100%", minWidth: 320 + 15 * 76, borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ ...head, textAlign: "left" }}>Line</th>
+              <th style={{ ...head, textAlign: "left" }}>
+                Line
+                {withSubs.length > 0 && (
+                  <button type="button" onClick={() => setOpen(allOpen ? new Set() : new Set(withSubs))}
+                    style={{ marginLeft: 10, border: "none", background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: 0 }}>
+                    {allOpen ? "▾ Collapse sub-lines" : "▸ Show sub-lines"}
+                  </button>
+                )}
+              </th>
               {MONTHS.map((m, i) => <th key={m} style={{ ...head, ...(i === 0 ? { borderLeft: GROUP_DIV } : {}) }}>{m} {yy}</th>)}
               <th style={{ ...head, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>Budget {yy}</th>
               <th style={head}>Forecast {by}</th>
@@ -246,8 +290,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
         </table>
       </div>
       <div className="muted small" style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
-        <b>Forecast {by}</b> is this year&rsquo;s actuals to date plus budget for the rest — what each line is built from. Click a line&rsquo;s name for its trailing years.
-        {onEdit && <> Click any month to type a figure (Tab moves to the next month, a blank cell goes back to the computed figure); type into <b>Budget {yy}</b> to spread an annual evenly. <span style={{ background: TYPED_BG, padding: "0 4px", borderRadius: 3 }}>Tinted</span> months are typed. Taxes, insurance and building maintenance are keyed on Budget Inputs.</>}
+        <b>Leases</b> rent roll &amp; leasing calls · <b>CAM est.</b> recoveries · <b>Entered</b> keyed on Budget Inputs · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s forecast grown by month · <b>Flat</b> carried unchanged. <b>Forecast {by}</b> = actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
+        {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget {yy}</b> to spread an annual. <span style={{ background: TYPED_BG, padding: "0 4px", borderRadius: 3 }}>Tinted</span> = typed; ↺ resets a line.</>}
       </div>
     </div>
   );

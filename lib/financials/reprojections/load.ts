@@ -26,6 +26,7 @@ export async function loadReprojection(key: string, year: number): Promise<{ rep
     budgetLines: (budget?.lines ?? []).map((l) => ({ glAccount: l.glAccount, months: l.months })),
     actualThroughMonth: stored?.maxPeriodInFile ?? 0,
   });
+  reprojection.accountNames = stored?.names ?? {};
   const { notes } = await getNotesBundle(key, year, stored?.maxPeriodInFile || 1);
   return { reprojection, meta: { propertyCode: mapping.propertyCode, propertyName, year, budgetYear: budget?.budgetYear ?? null }, notes };
 }
