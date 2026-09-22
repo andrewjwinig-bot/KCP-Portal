@@ -14,11 +14,21 @@
 // Beside the year: this year's forecast (what it is grown from) and the change,
 // so every line is read against where it is coming from. Each line carries the
 // small pill saying WHERE its months came from — leases, a figure someone
-// entered, the recovery estimate, or the default — and clicking it opens the
-// line's trailing years.
+// entered, the recovery estimate, or the default — and clicking its NAME opens
+// the line's trailing years.
+//
+// Every month is TYPEABLE (for Drew / admin): click a cell, type, Tab to the
+// next month. A typed month replaces only that month and is tinted so it reads
+// as a decision rather than a computation; clearing it hands the month back to
+// the computed figure. Typing into the Budget column spreads an annual evenly.
+// The three Budget Inputs lines (taxes, insurance, building maintenance) are
+// NOT typeable here — their owners key them on /budget-inputs, and two places
+// to set one figure is how they would disagree.
 
-import { Fragment } from "react";
-import { Pill, type PillTone } from "@/app/components/Pill";
+import { Fragment, useRef, useState } from "react";
+import { Pill, TONE_BLUE, type PillTone } from "@/app/components/Pill";
+
+const TONE_TYPED = TONE_BLUE;
 import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/draft";
 import type { SectionRole } from "@/lib/financials/operating-statements/types";
 
@@ -34,12 +44,56 @@ const sum = (a: number[]) => a.reduce((s, n) => s + (n || 0), 0);
 const addInto = (acc: number[], xs: number[]) => { for (let i = 0; i < 12; i++) acc[i] += xs[i] || 0; };
 
 type Variant = "line" | "subtotal" | "rollup" | "rollupStrong";
+type Line = BudgetDraftSection["lines"][number];
+/** Which cell is open for typing: a line key and a month (12 = the Budget column). */
+type EditAt = { row: string; m: number } | null;
+const TYPED_BG = "rgba(11,74,125,0.09)";
 
-function Row({ label, months, total, basis, variant = "line", badge, onClick, favorableUp }: {
+/** "$1,200", "1200", "(1,200)", "-1200" → a number; blank → null. */
+function parseTyped(s: string): number | null | undefined {
+  const t = s.trim();
+  if (!t) return null;
+  const neg = /^\(.*\)$/.test(t) || t.startsWith("-");
+  const n = Number(t.replace(/[\s$,()]/g, "").replace(/^-/, ""));
+  if (!Number.isFinite(n)) return undefined;
+  return neg ? -n : n;
+}
+
+function CellInput({ initial, onDone }: { initial: number; onDone: (v: number | null | undefined, move: 0 | 1 | -1) => void }) {
+  const [v, setV] = useState(String(Math.round(initial)));
+  // Tab/Enter finish the cell and unmount it; a blur on the way out must not
+  // commit it a second time.
+  const done = useRef(false);
+  const finish = (val: number | null | undefined, move: 0 | 1 | -1) => {
+    if (done.current) return;
+    done.current = true;
+    onDone(val, move);
+  };
+  return (
+    <input autoFocus value={v} inputMode="decimal"
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => finish(parseTyped(v), 0)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") { e.preventDefault(); finish(undefined, 0); }
+        else if (e.key === "Enter") { e.preventDefault(); finish(parseTyped(v), 0); }
+        else if (e.key === "Tab") { e.preventDefault(); finish(parseTyped(v), e.shiftKey ? -1 : 1); }
+      }}
+      style={{ width: "100%", minWidth: 64, textAlign: "right" }} />
+  );
+}
+
+function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref }: {
   label: string; months: number[]; total: number; basis: number | null; variant?: Variant;
-  badge?: { tone: PillTone; text: string }; onClick?: () => void;
+  badge?: { tone: PillTone; text: string }; onLabel?: () => void;
   /** Revenue-like: up is good. Expense-like: down is good. */
   favorableUp: boolean;
+  typed?: boolean[];
+  /** Set when the row's months can be typed. */
+  rowKey?: string; edit?: EditAt; setEdit?: (e: EditAt) => void;
+  onCommit?: (m: number | "all", v: number | null) => void;
+  onReset?: () => void;
+  badgeHref?: string;
 }) {
   const bold = variant !== "line";
   const upper = variant === "rollup" || variant === "rollupStrong";
@@ -48,22 +102,54 @@ function Row({ label, months, total, basis, variant = "line", badge, onClick, fa
     : variant === "rollupStrong" ? { background: "rgba(11,74,125,0.06)" }
     : variant === "rollup" ? { background: "rgba(11,74,125,0.035)" }
     : undefined;
-  const cell = (v: number, key: string | number, extra?: React.CSSProperties) => (
-    <td key={key} style={{ ...num, ...(bold ? { fontWeight: 800 } : {}), ...extra }}>
-      {Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span> : money0(v)}
-    </td>
-  );
+  const editable = !!rowKey && !!setEdit && !!onCommit;
+  const cell = (v: number, key: string | number, extra?: React.CSSProperties, m?: number) => {
+    const open = editable && m != null && edit?.row === rowKey && edit?.m === m;
+    const isTyped = m != null && m < 12 && !!typed?.[m];
+    const style: React.CSSProperties = {
+      ...num, ...(bold ? { fontWeight: 800 } : {}), ...extra,
+      ...(isTyped ? { background: TYPED_BG, fontWeight: 700 } : {}),
+      ...(editable && m != null ? { cursor: "text" } : {}),
+      ...(open ? { padding: "2px 4px" } : {}),
+    };
+    return (
+      <td key={key} style={style} className={editable && m != null ? "os-cell" : undefined}
+        onClick={editable && m != null && !open ? () => setEdit!({ row: rowKey!, m }) : undefined}>
+        {open ? (
+          <CellInput initial={v} onDone={(val, move) => {
+            // Only a CHANGE is a decision: tabbing across a month leaves it
+            // computed, and blanking a month that was never typed does nothing.
+            const changed = val === null ? isTyped : val !== undefined && Math.round(val) !== Math.round(v);
+            if (changed) onCommit!(m === 12 ? "all" : m!, val as number | null);
+            const next = m! + move;
+            setEdit!(move !== 0 && next >= 0 && next <= 11 ? { row: rowKey!, m: next } : null);
+          }} />
+        ) : Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span> : money0(v)}
+      </td>
+    );
+  };
   const change = basis == null ? null : total - basis;
   const pct = change == null || Math.abs(basis ?? 0) < 0.5 ? null : (change / Math.abs(basis!)) * 100;
   const good = change == null || Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
   return (
-    <tr style={{ ...rowStyle, ...(onClick ? { cursor: "pointer" } : {}) }} className={onClick ? "os-cell" : undefined} onClick={onClick}>
+    <tr style={rowStyle}>
       <td style={{ ...lab, ...(bold ? { fontWeight: 800, color: COLOR_BRAND } : {}), ...(upper ? { textTransform: "uppercase", letterSpacing: "0.04em" } : {}), minWidth: 210 }}>
-        {label}
-        {badge && <div style={{ marginTop: 2 }}><Pill tone={badge.tone}>{badge.text}</Pill></div>}
+        {onLabel ? (
+          <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
+            style={{ cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: 3 }}>{label}</span>
+        ) : label}
+        {badge && (
+          <div style={{ marginTop: 2, display: "flex", gap: 6, alignItems: "center" }}>
+            {badgeHref ? <a href={badgeHref} style={{ textDecoration: "none" }}><Pill tone={badge.tone}>{badge.text} →</Pill></a> : <Pill tone={badge.tone}>{badge.text}</Pill>}
+            {typed?.some(Boolean) && !typed.every(Boolean) && <Pill tone={TONE_TYPED}>{typed.filter(Boolean).length} typed</Pill>}
+            {onReset && typed?.some(Boolean) && (
+              <button type="button" className="btn" onClick={onReset} style={{ padding: "0 8px", fontSize: 11, lineHeight: "18px" }}>Reset</button>
+            )}
+          </div>
+        )}
       </td>
-      {months.map((m, i) => cell(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined))}
-      {cell(total, "t", { borderLeft: GROUP_DIV, color: COLOR_BRAND, fontWeight: 800 })}
+      {months.map((m, i) => cell(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined, i))}
+      {cell(total, "t", { borderLeft: GROUP_DIV, color: COLOR_BRAND, fontWeight: 800 }, editable ? 12 : undefined)}
       {basis == null ? <td style={num} /> : cell(basis, "b", { color: "var(--muted)" })}
       <td style={{ ...num, ...(bold ? { fontWeight: 800 } : {}), color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
         {pct == null ? (change == null || Math.abs(change) < 0.5 ? "–" : money0(change)) : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
@@ -72,11 +158,14 @@ function Row({ label, months, total, basis, variant = "line", badge, onClick, fa
   );
 }
 
-export function BudgetStatementTable({ draft, badgeFor, onLine }: {
+export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
   draft: BudgetDraft;
-  badgeFor: (source: BudgetDraft["sections"][number]["lines"][number]["source"]) => { tone: PillTone; text: string };
-  onLine: (sec: BudgetDraftSection, line: BudgetDraftSection["lines"][number]) => void;
+  badgeFor: (source: Line["source"]) => { tone: PillTone; text: string };
+  onLine: (sec: BudgetDraftSection, line: Line) => void;
+  /** Present when the viewer may type months; month "all" = an annual spread evenly. */
+  onEdit?: (sec: BudgetDraftSection, line: Line, month: number | "all", value: number | null) => void;
 }) {
+  const [edit, setEdit] = useState<EditAt>(null);
   const byRole = (roles: SectionRole[]) => draft.sections.filter((s) => roles.includes(s.role));
   const revenue = byRole(["revenue", "reimbursement"]);
   const expense = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
@@ -104,10 +193,17 @@ export function BudgetStatementTable({ draft, badgeFor, onLine }: {
       <tr>
         <td colSpan={cols} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
       </tr>
-      {sec.lines.map((l) => (
-        <Row key={l.label + l.mask} label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
-          badge={badgeFor(l.source)} onClick={() => onLine(sec, l)} favorableUp={favorableUp} />
-      ))}
+      {sec.lines.map((l) => {
+        const typeable = !!onEdit && !l.inputKind;
+        return (
+          <Row key={l.label + l.mask} label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
+            badge={badgeFor(l.source)} badgeHref={l.inputKind ? "/budget-inputs" : undefined}
+            onLabel={() => onLine(sec, l)} favorableUp={favorableUp} typed={l.typed}
+            rowKey={typeable ? `${sec.name}::${l.label}` : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
+            onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
+            onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined} />
+        );
+      })}
       {subtotal && <Row label={`Total ${sec.name}`} months={sec.subtotal} total={sec.total} basis={sum(sec.lines.map((l) => l.basisTotal))} variant="subtotal" favorableUp={favorableUp} />}
     </Fragment>
   );
@@ -150,7 +246,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine }: {
         </table>
       </div>
       <div className="muted small" style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
-        <b>Forecast {by}</b> is this year&rsquo;s actuals to date plus budget for the rest — what each line is built from. Click any line for its trailing years.
+        <b>Forecast {by}</b> is this year&rsquo;s actuals to date plus budget for the rest — what each line is built from. Click a line&rsquo;s name for its trailing years.
+        {onEdit && <> Click any month to type a figure (Tab moves to the next month, a blank cell goes back to the computed figure); type into <b>Budget {yy}</b> to spread an annual evenly. <span style={{ background: TYPED_BG, padding: "0 4px", borderRadius: 3 }}>Tinted</span> months are typed. Taxes, insurance and building maintenance are keyed on Budget Inputs.</>}
       </div>
     </div>
   );

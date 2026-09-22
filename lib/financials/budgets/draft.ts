@@ -18,6 +18,8 @@ import { estimateReimbursements, type ReimbursementEstimate } from "./reimbursem
 import { expenseInputKindOf, resolveKind, splitAcrossLines, type ExpenseInputKind } from "./expenseInputs";
 import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { getExpenseInputs } from "./expenseInputStore";
+import { getLineOverrides } from "./lineOverrideStore";
+import { lineKey, mergeMonths, type LineOverrides } from "./lineOverrides";
 import { ownerFor } from "./contributors";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
@@ -45,6 +47,11 @@ export type BudgetDraftLine = {
   /** Prior-year reprojection full-year total this line was grown from. */
   basisTotal: number;
   source: DraftSource;
+  /** Months typed straight into the grid (true = that month is typed). */
+  typed?: boolean[];
+  /** Set on a line the Budget Inputs page owns (taxes, insurance, building
+   *  maintenance) — keyed there, by its owner, never typed into the grid. */
+  inputKind?: ExpenseInputKind;
 };
 
 export type BudgetDraftSection = {
@@ -87,6 +94,8 @@ export type BudgetDraft = {
   /** DISPLAY-ONLY per-tenant CAM/INS/RET reimbursement estimate (Phase 3). Does
    *  not yet drive the reimbursement lines — surfaced for verification first. */
   reimbursementEstimate?: ReimbursementEstimate;
+  /** Set by the route: whether the viewer may type months into the grid. */
+  canEditLines?: boolean;
   /** True when the current-year reprojection couldn't be loaded (no draft). */
   missingBasis?: boolean;
 };
@@ -96,6 +105,24 @@ function grow(months: number[], factor: number): number[] {
 }
 function addInto(acc: number[], add: number[]) {
   for (let i = 0; i < 12; i++) acc[i] += add[i] ?? 0;
+}
+
+/** Lay typed months over the computed ones and re-total each section. A line
+ *  the Budget Inputs page owns is marked and never takes a typed month. */
+function applyTyped(sections: BudgetDraftSection[], doc: LineOverrides) {
+  for (const sec of sections) {
+    sec.lines = sec.lines.map((l) => {
+      const inputKind = expenseInputKindOf(sec.role, l.label) ?? undefined;
+      if (inputKind) return { ...l, inputKind };
+      const ov = doc[lineKey(sec.name, l.label)];
+      if (!ov) return l;
+      const { months, typed } = mergeMonths(l.months, ov);
+      return { ...l, months, total: r0(sum(months)), typed, source: typed.every(Boolean) ? "entered" : l.source };
+    });
+    const subtotal = new Array(12).fill(0);
+    for (const l of sec.lines) addInto(subtotal, l.months);
+    sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
+  }
 }
 
 /** Build a draft FY budget for one property/fund, growing the current-year
@@ -142,6 +169,8 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     lines.forEach((x, i) => keyedMonths.set(x.key, { months: parts[i], source }));
   }
 
+  const typedDoc = await getLineOverrides(budgetYear, meta.propertyCode).catch(() => ({} as LineOverrides));
+
   const sections: BudgetDraftSection[] = r.sections.map((sec) => {
     const isExpense = EXPENSE_ROLE_SET.has(sec.role);
     const lines: BudgetDraftLine[] = sec.lines.map((l) => {
@@ -186,6 +215,11 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     return { name: sec.name, role: sec.role, lines, subtotal: subtotal.map(r0), total: r0(sum(subtotal)) };
   });
 
+  // TYPED MONTHS win over whatever computed them — applied BEFORE the pools
+  // are read, so a CAM expense typed into the grid moves what tenants are
+  // billed, and again after the recoveries replace their income lines.
+  applyTyped(sections, typedDoc);
+
   // RECOVERIES. The budget's CAM, insurance and tax pools against this year's,
   // read off the draft's own expense lines — so the taxes and premium keyed in
   // the Expenses step move what tenants are billed. Then each tenant's share
@@ -227,11 +261,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
         t.sec.lines[t.idx] = { ...l, months: parts[i].map(r0), total: r0(sum(parts[i])), source: "cam-estimate" };
       });
     }
-    for (const sec of sections) {
-      const subtotal = new Array(12).fill(0);
-      for (const l of sec.lines) addInto(subtotal, l.months);
-      sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
-    }
+    applyTyped(sections, typedDoc);
   }
 
   for (const sec of sections) {

@@ -939,6 +939,19 @@ time — and the team does not have time to open the GL over $80.
   someone decided and a space nobody looked at read the same. A saved decision
   completes that suite's vacancy/renewal contribution on the progress rail.
 
+- **Months are TYPED straight into the grid** (Drew / admin — `canEditLines`,
+  checked server-side). A typed month replaces ONLY that month
+  (`lineOverrides.ts`, stored per year + property in `lineOverrideStore.ts`,
+  keyed `section::label`); `null` means "not typed", so blanking a cell hands it
+  back to the computed figure — zero is a figure someone can mean. Typing into
+  the Budget column spreads an annual evenly; Reset clears the line. Typed
+  months are tinted. They are laid over the draft BEFORE the recovery pools are
+  read (a typed CAM expense moves tenant recoveries) and again after (a typed
+  recovery month stands). **The three Budget Inputs lines are NOT typeable in
+  the grid** (`inputKind`) — their pill links to `/budget-inputs`; two places to
+  set one figure is how they would disagree. Only a CHANGE commits: tabbing
+  across a month leaves it computed.
+
 # Balance Sheet — sources of truth
 
 `/financials/balance-sheet`, gated with the other statement pages

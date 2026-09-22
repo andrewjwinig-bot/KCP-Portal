@@ -1,19 +1,9 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import { setLeasingAssumption, getLeasingAssumptions, type LeaseAssumptionKind } from "@/lib/financials/budgets/leasingAssumptions";
-import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
-import { ALL_USERS, USERS, type UserId } from "@/lib/users";
+import { budgetUser as currentUser } from "@/lib/financials/budgets/currentUser";
+import { USERS } from "@/lib/users";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { canEdit } from "@/lib/financials/budgets/contributors";
-
-async function currentUser(): Promise<UserId | null> {
-  const secret = process.env.SITE_AUTH_SECRET;
-  if (!secret) return process.env.NODE_ENV !== "production" ? "admin" : null;
-  try {
-    const id = await verifySiteToken((await cookies()).get(SITE_COOKIE)?.value, secret);
-    return id && (ALL_USERS as readonly string[]).includes(id) ? (id as UserId) : null;
-  } catch { return null; }
-}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

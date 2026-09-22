@@ -81,6 +81,12 @@ export function canEdit(user: UserId, kind: ContributionKind, allocGroup: "SC" |
   return user === "drew" || user === "admin" || ownerFor(kind, allocGroup) === user;
 }
 
+/** Typing months straight into the budget grid is the budget's own author's
+ *  job — Drew, or admin. The owners' parts have their own screens. */
+export function canEditLines(user: UserId | null | undefined): boolean {
+  return user === "drew" || user === "admin";
+}
+
 /** One outstanding (or completed) part of the budget. */
 export type Contribution = {
   id: string;

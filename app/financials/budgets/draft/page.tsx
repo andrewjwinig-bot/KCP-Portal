@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable } from "./BudgetStatementTable";
-import type { BudgetDraft, DraftSource } from "../../../../lib/financials/budgets/draft";
+import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
 import type { LeaseAssumption } from "../../../../lib/financials/budgets/leasingAssumptions";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
@@ -62,18 +62,64 @@ export default function BudgetDraftPage() {
   const [bookId, setBookId] = useState<string>("shopping-centers");
   const book = bookById(bookId) ?? bookById("shopping-centers")!;
 
+  // Typing a month re-projects the draft, and several can be in flight at once
+  // as someone Tabs along a row: only the LATEST request may land, or an older
+  // answer would overwrite the newer figure on screen.
+  const reqSeq = useRef(0);
+  const shownFor = useRef("");
   useEffect(() => {
     if (!key) return;
+    const seq = ++reqSeq.current;
+    const target = `${key}|${year}`;
+    // A different property or year clears the grid; a refresh of the same one
+    // keeps it on screen, so typing into a cell does not blank the page.
+    if (shownFor.current !== target) setDraft(null);
     setLoading(true);
     const t = setTimeout(() => {
       fetch(`/api/financials/budgets/draft?key=${encodeURIComponent(key)}&year=${year}&growth=${GROWTH}`, { cache: "no-store" })
         .then((r) => r.json())
-        .then((j) => { if (j.missingBasis) { setDraft(null); setMissingBasis(true); } else { setDraft(j); setMissingBasis(false); } })
-        .catch(() => { setDraft(null); setMissingBasis(false); })
-        .finally(() => setLoading(false));
+        .then((j) => {
+          if (seq !== reqSeq.current) return;
+          shownFor.current = target;
+          if (j.missingBasis) { setDraft(null); setMissingBasis(true); } else { setDraft(j); setMissingBasis(false); }
+        })
+        .catch(() => { if (seq === reqSeq.current) { setDraft(null); setMissingBasis(false); } })
+        .finally(() => { if (seq === reqSeq.current) setLoading(false); });
     }, 250);
     return () => clearTimeout(t);
   }, [key, year, refreshTick]);
+
+  // Type one month (or spread an annual, or clear the line). The cell shows the
+  // figure at once; the re-projected draft — subtotals, NOI, recoveries on a
+  // CAM line — follows from the server.
+  const [editError, setEditError] = useState<string | null>(null);
+  async function editLine(sec: BudgetDraftSection, line: BudgetDraftSection["lines"][number], month: number | "all", value: number | null) {
+    if (!draft) return;
+    setEditError(null);
+    if (typeof month === "number" && value != null) {
+      setDraft((d) => d && ({
+        ...d,
+        sections: d.sections.map((s) => s.name !== sec.name ? s : {
+          ...s,
+          lines: s.lines.map((l) => {
+            if (l.label !== line.label) return l;
+            const months = l.months.slice(); months[month] = Math.round(value);
+            const typed = (l.typed ?? new Array(12).fill(false)).slice(); typed[month] = true;
+            return { ...l, months, typed, total: months.reduce((a, b) => a + b, 0) };
+          }),
+        }),
+      }));
+    }
+    const r = await fetch("/api/financials/budgets/line-overrides", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, section: sec.name, label: line.label, month, value }),
+    }).catch(() => null);
+    if (!r || !r.ok) {
+      const j = r ? await r.json().catch(() => ({})) : {};
+      setEditError(j?.error ?? "Couldn't save that figure.");
+    }
+    setRefreshTick((n) => n + 1);
+  }
 
   // Save one unit's leasing assumption, then re-project the draft.
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -131,7 +177,7 @@ export default function BudgetDraftPage() {
         editorLabel={typeof document !== "undefined" ? (document.cookie.match(/kcp_user=([^;]+)/)?.[1] ?? "Unknown") : "Unknown"}
       />
 
-      {loading && <div className="card muted">Building draft…</div>}
+      {loading && !draft && <div className="card muted">Building draft…</div>}
 
       {missingBasis && !loading && (
         <div className="card" style={{ borderColor: "rgba(217,119,6,0.5)", background: "rgba(217,119,6,0.07)", color: "#b45309" }}>
@@ -139,7 +185,7 @@ export default function BudgetDraftPage() {
         </div>
       )}
 
-      {draft && !loading && (
+      {draft && (
         <>
           <div className="pills">
             <StatPill label="Total Revenue" value={money0(draft.rollups.totalRevenues.total)} sub={draft.leasing ? `${draft.leasing.inPlaceUnits} in-place leases` : "reproj placeholder"} />
@@ -154,8 +200,10 @@ export default function BudgetDraftPage() {
           {/* The budget reads like the full-year operating statement it will
               be measured against: every month in its own column, revenue
               filled month by month from the leases and the recovery estimate. */}
+          {editError && <div className="card" style={{ color: "#b91c1c", borderColor: "rgba(185,28,28,0.4)" }}>{editError}</div>}
           <BudgetStatementTable
             draft={draft}
+            onEdit={draft.canEditLines ? editLine : undefined}
             badgeFor={(src) => sourceBadge(src, GROWTH)}
             onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1 })}
           />
