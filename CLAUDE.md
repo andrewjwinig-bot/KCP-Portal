@@ -1327,6 +1327,33 @@ The user has repeatedly flagged data living in the wrong place / pages drifting.
 - **Mixed-center expense allocation** (e.g. 7010 retail+office) has ONE source: `lib/cam/retail/allocation.ts` (`MixedCenter` / `MIXED_7010`). The retail pool, office pool, and the on-screen allocation breakdown are all DERIVED from it — add or change an expense line there once, never edit the derived pools directly.
 - **Quarterly-billed tenants** (e.g. Wawa @ 9510) get their own dropdown entry **below the parent property** on the recon page (a pseudo-property keyed like `9510-WAWA-Q`), defined in `lib/cam/retail/quarterly.ts` (`QUARTERLY_BILLINGS`) and rendered by the `QuarterlyBilling` worksheet. Staff manually enter each quarter's eligible CAM expenses + RET; the lease share applies per quarter and the **YTD balance backs out billed/paid YTD** (`balance = due YTD − billed YTD`). Entered figures persist in `lib/cam/retail/quarterlyStore.ts` (`cam-retail-quarterly`, keyed `<key>-<year>`) via `/api/cam-recon/quarterly`. Their quarterly payments are NOT escrow (the annual recon roster keeps escrow 0). Eventually feed the eligible expenses from the monthly operating statements + link to the task tracker.
 - **Office recon** config/expenses come from the office seeds + `/api/cam-recon/office`; same principle — one source.
+- **A CLOSED YEAR'S OFFICE EXPENSES ARE SEED-ONLY — corrections go through
+  code, not the page** (`ADJUSTMENTS_FROM_YEAR = 2026` in
+  `lib/cam/office/loadResult.ts`). From 2026 the Final Expense Summary's FINAL
+  overrides drive the recon; **2025 and earlier read the seeded
+  expense-history pool directly**, so that card renders read-only and an
+  override would not be read even if one existed. Deliberate: a year closes
+  under the figures its statements went out on, and a later edit must not
+  retroactively move it. So a pre-2026 office expense fix is an edit to
+  `SEED_EXPENSES` in `lib/rentroll/baseYearExpenses.ts` — and when you change a
+  LINE you must move `opEx` / `opExGrossedUp` for that year with it, because
+  those totals are the sum of the property's own lines. (The recon itself reads
+  `lines` through `poolFromSeedExpenses` and never the totals; the Operating
+  Expense History page reads the totals.) Worked example: 40C0's 2025 Security
+  was Parking Lot Maint.'s $2,756 copied down and is $1,952 — fixed in the seed
+  precisely so the History page, which base-year stops are computed from, stops
+  reporting the wrong figure. **ESCROW is the exception and IS editable on the
+  page in any year** (`configStore.ts` office / `escrowStore.ts` retail — the
+  inline Escrow cells on the Building Summary), because escrow is "what was
+  actually billed" and staff correct it at recon time; it does not appear in
+  the expense history, so nothing else drifts.
+- **NOTHING IMPORTS ESCROW BILLED.** Every `opexEscrow` / `retEscrow` /
+  `camEscrow` / `insEscrow` is hand-keyed into a seed from the reconciliation
+  workbook, then optionally corrected through the stores above. It is the one
+  input in this engine with no ingestion path, which is how the same figure
+  lands in two rows. The roadmap already wants final expenses fed from the
+  operating statements; escrow billed could come from the GL or rent roll the
+  same way.
 - **Tie-out tests** (`lib/cam/retail/compute.*.test.ts`) are the guardrail. After any seeding/mapping change, run them; they must stay green (per-tenant balances tie to the workbook within a few dollars).
 
 # CAM / RET reconciliation — page consistency
