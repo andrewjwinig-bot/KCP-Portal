@@ -7,7 +7,7 @@
 import "server-only";
 import { availableStatements } from "./mappingStore";
 import { listFullGls, type StoredGl } from "./statementStore";
-import { assembleGls } from "./glAssemble";
+import { assembleGls, postedThrough } from "./glAssemble";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export type OutstandingGl = {
@@ -44,7 +44,8 @@ export async function outstandingGlUploads(now = new Date()): Promise<{
   for (const [k, ym] of byKeyYear) {
     const latestYear = Math.max(...ym.keys());
     const asm = assembleGls(ym.get(latestYear)!);
-    if (asm) latestByKey.set(k, { year: latestYear, period: asm.maxPeriodInFile });
+    // POSTED through, not last ACTIVE — a dormant property is current, not behind.
+    if (asm) latestByKey.set(k, { year: latestYear, period: postedThrough(asm) });
   }
 
   const behind: OutstandingGl[] = [];

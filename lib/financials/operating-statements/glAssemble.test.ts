@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { assembleGls, coverageStart, mergeTransactions, type AssembleInput, type TxnVersion } from "./glAssemble";
+import { assembleGls, coverageStart, mergeTransactions, postedThrough, type AssembleInput, type TxnVersion } from "./glAssemble";
 
 // Build a GL fixture: monthly nets for one account "X" at the given months.
 function gl(uploadedAt: string, maxPeriod: number, monthsX: Record<number, number>, beginningX?: number): AssembleInput {
@@ -101,5 +101,39 @@ describe("mergeTransactions", () => {
 
   it("returns an empty map for no uploads", () => {
     expect(mergeTransactions<Txn>([])).toEqual({});
+  });
+});
+
+describe("postedThrough — a quiet month is not a missing one", () => {
+  // 0900's August GL: the file covers Jan–Aug and says so in its report range,
+  // but the property only transacted in January. It read "imported through
+  // January" and showed as seven months behind on a page it was current on.
+  const dormant: AssembleInput = {
+    uploadedAt: "2026-09-22T00:00:00.000Z",
+    maxPeriodInFile: 8,
+    monthly: { "4230-0000": [1200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+  };
+
+  it("assembly still reports the last ACTIVE month, which the arithmetic needs", () => {
+    expect(assembleGls([dormant])!.maxPeriodInFile).toBe(1);
+  });
+
+  it("but the RANGE is what says how far it is posted", () => {
+    const asm = assembleGls([dormant])!;
+    expect(asm.coverageEnd).toBe(8);
+    expect(postedThrough(asm)).toBe(8);
+  });
+
+  it("falls back to the active month when no range was read", () => {
+    // An older stored GL predating coverageEnd must not read as month
+    // `undefined` — better the old answer than no answer.
+    expect(postedThrough({ maxPeriodInFile: 5 })).toBe(5);
+  });
+
+  it("a busy property is unaffected — the two agree", () => {
+    const busy = { ...dormant, monthly: { "4230-0000": [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0] } };
+    const asm = assembleGls([busy])!;
+    expect(asm.maxPeriodInFile).toBe(8);
+    expect(postedThrough(asm)).toBe(8);
   });
 });

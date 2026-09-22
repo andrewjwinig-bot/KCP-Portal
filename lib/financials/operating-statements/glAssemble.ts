@@ -57,6 +57,32 @@ export function mergeTransactions<T extends { month: number }>(versions: TxnVers
   return byAccount;
 }
 
+/**
+ * How far this property's ledger is POSTED — which is not the same question as
+ * how far it last TRANSACTED.
+ *
+ * `maxPeriodInFile` after assembly is the last CONTIGUOUS ACTIVE month: the
+ * loop below stops at the first month with no activity, because the compute
+ * needs to know which months carry real figures. For a busy property the two
+ * are the same number and nothing noticed the difference for a long time.
+ *
+ * For a DORMANT one they are not. 0900's August GL was imported and read as
+ * "posted through January", because January is where its activity stops — the
+ * file covers through August and says so in its own report range. The Neshaminy
+ * III Condo GL read "didn't post through March" for the same reason. Both were
+ * current; both were reported as five and seven months behind.
+ *
+ * The range end is the honest answer, and `assembleGls` already keeps it as
+ * `coverageEnd` (the cash sheet and the balance sheet have always read it).
+ * ANY judgement about whether a property is up to date must use this; only the
+ * arithmetic — which months to sum — uses `maxPeriodInFile`.
+ *
+ * A quiet month is not a missing one.
+ */
+export function postedThrough(g: { coverageEnd?: number; maxPeriodInFile: number }): number {
+  return g.coverageEnd ?? g.maxPeriodInFile;
+}
+
 /** First month (1–12) with any activity in a file = where its coverage starts. */
 export function coverageStart(g: AssembleInput): number {
   const max = Math.max(1, Math.min(12, g.maxPeriodInFile || 12));

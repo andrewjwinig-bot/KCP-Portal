@@ -5,7 +5,7 @@ import { computeStatement } from "@/lib/financials/operating-statements/compute"
 import { availableStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { saveGl, getGl, versionsFor, listFullGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions, getDismissedFlags, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
-import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
+import { assembleGls, postedThrough } from "@/lib/financials/operating-statements/glAssemble";
 import { detectPostingFormat, parsePostingReport } from "@/lib/financials/operating-statements/postingReport";
 import { savePostingDelta, type PostingDelta } from "@/lib/financials/operating-statements/postingDeltaStore";
 import crypto from "node:crypto";
@@ -67,7 +67,8 @@ export async function GET(req: Request) {
   for (const [k, ym] of byKeyYear) {
     const latestYear = Math.max(...ym.keys());
     const asm = assembleGls(ym.get(latestYear)!);
-    if (asm) latestByKey.set(k, { year: latestYear, period: asm.maxPeriodInFile });
+    // POSTED through, not last ACTIVE — a dormant property is current, not behind.
+    if (asm) latestByKey.set(k, { year: latestYear, period: postedThrough(asm) });
   }
   const available = mappings.map((m) => ({
     key: m.key,
@@ -83,7 +84,10 @@ export async function GET(req: Request) {
   const coverageByKey = new Map<string, Record<number, number>>();
   for (const [k, ym] of byKeyYear) {
     const rec: Record<number, number> = {};
-    for (const [yr, arr] of ym) { const asm = assembleGls(arr); if (asm) rec[yr] = asm.maxPeriodInFile; }
+    // "How many months are IMPORTED" — the range, not the last active month.
+    // A quiet month is still an imported one, and reading activity here made a
+    // dormant property's backfill grid look permanently half-empty.
+    for (const [yr, arr] of ym) { const asm = assembleGls(arr); if (asm) rec[yr] = postedThrough(asm); }
     coverageByKey.set(k, rec);
   }
   const coverage = mappings.map((m) => {
