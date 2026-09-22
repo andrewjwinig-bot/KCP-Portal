@@ -18,13 +18,12 @@ import { summarizeSnapshot } from "@/lib/rentroll/snapshot";
 import { listBudgets } from "@/lib/financials/budgets/storage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { monthKey } from "./util";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 /** One property's contribution to LIK's management-fee revenue. */
 export type MgmtFeeRow = { code: string; name: string; revenue: number; feePct: number; fee: number };
 
 // Mirrors the rent-roll storage keys in app/api/rentroll/history/route.ts.
-const RENTROLL_PREFIX = "rentroll";
-const RENTROLL_ID = "current";
 const HISTORY_PREFIX = "rentroll-history";
 
 const LIK_CODE = "2010"; // LIK Management, Inc.
@@ -57,7 +56,7 @@ export async function anticipatedRevenueFor(year: number, month: number): Promis
   const ym = monthKey(year, month);
   const rr =
     ((await getJSON(HISTORY_PREFIX, ym)) as RentRollData | null) ??
-    ((await getJSON(RENTROLL_PREFIX, RENTROLL_ID)) as RentRollData | null);
+    (await resolveCurrentRentroll());
   if (!rr) return { byCode: {}, mgmtFee: [] };
   const byCode: Record<string, number> = {};
   for (const p of summarizeSnapshot(rr).byProperty) {

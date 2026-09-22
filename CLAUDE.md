@@ -243,6 +243,19 @@ one that happened to serve the request.
   stays attached to the project. Never detach a hostname that has been emailed
   — point it at the app and let it redirect.
 
+# Rent roll — one source
+
+**Read the rent roll through `lib/rentroll/current.ts`** (`resolveCurrentRentroll`,
+`composeCurrentRoll`, or `rollAsOf` for "the roll as of month X"), never
+`getJSON("rentroll", "current")`. That stored pointer is a COPY that is only
+rewritten when someone opens the Rent Roll page, so after a re-import or a
+parser fix it can carry figures the Rent Roll page no longer shows — 1100's
+Ferry Good Treats read $2,000 on the Rent Roll page and $0 on the operating
+statement, which called the correctly billed charge "UNEXPECTED $2,000".
+Anything checking a specific month (the operating statement's rent check) uses
+`rollAsOf`, so a later import cannot move a past month's expectation.
+`lib/rentroll/oneSource.test.ts` fails the build if a new file reads the pointer.
+
 # Tenant monthly statements (open A/R) — sources of truth
 
 The tenant portal's Statements tab carries TWO statements: the annual CAM/RET

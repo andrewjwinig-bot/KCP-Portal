@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from "vitest";
 vi.mock("@/lib/cam/retail/registry", () => ({ RETAIL_RECON_FIXTURES: { "2300": {} } }));
 vi.mock("@/lib/cam/office/registry", () => ({ OFFICE_RECON_FIXTURES: {} }));
 // No current rent roll → the "expiring" branch is empty; only vacated matters.
-vi.mock("@/lib/storage", () => ({ getJSON: async () => null }));
+vi.mock("@/lib/storage", () => ({ getJSON: async () => null, listJSON: async () => [] }));
 
 const vacatedMock = vi.fn();
 vi.mock("@/lib/leasing/recentlyVacated", () => ({ recentlyVacatedTenants: (...a: any[]) => vacatedMock(...a) }));

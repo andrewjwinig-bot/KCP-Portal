@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { ownerNamesForProperty } from "@/lib/properties/ownership";
-import { getJSON } from "@/lib/storage";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
 import { listRequests } from "@/lib/maintenance/requestsStorage";
@@ -26,6 +25,7 @@ import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operat
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { isPathAllowed, ALL_USERS, type UserId } from "@/lib/users";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -390,7 +390,7 @@ function statusFor(names: string[]): string {
 
 // ── Tool executors (read-only against existing stores) ─────────────────────
 async function currentRoll(): Promise<RentRollData | null> {
-  return (await getJSON("rentroll", "current").catch(() => null)) as RentRollData | null;
+  return (await resolveCurrentRentroll().catch(() => null));
 }
 
 function propertySummary(p: (typeof PROPERTY_DEFS)[number]) {

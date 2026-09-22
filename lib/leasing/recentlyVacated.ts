@@ -7,11 +7,10 @@
 // else) in the current roll — so they've dropped off the live roll entirely.
 
 import "server-only";
-import { getJSON, listJSON } from "@/lib/storage";
+import { listJSON } from "@/lib/storage";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
-const RENTROLL_PREFIX = "rentroll";
-const RENTROLL_ID = "current";
 const HISTORY_PREFIX = "rentroll-history";
 
 export type VacatedTenant = {
@@ -37,7 +36,7 @@ function monthKeyOf(r: { reportTo?: string | null; uploadedAt?: string | null })
 
 /** Tenants who vacated in roughly the last 60 days (close-out candidates). */
 export async function recentlyVacatedTenants(now = new Date()): Promise<VacatedTenant[]> {
-  const current = (await getJSON(RENTROLL_PREFIX, RENTROLL_ID)) as RentRollData | null;
+  const current = await resolveCurrentRentroll();
   if (!current) return [];
   const history = ((await listJSON(HISTORY_PREFIX)) as RentRollData[]) ?? [];
   if (!history.length) return [];

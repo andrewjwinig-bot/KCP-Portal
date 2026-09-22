@@ -8,8 +8,8 @@
 // workbook in place — call before returning from the API route.
 
 import "server-only";
-import { getJSON } from "@/lib/storage";
 import type { BudgetWorkbook } from "./types";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 
 type RentRollUnit = {
   unitRef?: string;
@@ -26,15 +26,13 @@ type RentRoll = {
   properties?: RentRollProperty[];
 };
 
-const RENTROLL_PREFIX = "rentroll";
-const RENTROLL_ID = "current";
 
 function normSuite(s: string | undefined | null): string {
   return (s ?? "").trim().toUpperCase();
 }
 
 export async function enrichWithRentRollDates(wb: BudgetWorkbook): Promise<void> {
-  const rr = await getJSON(RENTROLL_PREFIX, RENTROLL_ID) as RentRoll | null;
+  const rr = (await resolveCurrentRentroll()) as unknown as RentRoll | null;
   if (!rr?.properties?.length) return;
 
   // Flat unitRef → { from, to, sqft } lookup. UnitRefs already embed
