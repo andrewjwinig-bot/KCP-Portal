@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable } from "./BudgetStatementTable";
+import { ExpenseInputsPanel } from "@/app/budget-inputs/ExpenseInputsPanel";
 import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
 import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
 import type { LeaseAssumption } from "../../../../lib/financials/budgets/leasingAssumptions";
@@ -10,6 +11,7 @@ import { SELECT_BRAND } from "@/app/components/YearSelect";
 import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
 import { BudgetSteps } from "./BudgetSteps";
 import { BookMasthead } from "./BookMasthead";
+import { useUser } from "@/app/components/UserProvider";
 import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
 
@@ -50,7 +52,15 @@ export default function BudgetDraftPage() {
 
   useEffect(() => {
     fetch("/api/financials/budgets/draft", { cache: "no-store" })
-      .then((r) => r.json()).then((j) => { setProps(j.properties ?? []); if (j.properties?.[0]) setKey(j.properties[0].key); }).catch(() => {});
+      .then((r) => r.json()).then((j) => {
+        const list: PropRow[] = j.properties ?? [];
+        setProps(list);
+        // Land on the first property of the book that is open, not simply the
+        // first on file — Nancy opens on a park, not a shopping centre.
+        const inBook = (bookById(bookId)?.properties ?? []).map((c) => list.find((p) => p.propertyCode === c)).find(Boolean);
+        const first = inBook ?? list[0];
+        if (first) setKey(first.key);
+      }).catch(() => {});
   }, []);
 
   const [refreshTick, setRefreshTick] = useState(0);
@@ -60,8 +70,14 @@ export default function BudgetDraftPage() {
   // Which BOOK is open. A property's budget is a sheet inside its book, so the
   // book leads and the property follows — picking a property inside a book
   // never changes which book you are in.
-  const [bookId, setBookId] = useState<string>("shopping-centers");
+  // Each person opens on their own book — Nancy's parks, everyone else the
+  // shopping centres — and can switch.
+  const { user } = useUser();
+  const [bookId, setBookId] = useState<string>(user.budgetScope?.codes.has("3610") ? "jv3" : "shopping-centers");
   const book = bookById(bookId) ?? bookById("shopping-centers")!;
+  // The progress + rent-schedule category the book belongs to (the leasing
+  // owner splits the same way: shopping centres → Harry, parks → Nancy).
+  const category = bookId === "shopping-centers" ? "Shopping Centers" : bookId === "jv3" || bookId === "ni-llc" ? "Office" : book.name;
 
   // Typing a month re-projects the draft, and several can be in flight at once
   // as someone Tabs along a row: only the LATEST request may land, or an older
@@ -182,7 +198,7 @@ export default function BudgetDraftPage() {
   const label = useMemo(() => props.find((p) => p.key === key), [props, key]);
 
   return (
-    <main style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 250px", gap: 18, maxWidth: 1360, width: "100%", alignItems: "start" }}>
+    <main style={{ maxWidth: 1360, width: "100%" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <BookMasthead
         book={book}
@@ -206,6 +222,10 @@ export default function BudgetDraftPage() {
         }}
       />
 
+      {/* Where the budget stands and who owes what — one strip, pinned while
+          you scroll, so the grid below keeps the full width. */}
+      <BudgetSteps year={year} category={category} refreshTick={refreshTick} />
+
       {/* STEP 1, above everything, because the rest depends on it. The
           contracted-rent schedule is the input the vacancy and renewal list is
           DERIVED from — and while Harry and Nancy work that list, Greg and
@@ -213,7 +233,7 @@ export default function BudgetDraftPage() {
           by design; only the order of this one is fixed. */}
       <InPlaceRevenueCard
         year={year}
-        category="Shopping Centers"
+        category={category}
         propertyCode={label?.propertyCode ?? null}
         editorLabel={typeof document !== "undefined" ? (document.cookie.match(/kcp_user=([^;]+)/)?.[1] ?? "Unknown") : "Unknown"}
       />
@@ -236,8 +256,17 @@ export default function BudgetDraftPage() {
           {/* The budget reads like the full-year operating statement it will
               be measured against: every month in its own column, revenue
               filled month by month from the leases and the recovery estimate. */}
-          {/* STEP 3 — the three lines their owners key on Budget Inputs. */}
-          <ExpensesStepCard draft={draft} />
+          {/* STEP 3 — taxes, insurance and building maintenance, keyed right
+              here by their owners (the same table Greg uses on his page). */}
+          <div id="step-3" className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
+              <div style={secLabel}>Step 3 · Expenses — {draft.budgetYear}</div>
+              <Pill tone={contributorTone("drew")}>DREW · TAXES &amp; INSURANCE</Pill>
+              <Pill tone={contributorTone("greg")}>GREG · MAINTENANCE</Pill>
+            </div>
+            <ExpenseInputsPanel embedded year={draft.budgetYear} bookId={bookId} only={draft.propertyCode}
+              onSaved={() => setRefreshTick((n) => n + 1)} />
+          </div>
 
           {draft.reimbursementEstimate && draft.reimbursementEstimate.tenants.length > 0 && (() => {
             const est = draft.reimbursementEstimate!;
@@ -248,7 +277,7 @@ export default function BudgetDraftPage() {
                   <Pill tone={TONE_TEAL}>{est.fromBudgetPools ? "IN THE BUDGET" : "PREVIEW"}</Pill>
                 </div>
                 <div style={{ padding: "8px 14px" }} className="muted small">
-                  Each tenant keeps their share from the <b>{est.reconYear} reconciliation</b> (PRS, admin fee, exclusions, gross leases and the insurance-pool rules all carried over), applied to <b>this budget&rsquo;s own pools</b> — CAM ×{est.ratios.cam}, insurance ×{est.ratios.ins}, taxes ×{est.ratios.ret} against {est.reconYear}, so the taxes and premium entered on Budget Inputs flow straight through.
+                  Each tenant keeps their share from the <b>{est.reconYear} reconciliation</b> (PRS, admin fee, exclusions, gross leases and the insurance-pool rules all carried over), applied to <b>this budget&rsquo;s own pools</b> — CAM ×{est.ratios.cam}, insurance ×{est.ratios.ins}, taxes ×{est.ratios.ret} against {est.reconYear}, so the taxes and premium entered in Step 3 flow straight through.
                   {est.kind === "office" ? " Office tenants pay their share of the increase over their base year, recomputed on the budget pool." : " A capped tenant grows no faster than its cap."}
                   {" "}The leasing assumptions set who pays and when: a vacate stops after its term, a lease-up starts at its pro-rata share. These totals <b>are</b> the recovery income lines in the budget below (marked <i>CAM est.</i>).
                 </div>
@@ -329,58 +358,7 @@ export default function BudgetDraftPage() {
 
       </div>
 
-      {/* The rail, not a bar along the bottom. "How much is left" is the
-          smaller question; the one asked in the room is "where are we" — and
-          that has a SHAPE. The schedule has to land before the vacancy list
-          means anything, while the expenses run in parallel and wait for
-          neither. A rail can show that; a percentage cannot. */}
-      <BudgetSteps year={year} category="Shopping Centers" refreshTick={refreshTick} />
     </main>
-  );
-}
-
-/**
- * Step 3 on the page, so every step on the rail has its card. The figures are
- * KEYED on Budget Inputs (Greg can reach nothing else), so this only says where
- * each one stands and links there — never a second place to type them.
- */
-function ExpensesStepCard({ draft }: { draft: BudgetDraft }) {
-  const kinds: { kind: string; label: string; owner: string }[] = [
-    { kind: "ret", label: "Real estate taxes", owner: "drew" },
-    { kind: "insurance", label: "Insurance", owner: "drew" },
-    { kind: "building-maintenance", label: "Building maintenance", owner: "greg" },
-  ];
-  const lines = draft.sections.flatMap((sec) => sec.lines.filter((l) => l.inputKind));
-  const status = (kind: string) => {
-    const ls = lines.filter((l) => l.inputKind === kind);
-    if (!ls.length) return null;
-    const total = ls.reduce((a, l) => a + l.total, 0);
-    const entered = ls.every((l) => l.source === "entered");
-    const text = entered ? "Entered" : kind === "ret" ? "Default · +3%" : "Not entered · +3%";
-    return { total, entered, text };
-  };
-  return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
-        <div style={secLabel}>Step 3 · Expenses — {draft.budgetYear}</div>
-        <a href="/budget-inputs" className="btn" style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700, textDecoration: "none" }}>Open Budget Inputs →</a>
-      </div>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <tbody>
-          {kinds.map((k) => {
-            const st = status(k.kind);
-            return (
-              <tr key={k.kind} style={{ borderTop: "1px solid var(--border)" }}>
-                <td style={{ ...tdLL, fontWeight: 600 }}>{k.label}</td>
-                <td style={tdLL}><Pill tone={contributorTone(k.owner)}>{k.owner.toUpperCase()}</Pill></td>
-                <td style={tdLL}>{st ? <Pill tone={st.entered ? TONE_GREEN : TONE_AMBER}>{st.text}</Pill> : <span className="muted small">No line on this statement</span>}</td>
-                <td style={{ ...tdRR, fontWeight: 700 }}>{st ? money0(st.total) : ""}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
   );
 }
 

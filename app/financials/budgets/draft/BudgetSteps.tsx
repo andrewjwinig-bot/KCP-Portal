@@ -1,6 +1,6 @@
 "use client";
 
-// Budget season as a rail: where you are, what is left, and who owes it.
+// Budget season as a strip of steps: where you are, what is left, and who owes it.
 //
 // A bar along the bottom answers "how much", which is the smaller question.
 // The one asked in the room is "where are we" — and the answer has a shape:
@@ -10,8 +10,8 @@
 // Each step reports its OWN progress, so a step that is blocked reads as
 // blocked rather than as nobody having started it.
 
-import { useCallback, useEffect, useState } from "react";
-import { Pill, TONE_GREEN, TONE_AMBER, TONE_NEUTRAL, TONE_BLUE } from "@/app/components/Pill";
+import { Fragment, useCallback, useEffect, useState } from "react";
+import { Pill, TONE_GREEN, contributorTone } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { ownerProgress } from "@/lib/financials/budgets/deriveContributions";
 import type { Contribution, ContributionKind } from "@/lib/financials/budgets/contributors";
@@ -70,7 +70,7 @@ function buildSteps(items: Contribution[], hasSchedule: boolean): Step[] {
     },
     {
       id: "expenses", title: "Expenses", who: "Greg · Drew", kinds: ["ret", "insurance", "building-maintenance"],
-      href: "/budget-inputs",
+      href: "#step-3",
       ...expenses,
       // Deliberately NOT blocked by the schedule — this half runs in parallel,
       // which is the point of splitting the work by person.
@@ -112,76 +112,68 @@ export function BudgetSteps({ year, category, refreshTick }: { year: number; cat
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
   return (
-    <aside style={{ position: "sticky", top: 16, alignSelf: "start", display: "flex", flexDirection: "column", gap: 12 }}>
-      <div className="card" style={{ padding: 14 }}>
-        <div style={secLabel}>{year} budget</div>
-        <div style={{ fontSize: 22, fontWeight: 900, marginTop: 2, lineHeight: 1.1 }}>
-          {total > 0 && done === total ? "Complete" : `${total - done} left`}
+    // One slim strip under the masthead, pinned while you scroll — it used to
+    // be a 250px rail down the right, which took that width from the budget
+    // grid on every screen. Same content, laid out across instead of down.
+    <div className="card" style={{ position: "sticky", top: 0, zIndex: 6, padding: "10px 14px", display: "flex", alignItems: "center", gap: 18, flexWrap: "wrap" }}>
+      <div style={{ minWidth: 150 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={secLabel}>{year} budget</span>
+          <span style={{ fontSize: 15, fontWeight: 900 }}>{total > 0 && done === total ? "Complete" : `${total - done} left`}</span>
         </div>
-        <div style={{ height: 8, borderRadius: 999, background: "var(--border)", overflow: "hidden", marginTop: 8 }}>
+        <div style={{ height: 5, borderRadius: 999, background: "var(--border)", overflow: "hidden", marginTop: 5, width: 150 }}>
           <div style={{ width: `${pct}%`, height: "100%", background: done === total && total > 0 ? "#15803d" : "var(--brand)", transition: "width 220ms ease" }} />
         </div>
-        <div className="muted small" style={{ marginTop: 4 }}>{done} of {total} parts in · {pct}%</div>
       </div>
 
-      {/* The steps, with the rail drawn down their left. */}
-      <div className="card" style={{ padding: "14px 14px 10px" }}>
-        <div style={{ ...secLabel, marginBottom: 10 }}>Steps</div>
-        <div style={{ position: "relative" }}>
-          <div style={{ position: "absolute", left: 5, top: 6, bottom: 14, width: 2, background: "var(--border)" }} />
-          {steps.map((s, i) => {
-            const d = DOT[s.state];
-            return (
-              <div key={s.id} style={{ position: "relative", paddingLeft: 22, paddingBottom: 14 }}>
-                <div style={{
-                  position: "absolute", left: 0, top: 3, width: 12, height: 12, borderRadius: 999,
-                  background: d.bg, boxShadow: `0 0 0 4px ${d.ring}`,
-                }} />
-                <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.25, color: s.state === "waiting" ? "var(--muted)" : "var(--text)" }}>
-                  <span style={{ color: "var(--muted)", fontWeight: 700 }}>{i + 1}.</span> {s.title}
-                </div>
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>{s.who}</div>
-                {s.total > 0 && (
-                  <>
-                    <div style={{ height: 5, borderRadius: 999, background: "var(--border)", overflow: "hidden", marginTop: 5, maxWidth: 150 }}>
-                      <div style={{ width: `${Math.round((s.done / s.total) * 100)}%`, height: "100%", background: s.done === s.total ? "#15803d" : "var(--brand)", transition: "width 200ms ease" }} />
-                    </div>
-                    <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>{s.done} of {s.total}</div>
-                  </>
-                )}
-                {s.note && <div className="muted" style={{ fontSize: 11, marginTop: 3, fontStyle: "italic" }}>{s.note}</div>}
-                {s.href && s.state !== "waiting" && (
-                  <a href={s.href} style={{ display: "inline-block", marginTop: 4, fontSize: 12, fontWeight: 700, color: "var(--brand)", textDecoration: "none" }}>Enter figures →</a>
-                )}
-              </div>
-            );
-          })}
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", flex: "1 1 520px" }}>
+        {steps.map((st, i) => {
+          const d = DOT[st.state];
+          const chip = (
+            <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--border)", background: st.state === "active" ? "rgba(11,74,125,0.05)" : "transparent" }}>
+              <span style={{ width: 9, height: 9, borderRadius: 999, background: d.bg, boxShadow: `0 0 0 3px ${d.ring}`, flex: "none" }} />
+              <span style={{ fontSize: 12.5, fontWeight: 800, color: st.state === "waiting" ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap" }}>
+                {i + 1}. {st.title}
+              </span>
+              {st.total > 0 && <span className="muted" style={{ fontSize: 11.5, fontWeight: 700 }}>{st.done}/{st.total}</span>}
+            </div>
+          );
+          return (
+            <Fragment key={st.id}>
+              {i > 0 && <span className="muted" style={{ fontSize: 11 }}>›</span>}
+              <HoverCard title={`${i + 1}. ${st.title}`}
+                rows={[
+                  { label: "Who", value: st.who },
+                  ...(st.total > 0 ? [{ label: "Done", value: `${st.done} of ${st.total}`, color: st.done === st.total ? "#15803d" : undefined }] : []),
+                ]}
+                footer={st.note ? { label: "Note", value: st.note } : undefined}>
+                {st.href && st.state !== "waiting"
+                  ? <a href={st.href} style={{ textDecoration: "none", color: "inherit" }}>{chip}</a>
+                  : chip}
+              </HoverCard>
+            </Fragment>
+          );
+        })}
       </div>
 
       {owners.length > 0 && (
-        <div className="card" style={{ padding: 14 }}>
-          <div style={{ ...secLabel, marginBottom: 8 }}>Who owes what</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {owners.map((o) => (
-              <HoverCard key={o.owner}
-                title={`${NAME[o.owner] ?? o.owner} · ${year} budget`}
-                rows={[
-                  { label: "Assigned", value: String(o.total) },
-                  { label: "Done", value: String(o.done), color: "#15803d" },
-                  ...(o.open ? [{ label: "Still open", value: String(o.open), color: "#b45309" }] : []),
-                ]}
-                footer={o.open ? { label: "Note", value: "Drew can fill any of these in the review; the item keeps its owner either way." } : undefined}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 700 }}>{NAME[o.owner] ?? o.owner}</span>
-                  <Pill tone={o.open === 0 ? TONE_GREEN : TONE_AMBER}>{o.done}/{o.total}</Pill>
-                </div>
-              </HoverCard>
-            ))}
-          </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span style={secLabel}>Who owes what</span>
+          {owners.map((o) => (
+            <HoverCard key={o.owner}
+              title={`${NAME[o.owner] ?? o.owner} · ${year} budget`}
+              rows={[
+                { label: "Assigned", value: String(o.total) },
+                { label: "Done", value: String(o.done), color: "#15803d" },
+                ...(o.open ? [{ label: "Still open", value: String(o.open), color: "#b45309" }] : []),
+              ]}
+              footer={o.open ? { label: "Note", value: "Drew can fill any of these in the review; the item keeps its owner either way." } : undefined}
+            >
+              <Pill tone={o.open === 0 ? TONE_GREEN : contributorTone(o.owner)}>{(NAME[o.owner] ?? o.owner).toUpperCase()} {o.done}/{o.total}</Pill>
+            </HoverCard>
+          ))}
         </div>
       )}
-    </aside>
+    </div>
   );
 }

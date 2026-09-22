@@ -98,7 +98,9 @@ export const USERS: Record<UserId, UserDef> = {
       "bank-transfers",
       "bank-rec-tracker",
       "financials-budgets",
-      "budget-inputs",
+      // No "budget-inputs" in Drew's sidebar: he keys taxes and insurance on
+      // the master budget page (Step 3). The page stays reachable; it is
+      // Greg's view.
       "financials-statements",
       "cash-analysis-draft",
       "tenant-statements",
@@ -184,13 +186,18 @@ export const USERS: Record<UserId, UserDef> = {
     // the Filing Tracker (which is the separate "tracker" key). "base-years"
     // surfaces the CAM Reconciliation area (incl. the Lafayette Hill 9510 Wawa
     // quarterly billing) plus the Expense History/Trends + Estimates views.
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/"],
+    // "financials-budgets": Harry owns the shopping centres' leasing
+    // assumptions, which live on the master budget page — without the grant
+    // he could not open the page, or save a decision, on work assigned to him.
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/financials/budgets", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
     // Security deposits scoped to shopping centers + residential.
     depositsScope: { codes: SC_AND_RESIDENTIAL },
+    // Budgets scoped to the shopping centres, as Nancy's are to the parks.
+    budgetScope: { codes: SC_INDIVIDUAL },
   },
   // Shared SERVICE persona, kept as a fallback during rollout. Greg/Charles/Jay
   // are the individual clones (below) — once they've each enrolled 2FA, this
@@ -319,14 +326,17 @@ export function isPathAllowed(userId: UserId, pathname: string): boolean {
 // first (first match wins). APIs NOT listed here are cross-cutting (rent roll,
 // properties, dashboard, search, maintenance, reservations, tracker, …) and
 // stay available to any signed-in user — gating them would break shared flows.
-const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string][] = [
+const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]][] = [
   ["/api/commissions/retail", "/commissions/retail"],
   ["/api/commissions", "/commissions"],
   // Budgets API maps to the Budgets page specifically (Nancy is limited to it);
   // listed before the broad /api/financials → /financials mapping.
   ["/api/financials/budgets", "/financials/budgets"],
-  // The Expenses-step inputs: governed by their own page, which Greg can reach.
-  ["/api/budget-inputs", "/budget-inputs"],
+  // The Expenses-step inputs: Greg's page, AND the master budget page (Step 3),
+  // where Harry, Nancy and Drew collaborate. Reading them is harmless there —
+  // the page already shows the whole budget — and every SAVE is still checked
+  // against the line's owner (`canEdit`) in the route.
+  ["/api/budget-inputs", ["/budget-inputs", "/financials/budgets"]],
   ["/api/financials", "/financials"],
   ["/api/cam-recon", "/cam-recon"],
   ["/api/cam-config", "/cam-recon"],
@@ -360,7 +370,9 @@ export function authorizeRequest(userId: UserId, pathname: string): boolean {
   if (pathname.startsWith("/api/")) {
     if (API_AUTHZ_EXEMPT.some((p) => underPrefix(pathname, p))) return true;
     const match = SENSITIVE_API_PREFIXES.find(([api]) => underPrefix(pathname, api));
-    return match ? isPathAllowed(userId, match[1]) : true;
+    if (!match) return true;
+    const pages = Array.isArray(match[1]) ? match[1] : [match[1]];
+    return pages.some((pg) => isPathAllowed(userId, pg));
   }
   return isPathAllowed(userId, pathname);
 }
