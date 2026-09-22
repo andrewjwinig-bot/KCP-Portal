@@ -1,23 +1,35 @@
 "use client";
 
-// Cross-property "Flags to Investigate" review. Properties are grouped and
-// ordered like the rent roll (JV III, NI LLC, Shopping Centers, Korman Homes,
-// Other Properties). Expand a property → its flagged lines; expand a line →
-// every month it was flagged, with that month's "?" reasons + note. Export to
-// Excel or PDF for the accountant.
+// Flags to Investigate — built for a REVIEW SESSION.
+//
+// One property at a time (the dropdown, with ← / → to walk the portfolio),
+// its open items YEAR TO DATE in ONE table banded by month, January down. Each row reads
+// the way the question is asked in the room: which line, what posted, what was
+// budgeted, the variance, and WHY it is on the list — the auto-explain note
+// where there is one, the rule's own reason where there isn't. Dismiss it or
+// write a note right on the row, and the next row is already in front of you.
+//
+// It used to be a stack of property cards, each opening to lines, each opening
+// to months: three clicks to read one variance, and no sense of how far
+// through the portfolio you were. The data is the same (`reviewFlaggedLines`);
+// only the shape changed.
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
-import { StatPill } from "@/app/components/Pill";
+import { StatPill, Pill, TONE_RED, TONE_AMBER, TONE_PURPLE, TONE_GREEN } from "@/app/components/Pill";
+import { Select, YearSelect } from "@/app/components/YearSelect";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { th, td, thL, tdL } from "@/app/components/tableStyles";
 import LoadingState from "@/app/components/LoadingState";
 import { AnalyzingBar } from "@/app/components/ai/AiKit";
+import { useUser } from "@/app/components/UserProvider";
 import { groupByRentRoll, type RentRollGroup } from "@/lib/financials/operating-statements/propertyGroups";
 
 type ReviewMonth = {
-  period: number; monthLabel: string; flags: string[];
-  actual: number; budget: number | null; variance: number | null; note: string | null;
+  period: number; monthLabel: string; flags: string[]; billing?: string;
+  actual: number; budget: number | null; variance: number | null;
+  note: string | null; noteSource?: "ai" | "user" | null;
 };
 type ReviewLine = { lineKey: string; section: string; line: string; months: ReviewMonth[] };
 type ReviewIssue = {
@@ -28,42 +40,14 @@ type ReviewProperty = {
   key: string; propertyCode: string; propertyName: string; hasData: boolean;
   latestPeriod: number; latestMonthLabel: string; monthsCovered: number;
   lines: ReviewLine[]; flaggedMonthCount: number; issues: ReviewIssue[];
-  tieOut: { checked: number; mismatches: number } | null;
-  coverage: { through: number; expected: number; behind: boolean } | null;
 };
-type ReviewResult = {
-  year: number; generatedAt: string; properties: ReviewProperty[];
-  totals?: { flaggedMonthCount: number; issueCount: number; propertiesWithIssues: number; tieOutIssues: number; coverageGaps: number };
-};
+type ReviewResult = { year: number; generatedAt: string; properties: ReviewProperty[] };
 
 function money(v: number | null): string {
   if (v == null) return "—";
   const n = Math.round(v);
   const s = Math.abs(n).toLocaleString("en-US");
   return n < 0 ? `($${s})` : `$${s}`;
-}
-const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
-
-function exportExcel(data: ReviewResult) {
-  const rows: Record<string, string | number>[] = [];
-  for (const p of data.properties) {
-    for (const l of p.lines) {
-      for (const mo of l.months) {
-        rows.push({
-          Property: p.propertyCode, Name: p.propertyName, Month: mo.monthLabel,
-          Section: l.section, Line: l.line, "Flagged because": mo.flags.join("; "),
-          Actual: Math.round(mo.actual),
-          Budget: mo.budget == null ? "" : Math.round(mo.budget),
-          Variance: mo.variance == null ? "" : Math.round(mo.variance),
-          Note: mo.note ?? "",
-        });
-      }
-    }
-  }
-  const ws = XLSX.utils.json_to_sheet(rows);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Lines to Investigate");
-  XLSX.writeFile(wb, `Operating Statements - Flags to Investigate - ${data.year}.xlsx`);
 }
 
 function exportPdf(data: ReviewResult, grouped: { group: RentRollGroup; rows: ReviewProperty[] }[]) {
@@ -123,102 +107,206 @@ function exportPdf(data: ReviewResult, grouped: { group: RentRollGroup; rows: Re
   doc.save(`Operating Statements - Flags to Investigate - ${data.year}.pdf`);
 }
 
-const FLAG_PILL: React.CSSProperties = {
-  fontSize: 12, fontWeight: 800, padding: "2px 10px", borderRadius: 999,
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const PROPERTY_KEY = "kcp.flags.property";
+
+/** One row of the review table: a flagged line-month, or a missing posting. */
+type Item = {
+  id: string;
+  kind: "flag" | "missing";
+  lineKey: string; line: string; section: string; period: number;
+  actual: number | null; budget: number | null; variance: number | null;
+  /** The rule's own reasons (trend), and the tenants billed wrong. */
+  reasons: string[]; billing?: string;
+  note: string | null; noteSource: "ai" | "user" | null;
+  missingType?: ReviewIssue["type"]; expected?: number;
 };
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-// Distinct calendar months a property has any flag in (≤ months imported) — so
-// the pill never reads a summed line-month count higher than the year's months.
-function distinctFlaggedMonths(p: ReviewProperty): number {
-  return new Set(p.lines.flatMap((l) => l.months.map((m) => m.period))).size;
+function itemsFor(p: ReviewProperty): Item[] {
+  const out: Item[] = [];
+  for (const iss of p.issues ?? []) {
+    out.push({
+      id: `m::${iss.lineKey}::${iss.period}`, kind: "missing",
+      lineKey: iss.lineKey, line: iss.line, section: iss.section, period: iss.period,
+      actual: 0, budget: null, variance: null, reasons: [], note: null, noteSource: null,
+      missingType: iss.type, expected: iss.expected,
+    });
+  }
+  for (const l of p.lines) for (const m of l.months) {
+    out.push({
+      id: `f::${l.lineKey}::${m.period}`, kind: "flag",
+      lineKey: l.lineKey, line: l.line, section: l.section, period: m.period,
+      actual: m.actual, budget: m.budget, variance: m.variance,
+      reasons: m.flags.filter((f) => f !== m.billing), billing: m.billing,
+      note: m.note, noteSource: m.note ? (m.noteSource ?? "ai") : null,
+    });
+  }
+  return out;
 }
 
-// Immutably drop one (property, line, month) flag from the loaded result after
-// it's dismissed, so the list condenses without a full reload.
-function removeFlag(data: ReviewResult, propKey: string, lineKey: string, period: number): ReviewResult {
-  return {
-    ...data,
-    properties: data.properties.map((p) => {
-      if (p.key !== propKey) return p;
-      const lines = p.lines
-        .map((l) => (l.lineKey === lineKey ? { ...l, months: l.months.filter((m) => m.period !== period) } : l))
-        .filter((l) => l.months.length > 0);
-      return { ...p, lines, flaggedMonthCount: lines.reduce((s, l) => s + l.months.length, 0) };
-    }),
-  };
+/** Within a month: missing postings, then wrong billing (both errors of FACT),
+ *  then the rest by the size of the variance — the order you'd work them in. */
+function rank(a: Item, b: Item): number {
+  const k = (i: Item) => (i.kind === "missing" ? 0 : i.billing ? 1 : 2);
+  return k(a) - k(b) || Math.abs(b.variance ?? b.expected ?? 0) - Math.abs(a.variance ?? a.expected ?? 0);
 }
 
-// Animated "scanning" loader — pulsing bars + a sweeping progress bar, so it's
-// obvious the audit is running across every property/month.
+const openCount = (p: ReviewProperty) => p.flaggedMonthCount + (p.issues?.length ?? 0);
+
 export default function OperatingStatementsReviewPage() {
-  const [year, setYear] = useState(new Date().getFullYear());
+  const { user } = useUser();
+  const thisYear = new Date().getFullYear();
+  const [year, setYear] = useState(thisYear);
   const [data, setData] = useState<ReviewResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [openProps, setOpenProps] = useState<Set<string>>(new Set());
-  const [openLines, setOpenLines] = useState<Set<string>>(new Set());
+  const [propKey, setPropKey] = useState<string | null>(null);
   const [monthFilter, setMonthFilter] = useState<number | null>(null);
-  const [dismissing, setDismissing] = useState<Set<string>>(new Set());
+  // YEAR TO DATE, January down: the list is a backlog to chip away at, and
+  // it reads in the order the months happened. Newest-first is one click.
+  const [newestFirst, setNewestFirst] = useState(false);
+  // Dismissed THIS session: the row stays, dimmed, with an Undo — so a slip of
+  // the mouse in a meeting is one click to take back, not a trip to the
+  // statement. Leaving the property (or reloading) clears them from view.
+  const [resolved, setResolved] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<Set<string>>(new Set());
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [explaining, setExplaining] = useState<{ done: number; total: number; now: string } | null>(null);
   // Failed calls, named. `fetch` does not throw on a 502, so a run where every
   // call failed used to finish silently and look like it had worked.
   const [explainFailures, setExplainFailures] = useState<string[]>([]);
   const [forceReexplain, setForceReexplain] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<string | null>(null);
 
-  // Dismiss a flagged line-month right here (no round-trip to the statement),
-  // then drop it from the list so the page condenses to what's left.
-  const dismissMonth = useCallback(async (propKey: string, lineKey: string, period: number) => {
-    const id = `${propKey}::${lineKey}::${period}`;
-    setDismissing((s) => new Set(s).add(id));
-    try {
-      const res = await fetch("/api/financials/operating-statements/dismiss-flag", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: propKey, year, period, lineKey, dismissed: true }),
-      });
-      if (!res.ok) throw new Error("save failed");
-      setData((prev) => (prev ? removeFlag(prev, propKey, lineKey, period) : prev));
-    } catch {
-      alert("Couldn't dismiss that flag — please try again.");
-    } finally {
-      setDismissing((s) => { const n = new Set(s); n.delete(id); return n; });
-    }
-  }, [year]);
-
-  const load = useCallback(() => {
-    setLoading(true);
-    fetch(`/api/financials/operating-statements/review?year=${year}`)
+  const load = useCallback((quiet = false) => {
+    if (!quiet) setLoading(true);
+    return fetch(`/api/financials/operating-statements/review?year=${year}`)
       .then((r) => r.json())
       .then((j: ReviewResult & { error?: string }) => {
         if (j.error) { setError(j.error); setData(null); }
-        else { setData(j); setError(null); setOpenProps(new Set()); setOpenLines(new Set()); }
+        else { setData(j); setError(null); }
       })
       .catch((e) => setError(e?.message ?? "Failed to load"))
       .finally(() => setLoading(false));
   }, [year]);
   useEffect(() => { load(); }, [load]);
 
-  // Auto-explain EVERY flagged line-month across all properties in one go — the
-  // AI note for each, so the whole report is annotated without opening each
-  // property. Runs sequentially (per property/period) with visible progress.
-  const autoExplainAll = useCallback(async () => {
-    const pairs: { key: string; period: number; label: string }[] = [];
-    for (const p of (data?.properties ?? [])) {
-      if (!p.hasData) continue;
-      const periods = new Set<number>();
-      for (const l of p.lines) for (const m of l.months) periods.add(m.period);
-      for (const period of periods) pairs.push({ key: p.key, period, label: `${p.propertyCode} ${p.propertyName}` });
+  // Properties in rent-roll order — the order the portfolio is always read in.
+  const ordered = useMemo(() => {
+    const withData = (data?.properties ?? []).filter((p) => p.hasData);
+    return groupByRentRoll(withData).map(({ label, items }) => ({
+      group: label as RentRollGroup,
+      rows: items.slice().sort((a, b) => a.propertyCode.localeCompare(b.propertyCode)),
+    }));
+  }, [data]);
+  const flat = useMemo(() => ordered.flatMap((g) => g.rows), [ordered]);
+
+  // Pick a property: ?key= → the last one you had open → the first with work.
+  useEffect(() => {
+    if (!flat.length) return;
+    if (propKey && flat.some((p) => p.key === propKey)) return;
+    let want: string | null = null;
+    try { want = new URLSearchParams(window.location.search).get("key") ?? localStorage.getItem(PROPERTY_KEY); } catch { /* storage blocked */ }
+    const hit = flat.find((p) => p.key === want) ?? flat.find((p) => openCount(p) > 0) ?? flat[0];
+    setPropKey(hit.key);
+  }, [flat, propKey]);
+
+  const choose = useCallback((key: string) => {
+    setPropKey(key);
+    setResolved(new Set());
+    setEditing(null);
+    setMonthFilter(null);
+    try { localStorage.setItem(PROPERTY_KEY, key); } catch { /* storage blocked */ }
+  }, []);
+
+  const prop = flat.find((p) => p.key === propKey) ?? null;
+  const idx = prop ? flat.indexOf(prop) : -1;
+  const nextWithWork = useMemo(() => {
+    if (idx < 0) return null;
+    for (let i = 1; i <= flat.length; i++) {
+      const p = flat[(idx + i) % flat.length];
+      if (p.key !== propKey && openCount(p) > 0) return p;
     }
+    return null;
+  }, [flat, idx, propKey]);
+
+  const items = useMemo(() => (prop ? itemsFor(prop) : []), [prop]);
+  const months = useMemo(() => {
+    const by = new Map<number, Item[]>();
+    for (const it of items) {
+      if (monthFilter != null && it.period !== monthFilter) continue;
+      const arr = by.get(it.period); if (arr) arr.push(it); else by.set(it.period, [it]);
+    }
+    return [...by.entries()]
+      .sort((a, b) => (newestFirst ? b[0] - a[0] : a[0] - b[0]))
+      .map(([period, rows]) => ({ period, rows: rows.sort(rank) }));
+  }, [items, monthFilter, newestFirst]);
+  const availableMonths = useMemo(() => [...new Set(items.map((i) => i.period))].sort((a, b) => a - b), [items]);
+
+  const openHere = items.filter((i) => !resolved.has(i.id)).length;
+  const missingHere = items.filter((i) => i.kind === "missing").length;
+  const unexplained = items.filter((i) => i.kind === "flag" && !i.note && !resolved.has(i.id)).length;
+  const portfolioOpen = flat.reduce((s, p) => s + openCount(p), 0);
+
+  // Dismiss (or restore) one item — the same dismissal the ✕
+  // on the statement writes, so it drops off the statement and the checklist.
+  const setDismissed = useCallback(async (it: Item, dismissed: boolean) => {
+    if (!prop) return;
+    setBusy((s) => new Set(s).add(it.id));
+    try {
+      const res = await fetch("/api/financials/operating-statements/dismiss-flag", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: prop.key, year, period: it.period, lineKey: it.lineKey, dismissed }),
+      });
+      if (!res.ok) throw new Error("save failed");
+      setResolved((s) => { const n = new Set(s); if (dismissed) n.add(it.id); else n.delete(it.id); return n; });
+    } catch {
+      alert("Couldn't save that — please try again.");
+    } finally {
+      setBusy((s) => { const n = new Set(s); n.delete(it.id); return n; });
+    }
+  }, [prop, year]);
+
+  // A note written here is a PERSON'S note: auto-explain never overwrites it.
+  const saveNote = useCallback(async (it: Item, text: string) => {
+    if (!prop) return;
+    setBusy((s) => new Set(s).add(it.id));
+    try {
+      const res = await fetch("/api/financials/operating-statements", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: prop.key, year, period: it.period, lineKey: it.lineKey, note: text, editedBy: user?.label }),
+      });
+      if (!res.ok) throw new Error("save failed");
+      setData((d) => d && {
+        ...d,
+        properties: d.properties.map((p) => p.key !== prop.key ? p : {
+          ...p,
+          lines: p.lines.map((l) => l.lineKey !== it.lineKey ? l : {
+            ...l,
+            months: l.months.map((m) => m.period !== it.period ? m : { ...m, note: text.trim() || null, noteSource: text.trim() ? "user" : null }),
+          }),
+        }),
+      });
+      setEditing(null);
+    } catch {
+      alert("Couldn't save the note — please try again.");
+    } finally {
+      setBusy((s) => { const n = new Set(s); n.delete(it.id); return n; });
+    }
+  }, [prop, year, user]);
+
+  // Explain a set of (property, month) pairs, one call each, and say which failed.
+  const runExplain = useCallback(async (pairs: { key: string; period: number; label: string }[]) => {
     if (!pairs.length) return;
     const failures: string[] = [];
     setExplainFailures([]);
-    setExplaining({ done: 0, total: pairs.length, now: pairs[0].label });
     for (let i = 0; i < pairs.length; i++) {
-      // Name the property BEFORE the call, not after — the interesting moment
-      // is the minute it is being read, not the instant it finishes.
-      setExplaining({ done: i, total: pairs.length, now: `${pairs[i].label} · ${MONTHS[pairs[i].period - 1]}` });
       const where = `${pairs[i].label} · ${MONTHS[pairs[i].period - 1]}`;
+      // Name the property BEFORE the call — the interesting moment is the
+      // minute it is being read, not the instant it finishes.
+      setExplaining({ done: i, total: pairs.length, now: where });
       try {
         const res = await fetch("/api/financials/operating-statements/analyze", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -227,21 +315,17 @@ export default function OperatingStatementsReviewPage() {
         const j = await res.json().catch(() => ({}));
         if (!res.ok || j.error) failures.push(`${where}: ${j.error ?? `HTTP ${res.status}`}`);
       } catch (e) {
-        // skip a failed property, keep going — but say so
         failures.push(`${where}: ${e instanceof Error ? e.message : "request failed"}`);
       }
-      setExplaining({ done: i + 1, total: pairs.length, now: pairs[i + 1]?.label ?? "Finishing up…" });
     }
     setExplaining(null);
     setExplainFailures(failures);
-    load(); // refresh so the freshly-written notes show
-  }, [data, year, load, forceReexplain]);
+    await load(true); // the freshly written notes, without the full-page loader
+  }, [year, forceReexplain, load]);
 
-  // Email the month's checklist on demand. The import sends it automatically;
-  // this is for "send it to me again", and for a month where items were
-  // dismissed or resolved since.
-  const [emailing, setEmailing] = useState(false);
-  const [emailMsg, setEmailMsg] = useState<string | null>(null);
+  const pairsFor = (ps: ReviewProperty[]) => ps.flatMap((p) =>
+    [...new Set(p.lines.flatMap((l) => l.months.map((m) => m.period)))].map((period) => ({ key: p.key, period, label: p.propertyCode })));
+
   const emailChecklist = useCallback(async () => {
     setEmailing(true);
     setEmailMsg(null);
@@ -257,71 +341,9 @@ export default function OperatingStatementsReviewPage() {
     }
   }, [year]);
 
-  // Properties with an uploaded GL, grouped like the rent roll; worst (most
-  // flagged months) first within each group. When a month filter is set, each
-  // property's lines are narrowed to that month (counts recompute to match).
-  const reviewed = useMemo(() => {
-    const base = (data?.properties ?? []).filter((p) => p.hasData);
-    if (monthFilter == null) return base;
-    return base.map((p) => {
-      const lines = p.lines
-        .map((l) => ({ ...l, months: l.months.filter((m) => m.period === monthFilter) }))
-        .filter((l) => l.months.length > 0);
-      return { ...p, lines, flaggedMonthCount: lines.reduce((s, l) => s + l.months.length, 0) };
-    });
-  }, [data, monthFilter]);
-
-  // Months available to filter by (1 … latest month imported anywhere).
-  const maxMonth = useMemo(() => Math.max(0, ...(data?.properties ?? []).map((p) => p.monthsCovered)), [data]);
-  const grouped = useMemo(() => {
-    return groupByRentRoll(reviewed)
-      .map(({ label, items }) => ({
-        group: label,
-        rows: items.slice().sort((a, b) => b.flaggedMonthCount - a.flaggedMonthCount || a.propertyCode.localeCompare(b.propertyCode)),
-      }));
-  }, [reviewed]);
-
-  const totalMonths = reviewed.reduce((s, p) => s + p.flaggedMonthCount, 0);
-  const propsWithFlags = reviewed.filter((p) => p.flaggedMonthCount > 0).length;
-
-  // Data-completeness issues (unposted / missing debt) across the portfolio,
-  // largest expected first — the accuracy priority, shown above the trend flags.
-  const allIssues = useMemo(() => {
-    const out: { p: ReviewProperty; issue: ReviewIssue }[] = [];
-    for (const p of (data?.properties ?? [])) for (const iss of (p.issues ?? [])) out.push({ p, issue: iss });
-    out.sort((a, b) => b.issue.expected - a.issue.expected);
-    return out;
-  }, [data]);
-
-  // THIS PAGE IS THE CHECKLIST, AND ONLY THE CHECKLIST.
-  //
-  // It used to carry a "Data health" card and two KPI tiles for it — GL
-  // accounts that don't reconcile, and properties imported behind the expected
-  // month. Both were answering a question the page is not for, and both are now
-  // answered somewhere you would actually see them:
-  //
-  //   • TIE-OUT → the GL TIES pill on the statement's own header, on the page
-  //     you work in all month. And it near-never fired: Skyline will not post an
-  //     unbalanced entry, so a mismatch here means a corrupt or truncated
-  //     export, which the per-property pill reports the moment you open it.
-  //   • BEHIND ON COVERAGE → the dashboard's Data Imports card, which counts
-  //     the whole portfolio ("12/37") and names the properties still missing.
-  //     Better placed, and a dormant property no longer reads as behind.
-  //
-  // What is left is one list of things to go and look at. The response still
-  // carries `tieOut` and `coverage` per property for the API's other readers.
-
-  function toggleProp(key: string) {
-    setOpenProps((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; });
-  }
-  function toggleLine(id: string) {
-    setOpenLines((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  }
-  const allExpanded = propsWithFlags > 0 && openProps.size >= propsWithFlags;
-  function toggleAll() {
-    if (allExpanded) { setOpenProps(new Set()); setOpenLines(new Set()); }
-    else setOpenProps(new Set(reviewed.filter((p) => p.flaggedMonthCount > 0).map((p) => p.key)));
-  }
+  const statementHref = (period: number) => prop
+    ? `/financials/operating-statements?key=${encodeURIComponent(prop.key)}&year=${year}&period=${period}`
+    : "#";
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -329,42 +351,32 @@ export default function OperatingStatementsReviewPage() {
         <div>
           <h1 style={{ marginBottom: 4 }}>Flags to Investigate</h1>
           <p className="muted small" style={{ margin: 0 }}>
-            One place to scan every property for accuracy: <b>not-posted</b> items (a budgeted or scheduled figure reading $0) at the top, then the <b>&ldquo;?&rdquo;</b> lines that look off across every uploaded month. Click any row to jump to that line on the statement.{" "}
+            Work through one property at a time. Each row is a line that looks off that month — what posted, what was budgeted, and why it&rsquo;s on the list.{" "}
+            <b>Dismiss</b> it once you&rsquo;ve checked it, or write a note — the goal is an empty list.{" "}
             <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>← Operating Statements</Link>
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button className="btn" onClick={() => setYear((y) => y - 1)} style={{ padding: "6px 12px", fontWeight: 900 }}>←</button>
-          <span style={{ fontWeight: 800, fontSize: 15, minWidth: 60, textAlign: "center" }}>{year}</span>
-          <button className="btn" onClick={() => setYear((y) => y + 1)} style={{ padding: "6px 12px", fontWeight: 900 }}>→</button>
-          {maxMonth > 0 && (
-            <select
-              value={monthFilter ?? ""}
-              onChange={(e) => setMonthFilter(e.target.value ? Number(e.target.value) : null)}
-              aria-label="Filter by month"
-              style={{ fontSize: 13, fontWeight: 700, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)" }}
-            >
-              <option value="">All months</option>
-              {Array.from({ length: maxMonth }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>{MONTHS[m - 1]}</option>
-              ))}
-            </select>
-          )}
-          <button className="btn ai" onClick={autoExplainAll} disabled={!totalMonths || !!explaining} title="Use AI to explain flagged lines across all properties (skips months already explained unless re-explain is checked)"
-            style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>
-            {explaining ? `Explaining… ${explaining.done}/${explaining.total}` : "✨ Auto-explain all"}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <YearSelect value={year} years={[thisYear - 2, thisYear - 1, thisYear]} onChange={(y) => { setYear(y); setPropKey(null); setResolved(new Set()); }} suffix="" tone="neutral" aria-label="Year" />
+          <button className="btn ai" onClick={() => runExplain(pairsFor(flat))} disabled={!portfolioOpen || !!explaining}
+            title="Write an AI note for every flagged line across every property (skips lines already explained unless re-explain is ticked)">
+            ✨ Explain all properties
           </button>
-          <label className="muted small" style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }} title="Re-run even on months already explained (uses tokens again)">
-            <input type="checkbox" checked={forceReexplain} onChange={(e) => setForceReexplain(e.target.checked)} style={{ cursor: "pointer" }} />
+          <label className="muted small" style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }} title="Re-run even on lines already explained (uses tokens again). Notes you wrote are never overwritten.">
+            <input type="checkbox" checked={forceReexplain} onChange={(e) => setForceReexplain(e.target.checked)} />
             re-explain done
           </label>
-          <button className="btn" onClick={() => data && exportExcel(data)} disabled={!totalMonths} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Download Excel</button>
           <button className="btn" onClick={emailChecklist} disabled={emailing}
-            title="Email the printable checklist — every property's open items, missing postings first. Sent automatically after each import."
-            style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>
+            title="Email the printable checklist — every property's open items, missing postings first. Sent automatically after each import.">
             {emailing ? "Sending…" : "Email checklist"}
           </button>
-          <button className="btn primary" onClick={() => data && exportPdf(data, grouped)} disabled={!totalMonths} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Download PDF</button>
+          <DownloadMenu
+            disabled={!portfolioOpen}
+            items={[
+              { label: "Checklist (Excel)", description: "Every property's open items, with a box to tick — the same file the import emails", href: `/api/financials/operating-statements/review/checklist?year=${year}` },
+              { label: "Checklist (PDF)", description: "Every property, grouped like the rent roll", onClick: () => data && exportPdf(data, ordered.map((g) => ({ group: g.group, rows: g.rows }))) },
+            ]}
+          />
         </div>
       </div>
 
@@ -376,200 +388,205 @@ export default function OperatingStatementsReviewPage() {
         </div>
       )}
       {explaining && (
-        <AnalyzingBar
-          label="Reading the GL behind each flagged line"
-          done={explaining.done}
-          total={explaining.total}
-          sub={explaining.now}
-        />
-      )}
-
-      <div className="pills" style={{ justifyContent: "flex-start" }}>
-        <StatPill label="Not Posted / Missing Debt" value={allIssues.length} accent={allIssues.length > 0 ? "#b91c1c" : "#15803d"} />
-        <StatPill label="Flagged Line-Months" value={totalMonths} accent={totalMonths > 0 ? "#b45309" : "#15803d"} />
-        <StatPill label="Properties Flagged" value={propsWithFlags} accent={propsWithFlags > 0 ? "#b45309" : undefined} />
-        <StatPill label="Properties Reviewed" value={reviewed.length} accent="#0b4a7d" />
-        {data && <StatPill label="Generated" value={new Date(data.generatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} />}
-      </div>
-
-      {allIssues.length > 0 && (
-        <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: "rgba(185,28,28,0.4)" }}>
-          <div style={{ padding: "10px 16px", background: "rgba(185,28,28,0.06)", borderBottom: "1px solid rgba(185,28,28,0.25)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 15 }}>⚠️</span>
-            <b style={{ color: "#991b1b" }}>Not posted — statements not yet complete</b>
-            <span className="muted small">{allIssues.length} line{allIssues.length === 1 ? "" : "s"} across {new Set(allIssues.map((x) => x.p.key)).size} propert{new Set(allIssues.map((x) => x.p.key)).size === 1 ? "y" : "ies"} · a budgeted or scheduled item reads $0. Post it, or confirm it doesn&rsquo;t apply.</span>
-          </div>
-          <div className="tableWrap" style={{ overflowX: "auto" }}>
-            <table style={{ minWidth: 640 }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: "left" }}>Property</th>
-                  <th style={{ textAlign: "left" }}>Line</th>
-                  <th style={{ textAlign: "left" }}>Type</th>
-                  <th style={num}>Expected</th>
-                  <th style={{ textAlign: "left" }}>As of</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allIssues.map(({ p, issue }) => (
-                  <tr key={`${p.key}::${issue.lineKey}`}>
-                    <td>
-                      <Link href={`/financials/operating-statements?key=${encodeURIComponent(p.key)}&year=${year}&period=${issue.period}`} style={{ color: "#0b4a7d", textDecoration: "none", fontWeight: 700 }}>
-                        <code style={{ fontSize: 11, color: "var(--muted)" }}>{p.propertyCode}</code> {p.propertyName}
-                      </Link>
-                    </td>
-                    <td>{issue.line} <span className="muted small">{issue.section}</span></td>
-                    <td>
-                      <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 9px", borderRadius: 999, background: "rgba(185,28,28,0.10)", color: "#b91c1c", border: "1px solid rgba(185,28,28,0.30)", whiteSpace: "nowrap" }}>
-                        {issue.type === "missing-debt" ? "Debt not posted" : "Not posted"}
-                      </span>
-                    </td>
-                    <td style={{ ...num, fontWeight: 700 }}>~{money(issue.expected)}</td>
-                    <td className="muted small">{issue.monthLabel}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {reviewed.length > 0 && (
-        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-          <button className="btn" onClick={toggleAll} style={{ fontSize: 12, padding: "4px 10px", fontWeight: 700 }}>{allExpanded ? "Collapse all" : "Expand all"}</button>
-        </div>
+        <AnalyzingBar label="Reading the GL behind each flagged line" done={explaining.done} total={explaining.total} sub={explaining.now} />
       )}
 
       {loading && !data ? (
         <LoadingState status="Scanning every month of every property…" context="Auditing GL lines for anything that looks off" columns={3} rows={4} />
-      ) : reviewed.length === 0 ? (
+      ) : !flat.length ? (
         <div className="card muted small" style={{ padding: 18 }}>No properties with an uploaded GL for {year}.</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-          {grouped.map(({ group, rows }) => {
-            const groupMonths = rows.reduce((s, p) => s + p.flaggedMonthCount, 0);
-            const groupFlagged = rows.filter((p) => p.flaggedMonthCount > 0).length;
-            return (
-              <div key={group} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {/* Rent-roll-style portfolio header */}
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text)" }}>
-                    {group} <span style={{ fontWeight: 600, color: "var(--muted)" }}>({rows.length})</span>
-                  </div>
-                  <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--muted)", flexWrap: "wrap" }}>
-                    <span><b style={{ fontWeight: 700, color: groupFlagged > 0 ? "#b45309" : "#15803d" }}>{groupFlagged}</b> flagged</span>
-                    <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{groupMonths}</b> line-months</span>
-                  </div>
-                </div>
+        <>
+          {/* THE ONE CONTROL THE PAGE IS DRIVEN BY — the property — plus the
+              two buttons that make it a walk-through rather than a lookup. */}
+          <div className="card" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <button className="btn" disabled={idx <= 0} onClick={() => idx > 0 && choose(flat[idx - 1].key)} title="Previous property">←</button>
+            <Select value={propKey ?? ""} onChange={choose} aria-label="Property" style={{ flex: "0 1 auto", minWidth: 0, maxWidth: "100%" }}>
+              {ordered.map((g) => (
+                <optgroup key={g.group} label={g.group}>
+                  {g.rows.map((p) => {
+                    const n = openCount(p);
+                    return <option key={p.key} value={p.key}>{p.propertyCode} — {p.propertyName} · {n ? `${n} open` : "clear"}</option>;
+                  })}
+                </optgroup>
+              ))}
+            </Select>
+            <button className="btn" disabled={idx < 0 || idx >= flat.length - 1} onClick={() => idx < flat.length - 1 && choose(flat[idx + 1].key)} title="Next property">→</button>
+            <span className="muted small">Property {idx + 1} of {flat.length}{prop ? ` · posted through ${prop.latestMonthLabel}` : ""}</span>
+            <span style={{ marginLeft: "auto" }} />
+            {availableMonths.length > 1 && (
+              <Select tone="neutral" small value={monthFilter ?? ""} onChange={(v) => setMonthFilter(v ? Number(v) : null)} aria-label="Month">
+                <option value="">Year to date</option>
+                {availableMonths.map((m) => <option key={m} value={m}>{MONTHS_LONG[m - 1]}</option>)}
+              </Select>
+            )}
+            <Select tone="neutral" small value={newestFirst ? "new" : "old"} onChange={(v) => setNewestFirst(v === "new")} aria-label="Month order">
+              <option value="old">Jan → latest</option>
+              <option value="new">Latest → Jan</option>
+            </Select>
+            {prop && unexplained > 0 && (
+              <button className="btn ai" disabled={!!explaining} onClick={() => runExplain(pairsFor([prop]))}
+                title="Write an AI note for this property's flagged lines that don't have one yet">
+                ✨ Explain {unexplained} line{unexplained === 1 ? "" : "s"}
+              </button>
+            )}
+          </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {rows.map((p) => {
-                    const pOpen = openProps.has(p.key);
-                    const has = p.flaggedMonthCount > 0;
+          <div className="pills" style={{ justifyContent: "flex-start" }}>
+            <StatPill label="Open here" value={openHere} accent={openHere ? "#b45309" : "#15803d"} />
+            <StatPill label="Not posted" value={missingHere} accent={missingHere ? "#b91c1c" : undefined} />
+            <StatPill label="Dismissed this session" value={resolved.size} accent={resolved.size ? "#15803d" : undefined} />
+            <StatPill label="Portfolio open" value={portfolioOpen - resolved.size} sub={`${flat.filter((p) => openCount(p) > 0).length} properties`} />
+          </div>
+
+          {prop && items.length === 0 ? (
+            <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <Pill tone={TONE_GREEN}>CLEAR</Pill>
+              <span><b>{prop.propertyCode} — {prop.propertyName}</b> has nothing to investigate for {year}.</span>
+              {nextWithWork && (
+                <button className="btn primary" style={{ marginLeft: "auto" }} onClick={() => choose(nextWithWork.key)}>
+                  Next: {nextWithWork.propertyCode} — {nextWithWork.propertyName} ({openCount(nextWithWork)}) →
+                </button>
+              )}
+            </div>
+          ) : prop && (
+            <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 960 }}>
+                <thead>
+                  <tr>
+                    <th style={thL}>Line</th>
+                    <th style={th}>Actual</th>
+                    <th style={th}>Budget</th>
+                    <th style={th}>Variance</th>
+                    <th style={thL}>Why it&rsquo;s flagged</th>
+                    <th style={th} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {months.map(({ period, rows }, mi) => {
+                    const open = rows.filter((r) => !resolved.has(r.id)).length;
                     return (
-                      <div key={p.key} className="card" style={{ padding: 0, overflow: "hidden" }}>
-                        <button type="button" onClick={() => has && toggleProp(p.key)}
-                          style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: "none", border: "none", cursor: has ? "pointer" : "default", textAlign: "left", color: "var(--text)" }}>
-                          <span style={{ width: 14, color: "var(--muted)", transform: pOpen ? "rotate(90deg)" : undefined, transition: "transform 0.15s", visibility: has ? "visible" : "hidden" }}>▶</span>
-                          <code style={{ fontSize: 12, color: "var(--muted)" }}>{p.propertyCode}</code>
-                          <span style={{ fontWeight: 700 }}>{p.propertyName}</span>
-                          <span className="muted small">· through {p.latestMonthLabel}</span>
-                          <span style={{ marginLeft: "auto" }} />
-                          <span style={{
-                            ...FLAG_PILL,
-                            background: has ? "rgba(180,83,9,0.12)" : "rgba(21,128,61,0.10)",
-                            color: has ? "#b45309" : "#15803d", border: `1px solid ${has ? "rgba(180,83,9,0.35)" : "rgba(21,128,61,0.30)"}`,
-                          }}>
-                            {has ? (() => { const dm = distinctFlaggedMonths(p); return `${p.lines.length} line${p.lines.length === 1 ? "" : "s"} · ${dm} month${dm === 1 ? "" : "s"}`; })() : "clear"}
-                          </span>
-                        </button>
-
-                        {pOpen && has && (
-                          <div style={{ borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column" }}>
-                            {p.lines.map((l) => {
-                              const lid = `${p.key}::${l.lineKey}`;
-                              const lOpen = openLines.has(lid);
-                              return (
-                                <Fragment key={lid}>
-                                  <div style={{ display: "flex", alignItems: "center", background: "rgba(15,23,42,0.02)", borderTop: "1px solid var(--border)" }}>
-                                    <button type="button" onClick={() => toggleLine(lid)}
-                                      style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10, padding: "10px 8px 10px 22px", background: "none", border: "none", cursor: "pointer", textAlign: "left", color: "var(--text)" }}>
-                                      <span style={{ width: 12, color: "var(--muted)", fontSize: 11, transform: lOpen ? "rotate(90deg)" : undefined, transition: "transform 0.15s" }}>▶</span>
-                                      <span style={{ fontWeight: 600 }}>{l.line}</span>
-                                      <span className="muted small">{l.section}</span>
-                                      <span style={{ marginLeft: "auto" }} />
-                                      <span className="muted small" style={{ fontWeight: 700 }}>
-                                        {l.months.length} month{l.months.length === 1 ? "" : "s"} flagged
-                                      </span>
-                                    </button>
-                                    <button type="button"
-                                      onClick={() => { if (confirm(`Dismiss all ${l.months.length} flagged month${l.months.length === 1 ? "" : "s"} for “${l.line}”?`)) l.months.forEach((mo) => dismissMonth(p.key, l.lineKey, mo.period)); }}
-                                      title="Dismiss every flagged month for this line"
-                                      style={{ flexShrink: 0, margin: "0 16px 0 12px", fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(15,23,42,0.18)", background: "var(--card)", color: "var(--muted)", cursor: "pointer" }}>
-                                      Dismiss all
-                                    </button>
-                                  </div>
-                                  {lOpen && (
-                                    <div className="tableWrap" style={{ borderTop: "1px solid var(--border)", overflowX: "auto" }}>
-                                      <table style={{ minWidth: 720 }}>
-                                        <thead>
-                                          <tr>
-                                            <th style={{ textAlign: "left" }}>Month</th>
-                                            <th style={num}>Actual</th>
-                                            <th style={num}>Budget</th>
-                                            <th style={num}>Variance</th>
-                                            <th style={{ textAlign: "left" }}>Looks off because</th>
-                                            <th style={{ textAlign: "left" }}>Note</th>
-                                            <th style={{ textAlign: "right" }} />
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {l.months.map((mo) => (
-                                            <tr key={mo.period}>
-                                              <td style={{ fontWeight: 700 }}>
-                                                <Link href={`/financials/operating-statements?key=${encodeURIComponent(p.key)}&year=${year}&period=${mo.period}`}
-                                                  style={{ color: "#0b4a7d", textDecoration: "none" }}>
-                                                  {mo.monthLabel}
-                                                </Link>
-                                              </td>
-                                              <td style={num}>{money(mo.actual)}</td>
-                                              <td style={{ ...num, color: "var(--muted)" }}>{money(mo.budget)}</td>
-                                              <td style={{ ...num, fontWeight: 700, color: mo.variance == null ? undefined : mo.variance >= 0 ? "#15803d" : "#b91c1c" }}>{money(mo.variance)}</td>
-                                              <td style={{ textAlign: "left", maxWidth: 260, whiteSpace: "normal" }} className="small">{mo.flags.join("; ")}</td>
-                                              <td style={{ textAlign: "left", maxWidth: 260, whiteSpace: "normal" }} className="muted small">{mo.note || "—"}</td>
-                                              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                                                <button type="button"
-                                                  disabled={dismissing.has(`${p.key}::${l.lineKey}::${mo.period}`)}
-                                                  onClick={() => dismissMonth(p.key, l.lineKey, mo.period)}
-                                                  title="Investigated & fine — dismiss this flag"
-                                                  style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 999, border: "1px solid rgba(21,128,61,0.35)", background: "rgba(21,128,61,0.06)", color: "#15803d", cursor: "pointer" }}>
-                                                  {dismissing.has(`${p.key}::${l.lineKey}::${mo.period}`) ? "…" : "Dismiss"}
-                                                </button>
-                                              </td>
-                                            </tr>
-                                          ))}
-                                        </tbody>
-                                      </table>
-                                    </div>
-                                  )}
-                                </Fragment>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
+                      <Fragment key={period}>
+                        {/* The month band carries only what is true of the
+                            month: how many items, and the way to its statement. */}
+                        <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: mi ? "2px solid var(--border)" : "none" }}>
+                          <td style={{ ...tdL, paddingTop: 10, paddingBottom: 10 }} colSpan={5}>
+                            <span style={{ fontWeight: 800 }}>{MONTHS_LONG[period - 1]} {year}</span>
+                            <span className="muted" style={{ fontSize: 12, marginLeft: 10 }}>
+                              {open === 0 ? "all dismissed" : `${open} open${rows.length !== open ? ` · ${rows.length - open} dismissed` : ""}`}
+                            </span>
+                          </td>
+                          <td style={{ ...td, paddingTop: 10, paddingBottom: 10 }}>
+                            <Link href={statementHref(period)} style={{ color: "var(--brand)", fontWeight: 700, fontSize: 12.5, textDecoration: "none" }}>
+                              {MONTHS[period - 1]} statement ↗
+                            </Link>
+                          </td>
+                        </tr>
+                        {rows.map((it) => (
+                          <ItemRow key={it.id} it={it}
+                            resolved={resolved.has(it.id)} busy={busy.has(it.id)}
+                            editing={editing?.id === it.id ? editing.text : null}
+                            onEdit={(text) => setEditing(text == null ? null : { id: it.id, text })}
+                            onSaveNote={(text) => saveNote(it, text)}
+                            onResolve={(v) => setDismissed(it, v)}
+                            href={statementHref(it.period)} />
+                        ))}
+                      </Fragment>
                     );
                   })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+                  {months.length === 0 && (
+                    <tr><td colSpan={6} style={{ ...tdL, padding: "22px 12px", color: "var(--muted)" }}>Nothing flagged in that month.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-      <p className="muted small" style={{ margin: 0 }}>
-        Download the Excel or PDF and send it to your accountant. <b>Dismiss</b> a flag here once you&rsquo;ve investigated it (or dismiss it on the statement) and it drops off this list.
-      </p>
+          {prop && items.length > 0 && openHere === 0 && nextWithWork && (
+            <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <Pill tone={TONE_GREEN}>DONE</Pill>
+              <span>Everything on <b>{prop.propertyCode}</b> is dismissed.</span>
+              <button className="btn primary" style={{ marginLeft: "auto" }} onClick={() => choose(nextWithWork.key)}>
+                Next: {nextWithWork.propertyCode} — {nextWithWork.propertyName} ({openCount(nextWithWork)}) →
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </main>
+  );
+}
+
+function ItemRow({ it, resolved, busy, editing, onEdit, onSaveNote, onResolve, href }: {
+  it: Item; resolved: boolean; busy: boolean; editing: string | null;
+  onEdit: (text: string | null) => void; onSaveNote: (text: string) => void;
+  onResolve: (dismissed: boolean) => void; href: string;
+}) {
+  const missing = it.kind === "missing";
+  const varColor = it.variance == null ? undefined : it.variance >= 0 ? "#15803d" : "#b91c1c";
+  return (
+    <tr style={{ borderTop: "1px solid var(--border)", opacity: resolved ? 0.45 : 1, verticalAlign: "top" }}>
+      <td style={{ ...tdL, whiteSpace: "normal", minWidth: 180 }}>
+        <Link href={href} style={{ color: "var(--text)", fontWeight: 700, textDecoration: resolved ? "line-through" : "none" }}>{it.line}</Link>
+        <div className="muted" style={{ fontSize: 11.5 }}>{it.section}</div>
+      </td>
+      <td style={td}>{money(it.actual)}</td>
+      <td style={{ ...td, color: "var(--muted)" }}>{missing ? <span title="Budgeted or scheduled year to date">~{money(it.expected ?? null)}</span> : money(it.budget)}</td>
+      <td style={{ ...td, fontWeight: 700, color: varColor }}>{missing ? "—" : money(it.variance)}</td>
+      <td style={{ ...tdL, whiteSpace: "normal", maxWidth: 520, fontSize: 13.5, lineHeight: 1.45 }}>
+        {editing != null ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <textarea autoFocus value={editing} onChange={(e) => onEdit(e.target.value)} rows={3} style={{ width: "100%" }}
+              onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSaveNote(editing); if (e.key === "Escape") onEdit(null); }} />
+            <div style={{ display: "flex", gap: 6 }}>
+              <button className="btn primary" disabled={busy} onClick={() => onSaveNote(editing)} style={{ fontSize: 12, padding: "4px 12px" }}>{busy ? "Saving…" : "Save note"}</button>
+              <button className="btn" onClick={() => onEdit(null)} style={{ fontSize: 12, padding: "4px 12px" }}>Cancel</button>
+              <span className="muted" style={{ fontSize: 11.5, alignSelf: "center" }}>⌘/Ctrl+Enter to save</span>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {missing && (
+              <div><Pill tone={TONE_RED}>{it.missingType === "missing-debt" ? "DEBT NOT POSTED" : "NOT POSTED"}</Pill>{" "}
+                <span>A figure this line should carry reads $0 — post it, or confirm it doesn&rsquo;t apply.</span></div>
+            )}
+            {it.billing && (
+              <div><Pill tone={TONE_AMBER}>BILLING</Pill> <span>{it.billing}</span></div>
+            )}
+            {it.note ? (
+              <div>
+                {it.noteSource === "ai" && <span style={{ marginRight: 6 }}><Pill tone={TONE_PURPLE}>✨ AI</Pill></span>}
+                <span>{it.note}</span>
+              </div>
+            ) : !missing && !it.billing && (
+              <div className="muted">No note yet.</div>
+            )}
+            {it.reasons.length > 0 && (
+              <div className="muted" style={{ fontSize: 12 }}>Flagged: {it.reasons.join("; ")}</div>
+            )}
+          </div>
+        )}
+      </td>
+      <td style={{ ...td, whiteSpace: "nowrap" }}>
+        {editing == null && (
+          <div style={{ display: "inline-flex", gap: 6 }}>
+            {!missing && !resolved && (
+              <button className="btn" disabled={busy} onClick={() => onEdit(it.note ?? "")} style={{ fontSize: 12, padding: "4px 10px" }}
+                title={it.note ? "Edit the note — an edited note is yours, and auto-explain won't overwrite it" : "Write a note"}>
+                {it.note ? "Edit" : "Note"}
+              </button>
+            )}
+            {resolved ? (
+              <button className="btn" disabled={busy} onClick={() => onResolve(false)} style={{ fontSize: 12, padding: "4px 10px" }}>Undo</button>
+            ) : (
+              <button className="btn primary" disabled={busy} onClick={() => onResolve(true)} style={{ fontSize: 12, padding: "4px 12px" }}
+                title={missing ? "Checked — it doesn't apply this month. Drops it off the list and the checklist" : "Investigated and fine — clears the ? on the statement and drops it off the checklist"}>
+                {busy ? "…" : "Dismiss"}
+              </button>
+            )}
+          </div>
+        )}
+      </td>
+    </tr>
   );
 }
