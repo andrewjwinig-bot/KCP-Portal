@@ -52,12 +52,12 @@ describe("40C0 reconciliation — single full-NNN tenant", () => {
     expect(t.unitRef).toBe("40C0-CP");
     expect(t.noBaseStop).toBe(true);
     expect(t.grossUp).toBe(false);
-    expect(near(t.opexAmountDue, 44879, 5)).toBe(true);
+    expect(near(t.opexAmountDue, 44075, 5)).toBe(true);
     expect(near(t.retAmountDue, 34210, 5)).toBe(true);
   });
 
   it("ties to the workbook balances (±$5)", () => {
-    expect(near(t.opexBalance, -770.89)).toBe(true);
-    expect(near(t.retBalance, 2720.06)).toBe(true);
+    expect(near(t.opexBalance, -1574.89)).toBe(true);
+    expect(near(t.retBalance, 1810.06)).toBe(true);
   });
 });

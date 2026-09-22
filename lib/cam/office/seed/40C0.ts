@@ -15,7 +15,7 @@ export const POOL_40C0: OfficeExpensePool = poolFromSeedExpenses(SEED_EXPENSES["
 
 export const LEASE_CONFIG_40C0_2025: Record<string, OfficeLeaseConfig> = {
   // Full-NNN single tenant — 100% of the pool, no base-year stop, not grossed up.
-  "40C0-CP": { baseYear: 0, noBaseStop: true, grossUp: false, proRataPct: 100, opexEscrow: 45650, retEscrow: 31490 },
+  "40C0-CP": { baseYear: 0, noBaseStop: true, grossUp: false, proRataPct: 100, opexEscrow: 45650, retEscrow: 32400 },
 };
 
 const FULL_TO = "12/31/2030";
