@@ -71,7 +71,7 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel }
     <div className="card">
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div>
-          <div style={secLabel}>Step 1 · In-place revenue</div>
+          <div style={secLabel}>Step 1 · Rent schedule</div>
           <div style={{ fontSize: 15, fontWeight: 800, marginTop: 2 }}>Contracted rent for {year}</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>

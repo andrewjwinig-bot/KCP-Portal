@@ -31,6 +31,14 @@ export type LeaseAssumption = {
    *  is one year); it records the deal, which later years and the leasing
    *  commission estimate need. */
   termYears?: number;
+  /** The rent as keyed: ANNUAL $ per SF. `monthlyRent` is derived from it
+   *  (× the suite's SF ÷ 12) and is what the projection reads. */
+  rentPsf?: number;
+  /** Tenant improvement allowance, $ per SF — lands on the Tenant
+   *  improvements capital line in the month the new rent starts. */
+  tiPsf?: number;
+  /** Leasing commission, $ per SF — lands on Capitalized Lease Costs. */
+  lcPsf?: number;
   notes?: string;
   updatedAt?: string;
   /** Who made the call — the owner (Harry / Nancy), or Drew in the review. */

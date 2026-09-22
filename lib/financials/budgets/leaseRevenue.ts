@@ -27,6 +27,8 @@ export type ExpiringLease = {
   leaseTo: string | null;
   monthlyRent: number;
   annualRent: number;
+  /** The suite's square feet — rent, TI and commissions are set per SF. */
+  sqft: number;
   /** True when the lease already ended (holdover on the current roll). */
   holdover: boolean;
   /** The assumption currently applied to this unit, if any. */
@@ -41,6 +43,11 @@ export type LeaseRevenueProjection = {
   inPlaceUnits: number;
   expiring: ExpiringLease[];
   vacant: VacantUnit[];
+  /** Tenant improvements and leasing commissions the renewals and lease-ups
+   *  carry (TI $/sf and LC $/sf × the suite's SF), in the month the new rent
+   *  starts — the capital the deals cost, beside the rent they bring. */
+  tiMonthly: number[];
+  lcMonthly: number[];
   /** How many assumptions were applied to shape the projection. */
   assumptionsApplied: number;
   hasData: boolean;
@@ -91,6 +98,14 @@ export async function projectLeaseRevenue(
   const wanted = new Set(codes.map((c) => c.toUpperCase()));
   const roll = await resolveCurrentRentroll();
   const rentalMonthly = new Array(12).fill(0);
+  const tiMonthly = new Array(12).fill(0);
+  const lcMonthly = new Array(12).fill(0);
+  /** A deal's TI and commission, in the month its new rent starts (1–12). */
+  const dealCosts = (a: LeaseAssumption, sqft: number, startMonth: number) => {
+    if (startMonth < 1 || startMonth > 12 || !(sqft > 0)) return;
+    tiMonthly[startMonth - 1] += (a.tiPsf ?? 0) * sqft;
+    lcMonthly[startMonth - 1] += (a.lcPsf ?? 0) * sqft;
+  };
   const expiring: ExpiringLease[] = [];
   const vacant: VacantUnit[] = [];
   let inPlaceUnits = 0;
@@ -110,6 +125,7 @@ export async function projectLeaseRevenue(
           const start = a.startMonth ?? 1;
           const rent = a.monthlyRent ?? 0;
           for (let m = 0; m < 12; m++) if (m + 1 >= start) rentalMonthly[m] += rent;
+          dealCosts(a, u.sqft || 0, start);
           assumptionsApplied++;
         }
         vacant.push({ unitRef: u.unitRef, sqft: r0(u.sqft || 0), assumption: a });
@@ -123,11 +139,12 @@ export async function projectLeaseRevenue(
       const months = inPlaceMonths(cur, expMonth, a);
       for (let m = 0; m < 12; m++) rentalMonthly[m] += months[m];
       if (a) assumptionsApplied++;
+      if (a?.kind === "renew") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth));
 
       if (end && end.y <= budgetYear) {
         expiring.push({
           unitRef: u.unitRef, tenant: u.occupantName, leaseTo: u.leaseTo,
-          monthlyRent: r0(cur), annualRent: r0(cur * 12),
+          monthlyRent: r0(cur), annualRent: r0(cur * 12), sqft: r0(u.sqft || 0),
           holdover: end.y < budgetYear, assumption: a,
         });
       }
@@ -139,6 +156,8 @@ export async function projectLeaseRevenue(
   return {
     rentalMonthly: rentalMonthly.map(r0),
     rentalTotal: r0(rentalMonthly.reduce((s, n) => s + n, 0)),
+    tiMonthly: tiMonthly.map(r0),
+    lcMonthly: lcMonthly.map(r0),
     inPlaceUnits,
     expiring,
     vacant,

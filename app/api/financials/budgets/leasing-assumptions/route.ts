@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   return NextResponse.json({ assumptions: await getLeasingAssumptions(year, [code]) });
 }
 
-// POST { year, propertyCode, unitRef, kind, monthlyRent?, startMonth?, termYears?, notes? }
+// POST { year, propertyCode, unitRef, kind, monthlyRent?, rentPsf?, tiPsf?, lcPsf?, startMonth?, termYears?, notes? }
 //   kind null → clear the unit's assumption.
 export async function POST(req: Request) {
   try {
@@ -48,7 +48,18 @@ export async function POST(req: Request) {
     // tenant's dates come from the lease (see leaseRevenue), so it is not kept.
     const keepStart = kind === "leaseup" ? startMonth : undefined;
     const termYears = b?.termYears != null && b.termYears !== "" && Number(b.termYears) > 0 ? Math.min(30, Number(b.termYears)) : undefined;
-    await setLeasingAssumption(year, propertyCode, { unitRef, kind, monthlyRent, startMonth: keepStart, termYears, notes: b?.notes, updatedBy: USERS[user]?.label ?? user });
+    // Rent is keyed as ANNUAL $/SF; the monthly figure the projection reads is
+    // derived from it by the page (× SF ÷ 12) and sent alongside. TI and the
+    // leasing commission are $/SF too, and only mean anything on a new deal.
+    const psf = (v: unknown) => (v != null && v !== "" && Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : undefined);
+    const deal = kind === "renew" || kind === "leaseup";
+    await setLeasingAssumption(year, propertyCode, {
+      unitRef, kind, monthlyRent, startMonth: keepStart, termYears,
+      rentPsf: deal ? psf(b?.rentPsf) : undefined,
+      tiPsf: deal ? psf(b?.tiPsf) : undefined,
+      lcPsf: deal ? psf(b?.lcPsf) : undefined,
+      notes: b?.notes, updatedBy: USERS[user]?.label ?? user,
+    });
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 500 });

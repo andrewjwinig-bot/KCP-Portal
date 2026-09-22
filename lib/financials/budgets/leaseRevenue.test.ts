@@ -72,4 +72,20 @@ describe("projectLeaseRevenue", () => {
     expect(p.rentalMonthly).toEqual([0, 0, 0, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000, 3000]);
     expect(p.rentalTotal).toBe(27000);
   });
+  it("puts a deal's TI and commission ($/SF × SF) in the month its new rent starts", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([
+      u("1100-1", { occupantName: "Acme", baseRent: 2000, sqft: 1000, leaseTo: "6/30/2027" }), // renews 7/1
+      u("1100-9", { isVacant: true, occupantName: "", baseRent: 0, sqft: 3000 }),
+    ]));
+    const p = await projectLeaseRevenue(["1100"], 2027, {
+      "1100-1": { unitRef: "1100-1", kind: "renew", tiPsf: 5, lcPsf: 2 },
+      "1100-9": { unitRef: "1100-9", kind: "leaseup", startMonth: 4, monthlyRent: 5500, tiPsf: 10, lcPsf: 1.5 },
+    });
+    expect(p.tiMonthly[6]).toBe(5000);   // July: the renewal
+    expect(p.tiMonthly[3]).toBe(30000);  // April: the lease-up
+    expect(p.lcMonthly[6]).toBe(2000);
+    expect(p.lcMonthly[3]).toBe(4500);
+    expect(p.tiMonthly.reduce((a, b) => a + b, 0)).toBe(35000);
+    expect(p.expiring[0].sqft).toBe(1000);
+  });
 });

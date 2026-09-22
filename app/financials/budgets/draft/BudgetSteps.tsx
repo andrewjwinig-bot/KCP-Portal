@@ -128,7 +128,7 @@ export function BudgetSteps({ year, category, refreshTick }: { year: number; cat
         <div style={{ ...secLabel, marginBottom: 10 }}>Steps</div>
         <div style={{ position: "relative" }}>
           <div style={{ position: "absolute", left: 5, top: 6, bottom: 14, width: 2, background: "var(--border)" }} />
-          {steps.map((s) => {
+          {steps.map((s, i) => {
             const d = DOT[s.state];
             return (
               <div key={s.id} style={{ position: "relative", paddingLeft: 22, paddingBottom: 14 }}>
@@ -137,7 +137,7 @@ export function BudgetSteps({ year, category, refreshTick }: { year: number; cat
                   background: d.bg, boxShadow: `0 0 0 4px ${d.ring}`,
                 }} />
                 <div style={{ fontSize: 13, fontWeight: 800, lineHeight: 1.25, color: s.state === "waiting" ? "var(--muted)" : "var(--text)" }}>
-                  {s.title}
+                  <span style={{ color: "var(--muted)", fontWeight: 700 }}>{i + 1}.</span> {s.title}
                 </div>
                 <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>{s.who}</div>
                 {s.total > 0 && (
