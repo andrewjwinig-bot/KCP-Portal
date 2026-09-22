@@ -186,7 +186,10 @@ export default function OperatingStatementsReviewPage() {
       .then((r) => r.json())
       .then((j: ReviewResult & { error?: string }) => {
         if (j.error) { setError(j.error); setData(null); }
-        else { setData(j); setError(null); }
+        // Fresh data already leaves out everything dismissed on the server, so
+        // the session's dimmed rows go with it — keeping them would subtract
+        // them from the counts a second time.
+        else { setData(j); setError(null); setResolved(new Set()); }
       })
       .catch((e) => setError(e?.message ?? "Failed to load"))
       .finally(() => setLoading(false));
@@ -261,13 +264,16 @@ export default function OperatingStatementsReviewPage() {
         body: JSON.stringify({ key: prop.key, year, period: it.period, lineKey: it.lineKey, dismissed }),
       });
       if (!res.ok) throw new Error("save failed");
-      setResolved((s) => { const n = new Set(s); if (dismissed) n.add(it.id); else n.delete(it.id); return n; });
+      // One dismissal per (line, month) on the server, so a NOT POSTED row and
+      // a "?" row for the same line and month go together — dim both.
+      const siblings = items.filter((x) => x.lineKey === it.lineKey && x.period === it.period).map((x) => x.id);
+      setResolved((s) => { const n = new Set(s); for (const id of siblings) { if (dismissed) n.add(id); else n.delete(id); } return n; });
     } catch {
       alert("Couldn't save that — please try again.");
     } finally {
       setBusy((s) => { const n = new Set(s); n.delete(it.id); return n; });
     }
-  }, [prop, year]);
+  }, [prop, year, items]);
 
   // A note written here is a PERSON'S note: auto-explain never overwrites it.
   const saveNote = useCallback(async (it: Item, text: string) => {

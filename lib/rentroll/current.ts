@@ -53,11 +53,18 @@ export async function resolveCurrentRentroll(): Promise<RentRollData | null> {
  * The roll AS OF a month: each property from the latest snapshot at or before
  * `monthKey` ("YYYY-MM"). An August statement is checked against the August
  * roll, so a later import can't move August's expectation. With no snapshot
- * that early, falls back to the current composition. Null for empty history.
+ * that early, uses the EARLIEST snapshot. Null for empty history.
  */
 export function rollAsOf<T extends { properties?: any[] }>(snapshots: T[], monthKey: string): T | null {
   const eligible = snapshots.filter((s) => s && snapshotMonthKey(s as any).localeCompare(monthKey) <= 0);
-  return composeCurrentRoll(eligible) ?? composeCurrentRoll(snapshots);
+  if (eligible.length) return composeCurrentRoll(eligible);
+  // A month BEFORE any snapshot: the EARLIEST roll is the closest evidence.
+  // Falling back to the newest would check January against September's rates,
+  // the drift this function exists to prevent.
+  const valid = snapshots.filter((s) => s && Array.isArray((s as { properties?: unknown[] }).properties));
+  if (!valid.length) return null;
+  const earliest = valid.map((s) => snapshotMonthKey(s as any)).sort()[0];
+  return composeCurrentRoll(valid.filter((s) => snapshotMonthKey(s as any) === earliest));
 }
 
 /** Find one unit by ref in the current rent roll (case-insensitive). */

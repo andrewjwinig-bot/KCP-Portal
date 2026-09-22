@@ -2019,7 +2019,9 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               // than the typical charge on it, so a recurring series (four
               // near-identical monthly invoices) marks nothing. See drivers.ts.
               const driverIdx = driverIndexes(shown.map((t) => t.amount));
-              const activeTenantName = tenantFilter ? (groups.find((g) => g.groupKey === tenantFilter)?.tenant || tenantFilter) : null;
+              // From the whole window's groups, not the picked month's — a vendor with no
+              // charge that month is still the vendor, not its raw key ("P:ACME").
+              const activeTenantName = tenantFilter ? (glGroups.find((g) => g.groupKey === tenantFilter)?.tenant || txns.find((t) => t.groupKey === tenantFilter)?.description.split(" — ")[0] || tenantFilter) : null;
               return (
               <div>
                 {showBars && (

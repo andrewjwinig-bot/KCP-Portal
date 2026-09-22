@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { composeCurrentRoll } from "./current";
+import { composeCurrentRoll, rollAsOf } from "./current";
 
 // A minimal snapshot: report month + a property per code, each with one unit.
 const snap = (reportTo: string, codes: string[]) => ({
@@ -51,3 +51,24 @@ describe("composeCurrentRoll", () => {
     expect(composed.properties.map((p: any) => p.propertyCode).sort()).toEqual(["3610", "4500"]);
   });
 });
+
+describe("rollAsOf — the roll a past month is checked against", () => {
+  const mar = snap("3/31/2026", ["1100"]);
+  const aug = snap("8/31/2026", ["1100"]);
+  mar.properties[0].units[0].occupantName = "March tenant";
+  aug.properties[0].units[0].occupantName = "August tenant";
+
+  it("uses the latest roll at or before the month", () => {
+    expect(rollAsOf([mar, aug], "2026-06")!.properties[0].units[0].occupantName).toBe("March tenant");
+    expect(rollAsOf([mar, aug], "2026-09")!.properties[0].units[0].occupantName).toBe("August tenant");
+  });
+
+  it("falls back to the EARLIEST roll for a month before any snapshot, not the newest", () => {
+    expect(rollAsOf([mar, aug], "2026-01")!.properties[0].units[0].occupantName).toBe("March tenant");
+  });
+
+  it("is null for empty history", () => {
+    expect(rollAsOf([], "2026-01")).toBeNull();
+  });
+});
+
