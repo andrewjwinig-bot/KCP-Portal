@@ -349,6 +349,7 @@ function StepHeader({ index, title, done, onToggle }: {
   );
 }
 
+<<<<<<< HEAD
 /** The screen as it should look, with click-to-enlarge.
  *
  *  A 975px-wide Skyline form inside a 720px modal makes every dropdown value
@@ -410,6 +411,8 @@ function StepImage({ image }: { image: NonNullable<InstructionStep["image"]> }) 
   );
 }
 
+=======
+>>>>>>> origin/main
 /** A navigation path — the Skyline screen to open, or the folder to file the
  *  output in. Copies on click, because the save path is typed into Explorer
  *  and "Year End 20## → Skyline → Posting Reports" is not a thing anyone should
@@ -539,6 +542,7 @@ function StepBody({ step, runState, onToggleRun }: {
         </div>
       )}
 
+<<<<<<< HEAD
       {/* THE FIELD VALUES, as a table — which is what they are. Transcribed as
           well as pictured: an image cannot be searched, read out over the
           phone or copied, and a screenshot that fails to load must not take
@@ -564,6 +568,8 @@ function StepBody({ step, runState, onToggleRun }: {
 
       {step.image && <StepImage image={step.image} />}
 
+=======
+>>>>>>> origin/main
       {step.saveTo && (
         // Its own chip, not a bullet: you navigate here in Explorer rather than
         // read it, which is also why it copies.
