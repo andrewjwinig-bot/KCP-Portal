@@ -564,6 +564,16 @@ time — and the team does not have time to open the GL over $80.
     omitting it meant none) — that is most of the output spend and most of the
     latency. `output_config: { effort: "medium" }` is the dial if it ever needs
     trimming; quality is why it is on `high` (the default) now.
+  - **`max_tokens` MUST HOLD THE THINKING TOO — it is 16,000.** Thinking
+    tokens count against the ceiling. At 6,000 a property with a dozen flagged
+    lines spent it reasoning, stopped on `max_tokens` before the JSON of notes
+    was written, and returned "Couldn't parse the analysis" — and the import
+    loop, which never read the response status, showed "Done — every flagged
+    line carries a note" with no notes written anywhere. The route now names a
+    `max_tokens` / refusal stop, and BOTH callers (the import's auto-explain and
+    Flags to Investigate's "Auto-explain all") read each response and list the
+    properties that failed, with the reason. Never go back to a `fetch` whose
+    result is not checked: a 502 does not throw.
   - **`maxDuration = 300` IS REQUIRED ON THIS ROUTE.** It was never set, which
     was survivable on Sonnet with a 2,000-token ceiling and a small prompt.
     Moving to Opus with 6,000 tokens, adaptive thinking, the account directory

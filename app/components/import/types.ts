@@ -31,7 +31,18 @@ export type ImportFileResult = Partial<ImportFile> & { status: ImportFileStatus 
 
 export type ImportStat = { value: string; label: string };
 export type ImportUnlock = { id: string; title: string; subtitle: string; href: string; cta?: string };
-export type ImportAutoExplain = { run: () => Promise<void>; title?: string; subtitle?: string };
+/** What an auto-explain run actually did. The card reports THIS, never an
+ *  assumed success: it used to say "every flagged line carries a note" after a
+ *  run in which every call had failed and nothing was written. */
+export type AutoExplainOutcome = {
+  /** Notes written. */
+  explained: number;
+  /** "?" marks cleared because the model found nothing to do. */
+  cleared: number;
+  /** Properties whose call failed, with the route's own reason. */
+  failed: { label: string; error: string }[];
+};
+export type ImportAutoExplain = { run: () => Promise<AutoExplainOutcome | void>; title?: string; subtitle?: string };
 export type AutoExplainState = "none" | "running" | "done" | "dismissed";
 
 export type ImportReport = {
@@ -78,5 +89,7 @@ export type ImportRun = {
   state: ImportState;
   report: ImportReport | null;
   autoExplain: AutoExplainState;
+  /** Set when the run finishes and reports an outcome. */
+  autoExplainOutcome?: AutoExplainOutcome | null;
   minimized: boolean;
 };

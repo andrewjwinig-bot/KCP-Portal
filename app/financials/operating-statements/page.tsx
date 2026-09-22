@@ -543,10 +543,23 @@ export default function OperatingStatementsPage() {
                     for (const t of targets) {
                       const arr = byYear.get(t.year); if (arr) arr.push(t); else byYear.set(t.year, [t]);
                     }
+                    // READ THE ANSWER. `fetch` does not throw on a 502, so a
+                    // failed call used to count as done: every property could
+                    // fail and the card still said each line carried a note.
+                    const outcome = { explained: 0, cleared: 0, failed: [] as { label: string; error: string }[] };
+                    const labelOf = (k: string) => { const a = available.find((x) => x.key === k); return a ? `${a.propertyCode}` : k; };
                     for (const [y, group] of byYear) {
                       for (const t of group) {
-                        try { await fetch("/api/financials/operating-statements/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }); }
-                        catch { /* skip a property, keep going */ }
+                        try {
+                          const res = await fetch("/api/financials/operating-statements/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) });
+                          const j = await res.json().catch(() => ({}));
+                          if (!res.ok || j.error) { outcome.failed.push({ label: labelOf(t.key), error: j.error ?? `HTTP ${res.status}` }); continue; }
+                          outcome.explained += Object.keys(j.notes ?? {}).length;
+                          outcome.cleared += Array.isArray(j.cleared) ? j.cleared.length : 0;
+                        } catch (e) {
+                          // skip a property, keep going — but say so
+                          outcome.failed.push({ label: labelOf(t.key), error: e instanceof Error ? e.message : "request failed" });
+                        }
                       }
                       setReloadNonce((n) => n + 1);
                       // ONE email per import-year, not one per property, and
@@ -562,6 +575,7 @@ export default function OperatingStatementsPage() {
                         });
                       } catch { /* a checklist that didn't send is not a failed import */ }
                     }
+                    return outcome;
                   } finally {
                     window.removeEventListener("beforeunload", hold);
                   }

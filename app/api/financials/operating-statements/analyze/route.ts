@@ -286,7 +286,22 @@ export async function POST(req: Request) {
       // construction (only lines carrying a "?", which the variance floor keeps
       // scarce), so the better model is affordable here in a way it would not be
       // over every line of every statement.
-      body: JSON.stringify({ model: "claude-opus-5", max_tokens: 6000, messages: [{ role: "user", content: prompt }] }),
+      //
+      // THE CEILING HAS TO HOLD THE THINKING TOO. Opus 5 thinks by default
+      // (adaptive), and thinking tokens count against `max_tokens`. At 6,000 a
+      // property with a dozen flagged lines spent the budget reasoning, stopped
+      // with `max_tokens` before the JSON was written, and came back "Couldn't
+      // parse the analysis" — and the import loop, which never read the
+      // status, reported "Done" with no notes written anywhere. 16,000 is
+      // the non-streaming ceiling that stays well inside the SDK/HTTP timeout
+      // guidance; nothing is billed for headroom the model does not use.
+      body: JSON.stringify({
+        model: "claude-opus-5",
+        max_tokens: 16000,
+        thinking: { type: "adaptive" },
+        output_config: { effort: "high" },
+        messages: [{ role: "user", content: prompt }],
+      }),
     });
     if (!res.ok) {
       // Say WHAT went wrong. "Analysis failed (502)" told nobody anything — the
@@ -303,9 +318,25 @@ export async function POST(req: Request) {
     }
     const j = await res.json();
     const text: string = (j?.content ?? []).filter((b: { type?: string }) => b?.type === "text").map((b: { text?: string }) => b.text ?? "").join("");
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return NextResponse.json({ error: "Couldn't parse the analysis." }, { status: 502 });
-    const notes = JSON.parse(match[0]) as Record<string, string>;
+    // Say WHY there is nothing to parse. A truncated answer and a refusal are
+    // different problems and "Couldn't parse" named neither.
+    if (j?.stop_reason === "max_tokens") {
+      console.error("[analyze] hit max_tokens", key, year, period, flagged.length, "lines");
+      return NextResponse.json({ error: `Analysis ran out of room before finishing (${flagged.length} flagged lines). Try again, or explain this property from its statement page.` }, { status: 502 });
+    }
+    if (j?.stop_reason === "refusal") {
+      return NextResponse.json({ error: "The model declined to analyze this statement." }, { status: 502 });
+    }
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    let notes: Record<string, string>;
+    try {
+      if (start < 0 || end <= start) throw new Error("no JSON object");
+      notes = JSON.parse(text.slice(start, end + 1)) as Record<string, string>;
+    } catch {
+      console.error("[analyze] unparseable answer", key, year, period, text.slice(0, 300));
+      return NextResponse.json({ error: "Couldn't parse the analysis." }, { status: 502 });
+    }
 
     const saved: Record<string, string> = {};
     const cleared: string[] = [];
