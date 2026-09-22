@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   return NextResponse.json({ assumptions: await getLeasingAssumptions(year, [code]) });
 }
 
-// POST { year, propertyCode, unitRef, kind, monthlyRent?, rentPsf?, tiPsf?, lcPsf?, startMonth?, termYears?, notes? }
+// POST { year, propertyCode, unitRef, kind, monthlyRent?, rentPsf?, tiPsf?, lcPct?, startMonth?, termYears?, notes? }
 //   kind null → clear the unit's assumption.
 export async function POST(req: Request) {
   try {
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       unitRef, kind, monthlyRent, startMonth: keepStart, termYears,
       rentPsf: deal ? psf(b?.rentPsf) : undefined,
       tiPsf: deal ? psf(b?.tiPsf) : undefined,
-      lcPsf: deal ? psf(b?.lcPsf) : undefined,
+      lcPct: deal && psf(b?.lcPct) != null && Number(b.lcPct) <= 100 ? Number(b.lcPct) : undefined,
       notes: b?.notes, updatedBy: USERS[user]?.label ?? user,
     });
     return NextResponse.json({ ok: true });

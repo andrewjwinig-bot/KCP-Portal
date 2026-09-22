@@ -13,7 +13,7 @@ import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
 
 const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; rentPsf?: number; tiPsf?: number; lcPsf?: number; startMonth?: number; termYears?: number };
+type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; rentPsf?: number; tiPsf?: number; lcPct?: number; startMonth?: number; termYears?: number };
 
 // Every expense line carries its own basis (entered, tax +3%, a lease, the
 // recovery estimate); what is left grows by this. Not a knob on the page — a
@@ -406,7 +406,7 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
               <th style={thLL}>Decision</th>
               <th style={thRR}>Rent $/SF/yr</th>
               <th style={thRR}>TI $/SF</th>
-              <th style={thRR}>LC $/SF</th>
+              <th style={thRR}>LC % of rent</th>
               <th style={thLL}>Term</th>
               <th style={thLL}>In {budgetYear}</th>
             </tr>
@@ -457,7 +457,7 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
   const f2 = (n: number | null | undefined) => (n != null ? n.toFixed(2) : "");
   const [rent, setRent] = useState<string>(f2(savedPsf ?? curPsf));
   const [ti, setTi] = useState<string>(f2(assumption?.tiPsf));
-  const [lc, setLc] = useState<string>(f2(assumption?.lcPsf));
+  const [lc, setLc] = useState<string>(assumption?.lcPct != null ? String(assumption.lcPct) : "");
   const [month, setMonth] = useState<number>(assumption?.startMonth ?? 1);
   const [term, setTerm] = useState<string>(assumption?.termYears != null ? String(assumption.termYears) : "");
 
@@ -474,7 +474,7 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
       unitRef, kind: apiKind, monthlyRent,
       rentPsf: psf ?? undefined,
       tiPsf: tiV !== "" ? Number(tiV) : undefined,
-      lcPsf: lcV !== "" ? Number(lcV) : undefined,
+      lcPct: lcV !== "" ? Number(lcV) : undefined,
       startMonth: mo, termYears: t !== "" ? Number(t) : undefined,
     });
   }
@@ -484,13 +484,16 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
   // before the budget year (11/30/26 is still a live lease in September).
   const holdover = !!end && end.getTime() < Date.now();
   const deal = kind === "renew" || kind === "leaseup";
+  // The commission as it will be budgeted: % of the new annual rent × term.
+  const newMonthly = rent !== "" && sqft > 0 ? (Number(rent) * sqft) / 12 : currentRent;
+  const commission = lc !== "" && term !== "" ? (Number(lc) / 100) * newMonthly * 12 * Number(term) : 0;
   const effect = kind === "" && mode === "vacant" ? "Vacant, until decided" : effectText(kind, end, budgetYear, month, rent);
   const dash = <span className="muted">—</span>;
-  const psfInput = (v: string, set: (x: string) => void, field: "r" | "ti" | "lc", label: string) => (
-    <input value={v} inputMode="decimal" placeholder="$0.00" aria-label={label}
+  const psfInput = (v: string, set: (x: string) => void, field: "r" | "ti" | "lc", label: string, pct = false) => (
+    <input value={v} inputMode="decimal" placeholder={pct ? "0%" : "$0.00"} aria-label={label}
       onChange={(e) => set(e.target.value.replace(/[^0-9.]/g, ""))}
       onBlur={() => {
-        const f = v === "" || !Number.isFinite(Number(v)) ? "" : Number(v).toFixed(2);
+        const f = v === "" || !Number.isFinite(Number(v)) ? "" : pct ? String(Number(v)) : Number(v).toFixed(2);
         set(f);
         push({ [field]: f } as Partial<{ r: string; ti: string; lc: string }>);
       }}
@@ -522,7 +525,19 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
       </td>
       <td style={tdRR}>{deal ? psfInput(rent, setRent, "r", "Rent, annual $ per SF") : dash}</td>
       <td style={tdRR}>{deal ? psfInput(ti, setTi, "ti", "Tenant improvements, $ per SF") : dash}</td>
-      <td style={tdRR}>{deal ? psfInput(lc, setLc, "lc", "Leasing commission, $ per SF") : dash}</td>
+      <td style={tdRR}>
+        {deal ? (
+          <>
+            {psfInput(lc, setLc, "lc", "Leasing commission, percent of the rent over the term", true)}
+            {/* The dollars it comes to — % × annual rent × term — or why none. */}
+            {lc !== "" && Number(lc) > 0 && (
+              <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>
+                {term === "" ? "set a term" : commission > 0 ? `= ${money0(commission)}` : "set a rent"}
+              </div>
+            )}
+          </>
+        ) : dash}
+      </td>
       <td style={tdLL}>
         {deal ? (
           <select value={term} className="select-sm" aria-label="Lease term"

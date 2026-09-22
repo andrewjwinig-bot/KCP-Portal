@@ -64,6 +64,13 @@ export type LeaseRevenueProjection = {
 // month, so `startMonth` is read for a lease-up and ignored here (an older
 // saved assumption carrying one follows the lease too). A holdover — term
 // already over — renews, or is gone, from January.
+/** A leasing commission: `pct` percent of the rent over the whole term
+ *  (monthly rent × 12 × years). Nothing without a percent, a rent or a term. */
+export function leasingCommission(pct: number | undefined, monthlyRent: number, termYears: number | undefined): number {
+  if (!(pct && pct > 0) || !(monthlyRent > 0) || !(termYears && termYears > 0)) return 0;
+  return (pct / 100) * monthlyRent * 12 * termYears;
+}
+
 export function renewalStartMonth(expMonth: number): number {
   if (expMonth === 0) return 1;                 // holdover
   if (expMonth >= 1 && expMonth <= 12) return expMonth + 1; // 13 = next year
@@ -100,11 +107,14 @@ export async function projectLeaseRevenue(
   const rentalMonthly = new Array(12).fill(0);
   const tiMonthly = new Array(12).fill(0);
   const lcMonthly = new Array(12).fill(0);
-  /** A deal's TI and commission, in the month its new rent starts (1–12). */
-  const dealCosts = (a: LeaseAssumption, sqft: number, startMonth: number) => {
-    if (startMonth < 1 || startMonth > 12 || !(sqft > 0)) return;
-    tiMonthly[startMonth - 1] += (a.tiPsf ?? 0) * sqft;
-    lcMonthly[startMonth - 1] += (a.lcPsf ?? 0) * sqft;
+  /** A deal's TI and commission, in the month its new rent starts (1–12).
+   *  TI is $/SF × SF. The commission is a PERCENT OF THE RENT over the term —
+   *  lcPct × the new annual rent × the term in years — which is how a broker
+   *  is paid, so a deal with no term yet carries no commission. */
+  const dealCosts = (a: LeaseAssumption, sqft: number, startMonth: number, monthlyRent: number) => {
+    if (startMonth < 1 || startMonth > 12) return;
+    if (sqft > 0) tiMonthly[startMonth - 1] += (a.tiPsf ?? 0) * sqft;
+    lcMonthly[startMonth - 1] += leasingCommission(a.lcPct, monthlyRent, a.termYears);
   };
   const expiring: ExpiringLease[] = [];
   const vacant: VacantUnit[] = [];
@@ -125,7 +135,7 @@ export async function projectLeaseRevenue(
           const start = a.startMonth ?? 1;
           const rent = a.monthlyRent ?? 0;
           for (let m = 0; m < 12; m++) if (m + 1 >= start) rentalMonthly[m] += rent;
-          dealCosts(a, u.sqft || 0, start);
+          dealCosts(a, u.sqft || 0, start, rent);
           assumptionsApplied++;
         }
         vacant.push({ unitRef: u.unitRef, sqft: r0(u.sqft || 0), assumption: a });
@@ -139,7 +149,7 @@ export async function projectLeaseRevenue(
       const months = inPlaceMonths(cur, expMonth, a);
       for (let m = 0; m < 12; m++) rentalMonthly[m] += months[m];
       if (a) assumptionsApplied++;
-      if (a?.kind === "renew") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth));
+      if (a?.kind === "renew") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth), a.monthlyRent ?? cur);
 
       if (end && end.y <= budgetYear) {
         expiring.push({

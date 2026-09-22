@@ -37,8 +37,9 @@ export type LeaseAssumption = {
   /** Tenant improvement allowance, $ per SF — lands on the Tenant
    *  improvements capital line in the month the new rent starts. */
   tiPsf?: number;
-  /** Leasing commission, $ per SF — lands on Capitalized Lease Costs. */
-  lcPsf?: number;
+  /** Leasing commission, PERCENT of the rent over the term (annual rent ×
+   *  term years) — lands on Capitalized Lease Costs. */
+  lcPct?: number;
   notes?: string;
   updatedAt?: string;
   /** Who made the call — the owner (Harry / Nancy), or Drew in the review. */
