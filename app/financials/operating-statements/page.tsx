@@ -526,20 +526,44 @@ export default function OperatingStatementsPage() {
                 title: "Explaining the flagged lines",
                 subtitle: "Reading the GL behind each line that looks off, then emailing the month's checklist.",
                 run: async () => {
-                  for (const t of targets) {
-                    try { await fetch("/api/financials/operating-statements/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }); }
-                    catch { /* skip a property, keep going */ }
-                  }
-                  setReloadNonce((n) => n + 1);
-                  // ONE email per import, not one per property — several files
-                  // usually land together — and only AFTER the notes are
-                  // written, or the checklist arrives with its most useful
-                  // column empty. The route declines to send when there is
-                  // nothing to resolve.
-                  const years = [...new Set(targets.map((t) => t.year))];
-                  for (const y of years) {
-                    try { await fetch("/api/financials/operating-statements/review/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ year: y }) }); }
-                    catch { /* a checklist that didn't send is not a failed import */ }
+                  // THIS LOOP RUNS IN THE BROWSER, one model call per property,
+                  // and the checklist goes only after the last one. Thirty-five
+                  // properties is several minutes — long enough that a closed
+                  // tab is a real outcome, and it cost a whole checklist once.
+                  // So the page asks before you leave while it is still going.
+                  const hold = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+                  window.addEventListener("beforeunload", hold);
+                  try {
+                    // PER YEAR, and the year's checklist goes as soon as THAT
+                    // year's properties are explained — not after every year.
+                    // An import is almost always one year, so this changes
+                    // nothing in the normal case and stops a backfill's second
+                    // year from delaying the first year's email.
+                    const byYear = new Map<number, typeof targets>();
+                    for (const t of targets) {
+                      const arr = byYear.get(t.year); if (arr) arr.push(t); else byYear.set(t.year, [t]);
+                    }
+                    for (const [y, group] of byYear) {
+                      for (const t of group) {
+                        try { await fetch("/api/financials/operating-statements/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) }); }
+                        catch { /* skip a property, keep going */ }
+                      }
+                      setReloadNonce((n) => n + 1);
+                      // ONE email per import-year, not one per property, and
+                      // only AFTER the notes are written or the checklist
+                      // arrives with its most useful column empty. The route
+                      // declines to send when there is nothing to resolve.
+                      // `keepalive` so a tab closed in the seconds after the
+                      // request goes out does not cancel it in flight.
+                      try {
+                        await fetch("/api/financials/operating-statements/review/email", {
+                          method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ year: y }), keepalive: true,
+                        });
+                      } catch { /* a checklist that didn't send is not a failed import */ }
+                    }
+                  } finally {
+                    window.removeEventListener("beforeunload", hold);
                   }
                 },
               }
