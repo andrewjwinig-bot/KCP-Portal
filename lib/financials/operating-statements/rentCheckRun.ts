@@ -8,7 +8,7 @@ import { accountMatchesMask } from "./mask";
 import { buildTenantDirectory, canonicalUnitRef } from "./tenants";
 import { identifyTx } from "./txUnits";
 import { rentCheck, basisForLine, BASIS_LABEL, type RentCheckUnit, type RentCheckBasis, type RentCheckResult, type RentCheckStatus } from "./rentCheck";
-import { getJSON } from "@/lib/storage";
+import { loadCurrentRentRoll } from "@/lib/rentroll/loadCurrent";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 
 /** Loaded once per request and handed to every line, rather than per line. */
@@ -28,7 +28,11 @@ export type RentCheckShared = { rentroll: RentRollData; dir: RentCheckContext["d
 
 /** Null when there is no rent roll — the check simply doesn't run. */
 export async function loadRentCheckShared(): Promise<RentCheckShared | null> {
-  const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
+  // COMPOSED, not the stored pointer — see `loadCurrentRentRoll`. The pointer
+  // can lag a re-import, which is how the statement kept reporting a
+  // correctly-billed $2,000 as "UNEXPECTED" while the Rent Roll page, which
+  // composes, showed the right figure.
+  const rentroll = await loadCurrentRentRoll<RentRollData>();
   if (!rentroll) return null;
   return { rentroll, dir: await buildTenantDirectory() };
 }

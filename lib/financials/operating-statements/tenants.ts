@@ -8,7 +8,7 @@
 // transaction drill-down, and anything else agree.
 
 import "server-only";
-import { getJSON } from "@/lib/storage";
+import { loadCurrentRentRoll } from "@/lib/rentroll/loadCurrent";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 
@@ -65,7 +65,9 @@ export type TenantDirectory = {
 
 /** Build the rent-roll lookups once: account→tenant and tenant-name→unit. */
 export async function buildTenantDirectory(): Promise<TenantDirectory> {
-  const rentroll = (await getJSON("rentroll", "current")) as RentRollData | null;
+  // Composed, not the stored pointer — the directory is built on the same
+  // call as the rent check and must describe the same roll it does.
+  const rentroll = await loadCurrentRentRoll<RentRollData>();
   const byCode = new Map<string, string>();
   const unitByName = new Map<string, string>();
   // Every unit ref in the roll, VACANT ONES INCLUDED, so a charge posted to a
