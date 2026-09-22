@@ -62,10 +62,11 @@ function buildSteps(items: Contribution[], hasSchedule: boolean): Step[] {
     {
       id: "leasing", title: "Vacancies & renewals", who: "Harry · Nancy", kinds: ["vacancy", "renewal"],
       ...leasing,
-      state: !hasSchedule ? "blocked"
-        : leasing.total === 0 ? "waiting"
+      // Not blocked by the schedule: until it lands, the list comes off the
+      // rent roll — the same one the leasing card shows — so the work starts now.
+      state: leasing.total === 0 ? (hasSchedule ? "waiting" : "blocked")
         : leasing.done === leasing.total ? "done" : "active",
-      note: !hasSchedule ? "Waiting on the rent schedule." : undefined,
+      note: !hasSchedule ? (leasing.total ? "From the rent roll until the schedule is imported." : "Waiting on the rent schedule.") : undefined,
     },
     {
       id: "expenses", title: "Expenses", who: "Greg · Drew", kinds: ["ret", "insurance", "building-maintenance"],

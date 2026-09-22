@@ -86,3 +86,15 @@ describe("what a budget still needs, derived", () => {
     expect(after.some((c) => c.unitRef === "9510-406")).toBe(false);
   });
 });
+
+describe("leasing items before the rent schedule is imported", () => {
+  it("come off the rent roll, so Harry is an owner from day one", () => {
+    const props = [{ code: "1100", name: "Lawndale", allocGroup: "SC" as const }];
+    const items = deriveContributions(2027, props, null, {}, {}, {
+      "1100": [{ unitRef: "1100-34", tenant: "Shear Sensation", vacant: false }, { unitRef: "1100-30", vacant: true }],
+    });
+    const leasing = items.filter((c) => c.kind === "renewal" || c.kind === "vacancy");
+    expect(leasing.map((c) => c.kind).sort()).toEqual(["renewal", "vacancy"]);
+    expect(leasing.every((c) => c.owner === "harry")).toBe(true);
+  });
+});

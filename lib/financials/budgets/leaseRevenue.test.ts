@@ -76,12 +76,15 @@ describe("projectLeaseRevenue", () => {
     resolveCurrentRentroll.mockResolvedValue(roll([
       u("1100-1", { occupantName: "Acme", baseRent: 2000, sqft: 1000, leaseTo: "6/30/2027" }), // renews 7/1
       u("1100-9", { isVacant: true, occupantName: "", baseRent: 0, sqft: 3000 }),
+      u("1100-H", { occupantName: "Stays", baseRent: 1000, sqft: 400, leaseTo: "3/31/2026" }),
     ]));
     const p = await projectLeaseRevenue(["1100"], 2027, {
       // 6% of $2,000/mo × 12 × 5 yrs = $7,200
       "1100-1": { unitRef: "1100-1", kind: "renew", tiPsf: 5, lcPct: 6, termYears: 5 },
       // 4% of $5,500/mo × 12 × 3 yrs = $7,920
       "1100-9": { unitRef: "1100-9", kind: "leaseup", startMonth: 4, monthlyRent: 5500, tiPsf: 10, lcPct: 4, termYears: 3 },
+      // held at today's rent for a new term: 5% of $1,000 × 12 × 2 yrs = $1,200, from Jan (holdover)
+      "1100-H": { unitRef: "1100-H", kind: "hold", tiPsf: 2, lcPct: 5, termYears: 2 },
       // no term → no commission
       "1100-X": { unitRef: "1100-X", kind: "renew", lcPct: 6 },
     });
@@ -89,7 +92,9 @@ describe("projectLeaseRevenue", () => {
     expect(p.tiMonthly[3]).toBe(30000);  // April: the lease-up
     expect(p.lcMonthly[6]).toBe(7200);
     expect(p.lcMonthly[3]).toBe(7920);
-    expect(p.tiMonthly.reduce((a, b) => a + b, 0)).toBe(35000);
-    expect(p.expiring[0].sqft).toBe(1000);
+    expect(p.tiMonthly[0]).toBe(800);     // January: the held tenant's TI (2 × 400 sf)
+    expect(p.lcMonthly[0]).toBe(1200);
+    expect(p.tiMonthly.reduce((a, b) => a + b, 0)).toBe(35800);
+    expect(p.expiring.find((e) => e.unitRef === "1100-1")!.sqft).toBe(1000);
   });
 });

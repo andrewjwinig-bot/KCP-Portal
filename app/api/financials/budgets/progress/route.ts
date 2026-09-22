@@ -7,6 +7,22 @@ import { getExpenseInputs } from "@/lib/financials/budgets/expenseInputStore";
 import { EXPENSE_INPUT_KINDS } from "@/lib/financials/budgets/expenseInputs";
 import { contributionId } from "@/lib/financials/budgets/contributors";
 import { getLeasingAssumptions } from "@/lib/financials/budgets/leasingAssumptions";
+import { projectLeaseRevenue } from "@/lib/financials/budgets/leaseRevenue";
+
+/** The leasing card's own list per property — expiring leases and vacant
+ *  space off the rent roll — used until the rent schedule is imported. */
+async function rollLeasing(year: number, props: BudgetProperty[]) {
+  const out: Record<string, { unitRef: string; tenant?: string; vacant: boolean }[]> = {};
+  await Promise.all(props.map(async (p) => {
+    const lease = await projectLeaseRevenue([p.code], year).catch(() => null);
+    if (!lease?.hasData) return;
+    out[p.code] = [
+      ...lease.expiring.map((e) => ({ unitRef: e.unitRef, tenant: e.tenant, vacant: false })),
+      ...lease.vacant.map((v) => ({ unitRef: v.unitRef, vacant: true })),
+    ];
+  }));
+  return out;
+}
 
 /** Expense figures already keyed — each one completes its contribution. */
 async function enteredFor(year: number, props: BudgetProperty[]): Promise<FilledMap> {
@@ -58,8 +74,9 @@ export async function GET(req: Request) {
     getFilled(year, category).catch(() => ({})),
     enteredFor(year, props),
   ]);
+  const fromRoll = inPlace ? {} : await rollLeasing(year, props);
   return NextResponse.json({
-    contributions: deriveContributions(year, props, inPlace, filled, entered),
+    contributions: deriveContributions(year, props, inPlace, filled, entered, fromRoll),
     hasSchedule: !!inPlace,
   });
 }
@@ -77,7 +94,7 @@ export async function POST(req: Request) {
     const props = groupProperties(category);
     return NextResponse.json({
       ok: true,
-      contributions: deriveContributions(year, props, inPlace, filled, await enteredFor(year, props)),
+      contributions: deriveContributions(year, props, inPlace, filled, await enteredFor(year, props), inPlace ? {} : await rollLeasing(year, props)),
     });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 500 });

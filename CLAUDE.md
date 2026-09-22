@@ -952,18 +952,24 @@ time — and the team does not have time to open the GL over $80.
   set one figure is how they would disagree. Only a CHANGE commits: tabbing
   across a month leaves it computed.
 
-- **The leasing card is ONE table** (suite → decision → rent $/SF/yr → TI $/SF
-  → LC $/SF → term → what it does in the budget year), banded "Expiring or
-  holdover" / "Vacant space". The decision is a one-click segmented choice
-  (`DecisionChoice`), not a dropdown. **Rent is keyed as ANNUAL $/SF**, starting
+- **The leasing card is ONE compact table** (suite + tenant on one line →
+  decision → rent $/SF/yr → term → TI $/SF → LC % → what it does in the budget
+  year), banded "Expiring or holdover" / "Vacant space". The decision is a
+  plain dropdown and there is no holdover pill — the owner asked for it tight
+  so the whole row fits without scrolling. **Rent is keyed as ANNUAL $/SF**, starting
   at the tenant's current $/SF (so a flat renewal needs no typing); `monthlyRent`
   is derived (× SF ÷ 12) and a renewal left at today's $/SF holds today's rent
   exactly. **TI is $/SF × the suite's SF; the leasing commission is a PERCENT OF THE RENT over the term** (`leasingCommission`: LC % × new annual rent × term years — no term, no commission). Both land on the Capital section's
   Tenant improvements (1440) and Capitalized Lease Costs (1940-8501) lines in
   the month the new rent starts** (`tiMonthly`/`lcMonthly` in `leaseRevenue.ts`);
-  where any deal carries one, that line IS the deals rather than last year's
+  **A HOLD is a deal too** — a tenant staying at today's rent for a new term can still get TI and a broker is still paid, so Hold rows take TI, LC % and term (rent fixed at today's) and cost them when the term rolls. Where any deal carries one, that line IS the deals rather than last year's
   TI grown. "Holdover" means the lease has ALREADY ended — 11/30/26 in
   September is a live lease, not a holdover.
+- **Until the rent schedule is imported, the rail's vacancy/renewal items
+  come off the RENT ROLL** (`deriveContributions`' `fromRoll`, filled by the
+  progress route from `projectLeaseRevenue`) — the same list the leasing card
+  works from — so Harry/Nancy are owners in "Who owes what" from day one and
+  their step is not "blocked" on an import they don't control.
 - **The page's cards are numbered to match the rail**: 1 Rent schedule, 2
   Vacancies & renewals, 3 Expenses (a status card linking to Budget Inputs —
   never a second place to key them), 4 Recoveries, 5 Review & finalize (the
