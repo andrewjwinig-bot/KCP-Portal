@@ -13,6 +13,7 @@ import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { Pill, StatPill, tiesTone } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { RentCheckTable } from "./RentCheckTable";
+import { MonthlyBars } from "./MonthlyBars";
 import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { LastImported } from "@/app/components/LastImported";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
@@ -32,6 +33,7 @@ import type {
 } from "@/lib/financials/operating-statements/types";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] as const;
 
 // Period sentinel for the "Full Year" dropdown option (below December). Selecting
 // it renders all 12 monthly columns + a full-year total, instead of one month.
@@ -1854,6 +1856,8 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
   const [loading, setLoading] = useState(false);
   // When set, the GL list is isolated to one tenant/unit account.
   const [tenantFilter, setTenantFilter] = useState<string | null>(null);
+  // YTD only: a month picked on the bar chart narrows everything below to it.
+  const [monthFilter, setMonthFilter] = useState<number | null>(null);
   const effScope: "month" | "ytd" | "annual" = tab === "gl" && scope === "annual" ? "ytd" : scope;
 
   useEffect(() => {
@@ -1865,6 +1869,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
   useEffect(() => {
     setLoading(true);
     setTenantFilter(null);
+    setMonthFilter(null);
     if (tab === "gl") {
       const qs = new URLSearchParams({ key: viewKey, year: String(year), mask: line.mask, period: String(period), scope: effScope === "month" ? "month" : "ytd", sign: String(line.sign) });
       fetch(`/api/financials/operating-statements/transactions?${qs}`)
@@ -1939,14 +1944,32 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               if (txns.length === 0) return <div className="muted small" style={{ padding: 18 }}>No transactions for this line in {scopeWord}.</div>;
               // Per-tenant/unit breakdown (non-zero). Shown when the line spans
               // 2+ accounts (e.g. rental income) so each tenant can be isolated.
-              const groups = glGroups;
-              const multi = groups.length >= 2;
+              // THE BAR CHART — YTD only, and only once there is more than one
+              // month to compare. It follows the tenant isolate (so a vendor's
+              // own run rate can be read) and drives the month filter below.
+              const showBars = effScope === "ytd" && period >= 2;
+              const monthName = monthFilter ? MONTHS[monthFilter - 1] : null;
+              // Everything below the chart reads the picked month only.
+              const monthTx = monthFilter ? txns.filter((t) => t.month === monthFilter) : txns;
+              // The server's breakdown is the whole window; for one month it is
+              // re-summed here from that month's own charges.
+              const groups: TenantGroup[] = !monthFilter ? glGroups : (() => {
+                const by = new Map<string, TenantGroup>();
+                for (const t of monthTx) {
+                  const k = t.groupKey ?? t.account;
+                  const base = glGroups.find((g) => g.groupKey === k);
+                  const g = by.get(k) ?? { groupKey: k, account: t.account, unit: base?.unit ?? t.unit ?? null, tenant: base?.tenant ?? t.tenant ?? null, amount: 0, count: 0 };
+                  g.amount += t.amount; g.count += 1; by.set(k, g);
+                }
+                return [...by.values()].filter((g) => Math.abs(g.amount) >= 0.005).sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
+              })();
+              const multi = glGroups.length >= 2;
               // The billed breakdown only earns its space when it actually
               // SUMMARISES. Rent posts one charge per suite a month, so on a
               // rent line it reproduced the transaction list below it row for
               // row. Shown only when some group holds more than one
               // transaction — a repairs line across 40 vendors still gets it.
-              const summarizes = multi && txns.length > groups.length;
+              const summarizes = multi && groups.length >= 2 && monthTx.length > groups.length;
               // THE SAME REASONING, APPLIED TO THE LIST BELOW. On a rent or CAM
               // line the suite table IS the transaction list — one charge per
               // suite, same amounts, in a table that also carries the rent roll
@@ -1954,7 +1977,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               // everything twice. It stays only where it adds something: a
               // suite billed more than once in the window, or a charge naming
               // no suite, which the suite table cannot show.
-              const unplaced = txns.some((t) => !t.unit);
+              const unplaced = monthTx.some((t) => !t.unit);
               const showTxnList = !showRentCheck || summarizes || unplaced;
               // Its Ref was the one column the suite table lacked, so carry it
               // up — but only where a suite has exactly one charge, since two
@@ -1962,10 +1985,10 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               const refByUnit: Record<string, string> = {};
               if (showRentCheck && !showTxnList) {
                 const seen: Record<string, number> = {};
-                for (const t of txns) if (t.unit) seen[t.unit] = (seen[t.unit] ?? 0) + 1;
-                for (const t of txns) if (t.unit && seen[t.unit] === 1 && t.ref) refByUnit[t.unit] = t.ref;
+                for (const t of monthTx) if (t.unit) seen[t.unit] = (seen[t.unit] ?? 0) + 1;
+                for (const t of monthTx) if (t.unit && seen[t.unit] === 1 && t.ref) refByUnit[t.unit] = t.ref;
               }
-              const shown = tenantFilter ? txns.filter((t) => t.groupKey === tenantFilter) : txns;
+              const shown = tenantFilter ? monthTx.filter((t) => t.groupKey === tenantFilter) : monthTx;
               const glTotal = shown.reduce((s, t) => s + t.amount, 0);
               // Standout drivers — the charge worth looking at. A driver has to
               // be both a meaningful slice of the line AND materially bigger
@@ -1975,7 +1998,29 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
               const activeTenantName = tenantFilter ? (groups.find((g) => g.groupKey === tenantFilter)?.tenant || tenantFilter) : null;
               return (
               <div>
-                {(showRentCheck || summarizes) && (
+                {showBars && (
+                  <div style={{ padding: "10px 10px 4px", borderBottom: "1px solid var(--border)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
+                        By month · click a month{glGroups.length >= 2 ? " or a vendor" : ""} to filter the charges below
+                      </div>
+                      {(monthFilter || tenantFilter) && (
+                        <button type="button" onClick={() => { setMonthFilter(null); setTenantFilter(null); }} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>
+                          {[monthFilter ? MONTHS_LONG[monthFilter - 1] : null, activeTenantName].filter(Boolean).join(" · ")} · Clear ✕
+                        </button>
+                      )}
+                    </div>
+                    <MonthlyBars period={period} year={year}
+                      txns={txns.map((t) => ({ month: t.month, amount: t.amount, vendor: t.groupKey ?? t.account, vendorLabel: t.tenant || t.description.split(" — ")[0] || t.account, date: t.date, description: t.description }))}
+                      selectedMonth={monthFilter} onSelectMonth={setMonthFilter}
+                      selectedVendor={tenantFilter} onSelectVendor={setTenantFilter} />
+                  </div>
+                )}
+                {/* In YTD the bars ARE the summary: the vendor breakdown only
+                    restated the list below it, so it gives way to the chart.
+                    The rent-roll suite table stays — it is a check, not a
+                    restatement. */}
+                {(showRentCheck || (summarizes && !showBars)) && (
                   <div style={{ padding: "10px 10px 0" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
                       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
@@ -1985,7 +2030,8 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                     </div>
                     {showRentCheck ? (
                       <RentCheckTable viewKey={viewKey} property={property} year={year} period={period}
-                        scope={effScope === "month" ? "month" : "ytd"} mask={line.mask} sign={line.sign} monthLabel={monthLabel}
+                        scope={effScope === "month" || monthFilter ? "month" : "ytd"} mask={line.mask} sign={line.sign}
+                        {...(monthFilter ? { period: monthFilter, monthLabel: monthName! } : { monthLabel })}
                         label={line.label} refByUnit={refByUnit} />
                     ) : <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead><tr><th style={th}>Suite</th><th style={th}>Tenant</th><th style={{ ...th, textAlign: "right" }}>Txns</th><th style={{ ...th, textAlign: "right" }}>Amount</th></tr></thead>
@@ -2024,7 +2070,7 @@ function LineDetailModal({ viewKey, property, year, period, monthLabel, line, in
                     );})}
                   </tbody>
                   <tfoot><tr>
-                    <td colSpan={multi ? 6 : 4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>{activeTenantName ? `${activeTenantName} · ` : ""}Total · {shown.length} transaction{shown.length === 1 ? "" : "s"}</td>
+                    <td colSpan={multi ? 6 : 4} style={{ ...tdc, fontWeight: 800, borderTop: "2px solid var(--border)" }}>{activeTenantName ? `${activeTenantName} · ` : ""}{monthFilter ? `${MONTHS_LONG[monthFilter - 1]} · ` : ""}Total · {shown.length} transaction{shown.length === 1 ? "" : "s"}</td>
                     <td style={{ ...tdc, textAlign: "right", fontWeight: 900, fontVariantNumeric: "tabular-nums", borderTop: "2px solid var(--border)" }}>{money2(glTotal)}</td>
                   </tr></tfoot>
                 </table>}

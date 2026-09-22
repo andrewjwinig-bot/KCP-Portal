@@ -2,6 +2,12 @@
   --bg: #fff;
   --text: #0b1220;
   --muted: #5d6b82;
+  /* Categorical series slots for charts (the validated reference palette —
+     adjacent CVD ΔE ≥ 8 in both modes, checked against --card). Colour follows
+     the ENTITY in fixed order; a 7th series folds into --series-other. */
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a;
+  --series-4: #eda100; --series-5: #e87ba4; --series-6: #4a3aa7;
+  --series-other: #94a3b8;
   --card: #ffffff;
   --border: rgba(15, 23, 42, 0.12);
   --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
@@ -110,6 +116,9 @@
   --bg: #0b1220;
   --text: #e6edf6;
   --muted: #cbd5e1; /* slate-300 — lifted for readable secondary text on dark cards */
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+  --series-4: #c98500; --series-5: #d55181; --series-6: #9085e9;
+  --series-other: #64748b;
   --card: #1e293b;
   --border: rgba(255, 255, 255, 0.12);
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
