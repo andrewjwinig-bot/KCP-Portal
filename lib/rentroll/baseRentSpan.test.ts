@@ -25,6 +25,7 @@ function sheetRows(): unknown[][] {
       15: "LEASE TERM\n\nFROM             TO", 18: "UNIT INFO\nBASE RENT",
       22: "PRORATED\nBASE RENT \nANNUAL",
     }),
+<<<<<<< HEAD
     // WITH lease dates — every figure sits two columns right of its header.
     // Cell-for-cell as Skyline exported Shear Sensation at 1100.
     at({ 1: "Shear Sensation", 8: "1100-34-CU", 12: "1,934", 15: "5/1/1994", 17: "3/31/2026",
@@ -38,6 +39,14 @@ function sheetRows(): unknown[][] {
          18: "2,000.00", 22: "24,000.00", 27: "19.54", 29: "12/01/2025", 32: "2,000.00",
          37: "0.00", 39: "0.00", 44: "0.00", 48: "0.00", 51: "159.00", 52: "1.55",
          53: "2,159.00", 56: "21.10" }),
+=======
+    // WITH lease dates — the figure sits at 20.
+    at({ 1: "Shear Sensation", 8: "1100-34-CU", 12: "1,934", 15: "5/1/1994", 17: "3/31/2026",
+         20: "1,732.55", 24: "20,790.60", 39: "1,117.00", 48: "325.00", 53: "473.00" }),
+    // WITHOUT lease dates — the SAME field sits at 18, where the header is.
+    at({ 1: "Ferry Good Treats", 8: "1100-12330-CU", 12: "1,228",
+         18: "2,000.00", 22: "24,000.00", 51: "159.00" }),
+>>>>>>> origin/main
   ];
 }
 
@@ -66,6 +75,7 @@ describe("base rent is found in its header's span, not at one column", () => {
     const total = units.reduce((s, u) => s + u.baseRent, 0);
     expect(total).toBeCloseTo(3732.55, 2);
   });
+<<<<<<< HEAD
 
   it("OTHER is the other-expense column, not the gross rent", () => {
     // Column 53 is where GROSS RENTS begins, and the old fixed index read it
@@ -81,4 +91,6 @@ describe("base rent is found in its header's span, not at one column", () => {
     expect(of("1100-12330").opexMonth).toBe(0);
     expect(of("1100-12330").reTaxMonth).toBe(0);
   });
+=======
+>>>>>>> origin/main
 });
