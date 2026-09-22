@@ -246,11 +246,26 @@ describe("what the lease dates explain", () => {
   });
 
   it("calls out rent still posting after the lease ENDED", () => {
-    // Its own finding. The row read "unexpected" before and said nothing about
-    // why — and the suite need not be flagged vacant for this to be true.
+    // Its own finding, and the suite need not be flagged vacant for it.
+    //
+    // It used to also read "unexpected". It no longer does WHEN THE ROLL STILL
+    // PRICES THE SUITE AND THE GL BILLS THAT RATE — that combination is a
+    // holdover, the charge is correct, and calling a correct charge a variance
+    // is what put 1100's August $3,733 out. The call-out is the point; the
+    // variance was the error.
     const r = rowFor(july([cam({ unitRef: "9510-418", tenant: "Gone Inc", leaseTo: "05/31/2026" })], { "9510-418": 4000 }), "9510-418");
+    expect(r.status).toBe("ok");
+    expect(r.variance).toBe(0);
+    expect(r.caveats.join(" ")).toContain("lease ended 05/31/2026");
+    expect(r.caveats.join(" ")).toMatch(/holding over/i);
+  });
+
+  it("still reads unexpected when the roll has stopped pricing the suite", () => {
+    // The case the rule above must not swallow: lease over, roll carries no
+    // rate, and a charge is still posting. That is a charge to chase.
+    const r = rowFor(july([cam({ unitRef: "9510-419", tenant: "Gone Inc", leaseTo: "05/31/2026", opexMonth: 0 })], { "9510-419": 4000 }), "9510-419");
     expect(r.status).toBe("unexpected");
-    expect(r.caveats.join(" ")).toContain("lease ended 05/31/2026 and rent is still posting");
+    expect(r.caveats.join(" ")).toMatch(/should have stopped/i);
   });
 
   it("does not call a not-yet-started lease a missed bill", () => {
@@ -262,5 +277,49 @@ describe("what the lease dates explain", () => {
   it("keeps the vacant-suite caveat for a suite with no expiry to blame", () => {
     const r = rowFor(july([cam({ unitRef: "9510-422", tenant: null, isVacant: true })], { "9510-422": 900 }), "9510-422");
     expect(r.caveats.join(" ")).toContain("shows this suite vacant");
+  });
+});
+
+describe("a holdover the rent roll still prices is expected, not unexpected", () => {
+  // 1100 Parkwood, August 2026. Shear Sensation's lease ran to 3/31/2026; the
+  // August rent roll still prices the suite at $1,732.55 and the GL billed
+  // exactly that. It read "UNEXPECTED $1,733" and put the property's Rental
+  // income $3,733 out — a month that ties to the cent, reported as a failure.
+  const shear = (over: Partial<RentCheckUnit> = {}) => unit({
+    unitRef: "1100-34", tenant: "Shear Sensation", sqft: 1934,
+    baseRent: 1732.55, leaseFrom: "05/01/1994", leaseTo: "03/31/2026", ...over,
+  });
+  const aug = (u: RentCheckUnit, billed: number) =>
+    rowFor(rentCheck({ year: 2026, period: 8, scope: "month", units: [u], billedByUnit: { "1100-34": billed } }), "1100-34");
+
+  it("ties when the GL bills the roll's rate", () => {
+    const r = aug(shear(), 1732.55);
+    expect(r.expected).toBeCloseTo(1732.55, 2);
+    expect(r.variance).toBeCloseTo(0, 2);
+    expect(r.status).toBe("ok");
+  });
+
+  it("says the lease needs papering, not that the billing is wrong", () => {
+    const c = aug(shear(), 1732.55).caveats.join(" ");
+    expect(c).toMatch(/holding over/i);
+    expect(c).not.toMatch(/should have stopped/i);
+  });
+
+  it("is NOT treated as a proration — the roll's rate is the whole month", () => {
+    expect(aug(shear(), 1732.55).caveats.join(" ")).not.toMatch(/prorated/i);
+  });
+
+  it("a VACANT suite is still owed nothing, however the dates read", () => {
+    const r = aug(shear({ isVacant: true }), 1732.55);
+    expect(r.expected).toBe(0);
+    expect(r.variance).toBeCloseTo(1732.55, 2);
+  });
+
+  it("NOTHING BILLED means the tenant left and the roll is stale", () => {
+    // The false positive in the other direction: a priced row alone must never
+    // manufacture a bill that was never owed.
+    const r = aug(shear(), 0);
+    expect(r.expected).toBe(0);
+    expect(r.caveats.join(" ")).not.toMatch(/holding over/i);
   });
 });

@@ -213,18 +213,51 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
   const rows: RentCheckRow[] = units.map((u) => {
     const from = mdyToISO(u.leaseFrom);
     const to = mdyToISO(u.leaseTo);
+    /**
+     * A HOLDOVER IS STILL BILLABLE, AND THE ROLL SAYS SO.
+     *
+     * The rent roll is an AS-OF document — this one was run 8/1 to 8/31. If it
+     * still carries a rate for the suite, and has not marked the suite vacant,
+     * the tenant is there and Skyline is billing them. A lease-end date in the
+     * past means the paperwork is behind, NOT that the rent stopped.
+     *
+     * Read literally, an expired date zeroed the expectation and the correct
+     * charge became a variance. 1100's August is the worked example: Shear
+     * Sensation's lease ran to 3/31/2026, the August roll still prices the
+     * suite at $1,732.55, the GL billed $1,732.55 — and the table called it
+     * "UNEXPECTED $1,733" and put the property's Rental income $3,733 out.
+     * A month that ties to the cent read as the second-worst billing failure
+     * on the page.
+     *
+     * So the expiry becomes a NOTE on a row that ties, rather than the reason
+     * it doesn't. Where the roll marks the suite VACANT, or carries no rate,
+     * nothing changes — those are the cases where rent really should have
+     * stopped, and they still surface.
+     */
+    const rate = monthlyFor(u, basis);
+    const windowOpens = monthStart(year, months[0]);
+    const key0 = u.unitRef.toUpperCase();
+    // AND THE GL HAS TO BE BILLING IT. The roll still pricing the suite is not
+    // enough on its own: a tenant who genuinely left leaves a stale priced row
+    // behind for a month or two, and treating that as owed would invent a
+    // missing bill — the same false positive in the other direction. Charging
+    // is the evidence the tenant is there; the priced row is what says how
+    // much. Both, or neither.
+    const heldOver = !u.isVacant && !!to && to < windowOpens
+      && rate > 0 && Math.abs(billedByUnit[key0] ?? 0) > RENT_TOL;
     let covered = 0;
     let partial = false;
     for (const m of months) {
       const start = monthStart(year, m);
       const end = monthEnd(year, m);
-      if (from && from > end) continue;       // lease hasn't started
-      if (to && to < start) continue;         // lease already ended
+      if (from && from > end) continue;               // lease hasn't started
+      if (to && !heldOver && to < start) continue;    // lease ended, and the roll agrees
       covered += 1;
-      if ((from && from > start) || (to && to < end)) partial = true;
+      // A holdover is not a proration — the roll's rate is the whole month's.
+      if ((from && from > start) || (to && !heldOver && to < end)) partial = true;
     }
     // A vacant suite is owed nothing regardless of what dates the roll carries.
-    const expected = round(u.isVacant ? 0 : monthlyFor(u, basis) * covered);
+    const expected = round(u.isVacant ? 0 : rate * covered);
     const key = u.unitRef.toUpperCase();
     seen.add(key);
     const billed = round(billedByUnit[key] ?? 0);
@@ -252,9 +285,13 @@ export function rentCheck(input: RentCheckInput): RentCheckResult {
     // does not require the roll to mark the suite vacant, which is the case
     // that was falling through — a tenant can be gone and the suite not yet
     // re-flagged.
-    const endedBefore = to && to < monthStart(year, months[0]);
-    if (endedBefore && billed > RENT_TOL) {
-      caveats.push(`The lease ended ${u.leaseTo} and rent is still posting to this suite. Either the charge should have stopped, or a renewal was signed and the rent roll has not been re-imported.`);
+    const endedBefore = to && to < windowOpens;
+    if (heldOver) {
+      // Worth saying — a lease months past its end date is real work to do —
+      // but it is not a billing error, and the row ties.
+      caveats.push(`The lease ended ${u.leaseTo} and the tenant is holding over: the rent roll still prices this suite, so the charge is expected. The lease needs papering, not the billing.`);
+    } else if (endedBefore && billed > RENT_TOL) {
+      caveats.push(`The lease ended ${u.leaseTo} and rent is still posting to this suite, but the rent roll no longer prices it. Either the charge should have stopped, or a renewal was signed and the rent roll has not been re-imported.`);
     }
     // Vacant space should carry no rent. When it does, the usual cause is a
     // lease signed since the rent roll was last imported — say so, because
