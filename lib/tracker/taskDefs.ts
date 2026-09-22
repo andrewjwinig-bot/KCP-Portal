@@ -33,6 +33,16 @@ export interface InstructionStep {
   path?: string;   // software navigation path, e.g. "Module → Menu → Sub"
   items: string[]; // bullet points
   note?: string;   // asterisk note at the end of the step
+  /**
+   * The note is a WARNING, not a footnote — render it so it cannot be skimmed.
+   *
+   * "DO NOT CLOSE P PROPERTIES" is the one line in the whole month-end
+   * procedure where getting it wrong means unwinding a close, and it was
+   * rendering as 12px grey italic under a bullet list, which is the typography
+   * of an afterthought. Reserve this for the handful of notes where the cost of
+   * missing it is real work to undo; if everything is a warning, nothing is.
+   */
+  warn?: boolean;
   links?: { label: string; url: string }[]; // quick-access buttons (e.g. bank logins)
 }
 
@@ -262,6 +272,7 @@ export const TASK_DEFS: TaskDef[] = [
             "Close all Fund properties",
           ],
           note: "DO NOT CLOSE P PROPERTIES.",
+          warn: true,
         },
         {
           title: "Repeat Consolidation Process (Post-Close)",

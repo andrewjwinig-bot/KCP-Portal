@@ -343,7 +343,21 @@ function StepBody({ step }: { step: InstructionStep }) {
         </div>
       )}
 
-      {step.note && (
+      {step.note && (step.warn ? (
+        // A warning is not a footnote. This is the one place in the month-end
+        // run where a wrong click costs real work to undo, so it gets weight:
+        // its own tinted band, upright type, and the ⚠ that says stop reading
+        // for a second.
+        <div style={{
+          marginTop: 12, padding: "9px 12px", borderRadius: 8,
+          background: "rgba(220,38,38,0.07)", border: "1px solid rgba(220,38,38,0.30)",
+          fontSize: 12.5, fontWeight: 700, color: "#b91c1c",
+          display: "flex", gap: 8, alignItems: "flex-start", lineHeight: 1.45,
+        }}>
+          <span style={{ flexShrink: 0 }}>⚠</span>
+          {step.note}
+        </div>
+      ) : (
         <div style={{
           marginTop: 10, paddingLeft: 8, fontSize: 12, fontStyle: "italic",
           color: "var(--muted)", display: "flex", gap: 6,
@@ -351,7 +365,7 @@ function StepBody({ step }: { step: InstructionStep }) {
           <span style={{ fontWeight: 700, fontStyle: "normal" }}>*</span>
           {step.note}
         </div>
-      )}
+      ))}
     </>
   );
 }
