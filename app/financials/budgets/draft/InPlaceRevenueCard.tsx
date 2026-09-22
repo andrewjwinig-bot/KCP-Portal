@@ -88,7 +88,7 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel }
       </div>
 
       <p className="muted small" style={{ marginTop: 6, marginBottom: 0 }}>
-        The rent roll carries <em>today&rsquo;s</em> rate, so it cannot know a step that has not happened yet. This comes from Skyline&rsquo;s forward schedule — <strong>Budget Rent Increase Calculation</strong> — which carries the scheduled charge for every month of {year}.
+        From Skyline&rsquo;s <strong>Budget Rent Increase Calculation</strong>, which carries the scheduled charge for every month of {year}.
       </p>
 
       {showSteps && <ImportInstructions variant="budget-rent" />}

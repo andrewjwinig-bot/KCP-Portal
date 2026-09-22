@@ -6,6 +6,7 @@ import { deriveContributions, type BudgetProperty, type FilledMap } from "@/lib/
 import { getExpenseInputs } from "@/lib/financials/budgets/expenseInputStore";
 import { EXPENSE_INPUT_KINDS } from "@/lib/financials/budgets/expenseInputs";
 import { contributionId } from "@/lib/financials/budgets/contributors";
+import { getLeasingAssumptions } from "@/lib/financials/budgets/leasingAssumptions";
 
 /** Expense figures already keyed — each one completes its contribution. */
 async function enteredFor(year: number, props: BudgetProperty[]): Promise<FilledMap> {
@@ -15,6 +16,17 @@ async function enteredFor(year: number, props: BudgetProperty[]): Promise<Filled
     for (const k of EXPENSE_INPUT_KINDS) {
       const v = (doc as Record<string, { at?: string; by?: string } | undefined>)[k];
       if (v) out[contributionId(year, k, p.code)] = { filledAt: v.at ?? new Date(0).toISOString(), filledBy: v.by ?? "Unknown" };
+    }
+    // A leasing decision — hold, renew, vacate, lease up, leave vacant — IS the
+    // vacancy / renewal contribution for that suite, stamped by whoever made it.
+    const leasing = await getLeasingAssumptions(year, [p.code]).catch(() => ({}));
+    for (const a of Object.values(leasing)) {
+      const mark = { filledAt: a.updatedAt ?? new Date(0).toISOString(), filledBy: a.updatedBy ?? "Unknown" };
+      const refs = new Set([a.unitRef, a.unitRef.toUpperCase().replace(/-CU$/, "")]);
+      for (const ref of refs) {
+        out[contributionId(year, "vacancy", p.code, ref)] = mark;
+        out[contributionId(year, "renewal", p.code, ref)] = mark;
+      }
     }
   }));
   return out;

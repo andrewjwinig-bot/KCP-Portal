@@ -38,7 +38,8 @@ type Resp = { year: number; basisYear: number; book: string; growthPct: number; 
 
 export default function BudgetInputsPage() {
   const thisYear = new Date().getFullYear();
-  const [year, setYear] = useState(thisYear);
+  // Next year's budget by default — the one being built.
+  const [year, setYear] = useState(thisYear + 1);
   const [bookId, setBookId] = useState("shopping-centers");
   const [only, setOnly] = useState<string | null>(null);
   const [onlyOpen, setOnlyOpen] = useState(false);
@@ -93,7 +94,7 @@ export default function BudgetInputsPage() {
 
       <BookMasthead book={book} year={year} propertyCode={only}
         onBook={(id) => { setBookId(id); setOnly(null); }} onProperty={setOnly} onYear={setYear}
-        years={[thisYear - 1, thisYear, thisYear + 1]} />
+        years={[thisYear, thisYear + 1, thisYear + 2]} />
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div className="pills" style={{ justifyContent: "flex-start" }}>

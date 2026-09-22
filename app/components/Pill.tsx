@@ -192,6 +192,22 @@ export function rentCheckTone(status: string): PillTone {
  * at the top of a statement is the opposite case: there is one of it, and it
  * answers a question you would otherwise leave the page to ask.
  */
+/**
+ * Each budget contributor's own colour, so the part they own reads as theirs
+ * wherever it appears — the leasing card, the steps rail. Harry owns the
+ * shopping centres' leasing, Nancy the office parks', Drew taxes/insurance and
+ * the review, Greg building maintenance.
+ */
+export function contributorTone(owner: string | null | undefined): PillTone {
+  switch ((owner ?? "").toLowerCase()) {
+    case "harry": return TONE_PURPLE;
+    case "nancy": return TONE_TEAL;
+    case "drew": return TONE_BLUE;
+    case "greg": return TONE_AMBER;
+    default: return TONE_NEUTRAL;
+  }
+}
+
 export function tiesTone(ok: boolean): PillTone {
   return ok ? TONE_GREEN : TONE_RED;
 }

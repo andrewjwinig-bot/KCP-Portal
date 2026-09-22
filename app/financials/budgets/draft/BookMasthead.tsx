@@ -41,8 +41,7 @@ export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onY
           <div style={secLabel}>{year} Operating Budget</div>
           <h1 style={{ margin: "2px 0 0", fontSize: 28, fontWeight: 900, lineHeight: 1.1 }}>{book.name}</h1>
           <div className="muted small" style={{ marginTop: 3 }}>
-            {book.subtitle}
-            {book.properties.length > 0 && ` · ${book.properties.length} ${book.properties.length === 1 ? "property" : "properties"}`}
+            {book.properties.length > 0 && `${book.properties.length} ${book.properties.length === 1 ? "property" : "properties"}`}
           </div>
         </div>
 
@@ -80,11 +79,6 @@ export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onY
               </button>
             ))}
           </div>
-          {propertyCode && (
-            <div className="muted small" style={{ marginTop: 7 }}>
-              {props.find((p) => p.code === propertyCode)?.name} · a sheet inside the {book.name} budget
-            </div>
-          )}
         </>
       )}
 
