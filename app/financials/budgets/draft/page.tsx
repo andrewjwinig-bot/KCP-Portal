@@ -360,9 +360,9 @@ function stamp(iso?: string): string {
  *
  * ONE table, banded by kind (expiring leases, then vacant space), in the
  * portal's roster shape: every row reads left to right as suite → lease end →
- * the decision → its terms → what it does to next year → who made it. The
- * decision is a one-click segmented choice rather than a dropdown, and the
- * effect is written out ("New rent all of 2027", "Paid through 3/31/27") so
+ * the decision → rent → term → TI → commission → what it does to next year.
+ * Compact on purpose (suite and tenant on one line, a plain dropdown for the
+ * decision) so the whole row fits without scrolling, and the effect is written out ("New rent all of 2027", "Paid through 3/31/27") so
  * nobody has to work out what a choice means for the budget.
  */
 function LeasingCard({ leasing, budgetYear, error, onSave }: {
@@ -405,9 +405,9 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
               <th style={thLL}>Suite</th>
               <th style={thLL}>Decision</th>
               <th style={thRR}>Rent $/SF/yr</th>
+              <th style={thLL}>Term</th>
               <th style={thRR}>TI $/SF</th>
               <th style={thRR}>LC % of rent</th>
-              <th style={thLL}>Term</th>
               <th style={thLL}>In {budgetYear}</th>
             </tr>
           </thead>
@@ -506,22 +506,26 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
 
   return (
     <tr style={{ borderTop: "1px solid var(--border)" }}>
-      <td style={{ ...tdLL, whiteSpace: "normal", minWidth: 220 }}>
-        <code style={{ fontSize: 12 }}>{unitRef}</code>
-        <div style={{ fontWeight: 600, marginTop: 3 }}>{title}</div>
+      <td style={{ ...tdLL, whiteSpace: "normal", minWidth: 200 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 6, whiteSpace: "nowrap" }}>
+          <code style={{ fontSize: 12 }}>{unitRef}</code>
+          <span style={{ fontWeight: 600 }}>{title}</span>
+        </div>
         <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
           {[sqft > 0 ? `${sqft.toLocaleString()} sf` : null,
             curPsf != null ? `$${curPsf.toFixed(2)}/sf today` : null,
             end ? `${holdover ? "ended" : "ends"} ${fmtDate(end)}` : null].filter(Boolean).join(" · ")}
-          {holdover && <> <Pill tone={TONE_AMBER}>holdover</Pill></>}
         </div>
       </td>
       <td style={tdLL}>
-        <DecisionChoice value={kind} options={mode === "inplace" ? INPLACE_CHOICES : VACANT_CHOICES}
-          onPick={(k) => { setKind(k); push({ k }); }} />
+        <select value={kind} className="select-sm" aria-label="Decision"
+          onChange={(e) => { if (e.target.value) { setKind(e.target.value); push({ k: e.target.value }); } }}>
+          {kind === "" && <option value="">Choose…</option>}
+          {(mode === "inplace" ? INPLACE_CHOICES : VACANT_CHOICES).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
         {/* Who made the call and when — the stamp the owner's card is about. */}
         {assumption?.updatedAt && (
-          <div style={{ fontSize: 11, marginTop: 4, paddingLeft: 6, color: "var(--muted)" }}>
+          <div style={{ fontSize: 11, marginTop: 4, paddingLeft: 4, color: "var(--muted)" }}>
             <span style={{ color: "#15803d", fontWeight: 700 }}>✓ {assumption.updatedBy ? `${assumption.updatedBy.charAt(0)}${assumption.updatedBy.slice(1).toLowerCase()}` : "Saved"}</span> · {shortStamp(assumption.updatedAt)}
           </div>
         )}
@@ -529,6 +533,15 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
       <td style={tdRR}>
         {deal ? psfInput(rent, setRent, "r", "Rent, annual $ per SF")
           : costs && curPsf != null ? <span className="muted" style={{ paddingRight: 10 }}>${curPsf.toFixed(2)}</span> : dash}
+      </td>
+      <td style={tdLL}>
+        {costs ? (
+          <select value={term} className="select-sm" aria-label="Lease term"
+            onChange={(e) => { setTerm(e.target.value); push({ t: e.target.value }); }}>
+            <option value="">Term…</option>
+            {[1, 2, 3, 5, 7, 10, 15].map((y) => <option key={y} value={y}>{y} yr{y === 1 ? "" : "s"}</option>)}
+          </select>
+        ) : dash}
       </td>
       <td style={tdRR}>{costs ? psfInput(ti, setTi, "ti", "Tenant improvements, $ per SF") : dash}</td>
       <td style={tdRR}>
@@ -542,15 +555,6 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
               </div>
             )}
           </>
-        ) : dash}
-      </td>
-      <td style={tdLL}>
-        {costs ? (
-          <select value={term} className="select-sm" aria-label="Lease term"
-            onChange={(e) => { setTerm(e.target.value); push({ t: e.target.value }); }}>
-            <option value="">Term…</option>
-            {[1, 2, 3, 5, 7, 10, 15].map((y) => <option key={y} value={y}>{y} yr{y === 1 ? "" : "s"}</option>)}
-          </select>
         ) : dash}
       </td>
       <td style={{ ...tdLL, whiteSpace: "normal", fontSize: 12.5, color: kind ? "var(--text)" : "var(--muted)", minWidth: 120 }}>
@@ -608,47 +612,15 @@ const thRR: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fon
 const tdRR: React.CSSProperties = { textAlign: "right", padding: "10px 10px", fontSize: 14, verticalAlign: "middle", whiteSpace: "nowrap" };
 const tdLL: React.CSSProperties = { textAlign: "left", padding: "10px 10px", fontSize: 14, verticalAlign: "middle", whiteSpace: "nowrap" };
 
-type Choice = { value: string; label: string; glyph: string; tone: PillTone };
-const INPLACE_CHOICES: Choice[] = [
-  { value: "hold", label: "Hold", glyph: "=", tone: TONE_NEUTRAL },
-  { value: "renew", label: "Renew", glyph: "↻", tone: TONE_BLUE },
-  { value: "vacate", label: "Vacate", glyph: "→", tone: TONE_RED },
+const INPLACE_CHOICES = [
+  { value: "hold", label: "Hold" },
+  { value: "renew", label: "Renew" },
+  { value: "vacate", label: "Vacate" },
 ];
-const VACANT_CHOICES: Choice[] = [
-  { value: "none", label: "Leave vacant", glyph: "○", tone: TONE_NEUTRAL },
-  { value: "leaseup", label: "Lease up", glyph: "+", tone: TONE_GREEN },
+const VACANT_CHOICES = [
+  { value: "none", label: "Leave vacant" },
+  { value: "leaseup", label: "Lease up" },
 ];
-
-/**
- * The leasing decision as ONE CLICK, every option in view — a segmented pill
- * in the tab controls' shape, the picked option filled in its own tone (renew
- * blue, vacate red, lease up green). A dropdown hid the choices behind a click
- * and, reading "Choose…", looked like every other filter on the page rather
- * than the decision the row is waiting on.
- */
-function DecisionChoice({ value, options, onPick }: { value: string; options: Choice[]; onPick: (v: string) => void }) {
-  return (
-    <div role="radiogroup" style={{ display: "inline-flex", gap: 2, padding: 2, borderRadius: 999, border: `1px solid ${value ? "var(--border)" : "rgba(217,119,6,0.45)"}`, background: "var(--card)" }}>
-      {options.map((o) => {
-        const on = o.value === value;
-        return (
-          <button key={o.value} type="button" role="radio" aria-checked={on} onClick={() => { if (!on) onPick(o.value); }}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 5,
-              padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: on ? "default" : "pointer",
-              border: `1px solid ${on ? o.tone.border : "transparent"}`,
-              background: on ? o.tone.bg : "transparent",
-              color: on ? o.tone.fg : "var(--muted)",
-              transition: "background 120ms, color 120ms",
-            }}>
-            <span aria-hidden style={{ fontSize: 13, lineHeight: 1, opacity: on ? 1 : 0.7 }}>{o.glyph}</span>
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 const thS: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" };
 const tdL: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "left", whiteSpace: "nowrap" };

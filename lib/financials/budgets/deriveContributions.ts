@@ -34,6 +34,11 @@ export function deriveContributions(
   /** Parts done BY BEING ENTERED — a figure keyed in the Expenses step is the
    *  part, so it needs no separate tick. Keyed by contribution id. */
   entered: FilledMap = {},
+  /** Until the rent schedule is imported, the vacancies and renewals come from
+   *  the RENT ROLL — the same list the leasing card is already working from —
+   *  so Harry's and Nancy's calls are counted (and they appear as owners) from
+   *  day one rather than after an import they do not control. */
+  fromRoll: Record<string, { unitRef: string; tenant?: string; vacant: boolean }[]> = {},
 ): Contribution[] {
   const out: Contribution[] = [];
 
@@ -52,8 +57,12 @@ export function deriveContributions(
 
   for (const p of properties) {
     // Per-space work, only where the schedule says a space needs it.
-    for (const u of unitsNeedingAssumption(inPlace, p.code)) {
-      push(u.monthsCovered === 0 ? "vacancy" : "renewal", p, u.unitRef, u.tenant);
+    if (inPlace) {
+      for (const u of unitsNeedingAssumption(inPlace, p.code)) {
+        push(u.monthsCovered === 0 ? "vacancy" : "renewal", p, u.unitRef, u.tenant);
+      }
+    } else {
+      for (const u of fromRoll[p.code] ?? []) push(u.vacant ? "vacancy" : "renewal", p, u.unitRef, u.tenant);
     }
     // One of each per property, always — a tax figure, an insurance figure and
     // a maintenance schedule are needed whether or not anything changed.
