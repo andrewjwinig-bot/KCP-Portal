@@ -12,7 +12,6 @@ import { Pill, StatPill, TONE_GREEN, TONE_AMBER, TONE_RED, TONE_BLUE, TONE_NEUTR
 import type { LineHistory } from "@/lib/financials/budgets/lineHistory";
 import type { LineInsight, LineShape } from "@/lib/financials/budgets/lineInsight";
 
-const MONTHS = ["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"];
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const th: React.CSSProperties = { ...secLabel, textAlign: "right", padding: "6px 10px", whiteSpace: "nowrap" };
@@ -45,8 +44,6 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
       .catch(() => setFailed(true));
   }, [viewKey, propertyCode, label, mask, sign, year]);
 
-  // The tallest bar sets the scale, so the shape of the years reads at a glance.
-  const peak = data ? Math.max(1, ...data.years.map((y) => Math.abs(y.actual ?? 0)), ...data.years.map((y) => Math.abs(y.budget ?? 0))) : 1;
   const ins = data?.insight;
 
   return (
@@ -113,7 +110,6 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
                     <th style={th}>Budget</th>
                     <th style={th}>Actual</th>
                     <th style={th}>Variance</th>
-                    <th style={{ ...thL, width: "38%" }}>Shape of the year</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -131,21 +127,6 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
                         <td style={td}>{y.actual == null ? "—" : money0(y.actual)}</td>
                         <td style={{ ...td, color: y.variance == null ? "var(--muted)" : y.variance > 0 ? "#b91c1c" : "#15803d" }}>
                           {y.variance == null ? "—" : `${y.variance > 0 ? "+" : ""}${money0(y.variance)}`}
-                        </td>
-                        <td style={{ ...td, textAlign: "left" }}>
-                          {y.months ? (
-                            <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 26 }}>
-                              {y.months.map((v, i) => (
-                                <div key={i} title={`${MONTHS[i]} · ${money0(v)}`}
-                                  style={{
-                                    flex: 1, minWidth: 4,
-                                    height: `${Math.max(2, (Math.abs(v) / peak) * 26)}px`,
-                                    background: partial && i >= y.monthsCovered ? "var(--border)" : "rgba(11,74,125,0.55)",
-                                    borderRadius: 1,
-                                  }} />
-                              ))}
-                            </div>
-                          ) : <span className="muted">no GL loaded</span>}
                         </td>
                       </tr>
                     );

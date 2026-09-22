@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable } from "./BudgetStatementTable";
+import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
 import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
 import type { LeaseAssumption } from "../../../../lib/financials/budgets/leasingAssumptions";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
@@ -25,8 +26,8 @@ const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTrans
 
 function sourceBadge(source: DraftSource, growthPct: number): { tone: PillTone; text: string } {
   switch (source) {
-    case "reproj-growth": return { tone: TONE_BLUE, text: `Reproj ${growthPct >= 0 ? "+" : ""}${growthPct}%` };
-    case "reproj-flat": return { tone: TONE_NEUTRAL, text: "Reproj (flat)" };
+    case "reproj-growth": return { tone: TONE_BLUE, text: `${growthPct >= 0 ? "+" : ""}${growthPct}%` };
+    case "reproj-flat": return { tone: TONE_NEUTRAL, text: "Flat" };
     case "leases": return { tone: TONE_GREEN, text: "Leases" };
     case "cam-estimate": return { tone: TONE_TEAL, text: "CAM est." };
     case "ret-default": return { tone: TONE_BLUE, text: "Tax +3%" };
@@ -55,7 +56,7 @@ export default function BudgetDraftPage() {
   const [refreshTick, setRefreshTick] = useState(0);
   // The line whose history is open. Clicking a line is how you argue its
   // number from its own five years rather than from last year plus a percent.
-  const [histLine, setHistLine] = useState<{ label: string; mask: string; sign: 1 | -1 } | null>(null);
+  const [histLine, setHistLine] = useState<{ label: string; mask: string; sign: 1 | -1; section: string } | null>(null);
   // Which BOOK is open. A property's budget is a sheet inside its book, so the
   // book leads and the property follows — picking a property inside a book
   // never changes which book you are in.
@@ -89,14 +90,54 @@ export default function BudgetDraftPage() {
     return () => clearTimeout(t);
   }, [key, year, refreshTick]);
 
+  // The history's suggestion, applied: the line set to that annual TOTAL with
+  // its month-by-month shape kept (each month scaled by the same factor). A
+  // line budgeted through sub-lines scales every sub-line alike; a Budget
+  // Inputs line is keyed there, so it takes no suggestion here.
+  async function applySuggestion(section: string, label: string, amount: number) {
+    const sec = draft?.sections.find((x) => x.name === section);
+    const line = sec?.lines.find((l) => l.label === label);
+    if (!draft || !sec || !line || line.inputKind) return;
+    const post = (months: number[], account?: string) => fetch("/api/financials/budgets/line-overrides", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, section, label, account, months }),
+    });
+    setEditError(null);
+    const subs = line.subLines?.filter((x) => x.typeable) ?? [];
+    const results = subs.length
+      ? await Promise.all(subs.map((x) => post(scaleToTotal(x.months, line.total ? (x.total / line.total) * amount : amount / subs.length), x.account)))
+      : [await post(scaleToTotal(line.months, amount))];
+    if (results.some((r) => !r.ok)) setEditError("Couldn't apply the suggestion.");
+    setRefreshTick((n) => n + 1);
+  }
+
   // Type one month (or spread an annual, or clear the line). The cell shows the
   // figure at once; the re-projected draft — subtotals, NOI, recoveries on a
   // CAM line — follows from the server.
   const [editError, setEditError] = useState<string | null>(null);
-  async function editLine(sec: BudgetDraftSection, line: BudgetDraftSection["lines"][number], month: number | "all", value: number | null) {
+  async function editLine(sec: BudgetDraftSection, line: BudgetDraftSection["lines"][number], month: number | "all", value: number | null, account?: string) {
     if (!draft) return;
     setEditError(null);
-    if (typeof month === "number" && value != null) {
+    if (typeof month === "number" && value != null && account) {
+      // A sub-line: set its month, and the line (their sum) moves with it.
+      setDraft((d) => d && ({
+        ...d,
+        sections: d.sections.map((s) => s.name !== sec.name ? s : {
+          ...s,
+          lines: s.lines.map((l) => {
+            if (l.label !== line.label || !l.subLines) return l;
+            const subLines = l.subLines.map((x) => {
+              if (x.account !== account) return x;
+              const months = x.months.slice(); months[month] = Math.round(value);
+              const typed = (x.typed ?? new Array(12).fill(false)).slice(); typed[month] = true;
+              return { ...x, months, typed, total: months.reduce((a, b) => a + b, 0) };
+            });
+            const months = l.months.map((_, i) => subLines.reduce((a, x) => a + x.months[i], 0));
+            return { ...l, subLines, months, total: months.reduce((a, b) => a + b, 0) };
+          }),
+        }),
+      }));
+    } else if (typeof month === "number" && value != null) {
       setDraft((d) => d && ({
         ...d,
         sections: d.sections.map((s) => s.name !== sec.name ? s : {
@@ -112,7 +153,7 @@ export default function BudgetDraftPage() {
     }
     const r = await fetch("/api/financials/budgets/line-overrides", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, section: sec.name, label: line.label, month, value }),
+      body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, section: sec.name, label: line.label, account, month, value }),
     }).catch(() => null);
     if (!r || !r.ok) {
       const j = r ? await r.json().catch(() => ({})) : {};
@@ -264,13 +305,10 @@ export default function BudgetDraftPage() {
             draft={draft}
             onEdit={draft.canEditLines ? editLine : undefined}
             badgeFor={(src) => sourceBadge(src, GROWTH)}
-            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1 })}
+            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1 })}
           />
 
 
-          <p className="muted small">
-            <b>Leases</b> = rent month by month from the rent roll&rsquo;s in-place leases and the leasing assumptions. <b>CAM est.</b> = the recoveries above. <b>Entered</b> = a figure keyed on Budget Inputs; <b>Tax +3%</b> = this year&rsquo;s taxes +3% until one is. <b>Reproj +3%</b> = this year&rsquo;s forecast grown month by month, so its seasonality carries over; <b>Reproj (flat)</b> = carried unchanged.
-          </p>
         </>
       )}
       {/* Always visible while you work the budget — the question "what is
@@ -285,6 +323,7 @@ export default function BudgetDraftPage() {
           sign={histLine.sign}
           year={year}
           onClose={() => setHistLine(null)}
+          onUseSuggestion={draft?.canEditLines ? (amount) => { applySuggestion(histLine.section, histLine.label, amount); setHistLine(null); } : undefined}
         />
       )}
 
@@ -379,7 +418,7 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
   const last = decided.reduce<LeaseAssumption | null>((m, a) => (!m || (a.updatedAt ?? "") > (m.updatedAt ?? "") ? a : m), null);
   const band = (label: string, n: number) => (
     <tr style={{ background: "rgba(11,74,125,0.06)" }}>
-      <td colSpan={7} style={{ ...tdLL, padding: "8px 14px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+      <td colSpan={6} style={{ ...tdLL, padding: "8px 14px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
         {label} <span style={{ fontWeight: 700 }}>· {n}</span>
       </td>
     </tr>
@@ -407,8 +446,7 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
               <th style={thRR}>Rent $/SF/yr</th>
               <th style={thLL}>Term</th>
               <th style={thRR}>TI $/SF</th>
-              <th style={thRR}>LC % of rent</th>
-              <th style={thLL}>In {budgetYear}</th>
+              <th style={thRR}>LC %</th>
             </tr>
           </thead>
           <tbody>
@@ -490,7 +528,7 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
   // The commission as it will be budgeted: % of the new annual rent × term.
   const newMonthly = deal && rent !== "" && sqft > 0 ? (Number(rent) * sqft) / 12 : currentRent;
   const commission = lc !== "" && term !== "" ? (Number(lc) / 100) * newMonthly * 12 * Number(term) : 0;
-  const effect = kind === "" && mode === "vacant" ? "Vacant, until decided" : effectText(kind, end, budgetYear, month, rent);
+  const effect = kind === "" && mode === "vacant" ? "Vacant until decided" : effectText(kind, end, budgetYear, month);
   const dash = <span className="muted">—</span>;
   const psfInput = (v: string, set: (x: string) => void, field: "r" | "ti" | "lc", label: string, pct = false) => (
     <input value={v} inputMode="decimal" placeholder={pct ? "0%" : "$0.00"} aria-label={label}
@@ -517,18 +555,26 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
             end ? `${holdover ? "ended" : "ends"} ${fmtDate(end)}` : null].filter(Boolean).join(" · ")}
         </div>
       </td>
-      <td style={tdLL}>
+      <td style={{ ...tdLL, whiteSpace: "normal", maxWidth: 230 }}>
         <select value={kind} className="select-sm" aria-label="Decision"
           onChange={(e) => { if (e.target.value) { setKind(e.target.value); push({ k: e.target.value }); } }}>
           {kind === "" && <option value="">Choose…</option>}
           {(mode === "inplace" ? INPLACE_CHOICES : VACANT_CHOICES).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        {/* Who made the call and when — the stamp the owner's card is about. */}
-        {assumption?.updatedAt && (
-          <div style={{ fontSize: 11, marginTop: 4, paddingLeft: 4, color: "var(--muted)" }}>
-            <span style={{ color: "#15803d", fontWeight: 700 }}>✓ {assumption.updatedBy ? `${assumption.updatedBy.charAt(0)}${assumption.updatedBy.slice(1).toLowerCase()}` : "Saved"}</span> · {shortStamp(assumption.updatedAt)}
-          </div>
+        {kind === "leaseup" && (
+          <select value={month} className="select-sm" aria-label="Starts paying" style={{ marginLeft: 6 }}
+            onChange={(e) => { setMonth(Number(e.target.value)); push({ mo: Number(e.target.value) }); }}>
+            {MONTHS_ABBR.map((mo, i) => <option key={mo} value={i + 1}>from {mo}</option>)}
+          </select>
         )}
+        {/* ONE small line: what it does in the budget year, then who made the
+            call and when — the stamp the owner's card is about. */}
+        <div style={{ fontSize: 11, marginTop: 4, paddingLeft: 4, color: "var(--muted)" }}>
+          {effect}
+          {assumption?.updatedAt && (
+            <> · <span style={{ color: "#15803d", fontWeight: 700 }}>✓ {assumption.updatedBy ? `${assumption.updatedBy.charAt(0)}${assumption.updatedBy.slice(1).toLowerCase()}` : "Saved"}</span> {shortStamp(assumption.updatedAt)}</>
+          )}
+        </div>
       </td>
       <td style={tdRR}>
         {deal ? psfInput(rent, setRent, "r", "Rent, annual $ per SF")
@@ -557,14 +603,6 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
           </>
         ) : dash}
       </td>
-      <td style={{ ...tdLL, whiteSpace: "normal", fontSize: 12.5, color: kind ? "var(--text)" : "var(--muted)", minWidth: 120 }}>
-        {kind === "leaseup" ? (
-          <select value={month} className="select-sm" aria-label="Starts paying"
-            onChange={(e) => { setMonth(Number(e.target.value)); push({ mo: Number(e.target.value) }); }}>
-            {MONTHS_ABBR.map((mo, i) => <option key={mo} value={i + 1}>from {mo}</option>)}
-          </select>
-        ) : effect}
-      </td>
     </tr>
   );
 }
@@ -586,21 +624,20 @@ const fmtDate = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${String(d.getF
 /** What the decision does to the budget year, in words — the same rules the
  *  projection applies (leaseRevenue.ts): a renewal's rent starts the day after
  *  the term, a vacate is paid through it, a lease-up from its month. */
-function effectText(kind: string, end: Date | null, year: number, month: number, rent: string): string {
-  const psf = rent !== "" ? `$${Number(rent).toFixed(2)}/sf` : "new rent";
+function effectText(kind: string, end: Date | null, year: number, month: number): string {
   switch (kind) {
-    case "": return "Today's rent, until decided";
-    case "hold": return `Today's rent all year`;
-    case "none": return `Vacant all year`;
-    case "leaseup": return `${psf} from ${MONTHS_ABBR[month - 1]} ${year}`;
+    case "": return "Today's rent until decided";
+    case "hold": return "Today's rent";
+    case "none": return "Vacant all year";
+    case "leaseup": return `Rent from ${MONTHS_ABBR[month - 1]} ${year}`;
     case "renew": {
-      if (!end) return `${psf} all year`;
+      if (!end) return "New rent all year";
       const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
-      return start.getFullYear() < year ? `${psf} all year` : start.getFullYear() > year ? `No change in ${year}` : `${psf} from ${fmtDate(start)}`;
+      return start.getFullYear() < year ? "New rent all year" : start.getFullYear() > year ? `No change in ${year}` : `New rent from ${fmtDate(start)}`;
     }
     case "vacate": {
       if (!end || end.getFullYear() < year) return `No rent in ${year}`;
-      if (end.getFullYear() > year) return `Paid all year`;
+      if (end.getFullYear() > year) return "Paid all year";
       return `Paid through ${fmtDate(end)}`;
     }
     default: return "";

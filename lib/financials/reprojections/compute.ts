@@ -47,6 +47,10 @@ export type ReprojLine = {
   budgetTotal: number;
   /** Favorable-signed (reproj − budget). null when no budget. */
   variance: number | null;
+  /** The GL accounts this line is built from, each with its own months — the
+   *  line's SUB-LINES (Building Maintenance = 6220-8502 + 6220-8503). The
+   *  line's series are exactly their sum. */
+  accounts?: { account: string; actual: number[]; budget: number[]; blended: number[] }[];
 };
 
 export type ReprojTotals = {
@@ -81,6 +85,8 @@ export type Reprojection = {
     totalDebtService: ReprojTotals;
     cashFlowAfterDebtService: ReprojTotals;
   };
+  /** GL account names as the GL file carries them, for sub-line labels. */
+  accountNames?: Record<string, string>;
   /** GL accounts with actuals but no budget/mapping line — surfaced so the
    *  full-year number isn't silently short. */
   unbudgetedAccounts: { account: string; actualTotal: number; name?: string | null }[];
@@ -140,7 +146,20 @@ export function reproject(input: ReprojectInput): Reprojection {
         for (let i = 0; i < MONTHS; i++) budget[i] += bl.months[i] ?? 0;
       }
       const blended = blend(actual, budget, through);
-      return { label: l.label, mask: l.mask, ...totalsFor(actual, budget, blended, fav) };
+      // The same sums, kept per account, so a budget can be set sub-line by
+      // sub-line (and exported per GL) rather than only as the line's total.
+      const acctSet = [...new Set([...matched, ...bset])].sort();
+      const accountsOut = acctSet.map((account) => {
+        const a = zero(), b = zero();
+        const g = matched.includes(account) ? input.glMonthly[account] ?? [] : [];
+        for (let i = 0; i < MONTHS; i++) a[i] = (g[i] ?? 0) * sign;
+        for (const bl of input.budgetLines) {
+          if (bl.glAccount !== account || !bset.has(account)) continue;
+          for (let i = 0; i < MONTHS; i++) b[i] += bl.months[i] ?? 0;
+        }
+        return { account, actual: a, budget: b, blended: blend(a, b, through) };
+      });
+      return { label: l.label, mask: l.mask, ...totalsFor(actual, budget, blended, fav), accounts: accountsOut };
     });
     // Section subtotal = sum of its lines (per series), variance under its fav.
     const actual = sumSeries(lines.map((l) => l.actual));

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyEdit, mergeMonths, spreadEvenly, lineKey } from "./lineOverrides";
+import { applyEdit, mergeMonths, spreadEvenly, lineKey, scaleToTotal } from "./lineOverrides";
 
 const computed = [100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100];
 const K = lineKey("Operating Expenses", "Parking Lot Maintenance");
@@ -41,5 +41,23 @@ describe("typed budget months", () => {
 
   it("rejects a month outside the year", () => {
     expect(() => applyEdit({}, K, 12, 1)).toThrow();
+  });
+});
+
+describe("the history's suggestion, applied with the line's shape kept", () => {
+  it("scales each month by the same factor and adds back to the exact total", () => {
+    const tax = [0, 0, 0, 0, 5000, 0, 0, 0, 0, 0, 5000, 0];
+    const out = scaleToTotal(tax, 10_301);
+    expect(out.reduce((a, b) => a + b, 0)).toBe(10_301);
+    expect(out[0]).toBe(0);
+    expect(out[4] + out[10]).toBe(10_301);
+  });
+  it("spreads evenly when there is no shape to keep", () => {
+    expect(scaleToTotal(new Array(12).fill(0), 1200)).toEqual(new Array(12).fill(100));
+  });
+  it("stores all twelve months at once", () => {
+    const doc = applyEdit({}, K, "all", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(mergeMonths(computed, doc[K]).months[11]).toBe(12);
+    expect(() => applyEdit({}, K, "all", [1, 2])).toThrow();
   });
 });

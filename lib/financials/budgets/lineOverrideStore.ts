@@ -13,7 +13,7 @@ export async function getLineOverrides(budgetYear: number, propertyCode: string)
 }
 
 export async function editLineOverride(
-  budgetYear: number, propertyCode: string, key: string, month: number | "all", value: number | null, by: string,
+  budgetYear: number, propertyCode: string, key: string, month: number | "all", value: number | null | number[], by: string,
 ): Promise<LineOverrides> {
   const doc = applyEdit(await getLineOverrides(budgetYear, propertyCode), key, month, value, by);
   await storeJSON(PREFIX, idFor(budgetYear, propertyCode), doc);

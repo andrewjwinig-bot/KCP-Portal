@@ -9,7 +9,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// POST { year, propertyCode, section, label, month: 0–11 | "all", value: number | null }
+// POST { year, propertyCode, section, label, account?, month: 0–11 | "all", value: number | null }
+//   account → types one SUB-LINE (a GL account under the line); the line is then their sum
 //   one month      → types that month (null hands it back to the computed figure)
 //   "all" + number → an annual figure spread evenly across the twelve
 //   "all" + null   → clears every typed month on the line
@@ -31,11 +32,18 @@ export async function POST(req: Request) {
     if (month !== "all" && !(Number.isInteger(month) && month >= 0 && month < 12)) {
       return NextResponse.json({ error: "month must be 0–11 or \"all\"" }, { status: 400 });
     }
+    // `months` sets all twelve at once (a suggestion applied with its shape kept).
+    const monthsIn = Array.isArray(b?.months) ? (b.months as unknown[]).map(Number) : null;
+    if (monthsIn && (monthsIn.length !== 12 || !monthsIn.every((v) => Number.isFinite(v)))) {
+      return NextResponse.json({ error: "months must be 12 numbers" }, { status: 400 });
+    }
     const raw = b?.value;
-    const value = raw === null || raw === "" || raw === undefined ? null : Number(raw);
-    if (value !== null && !Number.isFinite(value)) return NextResponse.json({ error: "value must be a number" }, { status: 400 });
+    const value = monthsIn ?? (raw === null || raw === "" || raw === undefined ? null : Number(raw));
+    if (typeof value === "number" && !Number.isFinite(value)) return NextResponse.json({ error: "value must be a number" }, { status: 400 });
 
-    await editLineOverride(year, propertyCode, lineKey(section, label), month, value, USERS[user]?.label ?? user);
+    const account = String(b?.account ?? "").trim();
+    const key = account ? `${lineKey(section, label)}#${account}` : lineKey(section, label);
+    await editLineOverride(year, propertyCode, key, month, value, USERS[user]?.label ?? user);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 500 });

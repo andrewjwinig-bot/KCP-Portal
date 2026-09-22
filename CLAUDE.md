@@ -965,6 +965,18 @@ time — and the team does not have time to open the GL over $80.
   **A HOLD is a deal too** — a tenant staying at today's rent for a new term can still get TI and a broker is still paid, so Hold rows take TI, LC % and term (rent fixed at today's) and cost them when the term rolls. Where any deal carries one, that line IS the deals rather than last year's
   TI grown. "Holdover" means the lease has ALREADY ended — 11/30/26 in
   September is a live lease, not a holdover.
+- **Lines have GL SUB-LINES** (`subLines` on a draft line, from the
+  reprojection's per-account `accounts`). A line built from several accounts
+  (Building Maintenance = 6220-8502 + 6220-8503, Office Center/Other = 6*-8503)
+  opens (▸) into one row per account, each grown on its own months; the line
+  is their SUM and is typed THROUGH them (override key `section::label#account`).
+  A line whose figure comes from elsewhere (leases, Budget Inputs, recoveries)
+  shows its split read-only. The grid's pills sit on the line's own row
+  ("+3%", "Flat") so every row is one row tall.
+- **The line-history popup suggests; "Use this" applies it** — the line set to
+  the suggested annual with its month-by-month SHAPE kept (`scaleToTotal`), per
+  sub-line where it has them. The "Shape of the year" sparkline column was
+  removed at the owner's request.
 - **Until the rent schedule is imported, the rail's vacancy/renewal items
   come off the RENT ROLL** (`deriveContributions`' `fromRoll`, filled by the
   progress route from `projectLeaseRevenue`) — the same list the leasing card
