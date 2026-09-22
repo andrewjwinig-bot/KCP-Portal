@@ -734,6 +734,15 @@ time — and the team does not have time to open the GL over $80.
   — so the page you work in all month never said whether its own numbers hang
   together. **A file with no ending balances to check against shows NOTHING**,
   not a green pill: "not checkable" is not "fine".
+  **It is judged PER UPLOADED FILE (`reconcileGlFiles` in `glAssemble.ts`),
+  never on the stitched ledger.** The composite takes its opening balances from
+  the earliest upload and its closing balances from the furthest-reaching one,
+  and those are not on the same basis — an August-only Skyline GL opens its P&L
+  accounts at zero, not at their Jan–Jul total — so a Jan–Jul upload plus an
+  August one read **"48 DON'T TIE"** at 4500 on files that each tied on upload.
+  Only files still contributing a month are judged, so a bad upload a later
+  re-upload replaced does not keep the pill red. The checklist email's "GL
+  doesn't reconcile" note reads the same function.
 - **THE HEADER CARRIES ONE NUMBER: "Items to Investigate", AND IT TICKS DOWN.**
   It counts the lines still carrying a "?" and is recomputed from the SAME
   `dismissedFlags` state the mark itself reads, so dismissing one drops the
