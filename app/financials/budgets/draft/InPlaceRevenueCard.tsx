@@ -9,7 +9,8 @@
 // through and what did not is the first thing the card says.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pill, StatPill, TONE_GREEN, TONE_RED, TONE_AMBER } from "@/app/components/Pill";
+import { Pill, StatPill, TONE_RED, TONE_AMBER } from "@/app/components/Pill";
+import { STEP_LABEL } from "./stepStyles";
 import { HoverCard } from "@/app/components/HoverCard";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { monthlyForProperty } from "@/lib/financials/budgets/inPlaceDerive";
@@ -18,8 +19,11 @@ import type { InPlaceRevenueRecord } from "@/lib/financials/budgets/inPlaceStore
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
-export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel }: {
+export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, counts }: {
   year: number; category: string; propertyCode: string | null; editorLabel: string;
+  /** The property's suites by what the year holds for them — from the same
+   *  rows as "Rent by tenant", so the tiles and the table agree. */
+  counts?: { fullYear: number; expiring: number; vacant: number } | null;
 }) {
   const [rec, setRec] = useState<InPlaceRevenueRecord | null>(null);
   const [expected, setExpected] = useState<string[]>([]);
@@ -69,7 +73,7 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel }
     <div className="card">
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div>
-          <div style={secLabel}>Step 1 · Rent schedule</div>
+          <div style={STEP_LABEL}>Step 1 · Rent schedule</div>
           <div style={{ fontSize: 15, fontWeight: 800, marginTop: 2 }}>Contracted rent for {year}</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -104,15 +108,14 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel }
       {rec && (
         <>
           <div className="pills" style={{ marginTop: 12 }}>
-            <StatPill label="Centres received" value={rec.properties.length} />
-            <StatPill label="Scheduled charges" value={rec.charges.length} />
+            {counts && <StatPill label="Leased the full year" value={counts.fullYear} />}
+            {counts && <StatPill label={`Expiring in ${year}`} value={counts.expiring} accent={counts.expiring ? "#b45309" : undefined} />}
+            {counts && <StatPill label="Vacant suites" value={counts.vacant} />}
             {propertyCode && months && <StatPill label={`${propertyCode} · ${year} rent`} value={money0(propTotal)} />}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-            {rec.missing.length === 0 ? (
-              <Pill tone={TONE_GREEN}>ALL {expected.length} CENTRES</Pill>
-            ) : (
+            {rec.missing.length > 0 && (
               <HoverCard
                 title="Centres missing from the export"
                 rows={rec.missing.map((m) => ({ label: m, value: "no rows" }))}
@@ -131,7 +134,7 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel }
               </HoverCard>
             )}
             <span className="muted small">
-              {rec.fileName} · imported {new Date(rec.importedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })} by {rec.importedBy}
+              Imported {new Date(rec.importedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })} by {rec.importedBy}
             </span>
           </div>
 

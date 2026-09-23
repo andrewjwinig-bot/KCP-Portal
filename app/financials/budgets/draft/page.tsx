@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable } from "./BudgetStatementTable";
 import { RentByTenantCard } from "./RentByTenantCard";
+import { STEP_LABEL } from "./stepStyles";
 import { ExpenseInputsPanel } from "@/app/budget-inputs/ExpenseInputsPanel";
 import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
 import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
@@ -236,6 +237,11 @@ export default function BudgetDraftPage() {
       <InPlaceRevenueCard
         year={year}
         category={category}
+        counts={draft?.leasing ? {
+          fullYear: draft.leasing.rentRows.filter((r) => r.status === "contracted").length,
+          expiring: draft.leasing.rentRows.filter((r) => r.status === "expiring" || r.status === "holdover").length,
+          vacant: draft.leasing.rentRows.filter((r) => r.status === "vacant" || r.status === "lease-up").length,
+        } : null}
         propertyCode={label?.propertyCode ?? null}
         editorLabel={typeof document !== "undefined" ? (document.cookie.match(/kcp_user=([^;]+)/)?.[1] ?? "Unknown") : "Unknown"}
       />
@@ -269,7 +275,7 @@ export default function BudgetDraftPage() {
               here by their owners (the same table Greg uses on his page). */}
           <div id="step-3" className="card" style={{ padding: 0, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
-              <div style={secLabel}>Step 3 · Expenses — {draft.budgetYear}</div>
+              <div style={STEP_LABEL}>Step 3 · Expenses — {draft.budgetYear}</div>
               <Pill tone={contributorTone("drew")}>DREW · TAXES &amp; INSURANCE</Pill>
               <Pill tone={contributorTone("greg")}>GREG · MAINTENANCE</Pill>
             </div>
@@ -282,7 +288,7 @@ export default function BudgetDraftPage() {
             return (
               <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: "rgba(13,148,136,0.4)" }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
-                  <div style={{ ...secLabel, color: "#0d9488" }}>Step 4 · Recoveries — CAM / INS / RET, {est.budgetYear}</div>
+                  <div style={{ ...STEP_LABEL, color: "#0d9488" }}>Step 4 · Recoveries — CAM / INS / RET, {est.budgetYear}</div>
                   <Pill tone={TONE_TEAL}>{est.fromBudgetPools ? "IN THE BUDGET" : "PREVIEW"}</Pill>
                 </div>
                 <div style={{ padding: "8px 14px" }} className="muted small">
@@ -331,7 +337,7 @@ export default function BudgetDraftPage() {
 
           {/* STEP 5 — the budget itself, every month in its own column. */}
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
-            <div style={secLabel}>Step 5 · Review &amp; finalize — the {draft.budgetYear} budget</div>
+            <div style={STEP_LABEL}>Step 5 · Review &amp; finalize — the {draft.budgetYear} budget</div>
           </div>
           <div className="pills">
             <StatPill label="Total Revenue" value={money0(draft.rollups.totalRevenues.total)} sub={draft.leasing ? `${draft.leasing.inPlaceUnits} in-place leases` : "reproj placeholder"} />
@@ -352,7 +358,7 @@ export default function BudgetDraftPage() {
           {draft.debt && draft.debt.loans.length > 0 && (
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
-                <div style={secLabel}>Debt service — {draft.budgetYear}, from the Debt Tracker</div>
+                <div style={STEP_LABEL}>Debt service — {draft.budgetYear}, from the Debt Tracker</div>
                 <a href="/debt" className="muted small" style={{ fontWeight: 700 }}>Debt Tracker →</a>
               </div>
               <div style={{ overflowX: "auto" }}>
@@ -468,7 +474,7 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
     <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: tone.border }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ ...secLabel, color: tone.fg }}>Step 2 · Vacancies &amp; renewals — {budgetYear}</div>
+          <div style={{ ...STEP_LABEL, color: tone.fg }}>Step 2 · Vacancies &amp; renewals — {budgetYear}</div>
           <Pill tone={tone}>{owner.label.toUpperCase()}&rsquo;S CALL</Pill>
         </div>
         {done ? (
