@@ -152,7 +152,6 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const calls = leasing?.calls ?? [];
   const decided = calls.filter((c) => c.assumption);
   const openCall = openUnit ? callOf.get(canonRef(openUnit)) : undefined;
-  const yy = String(year).slice(2);
   const office = est?.kind === "office";
   const parts = PARTS[view].filter((p) => !(office && p === "ins"));
   const keepMonth = (r: TenantRevenueRow, i: number) => sure === "all" || (sure === "assumed") === !!r.assumed[i];
@@ -231,7 +230,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
             <tr>
               <th style={{ ...th, textAlign: "left" }}>Tenant — {view === "gross" ? "rent + recoveries" : VIEW_LABEL[view].toLowerCase()}</th>
               <th style={{ ...th, textAlign: "left" }}>Suite</th>
-              {MONTHS.map((m) => <th key={m} style={th}>{m} {yy}</th>)}
+              {MONTHS.map((m) => <th key={m} style={th}>{m}</th>)}
               <th style={{ ...th, borderLeft: "1px solid var(--border)" }}>Total</th>
             </tr>
           </thead>

@@ -248,7 +248,7 @@ export default function BudgetDraftPage() {
   const label = useMemo(() => props.find((p) => p.key === key), [props, key]);
 
   return (
-    <main style={{ maxWidth: 1360, width: "100%" }}>
+    <main style={{ maxWidth: "none", width: "100%" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <BookMasthead
         book={book}

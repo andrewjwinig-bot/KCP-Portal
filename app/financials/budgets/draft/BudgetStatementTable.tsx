@@ -38,7 +38,10 @@ const COLOR_BRAND = "#0b4a7d";
 const GROUP_DIV = "1px solid var(--border)";
 const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, padding: "5px 8px", whiteSpace: "nowrap", verticalAlign: "middle" };
 const lab: React.CSSProperties = { textAlign: "left", fontSize: 13, padding: "5px 10px", verticalAlign: "middle" };
-const head: React.CSSProperties = { fontSize: 11, fontWeight: 800, color: "var(--muted)", padding: "6px 8px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom" };
+/** Column headers — the SAME section-label look as the Revenue by tenant
+ *  table above it (11px / 700 / uppercase / 0.06em), so the two grids read as
+ *  one page. Months are bare ("JAN"): the year is in the step heading. */
+const head: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", padding: "7px 8px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom", borderBottom: "1px solid var(--border)" };
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const sum = (a: number[]) => a.reduce((s, n) => s + (n || 0), 0);
@@ -198,8 +201,6 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
   const expense = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
   const capital = byRole(["capital"]);
   const debt = byRole(["debt-service"]);
-  const yy = String(draft.budgetYear).slice(2);
-  const by = String(draft.basisYear).slice(2);
   const cols = 1 + 12 + 3;
 
   const basisOf = (secs: BudgetDraftSection[]) => secs.reduce((s, sec) => s + sum(sec.lines.map((l) => l.basisTotal)), 0);
@@ -301,9 +302,9 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
                   </button>
                 )}
               </th>
-              {MONTHS.map((m, i) => <th key={m} style={{ ...head, ...(i === 0 ? { borderLeft: GROUP_DIV } : {}) }}>{m} {yy}</th>)}
-              <th style={{ ...head, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>Budget {yy}</th>
-              <th style={head}>Forecast {by}</th>
+              {MONTHS.map((m, i) => <th key={m} style={{ ...head, ...(i === 0 ? { borderLeft: GROUP_DIV } : {}) }}>{m}</th>)}
+              <th style={{ ...head, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>Budget</th>
+              <th style={head}>{draft.basisYear} Fcst</th>
               <th style={head}>Change</th>
             </tr>
           </thead>
@@ -311,8 +312,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
         </table>
       </div>
       <div className="muted small" style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
-        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Step 1) · <b>Entered</b> keyed in Step 2 · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s forecast grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules. <b>Forecast {by}</b> = actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
-        {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget {yy}</b> to spread an annual. <span style={{ background: TYPED_BG, padding: "0 4px", borderRadius: 3 }}>Tinted</span> = typed; ↺ resets a line.</>}
+        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Step 1) · <b>Entered</b> keyed in Step 2 · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s forecast grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules. <b>{draft.basisYear} Fcst</b> = actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
+        {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget</b> to spread an annual. <span style={{ background: TYPED_BG, padding: "0 4px", borderRadius: 3 }}>Tinted</span> = typed; ↺ resets a line.</>}
       </div>
     </div>
   );

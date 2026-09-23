@@ -38,12 +38,12 @@ export default function BudgetReviewLinkPage() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg, #f7f9fc)" }}>
       <header style={{ background: BRAND, color: "#fff", padding: "22px clamp(16px, 4vw, 40px)" }}>
-        <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+        <div style={{ maxWidth: 1800, margin: "0 auto" }}>
           <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 22, letterSpacing: "-0.5px" }}>KORMAN</div>
           <div style={{ fontSize: 9.5, letterSpacing: "0.18em", color: "#bfdbfe" }}>COMMERCIAL PROPERTIES</div>
         </div>
       </header>
-      <main style={{ maxWidth: 1400, margin: "0 auto", padding: "28px clamp(16px, 4vw, 40px) 72px" }}>
+      <main style={{ maxWidth: 1800, margin: "0 auto", padding: "28px clamp(16px, 4vw, 40px) 72px" }}>
         <RentReviewView api={api} />
       </main>
     </div>
