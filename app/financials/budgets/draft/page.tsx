@@ -152,23 +152,34 @@ export default function BudgetDraftPage() {
   async function editLine(sec: BudgetDraftSection, line: BudgetDraftSection["lines"][number], month: number | "all" | "accept", value: number | null, account?: string) {
     if (!draft) return;
     setEditError(null);
+    // A BUCKETED line (maintenance, insurance, cleaning): its base bucket IS
+    // the line's own figure, so it saves exactly as the line did — to Budget
+    // Inputs for insurance / building maintenance, else as the line's typed
+    // months. Every other bucket saves as a typed sub-line and adds on.
+    const baseOf = (l: BudgetDraftSection["lines"][number]) => l.subLines?.find((x) => x.bucket === "base");
+    const baseBucket = account ? line.subLines?.find((x) => x.account === account && x.bucket === "base") : undefined;
+    const saveAccount = baseBucket ? undefined : account;
     // TAXES, INSURANCE AND BUILDING MAINTENANCE are keyed into the Budget
     // Inputs store — the same figures Greg keys on his page — never into the
     // grid's typed months. A kind can sit on more than one line, so the save is
     // the KIND's months: every line carrying it, with this edit applied.
-    if (line.inputKind) {
+    if (line.inputKind && (!account || baseBucket)) {
       const kind = line.inputKind;
+      // The kind's figure is each line's BASE — a bucketed line's extras
+      // (a Big Project, a Liability policy) are its own typed months.
+      const monthsOf = (l: BudgetDraftSection["lines"][number]) => baseOf(l)?.months ?? l.months;
+      const totalOf = (l: BudgetDraftSection["lines"][number]) => baseOf(l)?.total ?? l.total;
       const lines = draft.sections.flatMap((x) => x.lines.filter((l) => l.inputKind === kind));
       const kindMonths = new Array(12).fill(0);
-      for (const l of lines) l.months.forEach((v, i) => { kindMonths[i] += v || 0; });
+      for (const l of lines) monthsOf(l).forEach((v, i) => { kindMonths[i] += v || 0; });
       let body: Record<string, unknown>;
       if (month === "accept") body = { months: kindMonths };
       else if (month === "all" && value == null) body = { clear: true };
-      else if (month === "all") body = { annual: Math.round(value! + lines.filter((l) => l !== line).reduce((a, l) => a + l.total, 0)) };
+      else if (month === "all") body = { annual: Math.round(value! + lines.filter((l) => l.label !== line.label).reduce((a, l) => a + totalOf(l), 0)) };
       else {
-        kindMonths[month] += Math.round(value ?? 0) - (line.months[month] || 0);
+        kindMonths[month] += Math.round(value ?? 0) - (monthsOf(line)[month] || 0);
         body = { months: kindMonths.map((v) => Math.max(0, Math.round(v))) };
-        setDraft((d) => d && ({
+        if (!baseBucket) setDraft((d) => d && ({
           ...d,
           sections: d.sections.map((x) => x.name !== sec.name ? x : {
             ...x,
@@ -227,7 +238,7 @@ export default function BudgetDraftPage() {
     }
     const r = await fetch("/api/financials/budgets/line-overrides", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, section: sec.name, label: line.label, account, month, value }),
+      body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, section: sec.name, label: line.label, account: saveAccount, month, value }),
     }).catch(() => null);
     if (!r || !r.ok) {
       const j = r ? await r.json().catch(() => ({})) : {};
