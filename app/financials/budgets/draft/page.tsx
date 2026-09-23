@@ -34,6 +34,7 @@ function sourceBadge(source: DraftSource, growthPct: number): { tone: PillTone; 
     case "cam-estimate": return { tone: TONE_TEAL, text: "CAM est." };
     case "ret-default": return { tone: TONE_BLUE, text: "Tax +3%" };
     case "entered": return { tone: TONE_GREEN, text: "Entered" };
+    case "loans": return { tone: TONE_TEAL, text: "Loans" };
   }
 }
 
@@ -336,6 +337,60 @@ export default function BudgetDraftPage() {
             badgeFor={(src) => sourceBadge(src, GROWTH)}
             onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1 })}
           />
+
+          {/* The loans behind the debt-service lines — so "why is interest
+              $X" is answered on the page, and a maturity inside the year is
+              called out rather than silently refinanced. */}
+          {draft.debt && draft.debt.loans.length > 0 && (
+            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
+                <div style={secLabel}>Debt service — {draft.budgetYear}, from the Debt Tracker</div>
+                <a href="/debt" className="muted small" style={{ fontWeight: 700 }}>Debt Tracker →</a>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 720 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...tdL, ...thS }}>Loan</th>
+                      <th style={{ ...tdR, ...thS }}>Rate</th>
+                      <th style={{ ...tdR, ...thS }}>Balance Jan 1</th>
+                      <th style={{ ...tdR, ...thS }}>Interest</th>
+                      <th style={{ ...tdR, ...thS }}>Principal</th>
+                      <th style={{ ...tdR, ...thS }}>Balance Dec 31</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {draft.debt.loans.map((l) => (
+                      <tr key={l.id}>
+                        <td style={{ ...tdL, whiteSpace: "normal" }}>
+                          <span style={{ fontWeight: 700 }}>{l.lender || "Loan"}</span>
+                          {l.interestOnly && <span style={{ marginLeft: 6 }}><Pill tone={TONE_NEUTRAL}>interest-only</Pill></span>}
+                          {l.refinanceAssumed && (
+                            <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 2 }}>
+                              Matures {l.maturityDate} — assumed refinanced on the same terms
+                            </div>
+                          )}
+                        </td>
+                        <td style={tdR}>{l.ratePct.toFixed(2)}%</td>
+                        <td style={tdR}>{money0(l.balanceStart)}</td>
+                        <td style={tdR}>{money0(l.interest)}</td>
+                        <td style={tdR}>{money0(l.principal)}</td>
+                        <td style={tdR}>{money0(l.balanceEnd)}</td>
+                      </tr>
+                    ))}
+                    {draft.debt.loans.length > 1 && (
+                      <tr style={{ borderTop: "2px solid var(--border)" }}>
+                        <td style={{ ...tdL, fontWeight: 800 }} colSpan={3}>Total debt service</td>
+                        <td style={{ ...tdR, fontWeight: 800 }}>{money0(draft.debt.interest)}</td>
+                        <td style={{ ...tdR, fontWeight: 800 }}>{money0(draft.debt.principal)}</td>
+                        <td />
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
 
         </>

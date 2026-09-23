@@ -110,4 +110,14 @@ describe("buildBudgetDraft", () => {
     expect(l.subLines?.[0].name).toBe("Bldg Maint - CAM");
     expect(l.subLines?.every((x) => x.typeable)).toBe(true);
   });
+
+  it("keeps capital BELOW NOI — it is not an operating expense", async () => {
+    const r = fakeReproj();
+    (r.reprojection.sections as any[]).splice(2, 0, section("Capital", "capital", [line("Tenant improvements", "1440-0000", 5000)]));
+    loadReprojection.mockResolvedValue(r);
+    projectLeaseRevenue.mockResolvedValue(noLeases);
+    const d = (await buildBudgetDraft("1100", 2027, 3))!;
+    expect(d.rollups.totalOperatingExpenses.total).toBe(12360);   // utilities only
+    expect(d.rollups.netOperatingIncome.total).toBe(47640);       // untouched by capital
+  });
 });

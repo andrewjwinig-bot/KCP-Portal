@@ -1031,6 +1031,19 @@ time — and the team does not have time to open the GL over $80.
   never a second place to key them), 4 Recoveries, 5 Review & finalize (the
   monthly grid). A step on the rail with no card is what "there's no step 2"
   meant.
+- **Debt service comes from the LOANS, not this year's figure** (`debtBudget.ts`):
+  each loan's `buildSchedule` gives the budget year's interest (→ the Interest
+  line) and principal (→ Mortgage Amortization) month by month — interest falls
+  and principal rises as it amortizes. Holding-entity loans route to their fund
+  statement (`LOAN_TO_STATEMENT`: 3600 → PJV3, 4000 → PNIPLX, as the Cash Sheet
+  does). A loan maturing before/during the year is ASSUMED REFINANCED on the
+  same terms and the Debt service card says so — a budget that silently stops
+  paying a mortgage overstates cash flow. No loans on file → the lines keep
+  this year's figure.
+- **NOI excludes capital.** Total Operating Expenses is the operating sections
+  only (`EXPENSE_ROLES`); capital and debt sit below NOI. It used to count
+  capital as an operating expense, understating NOI by the year's TI and
+  improvements — and the grid then took capital off a second time for cash flow.
 - **PENDING (build when the 2027 draft is finished): "Publish to Budgets".**
   The Budget Draft is a WORKSPACE — nothing reads it. The budget of record is
   the workbook store on `/financials/budgets` (`lib/financials/budgets/storage.ts`),
