@@ -22,6 +22,7 @@ import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import type { ReimbursementEstimate } from "@/lib/financials/budgets/reimbursementEstimate";
 import type { RecoveryTie, TenantRevenueRow } from "@/lib/financials/budgets/draft";
 import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
+import { estimateJump, ESTIMATE_JUMP_PCT, ESTIMATE_JUMP_MIN_DOLLARS, type EstimateJump } from "@/lib/financials/budgets/estimateJump";
 import { DecisionPill, DecisionModal, type LeasingCall, type SavePayload } from "./LeasingDecision";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -123,6 +124,27 @@ function tenantTip(r: TenantRevenueRow, est: ReimbursementEstimate | undefined, 
   return { rows, footer: { label: parts.length > 1 ? viewLabel : `${PART_LABEL[parts[0]]}, year`, value: money0(total) } };
 }
 
+/**
+ * The amber ▲ beside a tenant whose monthly recovery estimates jump from what
+ * they are billed today to what the budget bills them. Its hover is the
+ * tenant's bill, category by category — the conversation the property
+ * manager will be having in January.
+ */
+function JumpMark({ j, year }: { j: EstimateJump; year: number }) {
+  const yy = (y: number) => `'${String(y).slice(2)}`;
+  const up = (now: number, next: number) => now > 0.5 ? ` (${next >= now ? "+" : "−"}${Math.abs(((next - now) / now) * 100).toFixed(0)}%)` : "";
+  return (
+    <HoverCard title="Estimates jump next year" width={320}
+      rows={[
+        ...j.parts.map((p) => ({ label: SHORT[p.part], value: `$${money0(p.now)} → $${money0(p.next)}/mo${up(p.now, p.next)}` })),
+        { label: `Total ${yy(year - 1)} → ${yy(year)}`, value: `$${money0(j.now)} → $${money0(j.next)}/mo`, color: "#b45309" },
+      ]}
+      footer={{ label: "Increase", value: `+$${money0(j.changeDollars)}/mo · +${j.changePct.toFixed(0)}%` }}>
+      <span aria-label="Estimates jump next year" style={{ color: "#b45309", fontSize: 13, fontWeight: 800, lineHeight: 1, cursor: "default" }}>▲</span>
+    </HoverCard>
+  );
+}
+
 /** The leasing calls this table carries — every suite expiring, held over or
  *  vacant — made from the row's pill. */
 export type LeasingProps = {
@@ -146,6 +168,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const [view, setView] = useState<View>("gross");
   const [sure, setSure] = useState<Sure>("all");
   const [toDecide, setToDecide] = useState(false);
+  const [jumpsOnly, setJumpsOnly] = useState(false);
   const [openUnit, setOpenUnit] = useState<string | null>(null);
   if (!allRows.length) return null;
   const callOf = new Map((leasing?.calls ?? []).map((c) => [canonRef(c.unitRef), c]));
@@ -156,7 +179,11 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const parts = PARTS[view].filter((p) => !(office && p === "ins"));
   const keepMonth = (r: TenantRevenueRow, i: number) => sure === "all" || (sure === "assumed") === !!r.assumed[i];
   const cellsOf = (r: TenantRevenueRow, ps: Part[]) => MONTHS.map((_, i) => (keepMonth(r, i) ? ps.reduce((a, p) => a + (r[p][i] || 0), 0) : 0));
+  // Tenants whose recovery estimates jump — judged on the whole bill, whatever
+  // the filter, because it is the tenant's reaction being anticipated.
+  const jumps = new Map(allRows.map((r) => [r.unitRef + r.tenant, estimateJump(r)] as const).filter(([, j]) => j));
   const rows = allRows.map((r) => ({ r, months: cellsOf(r, parts) }))
+    .filter(({ r }) => !jumpsOnly || jumps.has(r.unitRef + r.tenant))
     .filter(({ months }) => sure === "all" || months.some((v) => Math.abs(v) > 0.5))
     .filter(({ r }) => !toDecide || (callOf.has(canonRef(r.unitRef)) && !callOf.get(canonRef(r.unitRef))!.assumption));
   const partTotals = (p: Part) => MONTHS.map((_, i) => rows.reduce((a, { r }) => a + (keepMonth(r, i) ? r[p][i] || 0 : 0), 0));
@@ -214,6 +241,14 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
           {leasing && calls.length > 0 && (
             <button type="button" className={toDecide ? "btn sm primary" : "btn sm"} onClick={() => setToDecide((t) => !t)} aria-pressed={toDecide}>To decide · {calls.length - decided.length}</button>
           )}
+          {jumps.size > 0 && (
+            <HoverCard title="Estimates jumping" width={300}
+              rows={[{ label: "Flagged when", value: `CAM + INS + RET rise ${ESTIMATE_JUMP_PCT}%+ and $${ESTIMATE_JUMP_MIN_DOLLARS}+/mo` }]}
+              footer={{ label: "Compared", value: "today's billing → the budget" }}>
+              <button type="button" className={jumpsOnly ? "btn sm primary" : "btn sm"} onClick={() => setJumpsOnly((t) => !t)} aria-pressed={jumpsOnly}
+                style={jumpsOnly ? undefined : { color: "#b45309" }}>▲ Estimates up · {jumps.size}</button>
+            </HoverCard>
+          )}
           <span style={{ display: "inline-flex", gap: 4 }}>{views.map((v) => seg(view, v, VIEW_LABEL[v], setView))}</span>
           <span style={{ display: "inline-flex", gap: 4, paddingLeft: 10, borderLeft: "1px solid var(--border)" }}>
             {seg(sure, "all", "All", setSure)}
@@ -235,7 +270,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
           <tbody>
             {rows.length === 0 && (
               <tr><td colSpan={15} className="muted small" style={{ ...td, textAlign: "left", padding: 14 }}>
-                {toDecide ? "Every leasing call is made." : sure === "assumed" ? "Nothing speculative — no renewals, holds or lease-ups assumed yet." : "Nothing contracted."}
+                {jumpsOnly ? "No tenant's estimates jump." : toDecide ? "Every leasing call is made." : sure === "assumed" ? "Nothing speculative — no renewals, holds or lease-ups assumed yet." : "Nothing contracted."}
               </td></tr>
             )}
             {rows.map(({ r, months }) => {
@@ -257,6 +292,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                   {gross && <Pill tone={TONE_BLUE}>GROSS</Pill>}
                 </span>
               );
+              const jump = jumps.get(r.unitRef + r.tenant);
               // A suite needing a call carries its DECIDE / decision pill,
               // which stands in for EXPIRES / HOLDOVER / LEASE-UP.
               const decision = call && leasing ? <DecisionPill call={call} owner={leasing.owner} onOpen={() => setOpenUnit(call.unitRef)} /> : null;
@@ -269,6 +305,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                           {nameCell}
                         </HoverCard>
                       )}
+                      {jump && <JumpMark j={jump} year={year} />}
                       {decision}
                     </span>
                   </td>

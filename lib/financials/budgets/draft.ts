@@ -129,6 +129,8 @@ export type BudgetDraft = {
   rentLineLabel?: string;
   /** The loans behind the debt-service lines (Debt Tracker), when any. */
   debt?: { loans: BudgetLoan[]; interest: number; principal: number };
+  /** Set by the route: notes left on the lines, keyed `section::label`. */
+  notes?: Record<string, { text: string; by: string; at: string }>;
   /** Set by the route: whether the viewer may type months into the grid. */
   canEditLines?: boolean;
   /** True when the current-year reprojection couldn't be loaded (no draft). */

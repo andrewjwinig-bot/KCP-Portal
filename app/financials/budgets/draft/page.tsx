@@ -16,6 +16,7 @@ import { useUser } from "@/app/components/UserProvider";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
+import { NoteDialog } from "./LineNote";
 
 import type { LeasingCall, SavePayload } from "./LeasingDecision";
 
@@ -49,6 +50,8 @@ export default function BudgetDraftPage() {
   const [key, setKey] = useState<string>("");
   const [year, setYear] = useState(thisYear + 1);
   const [draft, setDraft] = useState<BudgetDraft | null>(null);
+  // The line open in the note dialog.
+  const [noteLine, setNoteLine] = useState<{ section: string; label: string } | null>(null);
   const [missingBasis, setMissingBasis] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -133,6 +136,19 @@ export default function BudgetDraftPage() {
   // figure at once; the re-projected draft — subtotals, NOI, recoveries on a
   // CAM line — follows from the server.
   const [editError, setEditError] = useState<string | null>(null);
+  // Save (or, with "", remove) a line's note; the draft's notes update in place.
+  async function saveNote(section: string, label: string, text: string): Promise<string | null> {
+    if (!draft) return "No draft loaded.";
+    const r = await fetch("/api/financials/budgets/line-notes", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, section, label, text }),
+    }).catch(() => null);
+    const j = r ? await r.json().catch(() => ({})) : {};
+    if (!r || !r.ok) return j?.error ?? "Couldn't save the note.";
+    setDraft((d) => d && ({ ...d, notes: j.notes ?? {} }));
+    return null;
+  }
+
   async function editLine(sec: BudgetDraftSection, line: BudgetDraftSection["lines"][number], month: number | "all" | "accept", value: number | null, account?: string) {
     if (!draft) return;
     setEditError(null);
@@ -336,6 +352,8 @@ export default function BudgetDraftPage() {
           <BudgetStatementTable
             draft={draft}
             onEdit={draft.canEditLines ? editLine : undefined}
+            notes={draft.notes}
+            onNote={(sec, l) => setNoteLine({ section: sec.name, label: l.label })}
             badgeFor={(src) => sourceBadge(src, GROWTH)}
             onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases", forecast: l.basisTotal, budget: l.total })}
           />
@@ -400,6 +418,12 @@ export default function BudgetDraftPage() {
       {/* Always visible while you work the budget — the question "what is
           holding this up" is asked continuously in a room with four people in
           it, not once when the page loads. */}
+      {noteLine && draft && (
+        <NoteDialog label={noteLine.label} section={noteLine.section}
+          note={draft.notes?.[`${noteLine.section}::${noteLine.label}`]}
+          onSave={(t) => saveNote(noteLine.section, noteLine.label, t)}
+          onClose={() => setNoteLine(null)} />
+      )}
       {histLine && label && (
         <LineHistoryModal
           viewKey={key}

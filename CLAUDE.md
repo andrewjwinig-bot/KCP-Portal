@@ -1070,6 +1070,17 @@ time — and the team does not have time to open the GL over $80.
   and no email step: the owner sends it himself. The page itself is ONE
   component (`RentReviewView`) fed by a `ReviewApi`, so the signed-in page and
   the link cannot drift. Its list comes from `reviewOverview`.
+- **EVERY BUDGET LINE TAKES A NOTE** (`lineNoteStore.ts`, `budget-line-notes`,
+  keyed `section::label` per year + property; `POST
+  /api/financials/budgets/line-notes`, anyone signed in, stamped with who and
+  when; `LineNote.tsx`). The mark is invisible until the row is hovered while a
+  line has none, and solid brand once it has one — forty icons on a quiet grid
+  is the clutter the owner keeps removing. The draft route returns `notes`.
+- **A TENANT WHOSE ESTIMATES JUMP CARRIES AN AMBER ▲** (`estimateJump.ts`):
+  today's combined monthly CAM + INS + RET billing (rent roll) against the
+  budget's, flagged at +15% AND +$100/mo — both floors, like every other flag.
+  A tenant billed nothing today (new lease, lease-up, gross) is never flagged.
+  The hover is the bill by category; "▲ Estimates up · n" filters to them.
 - **Revenue by tenant reads like the Rent Roll**: TENANT first (600 weight,
   a vacancy in muted italics), then the SUITE as a bold brand-coloured code, a
   larger row font and rent-roll row height.
