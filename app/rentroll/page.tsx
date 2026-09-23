@@ -1762,31 +1762,11 @@ export default function RentRollPage() {
         )}
       </div>
 
-      {/* ── Unrecognized property codes — skipped rows, called out up top ──── */}
-      {rentroll?.unknownUnits && rentroll.unknownUnits.length > 0 && (
-        <div style={{ marginBottom: 24, padding: "12px 16px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.55)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#b91c1c", fontWeight: 800 }}>
-            <span style={{ fontSize: 20 }}>⚠️</span>
-            <span>
-              {rentroll.unknownUnits.length} unit{rentroll.unknownUnits.length === 1 ? "" : "s"} skipped on import — unrecognized property code
-              {new Set(rentroll.unknownUnits.map((u) => u.code)).size === 1 ? ` ${rentroll.unknownUnits[0].code}` : "s"}
-            </span>
-          </div>
-          <div className="small" style={{ marginTop: 6, color: "#7f1d1d" }}>
-            These rows are in the rent roll but their property code isn’t set up in the portal, so they’re counted <b>nowhere</b> (occupancy, CAM, revenue). Add the property (or fix the code in the roll) and re-import.
-          </div>
-          <ul style={{ margin: "8px 0 0", paddingLeft: 18, columns: 2, columnGap: 24 }}>
-            {rentroll.unknownUnits.slice(0, 40).map((u) => (
-              <li key={u.unitRef} className="small" style={{ breakInside: "avoid" }}>
-                <code style={{ fontSize: 12 }}>{u.unitRef}</code> {u.occupantName || "—"}{u.sqft ? ` · ${u.sqft.toLocaleString()} sf` : ""}
-              </li>
-            ))}
-          </ul>
-          {rentroll.unknownUnits.length > 40 && (
-            <div className="small muted" style={{ marginTop: 4 }}>… and {rentroll.unknownUnits.length - 40} more</div>
-          )}
-        </div>
-      )}
+      {/* The "units skipped — unrecognized property code" banner was removed
+          at the owner's request: those rows are entity/clearing and co-working
+          lines (2000-*, 4901-CIP*, 08xx pads) the portal deliberately does not
+          track, so the banner was permanent noise. `unknownUnits` is still
+          computed on import if it is ever needed again. */}
 
       {/* ── Import card ───────────────────────────────────────────────────── */}
       <div
