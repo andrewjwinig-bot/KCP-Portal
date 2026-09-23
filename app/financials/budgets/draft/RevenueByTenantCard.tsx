@@ -51,28 +51,49 @@ const STATUS: Record<TenantRevenueRow["status"], { text: string; tone: typeof TO
   "lease-up": { text: "LEASE-UP", tone: TONE_GREEN },
 };
 
-/** How a suite's recoveries were reached — its methodology, for the hover. */
-function methodTip(r: TenantRevenueRow, est: ReimbursementEstimate | undefined): TipRow[] {
-  const m = r.method;
+const yr = (a: number[]) => a.reduce((x, y) => x + (y || 0), 0);
+const SHORT: Record<Part, string> = { rent: "Rent", cam: "CAM", ins: "INS", ret: "RET" };
+
+/**
+ * The hover for one suite, scoped to the parts in view — filtered on RET it
+ * shows only RET: the figure, the RET share, the recon's RET, the tax pool's
+ * change. Gross shows everything. A methodology line that is about one part
+ * (admin fee, exclusions, cap — all CAM) appears only when that part is in view.
+ */
+function tenantTip(r: TenantRevenueRow, est: ReimbursementEstimate | undefined, parts: Part[], viewLabel: string): { rows: TipRow[]; footer: TipRow } {
   const rows: TipRow[] = [];
-  if (!est) return rows;
-  if (m?.kind === "retail") {
-    if (m.grossLease) rows.push({ label: "Lease", value: "Gross — pays no recoveries", color: "#b45309" });
-    rows.push({ label: "Share (PRS)", value: `CAM ${pct(m.camPrs)} · INS ${pct(m.insPrs)} · RET ${pct(m.retPrs)}` });
-    if (m.adminFeePct) rows.push({ label: "Admin fee", value: pct(m.adminFeePct) });
-    if (m.excludedLines) rows.push({ label: "Excluded CAM lines", value: String(m.excludedLines) });
-    if (m.capPct != null) rows.push({ label: "CAM cap", value: `${pct(m.capPct)} / yr on controllables` });
-    rows.push({ label: `${est.reconYear} recon due`, value: `CAM ${money0(m.recon.cam)} · INS ${money0(m.recon.ins)} · RET ${money0(m.recon.ret)}` });
-    if (m.reconOcc != null) rows.push({ label: "Part year in recon", value: `${Math.round(m.reconOcc * 100)}% — scaled to a full year`, color: "#b45309" });
-    rows.push({ label: "Pool change", value: `CAM ×${est.ratios.cam} · INS ×${est.ratios.ins} · RET ×${est.ratios.ret}` });
-  } else if (m?.kind === "office") {
-    rows.push({ label: "Pro-rata share", value: pct(m.proRataPct) });
-    rows.push({ label: "Base year", value: m.noBaseStop ? "None — pays the full share" : m.baseYear ? String(m.baseYear) : "—" });
-    rows.push({ label: `${est.reconYear} recon due`, value: `OpEx ${money0(m.recon.cam)} · RET ${money0(m.recon.ret)}` });
-  } else if (m?.kind === "leaseup" || m?.kind === "new") {
-    rows.push({ label: "Recoveries", value: m.kind === "new" && m.assumption === "base-year" ? `Base year ${est.budgetYear} — nothing until ${est.budgetYear + 1}` : `Assumed NNN, pro rata on ${m.sqft.toLocaleString("en-US")} SF` });
+  const rec = parts.filter((p) => p !== "rent") as Exclude<Part, "rent">[];
+  const join = (f: (p: Exclude<Part, "rent">) => string) => rec.map((p) => (rec.length > 1 ? `${SHORT[p]} ${f(p)}` : f(p))).join(" · ");
+  const m = r.method;
+
+  // The figures themselves — one line each when there is more than one; a
+  // single part's figure is the footer.
+  if (parts.length > 1) for (const p of parts) rows.push({ label: PART_LABEL[p], value: money0(yr(r[p])) });
+
+  if (rec.length && est) {
+    if (m?.kind === "retail") {
+      if (m.grossLease) rows.push({ label: "Lease", value: "Gross — pays no recoveries", color: "#b45309" });
+      const prs = { cam: m.camPrs, ins: m.insPrs, ret: m.retPrs };
+      rows.push({ label: "Share (PRS)", value: join((p) => pct(prs[p])) });
+      if (rec.includes("cam")) {
+        if (m.adminFeePct) rows.push({ label: "Admin fee", value: pct(m.adminFeePct) });
+        if (m.excludedLines) rows.push({ label: "Excluded CAM lines", value: String(m.excludedLines) });
+        if (m.capPct != null) rows.push({ label: "CAM cap", value: `${pct(m.capPct)} / yr on controllables` });
+      }
+      rows.push({ label: `${est.reconYear} recon due`, value: join((p) => money0(m.recon[p])) });
+      if (m.reconOcc != null) rows.push({ label: "Part year in recon", value: `${Math.round(m.reconOcc * 100)}% — scaled to a full year`, color: "#b45309" });
+      rows.push({ label: "Pool change", value: join((p) => `×${est.ratios[p]}`) });
+    } else if (m?.kind === "office") {
+      rows.push({ label: "Pro-rata share", value: pct(m.proRataPct) });
+      rows.push({ label: "Base year", value: m.noBaseStop ? "None — pays the full share" : m.baseYear ? String(m.baseYear) : "—" });
+      rows.push({ label: `${est.reconYear} recon due`, value: join((p) => money0(m.recon[p])) });
+    } else if (m?.kind === "leaseup" || m?.kind === "new") {
+      rows.push({ label: "Method", value: m.kind === "new" && m.assumption === "base-year" ? `Base year ${est.budgetYear} — nothing until ${est.budgetYear + 1}` : `Assumed NNN, pro rata on ${m.sqft.toLocaleString("en-US")} SF` });
+    }
   }
-  return rows;
+  if (r.note) rows.push({ label: "Note", value: r.note });
+  const total = parts.reduce((a, p) => a + yr(r[p]), 0);
+  return { rows, footer: { label: parts.length > 1 ? viewLabel : `${PART_LABEL[parts[0]]}, year`, value: money0(total) } };
 }
 
 export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, tie, rentLine, embedded = false }: {
@@ -162,9 +183,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
               const gross = r.method?.kind === "retail" && r.method.grossLease;
               const vacant = r.status === "vacant";
               const nothing = Math.abs(total) < 0.5;
-              const rentYr = r.rent.reduce((a, b) => a + b, 0);
-              const recYr = [...r.cam, ...r.ins, ...r.ret].reduce((a, b) => a + b, 0);
-              const tip = methodTip(r, est);
+              const tip = tenantTip(r, est, parts, view === "gross" ? "Gross" : VIEW_LABEL[view]);
               const nameCell = (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   <code style={{ fontSize: 12 }}>{r.unitRef}</code>
@@ -177,13 +196,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                 <tr key={r.unitRef + r.tenant} style={nothing ? { opacity: 0.55 } : undefined}>
                   <td style={{ ...td, textAlign: "left", minWidth: 250, whiteSpace: "normal" }}>
                     {vacant ? nameCell : (
-                      <HoverCard title={`${r.unitRef} · ${r.tenant || "—"}`} width={340}
-                        rows={[
-                          { label: "Base rent", value: money0(rentYr) },
-                          { label: "Recoveries", value: `${money0(recYr)}${office ? "" : `  (CAM ${money0(r.cam.reduce((a, b) => a + b, 0))} · INS ${money0(r.ins.reduce((a, b) => a + b, 0))} · RET ${money0(r.ret.reduce((a, b) => a + b, 0))})`}` },
-                          ...tip,
-                        ]}
-                        footer={r.note ? { label: "Note", value: r.note } : { label: "Gross", value: money0(rentYr + recYr) }}>
+                      <HoverCard title={`${r.unitRef} · ${r.tenant || "—"}`} width={340} rows={tip.rows} footer={tip.footer}>
                         {nameCell}
                       </HoverCard>
                     )}
