@@ -3,16 +3,30 @@ import { getRentReviews, setRentReview } from "@/lib/financials/budgets/rentRevi
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { canEdit } from "@/lib/financials/budgets/contributors";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
-import { USERS } from "@/lib/users";
+import { USERS, type UserId } from "@/lib/users";
+import { reviewOverview, REVIEW_GROUP } from "@/lib/financials/budgets/reviewOverview";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const maxDuration = 60;
 
-// GET ?year= → { reviews: { [propertyCode]: { by, at } } }
+// GET ?year=            → { reviews: { [propertyCode]: { by, at } } }
+// GET ?year=&group=SC|BP → also the review page's list for that group
 export async function GET(req: Request) {
-  const year = Number(new URL(req.url).searchParams.get("year"));
+  const url = new URL(req.url);
+  const year = Number(url.searchParams.get("year"));
   if (!year) return NextResponse.json({ error: "year required" }, { status: 400 });
+  const group = url.searchParams.get("group");
+  if (group === "SC" || group === "BP") {
+    const g = REVIEW_GROUP[group];
+    return NextResponse.json({
+      reviews: await getRentReviews(year),
+      group, title: g.title, year,
+      person: { id: g.owner, label: USERS[g.owner as UserId]?.label ?? g.owner.toUpperCase() },
+      properties: await reviewOverview(group, year),
+    });
+  }
   return NextResponse.json({ reviews: await getRentReviews(year) });
 }
 

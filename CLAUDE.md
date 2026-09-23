@@ -1039,6 +1039,24 @@ time — and the team does not have time to open the GL over $80.
   endpoint, so everything flows into the budget as it is made. It is NOT in
   the sidebar (owner's call) — it is reached by the link sent to Harry /
   Nancy and from the sign-off pill on the draft's revenue table.
+- **THE LINK HARRY / NANCY ARE SENT OPENS WITHOUT SIGNING IN**
+  (`/budget-review/[token]`, a landing page with the KORMAN band and NO portal
+  chrome — excluded in `middleware.ts` and `AppShell` like `/investor/`). The
+  token is signed by `lib/financials/budgets/reviewLink.ts`, DOMAIN-SEPARATED
+  (`kcp.budget.review.v1:`) from the tenant and K-1 signers so no other token
+  opens it (pinned by `reviewLink.test.ts`), and scoped to ONE person, ONE
+  group, ONE year. Every public route (`/api/budget-review/[token]/…`)
+  re-verifies it, refuses any property outside the group, and stamps decisions
+  and sign-offs with that person's name — the SAME `leasingDecisionFromBody`
+  the signed-in route uses. Drafts through the link are read-only
+  (`canEditLines: false`). Drew / admin mint, copy and revoke it from the
+  signed-in review page (`ShareLinkCard`, no PIN — the owner wanted no
+  sign-in); minting again reuses the live link. The page itself is ONE
+  component (`RentReviewView`) fed by a `ReviewApi`, so the signed-in page and
+  the link cannot drift. Its list comes from `reviewOverview`.
+- **Revenue by tenant reads like the Rent Roll**: TENANT first (600 weight,
+  a vacancy in muted italics), then the SUITE as a bold brand-coloured code, a
+  larger row font and rent-roll row height.
 - **Every leasing field the card keys is STORED** (`setLeasingAssumption`):
   `rentPsf`, `tiPsf`, `lcPct` were dropped on save for a while — a lease-up
   saved with no rent projected $0 and no TI/commission ever reached the budget.

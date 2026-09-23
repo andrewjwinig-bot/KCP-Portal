@@ -85,3 +85,45 @@ export async function setLeasingAssumption(
   }
   await storeJSON(PREFIX, idFor(budgetYear, propertyCode), doc);
 }
+
+
+/**
+ * A leasing decision as posted by the page, cleaned into what is stored — ONE
+ * implementation for the budget page's route and the Rent Roll Review link's.
+ * Returns the error to report when the body is not a decision.
+ *
+ * A start month is kept only for a VACANT space (an existing tenant's dates come
+ * from the lease). Rent is keyed as ANNUAL $/SF, with the derived monthly figure
+ * alongside. TI and the commission belong to a DEAL — a renewal, a lease-up, or
+ * a tenant held at today's rent for a new term.
+ */
+export function leasingDecisionFromBody(
+  b: Record<string, unknown> | null | undefined,
+  updatedBy: string,
+): { ok: true; decision: Omit<LeaseAssumption, "updatedAt" | "kind"> & { kind: LeaseAssumptionKind | null } } | { ok: false; error: string } {
+  const unitRef = String(b?.unitRef ?? "").trim();
+  if (!unitRef) return { ok: false, error: "unitRef required" };
+  const kind = (b?.kind ?? null) as LeaseAssumptionKind | null;
+  if (kind !== null && !["renew", "vacate", "leaseup", "hold"].includes(kind)) return { ok: false, error: "invalid kind" };
+  const num = (v: unknown) => (v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
+  const psf = (v: unknown) => { const n = num(v); return n != null && n >= 0 ? n : undefined; };
+  const startMonth = num(b?.startMonth) != null ? Math.min(12, Math.max(1, Number(b!.startMonth))) : undefined;
+  const termYears = num(b?.termYears) != null && Number(b!.termYears) > 0 ? Math.min(30, Number(b!.termYears)) : undefined;
+  const newRent = kind === "renew" || kind === "leaseup";
+  const deal = newRent || kind === "hold";
+  const lc = psf(b?.lcPct);
+  return {
+    ok: true,
+    decision: {
+      unitRef, kind,
+      monthlyRent: newRent ? num(b?.monthlyRent) : undefined,
+      startMonth: kind === "leaseup" ? startMonth : undefined,
+      termYears,
+      rentPsf: newRent ? psf(b?.rentPsf) : undefined,
+      tiPsf: deal ? psf(b?.tiPsf) : undefined,
+      lcPct: deal && lc != null && lc <= 100 ? lc : undefined,
+      notes: typeof b?.notes === "string" ? b.notes : undefined,
+      updatedBy,
+    },
+  };
+}
