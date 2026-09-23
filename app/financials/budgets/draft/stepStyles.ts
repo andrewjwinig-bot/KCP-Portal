@@ -13,3 +13,13 @@ export const STEP_LABEL: CSSProperties = {
   letterSpacing: "0.06em",
   color: "var(--text)",
 };
+
+/** A section INSIDE a step's card (Rent: "Vacancies & renewals", "Rent by
+ *  tenant") — a notch under the step heading. */
+export const SUB_LABEL: CSSProperties = {
+  fontSize: 12.5,
+  fontWeight: 800,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color: "var(--text)",
+};

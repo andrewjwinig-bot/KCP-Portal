@@ -194,7 +194,12 @@ export async function projectLeaseRevenue(
       const scheduled = e?.months ?? new Array(12).fill(0);
       const covered = scheduled.map((v) => Math.abs(v) > 0.005);
       const nCovered = covered.filter(Boolean).length;
-      const tenant = u?.occupantName || e?.tenant || "";
+      // A suite the roll marks vacant is a VACANCY, whatever it is "named" —
+      // the roll writes "Vacant" / "*** VACANT ***" into the tenant field, and
+      // reading that as a tenant put empty suites on the expiring list.
+      const isVacantName = (n: string) => !n.trim() || /vacant/i.test(n);
+      const rollVacant = !!u && (u.isVacant || isVacantName(u.occupantName || ""));
+      const tenant = rollVacant ? "" : (u?.occupantName || (e && !isVacantName(e.tenant) ? e.tenant : "") || "");
 
       if (nCovered === 0 && !tenant) {
         // Vacant — rent only from a lease-up.
@@ -303,7 +308,9 @@ export async function projectLeaseRevenue(
   vacant.sort((a, b) => b.sqft - a.sqft);
   return {
     fromSchedule: usedSchedule,
-    rows: rows.map((r) => ({ ...r, months: r.months.map(r0) })).sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true })),
+    // Rows carry cents; the card rounds for display, so its totals sum the same
+    // figures the rent line does (rounding each suite first drifted by dollars).
+    rows: rows.map((r) => ({ ...r, months: r.months.map((v) => Math.round(v * 100) / 100) })).sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true })),
     rentalMonthly: rentalMonthly.map(r0),
     rentalTotal: r0(rentalMonthly.reduce((s, n) => s + n, 0)),
     tiMonthly: tiMonthly.map(r0),
