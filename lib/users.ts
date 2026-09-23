@@ -315,6 +315,10 @@ export function isPathAllowed(userId: UserId, pathname: string): boolean {
   if (u.allowedPathPrefixes.includes("*")) return true;
   // Always allow the login page so users can re-auth
   if (pathname === "/history/login") return true;
+  // The report center's landing page is open to everyone: it only LISTS
+  // reports, filtered to the ones this person can reach. Exact path only —
+  // /reports/monthly and anything else under it keeps its own gate.
+  if (pathname === "/reports") return true;
   return u.allowedPathPrefixes.some((p) => {
     if (p === "/") return pathname === "/";
     return pathname === p || pathname.startsWith(p + "/");
