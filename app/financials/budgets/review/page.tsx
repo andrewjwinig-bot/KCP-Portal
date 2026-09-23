@@ -41,7 +41,7 @@ function RentReview() {
 
   const staff = user.id === "drew" || user.id === "admin";
   return (
-    <main style={{ maxWidth: 1360, width: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
+    <main style={{ maxWidth: "none", width: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
       {staff && <SendLink group={group} year={year} />}
       <RentReviewView api={api} />
     </main>
