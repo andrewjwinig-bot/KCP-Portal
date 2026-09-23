@@ -187,7 +187,6 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                         {nameCell}
                       </HoverCard>
                     )}
-                    {r.note && !vacant && <div className="muted" style={{ fontSize: 11.5 }}>{r.note}</div>}
                   </td>
                   {months.map((v, i) => {
                     const has = Math.abs(v) > 0.5;
