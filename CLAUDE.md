@@ -1036,8 +1036,9 @@ time — and the team does not have time to open the GL over $80.
   changed afterwards reads **CHANGED SINCE CONFIRMED** rather than keeping the
   tick. The budget draft shows the same status on the property's revenue table
   and links to the review. Decisions save through the SAME leasing-assumptions
-  endpoint, so everything flows into the budget as it is made. In the sidebar
-  it is a Budgets sub-page ("Rent Roll Review").
+  endpoint, so everything flows into the budget as it is made. It is NOT in
+  the sidebar (owner's call) — it is reached by the link sent to Harry /
+  Nancy and from the sign-off pill on the draft's revenue table.
 - **Every leasing field the card keys is STORED** (`setLeasingAssumption`):
   `rentPsf`, `tiPsf`, `lcPct` were dropped on save for a while — a lease-up
   saved with no rent projected $0 and no TI/commission ever reached the budget.

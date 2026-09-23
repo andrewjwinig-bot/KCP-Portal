@@ -50,7 +50,6 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Reprojections":      "financials-statements",
   "Budgets":            "financials-budgets",
   "Budget Draft":       "financials-budgets",
-  "Rent Roll Review":   "financials-budgets",
   // Its own key: Greg keys building maintenance here and sees nothing else of
   // the budget — the Budgets pages stay closed to him.
   "Budget Inputs":      "budget-inputs",
@@ -74,7 +73,7 @@ const GROUP_CHILD_ORDER: Record<string, string[]> = {
     "Cash Analysis",
     "Operating Statements", "Flags to Investigate",
     "Reprojections",
-    "Budgets", "Budget Draft", "Rent Roll Review", "Budget Inputs",
+    "Budgets", "Budget Draft", "Budget Inputs",
     "Management Fees",
   ],
 };
@@ -710,22 +709,6 @@ const NAV = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M12 20h9" />
         <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-      </svg>
-    ),
-  },
-  {
-    // Harry's (shopping centres) and Nancy's (business parks) sign-off page:
-    // every property's rent and leasing calls, confirmed one by one.
-    label: "Rent Roll Review",
-    href: "/financials/budgets/review",
-    external: false,
-    indent: true,
-    showFor: "/financials/budgets" as string | null,
-    groupId: "financials",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M9 11l3 3 8-8" />
-        <path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9" />
       </svg>
     ),
   },
