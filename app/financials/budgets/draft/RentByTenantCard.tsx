@@ -14,6 +14,7 @@
 import { useState } from "react";
 import { Pill, TONE_AMBER, TONE_NEUTRAL, TONE_GREEN } from "@/app/components/Pill";
 import type { RentRow } from "@/lib/financials/budgets/leaseRevenue";
+import { STEP_LABEL } from "./stepStyles";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const money0 = (n: number) => (n < 0 ? "-" : "") + Math.abs(Math.round(n)).toLocaleString("en-US");
@@ -60,7 +61,7 @@ export function RentByTenantCard({ rows: allRows, year, fromSchedule }: { rows: 
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
         <div>
-          <div style={secLabel}>Rent by tenant — {year}</div>
+          <div style={STEP_LABEL}>Rent by tenant — {year}</div>
           <div className="muted small" style={{ marginTop: 2 }}>
             {fromSchedule ? "From the rent schedule, plus the leasing decisions above." : "From today's rent roll (import the rent schedule for contracted steps), plus the leasing decisions above."}
           </div>
