@@ -5,7 +5,6 @@ import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_RE
 import { BudgetStatementTable } from "./BudgetStatementTable";
 import { RevenueByTenantCard } from "./RevenueByTenantCard";
 import { STEP_LABEL } from "./stepStyles";
-import { ExpenseInputsPanel } from "@/app/budget-inputs/ExpenseInputsPanel";
 import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
 import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
@@ -133,9 +132,49 @@ export default function BudgetDraftPage() {
   // figure at once; the re-projected draft — subtotals, NOI, recoveries on a
   // CAM line — follows from the server.
   const [editError, setEditError] = useState<string | null>(null);
-  async function editLine(sec: BudgetDraftSection, line: BudgetDraftSection["lines"][number], month: number | "all", value: number | null, account?: string) {
+  async function editLine(sec: BudgetDraftSection, line: BudgetDraftSection["lines"][number], month: number | "all" | "accept", value: number | null, account?: string) {
     if (!draft) return;
     setEditError(null);
+    // TAXES, INSURANCE AND BUILDING MAINTENANCE are keyed into the Budget
+    // Inputs store — the same figures Greg keys on his page — never into the
+    // grid's typed months. A kind can sit on more than one line, so the save is
+    // the KIND's months: every line carrying it, with this edit applied.
+    if (line.inputKind) {
+      const kind = line.inputKind;
+      const lines = draft.sections.flatMap((x) => x.lines.filter((l) => l.inputKind === kind));
+      const kindMonths = new Array(12).fill(0);
+      for (const l of lines) l.months.forEach((v, i) => { kindMonths[i] += v || 0; });
+      let body: Record<string, unknown>;
+      if (month === "accept") body = { months: kindMonths };
+      else if (month === "all" && value == null) body = { clear: true };
+      else if (month === "all") body = { annual: Math.round(value! + lines.filter((l) => l !== line).reduce((a, l) => a + l.total, 0)) };
+      else {
+        kindMonths[month] += Math.round(value ?? 0) - (line.months[month] || 0);
+        body = { months: kindMonths.map((v) => Math.max(0, Math.round(v))) };
+        setDraft((d) => d && ({
+          ...d,
+          sections: d.sections.map((x) => x.name !== sec.name ? x : {
+            ...x,
+            lines: x.lines.map((l) => {
+              if (l.label !== line.label) return l;
+              const months = l.months.slice(); months[month] = Math.round(value ?? 0);
+              return { ...l, months, total: months.reduce((a, b) => a + b, 0) };
+            }),
+          }),
+        }));
+      }
+      const r = await fetch("/api/budget-inputs", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, kind, ...body }),
+      }).catch(() => null);
+      if (!r || !r.ok) {
+        const j = r ? await r.json().catch(() => ({})) : {};
+        setEditError(j?.error ?? "Couldn't save that figure.");
+      }
+      setRefreshTick((n) => n + 1);
+      return;
+    }
+    if (month === "accept") return;
     if (typeof month === "number" && value != null && account) {
       // A sub-line: set its month, and the line (their sum) moves with it.
       setDraft((d) => d && ({
@@ -284,22 +323,16 @@ export default function BudgetDraftPage() {
           {/* The budget reads like the full-year operating statement it will
               be measured against: every month in its own column, revenue
               filled month by month from the leases and the recovery estimate. */}
-          {/* STEP 3 — taxes, insurance and building maintenance, keyed right
-              here by their owners (the same table Greg uses on his page). */}
-          <div id="step-expenses" className="card" style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
-              <div style={STEP_LABEL}>Step 2 · Expenses — {draft.budgetYear}</div>
+          {/* STEP 2 — the budget itself, every month in its own column. The
+              keyed expenses (taxes and insurance — Drew; building maintenance —
+              Greg) are typed right here too, into the Budget Inputs store. */}
+          <div id="step-expenses" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={STEP_LABEL}>Step 2 · Expenses &amp; review — the {draft.budgetYear} budget</div>
               <Pill tone={contributorTone("drew")}>DREW · TAXES &amp; INSURANCE</Pill>
               <Pill tone={contributorTone("greg")}>GREG · MAINTENANCE</Pill>
             </div>
-            <ExpenseInputsPanel embedded year={draft.budgetYear} bookId={bookId} only={draft.propertyCode}
-              onSaved={() => setRefreshTick((n) => n + 1)} />
-          </div>
-
-
-          {/* STEP 5 — the budget itself, every month in its own column. */}
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
-            <div style={STEP_LABEL}>Step 3 · Review &amp; finalize — the {draft.budgetYear} budget</div>
+            <span className="muted small">Click any month or the Budget total to type it · <b>Accept</b> keeps a keyed line as shown</span>
           </div>
           <div className="pills">
             <StatPill label="Total Revenue" value={money0(draft.rollups.totalRevenues.total)} sub={draft.leasing ? `${draft.leasing.inPlaceUnits} in-place leases` : "reproj placeholder"} />

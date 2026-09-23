@@ -84,7 +84,7 @@ function CellInput({ initial, onDone }: { initial: number; onDone: (v: number | 
   );
 }
 
-function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle }: {
+function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept }: {
   label: string; months: number[]; total: number; basis: number | null; variant?: Variant;
   badge?: { tone: PillTone; text: string }; onLabel?: () => void;
   /** Revenue-like: up is good. Expense-like: down is good. */
@@ -97,6 +97,9 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   badgeHref?: string;
   /** A line with sub-lines carries a disclosure to open them. */
   toggle?: { open: boolean; onToggle: () => void };
+  /** A keyed input (taxes, insurance, building maintenance) not yet entered:
+   *  keep the figure as shown and mark it entered, in one click. */
+  onAccept?: () => void;
 }) {
   const sub = variant === "sub";
   const bold = variant !== "line" && !sub;
@@ -149,10 +152,14 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
         {!toggle && variant === "line" && <span style={{ width: 14 }} />}
         {onLabel ? (
           <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
-            style={{ cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: 3 }}>{label}</span>
+            className="os-line-name" style={{ cursor: "pointer" }}>{label}</span>
         ) : label}
-        {(badge || (onReset && typed?.some(Boolean))) && (
+        {(badge || onAccept || (onReset && typed?.some(Boolean))) && (
           <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto" }}>
+            {onAccept && (
+              <button type="button" onClick={onAccept} className="btn" aria-label={`Accept ${label} as shown`}
+                style={{ fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>Accept</button>
+            )}
             {badge && (badgeHref ? <a href={badgeHref} style={{ textDecoration: "none" }}><Pill tone={badge.tone}>{badge.text} →</Pill></a> : <Pill tone={badge.tone}>{badge.text}</Pill>)}
             {onReset && typed?.some(Boolean) && (
               <button type="button" onClick={onReset} title="Reset typed months" aria-label="Reset typed months"
@@ -178,7 +185,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
   onLine: (sec: BudgetDraftSection, line: Line) => void;
   /** Present when the viewer may type months; month "all" = an annual spread
    *  evenly; `account` types one sub-line (a GL account) of the line. */
-  onEdit?: (sec: BudgetDraftSection, line: Line, month: number | "all", value: number | null, account?: string) => void;
+  onEdit?: (sec: BudgetDraftSection, line: Line, month: number | "all" | "accept", value: number | null, account?: string) => void;
 }) {
   const [edit, setEdit] = useState<EditAt>(null);
   // Lines opened to their sub-lines. Closed by default, so the statement reads
@@ -221,14 +228,21 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
         // A recovery line IS Step 3 — each tenant's share under their CAM
         // methodology — so it is changed there, never typed over here.
         // Rent (and the deals' TI / commissions) likewise IS Step 1.
-        const locked = !!l.inputKind || l.source === "cam-estimate" || l.source === "leases";
+        // Taxes, insurance and building maintenance ARE typeable here — they
+        // save to the Budget Inputs store (the same figures Greg keys on his
+        // page), so the grid and his page cannot disagree.
+        const locked = l.source === "cam-estimate" || l.source === "leases";
         const typeable = !!onEdit && !locked && !viaSubs;
+        const keyed = !!l.inputKind;
+        const entered = keyed && l.source === "entered";
         const isOpen = open.has(key);
         return (
           <Fragment key={l.label + l.mask}>
             <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
-              badge={badgeFor(l.source)} badgeHref={l.inputKind ? "#step-expenses" : l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
-              onLabel={() => onLine(sec, l)} favorableUp={favorableUp} typed={viaSubs ? undefined : l.typed}
+              badge={badgeFor(l.source)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
+              onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
+              typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
+              onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
               rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
               onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
               onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}

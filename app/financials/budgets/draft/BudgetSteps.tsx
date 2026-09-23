@@ -66,17 +66,13 @@ function buildSteps(items: Contribution[], hasSchedule: boolean): Step[] {
       note: !hasSchedule ? "Import the rent schedule — the list is off the rent roll until then." : undefined,
     },
     {
-      id: "expenses", title: "Expenses", who: "Greg · Drew", kinds: ["ret", "insurance", "building-maintenance"],
+      // Expenses and the review are ONE step: taxes, insurance and building
+      // maintenance are keyed in the budget grid itself, so the step is done
+      // when they are. It runs in parallel with Revenues by design.
+      id: "expenses", title: "Expenses & review", who: "Drew · Greg", kinds: ["ret", "insurance", "building-maintenance"],
       href: "#step-expenses",
       ...expenses,
-      // Deliberately NOT blocked by the schedule — this half runs in parallel,
-      // which is the point of splitting the work by person.
-      state: expenses.total === 0 ? "waiting" : expenses.done === expenses.total ? "done" : "active",
-    },
-    {
-      id: "review", title: "Review & finalize", who: "Drew", kinds: [],
-      done: 0, total: 0,
-      state: allDone ? "active" : "waiting",
+      state: expenses.total === 0 ? (allDone ? "active" : "waiting") : expenses.done === expenses.total ? "done" : "active",
     },
   ];
 }

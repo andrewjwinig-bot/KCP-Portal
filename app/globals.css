@@ -979,3 +979,7 @@ input.kcp-input,
    until you are over it; an underline on hover is what says it is clickable. */
 .row-link:hover { text-decoration: underline !important; }
 .row-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 3px; }
+
+/* Budget grid line names: clickable (opens the line's history) without a
+   dotted underline on every row — it only appears on hover. */
+.os-line-name:hover { text-decoration: underline; text-underline-offset: 3px; }
