@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { setLeasingAssumption, getLeasingAssumptions, type LeaseAssumptionKind } from "@/lib/financials/budgets/leasingAssumptions";
+import { setLeasingAssumption, getLeasingAssumptions, leasingDecisionFromBody, type LeaseAssumptionKind } from "@/lib/financials/budgets/leasingAssumptions";
 import { budgetUser as currentUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -42,26 +42,9 @@ export async function POST(req: Request) {
     if (!canEdit(user, kind === "leaseup" ? "vacancy" : "renewal", def?.allocGroup)) {
       return NextResponse.json({ error: "These assumptions belong to someone else." }, { status: 403 });
     }
-    const startMonth = b?.startMonth != null ? Math.min(12, Math.max(1, Number(b.startMonth))) : undefined;
-    const monthlyRent = b?.monthlyRent != null && b.monthlyRent !== "" ? Number(b.monthlyRent) : undefined;
-    // A start month is an assumption only for a VACANT space; an existing
-    // tenant's dates come from the lease (see leaseRevenue), so it is not kept.
-    const keepStart = kind === "leaseup" ? startMonth : undefined;
-    const termYears = b?.termYears != null && b.termYears !== "" && Number(b.termYears) > 0 ? Math.min(30, Number(b.termYears)) : undefined;
-    // Rent is keyed as ANNUAL $/SF; the monthly figure the projection reads is
-    // derived from it by the page (× SF ÷ 12) and sent alongside. TI and the
-    // commission belong to a DEAL — a renewal, a lease-up, or a tenant held at
-    // today's rent for a new term (who can still be given TI and a broker paid).
-    const psf = (v: unknown) => (v != null && v !== "" && Number.isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : undefined);
-    const newRent = kind === "renew" || kind === "leaseup";
-    const deal = newRent || kind === "hold";
-    await setLeasingAssumption(year, propertyCode, {
-      unitRef, kind, monthlyRent: newRent ? monthlyRent : undefined, startMonth: keepStart, termYears,
-      rentPsf: newRent ? psf(b?.rentPsf) : undefined,
-      tiPsf: deal ? psf(b?.tiPsf) : undefined,
-      lcPct: deal && psf(b?.lcPct) != null && Number(b.lcPct) <= 100 ? Number(b.lcPct) : undefined,
-      notes: b?.notes, updatedBy: USERS[user]?.label ?? user,
-    });
+    const parsed = leasingDecisionFromBody(b, USERS[user]?.label ?? user);
+    if ("error" in parsed) return NextResponse.json({ error: parsed.error }, { status: 400 });
+    await setLeasingAssumption(year, propertyCode, parsed.decision);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "failed" }, { status: 500 });

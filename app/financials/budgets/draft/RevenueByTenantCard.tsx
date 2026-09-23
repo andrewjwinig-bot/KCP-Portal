@@ -29,7 +29,9 @@ const money0 = (n: number) => (n < 0 ? "-" : "") + Math.abs(Math.round(n)).toLoc
 const pct = (n: number) => `${(+n).toFixed(2).replace(/\.?0+$/, "")}%`;
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "right", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
-const td: React.CSSProperties = { padding: "5px 8px", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
+const td: React.CSSProperties = { padding: "9px 8px", fontSize: 13.5, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
+/** The suite, as the Rent Roll writes it — a bold brand-coloured code. */
+const SUITE: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" };
 const CONTRACTED_BG = "rgba(22,163,74,0.22)";
 const ASSUMED_BG = "rgba(22,163,74,0.07)";
 const TOTAL_BORDER = "2px solid rgba(11,74,125,0.3)";
@@ -174,7 +176,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
 
   const totalRow = (label: React.ReactNode, months: number[], strong: boolean, key: string, top = false) => (
     <tr key={key} style={{ background: strong ? "rgba(11,74,125,0.06)" : undefined }}>
-      <td style={{ ...td, textAlign: "left", fontWeight: strong ? 800 : 600, borderTop: top ? TOTAL_BORDER : undefined }}>{label}</td>
+      <td colSpan={2} style={{ ...td, textAlign: "left", fontWeight: strong ? 800 : 600, borderTop: top ? TOTAL_BORDER : undefined }}>{label}</td>
       {months.map((v, i) => <td key={i} style={{ ...td, fontWeight: strong ? 800 : 600, borderTop: top ? TOTAL_BORDER : undefined }}>{money0(v)}</td>)}
       <td style={{ ...td, fontWeight: strong ? 900 : 700, borderTop: top ? TOTAL_BORDER : undefined, borderLeft: "1px solid var(--border)" }}>{money0(months.reduce((a, b) => a + b, 0))}</td>
     </tr>
@@ -226,14 +228,15 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
           <thead>
             <tr>
-              <th style={{ ...th, textAlign: "left" }}>Suite · Tenant — {view === "gross" ? "rent + recoveries" : VIEW_LABEL[view].toLowerCase()}</th>
+              <th style={{ ...th, textAlign: "left" }}>Tenant — {view === "gross" ? "rent + recoveries" : VIEW_LABEL[view].toLowerCase()}</th>
+              <th style={{ ...th, textAlign: "left" }}>Suite</th>
               {MONTHS.map((m) => <th key={m} style={th}>{m} {yy}</th>)}
               <th style={{ ...th, borderLeft: "1px solid var(--border)" }}>Total</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={14} className="muted small" style={{ ...td, textAlign: "left", padding: 14 }}>
+              <tr><td colSpan={15} className="muted small" style={{ ...td, textAlign: "left", padding: 14 }}>
                 {toDecide ? "Every leasing call is made." : sure === "assumed" ? "Nothing speculative — no renewals, holds or lease-ups assumed yet." : "Nothing contracted."}
               </td></tr>
             )}
@@ -245,10 +248,13 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
               const nothing = Math.abs(total) < 0.5;
               const tip = tenantTip(r, est, parts, view === "gross" ? "Gross" : VIEW_LABEL[view]);
               const call = leasing ? callOf.get(canonRef(r.unitRef)) : undefined;
+              // As the Rent Roll writes a tenant: the name in 600, a vacancy in
+              // muted italics.
               const nameCell = (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  <code style={{ fontSize: 12 }}>{r.unitRef}</code>
-                  <span style={{ fontWeight: 600, color: vacant ? "var(--muted)" : "var(--text)" }}>{vacant || !r.tenant ? "Vacant" : r.tenant}</span>
+                  {vacant || !r.tenant
+                    ? <em style={{ color: "var(--muted)", fontSize: 14.5 }}>Vacant</em>
+                    : <span style={{ fontWeight: 600, fontSize: 14.5, color: "var(--text)" }}>{r.tenant}</span>}
                   {!call && st && <Pill tone={st.tone}>{st.text}</Pill>}
                   {gross && <Pill tone={TONE_BLUE}>GROSS</Pill>}
                 </span>
@@ -258,16 +264,17 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
               const decision = call && leasing ? <DecisionPill call={call} owner={leasing.owner} onOpen={() => setOpenUnit(call.unitRef)} /> : null;
               return (
                 <tr key={r.unitRef + r.tenant} style={nothing ? { opacity: 0.55 } : undefined}>
-                  <td style={{ ...td, textAlign: "left", minWidth: 250, whiteSpace: "normal" }}>
+                  <td style={{ ...td, textAlign: "left", minWidth: 230, whiteSpace: "normal" }}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      {vacant ? nameCell : (
-                        <HoverCard title={`${r.unitRef} · ${r.tenant || "—"}`} width={420} rows={tip.rows} footer={tip.footer}>
+                      {vacant || !r.tenant ? nameCell : (
+                        <HoverCard title={`${r.tenant || "—"} · ${r.unitRef}`} width={420} rows={tip.rows} footer={tip.footer}>
                           {nameCell}
                         </HoverCard>
                       )}
                       {decision}
                     </span>
                   </td>
+                  <td style={{ ...td, textAlign: "left" }}><code style={SUITE}>{r.unitRef}</code></td>
                   {months.map((v, i) => {
                     const has = Math.abs(v) > 0.5;
                     return (
@@ -292,7 +299,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                   const t = p === "rent" ? null : tie.find((x) => x.basis === p);
                   if (!t || t.ties || sure !== "all") return null;
                   return (
-                    <tr><td colSpan={14} style={{ ...td, textAlign: "left", paddingLeft: 22, color: "#b91c1c", fontWeight: 600 }}>
+                    <tr><td colSpan={15} style={{ ...td, textAlign: "left", paddingLeft: 22, color: "#b91c1c", fontWeight: 600 }}>
                       {t.lines.length === 0
                         ? `This statement has no ${PART_LABEL[p]} recovery line, so ${money0(t.estimateTotal)} of tenant recoveries is not in the budget. Add the line to the property's statement mapping.`
                         : `The budget lines carry ${money0(t.linesTotal)} against ${money0(t.estimateTotal)} from the tenants — a difference of ${money0(t.linesTotal - t.estimateTotal)}.`}
