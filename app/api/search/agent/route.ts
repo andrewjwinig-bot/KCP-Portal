@@ -11,7 +11,7 @@ import { listLoans } from "@/lib/debt/storage";
 import { summarizeLoan } from "@/lib/debt/amortization";
 import { listDeposits } from "@/lib/deposits/storage";
 import { getAssistantPrefs } from "@/lib/assistant/preferences";
-import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
+import { monthlyStatements } from "@/lib/financials/operating-statements/mappingStore";
 import { listFullGls, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import type { StatementMapping } from "@/lib/financials/operating-statements/types";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
@@ -408,7 +408,7 @@ type StmtInputs = {
   byKeyYear: Map<string, StoredGl[]>; // key -> `${glKey}::${year}`
 };
 async function loadStatementInputs(): Promise<StmtInputs> {
-  const [mappings, fulls] = await Promise.all([availableStatements(), listFullGls()]);
+  const [mappings, fulls] = await Promise.all([monthlyStatements(), listFullGls()]);
   const byKeyYear = new Map<string, StoredGl[]>();
   for (const g of fulls) {
     const k = `${g.key}::${g.year}`;

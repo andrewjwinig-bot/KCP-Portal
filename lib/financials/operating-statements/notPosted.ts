@@ -1,5 +1,5 @@
 import "server-only";
-import { availableStatements, getMapping } from "./mappingStore";
+import { monthlyStatements, getMapping } from "./mappingStore";
 import { listFullGls } from "./statementStore";
 import { assembleGls } from "./glAssemble";
 import { summaryForPeriod } from "./glParser";
@@ -67,7 +67,7 @@ export function significantNotPosted(items: NotPostedItem[]): NotPostedItem[] {
  * scan to one property (used by the on-import summary).
  */
 export async function collectNotPosted(year: number, key?: string): Promise<NotPostedSummary> {
-  const [mappings, fulls] = await Promise.all([availableStatements(), listFullGls()]);
+  const [mappings, fulls] = await Promise.all([monthlyStatements(), listFullGls()]);
   const targets = key ? mappings.filter((m) => m.key === key) : mappings;
   const items: NotPostedItem[] = [];
   const propsWith = new Set<string>();

@@ -5,7 +5,7 @@
 // older than the prior calendar month.
 
 import "server-only";
-import { availableStatements } from "./mappingStore";
+import { monthlyStatements } from "./mappingStore";
 import { listFullGls, type StoredGl } from "./statementStore";
 import { assembleGls, postedThrough } from "./glAssemble";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -31,7 +31,7 @@ export async function outstandingGlUploads(now = new Date()): Promise<{
   behind: OutstandingGl[];
 }> {
   const expected = expectedPostedThrough(now);
-  const [mappings, fulls] = await Promise.all([availableStatements(), listFullGls()]);
+  const [mappings, fulls] = await Promise.all([monthlyStatements(), listFullGls()]);
 
   const byKeyYear = new Map<string, Map<number, StoredGl[]>>();
   for (const g of fulls) {

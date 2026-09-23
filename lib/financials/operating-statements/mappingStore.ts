@@ -42,6 +42,22 @@ export async function getMapping(key: string): Promise<StatementMapping | null> 
 }
 
 /** Dropdown list of every property/fund that has a statement mapping. */
+/**
+ * Mappings kept for other pages but NOT run as monthly operating statements,
+ * so nothing asks for their GL each month. Korman Homes (PHOMES) is a rollup
+ * of the residential properties, which carry their own statements; the owner
+ * does not import it monthly. Its mapping stays (Cash Analysis, Budgets and
+ * the Skyline month-end consolidation still use PHOMES).
+ */
+export const NOT_IMPORTED_MONTHLY = new Set(["KORMAN HOMES"]);
+
+/** The operating statements run each month: every mapping except the ones
+ *  above. The statement picker, the "GL uploads behind" reminders, Flags to
+ *  Investigate, the not-posted alerts and Reprojections all read this. */
+export async function monthlyStatements(): Promise<{ key: string; propertyCode: string; entityName: string }[]> {
+  return (await availableStatements()).filter((m) => !NOT_IMPORTED_MONTHLY.has(m.key));
+}
+
 export async function availableStatements(): Promise<
   { key: string; propertyCode: string; entityName: string }[]
 > {

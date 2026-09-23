@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
 import { buildReprojGroupXlsx } from "@/lib/financials/reprojections/reprojExport";
-import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
+import { monthlyStatements } from "@/lib/financials/operating-statements/mappingStore";
 import { rentRollGroupFor, RENTROLL_GROUP_ORDER } from "@/lib/financials/operating-statements/propertyGroups";
 
 export const runtime = "nodejs";
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: `Unknown group "${group}"` }, { status: 400 });
     }
 
-    const mappings = (await availableStatements())
+    const mappings = (await monthlyStatements())
       .filter((m) => rentRollGroupFor(m.propertyCode) === group)
       .sort((a, b) => a.propertyCode.localeCompare(b.propertyCode));
     if (mappings.length === 0) {
