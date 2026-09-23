@@ -136,7 +136,6 @@ export type LeasingProps = {
 };
 
 const canonRef = (s: string) => String(s ?? "").trim().toUpperCase().replace(/-CU$/, "");
-const stampShort = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, tie, rentLine, embedded = false, leasing }: {
   rows: TenantRevenueRow[]; year: number; fromSchedule: boolean;
@@ -152,8 +151,6 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const callOf = new Map((leasing?.calls ?? []).map((c) => [canonRef(c.unitRef), c]));
   const calls = leasing?.calls ?? [];
   const decided = calls.filter((c) => c.assumption);
-  const allDecided = calls.length > 0 && decided.length === calls.length;
-  const last = decided.reduce<LeasingCall | null>((m, c) => (!m || (c.assumption?.updatedAt ?? "") > (m.assumption?.updatedAt ?? "") ? c : m), null);
   const openCall = openUnit ? callOf.get(canonRef(openUnit)) : undefined;
   const yy = String(year).slice(2);
   const office = est?.kind === "office";
@@ -195,22 +192,19 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <div style={embedded ? SUB_LABEL : STEP_LABEL}>Revenue by tenant — {year}</div>
-            {tie.length > 0 && (
+            {/* Only the EXCEPTION is marked: when every category ties there is
+                nothing to say (and the red row under the totals names a gap). */}
+            {!allTie && (
               <HoverCard title="Tenants → the budget lines" width={320}
                 rows={tie.map((t) => ({
                   label: PART_LABEL[t.basis],
                   value: t.lines.length ? `${money0(t.estimateTotal)} → ${money0(t.linesTotal)}` : `${money0(t.estimateTotal)} → no line`,
                   color: t.ties ? "#15803d" : "#b91c1c",
                 }))}
-                footer={{ label: "Every month", value: allTie ? "Ties to the dollar" : "See the rows below" }}>
-                <Pill tone={tiesTone(allTie)}>{allTie ? "TIES TO THE BUDGET" : "DOESN'T TIE"}</Pill>
+                footer={{ label: "Every month", value: "See the rows below" }}>
+                <Pill tone={tiesTone(false)}>DOESN&rsquo;T TIE</Pill>
               </HoverCard>
             )}
-            {leasing && calls.length > 0 && (allDecided ? (
-              <Pill tone={TONE_GREEN}>✓ {calls.length} CALLS DECIDED{last?.assumption?.updatedBy ? ` BY ${last.assumption.updatedBy.toUpperCase()}` : ""}{last?.assumption?.updatedAt ? ` · ${stampShort(last.assumption.updatedAt).toUpperCase()}` : ""}</Pill>
-            ) : (
-              <Pill tone={contributorTone(leasing.owner.id)}>{leasing.owner.label.toUpperCase()}: {decided.length} OF {calls.length} DECIDED</Pill>
-            ))}
             {leasing?.headerExtra}
           </div>
           <div className="muted small" style={{ marginTop: 2 }}>
