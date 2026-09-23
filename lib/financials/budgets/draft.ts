@@ -25,6 +25,7 @@ import { getLineOverrides } from "./lineOverrideStore";
 import { getInPlaceRevenue } from "./inPlaceStore";
 import { lineKey, mergeMonths, type LineOverrides } from "./lineOverrides";
 import { ownerFor } from "./contributors";
+import { bucketsFor } from "./lineBuckets";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 /** The revenue line the lease projection replaces — base/rental income. */
@@ -65,7 +66,11 @@ export type BudgetDraftLine = {
 };
 
 export type BudgetSubLine = {
+  /** The GL account — or, on a bucketed line, the BUCKET name. */
   account: string;
+  /** Set on a budget bucket (`lineBuckets.ts`): "base" carries the line's own
+   *  figure and is typed as the line; "extra" adds to it. */
+  bucket?: "base" | "extra";
   name?: string;
   months: number[];
   total: number;
@@ -256,8 +261,11 @@ function addInto(acc: number[], add: number[]) {
  *  lease, a keyed input) is split across its accounts in proportion, for
  *  reading only. */
 function withSubLines(
-  line: BudgetDraftLine, accounts: ReprojLine["accounts"], names: Record<string, string>, factor: number | null,
+  line: BudgetDraftLine, accounts: ReprojLine["accounts"], names: Record<string, string>, factor: number | null, role: SectionRole,
 ): BudgetDraftLine {
+  // A bucketed line (maintenance, insurance, cleaning) is split by KIND of
+  // spend instead — the buckets replace the account split.
+  if (bucketsFor(role, line.label)) return line;
   const accts = accounts ?? [];
   if (accts.length < 2) return line;
   const computed = line.source === "reproj-growth" || line.source === "reproj-flat";
@@ -284,39 +292,68 @@ function withSubLines(
  *  with typeable sub-lines is typed THROUGH them — its months are their sum. */
 function applyTyped(sections: BudgetDraftSection[], doc: LineOverrides) {
   for (const sec of sections) {
-    sec.lines = sec.lines.map((l) => {
-      const inputKind = expenseInputKindOf(sec.role, l.label) ?? undefined;
-      if (inputKind) return { ...l, inputKind };
-      // A recovery line IS the Step 3 estimate — each tenant's share under
-      // their own CAM methodology. A typed month would break that tie, so a
-      // recovery line never takes one (and any stored before the lock is
-      // ignored rather than left to drift the line away from its tenants).
-      if (l.source === "cam-estimate") return l;
-      // Likewise rent, and the TI / commissions the deals carry: they are
-      // Step 1 — the schedule and the leasing decisions — and change there.
-      if (l.source === "leases") return l;
-      if (l.subLines?.some((s) => s.typeable)) {
-        const subLines = l.subLines.map((s) => {
-          const ov = doc[`${lineKey(sec.name, l.label)}#${s.account}`];
-          if (!ov) return s;
-          const { months, typed } = mergeMonths(s.months, ov);
-          return { ...s, months, typed, total: r0(sum(months)) };
-        });
-        const months = new Array(12).fill(0);
-        for (const s of subLines) addInto(months, s.months);
-        const typed = months.map((_, i) => subLines.some((s) => s.typed?.[i]));
-        return { ...l, subLines, months: months.map(r0), total: r0(sum(months)), typed: typed.some(Boolean) ? typed : undefined };
-      }
-      const ov = doc[lineKey(sec.name, l.label)];
-      if (!ov) return l;
-      const { months, typed } = mergeMonths(l.months, ov);
-      return { ...l, months, total: r0(sum(months)), typed, source: typed.every(Boolean) ? "entered" : l.source };
+    sec.lines = sec.lines.map((l0) => {
+      // Runs twice (before and after the recovery pools are read), so a
+      // bucketed line is first taken back to its BASE figure — otherwise the
+      // second pass would add its extra buckets on again.
+      const base = l0.subLines?.find((s) => s.bucket === "base");
+      const l = base ? { ...l0, months: base.months, total: base.total, typed: base.typed, subLines: undefined } : l0;
+      return withBuckets(sec, typedLine(sec, l, doc), doc);
     });
     const subtotal = new Array(12).fill(0);
     for (const l of sec.lines) addInto(subtotal, l.months);
     sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
   }
 }
+
+/** One line with its typed months laid over. */
+function typedLine(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrides): BudgetDraftLine {
+  const inputKind = expenseInputKindOf(sec.role, l.label) ?? undefined;
+  if (inputKind) return { ...l, inputKind };
+  // A recovery line IS the Step 3 estimate — each tenant's share under
+  // their own CAM methodology. A typed month would break that tie, so a
+  // recovery line never takes one (and any stored before the lock is
+  // ignored rather than left to drift the line away from its tenants).
+  if (l.source === "cam-estimate") return l;
+  // Likewise rent, and the TI / commissions the deals carry: they are
+  // Step 1 — the schedule and the leasing decisions — and change there.
+  if (l.source === "leases") return l;
+  if (l.subLines?.some((s) => s.typeable)) {
+    const subLines = l.subLines.map((s) => {
+      const ov = doc[`${lineKey(sec.name, l.label)}#${s.account}`];
+      if (!ov) return s;
+      const { months, typed } = mergeMonths(s.months, ov);
+      return { ...s, months, typed, total: r0(sum(months)) };
+    });
+    const months = new Array(12).fill(0);
+    for (const s of subLines) addInto(months, s.months);
+    const typed = months.map((_, i) => subLines.some((s) => s.typed?.[i]));
+    return { ...l, subLines, months: months.map(r0), total: r0(sum(months)), typed: typed.some(Boolean) ? typed : undefined };
+  }
+  const ov = doc[lineKey(sec.name, l.label)];
+  if (!ov) return l;
+  const { months, typed } = mergeMonths(l.months, ov);
+  return { ...l, months, total: r0(sum(months)), typed, source: typed.every(Boolean) ? "entered" : l.source };
+}
+
+/** Split a bucketed line into its buckets (`lineBuckets.ts`): the base bucket
+ *  is the line's own figure; each other bucket is its typed months (zero until
+ *  typed) and adds to the line. */
+function withBuckets(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrides): BudgetDraftLine {
+  const set = bucketsFor(sec.role, l.label);
+  if (!set) return l;
+  const subLines: BudgetSubLine[] = set.buckets.map((name) => {
+    if (name === set.base) {
+      return { account: name, bucket: "base", months: l.months, total: l.total, basisTotal: l.basisTotal, typed: l.typed, typeable: true };
+    }
+    const { months, typed } = mergeMonths(new Array(12).fill(0), doc[`${lineKey(sec.name, l.label)}#${name}`]);
+    return { account: name, bucket: "extra", months, total: r0(sum(months)), basisTotal: 0, typed: typed.some(Boolean) ? typed : undefined, typeable: true };
+  });
+  const months = new Array(12).fill(0);
+  for (const x of subLines) addInto(months, x.months);
+  return { ...l, subLines, months: months.map(r0), total: r0(sum(months)) };
+}
+
 
 /** Build a draft FY budget for one property/fund, growing the current-year
  *  reprojection's expense forecast by `growthPct`. Returns `missingBasis` when
@@ -409,7 +446,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
         source: grown ? "reproj-growth" : "reproj-flat",
       };
     });
-    const lines = built.map((b, i) => withSubLines(b, sec.lines[i].accounts, r.accountNames ?? {}, isExpense ? factor : null));
+    const lines = built.map((b, i) => withSubLines(b, sec.lines[i].accounts, r.accountNames ?? {}, isExpense ? factor : null, sec.role));
     const subtotal = new Array(12).fill(0);
     for (const l of lines) addInto(subtotal, l.months);
     return { name: sec.name, role: sec.role, lines, subtotal: subtotal.map(r0), total: r0(sum(subtotal)) };
@@ -512,6 +549,9 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   // never hidden.
   if (isShoppingCenter(meta.propertyCode)) {
     for (const sec of sections) {
+      // Cleaning & Supplies is a business-park line: on a centre it is empty,
+      // and its buckets (Cleaning / Vacancies) would be two rows of nothing.
+      sec.lines = sec.lines.map((l) => /^cleaning/i.test(l.label) && l.total === 0 && l.basisTotal === 0 && l.subLines?.some((x) => x.bucket) ? { ...l, subLines: undefined } : l);
       const before = sec.lines.length;
       sec.lines = sec.lines.filter((l) => !(isCondoAssnLine(l.label) && l.total === 0 && l.basisTotal === 0));
       if (sec.lines.length !== before) {

@@ -186,6 +186,23 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   );
 }
 
+/** A small italic metric row — occupancy, the recovery ratio — that reads
+ *  the statement rather than adding to it. Pre-formatted strings; "" = blank. */
+function StatRow({ label, months, total, basis, change, changeGood }: {
+  label: string; months: string[]; total: string; basis: string; change: string; changeGood?: boolean | null;
+}) {
+  const cell: React.CSSProperties = { ...num, fontSize: 12, fontStyle: "italic", color: "var(--muted)", padding: "3px 8px" };
+  return (
+    <tr>
+      <td style={{ ...lab, fontSize: 12, fontStyle: "italic", color: "var(--muted)", padding: "3px 10px 3px 30px" }}>{label}</td>
+      {months.map((m, i) => <td key={i} style={{ ...cell, ...(i === 0 ? { borderLeft: GROUP_DIV } : {}) }}>{m}</td>)}
+      <td style={{ ...cell, borderLeft: GROUP_DIV, fontWeight: 700, color: "var(--text)" }}>{total}</td>
+      <td style={cell}>{basis}</td>
+      <td style={{ ...cell, color: changeGood == null ? "var(--muted)" : changeGood ? "#15803d" : "#b91c1c" }}>{change}</td>
+    </tr>
+  );
+}
+
 export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, onNote }: {
   draft: BudgetDraft;
   /** Notes on the lines, keyed `section::label`. */
@@ -201,9 +218,15 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const [edit, setEdit] = useState<EditAt>(null);
   // Lines opened to their sub-lines. Closed by default, so the statement reads
   // at the level it is presented; open one to budget its GL accounts.
-  const [open, setOpen] = useState<Set<string>>(new Set());
+  // Bucketed lines (Contractual / Recurring / Big Projects…) start OPEN —
+  // the buckets are how those lines are budgeted — account splits start
+  // closed. `toggled` holds the lines flipped from their default.
+  const [toggled, setToggled] = useState<Set<string>>(new Set());
+  const bucketed = new Set(draft.sections.flatMap((sec) => sec.lines.filter((l) => l.subLines?.some((x) => x.bucket)).map((l) => `${sec.name}::${l.label}`)));
+  const isOpenKey = (k: string) => bucketed.has(k) !== toggled.has(k);
   const withSubs = draft.sections.flatMap((sec) => sec.lines.filter((l) => l.subLines?.length).map((l) => `${sec.name}::${l.label}`));
-  const allOpen = withSubs.length > 0 && withSubs.every((k) => open.has(k));
+  const allOpen = withSubs.length > 0 && withSubs.every(isOpenKey);
+  const setAll = (o: boolean) => setToggled(new Set(withSubs.filter((k) => bucketed.has(k) !== o)));
   const byRole = (roles: SectionRole[]) => draft.sections.filter((s) => roles.includes(s.role));
   const revenue = byRole(["revenue", "reimbursement"]);
   const expense = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
@@ -244,7 +267,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
         const typeable = !!onEdit && !locked && !viaSubs;
         const keyed = !!l.inputKind;
         const entered = keyed && l.source === "entered";
-        const isOpen = open.has(key);
+        const isOpen = isOpenKey(key);
         return (
           <Fragment key={l.label + l.mask}>
             <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
@@ -256,13 +279,15 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
               rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
               onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
               onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}
-              toggle={subs.length ? { open: isOpen, onToggle: () => setOpen((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />
+              toggle={subs.length ? { open: isOpen, onToggle: () => setToggled((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />
             {isOpen && subs.map((x) => {
               const subTypeable = !!onEdit && x.typeable;
               const subKey = `${key}#${x.account}`;
               return (
                 <Row key={subKey} variant="sub" label={`${x.account}${x.name ? ` · ${x.name}` : ""}`}
-                  months={x.months} total={x.total} basis={x.basisTotal} favorableUp={favorableUp} typed={x.typed}
+                  months={x.months} total={x.total} basis={x.bucket === "extra" ? null : x.basisTotal} favorableUp={favorableUp}
+                  typed={x.bucket === "base" && entered ? new Array(12).fill(true) : x.typed}
+                  onAccept={subTypeable && x.bucket === "base" && keyed && !entered ? () => onEdit!(sec, l, "accept", null, x.account) : undefined}
                   rowKey={subTypeable ? subKey : undefined} edit={edit} setEdit={subTypeable ? setEdit : undefined}
                   onCommit={subTypeable ? (m, v) => onEdit!(sec, l, m, v, x.account) : undefined}
                   onReset={subTypeable ? () => onEdit!(sec, l, "all", null, x.account) : undefined} />
@@ -276,8 +301,40 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   );
 
   const body: React.ReactNode[] = [];
+  const pctS = (v: number | null, dp = 1) => (v == null ? "" : `${v.toFixed(dp)}%`);
+  const pts = (a: number | null, b: number | null) => (a == null || b == null ? "" : `${a - b >= 0 ? "+" : "−"}${Math.abs(a - b).toFixed(1)} pts`);
+
+  // OCCUPANCY, month by month, off the same suites as Revenue by tenant: a
+  // suite is occupied in a month it pays rent. The forecast column is today's
+  // roll (every suite not vacant or awaiting a lease-up).
+  const suites = (draft.tenantRevenue ?? []).filter((t) => !t.recoveryOnly && t.sqft > 0);
+  const totalSf = suites.reduce((a, t) => a + t.sqft, 0);
+  if (totalSf > 0) {
+    const occSf = MONTHS.map((_, i) => suites.reduce((a, t) => a + ((t.rent[i] || 0) > 0.5 ? t.sqft : 0), 0));
+    const avgSf = sum(occSf) / 12;
+    const todaySf = suites.reduce((a, t) => a + (t.status === "vacant" || t.status === "lease-up" ? 0 : t.sqft), 0);
+    const p = (sf: number) => (sf / totalSf) * 100;
+    const sf = (n: number) => Math.round(n).toLocaleString("en-US");
+    body.push(<StatRow key="occ-pct" label="Occupancy %" months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={Math.abs(avgSf - todaySf) < 0.5 ? null : avgSf > todaySf} />);
+    body.push(<StatRow key="occ-sf" label={`Occupancy SF (of ${sf(totalSf)})`} months={occSf.map(sf)} total={sf(avgSf)} basis={sf(todaySf)} change={avgSf === todaySf ? "–" : `${avgSf > todaySf ? "+" : "−"}${sf(Math.abs(avgSf - todaySf))}`} changeGood={Math.abs(avgSf - todaySf) < 0.5 ? null : avgSf > todaySf} />);
+  }
+
   body.push(group("Revenues"));
   revenue.forEach((s) => body.push(section(s, true)));
+  // THE RECOVERY RATIO — reimbursements as a share of the recoverable expense
+  // pool, for the year (a monthly ratio would swing on a tax bill's month).
+  const reimb = byRole(["reimbursement"]);
+  const pool = byRole(["reimbursable-expense"]);
+  const poolBudget = pool.reduce((a, x) => a + x.total, 0);
+  const poolBasis = basisOf(pool);
+  if (reimb.length && Math.abs(poolBudget) > 0.5) {
+    const ratio = (reimb.reduce((a, x) => a + x.total, 0) / poolBudget) * 100;
+    const ratioBasis = Math.abs(poolBasis) > 0.5 ? (basisOf(reimb) / poolBasis) * 100 : null;
+    // Placed straight after the last reimbursement section's total.
+    const at = body.findIndex((n) => (n as React.ReactElement)?.key === reimb[reimb.length - 1].name) + 1;
+    const row = <StatRow key="recovery-ratio" label="Recovery ratio — % of the recoverable pool" months={new Array(12).fill("")} total={pctS(ratio)} basis={pctS(ratioBasis)} change={pts(ratio, ratioBasis)} changeGood={ratioBasis == null || Math.abs(ratio - ratioBasis) < 0.05 ? null : ratio > ratioBasis} />;
+    if (at > 0) body.splice(at, 0, row); else body.push(row);
+  }
   body.push(<Row key="tr" label="Total Revenues" months={r.totalRevenues.months} total={r.totalRevenues.total} basis={basisOf(revenue)} variant="rollup" favorableUp />);
   body.push(group("Operating Expenses"));
   expense.forEach((s) => body.push(section(s, false)));
@@ -305,7 +362,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
               <th style={{ ...head, textAlign: "left" }}>
                 Line
                 {withSubs.length > 0 && (
-                  <button type="button" onClick={() => setOpen(allOpen ? new Set() : new Set(withSubs))}
+                  <button type="button" onClick={() => setAll(!allOpen)}
                     style={{ marginLeft: 10, border: "none", background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: 0 }}>
                     {allOpen ? "▾ Collapse sub-lines" : "▸ Show sub-lines"}
                   </button>

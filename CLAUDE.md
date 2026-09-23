@@ -1070,6 +1070,24 @@ time — and the team does not have time to open the GL over $80.
   and no email step: the owner sends it himself. The page itself is ONE
   component (`RentReviewView`) fed by a `ReviewApi`, so the signed-in page and
   the link cannot drift. Its list comes from `reviewOverview`.
+- **BUDGET BUCKETS** (`lineBuckets.ts`) — a few lines are budgeted by KIND of
+  spend, as the owner's workbook does: Building / Parking Lot Maint. and
+  Landscaping → Contractual · Recurring · Big Projects (non-recoverable
+  Building Maint. → Recurring · Big Projects); Insurance → Liability · Property
+  · Other; Cleaning & Supplies (business parks) → Cleaning & Supplies ·
+  Vacancies. They REPLACE the account split on those lines (a ledger cannot
+  tell a contract from a big project) and start open. The BASE bucket
+  (Recurring / Property / Cleaning) IS the line's existing figure — typed as
+  the line was, so insurance and building maintenance still save to Budget
+  Inputs — and every other bucket starts at zero and ADDS to the line, stored
+  as a typed sub-line (`section::label#<bucket>`). `applyTyped` runs twice, so
+  it takes a bucketed line back to its base first; never let it add the
+  extras twice. The client's Budget Inputs path reads each line's BASE months.
+- **The grid opens with Occupancy % / SF by month** (a suite is occupied in a
+  month it pays rent; the forecast column is today's roll) **and carries the
+  RECOVERY RATIO under the reimbursements** — reimbursements ÷ the
+  reimbursable-expense pool, annual only (a monthly ratio swings on a tax
+  bill's month).
 - **EVERY BUDGET LINE TAKES A NOTE** (`lineNoteStore.ts`, `budget-line-notes`,
   keyed `section::label` per year + property; `POST
   /api/financials/budgets/line-notes`, anyone signed in, stamped with who and

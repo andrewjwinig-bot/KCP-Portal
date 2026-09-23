@@ -8,6 +8,8 @@ vi.mock("./leaseRevenue", () => ({ projectLeaseRevenue: (...a: any[]) => project
 
 vi.mock("./reimbursementEstimate", () => ({ estimateReimbursements: async () => null }));
 vi.mock("./leasingAssumptions", () => ({ getLeasingAssumptions: async () => ({}) }));
+let typedDoc: Record<string, any> = {};
+vi.mock("./lineOverrideStore", () => ({ getLineOverrides: async () => typedDoc }));
 
 const noLeases = { rentalMonthly: new Array(12).fill(0), rentalTotal: 0, inPlaceUnits: 0, expiring: [], vacant: [], hasData: false };
 
@@ -107,7 +109,7 @@ describe("buildBudgetDraft", () => {
 
   it("keeps a multi-account line's GL sub-lines, each grown on its own months, the line their sum", async () => {
     const r = fakeReproj();
-    const bm = line("Building Maintenance", "6220-8502,6220-8503", 700) as any;
+    const bm = line("Office Center/Other", "6220-8502,6220-8503", 700) as any;
     bm.accounts = [
       { account: "6220-8502", actual: [], budget: [], blended: new Array(12).fill(500) },
       { account: "6220-8503", actual: [], budget: [], blended: new Array(12).fill(200) },
@@ -117,13 +119,35 @@ describe("buildBudgetDraft", () => {
     loadReprojection.mockResolvedValue(r);
     projectLeaseRevenue.mockResolvedValue(noLeases);
     const d = (await buildBudgetDraft("1100", 2027, 3))!;
-    const l = d.sections.find((s) => s.role === "non-reimbursable-expense")!.lines.find((x) => x.label === "Building Maintenance")!;
+    const l = d.sections.find((s) => s.role === "non-reimbursable-expense")!.lines.find((x) => x.label === "Office Center/Other")!;
     expect(l.subLines?.map((x) => x.account)).toEqual(["6220-8502", "6220-8503"]);
     expect(l.subLines?.[0].months[0]).toBe(515);   // 500 × 1.03
     expect(l.subLines?.[1].months[0]).toBe(206);   // 200 × 1.03
     expect(l.months[0]).toBe(721);                  // their sum
     expect(l.subLines?.[0].name).toBe("Bldg Maint - CAM");
     expect(l.subLines?.every((x) => x.typeable)).toBe(true);
+  });
+
+  it("budgets a bucketed line through its buckets — the base is the line, a typed Big Project adds once", async () => {
+    const r = fakeReproj();
+    const ls = line("Landscaping", "6400-*", 1000) as any;
+    ls.accounts = [
+      { account: "6400-8502", actual: [], budget: [], blended: new Array(12).fill(600) },
+      { account: "6400-8503", actual: [], budget: [], blended: new Array(12).fill(400) },
+    ];
+    (r.reprojection.sections[1].lines as any[]).push(ls);
+    loadReprojection.mockResolvedValue(r);
+    projectLeaseRevenue.mockResolvedValue(noLeases);
+    typedDoc = { "Non-Reimbursable Expenses::Landscaping#Big Projects": { months: [5000, null, null, null, null, null, null, null, null, null, null, null] } };
+    try {
+      const d = (await buildBudgetDraft("1100", 2027, 3))!;
+      const l = d.sections.find((s) => s.role === "non-reimbursable-expense")!.lines.find((x) => x.label === "Landscaping")!;
+      expect(l.subLines?.map((x) => x.account)).toEqual(["Contractual", "Recurring", "Big Projects"]);   // buckets, not accounts
+      expect(l.subLines?.find((x) => x.bucket === "base")?.months[0]).toBe(1030);
+      expect(l.subLines?.find((x) => x.account === "Big Projects")?.total).toBe(5000);
+      expect(l.months[0]).toBe(6030);          // 1,030 + 5,000 — once, though applyTyped runs twice
+      expect(l.total).toBe(1030 * 12 + 5000);
+    } finally { typedDoc = {}; }
   });
 
   it("keeps capital BELOW NOI — it is not an operating expense", async () => {
