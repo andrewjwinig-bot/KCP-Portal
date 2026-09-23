@@ -940,11 +940,12 @@ time — and the team does not have time to open the GL over $80.
   on the Expenses step (`deriveContributions`' `entered` map); there is no
   separate tick to remember.
 - **ONE MASTER BUDGET PAGE** — `/financials/budgets/draft` is where Drew,
-  Harry, Nancy and admin collaborate: Steps 1–5 top to bottom, with a slim
+  Harry, Nancy and admin collaborate: TWO steps top to bottom, with a slim
   progress strip (steps + who owes what) pinned under the masthead instead of
-  a 250px side rail that took width from the grid. **Step 3 IS the Budget
-  Inputs table** (`ExpenseInputsPanel`, `embedded`): every line shown, each
-  editable only by its owner (the route's `canEdit`), read-only for the rest.
+  a 250px side rail that took width from the grid. The keyed expenses are typed
+  in the grid itself (Step 2); each is still editable only by its owner (the
+  route's `canEdit`) — on the draft page that is Drew / admin, and Greg keys
+  maintenance on his own page.
   `/api/budget-inputs` is authorized for `/budget-inputs` OR
   `/financials/budgets` (`SENSITIVE_API_PREFIXES` takes a list). Harry was
   granted `/financials/budgets` (scoped to the shopping centres, as Nancy is to
@@ -952,7 +953,7 @@ time — and the team does not have time to open the GL over $80.
   page opens on the viewer's own book, and the strip/Step 1 follow the BOOK's
   category (they were hard-coded to Shopping Centers).
 - **Greg's page is `/budget-inputs`, and it is his whole view of the budget.**
-  It renders the SAME `ExpenseInputsPanel` as Step 3. He alone of the service logins is granted it; its API returns only the three
+  It renders `ExpenseInputsPanel`, backed by the same store the draft grid types into. He alone of the service logins is granted it; its API returns only the three
   keyed lines, never rents or NOI, and the SERVER checks `canEdit` on every save.
   Drew and admin see and key all three.
 - **An existing tenant's leasing dates come from the LEASE, not an
@@ -999,10 +1000,15 @@ time — and the team does not have time to open the GL over $80.
   the Budget column spreads an annual evenly; Reset clears the line. Typed
   months are tinted. They are laid over the draft BEFORE the recovery pools are
   read (a typed CAM expense moves tenant recoveries) and again after (a typed
-  recovery month stands). **The three Budget Inputs lines are NOT typeable in
-  the grid** (`inputKind`) — their pill links to `/budget-inputs`; two places to
-  set one figure is how they would disagree. Only a CHANGE commits: tabbing
-  across a month leaves it computed.
+  recovery month stands). **The three Budget Inputs lines (taxes, insurance,
+  building maintenance) ARE typed in the grid, but they save to the Budget
+  Inputs STORE, never to the typed-month overrides** (`editLine`'s `inputKind`
+  branch → `POST /api/budget-inputs`): a month saves the KIND's twelve months
+  (every line carrying it, with the edit applied), the Budget column saves an
+  annual (spread like this year), ↺ clears it back to the default, and
+  **Accept** keeps the figure as shown and marks it entered. One store behind
+  the grid and Greg's `/budget-inputs` page, so the two cannot disagree. Only a
+  CHANGE commits: tabbing across a month leaves it computed.
 
 - **Leasing calls are made IN the Revenue by tenant table** — there is no
   separate Vacancies & renewals card any more. Every suite needing a call
@@ -1092,9 +1098,10 @@ time — and the team does not have time to open the GL over $80.
   progress route from `projectLeaseRevenue`) — the same list the leasing card
   works from — so Harry/Nancy are owners in "Who owes what" from day one and
   their step is not "blocked" on an import they don't control.
-- **THREE steps, and the cards are numbered to match the rail**: 1
-  **Revenues**, 2 **Expenses** (the Budget Inputs table itself), 3 **Review &
-  finalize** (the monthly grid). Recoveries are NOT a step — nobody does them;
+- **TWO steps, and the cards are numbered to match the rail**: 1
+  **Revenues**, 2 **Expenses & review** (the monthly grid, where taxes,
+  insurance and building maintenance are keyed too — the separate Budget
+  Inputs card was folded into it at the owner's request). Recoveries are NOT a step — nobody does them;
   they are derived — so they live in the Revenues table. **Revenues is ONE
   card** (`InPlaceRevenueCard` with children): the schedule import and its
   tiles, then "Vacancies & renewals" (the leasing decisions, in the owner's
@@ -1144,9 +1151,10 @@ time — and the team does not have time to open the GL over $80.
   keep decimals ($/SF, PRS %, change %).
 - **Derived lines are NOT typeable in the grid**: the recovery lines
   (`cam-estimate`) and rent and the deals' TI / commissions (`leases`), all
-  Step 1, and the Budget Inputs lines. `applyTyped` ignores any stored override
-  on them, the grid offers no edit, and the line-history "Use this" is hidden;
-  their pill links back to the step that sets them. Typing over them would
+  Step 1. `applyTyped` ignores any stored override on them, the grid offers
+  no edit, and the line-history "Use this" is hidden; their pill links back to
+  Step 1. (The Budget Inputs lines are typeable, but into their own store —
+  see above; "Use this" stays hidden on them.) Typing over them would
   break the tie to the tenants' methodology and the leasing decisions.
 - **Debt service comes from the LOANS, not this year's figure** (`debtBudget.ts`):
   each loan's `buildSchedule` gives the budget year's interest (→ the Interest
