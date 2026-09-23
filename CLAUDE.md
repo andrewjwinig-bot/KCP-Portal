@@ -1031,6 +1031,23 @@ time — and the team does not have time to open the GL over $80.
   never a second place to key them), 4 Recoveries, 5 Review & finalize (the
   monthly grid). A step on the rail with no card is what "there's no step 2"
   meant.
+- **Once the RENT SCHEDULE is imported (Step 1), it drives rent and Step 2**
+  (`projectLeaseRevenue`'s `schedule` argument, read by the draft AND the
+  progress route so the rail counts exactly the card's rows). Each suite's
+  contracted months are taken as scheduled — steps included; a suite whose
+  charges STOP inside the year is an expiring lease; a tenant with NO charges
+  is a holdover; a suite with no tenant is a vacancy. Months after a lease ends
+  carry NOTHING until someone decides (the schedule has no rent for them); a
+  renew/hold then fills from the month after the term. Before an import it
+  falls back to today's rent roll held flat.
+- **"Rent by tenant" is the per-suite gut check** (`RentByTenantCard`, under
+  Step 2): a row per suite, a column per month, totals down and across — the
+  workbook's "Summary by Month". DARK green = CONTRACTED (the schedule / an
+  in-place lease guarantees it), LIGHT green = ASSUMED (a renewal, a hold past
+  the term, a lease-up — speculative). All / Contracted / Speculative filter the
+  cells and the totals. The rows (`RentRow`, with a per-month `assumed` flag)
+  sum exactly to the budget's rent line. Step 1 now only reports the import
+  (coverage, missing centres, blank rows); it does not repeat the suites.
 - **Debt service comes from the LOANS, not this year's figure** (`debtBudget.ts`):
   each loan's `buildSchedule` gives the budget year's interest (→ the Interest
   line) and principal (→ Mortgage Amortization) month by month — interest falls

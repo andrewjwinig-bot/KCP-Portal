@@ -97,4 +97,43 @@ describe("projectLeaseRevenue", () => {
     expect(p.tiMonthly.reduce((a, b) => a + b, 0)).toBe(35800);
     expect(p.expiring.find((e) => e.unitRef === "1100-1")!.sqft).toBe(1000);
   });
+
+  it("runs off the RENT SCHEDULE once imported: contracted months as scheduled, decisions assumed after", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([
+      u("1100-1", { occupantName: "Steady", baseRent: 1000, sqft: 1000, leaseTo: "12/31/2030" }),
+      u("1100-2", { occupantName: "Ends June", baseRent: 2000, sqft: 800, leaseTo: "6/30/2027" }),
+      u("1100-3", { occupantName: "Holdover", baseRent: 500, sqft: 300, leaseTo: "3/31/2026" }),
+      u("1100-9", { isVacant: true, occupantName: "", baseRent: 0, sqft: 1500 }),
+    ]));
+    const ch = (unitRef: string, month: number, amount: number, tenant = "") =>
+      ({ propertyCode: "1100", unitRef, tenant, month, chargeCode: "RNT", glAccount: "4230", amount, chargeDate: null });
+    const schedule = [
+      // A step in April: 1,000 → 1,050 — the rent roll held flat would miss it.
+      ...[1, 2, 3].map((m) => ch("1100-1", m, 1000, "Steady")),
+      ...[4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => ch("1100-1", m, 1050, "Steady")),
+      ...[1, 2, 3, 4, 5, 6].map((m) => ch("1100-2", m, 2000, "Ends June")),
+    ];
+    const p = await projectLeaseRevenue(["1100"], 2027, {
+      "1100-2": { unitRef: "1100-2", kind: "renew", monthlyRent: 2100 },
+      "1100-9": { unitRef: "1100-9", kind: "leaseup", startMonth: 10, monthlyRent: 3000 },
+    }, schedule as any);
+    expect(p.fromSchedule).toBe(true);
+
+    const row = (ref: string) => p.rows.find((r) => r.unitRef === ref)!;
+    expect(row("1100-1").months[3]).toBe(1050);                 // the scheduled step
+    expect(row("1100-1").assumed.some(Boolean)).toBe(false);    // all contracted
+    expect(row("1100-2").months.slice(0, 6).every((v) => v === 2000)).toBe(true);
+    expect(row("1100-2").months[6]).toBe(2100);                 // renewal from July
+    expect(row("1100-2").assumed[5]).toBe(false);
+    expect(row("1100-2").assumed[6]).toBe(true);                // speculative
+    expect(row("1100-3").status).toBe("holdover");              // no 2027 charges, still a tenant
+    expect(row("1100-3").months.every((v) => v === 0)).toBe(true); // nil until decided
+    expect(row("1100-9").months[9]).toBe(3000);
+    expect(row("1100-9").assumed[9]).toBe(true);
+
+    expect(p.expiring.map((e) => e.unitRef).sort()).toEqual(["1100-2", "1100-3"]);
+    expect(p.vacant.map((v) => v.unitRef)).toEqual(["1100-9"]);
+    // The rows ARE the rental line.
+    for (let m = 0; m < 12; m++) expect(p.rows.reduce((a, r) => a + r.months[m], 0)).toBe(p.rentalMonthly[m]);
+  });
 });

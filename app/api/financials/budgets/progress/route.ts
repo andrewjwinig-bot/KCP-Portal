@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
-import { getInPlaceRevenue } from "@/lib/financials/budgets/inPlaceStore";
+import { getInPlaceRevenue, type InPlaceRevenueRecord } from "@/lib/financials/budgets/inPlaceStore";
 import { getFilled, setFilled } from "@/lib/financials/budgets/contributionStore";
 import { deriveContributions, type BudgetProperty, type FilledMap } from "@/lib/financials/budgets/deriveContributions";
 import { getExpenseInputs } from "@/lib/financials/budgets/expenseInputStore";
@@ -9,12 +9,13 @@ import { contributionId } from "@/lib/financials/budgets/contributors";
 import { getLeasingAssumptions } from "@/lib/financials/budgets/leasingAssumptions";
 import { projectLeaseRevenue } from "@/lib/financials/budgets/leaseRevenue";
 
-/** The leasing card's own list per property — expiring leases and vacant
- *  space off the rent roll — used until the rent schedule is imported. */
-async function rollLeasing(year: number, props: BudgetProperty[]) {
+/** The leasing card's OWN list per property — the same projection the card
+ *  renders (off the rent schedule once it is imported, the rent roll before) —
+ *  so the rail counts exactly the rows Harry and Nancy are deciding. */
+async function rollLeasing(year: number, props: BudgetProperty[], schedule: InPlaceRevenueRecord | null) {
   const out: Record<string, { unitRef: string; tenant?: string; vacant: boolean }[]> = {};
   await Promise.all(props.map(async (p) => {
-    const lease = await projectLeaseRevenue([p.code], year).catch(() => null);
+    const lease = await projectLeaseRevenue([p.code], year, {}, schedule?.charges ?? null).catch(() => null);
     if (!lease?.hasData) return;
     out[p.code] = [
       ...lease.expiring.map((e) => ({ unitRef: e.unitRef, tenant: e.tenant, vacant: false })),
@@ -74,9 +75,9 @@ export async function GET(req: Request) {
     getFilled(year, category).catch(() => ({})),
     enteredFor(year, props),
   ]);
-  const fromRoll = inPlace ? {} : await rollLeasing(year, props);
+  const leasing = await rollLeasing(year, props, inPlace);
   return NextResponse.json({
-    contributions: deriveContributions(year, props, inPlace, filled, entered, fromRoll),
+    contributions: deriveContributions(year, props, null, filled, entered, leasing),
     hasSchedule: !!inPlace,
   });
 }
@@ -94,7 +95,7 @@ export async function POST(req: Request) {
     const props = groupProperties(category);
     return NextResponse.json({
       ok: true,
-      contributions: deriveContributions(year, props, inPlace, filled, await enteredFor(year, props), inPlace ? {} : await rollLeasing(year, props)),
+      contributions: deriveContributions(year, props, null, filled, await enteredFor(year, props), await rollLeasing(year, props, inPlace)),
     });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed" }, { status: 500 });
