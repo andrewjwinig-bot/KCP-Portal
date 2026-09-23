@@ -120,9 +120,13 @@ export type BudgetDraft = {
   /** Per-tenant CAM/INS/RET recoveries — Step 3. Its monthly totals ARE the
    *  recovery income lines (source "cam-estimate"). */
   reimbursementEstimate?: ReimbursementEstimate;
-  /** The Step 3 → Step 4 tie-out: each recovery category's tenant total
-   *  against the budget line(s) it lands on. */
+  /** The tie-out: each recovery category's tenant total against the budget
+   *  line(s) it lands on. */
   recoveryTie?: RecoveryTie[];
+  /** Every suite's rent + recoveries, month by month (Step 1's master table). */
+  tenantRevenue?: TenantRevenueRow[];
+  /** The budget line base rent lands on. */
+  rentLineLabel?: string;
   /** The loans behind the debt-service lines (Debt Tracker), when any. */
   debt?: { loans: BudgetLoan[]; interest: number; principal: number };
   /** Set by the route: whether the viewer may type months into the grid. */
@@ -130,6 +134,66 @@ export type BudgetDraft = {
   /** True when the current-year reprojection couldn't be loaded (no draft). */
   missingBasis?: boolean;
 };
+
+/** One suite's whole revenue for the budget year — base rent plus its CAM,
+ *  insurance and tax recoveries — the Step 1 "Revenue by tenant" table. Every
+ *  suite on the rent side is here (vacancies and gross leases included, so a
+ *  suite paying nothing is visible), in the rent table's order. */
+export type TenantRevenueRow = {
+  unitRef: string;
+  tenant: string;
+  sqft: number;
+  status: RentRow["status"];
+  rent: number[]; cam: number[]; ins: number[]; ret: number[];
+  /** true = that month rests on a leasing assumption. */
+  assumed: boolean[];
+  note?: string;
+  method?: ReimbursementEstimate["tenants"][number]["method"];
+  /** A recovery row with no rent-side suite (a unit ref that did not match). */
+  recoveryOnly?: boolean;
+};
+
+const canonRef = (ref: string) => String(ref ?? "").trim().toUpperCase().replace(/-CU$/, "");
+
+/** Join the rent rows and the recovery estimate, suite by suite. A suite with
+ *  two recovery entries (a recon tenant and a lease-up) sums them. */
+export function combineTenantRevenue(rentRows: RentRow[], est: ReimbursementEstimate | null | undefined): TenantRevenueRow[] {
+  const zero = () => new Array(12).fill(0) as number[];
+  const byUnit = new Map<string, ReimbursementEstimate["tenants"]>();
+  for (const t of est?.tenants ?? []) {
+    const k = canonRef(t.unitRef);
+    byUnit.set(k, [...(byUnit.get(k) ?? []), t]);
+  }
+  const add = (a: number[], b: number[]) => a.map((v, i) => v + (b[i] || 0));
+  const fill = (row: TenantRevenueRow, ts: ReimbursementEstimate["tenants"]) => {
+    for (const t of ts) {
+      row.cam = add(row.cam, t.cam); row.ins = add(row.ins, t.ins); row.ret = add(row.ret, t.ret);
+      row.assumed = row.assumed.map((a, i) => a || !!t.assumed[i]);
+    }
+    // The note and method of the tenant actually paying — else the first.
+    const lead = ts.find((t) => t.monthsActive > 0) ?? ts[0];
+    if (lead) { row.note = lead.note; row.method = lead.method; }
+  };
+  const out: TenantRevenueRow[] = rentRows.map((r) => {
+    const row: TenantRevenueRow = {
+      unitRef: r.unitRef, tenant: r.tenant, sqft: r.sqft, status: r.status,
+      rent: r.months.slice(), cam: zero(), ins: zero(), ret: zero(), assumed: r.assumed.slice(),
+    };
+    const ts = byUnit.get(canonRef(r.unitRef));
+    if (ts) { fill(row, ts); byUnit.delete(canonRef(r.unitRef)); }
+    return row;
+  });
+  for (const ts of byUnit.values()) {
+    const t = ts[0];
+    const row: TenantRevenueRow = {
+      unitRef: t.unitRef, tenant: t.name, sqft: 0, status: "contracted",
+      rent: zero(), cam: zero(), ins: zero(), ret: zero(), assumed: zero().map(() => false), recoveryOnly: true,
+    };
+    fill(row, ts);
+    out.push(row);
+  }
+  return out;
+}
 
 export type RecoveryTie = {
   basis: "cam" | "ins" | "ret";
@@ -431,6 +495,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     applyTyped(sections, typedDoc);
   }
   const recoveryTie = reimbursementEstimate ? tieRecoveries(reimbursementEstimate, sections) : undefined;
+  const rentLineLabel = sections.flatMap((sec) => sec.role === "revenue" ? sec.lines : []).find((l) => l.source === "leases")?.label;
 
   // NOI is revenue less OPERATING expenses. Capital sits BELOW it (the grid
   // takes it off NOI on the way to cash flow), and so does debt service —
@@ -473,6 +538,8 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     } : undefined,
     reimbursementEstimate,
     recoveryTie,
+    tenantRevenue: lease.hasData ? combineTenantRevenue(lease.rows ?? [], reimbursementEstimate) : undefined,
+    rentLineLabel,
     debt: debt ? { loans: debt.loans, interest: r0(sum(debt.interest)), principal: r0(sum(debt.principal)) } : undefined,
   };
 }

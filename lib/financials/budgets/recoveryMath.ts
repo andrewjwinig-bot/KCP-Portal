@@ -100,25 +100,37 @@ export function officeRecovery(t: OfficeTenantIn, ratio: PoolRatios, months: boo
 }
 
 /**
- * A vacancy leasing up, RETAIL: its pro-rata share of each budget pool, from
- * its start month. No admin fee and no exclusions — a lease not yet written
- * has none on file, and pro-rata is the conservative assumption.
+ * A tenant on no reconciliation, RETAIL — assumed NNN: its pro-rata (SF) share
+ * of each budget pool, in the months given. No admin fee and no exclusions —
+ * nothing on file says otherwise, and pro-rata is the conservative assumption.
  */
+export function retailProRata(
+  unitRef: string, name: string, sqft: number, months: boolean[],
+  pools: { cam: number; ins: number; ret: number },
+  denoms: { cam: number; ins: number; ret: number },
+  note?: string,
+): TenantRecovery {
+  const part = (pool: number, denom: number) => (denom > 0 ? (pool * sqft) / denom : 0);
+  const camYear = r0(part(pools.cam, denoms.cam));
+  const insYear = r0(part(pools.ins, denoms.ins));
+  const retYear = r0(part(pools.ret, denoms.ret));
+  return {
+    unitRef, name, months, note,
+    camYear, insYear, retYear,
+    cam: spread(camYear, months), ins: spread(insYear, months), ret: spread(retYear, months),
+  };
+}
+
+/** A vacancy leasing up, RETAIL: assumed NNN from its start month. */
 export function retailLeaseUp(
   unitRef: string, sqft: number, startMonth: number,
   pools: { cam: number; ins: number; ret: number },
   denoms: { cam: number; ins: number; ret: number },
 ): TenantRecovery {
-  const part = (pool: number, denom: number) => (denom > 0 ? (pool * sqft) / denom : 0);
   const months = monthsBetween(Math.min(12, Math.max(1, startMonth)), 12);
-  const camYear = r0(part(pools.cam, denoms.cam));
-  const insYear = r0(part(pools.ins, denoms.ins));
-  const retYear = r0(part(pools.ret, denoms.ret));
   return {
-    unitRef, name: "Lease-up (assumed)", months, leaseUp: true,
-    note: `Assumed lease-up from month ${startMonth}, at its pro-rata share`,
-    camYear, insYear, retYear,
-    cam: spread(camYear, months), ins: spread(insYear, months), ret: spread(retYear, months),
+    ...retailProRata(unitRef, "Lease-up (assumed)", sqft, months, pools, denoms, `Assumed lease-up from month ${startMonth}, at its pro-rata share`),
+    leaseUp: true,
   };
 }
 

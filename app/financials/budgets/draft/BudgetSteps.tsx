@@ -59,7 +59,7 @@ function buildSteps(items: Contribution[], hasSchedule: boolean): Step[] {
       // right — and live in one card on the page. Its count is the decisions;
       // a missing schedule is said in the note, since until it lands the list
       // comes off the rent roll.
-      id: "rent", title: "Rent", who: "Drew · Harry · Nancy", kinds: ["vacancy", "renewal"],
+      id: "rent", title: "Revenues", who: "Drew · Harry · Nancy", kinds: ["vacancy", "renewal"],
       ...leasing,
       state: leasing.total === 0 ? (hasSchedule ? "done" : "active")
         : leasing.done === leasing.total ? "done" : "active",
@@ -72,12 +72,6 @@ function buildSteps(items: Contribution[], hasSchedule: boolean): Step[] {
       // Deliberately NOT blocked by the schedule — this half runs in parallel,
       // which is the point of splitting the work by person.
       state: expenses.total === 0 ? "waiting" : expenses.done === expenses.total ? "done" : "active",
-    },
-    {
-      id: "recoveries", title: "Recoveries", who: "Derived", kinds: [],
-      done: 0, total: 0,
-      state: allDone ? "active" : "waiting",
-      note: "Needs tenancy AND expenses — runs once both are in.",
     },
     {
       id: "review", title: "Review & finalize", who: "Drew", kinds: [],

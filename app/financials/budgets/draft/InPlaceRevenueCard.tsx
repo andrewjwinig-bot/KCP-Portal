@@ -77,7 +77,7 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
       <div style={{ padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div>
-          <div style={STEP_LABEL}>Step 1 · Rent — {year}</div>
+          <div style={STEP_LABEL}>Step 1 · Revenues — {year}</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button type="button" className="btn" onClick={() => setShowSteps((s) => !s)} style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>

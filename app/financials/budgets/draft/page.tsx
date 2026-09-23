@@ -3,8 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable } from "./BudgetStatementTable";
-import { RentByTenantCard } from "./RentByTenantCard";
-import { RecoveriesCard } from "./RecoveriesCard";
+import { RevenueByTenantCard } from "./RevenueByTenantCard";
 import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
 import { ExpenseInputsPanel } from "@/app/budget-inputs/ExpenseInputsPanel";
 import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
@@ -261,7 +260,8 @@ export default function BudgetDraftPage() {
           <LeasingCard leasing={draft.leasing} budgetYear={draft.budgetYear} error={saveError} onSave={saveAssumption} />
         )}
         {draft?.leasing && (
-          <RentByTenantCard embedded rows={draft.leasing.rentRows} year={draft.budgetYear} fromSchedule={draft.leasing.fromSchedule} />
+          <RevenueByTenantCard embedded rows={draft.tenantRevenue ?? []} year={draft.budgetYear} fromSchedule={draft.leasing.fromSchedule}
+            est={draft.reimbursementEstimate} tie={draft.recoveryTie ?? []} rentLine={draft.rentLineLabel} />
         )}
       </InPlaceRevenueCard>
 
@@ -292,13 +292,10 @@ export default function BudgetDraftPage() {
               onSaved={() => setRefreshTick((n) => n + 1)} />
           </div>
 
-          {draft.reimbursementEstimate && draft.reimbursementEstimate.tenants.length > 0 && (
-            <RecoveriesCard est={draft.reimbursementEstimate} tie={draft.recoveryTie ?? []} />
-          )}
 
           {/* STEP 5 — the budget itself, every month in its own column. */}
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
-            <div style={STEP_LABEL}>Step 4 · Review &amp; finalize — the {draft.budgetYear} budget</div>
+            <div style={STEP_LABEL}>Step 3 · Review &amp; finalize — the {draft.budgetYear} budget</div>
           </div>
           <div className="pills">
             <StatPill label="Total Revenue" value={money0(draft.rollups.totalRevenues.total)} sub={draft.leasing ? `${draft.leasing.inPlaceUnits} in-place leases` : "reproj placeholder"} />
