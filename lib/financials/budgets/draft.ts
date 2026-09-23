@@ -15,13 +15,14 @@ import type { ReprojLine } from "@/lib/financials/reprojections/compute";
 import { listLoans } from "@/lib/debt/storage";
 import { budgetDebt, loansForStatement, type BudgetLoan } from "./debtBudget";
 import { EXPENSE_ROLES, type SectionRole } from "@/lib/financials/operating-statements/types";
-import { projectLeaseRevenue, type ExpiringLease, type VacantUnit } from "./leaseRevenue";
+import { projectLeaseRevenue, type ExpiringLease, type VacantUnit, type RentRow } from "./leaseRevenue";
 import { getLeasingAssumptions } from "./leasingAssumptions";
 import { estimateReimbursements, type ReimbursementEstimate } from "./reimbursementEstimate";
 import { expenseInputKindOf, resolveKind, splitAcrossLines, type ExpenseInputKind } from "./expenseInputs";
 import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { getExpenseInputs } from "./expenseInputStore";
 import { getLineOverrides } from "./lineOverrideStore";
+import { getInPlaceRevenue } from "./inPlaceStore";
 import { lineKey, mergeMonths, type LineOverrides } from "./lineOverrides";
 import { ownerFor } from "./contributors";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -107,6 +108,10 @@ export type BudgetDraft = {
     assumptionsApplied: number;
     /** The property code assumptions are saved under (for the save endpoint). */
     propertyCode: string;
+    /** True when the rent and this list come from the imported schedule. */
+    fromSchedule: boolean;
+    /** Every suite's rent by month, contracted vs assumed — sums to the rent line. */
+    rentRows: RentRow[];
     /** The TI and leasing commissions the deals carry, for the year. */
     dealCapital: { ti: number; lc: number };
     /** Who owns these calls — Harry (shopping centres) or Nancy (office parks). */
@@ -206,7 +211,13 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   // Lease-based rental projection for this property (funds fall back to flat),
   // shaped by any saved leasing assumptions (renew / vacate / lease-up).
   const assumptions = await getLeasingAssumptions(budgetYear, [meta.propertyCode]);
-  const lease = await projectLeaseRevenue([meta.propertyCode], budgetYear, assumptions);
+  // The imported rent schedule (Step 1), when there is one for this property's
+  // group — it replaces "today's rent roll held flat" with every contracted
+  // charge, month by month, and drives the expiring / vacancy list.
+  const group = PROPERTY_DEFS.find((d) => d.id === String(meta.propertyCode).toUpperCase())?.allocGroup;
+  const scheduleCategory = group === "SC" ? "Shopping Centers" : group === "BP" ? "Office" : null;
+  const scheduleRec = scheduleCategory ? await getInPlaceRevenue(budgetYear, scheduleCategory).catch(() => null) : null;
+  const lease = await projectLeaseRevenue([meta.propertyCode], budgetYear, assumptions, scheduleRec?.charges ?? null);
   let rentalReplaced = false;
 
   // THE EXPENSES STEP. Real estate taxes, insurance and building maintenance
@@ -397,6 +408,8 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       vacant: lease.vacant,
       assumptionsApplied: lease.assumptionsApplied,
       propertyCode: meta.propertyCode,
+      fromSchedule: !!lease.fromSchedule,
+      rentRows: lease.rows ?? [],
       dealCapital: { ti: r0(sum(lease.tiMonthly ?? [])), lc: r0(sum(lease.lcMonthly ?? [])) },
       owner: (() => {
         const def = PROPERTY_DEFS.find((d) => d.id === String(meta.propertyCode).toUpperCase());

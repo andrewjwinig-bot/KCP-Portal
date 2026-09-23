@@ -12,10 +12,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Pill, StatPill, TONE_GREEN, TONE_RED, TONE_AMBER } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
-import { unitsNeedingAssumption, monthlyForProperty } from "@/lib/financials/budgets/inPlaceDerive";
+import { monthlyForProperty } from "@/lib/financials/budgets/inPlaceDerive";
 import type { InPlaceRevenueRecord } from "@/lib/financials/budgets/inPlaceStore";
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
@@ -59,7 +58,6 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel }
     }
   }
 
-  const units = rec && propertyCode ? unitsNeedingAssumption(rec, propertyCode) : [];
   const months = rec && propertyCode ? monthlyForProperty(rec, propertyCode) : null;
   const propTotal = months ? months.reduce((s, n) => s + n, 0) : 0;
   // Units whose rent came through BLANK — a real space with no contracted
@@ -137,69 +135,9 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel }
             </span>
           </div>
 
-          {months && propertyCode && (
-            <div style={{ marginTop: 14, overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...secLabel, textAlign: "left", padding: "6px 8px" }}>{propertyCode}</th>
-                    {MONTHS.map((m) => <th key={m} style={{ ...secLabel, textAlign: "right", padding: "6px 8px" }}>{m}</th>)}
-                    <th style={{ ...secLabel, textAlign: "right", padding: "6px 8px" }}>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td style={{ padding: "6px 8px", fontSize: 13, fontWeight: 700, borderTop: "1px solid var(--border)" }}>Contracted rent</td>
-                    {months.map((v, i) => (
-                      <td key={i} style={{ padding: "6px 8px", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums", borderTop: "1px solid var(--border)" }}>{money0(v)}</td>
-                    ))}
-                    <td style={{ padding: "6px 8px", fontSize: 13, textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums", borderTop: "1px solid var(--border)" }}>{money0(propTotal)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {propertyCode && (
-            <div style={{ marginTop: 14 }}>
-              <div style={secLabel}>Needs an assumption · {propertyCode}</div>
-              {units.length === 0 ? (
-                <div className="muted small" style={{ marginTop: 6 }}>
-                  Every unit here is contracted for all twelve months — nothing to assume.
-                </div>
-              ) : (
-                <>
-                  <p className="muted small" style={{ marginTop: 4, marginBottom: 8 }}>
-                    A space with no contracted rent, or a lease that stops inside {year}. These are what Harry and Nancy fill in — the draft holds them at nil until they do.
-                  </p>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                      <tr>
-                        <th style={{ ...secLabel, textAlign: "left", padding: "6px 8px" }}>Unit</th>
-                        <th style={{ ...secLabel, textAlign: "left", padding: "6px 8px" }}>Tenant</th>
-                        <th style={{ ...secLabel, textAlign: "right", padding: "6px 8px" }}>Months contracted</th>
-                        <th style={{ ...secLabel, textAlign: "left", padding: "6px 8px" }} />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {units.map((u) => (
-                        <tr key={u.unitRef}>
-                          <td style={{ padding: "6px 8px", fontSize: 13, borderTop: "1px solid var(--border)" }}><code style={{ fontSize: 12 }}>{u.unitRef}</code></td>
-                          <td style={{ padding: "6px 8px", fontSize: 13, borderTop: "1px solid var(--border)" }}>{u.tenant || <span className="muted">— vacant</span>}</td>
-                          <td style={{ padding: "6px 8px", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums", borderTop: "1px solid var(--border)" }}>{u.monthsCovered} of 12</td>
-                          <td style={{ padding: "6px 8px", borderTop: "1px solid var(--border)" }}>
-                            <Pill tone={u.monthsCovered === 0 ? TONE_RED : TONE_AMBER}>
-                              {u.monthsCovered === 0 ? "NO RENT SCHEDULED" : `ENDS ${MONTHS[(u.lastMonth ?? 1) - 1].toUpperCase()}`}
-                            </Pill>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </>
-              )}
-            </div>
-          )}
+          {/* Suite-by-suite, month-by-month rent lives in "Rent by tenant"
+              below Step 2 — contracted vs assumed — and the suites that need a
+              decision are Step 2's list itself, so neither is repeated here. */}
         </>
       )}
     </div>

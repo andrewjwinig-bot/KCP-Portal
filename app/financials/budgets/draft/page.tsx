@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable } from "./BudgetStatementTable";
+import { RentByTenantCard } from "./RentByTenantCard";
 import { ExpenseInputsPanel } from "@/app/budget-inputs/ExpenseInputsPanel";
 import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
 import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
@@ -252,6 +253,13 @@ export default function BudgetDraftPage() {
 
           {draft.leasing && (draft.leasing.expiring.length > 0 || draft.leasing.vacant.length > 0) && (
             <LeasingCard leasing={draft.leasing} budgetYear={draft.budgetYear} error={saveError} onSave={saveAssumption} />
+          )}
+
+          {/* Every suite's rent, month by month — contracted (dark) vs assumed
+              (light) — so each tenant can be gut-checked. It reads the leasing
+              decisions above, so a renewal shows here as soon as it is saved. */}
+          {draft.leasing && (
+            <RentByTenantCard rows={draft.leasing.rentRows} year={draft.budgetYear} fromSchedule={draft.leasing.fromSchedule} />
           )}
 
           {/* The budget reads like the full-year operating statement it will

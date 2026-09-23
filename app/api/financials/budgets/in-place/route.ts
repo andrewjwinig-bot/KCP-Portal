@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { budgetUser } from "@/lib/financials/budgets/currentUser";
+import { USERS } from "@/lib/users";
 import { parseInPlaceRevenue, missingProperties } from "@/lib/financials/budgets/inPlaceRevenue";
 import { saveInPlaceRevenue, getInPlaceRevenue, deleteInPlaceRevenue } from "@/lib/financials/budgets/inPlaceStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -52,6 +54,7 @@ export async function POST(req: Request) {
     // The uploader comes from the form, the way the GL upload does it — the
     // page knows who is signed in and the route does not need its own lookup.
     const importedByRaw = form.get("importedBy");
+    const signedIn = await budgetUser();
     const rec = {
       year, category,
       charges: parsed.charges,
@@ -63,7 +66,10 @@ export async function POST(req: Request) {
       skipped: parsed.skipped,
       chargeCodes: parsed.chargeCodes,
       importedAt: new Date().toISOString(),
-      importedBy: typeof importedByRaw === "string" && importedByRaw.trim() ? importedByRaw.trim() : "Unknown",
+      // Who imported it, from the SIGNED-IN user — the page used to read a
+      // cookie the browser cannot see (it is httpOnly), so every import said
+      // "by Unknown".
+      importedBy: signedIn ? (USERS[signedIn]?.label ?? signedIn) : typeof importedByRaw === "string" && importedByRaw.trim() && importedByRaw.trim() !== "Unknown" ? importedByRaw.trim() : "Unknown",
       fileName: file.name,
     };
     await saveInPlaceRevenue(rec);

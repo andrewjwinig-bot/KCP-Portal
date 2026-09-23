@@ -12,6 +12,7 @@
 import "server-only";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import type { LeaseAssumption } from "./leasingAssumptions";
+import type { InPlaceCharge } from "./inPlaceRevenue";
 
 const r0 = (n: number) => Math.round(n);
 
@@ -36,6 +37,21 @@ export type ExpiringLease = {
 };
 export type VacantUnit = { unitRef: string; sqft: number; assumption?: LeaseAssumption };
 
+/** One suite's rent for the budget year — the "Rent by tenant" table. Each
+ *  month is either CONTRACTED (on the schedule / an in-place lease: money the
+ *  lease guarantees) or ASSUMED (a renewal, a hold past the term or a lease-up:
+ *  a decision, so speculative). */
+export type RentRow = {
+  unitRef: string;
+  tenant: string;
+  sqft: number;
+  months: number[];
+  /** true = that month's rent is an assumption, not a contract. */
+  assumed: boolean[];
+  /** How the row came to be, for its label. */
+  status: "contracted" | "expiring" | "holdover" | "vacant" | "lease-up";
+};
+
 export type LeaseRevenueProjection = {
   /** 12 monthly projected base rent (assumption-adjusted), display-positive. */
   rentalMonthly: number[];
@@ -51,7 +67,18 @@ export type LeaseRevenueProjection = {
   /** How many assumptions were applied to shape the projection. */
   assumptionsApplied: number;
   hasData: boolean;
+  /** Every suite's months, contracted vs assumed. They sum to `rentalMonthly`. */
+  rows: RentRow[];
+  /** True when rent came from the imported RENT SCHEDULE (Skyline's Budget
+   *  Rent Increase Calculation) rather than today's rent roll held flat. */
+  fromSchedule?: boolean;
 };
+
+/** Last day of a month, as the rent roll writes dates (MM/DD/YYYY). */
+function monthEnd(year: number, month: number): string {
+  const d = new Date(Date.UTC(year, month, 0));
+  return `${String(month).padStart(2, "0")}/${String(d.getUTCDate()).padStart(2, "0")}/${year}`;
+}
 
 /** In-place unit's 12 monthly rents given its current rent, budget-year
  *  expiration month (0 = holdover, 13 = doesn't expire this year), and any
@@ -101,6 +128,10 @@ export async function projectLeaseRevenue(
   codes: string[],
   budgetYear: number,
   assumptions: Record<string, LeaseAssumption> = {},
+  /** The imported rent schedule's charges, when there is one. It carries every
+   *  contracted charge for every month of the budget year — steps included —
+   *  so where it covers a property it REPLACES "today's rent held flat". */
+  schedule: InPlaceCharge[] | null = null,
 ): Promise<LeaseRevenueProjection> {
   const wanted = new Set(codes.map((c) => c.toUpperCase()));
   const roll = await resolveCurrentRentroll();
@@ -118,26 +149,121 @@ export async function projectLeaseRevenue(
   };
   const expiring: ExpiringLease[] = [];
   const vacant: VacantUnit[] = [];
+  const rows: RentRow[] = [];
+  const zero = () => new Array(12).fill(0) as number[];
+  const no = () => new Array(12).fill(false) as boolean[];
   let inPlaceUnits = 0;
   let assumptionsApplied = 0;
   let any = false;
 
+  let usedSchedule = false;
+  /**
+   * One property from the RENT SCHEDULE. Each suite's contracted months are
+   * taken as scheduled (steps and all). A suite whose charges STOP inside the
+   * year is an expiring lease; a tenant with NO charges for the year is a
+   * holdover (or a lease with no contracted rent — Rite Aid); a suite with no
+   * tenant is a vacancy. Until someone decides, the months after a lease ends
+   * carry nothing — the schedule has no rent for them, and neither does the
+   * budget. The decision then fills them: renew (a new rent, or the last
+   * scheduled one) or hold from the month after the term, vacate leaves them
+   * empty, a lease-up starts from its month.
+   */
+  const scheduleProperty = (units: NonNullable<NonNullable<typeof roll>["properties"][number]["units"]>, sched: InPlaceCharge[]) => {
+    usedSchedule = true;
+    const up = (s: string) => s.trim().toUpperCase();
+    const byUnit = new Map<string, { tenant: string; months: number[] }>();
+    for (const c of sched) {
+      const k = up(c.unitRef);
+      const e = byUnit.get(k) ?? { tenant: c.tenant, months: new Array(12).fill(0) };
+      if (c.month >= 1 && c.month <= 12) e.months[c.month - 1] += c.amount;
+      byUnit.set(k, e);
+    }
+    const seen = new Set<string>();
+    const rollUnits = units.filter((u) => !u.amenity);
+    const suites = [
+      ...rollUnits.map((u) => ({ ref: u.unitRef, roll: u as (typeof rollUnits)[number] | null })),
+      ...[...byUnit.keys()].filter((k) => !rollUnits.some((u) => up(u.unitRef) === k)).map((k) => ({ ref: k, roll: null })),
+    ];
+    for (const { ref, roll: u } of suites) {
+      const k = up(ref);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const a = assumptions[ref] ?? assumptions[k];
+      const e = byUnit.get(k);
+      const sqft = u?.sqft || 0;
+      const scheduled = e?.months ?? new Array(12).fill(0);
+      const covered = scheduled.map((v) => Math.abs(v) > 0.005);
+      const nCovered = covered.filter(Boolean).length;
+      const tenant = u?.occupantName || e?.tenant || "";
+
+      if (nCovered === 0 && !tenant) {
+        // Vacant — rent only from a lease-up.
+        const row: RentRow = { unitRef: ref, tenant: "", sqft: r0(sqft), months: zero(), assumed: no(), status: "vacant" };
+        if (a?.kind === "leaseup") {
+          const start = a.startMonth ?? 1;
+          const rent = a.monthlyRent ?? 0;
+          for (let m = 0; m < 12; m++) if (m + 1 >= start) { rentalMonthly[m] += rent; row.months[m] = rent; row.assumed[m] = true; }
+          dealCosts(a, sqft, start, rent);
+          assumptionsApplied++;
+          row.status = "lease-up";
+        }
+        rows.push(row);
+        vacant.push({ unitRef: ref, sqft: r0(sqft), assumption: a });
+        continue;
+      }
+
+      inPlaceUnits++;
+      const row: RentRow = { unitRef: ref, tenant, sqft: r0(sqft), months: scheduled.slice(), assumed: no(), status: "contracted" };
+      rows.push(row);
+      for (let m = 0; m < 12; m++) rentalMonthly[m] += scheduled[m];
+      if (nCovered === 12) continue; // contracted all year — nothing to decide
+
+      // Where the contracted rent stops (0 = none this year: a holdover).
+      const lastMonth = nCovered ? Math.max(...covered.map((c, i) => (c ? i + 1 : 0))) : 0;
+      const lastRent = lastMonth ? scheduled[lastMonth - 1] : (u?.baseRent || 0);
+      const from = lastMonth + 1; // the first month with no contracted rent
+      row.status = lastMonth === 0 ? "holdover" : "expiring";
+      if (a) assumptionsApplied++;
+      if (a?.kind === "renew" || a?.kind === "hold") {
+        const rent = a.kind === "renew" && a.monthlyRent != null ? a.monthlyRent : lastRent;
+        for (let m = from - 1; m < 12; m++) { rentalMonthly[m] += rent; row.months[m] += rent; row.assumed[m] = true; }
+        dealCosts(a, sqft, from, rent);
+      }
+      expiring.push({
+        unitRef: ref, tenant,
+        // The lease's own date when the roll has it; else the last scheduled month.
+        leaseTo: u?.leaseTo || (lastMonth ? monthEnd(budgetYear, lastMonth) : null),
+        monthlyRent: r0(lastRent), annualRent: r0(lastRent * 12), sqft: r0(sqft),
+        holdover: lastMonth === 0, assumption: a,
+      });
+    }
+  };
+
   for (const p of roll?.properties ?? []) {
     if (!wanted.has(String(p.propertyCode).toUpperCase())) continue;
     any = true;
+    const code = String(p.propertyCode).toUpperCase();
+    const sched = (schedule ?? []).filter((c) => c.propertyCode.toUpperCase() === code);
+    if (sched.length) {
+      scheduleProperty(p.units ?? [], sched);
+      continue;
+    }
     for (const u of p.units ?? []) {
       if (u.amenity) continue;
       const a = assumptions[u.unitRef];
 
       if (u.isVacant || !u.occupantName) {
         // Vacant → only produces rent with a lease-up assumption.
+        const row: RentRow = { unitRef: u.unitRef, tenant: "", sqft: r0(u.sqft || 0), months: zero(), assumed: no(), status: "vacant" };
         if (a?.kind === "leaseup") {
           const start = a.startMonth ?? 1;
           const rent = a.monthlyRent ?? 0;
-          for (let m = 0; m < 12; m++) if (m + 1 >= start) rentalMonthly[m] += rent;
+          for (let m = 0; m < 12; m++) if (m + 1 >= start) { rentalMonthly[m] += rent; row.months[m] = rent; row.assumed[m] = true; }
           dealCosts(a, u.sqft || 0, start, rent);
           assumptionsApplied++;
+          row.status = "lease-up";
         }
+        rows.push(row);
         vacant.push({ unitRef: u.unitRef, sqft: r0(u.sqft || 0), assumption: a });
         continue;
       }
@@ -148,6 +274,15 @@ export async function projectLeaseRevenue(
       const expMonth = end ? (end.y < budgetYear ? 0 : end.y === budgetYear ? end.m : 13) : 13;
       const months = inPlaceMonths(cur, expMonth, a);
       for (let m = 0; m < 12; m++) rentalMonthly[m] += months[m];
+      // From the renewal month on, a renew/hold decision is the assumption; a
+      // lease with no decision is held flat at today's rent (the rent roll
+      // has no schedule to say otherwise), which is also an assumption.
+      const assumedFrom = expMonth >= 1 && expMonth <= 12 ? expMonth + 1 : expMonth === 0 ? 1 : 13;
+      rows.push({
+        unitRef: u.unitRef, tenant: u.occupantName, sqft: r0(u.sqft || 0), months: months.slice(),
+        assumed: months.map((v, m) => m + 1 >= assumedFrom && Math.abs(v) > 0.005),
+        status: expMonth === 13 ? "contracted" : expMonth === 0 ? "holdover" : "expiring",
+      });
       if (a) assumptionsApplied++;
       // A renewal — or a tenant HELD at today's rent for a new term, who can
       // still be given TI and a broker paid — costs its deal when the term rolls.
@@ -167,6 +302,8 @@ export async function projectLeaseRevenue(
   expiring.sort((a, b) => (a.leaseTo ?? "").localeCompare(b.leaseTo ?? ""));
   vacant.sort((a, b) => b.sqft - a.sqft);
   return {
+    fromSchedule: usedSchedule,
+    rows: rows.map((r) => ({ ...r, months: r.months.map(r0) })).sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true })),
     rentalMonthly: rentalMonthly.map(r0),
     rentalTotal: r0(rentalMonthly.reduce((s, n) => s + n, 0)),
     tiMonthly: tiMonthly.map(r0),
