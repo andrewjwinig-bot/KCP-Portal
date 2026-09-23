@@ -220,3 +220,14 @@ export function debtStatusTone(status: string): PillTone {
     default:                return TONE_NEUTRAL;
   }
 }
+
+/** A report's output format on the Reports center — the same colour means the
+ *  same kind of file everywhere it is listed. */
+export function reportFormatTone(format: string): PillTone {
+  switch (format) {
+    case "Excel": return TONE_GREEN;
+    case "PDF": return TONE_RED;
+    case "On screen": return TONE_BLUE;
+    default: return TONE_NEUTRAL; // CSV, ZIP
+  }
+}

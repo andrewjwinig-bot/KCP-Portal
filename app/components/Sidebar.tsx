@@ -20,7 +20,6 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Rent Roll":          "rentroll",
   "Unit Info":          "rentroll",
   "Leasing Activity":   "leasing-activity",
-  "Past Tenants":       "rentroll",
   "Monthly Statements": "tenant-statements",
   "Expense History":    "base-years",
   "Expense Trends":     "base-years",
@@ -32,7 +31,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Task Tracker":       "task-tracker",
   "Filing Tracker":     "tracker",
   "Bank Acc Tracker":   "bank-rec-tracker",
-  "Reconciliation":     "bank-rec-tracker",
+  "Bank Recs":          "bank-rec-tracker",
   "Payroll Invoicer":   "payroll-invoicer",
   "Payroll History":    "payroll-history",
   "CC Expense Coder":   "expenses",
@@ -67,8 +66,19 @@ const NAV_ROLE_KEY: Record<string, string> = {
 // beneath, replacing the inline order they'd otherwise appear in.
 // Explicit within-group item order (by label). Listed items lead in this order;
 // anything else in the group trails in nav order.
+// A sub-page is listed straight after its parent (it only shows while you are
+// in that parent — see `showFor`).
 const GROUP_CHILD_ORDER: Record<string, string[]> = {
-  banking: ["Bank Transfers", "Security Deposits", "Debt Tracker"],
+  banking: ["Bank Transfers", "Debt Tracker", "Security Deposits", "Bank Recs", "Bank Acc Tracker"],
+  financials: [
+    "Cash Analysis",
+    "Operating Statements", "Flags to Investigate",
+    "Reprojections",
+    "Budgets", "Budget Draft", "Budget Inputs",
+    "Management Fees",
+    "Balance Sheet",
+    "1099 Register",
+  ],
 };
 
 // Visible cue: chevron + slightly tinted background distinguishes a
@@ -318,21 +328,6 @@ const NAV = [
     ),
   },
   {
-    label: "Past Tenants",
-    href: "/tenants/past",
-    external: false,
-    indent: true,
-    showFor: null as string | null,
-    groupId: "tenancy",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-        <path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" />
-        <path d="M3 12h2" />
-      </svg>
-    ),
-  },
-  {
     label: "CAM Reconciliation",
     href: "/cam-recon",
     external: false,
@@ -453,7 +448,7 @@ const NAV = [
     ),
   },
   {
-    label: "Reconciliation",
+    label: "Bank Recs",
     href: "/bank-rec/reconcile",
     external: false,
     indent: false,
@@ -472,7 +467,7 @@ const NAV = [
     href: "/bank-rec",
     external: false,
     indent: true,
-    showFor: null as string | null,
+    showFor: "/bank-rec" as string | null,
     groupId: "banking",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -643,16 +638,13 @@ const NAV = [
     // It is a monthly destination — the checklist email is sent from here —
     // not a detail of the page above it, so it stays indented and stays put.
     //
-    // ITS POSITION IS NOW LOAD-BEARING. While `showFor` hid it everywhere but
-    // its parent route, where it sat in this array did not matter. Always
-    // visible, an indented row reads as belonging to whatever is directly
-    // above it — and it was below Management Fees, which is the wrong parent.
-    // It goes immediately after Operating Statements and must stay there.
+    // A sub-page: shown only while you are in Operating Statements (`showFor`),
+    // and listed straight after it by GROUP_CHILD_ORDER.
     label: "Flags to Investigate",
     href: "/financials/operating-statements/review",
     external: false,
     indent: true,
-    showFor: null as string | null,
+    showFor: "/financials/operating-statements" as string | null,
     groupId: "financials",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -744,7 +736,7 @@ const NAV = [
     href: "/financials/budgets/draft",
     external: false,
     indent: true,
-    showFor: null as string | null,
+    showFor: "/financials/budgets" as string | null,
     groupId: "financials",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -764,6 +756,23 @@ const NAV = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <path d="M3 9h18M3 15h18M9 3v18" />
+      </svg>
+    ),
+  },
+  {
+    // The report center: every report the portal produces, in one place.
+    // Everyone can open it; it lists only the reports that person can reach.
+    label: "Reports",
+    href: "/reports",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18" />
+        <rect x="7" y="12" width="3" height="6" />
+        <rect x="12" y="8" width="3" height="10" />
+        <rect x="17" y="5" width="3" height="13" />
       </svg>
     ),
   },
@@ -936,6 +945,14 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     const roleKey = NAV_ROLE_KEY[item.label];
     const passesRole = !roleKey || user.navKeys.has("all") || user.navKeys.has(roleKey);
     if (!passesRole) return false;
+
+    // Budget Inputs is Step 3 of the master budget page now, so for anyone who
+    // has the Budgets pages it is a sub-page like Budget Draft — shown only
+    // while in Budgets. For Greg it is his whole view of the budget, so it
+    // stays put.
+    if (item.label === "Budget Inputs" && (user.navKeys.has("all") || user.navKeys.has("financials-budgets"))) {
+      return pathname.startsWith("/financials/budgets") || pathname.startsWith("/budget-inputs");
+    }
 
     // Existing context-based visibility (e.g. show child item only on parent route)
     if (item.showFor === null) return true;

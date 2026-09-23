@@ -118,6 +118,26 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
   summed, since a person holding two stakes would be counted twice.
 - When a section's purpose mirrors something on another page (a download menu, a hidden-accounts list, a KPI row, a tab+filter+table), copy that page's component/markup/spacing rather than approximating it inline.
 
+**The sidebar (`app/components/Sidebar.tsx`)**: within a group the order is
+`GROUP_CHILD_ORDER` — Financials: Cash Analysis, Operating Statements, Reprojections,
+Budgets, Management Fees, Balance Sheet, 1099 Register; Banking: Bank Transfers,
+Debt Tracker, Security Deposits, Bank Recs. A SUB-PAGE (Flags to Investigate,
+Budget Draft, Bank Acc Tracker, and Budget Inputs for anyone who has Budgets)
+shows only while you are in its parent (`showFor`) and is listed straight after
+it. Past Tenants is off the sidebar (the page does not work). **Reports** sits at
+the bottom: the Report Center.
+
+**The Report Center (`/reports`) lists every report once, from
+`lib/reports/catalog.ts`** — name, one-line description, formats, and the page
+that produces it — banded by category (Financial, Tenants & leasing, CAM &
+recoveries, Banking & debt, Payroll & invoicing, Investors, Custom). It is a
+LANDING page: each row opens the page that runs the report, where the Download
+menu lives; it does not duplicate them. A new report, or a custom one that exists
+only in the center, is ONE catalog entry (`catalog.test.ts` checks every `href`
+is a real page). The landing path is open to everyone (`isPathAllowed` allows
+exactly `/reports`, not `/reports/*`) and each person sees only the reports whose
+page they can open.
+
 **Chart series colours are the `--series-1…6` / `--series-other` tokens in
 `globals.css`** (the validated categorical palette, light and dark each checked
 against `--card`). Colour follows the ENTITY in fixed order — rank it once per
