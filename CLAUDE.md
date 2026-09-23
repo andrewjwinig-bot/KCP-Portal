@@ -1048,10 +1048,15 @@ time — and the team does not have time to open the GL over $80.
   group, ONE year. Every public route (`/api/budget-review/[token]/…`)
   re-verifies it, refuses any property outside the group, and stamps decisions
   and sign-offs with that person's name — the SAME `leasingDecisionFromBody`
-  the signed-in route uses. Drafts through the link are read-only
-  (`canEditLines: false`). Drew / admin mint, copy and revoke it from the
-  signed-in review page (`ShareLinkCard`, no PIN — the owner wanted no
-  sign-in); minting again reuses the live link. The page itself is ONE
+  the signed-in route uses. The link's draft endpoint returns ONLY what the
+  decisions need (rent + recoveries by suite, the leasing calls, the recovery
+  tie-out) — never the expense lines, NOI or debt: the link is for making the
+  calls, not for reading the budget. Drew / admin get the link IN FULL at the
+  top of the signed-in review page (created on first visit, then reused until
+  revoked) with Copy, "Open it as Harry sees it" and Revoke — shown inline
+  rather than behind a `ShareLinkCard` button, because the owner opened the
+  signed-in page (sidebar and all) thinking it was the link. There is no PIN
+  and no email step: the owner sends it himself. The page itself is ONE
   component (`RentReviewView`) fed by a `ReviewApi`, so the signed-in page and
   the link cannot drift. Its list comes from `reviewOverview`.
 - **Revenue by tenant reads like the Rent Roll**: TENANT first (600 weight,

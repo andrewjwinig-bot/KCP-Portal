@@ -8,9 +8,11 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const maxDuration = 60;
 
-// PUBLIC (signed link). GET ?key= → one property's budget draft — refused for
-// any property outside the link's group. Read-only: the grid's typed months
-// stay a signed-in job (canEditLines is always false here).
+// PUBLIC (signed link). GET ?key= → what the leasing decisions need for one
+// property — its rent and recoveries by suite and the leasing calls — and
+// NOTHING else of the budget (no expense lines, no NOI, no debt): the link is
+// for making the calls, not for reading the budget. Refused for any property
+// outside the link's group.
 export async function GET(req: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const link = await resolveReviewToken(token);
@@ -21,5 +23,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   }
   const draft = await buildBudgetDraft(key, link.year, 3);
   if (!draft) return NextResponse.json({ missingBasis: true });
-  return NextResponse.json({ ...draft, canEditLines: false });
+  return NextResponse.json({
+    propertyCode: draft.propertyCode,
+    propertyName: draft.propertyName,
+    budgetYear: draft.budgetYear,
+    leasing: draft.leasing,
+    tenantRevenue: draft.tenantRevenue,
+    reimbursementEstimate: draft.reimbursementEstimate,
+    recoveryTie: draft.recoveryTie,
+    rentLineLabel: draft.rentLineLabel,
+    canEditLines: false,
+  });
 }
