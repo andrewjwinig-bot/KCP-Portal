@@ -546,6 +546,14 @@ select.select-sm {
   border-radius: 12px;
 }
 
+/* The compact button — a card header, a toolbar of filters, a modal's Close.
+ * One size, so a row of them next to a .select-sm reads as one strip instead
+ * of each page picking its own padding. */
+.btn.sm {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
 .btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;

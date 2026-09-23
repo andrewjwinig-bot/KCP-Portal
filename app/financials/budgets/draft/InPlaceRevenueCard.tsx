@@ -62,75 +62,70 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
     }
   }
 
-  // Units whose rent came through BLANK — a real space with no contracted
-  // rent. Named, because a leased anchor entering the budget at nil with
-  // nothing saying so is the failure this import exists to prevent.
-  const blankUnits = rec ? [...new Set(rec.skipped.map((s) => s.reason))].length : 0;
-
+  // The heading sits OUTSIDE the card, as Step 2's does — a chapter break in
+  // the page rather than a title inside a box — with the import actions on
+  // its right. The card holds only what the import says and the table.
+  const status = !!(showSteps || msg || (!rec && !busy) || rec);
   return (
-    <div id="step-rent" className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div style={{ padding: "14px 16px" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-        <div>
-          <div style={STEP_LABEL}>Step 1 · Revenues — {year}</div>
-        </div>
+    <>
+      <div id="step-rent" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+        <div style={STEP_LABEL}>Step 1 · Revenues — {year}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <button type="button" className="btn" onClick={() => setShowSteps((s) => !s)} style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
+          <button type="button" className="btn sm" onClick={() => setShowSteps((s) => !s)}>
             {showSteps ? "Hide steps" : "Skyline steps"}
           </button>
-          <button type="button" className="btn primary" disabled={busy} onClick={() => fileRef.current?.click()}
-            style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
-            {busy ? "Importing…" : rec ? "Re-import" : "Import rent schedule"}
+          <button type="button" className="btn sm primary" disabled={busy} onClick={() => fileRef.current?.click()}>
+            {busy ? "Importing…" : rec ? "Re-import rent schedule" : "Import rent schedule"}
           </button>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" style={{ display: "none" }}
             onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); }} />
         </div>
       </div>
 
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+        {status && (
+          <div style={{ display: "grid", gap: 8, padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
+            {showSteps && <ImportInstructions variant="budget-rent" />}
 
-      {showSteps && <ImportInstructions variant="budget-rent" />}
-
-      {msg && (
-        <div className="small" style={{ marginTop: 10, fontWeight: 700, color: failed ? "#b91c1c" : "var(--muted)" }}>{msg}</div>
-      )}
-
-      {!rec && !busy && (
-        <div className="muted small" style={{ marginTop: 12 }}>
-          Nothing imported for {year} yet — the draft is holding current rents flat until it is.
-        </div>
-      )}
-
-      {rec && (
-        <>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
-            {rec.missing.length > 0 && (
-              <HoverCard
-                title="Centres missing from the export"
-                rows={rec.missing.map((m) => ({ label: m, value: "no rows" }))}
-                footer={{ label: "What to do", value: "Re-run the Skyline report across every centre and import again — a centre with no rows is not a centre with no rent." }}
-              >
-                <div><Pill tone={TONE_RED}>MISSING {rec.missing.join(", ")}</Pill></div>
-              </HoverCard>
+            {msg && (
+              <div className="small" style={{ fontWeight: 700, color: failed ? "#b91c1c" : "var(--muted)" }}>{msg}</div>
             )}
-            {rec.skipped.length > 0 && (
-              <HoverCard
-                title="Rows with no readable amount"
-                rows={rec.skipped.slice(0, 8).map((s) => ({ label: `Row ${s.row}`, value: s.reason }))}
-                footer={{ label: "Why it matters", value: "A blank rent is a real space with no contracted charge — it belongs on the vacancy list, not in the budget at nil." }}
-              >
-                <div><Pill tone={TONE_AMBER}>{rec.skipped.length} ROWS WITHOUT AN AMOUNT</Pill></div>
-              </HoverCard>
+
+            {!rec && !busy && (
+              <div className="muted small">
+                Nothing imported for {year} yet — the draft is holding current rents flat until it is.
+              </div>
             )}
-            <span className="muted small">
-              Imported {new Date(rec.importedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })} by {rec.importedBy}
-            </span>
+
+            {rec && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {rec.missing.length > 0 && (
+                  <HoverCard
+                    title="Centres missing from the export"
+                    rows={rec.missing.map((m) => ({ label: m, value: "no rows" }))}
+                    footer={{ label: "What to do", value: "Re-run the Skyline report across every centre and import again — a centre with no rows is not a centre with no rent." }}
+                  >
+                    <div><Pill tone={TONE_RED}>MISSING {rec.missing.join(", ")}</Pill></div>
+                  </HoverCard>
+                )}
+                {rec.skipped.length > 0 && (
+                  <HoverCard
+                    title="Rows with no readable amount"
+                    rows={rec.skipped.slice(0, 8).map((s) => ({ label: `Row ${s.row}`, value: s.reason }))}
+                    footer={{ label: "Why it matters", value: "A blank rent is a real space with no contracted charge — it belongs on the vacancy list, not in the budget at nil." }}
+                  >
+                    <div><Pill tone={TONE_AMBER}>{rec.skipped.length} ROWS WITHOUT AN AMOUNT</Pill></div>
+                  </HoverCard>
+                )}
+                <span className="muted small">
+                  Rent schedule imported {new Date(rec.importedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })} by {rec.importedBy}
+                </span>
+              </div>
+            )}
           </div>
-
-        </>
-      )}
+        )}
+        {children}
       </div>
-      {children}
-    </div>
+    </>
   );
 }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable } from "./BudgetStatementTable";
 import { RevenueByTenantCard } from "./RevenueByTenantCard";
-import { STEP_LABEL } from "./stepStyles";
+import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
 import { BudgetKpis } from "./BudgetKpis";
 import LoadingState from "@/app/components/LoadingState";
 import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
@@ -346,7 +346,7 @@ export default function BudgetDraftPage() {
           {draft.debt && draft.debt.loans.length > 0 && (
             <details className="card" style={{ padding: 0, overflow: "hidden" }}>
               <summary style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 14px", cursor: "pointer" }}>
-                <span style={STEP_LABEL}>Debt service — {money0(draft.debt.interest)} interest · {money0(draft.debt.principal)} principal · {draft.debt.loans.length} loan{draft.debt.loans.length === 1 ? "" : "s"}{draft.debt.loans.some((l) => l.refinanceAssumed) ? " · refinance assumed" : ""}</span>
+                <span style={SUB_LABEL}>Debt service — {money0(draft.debt.interest)} interest · {money0(draft.debt.principal)} principal · {draft.debt.loans.length} loan{draft.debt.loans.length === 1 ? "" : "s"}{draft.debt.loans.some((l) => l.refinanceAssumed) ? " · refinance assumed" : ""}</span>
                 <a href="/debt" className="muted small" style={{ fontWeight: 700 }} onClick={(e) => e.stopPropagation()}>Debt Tracker →</a>
               </summary>
               <div style={{ overflowX: "auto" }}>

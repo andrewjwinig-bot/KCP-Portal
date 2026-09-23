@@ -57,7 +57,7 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
             <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{label}</div>
             <code className="muted" style={{ fontSize: 12 }}>{mask}</code>
           </div>
-          <button type="button" className="btn" onClick={onClose} style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>Close</button>
+          <button type="button" className="btn sm" onClick={onClose}>Close</button>
         </div>
 
         <div style={{ padding: 18, overflowY: "auto" }}>
