@@ -10,8 +10,8 @@ export const revalidate = 0;
 
 // PUBLIC (signed link). POST { propertyCode, confirmed } — the link's person
 // signs off (or withdraws) a property's rent and assumptions.
-export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
+export async function POST(req: Request, { params }: { params: { token: string } }) {
+  const { token } = params;
   const link = await resolveReviewToken(token);
   if (!link) return NextResponse.json({ error: "This link is no longer valid." }, { status: 404 });
   try {

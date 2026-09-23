@@ -13,8 +13,8 @@ export const maxDuration = 60;
 // NOTHING else of the budget (no expense lines, no NOI, no debt): the link is
 // for making the calls, not for reading the budget. Refused for any property
 // outside the link's group.
-export async function GET(req: Request, { params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
+export async function GET(req: Request, { params }: { params: { token: string } }) {
+  const { token } = params;
   const link = await resolveReviewToken(token);
   if (!link) return NextResponse.json({ error: "This link is no longer valid." }, { status: 404 });
   const key = new URL(req.url).searchParams.get("key") ?? "";

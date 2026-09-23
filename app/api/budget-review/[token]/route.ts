@@ -10,8 +10,8 @@ export const maxDuration = 60;
 
 // PUBLIC (signed link, no sign-in). GET → who the link is for, the group and
 // year, and every property's calls and sign-off. Only the link's own group.
-export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
+export async function GET(_req: Request, { params }: { params: { token: string } }) {
+  const { token } = params;
   const link = await resolveReviewToken(token, true);
   if (!link) return NextResponse.json({ error: "This link is no longer valid." }, { status: 404 });
   const g = REVIEW_GROUP[link.group];

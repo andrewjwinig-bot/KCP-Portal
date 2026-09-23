@@ -5,6 +5,7 @@ import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_RE
 import { BudgetStatementTable } from "./BudgetStatementTable";
 import { RevenueByTenantCard } from "./RevenueByTenantCard";
 import { STEP_LABEL } from "./stepStyles";
+import LoadingState from "@/app/components/LoadingState";
 import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
 import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
@@ -308,7 +309,9 @@ export default function BudgetDraftPage() {
         )}
       </InPlaceRevenueCard>
 
-      {loading && !draft && <div className="card muted">Building draft…</div>}
+      {loading && !draft && (
+        <LoadingState status={`Building the ${year} draft…`} context="Rent schedule, leasing calls, recoveries, expenses and loans" columns={4} rows={5} />
+      )}
 
       {missingBasis && !loading && (
         <div className="card" style={{ borderColor: "rgba(217,119,6,0.5)", background: "rgba(217,119,6,0.07)", color: "#b45309" }}>
