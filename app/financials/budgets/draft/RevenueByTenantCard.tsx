@@ -82,7 +82,13 @@ function tenantTip(r: TenantRevenueRow, est: ReimbursementEstimate | undefined, 
       }
       rows.push({ label: `${est.reconYear} recon due`, value: join((p) => money0(m.recon[p])) });
       if (m.reconOcc != null) rows.push({ label: "Part year in recon", value: `${Math.round(m.reconOcc * 100)}% — scaled to a full year`, color: "#b45309" });
-      rows.push({ label: "Pool change", value: join((p) => `×${est.ratios[p]}`) });
+      // How much each pool grew, recon year → budget year, as a percent — one
+      // line per category in view, named for it.
+      const yy = (y: number) => `'${String(y).slice(2)}`;
+      for (const p of rec) {
+        const chg = (est.ratios[p] - 1) * 100;
+        rows.push({ label: `${SHORT[p]} change ${yy(est.reconYear)}→${yy(est.budgetYear)}`, value: `${chg >= 0 ? "+" : "−"}${Math.abs(chg).toFixed(1)}%` });
+      }
     } else if (m?.kind === "office") {
       rows.push({ label: "Pro-rata share", value: pct(m.proRataPct) });
       rows.push({ label: "Base year", value: m.noBaseStop ? "None — pays the full share" : m.baseYear ? String(m.baseYear) : "—" });
