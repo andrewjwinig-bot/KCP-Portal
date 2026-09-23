@@ -227,7 +227,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
         return (
           <Fragment key={l.label + l.mask}>
             <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
-              badge={badgeFor(l.source)} badgeHref={l.inputKind ? "#step-expenses" : l.source === "cam-estimate" ? "#step-recoveries" : l.source === "leases" ? "#step-rent" : undefined}
+              badge={badgeFor(l.source)} badgeHref={l.inputKind ? "#step-expenses" : l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
               onLabel={() => onLine(sec, l)} favorableUp={favorableUp} typed={viaSubs ? undefined : l.typed}
               rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
               onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
@@ -297,7 +297,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
         </table>
       </div>
       <div className="muted small" style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
-        <b>Leases</b> rent roll &amp; leasing calls · <b>CAM est.</b> recoveries · <b>Entered</b> keyed in Step 2 · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s forecast grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules. <b>Forecast {by}</b> = actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
+        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Step 1) · <b>Entered</b> keyed in Step 2 · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s forecast grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules. <b>Forecast {by}</b> = actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
         {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget {yy}</b> to spread an annual. <span style={{ background: TYPED_BG, padding: "0 4px", borderRadius: 3 }}>Tinted</span> = typed; ↺ resets a line.</>}
       </div>
     </div>

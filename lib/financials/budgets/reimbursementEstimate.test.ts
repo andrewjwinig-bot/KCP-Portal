@@ -47,6 +47,19 @@ describe("recoveries follow the rent months", () => {
     expect(e.monthly.cam[11]).toBe(1000);
   });
 
+  it("a tenant on no reconciliation is assumed NNN at its pro-rata share", async () => {
+    loadRetailRecon.mockResolvedValue({ result: { tenants: [
+      { unitRef: "2300-1", name: "Old", camDue: 12000, insDue: 0, retDue: 0, occPct: 1, camDenom: 10000, insDenom: 10000, retDenom: 10000, camPoolFull: 100000, insPool: 0, retPool: 0 },
+    ] } });
+    const e = (await estimateReimbursements("2300", 2026, 0, {
+      poolRatios: { cam: 1, ins: 1, ret: 1 },
+      tenancy: [suite("2300-1", flat(500)), { ...suite("2300-9", flat(400)), sqft: 1000 }],
+    }))!;
+    const n = e.tenants.find((t) => t.unitRef === "2300-9")!;
+    expect(n.camAnnual).toBe(10000); // 1,000 of 10,000 SF × $100,000
+    expect(n.method).toMatchObject({ kind: "new", assumption: "nnn" });
+  });
+
   it("scales a part-year recon tenant up to a full year", async () => {
     loadRetailRecon.mockResolvedValue({ result: { tenants: [
       { unitRef: "2300-1", name: "Half", camDue: 6000, insDue: 600, retDue: 3000, occPct: 0.5 },

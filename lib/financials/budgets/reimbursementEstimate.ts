@@ -26,7 +26,7 @@ import { loadOfficeRecon } from "@/lib/cam/office/loadResult";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import type { LeaseAssumption } from "./leasingAssumptions";
 import {
-  retailRecovery, officeRecovery, retailLeaseUp, monthsBetween, totalRecoveries,
+  retailRecovery, officeRecovery, retailLeaseUp, retailProRata, monthsBetween, totalRecoveries,
   type PoolRatios, type TenantRecovery,
 } from "./recoveryMath";
 
@@ -58,7 +58,9 @@ export type ReimbMethod =
       noBaseStop: boolean;
       recon: { cam: number; ins: number; ret: number };
     }
-  | { kind: "leaseup"; sqft: number; startMonth: number };
+  | { kind: "leaseup"; sqft: number; startMonth: number }
+  /** In place on the roll but on no reconciliation — a lease newer than it. */
+  | { kind: "new"; sqft: number; assumption: "nnn" | "base-year" };
 
 export type ReimbTenantEstimate = {
   unitRef: string;
@@ -249,7 +251,8 @@ export async function estimateReimbursements(
         },
       });
     }
-    // Vacancies leasing up: their pro-rata share of each budget pool.
+    // Vacancies leasing up, and tenants newer than the reconciliation: their
+    // pro-rata share of each budget pool — assumed NNN.
     if (pr) {
       const first = ts.find((t) => t.camDenom > 0) ?? ts[0];
       const pools = {
@@ -269,6 +272,16 @@ export async function estimateReimbursements(
         const rec = retailLeaseUp(a.unitRef, sqft, start, pools, denoms);
         recs.push(rec);
         extra.set(rec, { assumed: rec.months.slice(), method: { kind: "leaseup", sqft, startMonth: start } });
+      }
+      const onRecon = new Set(ts.filter((t) => !(t.vacatedISO && Number(String(t.vacatedISO).slice(0, 4)) <= reconYear)).map((t) => canon(t.unitRef)));
+      for (const row of rows.values()) {
+        if (row.status === "vacant" || row.status === "lease-up" || onRecon.has(canon(row.unitRef))) continue;
+        const { months, assumed } = tenancyMonths(row);
+        if (!months.some(Boolean) || !(row.sqft > 0)) continue;
+        const rec = retailProRata(row.unitRef, row.tenant || "New tenant", row.sqft, months, pools, denoms,
+          `Not on the ${reconYear} reconciliation — assumed NNN at its pro-rata share`);
+        recs.push(rec);
+        extra.set(rec, { assumed, method: { kind: "new", sqft: row.sqft, assumption: "nnn" } });
       }
     }
   } else {
@@ -296,8 +309,26 @@ export async function estimateReimbursements(
       }, ratios, months, note);
       recs.push(rec); extra.set(rec, { assumed, method });
     }
-    // An office lease-up's base year is the budget year: no increase to
-    // recover in year one, so it adds nothing here — by design.
+    // A lease newer than the reconciliation — or an office lease-up — has the
+    // budget year (or a year after the recon) as its base year: no increase to
+    // recover yet. Listed with a zero so the table says why, rather than
+    // leaving the suite silently blank.
+    if (pr) {
+      const onRecon = new Set(loaded.result.tenants.filter((t) => !t.isVacant).map((t) => canon(t.unitRef)));
+      for (const row of rows.values()) {
+        if (row.status === "vacant" || onRecon.has(canon(row.unitRef))) continue;
+        const { months } = tenancyMonths(row);
+        if (!months.some(Boolean)) continue;
+        const zero = new Array(12).fill(0);
+        const rec: TenantRecovery = {
+          unitRef: row.unitRef, name: row.tenant || "New tenant", months, camYear: 0, insYear: 0, retYear: 0,
+          cam: zero.slice(), ins: zero.slice(), ret: zero.slice(),
+          note: "New lease — its base year is current, so nothing to recover yet",
+        };
+        recs.push(rec);
+        extra.set(rec, { assumed: row.assumed.slice(), method: { kind: "new", sqft: row.sqft, assumption: "base-year" } });
+      }
+    }
   }
 
   const monthly = totalRecoveries(recs);

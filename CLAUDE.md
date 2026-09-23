@@ -1041,15 +1041,15 @@ time — and the team does not have time to open the GL over $80.
   progress route from `projectLeaseRevenue`) — the same list the leasing card
   works from — so Harry/Nancy are owners in "Who owes what" from day one and
   their step is not "blocked" on an import they don't control.
-- **FOUR steps, and the cards are numbered to match the rail**: 1 **Rent**, 2
-  Expenses (the Budget Inputs table itself), 3 Recoveries, 4 Review & finalize
-  (the monthly grid). **Rent is ONE card** (`InPlaceRevenueCard` with children):
-  the schedule import and its tiles (leased the full year · expiring · vacant ·
-  the property's rent), then "Vacancies & renewals" (the leasing decisions, in
-  the owner's colour), then "Rent by tenant" — the schedule and the decisions
-  it produces are one job, and were two steps the owner merged. A vacant suite
-  is one the roll marks vacant or names "Vacant" — never read that name as a
-  tenant (it put empty suites on the expiring list).
+- **THREE steps, and the cards are numbered to match the rail**: 1
+  **Revenues**, 2 **Expenses** (the Budget Inputs table itself), 3 **Review &
+  finalize** (the monthly grid). Recoveries are NOT a step — nobody does them;
+  they are derived — so they live in the Revenues table. **Revenues is ONE
+  card** (`InPlaceRevenueCard` with children): the schedule import and its
+  tiles, then "Vacancies & renewals" (the leasing decisions, in the owner's
+  colour), then "Revenue by tenant". A vacant suite is one the roll marks
+  vacant or names "Vacant" — never read that name as a tenant (it put empty
+  suites on the expiring list).
 - **Once the RENT SCHEDULE is imported (Step 1), it drives rent and Step 2**
   (`projectLeaseRevenue`'s `schedule` argument, read by the draft AND the
   progress route so the rail counts exactly the card's rows). Each suite's
@@ -1059,30 +1059,32 @@ time — and the team does not have time to open the GL over $80.
   carry NOTHING until someone decides (the schedule has no rent for them); a
   renew/hold then fills from the month after the term. Before an import it
   falls back to today's rent roll held flat.
-- **"Rent by tenant" is the per-suite gut check** (`RentByTenantCard`, under
-  Step 2): a row per suite, a column per month, totals down and across — the
-  workbook's "Summary by Month". DARK green = CONTRACTED (the schedule / an
-  in-place lease guarantees it), LIGHT green = ASSUMED (a renewal, a hold past
-  the term, a lease-up — speculative). All / Contracted / Speculative filter the
-  cells and the totals. The rows (`RentRow`, with a per-month `assumed` flag)
-  sum exactly to the budget's rent line. Step 1 now only reports the import
-  (coverage, missing centres, blank rows); it does not repeat the suites.
-- **Step 3 (Recoveries) IS the recovery lines, and shows it** (`RecoveriesCard`).
-  A row per tenant, a column per month, shaded like Rent by tenant (dark =
-  lease in place, light = a leasing assumption), a hover per tenant with its
-  methodology (PRS, admin fee, exclusions, cap, gross lease, recon dues, pool
-  change), and under each category's tenant total the budget line(s) it lands
-  on (`tieRecoveries` → `draft.recoveryTie`) with ONE "TIES TO THE BUDGET"
-  mark. **Recoveries follow RENT's months** (`tenancy: lease.rows` →
-  `tenancyMonths`): first rent month to last, so a lease ending with no decision
-  stops paying recoveries when it stops paying rent, a renewal/hold carries on
-  (assumed), a holdover with no decision pays nothing. A recon tenant who was
-  there part of the recon year (`occPct` < 1) is scaled up to a full year; one
-  who vacated in the recon year is dropped. A category with money and no
-  statement line to land on is shown in red, never silently dropped.
+- **"Revenue by tenant" is ONE table for every suite's income**
+  (`RevenueByTenantCard`, rows from `combineTenantRevenue` → `draft.tenantRevenue`).
+  A row per suite in the rent side's order — vacancies and gross leases
+  INCLUDED, dimmed when they pay nothing, so "who pays nothing" is visible — a
+  column per month, totals down and across. Filters: **Gross · Base rent ·
+  Recoveries · CAM · INS · RET**, and separately **All · Contracted ·
+  Speculative**. DARK green = a lease in place, LIGHT green = a leasing
+  assumption. The total rows name the budget line each part lands on, with ONE
+  "TIES TO THE BUDGET" mark (`tieRecoveries` → `draft.recoveryTie`); a category
+  with money and no line to land on shows in red. It REPLACED two tables
+  ("Rent by tenant" and a separate Recoveries card) listing the same tenants —
+  do not split them again. Hover a tenant for its methodology.
+- **Recoveries**: the recon year's CAM methodology (PRS, admin fee,
+  exclusions, cap, gross lease — from the unit page) applied to the budget's
+  expense pools. **Recoveries follow RENT's months** (`tenancy: lease.rows` →
+  `tenancyMonths`): first rent month to last, so a lease ending with no
+  decision stops paying recoveries when it stops paying rent, a renewal/hold
+  carries on (assumed), a holdover with no decision pays nothing. A recon
+  tenant there part of the recon year (`occPct` < 1) is scaled to a full year;
+  one who vacated in the recon year is dropped. **A tenant on no
+  reconciliation (a newer lease) and a lease-up are assumed NNN** — pro-rata
+  SF share of each pool, no admin fee (`retailProRata`); an office one has a
+  current base year, so it is listed at zero with that reason.
 - **Derived lines are NOT typeable in the grid**: the recovery lines
-  (`cam-estimate` — Step 3), rent and the deals' TI / commissions (`leases` —
-  Step 1), and the Budget Inputs lines. `applyTyped` ignores any stored override
+  (`cam-estimate`) and rent and the deals' TI / commissions (`leases`), all
+  Step 1, and the Budget Inputs lines. `applyTyped` ignores any stored override
   on them, the grid offers no edit, and the line-history "Use this" is hidden;
   their pill links back to the step that sets them. Typing over them would
   break the tie to the tenants' methodology and the leasing decisions.

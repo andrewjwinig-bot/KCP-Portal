@@ -151,3 +151,28 @@ describe("tieRecoveries", () => {
     expect(ins.estimateTotal).toBe(120);
   });
 });
+
+import { combineTenantRevenue } from "./draft";
+
+describe("combineTenantRevenue", () => {
+  const f = (n: number) => new Array(12).fill(n);
+  const rr = (unitRef: string, tenant: string, rent: number, status: any = "contracted") => ({ unitRef, tenant, sqft: 1000, months: f(rent), assumed: f(false), status });
+  const t = (unitRef: string, cam: number) => ({ unitRef, name: "x", cam: f(cam), ins: f(0), ret: f(0), assumed: f(false), monthsActive: 12, camAnnual: 0, insAnnual: 0, retAnnual: 0, camMonthly: 0, insMonthly: 0, retMonthly: 0 });
+
+  it("keeps every rent suite (vacancies too), in order, with its recoveries beside it", () => {
+    const rows = combineTenantRevenue(
+      [rr("A-1", "Acme", 1000), rr("A-2", "", 0, "vacant"), rr("A-3", "Gross Co", 800)],
+      { tenants: [t("A-1-CU", 200)] } as any,
+    );
+    expect(rows.map((r) => r.unitRef)).toEqual(["A-1", "A-2", "A-3"]);
+    expect(rows[0].cam[0]).toBe(200);
+    expect(rows[1].rent[0] + rows[1].cam[0]).toBe(0);
+    expect(rows[2].cam[0]).toBe(0);
+  });
+
+  it("appends a recovery with no rent-side suite rather than dropping it", () => {
+    const rows = combineTenantRevenue([rr("A-1", "Acme", 1000)], { tenants: [t("Z-9", 50)] } as any);
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toMatchObject({ unitRef: "Z-9", recoveryOnly: true });
+  });
+});
