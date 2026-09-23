@@ -11,7 +11,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { StatPill, Pill, TONE_GREEN, TONE_BLUE, TONE_NEUTRAL } from "@/app/components/Pill";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
 import LoadingState from "@/app/components/LoadingState";
-import { EXPENSE_INPUT_LABEL, spreadLike, type ExpenseInputKind } from "@/lib/financials/budgets/expenseInputs";
+import { EXPENSE_INPUT_LABEL, spreadLike, spreadPattern, type ExpenseInputKind, type SpreadShape } from "@/lib/financials/budgets/expenseInputs";
 import type { BudgetInputProperty, BudgetInputKindRow } from "@/app/api/budget-inputs/route";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -81,7 +81,6 @@ export function ExpenseInputsPanel({ year, bookId, only, embedded = false, onSav
           <th style={thL}>Line</th>
           {MONTHS.map((m) => <th key={m} style={th}>{m}</th>)}
           <th style={th}>{data?.year} total</th>
-          <th style={th} />
         </tr>
       </thead>
       <tbody>
@@ -91,7 +90,7 @@ export function ExpenseInputsPanel({ year, bookId, only, embedded = false, onSav
                 names the one property on screen. */}
             {(!embedded || p.missingBasis) && (
               <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: pi ? "2px solid var(--border)" : "none" }}>
-                <td style={{ ...tdL, paddingTop: 10, paddingBottom: 10, whiteSpace: "normal" }} colSpan={15}>
+                <td style={{ ...tdL, paddingTop: 10, paddingBottom: 10, whiteSpace: "normal" }} colSpan={14}>
                   {!embedded && <span style={{ fontWeight: 800 }}>{p.code} — {p.name}</span>}
                   {p.missingBasis && <span className="muted" style={{ fontSize: 12, marginLeft: embedded ? 0 : 10 }}>no {data?.basisYear} GL or budget loaded — nothing to measure against yet</span>}
                 </td>
@@ -140,20 +139,21 @@ function KindRows({ code, row, basisYear, year, onSave }: {
   code: string; row: BudgetInputKindRow; basisYear: number; year: number;
   onSave: (code: string, kind: ExpenseInputKind, body: { annual?: number; months?: number[]; clear?: boolean }) => Promise<boolean>;
 }) {
-  const monthly = row.kind === "building-maintenance";
+  // Every line takes EITHER twelve months (a tax bill in May and November, a
+  // premium in its renewal month) OR a total — taxes and insurance spread like
+  // this year, maintenance evenly. Whichever was typed last is what saves.
+  const pattern = row.kind === "building-maintenance" ? new Array(12).fill(1) : row.basisForecast;
   const [cells, setCells] = useState<string[]>(() => row.months.map((v) => String(v)));
   const [annual, setAnnual] = useState<string>(() => String(sum(row.months)));
+  const [mode, setMode] = useState<"months" | "annual" | null>(null);
   const [busy, setBusy] = useState(false);
   // Follow the server after a save or a reload.
-  useEffect(() => { setCells(row.months.map((v) => String(v))); setAnnual(String(sum(row.months))); }, [row.months]);
+  useEffect(() => { setCells(row.months.map((v) => String(v))); setAnnual(String(sum(row.months))); setMode(null); }, [row.months]);
 
-  const cellNums = cells.map((c) => Number(c.replace(/[,$\s]/g, "")) || 0);
-  const dirtyMonths = monthly && cellNums.some((v, i) => v !== row.months[i]);
-  const annualNum = Number(annual.replace(/[,$\s]/g, "")) || 0;
-  const dirtyAnnual = !monthly && annualNum !== sum(row.months);
-  // What the months WILL be once the annual is saved — shown live, so the
-  // spread is read before it is committed.
-  const shown = monthly ? cellNums : dirtyAnnual ? spreadLike(annualNum, row.basisForecast) : row.months;
+  const parse = (v: string) => Number(v.replace(/[,$\s]/g, "")) || 0;
+  const cellNums = cells.map(parse);
+  const annualNum = parse(annual);
+  const dirty = mode === "months" ? cellNums.some((v, i) => v !== row.months[i]) : mode === "annual" ? annualNum !== sum(row.months) : false;
 
   const status = row.entered
     ? <Pill tone={TONE_GREEN}>ENTERED</Pill>
@@ -164,59 +164,86 @@ function KindRows({ code, row, basisYear, year, onSave }: {
     await onSave(code, row.kind, body);
     setBusy(false);
   }
+  const save = () => commit(mode === "months" ? { months: cellNums } : { annual: annualNum });
+  const cancel = () => { setCells(row.months.map((v) => String(v))); setAnnual(String(sum(row.months))); setMode(null); };
+  // Re-lay the CURRENT total across the year in a chosen shape; the months are
+  // then what saves, and any of them can still be typed over.
+  const reshape = (shape: SpreadShape) => {
+    const total = cellNums.reduce((a, b) => a + b, 0);
+    setCells(spreadLike(total, spreadPattern(shape, row.basisForecast)).map(String));
+    setMode("months");
+  };
+  const onKey = (e: React.KeyboardEvent) => { if (e.key === "Enter" && dirty) save(); if (e.key === "Escape") cancel(); };
 
   const ref = (label: string, months: number[], note?: string) => (
     <tr style={{ color: "var(--muted)" }}>
       <td style={{ ...tdL, fontSize: 12, paddingTop: 3, paddingBottom: 3, paddingLeft: 26 }}>{label}{note ? <span style={{ marginLeft: 6, fontSize: 11 }}>{note}</span> : null}</td>
       {months.map((v, i) => <td key={i} style={{ ...td, fontSize: 12, paddingTop: 3, paddingBottom: 3 }}>{num(v)}</td>)}
       <td style={{ ...td, fontSize: 12, paddingTop: 3, paddingBottom: 3, fontWeight: 700 }}>{money0(sum(months))}</td>
-      <td />
     </tr>
   );
 
   return (
     <>
       <tr style={{ borderTop: "1px solid var(--border)" }}>
-        <td style={{ ...tdL, whiteSpace: "normal", minWidth: 190 }}>
+        <td style={{ ...tdL, whiteSpace: "normal", minWidth: 210 }}>
           <div style={{ fontWeight: 700 }}>{EXPENSE_INPUT_LABEL[row.kind]} {status}</div>
           <div className="muted" style={{ fontSize: 11.5 }}>
-            {OWNER[row.kind]} · {monthly ? "twelve months" : "annual, spread like this year"}
+            {OWNER[row.kind]}{row.editable ? " · type any month or the total, or pick a spread" : " · read-only"}
             {row.lines.length > 1 ? ` · lands on ${row.lines.join(", ")}` : ""}
           </div>
-        </td>
-        {shown.map((v, i) => (
-          <td key={i} style={{ ...td, paddingLeft: 4, paddingRight: 4 }}>
-            {monthly && row.editable ? (
-              <input value={cells[i]} inputMode="numeric" aria-label={`${MONTHS[i]} ${year}`} style={cellIn}
-                onChange={(e) => setCells((c) => c.map((x, j) => (j === i ? e.target.value : x)))} />
-            ) : <span style={{ fontWeight: 600 }}>{num(v)}</span>}
-          </td>
-        ))}
-        <td style={{ ...td, fontWeight: 800 }}>
-          {!monthly && row.editable ? (
-            <input value={annual} inputMode="numeric" aria-label={`Annual ${EXPENSE_INPUT_LABEL[row.kind]}`} style={{ ...cellIn, width: 96, fontWeight: 800 }}
-              onChange={(e) => setAnnual(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && dirtyAnnual) commit({ annual: annualNum }); }} />
-          ) : money0(sum(shown))}
-        </td>
-        <td style={{ ...td, whiteSpace: "nowrap" }}>
           {row.editable && (
-            <div style={{ display: "inline-flex", gap: 6 }}>
-              {(dirtyMonths || dirtyAnnual) ? (
-                <button className="btn primary" disabled={busy} style={{ fontSize: 12, padding: "4px 12px" }}
-                  onClick={() => commit(monthly ? { months: cellNums } : { annual: annualNum })}>{busy ? "Saving…" : "Save"}</button>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: 6 }}>
+              <select className="select-sm" style={{ width: "auto" }} value="" aria-label={`Spread ${EXPENSE_INPUT_LABEL[row.kind]} across the year`}
+                onChange={(e) => { if (e.target.value) reshape(e.target.value as SpreadShape); }}>
+                <option value="">Spread…</option>
+                <option value="like-basis">Like {basisYear}</option>
+                <option value="even">Evenly, monthly</option>
+                <option value="quarterly">Quarterly (Jan · Apr · Jul · Oct)</option>
+                <option value="semiannual">Twice a year (Jan · Jul)</option>
+                <optgroup label="All in one month">
+                  {MONTHS.map((m, i) => <option key={m} value={`month-${i}`}>All in {m}</option>)}
+                </optgroup>
+              </select>
+              {dirty ? (
+                <>
+                  <button className="btn primary" disabled={busy} style={{ fontSize: 12, padding: "4px 12px" }} onClick={save}>{busy ? "Saving…" : "Save"}</button>
+                  <button className="btn" disabled={busy} style={{ fontSize: 12, padding: "4px 12px" }} onClick={cancel}>Cancel</button>
+                </>
               ) : !row.entered ? (
                 // Accept the figure as it stands — the default IS the answer
                 // for most properties, and that should be one click.
                 <button className="btn" disabled={busy} style={{ fontSize: 12, padding: "4px 12px" }}
-                  onClick={() => commit(monthly ? { months: row.months } : { annual: sum(row.months) })}
-                  title="Keep this figure and mark it entered">{busy ? "…" : "Accept"}</button>
+                  onClick={() => commit({ months: row.months })}>{busy ? "…" : "Accept as shown"}</button>
               ) : (
                 <button className="btn" disabled={busy} style={{ fontSize: 12, padding: "4px 12px" }}
-                  onClick={() => commit({ clear: true })} title="Clear the entered figure and go back to the default">Reset</button>
+                  onClick={() => commit({ clear: true })}>Reset to default</button>
               )}
             </div>
           )}
+        </td>
+        {cellNums.map((v, i) => (
+          <td key={i} style={{ ...td, paddingLeft: 3, paddingRight: 3 }}>
+            {row.editable ? (
+              <input value={cells[i]} inputMode="numeric" aria-label={`${EXPENSE_INPUT_LABEL[row.kind]} ${MONTHS[i]} ${year}`} style={cellIn}
+                onKeyDown={onKey}
+                onChange={(e) => {
+                  const next = cells.map((x, j) => (j === i ? e.target.value : x));
+                  setCells(next); setMode("months");
+                  setAnnual(String(next.map(parse).reduce((a, b) => a + b, 0)));
+                }} />
+            ) : <span style={{ fontWeight: 600 }}>{num(v)}</span>}
+          </td>
+        ))}
+        <td style={{ ...td, fontWeight: 800 }}>
+          {row.editable ? (
+            <input value={annual} inputMode="numeric" aria-label={`${EXPENSE_INPUT_LABEL[row.kind]} ${year} total`} style={{ ...cellIn, width: 96, fontWeight: 800 }}
+              onKeyDown={onKey}
+              onChange={(e) => {
+                setAnnual(e.target.value); setMode("annual");
+                setCells(spreadLike(parse(e.target.value), pattern).map(String));
+              }} />
+          ) : money0(sum(row.months))}
         </td>
       </tr>
       {ref(`${basisYear} budget`, row.basisBudget)}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { expenseInputKindOf, spreadLike, resolveKind, splitAcrossLines, defaultMonths } from "./expenseInputs";
+import { expenseInputKindOf, spreadLike, resolveKind, splitAcrossLines, defaultMonths, spreadPattern } from "./expenseInputs";
 
 const sum = (a: number[]) => a.reduce((s, n) => s + n, 0);
 
@@ -40,6 +40,15 @@ describe("spreadLike", () => {
 });
 
 describe("resolveKind", () => {
+  it("takes twelve typed months as typed for taxes too (bills in May and November)", () => {
+    const months = [0, 0, 0, 0, 21000, 0, 0, 0, 0, 0, 21000, 0];
+    expect(resolveKind("ret", new Array(12).fill(1000), 3, { months })).toEqual({ months, entered: true });
+  });
+
+  it("spreads an annual maintenance figure evenly", () => {
+    expect(resolveKind("building-maintenance", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12000], 3, { annual: 12000 }).months).toEqual(new Array(12).fill(1000));
+  });
+
   const basis = [0, 0, 0, 0, 6000, 0, 0, 0, 0, 0, 6000, 0]; // taxes twice a year
 
   it("defaults taxes to this year + 3%, in the months they post", () => {
@@ -84,5 +93,16 @@ describe("splitAcrossLines", () => {
     expect(a[0]).toBe(750);
     expect(b[0]).toBe(250);
     for (let m = 0; m < 12; m++) expect(a[m] + b[m]).toBe(1000);
+  });
+});
+
+describe("spreadPattern", () => {
+  const lay = (shape: any) => spreadLike(12001, spreadPattern(shape, [0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+  it("lays a total in each shape and always adds back", () => {
+    expect(lay("like-basis")[2]).toBe(12001);
+    expect(lay("quarterly").filter((v) => v > 0)).toHaveLength(4);
+    expect(lay("semiannual").map((v, i) => (v ? i : -1)).filter((i) => i >= 0)).toEqual([0, 6]);
+    expect(lay("month-10")[10]).toBe(12001);
+    for (const s of ["like-basis", "even", "quarterly", "semiannual", "month-4"]) expect(lay(s).reduce((a, b) => a + b, 0)).toBe(12001);
   });
 });

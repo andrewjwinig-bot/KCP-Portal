@@ -6,8 +6,8 @@
 // the same contracted / assumed shading) because it follows the SAME leasing
 // decisions: a tenant pays recoveries in exactly the months it pays rent.
 //
-// Under each category's tenant total sit the budget line(s) that total lands
-// on — the recovery income lines in Step 4 — with one TIES mark when they
+// Each category's tenant total names the budget line(s) it lands on — the
+// recovery income lines in Step 4 — and one TIES mark in the header says they
 // agree to the dollar in every month. Those lines are not typeable in the
 // grid: they ARE this table, so the only way to move them is through what
 // drives it (the pools in Step 2, the leasing decisions in Step 1, or the
@@ -111,9 +111,11 @@ export function RecoveriesCard({ est, tie }: { est: ReimbursementEstimate; tie: 
         </div>
       </div>
       <div style={{ padding: "8px 14px", borderBottom: "1px solid var(--border)" }} className="muted small">
-        Each tenant keeps their share from the <b>{est.reconYear} reconciliation</b> — the CAM methodology on their unit page (PRS, admin fee, exclusions, cap, gross lease) — applied to <b>this budget&rsquo;s pools</b>, so the taxes and insurance in Step 2 flow through.
-        {est.kind === "office" ? " Office tenants pay their share of the increase over their base year." : ""}
-        {" "}They pay in the <b>same months as their rent</b> in Step 1: a lease that ends with no decision stops, a renewal or hold carries on, a lease-up starts at its pro-rata share. Hover a tenant for how their figure was reached. The totals below <b>are</b> the recovery lines in Step 4, which is why those lines can&rsquo;t be typed over.
+        Each tenant keeps their <b>CAM methodology</b> — PRS, admin fee, exclusions, cap and gross lease, as set on their unit page and applied in the <b>{est.reconYear} reconciliation</b> — carried onto <b>this budget&rsquo;s pools</b>.
+        {est.kind === "office"
+          ? " Office tenants pay their pro-rata share of the budget pool's increase over their base year."
+          : ` Their ${est.reconYear} reconciled charge moves with the pool (a capped tenant no faster than its cap).`}
+        {" "}The pools are the budget&rsquo;s own lines, so a CAM expense typed in Step 4, or taxes and insurance saved in Step 2, recompute these on the spot. Tenants pay in the <b>same months as their rent</b> in Step 1. Hover a tenant for how their figure was reached. These totals <b>are</b> the recovery lines in Step 4, which is why those lines can&rsquo;t be typed over.
       </div>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
@@ -164,19 +166,13 @@ export function RecoveriesCard({ est, tie }: { est: ReimbursementEstimate; tie: 
               return (
                 <Fragment key={c}>
                   <tr style={{ background: BAND }}>
-                    <td style={{ ...td, textAlign: "left", fontWeight: 800, borderTop: topBorder }}>Total {CAT_LABEL[c]} — tenants</td>
+                    <td style={{ ...td, textAlign: "left", fontWeight: 800, borderTop: topBorder }}>
+                      Total {CAT_LABEL[c]}
+                      {tt?.lines.length ? <span className="muted" style={{ fontWeight: 600, fontSize: 12 }}> → {tt.lines.map((l) => l.label).join(" + ")}</span> : null}
+                    </td>
                     {estMonths.map((v, i) => <td key={i} style={{ ...td, fontWeight: 800, borderTop: topBorder }}>{money0(v)}</td>)}
                     <td style={{ ...td, fontWeight: 900, borderTop: topBorder, borderLeft: "1px solid var(--border)" }}>{money0(estTotal)}</td>
                   </tr>
-                  {tt?.lines.map((l) => (
-                    <tr key={l.section + l.label}>
-                      <td style={{ ...td, textAlign: "left", paddingLeft: 22, color: "var(--muted)" }}>
-                        ↳ Budget line: <b style={{ color: "var(--text)" }}>{l.label}</b> <span style={{ fontSize: 11.5 }}>({l.section})</span>
-                      </td>
-                      {l.months.map((v, i) => <td key={i} style={{ ...td, color: "var(--muted)" }}>{money0(v)}</td>)}
-                      <td style={{ ...td, fontWeight: 700, borderLeft: "1px solid var(--border)" }}>{money0(l.total)}</td>
-                    </tr>
-                  ))}
                   {tt && (tt.lines.length === 0 || !tt.ties) && (
                     <tr>
                       <td colSpan={14} style={{ ...td, textAlign: "left", paddingLeft: 22, color: "#b91c1c", fontWeight: 600 }}>
