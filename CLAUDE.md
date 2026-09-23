@@ -1004,7 +1004,7 @@ time — and the team does not have time to open the GL over $80.
   set one figure is how they would disagree. Only a CHANGE commits: tabbing
   across a month leaves it computed.
 
-- **The leasing card is ONE compact table** (suite + tenant on one line →
+- **The leasing card is ONE compact table** (suite + tenant on one line → SF → EXPIRING RENT ($/mo, $/SF/yr beneath — the rent a renewal is priced against) → EXPIRES (MM-YY, amber for a holdover) →
   decision → rent $/SF/yr → term → TI $/SF → LC % → what it does in the budget
   year), banded "Expiring or holdover" / "Vacant space". The decision is a
   plain dropdown and there is no holdover pill — the owner asked for it tight
