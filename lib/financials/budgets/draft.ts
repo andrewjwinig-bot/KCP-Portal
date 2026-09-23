@@ -238,6 +238,9 @@ export function tieRecoveries(
   return out;
 }
 
+const isCondoAssnLine = (label: string) => /^\s*condo\s+ass(n|oc|ociation)\b/i.test(label);
+const isShoppingCenter = (code: string) => PROPERTY_DEFS.find((d) => d.id === String(code).toUpperCase())?.allocGroup === "SC";
+
 function grow(months: number[], factor: number): number[] {
   return months.map((m) => r0((m || 0) * factor));
 }
@@ -499,6 +502,23 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   }
   const recoveryTie = reimbursementEstimate ? tieRecoveries(reimbursementEstimate, sections) : undefined;
   const rentLineLabel = sections.flatMap((sec) => sec.role === "revenue" ? sec.lines : []).find((l) => l.source === "leases")?.label;
+
+  // SHOPPING CENTERS HAVE NO CONDO ASSOCIATION. The statement mapping gives
+  // every property a "Condo Assn" recovery line (4970-*), which on a shopping
+  // centre is always empty — so it is dropped from their budgets. Only while
+  // it IS empty: a centre that ever posts to it keeps the line, so money is
+  // never hidden.
+  if (isShoppingCenter(meta.propertyCode)) {
+    for (const sec of sections) {
+      const before = sec.lines.length;
+      sec.lines = sec.lines.filter((l) => !(isCondoAssnLine(l.label) && l.total === 0 && l.basisTotal === 0));
+      if (sec.lines.length !== before) {
+        const subtotal = new Array(12).fill(0);
+        for (const l of sec.lines) addInto(subtotal, l.months);
+        sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
+      }
+    }
+  }
 
   // NOI is revenue less OPERATING expenses. Capital sits BELOW it (the grid
   // takes it off NOI on the way to cash flow), and so does debt service —
