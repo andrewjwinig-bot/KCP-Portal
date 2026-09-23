@@ -8,7 +8,6 @@ import {
   type ReservationStatus,
 } from "@/lib/reservations/storage";
 import { BOOKABLE_ROOMS } from "@/lib/reservations/rooms";
-import { CATCH_ALL_TENANT } from "@/lib/reservations/catchAll";
 import { useUser } from "@/app/components/UserProvider";
 import { Pill, Badge, reservationStatusTone } from "@/app/components/Pill";
 import { bestTenantMatch, isResolvedTenant } from "@/lib/tenants/match";
@@ -245,19 +244,6 @@ function ReservationsPageInner() {
                     <td style={{ fontSize: 13 }}>
                       {r.tenantCompany}
                       {r.typedCompany && <div style={{ fontSize: 11, color: "var(--muted)" }}>typed as &ldquo;{r.typedCompany}&rdquo;</div>}
-                      {r.tenantResolved === false && (
-                        <span
-                          title="Tenant name didn't match the rent roll — needs assignment"
-                          style={{
-                            marginLeft: 6, padding: "1px 7px", borderRadius: 999,
-                            fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
-                            background: "rgba(180,83,9,0.12)", color: "#b45309",
-                            border: "1px solid rgba(180,83,9,0.35)",
-                          }}
-                        >
-                          ⚠ Unmatched
-                        </span>
-                      )}
                     </td>
                     <td style={{ fontSize: 13 }}>
                       {r.contactFirstName} {r.contactLastName}
@@ -479,21 +465,6 @@ function ReservationModal({
               <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
                 {reservation.tenantCompany || <span style={{ color: "var(--muted)" }}>—</span>}
               </span>
-              {reservation.tenantResolved === false && (
-                <span
-                  title="The typed company name didn't match the rent roll — assign a tenant below."
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 4,
-                    alignSelf: "flex-start", marginTop: 2,
-                    padding: "2px 8px", borderRadius: 999,
-                    fontSize: 11, fontWeight: 700,
-                    background: "rgba(180,83,9,0.12)", color: "#b45309",
-                    border: "1px solid rgba(180,83,9,0.35)",
-                  }}
-                >
-                  ⚠ Needs assignment
-                </span>
-              )}
               {tenantSuggestion && (
                 <button
                   type="button"
@@ -523,11 +494,9 @@ function ReservationModal({
                   value=""
                   onChange={(e) => { if (e.target.value) resolveTenant(e.target.value); }}
                   style={{ marginTop: 4, alignSelf: "flex-start", maxWidth: "100%" }}
-                  aria-label="Resolve tenant"
+                  aria-label="Match to a rent-roll tenant (optional)"
                 >
-                  <option value="">Resolve tenant…</option>
-                  {/* The catch-all — someone not on the rent roll. */}
-                  <option value={CATCH_ALL_TENANT}>{CATCH_ALL_TENANT} (not on rent roll)</option>
+                  <option value="">Match to a tenant (optional)…</option>
                   {companies.map((c) => (
                     <option key={c.name} value={c.name}>
                       {c.name === tenantSuggestion?.name ? "✨ " : ""}
