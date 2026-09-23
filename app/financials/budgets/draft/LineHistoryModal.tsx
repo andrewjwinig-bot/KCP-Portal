@@ -26,10 +26,12 @@ const SHAPE: Record<LineShape, { tone: PillTone; text: string; what: string }> =
 
 type Payload = LineHistory & { insight: LineInsight };
 
-export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, year, onClose, onUseSuggestion, forecast = null }: {
+export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, year, onClose, onUseSuggestion, forecast = null, budget = null }: {
   viewKey: string; propertyCode: string; label: string; mask: string; sign: 1 | -1; year: number;
   /** The basis year's full-year reprojection for this line — the current year's bar. */
   forecast?: number | null;
+  /** This draft's figure for the line — the budget year's bar. */
+  budget?: number | null;
   onClose: () => void;
   onUseSuggestion?: (amount: number) => void;
 }) {
@@ -103,10 +105,10 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
                 {data.averageActual != null && <StatPill label={`${data.completeYears}-yr average`} value={money0(data.averageActual)} />}
               </div>
 
-              <HistoryBars years={data.years} forecast={forecast} />
+              <HistoryBars years={data.years} forecast={forecast} budget={budget != null ? { year, value: budget } : null} />
 
               <div className="muted small" style={{ marginTop: 12, lineHeight: 1.6 }}>
-                <strong>Actual</strong> is the line&rsquo;s GL; the tick on each bar is that year&rsquo;s <strong>budget</strong>. {forecast != null ? <>The current year is its <strong>reprojection</strong> — actual to date plus budget for the rest — so it reads as a full year. </> : null}The dashed line is the average of the full years shown. Hover a year for its variance.
+                <strong>Actual</strong> is the line&rsquo;s GL; the tick on each bar is that year&rsquo;s <strong>budget</strong>. {forecast != null ? <>The current year is its <strong>reprojection</strong> — actual to date plus budget for the rest — so it reads as a full year. </> : null}The last bar is this draft&rsquo;s {year} budget, so you can see where it lands. The dashed line is the average of the full years shown. Hover a year for its variance.
               </div>
             </>
           )}
