@@ -32,6 +32,7 @@ import { Fragment, useRef, useState } from "react";
 import { Pill, type PillTone } from "@/app/components/Pill";
 import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/draft";
 import type { SectionRole } from "@/lib/financials/operating-statements/types";
+import { NoteMark, type LineNote } from "./LineNote";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const COLOR_BRAND = "#0b4a7d";
@@ -87,7 +88,7 @@ function CellInput({ initial, onDone }: { initial: number; onDone: (v: number | 
   );
 }
 
-function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept }: {
+function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note }: {
   label: string; months: number[]; total: number; basis: number | null; variant?: Variant;
   badge?: { tone: PillTone; text: string }; onLabel?: () => void;
   /** Revenue-like: up is good. Expense-like: down is good. */
@@ -103,6 +104,8 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   /** A keyed input (taxes, insurance, building maintenance) not yet entered:
    *  keep the figure as shown and mark it entered, in one click. */
   onAccept?: () => void;
+  /** The line's note mark — present on every budget line. */
+  note?: { note?: LineNote; onOpen: () => void };
 }) {
   const sub = variant === "sub";
   const bold = variant !== "line" && !sub;
@@ -157,6 +160,7 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
           <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
             className="os-line-name" style={{ cursor: "pointer" }}>{label}</span>
         ) : label}
+        {note && <NoteMark label={label} note={note.note} onOpen={note.onOpen} />}
         {(badge || onAccept || (onReset && typed?.some(Boolean))) && (
           <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto" }}>
             {onAccept && (
@@ -182,8 +186,12 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   );
 }
 
-export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
+export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, onNote }: {
   draft: BudgetDraft;
+  /** Notes on the lines, keyed `section::label`. */
+  notes?: Record<string, LineNote>;
+  /** Opens the note dialog for a line. */
+  onNote?: (sec: BudgetDraftSection, line: Line) => void;
   badgeFor: (source: Line["source"]) => { tone: PillTone; text: string };
   onLine: (sec: BudgetDraftSection, line: Line) => void;
   /** Present when the viewer may type months; month "all" = an annual spread
@@ -244,6 +252,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
               onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
               typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
               onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
+              note={onNote ? { note: notes?.[key], onOpen: () => onNote(sec, l) } : undefined}
               rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
               onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
               onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}

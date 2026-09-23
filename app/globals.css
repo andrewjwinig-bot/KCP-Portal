@@ -991,3 +991,14 @@ input.kcp-input,
 /* Budget grid line names: clickable (opens the line's history) without a
    dotted underline on every row — it only appears on hover. */
 .os-line-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* The note mark on a budget line: invisible until the row is hovered while a
+ * line has no note, so a grid of forty lines is not forty icons; solid brand
+ * once a note exists, so a line with something to say is findable. */
+.budget-note {
+  border: none; background: transparent; padding: 0; cursor: pointer;
+  color: var(--muted); opacity: 0; line-height: 0; transition: opacity 0.12s ease;
+}
+tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
+.budget-note:hover { opacity: 1; color: var(--brand); }
+.budget-note.has { opacity: 1; color: var(--brand); }
