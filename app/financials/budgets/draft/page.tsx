@@ -708,7 +708,7 @@ const INPLACE_CHOICES = [
   { value: "vacate", label: "Vacate" },
 ];
 const VACANT_CHOICES = [
-  { value: "none", label: "Leave vacant" },
+  { value: "none", label: "Hold (vacant)" },
   { value: "leaseup", label: "Lease up" },
 ];
 
