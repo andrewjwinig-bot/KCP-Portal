@@ -1080,8 +1080,8 @@ time — and the team does not have time to open the GL over $80.
   tenant there part of the recon year (`occPct` < 1) is scaled to a full year;
   one who vacated in the recon year is dropped. **A tenant on no
   reconciliation (a newer lease) and a lease-up are assumed NNN** — pro-rata
-  SF share of each pool, no admin fee (`retailProRata`); an office one has a
-  current base year, so it is listed at zero with that reason.
+  SF share of each pool, no admin fee (`retailProRata`); an office one takes the BUDGET YEAR as its base year (owner's call),
+  so it is listed at zero with that reason.
 - **Derived lines are NOT typeable in the grid**: the recovery lines
   (`cam-estimate`) and rent and the deals' TI / commissions (`leases`), all
   Step 1, and the Budget Inputs lines. `applyTyped` ignores any stored override
