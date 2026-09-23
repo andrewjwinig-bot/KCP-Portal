@@ -8,6 +8,7 @@ import {
   type Reservation,
   type ReservationStatus,
 } from "@/lib/reservations/storage";
+import { CATCH_ALL_TENANT } from "@/lib/reservations/catchAll";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
 
   if (typeof body.tenantCompany === "string") {
-    next.tenantCompany = body.tenantCompany.trim();
+    const picked = body.tenantCompany.trim();
+    // The catch-all keeps the typed name beside it, once — re-picking it
+    // must not overwrite the original with "TENANT".
+    if (picked === CATCH_ALL_TENANT && next.tenantCompany !== CATCH_ALL_TENANT) next.typedCompany = next.tenantCompany;
+    if (picked !== CATCH_ALL_TENANT) next.typedCompany = undefined;
+    next.tenantCompany = picked;
     // Staff picked a rent-roll tenant — the request is now resolved.
     next.tenantResolved = true;
   }

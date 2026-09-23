@@ -23,6 +23,9 @@ export type Reservation = {
   propertyName: string;
   tenantCompany: string;
   tenantResolved: boolean;   // false → typed name didn't match the rent roll; needs staff assignment
+  /** What the tenant typed, kept when staff file the request under the
+   *  catch-all TENANT (someone not on the rent roll) so the name isn't lost. */
+  typedCompany?: string;
   contactFirstName: string;
   contactLastName: string;
   contactEmail: string;
