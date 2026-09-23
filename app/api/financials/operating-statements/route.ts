@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { parseGeneralLedgerMonthly, parseGeneralLedgerByYear, summaryForPeriod, reconcileGl, type GlReconciliation } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
-import { availableStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
+import { monthlyStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { saveGl, getGl, versionsFor, listFullGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions, getDismissedFlags, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls, postedThrough, reconcileGlFiles } from "@/lib/financials/operating-statements/glAssemble";
@@ -50,7 +50,7 @@ export async function GET(req: Request) {
   const key = url.searchParams.get("key");
   const year = Number(url.searchParams.get("year"));
 
-  const [mappings, fulls] = await Promise.all([availableStatements(), listFullGls()]);
+  const [mappings, fulls] = await Promise.all([monthlyStatements(), listFullGls()]);
   const yearsByKey = new Map<string, Set<number>>();
   const byKeyYear = new Map<string, Map<number, StoredGl[]>>();
   for (const g of fulls) {

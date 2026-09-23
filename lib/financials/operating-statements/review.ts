@@ -7,7 +7,7 @@
 // flagged months across the year sit together rather than in one flat list.
 
 import "server-only";
-import { availableStatements, getMapping } from "./mappingStore";
+import { monthlyStatements, getMapping } from "./mappingStore";
 import { listFullGls, getDismissedFlags, getNotesBundle } from "./statementStore";
 import { assembleGls, reconcileGlFiles } from "./glAssemble";
 import { summaryForPeriod } from "./glParser";
@@ -119,7 +119,7 @@ function propertyName(key: string, fallback: string): string {
 
 /** Collect every active "?" flagged line, per month, across all properties. */
 export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
-  const [mappings, fulls] = await Promise.all([availableStatements(), listFullGls()]);
+  const [mappings, fulls] = await Promise.all([monthlyStatements(), listFullGls()]);
   const properties: ReviewProperty[] = [];
   // The rent roll and the tenant directory are the same for every property, so
   // they are read ONCE for the whole sweep rather than thirteen times.

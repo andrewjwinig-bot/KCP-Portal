@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { reproject } from "@/lib/financials/reprojections/compute";
-import { availableStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
+import { monthlyStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { assembledGlConsolidated, listGls, mergeAccountNames, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
 import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const key = url.searchParams.get("key");
   const year = Number(url.searchParams.get("year"));
 
-  const [mappings, gls] = await Promise.all([availableStatements(), listGls()]);
+  const [mappings, gls] = await Promise.all([monthlyStatements(), listGls()]);
   const yearsByKey = new Map<string, Set<number>>();
   for (const g of gls) {
     if (!yearsByKey.has(g.key)) yearsByKey.set(g.key, new Set());

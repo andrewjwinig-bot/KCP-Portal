@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getImportEvents, recordImport } from "@/lib/tracker/importEvents";
 import { IMPORT_REMINDERS, type ImportCoverage } from "@/lib/tracker/imports";
 import { outstandingGlUploads } from "@/lib/financials/operating-statements/outstanding";
-import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
+import { monthlyStatements } from "@/lib/financials/operating-statements/mappingStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export const revalidate = 0;
  *  taking the card down. */
 async function glCoverage(): Promise<ImportCoverage | null> {
   try {
-    const [{ behind }, mapped] = await Promise.all([outstandingGlUploads(new Date()), availableStatements()]);
+    const [{ behind }, mapped] = await Promise.all([outstandingGlUploads(new Date()), monthlyStatements()]);
     const total = mapped.length;
     if (!total) return null;
     return { done: total - behind.length, total, behind: behind.map((b) => b.propertyCode) };

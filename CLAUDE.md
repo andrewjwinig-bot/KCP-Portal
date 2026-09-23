@@ -461,6 +461,17 @@ buildings may be managed by a third party" as an explanation for a gap.
   4230-8501 at 2010, so it is cosmetic — do NOT "fix" it expecting the numbers to
   move. `2000` (Clearing) carries the identical mask.
 
+# Operating statements — which properties are run monthly
+
+**`monthlyStatements()` (`mappingStore.ts`) is the list of statements run each
+month** — every mapping except `NOT_IMPORTED_MONTHLY`, currently **Korman Homes
+(PHOMES)**, a rollup of the residential properties that the owner does not
+import monthly. The statement picker, the "GL uploads behind" reminders,
+Flags to Investigate, the not-posted alerts, the monthly report, Reprojections
+and the assistant read it. `availableStatements()` still returns every mapping
+for the pages that need PHOMES (Cash Analysis, Budgets, Balance Sheet); the
+Skyline month-end consolidation runs in the Task Tracker still list PHOMES.
+
 # Operating statements — the "?" is a signal, so keep it scarce
 
 The amber **"?"** next to a statement line means "this month looks off, go look".

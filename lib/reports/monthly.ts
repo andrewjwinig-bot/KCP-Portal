@@ -7,7 +7,7 @@ import "server-only";
 import { getJSON, listJSON } from "@/lib/storage";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { listRequests } from "@/lib/maintenance/requestsStorage";
-import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
+import { monthlyStatements } from "@/lib/financials/operating-statements/mappingStore";
 import { listFullGls, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
@@ -183,7 +183,7 @@ export async function buildMonthlyReport(year: number, month: number, now: Date)
   let pNoiA: number | null = null, pNoiB: number | null = null;
   try {
     const [mappings, fulls, budgetWorkbooks] = await Promise.all([
-      availableStatements(), listFullGls(), listBudgets(),
+      monthlyStatements(), listFullGls(), listBudgets(),
     ]);
     const byKeyYear = new Map<string, StoredGl[]>();
     for (const gl of fulls) if (gl.year === year) { const a = byKeyYear.get(gl.key) ?? []; a.push(gl); byKeyYear.set(gl.key, a); }
