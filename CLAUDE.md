@@ -1082,6 +1082,11 @@ time — and the team does not have time to open the GL over $80.
   reconciliation (a newer lease) and a lease-up are assumed NNN** — pro-rata
   SF share of each pool, no admin fee (`retailProRata`); an office one takes the BUDGET YEAR as its base year (owner's call),
   so it is listed at zero with that reason.
+- **The budget is WHOLE DOLLARS, everywhere.** Each suite's rent month is
+  rounded at the source (`leaseRevenue.ts`) and the rent line is the SUM of
+  those rounded suites, so the Revenue table and the line tie to the dollar;
+  recoveries, keyed inputs, debt and TI/LC were already whole. Only RATES
+  keep decimals ($/SF, PRS %, change %).
 - **Derived lines are NOT typeable in the grid**: the recovery lines
   (`cam-estimate`) and rent and the deals' TI / commissions (`leases`), all
   Step 1, and the Budget Inputs lines. `applyTyped` ignores any stored override

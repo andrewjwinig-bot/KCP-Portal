@@ -325,13 +325,18 @@ export async function projectLeaseRevenue(
 
   expiring.sort((a, b) => (a.leaseTo ?? "").localeCompare(b.leaseTo ?? ""));
   vacant.sort((a, b) => b.sqft - a.sqft);
+  const roundedRows = rows
+    .map((r) => ({ ...r, months: r.months.map(r0), billing: r.billing && { cam: r0(r.billing.cam), ins: r0(r.billing.ins), ret: r0(r.billing.ret) } }))
+    .sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true }));
+  const roundedRental = Array.from({ length: 12 }, (_, m) => roundedRows.reduce((s, r) => s + r.months[m], 0));
   return {
     fromSchedule: usedSchedule,
-    // Rows carry cents; the card rounds for display, so its totals sum the same
-    // figures the rent line does (rounding each suite first drifted by dollars).
-    rows: rows.map((r) => ({ ...r, months: r.months.map((v) => Math.round(v * 100) / 100) })).sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true })),
-    rentalMonthly: rentalMonthly.map(r0),
-    rentalTotal: r0(rentalMonthly.reduce((s, n) => s + n, 0)),
+    // The budget is in WHOLE DOLLARS: each suite's month is rounded, and the
+    // rent line is the sum of those rounded suites — so the table and the line
+    // tie to the dollar rather than each rounding on its own.
+    rows: roundedRows,
+    rentalMonthly: roundedRental,
+    rentalTotal: roundedRental.reduce((s, n) => s + n, 0),
     tiMonthly: tiMonthly.map(r0),
     lcMonthly: lcMonthly.map(r0),
     inPlaceUnits,
