@@ -12,6 +12,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, contributorTone } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
+import LoadingState from "@/app/components/LoadingState";
 import type { BudgetDraft } from "@/lib/financials/budgets/draft";
 import { RevenueByTenantCard } from "../draft/RevenueByTenantCard";
 import type { LeasingCall, SavePayload } from "../draft/LeasingDecision";
@@ -57,7 +58,7 @@ export function RentReviewView({ api, headerExtra }: { api: ReviewApi; headerExt
   useEffect(() => { refresh(); }, [refresh]);
 
   if (error && !data) return <div className="card" style={{ color: "#b91c1c", fontWeight: 700 }}>{error}</div>;
-  if (!data) return <div className="card muted">Loading the rent rolls…</div>;
+  if (!data) return <LoadingState status="Loading the rent rolls…" context="Every property's leasing calls and sign-off" columns={3} rows={5} />;
 
   const owner = { id: data.person.id, label: data.person.label.charAt(0) + data.person.label.slice(1).toLowerCase() };
   const tone = contributorTone(owner.id);
@@ -176,7 +177,7 @@ function PropertyReview({ api, row, year, owner, confirmed, changed, onChanged, 
     return chain.current;
   };
 
-  if (draft === undefined) return <div className="muted small" style={{ padding: 16 }}>Loading the {year} rent…</div>;
+  if (draft === undefined) return <LoadingState card={false} status={`Loading the ${year} rent…`} context={`${row.name} — every suite, month by month`} columns={4} rows={4} />;
   if (!draft?.leasing) return <div className="muted small" style={{ padding: 16 }}>No rent roll for this property.</div>;
   const calls = leasingCalls(draft.leasing);
   const openCalls = calls.filter((c) => !c.assumption).length;

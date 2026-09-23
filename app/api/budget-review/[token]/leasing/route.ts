@@ -11,8 +11,8 @@ export const revalidate = 0;
 // PUBLIC (signed link). POST { propertyCode, unitRef, kind, … } — a leasing
 // decision, through the SAME cleaning the budget page's route uses, stamped
 // with the link's person. Refused for a property outside the link's group.
-export async function POST(req: Request, { params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
+export async function POST(req: Request, { params }: { params: { token: string } }) {
+  const { token } = params;
   const link = await resolveReviewToken(token);
   if (!link) return NextResponse.json({ error: "This link is no longer valid." }, { status: 404 });
   try {

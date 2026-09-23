@@ -5,7 +5,8 @@
 // through `/api/budget-review/[token]`, which checks the signed link on every
 // call and refuses any property outside its group.
 
-import { use, useMemo } from "react";
+import { useMemo } from "react";
+import { useParams } from "next/navigation";
 import { RentReviewView, type ReviewApi } from "@/app/financials/budgets/review/RentReviewView";
 
 const BRAND = "#0b4a7d";
@@ -16,8 +17,11 @@ async function jsonError(r: Response | null, fallback: string): Promise<string |
   return j?.error ?? fallback;
 }
 
-export default function BudgetReviewLinkPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = use(params);
+export default function BudgetReviewLinkPage() {
+  // useParams, not React's use(): this app is on React 18 / Next 14, where
+  // use() does not exist and a route's params are a plain object.
+  const params = useParams<{ token: string }>();
+  const token = Array.isArray(params?.token) ? params.token[0] : params?.token ?? "";
   const base = `/api/budget-review/${encodeURIComponent(token)}`;
   const api = useMemo<ReviewApi>(() => ({
     overview: () => fetch(base, { cache: "no-store" }).then((r) => r.json()),

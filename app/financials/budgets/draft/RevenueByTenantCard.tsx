@@ -174,13 +174,20 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   );
   const views: View[] = office ? ["gross", "rent", "recoveries", "cam", "ret"] : ["gross", "rent", "recoveries", "cam", "ins", "ret"];
 
-  const totalRow = (label: React.ReactNode, months: number[], strong: boolean, key: string, top = false) => (
-    <tr key={key} style={{ background: strong ? "rgba(11,74,125,0.06)" : undefined }}>
-      <td colSpan={2} style={{ ...td, textAlign: "left", fontWeight: strong ? 800 : 600, borderTop: top ? TOTAL_BORDER : undefined }}>{label}</td>
-      {months.map((v, i) => <td key={i} style={{ ...td, fontWeight: strong ? 800 : 600, borderTop: top ? TOTAL_BORDER : undefined }}>{money0(v)}</td>)}
-      <td style={{ ...td, fontWeight: strong ? 900 : 700, borderTop: top ? TOTAL_BORDER : undefined, borderLeft: "1px solid var(--border)" }}>{money0(months.reduce((a, b) => a + b, 0))}</td>
-    </tr>
-  );
+  // The per-part rows (Base rent, CAM, INS, RET) are quiet — small, muted,
+  // tight — so the eye stays on the tenants; only the grand total is bold.
+  const totalRow = (label: React.ReactNode, months: number[], strong: boolean, key: string, top = false) => {
+    const cell: React.CSSProperties = strong
+      ? { ...td, fontWeight: 800, borderTop: top ? TOTAL_BORDER : undefined }
+      : { ...td, fontSize: 12, padding: "4px 8px", color: "var(--muted)", fontWeight: 600, borderTop: top ? TOTAL_BORDER : undefined };
+    return (
+      <tr key={key} style={{ background: strong ? "rgba(11,74,125,0.06)" : undefined }}>
+        <td colSpan={2} style={{ ...cell, textAlign: "left" }}>{label}</td>
+        {months.map((v, i) => <td key={i} style={cell}>{money0(v)}</td>)}
+        <td style={{ ...cell, fontWeight: strong ? 900 : 700, borderLeft: "1px solid var(--border)" }}>{money0(months.reduce((a, b) => a + b, 0))}</td>
+      </tr>
+    );
+  };
 
   return (
     <div id="revenue-by-tenant" className={embedded ? undefined : "card"} style={embedded ? { borderTop: "2px solid var(--border)" } : { padding: 0, overflow: "hidden" }}>
