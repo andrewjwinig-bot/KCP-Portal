@@ -426,7 +426,7 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
   const last = decided.reduce<LeaseAssumption | null>((m, a) => (!m || (a.updatedAt ?? "") > (m.updatedAt ?? "") ? a : m), null);
   const band = (label: string, n: number) => (
     <tr style={{ background: "rgba(11,74,125,0.06)" }}>
-      <td colSpan={7} style={{ ...tdLL, padding: "8px 14px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+      <td colSpan={9} style={{ ...tdLL, padding: "8px 14px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
         {label} <span style={{ fontWeight: 700 }}>· {n}</span>
       </td>
     </tr>
@@ -447,11 +447,13 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
       </div>
       {error && <div style={{ color: "#b91c1c", fontSize: 13, padding: "8px 14px" }}>{error}</div>}
       <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 780 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 940 }}>
           <thead>
             <tr>
               <th style={thLL}>Suite</th>
               <th style={thRR}>SF</th>
+              <th style={thRR}>Expiring rent</th>
+              <th style={thRR}>Expires</th>
               <th style={thLL}>Decision</th>
               <th style={thRR}>Rent $/SF/yr</th>
               <th style={thLL}>Term</th>
@@ -575,12 +577,21 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
           <code style={{ fontSize: 12 }}>{unitRef}</code>
           <span style={{ fontWeight: 600 }}>{title}</span>
         </div>
-        <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-          {[curPsf != null ? `$${curPsf.toFixed(2)}/sf today` : null,
-            end ? `${holdover ? "ended" : "ends"} ${fmtDate(end)}` : null].filter(Boolean).join(" · ")}
-        </div>
       </td>
       <td style={{ ...tdRR, fontVariantNumeric: "tabular-nums" }}>{sqft > 0 ? sqft.toLocaleString() : <span className="muted">—</span>}</td>
+      {/* The rent the lease carries as it ends — what a renewal is priced against. */}
+      <td style={{ ...tdRR, fontVariantNumeric: "tabular-nums" }}>
+        {mode === "inplace" && currentRent > 0 ? (
+          <>
+            <div style={{ fontWeight: 600 }}>{money0(currentRent)}/mo</div>
+            {curPsf != null && <div className="muted" style={{ fontSize: 11.5 }}>${curPsf.toFixed(2)}/SF/yr</div>}
+          </>
+        ) : <span className="muted">—</span>}
+      </td>
+      {/* MM-YY; amber once the term has already run out (a holdover). */}
+      <td style={{ ...tdRR, fontVariantNumeric: "tabular-nums", color: holdover ? "#b45309" : undefined, fontWeight: holdover ? 700 : undefined }}>
+        {end ? `${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getFullYear()).slice(-2)}` : <span className="muted">—</span>}
+      </td>
       <td style={{ ...tdLL, whiteSpace: "normal", maxWidth: 230 }}>
         <select value={kind} className="select-sm" aria-label="Decision"
           onChange={(e) => { if (e.target.value) { setKind(e.target.value); push({ k: e.target.value }); } }}>
