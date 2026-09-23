@@ -942,7 +942,11 @@ time — and the team does not have time to open the GL over $80.
 - **ONE MASTER BUDGET PAGE** — `/financials/budgets/draft` is where Drew,
   Harry, Nancy and admin collaborate: the masthead, then a **KPI row**
   (`BudgetKpis` — revenue, operating expenses, NOI, net cash flow after capital
-  and debt, each against this year's forecast), then TWO steps. The progress
+  and debt, each against this year's forecast), then the budget grid
+  ("Expenses & review"), then **Revenues BELOW it** — the rent schedule, the
+  leasing calls and Revenue by tenant are supplemental data supporting the
+  budget's revenue lines, which is the order the owner's own budget workbooks
+  use. The headings carry no "Step 1 / Step 2" numbering. The progress
   strip (`BudgetSteps`) was REMOVED at the owner's request — the To-decide
   filter and the review sign-off say what is outstanding; don't bring it back.
   Step 1's count tiles and blurb went with it, and the debt-service loans sit

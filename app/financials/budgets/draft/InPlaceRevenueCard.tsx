@@ -69,7 +69,7 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
   return (
     <>
       <div id="step-rent" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
-        <div style={STEP_LABEL}>Step 1 · Revenues — {year}</div>
+        <div style={STEP_LABEL}>Revenues — {year}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button type="button" className="btn sm" onClick={() => setShowSteps((s) => !s)}>
             {showSteps ? "Hide steps" : "Skyline steps"}

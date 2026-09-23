@@ -303,33 +303,6 @@ export default function BudgetDraftPage() {
           NOI and cash flow, each against this year's forecast. */}
       {draft && <BudgetKpis draft={draft} />}
 
-      {/* STEP 1, above everything, because the rest depends on it. The
-          contracted-rent schedule is the input the vacancy and renewal list is
-          DERIVED from — and while Harry and Nancy work that list, Greg and
-          Drew work the expenses on the same draft. The parts are independent
-          by design; only the order of this one is fixed. */}
-      <InPlaceRevenueCard
-        year={year}
-        category={category}
-        propertyCode={label?.propertyCode ?? null}
-        editorLabel={typeof document !== "undefined" ? (document.cookie.match(/kcp_user=([^;]+)/)?.[1] ?? "Unknown") : "Unknown"}
-      >
-        {/* The rest of the Rent step: the leasing decisions for the suites
-            that expire or sit vacant, then every suite's rent — contracted vs
-            assumed — which reads those decisions as soon as they are saved. */}
-        {draft?.leasing && (
-          <RevenueByTenantCard embedded rows={draft.tenantRevenue ?? []} year={draft.budgetYear} fromSchedule={draft.leasing.fromSchedule}
-            est={draft.reimbursementEstimate} tie={draft.recoveryTie ?? []} rentLine={draft.rentLineLabel}
-            leasing={{
-              calls: leasingCalls(draft.leasing),
-              owner: draft.leasing.owner,
-              dealCapital: draft.leasing.dealCapital,
-              onSave: saveAssumption,
-              error: saveError,
-              headerExtra: <ReviewStatus year={draft.budgetYear} propertyCode={draft.propertyCode} calls={leasingCalls(draft.leasing)} refreshTick={refreshTick} />,
-            }} />
-        )}
-      </InPlaceRevenueCard>
 
       {loading && !draft && (
         <LoadingState status={`Building the ${year} draft…`} context="Rent schedule, leasing calls, recoveries, expenses and loans" columns={4} rows={5} />
@@ -353,7 +326,7 @@ export default function BudgetDraftPage() {
               Greg) are typed right here too, into the Budget Inputs store. */}
           <div id="step-expenses" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <div style={STEP_LABEL}>Step 2 · Expenses &amp; review — the {draft.budgetYear} budget</div>
+              <div style={STEP_LABEL}>Expenses &amp; review — the {draft.budgetYear} budget</div>
               <Pill tone={contributorTone("drew")}>DREW · TAXES &amp; INSURANCE</Pill>
               <Pill tone={contributorTone("greg")}>GREG · MAINTENANCE</Pill>
             </div>
@@ -426,6 +399,33 @@ export default function BudgetDraftPage() {
 
         </>
       )}
+      {/* REVENUES — the rent schedule import, the leasing calls and every
+          suite's rent and recoveries — sit BELOW the budget, the order the
+          owner's own budget workbooks use: the statement first, then the
+          tenants behind its revenue lines. */}
+      <InPlaceRevenueCard
+        year={year}
+        category={category}
+        propertyCode={label?.propertyCode ?? null}
+        editorLabel={typeof document !== "undefined" ? (document.cookie.match(/kcp_user=([^;]+)/)?.[1] ?? "Unknown") : "Unknown"}
+      >
+        {/* The rest of the Rent step: the leasing decisions for the suites
+            that expire or sit vacant, then every suite's rent — contracted vs
+            assumed — which reads those decisions as soon as they are saved. */}
+        {draft?.leasing && (
+          <RevenueByTenantCard embedded rows={draft.tenantRevenue ?? []} year={draft.budgetYear} fromSchedule={draft.leasing.fromSchedule}
+            est={draft.reimbursementEstimate} tie={draft.recoveryTie ?? []} rentLine={draft.rentLineLabel}
+            leasing={{
+              calls: leasingCalls(draft.leasing),
+              owner: draft.leasing.owner,
+              dealCapital: draft.leasing.dealCapital,
+              onSave: saveAssumption,
+              error: saveError,
+              headerExtra: <ReviewStatus year={draft.budgetYear} propertyCode={draft.propertyCode} calls={leasingCalls(draft.leasing)} refreshTick={refreshTick} />,
+            }} />
+        )}
+      </InPlaceRevenueCard>
+
       {/* Always visible while you work the budget — the question "what is
           holding this up" is asked continuously in a room with four people in
           it, not once when the page loads. */}
