@@ -140,10 +140,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true });
     }
     const note = typeof b?.note === "string" ? b.note.slice(0, 500) : undefined;
+    // Any line takes either twelve months (taken as typed) or an annual figure
+    // (taxes and insurance spread like this year, maintenance evenly).
     let input: ExpenseInput;
-    if (kind === "building-maintenance") {
-      const months = Array.isArray(b?.months) ? b.months.map((v: unknown) => Math.round(Number(v) || 0)) : null;
-      if (!months || months.length !== 12 || months.some((v: number) => v < 0)) {
+    if (Array.isArray(b?.months)) {
+      const months = b.months.map((v: unknown) => Math.round(Number(v) || 0));
+      if (months.length !== 12 || months.some((v: number) => v < 0)) {
         return NextResponse.json({ error: "Twelve non-negative monthly amounts are required." }, { status: 400 });
       }
       input = { months, note, by: user };

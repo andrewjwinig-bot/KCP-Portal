@@ -6,11 +6,11 @@
 // percent:
 //
 //   • REAL ESTATE TAXES (Drew) — default: this year's taxes + 3%, posted in the
-//     same months they post today. Drew overrides with an annual figure where a
-//     property was reassessed or an appeal landed.
+//     same months they post today. Drew overrides where a property was
+//     reassessed or an appeal landed — the annual, or the bills month by month.
 //   • INSURANCE (Drew) — the renewal premium, keyed as an annual figure and
 //     spread the way insurance posts today (monthly, or lumped in the renewal
-//     month). Until keyed it grows like any other line.
+//     month), or keyed month by month. Until keyed it grows like any other line.
 //   • BUILDING MAINTENANCE (Greg) — twelve months, keyed on his own page with
 //     last year's budget and actual beside the cells.
 //
@@ -33,8 +33,8 @@ export const EXPENSE_INPUT_LABEL: Record<ExpenseInputKind, string> = {
 /** The default growth on real estate taxes before Drew overrides it. */
 export const RET_DEFAULT_GROWTH_PCT = 3;
 
-/** One keyed figure. RET and insurance are ANNUAL (spread by this year's
- *  pattern); building maintenance is twelve months. */
+/** One keyed figure: twelve MONTHS (taken as typed) or an ANNUAL (taxes and
+ *  insurance spread by this year's pattern, maintenance evenly). */
 export type ExpenseInput = {
   annual?: number;
   months?: number[];
@@ -89,6 +89,21 @@ export function spreadLike(annual: number, pattern: number[]): number[] {
   return months;
 }
 
+/** The ways a total can be laid across the year on the Budget Inputs table. */
+export type SpreadShape = "like-basis" | "even" | "quarterly" | "semiannual" | `month-${number}`;
+
+/** The twelve-month pattern for a shape — fed to `spreadLike`, so every shape
+ *  adds back to the total to the dollar. */
+export function spreadPattern(shape: SpreadShape, basis: number[]): number[] {
+  const at = (ms: number[]) => Array.from({ length: 12 }, (_, i) => (ms.includes(i) ? 1 : 0));
+  if (shape === "like-basis") return basis;
+  if (shape === "quarterly") return at([0, 3, 6, 9]);
+  if (shape === "semiannual") return at([0, 6]);
+  const m = /^month-(\d+)$/.exec(shape);
+  if (m) return at([Math.min(11, Math.max(0, Number(m[1])))]);
+  return new Array(12).fill(1);
+}
+
 export function grow(months: number[], pct: number): number[] {
   const f = 1 + (pct || 0) / 100;
   return Array.from({ length: 12 }, (_, i) => r0((months[i] || 0) * f));
@@ -108,11 +123,13 @@ export type ResolvedExpense = { months: number[]; entered: boolean };
  */
 export function resolveKind(kind: ExpenseInputKind, basis: number[], growthPct: number, input?: ExpenseInput | null): ResolvedExpense {
   if (input) {
-    if (kind === "building-maintenance" && input.months?.length === 12) {
+    // Twelve typed months are taken as typed, whatever the kind — a tax bill
+    // keyed as May and November lands in May and November.
+    if (input.months?.length === 12) {
       return { months: input.months.map((v) => r0(v || 0)), entered: true };
     }
-    if (kind !== "building-maintenance" && input.annual != null && Number.isFinite(input.annual)) {
-      return { months: spreadLike(input.annual, basis), entered: true };
+    if (input.annual != null && Number.isFinite(input.annual)) {
+      return { months: spreadLike(input.annual, kind === "building-maintenance" ? new Array(12).fill(1) : basis), entered: true };
     }
   }
   return { months: defaultMonths(kind, basis, growthPct), entered: false };

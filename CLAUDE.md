@@ -926,6 +926,14 @@ time — and the team does not have time to open the GL over $80.
   - **Insurance** (Drew): the renewal premium, annual, spread LIKE THIS YEAR
     (`spreadLike`) — a March lump stays a March lump. Grows with the book until keyed.
   - **Building maintenance** (Greg): twelve months.
+  - **Every one of the three takes EITHER twelve months OR a total** — any
+    month cell and the total are typeable, and whichever was typed last saves
+    (`resolveKind`: typed months are taken as typed; an annual is spread like
+    this year, maintenance evenly). A **Spread…** menu re-lays the current total
+    (like last year, evenly, quarterly, twice a year, all in one month —
+    `spreadPattern`) and the months can then be typed over. The Save / Accept /
+    Reset buttons sit UNDER the line name, not in a trailing column: that column
+    scrolled off the right edge and nobody could find where to key taxes.
   `expenseInputKindOf` matches EXPENSE sections only — the revenue side carries
   "Real Estate Taxes"/"Insurance" recovery lines with the same names.
 - **Keying a figure IS completing it.** A saved input ticks its contribution
