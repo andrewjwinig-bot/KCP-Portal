@@ -54,23 +54,20 @@ function buildSteps(items: Contribution[], hasSchedule: boolean): Step[] {
 
   return [
     {
-      id: "schedule", title: "Rent schedule", who: "Drew", kinds: [],
-      done: hasSchedule ? 1 : 0, total: 1,
-      state: hasSchedule ? "done" : "active",
-      note: hasSchedule ? undefined : "Import it — the vacancy list is derived from it.",
-    },
-    {
-      id: "leasing", title: "Vacancies & renewals", who: "Harry · Nancy", kinds: ["vacancy", "renewal"],
+      // ONE rent step: the schedule import (Drew) and the leasing decisions it
+      // produces (Harry / Nancy) are the same job — getting next year's rent
+      // right — and live in one card on the page. Its count is the decisions;
+      // a missing schedule is said in the note, since until it lands the list
+      // comes off the rent roll.
+      id: "rent", title: "Rent", who: "Drew · Harry · Nancy", kinds: ["vacancy", "renewal"],
       ...leasing,
-      // Not blocked by the schedule: until it lands, the list comes off the
-      // rent roll — the same one the leasing card shows — so the work starts now.
-      state: leasing.total === 0 ? (hasSchedule ? "waiting" : "blocked")
+      state: leasing.total === 0 ? (hasSchedule ? "done" : "active")
         : leasing.done === leasing.total ? "done" : "active",
-      note: !hasSchedule ? (leasing.total ? "From the rent roll until the schedule is imported." : "Waiting on the rent schedule.") : undefined,
+      note: !hasSchedule ? "Import the rent schedule — the list is off the rent roll until then." : undefined,
     },
     {
       id: "expenses", title: "Expenses", who: "Greg · Drew", kinds: ["ret", "insurance", "building-maintenance"],
-      href: "#step-3",
+      href: "#step-expenses",
       ...expenses,
       // Deliberately NOT blocked by the schedule — this half runs in parallel,
       // which is the point of splitting the work by person.

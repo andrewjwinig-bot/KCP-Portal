@@ -19,11 +19,14 @@ import type { InPlaceRevenueRecord } from "@/lib/financials/budgets/inPlaceStore
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
-export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, counts }: {
+export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, counts, children }: {
   year: number; category: string; propertyCode: string | null; editorLabel: string;
   /** The property's suites by what the year holds for them — from the same
    *  rows as "Rent by tenant", so the tiles and the table agree. */
   counts?: { fullYear: number; expiring: number; vacant: number } | null;
+  /** The rest of the RENT step — the leasing decisions and Rent by tenant —
+   *  rendered inside this card, full-bleed below the import. One step, one card. */
+  children?: React.ReactNode;
 }) {
   const [rec, setRec] = useState<InPlaceRevenueRecord | null>(null);
   const [expected, setExpected] = useState<string[]>([]);
@@ -70,11 +73,11 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
   const blankUnits = rec ? [...new Set(rec.skipped.map((s) => s.reason))].length : 0;
 
   return (
-    <div className="card">
+    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div>
-          <div style={STEP_LABEL}>Step 1 · Rent schedule</div>
-          <div style={{ fontSize: 15, fontWeight: 800, marginTop: 2 }}>Contracted rent for {year}</div>
+          <div style={STEP_LABEL}>Step 1 · Rent — {year}</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button type="button" className="btn" onClick={() => setShowSteps((s) => !s)} style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
@@ -90,7 +93,7 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
       </div>
 
       <p className="muted small" style={{ marginTop: 6, marginBottom: 0 }}>
-        From Skyline&rsquo;s <strong>Budget Rent Increase Calculation</strong>, which carries the scheduled charge for every month of {year}.
+        Contracted rent from Skyline&rsquo;s <strong>Budget Rent Increase Calculation</strong>, then the leasing decisions for every suite that expires or sits vacant.
       </p>
 
       {showSteps && <ImportInstructions variant="budget-rent" />}
@@ -138,11 +141,10 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
             </span>
           </div>
 
-          {/* Suite-by-suite, month-by-month rent lives in "Rent by tenant"
-              below Step 2 — contracted vs assumed — and the suites that need a
-              decision are Step 2's list itself, so neither is repeated here. */}
         </>
       )}
+      </div>
+      {children}
     </div>
   );
 }

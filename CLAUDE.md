@@ -1026,11 +1026,15 @@ time — and the team does not have time to open the GL over $80.
   progress route from `projectLeaseRevenue`) — the same list the leasing card
   works from — so Harry/Nancy are owners in "Who owes what" from day one and
   their step is not "blocked" on an import they don't control.
-- **The page's cards are numbered to match the rail**: 1 Rent schedule, 2
-  Vacancies & renewals, 3 Expenses (a status card linking to Budget Inputs —
-  never a second place to key them), 4 Recoveries, 5 Review & finalize (the
-  monthly grid). A step on the rail with no card is what "there's no step 2"
-  meant.
+- **FOUR steps, and the cards are numbered to match the rail**: 1 **Rent**, 2
+  Expenses (the Budget Inputs table itself), 3 Recoveries, 4 Review & finalize
+  (the monthly grid). **Rent is ONE card** (`InPlaceRevenueCard` with children):
+  the schedule import and its tiles (leased the full year · expiring · vacant ·
+  the property's rent), then "Vacancies & renewals" (the leasing decisions, in
+  the owner's colour), then "Rent by tenant" — the schedule and the decisions
+  it produces are one job, and were two steps the owner merged. A vacant suite
+  is one the roll marks vacant or names "Vacant" — never read that name as a
+  tenant (it put empty suites on the expiring list).
 - **Once the RENT SCHEDULE is imported (Step 1), it drives rent and Step 2**
   (`projectLeaseRevenue`'s `schedule` argument, read by the draft AND the
   progress route so the rail counts exactly the card's rows). Each suite's

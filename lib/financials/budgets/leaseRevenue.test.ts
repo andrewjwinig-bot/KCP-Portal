@@ -136,4 +136,17 @@ describe("projectLeaseRevenue", () => {
     // The rows ARE the rental line.
     for (let m = 0; m < 12; m++) expect(p.rows.reduce((a, r) => a + r.months[m], 0)).toBe(p.rentalMonthly[m]);
   });
+
+  it("a suite NAMED 'Vacant' on the roll is a vacancy, not an expiring tenant", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([
+      u("1100-30", { occupantName: "Vacant", isVacant: false, baseRent: 0, sqft: 3025 }),
+      u("1100-31", { occupantName: "*** VACANT ***", isVacant: true, baseRent: 0, sqft: 900 }),
+      u("1100-1", { occupantName: "Steady", baseRent: 1000, sqft: 1000, leaseTo: "12/31/2030" }),
+    ]));
+    const schedule = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) =>
+      ({ propertyCode: "1100", unitRef: "1100-1", tenant: "Steady", month: m, chargeCode: "RNT", glAccount: "4230", amount: 1000, chargeDate: null }));
+    const p = await projectLeaseRevenue(["1100"], 2027, {}, schedule as any);
+    expect(p.vacant.map((v) => v.unitRef).sort()).toEqual(["1100-30", "1100-31"]);
+    expect(p.expiring).toHaveLength(0);
+  });
 });

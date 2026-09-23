@@ -14,7 +14,7 @@
 import { useState } from "react";
 import { Pill, TONE_AMBER, TONE_NEUTRAL, TONE_GREEN } from "@/app/components/Pill";
 import type { RentRow } from "@/lib/financials/budgets/leaseRevenue";
-import { STEP_LABEL } from "./stepStyles";
+import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const money0 = (n: number) => (n < 0 ? "-" : "") + Math.abs(Math.round(n)).toLocaleString("en-US");
@@ -36,7 +36,11 @@ const STATUS: Record<RentRow["status"], { text: string; tone: typeof TONE_NEUTRA
 
 type View = "all" | "contracted" | "assumed";
 
-export function RentByTenantCard({ rows: allRows, year, fromSchedule }: { rows: RentRow[]; year: number; fromSchedule: boolean }) {
+export function RentByTenantCard({ rows: allRows, year, fromSchedule, embedded = false }: {
+  rows: RentRow[]; year: number; fromSchedule: boolean;
+  /** Inside the Rent step's card — a section, not a card of its own. */
+  embedded?: boolean;
+}) {
   // All / Contracted only / Speculative only. A filter keeps just that kind of
   // month in each row (the other kind reads as a dash), drops rows left with
   // nothing, and the totals follow — so "what is guaranteed" and "what we are
@@ -58,10 +62,10 @@ export function RentByTenantCard({ rows: allRows, year, fromSchedule }: { rows: 
   );
 
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+    <div className={embedded ? undefined : "card"} style={embedded ? { borderTop: "2px solid var(--border)" } : { padding: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
         <div>
-          <div style={STEP_LABEL}>Rent by tenant — {year}</div>
+          <div style={embedded ? SUB_LABEL : STEP_LABEL}>Rent by tenant — {year}</div>
           <div className="muted small" style={{ marginTop: 2 }}>
             {fromSchedule ? "From the rent schedule, plus the leasing decisions above." : "From today's rent roll (import the rent schedule for contracted steps), plus the leasing decisions above."}
           </div>

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable } from "./BudgetStatementTable";
 import { RentByTenantCard } from "./RentByTenantCard";
-import { STEP_LABEL } from "./stepStyles";
+import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
 import { ExpenseInputsPanel } from "@/app/budget-inputs/ExpenseInputsPanel";
 import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
 import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
@@ -244,7 +244,17 @@ export default function BudgetDraftPage() {
         } : null}
         propertyCode={label?.propertyCode ?? null}
         editorLabel={typeof document !== "undefined" ? (document.cookie.match(/kcp_user=([^;]+)/)?.[1] ?? "Unknown") : "Unknown"}
-      />
+      >
+        {/* The rest of the Rent step: the leasing decisions for the suites
+            that expire or sit vacant, then every suite's rent — contracted vs
+            assumed — which reads those decisions as soon as they are saved. */}
+        {draft?.leasing && (draft.leasing.expiring.length > 0 || draft.leasing.vacant.length > 0) && (
+          <LeasingCard leasing={draft.leasing} budgetYear={draft.budgetYear} error={saveError} onSave={saveAssumption} />
+        )}
+        {draft?.leasing && (
+          <RentByTenantCard embedded rows={draft.leasing.rentRows} year={draft.budgetYear} fromSchedule={draft.leasing.fromSchedule} />
+        )}
+      </InPlaceRevenueCard>
 
       {loading && !draft && <div className="card muted">Building draft…</div>}
 
@@ -257,25 +267,15 @@ export default function BudgetDraftPage() {
       {draft && (
         <>
 
-          {draft.leasing && (draft.leasing.expiring.length > 0 || draft.leasing.vacant.length > 0) && (
-            <LeasingCard leasing={draft.leasing} budgetYear={draft.budgetYear} error={saveError} onSave={saveAssumption} />
-          )}
-
-          {/* Every suite's rent, month by month — contracted (dark) vs assumed
-              (light) — so each tenant can be gut-checked. It reads the leasing
-              decisions above, so a renewal shows here as soon as it is saved. */}
-          {draft.leasing && (
-            <RentByTenantCard rows={draft.leasing.rentRows} year={draft.budgetYear} fromSchedule={draft.leasing.fromSchedule} />
-          )}
 
           {/* The budget reads like the full-year operating statement it will
               be measured against: every month in its own column, revenue
               filled month by month from the leases and the recovery estimate. */}
           {/* STEP 3 — taxes, insurance and building maintenance, keyed right
               here by their owners (the same table Greg uses on his page). */}
-          <div id="step-3" className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div id="step-expenses" className="card" style={{ padding: 0, overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
-              <div style={STEP_LABEL}>Step 3 · Expenses — {draft.budgetYear}</div>
+              <div style={STEP_LABEL}>Step 2 · Expenses — {draft.budgetYear}</div>
               <Pill tone={contributorTone("drew")}>DREW · TAXES &amp; INSURANCE</Pill>
               <Pill tone={contributorTone("greg")}>GREG · MAINTENANCE</Pill>
             </div>
@@ -288,11 +288,11 @@ export default function BudgetDraftPage() {
             return (
               <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: "rgba(13,148,136,0.4)" }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
-                  <div style={{ ...STEP_LABEL, color: "#0d9488" }}>Step 4 · Recoveries — CAM / INS / RET, {est.budgetYear}</div>
+                  <div style={{ ...STEP_LABEL, color: "#0d9488" }}>Step 3 · Recoveries — CAM / INS / RET, {est.budgetYear}</div>
                   <Pill tone={TONE_TEAL}>{est.fromBudgetPools ? "IN THE BUDGET" : "PREVIEW"}</Pill>
                 </div>
                 <div style={{ padding: "8px 14px" }} className="muted small">
-                  Each tenant keeps their share from the <b>{est.reconYear} reconciliation</b> (PRS, admin fee, exclusions, gross leases and the insurance-pool rules all carried over), applied to <b>this budget&rsquo;s own pools</b> — CAM ×{est.ratios.cam}, insurance ×{est.ratios.ins}, taxes ×{est.ratios.ret} against {est.reconYear}, so the taxes and premium entered in Step 3 flow straight through.
+                  Each tenant keeps their share from the <b>{est.reconYear} reconciliation</b> (PRS, admin fee, exclusions, gross leases and the insurance-pool rules all carried over), applied to <b>this budget&rsquo;s own pools</b> — CAM ×{est.ratios.cam}, insurance ×{est.ratios.ins}, taxes ×{est.ratios.ret} against {est.reconYear}, so the taxes and premium entered in Step 2 flow straight through.
                   {est.kind === "office" ? " Office tenants pay their share of the increase over their base year, recomputed on the budget pool." : " A capped tenant grows no faster than its cap."}
                   {" "}The leasing assumptions set who pays and when: a vacate stops after its term, a lease-up starts at its pro-rata share. These totals <b>are</b> the recovery income lines in the budget below (marked <i>CAM est.</i>).
                 </div>
@@ -337,7 +337,7 @@ export default function BudgetDraftPage() {
 
           {/* STEP 5 — the budget itself, every month in its own column. */}
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
-            <div style={STEP_LABEL}>Step 5 · Review &amp; finalize — the {draft.budgetYear} budget</div>
+            <div style={STEP_LABEL}>Step 4 · Review &amp; finalize — the {draft.budgetYear} budget</div>
           </div>
           <div className="pills">
             <StatPill label="Total Revenue" value={money0(draft.rollups.totalRevenues.total)} sub={draft.leasing ? `${draft.leasing.inPlaceUnits} in-place leases` : "reproj placeholder"} />
@@ -471,10 +471,11 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
     </tr>
   );
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: tone.border }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
+    // A section of the Rent step's card (Step 1), in the owner's colour.
+    <div style={{ borderTop: `2px solid ${tone.border}` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)", background: tone.bg }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ ...STEP_LABEL, color: tone.fg }}>Step 2 · Vacancies &amp; renewals — {budgetYear}</div>
+          <div style={{ ...SUB_LABEL, color: tone.fg }}>Vacancies &amp; renewals</div>
           <Pill tone={tone}>{owner.label.toUpperCase()}&rsquo;S CALL</Pill>
         </div>
         {done ? (
@@ -499,7 +500,7 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
           <tbody>
             {leasing.expiring.length > 0 && band("Expiring or holdover leases", leasing.expiring.length)}
             {leasing.expiring.map((e) => (
-              <LeasingRow key={e.unitRef} mode="inplace" budgetYear={budgetYear}
+              <LeasingRow key={e.unitRef} mode="inplace" budgetYear={budgetYear} fromSchedule={leasing.fromSchedule}
                 unitRef={e.unitRef} title={e.tenant} sqft={e.sqft}
                 currentRent={e.monthlyRent} leaseTo={e.leaseTo}
                 assumption={e.assumption} onSave={onSave} />
@@ -523,8 +524,10 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
   );
 }
 
-function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, leaseTo, assumption, onSave }: {
+function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, leaseTo, assumption, onSave, fromSchedule = false }: {
   mode: "inplace" | "vacant";
+  /** Off the rent schedule, an undecided lease carries NO rent after its term. */
+  fromSchedule?: boolean;
   budgetYear: number;
   unitRef: string; title: string; sqft: number;
   currentRent: number; leaseTo: string | null;
@@ -575,7 +578,9 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
   // The commission as it will be budgeted: % of the new annual rent × term.
   const newMonthly = deal && rent !== "" && sqft > 0 ? (Number(rent) * sqft) / 12 : currentRent;
   const commission = lc !== "" && term !== "" ? (Number(lc) / 100) * newMonthly * 12 * Number(term) : 0;
-  const effect = kind === "" && mode === "vacant" ? "Vacant until decided" : effectText(kind, end, budgetYear, month);
+  const effect = kind === "" && mode === "vacant" ? "Vacant until decided"
+    : kind === "" && fromSchedule ? "No rent after the term until decided"
+    : effectText(kind, end, budgetYear, month);
   const dash = <span className="muted">—</span>;
   const psfInput = (v: string, set: (x: string) => void, field: "r" | "ti" | "lc", label: string, pct = false) => (
     <input value={v} inputMode="decimal" placeholder={pct ? "0%" : "$0.00"} aria-label={label}
