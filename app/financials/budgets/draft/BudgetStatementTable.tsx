@@ -36,13 +36,30 @@ import { NoteMark, type LineNote } from "./LineNote";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const COLOR_BRAND = "#0b4a7d";
-const GROUP_DIV = "1px solid var(--border)";
-const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, padding: "5px 8px", whiteSpace: "nowrap", verticalAlign: "middle" };
-const lab: React.CSSProperties = { textAlign: "left", fontSize: 13, padding: "5px 10px", verticalAlign: "middle" };
-/** Column headers — the SAME section-label look as the Revenue by tenant
- *  table above it (11px / 700 / uppercase / 0.06em), so the two grids read as
- *  one page. Months are bare ("JAN"): the year is in the step heading. */
-const head: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", padding: "7px 8px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom", borderBottom: "1px solid var(--border)" };
+// THE TABLE LOOKS LIKE THE OPERATING BUDGETS PAGE (app/financials/budgets/
+// page.tsx — `BudgetTableColgroup`, `BudgetLineRow`, `SubtotalCard`,
+// `GroupHeader`): a card per section under a brand group heading, the global
+// table cells, every other month column tinted, fixed percentage columns so
+// each card's months line up with the next, and the cross-section totals in
+// their own brand-bordered cards. The draft is the budget before it is
+// published there, so the two must read as the same document.
+const MONTH_TINT = "rgba(15,23,42,0.035)";
+const COL_PCT = { line: 25, month: 4.8, budget: 7, reproj: 6.2, change: 4.2 };
+function Colgroup() {
+  return (
+    <colgroup>
+      <col style={{ width: `${COL_PCT.line}%` }} />
+      {MONTHS.map((m, i) => <col key={m} style={{ width: `${COL_PCT.month}%`, ...(i % 2 === 0 ? { background: MONTH_TINT } : {}) }} />)}
+      <col style={{ width: `${COL_PCT.budget}%` }} />
+      <col style={{ width: `${COL_PCT.reproj}%` }} />
+      <col style={{ width: `${COL_PCT.change}%` }} />
+    </colgroup>
+  );
+}
+const TABLE: React.CSSProperties = { tableLayout: "fixed", width: "100%", minWidth: 1180 };
+const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12, whiteSpace: "nowrap", verticalAlign: "middle", paddingLeft: 6, paddingRight: 6 };
+const lab: React.CSSProperties = { textAlign: "left", verticalAlign: "middle", fontSize: 14 };
+const headR: React.CSSProperties = { textAlign: "right", whiteSpace: "nowrap" };
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const sum = (a: number[]) => a.reduce((s, n) => s + (n || 0), 0);
@@ -108,19 +125,17 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   note?: { note?: LineNote; onOpen: () => void };
 }) {
   const sub = variant === "sub";
-  const bold = variant !== "line" && !sub;
-  const upper = variant === "rollup" || variant === "rollupStrong";
+  const subtotal = variant === "subtotal";
   const rowStyle: React.CSSProperties | undefined =
-    variant === "subtotal" ? { background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }
-    : variant === "rollupStrong" ? { background: "rgba(11,74,125,0.06)" }
-    : variant === "rollup" ? { background: "rgba(11,74,125,0.035)" }
+    subtotal ? { background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }
+    : sub ? { background: "rgba(11,74,125,0.035)" }
     : undefined;
   const editable = !!rowKey && !!setEdit && !!onCommit;
   const cell = (v: number, key: string | number, extra?: React.CSSProperties, m?: number) => {
     const open = editable && m != null && edit?.row === rowKey && edit?.m === m;
     const isTyped = m != null && m < 12 && !!typed?.[m];
     const style: React.CSSProperties = {
-      ...num, ...(bold ? { fontWeight: 800 } : {}), ...extra,
+      ...num, ...(subtotal ? { fontWeight: 800, fontSize: 13.5, color: COLOR_BRAND } : {}), ...extra,
       ...(isTyped ? { background: TYPED_BG, fontWeight: 700 } : {}),
       ...(editable && m != null ? { cursor: "text" } : {}),
       ...(open ? { padding: "2px 4px" } : {}),
@@ -146,23 +161,23 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   const good = change == null || Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
   return (
     <tr style={rowStyle}>
-      <td style={{ ...lab, ...(bold ? { fontWeight: 800, color: COLOR_BRAND } : {}), ...(upper ? { textTransform: "uppercase", letterSpacing: "0.04em" } : {}), minWidth: 210, whiteSpace: "nowrap" }}>
+      <td style={{ ...lab, ...(subtotal ? { fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 } : {}), ...(sub ? { borderLeft: `3px solid ${COLOR_BRAND}`, paddingLeft: 26, fontSize: 12 } : {}), whiteSpace: "nowrap", overflow: "hidden" }}>
         {/* The name and its source pill on ONE line, so every row is one row tall. */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, ...(sub ? { paddingLeft: 22, fontSize: 12, color: "var(--muted)" } : {}) }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         {toggle && (
           <button type="button" onClick={toggle.onToggle} aria-expanded={toggle.open} aria-label={toggle.open ? "Hide sub-lines" : "Show sub-lines"}
-            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, width: 14, color: "var(--muted)", fontSize: 11, lineHeight: 1 }}>
+            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, width: 14, flex: "0 0 14px", color: "var(--muted)", fontSize: 11, lineHeight: 1 }}>
             {toggle.open ? "▾" : "▸"}
           </button>
         )}
-        {!toggle && variant === "line" && <span style={{ width: 14 }} />}
+        {!toggle && variant === "line" && <span style={{ flex: "0 0 14px" }} />}
         {onLabel ? (
           <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
-            className="os-line-name" style={{ cursor: "pointer" }}>{label}</span>
+            className="os-line-name" style={{ cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{label}</span>
         ) : label}
         {note && <NoteMark label={label} note={note.note} onOpen={note.onOpen} />}
         {(badge || onAccept || (onReset && typed?.some(Boolean))) && (
-          <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto" }}>
+          <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto", flex: "0 0 auto" }}>
             {onAccept && (
               <button type="button" onClick={onAccept} className="btn" aria-label={`Accept ${label} as shown`}
                 style={{ fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>Accept</button>
@@ -176,10 +191,10 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
         )}
         </div>
       </td>
-      {months.map((m, i) => cell(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined, i))}
-      {cell(total, "t", { borderLeft: GROUP_DIV, color: COLOR_BRAND, fontWeight: 800 }, editable ? 12 : undefined)}
+      {months.map((m, i) => cell(m, i, undefined, i))}
+      {cell(total, "t", subtotal ? { fontSize: 14, fontWeight: 800 } : { fontSize: 14, fontWeight: 600 }, editable ? 12 : undefined)}
       {basis == null ? <td style={num} /> : cell(basis, "b", { color: "var(--muted)" })}
-      <td style={{ ...num, ...(bold ? { fontWeight: 800 } : {}), color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
+      <td style={{ ...num, ...(subtotal ? { fontWeight: 800 } : {}), color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
         {pct == null ? (change == null || Math.abs(change) < 0.5 ? "–" : money0(change)) : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
       </td>
     </tr>
@@ -191,15 +206,56 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
 function StatRow({ label, months, total, basis, change, changeGood }: {
   label: string; months: string[]; total: string; basis: string; change: string; changeGood?: boolean | null;
 }) {
-  const cell: React.CSSProperties = { ...num, fontSize: 12, fontStyle: "italic", color: "var(--muted)", padding: "3px 8px" };
   return (
     <tr>
-      <td style={{ ...lab, fontSize: 12, fontStyle: "italic", color: "var(--muted)", padding: "3px 10px 3px 30px" }}>{label}</td>
-      {months.map((m, i) => <td key={i} style={{ ...cell, ...(i === 0 ? { borderLeft: GROUP_DIV } : {}) }}>{m}</td>)}
-      <td style={{ ...cell, borderLeft: GROUP_DIV, fontWeight: 700, color: "var(--text)" }}>{total}</td>
-      <td style={cell}>{basis}</td>
-      <td style={{ ...cell, color: changeGood == null ? "var(--muted)" : changeGood ? "#15803d" : "#b91c1c" }}>{change}</td>
+      <td style={{ ...lab, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>{label}</td>
+      {months.map((m, i) => <td key={i} style={{ ...num, fontSize: 13 }}>{m}</td>)}
+      <td style={{ ...num, fontSize: 13, fontWeight: 700 }}>{total}</td>
+      <td style={{ ...num, color: "var(--muted)" }}>{basis}</td>
+      <td style={{ ...num, color: changeGood == null ? "var(--muted)" : changeGood ? "#15803d" : "#b91c1c" }}>{change}</td>
     </tr>
+  );
+}
+
+/** A brand group heading between the section cards — the Operating Budgets
+ *  page's `GroupHeader`. */
+function GroupHeader({ label }: { label: string }) {
+  return (
+    <div style={{ marginTop: 4, paddingBottom: 6, borderBottom: `2px solid ${COLOR_BRAND}`, fontSize: 18, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: COLOR_BRAND }}>
+      {label}
+    </div>
+  );
+}
+
+/** A cross-section total (Total Revenues, NOI, cash flow) in its own card —
+ *  the Operating Budgets page's `SubtotalCard`, plus this page's reprojection
+ *  and change columns. */
+function RollupCard({ label, months, total, basis, favorableUp }: {
+  label: string; months: number[]; total: number; basis: number; favorableUp: boolean;
+}) {
+  const change = total - basis;
+  const pct = Math.abs(basis) < 0.5 ? null : (change / Math.abs(basis)) * 100;
+  const good = Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
+  const cell: React.CSSProperties = { ...num, fontSize: 13, fontWeight: 800, borderBottom: "none" };
+  return (
+    <div className="card" style={{ padding: 0, borderColor: COLOR_BRAND, background: "rgba(11,74,125,0.04)" }}>
+      <div className="tableWrap" style={{ marginTop: 0 }}>
+        <table style={TABLE}>
+          <Colgroup />
+          <tbody>
+            <tr>
+              <td style={{ ...lab, fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND, borderBottom: "none" }}>{label}</td>
+              {months.map((m, i) => <td key={i} style={{ ...cell, color: m < 0 ? "#b91c1c" : undefined }}>{money0(m)}</td>)}
+              <td style={{ ...cell, fontSize: 14, fontWeight: 900, color: total < 0 ? "#b91c1c" : COLOR_BRAND }}>{money0(total)}</td>
+              <td style={{ ...cell, fontWeight: 600, fontSize: 12, color: "var(--muted)" }}>{money0(basis)}</td>
+              <td style={{ ...cell, fontSize: 12, color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
+                {pct == null ? "–" : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -224,15 +280,11 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const [toggled, setToggled] = useState<Set<string>>(new Set());
   const bucketed = new Set(draft.sections.flatMap((sec) => sec.lines.filter((l) => l.subLines?.some((x) => x.bucket)).map((l) => `${sec.name}::${l.label}`)));
   const isOpenKey = (k: string) => bucketed.has(k) !== toggled.has(k);
-  const withSubs = draft.sections.flatMap((sec) => sec.lines.filter((l) => l.subLines?.length).map((l) => `${sec.name}::${l.label}`));
-  const allOpen = withSubs.length > 0 && withSubs.every(isOpenKey);
-  const setAll = (o: boolean) => setToggled(new Set(withSubs.filter((k) => bucketed.has(k) !== o)));
   const byRole = (roles: SectionRole[]) => draft.sections.filter((s) => roles.includes(s.role));
   const revenue = byRole(["revenue", "reimbursement"]);
   const expense = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
   const capital = byRole(["capital"]);
   const debt = byRole(["debt-service"]);
-  const cols = 1 + 12 + 3;
 
   const basisOf = (secs: BudgetDraftSection[]) => secs.reduce((s, sec) => s + sum(sec.lines.map((l) => l.basisTotal)), 0);
   const monthsOf = (secs: BudgetDraftSection[]) => { const m = new Array(12).fill(0); for (const s of secs) addInto(m, s.subtotal); return m; };
@@ -242,71 +294,113 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const cfaM = cfbM.map((v, i) => v - debtM[i]);
   const noiBasis = basisOf(revenue) - basisOf(expense);
 
-  const group = (label: string) => (
-    <tr key={`g-${label}`}>
-      <td colSpan={cols} style={{ padding: "12px 12px 6px", borderBottom: `2px solid ${COLOR_BRAND}`, fontSize: 14, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: COLOR_BRAND }}>{label}</td>
-    </tr>
-  );
-  const section = (sec: BudgetDraftSection, favorableUp: boolean, subtotal = true) => (
-    <Fragment key={sec.name}>
-      <tr>
-        <td colSpan={cols} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
-      </tr>
-      {sec.lines.map((l) => {
-        const key = `${sec.name}::${l.label}`;
-        const subs = l.subLines ?? [];
-        const viaSubs = subs.some((x) => x.typeable);
-        // A line budgeted through its sub-lines is their SUM — typed there, not here.
-        // A recovery line IS Step 3 — each tenant's share under their CAM
-        // methodology — so it is changed there, never typed over here.
-        // Rent (and the deals' TI / commissions) likewise IS Step 1.
-        // Taxes, insurance and building maintenance ARE typeable here — they
-        // save to the Budget Inputs store (the same figures Greg keys on his
-        // page), so the grid and his page cannot disagree.
-        const locked = l.source === "cam-estimate" || l.source === "leases";
-        const typeable = !!onEdit && !locked && !viaSubs;
-        const keyed = !!l.inputKind;
-        const entered = keyed && l.source === "entered";
-        const isOpen = isOpenKey(key);
-        return (
-          <Fragment key={l.label + l.mask}>
-            <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
-              badge={badgeFor(l.source)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
-              onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
-              typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
-              onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
-              note={onNote ? { note: notes?.[key], onOpen: () => onNote(sec, l) } : undefined}
-              rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
-              onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
-              onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}
-              toggle={subs.length ? { open: isOpen, onToggle: () => setToggled((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />
-            {isOpen && subs.map((x) => {
-              const subTypeable = !!onEdit && x.typeable;
-              const subKey = `${key}#${x.account}`;
-              return (
-                <Row key={subKey} variant="sub" label={`${x.account}${x.name ? ` · ${x.name}` : ""}`}
-                  months={x.months} total={x.total} basis={x.bucket === "extra" ? null : x.basisTotal} favorableUp={favorableUp}
-                  typed={x.bucket === "base" && entered ? new Array(12).fill(true) : x.typed}
-                  onAccept={subTypeable && x.bucket === "base" && keyed && !entered ? () => onEdit!(sec, l, "accept", null, x.account) : undefined}
-                  rowKey={subTypeable ? subKey : undefined} edit={edit} setEdit={subTypeable ? setEdit : undefined}
-                  onCommit={subTypeable ? (m, v) => onEdit!(sec, l, m, v, x.account) : undefined}
-                  onReset={subTypeable ? () => onEdit!(sec, l, "all", null, x.account) : undefined} />
-              );
-            })}
-          </Fragment>
-        );
-      })}
-      {subtotal && <Row label={`Total ${sec.name}`} months={sec.subtotal} total={sec.total} basis={sum(sec.lines.map((l) => l.basisTotal))} variant="subtotal" favorableUp={favorableUp} />}
-    </Fragment>
-  );
-
-  const body: React.ReactNode[] = [];
+  // One card per statement section: a header strip, the column heads, its
+  // lines, its subtotal — and, on the reimbursements, the recovery ratio.
   const pctS = (v: number | null, dp = 1) => (v == null ? "" : `${v.toFixed(dp)}%`);
   const pts = (a: number | null, b: number | null) => (a == null || b == null ? "" : `${a - b >= 0 ? "+" : "−"}${Math.abs(a - b).toFixed(1)} pts`);
+  const head = (
+    <thead>
+      <tr>
+        <th>Line</th>
+        {MONTHS.map((m) => <th key={m} style={headR}>{m}</th>)}
+        <th style={{ ...headR, color: COLOR_BRAND }}>Budget</th>
+        <th style={headR}>{draft.basisYear} Reproj.</th>
+        <th style={headR}>Change</th>
+      </tr>
+    </thead>
+  );
+
+  // THE RECOVERY RATIO — reimbursements as a share of the recoverable expense
+  // pool, for the year (a monthly ratio would swing on a tax bill's month).
+  const reimb = byRole(["reimbursement"]);
+  const pool = byRole(["reimbursable-expense"]);
+  const poolBudget = pool.reduce((a, x) => a + x.total, 0);
+  const poolBasis = basisOf(pool);
+  const ratioRow = reimb.length && Math.abs(poolBudget) > 0.5 ? (() => {
+    const ratio = (reimb.reduce((a, x) => a + x.total, 0) / poolBudget) * 100;
+    const ratioBasis = Math.abs(poolBasis) > 0.5 ? (basisOf(reimb) / poolBasis) * 100 : null;
+    return <StatRow key="recovery-ratio" label="Recovery ratio (% of pool)" months={new Array(12).fill("")} total={pctS(ratio)} basis={pctS(ratioBasis)} change={pts(ratio, ratioBasis)} changeGood={ratioBasis == null || Math.abs(ratio - ratioBasis) < 0.05 ? null : ratio > ratioBasis} />;
+  })() : null;
+  const lastReimb = reimb[reimb.length - 1]?.name;
+
+  const section = (sec: BudgetDraftSection, favorableUp: boolean, subtotal = true) => {
+    const secSubs = sec.lines.filter((l) => l.subLines?.length).map((l) => `${sec.name}::${l.label}`);
+    const secOpen = secSubs.length > 0 && secSubs.every(isOpenKey);
+    const setSec = (o: boolean) => setToggled((t) => { const n = new Set(t); for (const k of secSubs) { if ((bucketed.has(k) !== o)) n.add(k); else n.delete(k); } return n; });
+    return (
+      <div key={sec.name} className="card" style={{ padding: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</span>
+          {secSubs.length > 0 && (
+            <button type="button" onClick={() => setSec(!secOpen)}
+              style={{ border: "none", background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: 0, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              {secOpen ? "▾ Hide sub-lines" : "▸ Show sub-lines"}
+            </button>
+          )}
+        </div>
+        <div className="tableWrap" style={{ marginTop: 0 }}>
+          <table style={TABLE}>
+            <Colgroup />
+            {head}
+            <tbody>
+              {sec.lines.map((l) => {
+                const key = `${sec.name}::${l.label}`;
+                const subs = l.subLines ?? [];
+                const viaSubs = subs.some((x) => x.typeable);
+                // A line budgeted through its sub-lines is their SUM — typed there, not here.
+                // A recovery line IS Step 3 — each tenant's share under their CAM
+                // methodology — so it is changed there, never typed over here.
+                // Rent (and the deals' TI / commissions) likewise IS Step 1.
+                // Taxes, insurance and building maintenance ARE typeable here — they
+                // save to the Budget Inputs store (the same figures Greg keys on his
+                // page), so the grid and his page cannot disagree.
+                const locked = l.source === "cam-estimate" || l.source === "leases";
+                const typeable = !!onEdit && !locked && !viaSubs;
+                const keyed = !!l.inputKind;
+                const entered = keyed && l.source === "entered";
+                const isOpen = isOpenKey(key);
+                return (
+                  <Fragment key={l.label + l.mask}>
+                    <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
+                      badge={badgeFor(l.source)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
+                      onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
+                      typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
+                      onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
+                      note={onNote ? { note: notes?.[key], onOpen: () => onNote(sec, l) } : undefined}
+                      rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
+                      onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
+                      onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}
+                      toggle={subs.length ? { open: isOpen, onToggle: () => setToggled((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />
+                    {isOpen && subs.map((x) => {
+                      const subTypeable = !!onEdit && x.typeable;
+                      const subKey = `${key}#${x.account}`;
+                      return (
+                        <Row key={subKey} variant="sub" label={`${x.account}${x.name ? ` · ${x.name}` : ""}`}
+                          months={x.months} total={x.total} basis={x.bucket === "extra" ? null : x.basisTotal} favorableUp={favorableUp}
+                          typed={x.bucket === "base" && entered ? new Array(12).fill(true) : x.typed}
+                          onAccept={subTypeable && x.bucket === "base" && keyed && !entered ? () => onEdit!(sec, l, "accept", null, x.account) : undefined}
+                          rowKey={subTypeable ? subKey : undefined} edit={edit} setEdit={subTypeable ? setEdit : undefined}
+                          onCommit={subTypeable ? (m, v) => onEdit!(sec, l, m, v, x.account) : undefined}
+                          onReset={subTypeable ? () => onEdit!(sec, l, "all", null, x.account) : undefined} />
+                      );
+                    })}
+                  </Fragment>
+                );
+              })}
+              {subtotal && <Row label={`Total ${sec.name}`} months={sec.subtotal} total={sec.total} basis={sum(sec.lines.map((l) => l.basisTotal))} variant="subtotal" favorableUp={favorableUp} />}
+              {sec.name === lastReimb && ratioRow}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const body: React.ReactNode[] = [];
 
   // OCCUPANCY, month by month, off the same suites as Revenue by tenant: a
-  // suite is occupied in a month it pays rent. The forecast column is today's
-  // roll (every suite not vacant or awaiting a lease-up).
+  // suite is occupied in a month it pays rent. Its own card at the top, as on
+  // the Operating Budgets page; "Today" is the current roll.
   const suites = (draft.tenantRevenue ?? []).filter((t) => !t.recoveryOnly && t.sqft > 0);
   const totalSf = suites.reduce((a, t) => a + t.sqft, 0);
   if (totalSf > 0) {
@@ -315,69 +409,55 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const todaySf = suites.reduce((a, t) => a + (t.status === "vacant" || t.status === "lease-up" ? 0 : t.sqft), 0);
     const p = (sf: number) => (sf / totalSf) * 100;
     const sf = (n: number) => Math.round(n).toLocaleString("en-US");
-    body.push(<StatRow key="occ-pct" label="Occupancy %" months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={Math.abs(avgSf - todaySf) < 0.5 ? null : avgSf > todaySf} />);
-    body.push(<StatRow key="occ-sf" label={`Occupancy SF (of ${sf(totalSf)})`} months={occSf.map(sf)} total={sf(avgSf)} basis={sf(todaySf)} change={avgSf === todaySf ? "–" : `${avgSf > todaySf ? "+" : "−"}${sf(Math.abs(avgSf - todaySf))}`} changeGood={Math.abs(avgSf - todaySf) < 0.5 ? null : avgSf > todaySf} />);
+    const up = Math.abs(avgSf - todaySf) < 0.5 ? null : avgSf > todaySf;
+    body.push(
+      <div key="occ" className="card" style={{ padding: 0 }}>
+        <div className="tableWrap" style={{ marginTop: 0 }}>
+          <table style={TABLE}>
+            <Colgroup />
+            <thead>
+              <tr>
+                <th />
+                {MONTHS.map((m) => <th key={m} style={headR}>{m}</th>)}
+                <th style={headR}>Avg</th>
+                <th style={headR}>Today</th>
+                <th style={headR}>Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              <StatRow label="Occupancy %" months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={up} />
+              <StatRow label={`Occupancy SF (of ${sf(totalSf)})`} months={occSf.map(sf)} total={sf(avgSf)} basis={sf(todaySf)} change={up == null ? "–" : `${up ? "+" : "−"}${sf(Math.abs(avgSf - todaySf))}`} changeGood={up} />
+            </tbody>
+          </table>
+        </div>
+      </div>,
+    );
   }
 
-  body.push(group("Revenues"));
-  revenue.forEach((s) => body.push(section(s, true)));
-  // THE RECOVERY RATIO — reimbursements as a share of the recoverable expense
-  // pool, for the year (a monthly ratio would swing on a tax bill's month).
-  const reimb = byRole(["reimbursement"]);
-  const pool = byRole(["reimbursable-expense"]);
-  const poolBudget = pool.reduce((a, x) => a + x.total, 0);
-  const poolBasis = basisOf(pool);
-  if (reimb.length && Math.abs(poolBudget) > 0.5) {
-    const ratio = (reimb.reduce((a, x) => a + x.total, 0) / poolBudget) * 100;
-    const ratioBasis = Math.abs(poolBasis) > 0.5 ? (basisOf(reimb) / poolBasis) * 100 : null;
-    // Placed straight after the last reimbursement section's total.
-    const at = body.findIndex((n) => (n as React.ReactElement)?.key === reimb[reimb.length - 1].name) + 1;
-    const row = <StatRow key="recovery-ratio" label="Recovery ratio — % of the recoverable pool" months={new Array(12).fill("")} total={pctS(ratio)} basis={pctS(ratioBasis)} change={pts(ratio, ratioBasis)} changeGood={ratioBasis == null || Math.abs(ratio - ratioBasis) < 0.05 ? null : ratio > ratioBasis} />;
-    if (at > 0) body.splice(at, 0, row); else body.push(row);
-  }
-  body.push(<Row key="tr" label="Total Revenues" months={r.totalRevenues.months} total={r.totalRevenues.total} basis={basisOf(revenue)} variant="rollup" favorableUp />);
-  body.push(group("Operating Expenses"));
-  expense.forEach((s) => body.push(section(s, false)));
-  body.push(<Row key="te" label="Total Operating Expenses" months={r.totalOperatingExpenses.months} total={r.totalOperatingExpenses.total} basis={basisOf(expense)} variant="rollup" favorableUp={false} />);
-  body.push(<Row key="noi" label="Net Operating Income" months={r.netOperatingIncome.months} total={r.netOperatingIncome.total} basis={noiBasis} variant="rollupStrong" favorableUp />);
+  body.push(<GroupHeader key="g-rev" label="Revenues" />);
+  revenue.forEach((x) => body.push(section(x, true)));
+  body.push(<RollupCard key="tr" label="Total Revenues" months={r.totalRevenues.months} total={r.totalRevenues.total} basis={basisOf(revenue)} favorableUp />);
+  body.push(<GroupHeader key="g-opex" label="Operating Expenses" />);
+  expense.forEach((x) => body.push(section(x, false)));
+  body.push(<RollupCard key="te" label="Total Operating Expenses" months={r.totalOperatingExpenses.months} total={r.totalOperatingExpenses.total} basis={basisOf(expense)} favorableUp={false} />);
+  body.push(<RollupCard key="noi" label="Net Operating Income" months={r.netOperatingIncome.months} total={r.netOperatingIncome.total} basis={noiBasis} favorableUp />);
   if (capital.length) {
-    body.push(group("Capital"));
-    capital.forEach((s) => body.push(section(s, false, false)));
+    body.push(<GroupHeader key="g-cap" label="Capital Improvements" />);
+    capital.forEach((x) => body.push(section(x, false, false)));
   }
   if (debt.length) {
-    body.push(<Row key="cfb" label="Cash Flow Before Debt Service" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} variant="rollupStrong" favorableUp />);
-    body.push(group("Debt Service"));
-    debt.forEach((s) => body.push(section(s, false)));
-    body.push(<Row key="cfa" label="Cash Flow After Debt Service" months={cfaM} total={sum(cfaM)} basis={noiBasis - basisOf(capital) - basisOf(debt)} variant="rollupStrong" favorableUp />);
+    body.push(<RollupCard key="cfb" label="Cash Flow Before Debt Service" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} favorableUp />);
+    body.push(<GroupHeader key="g-debt" label="Debt Service" />);
+    debt.forEach((x) => body.push(section(x, false)));
+    body.push(<RollupCard key="cfa" label="Cash Flow After Debt Service" months={cfaM} total={sum(cfaM)} basis={noiBasis - basisOf(capital) - basisOf(debt)} favorableUp />);
   } else {
-    body.push(<Row key="cf" label="Cash Flow" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} variant="rollupStrong" favorableUp />);
+    body.push(<RollupCard key="cf" label="Cash Flow" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} favorableUp />);
   }
 
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table style={{ width: "100%", minWidth: 320 + 15 * 76, borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={{ ...head, textAlign: "left" }}>
-                Line
-                {withSubs.length > 0 && (
-                  <button type="button" onClick={() => setAll(!allOpen)}
-                    style={{ marginLeft: 10, border: "none", background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: 0 }}>
-                    {allOpen ? "▾ Collapse sub-lines" : "▸ Show sub-lines"}
-                  </button>
-                )}
-              </th>
-              {MONTHS.map((m, i) => <th key={m} style={{ ...head, ...(i === 0 ? { borderLeft: GROUP_DIV } : {}) }}>{m}</th>)}
-              <th style={{ ...head, borderLeft: GROUP_DIV, color: COLOR_BRAND }}>Budget</th>
-              <th style={head}>{draft.basisYear} Reproj.</th>
-              <th style={head}>Change</th>
-            </tr>
-          </thead>
-          <tbody>{body}</tbody>
-        </table>
-      </div>
-      <div className="muted small" style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {body}
+      <div className="muted small" style={{ padding: "2px 4px" }}>
         <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules. <b>{draft.basisYear} Reproj.</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
         {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget</b> to spread an annual. <span style={{ background: TYPED_BG, padding: "0 4px", borderRadius: 3 }}>Tinted</span> = typed; ↺ resets a line.</>}
       </div>
