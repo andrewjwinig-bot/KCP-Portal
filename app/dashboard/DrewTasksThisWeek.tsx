@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence } from "../../lib/tracker/taskDefs";
-import { importsForWeek, reminderSatisfied, type ImportReminder, type ImportEvent } from "../../lib/tracker/imports";
+import { importsForWeek, reminderSatisfied, type ImportReminder, type ImportEvent, type ImportCoverage } from "../../lib/tracker/imports";
 import { TaskModal } from "../components/MyTasks";
 import { type Priority, type Repeat, type Todo, openBucketOf, parseDueDate, priorityOf, startOfDay } from "@/lib/todos/types";
 
@@ -113,11 +113,12 @@ export default function DrewTasksThisWeek() {
 
   // Files to import this week.
   const [importEvents, setImportEvents] = useState<Record<string, ImportEvent>>({});
+  const [importCoverage, setImportCoverage] = useState<Record<string, ImportCoverage>>({});
   useEffect(() => {
     let cancelled = false;
     fetch("/api/tracker/import-events", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (!cancelled && j?.events) setImportEvents(j.events); })
+      .then((j) => { if (!cancelled && j?.events) { setImportEvents(j.events); setImportCoverage(j.coverage ?? {}); } })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -201,7 +202,9 @@ export default function DrewTasksThisWeek() {
       {imports.length > 0 && (() => {
         // Once a file is imported it drops off — the list shows only what's still
         // outstanding. When everything's in, a single "all imported" line.
-        const outstanding = imports.filter((r) => !reminderSatisfied(r, importEvents[r.id]?.at, new Date()));
+        // Coverage (the ledger / the statement store) beats the import log, as
+        // on the Imports card — or a month that is in still reads as due.
+        const outstanding = imports.filter((r) => !reminderSatisfied(r, importEvents[r.id]?.at, new Date(), importCoverage[r.id]));
         return (
           <div style={{ marginTop: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: outstanding.length ? "#b45309" : GREEN, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
