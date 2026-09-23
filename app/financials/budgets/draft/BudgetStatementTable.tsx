@@ -178,7 +178,7 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
             {toggle.open ? "▾" : "▸"}
           </button>
         )}
-        {!toggle && variant === "line" && <span style={{ flex: "0 0 14px" }} />}
+        {!toggle && (variant === "line" || (sub && depth === 1)) && <span style={{ flex: "0 0 14px" }} />}
         {onLabel ? (
           <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
             className="os-line-name" style={{ cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{label}</span>
@@ -298,6 +298,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   // the buckets are how those lines are budgeted — account splits start
   // closed. `toggled` holds the lines flipped from their default.
   const [toggled, setToggled] = useState<Set<string>>(new Set());
+  // A bucket's ITEMS (Sprinkler Inspection, Backflow…) fold under it, closed
+  // by default: the bucket's total is what reads down the page, the items are
+  // there when you want them.
+  const [openBuckets, setOpenBuckets] = useState<Set<string>>(new Set());
   const bucketed = new Set(draft.sections.flatMap((sec) => sec.lines.filter((l) => l.subLines?.some((x) => x.bucket)).map((l) => `${sec.name}::${l.label}`)));
   const isOpenKey = (k: string) => bucketed.has(k) !== toggled.has(k);
   const byRole = (roles: SectionRole[]) => draft.sections.filter((s) => roles.includes(s.role));
@@ -397,12 +401,12 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                       // items: each reads against last year's budget, and a
                       // bucket with items is their sum — typed through them.
                       const seeded = x.bucket === "seeded";
-                      const rowFor = (y: typeof x, depth: number) => {
+                      const rowFor = (y: typeof x, depth: number, toggle?: { open: boolean; onToggle: () => void }) => {
                         const typeableY = mayType && y.typeable;
                         const k = `${key}#${y.account}`;
                         const noteLabel = `${l.label}#${y.account}`;
                         return (
-                          <Row key={k} variant="sub" depth={depth} label={y.label ?? `${y.account}${y.name ? ` · ${y.name}` : ""}`}
+                          <Row key={k} variant="sub" depth={depth} toggle={toggle} label={y.label ?? `${y.account}${y.name ? ` · ${y.name}` : ""}`}
                             months={y.months} total={y.total}
                             basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
@@ -415,7 +419,11 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                             note={onNote && seeded ? { note: notes?.[`${sec.name}::${noteLabel}`], onOpen: () => onNote(sec, noteLabel) } : undefined} />
                         );
                       };
-                      return [rowFor(x, 1), ...(x.items ?? []).map((it) => rowFor(it, 2))];
+                      const bKey = `${key}#${x.account}`;
+                      const hasItems = !!x.items?.length;
+                      const bOpen = openBuckets.has(bKey);
+                      const toggleB = hasItems ? { open: bOpen, onToggle: () => setOpenBuckets((o) => { const n = new Set(o); if (n.has(bKey)) n.delete(bKey); else n.add(bKey); return n; }) } : undefined;
+                      return [rowFor(x, 1, toggleB), ...(hasItems && bOpen ? x.items!.map((it) => rowFor(it, 2)) : [])];
                     })}
                   </Fragment>
                 );
