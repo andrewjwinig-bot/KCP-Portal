@@ -17,11 +17,12 @@
 // those lines cannot be typed over in the grid. One TIES mark says so.
 
 import { Fragment, useState } from "react";
-import { Pill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_BLUE, tiesTone } from "@/app/components/Pill";
+import { Pill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_BLUE, tiesTone, contributorTone } from "@/app/components/Pill";
 import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import type { ReimbursementEstimate } from "@/lib/financials/budgets/reimbursementEstimate";
 import type { RecoveryTie, TenantRevenueRow } from "@/lib/financials/budgets/draft";
 import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
+import { DecisionPill, DecisionModal, type LeasingCall, type SavePayload } from "./LeasingDecision";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const money0 = (n: number) => (n < 0 ? "-" : "") + Math.abs(Math.round(n)).toLocaleString("en-US");
@@ -120,21 +121,46 @@ function tenantTip(r: TenantRevenueRow, est: ReimbursementEstimate | undefined, 
   return { rows, footer: { label: parts.length > 1 ? viewLabel : `${PART_LABEL[parts[0]]}, year`, value: money0(total) } };
 }
 
-export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, tie, rentLine, embedded = false }: {
+/** The leasing calls this table carries — every suite expiring, held over or
+ *  vacant — made from the row's pill. */
+export type LeasingProps = {
+  calls: LeasingCall[];
+  owner: { id: string; label: string };
+  dealCapital: { ti: number; lc: number };
+  onSave: (p: SavePayload) => unknown;
+  error?: string | null;
+  /** Extra header content — the owner's sign-off on this property. */
+  headerExtra?: React.ReactNode;
+};
+
+const canonRef = (s: string) => String(s ?? "").trim().toUpperCase().replace(/-CU$/, "");
+const stampShort = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, tie, rentLine, embedded = false, leasing }: {
   rows: TenantRevenueRow[]; year: number; fromSchedule: boolean;
   est?: ReimbursementEstimate; tie: RecoveryTie[]; rentLine?: string;
   embedded?: boolean;
+  leasing?: LeasingProps;
 }) {
   const [view, setView] = useState<View>("gross");
   const [sure, setSure] = useState<Sure>("all");
+  const [toDecide, setToDecide] = useState(false);
+  const [openUnit, setOpenUnit] = useState<string | null>(null);
   if (!allRows.length) return null;
+  const callOf = new Map((leasing?.calls ?? []).map((c) => [canonRef(c.unitRef), c]));
+  const calls = leasing?.calls ?? [];
+  const decided = calls.filter((c) => c.assumption);
+  const allDecided = calls.length > 0 && decided.length === calls.length;
+  const last = decided.reduce<LeasingCall | null>((m, c) => (!m || (c.assumption?.updatedAt ?? "") > (m.assumption?.updatedAt ?? "") ? c : m), null);
+  const openCall = openUnit ? callOf.get(canonRef(openUnit)) : undefined;
   const yy = String(year).slice(2);
   const office = est?.kind === "office";
   const parts = PARTS[view].filter((p) => !(office && p === "ins"));
   const keepMonth = (r: TenantRevenueRow, i: number) => sure === "all" || (sure === "assumed") === !!r.assumed[i];
   const cellsOf = (r: TenantRevenueRow, ps: Part[]) => MONTHS.map((_, i) => (keepMonth(r, i) ? ps.reduce((a, p) => a + (r[p][i] || 0), 0) : 0));
   const rows = allRows.map((r) => ({ r, months: cellsOf(r, parts) }))
-    .filter(({ months }) => sure === "all" || months.some((v) => Math.abs(v) > 0.5));
+    .filter(({ months }) => sure === "all" || months.some((v) => Math.abs(v) > 0.5))
+    .filter(({ r }) => !toDecide || (callOf.has(canonRef(r.unitRef)) && !callOf.get(canonRef(r.unitRef))!.assumption));
   const partTotals = (p: Part) => MONTHS.map((_, i) => rows.reduce((a, { r }) => a + (keepMonth(r, i) ? r[p][i] || 0 : 0), 0));
   const grandMonths = MONTHS.map((_, i) => rows.reduce((a, x) => a + x.months[i], 0));
   const allTie = tie.length === 0 || tie.every((t) => t.ties);
@@ -171,13 +197,23 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                 <Pill tone={tiesTone(allTie)}>{allTie ? "TIES TO THE BUDGET" : "DOESN'T TIE"}</Pill>
               </HoverCard>
             )}
+            {leasing && calls.length > 0 && (allDecided ? (
+              <Pill tone={TONE_GREEN}>✓ {calls.length} CALLS DECIDED{last?.assumption?.updatedBy ? ` BY ${last.assumption.updatedBy.toUpperCase()}` : ""}{last?.assumption?.updatedAt ? ` · ${stampShort(last.assumption.updatedAt).toUpperCase()}` : ""}</Pill>
+            ) : (
+              <Pill tone={contributorTone(leasing.owner.id)}>{leasing.owner.label.toUpperCase()}: {decided.length} OF {calls.length} DECIDED</Pill>
+            ))}
+            {leasing?.headerExtra}
           </div>
           <div className="muted small" style={{ marginTop: 2 }}>
-            {fromSchedule ? "Rent from the rent schedule" : "Rent from today's rent roll"} and the leasing decisions above.
+            {fromSchedule ? "Rent from the rent schedule" : "Rent from today's rent roll"}{leasing ? <> — click a suite&rsquo;s <b>DECIDE</b> pill to make its leasing call.</> : "."}
             {est ? ` Recoveries: ${est.reconYear} CAM methodology applied to the ${year} budget's expense pools; new tenants assumed NNN.` : ""}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, flexWrap: "wrap" }}>
+          {leasing && calls.length > 0 && (
+            <button type="button" className={toDecide ? "btn primary" : "btn"} onClick={() => setToDecide((t) => !t)} aria-pressed={toDecide}
+              style={{ fontSize: 12, padding: "4px 11px", fontWeight: 700 }}>To decide · {calls.length - decided.length}</button>
+          )}
           <span style={{ display: "inline-flex", gap: 4 }}>{views.map((v) => seg(view, v, VIEW_LABEL[v], setView))}</span>
           <span style={{ display: "inline-flex", gap: 4, paddingLeft: 10, borderLeft: "1px solid var(--border)" }}>
             {seg(sure, "all", "All", setSure)}
@@ -198,7 +234,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
           <tbody>
             {rows.length === 0 && (
               <tr><td colSpan={14} className="muted small" style={{ ...td, textAlign: "left", padding: 14 }}>
-                {sure === "assumed" ? "Nothing speculative — no renewals, holds or lease-ups assumed yet." : "Nothing contracted."}
+                {toDecide ? "Every leasing call is made." : sure === "assumed" ? "Nothing speculative — no renewals, holds or lease-ups assumed yet." : "Nothing contracted."}
               </td></tr>
             )}
             {rows.map(({ r, months }) => {
@@ -208,22 +244,29 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
               const vacant = r.status === "vacant";
               const nothing = Math.abs(total) < 0.5;
               const tip = tenantTip(r, est, parts, view === "gross" ? "Gross" : VIEW_LABEL[view]);
+              const call = leasing ? callOf.get(canonRef(r.unitRef)) : undefined;
               const nameCell = (
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   <code style={{ fontSize: 12 }}>{r.unitRef}</code>
                   <span style={{ fontWeight: 600, color: vacant ? "var(--muted)" : "var(--text)" }}>{vacant || !r.tenant ? "Vacant" : r.tenant}</span>
-                  {st && <Pill tone={st.tone}>{st.text}</Pill>}
+                  {!call && st && <Pill tone={st.tone}>{st.text}</Pill>}
                   {gross && <Pill tone={TONE_BLUE}>GROSS</Pill>}
                 </span>
               );
+              // A suite needing a call carries its DECIDE / decision pill,
+              // which stands in for EXPIRES / HOLDOVER / LEASE-UP.
+              const decision = call && leasing ? <DecisionPill call={call} owner={leasing.owner} onOpen={() => setOpenUnit(call.unitRef)} /> : null;
               return (
                 <tr key={r.unitRef + r.tenant} style={nothing ? { opacity: 0.55 } : undefined}>
                   <td style={{ ...td, textAlign: "left", minWidth: 250, whiteSpace: "normal" }}>
-                    {vacant ? nameCell : (
-                      <HoverCard title={`${r.unitRef} · ${r.tenant || "—"}`} width={420} rows={tip.rows} footer={tip.footer}>
-                        {nameCell}
-                      </HoverCard>
-                    )}
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      {vacant ? nameCell : (
+                        <HoverCard title={`${r.unitRef} · ${r.tenant || "—"}`} width={420} rows={tip.rows} footer={tip.footer}>
+                          {nameCell}
+                        </HoverCard>
+                      )}
+                      {decision}
+                    </span>
                   </td>
                   {months.map((v, i) => {
                     const has = Math.abs(v) > 0.5;
@@ -271,6 +314,16 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
         </span>
         <span>Dimmed = pays nothing this year. Hover a tenant for how their figure was reached.</span>
       </div>
+      {leasing?.error && <div style={{ color: "#b91c1c", fontSize: 13, padding: "0 14px 10px" }}>{leasing.error}</div>}
+      {leasing && (leasing.dealCapital.ti > 0 || leasing.dealCapital.lc > 0) && (
+        <div className="muted small" style={{ padding: "9px 14px", borderTop: "1px solid var(--border)" }}>
+          The leasing calls carry <b style={{ color: "var(--text)" }}>${Math.round(leasing.dealCapital.ti).toLocaleString("en-US")}</b> of TI and <b style={{ color: "var(--text)" }}>${Math.round(leasing.dealCapital.lc).toLocaleString("en-US")}</b> of leasing commissions, on the Capital lines in the month each new rent starts.
+        </div>
+      )}
+      {openCall && leasing && (
+        <DecisionModal key={openCall.unitRef} call={openCall} owner={leasing.owner} budgetYear={year} fromSchedule={fromSchedule}
+          onSave={leasing.onSave} onClose={() => setOpenUnit(null)} />
+      )}
     </div>
   );
 }
