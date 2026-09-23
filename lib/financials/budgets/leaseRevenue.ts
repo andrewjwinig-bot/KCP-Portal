@@ -50,7 +50,15 @@ export type RentRow = {
   assumed: boolean[];
   /** How the row came to be, for its label. */
   status: "contracted" | "expiring" | "holdover" | "vacant" | "lease-up";
+  /** What the suite is billed a month TODAY for recoveries, off the rent
+   *  roll's Operating Expense / Other Expense / Real Estate Tax columns —
+   *  the current estimate the budget's figure is compared with. */
+  billing?: { cam: number; ins: number; ret: number };
 };
+
+/** A roll unit's current monthly recovery billing. */
+const billingOf = (u: { opexMonth?: number; otherMonth?: number; reTaxMonth?: number } | null | undefined) =>
+  u ? { cam: u.opexMonth || 0, ins: u.otherMonth || 0, ret: u.reTaxMonth || 0 } : undefined;
 
 export type LeaseRevenueProjection = {
   /** 12 monthly projected base rent (assumption-adjusted), display-positive. */
@@ -228,7 +236,7 @@ export async function projectLeaseRevenue(
       }
 
       inPlaceUnits++;
-      const row: RentRow = { unitRef: ref, tenant, sqft: r0(sqft), months: scheduled.slice(), assumed: no(), status: "contracted" };
+      const row: RentRow = { unitRef: ref, tenant, sqft: r0(sqft), months: scheduled.slice(), assumed: no(), status: "contracted", billing: billingOf(u) };
       rows.push(row);
       for (let m = 0; m < 12; m++) rentalMonthly[m] += scheduled[m];
       if (nCovered === 12) continue; // contracted all year — nothing to decide
@@ -294,6 +302,7 @@ export async function projectLeaseRevenue(
       // has no schedule to say otherwise), which is also an assumption.
       const assumedFrom = expMonth >= 1 && expMonth <= 12 ? expMonth + 1 : expMonth === 0 ? 1 : 13;
       rows.push({
+        billing: billingOf(u),
         unitRef: u.unitRef, tenant: u.occupantName, sqft: r0(u.sqft || 0), months: months.slice(),
         assumed: months.map((v, m) => m + 1 >= assumedFrom && Math.abs(v) > 0.005),
         status: expMonth === 13 ? "contracted" : expMonth === 0 ? "holdover" : "expiring",
