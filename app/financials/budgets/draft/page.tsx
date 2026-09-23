@@ -69,7 +69,7 @@ export default function BudgetDraftPage() {
   const [refreshTick, setRefreshTick] = useState(0);
   // The line whose history is open. Clicking a line is how you argue its
   // number from its own five years rather than from last year plus a percent.
-  const [histLine, setHistLine] = useState<{ label: string; mask: string; sign: 1 | -1; section: string; locked?: boolean } | null>(null);
+  const [histLine, setHistLine] = useState<{ label: string; mask: string; sign: 1 | -1; section: string; locked?: boolean; forecast?: number } | null>(null);
   // Which BOOK is open. A property's budget is a sheet inside its book, so the
   // book leads and the property follows — picking a property inside a book
   // never changes which book you are in.
@@ -307,7 +307,7 @@ export default function BudgetDraftPage() {
             draft={draft}
             onEdit={draft.canEditLines ? editLine : undefined}
             badgeFor={(src) => sourceBadge(src, GROWTH)}
-            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" })}
+            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases", forecast: l.basisTotal })}
           />
 
           {/* The loans behind the debt-service lines — so "why is interest
@@ -378,6 +378,7 @@ export default function BudgetDraftPage() {
           mask={histLine.mask}
           sign={histLine.sign}
           year={year}
+          forecast={histLine.forecast ?? null}
           onClose={() => setHistLine(null)}
           onUseSuggestion={draft?.canEditLines && !histLine.locked ? (amount) => { applySuggestion(histLine.section, histLine.label, amount); setHistLine(null); } : undefined}
         />

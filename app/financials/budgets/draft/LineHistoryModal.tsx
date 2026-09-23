@@ -10,15 +10,12 @@
 import { useEffect, useState } from "react";
 import { Pill, StatPill, TONE_GREEN, TONE_AMBER, TONE_RED, TONE_BLUE, TONE_NEUTRAL, type PillTone } from "@/app/components/Pill";
 import { HistoryLoading } from "./HistoryLoading";
+import { HistoryBars } from "./HistoryBars";
 import type { LineHistory } from "@/lib/financials/budgets/lineHistory";
 import type { LineInsight, LineShape } from "@/lib/financials/budgets/lineInsight";
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
-const th: React.CSSProperties = { ...secLabel, textAlign: "right", padding: "6px 10px", whiteSpace: "nowrap" };
-const thL: React.CSSProperties = { ...th, textAlign: "left" };
-const td: React.CSSProperties = { padding: "7px 10px", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums", borderTop: "1px solid var(--border)", whiteSpace: "nowrap" };
-const tdL: React.CSSProperties = { ...td, textAlign: "left" };
 
 const SHAPE: Record<LineShape, { tone: PillTone; text: string; what: string }> = {
   steady:   { tone: TONE_GREEN,   text: "STEADY",   what: "Holds close year to year — a contract." },
@@ -29,8 +26,10 @@ const SHAPE: Record<LineShape, { tone: PillTone; text: string; what: string }> =
 
 type Payload = LineHistory & { insight: LineInsight };
 
-export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, year, onClose, onUseSuggestion }: {
+export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, year, onClose, onUseSuggestion, forecast = null }: {
   viewKey: string; propertyCode: string; label: string; mask: string; sign: 1 | -1; year: number;
+  /** The basis year's full-year reprojection for this line — the current year's bar. */
+  forecast?: number | null;
   onClose: () => void;
   onUseSuggestion?: (amount: number) => void;
 }) {
@@ -104,39 +103,10 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
                 {data.averageActual != null && <StatPill label={`${data.completeYears}-yr average`} value={money0(data.averageActual)} />}
               </div>
 
-              <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 16 }}>
-                <thead>
-                  <tr>
-                    <th style={thL}>Year</th>
-                    <th style={th}>Budget</th>
-                    <th style={th}>Actual</th>
-                    <th style={th}>Variance</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.years.map((y) => {
-                    const partial = y.actual != null && y.monthsCovered < 12;
-                    const isOutlier = ins.outlier?.year === y.year;
-                    return (
-                      <tr key={y.year} style={isOutlier ? { background: "rgba(217,119,6,0.07)" } : undefined}>
-                        <td style={{ ...tdL, fontWeight: 800 }}>
-                          {y.year}
-                          {partial && <span className="muted" style={{ fontWeight: 500 }}> · {y.monthsCovered} mo</span>}
-                          {isOutlier && <span style={{ color: "#b45309", fontWeight: 800 }}> ▲</span>}
-                        </td>
-                        <td style={{ ...td, color: "var(--muted)" }}>{y.budget == null ? "—" : money0(y.budget)}</td>
-                        <td style={td}>{y.actual == null ? "—" : money0(y.actual)}</td>
-                        <td style={{ ...td, color: y.variance == null ? "var(--muted)" : y.variance > 0 ? "#b91c1c" : "#15803d" }}>
-                          {y.variance == null ? "—" : `${y.variance > 0 ? "+" : ""}${money0(y.variance)}`}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <HistoryBars years={data.years} forecast={forecast} />
 
               <div className="muted small" style={{ marginTop: 12, lineHeight: 1.6 }}>
-                <strong>Budget</strong> is what that year&rsquo;s file carried for this line; <strong>Actual</strong> is its GL. A part year is marked and is left out of the average and the trend — six months read as a full year is a collapse that did not happen.
+                <strong>Actual</strong> is the line&rsquo;s GL; the tick on each bar is that year&rsquo;s <strong>budget</strong>. {forecast != null ? <>The current year is its <strong>reprojection</strong> — actual to date plus budget for the rest — so it reads as a full year. </> : null}The dashed line is the average of the full years shown. Hover a year for its variance.
               </div>
             </>
           )}
