@@ -292,18 +292,15 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   onEdit?: (sec: BudgetDraftSection, line: Line, month: number | "all" | "accept", value: number | null, account?: string) => void;
 }) {
   const [edit, setEdit] = useState<EditAt>(null);
-  // Lines opened to their sub-lines. Closed by default, so the statement reads
-  // at the level it is presented; open one to budget its GL accounts.
-  // Bucketed lines (Contractual / Recurring / Big Projects…) start OPEN —
-  // the buckets are how those lines are budgeted — account splits start
-  // closed. `toggled` holds the lines flipped from their default.
   const [toggled, setToggled] = useState<Set<string>>(new Set());
   // A bucket's ITEMS (Sprinkler Inspection, Backflow…) fold under it, closed
   // by default: the bucket's total is what reads down the page, the items are
   // there when you want them.
   const [openBuckets, setOpenBuckets] = useState<Set<string>>(new Set());
-  const bucketed = new Set(draft.sections.flatMap((sec) => sec.lines.filter((l) => l.subLines?.some((x) => x.bucket)).map((l) => `${sec.name}::${l.label}`)));
-  const isOpenKey = (k: string) => bucketed.has(k) !== toggled.has(k);
+  // EVERYTHING starts collapsed (the owner's call): the statement reads at the
+  // level it is presented, and a line opens to its buckets, a bucket to its
+  // items, only when asked. `toggled` holds the lines opened.
+  const isOpenKey = (k: string) => toggled.has(k);
   const byRole = (roles: SectionRole[]) => draft.sections.filter((s) => roles.includes(s.role));
   const revenue = byRole(["revenue", "reimbursement"]);
   const expense = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
@@ -350,7 +347,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const section = (sec: BudgetDraftSection, favorableUp: boolean, subtotal = true) => {
     const secSubs = sec.lines.filter((l) => l.subLines?.length).map((l) => `${sec.name}::${l.label}`);
     const secOpen = secSubs.length > 0 && secSubs.every(isOpenKey);
-    const setSec = (o: boolean) => setToggled((t) => { const n = new Set(t); for (const k of secSubs) { if ((bucketed.has(k) !== o)) n.add(k); else n.delete(k); } return n; });
+    const setSec = (o: boolean) => setToggled((t) => { const n = new Set(t); for (const k of secSubs) { if (o) n.add(k); else n.delete(k); } return n; });
     return (
       <div key={sec.name} className="card" style={{ padding: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>

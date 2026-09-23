@@ -1080,7 +1080,7 @@ time — and the team does not have time to open the GL over $80.
   Building Maint. → Recurring · Big Projects); Insurance → Liability · Property
   · Other; Cleaning & Supplies (business parks) → Cleaning & Supplies ·
   Vacancies. They REPLACE the account split on those lines (a ledger cannot
-  tell a contract from a big project) and start open. The BASE bucket
+  tell a contract from a big project). Everything starts COLLAPSED — lines, buckets and items (owner's call). The BASE bucket
   (Recurring / Property / Cleaning) IS the line's existing figure — typed as
   the line was, so insurance and building maintenance still save to Budget
   Inputs — and every other bucket starts at zero and ADDS to the line, stored
