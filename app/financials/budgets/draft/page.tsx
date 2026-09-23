@@ -465,7 +465,7 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
   const last = decided.reduce<LeaseAssumption | null>((m, a) => (!m || (a.updatedAt ?? "") > (m.updatedAt ?? "") ? a : m), null);
   const band = (label: string, n: number) => (
     <tr style={{ background: "rgba(11,74,125,0.06)" }}>
-      <td colSpan={6} style={{ ...tdLL, padding: "8px 14px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+      <td colSpan={7} style={{ ...tdLL, padding: "8px 14px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
         {label} <span style={{ fontWeight: 700 }}>· {n}</span>
       </td>
     </tr>
@@ -490,6 +490,7 @@ function LeasingCard({ leasing, budgetYear, error, onSave }: {
           <thead>
             <tr>
               <th style={thLL}>Suite</th>
+              <th style={thRR}>SF</th>
               <th style={thLL}>Decision</th>
               <th style={thRR}>Rent $/SF/yr</th>
               <th style={thLL}>Term</th>
@@ -602,11 +603,11 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
           <span style={{ fontWeight: 600 }}>{title}</span>
         </div>
         <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-          {[sqft > 0 ? `${sqft.toLocaleString()} sf` : null,
-            curPsf != null ? `$${curPsf.toFixed(2)}/sf today` : null,
+          {[curPsf != null ? `$${curPsf.toFixed(2)}/sf today` : null,
             end ? `${holdover ? "ended" : "ends"} ${fmtDate(end)}` : null].filter(Boolean).join(" · ")}
         </div>
       </td>
+      <td style={{ ...tdRR, fontVariantNumeric: "tabular-nums" }}>{sqft > 0 ? sqft.toLocaleString() : <span className="muted">—</span>}</td>
       <td style={{ ...tdLL, whiteSpace: "normal", maxWidth: 230 }}>
         <select value={kind} className="select-sm" aria-label="Decision"
           onChange={(e) => { if (e.target.value) { setKind(e.target.value); push({ k: e.target.value }); } }}>
