@@ -9,7 +9,7 @@
  *   storeJSON("statements", id, data)   → data/statements/{id}.json or blob payroll/statements/{id}.json
  */
 
-import { put, list, del } from "@vercel/blob";
+import { put, list, del, get } from "@vercel/blob";
 import { readFile, writeFile, readdir, unlink, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
@@ -33,11 +33,31 @@ function safeId(id: string) {
  *  403 on a stale URL, a network blip) doesn't make the caller drop the record
  *  — listJSON skips anything that ultimately fails, so without this a single
  *  blip can blank a whole page (statements, dismissed flags, etc.). */
-async function fetchBlobJson(url: string, attempts = 3): Promise<any> {
+async function fetchBlobJson(url: string, attempts = 3, fresh = false): Promise<any> {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   let lastErr: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
+      // FRESH reads go to origin storage, past the CDN. A blob URL is stable
+      // across overwrites and the CDN keeps a body for at least a minute
+      // (cacheControlMaxAge cannot go below 60s, so the 0 on put is not
+      // honoured) — so a read-modify-write store read back within a minute of
+      // its last write got the OLD document and wrote it back, erasing the
+      // write before it. Harry's leasing calls were lost exactly this way:
+      // "Leave vacant" on one suite, then the next suite within the minute,
+      // and the first decision was gone. `no-store` below only stops Next's
+      // own fetch cache; it never reached the CDN.
+      // If the origin read itself fails, fall back to the ordinary read rather
+      // than failing every page that reads a document — and say so in the log.
+      if (fresh) {
+        try {
+          const r = await get(url, { access: "private", useCache: false });
+          if (r && r.statusCode === 200 && r.stream) return await new Response(r.stream).json();
+          console.warn(`storage: fresh read of ${url} returned ${r ? r.statusCode : "nothing"} — falling back to the cached read`);
+        } catch (e) {
+          console.warn(`storage: fresh read of ${url} failed — falling back to the cached read:`, e instanceof Error ? e.message : e);
+        }
+      }
       // cache: "no-store" — Vercel Blob URLs are stable across overwrites
       // (addRandomSuffix: false), so Next.js's default fetch cache would
       // happily return a stale manifest body after a write. Force fresh.
@@ -147,7 +167,9 @@ export async function getJSON(prefix: string, id: string, opts?: { retryOnMiss?:
         throw e;
       }
       const blob = blobs.find((b) => b.pathname === target);
-      if (blob) return fetchBlobJson(blob.url);
+      // A single document is what a read-modify-write reads first, so it is
+      // always read FRESH (see fetchBlobJson).
+      if (blob) return fetchBlobJson(blob.url, 3, true);
       // Empty result. Treat as a real miss unless the caller asked us to absorb
       // a possible transient empty (then retry with backoff).
       if (opts?.retryOnMiss && i < maxAttempts - 1) { await new Promise((r) => setTimeout(r, 150 * (i + 1))); continue; }
