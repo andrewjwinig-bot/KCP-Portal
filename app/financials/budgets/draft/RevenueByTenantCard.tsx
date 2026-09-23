@@ -70,6 +70,24 @@ function tenantTip(r: TenantRevenueRow, est: ReimbursementEstimate | undefined, 
   // single part's figure is the footer.
   if (parts.length > 1) for (const p of parts) rows.push({ label: PART_LABEL[p], value: money0(yr(r[p])) });
 
+  // TODAY's monthly estimate against the budget's — what the tenant is billed
+  // now (rent roll) and what the budget has them billed, so the change in
+  // their escrow reads at a glance.
+  if (rec.length && est) {
+    const prior = est.budgetYear - 1;
+    for (const p of rec) {
+      const active = r[p].filter((v) => Math.abs(v) > 0.5).length;
+      const next = active ? yr(r[p]) / active : 0;
+      const now = r.billing?.[p] ?? null;
+      if (now == null && !next) continue;
+      const chg = now && next ? ` (${next >= now ? "+" : "−"}${Math.abs(((next - now) / now) * 100).toFixed(1)}%)` : "";
+      rows.push({
+        label: `${SHORT[p]} est. '${String(prior).slice(2)}→'${String(est.budgetYear).slice(2)}`,
+        value: `${now != null ? `$${money0(now)}` : "—"} → $${money0(next)}/mo${chg}`,
+      });
+    }
+  }
+
   if (rec.length && est) {
     if (m?.kind === "retail") {
       if (m.grossLease) rows.push({ label: "Lease", value: "Gross — pays no recoveries", color: "#b45309" });
@@ -202,7 +220,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                 <tr key={r.unitRef + r.tenant} style={nothing ? { opacity: 0.55 } : undefined}>
                   <td style={{ ...td, textAlign: "left", minWidth: 250, whiteSpace: "normal" }}>
                     {vacant ? nameCell : (
-                      <HoverCard title={`${r.unitRef} · ${r.tenant || "—"}`} width={340} rows={tip.rows} footer={tip.footer}>
+                      <HoverCard title={`${r.unitRef} · ${r.tenant || "—"}`} width={420} rows={tip.rows} footer={tip.footer}>
                         {nameCell}
                       </HoverCard>
                     )}

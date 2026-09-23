@@ -151,6 +151,8 @@ export type TenantRevenueRow = {
   method?: ReimbursementEstimate["tenants"][number]["method"];
   /** A recovery row with no rent-side suite (a unit ref that did not match). */
   recoveryOnly?: boolean;
+  /** Today's monthly recovery billing, off the rent roll. */
+  billing?: RentRow["billing"];
 };
 
 const canonRef = (ref: string) => String(ref ?? "").trim().toUpperCase().replace(/-CU$/, "");
@@ -178,6 +180,7 @@ export function combineTenantRevenue(rentRows: RentRow[], est: ReimbursementEsti
     const row: TenantRevenueRow = {
       unitRef: r.unitRef, tenant: r.tenant, sqft: r.sqft, status: r.status,
       rent: r.months.slice(), cam: zero(), ins: zero(), ret: zero(), assumed: r.assumed.slice(),
+      billing: r.billing,
     };
     const ts = byUnit.get(canonRef(r.unitRef));
     if (ts) { fill(row, ts); byUnit.delete(canonRef(r.unitRef)); }
