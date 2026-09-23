@@ -82,6 +82,21 @@ describe("buildBudgetDraft", () => {
     expect(await buildBudgetDraft("9999", 2027, 3)).toBeNull();
   });
 
+  it("drops an empty Condo Assn line from a shopping centre, but keeps one that carries money", async () => {
+    const r = fakeReproj();
+    (r.reprojection.sections as any[]).push(section("Reimbursements", "reimbursement", [line("Condo Assn", "4970-*", 0)]));
+    loadReprojection.mockResolvedValue(r);
+    projectLeaseRevenue.mockResolvedValue(noLeases);
+    const d = (await buildBudgetDraft("1100", 2027, 3))!;   // 1100 is a shopping centre
+    expect(d.sections.flatMap((s) => s.lines).some((l) => l.label === "Condo Assn")).toBe(false);
+
+    const r2 = fakeReproj();
+    (r2.reprojection.sections as any[]).push(section("Reimbursements", "reimbursement", [line("Condo Assn", "4970-*", 50)]));
+    loadReprojection.mockResolvedValue(r2);
+    const d2 = (await buildBudgetDraft("1100", 2027, 3))!;
+    expect(d2.sections.flatMap((s) => s.lines).some((l) => l.label === "Condo Assn")).toBe(true);
+  });
+
   it("0% growth carries expenses flat too", async () => {
     loadReprojection.mockResolvedValue(fakeReproj());
     projectLeaseRevenue.mockResolvedValue(noLeases);
