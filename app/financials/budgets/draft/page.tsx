@@ -1,24 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
+import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable } from "./BudgetStatementTable";
 import { RevenueByTenantCard } from "./RevenueByTenantCard";
-import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
+import { STEP_LABEL } from "./stepStyles";
 import { ExpenseInputsPanel } from "@/app/budget-inputs/ExpenseInputsPanel";
 import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
 import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
-import type { LeaseAssumption } from "../../../../lib/financials/budgets/leasingAssumptions";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
 import { BudgetSteps } from "./BudgetSteps";
 import { BookMasthead } from "./BookMasthead";
 import { useUser } from "@/app/components/UserProvider";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
 
-const MONTHS_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; rentPsf?: number; tiPsf?: number; lcPct?: number; startMonth?: number; termYears?: number };
+import type { LeasingCall, SavePayload } from "./LeasingDecision";
 
 // Every expense line carries its own basis (entered, tax +3%, a lease, the
 // recovery estimate); what is left grows by this. Not a knob on the page — a
@@ -256,12 +255,17 @@ export default function BudgetDraftPage() {
         {/* The rest of the Rent step: the leasing decisions for the suites
             that expire or sit vacant, then every suite's rent — contracted vs
             assumed — which reads those decisions as soon as they are saved. */}
-        {draft?.leasing && (draft.leasing.expiring.length > 0 || draft.leasing.vacant.length > 0) && (
-          <LeasingCard leasing={draft.leasing} budgetYear={draft.budgetYear} error={saveError} onSave={saveAssumption} />
-        )}
         {draft?.leasing && (
           <RevenueByTenantCard embedded rows={draft.tenantRevenue ?? []} year={draft.budgetYear} fromSchedule={draft.leasing.fromSchedule}
-            est={draft.reimbursementEstimate} tie={draft.recoveryTie ?? []} rentLine={draft.rentLineLabel} />
+            est={draft.reimbursementEstimate} tie={draft.recoveryTie ?? []} rentLine={draft.rentLineLabel}
+            leasing={{
+              calls: leasingCalls(draft.leasing),
+              owner: draft.leasing.owner,
+              dealCapital: draft.leasing.dealCapital,
+              onSave: saveAssumption,
+              error: saveError,
+              headerExtra: <ReviewStatus year={draft.budgetYear} propertyCode={draft.propertyCode} calls={leasingCalls(draft.leasing)} refreshTick={refreshTick} />,
+            }} />
         )}
       </InPlaceRevenueCard>
 
@@ -391,308 +395,36 @@ export default function BudgetDraftPage() {
 }
 
 /** When a call was made, as it is quoted back in a meeting. */
-function stamp(iso?: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
-}
 
-/**
- * The leasing assumptions, marked as the OWNER'S work — Harry's on a shopping
- * centre, Nancy's on an office park — in that person's colour, with how many
- * calls are made and, once every one is, who finished it and when.
- *
- * ONE table, banded by kind (expiring leases, then vacant space), in the
- * portal's roster shape: every row reads left to right as suite → lease end →
- * the decision → rent → term → TI → commission → what it does to next year.
- * Compact on purpose (suite and tenant on one line, a plain dropdown for the
- * decision) so the whole row fits without scrolling, and the effect is written out ("New rent all of 2027", "Paid through 3/31/27") so
- * nobody has to work out what a choice means for the budget.
- */
-function LeasingCard({ leasing, budgetYear, error, onSave }: {
-  leasing: NonNullable<BudgetDraft["leasing"]>;
-  budgetYear: number;
-  error: string | null;
-  onSave: (p: SavePayload) => void;
-}) {
-  const owner = leasing.owner;
-  const tone = contributorTone(owner.id);
-  const all = [...leasing.expiring.map((e) => e.assumption), ...leasing.vacant.map((v) => v.assumption)];
-  const decided = all.filter(Boolean) as LeaseAssumption[];
-  const done = decided.length === all.length;
-  const last = decided.reduce<LeaseAssumption | null>((m, a) => (!m || (a.updatedAt ?? "") > (m.updatedAt ?? "") ? a : m), null);
-  const band = (label: string, n: number) => (
-    <tr style={{ background: "rgba(11,74,125,0.06)" }}>
-      <td colSpan={9} style={{ ...tdLL, padding: "8px 14px", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-        {label} <span style={{ fontWeight: 700 }}>· {n}</span>
-      </td>
-    </tr>
-  );
+/** The leasing owner's sign-off on this property (from the Rent Roll Review
+ *  page), and the way there — the page Harry / Nancy are sent. */
+function ReviewStatus({ year, propertyCode, calls, refreshTick }: { year: number; propertyCode: string; calls: LeasingCall[]; refreshTick: number }) {
+  const [review, setReview] = useState<{ by: string; at: string } | null | undefined>(undefined);
+  useEffect(() => {
+    fetch(`/api/financials/budgets/rent-review?year=${year}`, { cache: "no-store" })
+      .then((r) => r.json()).then((j) => setReview(j.reviews?.[propertyCode.toUpperCase()] ?? null)).catch(() => setReview(null));
+  }, [year, propertyCode, refreshTick]);
+  if (review === undefined) return null;
+  const latest = calls.reduce((m, c) => ((c.assumption?.updatedAt ?? "") > m ? c.assumption!.updatedAt! : m), "");
+  const group = PROPERTY_DEFS.find((d) => d.id === propertyCode.toUpperCase())?.allocGroup === "BP" ? "BP" : "SC";
+  const href = `/financials/budgets/review?group=${group}&year=${year}`;
+  const changed = !!review && latest > review.at;
   return (
-    // A section of the Rent step's card (Step 1), in the owner's colour.
-    <div style={{ borderTop: `2px solid ${tone.border}` }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)", background: tone.bg }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ ...SUB_LABEL, color: tone.fg }}>Vacancies &amp; renewals</div>
-          <Pill tone={tone}>{owner.label.toUpperCase()}&rsquo;S CALL</Pill>
-        </div>
-        {done ? (
-          <Pill tone={TONE_GREEN}>✓ COMPLETED{last?.updatedBy ? ` BY ${last.updatedBy.toUpperCase()}` : ""}{last?.updatedAt ? ` · ${stamp(last.updatedAt)}` : ""}</Pill>
-        ) : (
-          <Pill tone={TONE_AMBER}>{decided.length} OF {all.length} DECIDED</Pill>
-        )}
-      </div>
-      {error && <div style={{ color: "#b91c1c", fontSize: 13, padding: "8px 14px" }}>{error}</div>}
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 940 }}>
-          <thead>
-            <tr>
-              <th style={thLL}>Suite</th>
-              <th style={thRR}>SF</th>
-              <th style={thRR}>Expiring rent</th>
-              <th style={thRR}>Expires</th>
-              <th style={thLL}>Decision</th>
-              <th style={thRR}>Rent $/SF/yr</th>
-              <th style={thLL}>Term</th>
-              <th style={thRR}>TI $/SF</th>
-              <th style={thRR}>LC %</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leasing.expiring.length > 0 && band("Expiring or holdover leases", leasing.expiring.length)}
-            {leasing.expiring.map((e) => (
-              <LeasingRow key={e.unitRef} mode="inplace" budgetYear={budgetYear} fromSchedule={leasing.fromSchedule}
-                unitRef={e.unitRef} title={e.tenant} sqft={e.sqft}
-                currentRent={e.monthlyRent} leaseTo={e.leaseTo}
-                assumption={e.assumption} onSave={onSave} />
-            ))}
-            {leasing.vacant.length > 0 && band("Vacant space", leasing.vacant.length)}
-            {leasing.vacant.map((v) => (
-              <LeasingRow key={v.unitRef} mode="vacant" budgetYear={budgetYear}
-                unitRef={v.unitRef} title="Vacant" sqft={v.sqft}
-                currentRent={0} leaseTo={null}
-                assumption={v.assumption} onSave={onSave} />
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {(leasing.dealCapital.ti > 0 || leasing.dealCapital.lc > 0) && (
-        <div className="muted small" style={{ padding: "9px 14px", borderTop: "1px solid var(--border)" }}>
-          These deals carry <b style={{ color: "var(--text)" }}>{money0(leasing.dealCapital.ti)}</b> of TI and <b style={{ color: "var(--text)" }}>{money0(leasing.dealCapital.lc)}</b> of leasing commissions, on the Capital lines below in the month each new rent starts.
-        </div>
-      )}
-    </div>
+    <a href={href} style={{ textDecoration: "none" }}>
+      {review && !changed
+        ? <Pill tone={TONE_GREEN}>✓ RENT CONFIRMED BY {review.by} · {new Date(review.at).toLocaleString("en-US", { month: "short", day: "numeric" }).toUpperCase()}</Pill>
+        : <Pill tone={TONE_NEUTRAL}>{changed ? "CHANGED SINCE CONFIRMED" : "AWAITING RENT SIGN-OFF"} →</Pill>}
+    </a>
   );
 }
 
-function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, leaseTo, assumption, onSave, fromSchedule = false }: {
-  mode: "inplace" | "vacant";
-  /** Off the rent schedule, an undecided lease carries NO rent after its term. */
-  fromSchedule?: boolean;
-  budgetYear: number;
-  unitRef: string; title: string; sqft: number;
-  currentRent: number; leaseTo: string | null;
-  assumption?: LeaseAssumption;
-  onSave: (p: SavePayload) => void;
-}) {
-  // A saved "hold" on a vacancy is "leave vacant". Nothing saved is no
-  // decision, so an untouched row can never pass for one.
-  const saved = assumption?.kind === "hold" && mode === "vacant" ? "none" : assumption?.kind;
-  // Rent is keyed as ANNUAL $/SF — how a deal is quoted. An existing tenant's
-  // box starts at what they pay today, so a flat renewal is no typing at all.
-  const curPsf = sqft > 0 && currentRent ? round2((currentRent * 12) / sqft) : null;
-  const savedPsf = assumption?.rentPsf ?? (assumption?.monthlyRent != null && sqft > 0 ? round2((assumption.monthlyRent * 12) / sqft) : null);
-  const [kind, setKind] = useState<string>(saved ?? "");
-  const f2 = (n: number | null | undefined) => (n != null ? n.toFixed(2) : "");
-  const [rent, setRent] = useState<string>(f2(savedPsf ?? curPsf));
-  const [ti, setTi] = useState<string>(f2(assumption?.tiPsf));
-  const [lc, setLc] = useState<string>(assumption?.lcPct != null ? String(assumption.lcPct) : "");
-  const [month, setMonth] = useState<number>(assumption?.startMonth ?? 1);
-  const [term, setTerm] = useState<string>(assumption?.termYears != null ? String(assumption.termYears) : "");
-  const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  function push(over: Partial<{ k: string; r: string; ti: string; lc: string; mo: number; t: string }> = {}) {
-    const k = over.k ?? kind, r = over.r ?? rent, mo = over.mo ?? month, t = over.t ?? term;
-    const tiV = over.ti ?? ti, lcV = over.lc ?? lc;
-    const apiKind = k === "" ? null : k === "none" ? "hold" : k;
-    const psf = r !== "" ? Number(r) : null;
-    // A renewal left at today's $/SF holds today's rent exactly, rather than a
-    // figure rounded back through $/SF.
-    const same = psf != null && curPsf != null && Math.abs(psf - curPsf) < 0.005;
-    const monthlyRent = psf == null || same || !(sqft > 0) ? undefined : Math.round((psf * sqft) / 12);
-    onSave({
-      unitRef, kind: apiKind, monthlyRent,
-      rentPsf: k === "renew" || k === "leaseup" ? psf ?? undefined : undefined,
-      tiPsf: tiV !== "" ? Number(tiV) : undefined,
-      lcPct: lcV !== "" ? Number(lcV) : undefined,
-      startMonth: mo, termYears: t !== "" ? Number(t) : undefined,
-    });
-  }
-
-  const end = parseMDY(leaseTo);
-  // A holdover is a lease that has ALREADY ended — not one that merely ends
-  // before the budget year (11/30/26 is still a live lease in September).
-  const holdover = !!end && end.getTime() < Date.now();
-  const deal = kind === "renew" || kind === "leaseup";
-  // A tenant HELD at today's rent is still a deal for a new term: TI, a
-  // commission and the term apply; only the rent is fixed at today's.
-  const costs = deal || (kind === "hold" && mode === "inplace");
-  // The commission as it will be budgeted: % of the new annual rent × term.
-  const newMonthly = deal && rent !== "" && sqft > 0 ? (Number(rent) * sqft) / 12 : currentRent;
-  const commission = lc !== "" && term !== "" ? (Number(lc) / 100) * newMonthly * 12 * Number(term) : 0;
-  const effect = kind === "" && mode === "vacant" ? "Vacant until decided"
-    : kind === "" && fromSchedule ? "No rent after the term until decided"
-    : effectText(kind, end, budgetYear, month);
-  const dash = <span className="muted">—</span>;
-  // LIVE: a figure saves a moment after typing stops, and the draft — Rent by
-  // tenant, the grid, the recoveries — re-projects without leaving the box.
-  // Leaving the box (or Enter) saves at once and tidies the number.
-  const psfInput = (v: string, set: (x: string) => void, field: "r" | "ti" | "lc", label: string, pct = false) => (
-    <input value={v} inputMode="decimal" placeholder={pct ? "0%" : "$0.00"} aria-label={label}
-      onChange={(e) => {
-        const next = e.target.value.replace(/[^0-9.]/g, "");
-        set(next);
-        if (liveTimer.current) clearTimeout(liveTimer.current);
-        if (next === "" || Number.isFinite(Number(next))) {
-          liveTimer.current = setTimeout(() => push({ [field]: next } as Partial<{ r: string; ti: string; lc: string }>), 700);
-        }
-      }}
-      onBlur={() => {
-        if (liveTimer.current) { clearTimeout(liveTimer.current); liveTimer.current = null; }
-        const f = v === "" || !Number.isFinite(Number(v)) ? "" : pct ? String(Number(v)) : Number(v).toFixed(2);
-        set(f);
-        push({ [field]: f } as Partial<{ r: string; ti: string; lc: string }>);
-      }}
-      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-      style={{ width: 76, textAlign: "right" }} />
-  );
-
-  return (
-    <tr style={{ borderTop: "1px solid var(--border)" }}>
-      <td style={{ ...tdLL, whiteSpace: "normal", minWidth: 200 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 6, whiteSpace: "nowrap" }}>
-          <code style={{ fontSize: 12 }}>{unitRef}</code>
-          <span style={{ fontWeight: 600 }}>{title}</span>
-        </div>
-      </td>
-      <td style={{ ...tdRR, fontVariantNumeric: "tabular-nums" }}>{sqft > 0 ? sqft.toLocaleString() : <span className="muted">—</span>}</td>
-      {/* The rent the lease carries as it ends — what a renewal is priced against. */}
-      <td style={{ ...tdRR, fontVariantNumeric: "tabular-nums" }}>
-        {mode === "inplace" && currentRent > 0 ? (
-          <>
-            <div style={{ fontWeight: 600 }}>{money0(currentRent)}/mo</div>
-            {curPsf != null && <div className="muted" style={{ fontSize: 11.5 }}>${curPsf.toFixed(2)}/SF/yr</div>}
-          </>
-        ) : <span className="muted">—</span>}
-      </td>
-      {/* MM-YY; amber once the term has already run out (a holdover). */}
-      <td style={{ ...tdRR, fontVariantNumeric: "tabular-nums", color: holdover ? "#b45309" : undefined, fontWeight: holdover ? 700 : undefined }}>
-        {end ? `${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getFullYear()).slice(-2)}` : <span className="muted">—</span>}
-      </td>
-      <td style={{ ...tdLL, whiteSpace: "normal", maxWidth: 230 }}>
-        <select value={kind} className="select-sm" aria-label="Decision"
-          onChange={(e) => { if (e.target.value) { setKind(e.target.value); push({ k: e.target.value }); } }}>
-          {kind === "" && <option value="">Choose…</option>}
-          {(mode === "inplace" ? INPLACE_CHOICES : VACANT_CHOICES).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        {kind === "leaseup" && (
-          <select value={month} className="select-sm" aria-label="Starts paying" style={{ marginLeft: 6 }}
-            onChange={(e) => { setMonth(Number(e.target.value)); push({ mo: Number(e.target.value) }); }}>
-            {MONTHS_ABBR.map((mo, i) => <option key={mo} value={i + 1}>from {mo}</option>)}
-          </select>
-        )}
-        {/* ONE small line: what it does in the budget year, then who made the
-            call and when — the stamp the owner's card is about. */}
-        <div style={{ fontSize: 11, marginTop: 4, paddingLeft: 4, color: "var(--muted)" }}>
-          {effect}
-          {assumption?.updatedAt && (
-            <> · <span style={{ color: "#15803d", fontWeight: 700 }}>✓ {assumption.updatedBy ? `${assumption.updatedBy.charAt(0)}${assumption.updatedBy.slice(1).toLowerCase()}` : "Saved"}</span> {shortStamp(assumption.updatedAt)}</>
-          )}
-        </div>
-      </td>
-      <td style={tdRR}>
-        {deal ? psfInput(rent, setRent, "r", "Rent, annual $ per SF")
-          : costs && curPsf != null ? <span className="muted" style={{ paddingRight: 10 }}>${curPsf.toFixed(2)}</span> : dash}
-      </td>
-      <td style={tdLL}>
-        {costs ? (
-          <select value={term} className="select-sm" aria-label="Lease term"
-            onChange={(e) => { setTerm(e.target.value); push({ t: e.target.value }); }}>
-            <option value="">Term…</option>
-            {[1, 2, 3, 5, 7, 10, 15].map((y) => <option key={y} value={y}>{y} yr{y === 1 ? "" : "s"}</option>)}
-          </select>
-        ) : dash}
-      </td>
-      <td style={tdRR}>{costs ? psfInput(ti, setTi, "ti", "Tenant improvements, $ per SF") : dash}</td>
-      <td style={tdRR}>
-        {costs ? (
-          <>
-            {psfInput(lc, setLc, "lc", "Leasing commission, percent of the rent over the term", true)}
-            {/* The dollars it comes to — % × annual rent × term — or why none. */}
-            {lc !== "" && Number(lc) > 0 && (
-              <div className="muted" style={{ fontSize: 11, marginTop: 3 }}>
-                {term === "" ? "set a term" : commission > 0 ? `= ${money0(commission)}` : "set a rent"}
-              </div>
-            )}
-          </>
-        ) : dash}
-      </td>
-    </tr>
-  );
+/** Every suite needing a leasing call, in the shape the table's pill takes. */
+function leasingCalls(leasing: NonNullable<BudgetDraft["leasing"]>): LeasingCall[] {
+  return [
+    ...leasing.expiring.map((e) => ({ unitRef: e.unitRef, mode: "inplace" as const, title: e.tenant, sqft: e.sqft, currentRent: e.monthlyRent, leaseTo: e.leaseTo, assumption: e.assumption })),
+    ...leasing.vacant.map((v) => ({ unitRef: v.unitRef, mode: "vacant" as const, title: "Vacant", sqft: v.sqft, currentRent: 0, leaseTo: null, assumption: v.assumption })),
+  ];
 }
-
-const round2 = (n: number) => Math.round(n * 100) / 100;
-const shortStamp = (iso: string) => {
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-};
-
-function parseMDY(s: string | null): Date | null {
-  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(s ?? "");
-  if (!m) return null;
-  const y = Number(m[3]) < 100 ? 2000 + Number(m[3]) : Number(m[3]);
-  return new Date(y, Number(m[1]) - 1, Number(m[2]));
-}
-const fmtDate = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${String(d.getFullYear()).slice(-2)}`;
-
-/** What the decision does to the budget year, in words — the same rules the
- *  projection applies (leaseRevenue.ts): a renewal's rent starts the day after
- *  the term, a vacate is paid through it, a lease-up from its month. */
-function effectText(kind: string, end: Date | null, year: number, month: number): string {
-  switch (kind) {
-    case "": return "Today's rent until decided";
-    case "hold": return "Today's rent";
-    case "none": return "Vacant all year";
-    case "leaseup": return `Rent from ${MONTHS_ABBR[month - 1]} ${year}`;
-    case "renew": {
-      if (!end) return "New rent all year";
-      const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
-      return start.getFullYear() < year ? "New rent all year" : start.getFullYear() > year ? `No change in ${year}` : `New rent from ${fmtDate(start)}`;
-    }
-    case "vacate": {
-      if (!end || end.getFullYear() < year) return `No rent in ${year}`;
-      if (end.getFullYear() > year) return "Paid all year";
-      return `Paid through ${fmtDate(end)}`;
-    }
-    default: return "";
-  }
-}
-
-const thLL: React.CSSProperties = { textAlign: "left", padding: "7px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
-const thRR: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
-const tdRR: React.CSSProperties = { textAlign: "right", padding: "10px 10px", fontSize: 14, verticalAlign: "middle", whiteSpace: "nowrap" };
-const tdLL: React.CSSProperties = { textAlign: "left", padding: "10px 10px", fontSize: 14, verticalAlign: "middle", whiteSpace: "nowrap" };
-
-const INPLACE_CHOICES = [
-  { value: "hold", label: "Hold" },
-  { value: "renew", label: "Renew" },
-  { value: "vacate", label: "Vacate" },
-];
-const VACANT_CHOICES = [
-  { value: "none", label: "Hold (vacant)" },
-  { value: "leaseup", label: "Lease up" },
-];
 
 const thS: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" };
 const tdL: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "left", whiteSpace: "nowrap" };
