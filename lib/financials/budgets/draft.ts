@@ -26,6 +26,8 @@ import { getInPlaceRevenue } from "./inPlaceStore";
 import { lineKey, mergeMonths, type LineOverrides } from "./lineOverrides";
 import { ownerFor } from "./contributors";
 import { bucketsFor } from "./lineBuckets";
+import { itemizedLines, type ResolvedBucket } from "./lineItems";
+import { listBudgets } from "./storage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 /** The revenue line the lease projection replaces — base/rental income. */
@@ -43,7 +45,9 @@ export type DraftSource = "reproj-growth" | "reproj-flat" | "leases" | "cam-esti
   /** A figure someone keyed in the Expenses step (tax, insurance, maintenance). */
   | "entered"
   /** Debt service from the Debt Tracker's loan schedules. */
-  | "loans";
+  | "loans"
+  /** Built item by item from last year's budget (`lineItems.ts`). */
+  | "items";
 
 export type BudgetDraftLine = {
   label: string;
@@ -70,8 +74,18 @@ export type BudgetSubLine = {
   account: string;
   /** Set on a budget bucket (`lineBuckets.ts`): "base" carries the line's own
    *  figure and is typed as the line; "extra" adds to it. */
-  bucket?: "base" | "extra";
+  bucket?: "base" | "extra" | "seeded";
   name?: string;
+  /** What the row reads as, when it is not `account` (an item's own name —
+   *  `account` carries its "bucket/item" key). */
+  label?: string;
+  /** Last year's budget for this bucket or item — shown for reference, not
+   *  in the reprojection column (items have no actuals to reproject). */
+  prior?: number;
+  /** The budget workbook's own note on the row. */
+  note?: string;
+  /** A seeded bucket's items (Sprinkler Inspection, Backflow…). */
+  items?: BudgetSubLine[];
   months: number[];
   total: number;
   basisTotal: number;
@@ -138,6 +152,8 @@ export type BudgetDraft = {
   notes?: Record<string, { text: string; by: string; at: string }>;
   /** Set by the route: whether the viewer may type months into the grid. */
   canEditLines?: boolean;
+  /** Set by the route: which lines the viewer may type ("all" / "expenses"). */
+  lineEditScope?: "all" | "expenses" | null;
   /** True when the current-year reprojection couldn't be loaded (no draft). */
   missingBasis?: boolean;
 };
@@ -290,7 +306,7 @@ function withSubLines(
 /** Lay typed months over the computed ones and re-total each section. A line
  *  the Budget Inputs page owns is marked and never takes a typed month. A line
  *  with typeable sub-lines is typed THROUGH them — its months are their sum. */
-function applyTyped(sections: BudgetDraftSection[], doc: LineOverrides) {
+function applyTyped(sections: BudgetDraftSection[], doc: LineOverrides, itemized?: Map<string, ResolvedBucket[]>) {
   for (const sec of sections) {
     sec.lines = sec.lines.map((l0) => {
       // Runs twice (before and after the recovery pools are read), so a
@@ -298,6 +314,9 @@ function applyTyped(sections: BudgetDraftSection[], doc: LineOverrides) {
       // second pass would add its extra buckets on again.
       const base = l0.subLines?.find((s) => s.bucket === "base");
       const l = base ? { ...l0, months: base.months, total: base.total, typed: base.typed, subLines: undefined } : l0;
+      // An ITEMIZED line is the sum of its items, whatever else produced it.
+      const items = itemized?.get(lineKey(sec.name, l0.label));
+      if (items) return fromItems({ ...l0, subLines: undefined }, items, expenseInputKindOf(sec.role, l0.label) ?? undefined);
       return withBuckets(sec, typedLine(sec, l, doc), doc);
     });
     const subtotal = new Array(12).fill(0);
@@ -336,6 +355,23 @@ function typedLine(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrid
   return { ...l, months, total: r0(sum(months)), typed, source: typed.every(Boolean) ? "entered" : l.source };
 }
 
+/** A line built from its seeded buckets and items (`lineItems.ts`). */
+function fromItems(l: BudgetDraftLine, buckets: ResolvedBucket[], inputKind?: ExpenseInputKind): BudgetDraftLine {
+  const tot = (m: number[]) => r0(sum(m));
+  const subLines: BudgetSubLine[] = buckets.map((b) => ({
+    account: b.key, label: b.name, bucket: "seeded", months: b.months, total: tot(b.months), basisTotal: 0,
+    typed: b.typed, typeable: b.items.length === 0, prior: tot(b.prior), note: b.note,
+    items: b.items.length ? b.items.map((it) => ({
+      account: it.key, label: it.name, months: it.months, total: tot(it.months), basisTotal: 0,
+      typed: it.typed, typeable: true, prior: tot(it.prior), note: it.note,
+    })) : undefined,
+  }));
+  const months = new Array(12).fill(0);
+  for (const x of subLines) addInto(months, x.months);
+  const typed = months.map((_, i) => subLines.some((x) => x.typed?.[i]));
+  return { ...l, inputKind, subLines, months: months.map(r0), total: r0(sum(months)), typed: typed.some(Boolean) ? typed : undefined, source: "items" };
+}
+
 /** Split a bucketed line into its buckets (`lineBuckets.ts`): the base bucket
  *  is the line's own figure; each other bucket is its typed months (zero until
  *  typed) and adds to the line. */
@@ -354,6 +390,19 @@ function withBuckets(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverr
   return { ...l, subLines, months: months.map(r0), total: r0(sum(months)) };
 }
 
+
+/** A property's budget of record for `year` — a final (or uploaded) workbook
+ *  before a draft one. Null when there is none, or the draft is a fund. */
+export async function priorBudgetProperty(propertyCode: string, year: number) {
+  const code = String(propertyCode ?? "").toUpperCase();
+  const wbs = (await listBudgets().catch(() => [])).filter((w) => w.year === year);
+  const rank = (w: (typeof wbs)[number]) => (w.status === "draft" ? 1 : 0);
+  for (const w of wbs.sort((a, b) => rank(a) - rank(b))) {
+    const p = w.properties.find((x) => String(x.propertyCode ?? "").toUpperCase() === code);
+    if (p) return p;
+  }
+  return null;
+}
 
 /** Build a draft FY budget for one property/fund, growing the current-year
  *  reprojection's expense forecast by `growthPct`. Returns `missingBasis` when
@@ -492,7 +541,12 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   // TYPED MONTHS win over whatever computed them — applied BEFORE the pools
   // are read, so a CAM expense typed into the grid moves what tenants are
   // billed, and again after the recoveries replace their income lines.
-  applyTyped(sections, typedDoc);
+  // LAST YEAR'S BUDGET OF RECORD, for the itemized lines (Building
+  // Maintenance's contracts and recurring items, the insurance policies…):
+  // the workbook for the basis year that carries this property.
+  const priorProperty = await priorBudgetProperty(meta.propertyCode, basisYear);
+  const itemized = itemizedLines(priorProperty, sections, typedDoc);
+  applyTyped(sections, typedDoc, itemized);
 
   // RECOVERIES. The budget's CAM, insurance and tax pools against this year's,
   // read off the draft's own expense lines — so the taxes and premium keyed in
@@ -537,7 +591,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
         t.sec.lines[t.idx] = { ...l, months: parts[i].map(r0), total: r0(sum(parts[i])), source: "cam-estimate", subLines: undefined };
       });
     }
-    applyTyped(sections, typedDoc);
+    applyTyped(sections, typedDoc, itemized);
   }
   const recoveryTie = reimbursementEstimate ? tieRecoveries(reimbursementEstimate, sections) : undefined;
   const rentLineLabel = sections.flatMap((sec) => sec.role === "revenue" ? sec.lines : []).find((l) => l.source === "leases")?.label;

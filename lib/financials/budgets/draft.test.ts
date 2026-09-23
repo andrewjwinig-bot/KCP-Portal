@@ -10,6 +10,9 @@ vi.mock("./reimbursementEstimate", () => ({ estimateReimbursements: async () => 
 vi.mock("./leasingAssumptions", () => ({ getLeasingAssumptions: async () => ({}) }));
 let typedDoc: Record<string, any> = {};
 vi.mock("./lineOverrideStore", () => ({ getLineOverrides: async () => typedDoc }));
+// No prior budget of record, so bucketed lines keep the base-bucket rule
+// (itemizing from last year's budget is tested in lineItems.test.ts).
+vi.mock("./storage", () => ({ listBudgets: async () => [] }));
 
 const noLeases = { rentalMonthly: new Array(12).fill(0), rentalTotal: 0, inPlaceUnits: 0, expiring: [], vacant: [], hasData: false };
 

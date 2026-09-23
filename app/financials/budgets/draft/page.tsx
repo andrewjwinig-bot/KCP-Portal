@@ -16,6 +16,7 @@ import { useUser } from "@/app/components/UserProvider";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
+import { scopeAllowsLine } from "@/lib/financials/budgets/contributors";
 import { NoteDialog } from "./LineNote";
 
 import type { LeasingCall, SavePayload } from "./LeasingDecision";
@@ -37,6 +38,7 @@ function sourceBadge(source: DraftSource, growthPct: number): { tone: PillTone; 
     case "ret-default": return { tone: TONE_BLUE, text: "Tax +3%" };
     case "entered": return { tone: TONE_GREEN, text: "Entered" };
     case "loans": return { tone: TONE_TEAL, text: "Loans" };
+    case "items": return { tone: TONE_BLUE, text: "Items" };
   }
 }
 
@@ -333,11 +335,12 @@ export default function BudgetDraftPage() {
           {editError && <div className="card" style={{ color: "#b91c1c", borderColor: "rgba(185,28,28,0.4)" }}>{editError}</div>}
           <BudgetStatementTable
             draft={draft}
-            onEdit={draft.canEditLines ? editLine : undefined}
+            onEdit={draft.lineEditScope ? editLine : undefined}
+            canType={(section, label) => scopeAllowsLine(draft.lineEditScope ?? null, section, label)}
             notes={draft.notes}
-            onNote={(sec, l) => setNoteLine({ section: sec.name, label: l.label })}
+            onNote={(sec, label) => setNoteLine({ section: sec.name, label })}
             badgeFor={(src) => sourceBadge(src, GROWTH)}
-            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases", forecast: l.basisTotal, budget: l.total })}
+            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items", forecast: l.basisTotal, budget: l.total })}
           />
 
           {/* The loans behind the debt-service lines — so "why is interest

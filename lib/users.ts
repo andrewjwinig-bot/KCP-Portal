@@ -205,13 +205,16 @@ export const USERS: Record<UserId, UserDef> = {
   maint: serviceUser("maint", "SERVICE"),
   // Individual service-staff users — identical access to SERVICE, but each
   // enrolls their own 2FA on their own phone.
-  // Greg keys the budget's BUILDING MAINTENANCE, on his own page and nowhere
-  // else in the budget — so he alone of the service logins gets /budget-inputs,
-  // and its API returns only the three keyed expense lines, never rents or NOI.
+  // Greg works the budget's EXPENSES with Drew on the master budget page
+  // itself (the owner's call — "we make all the expense assumptions in this
+  // page together"), so he alone of the service logins gets the Budgets
+  // pages. His separate /budget-inputs link was retired. The server lets him
+  // type expense lines only (`lineEditScope` in contributors.ts) — never
+  // revenue, and never taxes or insurance, which stay Drew's.
   greg: {
     ...serviceUser("greg", "GREG"),
-    navKeys: new Set([...SERVICE_NAV, "budget-inputs"]),
-    allowedPathPrefixes: [...SERVICE_PATHS, "/budget-inputs"],
+    navKeys: new Set([...SERVICE_NAV, "financials-budgets"]),
+    allowedPathPrefixes: [...SERVICE_PATHS, "/financials/budgets"],
   },
   charles: serviceUser("charles", "CHARLES"),
   jay: serviceUser("jay", "JAY"),

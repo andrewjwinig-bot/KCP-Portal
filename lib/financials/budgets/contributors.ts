@@ -87,6 +87,25 @@ export function canEditLines(user: UserId | null | undefined): boolean {
   return user === "drew" || user === "admin";
 }
 
+/** What a viewer may TYPE into the budget grid: everything (Drew, admin), the
+ *  expense lines (Greg — he budgets the expenses with Drew on the same page),
+ *  or nothing. */
+export type LineEditScope = "all" | "expenses" | null;
+export function lineEditScope(user: UserId | null | undefined): LineEditScope {
+  if (canEditLines(user)) return "all";
+  if (user === "greg") return "expenses";
+  return null;
+}
+
+/** Whether a scope may type a line. "expenses" = an expense section's line,
+ *  but not real estate taxes or insurance, which are Drew's. The server checks
+ *  this on every save; the grid uses it only to decide which cells open. */
+export function scopeAllowsLine(scope: LineEditScope, section: string, label: string): boolean {
+  if (scope === "all") return true;
+  if (scope !== "expenses") return false;
+  return /expense/i.test(section) && !/real\s*estate\s*tax|insurance/i.test(label);
+}
+
 /** One outstanding (or completed) part of the budget. */
 export type Contribution = {
   id: string;

@@ -960,7 +960,7 @@ time — and the team does not have time to open the GL over $80.
   the parks) — he owns the SC leasing calls and could not open the page. The
   page opens on the viewer's own book, and the strip/Step 1 follow the BOOK's
   category (they were hard-coded to Shopping Centers).
-- **Greg's page is `/budget-inputs`, and it is his whole view of the budget.**
+- **(Retired as Greg's link — see "Greg budgets the expenses ON THE DRAFT PAGE".) `/budget-inputs`**
   It renders `ExpenseInputsPanel`, backed by the same store the draft grid types into. He alone of the service logins is granted it; its API returns only the three
   keyed lines, never rents or NOI, and the SERVER checks `canEdit` on every save.
   Drew and admin see and key all three.
@@ -1087,6 +1087,28 @@ time — and the team does not have time to open the GL over $80.
   as a typed sub-line (`section::label#<bucket>`). `applyTyped` runs twice, so
   it takes a bucketed line back to its base first; never let it add the
   extras twice. The client's Budget Inputs path reads each line's BASE months.
+- **BUCKETED LINES ARE ITEMIZED FROM LAST YEAR'S BUDGET OF RECORD**
+  (`lineItems.ts`, `priorBudgetProperty` in `draft.ts`). The workbook's
+  "Building Maint" / "INS RET DEBT" tabs budget Building Maintenance as named
+  items — Contractual (Sprinkler Inspection, Backflow, Roof Inspections…),
+  Recurring (Fire Extinguisher Service, Misc…), Big Projects — and the draft
+  used to throw that away and grow one total. Now each item carries forward
+  +3% month by month, **Big Projects start at $0** (a project is decided each
+  year; last year's figure shows in italics in the prior-year column — items
+  have no reprojection), a bucket with no items is budgeted at the bucket, and
+  the line is the sum (source `items`, pill "Items"). Typed months key
+  `section::label#<bucket>` or `…#<bucket>/<item>` in the ONE typed-month
+  store. With no prior workbook the line keeps the base-bucket rule below.
+- **Greg budgets the expenses ON THE DRAFT PAGE, with Drew** (owner's call).
+  His separate `/budget-inputs` link is retired from the sidebar and his
+  grant; he has `/financials/budgets`. `lineEditScope` /
+  `scopeAllowsLine` (contributors.ts) let him type expense-section lines only
+  — never revenue, never real estate taxes or insurance (Drew's) — checked by
+  the line-overrides route on every save.
+- **The draft grid LOOKS LIKE THE OPERATING BUDGETS PAGE**: a card per
+  section under brand group headings, tinted alternate months, fixed
+  percentage columns, cross-section totals in brand-bordered cards, occupancy
+  in its own card. Match `app/financials/budgets/page.tsx`, not the other way.
 - **The grid opens with Occupancy % / SF by month** (a suite is occupied in a
   month it pays rent; the forecast column is today's roll) **and carries the
   RECOVERY RATIO under the reimbursements** — reimbursements ÷ the
