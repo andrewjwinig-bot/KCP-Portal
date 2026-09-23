@@ -34,6 +34,21 @@ describe("projectLeaseRevenue", () => {
     expect(p.vacant.map((v) => v.unitRef)).toEqual(["1100-9"]);
   });
 
+  it("BACKS OUT a lease in place — no rent from the chosen month (a tenant who will not pay)", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([
+      u("1100-1", { occupantName: "Rite Aid", baseRent: 5000, leaseTo: "12/31/2031" }),
+      u("1100-2", { occupantName: "Stable", baseRent: 1000, leaseTo: "12/31/2031" }),
+    ]));
+    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "stop", startMonth: 3 } });
+    expect(p.rows.find((r) => r.unitRef === "1100-1")!.months).toEqual([5000, 5000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(p.rentalMonthly).toEqual([6000, 6000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000]);
+    // Both leases are listed as in place, and the backed-out one carries its call.
+    expect(p.contracted.map((c) => c.unitRef)).toEqual(["1100-1", "1100-2"]);
+    expect(p.contracted[0].assumption?.kind).toBe("stop");
+    expect(p.contracted[0].monthlyRent).toBe(5000);
+    expect(p.expiring).toEqual([]);
+  });
+
   it("returns hasData=false when no roll or no matching property", async () => {
     resolveCurrentRentroll.mockResolvedValue(null);
     expect((await projectLeaseRevenue(["1100"], 2027)).hasData).toBe(false);

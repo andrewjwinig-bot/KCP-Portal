@@ -1114,6 +1114,19 @@ time — and the team does not have time to open the GL over $80.
   RECOVERY RATIO under the reimbursements** — reimbursements ÷ the
   reimbursable-expense pool, annual only (a monthly ratio swings on a tax
   bill's month).
+- **A LEASE IN PLACE CAN BE BACKED OUT** (`kind: "stop"` + `startMonth`,
+  applied LAST in `projectLeaseRevenue` over every suite with a tenant). A
+  tenant who will not pay — Rite Aid at 7010, in bankruptcy — earns no rent
+  from that month, and so no recoveries (they follow rent's months). Every
+  in-place lease is listed as `leasing.contracted` and shows a quiet "Back
+  out" action on row hover (`.row-quiet-action`); it is NEVER a call owed, so
+  it counts toward neither "To decide" nor the review's open calls.
+- **THE DRAFT PAGE'S WRITES GO OUT ONE AT A TIME** (`queued` in
+  `draft/page.tsx`), and a reload waits for them. The stores rewrite a whole
+  document per save, so a Tab across three months fired three saves that each
+  read before the others wrote — the last erased the rest, and the typed
+  months were gone on refresh (9510's Capital / TI). Never fire a store write
+  from this page outside the queue.
 - **EVERY BUDGET LINE TAKES A NOTE** (`lineNoteStore.ts`, `budget-line-notes`,
   keyed `section::label` per year + property; `POST
   /api/financials/budgets/line-notes`, anyone signed in, stamped with who and

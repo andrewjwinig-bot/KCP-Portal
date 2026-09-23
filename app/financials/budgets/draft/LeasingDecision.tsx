@@ -22,7 +22,9 @@ export type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: 
 /** One suite needing a call. */
 export type LeasingCall = {
   unitRef: string;
-  mode: "inplace" | "vacant";
+  /** "contracted" — a lease in place all year: no call is owed, but its rent
+   *  can be BACKED OUT (a tenant who will not pay). */
+  mode: "inplace" | "vacant" | "contracted";
   title: string;
   sqft: number;
   currentRent: number;
@@ -39,6 +41,11 @@ const INPLACE_CHOICES = [
   { value: "hold", label: "Hold — stays at today's rent" },
   { value: "renew", label: "Renew — at a new rent" },
   { value: "vacate", label: "Vacate — leaves at term end" },
+  { value: "stop", label: "Stops paying — back out the rent" },
+];
+const CONTRACTED_CHOICES = [
+  { value: "keep", label: "Keeps paying — lease in place" },
+  { value: "stop", label: "Stops paying — back out the rent" },
 ];
 const VACANT_CHOICES = [
   { value: "none", label: "Leave vacant" },
@@ -60,6 +67,8 @@ function effectText(kind: string, end: Date | null, year: number, month: number)
     case "": return "Today's rent until decided";
     case "hold": return "Today's rent";
     case "none": return "Vacant all year";
+    case "keep": return "Rent as the lease schedules it";
+    case "stop": return `No rent — or recoveries — from ${MONTHS[month - 1]} ${year}`;
     case "leaseup": return `Rent from ${MONTHS[month - 1]} ${year}`;
     case "renew": {
       if (!end) return "New rent all year";
@@ -80,6 +89,7 @@ function decisionLabel(call: LeasingCall): string | null {
   const a = call.assumption;
   if (!a) return null;
   if (call.mode === "vacant" && a.kind === "hold") return "LEAVE VACANT";
+  if (a.kind === "stop") return `BACKED OUT FROM ${MONTHS[(a.startMonth ?? 1) - 1].toUpperCase()}`;
   const psf = a.rentPsf ?? (a.monthlyRent != null && call.sqft > 0 ? round2((a.monthlyRent * 12) / call.sqft) : null);
   switch (a.kind) {
     case "hold": return "HOLD";
@@ -99,6 +109,15 @@ export function DecisionPill({ call, owner, onOpen }: {
   onOpen: () => void;
 }) {
   const label = decisionLabel(call);
+  // A lease in place owes no call — so no amber DECIDE on every row, only a
+  // quiet action that shows when the row is hovered.
+  if (call.mode === "contracted" && !label) {
+    return (
+      <button type="button" className="row-quiet-action" onClick={(e) => { e.stopPropagation(); onOpen(); }} aria-label={`Back out ${call.unitRef}'s rent`}>
+        Back out
+      </button>
+    );
+  }
   return (
     <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(); }}
       style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }}
@@ -117,7 +136,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
   onClose: () => void;
 }) {
   const { mode, sqft, currentRent, assumption, unitRef } = call;
-  const saved = assumption?.kind === "hold" && mode === "vacant" ? "none" : assumption?.kind;
+  const saved = assumption?.kind === "hold" && mode === "vacant" ? "none" : mode === "contracted" && !assumption ? "keep" : assumption?.kind;
   // Rent is keyed as ANNUAL $/SF — how a deal is quoted. An existing tenant's
   // box starts at what they pay today, so a flat renewal is no typing at all.
   const curPsf = sqft > 0 && currentRent ? round2((currentRent * 12) / sqft) : null;
@@ -141,7 +160,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
     const k = over.k ?? kind, r = over.r ?? rent, mo = over.mo ?? month, t = over.t ?? term;
     const tiV = over.ti ?? ti, lcV = over.lc ?? lc;
     if (k === "") return;
-    const apiKind = k === "none" ? "hold" : k;
+    const apiKind = k === "none" ? "hold" : k === "keep" ? null : k;
     const psf = r !== "" ? Number(r) : null;
     // A renewal left at today's $/SF holds today's rent exactly, rather than a
     // figure rounded back through $/SF.
@@ -206,7 +225,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
         style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: `3px solid ${tone.border}` }}>
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
           <div>
-            <div style={{ ...secLabel, color: tone.fg }}>{owner.label}&rsquo;s call · {mode === "vacant" ? "vacant space" : holdover ? "holdover" : "expiring lease"}</div>
+            <div style={{ ...secLabel, color: tone.fg }}>{owner.label}&rsquo;s call · {mode === "vacant" ? "vacant space" : mode === "contracted" ? "lease in place" : holdover ? "holdover" : "expiring lease"}</div>
             <div style={{ fontSize: 17, fontWeight: 800, marginTop: 2 }}>
               <code style={{ fontSize: 13, marginRight: 8 }}>{unitRef}</code>{call.title}
             </div>
@@ -215,6 +234,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
         </div>
         <div style={{ padding: "12px 18px", display: "flex", gap: 22, flexWrap: "wrap", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.025)" }}>
           {fact("SF", sqft > 0 ? sqft.toLocaleString() : "—")}
+          {mode === "contracted" && fact("Rent", currentRent > 0 ? <>{money0(currentRent)}/mo{curPsf != null && <span className="muted" style={{ fontWeight: 500, fontSize: 12 }}> · ${curPsf.toFixed(2)}/SF/yr</span>}</> : "—")}
           {mode === "inplace" && fact("Expiring rent", currentRent > 0 ? <>{money0(currentRent)}/mo{curPsf != null && <span className="muted" style={{ fontWeight: 500, fontSize: 12 }}> · ${curPsf.toFixed(2)}/SF/yr</span>}</> : "—")}
           {mode === "inplace" && fact("Expires", end ? <span style={{ color: holdover ? "#b45309" : undefined }}>{mmyy(end)}{holdover ? " (holdover)" : ""}</span> : "—")}
         </div>
@@ -223,9 +243,15 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
             <select value={kind} className="select-brand" aria-label="Decision"
               onChange={(e) => { if (e.target.value) { setKind(e.target.value); push({ k: e.target.value }); } }}>
               {kind === "" && <option value="">Choose…</option>}
-              {(mode === "inplace" ? INPLACE_CHOICES : VACANT_CHOICES).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              {(mode === "inplace" ? INPLACE_CHOICES : mode === "contracted" ? CONTRACTED_CHOICES : VACANT_CHOICES).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           ))}
+          {kind === "stop" && field("Rent stops from", (
+            <select value={month} className="select-sm" aria-label="Rent stops from"
+              onChange={(e) => { setMonth(Number(e.target.value)); push({ mo: Number(e.target.value) }); }}>
+              {MONTHS.map((mo, i) => <option key={mo} value={i + 1}>{mo} {budgetYear}</option>)}
+            </select>
+          ), "no rent or recoveries from this month")}
           {kind === "leaseup" && field("Starts paying", (
             <select value={month} className="select-sm" aria-label="Starts paying"
               onChange={(e) => { setMonth(Number(e.target.value)); push({ mo: Number(e.target.value) }); }}>

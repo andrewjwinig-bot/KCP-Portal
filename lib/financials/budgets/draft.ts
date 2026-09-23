@@ -15,7 +15,7 @@ import type { ReprojLine } from "@/lib/financials/reprojections/compute";
 import { listLoans } from "@/lib/debt/storage";
 import { budgetDebt, loansForStatement, type BudgetLoan } from "./debtBudget";
 import { EXPENSE_ROLES, type SectionRole } from "@/lib/financials/operating-statements/types";
-import { projectLeaseRevenue, type ExpiringLease, type VacantUnit, type RentRow } from "./leaseRevenue";
+import { projectLeaseRevenue, type ExpiringLease, type VacantUnit, type RentRow, type ContractedLease } from "./leaseRevenue";
 import { getLeasingAssumptions } from "./leasingAssumptions";
 import { estimateReimbursements, type ReimbursementEstimate } from "./reimbursementEstimate";
 import { expenseInputKindOf, resolveKind, splitAcrossLines, type ExpenseInputKind } from "./expenseInputs";
@@ -124,6 +124,8 @@ export type BudgetDraft = {
     projectedRentalTotal: number;
     expiring: ExpiringLease[];
     vacant: VacantUnit[];
+    /** Leases in place all year — any can be backed out. */
+    contracted?: ContractedLease[];
     assumptionsApplied: number;
     /** The property code assumptions are saved under (for the save endpoint). */
     propertyCode: string;
@@ -644,6 +646,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       projectedRentalTotal: lease.rentalTotal,
       expiring: lease.expiring,
       vacant: lease.vacant,
+      contracted: lease.contracted ?? [],
       assumptionsApplied: lease.assumptionsApplied,
       propertyCode: meta.propertyCode,
       fromSchedule: !!lease.fromSchedule,

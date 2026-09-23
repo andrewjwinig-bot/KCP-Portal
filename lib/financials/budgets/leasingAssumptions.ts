@@ -15,7 +15,10 @@ const idFor = (budgetYear: number, propertyCode: string) => `${budgetYear}-${pro
  *  vacancy vacant). It used to be saved as nothing, so a space someone had
  *  looked at and a space nobody had touched were indistinguishable, and the
  *  card could never say it was finished. */
-export type LeaseAssumptionKind = "renew" | "vacate" | "leaseup" | "hold";
+// "stop" backs out a lease that is IN PLACE — a tenant who will not pay
+// (Rite Aid at 7010, in bankruptcy): no rent, and so no recoveries, from
+// `startMonth` on, whatever the lease or the schedule says.
+export type LeaseAssumptionKind = "renew" | "vacate" | "leaseup" | "hold" | "stop";
 
 export type LeaseAssumption = {
   unitRef: string;
@@ -104,7 +107,7 @@ export function leasingDecisionFromBody(
   const unitRef = String(b?.unitRef ?? "").trim();
   if (!unitRef) return { ok: false, error: "unitRef required" };
   const kind = (b?.kind ?? null) as LeaseAssumptionKind | null;
-  if (kind !== null && !["renew", "vacate", "leaseup", "hold"].includes(kind)) return { ok: false, error: "invalid kind" };
+  if (kind !== null && !["renew", "vacate", "leaseup", "hold", "stop"].includes(kind)) return { ok: false, error: "invalid kind" };
   const num = (v: unknown) => (v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
   const psf = (v: unknown) => { const n = num(v); return n != null && n >= 0 ? n : undefined; };
   const startMonth = num(b?.startMonth) != null ? Math.min(12, Math.max(1, Number(b!.startMonth))) : undefined;
@@ -117,7 +120,7 @@ export function leasingDecisionFromBody(
     decision: {
       unitRef, kind,
       monthlyRent: newRent ? num(b?.monthlyRent) : undefined,
-      startMonth: kind === "leaseup" ? startMonth : undefined,
+      startMonth: kind === "leaseup" || kind === "stop" ? startMonth : undefined,
       termYears,
       rentPsf: newRent ? psf(b?.rentPsf) : undefined,
       tiPsf: deal ? psf(b?.tiPsf) : undefined,
