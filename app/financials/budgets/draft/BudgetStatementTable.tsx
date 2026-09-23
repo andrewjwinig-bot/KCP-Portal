@@ -33,6 +33,7 @@ import { Pill, type PillTone } from "@/app/components/Pill";
 import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/draft";
 import type { SectionRole } from "@/lib/financials/operating-statements/types";
 import { NoteMark, type LineNote } from "./LineNote";
+import { HoverCard } from "@/app/components/HoverCard";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const COLOR_BRAND = "#0b4a7d";
@@ -105,7 +106,7 @@ function CellInput({ initial, onDone }: { initial: number; onDone: (v: number | 
   );
 }
 
-function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note }: {
+function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote }: {
   label: string; months: number[]; total: number; basis: number | null; variant?: Variant;
   badge?: { tone: PillTone; text: string }; onLabel?: () => void;
   /** Revenue-like: up is good. Expense-like: down is good. */
@@ -123,6 +124,13 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   onAccept?: () => void;
   /** The line's note mark — present on every budget line. */
   note?: { note?: LineNote; onOpen: () => void };
+  /** A sub-line's depth: 1 = a bucket or GL account, 2 = an item under it. */
+  depth?: number;
+  /** Set when `basis` is LAST YEAR'S BUDGET rather than the reprojection —
+   *  an item has no actuals to reproject. Rendered in italics, with a hover. */
+  priorYear?: number;
+  /** The budget workbook's own note on the row. */
+  labelNote?: string;
 }) {
   const sub = variant === "sub";
   const subtotal = variant === "subtotal";
@@ -161,7 +169,7 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   const good = change == null || Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
   return (
     <tr style={rowStyle}>
-      <td style={{ ...lab, ...(subtotal ? { fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 } : {}), ...(sub ? { borderLeft: `3px solid ${COLOR_BRAND}`, paddingLeft: 26, fontSize: 12 } : {}), whiteSpace: "nowrap", overflow: "hidden" }}>
+      <td style={{ ...lab, ...(subtotal ? { fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 } : {}), ...(sub ? { borderLeft: `3px solid ${COLOR_BRAND}`, paddingLeft: depth > 1 ? 46 : 26, fontSize: depth > 1 ? 11.5 : 12, ...(depth > 1 ? { color: "var(--muted)" } : {}) } : {}), whiteSpace: "nowrap", overflow: "hidden" }}>
         {/* The name and its source pill on ONE line, so every row is one row tall. */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         {toggle && (
@@ -174,6 +182,10 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
         {onLabel ? (
           <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
             className="os-line-name" style={{ cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{label}</span>
+        ) : labelNote ? (
+          <HoverCard title={label} width={280} rows={[]} footer={{ label: "Budget note", value: labelNote }}>
+            <span style={{ borderBottom: "1px dotted var(--muted)", cursor: "default" }}>{label}</span>
+          </HoverCard>
         ) : label}
         {note && <NoteMark label={label} note={note.note} onOpen={note.onOpen} />}
         {(badge || onAccept || (onReset && typed?.some(Boolean))) && (
@@ -193,7 +205,13 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
       </td>
       {months.map((m, i) => cell(m, i, undefined, i))}
       {cell(total, "t", subtotal ? { fontSize: 14, fontWeight: 800 } : { fontSize: 14, fontWeight: 600 }, editable ? 12 : undefined)}
-      {basis == null ? <td style={num} /> : cell(basis, "b", { color: "var(--muted)" })}
+      {basis == null ? <td style={num} /> : priorYear ? (
+        <td style={{ ...num, color: "var(--muted)", fontStyle: "italic" }}>
+          <HoverCard title={`${priorYear} budget`} width={260} rows={[]} footer={{ label: "Items have no reprojection", value: money0(basis) }}>
+            <span>{Math.abs(basis) < 0.5 ? "–" : money0(basis)}</span>
+          </HoverCard>
+        </td>
+      ) : cell(basis, "b", { color: "var(--muted)" })}
       <td style={{ ...num, ...(subtotal ? { fontWeight: 800 } : {}), color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
         {pct == null ? (change == null || Math.abs(change) < 0.5 ? "–" : money0(change)) : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
       </td>
@@ -259,12 +277,14 @@ function RollupCard({ label, months, total, basis, favorableUp }: {
   );
 }
 
-export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, onNote }: {
+export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, onNote, canType }: {
   draft: BudgetDraft;
+  /** Which lines this viewer may type (Greg: the expense lines). Absent = all. */
+  canType?: (section: string, label: string) => boolean;
   /** Notes on the lines, keyed `section::label`. */
   notes?: Record<string, LineNote>;
   /** Opens the note dialog for a line. */
-  onNote?: (sec: BudgetDraftSection, line: Line) => void;
+  onNote?: (sec: BudgetDraftSection, label: string) => void;
   badgeFor: (source: Line["source"]) => { tone: PillTone; text: string };
   onLine: (sec: BudgetDraftSection, line: Line) => void;
   /** Present when the viewer may type months; month "all" = an annual spread
@@ -355,7 +375,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 // save to the Budget Inputs store (the same figures Greg keys on his
                 // page), so the grid and his page cannot disagree.
                 const locked = l.source === "cam-estimate" || l.source === "leases";
-                const typeable = !!onEdit && !locked && !viaSubs;
+                const mayType = !!onEdit && (!canType || canType(sec.name, l.label));
+                const typeable = mayType && !locked && !viaSubs;
                 const keyed = !!l.inputKind;
                 const entered = keyed && l.source === "entered";
                 const isOpen = isOpenKey(key);
@@ -366,23 +387,35 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
-                      note={onNote ? { note: notes?.[key], onOpen: () => onNote(sec, l) } : undefined}
+                      note={onNote ? { note: notes?.[key], onOpen: () => onNote(sec, l.label) } : undefined}
                       rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
                       onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
                       onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}
                       toggle={subs.length ? { open: isOpen, onToggle: () => setToggled((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />
-                    {isOpen && subs.map((x) => {
-                      const subTypeable = !!onEdit && x.typeable;
-                      const subKey = `${key}#${x.account}`;
-                      return (
-                        <Row key={subKey} variant="sub" label={`${x.account}${x.name ? ` · ${x.name}` : ""}`}
-                          months={x.months} total={x.total} basis={x.bucket === "extra" ? null : x.basisTotal} favorableUp={favorableUp}
-                          typed={x.bucket === "base" && entered ? new Array(12).fill(true) : x.typed}
-                          onAccept={subTypeable && x.bucket === "base" && keyed && !entered ? () => onEdit!(sec, l, "accept", null, x.account) : undefined}
-                          rowKey={subTypeable ? subKey : undefined} edit={edit} setEdit={subTypeable ? setEdit : undefined}
-                          onCommit={subTypeable ? (m, v) => onEdit!(sec, l, m, v, x.account) : undefined}
-                          onReset={subTypeable ? () => onEdit!(sec, l, "all", null, x.account) : undefined} />
-                      );
+                    {isOpen && subs.flatMap((x) => {
+                      // A SEEDED bucket (Contractual, Recurring…) and its
+                      // items: each reads against last year's budget, and a
+                      // bucket with items is their sum — typed through them.
+                      const seeded = x.bucket === "seeded";
+                      const rowFor = (y: typeof x, depth: number) => {
+                        const typeableY = mayType && y.typeable;
+                        const k = `${key}#${y.account}`;
+                        const noteLabel = `${l.label}#${y.account}`;
+                        return (
+                          <Row key={k} variant="sub" depth={depth} label={y.label ?? `${y.account}${y.name ? ` · ${y.name}` : ""}`}
+                            months={y.months} total={y.total}
+                            basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
+                            labelNote={y.note}
+                            favorableUp={favorableUp}
+                            typed={y.bucket === "base" && entered ? new Array(12).fill(true) : y.typed}
+                            onAccept={typeableY && y.bucket === "base" && keyed && !entered ? () => onEdit!(sec, l, "accept", null, y.account) : undefined}
+                            rowKey={typeableY ? k : undefined} edit={edit} setEdit={typeableY ? setEdit : undefined}
+                            onCommit={typeableY ? (m, v) => onEdit!(sec, l, m, v, y.account) : undefined}
+                            onReset={typeableY ? () => onEdit!(sec, l, "all", null, y.account) : undefined}
+                            note={onNote && seeded ? { note: notes?.[`${sec.name}::${noteLabel}`], onOpen: () => onNote(sec, noteLabel) } : undefined} />
+                        );
+                      };
+                      return [rowFor(x, 1), ...(x.items ?? []).map((it) => rowFor(it, 2))];
                     })}
                   </Fragment>
                 );
@@ -458,7 +491,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {body}
       <div className="muted small" style={{ padding: "2px 4px" }}>
-        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules. <b>{draft.basisYear} Reproj.</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
+        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules · <b>Items</b> built item by item from the {draft.basisYear} budget (contracts and recurring +3%, Big Projects from $0), its figures in <i>italics</i> in the {draft.basisYear} column. <b>{draft.basisYear} Reproj.</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
         {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget</b> to spread an annual. <span style={{ background: TYPED_BG, padding: "0 4px", borderRadius: 3 }}>Tinted</span> = typed; ↺ resets a line.</>}
       </div>
     </div>

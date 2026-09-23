@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { buildBudgetDraft } from "@/lib/financials/budgets/draft";
 import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
-import { canEditLines } from "@/lib/financials/budgets/contributors";
+import { canEditLines, lineEditScope } from "@/lib/financials/budgets/contributors";
 import { getLineNotes } from "@/lib/financials/budgets/lineNoteStore";
 
 export const runtime = "nodejs";
@@ -34,5 +34,6 @@ export async function GET(req: Request) {
   // it again; this only decides whether the cells open for typing.
   // The notes left on its lines ride with it, keyed `section::label`.
   const notes = await getLineNotes(draft.budgetYear, draft.propertyCode).catch(() => ({}));
-  return NextResponse.json({ ...draft, notes, canEditLines: canEditLines(await budgetUser()) });
+  const user = await budgetUser();
+  return NextResponse.json({ ...draft, notes, canEditLines: canEditLines(user), lineEditScope: lineEditScope(user) });
 }

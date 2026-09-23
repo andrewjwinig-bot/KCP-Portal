@@ -21,6 +21,7 @@ const num = (n: number) => (Math.round(n) === 0 ? "—" : Math.round(n).toLocale
 const sum = (a: number[]) => a.reduce((s, n) => s + (n || 0), 0);
 const cellIn: React.CSSProperties = { width: 64, textAlign: "right", padding: "3px 6px", fontSize: 12.5, fontVariantNumeric: "tabular-nums" };
 
+type SaveBody = { annual?: number; months?: number[]; clear?: boolean; item?: { section: string; label: string; key: string; month: number | "all"; value: number | null } };
 type Resp = { year: number; basisYear: number; book: string; growthPct: number; user: string; properties: BudgetInputProperty[] };
 
 /**
@@ -62,7 +63,7 @@ export function ExpenseInputsPanel({ year, bookId, only, embedded = false, onSav
   const all = rows.flatMap((p) => p.kinds);
   const entered = all.filter((k) => k.entered).length;
 
-  const save = useCallback(async (code: string, kind: ExpenseInputKind, body: { annual?: number; months?: number[]; clear?: boolean }) => {
+  const save = useCallback(async (code: string, kind: ExpenseInputKind, body: SaveBody) => {
     const res = await fetch("/api/budget-inputs", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ year, propertyCode: code, kind, ...body }),
@@ -135,9 +136,16 @@ export function ExpenseInputsPanel({ year, bookId, only, embedded = false, onSav
   );
 }
 
-function KindRows({ code, row, basisYear, year, onSave }: {
+function KindRows(props: {
   code: string; row: BudgetInputKindRow; basisYear: number; year: number;
-  onSave: (code: string, kind: ExpenseInputKind, body: { annual?: number; months?: number[]; clear?: boolean }) => Promise<boolean>;
+  onSave: (code: string, kind: ExpenseInputKind, body: SaveBody) => Promise<boolean>;
+}) {
+  return props.row.items?.length ? <ItemizedRows {...props} /> : <KeyedRows {...props} />;
+}
+
+function KeyedRows({ code, row, basisYear, year, onSave }: {
+  code: string; row: BudgetInputKindRow; basisYear: number; year: number;
+  onSave: (code: string, kind: ExpenseInputKind, body: SaveBody) => Promise<boolean>;
 }) {
   // Every line takes EITHER twelve months (a tax bill in May and November, a
   // premium in its renewal month) OR a total — taxes and insurance spread like
@@ -250,5 +258,103 @@ function KindRows({ code, row, basisYear, year, onSave }: {
       {ref(`${basisYear} actual`, row.basisActual, row.actualThrough ? `through ${MONTHS[row.actualThrough - 1]}` : undefined)}
       {ref(`${basisYear} forecast`, row.basisForecast, "actual, then budget")}
     </>
+  );
+}
+
+/**
+ * An ITEMIZED line (`lib/financials/budgets/lineItems.ts`) — Building
+ * Maintenance as the budget workbook's "Building Maint" tab budgets it:
+ * Contractual (Sprinkler Inspection, Backflow…), Recurring (Fire
+ * Extinguisher Service, Misc…), Big Projects. Each item is keyed month by
+ * month; a bucket with no items is keyed at the bucket. It saves to the SAME
+ * typed-month store the draft grid writes, so the two pages cannot disagree.
+ */
+function ItemizedRows({ code, row, basisYear, year, onSave }: {
+  code: string; row: BudgetInputKindRow; basisYear: number; year: number;
+  onSave: (code: string, kind: ExpenseInputKind, body: SaveBody) => Promise<boolean>;
+}) {
+  const [err, setErr] = useState<string | null>(null);
+  const saveItem = async (section: string, label: string, key: string, month: number | "all", value: number | null) => {
+    setErr(null);
+    const ok = await onSave(code, row.kind, { item: { section, label, key, month, value } });
+    if (!ok) setErr("Couldn't save that figure.");
+  };
+  const many = (row.items?.length ?? 0) > 1;
+  return (
+    <>
+      <tr style={{ borderTop: "1px solid var(--border)" }}>
+        <td style={{ ...tdL, whiteSpace: "normal", minWidth: 210 }} colSpan={1}>
+          <div style={{ fontWeight: 700 }}>{EXPENSE_INPUT_LABEL[row.kind]} <Pill tone={TONE_BLUE}>ITEMIZED</Pill></div>
+          <div className="muted" style={{ fontSize: 11.5 }}>
+            {OWNER[row.kind]}{row.editable ? " · budget each item by month, or type its total" : " · read-only"} · contracts and recurring carried from {basisYear} +3%, Big Projects from $0
+          </div>
+          {err && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>{err}</div>}
+        </td>
+        {row.months.map((v, i) => <td key={i} style={{ ...td, fontWeight: 700 }}>{num(v)}</td>)}
+        <td style={{ ...td, fontWeight: 800 }}>{money0(sum(row.months))}</td>
+      </tr>
+      {row.items!.map((line) => (
+        <Fragment key={line.section + line.label}>
+          {many && (
+            <tr><td colSpan={14} style={{ ...tdL, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", paddingTop: 8, paddingBottom: 4 }}>{line.label} · {line.section}</td></tr>
+          )}
+          {line.buckets.map((b) => (
+            <Fragment key={b.key}>
+              <ItemRow depth={1} name={b.name} months={b.months} typed={b.typed} prior={sum(b.prior)} note={b.note} basisYear={basisYear} year={year}
+                editable={row.editable && b.items.length === 0}
+                onSave={(m, v) => saveItem(line.section, line.label, b.key, m, v)} />
+              {b.items.map((it) => (
+                <ItemRow key={it.key} depth={2} name={it.name} months={it.months} typed={it.typed} prior={sum(it.prior)} note={it.note} basisYear={basisYear} year={year}
+                  editable={row.editable} onSave={(m, v) => saveItem(line.section, line.label, it.key, m, v)} />
+              ))}
+            </Fragment>
+          ))}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+/** One bucket or item: twelve months and a total, each saved when it changes
+ *  (a typed total spreads evenly; blanking a month hands it back to the seed). */
+function ItemRow({ depth, name, months, typed, prior, note, basisYear, year, editable, onSave }: {
+  depth: number; name: string; months: number[]; typed?: boolean[]; prior: number; note?: string;
+  basisYear: number; year: number; editable: boolean;
+  onSave: (month: number | "all", value: number | null) => Promise<void>;
+}) {
+  const [cells, setCells] = useState<string[]>(() => months.map(String));
+  const [total, setTotal] = useState<string>(() => String(sum(months)));
+  useEffect(() => { setCells(months.map(String)); setTotal(String(sum(months))); }, [months]);
+  const parse = (v: string) => (v.trim() === "" ? null : Number(v.replace(/[,$\s]/g, "")) || 0);
+  const bucket = depth === 1;
+  const label = (
+    <td style={{ ...tdL, paddingLeft: bucket ? 26 : 46, fontSize: bucket ? 12.5 : 12, fontWeight: bucket ? 700 : 400, color: bucket ? "var(--text)" : "var(--muted)", whiteSpace: "normal" }}>
+      {name}
+      <span className="muted" style={{ fontSize: 11, marginLeft: 6, fontWeight: 400 }}>{basisYear}: {money0(prior)}</span>
+      {note && <div className="muted" style={{ fontSize: 11, fontWeight: 400 }}>{note}</div>}
+    </td>
+  );
+  return (
+    <tr>
+      {label}
+      {months.map((v, i) => (
+        <td key={i} style={{ ...td, paddingLeft: 3, paddingRight: 3, ...(typed?.[i] ? { background: "rgba(11,74,125,0.09)" } : {}) }}>
+          {editable ? (
+            <input value={cells[i]} inputMode="numeric" aria-label={`${name} ${MONTHS[i]} ${year}`} style={cellIn}
+              onChange={(e) => setCells(cells.map((x, j) => (j === i ? e.target.value : x)))}
+              onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+              onBlur={() => { const n = parse(cells[i]); if (n === null ? typed?.[i] : n !== v) onSave(i, n); }} />
+          ) : <span>{num(v)}</span>}
+        </td>
+      ))}
+      <td style={{ ...td, fontWeight: 700 }}>
+        {editable ? (
+          <input value={total} inputMode="numeric" aria-label={`${name} ${year} total`} style={{ ...cellIn, width: 96, fontWeight: 700 }}
+            onChange={(e) => setTotal(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+            onBlur={() => { const n = parse(total); if (n !== null && n !== sum(months)) onSave("all", n); }} />
+        ) : money0(sum(months))}
+      </td>
+    </tr>
   );
 }

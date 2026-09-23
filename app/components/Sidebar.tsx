@@ -52,7 +52,6 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Budget Draft":       "financials-budgets",
   // Its own key: Greg keys building maintenance here and sees nothing else of
   // the budget — the Budgets pages stay closed to him.
-  "Budget Inputs":      "budget-inputs",
   "Audit Log":          "audit",
   // Security group is admin-only in the sidebar (the "audit" key, which only
   // the admin profile's "all" grants). Required non-admins are still routed to
@@ -73,7 +72,7 @@ const GROUP_CHILD_ORDER: Record<string, string[]> = {
     "Cash Analysis",
     "Operating Statements", "Flags to Investigate",
     "Reprojections",
-    "Budgets", "Budget Draft", "Budget Inputs",
+    "Budgets", "Budget Draft",
     "Management Fees",
   ],
 };
@@ -713,20 +712,6 @@ const NAV = [
     ),
   },
   {
-    label: "Budget Inputs",
-    href: "/budget-inputs",
-    external: false,
-    indent: true,
-    showFor: null as string | null,
-    groupId: "financials",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" />
-        <path d="M3 9h18M3 15h18M9 3v18" />
-      </svg>
-    ),
-  },
-  {
     // The report center: every report the portal produces, in one place.
     // Everyone can open it; it lists only the reports that person can reach.
     label: "Reports",
@@ -913,13 +898,6 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     const passesRole = !roleKey || user.navKeys.has("all") || user.navKeys.has(roleKey);
     if (!passesRole) return false;
 
-    // Budget Inputs is Step 3 of the master budget page now, so for anyone who
-    // has the Budgets pages it is a sub-page like Budget Draft — shown only
-    // while in Budgets. For Greg it is his whole view of the budget, so it
-    // stays put.
-    if (item.label === "Budget Inputs" && (user.navKeys.has("all") || user.navKeys.has("financials-budgets"))) {
-      return pathname.startsWith("/financials/budgets") || pathname.startsWith("/budget-inputs");
-    }
 
     // Existing context-based visibility (e.g. show child item only on parent route)
     if (item.showFor === null) return true;

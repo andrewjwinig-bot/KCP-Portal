@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { editLineOverride } from "@/lib/financials/budgets/lineOverrideStore";
 import { lineKey } from "@/lib/financials/budgets/lineOverrides";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
-import { canEditLines } from "@/lib/financials/budgets/contributors";
+import { lineEditScope, scopeAllowsLine } from "@/lib/financials/budgets/contributors";
 import { USERS } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -18,7 +18,8 @@ export async function POST(req: Request) {
   try {
     const user = await budgetUser();
     if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-    if (!canEditLines(user)) return NextResponse.json({ error: "Only Drew can type figures into the budget." }, { status: 403 });
+    const scope = lineEditScope(user);
+    if (!scope) return NextResponse.json({ error: "Only Drew can type figures into the budget." }, { status: 403 });
 
     const b = await req.json();
     const year = Number(b?.year);
@@ -27,6 +28,9 @@ export async function POST(req: Request) {
     const label = String(b?.label ?? "");
     if (!year || !propertyCode || !section || !label) {
       return NextResponse.json({ error: "year, propertyCode, section and label are required" }, { status: 400 });
+    }
+    if (!scopeAllowsLine(scope, section, label)) {
+      return NextResponse.json({ error: "That line is Drew's to set." }, { status: 403 });
     }
     const month = b?.month === "all" ? "all" : Number(b?.month);
     if (month !== "all" && !(Number.isInteger(month) && month >= 0 && month < 12)) {

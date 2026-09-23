@@ -8,6 +8,10 @@ import { loadReprojection } from "@/lib/financials/reprojections/load";
 import { bookById, bookProperties } from "@/lib/financials/budgets/books";
 import { canEdit } from "@/lib/financials/budgets/contributors";
 import { getExpenseInputs, setExpenseInput } from "@/lib/financials/budgets/expenseInputStore";
+import { getLineOverrides, editLineOverride } from "@/lib/financials/budgets/lineOverrideStore";
+import { lineKey } from "@/lib/financials/budgets/lineOverrides";
+import { itemizedLines, type ResolvedBucket } from "@/lib/financials/budgets/lineItems";
+import { priorBudgetProperty } from "@/lib/financials/budgets/draft";
 import {
   EXPENSE_INPUT_KINDS, expenseInputKindOf, resolveKind, defaultMonths,
   type ExpenseInputKind, type ExpenseInput,
@@ -55,6 +59,10 @@ export type BudgetInputKindRow = {
   /** What the draft will carry. */
   months: number[];
   entered: boolean;
+  /** Set when the line is ITEMIZED (`lineItems.ts`) — budgeted contract by
+   *  contract through the same typed-month store the draft grid writes, and
+   *  the figure above is their sum. */
+  items?: { section: string; label: string; buckets: ResolvedBucket[] }[];
 };
 
 export type BudgetInputProperty = {
@@ -83,10 +91,13 @@ export async function GET(req: Request) {
   const properties: BudgetInputProperty[] = await Promise.all(bookProperties(book).map(async (p) => {
     const allocGroup = PROPERTY_DEFS.find((d) => d.id === p.code)?.allocGroup;
     const key = keyFor(p.code);
-    const [loaded, inputs] = await Promise.all([
+    const [loaded, inputs, prior, typedDoc] = await Promise.all([
       key ? loadReprojection(key, year - 1).catch(() => null) : Promise.resolve(null),
       getExpenseInputs(year, p.code).catch(() => ({})),
+      priorBudgetProperty(p.code, year - 1).catch(() => null),
+      getLineOverrides(year, p.code).catch(() => ({})),
     ]);
+    const itemized = itemizedLines(prior, loaded?.reprojection.sections ?? [], typedDoc);
     const kinds: BudgetInputKindRow[] = [];
     for (const kind of EXPENSE_INPUT_KINDS) {
       const lines: string[] = [];
@@ -102,13 +113,25 @@ export async function GET(req: Request) {
       if (loaded && !lines.length) continue;
       const input = (inputs as Record<string, ExpenseInput | undefined>)[kind] ?? null;
       const res = resolveKind(kind, forecast, growthPct, input);
+      // Itemized lines of this kind — and, when every line of it is, the
+      // figure IS the sum of the items (what the draft grid carries).
+      const items: NonNullable<BudgetInputKindRow["items"]> = [];
+      let allItemized = lines.length > 0;
+      for (const sec of loaded?.reprojection.sections ?? []) for (const l of sec.lines) {
+        if (expenseInputKindOf(sec.role, l.label) !== kind) continue;
+        const b = itemized.get(lineKey(sec.name, l.label));
+        if (b) items.push({ section: sec.name, label: l.label, buckets: b }); else allItemized = false;
+      }
+      const itemMonths = new Array(12).fill(0);
+      for (const it of items) for (const b of it.buckets) add(itemMonths, b.months);
       kinds.push({
         kind, lines: [...new Set(lines)],
         editable: canEdit(user, kind, allocGroup),
         basisBudget: budget, basisActual: actual, basisForecast: forecast,
         actualThrough: loaded?.reprojection.actualThroughMonth ?? 0,
         defaultMonths: defaultMonths(kind, forecast, growthPct),
-        input, months: res.months, entered: res.entered,
+        input, months: allItemized ? itemMonths : res.months, entered: allItemized || res.entered,
+        items: items.length ? items : undefined,
       });
     }
     return { code: p.code, name: p.name, missingBasis: !loaded, kinds };
@@ -134,6 +157,20 @@ export async function POST(req: Request) {
     // The server decides who may key what — the page only hides the cells.
     if (!canEdit(user, kind, def.allocGroup)) {
       return NextResponse.json({ error: "That figure belongs to someone else." }, { status: 403 });
+    }
+    // An ITEM of an itemized line (a contract, a policy, a Big Project):
+    // saved to the typed-month store the draft grid reads, under the same key.
+    if (b?.item) {
+      const it = b.item as { section?: unknown; label?: unknown; key?: unknown; month?: unknown; value?: unknown };
+      const section = String(it.section ?? ""), label = String(it.label ?? ""), key = String(it.key ?? "");
+      if (!section || !label || !key) return NextResponse.json({ error: "section, label and key are required" }, { status: 400 });
+      if (expenseInputKindOf("reimbursable-expense", label) !== kind) return NextResponse.json({ error: "That line is not this kind." }, { status: 400 });
+      const month = it.month === "all" ? "all" : Number(it.month);
+      if (month !== "all" && !(Number.isInteger(month) && month >= 0 && month < 12)) return NextResponse.json({ error: "month must be 0–11 or \"all\"" }, { status: 400 });
+      const value = it.value === null || it.value === "" || it.value === undefined ? null : Math.round(Number(it.value));
+      if (value != null && (!Number.isFinite(value) || value < 0)) return NextResponse.json({ error: "A non-negative amount is required." }, { status: 400 });
+      await editLineOverride(year, def.id, `${lineKey(section, label)}#${key}`, month, value, user);
+      return NextResponse.json({ ok: true });
     }
     if (b?.clear) {
       await setExpenseInput(year, def.id, kind, null);
