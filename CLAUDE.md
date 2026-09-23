@@ -1009,6 +1009,13 @@ time — and the team does not have time to open the GL over $80.
   **A HOLD is a deal too** — a tenant staying at today's rent for a new term can still get TI and a broker is still paid, so Hold rows take TI, LC % and term (rent fixed at today's) and cost them when the term rolls. Where any deal carries one, that line IS the deals rather than last year's
   TI grown. "Holdover" means the lease has ALREADY ended — 11/30/26 in
   September is a live lease, not a holdover.
+- **Every leasing field the card keys is STORED** (`setLeasingAssumption`):
+  `rentPsf`, `tiPsf`, `lcPct` were dropped on save for a while — a lease-up
+  saved with no rent projected $0 and no TI/commission ever reached the budget.
+  The projection reads rent through `assumedMonthlyRent` (the derived monthly
+  figure, else $/SF × SF ÷ 12), so a rent keyed as $/SF always projects. Rent /
+  TI / LC save LIVE (~0.7s after typing stops) and saves are QUEUED on the page,
+  because the store rewrites a property's whole set of decisions per save.
 - **Lines have GL SUB-LINES** (`subLines` on a draft line, from the
   reprojection's per-account `accounts`). A line built from several accounts
   (Building Maintenance = 6220-8502 + 6220-8503, Office Center/Other = 6*-8503)

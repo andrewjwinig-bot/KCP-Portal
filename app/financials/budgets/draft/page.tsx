@@ -183,7 +183,15 @@ export default function BudgetDraftPage() {
 
   // Save one unit's leasing assumption, then re-project the draft.
   const [saveError, setSaveError] = useState<string | null>(null);
-  async function saveAssumption(payload: SavePayload) {
+  // Saves run ONE AT A TIME: the store rewrites a property's whole set of
+  // decisions on every save, so two in flight (a live-typed rent and a term
+  // picked a moment later) could each write back a copy missing the other.
+  const saveChain = useRef<Promise<unknown>>(Promise.resolve());
+  function saveAssumption(payload: SavePayload) {
+    saveChain.current = saveChain.current.then(() => saveAssumptionNow(payload)).catch(() => {});
+    return saveChain.current;
+  }
+  async function saveAssumptionNow(payload: SavePayload) {
     if (!draft?.leasing) return;
     setSaveError(null);
     const r = await fetch("/api/financials/budgets/leasing-assumptions", {
@@ -549,6 +557,7 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
   const [lc, setLc] = useState<string>(assumption?.lcPct != null ? String(assumption.lcPct) : "");
   const [month, setMonth] = useState<number>(assumption?.startMonth ?? 1);
   const [term, setTerm] = useState<string>(assumption?.termYears != null ? String(assumption.termYears) : "");
+  const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function push(over: Partial<{ k: string; r: string; ti: string; lc: string; mo: number; t: string }> = {}) {
     const k = over.k ?? kind, r = over.r ?? rent, mo = over.mo ?? month, t = over.t ?? term;
@@ -583,10 +592,21 @@ function LeasingRow({ mode, budgetYear, unitRef, title, sqft, currentRent, lease
     : kind === "" && fromSchedule ? "No rent after the term until decided"
     : effectText(kind, end, budgetYear, month);
   const dash = <span className="muted">—</span>;
+  // LIVE: a figure saves a moment after typing stops, and the draft — Rent by
+  // tenant, the grid, the recoveries — re-projects without leaving the box.
+  // Leaving the box (or Enter) saves at once and tidies the number.
   const psfInput = (v: string, set: (x: string) => void, field: "r" | "ti" | "lc", label: string, pct = false) => (
     <input value={v} inputMode="decimal" placeholder={pct ? "0%" : "$0.00"} aria-label={label}
-      onChange={(e) => set(e.target.value.replace(/[^0-9.]/g, ""))}
+      onChange={(e) => {
+        const next = e.target.value.replace(/[^0-9.]/g, "");
+        set(next);
+        if (liveTimer.current) clearTimeout(liveTimer.current);
+        if (next === "" || Number.isFinite(Number(next))) {
+          liveTimer.current = setTimeout(() => push({ [field]: next } as Partial<{ r: string; ti: string; lc: string }>), 700);
+        }
+      }}
       onBlur={() => {
+        if (liveTimer.current) { clearTimeout(liveTimer.current); liveTimer.current = null; }
         const f = v === "" || !Number.isFinite(Number(v)) ? "" : pct ? String(Number(v)) : Number(v).toFixed(2);
         set(f);
         push({ [field]: f } as Partial<{ r: string; ti: string; lc: string }>);

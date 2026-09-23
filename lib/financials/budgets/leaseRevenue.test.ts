@@ -149,4 +149,21 @@ describe("projectLeaseRevenue", () => {
     expect(p.vacant.map((v) => v.unitRef).sort()).toEqual(["1100-30", "1100-31"]);
     expect(p.expiring).toHaveLength(0);
   });
+
+  it("a lease-up keyed as $/SF projects its rent (15.00/sf × 3,025 sf from April)", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([
+      u("1100-30", { occupantName: "Vacant", isVacant: true, baseRent: 0, sqft: 3025 }),
+      u("1100-1", { occupantName: "Steady", baseRent: 1000, sqft: 1000, leaseTo: "12/31/2030" }),
+    ]));
+    const schedule = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) =>
+      ({ propertyCode: "1100", unitRef: "1100-1", tenant: "Steady", month: m, chargeCode: "RNT", glAccount: "4230", amount: 1000, chargeDate: null }));
+    const p = await projectLeaseRevenue(["1100"], 2027, {
+      "1100-30": { unitRef: "1100-30", kind: "leaseup", startMonth: 4, rentPsf: 15 },   // no monthlyRent
+    }, schedule as any);
+    const row = p.rows.find((r) => r.unitRef === "1100-30")!;
+    expect(row.months[2]).toBe(0);
+    expect(Math.round(row.months[3])).toBe(3781);            // 15 × 3,025 ÷ 12
+    expect(row.assumed[3]).toBe(true);
+    expect(p.rentalMonthly[3]).toBe(1000 + 3781);
+  });
 });

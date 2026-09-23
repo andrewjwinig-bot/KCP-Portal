@@ -74,6 +74,16 @@ export type LeaseRevenueProjection = {
   fromSchedule?: boolean;
 };
 
+/** A decision's monthly rent: the figure the page derived, else its annual
+ *  $/SF × the suite's SF ÷ 12 — so a rent keyed as $/SF can never project as
+ *  nothing because the derived figure was missing. */
+export function assumedMonthlyRent(a: LeaseAssumption | undefined, sqft: number): number | undefined {
+  if (!a) return undefined;
+  if (a.monthlyRent != null && a.monthlyRent > 0) return a.monthlyRent;
+  if (a.rentPsf != null && a.rentPsf > 0 && sqft > 0) return (a.rentPsf * sqft) / 12;
+  return a.monthlyRent ?? undefined;
+}
+
 /** Last day of a month, as the rent roll writes dates (MM/DD/YYYY). */
 function monthEnd(year: number, month: number): string {
   const d = new Date(Date.UTC(year, month, 0));
@@ -104,7 +114,7 @@ export function renewalStartMonth(expMonth: number): number {
   return 13;                                    // doesn't expire this year
 }
 
-function inPlaceMonths(cur: number, expMonth: number, a?: LeaseAssumption): number[] {
+function inPlaceMonths(cur: number, expMonth: number, a?: LeaseAssumption, sqft = 0): number[] {
   const out = new Array(12).fill(0);
   if (a?.kind === "vacate") {
     // Paid through the month the term ends; a holdover pays nothing more.
@@ -113,7 +123,7 @@ function inPlaceMonths(cur: number, expMonth: number, a?: LeaseAssumption): numb
     return out;
   }
   if (a?.kind === "renew") {
-    const newRent = a.monthlyRent != null ? a.monthlyRent : cur;
+    const newRent = assumedMonthlyRent(a, sqft) ?? cur;
     const start = renewalStartMonth(expMonth);
     for (let m = 0; m < 12; m++) out[m] = m + 1 < start ? cur : newRent;
     return out;
@@ -206,7 +216,7 @@ export async function projectLeaseRevenue(
         const row: RentRow = { unitRef: ref, tenant: "", sqft: r0(sqft), months: zero(), assumed: no(), status: "vacant" };
         if (a?.kind === "leaseup") {
           const start = a.startMonth ?? 1;
-          const rent = a.monthlyRent ?? 0;
+          const rent = assumedMonthlyRent(a, sqft) ?? 0;
           for (let m = 0; m < 12; m++) if (m + 1 >= start) { rentalMonthly[m] += rent; row.months[m] = rent; row.assumed[m] = true; }
           dealCosts(a, sqft, start, rent);
           assumptionsApplied++;
@@ -230,7 +240,7 @@ export async function projectLeaseRevenue(
       row.status = lastMonth === 0 ? "holdover" : "expiring";
       if (a) assumptionsApplied++;
       if (a?.kind === "renew" || a?.kind === "hold") {
-        const rent = a.kind === "renew" && a.monthlyRent != null ? a.monthlyRent : lastRent;
+        const rent = a.kind === "renew" ? (assumedMonthlyRent(a, sqft) ?? lastRent) : lastRent;
         for (let m = from - 1; m < 12; m++) { rentalMonthly[m] += rent; row.months[m] += rent; row.assumed[m] = true; }
         dealCosts(a, sqft, from, rent);
       }
@@ -262,7 +272,7 @@ export async function projectLeaseRevenue(
         const row: RentRow = { unitRef: u.unitRef, tenant: "", sqft: r0(u.sqft || 0), months: zero(), assumed: no(), status: "vacant" };
         if (a?.kind === "leaseup") {
           const start = a.startMonth ?? 1;
-          const rent = a.monthlyRent ?? 0;
+          const rent = assumedMonthlyRent(a, u.sqft || 0) ?? 0;
           for (let m = 0; m < 12; m++) if (m + 1 >= start) { rentalMonthly[m] += rent; row.months[m] = rent; row.assumed[m] = true; }
           dealCosts(a, u.sqft || 0, start, rent);
           assumptionsApplied++;
@@ -277,7 +287,7 @@ export async function projectLeaseRevenue(
       inPlaceUnits++;
       const end = parseMDY(u.leaseTo);
       const expMonth = end ? (end.y < budgetYear ? 0 : end.y === budgetYear ? end.m : 13) : 13;
-      const months = inPlaceMonths(cur, expMonth, a);
+      const months = inPlaceMonths(cur, expMonth, a, u.sqft || 0);
       for (let m = 0; m < 12; m++) rentalMonthly[m] += months[m];
       // From the renewal month on, a renew/hold decision is the assumption; a
       // lease with no decision is held flat at today's rent (the rent roll
@@ -291,7 +301,7 @@ export async function projectLeaseRevenue(
       if (a) assumptionsApplied++;
       // A renewal — or a tenant HELD at today's rent for a new term, who can
       // still be given TI and a broker paid — costs its deal when the term rolls.
-      if (a?.kind === "renew") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth), a.monthlyRent ?? cur);
+      if (a?.kind === "renew") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth), assumedMonthlyRent(a, u.sqft || 0) ?? cur);
       if (a?.kind === "hold") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth), cur);
 
       if (end && end.y <= budgetYear) {

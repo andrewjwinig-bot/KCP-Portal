@@ -74,7 +74,11 @@ export async function setLeasingAssumption(
   } else {
     doc.assumptions[a.unitRef] = {
       unitRef: a.unitRef, kind: a.kind,
-      monthlyRent: a.monthlyRent, startMonth: a.startMonth, termYears: a.termYears, notes: a.notes,
+      // EVERY field the card keys is kept. rentPsf / tiPsf / lcPct were added
+      // to the type and the route but not here, so a lease-up saved with no
+      // rent (it projected $0) and no TI or commission ever reached the budget.
+      monthlyRent: a.monthlyRent, rentPsf: a.rentPsf, tiPsf: a.tiPsf, lcPct: a.lcPct,
+      startMonth: a.startMonth, termYears: a.termYears, notes: a.notes,
       updatedBy: a.updatedBy,
       updatedAt: new Date().toISOString(),
     };
