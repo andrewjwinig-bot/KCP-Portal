@@ -1032,6 +1032,12 @@ time — and the team does not have time to open the GL over $80.
   A line whose figure comes from elsewhere (leases, Budget Inputs, recoveries)
   shows its split read-only. The grid's pills sit on the line's own row
   ("+3%", "Flat") so every row is one row tall.
+- **The line-history popup's years are a BAR CHART** (`HistoryBars`): one bar
+  per year of actuals, each year's budget a tick across its bar, a dashed
+  average of the full years shown, and the CURRENT year taken to a full year
+  from its REPROJECTION (the draft line's `basisTotal`, passed as `forecast`)
+  — drawn lighter and dashed, because it is a projection. Hover a year for its
+  variance. It replaced the Budget / Actual / Variance table.
 - **The line-history popup suggests; "Use this" applies it** — the line set to
   the suggested annual with its month-by-month SHAPE kept (`scaleToTotal`), per
   sub-line where it has them. The "Shape of the year" sparkline column was
