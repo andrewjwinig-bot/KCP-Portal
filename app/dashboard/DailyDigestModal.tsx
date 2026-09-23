@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence } from "../../lib/tracker/taskDefs";
-import { importsForWeek, reminderOutstanding, type ImportReminder, type ImportEvent } from "../../lib/tracker/imports";
+import { importsForWeek, reminderOutstanding, type ImportReminder, type ImportEvent, type ImportCoverage } from "../../lib/tracker/imports";
 
 // Same per-month localStorage bucket the Tracker + Tasks-This-Week card use,
 // so "done" state is shared.
@@ -92,11 +92,12 @@ export default function DailyDigestModal({ userId }: { userId: string }) {
   const [open, setOpen] = useState(false);
   const [checked, setChecked] = useState<Record<string, Record<string, boolean>>>({});
   const [importEvents, setImportEvents] = useState<Record<string, ImportEvent>>({});
+  const [importCoverage, setImportCoverage] = useState<Record<string, ImportCoverage>>({});
   useEffect(() => {
     let cancelled = false;
     fetch("/api/tracker/import-events", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (!cancelled && j?.events) setImportEvents(j.events); })
+      .then((j) => { if (!cancelled && j?.events) { setImportEvents(j.events); setImportCoverage(j.coverage ?? {}); } })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -152,7 +153,7 @@ export default function DailyDigestModal({ userId }: { userId: string }) {
   // Once a file is imported it drops off, exactly as it does on the
   // Tasks-This-Week card. The digest is a list of what still needs doing —
   // a completed row is only there to be scrolled past.
-  const openImports = imports.filter((r) => reminderOutstanding(r, importEvents[r.id]?.at, new Date()));
+  const openImports = imports.filter((r) => reminderOutstanding(r, importEvents[r.id]?.at, new Date(), importCoverage[r.id]));
   const nothing = openTasks.length === 0 && openImports.length === 0;
   const todayKey = new Date().toDateString();
 

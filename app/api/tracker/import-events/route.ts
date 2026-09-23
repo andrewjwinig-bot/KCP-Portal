@@ -3,6 +3,7 @@ import { getImportEvents, recordImport } from "@/lib/tracker/importEvents";
 import { IMPORT_REMINDERS, type ImportCoverage } from "@/lib/tracker/imports";
 import { outstandingGlUploads } from "@/lib/financials/operating-statements/outstanding";
 import { monthlyStatements } from "@/lib/financials/operating-statements/mappingStore";
+import { getRun } from "@/lib/statements/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,14 +28,33 @@ async function glCoverage(): Promise<ImportCoverage | null> {
   }
 }
 
+/** Is THIS month's tenant statement run in the store?
+ *
+ *  The reminder used to read only the import log, so a month that was imported
+ *  before the log existed — or uploaded at the end of the previous month for
+ *  this month's period — read "not imported" on the dashboard while the
+ *  Monthly Statements page said the month was live. The store is the evidence:
+ *  a run for the current period means the month is in. Best-effort, like the
+ *  GL check. */
+async function statementsCoverage(now = new Date()): Promise<ImportCoverage | null> {
+  try {
+    const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const run = await getRun(period);
+    return { done: run ? 1 : 0, total: 1, behind: run ? [] : [period] };
+  } catch {
+    return null;
+  }
+}
+
 /** GET → { events: { "<reminderId>": { at, by? } }, coverage: { "<id>": {...} } }
  *  — the last import per source, plus (where the app can check) how much of it
  *  actually landed. */
 export async function GET() {
   try {
-    const [events, gl] = await Promise.all([getImportEvents(), glCoverage()]);
+    const [events, gl, stmts] = await Promise.all([getImportEvents(), glCoverage(), statementsCoverage()]);
     const coverage: Record<string, ImportCoverage> = {};
     if (gl) coverage["imp-gl"] = gl;
+    if (stmts) coverage["imp-stmts"] = stmts;
     return NextResponse.json({ events, coverage });
   } catch {
     return NextResponse.json({ events: {}, coverage: {} });

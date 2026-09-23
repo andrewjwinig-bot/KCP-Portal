@@ -97,11 +97,14 @@ function Row({
   // and the property names to its hover (where a list can be read), leaving
   // the row to say what to do.
   const sub = done
-    ? coverage
+    ? coverage && coverage.total > 1
       // The ledger said every property is in — a stronger claim than a
       // timestamp, so make it.
       ? `All ${coverage.total} in${ev?.at ? ` · ${fmtDate(ev.at)}` : ""}`
-      : `Imported ${fmtDate(ev?.at)}${ev?.by ? ` · by ${String(ev.by).toUpperCase()}` : ""}`
+      : ev?.at
+        ? `Imported ${fmtDate(ev.at)}${ev?.by ? ` · by ${String(ev.by).toUpperCase()}` : ""}`
+        // In the store with no logged import (it predates the log) — still in.
+        : `${period ? `${period[0].toUpperCase()}${period.slice(1)} is` : "Imported,"} in`
     : status === "not-yet-due"
       // Not due yet is not "behind" — say when it opens rather than nothing.
       ? `Due ${when.toLowerCase()}`
@@ -124,7 +127,9 @@ function Row({
             biggest, most obvious thing to click. */}
         <Link href={link} style={{ fontWeight: 700, fontSize: 14, color: "inherit", textDecoration: "none" }}
           className="row-link">{title}</Link>
-        {!loading && coverage && coverage.total > 0 && (
+        {/* A count only means something when there is more than one thing to
+            import (the GL's properties); a single statement run is in or not. */}
+        {!loading && coverage && coverage.total > 1 && (
           // PROGRESS, so it ticks UP to 37/37 as the month goes in — a count
           // of what is LEFT would make 0 the good state, which reads wrong on
           // a green row. The property names live in the hover: a list of
