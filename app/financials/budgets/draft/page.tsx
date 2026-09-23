@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
+import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_RED, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable } from "./BudgetStatementTable";
 import { RevenueByTenantCard } from "./RevenueByTenantCard";
 import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
@@ -327,8 +327,6 @@ export default function BudgetDraftPage() {
           <div id="step-expenses" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <div style={STEP_LABEL}>Expenses &amp; review — the {draft.budgetYear} budget</div>
-              <Pill tone={contributorTone("drew")}>DREW · TAXES &amp; INSURANCE</Pill>
-              <Pill tone={contributorTone("greg")}>GREG · MAINTENANCE</Pill>
             </div>
             <span className="muted small">Click any month or the Budget total to type it · <b>Accept</b> keeps a keyed line as shown</span>
           </div>
