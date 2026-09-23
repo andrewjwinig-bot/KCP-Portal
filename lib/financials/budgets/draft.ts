@@ -12,6 +12,8 @@
 import "server-only";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
 import type { ReprojLine } from "@/lib/financials/reprojections/compute";
+import { listLoans } from "@/lib/debt/storage";
+import { budgetDebt, loansForStatement, type BudgetLoan } from "./debtBudget";
 import { EXPENSE_ROLES, type SectionRole } from "@/lib/financials/operating-statements/types";
 import { projectLeaseRevenue, type ExpiringLease, type VacantUnit } from "./leaseRevenue";
 import { getLeasingAssumptions } from "./leasingAssumptions";
@@ -37,7 +39,9 @@ export type DraftSource = "reproj-growth" | "reproj-flat" | "leases" | "cam-esti
   /** Real estate taxes at their default: this year + 3%, same months. */
   | "ret-default"
   /** A figure someone keyed in the Expenses step (tax, insurance, maintenance). */
-  | "entered";
+  | "entered"
+  /** Debt service from the Debt Tracker's loan schedules. */
+  | "loans";
 
 export type BudgetDraftLine = {
   label: string;
@@ -111,6 +115,8 @@ export type BudgetDraft = {
   /** DISPLAY-ONLY per-tenant CAM/INS/RET reimbursement estimate (Phase 3). Does
    *  not yet drive the reimbursement lines — surfaced for verification first. */
   reimbursementEstimate?: ReimbursementEstimate;
+  /** The loans behind the debt-service lines (Debt Tracker), when any. */
+  debt?: { loans: BudgetLoan[]; interest: number; principal: number };
   /** Set by the route: whether the viewer may type months into the grid. */
   canEditLines?: boolean;
   /** True when the current-year reprojection couldn't be loaded (no draft). */
@@ -292,6 +298,26 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   dealLine(/tenant improvement|^1440/i, lease.tiMonthly);
   dealLine(/lease cost|leasing commission|1940-8501/i, lease.lcMonthly);
 
+  // DEBT SERVICE from the loans themselves (Debt Tracker): each month's
+  // interest and principal off the lender's schedule, rather than this year's
+  // figure carried flat — a loan amortizes, so principal rises and interest
+  // falls through the year, and a maturity or a rate reset is in the schedule.
+  const debt = budgetDebt(loansForStatement(await listLoans().catch(() => []), key, meta.propertyCode), budgetYear);
+  if (debt) {
+    const debtLine = (re: RegExp, months: number[]) => {
+      for (const sec of sections) {
+        if (sec.role !== "debt-service") continue;
+        const idx = sec.lines.findIndex((l) => re.test(l.label));
+        if (idx < 0) continue;
+        const l = sec.lines[idx];
+        sec.lines[idx] = { ...l, months: months.map(r0), total: r0(sum(months)), source: "loans", subLines: undefined };
+        return;
+      }
+    };
+    debtLine(/interest/i, debt.interest);
+    debtLine(/amorti[sz]ation|principal/i, debt.principal);
+  }
+
   // TYPED MONTHS win over whatever computed them — applied BEFORE the pools
   // are read, so a CAM expense typed into the grid moves what tenants are
   // billed, and again after the recoveries replace their income lines.
@@ -341,9 +367,14 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     applyTyped(sections, typedDoc);
   }
 
+  // NOI is revenue less OPERATING expenses. Capital sits BELOW it (the grid
+  // takes it off NOI on the way to cash flow), and so does debt service —
+  // counting capital here understated NOI by the year's TI and improvements
+  // and then took it off a second time for cash flow.
+  const OPERATING = new Set<SectionRole>(EXPENSE_ROLES);
   for (const sec of sections) {
-    if (EXPENSE_ROLE_SET.has(sec.role)) addInto(expMonths, sec.subtotal);
-    else if (sec.role !== "debt-service") addInto(revMonths, sec.subtotal); // revenue + reimbursement
+    if (OPERATING.has(sec.role)) addInto(expMonths, sec.subtotal);
+    else if (sec.role === "revenue" || sec.role === "reimbursement") addInto(revMonths, sec.subtotal);
   }
 
   const noiMonths = revMonths.map((v, i) => r0(v - expMonths[i]));
@@ -374,5 +405,6 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       })(),
     } : undefined,
     reimbursementEstimate,
+    debt: debt ? { loans: debt.loans, interest: r0(sum(debt.interest)), principal: r0(sum(debt.principal)) } : undefined,
   };
 }
