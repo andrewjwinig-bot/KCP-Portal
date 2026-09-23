@@ -120,7 +120,8 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 
 **The sidebar (`app/components/Sidebar.tsx`)**: within a group the order is
 `GROUP_CHILD_ORDER` — Financials: Cash Analysis, Operating Statements, Reprojections,
-Budgets, Management Fees, Balance Sheet, 1099 Register; Banking: Bank Transfers,
+Budgets, Management Fees (Balance Sheet and the 1099 Register are NOT in the
+sidebar — occasional reports, reached from the Report Center); Banking: Bank Transfers,
 Debt Tracker, Security Deposits, Bank Recs. A SUB-PAGE (Flags to Investigate,
 Budget Draft, Bank Acc Tracker, and Budget Inputs for anyone who has Budgets)
 shows only while you are in its parent (`showFor`) and is listed straight after
