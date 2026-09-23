@@ -70,7 +70,7 @@ function methodTip(r: TenantRevenueRow, est: ReimbursementEstimate | undefined):
     rows.push({ label: "Base year", value: m.noBaseStop ? "None — pays the full share" : m.baseYear ? String(m.baseYear) : "—" });
     rows.push({ label: `${est.reconYear} recon due`, value: `OpEx ${money0(m.recon.cam)} · RET ${money0(m.recon.ret)}` });
   } else if (m?.kind === "leaseup" || m?.kind === "new") {
-    rows.push({ label: "Recoveries", value: m.kind === "new" && m.assumption === "base-year" ? "Base year is current — nothing yet" : `Assumed NNN, pro rata on ${m.sqft.toLocaleString("en-US")} SF` });
+    rows.push({ label: "Recoveries", value: m.kind === "new" && m.assumption === "base-year" ? `Base year ${est.budgetYear} — nothing until ${est.budgetYear + 1}` : `Assumed NNN, pro rata on ${m.sqft.toLocaleString("en-US")} SF` });
   }
   return rows;
 }

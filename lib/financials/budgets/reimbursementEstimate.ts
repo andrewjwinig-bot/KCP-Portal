@@ -323,7 +323,7 @@ export async function estimateReimbursements(
         const rec: TenantRecovery = {
           unitRef: row.unitRef, name: row.tenant || "New tenant", months, camYear: 0, insYear: 0, retYear: 0,
           cam: zero.slice(), ins: zero.slice(), ret: zero.slice(),
-          note: "New lease — its base year is current, so nothing to recover yet",
+          note: `Base year ${budgetYear} — nothing to recover until ${budgetYear + 1}`,
         };
         recs.push(rec);
         extra.set(rec, { assumed: row.assumed.slice(), method: { kind: "new", sqft: row.sqft, assumption: "base-year" } });

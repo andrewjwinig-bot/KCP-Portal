@@ -156,8 +156,8 @@ import { combineTenantRevenue } from "./draft";
 
 describe("combineTenantRevenue", () => {
   const f = (n: number) => new Array(12).fill(n);
-  const rr = (unitRef: string, tenant: string, rent: number, status: any = "contracted") => ({ unitRef, tenant, sqft: 1000, months: f(rent), assumed: f(false), status });
-  const t = (unitRef: string, cam: number) => ({ unitRef, name: "x", cam: f(cam), ins: f(0), ret: f(0), assumed: f(false), monthsActive: 12, camAnnual: 0, insAnnual: 0, retAnnual: 0, camMonthly: 0, insMonthly: 0, retMonthly: 0 });
+  const rr = (unitRef: string, tenant: string, rent: number, status: any = "contracted") => ({ unitRef, tenant, sqft: 1000, months: f(rent), assumed: new Array(12).fill(false), status });
+  const t = (unitRef: string, cam: number) => ({ unitRef, name: "x", cam: f(cam), ins: f(0), ret: f(0), assumed: new Array(12).fill(false), monthsActive: 12, camAnnual: 0, insAnnual: 0, retAnnual: 0, camMonthly: 0, insMonthly: 0, retMonthly: 0 });
 
   it("keeps every rent suite (vacancies too), in order, with its recoveries beside it", () => {
     const rows = combineTenantRevenue(
