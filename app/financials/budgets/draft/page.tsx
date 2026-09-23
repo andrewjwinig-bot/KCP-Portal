@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_AMBER, TONE_RED, contributorTone, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable } from "./BudgetStatementTable";
 import { RentByTenantCard } from "./RentByTenantCard";
+import { RecoveriesCard } from "./RecoveriesCard";
 import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
 import { ExpenseInputsPanel } from "@/app/budget-inputs/ExpenseInputsPanel";
 import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
@@ -33,7 +34,7 @@ function sourceBadge(source: DraftSource, growthPct: number): { tone: PillTone; 
     case "reproj-growth": return { tone: TONE_BLUE, text: `${growthPct >= 0 ? "+" : ""}${growthPct}%` };
     case "reproj-flat": return { tone: TONE_NEUTRAL, text: "Flat" };
     case "leases": return { tone: TONE_GREEN, text: "Leases" };
-    case "cam-estimate": return { tone: TONE_TEAL, text: "CAM est." };
+    case "cam-estimate": return { tone: TONE_TEAL, text: "Recoveries" };
     case "ret-default": return { tone: TONE_BLUE, text: "Tax +3%" };
     case "entered": return { tone: TONE_GREEN, text: "Entered" };
     case "loans": return { tone: TONE_TEAL, text: "Loans" };
@@ -69,7 +70,7 @@ export default function BudgetDraftPage() {
   const [refreshTick, setRefreshTick] = useState(0);
   // The line whose history is open. Clicking a line is how you argue its
   // number from its own five years rather than from last year plus a percent.
-  const [histLine, setHistLine] = useState<{ label: string; mask: string; sign: 1 | -1; section: string } | null>(null);
+  const [histLine, setHistLine] = useState<{ label: string; mask: string; sign: 1 | -1; section: string; locked?: boolean } | null>(null);
   // Which BOOK is open. A property's budget is a sheet inside its book, so the
   // book leads and the property follows — picking a property inside a book
   // never changes which book you are in.
@@ -291,57 +292,9 @@ export default function BudgetDraftPage() {
               onSaved={() => setRefreshTick((n) => n + 1)} />
           </div>
 
-          {draft.reimbursementEstimate && draft.reimbursementEstimate.tenants.length > 0 && (() => {
-            const est = draft.reimbursementEstimate!;
-            return (
-              <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: "rgba(13,148,136,0.4)" }}>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
-                  <div style={{ ...STEP_LABEL, color: "#0d9488" }}>Step 3 · Recoveries — CAM / INS / RET, {est.budgetYear}</div>
-                  <Pill tone={TONE_TEAL}>{est.fromBudgetPools ? "IN THE BUDGET" : "PREVIEW"}</Pill>
-                </div>
-                <div style={{ padding: "8px 14px" }} className="muted small">
-                  Each tenant keeps their share from the <b>{est.reconYear} reconciliation</b> (PRS, admin fee, exclusions, gross leases and the insurance-pool rules all carried over), applied to <b>this budget&rsquo;s own pools</b> — CAM ×{est.ratios.cam}, insurance ×{est.ratios.ins}, taxes ×{est.ratios.ret} against {est.reconYear}, so the taxes and premium entered in Step 2 flow straight through.
-                  {est.kind === "office" ? " Office tenants pay their share of the increase over their base year, recomputed on the budget pool." : " A capped tenant grows no faster than its cap."}
-                  {" "}The leasing assumptions set who pays and when: a vacate stops after its term, a lease-up starts at its pro-rata share. These totals <b>are</b> the recovery income lines in the budget below (marked <i>CAM est.</i>).
-                </div>
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 560 }}>
-                    <thead>
-                      <tr>
-                        <th style={{ ...tdL, ...thS }}>Tenant</th>
-                        <th style={{ ...tdR, ...thS }}>CAM/yr</th>
-                        {est.kind === "retail" && <th style={{ ...tdR, ...thS }}>INS/yr</th>}
-                        <th style={{ ...tdR, ...thS }}>RET/yr</th>
-                        <th style={{ ...tdR, ...thS }}>Months</th>
-                        <th style={{ ...tdR, ...thS }}>Escrow/mo</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {est.tenants.map((t) => (
-                        <tr key={t.unitRef}>
-                          <td style={{ ...tdL, whiteSpace: "normal" }}><code style={{ fontSize: 12 }}>{t.unitRef}</code> {t.name}
-                            {t.note && <div className="muted" style={{ fontSize: 11.5 }}>{t.note}</div>}</td>
-                          <td style={tdR}>{money0(t.camAnnual)}</td>
-                          {est.kind === "retail" && <td style={tdR}>{money0(t.insAnnual)}</td>}
-                          <td style={tdR}>{money0(t.retAnnual)}</td>
-                          <td style={{ ...tdR, color: t.monthsActive < 12 ? "#b45309" : "var(--muted)" }}>{t.monthsActive}</td>
-                          <td style={{ ...tdR, fontWeight: 700 }}>{t.monthsActive ? money0(t.camMonthly + t.insMonthly + t.retMonthly) : "—"}</td>
-                        </tr>
-                      ))}
-                      <tr style={{ borderTop: "2px solid var(--border)" }}>
-                        <td style={{ ...tdL, fontWeight: 800 }}>Total reimbursements</td>
-                        <td style={{ ...tdR, fontWeight: 800 }}>{money0(est.totals.camAnnual)}</td>
-                        {est.kind === "retail" && <td style={{ ...tdR, fontWeight: 800 }}>{money0(est.totals.insAnnual)}</td>}
-                        <td style={{ ...tdR, fontWeight: 800 }}>{money0(est.totals.retAnnual)}</td>
-                        <td />
-                        <td style={{ ...tdR, fontWeight: 800 }}>{money0((est.totals.camAnnual + est.totals.insAnnual + est.totals.retAnnual) / 12)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })()}
+          {draft.reimbursementEstimate && draft.reimbursementEstimate.tenants.length > 0 && (
+            <RecoveriesCard est={draft.reimbursementEstimate} tie={draft.recoveryTie ?? []} />
+          )}
 
           {/* STEP 5 — the budget itself, every month in its own column. */}
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
@@ -357,7 +310,7 @@ export default function BudgetDraftPage() {
             draft={draft}
             onEdit={draft.canEditLines ? editLine : undefined}
             badgeFor={(src) => sourceBadge(src, GROWTH)}
-            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1 })}
+            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" })}
           />
 
           {/* The loans behind the debt-service lines — so "why is interest
@@ -429,7 +382,7 @@ export default function BudgetDraftPage() {
           sign={histLine.sign}
           year={year}
           onClose={() => setHistLine(null)}
-          onUseSuggestion={draft?.canEditLines ? (amount) => { applySuggestion(histLine.section, histLine.label, amount); setHistLine(null); } : undefined}
+          onUseSuggestion={draft?.canEditLines && !histLine.locked ? (amount) => { applySuggestion(histLine.section, histLine.label, amount); setHistLine(null); } : undefined}
         />
       )}
 

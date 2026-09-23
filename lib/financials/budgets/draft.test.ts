@@ -121,3 +121,33 @@ describe("buildBudgetDraft", () => {
     expect(d.rollups.netOperatingIncome.total).toBe(47640);       // untouched by capital
   });
 });
+
+import { tieRecoveries } from "./draft";
+
+describe("tieRecoveries", () => {
+  const sec = (lines: any[]) => [{ name: "Reimbursements", role: "reimbursement", lines, subtotal: [], total: 0 }] as any;
+  const l = (label: string, mask: string, months: number[]) => ({ label, mask, months, total: months.reduce((a, b) => a + b, 0), basisTotal: 0, source: "cam-estimate" });
+  const est = { kind: "retail" as const, monthly: { cam: new Array(12).fill(100), ins: new Array(12).fill(10), ret: new Array(12).fill(50) } };
+
+  it("ties a category split across two lines, month by month", () => {
+    const t = tieRecoveries(est, sec([
+      l("Common Area Maintenance", "4910-0000", new Array(12).fill(60)),
+      l("CAM - Other", "4910-8501", new Array(12).fill(40)),
+      l("Insurance", "4930-0000", new Array(12).fill(10)),
+      l("Real Estate Taxes", "4920-0000", new Array(12).fill(50)),
+    ]));
+    expect(t.map((x) => x.ties)).toEqual([true, true, true]);
+    expect(t[0].lines).toHaveLength(2);
+  });
+
+  it("flags a category with money and no line to land on", () => {
+    const t = tieRecoveries(est, sec([
+      l("Common Area Maintenance", "4910-0000", new Array(12).fill(100)),
+      l("Real Estate Taxes", "4920-0000", new Array(12).fill(50)),
+    ]));
+    const ins = t.find((x) => x.basis === "ins")!;
+    expect(ins.ties).toBe(false);
+    expect(ins.lines).toHaveLength(0);
+    expect(ins.estimateTotal).toBe(120);
+  });
+});

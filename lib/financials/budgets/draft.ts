@@ -117,9 +117,12 @@ export type BudgetDraft = {
     /** Who owns these calls — Harry (shopping centres) or Nancy (office parks). */
     owner: { id: string; label: string };
   };
-  /** DISPLAY-ONLY per-tenant CAM/INS/RET reimbursement estimate (Phase 3). Does
-   *  not yet drive the reimbursement lines — surfaced for verification first. */
+  /** Per-tenant CAM/INS/RET recoveries — Step 3. Its monthly totals ARE the
+   *  recovery income lines (source "cam-estimate"). */
   reimbursementEstimate?: ReimbursementEstimate;
+  /** The Step 3 → Step 4 tie-out: each recovery category's tenant total
+   *  against the budget line(s) it lands on. */
+  recoveryTie?: RecoveryTie[];
   /** The loans behind the debt-service lines (Debt Tracker), when any. */
   debt?: { loans: BudgetLoan[]; interest: number; principal: number };
   /** Set by the route: whether the viewer may type months into the grid. */
@@ -127,6 +130,46 @@ export type BudgetDraft = {
   /** True when the current-year reprojection couldn't be loaded (no draft). */
   missingBasis?: boolean;
 };
+
+export type RecoveryTie = {
+  basis: "cam" | "ins" | "ret";
+  /** The tenants' total, month by month. */
+  estimate: number[];
+  estimateTotal: number;
+  /** The budget lines carrying it (more than one when a category is split). */
+  lines: { section: string; label: string; mask: string; months: number[]; total: number }[];
+  linesTotal: number;
+  ties: boolean;
+};
+
+/** Compare each category's tenant total with the lines it was written to. A
+ *  category with money and no line to land on is the one way it can fail. */
+export function tieRecoveries(
+  est: { kind: "retail" | "office"; monthly: { cam: number[]; ins: number[]; ret: number[] } },
+  sections: BudgetDraftSection[],
+): RecoveryTie[] {
+  const out: RecoveryTie[] = [];
+  const cats: ("cam" | "ins" | "ret")[] = est.kind === "retail" ? ["cam", "ins", "ret"] : ["cam", "ret"];
+  for (const basis of cats) {
+    const estimate = est.monthly[basis].map(r0);
+    const lines: RecoveryTie["lines"] = [];
+    for (const sec of sections) {
+      if (sec.role !== "revenue" && sec.role !== "reimbursement") continue;
+      for (const l of sec.lines) {
+        if (l.source !== "cam-estimate") continue;
+        const b = basisForLine(l.label, l.mask);
+        if ((b === "other" ? "ins" : b) !== basis) continue;
+        lines.push({ section: sec.name, label: l.label, mask: l.mask, months: l.months, total: l.total });
+      }
+    }
+    const estimateTotal = r0(sum(estimate));
+    if (!lines.length && !estimateTotal) continue;
+    const linesTotal = r0(lines.reduce((a, l) => a + l.total, 0));
+    const byMonth = estimate.every((v, i) => Math.abs(v - lines.reduce((a, l) => a + (l.months[i] || 0), 0)) < 1);
+    out.push({ basis, estimate, estimateTotal, lines, linesTotal, ties: lines.length > 0 && byMonth && Math.abs(linesTotal - estimateTotal) < 1 });
+  }
+  return out;
+}
 
 function grow(months: number[], factor: number): number[] {
   return months.map((m) => r0((m || 0) * factor));
@@ -172,6 +215,14 @@ function applyTyped(sections: BudgetDraftSection[], doc: LineOverrides) {
     sec.lines = sec.lines.map((l) => {
       const inputKind = expenseInputKindOf(sec.role, l.label) ?? undefined;
       if (inputKind) return { ...l, inputKind };
+      // A recovery line IS the Step 3 estimate — each tenant's share under
+      // their own CAM methodology. A typed month would break that tie, so a
+      // recovery line never takes one (and any stored before the lock is
+      // ignored rather than left to drift the line away from its tenants).
+      if (l.source === "cam-estimate") return l;
+      // Likewise rent, and the TI / commissions the deals carry: they are
+      // Step 1 — the schedule and the leasing decisions — and change there.
+      if (l.source === "leases") return l;
       if (l.subLines?.some((s) => s.typeable)) {
         const subLines = l.subLines.map((s) => {
           const ov = doc[`${lineKey(sec.name, l.label)}#${s.account}`];
@@ -352,6 +403,8 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   const reimbursementEstimate = (await estimateReimbursements(meta.propertyCode, budgetYear, growthPct, {
     poolRatios: { cam: ratioOf(pool.cam), ins: ratioOf(pool.ins), ret: ratioOf(pool.ret) },
     assumptions,
+    // Recoveries start and stop where RENT does — the same leasing decisions.
+    tenancy: lease.hasData ? lease.rows : undefined,
   }).catch(() => null)) ?? undefined;
 
   if (reimbursementEstimate) {
@@ -377,6 +430,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     }
     applyTyped(sections, typedDoc);
   }
+  const recoveryTie = reimbursementEstimate ? tieRecoveries(reimbursementEstimate, sections) : undefined;
 
   // NOI is revenue less OPERATING expenses. Capital sits BELOW it (the grid
   // takes it off NOI on the way to cash flow), and so does debt service —
@@ -418,6 +472,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       })(),
     } : undefined,
     reimbursementEstimate,
+    recoveryTie,
     debt: debt ? { loans: debt.loans, interest: r0(sum(debt.interest)), principal: r0(sum(debt.principal)) } : undefined,
   };
 }

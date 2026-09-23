@@ -20,8 +20,8 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const money0 = (n: number) => (n < 0 ? "-" : "") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 /** The two shades — contracted vs assumed — shared by the cells and the legend. */
-const CONTRACTED_BG = "rgba(22,163,74,0.22)";
-const ASSUMED_BG = "rgba(22,163,74,0.07)";
+export const CONTRACTED_BG = "rgba(22,163,74,0.22)";
+export const ASSUMED_BG = "rgba(22,163,74,0.07)";
 
 const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "right", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
 const td: React.CSSProperties = { padding: "5px 8px", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };

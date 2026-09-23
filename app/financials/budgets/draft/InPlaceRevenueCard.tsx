@@ -73,7 +73,7 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
   const blankUnits = rec ? [...new Set(rec.skipped.map((s) => s.reason))].length : 0;
 
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+    <div id="step-rent" className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div>

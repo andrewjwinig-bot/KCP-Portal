@@ -1059,6 +1059,25 @@ time — and the team does not have time to open the GL over $80.
   cells and the totals. The rows (`RentRow`, with a per-month `assumed` flag)
   sum exactly to the budget's rent line. Step 1 now only reports the import
   (coverage, missing centres, blank rows); it does not repeat the suites.
+- **Step 3 (Recoveries) IS the recovery lines, and shows it** (`RecoveriesCard`).
+  A row per tenant, a column per month, shaded like Rent by tenant (dark =
+  lease in place, light = a leasing assumption), a hover per tenant with its
+  methodology (PRS, admin fee, exclusions, cap, gross lease, recon dues, pool
+  change), and under each category's tenant total the budget line(s) it lands
+  on (`tieRecoveries` → `draft.recoveryTie`) with ONE "TIES TO THE BUDGET"
+  mark. **Recoveries follow RENT's months** (`tenancy: lease.rows` →
+  `tenancyMonths`): first rent month to last, so a lease ending with no decision
+  stops paying recoveries when it stops paying rent, a renewal/hold carries on
+  (assumed), a holdover with no decision pays nothing. A recon tenant who was
+  there part of the recon year (`occPct` < 1) is scaled up to a full year; one
+  who vacated in the recon year is dropped. A category with money and no
+  statement line to land on is shown in red, never silently dropped.
+- **Derived lines are NOT typeable in the grid**: the recovery lines
+  (`cam-estimate` — Step 3), rent and the deals' TI / commissions (`leases` —
+  Step 1), and the Budget Inputs lines. `applyTyped` ignores any stored override
+  on them, the grid offers no edit, and the line-history "Use this" is hidden;
+  their pill links back to the step that sets them. Typing over them would
+  break the tie to the tenants' methodology and the leasing decisions.
 - **Debt service comes from the LOANS, not this year's figure** (`debtBudget.ts`):
   each loan's `buildSchedule` gives the budget year's interest (→ the Interest
   line) and principal (→ Mortgage Amortization) month by month — interest falls

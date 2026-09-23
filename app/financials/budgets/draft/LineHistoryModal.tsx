@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { Pill, StatPill, TONE_GREEN, TONE_AMBER, TONE_RED, TONE_BLUE, TONE_NEUTRAL, type PillTone } from "@/app/components/Pill";
+import { HistoryLoading } from "./HistoryLoading";
 import type { LineHistory } from "@/lib/financials/budgets/lineHistory";
 import type { LineInsight, LineShape } from "@/lib/financials/budgets/lineInsight";
 
@@ -60,7 +61,7 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
 
         <div style={{ padding: 18, overflowY: "auto" }}>
           {failed && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>Could not read this line&rsquo;s history.</div>}
-          {!data && !failed && <div className="muted small">Reading {5} years…</div>}
+          {!data && !failed && <HistoryLoading lastYear={year - 1} />}
 
           {data && ins && (
             <>

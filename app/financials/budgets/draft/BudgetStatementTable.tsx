@@ -23,7 +23,10 @@
 // the computed figure. Typing into the Budget column spreads an annual evenly.
 // The three Budget Inputs lines (taxes, insurance, building maintenance) are
 // NOT typeable here — their owners key them on /budget-inputs, and two places
-// to set one figure is how they would disagree.
+// to set one figure is how they would disagree. Nor are the CAM / INS / RET
+// recovery lines: they are Step 3's tenant totals, and a typed month would
+// break the tie to the tenants and their methodology. Nor is rent, or the TI
+// and commissions the deals carry — those are Step 1's leases and decisions.
 
 import { Fragment, useRef, useState } from "react";
 import { Pill, type PillTone } from "@/app/components/Pill";
@@ -215,12 +218,16 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit }: {
         const subs = l.subLines ?? [];
         const viaSubs = subs.some((x) => x.typeable);
         // A line budgeted through its sub-lines is their SUM — typed there, not here.
-        const typeable = !!onEdit && !l.inputKind && !viaSubs;
+        // A recovery line IS Step 3 — each tenant's share under their CAM
+        // methodology — so it is changed there, never typed over here.
+        // Rent (and the deals' TI / commissions) likewise IS Step 1.
+        const locked = !!l.inputKind || l.source === "cam-estimate" || l.source === "leases";
+        const typeable = !!onEdit && !locked && !viaSubs;
         const isOpen = open.has(key);
         return (
           <Fragment key={l.label + l.mask}>
             <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
-              badge={badgeFor(l.source)} badgeHref={l.inputKind ? "#step-expenses" : undefined}
+              badge={badgeFor(l.source)} badgeHref={l.inputKind ? "#step-expenses" : l.source === "cam-estimate" ? "#step-recoveries" : l.source === "leases" ? "#step-rent" : undefined}
               onLabel={() => onLine(sec, l)} favorableUp={favorableUp} typed={viaSubs ? undefined : l.typed}
               rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
               onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
