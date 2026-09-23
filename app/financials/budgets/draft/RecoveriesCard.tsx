@@ -111,11 +111,7 @@ export function RecoveriesCard({ est, tie }: { est: ReimbursementEstimate; tie: 
         </div>
       </div>
       <div style={{ padding: "8px 14px", borderBottom: "1px solid var(--border)" }} className="muted small">
-        Each tenant keeps their <b>CAM methodology</b> — PRS, admin fee, exclusions, cap and gross lease, as set on their unit page and applied in the <b>{est.reconYear} reconciliation</b> — carried onto <b>this budget&rsquo;s pools</b>.
-        {est.kind === "office"
-          ? " Office tenants pay their pro-rata share of the budget pool's increase over their base year."
-          : ` Their ${est.reconYear} reconciled charge moves with the pool (a capped tenant no faster than its cap).`}
-        {" "}The pools are the budget&rsquo;s own lines, so a CAM expense typed in Step 4, or taxes and insurance saved in Step 2, recompute these on the spot. Tenants pay in the <b>same months as their rent</b> in Step 1. Hover a tenant for how their figure was reached. These totals <b>are</b> the recovery lines in Step 4, which is why those lines can&rsquo;t be typed over.
+        {est.reconYear} CAM methodology applied to {est.budgetYear} budget&rsquo;s expense pools. New tenants assumed to be NNN.
       </div>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
