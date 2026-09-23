@@ -9,21 +9,18 @@
 // through and what did not is the first thing the card says.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Pill, StatPill, TONE_RED, TONE_AMBER } from "@/app/components/Pill";
+import { Pill, TONE_RED, TONE_AMBER } from "@/app/components/Pill";
 import { STEP_LABEL } from "./stepStyles";
 import { HoverCard } from "@/app/components/HoverCard";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
-import { monthlyForProperty } from "@/lib/financials/budgets/inPlaceDerive";
 import type { InPlaceRevenueRecord } from "@/lib/financials/budgets/inPlaceStore";
 
-const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
-export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, counts, children }: {
+export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, children }: {
   year: number; category: string; propertyCode: string | null; editorLabel: string;
   /** The property's suites by what the year holds for them — from the same
    *  rows as "Rent by tenant", so the tiles and the table agree. */
-  counts?: { fullYear: number; expiring: number; vacant: number } | null;
   /** The rest of the RENT step — the leasing decisions and Rent by tenant —
    *  rendered inside this card, full-bleed below the import. One step, one card. */
   children?: React.ReactNode;
@@ -65,8 +62,6 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
     }
   }
 
-  const months = rec && propertyCode ? monthlyForProperty(rec, propertyCode) : null;
-  const propTotal = months ? months.reduce((s, n) => s + n, 0) : 0;
   // Units whose rent came through BLANK — a real space with no contracted
   // rent. Named, because a leased anchor entering the budget at nil with
   // nothing saying so is the failure this import exists to prevent.
@@ -92,9 +87,6 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
         </div>
       </div>
 
-      <p className="muted small" style={{ marginTop: 6, marginBottom: 0 }}>
-        Contracted rent from Skyline&rsquo;s <strong>Budget Rent Increase Calculation</strong>, then the leasing decisions for every suite that expires or sits vacant.
-      </p>
 
       {showSteps && <ImportInstructions variant="budget-rent" />}
 
@@ -110,12 +102,6 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
 
       {rec && (
         <>
-          <div className="pills" style={{ marginTop: 12 }}>
-            {counts && <StatPill label="Leased the full year" value={counts.fullYear} />}
-            {counts && <StatPill label={`Expiring in ${year}`} value={counts.expiring} accent={counts.expiring ? "#b45309" : undefined} />}
-            {counts && <StatPill label="Vacant suites" value={counts.vacant} />}
-            {propertyCode && months && <StatPill label={`${propertyCode} · ${year} rent`} value={money0(propTotal)} />}
-          </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
             {rec.missing.length > 0 && (

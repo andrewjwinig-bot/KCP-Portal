@@ -5,12 +5,12 @@ import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_RE
 import { BudgetStatementTable } from "./BudgetStatementTable";
 import { RevenueByTenantCard } from "./RevenueByTenantCard";
 import { STEP_LABEL } from "./stepStyles";
+import { BudgetKpis } from "./BudgetKpis";
 import LoadingState from "@/app/components/LoadingState";
 import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
 import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
-import { BudgetSteps } from "./BudgetSteps";
 import { BookMasthead } from "./BookMasthead";
 import { useUser } from "@/app/components/UserProvider";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -272,9 +272,9 @@ export default function BudgetDraftPage() {
         }}
       />
 
-      {/* Where the budget stands and who owes what — one strip, pinned while
-          you scroll, so the grid below keeps the full width. */}
-      <BudgetSteps year={year} category={category} refreshTick={refreshTick} />
+      {/* The property's budget at a glance — revenue, operating expenses,
+          NOI and cash flow, each against this year's forecast. */}
+      {draft && <BudgetKpis draft={draft} />}
 
       {/* STEP 1, above everything, because the rest depends on it. The
           contracted-rent schedule is the input the vacancy and renewal list is
@@ -284,11 +284,6 @@ export default function BudgetDraftPage() {
       <InPlaceRevenueCard
         year={year}
         category={category}
-        counts={draft?.leasing ? {
-          fullYear: draft.leasing.rentRows.filter((r) => r.status === "contracted").length,
-          expiring: draft.leasing.rentRows.filter((r) => r.status === "expiring" || r.status === "holdover").length,
-          vacant: draft.leasing.rentRows.filter((r) => r.status === "vacant" || r.status === "lease-up").length,
-        } : null}
         propertyCode={label?.propertyCode ?? null}
         editorLabel={typeof document !== "undefined" ? (document.cookie.match(/kcp_user=([^;]+)/)?.[1] ?? "Unknown") : "Unknown"}
       >
@@ -337,11 +332,6 @@ export default function BudgetDraftPage() {
             </div>
             <span className="muted small">Click any month or the Budget total to type it · <b>Accept</b> keeps a keyed line as shown</span>
           </div>
-          <div className="pills">
-            <StatPill label="Total Revenue" value={money0(draft.rollups.totalRevenues.total)} sub={draft.leasing ? `${draft.leasing.inPlaceUnits} in-place leases` : "reproj placeholder"} />
-            <StatPill label="Total Operating Expenses" value={money0(draft.rollups.totalOperatingExpenses.total)} sub="by line — entered, else +3%" />
-            <StatPill label="NOI" value={money0(draft.rollups.netOperatingIncome.total)} accent={draft.rollups.netOperatingIncome.total >= 0 ? "#15803d" : "#b91c1c"} />
-          </div>
           {editError && <div className="card" style={{ color: "#b91c1c", borderColor: "rgba(185,28,28,0.4)" }}>{editError}</div>}
           <BudgetStatementTable
             draft={draft}
@@ -354,11 +344,11 @@ export default function BudgetDraftPage() {
               $X" is answered on the page, and a maturity inside the year is
               called out rather than silently refinanced. */}
           {draft.debt && draft.debt.loans.length > 0 && (
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
-                <div style={STEP_LABEL}>Debt service — {draft.budgetYear}, from the Debt Tracker</div>
-                <a href="/debt" className="muted small" style={{ fontWeight: 700 }}>Debt Tracker →</a>
-              </div>
+            <details className="card" style={{ padding: 0, overflow: "hidden" }}>
+              <summary style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 14px", cursor: "pointer" }}>
+                <span style={STEP_LABEL}>Debt service — {money0(draft.debt.interest)} interest · {money0(draft.debt.principal)} principal · {draft.debt.loans.length} loan{draft.debt.loans.length === 1 ? "" : "s"}{draft.debt.loans.some((l) => l.refinanceAssumed) ? " · refinance assumed" : ""}</span>
+                <a href="/debt" className="muted small" style={{ fontWeight: 700 }} onClick={(e) => e.stopPropagation()}>Debt Tracker →</a>
+              </summary>
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 720 }}>
                   <thead>
@@ -401,7 +391,7 @@ export default function BudgetDraftPage() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </details>
           )}
 
 
@@ -449,8 +439,8 @@ function ReviewStatus({ year, propertyCode, calls, refreshTick }: { year: number
   return (
     <a href={href} style={{ textDecoration: "none" }}>
       {review && !changed
-        ? <Pill tone={TONE_GREEN}>✓ RENT CONFIRMED BY {review.by} · {new Date(review.at).toLocaleString("en-US", { month: "short", day: "numeric" }).toUpperCase()}</Pill>
-        : <Pill tone={TONE_NEUTRAL}>{changed ? "CHANGED SINCE CONFIRMED" : "AWAITING RENT SIGN-OFF"} →</Pill>}
+        ? <Pill tone={TONE_GREEN}>✓ {review.by} · {new Date(review.at).toLocaleString("en-US", { month: "short", day: "numeric" }).toUpperCase()}</Pill>
+        : <Pill tone={TONE_NEUTRAL}>{changed ? "CHANGED" : "NOT CONFIRMED"} →</Pill>}
     </a>
   );
 }

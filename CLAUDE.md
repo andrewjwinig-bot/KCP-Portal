@@ -940,9 +940,13 @@ time — and the team does not have time to open the GL over $80.
   on the Expenses step (`deriveContributions`' `entered` map); there is no
   separate tick to remember.
 - **ONE MASTER BUDGET PAGE** — `/financials/budgets/draft` is where Drew,
-  Harry, Nancy and admin collaborate: TWO steps top to bottom, with a slim
-  progress strip (steps + who owes what) pinned under the masthead instead of
-  a 250px side rail that took width from the grid. The keyed expenses are typed
+  Harry, Nancy and admin collaborate: the masthead, then a **KPI row**
+  (`BudgetKpis` — revenue, operating expenses, NOI, net cash flow after capital
+  and debt, each against this year's forecast), then TWO steps. The progress
+  strip (`BudgetSteps`) was REMOVED at the owner's request — the To-decide
+  filter and the review sign-off say what is outstanding; don't bring it back.
+  Step 1's count tiles and blurb went with it, and the debt-service loans sit
+  in a collapsed `<details>` whose summary line carries the totals. The keyed expenses are typed
   in the grid itself (Step 2); each is still editable only by its owner (the
   route's `canEdit`) — on the draft page that is Drew / admin, and Greg keys
   maintenance on his own page.
@@ -1019,9 +1023,10 @@ time — and the team does not have time to open the GL over $80.
   holdover), then decision → rent $/SF/yr → term → TI $/SF → LC % → what it
   does in the budget year, with who decided and when. The TABLE owns which
   window is open (not the row), so a save that re-projects — or filters the row
-  out of "To decide" — never closes it mid-edit. A **To decide · n** filter and
-  an "N OF M DECIDED" / "✓ n CALLS DECIDED BY …" header pill replace the old
-  card's roster. **Rent is keyed as ANNUAL $/SF**, starting
+  out of "To decide" — never closes it mid-edit. A **To decide · n** filter is
+  the count (the "N OF M DECIDED" header pill was removed as a duplicate), and
+  the table's TIES mark shows only as **DOESN'T TIE** — the exception — never a
+  green pill on a table that ties. **Rent is keyed as ANNUAL $/SF**, starting
   at the tenant's current $/SF (so a flat renewal needs no typing); `monthlyRent`
   is derived (× SF ÷ 12) and a renewal left at today's $/SF holds today's rent
   exactly. **TI is $/SF × the suite's SF; the leasing commission is a PERCENT OF THE RENT over the term** (`leasingCommission`: LC % × new annual rent × term years — no term, no commission). Both land on the Capital section's
