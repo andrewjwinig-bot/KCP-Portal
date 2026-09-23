@@ -48,7 +48,6 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Management Fees":    "financials-statements",
   "Flags to Investigate": "financials-statements",
   "Reprojections":      "financials-statements",
-  "1099 Register":      "financials-statements",
   "Budgets":            "financials-budgets",
   "Budget Draft":       "financials-budgets",
   // Its own key: Greg keys building maintenance here and sees nothing else of
@@ -76,10 +75,10 @@ const GROUP_CHILD_ORDER: Record<string, string[]> = {
     "Reprojections",
     "Budgets", "Budget Draft", "Budget Inputs",
     "Management Fees",
-    "Balance Sheet",
-    "1099 Register",
   ],
 };
+// Balance Sheet and the 1099 Register are not in the sidebar — they are
+// occasional, and live in the Report Center (/reports) instead.
 
 // Visible cue: chevron + slightly tinted background distinguishes a
 // group header from a plain link.
@@ -655,22 +654,6 @@ const NAV = [
     ),
   },
   {
-    label: "Balance Sheet",
-    href: "/financials/balance-sheet",
-    external: false,
-    indent: false,
-    showFor: null as string | null,
-    groupId: "financials",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 3v18" />
-        <path d="M3 7h18" />
-        <path d="M6 7l-3 6a3 3 0 0 0 6 0z" />
-        <path d="M18 7l3 6a3 3 0 0 1-6 0z" />
-      </svg>
-    ),
-  },
-  {
     label: "Management Fees",
     href: "/financials/management-fees",
     external: false,
@@ -696,22 +679,6 @@ const NAV = [
         <path d="M3 3v18h18" />
         <path d="M7 14l4-4 3 3 5-6" />
         <polyline points="16 4 19 4 19 7" />
-      </svg>
-    ),
-  },
-  {
-    label: "1099 Register",
-    href: "/financials/ten99",
-    external: false,
-    indent: false,
-    showFor: null as string | null,
-    groupId: "financials",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-        <path d="M12 18v-6" />
-        <path d="M9.5 13.5a2.5 2.5 0 0 1 5 0c0 1.4-2.5 2-2.5 2" />
       </svg>
     ),
   },
