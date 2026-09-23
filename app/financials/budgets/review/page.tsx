@@ -4,10 +4,9 @@
 // emailed link (`/budget-review/[token]`), read through the portal's own
 // routes. Drew and admin also get the link to send from here.
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "@/app/components/UserProvider";
-import { ShareLinkCard, type ShareLink } from "@/app/components/ShareLinkCard";
 import { RentReviewView, type ReviewApi } from "./RentReviewView";
 
 export default function RentReviewPage() {
@@ -42,52 +41,78 @@ function RentReview() {
 
   const staff = user.id === "drew" || user.id === "admin";
   return (
-    <main style={{ maxWidth: 1360, width: "100%" }}>
-      <RentReviewView api={api} headerExtra={staff ? <SendLink group={group} year={year} /> : undefined} />
+    <main style={{ maxWidth: 1360, width: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
+      {staff && <SendLink group={group} year={year} />}
+      <RentReviewView api={api} />
     </main>
   );
 }
 
-/** The link to send Harry / Nancy — opens this page without signing in. */
+/**
+ * The link to send Harry / Nancy — shown IN FULL at the top of the page, with
+ * Copy and Open, because the page you are on is the signed-in one (it has the
+ * sidebar) and the link is the thing to send. It opens the same review with no
+ * sign-in and no portal chrome — the leasing decisions and the sign-off only.
+ * The first visit creates it; after that the same link is reused until revoked.
+ */
 function SendLink({ group, year }: { group: "SC" | "BP"; year: number }) {
   const person = group === "SC" ? "Harry" : "Nancy";
-  const [links, setLinks] = useState<ShareLink[]>([]);
-  const [busy, setBusy] = useState(false);
+  type L = { id: string; group: string; url: string | null; viewCount: number; lastViewedAt?: string | null };
+  const [link, setLink] = useState<L | null | undefined>(undefined);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const load = async () => {
+  const load = async (create: boolean) => {
+    setError(null);
+    if (create) {
+      const r = await fetch("/api/financials/budgets/review-link", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group, year }),
+      }).catch(() => null);
+      if (!r || !r.ok) { const j = r ? await r.json().catch(() => ({})) : {}; setError(j?.error ?? "Couldn't create the link."); }
+    }
     const j = await fetch(`/api/financials/budgets/review-link?year=${year}`, { cache: "no-store" }).then((r) => r.json()).catch(() => ({}));
-    setLinks(((j.links ?? []) as { id: string; group: string; url: string | null; createdAt: string; viewCount: number; lastViewedAt?: string | null }[])
-      .filter((l) => l.group === group && l.url)
-      .map((l) => ({ id: l.id, url: l.url!, createdAt: l.createdAt, viewCount: l.viewCount, lastViewedAt: l.lastViewedAt ?? null })));
+    const mine = ((j.links ?? []) as L[]).find((l) => l.group === group && l.url) ?? null;
+    if (!mine && !create) return load(true);
+    setLink(mine);
   };
+  useEffect(() => { load(false); }, [group, year]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const revoke = async () => {
+    if (!link || !confirm(`Revoke ${person}'s link? It stops working at once; a new one can be created.`)) return;
+    await fetch("/api/financials/budgets/review-link", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: link.id }) }).catch(() => null);
+    setLink(null);
+  };
+
   return (
-    <ShareLinkCard
-      buttonLabel={`${person}'s link`}
-      title="Rent roll review link"
-      subject={person}
-      description={<>Opens this review for {person} <b>without signing in</b> — every {group === "SC" ? "shopping center" : "business park"}, their leasing calls and sign-off, saved straight into the {year} budget. Copy it into an email to {person}. Anyone holding it can open it, so revoke it when the review is done.</>}
-      links={links}
-      busy={busy}
-      error={error}
-      onOpen={load}
-      onCreate={async () => {
-        setBusy(true); setError(null);
-        const r = await fetch("/api/financials/budgets/review-link", {
-          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group, year }),
-        }).catch(() => null);
-        const j = r ? await r.json().catch(() => ({})) : {};
-        if (!r || !r.ok) setError(j?.error ?? "Couldn't create the link.");
-        await load();
-        setBusy(false);
-      }}
-      onRevoke={async (id) => {
-        setBusy(true);
-        await fetch("/api/financials/budgets/review-link", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) }).catch(() => null);
-        await load();
-        setBusy(false);
-      }}
-      pinOptional={false}
-      emptyNote={`No link yet — create one to send ${person}.`}
-    />
+    <div className="card" style={{ borderColor: "rgba(11,74,125,0.35)", background: "rgba(11,74,125,0.04)", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+        Link to send {person}
+      </div>
+      <div className="muted small">
+        Opens this review <b>without signing in</b> and <b>without the portal sidebar</b> — only {person}&rsquo;s leasing decisions and sign-off. Copy it into an email.
+      </div>
+      {link === undefined ? <div className="muted small">Getting the link…</div>
+        : link === null ? (
+          <div><button type="button" className="btn primary" style={{ fontSize: 13, fontWeight: 700 }} onClick={() => load(true)}>Create {person}&rsquo;s link</button></div>
+        ) : (
+          <>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <input readOnly value={link.url ?? ""} onFocus={(e) => e.currentTarget.select()} aria-label={`${person}'s link`}
+                style={{ flex: "1 1 420px", minWidth: 0, fontSize: 12.5 }} />
+              <button type="button" className="btn primary" style={{ fontSize: 13, fontWeight: 700 }}
+                onClick={() => { navigator.clipboard?.writeText(link.url ?? "").then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }).catch(() => {}); }}>
+                {copied ? "Copied ✓" : "Copy"}
+              </button>
+              <a className="btn" href={link.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+                Open it as {person} sees it ↗
+              </a>
+            </div>
+            <div className="muted" style={{ fontSize: 12, display: "flex", gap: 12, alignItems: "center" }}>
+              <span>{link.viewCount ? `Opened ${link.viewCount}×${link.lastViewedAt ? ` · last ${new Date(link.lastViewedAt).toLocaleDateString("en-US")}` : ""}` : "Not opened yet"}</span>
+              <button type="button" onClick={revoke} style={{ background: "none", border: "none", padding: 0, color: "#b91c1c", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Revoke</button>
+            </div>
+          </>
+        )}
+      {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>{error}</div>}
+    </div>
   );
 }
