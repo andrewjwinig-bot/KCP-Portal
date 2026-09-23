@@ -24,9 +24,9 @@ export function BudgetKpis({ draft }: { draft: BudgetDraft }) {
 
   const vs = (x: { now: number; was: number }) => {
     const d = x.now - x.was;
-    if (Math.abs(x.was) < 0.5) return `${d >= 0 ? "+" : "−"}${money0(Math.abs(d)).replace("-", "")} vs ${draft.basisYear} forecast`;
+    if (Math.abs(x.was) < 0.5) return `${d >= 0 ? "+" : "−"}${money0(Math.abs(d)).replace("-", "")} vs ${draft.basisYear} reproj.`;
     const pct = (d / Math.abs(x.was)) * 100;
-    return `${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(1)}% vs ${draft.basisYear} (${money0(x.was)})`;
+    return `${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(1)}% vs ${draft.basisYear} reproj. (${money0(x.was)})`;
   };
   const tone = (n: number) => (n < 0 ? "#b91c1c" : undefined);
 
