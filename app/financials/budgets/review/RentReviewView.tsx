@@ -191,7 +191,7 @@ function PropertyReview({ api, row, year, owner, confirmed, changed, onChanged, 
         {confirmed ? (
           <>
             <Pill tone={TONE_GREEN}>✓ CONFIRMED BY {row.review!.by} · {stampOf(row.review!.at).toUpperCase()}</Pill>
-            <button type="button" className="btn" style={{ fontSize: 12, padding: "5px 12px" }} onClick={() => onConfirm(false)}>Undo</button>
+            <button type="button" className="btn sm" onClick={() => onConfirm(false)}>Undo</button>
           </>
         ) : openCalls > 0 ? (
           <>

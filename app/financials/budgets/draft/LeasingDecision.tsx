@@ -211,7 +211,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
               <code style={{ fontSize: 13, marginRight: 8 }}>{unitRef}</code>{call.title}
             </div>
           </div>
-          <button type="button" className="btn" onClick={onClose} style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>Done</button>
+          <button type="button" className="btn sm" onClick={onClose}>Done</button>
         </div>
         <div style={{ padding: "12px 18px", display: "flex", gap: 22, flexWrap: "wrap", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.025)" }}>
           {fact("SF", sqft > 0 ? sqft.toLocaleString() : "—")}

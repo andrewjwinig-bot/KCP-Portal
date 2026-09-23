@@ -165,8 +165,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const lineOf = (p: Part) => p === "rent" ? rentLine : tie.find((t) => t.basis === p)?.lines.map((l) => l.label).join(" + ");
 
   const seg = <V extends string>(cur: V, v: V, label: string, set: (v: any) => void) => (
-    <button key={v} type="button" className={cur === v ? "btn primary" : "btn"} onClick={() => set(v)}
-      style={{ fontSize: 12, padding: "4px 11px", fontWeight: 700 }} aria-pressed={cur === v}>{label}</button>
+    <button key={v} type="button" className={cur === v ? "btn sm primary" : "btn sm"} onClick={() => set(v)} aria-pressed={cur === v}>{label}</button>
   );
   const views: View[] = office ? ["gross", "rent", "recoveries", "cam", "ret"] : ["gross", "rent", "recoveries", "cam", "ins", "ret"];
 
@@ -186,7 +185,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   };
 
   return (
-    <div id="revenue-by-tenant" className={embedded ? undefined : "card"} style={embedded ? { borderTop: "2px solid var(--border)" } : { padding: 0, overflow: "hidden" }}>
+    <div id="revenue-by-tenant" className={embedded ? undefined : "card"} style={embedded ? undefined : { padding: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -213,8 +212,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, flexWrap: "wrap" }}>
           {leasing && calls.length > 0 && (
-            <button type="button" className={toDecide ? "btn primary" : "btn"} onClick={() => setToDecide((t) => !t)} aria-pressed={toDecide}
-              style={{ fontSize: 12, padding: "4px 11px", fontWeight: 700 }}>To decide · {calls.length - decided.length}</button>
+            <button type="button" className={toDecide ? "btn sm primary" : "btn sm"} onClick={() => setToDecide((t) => !t)} aria-pressed={toDecide}>To decide · {calls.length - decided.length}</button>
           )}
           <span style={{ display: "inline-flex", gap: 4 }}>{views.map((v) => seg(view, v, VIEW_LABEL[v], setView))}</span>
           <span style={{ display: "inline-flex", gap: 4, paddingLeft: 10, borderLeft: "1px solid var(--border)" }}>
