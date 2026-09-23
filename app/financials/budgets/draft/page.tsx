@@ -100,7 +100,9 @@ export default function BudgetDraftPage() {
     if (shownFor.current !== target) setDraft(null);
     setLoading(true);
     const t = setTimeout(() => {
-      fetch(`/api/financials/budgets/draft?key=${encodeURIComponent(key)}&year=${year}&growth=${GROWTH}`, { cache: "no-store" })
+      // Wait for any save still in flight: a reload read before it lands
+      // would put the old figure back on screen over the one just typed.
+      writeQ.current.then(() => fetch(`/api/financials/budgets/draft?key=${encodeURIComponent(key)}&year=${year}&growth=${GROWTH}`, { cache: "no-store" }))
         .then((r) => r.json())
         .then((j) => {
           if (seq !== reqSeq.current) return;
@@ -117,14 +119,26 @@ export default function BudgetDraftPage() {
   // its month-by-month shape kept (each month scaled by the same factor). A
   // line budgeted through sub-lines scales every sub-line alike; a Budget
   // Inputs line is keyed there, so it takes no suggestion here.
+  // EVERY WRITE GOES OUT ONE AT A TIME, IN ORDER. The stores rewrite a
+  // property's whole document per save, so two saves in flight at once — a
+  // Tab across three months fires three — each read the document before the
+  // other wrote it, and the last to land erased the rest: typed months that
+  // were there until the page was refreshed.
+  const writeQ = useRef<Promise<unknown>>(Promise.resolve());
+  const queued = <T,>(fn: () => Promise<T>): Promise<T> => {
+    const p = writeQ.current.then(fn, fn);
+    writeQ.current = p.catch(() => {});
+    return p;
+  };
+
   async function applySuggestion(section: string, label: string, amount: number) {
     const sec = draft?.sections.find((x) => x.name === section);
     const line = sec?.lines.find((l) => l.label === label);
     if (!draft || !sec || !line || line.inputKind) return;
-    const post = (months: number[], account?: string) => fetch("/api/financials/budgets/line-overrides", {
+    const post = (months: number[], account?: string) => queued(() => fetch("/api/financials/budgets/line-overrides", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, section, label, account, months }),
-    });
+    }));
     setEditError(null);
     const subs = line.subLines?.filter((x) => x.typeable) ?? [];
     const results = subs.length
@@ -193,10 +207,10 @@ export default function BudgetDraftPage() {
           }),
         }));
       }
-      const r = await fetch("/api/budget-inputs", {
+      const r = await queued(() => fetch("/api/budget-inputs", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, kind, ...body }),
-      }).catch(() => null);
+      })).catch(() => null);
       if (!r || !r.ok) {
         const j = r ? await r.json().catch(() => ({})) : {};
         setEditError(j?.error ?? "Couldn't save that figure.");
@@ -238,10 +252,10 @@ export default function BudgetDraftPage() {
         }),
       }));
     }
-    const r = await fetch("/api/financials/budgets/line-overrides", {
+    const r = await queued(() => fetch("/api/financials/budgets/line-overrides", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, section: sec.name, label: line.label, account: saveAccount, month, value }),
-    }).catch(() => null);
+    })).catch(() => null);
     if (!r || !r.ok) {
       const j = r ? await r.json().catch(() => ({})) : {};
       setEditError(j?.error ?? "Couldn't save that figure.");
@@ -486,6 +500,8 @@ function leasingCalls(leasing: NonNullable<BudgetDraft["leasing"]>): LeasingCall
   return [
     ...leasing.expiring.map((e) => ({ unitRef: e.unitRef, mode: "inplace" as const, title: e.tenant, sqft: e.sqft, currentRent: e.monthlyRent, leaseTo: e.leaseTo, assumption: e.assumption })),
     ...leasing.vacant.map((v) => ({ unitRef: v.unitRef, mode: "vacant" as const, title: "Vacant", sqft: v.sqft, currentRent: 0, leaseTo: null, assumption: v.assumption })),
+    // Leases in place — no call owed, but one can be backed out.
+    ...(leasing.contracted ?? []).map((c) => ({ unitRef: c.unitRef, mode: "contracted" as const, title: c.tenant, sqft: c.sqft, currentRent: c.monthlyRent, leaseTo: null, assumption: c.assumption })),
   ];
 }
 

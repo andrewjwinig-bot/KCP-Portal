@@ -41,6 +41,8 @@ function leasingCalls(leasing: NonNullable<BudgetDraft["leasing"]>): LeasingCall
   return [
     ...leasing.expiring.map((e) => ({ unitRef: e.unitRef, mode: "inplace" as const, title: e.tenant, sqft: e.sqft, currentRent: e.monthlyRent, leaseTo: e.leaseTo, assumption: e.assumption })),
     ...leasing.vacant.map((v) => ({ unitRef: v.unitRef, mode: "vacant" as const, title: "Vacant", sqft: v.sqft, currentRent: 0, leaseTo: null, assumption: v.assumption })),
+    // Leases in place — no call owed, but one can be backed out.
+    ...(leasing.contracted ?? []).map((c) => ({ unitRef: c.unitRef, mode: "contracted" as const, title: c.tenant, sqft: c.sqft, currentRent: c.monthlyRent, leaseTo: null, assumption: c.assumption })),
   ];
 }
 
@@ -180,7 +182,7 @@ function PropertyReview({ api, row, year, owner, confirmed, changed, onChanged, 
   if (draft === undefined) return <LoadingState card={false} status={`Loading the ${year} rent…`} context={`${row.name} — every suite, month by month`} columns={4} rows={4} />;
   if (!draft?.leasing) return <div className="muted small" style={{ padding: 16 }}>No rent roll for this property.</div>;
   const calls = leasingCalls(draft.leasing);
-  const openCalls = calls.filter((c) => !c.assumption).length;
+  const openCalls = calls.filter((c) => c.mode !== "contracted" && !c.assumption).length;
 
   return (
     <div>

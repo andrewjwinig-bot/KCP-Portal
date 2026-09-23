@@ -992,6 +992,16 @@ input.kcp-input,
    dotted underline on every row — it only appears on hover. */
 .os-line-name:hover { text-decoration: underline; text-underline-offset: 3px; }
 
+/* A row's quiet action (the budget's "Back out" on a lease in place): hidden
+ * until the row is hovered, so a table of forty leases is not forty buttons. */
+.row-quiet-action {
+  border: none; background: transparent; padding: 0 2px; cursor: pointer;
+  color: var(--brand); font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; opacity: 0; transition: opacity 0.12s ease;
+}
+tr:hover .row-quiet-action, .row-quiet-action:focus-visible { opacity: 0.8; }
+.row-quiet-action:hover { opacity: 1; text-decoration: underline; }
+
 /* The note mark on a budget line: invisible until the row is hovered while a
  * line has no note, so a grid of forty lines is not forty icons; solid brand
  * once a note exists, so a line with something to say is findable. */

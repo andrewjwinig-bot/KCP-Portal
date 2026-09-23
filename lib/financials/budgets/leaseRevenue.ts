@@ -22,6 +22,17 @@ function parseMDY(s: string | null | undefined): { y: number; m: number } | null
   return mm ? { y: Number(mm[3]), m: Number(mm[1]) } : null;
 }
 
+/** A lease in place all year — a suite with no call to make unless someone
+ *  backs its rent out (a "stop": the tenant will not pay). */
+export type ContractedLease = {
+  unitRef: string;
+  tenant: string;
+  sqft: number;
+  /** Its highest scheduled month — what "today's rent" reads as. */
+  monthlyRent: number;
+  assumption?: LeaseAssumption;
+};
+
 export type ExpiringLease = {
   unitRef: string;
   tenant: string;
@@ -67,6 +78,8 @@ export type LeaseRevenueProjection = {
   inPlaceUnits: number;
   expiring: ExpiringLease[];
   vacant: VacantUnit[];
+  /** Leases in place all year — each can be backed out ("stop"). */
+  contracted: ContractedLease[];
   /** Tenant improvements and leasing commissions the renewals and lease-ups
    *  carry (TI $/sf and LC $/sf × the suite's SF), in the month the new rent
    *  starts — the capital the deals cost, beside the rent they bring. */
@@ -323,6 +336,25 @@ export async function projectLeaseRevenue(
     }
   }
 
+  // BACKING OUT A LEASE ("stop"): a tenant who will not pay — Rite Aid at
+  // 7010, in bankruptcy — earns nothing from the chosen month, whatever the
+  // lease or the schedule says. Applied last, over every suite with a tenant;
+  // the rent line and the recoveries (which follow rent's months) follow.
+  const contracted: ContractedLease[] = [];
+  for (const r of rows) {
+    if (!r.tenant) continue;
+    const a = assumptions[r.unitRef] ?? assumptions[r.unitRef.trim().toUpperCase()];
+    const was = Math.max(0, ...r.months);
+    if (a?.kind === "stop") {
+      const from = Math.min(12, Math.max(1, a.startMonth ?? 1));
+      for (let m = from - 1; m < 12; m++) { r.months[m] = 0; r.assumed[m] = false; }
+      assumptionsApplied++;
+    }
+    if (r.status === "contracted") {
+      contracted.push({ unitRef: r.unitRef, tenant: r.tenant, sqft: r.sqft, monthlyRent: r0(was), assumption: a?.kind === "stop" ? a : undefined });
+    }
+  }
+
   expiring.sort((a, b) => (a.leaseTo ?? "").localeCompare(b.leaseTo ?? ""));
   vacant.sort((a, b) => b.sqft - a.sqft);
   const roundedRows = rows
@@ -342,6 +374,7 @@ export async function projectLeaseRevenue(
     inPlaceUnits,
     expiring,
     vacant,
+    contracted,
     assumptionsApplied,
     hasData: any,
   };

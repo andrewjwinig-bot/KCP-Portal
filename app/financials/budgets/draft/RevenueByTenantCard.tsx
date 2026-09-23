@@ -172,7 +172,9 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const [openUnit, setOpenUnit] = useState<string | null>(null);
   if (!allRows.length) return null;
   const callOf = new Map((leasing?.calls ?? []).map((c) => [canonRef(c.unitRef), c]));
-  const calls = leasing?.calls ?? [];
+  // A lease in place is never a call owed — only expiring, holdover and
+  // vacant suites count toward "To decide".
+  const calls = (leasing?.calls ?? []).filter((c) => c.mode !== "contracted");
   const decided = calls.filter((c) => c.assumption);
   const openCall = openUnit ? callOf.get(canonRef(openUnit)) : undefined;
   const office = est?.kind === "office";
@@ -185,7 +187,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const rows = allRows.map((r) => ({ r, months: cellsOf(r, parts) }))
     .filter(({ r }) => !jumpsOnly || jumps.has(r.unitRef + r.tenant))
     .filter(({ months }) => sure === "all" || months.some((v) => Math.abs(v) > 0.5))
-    .filter(({ r }) => !toDecide || (callOf.has(canonRef(r.unitRef)) && !callOf.get(canonRef(r.unitRef))!.assumption));
+    .filter(({ r }) => { if (!toDecide) return true; const c = callOf.get(canonRef(r.unitRef)); return !!c && c.mode !== "contracted" && !c.assumption; });
   const partTotals = (p: Part) => MONTHS.map((_, i) => rows.reduce((a, { r }) => a + (keepMonth(r, i) ? r[p][i] || 0 : 0), 0));
   const grandMonths = MONTHS.map((_, i) => rows.reduce((a, x) => a + x.months[i], 0));
   const allTie = tie.length === 0 || tie.every((t) => t.ties);
