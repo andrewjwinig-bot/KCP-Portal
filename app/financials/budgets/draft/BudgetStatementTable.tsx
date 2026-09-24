@@ -70,7 +70,9 @@ type Variant = "line" | "sub" | "subtotal" | "rollup" | "rollupStrong";
 type Line = BudgetDraftSection["lines"][number];
 /** Which cell is open for typing: a line key and a month (12 = the Budget column). */
 type EditAt = { row: string; m: number } | null;
-const TYPED_BG = "rgba(11,74,125,0.09)";
+/** Light blue = a cell you can type; bold blue text = a figure someone typed. */
+const INPUT_BG = "var(--input-cell)";
+const TYPED_FG = "var(--input-typed)";
 
 /** "$1,200", "1200", "(1,200)", "-1200" → a number; blank → null. */
 function parseTyped(s: string): number | null | undefined {
@@ -144,8 +146,8 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
     const isTyped = m != null && m < 12 && !!typed?.[m];
     const style: React.CSSProperties = {
       ...num, ...(subtotal ? { fontWeight: 800, fontSize: 13.5, color: COLOR_BRAND } : {}), ...extra,
-      ...(isTyped ? { background: TYPED_BG, fontWeight: 700 } : {}),
-      ...(editable && m != null ? { cursor: "text" } : {}),
+      ...(editable && m != null ? { cursor: "text", background: INPUT_BG } : {}),
+      ...(isTyped ? { color: TYPED_FG, fontWeight: 800 } : {}),
       ...(open ? { padding: "2px 4px" } : {}),
     };
     return (
@@ -498,7 +500,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
       {body}
       <div className="muted small" style={{ padding: "2px 4px" }}>
         <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules · <b>Payroll</b> this property&rsquo;s share of the book&rsquo;s payroll total — click the line to enter it · <b>Items</b> built item by item from the {draft.basisYear} budget (contracts and recurring +3%, Big Projects from $0), its figures in <i>italics</i> in the {draft.basisYear} column. <b>{draft.basisYear} Reproj.</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
-        {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget</b> to spread an annual. <span style={{ background: TYPED_BG, padding: "0 4px", borderRadius: 3 }}>Tinted</span> = typed; ↺ resets a line.</>}
+        {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget</b> to spread an annual. <span style={{ background: INPUT_BG, padding: "0 4px", borderRadius: 3 }}>Light blue</span> = you can type it; <span style={{ background: INPUT_BG, color: TYPED_FG, fontWeight: 800, padding: "0 4px", borderRadius: 3 }}>bold blue</span> = typed; ↺ resets a line.</>}
       </div>
     </div>
   );

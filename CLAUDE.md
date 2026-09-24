@@ -1149,6 +1149,12 @@ time — and the team does not have time to open the GL over $80.
   in-place lease is listed as `leasing.contracted` and shows a quiet "Back
   out" action on row hover (`.row-quiet-action`); it is NEVER a call owed, so
   it counts toward neither "To decide" nor the review's open calls.
+- **INPUT CELLS ARE LIGHT BLUE** (Excel's input-cell convention, as the old
+  draft workbooks did): every cell the VIEWER can type — grid months, the
+  Budget column, the line-history 2027 Budget row — carries `--input-cell`;
+  a figure someone has typed over is bold `--input-typed` blue on top of it.
+  White means calculated. Because it follows `canType` / `lineEditScope`, Greg
+  sees only his expense lines in blue. Both tokens swap in the dark theme.
 - **THE DRAFT PAGE'S WRITES GO OUT ONE AT A TIME** (`queued` in
   `draft/page.tsx`), and a reload waits for them. The stores rewrite a whole
   document per save, so a Tab across three months fired three saves that each
