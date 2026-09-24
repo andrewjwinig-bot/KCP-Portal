@@ -375,7 +375,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 // Taxes, insurance and building maintenance ARE typeable here — they
                 // save to the Budget Inputs store (the same figures Greg keys on his
                 // page), so the grid and his page cannot disagree.
-                const locked = l.source === "cam-estimate" || l.source === "leases";
+                // A payroll share is set by the book's total above the grid.
+        const locked = l.source === "cam-estimate" || l.source === "leases" || l.source === "pool";
                 const mayType = !!onEdit && (!canType || canType(sec.name, l.label));
                 const typeable = mayType && !locked && !viaSubs;
                 const keyed = !!l.inputKind;
@@ -384,7 +385,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 return (
                   <Fragment key={l.label + l.mask}>
                     <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
-                      badge={badgeFor(l.source)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
+                      badge={badgeFor(l.source)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : l.source === "pool" ? "#payroll-pools" : undefined}
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
@@ -496,7 +497,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {body}
       <div className="muted small" style={{ padding: "2px 4px" }}>
-        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules · <b>Items</b> built item by item from the {draft.basisYear} budget (contracts and recurring +3%, Big Projects from $0), its figures in <i>italics</i> in the {draft.basisYear} column. <b>{draft.basisYear} Reproj.</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
+        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules · <b>Payroll</b> this property&rsquo;s share of the payroll total entered once for the book · <b>Items</b> built item by item from the {draft.basisYear} budget (contracts and recurring +3%, Big Projects from $0), its figures in <i>italics</i> in the {draft.basisYear} column. <b>{draft.basisYear} Reproj.</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
         {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget</b> to spread an annual. <span style={{ background: TYPED_BG, padding: "0 4px", borderRadius: 3 }}>Tinted</span> = typed; ↺ resets a line.</>}
       </div>
     </div>

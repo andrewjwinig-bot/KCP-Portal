@@ -18,6 +18,7 @@ import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
 import { scopeAllowsLine } from "@/lib/financials/budgets/contributors";
 import { NoteDialog } from "./LineNote";
+import { PayrollPoolsCard } from "./PayrollPoolsCard";
 
 import type { LeasingCall, SavePayload } from "./LeasingDecision";
 
@@ -39,6 +40,7 @@ function sourceBadge(source: DraftSource, growthPct: number): { tone: PillTone; 
     case "entered": return { tone: TONE_GREEN, text: "Entered" };
     case "loans": return { tone: TONE_TEAL, text: "Loans" };
     case "items": return { tone: TONE_BLUE, text: "Items" };
+    case "pool": return { tone: TONE_TEAL, text: "Payroll" };
   }
 }
 
@@ -347,6 +349,8 @@ export default function BudgetDraftPage() {
             <span className="muted small">Click any month or the Budget total to type it · <b>Accept</b> keeps a keyed line as shown</span>
           </div>
           {editError && <div className="card" style={{ color: "#b91c1c", borderColor: "rgba(185,28,28,0.4)" }}>{editError}</div>}
+          <PayrollPoolsCard year={draft.budgetYear} bookId={bookId} bookName={book.name} propertyCode={draft.propertyCode}
+            queued={queued} onSaved={() => setRefreshTick((n) => n + 1)} />
           <BudgetStatementTable
             draft={draft}
             onEdit={draft.lineEditScope ? editLine : undefined}
