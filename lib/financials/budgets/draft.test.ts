@@ -153,6 +153,22 @@ describe("buildBudgetDraft", () => {
     } finally { typedDoc = {}; }
   });
 
+  it("TI is ONLY the leasing calls' TI — $0 until one carries it, never last year grown", async () => {
+    const r = fakeReproj();
+    (r.reprojection.sections as any[]).splice(2, 0, section("Capital", "capital", [line("Tenant improvements", "1440-0000", 5000)]));
+    loadReprojection.mockResolvedValue(r);
+    const leases = { rentalMonthly: new Array(12).fill(6000), rentalTotal: 72000, inPlaceUnits: 3, expiring: [], vacant: [], hasData: true };
+    projectLeaseRevenue.mockResolvedValue({ ...leases, tiMonthly: new Array(12).fill(0) });
+    let ti = (await buildBudgetDraft("1100", 2027, 3))!.sections.find((s) => s.role === "capital")!.lines[0];
+    expect(ti.total).toBe(0);                  // not 5,000 × 12 × 1.03
+    expect(ti.source).toBe("leases");
+    const keyed = new Array(12).fill(0); keyed[5] = 24000;   // a lease-up's TI in June
+    projectLeaseRevenue.mockResolvedValue({ ...leases, tiMonthly: keyed });
+    ti = (await buildBudgetDraft("1100", 2027, 3))!.sections.find((s) => s.role === "capital")!.lines[0];
+    expect(ti.months[5]).toBe(24000);
+    expect(ti.total).toBe(24000);
+  });
+
   it("keeps capital BELOW NOI — it is not an operating expense", async () => {
     const r = fakeReproj();
     (r.reprojection.sections as any[]).splice(2, 0, section("Capital", "capital", [line("Tenant improvements", "1440-0000", 5000)]));

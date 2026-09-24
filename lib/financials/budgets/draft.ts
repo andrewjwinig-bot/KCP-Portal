@@ -643,11 +643,14 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   // THE DEALS' CAPITAL. A renewal or lease-up that carries TI $/sf or a
   // commission $/sf puts those dollars on the Capital section's Tenant
   // improvements (1440) and Outside Leasing Commissions (1940-8501) lines, in the
-  // month its new rent starts. Where any deal carries one, the line IS the
-  // deals — growing this year's TI by a percent budgets last year's leases
-  // again; TI is spent because a lease was signed.
+  // month its new rent starts. The line IS the deals — $0 until the leasing
+  // owner keys TI or an LC % on a call. It is NEVER this year's figure grown:
+  // TI is spent because a lease was signed, so growing 2026's by 3% budgets
+  // last year's leases a second time (9510 did exactly that while no call
+  // carried TI yet). Only a property with no leasing data at all keeps it.
   const dealLine = (re: RegExp, months: number[] | undefined) => {
-    if (!months || !months.some((m) => m)) return;
+    if (!lease.hasData) return;
+    months = months ?? new Array(12).fill(0);
     const sec = sections.find((x) => x.role === "capital" && x.lines.some((l) => re.test(l.label) || re.test(l.mask)));
     const idx = sec?.lines.findIndex((l) => re.test(l.label) || re.test(l.mask)) ?? -1;
     if (!sec || idx < 0) return;
@@ -658,11 +661,12 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   dealLine(/lease cost|leasing commission|1940-8501/i, lease.lcMonthly);
   // The INTERNAL broker's commissions on those same deals (Harry $1/SF, Nancy
   // by term) → Commissions-Internal Broker (6620-8501). That account rides on
-  // the salaries line with 6010-8501, so the commissions become its sub-line;
-  // where the deals carry none, the account keeps this year's figure.
+  // the salaries line with 6010-8501, so the commissions become its sub-line.
+  // Like TI and the outside LC, it is ONLY the deals Harry / Nancy key — $0
+  // until they do — never this year's commissions grown.
   const COMMISSION_ACCT = "6620-8501";
-  const cm = lease.commissionMonthly;
-  if (cm && cm.some((v) => v)) {
+  const cm = lease.hasData ? (lease.commissionMonthly ?? new Array(12).fill(0)) : undefined;
+  if (cm) {
     for (const sec of sections) {
       if (!EXPENSE_ROLE_SET.has(sec.role) || sec.role === "capital") continue;
       const idx = sec.lines.findIndex((l) => l.mask && accountMatchesMask(l.mask, COMMISSION_ACCT));
