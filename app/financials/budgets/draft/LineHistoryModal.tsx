@@ -12,6 +12,7 @@ import { Pill, StatPill, TONE_GREEN, TONE_AMBER, TONE_RED, TONE_BLUE, TONE_NEUTR
 import { HistoryLoading } from "./HistoryLoading";
 import { HistoryBars } from "./HistoryBars";
 import { HistoryMonthly } from "./HistoryMonthly";
+import { historyComments } from "@/lib/financials/budgets/historyComments";
 import type { LineHistory } from "@/lib/financials/budgets/lineHistory";
 import type { LineInsight, LineShape } from "@/lib/financials/budgets/lineInsight";
 
@@ -52,6 +53,9 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
   }, [viewKey, propertyCode, label, mask, sign, year]);
 
   const ins = data?.insight;
+  // What the monthly table says about the budget being set, each with the
+  // thing to do — read off the same numbers as the table.
+  const comments = data ? historyComments(data, ins, year, budgetMonths) : [];
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
@@ -72,38 +76,18 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
 
           {data && ins && (
             <>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <Pill tone={SHAPE[ins.shape].tone}>{SHAPE[ins.shape].text}</Pill>
-                <span className="muted small">{SHAPE[ins.shape].what}</span>
-              </div>
-
               {/* Month by month first — seasonality and one-offs are read
                   where they happen; the annual reading and bars follow. */}
               <HistoryMonthly years={data.years} budgetYear={year} draftMonths={budgetMonths}
                 viewKey={viewKey} propertyCode={propertyCode} label={label} mask={mask} sign={sign} />
 
-              {ins.suggestion && (
-                <div className="card" style={{ marginTop: 12, borderColor: "rgba(11,74,125,0.35)", background: "rgba(11,74,125,0.04)" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <div>
-                      <div style={secLabel}>What the history supports</div>
-                      <div style={{ fontSize: 24, fontWeight: 900, marginTop: 2 }}>{money0(ins.suggestion.amount)}</div>
-                      <div className="muted small" style={{ marginTop: 2 }}>{ins.suggestion.basis}</div>
-                    </div>
-                    {onUseSuggestion && (
-                      <button type="button" className="btn primary" onClick={() => onUseSuggestion(ins.suggestion!.amount)}
-                        style={{ fontSize: 12, padding: "6px 13px", fontWeight: 700 }}>
-                        Use this
-                      </button>
-                    )}
-                  </div>
+              {comments.length > 0 && (
+                <div className="card" style={{ marginTop: 14, padding: "12px 14px" }}>
+                  <div style={secLabel}>Comments</div>
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 13, lineHeight: 1.65 }}>
+                    {comments.map((n, i) => <li key={i}>{n}</li>)}
+                  </ul>
                 </div>
-              )}
-
-              {ins.notes.length > 0 && (
-                <ul style={{ margin: "12px 0 0", paddingLeft: 18, fontSize: 13, lineHeight: 1.65 }}>
-                  {ins.notes.map((n, i) => <li key={i}>{n}</li>)}
-                </ul>
               )}
 
               <div className="pills" style={{ marginTop: 14 }}>
