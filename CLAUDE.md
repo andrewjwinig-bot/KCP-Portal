@@ -1052,8 +1052,13 @@ time — and the team does not have time to open the GL over $80.
   there carries no rent at all so the projection holds today's rent to the
   dollar. It still takes TI, LC % and term. A decision saved as `hold` before
   reads as "RENEW $x/SF" and projects the same; `hold` survives only as
-  "Leave vacant" on a vacant suite. Where any deal carries one, that line IS the deals rather than last year's
-  TI grown. "Holdover" means the lease has ALREADY ended — 11/30/26 in
+  "Leave vacant" on a vacant suite. **TI, Outside Leasing Commissions AND the internal broker's commission
+  (6620-8501) are ONLY what Harry / Nancy key on their calls** — $0 until
+  they do, and $0 is a real answer (a year with no deals has no TI or
+  commissions). They are NEVER this year's figure grown: 9510's TI read the
+  2026 reprojection +3% while no call carried TI, budgeting last year's leases
+  a second time. Only a property with no leasing data at all keeps the grown
+  figure (`dealLine` in `draft.ts`, pinned by `draft.test.ts`). "Holdover" means the lease has ALREADY ended — 11/30/26 in
   September is a live lease, not a holdover.
 - **THE RENT ROLL REVIEW is the page the leasing owner is SENT**
   (`/financials/budgets/review?group=SC|BP&year=`; Harry → SC, Nancy → BP, and
