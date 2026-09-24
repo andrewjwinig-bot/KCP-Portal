@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { setLeasingAssumption, getLeasingAssumptions, leasingDecisionFromBody, type LeaseAssumptionKind } from "@/lib/financials/budgets/leasingAssumptions";
+import { setLeasingAssumption, getLeasingAssumptions, leasingDecisionFromBody, isLeaseKind, type LeaseAssumptionKind } from "@/lib/financials/budgets/leasingAssumptions";
 import { budgetUser as currentUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "year, propertyCode, unitRef required" }, { status: 400 });
     }
     const kind = (b?.kind ?? null) as LeaseAssumptionKind | null;
-    if (kind !== null && !["renew", "vacate", "leaseup", "hold"].includes(kind)) {
+    if (kind !== null && !isLeaseKind(kind)) {
       return NextResponse.json({ error: "invalid kind" }, { status: 400 });
     }
     // The leasing call belongs to its owner — Harry for the shopping centres,

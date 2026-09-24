@@ -18,7 +18,12 @@ const idFor = (budgetYear: number, propertyCode: string) => `${budgetYear}-${pro
 // "stop" backs out a lease that is IN PLACE — a tenant who will not pay
 // (Rite Aid at 7010, in bankruptcy): no rent, and so no recoveries, from
 // `startMonth` on, whatever the lease or the schedule says.
-export type LeaseAssumptionKind = "renew" | "vacate" | "leaseup" | "hold" | "stop";
+export const LEASE_KINDS = ["renew", "vacate", "leaseup", "hold", "stop"] as const;
+export type LeaseAssumptionKind = (typeof LEASE_KINDS)[number];
+/** The ONE list of decisions a save may carry. The budget page's route had
+ *  its own copy, which "stop" never reached — a back-out was refused as
+ *  "invalid kind" and nothing was saved. */
+export const isLeaseKind = (k: unknown): k is LeaseAssumptionKind => (LEASE_KINDS as readonly unknown[]).includes(k);
 
 export type LeaseAssumption = {
   unitRef: string;
@@ -49,7 +54,23 @@ export type LeaseAssumption = {
   updatedBy?: string;
 };
 
-type Doc = { assumptions: Record<string, LeaseAssumption> };
+/** Units whose SEEDED decision someone undid — kept so the seed does not come back. */
+type Doc = { assumptions: Record<string, LeaseAssumption>; cleared?: string[] };
+
+/**
+ * Decisions made at the owner's instruction, applied to every budget year from
+ * `fromYear` unless a saved decision replaces them. Undoing one on the page
+ * ("Keeps paying") records the unit in `cleared`, so it stays undone.
+ *
+ * Rite Aid at Parkwood (7010-12311) is in bankruptcy and will not pay; the
+ * owner asked for its rent backed out, and the page's own save refused the
+ * back-out at the time (its route had a stale list of decisions).
+ */
+const SEEDED: { code: string; fromYear: number; a: LeaseAssumption }[] = [
+  { code: "7010", fromYear: 2027, a: { unitRef: "7010-12311", kind: "stop", startMonth: 1, notes: "Rite Aid — in bankruptcy, will not pay.", updatedBy: "ANDREW" } },
+];
+const seedFor = (budgetYear: number, code: string) =>
+  SEEDED.filter((x) => x.code === String(code).toUpperCase() && budgetYear >= x.fromYear).map((x) => x.a);
 
 async function loadDoc(budgetYear: number, propertyCode: string): Promise<Doc> {
   return ((await getJSON(PREFIX, idFor(budgetYear, propertyCode))) as Doc | null) ?? { assumptions: {} };
@@ -60,6 +81,9 @@ export async function getLeasingAssumptions(budgetYear: number, codes: string[])
   const out: Record<string, LeaseAssumption> = {};
   for (const code of codes) {
     const doc = await loadDoc(budgetYear, code);
+    for (const a of seedFor(budgetYear, code)) {
+      if (!doc.assumptions[a.unitRef] && !doc.cleared?.includes(a.unitRef)) out[a.unitRef] = a;
+    }
     for (const [ref, a] of Object.entries(doc.assumptions)) out[ref] = a;
   }
   return out;
@@ -72,9 +96,12 @@ export async function setLeasingAssumption(
   a: (Omit<LeaseAssumption, "updatedAt" | "kind"> & { kind: LeaseAssumptionKind | null }),
 ): Promise<void> {
   const doc = await loadDoc(budgetYear, propertyCode);
+  const seeded = seedFor(budgetYear, propertyCode).some((x) => x.unitRef === a.unitRef);
   if (a.kind === null) {
     delete doc.assumptions[a.unitRef];
+    if (seeded) doc.cleared = [...new Set([...(doc.cleared ?? []), a.unitRef])];
   } else {
+    if (doc.cleared) doc.cleared = doc.cleared.filter((u) => u !== a.unitRef);
     doc.assumptions[a.unitRef] = {
       unitRef: a.unitRef, kind: a.kind,
       // EVERY field the card keys is kept. rentPsf / tiPsf / lcPct were added
@@ -107,7 +134,7 @@ export function leasingDecisionFromBody(
   const unitRef = String(b?.unitRef ?? "").trim();
   if (!unitRef) return { ok: false, error: "unitRef required" };
   const kind = (b?.kind ?? null) as LeaseAssumptionKind | null;
-  if (kind !== null && !["renew", "vacate", "leaseup", "hold", "stop"].includes(kind)) return { ok: false, error: "invalid kind" };
+  if (kind !== null && !isLeaseKind(kind)) return { ok: false, error: "invalid kind" };
   const num = (v: unknown) => (v != null && v !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
   const psf = (v: unknown) => { const n = num(v); return n != null && n >= 0 ? n : undefined; };
   const startMonth = num(b?.startMonth) != null ? Math.min(12, Math.max(1, Number(b!.startMonth))) : undefined;
