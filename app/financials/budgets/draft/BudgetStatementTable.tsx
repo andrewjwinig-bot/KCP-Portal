@@ -447,7 +447,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 return (
                   <Fragment key={l.label + l.mask}>
                     <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
-                      badge={growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
+                      badge={draft.consolidated || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
@@ -481,7 +481,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                             months={y.months} total={y.total}
                             basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
-                            badge={grown ? badgeFor("reproj-growth") : undefined}
+                            badge={grown && !draft.consolidated ? badgeFor("reproj-growth") : undefined}
                             favorableUp={favorableUp}
                             typed={y.bucket === "base" && entered ? new Array(12).fill(true) : y.typed}
                             onAccept={typeableY && y.bucket === "base" && keyed && !entered ? () => onEdit!(sec, l, "accept", null, y.account) : undefined}

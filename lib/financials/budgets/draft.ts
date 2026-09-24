@@ -67,6 +67,8 @@ export type DraftSource = "reproj-growth" | "reproj-flat" | "leases" | "cam-esti
 export type BudgetDraftLine = {
   label: string;
   mask: string;
+  /** A roll-up line's figure, property by property (`consolidate.ts`). */
+  byProperty?: { code: string; name: string; months: number[]; total: number }[];
   /** A management-fee line's rate, % of gross revenue (`managementFee.ts`). */
   feePct?: number;
   /** Drafted 12 monthly amounts (display orientation: positive). */
@@ -169,6 +171,10 @@ export type BudgetDraft = {
   recoveryTie?: RecoveryTie[];
   /** Every suite's rent + recoveries, month by month (Step 1's master table). */
   tenantRevenue?: TenantRevenueRow[];
+  /** Set on a BOOK's roll-up ("All Shopping Centers"): the sum of these
+   *  properties' drafts (`consolidate.ts`) — read-only, and each line carries
+   *  its per-property split in `byProperty`. */
+  consolidated?: { properties: { code: string; name: string }[] };
   /** The budget line base rent lands on. */
   rentLineLabel?: string;
   /** The loans behind the debt-service lines (Debt Tracker), when any. */

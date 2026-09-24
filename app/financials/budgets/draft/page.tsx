@@ -12,6 +12,7 @@ import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../l
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
 import { BookMasthead } from "./BookMasthead";
+import { PropertyBreakdownModal } from "./PropertyBreakdownModal";
 import { useUser } from "@/app/components/UserProvider";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
@@ -58,6 +59,8 @@ export default function BudgetDraftPage() {
   const [draft, setDraft] = useState<BudgetDraft | null>(null);
   // The line open in the note dialog.
   const [noteLine, setNoteLine] = useState<{ section: string; label: string } | null>(null);
+  // A roll-up line's split by property (the book's "All …" view).
+  const [breakdown, setBreakdown] = useState<{ label: string; section: string; rows: { code: string; name: string; total: number }[] } | null>(null);
   const [missingBasis, setMissingBasis] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -106,7 +109,10 @@ export default function BudgetDraftPage() {
     const t = setTimeout(() => {
       // Wait for any save still in flight: a reload read before it lands
       // would put the old figure back on screen over the one just typed.
-      writeQ.current.then(() => fetch(`/api/financials/budgets/draft?key=${encodeURIComponent(key)}&year=${year}&growth=${GROWTH}`, { cache: "no-store" }))
+      const url = key.startsWith("book:")
+        ? `/api/financials/budgets/draft?book=${encodeURIComponent(key.slice(5))}&year=${year}&growth=${GROWTH}`
+        : `/api/financials/budgets/draft?key=${encodeURIComponent(key)}&year=${year}&growth=${GROWTH}`;
+      writeQ.current.then(() => fetch(url, { cache: "no-store" }))
         .then((r) => r.json())
         .then((j) => {
           if (seq !== reqSeq.current) return;
@@ -313,7 +319,8 @@ export default function BudgetDraftPage() {
           if (match) setKey(match.key);
         }}
         onProperty={(code) => {
-          if (!code) return;
+          // The book's roll-up: every property in it, summed (consolidate.ts).
+          if (!code) { if (book.rollsUp) setKey(`book:${book.id}`); return; }
           const match = props.find((p) => p.propertyCode === code);
           if (match) setKey(match.key);
         }}
@@ -348,17 +355,21 @@ export default function BudgetDraftPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <div style={STEP_LABEL}>Expenses &amp; review — the {draft.budgetYear} budget</div>
             </div>
-            <span className="muted small">Click any month or the Budget total to type it · <b>Accept</b> keeps a keyed line as shown</span>
+            <span className="muted small">{draft.consolidated
+              ? <>The sum of {draft.consolidated.properties.length} properties — click a line for its split by property · edit on each property&rsquo;s own tab</>
+              : <>Click any month or the Budget total to type it · <b>Accept</b> keeps a keyed line as shown</>}</span>
           </div>
           {editError && <div className="card" style={{ color: "#b91c1c", borderColor: "rgba(185,28,28,0.4)" }}>{editError}</div>}
           <BudgetStatementTable
             draft={draft}
-            onEdit={draft.lineEditScope ? editLine : undefined}
+            onEdit={draft.lineEditScope && !draft.consolidated ? editLine : undefined}
             canType={(section, label) => scopeAllowsLine(draft.lineEditScope ?? null, section, label)}
             notes={draft.notes}
-            onNote={(sec, label) => setNoteLine({ section: sec.name, label })}
+            onNote={draft.consolidated ? undefined : (sec, label) => setNoteLine({ section: sec.name, label })}
             badgeFor={(src, feePct) => sourceBadge(src, GROWTH, feePct)}
-            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.map((p) => p.key) })}
+            onLine={draft.consolidated
+              ? (sec, l) => setBreakdown({ label: l.label, section: sec.name, rows: (l.byProperty ?? []).map((b) => ({ code: b.code, name: b.name, total: b.total })) })
+              : (sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.map((p) => p.key) })}
           />
 
           {/* The loans behind the debt-service lines — so "why is interest
@@ -448,6 +459,9 @@ export default function BudgetDraftPage() {
       {/* Always visible while you work the budget — the question "what is
           holding this up" is asked continuously in a room with four people in
           it, not once when the page loads. */}
+      {breakdown && draft && (
+        <PropertyBreakdownModal label={breakdown.label} section={breakdown.section} year={draft.budgetYear} rows={breakdown.rows} onClose={() => setBreakdown(null)} />
+      )}
       {noteLine && draft && (
         <NoteDialog label={noteLine.label} section={noteLine.section}
           note={draft.notes?.[`${noteLine.section}::${noteLine.label}`]}
