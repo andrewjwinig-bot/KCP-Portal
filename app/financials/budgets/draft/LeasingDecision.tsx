@@ -38,9 +38,11 @@ const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toL
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
+// No separate "Hold": a tenant staying is a RENEWAL, and the rent box starts at
+// today's $/SF — so a flat renewal is no typing, and holds today's rent to the
+// dollar. A decision saved as "hold" before this reads (and projects) the same.
 const INPLACE_CHOICES = [
-  { value: "hold", label: "Hold — stays at today's rent" },
-  { value: "renew", label: "Renew — at a new rent" },
+  { value: "renew", label: "Renew — rent starts at today's $/SF" },
   { value: "vacate", label: "Vacate — leaves at term end" },
   { value: "stop", label: "Stops paying — back out the rent" },
 ];
@@ -92,10 +94,13 @@ function decisionLabel(call: LeasingCall): string | null {
   if (call.mode === "vacant" && a.kind === "hold") return "LEAVE VACANT";
   if (a.kind === "stop") return `BACKED OUT FROM ${MONTHS[(a.startMonth ?? 1) - 1].toUpperCase()}`;
   const psf = a.rentPsf ?? (a.monthlyRent != null && call.sqft > 0 ? round2((a.monthlyRent * 12) / call.sqft) : null);
+  // A renewal with no rent keyed — or an old "hold" — renews at today's rent.
+  const today = call.sqft > 0 && call.currentRent ? round2((call.currentRent * 12) / call.sqft) : null;
+  const renewAt = psf ?? today;
   switch (a.kind) {
-    case "hold": return "HOLD";
+    case "hold":
+    case "renew": return renewAt != null ? `RENEW $${renewAt.toFixed(2)}/SF` : "RENEW";
     case "vacate": return "VACATE";
-    case "renew": return psf != null ? `RENEW $${psf.toFixed(2)}/SF` : "RENEW";
     case "leaseup": return `LEASE-UP ${MONTHS[(a.startMonth ?? 1) - 1].toUpperCase()}${psf != null ? ` · $${psf.toFixed(2)}/SF` : ""}`;
     default: return null;
   }
@@ -140,7 +145,9 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
   onClose: () => void;
 }) {
   const { mode, sqft, currentRent, assumption, unitRef } = call;
-  const saved = assumption?.kind === "hold" && mode === "vacant" ? "none" : mode === "contracted" && !assumption ? "keep" : assumption?.kind;
+  const saved = assumption?.kind === "hold" && mode === "vacant" ? "none"
+    : assumption?.kind === "hold" && mode === "inplace" ? "renew"
+    : mode === "contracted" && !assumption ? "keep" : assumption?.kind;
   // Rent is keyed as ANNUAL $/SF — how a deal is quoted. An existing tenant's
   // box starts at what they pay today, so a flat renewal is no typing at all.
   const curPsf = sqft > 0 && currentRent ? round2((currentRent * 12) / sqft) : null;
@@ -172,7 +179,10 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
     const monthlyRent = psf == null || same || !(sqft > 0) ? undefined : Math.round((psf * sqft) / 12);
     onSave({
       unitRef, kind: apiKind, monthlyRent,
-      rentPsf: k === "renew" || k === "leaseup" ? psf ?? undefined : undefined,
+      // Left at today's $/SF, a renewal carries no rent at all, and the
+      // projection holds today's rent exactly rather than one rounded back
+      // through $/SF.
+      rentPsf: (k === "renew" && !same) || k === "leaseup" ? psf ?? undefined : undefined,
       tiPsf: tiV !== "" ? Number(tiV) : undefined,
       lcPct: lcV !== "" ? Number(lcV) : undefined,
       startMonth: mo, termYears: t !== "" ? Number(t) : undefined,

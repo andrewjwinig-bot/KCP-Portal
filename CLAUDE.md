@@ -1047,7 +1047,12 @@ time — and the team does not have time to open the GL over $80.
   exactly. **TI is $/SF × the suite's SF; the leasing commission is a PERCENT OF THE RENT over the term** (`leasingCommission`: LC % × new annual rent × term years — no term, no commission). Both land on the Capital section's
   Tenant improvements (1440) and Outside Leasing Commissions (1940-8501) lines in
   the month the new rent starts** (`tiMonthly`/`lcMonthly` in `leaseRevenue.ts`);
-  **A HOLD is a deal too** — a tenant staying at today's rent for a new term can still get TI and a broker is still paid, so Hold rows take TI, LC % and term (rent fixed at today's) and cost them when the term rolls. Where any deal carries one, that line IS the deals rather than last year's
+  **There is no separate HOLD for an expiring lease** (owner's call): a tenant
+  staying IS a renewal, its rent box starts at today's $/SF, and a renewal left
+  there carries no rent at all so the projection holds today's rent to the
+  dollar. It still takes TI, LC % and term. A decision saved as `hold` before
+  reads as "RENEW $x/SF" and projects the same; `hold` survives only as
+  "Leave vacant" on a vacant suite. Where any deal carries one, that line IS the deals rather than last year's
   TI grown. "Holdover" means the lease has ALREADY ended — 11/30/26 in
   September is a live lease, not a holdover.
 - **THE RENT ROLL REVIEW is the page the leasing owner is SENT**
