@@ -186,7 +186,18 @@ export async function estimateReimbursements(
   const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   /** The months a tenant already in place pays, which of them are assumed,
    *  and why the year is short. */
+  // A BACKED-OUT lease (Rite Aid at 7010, in bankruptcy) pays no recoveries
+  // from its month whichever path found its tenancy — including the fallbacks
+  // below that assume a full year when a recon tenant matches no rent row.
   const tenancy = (ref: string): { months: boolean[]; assumed: boolean[]; note?: string } => {
+    const t = tenancyOf(ref);
+    const a = aOf(ref);
+    if (a?.kind !== "stop") return t;
+    const from = Math.min(12, Math.max(1, a.startMonth ?? 1));
+    const months = t.months.map((on, i) => on && i < from - 1);
+    return { months, assumed: t.assumed.map((x, i) => x && months[i]), note: `Backed out from ${MONTH[from - 1]} — no rent or recoveries` };
+  };
+  const tenancyOf = (ref: string): { months: boolean[]; assumed: boolean[]; note?: string } => {
     const none = new Array(12).fill(false) as boolean[];
     if (!pr) return { months: monthsBetween(1, 12), assumed: none };
     const row = rows.get(canon(ref));

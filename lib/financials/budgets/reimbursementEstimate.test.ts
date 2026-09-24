@@ -47,6 +47,27 @@ describe("recoveries follow the rent months", () => {
     expect(e.monthly.cam[11]).toBe(1000);
   });
 
+  it("a backed-out lease pays no recoveries from its month — even with no rent row to follow", async () => {
+    // Rite Aid at 7010: on the reconciliation, but matched to no rent row, so
+    // the tenancy fell back to a full year and the back-out was never read.
+    loadRetailRecon.mockResolvedValue({ result: { tenants: [
+      { unitRef: "2300-9", name: "Rite Aid", camDue: 12000, insDue: 1200, retDue: 2400, occPct: 1 },
+      { unitRef: "2300-8", name: "Half year", camDue: 12000, insDue: 0, retDue: 0, occPct: 1 },
+    ] } });
+    const e = (await estimateReimbursements("2300", 2026, 0, {
+      poolRatios: { cam: 1, ins: 1, ret: 1 },
+      tenancy: [],
+      assumptions: {
+        "2300-9": { unitRef: "2300-9", kind: "stop", startMonth: 1 },
+        "2300-8": { unitRef: "2300-8", kind: "stop", startMonth: 7 },
+      },
+    }))!;
+    const [rite, half] = e.tenants;
+    expect(rite.camAnnual + rite.insAnnual + rite.retAnnual).toBe(0);
+    expect(rite.note).toMatch(/Backed out from Jan/);
+    expect(half.cam).toEqual([...new Array(6).fill(1000), ...new Array(6).fill(0)]);
+  });
+
   it("a tenant on no reconciliation is assumed NNN at its pro-rata share", async () => {
     loadRetailRecon.mockResolvedValue({ result: { tenants: [
       { unitRef: "2300-1", name: "Old", camDue: 12000, insDue: 0, retDue: 0, occPct: 1, camDenom: 10000, insDenom: 10000, retDenom: 10000, camPoolFull: 100000, insPool: 0, retPool: 0 },
