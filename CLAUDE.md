@@ -1264,7 +1264,12 @@ time — and the team does not have time to open the GL over $80.
   pages open the same drill-down; a row's Total opens the year to date. The
   owner budgets month by month — seasonality and one-offs are read where they
   happen, not flattened into an annual average. `lineHistory` carries
-  `budgetMonths` per year for it. The bars stay below as the visual aid.
+  `budgetMonths` per year for it. **A year imported "Monthly totals only"
+  has totals and NO transactions** (`transactionsStored: false`): its row
+  carries a TOTALS ONLY pill, and the drill-down says so and how to fix it
+  (re-upload without the box) instead of an empty list —
+  `transactionDetail()` in `statementStore.ts`, returned as `detail` by the
+  transactions route. The bars stay below as the visual aid.
   The {year} Budget row is TYPEABLE there (a month, or the Total to spread an
   annual) through the grid's own `editLine`, for exactly the lines the grid
   lets that viewer type; the popup reads the line LIVE from the draft so a

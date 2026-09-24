@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getGl, getTransactions, assembledTransactions } from "@/lib/financials/operating-statements/statementStore";
+import { getGl, getTransactions, assembledTransactions, transactionDetail } from "@/lib/financials/operating-statements/statementStore";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { buildTenantDirectory } from "@/lib/financials/operating-statements/tenants";
 import { identifyTx } from "@/lib/financials/operating-statements/txUnits";
@@ -33,7 +33,10 @@ export async function GET(req: Request) {
   const byAccount = versionId
     ? await (async () => { const v = await getGl(versionId); return v ? getTransactions(v.id) : {}; })()
     : await assembledTransactions(key, year);
-  if (!Object.keys(byAccount).length) return NextResponse.json({ transactions: [], total: 0, count: 0 });
+  // Why a list may be empty: no GL for the year, or one imported as monthly
+  // totals only — the modal says which rather than showing nothing.
+  const detail = versionId ? "stored" : await transactionDetail(key, year).catch(() => "stored" as const);
+  if (!Object.keys(byAccount).length) return NextResponse.json({ transactions: [], total: 0, count: 0, detail });
   const accounts = Object.keys(byAccount).filter((a) => accountMatchesMask(mask, a));
   const dir = await buildTenantDirectory();
 
@@ -61,5 +64,5 @@ export async function GET(req: Request) {
   }
   const byTenant = [...groups.values()].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 
-  return NextResponse.json({ transactions: rows, total, count: rows.length, accounts, byTenant });
+  return NextResponse.json({ transactions: rows, total, count: rows.length, accounts, byTenant, detail });
 }

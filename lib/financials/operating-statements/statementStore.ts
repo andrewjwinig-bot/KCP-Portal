@@ -106,6 +106,21 @@ export async function assembledTransactions(key: string, year: number): Promise<
   return out;
 }
 
+/**
+ * Whether a year's GL carries TRANSACTION detail. A GL imported "monthly
+ * totals only" keeps the monthly nets every statement and the budget's line
+ * history read, and nothing a drill-down can list — so an older year opened
+ * from the line history showed an empty list with no reason given. This is the
+ * reason. "partial" = some uploads for the year kept detail and some did not.
+ */
+export async function transactionDetail(key: string, year: number): Promise<"stored" | "lean" | "partial" | "none"> {
+  const keys = new Set(glKeysFor(key));
+  const gls = (await listFullGls()).filter((g) => keys.has(g.key) && g.year === year);
+  if (!gls.length) return "none";
+  const lean = gls.filter((g) => g.transactionsStored === false).length;
+  return lean === 0 ? "stored" : lean === gls.length ? "lean" : "partial";
+}
+
 export async function getGl(id: string): Promise<StoredGl | null> {
   return (await getJSON(PREFIX, id)) as StoredGl | null;
 }
