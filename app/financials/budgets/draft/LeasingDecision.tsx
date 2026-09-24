@@ -128,8 +128,11 @@ export function DecisionPill({ call, owner, onOpen }: {
   );
 }
 
-export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, onClose }: {
+export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, onClose, error }: {
   call: LeasingCall;
+  /** A save that failed — shown here, where the decision is being made, not
+   *  only under the table behind this window. */
+  error?: string | null;
   owner: { id: string; label: string };
   budgetYear: number;
   fromSchedule: boolean;
@@ -281,6 +284,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
             return field("Internal comm.", <span style={{ fontWeight: 700 }}>{internal > 0 ? money0(internal) : "—"}</span>,
               group === "SC" ? "$1.00/SF · to 6620-8501" : internal > 0 ? "by term · to 6620-8501" : "set a term");
           })()}
+          {error && <div role="alert" style={{ marginTop: 10, color: "#b91c1c", fontSize: 13, fontWeight: 700 }}>Not saved — {error}</div>}
           <div style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: tone.bg, border: `1px solid ${tone.border}`, fontSize: 13 }}>
             <b>In {budgetYear}:</b> {effect}
             {assumption?.updatedAt && (

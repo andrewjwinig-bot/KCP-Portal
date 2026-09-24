@@ -366,7 +366,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
       )}
       {openCall && leasing && (
         <DecisionModal key={openCall.unitRef} call={openCall} owner={leasing.owner} budgetYear={year} fromSchedule={fromSchedule}
-          onSave={leasing.onSave} onClose={() => setOpenUnit(null)} />
+          onSave={leasing.onSave} onClose={() => setOpenUnit(null)} error={leasing.error} />
       )}
     </div>
   );

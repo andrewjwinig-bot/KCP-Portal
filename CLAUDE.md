@@ -1160,6 +1160,14 @@ time — and the team does not have time to open the GL over $80.
   in-place lease is listed as `leasing.contracted` and shows a quiet "Back
   out" action on row hover (`.row-quiet-action`); it is NEVER a call owed, so
   it counts toward neither "To decide" nor the review's open calls.
+  **Rite Aid (7010-12311) is backed out from January as a SEED**
+  (`SEEDED` in `leasingAssumptions.ts`, every budget year from 2027): the
+  owner asked for it when the page's save was refusing "stop" — the route kept
+  its OWN list of kinds, which the back-out never reached, and the error
+  rendered under the table behind the dialog. Both routes now read ONE list
+  (`LEASE_KINDS` / `isLeaseKind`) and the dialog shows a failed save itself. A
+  saved decision replaces a seed; undoing one ("Keeps paying") records the unit
+  in the doc's `cleared` so the seed stays undone.
 - **THE MANAGEMENT FEE IS A FORMULA: LAST YEAR'S RATE × THIS BUDGET'S GROSS
   REVENUE, MONTH BY MONTH** (`managementFee.ts`, source `fee`, pill "6% of
   revenue", not typeable). The rate is the one the budget of record's own
