@@ -1214,6 +1214,12 @@ time — and the team does not have time to open the GL over $80.
   included: the grid kept "+3%" on a row someone had cleared.
   Pills naming where a figure COMES from (Leases, Recoveries, Payroll, % of
   revenue) stay even at zero.
+- **A NEGATIVE REVENUE OR EXPENSE IS FLAGGED** (`negativeLines.ts`,
+  `flagNegative` in `BudgetStatementTable.tsx`): a budget month or total below
+  zero on a line (or its sub-lines / items) is filled amber, and a banner above
+  the grid names the lines. Not the reprojection column (last year's actuals),
+  not subtotals / NOI / cash flow (which can go negative), and not Debt
+  Service (loan proceeds are a credit).
 - **INPUT CELLS ARE LIGHT BLUE** (Excel's input-cell convention, as the old
   draft workbooks did): every cell the VIEWER can type — grid months, the
   Budget column, the line-history 2027 Budget row — carries `--input-cell`;

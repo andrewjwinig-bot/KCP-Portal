@@ -34,6 +34,7 @@ import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/d
 import type { SectionRole } from "@/lib/financials/operating-statements/types";
 import { NoteMark, type LineNote } from "./LineNote";
 import { HoverCard, type TipRow } from "@/app/components/HoverCard";
+import { negativeLines } from "@/lib/financials/budgets/negativeLines";
 import { recoveryCategory, recoveryMakeup, CATEGORY_LABEL, type RecoveryCategory } from "@/lib/financials/budgets/recoveryMakeup";
 import { RecoveryMakeupModal } from "./RecoveryMakeupModal";
 import { OccupancyBySuiteModal } from "./OccupancyBySuiteModal";
@@ -85,6 +86,10 @@ export const growthOnNothing = (source: string, months: number[]) =>
 export const growthOverTyped = (source: string, typed?: boolean[]) =>
   (source === "reproj-growth" || source === "reproj-flat" || source === "ret-default") && !!typed?.some(Boolean);
 
+/** A negative figure on a revenue or expense line — almost always a miscoded
+ *  credit or a typo, never a budget. Filled amber (the warn tone) to be fixed. */
+const NEGATIVE_BG = "rgba(217,119,6,0.18)";
+const NEGATIVE_FG = "#b45309";
 /** Light blue = a cell you can type; bold blue text = a figure someone typed. */
 const INPUT_BG = "var(--input-cell)";
 const TYPED_FG = "var(--input-typed)";
@@ -123,7 +128,7 @@ export function CellInput({ initial, onDone }: { initial: number; onDone: (v: nu
   );
 }
 
-function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, onCellClick }: {
+function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, onCellClick, flagNegative }: {
   label: string; months: number[]; total: number; basis: number | null; variant?: Variant;
   badge?: { tone: PillTone; text: string }; onLabel?: () => void;
   /** Revenue-like: up is good. Expense-like: down is good. */
@@ -152,6 +157,9 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   cellHover?: (m: number) => { title: string; rows: TipRow[]; footer?: TipRow } | null;
   /** Clicking a month cell (a recovery line opens its full tenant list). */
   onCellClick?: (m: number) => void;
+  /** A revenue / expense line should never go negative: such a cell is
+   *  filled amber so it gets fixed. */
+  flagNegative?: boolean;
 }) {
   const sub = variant === "sub";
   const subtotal = variant === "subtotal";
@@ -167,6 +175,7 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
       ...num, ...(subtotal ? { fontWeight: 800, fontSize: 13.5, color: COLOR_BRAND } : {}), ...extra,
       ...(editable && m != null ? { cursor: "text", background: INPUT_BG } : {}),
       ...(isTyped ? { color: TYPED_FG, fontWeight: 800 } : {}),
+      ...(flagNegative && key !== "b" && v < -0.5 ? { background: NEGATIVE_BG, color: NEGATIVE_FG, fontWeight: 800 } : {}),
       ...(open ? { padding: "2px 4px" } : {}),
     };
     const tip = !open && m != null && m < 12 && cellHover ? cellHover(m) : null;
@@ -446,7 +455,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 const isOpen = isOpenKey(key);
                 return (
                   <Fragment key={l.label + l.mask}>
-                    <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
+                    <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal} flagNegative={sec.role !== "debt-service"}
                       badge={draft.consolidated || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
@@ -477,7 +486,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                         const untyped = !y.typed?.some(Boolean) && !(y.bucket === "base" && entered);
                         const grown = untyped && Math.abs(ref) >= 0.5 && Math.abs(y.total - ref * 1.03) <= Math.max(12, Math.abs(y.total) * 0.002);
                         return (
-                          <Row key={k} variant="sub" depth={depth} toggle={toggle} label={y.label ?? `${y.account}${y.name ? ` · ${y.name}` : ""}`}
+                          <Row key={k} variant="sub" depth={depth} toggle={toggle} flagNegative={sec.role !== "debt-service"} label={y.label ?? `${y.account}${y.name ? ` · ${y.name}` : ""}`}
                             months={y.months} total={y.total}
                             basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
@@ -510,6 +519,20 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   };
 
   const body: React.ReactNode[] = [];
+
+  // A negative on a revenue or expense line is a thing to fix, so the grid
+  // says where before anyone has to spot the amber cell.
+  const negatives = negativeLines(draft);
+  if (negatives.length) {
+    body.push(
+      <div key="neg" className="card" style={{ padding: "9px 14px", borderLeft: `4px solid ${NEGATIVE_FG}`, background: "rgba(217,119,6,0.06)", fontSize: 13 }}>
+        <b style={{ color: NEGATIVE_FG }}>{negatives.length} line{negatives.length === 1 ? "" : "s"} go{negatives.length === 1 ? "es" : ""} negative</b>
+        <span className="muted"> — a revenue or expense should not: </span>
+        {negatives.slice(0, 8).map((n) => n.label).join(" · ")}{negatives.length > 8 ? ` · +${negatives.length - 8} more` : ""}
+        <span className="muted">. The cells are filled amber.</span>
+      </div>,
+    );
+  }
 
   // OCCUPANCY, month by month, off the same suites as Revenue by tenant: a
   // suite is occupied in a month it pays rent. Its own card at the top, as on
