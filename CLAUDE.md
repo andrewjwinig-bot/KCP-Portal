@@ -1034,7 +1034,7 @@ time — and the team does not have time to open the GL over $80.
   at the tenant's current $/SF (so a flat renewal needs no typing); `monthlyRent`
   is derived (× SF ÷ 12) and a renewal left at today's $/SF holds today's rent
   exactly. **TI is $/SF × the suite's SF; the leasing commission is a PERCENT OF THE RENT over the term** (`leasingCommission`: LC % × new annual rent × term years — no term, no commission). Both land on the Capital section's
-  Tenant improvements (1440) and Capitalized Lease Costs (1940-8501) lines in
+  Tenant improvements (1440) and Outside Leasing Commissions (1940-8501) lines in
   the month the new rent starts** (`tiMonthly`/`lcMonthly` in `leaseRevenue.ts`);
   **A HOLD is a deal too** — a tenant staying at today's rent for a new term can still get TI and a broker is still paid, so Hold rows take TI, LC % and term (rent fixed at today's) and cost them when the term rolls. Where any deal carries one, that line IS the deals rather than last year's
   TI grown. "Holdover" means the lease has ALREADY ended — 11/30/26 in
@@ -1114,6 +1114,22 @@ time — and the team does not have time to open the GL over $80.
   RECOVERY RATIO under the reimbursements** — reimbursements ÷ the
   reimbursable-expense pool, annual only (a monthly ratio swings on a tax
   bill's month).
+- **EVERY DEAL ALSO BUDGETS THE INTERNAL BROKER'S COMMISSION**
+  (`internalCommission` in `lib/commissions.ts` — the SAME rules the
+  Commissions pages pay: Harry $1.00/SF at the shopping centres, Nancy's
+  `INCENTIVE_TIERS` $/SF by term at the business parks, a term between the
+  standard ones taking the highest tier reached, no term → none). A renewal,
+  lease-up or hold that the leasing owner keys puts it on
+  **Commissions-Internal Broker (6620-8501)** in the month the new lease
+  starts (`commissionMonthly` in `leaseRevenue.ts`) — a derived sub-line of
+  the salaries line, not typeable; the outside broker's LC % still lands on
+  **Outside Leasing Commissions (1940-8501)** (the mapping's name for it; it
+  was "Capitalized Lease Costs"). The decision dialog shows both. A derived
+  sub-line (these commissions, a payroll share) never takes a typed month.
+- **Land (1410-0000) and Appliances (1470-0000)** are dropped from Capital
+  Improvements' split while they are empty (`HIDE_WHEN_EMPTY`); 6620-8501 and
+  1940-8501 are named from `ACCOUNT_NAME_FALLBACK` where the GL leaves them
+  unnamed.
 - **PAYROLL IS ENTERED ONCE FOR THE BOOK AND ALLOCATED BY SHARE**
   (`payrollPools.ts`, `payrollPoolStore.ts`, `PayrollPoolsCard`,
   `/api/financials/budgets/payroll-pools`). Maintenance Salaries (6030-8502)

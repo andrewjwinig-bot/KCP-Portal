@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pill, TONE_AMBER, contributorTone } from "@/app/components/Pill";
 import type { LeaseAssumption } from "@/lib/financials/budgets/leasingAssumptions";
+import { internalCommission } from "@/lib/commissions";
 
 export type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; rentPsf?: number; tiPsf?: number; lcPct?: number; startMonth?: number; termYears?: number };
 
@@ -269,8 +270,17 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
             </select>
           ))}
           {costs && field("TI $/SF", num(ti, setTi, "ti", "Tenant improvements, $ per SF"), tiTotal > 0 ? `= ${money0(tiTotal)}` : undefined)}
-          {costs && field("LC % of rent", num(lc, setLc, "lc", "Leasing commission, percent of the rent over the term", true),
+          {costs && field("Outside LC %", num(lc, setLc, "lc", "Leasing commission, percent of the rent over the term", true),
             lc !== "" && Number(lc) > 0 ? (term === "" ? "set a term" : commission > 0 ? `= ${money0(commission)}` : "set a rent") : undefined)}
+          {costs && (() => {
+            // The internal broker's own commission on the deal — Harry $1/SF at
+            // the centres, Nancy's term-based $/SF at the parks — budgeted on
+            // Commissions-Internal Broker (6620-8501).
+            const group = owner.id === "harry" ? "SC" : "BP";
+            const internal = internalCommission(group, sqft, term !== "" ? Number(term) : undefined);
+            return field("Internal comm.", <span style={{ fontWeight: 700 }}>{internal > 0 ? money0(internal) : "—"}</span>,
+              group === "SC" ? "$1.00/SF · to 6620-8501" : internal > 0 ? "by term · to 6620-8501" : "set a term");
+          })()}
           <div style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: tone.bg, border: `1px solid ${tone.border}`, fontSize: 13 }}>
             <b>In {budgetYear}:</b> {effect}
             {assumption?.updatedAt && (

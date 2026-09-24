@@ -41,7 +41,7 @@ export type LeaseAssumption = {
    *  improvements capital line in the month the new rent starts. */
   tiPsf?: number;
   /** Leasing commission, PERCENT of the rent over the term (annual rent ×
-   *  term years) — lands on Capitalized Lease Costs. */
+   *  term years) — lands on Outside Leasing Commissions (1940-8501). */
   lcPct?: number;
   notes?: string;
   updatedAt?: string;

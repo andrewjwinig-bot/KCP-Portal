@@ -287,13 +287,23 @@ function addInto(acc: number[], add: number[]) {
  *  grown on its own months); a line whose figure comes from elsewhere (a
  *  lease, a keyed input) is split across its accounts in proportion, for
  *  reading only. */
+/** Accounts the GL export leaves unnamed, named as the owner's chart does. */
+const ACCOUNT_NAME_FALLBACK: Record<string, string> = {
+  "6620-8501": "Commissions-Internal Broker",
+  "1940-8501": "Outside Leasing Commissions",
+};
+/** Capital accounts the owner never budgets — dropped from the split while
+ *  they are empty (budget and this year both $0), so no money is hidden. */
+const HIDE_WHEN_EMPTY = new Set(["1410-0000", "1470-0000"]); // Land, Appliances
+
 function withSubLines(
-  line: BudgetDraftLine, accounts: ReprojLine["accounts"], names: Record<string, string>, factor: number | null, role: SectionRole,
+  line: BudgetDraftLine, accounts: ReprojLine["accounts"], names0: Record<string, string>, factor: number | null, role: SectionRole,
 ): BudgetDraftLine {
   // A bucketed line (maintenance, insurance, cleaning) is split by KIND of
   // spend instead — the buckets replace the account split.
   if (bucketsFor(role, line.label)) return line;
-  const accts = accounts ?? [];
+  const names = { ...ACCOUNT_NAME_FALLBACK, ...Object.fromEntries(Object.entries(names0).filter(([, v]) => !!v)) };
+  const accts = (accounts ?? []).filter((a) => !(HIDE_WHEN_EMPTY.has(a.account) && a.blended.every((v) => Math.abs(v || 0) < 0.5)));
   if (accts.length < 2) return line;
   const computed = line.source === "reproj-growth" || line.source === "reproj-flat";
   if (computed) {
@@ -354,7 +364,8 @@ function typedLine(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrid
   if (l.subLines?.some((s) => s.typeable)) {
     const subLines = l.subLines.map((s) => {
       const ov = doc[`${lineKey(sec.name, l.label)}#${s.account}`];
-      if (!ov) return s;
+      // A derived sub-line (commissions, a payroll share) takes no typed month.
+      if (!ov || !s.typeable) return s;
       const { months, typed } = mergeMonths(s.months, ov);
       return { ...s, months, typed, total: r0(sum(months)) };
     });
@@ -571,7 +582,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
 
   // THE DEALS' CAPITAL. A renewal or lease-up that carries TI $/sf or a
   // commission $/sf puts those dollars on the Capital section's Tenant
-  // improvements (1440) and Capitalized Lease Costs (1940-8501) lines, in the
+  // improvements (1440) and Outside Leasing Commissions (1940-8501) lines, in the
   // month its new rent starts. Where any deal carries one, the line IS the
   // deals — growing this year's TI by a percent budgets last year's leases
   // again; TI is spent because a lease was signed.
@@ -585,6 +596,30 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   };
   dealLine(/tenant improvement|^1440/i, lease.tiMonthly);
   dealLine(/lease cost|leasing commission|1940-8501/i, lease.lcMonthly);
+  // The INTERNAL broker's commissions on those same deals (Harry $1/SF, Nancy
+  // by term) → Commissions-Internal Broker (6620-8501). That account rides on
+  // the salaries line with 6010-8501, so the commissions become its sub-line;
+  // where the deals carry none, the account keeps this year's figure.
+  const COMMISSION_ACCT = "6620-8501";
+  const cm = lease.commissionMonthly;
+  if (cm && cm.some((v) => v)) {
+    for (const sec of sections) {
+      if (!EXPENSE_ROLE_SET.has(sec.role) || sec.role === "capital") continue;
+      const idx = sec.lines.findIndex((l) => l.mask && accountMatchesMask(l.mask, COMMISSION_ACCT));
+      if (idx < 0) continue;
+      const l = sec.lines[idx];
+      const sub: BudgetSubLine = { account: COMMISSION_ACCT, name: "Commissions-Internal Broker", months: cm.map(r0), total: r0(sum(cm)), basisTotal: l.subLines?.find((x) => x.account === COMMISSION_ACCT)?.basisTotal ?? 0, typeable: false };
+      const others: BudgetSubLine[] = l.subLines?.length
+        ? l.subLines.filter((x) => x.account !== COMMISSION_ACCT)
+        // A line with no split yet: what it carried is the other account(s).
+        : [{ account: l.mask.split(",").filter((a) => a.trim() !== COMMISSION_ACCT).join(",") || l.label, months: l.months, total: l.total, basisTotal: l.basisTotal, typeable: true }];
+      const subLines = [...others, sub];
+      const months = new Array(12).fill(0);
+      for (const x of subLines) addInto(months, x.months);
+      sec.lines[idx] = { ...l, subLines, months: months.map(r0), total: r0(sum(months)) };
+      break;
+    }
+  }
 
   // DEBT SERVICE from the loans themselves (Debt Tracker): each month's
   // interest and principal off the lender's schedule, rather than this year's
