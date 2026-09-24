@@ -1149,6 +1149,23 @@ time — and the team does not have time to open the GL over $80.
   in-place lease is listed as `leasing.contracted` and shows a quiet "Back
   out" action on row hover (`.row-quiet-action`); it is NEVER a call owed, so
   it counts toward neither "To decide" nor the review's open calls.
+- **THE MANAGEMENT FEE IS A FORMULA: LAST YEAR'S RATE × THIS BUDGET'S GROSS
+  REVENUE, MONTH BY MONTH** (`managementFee.ts`, source `fee`, pill "6% of
+  revenue", not typeable). The rate is the one the budget of record's own
+  formula carries (`ROUND(E$24*0.06,0)`, row 24 = TOTAL REVENUES = rental and
+  other + reimbursements), read by the parser into `feePercent`; a property
+  whose workbook has none keeps the grown figure. It is set before the
+  recoveries (a business park's fee is RECOVERABLE, 6610-8502, so it sits in
+  the CAM pool) and again after; where it is recoverable and moved, the
+  recoveries run once more so pool and fee agree.
+- **2010'S FEE REVENUE (4510) IS THE SUM OF THE BUILDINGS' FEES**
+  (`managementFeeRollup` in `draft.ts`, source `fee-rollup`): 2010's draft
+  builds each fee-paying building's draft — the Management Fees page's set, so
+  not LIK itself and not a fund (a fund's draft consolidates buildings already
+  counted) — and totals their 6610 lines. The two sides of the intercompany
+  entry therefore tie in the budget by construction. Hover a month for the
+  buildings. It is slow by nature (every building's draft), so the draft route
+  has `maxDuration = 300`.
 - **Occupancy SF opens Occupancy by Suite** (`OccupancyBySuiteModal`, the
   Operating Budgets page's view): each suite's occupied SF by month, off the
   draft's own `tenantRevenue` (occupied = pays rent that month), dark green for

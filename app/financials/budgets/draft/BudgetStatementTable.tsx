@@ -306,7 +306,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   notes?: Record<string, LineNote>;
   /** Opens the note dialog for a line. */
   onNote?: (sec: BudgetDraftSection, label: string) => void;
-  badgeFor: (source: Line["source"]) => { tone: PillTone; text: string };
+  badgeFor: (source: Line["source"], feePct?: number) => { tone: PillTone; text: string };
   onLine: (sec: BudgetDraftSection, line: Line) => void;
   /** Present when the viewer may type months; month "all" = an annual spread
    *  evenly; `account` types one sub-line (a GL account) of the line. */
@@ -324,6 +324,15 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const recTenants = draft.tenantRevenue ?? [];
   // A recovery line's month: which tenants make it up, and what share of its
   // pool that recovers. Top eight on hover; click for all of them.
+  // 2010's fee revenue: which buildings' fees make up the month.
+  const feeRollupHover = (m: number) => {
+    const rows = (draft.feeRollup ?? []).map((b) => ({ b, v: b.months[m] || 0 })).filter((x) => Math.abs(x.v) >= 0.5).sort((a, b) => b.v - a.v);
+    if (!rows.length) return null;
+    const top = rows.slice(0, 10), rest = rows.slice(10);
+    const tip: TipRow[] = top.map(({ b, v }) => ({ label: `${b.code} ${b.name}${b.feePct != null ? ` · ${b.feePct}%` : ""}`, value: money0(v) }));
+    if (rest.length) tip.push({ label: `${rest.length} other building${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, x) => a + x.v, 0)), color: "var(--muted)" });
+    return { title: `Buildings' management fees · ${MONTHS[m]}`, rows: tip, footer: { label: "Total fee revenue", value: money0(rows.reduce((a, x) => a + x.v, 0)), color: COLOR_BRAND } };
+  };
   const recoveryHover = (cat: RecoveryCategory) => (m: number) => {
     const mk = recoveryMakeup(cat, m, recTenants, draft.sections, estKind);
     if (!mk.tenants.length) return null;
@@ -417,7 +426,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 // save to the Budget Inputs store (the same figures Greg keys on his
                 // page), so the grid and his page cannot disagree.
                 // A payroll share is set by the book's total above the grid.
-        const locked = l.source === "cam-estimate" || l.source === "leases" || l.source === "pool";
+        const locked = l.source === "cam-estimate" || l.source === "leases" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup";
                 const mayType = !!onEdit && (!canType || canType(sec.name, l.label));
                 const typeable = mayType && !locked && !viaSubs;
                 const keyed = !!l.inputKind;
@@ -426,7 +435,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 return (
                   <Fragment key={l.label + l.mask}>
                     <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
-                      badge={badgeFor(l.source)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
+                      badge={badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
@@ -436,6 +445,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                       onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}
                       {...(() => {
                         const cat = l.source === "cam-estimate" && recTenants.length ? recoveryCategory(l.label, l.mask, estKind) : null;
+                        if (l.source === "fee-rollup" && draft.feeRollup?.length) return { cellHover: feeRollupHover };
                         return cat ? { cellHover: recoveryHover(cat), onCellClick: (m: number) => setMakeupAt({ cat, m }) } : {};
                       })()}
                       toggle={subs.length ? { open: isOpen, onToggle: () => setToggled((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />

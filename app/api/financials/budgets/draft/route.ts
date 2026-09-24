@@ -8,6 +8,8 @@ import { getLineNotes } from "@/lib/financials/budgets/lineNoteStore";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+// 2010's draft builds every building's draft to total their management fees.
+export const maxDuration = 300;
 
 // GET /api/financials/budgets/draft
 //   (no key)                 → the list of buildings/funds a draft can be built for

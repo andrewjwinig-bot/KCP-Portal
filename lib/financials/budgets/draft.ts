@@ -31,6 +31,10 @@ import { payrollBlocks, poolAnnual, allocatePool, type PoolBlock, type PoolEntri
 import { getPoolEntries } from "./payrollPoolStore";
 import { bookForProperty } from "./books";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
+import { applyManagementFee, priorFeeRates } from "./managementFee";
+import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
+import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
+import { groupOf } from "@/lib/reports/monthly";
 import { listBudgets } from "./storage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
@@ -53,11 +57,17 @@ export type DraftSource = "reproj-growth" | "reproj-flat" | "leases" | "cam-esti
   /** Built item by item from last year's budget (`lineItems.ts`). */
   | "items"
   /** This property's share of a payroll total entered once for the book. */
-  | "pool";
+  | "pool"
+  /** The management fee: last year's rate × this budget's gross revenue. */
+  | "fee"
+  /** LIK Management (2010)'s fee REVENUE: every building's budgeted fee. */
+  | "fee-rollup";
 
 export type BudgetDraftLine = {
   label: string;
   mask: string;
+  /** A management-fee line's rate, % of gross revenue (`managementFee.ts`). */
+  feePct?: number;
   /** Drafted 12 monthly amounts (display orientation: positive). */
   months: number[];
   total: number;
@@ -150,6 +160,9 @@ export type BudgetDraft = {
   /** Per-tenant CAM/INS/RET recoveries — Step 3. Its monthly totals ARE the
    *  recovery income lines (source "cam-estimate"). */
   reimbursementEstimate?: ReimbursementEstimate;
+  /** 2010 only: each building's budgeted management fee, which is 2010's
+   *  fee revenue (4510) — the two sides of one intercompany entry. */
+  feeRollup?: FeeRollupRow[];
   /** The tie-out: each recovery category's tenant total against the budget
    *  line(s) it lands on. */
   recoveryTie?: RecoveryTie[];
@@ -358,6 +371,8 @@ function typedLine(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrid
   // Likewise rent, and the TI / commissions the deals carry: they are
   // Step 1 — the schedule and the leasing decisions — and change there.
   if (l.source === "leases") return l;
+  // The management fee is a formula on revenue — typed revenue moves it.
+  if (l.source === "fee" || l.source === "fee-rollup") return l;
   // A payroll share is the book's total × this property's share — changed by
   // the total, never typed here (other accounts on the line still are).
   if (l.source === "pool" && !l.subLines?.some((s) => s.typeable)) return l;
@@ -486,6 +501,40 @@ function applyPools(sections: BudgetDraftSection[], code: string, blocks: PoolBl
 /** Build a draft FY budget for one property/fund, growing the current-year
  *  reprojection's expense forecast by `growthPct`. Returns `missingBasis` when
  *  there's no reprojection to seed from. */
+const LIK_MANAGEMENT = "2010";
+
+export type FeeRollupRow = { code: string; name: string; months: number[]; total: number; feePct?: number };
+
+/** Every fee-paying building's budgeted management fee — the buildings the
+ *  Management Fees page lists: not LIK itself (2000 / 2010), and not a fund,
+ *  whose draft consolidates buildings already counted. Four at a time; a
+ *  building whose draft cannot be built is left out rather than failing 2010. */
+async function managementFeeRollup(budgetYear: number, growthPct: number): Promise<FeeRollupRow[]> {
+  const list = (await availableStatements()).filter((m) => groupOf(m.propertyCode) !== "lik" && glKeysFor(m.key).length === 1);
+  const out: FeeRollupRow[] = [];
+  const queue = [...list];
+  const worker = async () => {
+    for (let m = queue.shift(); m; m = queue.shift()) {
+      const d = await buildBudgetDraft(m.key, budgetYear, growthPct).catch(() => null);
+      if (!d) continue;
+      const months = new Array(12).fill(0);
+      let feePct: number | undefined;
+      for (const sec of d.sections) {
+        if (sec.role === "revenue" || sec.role === "reimbursement") continue;
+        for (const l of sec.lines) {
+          if (!/management fee/i.test(l.label) || !l.mask.split(",").some((a) => a.trim().startsWith("6610"))) continue;
+          addInto(months, l.months);
+          feePct ??= l.feePct;
+        }
+      }
+      const total = r0(sum(months));
+      if (total) out.push({ code: d.propertyCode, name: d.propertyName, months: months.map(r0), total, feePct });
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  return out.sort((a, b) => b.total - a.total);
+}
+
 export async function buildBudgetDraft(key: string, budgetYear: number, growthPct: number): Promise<BudgetDraft | null> {
   const basisYear = budgetYear - 1;
   const loaded = await loadReprojection(key, basisYear);
@@ -656,7 +705,16 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   const priorProperty = await priorBudgetProperty(meta.propertyCode, basisYear);
   const itemized = itemizedLines(priorProperty, sections, typedDoc);
   applyTyped(sections, typedDoc, itemized);
+  // The fee on revenue as it stands, so the CAM pool carries it (a business
+  // park's fee is recoverable); set again once the recoveries are in.
+  const feeRates = priorFeeRates(priorProperty);
+  let fee = applyManagementFee(sections, feeRates);
 
+  let reimbursementEstimate: ReimbursementEstimate | undefined;
+  // A RECOVERABLE fee is in the pool the recoveries are figured on, and the
+  // recoveries are in the revenue the fee is figured on — one more pass once
+  // the fee has settled makes the two agree.
+  for (let pass = 0; pass < 2; pass++) {
   // RECOVERIES. The budget's CAM, insurance and tax pools against this year's,
   // read off the draft's own expense lines — so the taxes and premium keyed in
   // the Expenses step move what tenants are billed. Then each tenant's share
@@ -672,7 +730,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     }
   }
   const ratioOf = ([budget, basis]: number[]) => (basis > 0 ? budget / basis : 1);
-  const reimbursementEstimate = (await estimateReimbursements(meta.propertyCode, budgetYear, growthPct, {
+  reimbursementEstimate = (await estimateReimbursements(meta.propertyCode, budgetYear, growthPct, {
     poolRatios: { cam: ratioOf(pool.cam), ins: ratioOf(pool.ins), ret: ratioOf(pool.ret) },
     assumptions,
     // Recoveries start and stop where RENT does — the same leasing decisions.
@@ -702,6 +760,10 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     }
     applyTyped(sections, typedDoc, itemized);
   }
+  const before = fee.total;
+  fee = applyManagementFee(sections, feeRates);
+  if (!fee.reimbursable || Math.abs(fee.total - before) < 1) break;
+  }
   const recoveryTie = reimbursementEstimate ? tieRecoveries(reimbursementEstimate, sections) : undefined;
   const rentLineLabel = sections.flatMap((sec) => sec.role === "revenue" ? sec.lines : []).find((l) => l.source === "leases")?.label;
 
@@ -725,6 +787,27 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
         for (const l of sec.lines) addInto(subtotal, l.months);
         sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
       }
+    }
+  }
+
+  // LIK MANAGEMENT (2010) EARNS EVERY BUILDING'S FEE. Its 4510 revenue and the
+  // buildings' 6610 expense are one intercompany entry and must tie, so 2010's
+  // budget does not grow its own figure — it is the sum of the buildings'
+  // drafts, each fee a formula on that building's own revenue.
+  let feeRollup: FeeRollupRow[] | undefined;
+  if (String(meta.propertyCode).toUpperCase() === LIK_MANAGEMENT) {
+    feeRollup = await managementFeeRollup(budgetYear, growthPct);
+    const months = new Array(12).fill(0);
+    for (const b of feeRollup) addInto(months, b.months);
+    for (const sec of sections) {
+      if (sec.role !== "revenue") continue;
+      const idx = sec.lines.findIndex((l) => l.mask && accountMatchesMask(l.mask, "4510-0000"));
+      if (idx < 0) continue;
+      sec.lines[idx] = { ...sec.lines[idx], months: months.map(r0), total: r0(sum(months)), source: "fee-rollup", subLines: undefined };
+      const subtotal = new Array(12).fill(0);
+      for (const l of sec.lines) addInto(subtotal, l.months);
+      sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
+      break;
     }
   }
 
@@ -769,6 +852,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       })(),
     } : undefined,
     reimbursementEstimate,
+    feeRollup,
     recoveryTie,
     tenantRevenue: lease.hasData ? combineTenantRevenue(lease.rows ?? [], reimbursementEstimate) : undefined,
     rentLineLabel,
