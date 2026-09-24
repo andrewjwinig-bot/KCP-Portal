@@ -13,7 +13,7 @@ import "server-only";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
 import type { ReprojLine } from "@/lib/financials/reprojections/compute";
 import { listLoans } from "@/lib/debt/storage";
-import { budgetDebt, loansForStatement, type BudgetLoan } from "./debtBudget";
+import { budgetDebt, loansForStatement, FUND_SHELL, fundDebtShares, shareOfDebt, addDebt, type BudgetLoan } from "./debtBudget";
 import { EXPENSE_ROLES, type SectionRole } from "@/lib/financials/operating-statements/types";
 import { projectLeaseRevenue, type ExpiringLease, type VacantUnit, type RentRow, type ContractedLease } from "./leaseRevenue";
 import { getLeasingAssumptions } from "./leasingAssumptions";
@@ -178,7 +178,9 @@ export type BudgetDraft = {
   /** The budget line base rent lands on. */
   rentLineLabel?: string;
   /** The loans behind the debt-service lines (Debt Tracker), when any. */
-  debt?: { loans: BudgetLoan[]; interest: number; principal: number };
+  debt?: { loans: BudgetLoan[]; interest: number; principal: number;
+    /** A fund building's share of the fund's loans, and what set it. */
+    fundShare?: { share: number; basis: "prior-budget" | "sqft" } };
   /** Set by the route: notes left on the lines, keyed `section::label`. */
   notes?: Record<string, { text: string; by: string; at: string }>;
   /** Set by the route: whether the viewer may type months into the grid. */
@@ -683,7 +685,36 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   // interest and principal off the lender's schedule, rather than this year's
   // figure carried flat — a loan amortizes, so principal rises and interest
   // falls through the year, and a maturity or a rate reset is in the schedule.
-  const debt = budgetDebt(loansForStatement(await listLoans().catch(() => []), key, meta.propertyCode), budgetYear);
+  const allLoans = await listLoans().catch(() => []);
+  let debt = budgetDebt(loansForStatement(allLoans, key, meta.propertyCode), budgetYear);
+  // A FUND building (JV III, NI LLC) also carries its share of the fund's
+  // loans — booked on the holding entity (3600 / 4000), budgeted on the
+  // buildings in the proportions last year's budget of record used.
+  let debtShare: { share: number; basis: "prior-budget" | "sqft" } | undefined;
+  const def = PROPERTY_DEFS.find((d) => d.id === String(meta.propertyCode).toUpperCase());
+  const shell = def && !def.entityKind && def.fundGroup ? FUND_SHELL[def.fundGroup] : undefined;
+  if (shell) {
+    const fundDebt = budgetDebt(allLoans.filter((l) => String(l.property ?? "").toUpperCase() === shell), budgetYear);
+    if (fundDebt) {
+      const siblings = PROPERTY_DEFS.filter((d) => d.fundGroup === def!.fundGroup && !d.entityKind).map((d) => d.id);
+      const prior = await priorBudgetProperties(siblings, basisYear);
+      const priorDebt = (code: string) => {
+        const p = prior.find((x) => String(x.propertyCode).toUpperCase() === code);
+        let t = 0;
+        for (const sec of p?.sections ?? []) for (const l of sec.lines) {
+          if (l.isSubtotal || !l.glAccount) continue;
+          if (/^(9210|2720|2740)-8501$/.test(l.glAccount)) t += Math.abs(l.total || 0);
+        }
+        return t;
+      };
+      const { shares, basis } = fundDebtShares(siblings.map((c) => ({ code: c, priorDebt: priorDebt(c), sqft: PROPERTY_DEFS.find((d) => d.id === c)?.sqft ?? 0 })));
+      const share = shares[def!.id] ?? 0;
+      if (share > 0) {
+        debt = addDebt(debt, shareOfDebt(fundDebt, share));
+        debtShare = { share, basis };
+      }
+    }
+  }
   if (debt) {
     const debtLine = (re: RegExp, months: number[]) => {
       for (const sec of sections) {
@@ -876,6 +907,6 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     recoveryTie,
     tenantRevenue: lease.hasData ? combineTenantRevenue(lease.rows ?? [], reimbursementEstimate) : undefined,
     rentLineLabel,
-    debt: debt ? { loans: debt.loans, interest: r0(sum(debt.interest)), principal: r0(sum(debt.principal)) } : undefined,
+    debt: debt ? { loans: debt.loans, interest: r0(sum(debt.interest)), principal: r0(sum(debt.principal)), fundShare: debtShare } : undefined,
   };
 }

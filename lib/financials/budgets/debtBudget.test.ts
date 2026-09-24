@@ -38,3 +38,31 @@ describe("budget-year debt service", () => {
     expect(budgetDebt([], 2027)).toBeNull();
   });
 });
+
+import { fundDebtShares, shareOfDebt, addDebt } from "./debtBudget";
+
+describe("a fund's loans, allocated to its buildings", () => {
+  it("follows last year's budget of record, building by building", () => {
+    const { shares, basis } = fundDebtShares([
+      { code: "3610", priorDebt: 60000, sqft: 41821 },
+      { code: "3620", priorDebt: 30000, sqft: 49020 },
+      { code: "3640", priorDebt: 10000, sqft: 48794 },
+    ]);
+    expect(basis).toBe("prior-budget");
+    expect(shares).toEqual({ "3610": 0.6, "3620": 0.3, "3640": 0.1 });
+  });
+  it("falls back to square footage when no prior budget carried debt", () => {
+    const { shares, basis } = fundDebtShares([{ code: "A", priorDebt: 0, sqft: 750 }, { code: "B", priorDebt: 0, sqft: 250 }]);
+    expect(basis).toBe("sqft");
+    expect(shares).toEqual({ A: 0.75, B: 0.25 });
+  });
+  it("scales the schedule to the share, and adds to a building's own loans", () => {
+    const fund = { interest: new Array(12).fill(1000), principal: new Array(12).fill(500), loans: [{ id: "L1", lender: "Bank", ratePct: 6, interestOnly: false, maturityDate: "2030-01-01", balanceStart: 1e6, balanceEnd: 9e5, interest: 12000, principal: 6000, refinanceAssumed: false }] };
+    const part = shareOfDebt(fund, 0.25);
+    expect(part.interest[0]).toBe(250);
+    expect(part.loans[0]).toMatchObject({ interest: 3000, principal: 1500, share: 0.25, balanceStart: 1e6 });
+    const both = addDebt({ interest: new Array(12).fill(10), principal: new Array(12).fill(0), loans: [] }, part)!;
+    expect(both.interest[0]).toBe(260);
+    expect(both.loans).toHaveLength(1);
+  });
+});

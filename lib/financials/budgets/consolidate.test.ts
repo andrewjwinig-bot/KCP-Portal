@@ -44,3 +44,16 @@ describe("a book's roll-up", () => {
     expect(all.sections.flatMap((s) => s.lines).every((l) => !l.typed)).toBe(true);
   });
 });
+
+describe("a fund's roll-up puts its loan back together", () => {
+  it("merges each building's share of the same loan into the one loan", () => {
+    const loan = (share: number) => ({ id: "L1", lender: "Bank", ratePct: 6, interestOnly: false, maturityDate: "2030-01-01", balanceStart: 1e6, balanceEnd: 9e5, interest: 12000 * share, principal: 6000 * share, refinanceAssumed: false, share });
+    const a = { ...draft("3610", "Building 1", 0, 0), debt: { loans: [loan(0.6)], interest: 7200, principal: 3600 } };
+    const b = { ...draft("3620", "Building 2", 0, 0), debt: { loans: [loan(0.4)], interest: 4800, principal: 2400 } };
+    const all = consolidateDrafts("All JV III", [a, b])!;
+    expect(all.debt!.loans).toHaveLength(1);
+    expect(all.debt!.loans[0]).toMatchObject({ interest: 12000, principal: 6000 });
+    expect(all.debt!.loans[0].share).toBeUndefined();
+    expect(all.debt!.interest).toBe(12000);
+  });
+});

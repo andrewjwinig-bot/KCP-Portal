@@ -1349,9 +1349,18 @@ time — and the team does not have time to open the GL over $80.
   (`byProperty` → `PropertyBreakdownModal`: a donut of the six largest on
   `--series-1…6`, the rest folded into Other, beside the full table, which is
   the record since a credit cannot be a slice). Shopping Centers, JV III, NI
-  LLC and Korman Homes roll up (`rollsUp`). Deliberately the sum of the TABS:
-  a fund's own loans (3600 → PJV3, 4000 → PNIPLX) sit on no building tab and
-  so are not in it.
+  LLC and Korman Homes roll up (`rollsUp`).
+- **A FUND'S LOANS ARE ALLOCATED TO ITS BUILDINGS** (`FUND_SHELL`,
+  `fundDebtShares`, `shareOfDebt` in `debtBudget.ts`). JV III's and NI LLC's
+  mortgages are booked on the holding entity (3600 / 4000) and imported into
+  the Debt Tracker there; each building's draft carries ITS SHARE of the
+  fund's schedule on its Interest / Mortgage Amortization lines, so the "All
+  …" roll-up (the sum of the tabs) carries the fund's whole debt service. The
+  share is read off LAST YEAR'S BUDGET OF RECORD — the building's own debt
+  lines (9210 / 2720 / 2740-8501) over the fund's — so it allocates exactly as
+  the workbook did; with none, square footage. The debt card says which. The
+  roll-up merges the per-building shares back into one loan row. The fund
+  statements (PJV3 / PNIPLX) still carry the loans whole.
 - **7010 IS TWO RECOVERY POTS** (`mixedPools.ts`, `officePoolRatios` /
   `mixedOfficeCode` in `reimbursementEstimate.ts`). Parkwood is retail with an
   office centre upstairs, reconciled as two recons — the retail tenants on

@@ -399,6 +399,12 @@ export default function BudgetDraftPage() {
                         <td style={{ ...tdL, whiteSpace: "normal" }}>
                           <span style={{ fontWeight: 700 }}>{l.lender || "Loan"}</span>
                           {l.interestOnly && <span style={{ marginLeft: 6 }}><Pill tone={TONE_NEUTRAL}>interest-only</Pill></span>}
+                          {l.share != null && (
+                            <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+                              The fund&rsquo;s loan — this building carries {(l.share * 100).toFixed(1)}% of its interest and principal
+                              {draft.debt?.fundShare?.basis === "sqft" ? " (by square footage — no prior budget to follow)" : ", as last year's budget allocated it"}; balances are the whole loan.
+                            </div>
+                          )}
                           {l.refinanceAssumed && (
                             <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 2 }}>
                               Matures {l.maturityDate} — assumed refinanced on the same terms
