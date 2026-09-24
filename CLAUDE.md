@@ -1149,6 +1149,20 @@ time — and the team does not have time to open the GL over $80.
   in-place lease is listed as `leasing.contracted` and shows a quiet "Back
   out" action on row hover (`.row-quiet-action`); it is NEVER a call owed, so
   it counts toward neither "To decide" nor the review's open calls.
+- **Occupancy SF opens Occupancy by Suite** (`OccupancyBySuiteModal`, the
+  Operating Budgets page's view): each suite's occupied SF by month, off the
+  draft's own `tenantRevenue` (occupied = pays rent that month), dark green for
+  a lease in place, light green for a leasing assumption.
+- **A recovery line's month shows its tenants** (`recoveryMakeup.ts`): hover a
+  CAM / INS / RET reimbursement cell for the top eight tenants, that month's pool
+  and recovery ratio (plus the year's); click for every tenant
+  (`RecoveryMakeupModal`). The category uses `basisForLine`, the same rule that
+  put those months on the line. The pool is that category's reimbursable
+  expenses: taxes for RET, insurance for INS (inside CAM for office), the rest
+  for CAM.
+- **Sub-lines carry "+3%" too** (buckets, items, GL accounts) — only while
+  the row IS its reference (last year's budget for a seeded item, else the
+  reprojection) × 1.03 and nothing on it is typed.
 - **INPUT CELLS ARE LIGHT BLUE** (Excel's input-cell convention, as the old
   draft workbooks did): every cell the VIEWER can type — grid months, the
   Budget column, the line-history 2027 Budget row — carries `--input-cell`;
