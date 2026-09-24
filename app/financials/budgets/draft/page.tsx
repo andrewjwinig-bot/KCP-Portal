@@ -30,7 +30,7 @@ const GROWTH = 3;
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
-function sourceBadge(source: DraftSource, growthPct: number): { tone: PillTone; text: string } {
+function sourceBadge(source: DraftSource, growthPct: number, feePct?: number): { tone: PillTone; text: string } {
   switch (source) {
     case "reproj-growth": return { tone: TONE_BLUE, text: `${growthPct >= 0 ? "+" : ""}${growthPct}%` };
     case "reproj-flat": return { tone: TONE_NEUTRAL, text: "Flat" };
@@ -41,6 +41,8 @@ function sourceBadge(source: DraftSource, growthPct: number): { tone: PillTone; 
     case "loans": return { tone: TONE_TEAL, text: "Loans" };
     case "items": return { tone: TONE_BLUE, text: "Items" };
     case "pool": return { tone: TONE_TEAL, text: "Payroll" };
+    case "fee-rollup": return { tone: TONE_TEAL, text: "Buildings' fees" };
+    case "fee": return { tone: TONE_TEAL, text: `${feePct ?? "–"}% of revenue` };
   }
 }
 
@@ -355,8 +357,8 @@ export default function BudgetDraftPage() {
             canType={(section, label) => scopeAllowsLine(draft.lineEditScope ?? null, section, label)}
             notes={draft.notes}
             onNote={(sec, label) => setNoteLine({ section: sec.name, label })}
-            badgeFor={(src) => sourceBadge(src, GROWTH)}
-            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.map((p) => p.key) })}
+            badgeFor={(src, feePct) => sourceBadge(src, GROWTH, feePct)}
+            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.map((p) => p.key) })}
           />
 
           {/* The loans behind the debt-service lines — so "why is interest
@@ -457,7 +459,7 @@ export default function BudgetDraftPage() {
         // re-projects after every save, so the snapshot taken on click would go stale.
         const hSec = draft?.sections.find((x) => x.name === histLine.section);
         const hLine = hSec?.lines.find((x) => x.label === histLine.label);
-        const hLocked = !hLine || hLine.source === "cam-estimate" || hLine.source === "leases" || hLine.source === "pool" || !!hLine.subLines?.some((x) => x.typeable);
+        const hLocked = !hLine || hLine.source === "cam-estimate" || hLine.source === "leases" || hLine.source === "pool" || hLine.source === "fee" || hLine.source === "fee-rollup" || !!hLine.subLines?.some((x) => x.typeable);
         const hCanType = !!draft?.lineEditScope && !hLocked && scopeAllowsLine(draft.lineEditScope ?? null, histLine.section, histLine.label);
         return (
         <LineHistoryModal
@@ -471,7 +473,7 @@ export default function BudgetDraftPage() {
           budget={histLine.budget ?? null}
           budgetMonths={hLine?.months ?? histLine.months ?? null}
           budgetTyped={hLine?.inputKind && hLine.source === "entered" ? new Array(12).fill(true) : hLine?.typed}
-          badge={hLine ? sourceBadge(hLine.source, GROWTH) : null}
+          badge={hLine ? sourceBadge(hLine.source, GROWTH, hLine.feePct) : null}
           onEdit={hCanType && hSec && hLine ? (m, v) => editLine(hSec, hLine, m, v) : undefined}
           extra={histLine.poolKeys?.length && draft ? (
             <PayrollPoolsCard year={draft.budgetYear} bookId={bookId} bookName={book.name} propertyCode={draft.propertyCode}
