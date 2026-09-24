@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_RED, type PillTone } from "../../../components/Pill";
-import { BudgetStatementTable } from "./BudgetStatementTable";
+import { BudgetStatementTable, growthOnNothing } from "./BudgetStatementTable";
 import { RevenueByTenantCard } from "./RevenueByTenantCard";
 import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
 import { BudgetKpis } from "./BudgetKpis";
@@ -473,7 +473,7 @@ export default function BudgetDraftPage() {
           budget={histLine.budget ?? null}
           budgetMonths={hLine?.months ?? histLine.months ?? null}
           budgetTyped={hLine?.inputKind && hLine.source === "entered" ? new Array(12).fill(true) : hLine?.typed}
-          badge={hLine ? sourceBadge(hLine.source, GROWTH, hLine.feePct) : null}
+          badge={hLine && !growthOnNothing(hLine.source, hLine.months) ? sourceBadge(hLine.source, GROWTH, hLine.feePct) : null}
           onEdit={hCanType && hSec && hLine ? (m, v) => editLine(hSec, hLine, m, v) : undefined}
           extra={histLine.poolKeys?.length && draft ? (
             <PayrollPoolsCard year={draft.budgetYear} bookId={bookId} bookName={book.name} propertyCode={draft.propertyCode}

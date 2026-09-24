@@ -1208,6 +1208,12 @@ time — and the team does not have time to open the GL over $80.
 - **Sub-lines carry "+3%" too** (buckets, items, GL accounts) — only while
   the row IS its reference (last year's budget for a seeded item, else the
   reprojection) × 1.03 and nothing on it is typed.
+- **A line that is $0 every month carries no "+3%" / "Flat" / "Tax +3%"**
+  (`growthOnNothing`, grid and line-history popup) — 3% of nothing is nothing.
+  Nor does a line with ANY typed month (`growthOverTyped`), zeroed ones
+  included: the grid kept "+3%" on a row someone had cleared.
+  Pills naming where a figure COMES from (Leases, Recoveries, Payroll, % of
+  revenue) stay even at zero.
 - **INPUT CELLS ARE LIGHT BLUE** (Excel's input-cell convention, as the old
   draft workbooks did): every cell the VIEWER can type — grid months, the
   Budget column, the line-history 2027 Budget row — carries `--input-cell`;
