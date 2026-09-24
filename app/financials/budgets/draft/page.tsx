@@ -452,7 +452,14 @@ export default function BudgetDraftPage() {
           onSave={(t) => saveNote(noteLine.section, noteLine.label, t)}
           onClose={() => setNoteLine(null)} />
       )}
-      {histLine && label && (
+      {histLine && label && (() => {
+        // The line as it stands NOW — the popup edits it, and the draft
+        // re-projects after every save, so the snapshot taken on click would go stale.
+        const hSec = draft?.sections.find((x) => x.name === histLine.section);
+        const hLine = hSec?.lines.find((x) => x.label === histLine.label);
+        const hLocked = !hLine || hLine.source === "cam-estimate" || hLine.source === "leases" || hLine.source === "pool" || !!hLine.subLines?.some((x) => x.typeable);
+        const hCanType = !!draft?.lineEditScope && !hLocked && scopeAllowsLine(draft.lineEditScope ?? null, histLine.section, histLine.label);
+        return (
         <LineHistoryModal
           viewKey={key}
           propertyCode={label.propertyCode}
@@ -462,7 +469,10 @@ export default function BudgetDraftPage() {
           year={year}
           forecast={histLine.forecast ?? null}
           budget={histLine.budget ?? null}
-          budgetMonths={histLine.months ?? null}
+          budgetMonths={hLine?.months ?? histLine.months ?? null}
+          budgetTyped={hLine?.inputKind && hLine.source === "entered" ? new Array(12).fill(true) : hLine?.typed}
+          badge={hLine ? sourceBadge(hLine.source, GROWTH) : null}
+          onEdit={hCanType && hSec && hLine ? (m, v) => editLine(hSec, hLine, m, v) : undefined}
           extra={histLine.poolKeys?.length && draft ? (
             <PayrollPoolsCard year={draft.budgetYear} bookId={bookId} bookName={book.name} propertyCode={draft.propertyCode}
               onlyKeys={histLine.poolKeys} queued={queued} onSaved={() => setRefreshTick((n) => n + 1)} />
@@ -470,7 +480,8 @@ export default function BudgetDraftPage() {
           onClose={() => setHistLine(null)}
           onUseSuggestion={draft?.canEditLines && !histLine.locked ? (amount) => { applySuggestion(histLine.section, histLine.label, amount); setHistLine(null); } : undefined}
         />
-      )}
+        );
+      })()}
 
       </div>
 

@@ -9,6 +9,8 @@
 
 import { useState } from "react";
 import { LineDetailModal } from "@/app/financials/operating-statements/LineDetailModal";
+import { Pill, type PillTone } from "@/app/components/Pill";
+import { CellInput } from "./BudgetStatementTable";
 import type { LineYear } from "@/lib/financials/budgets/lineHistory";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -29,11 +31,22 @@ type Row = {
   tone?: "budget" | "draft" | "avg";
 };
 
-export function HistoryMonthly({ years, budgetYear, draftMonths, viewKey, propertyCode, label, mask, sign }: {
+export function HistoryMonthly({ years, budgetYear, draftMonths, draftTyped, badge, onEdit, viewKey, propertyCode, label, mask, sign }: {
   years: LineYear[]; budgetYear: number; draftMonths: number[] | null;
+  /** The draft's typed months — tinted, as in the grid. */
+  draftTyped?: boolean[];
+  /** The line's source pill ("+3%", "Tax +3%"…) — shown only while nothing on
+   *  the line is typed, so it never claims a basis the figures left behind. */
+  badge?: { tone: PillTone; text: string } | null;
+  /** Present when this viewer may type the line: a month, or "all" to spread
+   *  an annual typed into the Total — the grid's own save. */
+  onEdit?: (month: number | "all", value: number | null) => void;
   viewKey: string; propertyCode: string; label: string; mask: string; sign: 1 | -1;
 }) {
   const [open, setOpen] = useState<{ year: number; period: number; scope: "month" | "ytd" } | null>(null);
+  // The 2027 Budget cell open for typing (12 = the Total).
+  const [editAt, setEditAt] = useState<number | null>(null);
+  const showBadge = !!badge && !(draftTyped ?? []).some(Boolean);
   const basis = years.find((y) => y.year === budgetYear - 1);
   const prior = years.filter((y) => y.year < budgetYear - 1 && y.months).sort((a, b) => b.year - a.year);
   const complete = prior.filter((y) => y.monthsCovered >= 12);
@@ -76,8 +89,29 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, viewKey, proper
               const labelColor = r.tone === "draft" ? "#15803d" : r.tone === "avg" ? "var(--brand)" : r.tone === "budget" ? "var(--muted)" : "var(--text)";
               return (
                 <tr key={r.key} style={{ ...rowStyle, ...(r.tone === "avg" ? { borderTop: "2px solid rgba(11,74,125,0.3)" } : {}) }}>
-                  <td style={{ ...lab, color: labelColor, fontWeight: r.tone ? 700 : 600 }}>{r.label}</td>
+                  <td style={{ ...lab, color: labelColor, fontWeight: r.tone ? 700 : 600 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      {r.label}
+                      {r.tone === "draft" && showBadge && <Pill tone={badge!.tone}>{badge!.text}</Pill>}
+                    </span>
+                  </td>
                   {r.months.map((v, i) => {
+                    if (r.tone === "draft" && onEdit) {
+                      const typed = !!draftTyped?.[i];
+                      return (
+                        <td key={i} className="os-cell" onClick={editAt !== i ? () => setEditAt(i) : undefined}
+                          style={{ ...cell, cursor: "text", fontWeight: 700, ...(typed ? { background: "rgba(11,74,125,0.12)" } : {}), ...(editAt === i ? { padding: "2px 3px" } : {}) }}>
+                          {editAt === i ? (
+                            <CellInput initial={v ?? 0} onDone={(val, move) => {
+                              const changed = val === null ? typed : val !== undefined && Math.round(val) !== Math.round(v ?? 0);
+                              if (changed) onEdit(i, val as number | null);
+                              const next = i + move;
+                              setEditAt(move !== 0 && next >= 0 && next <= 11 ? next : null);
+                            }} />
+                          ) : money0(v ?? 0)}
+                        </td>
+                      );
+                    }
                     const projected = r.projectedFrom != null && i >= r.projectedFrom;
                     const canOpen = r.glYear != null && !projected && v != null;
                     return (
@@ -89,11 +123,23 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, viewKey, proper
                       </td>
                     );
                   })}
+                  {r.tone === "draft" && onEdit ? (
+                    <td className="os-cell" onClick={editAt !== 12 ? () => setEditAt(12) : undefined}
+                      style={{ ...cell, fontWeight: 800, color: "#15803d", cursor: "text", ...(editAt === 12 ? { padding: "2px 3px" } : {}) }}>
+                      {editAt === 12 ? (
+                        <CellInput initial={total} onDone={(val) => {
+                          if (val != null && Math.round(val) !== Math.round(total)) onEdit("all", val);
+                          setEditAt(null);
+                        }} />
+                      ) : money0(total)}
+                    </td>
+                  ) : (
                   <td className={r.glYear != null ? "os-cell" : undefined}
                     onClick={r.glYear != null ? () => setOpen({ year: r.glYear!, period: r.projectedFrom != null ? Math.max(1, r.projectedFrom) : 12, scope: "ytd" }) : undefined}
                     style={{ ...cell, fontWeight: 800, cursor: r.glYear != null ? "pointer" : undefined, color: r.tone === "draft" ? "#15803d" : undefined }}>
                     {money0(total)}
                   </td>
+                  )}
                 </tr>
               );
             })}
@@ -101,7 +147,7 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, viewKey, proper
         </table>
       </div>
       <div className="muted small" style={{ marginTop: 6 }}>
-        Click any actual month to see its GL — every charge that made it up. <i>Italics</i> in the reprojection are this year&rsquo;s budget for the months not yet posted.
+        {onEdit ? <>Type into the {budgetYear} Budget row — a month, or the Total to spread it evenly. </> : null}Click any actual month to see its GL — every charge that made it up. <i>Italics</i> in the reprojection are this year&rsquo;s budget for the months not yet posted.
       </div>
       {open && (
         <LineDetailModal viewKey={viewKey} property={propertyCode} year={open.year} period={open.period}

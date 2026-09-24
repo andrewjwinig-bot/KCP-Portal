@@ -1178,6 +1178,12 @@ time — and the team does not have time to open the GL over $80.
   owner budgets month by month — seasonality and one-offs are read where they
   happen, not flattened into an annual average. `lineHistory` carries
   `budgetMonths` per year for it. The bars stay below as the visual aid.
+  The {year} Budget row is TYPEABLE there (a month, or the Total to spread an
+  annual) through the grid's own `editLine`, for exactly the lines the grid
+  lets that viewer type; the popup reads the line LIVE from the draft so a
+  save re-renders it. The row carries the line's source pill ("+3%", "Tax
+  +3%"…) only while nothing on the line is typed — a pill claiming "+3%" over
+  a line someone has edited would be false.
   A PAYROLL line's total is entered at the top of this same popup (click the
   line) — not in a card above the grid, which the owner found too loud.
 - **The line-history popup's years are a BAR CHART** (`HistoryBars`): one bar

@@ -28,7 +28,7 @@ const SHAPE: Record<LineShape, { tone: PillTone; text: string; what: string }> =
 
 type Payload = LineHistory & { insight: LineInsight };
 
-export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, year, onClose, onUseSuggestion, forecast = null, budget = null, budgetMonths = null, extra = null }: {
+export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, year, onClose, onUseSuggestion, forecast = null, budget = null, budgetMonths = null, extra = null, budgetTyped, badge = null, onEdit }: {
   viewKey: string; propertyCode: string; label: string; mask: string; sign: 1 | -1; year: number;
   /** The basis year's full-year reprojection for this line — the current year's bar. */
   forecast?: number | null;
@@ -36,6 +36,11 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
   budget?: number | null;
   /** This draft's months for the line — the monthly table's top row. */
   budgetMonths?: number[] | null;
+  budgetTyped?: boolean[];
+  /** The line's source pill, beside the budget row while nothing is typed. */
+  badge?: { tone: PillTone; text: string } | null;
+  /** Typing the budget row — the grid's own save. */
+  onEdit?: (month: number | "all", value: number | null) => void;
   /** Shown at the top — a payroll line's total, entered here. */
   extra?: React.ReactNode;
   onClose: () => void;
@@ -78,7 +83,7 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
             <>
               {/* Month by month first — seasonality and one-offs are read
                   where they happen; the annual reading and bars follow. */}
-              <HistoryMonthly years={data.years} budgetYear={year} draftMonths={budgetMonths}
+              <HistoryMonthly years={data.years} budgetYear={year} draftMonths={budgetMonths} draftTyped={budgetTyped} badge={badge} onEdit={onEdit}
                 viewKey={viewKey} propertyCode={propertyCode} label={label} mask={mask} sign={sign} />
 
               {comments.length > 0 && (
