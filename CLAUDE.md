@@ -457,6 +457,13 @@ buildings may be managed by a third party" as an explanation for a gap.
   budgets vs 2010's 4510 plan) and was the only one that existed. A budget
   agreeing says nothing about whether the entries were made — keep both, labelled
   BUDGET and ACTUAL.
+- **The page's grid is a BUILDING PER ROW, months across** (grouped BP / SC /
+  Other with a subtotal band each, then a Total row), ending in the full-year
+  **reprojection**, the budget and the variance ($ and %). A month the building
+  has not posted carries its BUDGET in italics, so each row sums to where the
+  year should land — the Reprojections page's convention (actual to date +
+  budget for the rest). Missing / negative fees keep their amber / red cells,
+  explained in a `HoverCard`.
 - **`2010`'s statement line "Management Fees" has mask `4510-*,4230-8501`**,
   bundling base rent into a line named for fees. As of 2026 nothing posts to
   4230-8501 at 2010, so it is cosmetic — do NOT "fix" it expecting the numbers to

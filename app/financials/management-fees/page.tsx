@@ -2,12 +2,14 @@
 
 // Management Fees — each building's management fee (GL account 6610), pulled
 // straight from the posted GL each month and compared to budget. A portfolio
-// Actual-vs-Budget line chart up top, the familiar building × month grid below,
+// Actual-vs-Budget line chart up top, a building-per-row grid below (months
+// across, then the full-year reprojection against budget),
 // and a per-building drill-down (click a building) showing the fee as a % of
 // that building's revenue — the quick sanity check that a fee posted right.
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
+import { HoverCard } from "@/app/components/HoverCard";
 import { ChartTooltip, HoverBands, type TipRow } from "@/app/components/ChartTooltip";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { exportManagementFeesXlsx } from "@/lib/financials/management-fees/export";
@@ -202,7 +204,7 @@ export default function ManagementFeesPage() {
   const detailFor = openCode;
 
   return (
-    <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1200, width: "100%" }}>
+    <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1440, width: "100%" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Management Fees</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -264,75 +266,103 @@ export default function ManagementFeesPage() {
             <ChartLegend series={chartSeries} />
           </div>
 
-          {/* Grid: months down, buildings across */}
-          <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-            <table style={{ borderCollapse: "collapse", fontSize: 14, minWidth: "100%" }}>
-              <thead>
-                <tr>
-                  <th style={{ ...gridTh, textAlign: "left", position: "sticky", left: 0, background: "var(--card)", zIndex: 2 }}>Month</th>
-                  {data.groups.map((g) => (
-                    <th key={g.key} colSpan={g.codes.length} style={{ ...gridTh, textAlign: "center", color: "#0b4a7d", borderLeft: "2px solid var(--border)" }}>{g.label}</th>
+          {/* Grid: a building per row, months across — each month's posted fee,
+              then the months not yet posted at that building's budget (italic), so
+              the row sums to where the year should land; then budget and the gap. */}
+          {(() => {
+            const bs = data.buildings;
+            const reprojMonths = (b: (typeof bs)[number]) => MONTHS.map((_, m) => (m + 1 <= b.maxPosted ? b.feeMonthly[m] : b.budgetMonthly[m]));
+            const add = (rows: number[][]) => MONTHS.map((_, m) => rows.reduce((a, r) => a + (r[m] || 0), 0));
+            const sumOf = (a: number[]) => a.reduce((x, v) => x + (v || 0), 0);
+            const varCells = (reproj: number, budget: number, strong = false) => {
+              const v = reproj - budget;
+              const p = budget ? (v / budget) * 100 : null;
+              const tone = Math.abs(v) < 0.5 ? "var(--muted)" : v > 0 ? "#15803d" : "#b91c1c";
+              return (
+                <>
+                  <td style={{ ...gridTd, ...numTd, fontWeight: strong ? 800 : 700, borderLeft: "2px solid var(--border)", background: "rgba(11,74,125,0.05)" }}>{money(reproj)}</td>
+                  <td style={{ ...gridTd, ...numTd, fontWeight: strong ? 800 : 400, color: "var(--muted)" }}>{money(budget)}</td>
+                  <td style={{ ...gridTd, ...numTd, fontWeight: strong ? 800 : 600, color: tone }}>{Math.abs(v) < 0.5 ? "—" : `${v > 0 ? "+" : "−"}${money(Math.abs(v))}`}</td>
+                  <td style={{ ...gridTd, ...numTd, color: tone }}>{p == null || Math.abs(v) < 0.5 ? "" : `${p > 0 ? "+" : ""}${p.toFixed(1)}%`}</td>
+                </>
+              );
+            };
+            const totalRow = (label: string, rows: (typeof bs), band: boolean) => {
+              const months = add(rows.map(reprojMonths));
+              const maxP = Math.max(0, ...rows.map((b) => b.maxPosted));
+              return (
+                <tr style={band ? { background: "rgba(11,74,125,0.06)" } : { borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.08)" }}>
+                  <td style={{ ...gridTd, fontWeight: 800, color: band ? "#0b4a7d" : undefined, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 12.5, position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>{label}</td>
+                  {months.map((v, m) => (
+                    <td key={m} style={{ ...gridTd, ...numTd, fontWeight: 800, fontStyle: m + 1 > maxP ? "italic" : undefined, color: m + 1 > maxP ? "var(--muted)" : undefined }}>{money(v)}</td>
                   ))}
-                  <th style={{ ...gridTh, textAlign: "right", borderLeft: "2px solid var(--border)" }}>Total</th>
+                  {varCells(sumOf(months), sumOf(rows.map((b) => b.annualBudget)), true)}
                 </tr>
-                <tr>
-                  <th style={{ ...gridTh, textAlign: "left", position: "sticky", left: 0, background: "var(--card)", zIndex: 2 }} />
-                  {data.buildings.map((b, i) => {
-                    const groupStart = i === 0 || data.buildings[i - 1].group !== b.group;
-                    return (
-                      <th key={b.code} onClick={() => setOpenCode(b.code)} title={`${b.name} — click for detail`}
-                        style={{ ...gridTh, textAlign: "right", cursor: "pointer", color: "#0b4a7d", borderLeft: groupStart ? "2px solid var(--border)" : undefined }}>
-                        {b.code}
-                      </th>
-                    );
-                  })}
-                  <th style={{ ...gridTh, borderLeft: "2px solid var(--border)" }} />
-                </tr>
-              </thead>
-              <tbody>
-                {MONTHS.map((mo, m) => (
-                  <tr key={mo}>
-                    <td style={{ ...gridTd, fontWeight: 600, position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>{mo} {String(year).slice(2)}</td>
-                    {data.buildings.map((b, i) => {
-                      const groupStart = i === 0 || data.buildings[i - 1].group !== b.group;
-                      const posted = m + 1 <= b.maxPosted;
-                      const inWindow = m + 1 <= portfolioMaxPosted;
-                      const missing = isMissing(b, m);
-                      const negative = isNegative(b, m);
-                      const content = posted ? (b.feeMonthly[m] ? money(b.feeMonthly[m]) : "—") : (inWindow ? "—" : "");
-                      const title = negative
-                        ? `Negative management fee — the GL netted to a ${money(Math.abs(b.feeMonthly[m]))} credit this month, likely a reversal or prior-period correction. Verify the 6610 entries.`
-                        : missing
-                          ? (posted ? "GL posted, but no management fee for this month — it may need to be reposted." : "Not posted yet — other buildings have posted this month.")
-                          : undefined;
+              );
+            };
+            return (
+              <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+                <table style={{ borderCollapse: "collapse", fontSize: 14, minWidth: "100%" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ ...gridTh, textAlign: "left", position: "sticky", left: 0, background: "var(--card)", zIndex: 2 }}>Building</th>
+                      {MONTHS.map((mo) => <th key={mo} style={{ ...gridTh, textAlign: "right" }}>{mo}</th>)}
+                      <th style={{ ...gridTh, textAlign: "right", color: "#0b4a7d", borderLeft: "2px solid var(--border)" }}>{year} Reproj.</th>
+                      <th style={{ ...gridTh, textAlign: "right" }}>Budget</th>
+                      <th style={{ ...gridTh, textAlign: "right" }}>vs Budget</th>
+                      <th style={{ ...gridTh, textAlign: "right" }}>%</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.groups.map((g) => {
+                      const rows = bs.filter((b) => b.group === g.key);
                       return (
-                        <td key={b.code} title={title}
-                          style={{ ...gridTd, ...numTd, borderLeft: groupStart ? "2px solid var(--border)" : undefined,
-                            ...(negative
-                              ? { background: "rgba(220,38,38,0.15)", color: "#b91c1c", fontWeight: 700, cursor: "help" }
-                              : missing
-                                ? { background: "rgba(217,119,6,0.15)", color: "#b45309", fontWeight: 700, cursor: "help" }
-                                : { color: b.feeMonthly[m] ? "var(--text)" : "var(--muted)" }) }}>
-                          {content}
-                        </td>
+                        <Fragment key={g.key}>
+                          {totalRow(g.label, rows, true)}
+                          {rows.map((b) => {
+                            const rm = reprojMonths(b);
+                            return (
+                              <tr key={b.code}>
+                                <td onClick={() => setOpenCode(b.code)}
+                                  style={{ ...gridTd, position: "sticky", left: 0, background: "var(--card)", zIndex: 1, cursor: "pointer" }}>
+                                  <code style={{ fontWeight: 700, color: "#0b4a7d" }}>{b.code}</code>{" "}
+                                  <span className="os-line-name" style={{ fontWeight: 600 }}>{b.name}</span>
+                                </td>
+                                {MONTHS.map((_, m) => {
+                                  const posted = m + 1 <= b.maxPosted;
+                                  const missing = isMissing(b, m);
+                                  const negative = isNegative(b, m);
+                                  const shown = posted ? (b.feeMonthly[m] ? money(b.feeMonthly[m]) : "—") : (rm[m] ? money(rm[m]) : "");
+                                  const flag = negative
+                                    ? { title: "Negative management fee", text: `The GL netted to a ${money(Math.abs(b.feeMonthly[m]))} credit — likely a reversal or prior-period correction. Verify the 6610 entries.` }
+                                    : missing
+                                      ? { title: "Management fee missing", text: posted ? "GL posted, but no management fee this month — it may need to be reposted." : "Not posted yet — other buildings have posted this month." }
+                                      : null;
+                                  return (
+                                    <td key={m}
+                                      style={{ ...gridTd, ...numTd,
+                                        ...(negative
+                                          ? { background: "rgba(220,38,38,0.15)", color: "#b91c1c", fontWeight: 700 }
+                                          : missing
+                                            ? { background: "rgba(217,119,6,0.15)", color: "#b45309", fontWeight: 700 }
+                                            : posted ? { color: b.feeMonthly[m] ? "var(--text)" : "var(--muted)" } : { color: "var(--muted)", fontStyle: "italic" }) }}>
+                                      {flag ? <HoverCard title={flag.title} rows={[]} footer={{ label: `${MONTHS[m]} · ${b.code}`, value: flag.text }} width={300}>{shown}</HoverCard> : shown}
+                                    </td>
+                                  );
+                                })}
+                                {varCells(sumOf(rm), b.annualBudget)}
+                              </tr>
+                            );
+                          })}
+                        </Fragment>
                       );
                     })}
-                    <td style={{ ...gridTd, ...numTd, fontWeight: 700, borderLeft: "2px solid var(--border)" }}>
-                      {data.completeThrough && m + 1 <= data.completeThrough ? money(data.portfolio.actualMonthly[m]) : ""}
-                    </td>
-                  </tr>
-                ))}
-                <tr style={{ borderTop: "2px solid var(--border)" }}>
-                  <td style={{ ...gridTd, fontWeight: 800, position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>YTD Totals</td>
-                  {data.buildings.map((b, i) => {
-                    const groupStart = i === 0 || data.buildings[i - 1].group !== b.group;
-                    return <td key={b.code} style={{ ...gridTd, ...numTd, fontWeight: 800, borderLeft: groupStart ? "2px solid var(--border)" : undefined }}>{money(b.ytdActual)}</td>;
-                  })}
-                  <td style={{ ...gridTd, ...numTd, fontWeight: 900, borderLeft: "2px solid var(--border)" }}>{money(data.portfolio.ytdActual)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+                    {totalRow("Total", bs, false)}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
           <p className="muted small" style={{ marginTop: -4, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {flaggedCount > 0 && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#b45309", fontWeight: 700 }}>
@@ -346,7 +376,7 @@ export default function ManagementFeesPage() {
                 {negativeCount} negative fee{negativeCount === 1 ? "" : "s"} — the 6610 netted to a credit (reversal / correction); verify the GL.
               </span>
             )}
-            <span>Click any building code for its fee-as-a-%-of-revenue detail. Blank cells are future / un-opened months.</span>
+            <span>Months in <i>italics</i> are not posted yet and carry the budget, so each row totals to the year&rsquo;s reprojection. Click a building for its fee as a % of revenue.</span>
           </p>
         </>
       )}
