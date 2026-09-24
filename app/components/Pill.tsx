@@ -231,3 +231,14 @@ export function reportFormatTone(format: string): PillTone {
     default: return TONE_NEUTRAL; // CSV, ZIP
   }
 }
+
+/** RETAIL / OFFICE tag for a mixed centre's rows (7010) — the CAM recon's
+ *  tenant tables and the budget's Revenue by tenant. */
+export function PortionPill({ portion }: { portion?: "retail" | "office" }) {
+  if (!portion) return null;
+  return (
+    <Pill tone={portion === "office" ? TONE_PURPLE : TONE_BLUE}>
+      {portion === "office" ? "OFFICE" : "RETAIL"}
+    </Pill>
+  );
+}

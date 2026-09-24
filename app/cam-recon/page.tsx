@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, TONE_PURPLE } from "@/app/components/Pill";
+import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, TONE_PURPLE, PortionPill } from "@/app/components/Pill";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import { LastImported } from "@/app/components/LastImported";
@@ -758,15 +758,6 @@ function OccCallout({ occPct, year, rcd, vacatedISO }: {
   );
 }
 
-// RETAIL / OFFICE tag for mixed-center (7010) rows.
-function PortionPill({ portion }: { portion?: "retail" | "office" }) {
-  if (!portion) return null;
-  return (
-    <Pill tone={portion === "office" ? TONE_PURPLE : TONE_BLUE}>
-      {portion === "office" ? "OFFICE" : "RETAIL"}
-    </Pill>
-  );
-}
 
 const INS_TINT = "rgba(13,148,136,0.06)";
 

@@ -77,6 +77,8 @@ export type ReimbTenantEstimate = {
   note?: string;
   leaseUp?: boolean;
   method?: ReimbMethod;
+  /** A mixed centre's part this tenant is reconciled in (7010: retail / office). */
+  portion?: "retail" | "office";
 };
 
 /** A suite's months in the budget year, as the RENT projection has them — so
@@ -144,6 +146,14 @@ export type EstimateOptions = {
   /** Each suite's rent months from the lease projection. When given, a
    *  tenant pays recoveries in exactly the months it pays rent. */
   tenancy?: SuiteTenancy[];
+  /** A MIXED centre (7010): the office pool's ratios, for the office tenants'
+   *  own reconciliation (`mixedOfficeCode`). Absent → the retail ratios. */
+  officePoolRatios?: PoolRatios | null;
+  /** Internal — the suites the OTHER part of a mixed centre reconciles, so
+   *  neither part lists them as a lease-up or a tenant "on no recon". */
+  excludeUnits?: Set<string>;
+  /** Internal — the office part of a mixed centre covers only its own suites. */
+  onlyUnits?: Set<string>;
 };
 
 /** Estimate a property's tenant CAM/INS/RET recoveries for `budgetYear`, or null
@@ -158,6 +168,24 @@ export async function estimateReimbursements(
 
   const reconYear = latestYear((retail ?? office)?.byYear as Record<number, unknown>);
   if (reconYear == null) return null;
+
+  // A MIXED centre: the office tenants are reconciled separately, on the
+  // office pool. Estimate them on their own (their own ratios, their own
+  // suites) and keep their suites out of the retail estimate below — or an
+  // office suite would ALSO be listed as a retail tenant "on no recon".
+  const officeCode = !opts.onlyUnits ? retail?.mixedOfficeCode : undefined;
+  let officeEst: ReimbursementEstimate | null = null;
+  let officeUnits: Set<string> | undefined;
+  if (officeCode && RETAIL_RECON_FIXTURES[officeCode]) {
+    const oYear = latestYear(RETAIL_RECON_FIXTURES[officeCode].byYear as Record<number, unknown>);
+    const oLoaded = oYear != null ? await loadRetailRecon(officeCode, oYear).catch(() => null) : null;
+    officeUnits = new Set((oLoaded?.result.tenants ?? []).map((t) => canon(t.unitRef)));
+    officeEst = await estimateReimbursements(officeCode, budgetYear, growthPct, {
+      ...opts, poolRatios: opts.officePoolRatios ?? opts.poolRatios, onlyUnits: officeUnits,
+    });
+  }
+  const excluded = (ref: string) => (!!officeUnits && officeUnits.has(canon(ref))) || (!!opts.excludeUnits && opts.excludeUnits.has(canon(ref)))
+    || (!!opts.onlyUnits && !opts.onlyUnits.has(canon(ref)));
 
   // Recon year → budget year. With the budget's pools: grow by the growth %
   // from the recon year to this year (the basis), then by the budget's own
@@ -174,9 +202,11 @@ export async function estimateReimbursements(
   const aOf = (ref: string) => assumptions[ref] ?? assumptions[canon(ref)]
     ?? Object.values(assumptions).find((a) => canon(a.unitRef) === canon(ref));
   const roll = pr ? await resolveCurrentRentroll().catch(() => null) : null;
+  // The office part of a mixed centre ("7010O") is on the roll as the building.
+  const rollCode = String((retail as { pool?: { propertyCode?: string } } | undefined)?.pool?.propertyCode ?? code).toUpperCase();
   const rollUnits = new Map<string, { isVacant: boolean; leaseTo: string | null; sqft: number }>();
   for (const p of roll?.properties ?? []) {
-    if (String(p.propertyCode).toUpperCase() !== code.toUpperCase()) continue;
+    if (String(p.propertyCode).toUpperCase() !== rollCode) continue;
     for (const u of p.units ?? []) {
       rollUnits.set(canon(u.unitRef), { isVacant: !!u.isVacant || !u.occupantName, leaseTo: u.leaseTo ?? null, sqft: u.sqft || 0 });
     }
@@ -273,7 +303,7 @@ export async function estimateReimbursements(
       };
       const denoms = { cam: first?.camDenom ?? 0, ins: first?.insDenom ?? 0, ret: first?.retDenom ?? 0 };
       for (const a of Object.values(assumptions)) {
-        if (a.kind !== "leaseup") continue;
+        if (a.kind !== "leaseup" || excluded(a.unitRef)) continue;
         const row = rows.get(canon(a.unitRef));
         // Only a suite that is actually vacant leases up.
         if (row && row.status !== "lease-up" && row.status !== "vacant") continue;
@@ -286,7 +316,7 @@ export async function estimateReimbursements(
       }
       const onRecon = new Set(ts.filter((t) => !(t.vacatedISO && Number(String(t.vacatedISO).slice(0, 4)) <= reconYear)).map((t) => canon(t.unitRef)));
       for (const row of rows.values()) {
-        if (row.status === "vacant" || row.status === "lease-up" || onRecon.has(canon(row.unitRef))) continue;
+        if (row.status === "vacant" || row.status === "lease-up" || onRecon.has(canon(row.unitRef)) || excluded(row.unitRef)) continue;
         const { months, assumed } = tenancyMonths(row);
         if (!months.some(Boolean) || !(row.sqft > 0)) continue;
         const rec = retailProRata(row.unitRef, row.tenant || "New tenant", row.sqft, months, pools, denoms,
@@ -343,6 +373,9 @@ export async function estimateReimbursements(
   }
 
   const monthly = totalRecoveries(recs);
+  if (officeEst) {
+    for (const k of ["cam", "ins", "ret"] as const) officeEst.monthly[k].forEach((v, i) => { monthly[k][i] += v; });
+  }
   const tenants: ReimbTenantEstimate[] = recs.map((t) => {
     const active = t.months.filter(Boolean).length;
     const x = extra.get(t);
@@ -353,8 +386,10 @@ export async function estimateReimbursements(
       cam: t.cam, ins: t.ins, ret: t.ret,
       assumed: x?.assumed ?? new Array(12).fill(false),
       monthsActive: active, note: t.note, leaseUp: t.leaseUp, method: x?.method,
+      ...(officeCode ? { portion: "retail" as const } : {}),
     };
   });
+  if (officeEst) tenants.push(...officeEst.tenants.map((t) => ({ ...t, portion: "office" as const })));
   const totals = { camAnnual: sum(monthly.cam), insAnnual: sum(monthly.ins), retAnnual: sum(monthly.ret) };
   return {
     kind, propertyCode: code, reconYear, budgetYear, growthPct,
