@@ -16,9 +16,9 @@ const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "Ju
 const money0 = (n: number) => (Math.abs(n) < 0.5 ? "–" : (n < 0 ? "-" : "") + Math.abs(Math.round(n)).toLocaleString("en-US"));
 const sum = (a: number[]) => a.reduce((s, n) => s + (n || 0), 0);
 const MONTH_TINT = "rgba(15,23,42,0.035)";
-const head: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", padding: "6px 6px", textAlign: "right", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
-const cell: React.CSSProperties = { padding: "6px 6px", fontSize: 12, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
-const lab: React.CSSProperties = { ...cell, textAlign: "left", fontSize: 12.5, fontWeight: 600 };
+const head: React.CSSProperties = { fontSize: 11.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", padding: "8px 6px", textAlign: "right", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
+const cell: React.CSSProperties = { padding: "8px 6px", fontSize: 13.5, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
+const lab: React.CSSProperties = { ...cell, textAlign: "left", fontSize: 14, fontWeight: 600 };
 
 type Row = {
   key: string; label: string; months: (number | null)[];
@@ -56,11 +56,11 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, viewKey, proper
   return (
     <>
       <div style={{ overflowX: "auto", marginTop: 14, border: "1px solid var(--border)", borderRadius: 10 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860, tableLayout: "fixed" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 960, tableLayout: "fixed" }}>
           <colgroup>
-            <col style={{ width: "15%" }} />
-            {MONTHS.map((m, i) => <col key={m} style={{ width: "6.25%", ...(i % 2 === 0 ? { background: MONTH_TINT } : {}) }} />)}
-            <col style={{ width: "10%" }} />
+            <col style={{ width: "14%" }} />
+            {MONTHS.map((m, i) => <col key={m} style={{ width: "6.35%", ...(i % 2 === 0 ? { background: MONTH_TINT } : {}) }} />)}
+            <col style={{ width: "9.8%" }} />
           </colgroup>
           <thead>
             <tr>

@@ -1186,10 +1186,15 @@ time — and the team does not have time to open the GL over $80.
   from its REPROJECTION (the draft line's `basisTotal`, passed as `forecast`)
   — drawn lighter and dashed, because it is a projection. Hover a year for its
   variance. It replaced the Budget / Actual / Variance table.
-- **The line-history popup suggests; "Use this" applies it** — the line set to
-  the suggested annual with its month-by-month SHAPE kept (`scaleToTotal`), per
-  sub-line where it has them. The "Shape of the year" sparkline column was
-  removed at the owner's request.
+- **The line-history popup has a COMMENTS box, not a suggestion card**
+  (`historyComments.ts`). The "What the history supports" card, its "Use this"
+  and the STEADY / TRENDING / AS-NEEDED pill were removed at the owner's
+  request — the monthly table's budget row IS the number, and a card that
+  disagreed with it read as a contradiction. The comments read the same
+  numbers as the table and each says what to do: the history's own reading,
+  this year's run-rate against its budget, a month that stood out, the draft
+  against the reprojection and against what history supports, and a seasonal
+  line spread evenly. Every comparison has a dollar floor ($250 and 3%).
 - **Until the rent schedule is imported, the rail's vacancy/renewal items
   come off the RENT ROLL** (`deriveContributions`' `fromRoll`, filled by the
   progress route from `projectLeaseRevenue`) — the same list the leasing card
