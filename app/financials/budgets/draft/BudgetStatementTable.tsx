@@ -73,6 +73,12 @@ type Variant = "line" | "sub" | "subtotal" | "rollup" | "rollupStrong";
 type Line = BudgetDraftSection["lines"][number];
 /** Which cell is open for typing: a line key and a month (12 = the Budget column). */
 type EditAt = { row: string; m: number } | null;
+/** A "+3%" / "Flat" / "Tax +3%" pill on a line that is $0 every month says
+ *  nothing — 3% of nothing is nothing — so it is left off. Pills that name
+ *  WHERE a figure comes from (Leases, Recoveries, Payroll…) stay. */
+export const growthOnNothing = (source: string, months: number[]) =>
+  (source === "reproj-growth" || source === "reproj-flat" || source === "ret-default") && months.every((v) => Math.abs(v || 0) < 0.5);
+
 /** Light blue = a cell you can type; bold blue text = a figure someone typed. */
 const INPUT_BG = "var(--input-cell)";
 const TYPED_FG = "var(--input-typed)";
@@ -435,7 +441,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 return (
                   <Fragment key={l.label + l.mask}>
                     <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
-                      badge={badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
+                      badge={growthOnNothing(l.source, l.months) ? undefined : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
