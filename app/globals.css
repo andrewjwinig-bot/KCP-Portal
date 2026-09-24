@@ -12,6 +12,9 @@
   --border: rgba(15, 23, 42, 0.12);
   --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
   --brand: #0b4a7d;
+  /* A budget cell you can type into (Excel's input-cell convention). */
+  --input-cell: #eaf3fd;
+  --input-typed: #1d4ed8;
   --brand2: #0a3e69;
   /* Dropdown chevron — a token so the dark theme swaps the stroke colour
    * without repeating the whole `select` rule. */
@@ -113,6 +116,8 @@
    colors throughout the app are still tuned for white cards — they're
    tinted enough to remain legible but a future audit can polish them.    */
 [data-theme="dark"] {
+  --input-cell: rgba(96,165,250,0.12);
+  --input-typed: #93c5fd;
   --bg: #0b1220;
   --text: #e6edf6;
   --muted: #cbd5e1; /* slate-300 — lifted for readable secondary text on dark cards */

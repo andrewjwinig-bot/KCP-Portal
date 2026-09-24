@@ -100,7 +100,7 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, draftTyped, bad
                       const typed = !!draftTyped?.[i];
                       return (
                         <td key={i} className="os-cell" onClick={editAt !== i ? () => setEditAt(i) : undefined}
-                          style={{ ...cell, cursor: "text", fontWeight: 700, ...(typed ? { background: "rgba(11,74,125,0.12)" } : {}), ...(editAt === i ? { padding: "2px 3px" } : {}) }}>
+                          style={{ ...cell, cursor: "text", fontWeight: 700, background: "var(--input-cell)", ...(typed ? { color: "var(--input-typed)", fontWeight: 800 } : {}), ...(editAt === i ? { padding: "2px 3px" } : {}) }}>
                           {editAt === i ? (
                             <CellInput initial={v ?? 0} onDone={(val, move) => {
                               const changed = val === null ? typed : val !== undefined && Math.round(val) !== Math.round(v ?? 0);
@@ -125,7 +125,7 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, draftTyped, bad
                   })}
                   {r.tone === "draft" && onEdit ? (
                     <td className="os-cell" onClick={editAt !== 12 ? () => setEditAt(12) : undefined}
-                      style={{ ...cell, fontWeight: 800, color: "#15803d", cursor: "text", ...(editAt === 12 ? { padding: "2px 3px" } : {}) }}>
+                      style={{ ...cell, fontWeight: 800, color: "#15803d", cursor: "text", background: "var(--input-cell)", ...(editAt === 12 ? { padding: "2px 3px" } : {}) }}>
                       {editAt === 12 ? (
                         <CellInput initial={total} onDone={(val) => {
                           if (val != null && Math.round(val) !== Math.round(total)) onEdit("all", val);
