@@ -1210,6 +1210,8 @@ time — and the team does not have time to open the GL over $80.
   reprojection) × 1.03 and nothing on it is typed.
 - **A line that is $0 every month carries no "+3%" / "Flat" / "Tax +3%"**
   (`growthOnNothing`, grid and line-history popup) — 3% of nothing is nothing.
+  Nor does a line with ANY typed month (`growthOverTyped`), zeroed ones
+  included: the grid kept "+3%" on a row someone had cleared.
   Pills naming where a figure COMES from (Leases, Recoveries, Payroll, % of
   revenue) stay even at zero.
 - **INPUT CELLS ARE LIGHT BLUE** (Excel's input-cell convention, as the old

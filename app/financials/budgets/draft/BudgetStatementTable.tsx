@@ -79,6 +79,12 @@ type EditAt = { row: string; m: number } | null;
 export const growthOnNothing = (source: string, months: number[]) =>
   (source === "reproj-growth" || source === "reproj-flat" || source === "ret-default") && months.every((v) => Math.abs(v || 0) < 0.5);
 
+/** Nor on a line someone has typed over — a month cleared to zero included:
+ *  "+3%" claims the figure was grown, and a typed month was not. The
+ *  line-history popup already drops its pill the same way. */
+export const growthOverTyped = (source: string, typed?: boolean[]) =>
+  (source === "reproj-growth" || source === "reproj-flat" || source === "ret-default") && !!typed?.some(Boolean);
+
 /** Light blue = a cell you can type; bold blue text = a figure someone typed. */
 const INPUT_BG = "var(--input-cell)";
 const TYPED_FG = "var(--input-typed)";
@@ -441,7 +447,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 return (
                   <Fragment key={l.label + l.mask}>
                     <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal}
-                      badge={growthOnNothing(l.source, l.months) ? undefined : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
+                      badge={growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
