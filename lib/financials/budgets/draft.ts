@@ -27,6 +27,10 @@ import { lineKey, mergeMonths, type LineOverrides } from "./lineOverrides";
 import { ownerFor } from "./contributors";
 import { bucketsFor } from "./lineBuckets";
 import { itemizedLines, type ResolvedBucket } from "./lineItems";
+import { payrollBlocks, poolAnnual, allocatePool, type PoolBlock, type PoolEntries } from "./payrollPools";
+import { getPoolEntries } from "./payrollPoolStore";
+import { bookForProperty } from "./books";
+import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { listBudgets } from "./storage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
@@ -47,7 +51,9 @@ export type DraftSource = "reproj-growth" | "reproj-flat" | "leases" | "cam-esti
   /** Debt service from the Debt Tracker's loan schedules. */
   | "loans"
   /** Built item by item from last year's budget (`lineItems.ts`). */
-  | "items";
+  | "items"
+  /** This property's share of a payroll total entered once for the book. */
+  | "pool";
 
 export type BudgetDraftLine = {
   label: string;
@@ -67,6 +73,9 @@ export type BudgetDraftLine = {
   /** Set on a line the Budget Inputs page owns (taxes, insurance, building
    *  maintenance) — keyed there, by its owner, never typed into the grid. */
   inputKind?: ExpenseInputKind;
+  /** Set on a line (or the part of it) that is this property's share of a
+   *  payroll total entered once for the book (`payrollPools.ts`). */
+  pool?: { key: string; label: string; gl: string; sharePct: number; annual: number; entered: boolean; amount: number }[];
 };
 
 export type BudgetSubLine = {
@@ -339,6 +348,9 @@ function typedLine(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrid
   // Likewise rent, and the TI / commissions the deals carry: they are
   // Step 1 — the schedule and the leasing decisions — and change there.
   if (l.source === "leases") return l;
+  // A payroll share is the book's total × this property's share — changed by
+  // the total, never typed here (other accounts on the line still are).
+  if (l.source === "pool" && !l.subLines?.some((s) => s.typeable)) return l;
   if (l.subLines?.some((s) => s.typeable)) {
     const subLines = l.subLines.map((s) => {
       const ov = doc[`${lineKey(sec.name, l.label)}#${s.account}`];
@@ -396,14 +408,68 @@ function withBuckets(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverr
 /** A property's budget of record for `year` — a final (or uploaded) workbook
  *  before a draft one. Null when there is none, or the draft is a fund. */
 export async function priorBudgetProperty(propertyCode: string, year: number) {
-  const code = String(propertyCode ?? "").toUpperCase();
+  return (await priorBudgetProperties([propertyCode], year))[0] ?? null;
+}
+
+/** Every property of a book in the budget of record for `year`. */
+export async function priorBudgetProperties(codes: string[], year: number) {
   const wbs = (await listBudgets().catch(() => [])).filter((w) => w.year === year);
   const rank = (w: (typeof wbs)[number]) => (w.status === "draft" ? 1 : 0);
-  for (const w of wbs.sort((a, b) => rank(a) - rank(b))) {
-    const p = w.properties.find((x) => String(x.propertyCode ?? "").toUpperCase() === code);
-    if (p) return p;
+  wbs.sort((a, b) => rank(a) - rank(b));
+  const out: NonNullable<(typeof wbs)[number]["properties"][number]>[] = [];
+  for (const c of codes) {
+    const code = String(c ?? "").toUpperCase();
+    for (const w of wbs) {
+      const p = w.properties.find((x) => String(x.propertyCode ?? "").toUpperCase() === code);
+      if (p) { out.push(p); break; }
+    }
   }
-  return null;
+  return out;
+}
+
+/** Lay the book's payroll shares onto this property's lines: each block goes
+ *  to the first expense line whose mask takes its GL — onto that account's
+ *  sub-line where the line has one, else onto the line. */
+function applyPools(sections: BudgetDraftSection[], code: string, blocks: PoolBlock[], entries: PoolEntries) {
+  const claimed = new Map<string, BudgetDraftLine>();
+  for (const b of blocks) {
+    const { annual, entered } = poolAnnual(b, entries[b.key]);
+    const months = allocatePool(b, annual, code);
+    if (!months) continue;
+    let target: { sec: BudgetDraftSection; idx: number } | null = null;
+    for (const sec of sections) {
+      if (!EXPENSE_ROLE_SET.has(sec.role) || sec.role === "capital") continue;
+      const idx = sec.lines.findIndex((l) => l.mask && accountMatchesMask(l.mask, b.gl));
+      if (idx >= 0) { target = { sec, idx }; break; }
+    }
+    if (!target) continue;
+    const l0 = target.sec.lines[target.idx];
+    const first = !claimed.has(l0.label + l0.mask);
+    const info = { key: b.key, label: b.label, gl: b.gl, sharePct: b.shares[code.toUpperCase()] ?? 0, annual, entered, amount: r0(sum(months)) };
+    let line: BudgetDraftLine;
+    const sub = l0.subLines?.find((x) => x.account === b.gl);
+    if (sub) {
+      // The pooled account's months are the blocks' sum; the line's other
+      // accounts keep their own figures.
+      const subLines = l0.subLines!.map((x) => x !== sub ? x : {
+        ...x, months: first ? months : x.months.map((v, i) => v + months[i]), typed: undefined, typeable: false,
+      });
+      subLines.forEach((x) => { x.total = r0(sum(x.months)); });
+      const lm = new Array(12).fill(0);
+      for (const x of subLines) addInto(lm, x.months);
+      line = { ...l0, subLines, months: lm.map(r0), total: r0(sum(lm)), source: "pool", pool: [...(first ? [] : l0.pool ?? []), info] };
+    } else {
+      const lm = first ? months : l0.months.map((v, i) => v + months[i]);
+      line = { ...l0, subLines: undefined, months: lm, total: r0(sum(lm)), source: "pool", pool: [...(first ? [] : l0.pool ?? []), info] };
+    }
+    target.sec.lines[target.idx] = line;
+    claimed.set(line.label + line.mask, line);
+  }
+  for (const sec of sections) {
+    const subtotal = new Array(12).fill(0);
+    for (const l of sec.lines) addInto(subtotal, l.months);
+    sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
+  }
 }
 
 /** Build a draft FY budget for one property/fund, growing the current-year
@@ -546,6 +612,12 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   // LAST YEAR'S BUDGET OF RECORD, for the itemized lines (Building
   // Maintenance's contracts and recurring items, the insurance policies…):
   // the workbook for the basis year that carries this property.
+  // PAYROLL: each block entered once for the book and allocated across it.
+  const book = bookForProperty(meta.propertyCode);
+  if (book?.properties.length) {
+    const blocks = payrollBlocks(await priorBudgetProperties(book.properties, basisYear));
+    if (blocks.length) applyPools(sections, meta.propertyCode, blocks, await getPoolEntries(budgetYear, book.id).catch(() => ({})));
+  }
   const priorProperty = await priorBudgetProperty(meta.propertyCode, basisYear);
   const itemized = itemizedLines(priorProperty, sections, typedDoc);
   applyTyped(sections, typedDoc, itemized);

@@ -1114,6 +1114,18 @@ time — and the team does not have time to open the GL over $80.
   RECOVERY RATIO under the reimbursements** — reimbursements ÷ the
   reimbursable-expense pool, annual only (a monthly ratio swings on a tax
   bill's month).
+- **PAYROLL IS ENTERED ONCE FOR THE BOOK AND ALLOCATED BY SHARE**
+  (`payrollPools.ts`, `payrollPoolStore.ts`, `PayrollPoolsCard`,
+  `/api/financials/budgets/payroll-pools`). Maintenance Salaries (6030-8502)
+  and Salaries & Wages + Marketing Salaries (6010-8501) are one total each for
+  the shopping centres ("From 2026 Payroll Budget"), split by each property's
+  share — read off last year's budget of record (the workbook's Allocated
+  Expenses tab → `line.allocations`, only the blocks whose note says payroll).
+  Drew types the total once on the draft page (card above the grid); every
+  property's line becomes its share (source `pool`, pill "Payroll", not
+  typeable per property — onto the GL's sub-line where the line has several
+  accounts). Until entered a block carries last year +3%. Later this links to
+  the `lik-payroll` book, which already `feeds` these books.
 - **A LEASE IN PLACE CAN BE BACKED OUT** (`kind: "stop"` + `startMonth`,
   applied LAST in `projectLeaseRevenue` over every suite with a tenant). A
   tenant who will not pay — Rite Aid at 7010, in bankruptcy — earns no rent
