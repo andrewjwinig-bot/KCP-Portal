@@ -161,8 +161,8 @@ const maskParts = (mask: string): string[] =>
  * they were all silently compared to base rent. A line with no basis shows the
  * per-tenant GL summary instead, which claims nothing it cannot support.
  *
- * The LABEL is read first because the masks overlap: Electric is
- * `4710-*,4910-8503`, and 4910 is the Common Area family.
+ * The LABEL is read first because the masks overlap: most mappings' Electric
+ * line is `4710-*,4910-8503`, and 4910 is the Common Area family.
  */
 export function basisForLine(label: string, mask: string): RentCheckBasis | null {
   if (/real\s*estate\s*tax/i.test(label)) return "ret";
@@ -172,11 +172,12 @@ export function basisForLine(label: string, mask: string): RentCheckBasis | null
   const parts = maskParts(mask);
   if (!parts.length) return null;
   const all = (re: RegExp) => parts.every((p) => re.test(p));
-  // 4910-8503 is the ELECTRIC sub-account, not CAM. Electric's mask is
-  // normally `4710-*,4910-8503` and fails the all-4910 test anyway, but a
-  // property mapped to 4910-8503 alone would otherwise resolve to CAM and be
-  // checked against the wrong column — the exact bug this function exists to
-  // stop. The CAM sub-accounts in use are -0000, -8501, -8502 and -8506.
+  // -8503 is the OFFICE part of a building (owner): 4910-8503 is an office
+  // suite's CAM recovery, which posts only where there is an office part —
+  // 7010, whose mapping carries it on "Common Area" (read by LABEL above).
+  // Every other mapping still lists it on "Electric" (`4710-*,4910-8503`),
+  // where nothing posts; a mask of 4910-8503 ALONE stays unresolved here
+  // rather than guessing which pot's column it is checked against.
   if (all(/^(4910|4901)/) && !parts.some((p) => /^4910-8503/.test(p))) return "cam";
   if (all(/^4920/)) return "ret";
   if (all(/^4930/)) return "other";

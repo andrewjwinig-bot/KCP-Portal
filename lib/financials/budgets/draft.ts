@@ -32,6 +32,7 @@ import { getPoolEntries } from "./payrollPoolStore";
 import { bookForProperty } from "./books";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { applyManagementFee, priorFeeRates } from "./managementFee";
+import { mixedCenterFor, splitLine } from "./mixedPools";
 import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
 import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 import { groupOf } from "@/lib/reports/monthly";
@@ -196,6 +197,8 @@ export type TenantRevenueRow = {
   assumed: boolean[];
   note?: string;
   method?: ReimbursementEstimate["tenants"][number]["method"];
+  /** A mixed centre's part the suite is reconciled in (7010: retail / office). */
+  portion?: "retail" | "office";
   /** A recovery row with no rent-side suite (a unit ref that did not match). */
   recoveryOnly?: boolean;
   /** Today's monthly recovery billing, off the rent roll. */
@@ -221,7 +224,7 @@ export function combineTenantRevenue(rentRows: RentRow[], est: ReimbursementEsti
     }
     // The note and method of the tenant actually paying — else the first.
     const lead = ts.find((t) => t.monthsActive > 0) ?? ts[0];
-    if (lead) { row.note = lead.note; row.method = lead.method; }
+    if (lead) { row.note = lead.note; row.method = lead.method; row.portion = lead.portion; }
   };
   const out: TenantRevenueRow[] = rentRows.map((r) => {
     const row: TenantRevenueRow = {
@@ -721,17 +724,28 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   // from the last reconciliation, cut to the months the leasing assumptions
   // say they are there (recoveryMath.ts), replaces the recovery income lines.
   const pool = { cam: [0, 0], ins: [0, 0], ret: [0, 0] }; // [budget, basis]
+  // A MIXED centre (7010) keeps a second, office pool: the office tenants are
+  // reconciled on it, and the retail tenants on what is left (mixedPools.ts).
+  const mixed = mixedCenterFor(meta.propertyCode);
+  const officePool = { cam: [0, 0], ins: [0, 0], ret: [0, 0] };
   for (const sec of sections) {
     for (const l of sec.lines) {
       const k = expenseInputKindOf(sec.role, l.label);
-      const bucket = k === "ret" ? pool.ret : k === "insurance" ? pool.ins : sec.role === "reimbursable-expense" ? pool.cam : null;
-      if (!bucket) continue;
-      bucket[0] += l.total; bucket[1] += l.basisTotal;
+      const kind = k === "ret" ? "ret" as const : k === "insurance" ? "ins" as const : sec.role === "reimbursable-expense" ? "cam" as const : null;
+      if (!kind) continue;
+      if (mixed) {
+        const sp = splitLine(mixed, kind, l);
+        pool[kind][0] += sp.retail[0]; pool[kind][1] += sp.retail[1];
+        officePool[kind][0] += sp.office[0]; officePool[kind][1] += sp.office[1];
+      } else {
+        pool[kind][0] += l.total; pool[kind][1] += l.basisTotal;
+      }
     }
   }
   const ratioOf = ([budget, basis]: number[]) => (basis > 0 ? budget / basis : 1);
   reimbursementEstimate = (await estimateReimbursements(meta.propertyCode, budgetYear, growthPct, {
     poolRatios: { cam: ratioOf(pool.cam), ins: ratioOf(pool.ins), ret: ratioOf(pool.ret) },
+    officePoolRatios: mixed ? { cam: ratioOf(officePool.cam), ins: ratioOf(officePool.ins), ret: ratioOf(officePool.ret) } : undefined,
     assumptions,
     // Recoveries start and stop where RENT does — the same leasing decisions.
     tenancy: lease.hasData ? lease.rows : undefined,

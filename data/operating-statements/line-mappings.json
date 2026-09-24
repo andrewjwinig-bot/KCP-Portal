@@ -4858,12 +4858,12 @@
     "role": "reimbursement",
     "lines": [
      {
-      "label": "Electric",
-      "mask": "4710-*,4910-8503"
+      "label": "Electric - Office Tenants",
+      "mask": "4710-*"
      },
      {
       "label": "Common Area",
-      "mask": "4910-8501,4910-8502,4901-8506"
+      "mask": "4910-8501,4910-8502,4910-8503,4901-8506"
      },
      {
       "label": "Real Estate Taxes",

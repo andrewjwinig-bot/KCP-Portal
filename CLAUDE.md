@@ -1340,6 +1340,23 @@ time — and the team does not have time to open the GL over $80.
   reconciliation (a newer lease) and a lease-up are assumed NNN** — pro-rata
   SF share of each pool, no admin fee (`retailProRata`); an office one takes the BUDGET YEAR as its base year (owner's call),
   so it is listed at zero with that reason.
+- **7010 IS TWO RECOVERY POTS** (`mixedPools.ts`, `officePoolRatios` /
+  `mixedOfficeCode` in `reimbursementEstimate.ts`). Parkwood is retail with an
+  office centre upstairs, reconciled as two recons — the retail tenants on
+  `7010`, the office tenants on `7010O` — and the budget scales each by ITS
+  pool. **The -8503 suffix is the OFFICE part of a building (owner)**, so a
+  line's office share is read, in order: its -8503 GL sub-lines; wholly office
+  if every account is -8503 (water & sewer, office cleaning); else the split
+  the CAM recon keeps (`MIXED_7010`, the ONE allocation source); else the
+  workbook's 86 / 14. Each suite recovers in exactly ONE pot — an office suite
+  used to be listed again as a retail tenant "on no recon" at a pro-rata NNN
+  share of the whole building. Office suites carry the shared `PortionPill`
+  (moved into `Pill.tsx` from the CAM recon page) in Revenue by tenant; retail
+  is the rest, so only OFFICE is tagged. **7010's mapping**: `4910-8503` (the
+  office tenants' CAM recovery) is on "Common Area", and the old "Electric"
+  reimbursement line is **"Electric - Office Tenants"** (`4710-*`), the office
+  tenants' direct electric billed back. Every other mapping still lists
+  4910-8503 on Electric, where nothing posts.
 - **Shopping centres have no condo association**: the mapping's "Condo Assn"
   recovery line (4970-*) — and the REIMBURSABLE section's Management Fee (6610-8502; the
   centres' fee is non-reimbursable, 6610-8501) — are dropped from every SC

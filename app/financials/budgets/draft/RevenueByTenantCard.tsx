@@ -17,7 +17,7 @@
 // those lines cannot be typed over in the grid. One TIES mark says so.
 
 import { Fragment, useState } from "react";
-import { Pill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_BLUE, tiesTone, contributorTone } from "@/app/components/Pill";
+import { Pill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_BLUE, tiesTone, contributorTone, PortionPill } from "@/app/components/Pill";
 import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import type { ReimbursementEstimate } from "@/lib/financials/budgets/reimbursementEstimate";
 import type { RecoveryTie, TenantRevenueRow } from "@/lib/financials/budgets/draft";
@@ -290,6 +290,9 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                   {vacant || !r.tenant
                     ? <em style={{ color: "var(--muted)", fontSize: 14.5 }}>Vacant</em>
                     : <span style={{ fontWeight: 600, fontSize: 14.5, color: "var(--text)" }}>{r.tenant}</span>}
+                  {/* A mixed centre's OFFICE suites — recovered on the office
+                      pool. Retail is the rest, so only the exception is tagged. */}
+                  {r.portion === "office" && <span style={{ marginLeft: 6 }}><PortionPill portion="office" /></span>}
                   {!call && st && <Pill tone={st.tone}>{st.text}</Pill>}
                   {gross && <Pill tone={TONE_BLUE}>GROSS</Pill>}
                 </span>
