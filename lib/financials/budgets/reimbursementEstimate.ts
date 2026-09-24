@@ -215,7 +215,7 @@ export async function estimateReimbursements(
         note = a?.kind === "vacate" ? `Vacates — pays through ${MONTH[lastM]}` : `Lease ends ${MONTH[lastM]} — no decision yet`;
       } else if (assumed.some(Boolean)) {
         const from = assumed.indexOf(true);
-        note = `${a?.kind === "hold" ? "Held" : a?.kind === "renew" ? "Renews" : "Assumed"} from ${MONTH[from]}`;
+        note = `${a?.kind === "hold" || a?.kind === "renew" ? "Renews" : "Assumed"} from ${MONTH[from]}`;
       }
       return { months, assumed, note };
     }
