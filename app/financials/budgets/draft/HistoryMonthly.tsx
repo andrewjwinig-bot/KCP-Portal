@@ -9,7 +9,8 @@
 
 import { useState } from "react";
 import { LineDetailModal } from "@/app/financials/operating-statements/LineDetailModal";
-import { Pill, type PillTone } from "@/app/components/Pill";
+import { Pill, TONE_NEUTRAL, type PillTone } from "@/app/components/Pill";
+import { HoverCard } from "@/app/components/HoverCard";
 import { CellInput } from "./BudgetStatementTable";
 import type { LineYear } from "@/lib/financials/budgets/lineHistory";
 
@@ -26,6 +27,8 @@ type Row = {
   key: string; label: string; months: (number | null)[];
   /** The GL year behind each cell, when it can be opened. */
   glYear?: number;
+  /** The year's GL was imported monthly totals only — no transactions to open. */
+  totalsOnly?: "lean" | "partial";
   /** Cells that are the year's budget rather than its actual (a reprojection's tail). */
   projectedFrom?: number;
   tone?: "budget" | "draft" | "avg";
@@ -60,7 +63,8 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, draftTyped, bad
     rows.push({ key: "reproj", label: `${basis.year} Reproj.`, months: reproj, glYear: covered > 0 ? basis.year : undefined, projectedFrom: covered });
     if (basis.budgetMonths) rows.push({ key: "bud", label: `${basis.year} Budget`, months: basis.budgetMonths, tone: "budget" });
   }
-  for (const y of prior) rows.push({ key: `a${y.year}`, label: `${y.year} Actual${y.monthsCovered < 12 ? ` (${y.monthsCovered} mo)` : ""}`, months: y.months!, glYear: y.year });
+  for (const y of prior) rows.push({ key: `a${y.year}`, label: `${y.year} Actual${y.monthsCovered < 12 ? ` (${y.monthsCovered} mo)` : ""}`, months: y.months!, glYear: y.year,
+    totalsOnly: y.detail === "lean" || y.detail === "partial" ? y.detail : undefined });
   if (complete.length >= 2) {
     rows.push({ key: "avg", label: `${complete.length}-yr average`, tone: "avg",
       months: MONTHS.map((_, i) => complete.reduce((s, y) => s + (y.months?.[i] ?? 0), 0) / complete.length) });
@@ -93,6 +97,12 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, draftTyped, bad
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       {r.label}
                       {r.tone === "draft" && showBadge && <Pill tone={badge!.tone}>{badge!.text}</Pill>}
+                      {r.totalsOnly && (
+                        <HoverCard title={`${r.glYear} — totals only`} width={300} rows={[]}
+                          footer={{ label: "No GL detail", value: `${r.totalsOnly === "partial" ? "Part of this year's" : "This year's"} GL was imported "monthly totals only". Re-upload it on Operating Statements with that box unticked to drill into the transactions.` }}>
+                          <Pill tone={TONE_NEUTRAL}>TOTALS ONLY</Pill>
+                        </HoverCard>
+                      )}
                     </span>
                   </td>
                   {r.months.map((v, i) => {

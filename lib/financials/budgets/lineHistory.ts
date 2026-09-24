@@ -30,6 +30,9 @@ export type LineYear = {
   monthsCovered: number;
   /** True when the budget came from a different year's file (a fallback). */
   budgetFallback: boolean;
+  /** Whether the year's GL kept TRANSACTIONS ("lean" = imported monthly totals
+   *  only, so its cells open onto no detail). */
+  detail?: "stored" | "lean" | "partial";
 };
 
 export type LineHistory = {
@@ -69,7 +72,10 @@ export async function lineHistory(opts: {
 
   const years: LineYear[] = [];
   for (let y = throughYear - back + 1; y <= throughYear; y++) {
-    const stored = assembleGls(fulls.filter((g) => g.key === key && g.year === y));
+    const glsY = fulls.filter((g) => g.key === key && g.year === y);
+    const stored = assembleGls(glsY);
+    const leanN = glsY.filter((g) => g.transactionsStored === false).length;
+    const detail = !glsY.length ? undefined : leanN === 0 ? "stored" as const : leanN === glsY.length ? "lean" as const : "partial" as const;
     const covered = stored?.maxPeriodInFile ?? 0;
     const months = stored ? lineMonthly(stored.monthly, mask, sign, 12) : null;
     const actual = months ? r0(months.reduce((s, n) => s + n, 0)) : null;
@@ -97,6 +103,7 @@ export async function lineHistory(opts: {
       variance: actual != null && budget != null ? r0(actual - budget) : null,
       monthsCovered: covered,
       budgetFallback,
+      detail,
     });
   }
 

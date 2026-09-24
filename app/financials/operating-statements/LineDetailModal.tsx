@@ -146,7 +146,7 @@ export function LineDetailModal({ viewKey, property, year, period, monthLabel, l
   const [tab, setTab] = useState<"gl" | "budget">(initialTab);
   // GL has no "annual" scope (the file is YTD); clamp it to YTD.
   const [scope, setScope] = useState<"month" | "ytd" | "annual">(initialTab === "gl" && initialScope === "annual" ? "ytd" : initialScope);
-  const [gl, setGl] = useState<{ transactions: TxRow[]; total: number; count: number; accounts?: string[]; byTenant?: TenantGroup[] } | null>(null);
+  const [gl, setGl] = useState<{ transactions: TxRow[]; total: number; count: number; accounts?: string[]; byTenant?: TenantGroup[]; detail?: "stored" | "lean" | "partial" | "none" } | null>(null);
   const [bud, setBud] = useState<{ rows: BudRow[]; budgetYear: number | null; rentDetail?: RentDetailClient | null } | null>(null);
   const [loading, setLoading] = useState(false);
   // When set, the GL list is isolated to one tenant/unit account.
@@ -232,7 +232,16 @@ export function LineDetailModal({ viewKey, property, year, period, monthLabel, l
             <div className="muted small" style={{ padding: 18 }}>Loading…</div>
           ) : tab === "gl" ? (
             !gl || gl.count === 0 ? (
-              <div className="muted small" style={{ padding: 18 }}>No transactions for this line in {scopeWord}.</div>
+              gl?.detail === "lean" || gl?.detail === "partial" ? (
+                <div className="small" style={{ padding: 18, lineHeight: 1.5 }}>
+                  <b>{year}&rsquo;s GL was imported as monthly totals only</b>{gl.detail === "partial" ? " (for these months)" : ""}, so there are no transactions to list — the totals are there, the detail is not.
+                  <div className="muted" style={{ marginTop: 4 }}>To see them, re-upload {year}&rsquo;s GL on Operating Statements with &ldquo;Monthly totals only&rdquo; unticked. The new upload replaces the months it covers.</div>
+                </div>
+              ) : gl?.detail === "none" ? (
+                <div className="muted small" style={{ padding: 18 }}>No GL is loaded for {year}.</div>
+              ) : (
+                <div className="muted small" style={{ padding: 18 }}>No transactions for this line in {scopeWord}.</div>
+              )
             ) : (() => {
               // Hide zero-amount lines — only show transactions with activity.
               const txns = gl.transactions.filter((t) => Math.abs(t.amount) >= 0.005);
