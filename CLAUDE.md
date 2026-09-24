@@ -1340,6 +1340,18 @@ time — and the team does not have time to open the GL over $80.
   reconciliation (a newer lease) and a lease-up are assumed NNN** — pro-rata
   SF share of each pool, no admin fee (`retailProRata`); an office one takes the BUDGET YEAR as its base year (owner's call),
   so it is listed at zero with that reason.
+- **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
+  `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
+  property's draft built (four at a time) and summed line by line, matched by
+  section + label; rollups, occupancy (every suite) and the loans add up. It
+  is READ-ONLY — no typing, notes or source pills (a "+3%" cannot describe
+  eleven properties) — and a line's detail is its split BY PROPERTY
+  (`byProperty` → `PropertyBreakdownModal`: a donut of the six largest on
+  `--series-1…6`, the rest folded into Other, beside the full table, which is
+  the record since a credit cannot be a slice). Shopping Centers, JV III, NI
+  LLC and Korman Homes roll up (`rollsUp`). Deliberately the sum of the TABS:
+  a fund's own loans (3600 → PJV3, 4000 → PNIPLX) sit on no building tab and
+  so are not in it.
 - **7010 IS TWO RECOVERY POTS** (`mixedPools.ts`, `officePoolRatios` /
   `mixedOfficeCode` in `reimbursementEstimate.ts`). Parkwood is retail with an
   office centre upstairs, reconciled as two recons — the retail tenants on
