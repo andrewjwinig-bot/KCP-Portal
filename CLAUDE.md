@@ -1168,6 +1168,10 @@ time — and the team does not have time to open the GL over $80.
   (`LEASE_KINDS` / `isLeaseKind`) and the dialog shows a failed save itself. A
   saved decision replaces a seed; undoing one ("Keeps paying") records the unit
   in the doc's `cleared` so the seed stays undone.
+  **A back-out also stops RECOVERIES from its month on EVERY path**
+  (`tenancy` in `reimbursementEstimate.ts` wraps the lookup): a recon tenant
+  that matches no rent row used to fall back to a FULL year and never read the
+  back-out, so Rite Aid would have kept paying CAM / INS / RET with no rent.
 - **THE MANAGEMENT FEE IS A FORMULA: LAST YEAR'S RATE × THIS BUDGET'S GROSS
   REVENUE, MONTH BY MONTH** (`managementFee.ts`, source `fee`, pill "6% of
   revenue", not typeable). The rate is the one the budget of record's own
