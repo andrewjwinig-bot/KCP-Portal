@@ -1285,7 +1285,9 @@ time — and the team does not have time to open the GL over $80.
   SF share of each pool, no admin fee (`retailProRata`); an office one takes the BUDGET YEAR as its base year (owner's call),
   so it is listed at zero with that reason.
 - **Shopping centres have no condo association**: the mapping's "Condo Assn"
-  recovery line (4970-*) is dropped from every SC budget draft — only while it
+  recovery line (4970-*) — and the REIMBURSABLE section's Management Fee (6610-8502; the
+  centres' fee is non-reimbursable, 6610-8501) — are dropped from every SC
+  budget draft — only while it
   is empty (budget AND forecast $0), so a centre that ever posts to it keeps
   the line and no money is hidden.
 - **The budget is WHOLE DOLLARS, everywhere.** Each suite's rent month is
