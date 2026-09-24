@@ -21,8 +21,10 @@ const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toL
 const pct = (n: number) => `${n.toFixed(2)}%`;
 const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", verticalAlign: "middle" };
 
-export function PayrollPoolsCard({ year, bookId, bookName, propertyCode, queued, onSaved }: {
+export function PayrollPoolsCard({ year, bookId, bookName, propertyCode, queued, onSaved, onlyKeys }: {
   year: number; bookId: string; bookName: string; propertyCode: string;
+  /** Only these blocks — the ones behind the line that was clicked. */
+  onlyKeys?: string[];
   /** The draft page's write queue — every store write goes through it. */
   queued: <T,>(fn: () => Promise<T>) => Promise<T>;
   /** After a save — the page re-projects the draft. */
@@ -46,13 +48,14 @@ export function PayrollPoolsCard({ year, bookId, bookName, propertyCode, queued,
     load(); onSaved();
   };
 
-  if (!data?.blocks.length) return null;
+  const blocks = (data?.blocks ?? []).filter((b) => !onlyKeys || onlyKeys.includes(b.key));
+  if (!data || !blocks.length) return null;
   const code = propertyCode.toUpperCase();
   return (
     <div id="payroll-pools" className="card" style={{ padding: 0 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
-        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Payroll — one total for {bookName}, allocated by share</span>
-        <span className="muted small">From the {data.year} payroll budget · entered once, every property&rsquo;s line is its share</span>
+        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Payroll total — {bookName}</span>
+        <span className="muted small">Entered once; each property&rsquo;s line is its share</span>
       </div>
       {err && <div className="small" style={{ color: "#b91c1c", fontWeight: 700, padding: "8px 14px" }}>{err}</div>}
       <div className="tableWrap" style={{ marginTop: 0 }}>
@@ -67,7 +70,7 @@ export function PayrollPoolsCard({ year, bookId, bookName, propertyCode, queued,
             </tr>
           </thead>
           <tbody>
-            {data.blocks.map((b) => {
+            {blocks.map((b) => {
               const mine = b.split.find((s) => s.code.toUpperCase() === code);
               return (
                 <Fragment key={b.key}>
