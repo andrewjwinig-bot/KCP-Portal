@@ -49,6 +49,13 @@ describe("projectLeaseRevenue", () => {
     expect(p.expiring).toEqual([]);
   });
 
+  it("budgets the INTERNAL broker's commission on each deal — $1/SF at a shopping centre", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([u("1100-1", { baseRent: 1000, sqft: 2500, leaseTo: "6/30/2027" })]));
+    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "renew", monthlyRent: 1200, termYears: 5 } });
+    expect(p.commissionMonthly![6]).toBe(2500);   // July, the month the renewal starts
+    expect(p.commissionMonthly!.reduce((a, b) => a + b, 0)).toBe(2500);
+  });
+
   it("returns hasData=false when no roll or no matching property", async () => {
     resolveCurrentRentroll.mockResolvedValue(null);
     expect((await projectLeaseRevenue(["1100"], 2027)).hasData).toBe(false);

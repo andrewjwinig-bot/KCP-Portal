@@ -13,6 +13,8 @@ import "server-only";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import type { LeaseAssumption } from "./leasingAssumptions";
 import type { InPlaceCharge } from "./inPlaceRevenue";
+import { internalCommission } from "@/lib/commissions";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const r0 = (n: number) => Math.round(n);
 
@@ -85,6 +87,8 @@ export type LeaseRevenueProjection = {
    *  starts — the capital the deals cost, beside the rent they bring. */
   tiMonthly: number[];
   lcMonthly: number[];
+  /** The internal broker's commissions on the deals, in the month each starts. */
+  commissionMonthly?: number[];
   /** How many assumptions were applied to shape the projection. */
   assumptionsApplied: number;
   hasData: boolean;
@@ -173,10 +177,16 @@ export async function projectLeaseRevenue(
    *  TI is $/SF × SF. The commission is a PERCENT OF THE RENT over the term —
    *  lcPct × the new annual rent × the term in years — which is how a broker
    *  is paid, so a deal with no term yet carries no commission. */
+  // The INTERNAL broker's commission on each deal (Harry $1/SF at the
+  // centres, Nancy's term-based $/SF at the parks — `internalCommission`),
+  // beside the outside LC. Keyed off the property being projected.
+  const commissionMonthly = new Array(12).fill(0);
+  let curGroup: string | undefined;
   const dealCosts = (a: LeaseAssumption, sqft: number, startMonth: number, monthlyRent: number) => {
     if (startMonth < 1 || startMonth > 12) return;
     if (sqft > 0) tiMonthly[startMonth - 1] += (a.tiPsf ?? 0) * sqft;
     lcMonthly[startMonth - 1] += leasingCommission(a.lcPct, monthlyRent, a.termYears);
+    commissionMonthly[startMonth - 1] += internalCommission(curGroup, sqft, a.termYears);
   };
   const expiring: ExpiringLease[] = [];
   const vacant: VacantUnit[] = [];
@@ -279,6 +289,7 @@ export async function projectLeaseRevenue(
     if (!wanted.has(String(p.propertyCode).toUpperCase())) continue;
     any = true;
     const code = String(p.propertyCode).toUpperCase();
+    curGroup = PROPERTY_DEFS.find((d) => d.id.toUpperCase() === code)?.allocGroup;
     const sched = (schedule ?? []).filter((c) => c.propertyCode.toUpperCase() === code);
     if (sched.length) {
       scheduleProperty(p.units ?? [], sched);
@@ -371,6 +382,7 @@ export async function projectLeaseRevenue(
     rentalTotal: roundedRental.reduce((s, n) => s + n, 0),
     tiMonthly: tiMonthly.map(r0),
     lcMonthly: lcMonthly.map(r0),
+    commissionMonthly: commissionMonthly.map(r0),
     inPlaceUnits,
     expiring,
     vacant,

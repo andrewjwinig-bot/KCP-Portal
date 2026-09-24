@@ -58,6 +58,24 @@ export function retailCommission(sqft: number): number {
   return Number.isFinite(v) ? Math.round(v * 100) / 100 : 0;
 }
 
+/**
+ * The INTERNAL broker's commission on a lease signed — what the budget sets
+ * aside on Commissions-Internal Broker (6620-8501) for a renewal, a lease-up
+ * or a hold the leasing owner keys. The same rules the Commissions pages pay:
+ *   • shopping centres (Harry): a flat $1 per SF — `retailCommission`;
+ *   • business parks (Nancy): the per-SF incentive by TERM — `INCENTIVE_TIERS`.
+ *     A budgeted term between the standard ones (7, 10 years) takes the
+ *     highest tier it has reached; no term keyed, no commission (the rate
+ *     depends on it).
+ */
+export function internalCommission(group: "SC" | "BP" | string | null | undefined, sqft: number, termYears: number | null | undefined): number {
+  if (!(sqft > 0)) return 0;
+  if (group === "SC") return retailCommission(sqft);
+  if (!termYears || !(termYears > 0)) return 0;
+  const tier = [...INCENTIVE_TIERS].sort((a, b) => b.years - a.years).find((t) => termYears + 1e-6 >= t.years);
+  return tier ? Math.round(tier.ratePerSqft * sqft * 100) / 100 : 0;
+}
+
 /** Years between two date-like strings. Returns 0 if either is unparseable. */
 export function termYearsBetween(from: string, to: string): number {
   const f = parseDateLoose(from);

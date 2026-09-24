@@ -82,7 +82,7 @@ function parseTyped(s: string): number | null | undefined {
   return neg ? -n : n;
 }
 
-function CellInput({ initial, onDone }: { initial: number; onDone: (v: number | null | undefined, move: 0 | 1 | -1) => void }) {
+export function CellInput({ initial, onDone }: { initial: number; onDone: (v: number | null | undefined, move: 0 | 1 | -1) => void }) {
   const [v, setV] = useState(String(Math.round(initial)));
   // Tab/Enter finish the cell and unmount it; a blur on the way out must not
   // commit it a second time.
