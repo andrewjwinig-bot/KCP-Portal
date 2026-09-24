@@ -213,7 +213,7 @@ export default function ManagementFeesPage() {
             {[now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2].map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
           <DownloadMenu
-            items={[{ label: "Excel workbook", description: "Building × month grid + Actual vs Budget, with live totals", onClick: () => data && exportManagementFeesXlsx(data) }]}
+            items={[{ label: "Excel workbook", description: "A building per row, months across, to the full-year reprojection vs budget — live totals", onClick: () => { if (data) void exportManagementFeesXlsx(data); } }]}
             disabled={!data || !data.buildings.length}
           />
         </div>

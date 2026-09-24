@@ -212,8 +212,9 @@ re-types a money format, or calls `new ExcelJS.Workbook()` directly.
   Pro — so a SheetJS export can only be themed by moving it to ExcelJS.
   **Themed so far**: the per-property **rent roll**, the assistant's **table**,
   the **1099 register** (the three that go to an outsider), the **payroll
-  summary**, and the allocation template's **Allocations** sheet.
-  **Still to do**: cash sheet, management fees, allocated-invoicer, rent-roll
+  summary**, the allocation template's **Allocations** sheet, and the
+  **management fees** grid (a building per row, as the page reads).
+  **Still to do**: cash sheet, allocated-invoicer, rent-roll
   trend, plus the inline `aoa_to_sheet` calls in `app/commissions`,
   `app/expenses`, `app/expenses/history`,
   `app/financials/operating-statements/review` and `app/investors`. Don't add a
@@ -463,7 +464,10 @@ buildings may be managed by a third party" as an explanation for a gap.
   has not posted carries its BUDGET in italics, so each row sums to where the
   year should land — the Reprojections page's convention (actual to date +
   budget for the rest). Missing / negative fees keep their amber / red cells,
-  explained in a `HoverCard`.
+  explained in a `HoverCard`. The Excel download (`export.ts`, ExcelJS on the
+  shared theme) is the SAME layout — subtotals per group, a grand total over
+  the SUBTOTALS, reprojection and variance as live formulas — pinned by
+  `export.test.ts` reading the file back.
 - **`2010`'s statement line "Management Fees" has mask `4510-*,4230-8501`**,
   bundling base rent into a line named for fees. As of 2026 nothing posts to
   4230-8501 at 2010, so it is cosmetic — do NOT "fix" it expecting the numbers to
