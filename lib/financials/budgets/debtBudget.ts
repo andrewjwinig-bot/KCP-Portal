@@ -33,6 +33,9 @@ export type BudgetLoan = {
   principal: number;
   /** Matures before or during the budget year — refinance assumed. */
   refinanceAssumed: boolean;
+  /** A FUND's loan carried by one of its buildings: that building's share
+   *  (0–1) — interest and principal here are already the share. */
+  share?: number;
 };
 
 export type DebtBudget = {
@@ -97,3 +100,44 @@ export function budgetDebt(loans: Loan[], year: number): DebtBudget | null {
 }
 
 export const debtTotal = (d: DebtBudget) => sum(d.interest) + sum(d.principal);
+
+// ── A fund's loans, allocated to its buildings ─────────────────────────────
+//
+// JV III's and NI LLC's mortgages are booked on the FUND (3600 / 4000), but
+// the budget carries each building's share on its own Interest and Mortgage
+// Amortization lines — that is how the budget workbooks are built, and it is
+// what makes the book's "All …" roll-up (the sum of the building tabs) carry
+// the fund's whole debt service.
+
+/** The holding entity whose loans a fund's buildings share. */
+export const FUND_SHELL: Record<string, string> = { "JV III": "3600", "NI LLC": "4000" };
+
+/**
+ * Each building's share of its fund's debt. Read off LAST YEAR'S BUDGET OF
+ * RECORD — each building's own debt lines over the fund's — so the draft
+ * allocates exactly as the workbook did; with no prior budget (or one that
+ * carried no debt) it falls back to square footage. Shares sum to 1.
+ */
+export function fundDebtShares(buildings: { code: string; priorDebt: number; sqft: number }[]): { shares: Record<string, number>; basis: "prior-budget" | "sqft" } {
+  const debt = buildings.reduce((a, b) => a + Math.max(0, b.priorDebt), 0);
+  if (debt > 0.5) return { shares: Object.fromEntries(buildings.map((b) => [b.code, Math.max(0, b.priorDebt) / debt])), basis: "prior-budget" };
+  const sf = buildings.reduce((a, b) => a + Math.max(0, b.sqft), 0);
+  return { shares: Object.fromEntries(buildings.map((b) => [b.code, sf > 0 ? Math.max(0, b.sqft) / sf : 1 / buildings.length])), basis: "sqft" };
+}
+
+/** A debt budget scaled to one building's share of it. */
+export function shareOfDebt(d: DebtBudget, share: number): DebtBudget {
+  const k = (n: number) => r0(n * share);
+  return {
+    interest: d.interest.map(k),
+    principal: d.principal.map(k),
+    loans: d.loans.map((l) => ({ ...l, interest: k(l.interest), principal: k(l.principal), share })),
+  };
+}
+
+/** Two debt budgets on one statement (a building's own loans + its fund share). */
+export function addDebt(a: DebtBudget | null, b: DebtBudget | null): DebtBudget | null {
+  if (!a) return b;
+  if (!b) return a;
+  return { interest: a.interest.map((v, i) => v + b.interest[i]), principal: a.principal.map((v, i) => v + b.principal[i]), loans: [...a.loans, ...b.loans] };
+}

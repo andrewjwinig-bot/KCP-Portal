@@ -60,7 +60,16 @@ export function consolidateDrafts(name: string, drafts: BudgetDraft[]): BudgetDr
     const months = drafts.reduce((a, d) => add(a, d.rollups[k].months), zero()).map(r0);
     return { months, total: r0(months.reduce((a, v) => a + v, 0)) };
   };
-  const loans = drafts.flatMap((d) => d.debt?.loans ?? []);
+  // A fund's loan appears once per building, each carrying its share — the
+  // roll-up puts the shares back together into the one loan.
+  const loans: NonNullable<BudgetDraft["debt"]>["loans"] = [];
+  for (const l of drafts.flatMap((d) => d.debt?.loans ?? [])) {
+    const hit = loans.find((x) => x.id === l.id);
+    if (!hit) { loans.push({ ...l }); continue; }
+    hit.interest += l.interest; hit.principal += l.principal;
+    if (hit.share != null || l.share != null) hit.share = (hit.share ?? 0) + (l.share ?? 0);
+  }
+  for (const l of loans) if (l.share != null && l.share > 0.999) delete l.share;
   return {
     propertyCode: "ALL",
     propertyName: name,
