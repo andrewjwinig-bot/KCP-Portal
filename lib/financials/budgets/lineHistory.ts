@@ -22,6 +22,8 @@ export type LineYear = {
   months: number[] | null;
   actual: number | null;
   budget: number | null;
+  /** The year's budget month by month (same sign as `budget`). Null with no budget. */
+  budgetMonths?: number[] | null;
   /** actual − budget. Positive means over. Null when either side is missing. */
   variance: number | null;
   /** How much of the year the GL covers — 12 is a full year. */
@@ -73,6 +75,7 @@ export async function lineHistory(opts: {
     const actual = months ? r0(months.reduce((s, n) => s + n, 0)) : null;
 
     let budget: number | null = null;
+    let budgetMonths: number[] | null = null;
     let budgetFallback = false;
     try {
       const b = await resolvePropertyBudget(propertyCode, y);
@@ -83,12 +86,14 @@ export async function lineHistory(opts: {
         const lookup = makeBudgetLookup(b, 12);
         const hit = lookup("", mask, [mask]);
         budget = hit ? r0(hit.annualBudget) : null;
+        // Month by month, for the history's monthly table.
+        if (hit) budgetMonths = Array.from({ length: 12 }, (_, i) => r0(makeBudgetLookup(b, i + 1)("", mask, [mask])?.periodBudget ?? 0));
         budgetFallback = !!b.fallback;
       }
     } catch { /* a year with no budget file simply has no budget */ }
 
     years.push({
-      year: y, months, actual, budget,
+      year: y, months, actual, budget, budgetMonths,
       variance: actual != null && budget != null ? r0(actual - budget) : null,
       monthsCovered: covered,
       budgetFallback,

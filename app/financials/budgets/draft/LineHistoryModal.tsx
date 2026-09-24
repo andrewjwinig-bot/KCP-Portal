@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { Pill, StatPill, TONE_GREEN, TONE_AMBER, TONE_RED, TONE_BLUE, TONE_NEUTRAL, type PillTone } from "@/app/components/Pill";
 import { HistoryLoading } from "./HistoryLoading";
 import { HistoryBars } from "./HistoryBars";
+import { HistoryMonthly } from "./HistoryMonthly";
 import type { LineHistory } from "@/lib/financials/budgets/lineHistory";
 import type { LineInsight, LineShape } from "@/lib/financials/budgets/lineInsight";
 
@@ -26,12 +27,16 @@ const SHAPE: Record<LineShape, { tone: PillTone; text: string; what: string }> =
 
 type Payload = LineHistory & { insight: LineInsight };
 
-export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, year, onClose, onUseSuggestion, forecast = null, budget = null }: {
+export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, year, onClose, onUseSuggestion, forecast = null, budget = null, budgetMonths = null, extra = null }: {
   viewKey: string; propertyCode: string; label: string; mask: string; sign: 1 | -1; year: number;
   /** The basis year's full-year reprojection for this line — the current year's bar. */
   forecast?: number | null;
   /** This draft's figure for the line — the budget year's bar. */
   budget?: number | null;
+  /** This draft's months for the line — the monthly table's top row. */
+  budgetMonths?: number[] | null;
+  /** Shown at the top — a payroll line's total, entered here. */
+  extra?: React.ReactNode;
   onClose: () => void;
   onUseSuggestion?: (amount: number) => void;
 }) {
@@ -50,7 +55,7 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--card)", borderRadius: 12, maxWidth: 900, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", maxHeight: "84vh" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "var(--card)", borderRadius: 12, maxWidth: 1180, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.35)", display: "flex", flexDirection: "column", maxHeight: "88vh" }}>
         <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div>
             <div style={secLabel}>Line history · {propertyCode}</div>
@@ -61,6 +66,7 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
         </div>
 
         <div style={{ padding: 18, overflowY: "auto" }}>
+          {extra && <div style={{ marginBottom: 14 }}>{extra}</div>}
           {failed && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>Could not read this line&rsquo;s history.</div>}
           {!data && !failed && <HistoryLoading lastYear={year - 1} />}
 
@@ -70,6 +76,11 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
                 <Pill tone={SHAPE[ins.shape].tone}>{SHAPE[ins.shape].text}</Pill>
                 <span className="muted small">{SHAPE[ins.shape].what}</span>
               </div>
+
+              {/* Month by month first — seasonality and one-offs are read
+                  where they happen; the annual reading and bars follow. */}
+              <HistoryMonthly years={data.years} budgetYear={year} draftMonths={budgetMonths}
+                viewKey={viewKey} propertyCode={propertyCode} label={label} mask={mask} sign={sign} />
 
               {ins.suggestion && (
                 <div className="card" style={{ marginTop: 12, borderColor: "rgba(11,74,125,0.35)", background: "rgba(11,74,125,0.04)" }}>

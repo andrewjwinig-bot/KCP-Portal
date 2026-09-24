@@ -1121,7 +1121,7 @@ time — and the team does not have time to open the GL over $80.
   the shopping centres ("From 2026 Payroll Budget"), split by each property's
   share — read off last year's budget of record (the workbook's Allocated
   Expenses tab → `line.allocations`, only the blocks whose note says payroll).
-  Drew types the total once on the draft page (card above the grid); every
+  Drew types the total once by clicking the line (it opens at the top of the line's history popup); every
   property's line becomes its share (source `pool`, pill "Payroll", not
   typeable per property — onto the GL's sub-line where the line has several
   accounts). Until entered a block carries last year +3%. Later this links to
@@ -1168,6 +1168,18 @@ time — and the team does not have time to open the GL over $80.
   A line whose figure comes from elsewhere (leases, Budget Inputs, recoveries)
   shows its split read-only. The grid's pills sit on the line's own row
   ("+3%", "Flat") so every row is one row tall.
+- **The line-history popup LEADS WITH A MONTHLY TABLE** (`HistoryMonthly`):
+  Jan–Dec + Total, rows {year} Budget (this draft), {year−1} Reproj. (actual
+  to date, then that year's budget in italics), {year−1} Budget, each prior
+  year's Actual, and the average of the complete years. Every actual cell
+  opens THAT MONTH'S GL — the operating statements' own `LineDetailModal`,
+  moved to `app/financials/operating-statements/LineDetailModal.tsx` so both
+  pages open the same drill-down; a row's Total opens the year to date. The
+  owner budgets month by month — seasonality and one-offs are read where they
+  happen, not flattened into an annual average. `lineHistory` carries
+  `budgetMonths` per year for it. The bars stay below as the visual aid.
+  A PAYROLL line's total is entered at the top of this same popup (click the
+  line) — not in a card above the grid, which the owner found too loud.
 - **The line-history popup's years are a BAR CHART** (`HistoryBars`): one bar
   per year of actuals, each year's budget a tick across its bar, a dashed
   average of the full years shown, and the CURRENT year taken to a full year

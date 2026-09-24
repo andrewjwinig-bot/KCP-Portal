@@ -75,7 +75,7 @@ export default function BudgetDraftPage() {
   const [refreshTick, setRefreshTick] = useState(0);
   // The line whose history is open. Clicking a line is how you argue its
   // number from its own five years rather than from last year plus a percent.
-  const [histLine, setHistLine] = useState<{ label: string; mask: string; sign: 1 | -1; section: string; locked?: boolean; forecast?: number; budget?: number } | null>(null);
+  const [histLine, setHistLine] = useState<{ label: string; mask: string; sign: 1 | -1; section: string; locked?: boolean; forecast?: number; budget?: number; months?: number[]; poolKeys?: string[] } | null>(null);
   // Which BOOK is open. A property's budget is a sheet inside its book, so the
   // book leads and the property follows — picking a property inside a book
   // never changes which book you are in.
@@ -349,8 +349,6 @@ export default function BudgetDraftPage() {
             <span className="muted small">Click any month or the Budget total to type it · <b>Accept</b> keeps a keyed line as shown</span>
           </div>
           {editError && <div className="card" style={{ color: "#b91c1c", borderColor: "rgba(185,28,28,0.4)" }}>{editError}</div>}
-          <PayrollPoolsCard year={draft.budgetYear} bookId={bookId} bookName={book.name} propertyCode={draft.propertyCode}
-            queued={queued} onSaved={() => setRefreshTick((n) => n + 1)} />
           <BudgetStatementTable
             draft={draft}
             onEdit={draft.lineEditScope ? editLine : undefined}
@@ -358,7 +356,7 @@ export default function BudgetDraftPage() {
             notes={draft.notes}
             onNote={(sec, label) => setNoteLine({ section: sec.name, label })}
             badgeFor={(src) => sourceBadge(src, GROWTH)}
-            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items", forecast: l.basisTotal, budget: l.total })}
+            onLine={(sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.map((p) => p.key) })}
           />
 
           {/* The loans behind the debt-service lines — so "why is interest
@@ -464,6 +462,11 @@ export default function BudgetDraftPage() {
           year={year}
           forecast={histLine.forecast ?? null}
           budget={histLine.budget ?? null}
+          budgetMonths={histLine.months ?? null}
+          extra={histLine.poolKeys?.length && draft ? (
+            <PayrollPoolsCard year={draft.budgetYear} bookId={bookId} bookName={book.name} propertyCode={draft.propertyCode}
+              onlyKeys={histLine.poolKeys} queued={queued} onSaved={() => setRefreshTick((n) => n + 1)} />
+          ) : null}
           onClose={() => setHistLine(null)}
           onUseSuggestion={draft?.canEditLines && !histLine.locked ? (amount) => { applySuggestion(histLine.section, histLine.label, amount); setHistLine(null); } : undefined}
         />
