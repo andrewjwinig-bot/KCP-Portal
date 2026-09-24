@@ -33,8 +33,8 @@ const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "r
 const td: React.CSSProperties = { padding: "9px 8px", fontSize: 13.5, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
 /** The suite, as the Rent Roll writes it — a bold brand-coloured code. */
 const SUITE: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" };
-const CONTRACTED_BG = "rgba(22,163,74,0.22)";
-const ASSUMED_BG = "rgba(22,163,74,0.07)";
+export const CONTRACTED_BG = "rgba(22,163,74,0.22)";
+export const ASSUMED_BG = "rgba(22,163,74,0.07)";
 const TOTAL_BORDER = "2px solid rgba(11,74,125,0.3)";
 
 type Part = "rent" | "cam" | "ins" | "ret";

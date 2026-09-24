@@ -33,7 +33,10 @@ import { Pill, type PillTone } from "@/app/components/Pill";
 import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/draft";
 import type { SectionRole } from "@/lib/financials/operating-statements/types";
 import { NoteMark, type LineNote } from "./LineNote";
-import { HoverCard } from "@/app/components/HoverCard";
+import { HoverCard, type TipRow } from "@/app/components/HoverCard";
+import { recoveryCategory, recoveryMakeup, CATEGORY_LABEL, type RecoveryCategory } from "@/lib/financials/budgets/recoveryMakeup";
+import { RecoveryMakeupModal } from "./RecoveryMakeupModal";
+import { OccupancyBySuiteModal } from "./OccupancyBySuiteModal";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const COLOR_BRAND = "#0b4a7d";
@@ -108,7 +111,7 @@ export function CellInput({ initial, onDone }: { initial: number; onDone: (v: nu
   );
 }
 
-function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote }: {
+function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, onCellClick }: {
   label: string; months: number[]; total: number; basis: number | null; variant?: Variant;
   badge?: { tone: PillTone; text: string }; onLabel?: () => void;
   /** Revenue-like: up is good. Expense-like: down is good. */
@@ -133,6 +136,10 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
   priorYear?: number;
   /** The budget workbook's own note on the row. */
   labelNote?: string;
+  /** A month cell's breakdown, shown on hover (a recovery line's tenants). */
+  cellHover?: (m: number) => { title: string; rows: TipRow[]; footer?: TipRow } | null;
+  /** Clicking a month cell (a recovery line opens its full tenant list). */
+  onCellClick?: (m: number) => void;
 }) {
   const sub = variant === "sub";
   const subtotal = variant === "subtotal";
@@ -150,9 +157,12 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
       ...(isTyped ? { color: TYPED_FG, fontWeight: 800 } : {}),
       ...(open ? { padding: "2px 4px" } : {}),
     };
+    const tip = !open && m != null && m < 12 && cellHover ? cellHover(m) : null;
+    const clickable = !editable && !!onCellClick && m != null && m < 12;
+    const shown = Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span> : money0(v);
     return (
-      <td key={key} style={style} className={editable && m != null ? "os-cell" : undefined}
-        onClick={editable && m != null && !open ? () => setEdit!({ row: rowKey!, m }) : undefined}>
+      <td key={key} style={{ ...style, ...(clickable ? { cursor: "pointer" } : {}) }} className={(editable || clickable) && m != null ? "os-cell" : undefined}
+        onClick={editable && m != null && !open ? () => setEdit!({ row: rowKey!, m }) : clickable ? () => onCellClick!(m!) : undefined}>
         {open ? (
           <CellInput initial={v} onDone={(val, move) => {
             // Only a CHANGE is a decision: tabbing across a month leaves it
@@ -162,7 +172,9 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
             const next = m! + move;
             setEdit!(move !== 0 && next >= 0 && next <= 11 ? { row: rowKey!, m: next } : null);
           }} />
-        ) : Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span> : money0(v)}
+        ) : tip ? (
+          <HoverCard title={tip.title} rows={tip.rows} footer={tip.footer} width={300} help={false}>{shown}</HoverCard>
+        ) : shown}
       </td>
     );
   };
@@ -223,12 +235,19 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
 
 /** A small italic metric row — occupancy, the recovery ratio — that reads
  *  the statement rather than adding to it. Pre-formatted strings; "" = blank. */
-function StatRow({ label, months, total, basis, change, changeGood }: {
+function StatRow({ label, months, total, basis, change, changeGood, onLabel }: {
   label: string; months: string[]; total: string; basis: string; change: string; changeGood?: boolean | null;
+  /** Makes the label a link (Occupancy SF opens the suite-by-suite view). */
+  onLabel?: () => void;
 }) {
   return (
     <tr>
-      <td style={{ ...lab, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>{label}</td>
+      <td style={{ ...lab, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>
+        {onLabel ? (
+          <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
+            className="os-line-name" style={{ cursor: "pointer" }}>{label}</span>
+        ) : label}
+      </td>
       {months.map((m, i) => <td key={i} style={{ ...num, fontSize: 13 }}>{m}</td>)}
       <td style={{ ...num, fontSize: 13, fontWeight: 700 }}>{total}</td>
       <td style={{ ...num, color: "var(--muted)" }}>{basis}</td>
@@ -299,6 +318,26 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   // by default: the bucket's total is what reads down the page, the items are
   // there when you want them.
   const [openBuckets, setOpenBuckets] = useState<Set<string>>(new Set());
+  const [occOpen, setOccOpen] = useState(false);
+  const [makeupAt, setMakeupAt] = useState<{ cat: RecoveryCategory; m: number } | null>(null);
+  const estKind = draft.reimbursementEstimate?.kind;
+  const recTenants = draft.tenantRevenue ?? [];
+  // A recovery line's month: which tenants make it up, and what share of its
+  // pool that recovers. Top eight on hover; click for all of them.
+  const recoveryHover = (cat: RecoveryCategory) => (m: number) => {
+    const mk = recoveryMakeup(cat, m, recTenants, draft.sections, estKind);
+    if (!mk.tenants.length) return null;
+    const top = mk.tenants.slice(0, 8);
+    const rest = mk.tenants.slice(8);
+    const rows: TipRow[] = top.map((t) => ({ label: t.tenant || t.unitRef, value: money0(t.amount) }));
+    if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"} · click for all`, value: money0(rest.reduce((a, t) => a + t.amount, 0)), color: "var(--muted)" });
+    rows.push({ label: `${CATEGORY_LABEL[cat]} pool this month`, value: money0(mk.pool), color: "var(--muted)" });
+    return {
+      title: `${CATEGORY_LABEL[cat]} recoveries · ${MONTHS[m]}`,
+      rows,
+      footer: { label: `Recovery ratio${mk.ratioYear != null ? ` (year ${mk.ratioYear.toFixed(1)}%)` : ""}`, value: mk.ratio == null ? "–" : `${mk.ratio.toFixed(1)}%`, color: COLOR_BRAND },
+    };
+  };
   // EVERYTHING starts collapsed (the owner's call): the statement reads at the
   // level it is presented, and a line opens to its buckets, a bucket to its
   // items, only when asked. `toggled` holds the lines opened.
@@ -395,6 +434,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                       rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
                       onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
                       onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}
+                      {...(() => {
+                        const cat = l.source === "cam-estimate" && recTenants.length ? recoveryCategory(l.label, l.mask, estKind) : null;
+                        return cat ? { cellHover: recoveryHover(cat), onCellClick: (m: number) => setMakeupAt({ cat, m }) } : {};
+                      })()}
                       toggle={subs.length ? { open: isOpen, onToggle: () => setToggled((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />
                     {isOpen && subs.flatMap((x) => {
                       // A SEEDED bucket (Contractual, Recurring…) and its
@@ -405,11 +448,18 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                         const typeableY = mayType && y.typeable;
                         const k = `${key}#${y.account}`;
                         const noteLabel = `${l.label}#${y.account}`;
+                        // "+3%" on a sub-line only while it really IS its
+                        // reference grown 3% and nothing on it is typed — a
+                        // Big Project from $0, or a typed month, loses it.
+                        const ref = seeded ? (y.prior ?? 0) : y.bucket === "extra" ? 0 : (y.basisTotal ?? 0);
+                        const untyped = !y.typed?.some(Boolean) && !(y.bucket === "base" && entered);
+                        const grown = untyped && Math.abs(ref) >= 0.5 && Math.abs(y.total - ref * 1.03) <= Math.max(12, Math.abs(y.total) * 0.002);
                         return (
                           <Row key={k} variant="sub" depth={depth} toggle={toggle} label={y.label ?? `${y.account}${y.name ? ` · ${y.name}` : ""}`}
                             months={y.months} total={y.total}
                             basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
+                            badge={grown ? badgeFor("reproj-growth") : undefined}
                             favorableUp={favorableUp}
                             typed={y.bucket === "base" && entered ? new Array(12).fill(true) : y.typed}
                             onAccept={typeableY && y.bucket === "base" && keyed && !entered ? () => onEdit!(sec, l, "accept", null, y.account) : undefined}
@@ -467,7 +517,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
             </thead>
             <tbody>
               <StatRow label="Occupancy %" months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={up} />
-              <StatRow label={`Occupancy SF (of ${sf(totalSf)})`} months={occSf.map(sf)} total={sf(avgSf)} basis={sf(todaySf)} change={up == null ? "–" : `${up ? "+" : "−"}${sf(Math.abs(avgSf - todaySf))}`} changeGood={up} />
+              <StatRow onLabel={() => setOccOpen(true)} label={`Occupancy SF (of ${sf(totalSf)})`} months={occSf.map(sf)} total={sf(avgSf)} basis={sf(todaySf)} change={up == null ? "–" : `${up ? "+" : "−"}${sf(Math.abs(avgSf - todaySf))}`} changeGood={up} />
             </tbody>
           </table>
         </div>
@@ -498,6 +548,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {body}
+      {occOpen && <OccupancyBySuiteModal suites={recTenants.filter((t) => !t.recoveryOnly && t.sqft > 0)} year={draft.budgetYear} onClose={() => setOccOpen(false)} />}
+      {makeupAt && <RecoveryMakeupModal makeup={recoveryMakeup(makeupAt.cat, makeupAt.m, recTenants, draft.sections, estKind)} month={MONTHS[makeupAt.m]} year={draft.budgetYear} onClose={() => setMakeupAt(null)} />}
       <div className="muted small" style={{ padding: "2px 4px" }}>
         <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules · <b>Payroll</b> this property&rsquo;s share of the book&rsquo;s payroll total — click the line to enter it · <b>Items</b> built item by item from the {draft.basisYear} budget (contracts and recurring +3%, Big Projects from $0), its figures in <i>italics</i> in the {draft.basisYear} column. <b>{draft.basisYear} Reproj.</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
         {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget</b> to spread an annual. <span style={{ background: INPUT_BG, padding: "0 4px", borderRadius: 3 }}>Light blue</span> = you can type it; <span style={{ background: INPUT_BG, color: TYPED_FG, fontWeight: 800, padding: "0 4px", borderRadius: 3 }}>bold blue</span> = typed; ↺ resets a line.</>}
