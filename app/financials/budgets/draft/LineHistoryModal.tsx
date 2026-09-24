@@ -84,7 +84,7 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
               {comments.length > 0 && (
                 <div className="card" style={{ marginTop: 14, padding: "12px 14px" }}>
                   <div style={secLabel}>Comments</div>
-                  <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 13, lineHeight: 1.65 }}>
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 14, lineHeight: 1.65 }}>
                     {comments.map((n, i) => <li key={i}>{n}</li>)}
                   </ul>
                 </div>
