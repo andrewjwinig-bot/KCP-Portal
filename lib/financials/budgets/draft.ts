@@ -716,7 +716,10 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       // and its buckets (Cleaning / Vacancies) would be two rows of nothing.
       sec.lines = sec.lines.map((l) => /^cleaning/i.test(l.label) && l.total === 0 && l.basisTotal === 0 && l.subLines?.some((x) => x.bucket) ? { ...l, subLines: undefined } : l);
       const before = sec.lines.length;
-      sec.lines = sec.lines.filter((l) => !(isCondoAssnLine(l.label) && l.total === 0 && l.basisTotal === 0));
+      // The management fee is NON-reimbursable at the centres (6610-8501); the
+      // reimbursable section's Management Fee (6610-8502) is always empty there.
+      const hidden = (l: BudgetDraftLine) => isCondoAssnLine(l.label) || (sec.role === "reimbursable-expense" && /^\s*management\s+fee/i.test(l.label));
+      sec.lines = sec.lines.filter((l) => !(hidden(l) && l.total === 0 && l.basisTotal === 0));
       if (sec.lines.length !== before) {
         const subtotal = new Array(12).fill(0);
         for (const l of sec.lines) addInto(subtotal, l.months);
