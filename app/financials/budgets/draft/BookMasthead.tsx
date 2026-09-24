@@ -39,10 +39,9 @@ export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onY
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
         <div style={{ minWidth: 0 }}>
           <div style={secLabel}>{year} Operating Budget</div>
-          <h1 style={{ margin: "2px 0 0", fontSize: 28, fontWeight: 900, lineHeight: 1.1 }}>{book.name}</h1>
-          <div className="muted small" style={{ marginTop: 3 }}>
-            {book.properties.length > 0 && `${book.properties.length} ${book.properties.length === 1 ? "property" : "properties"}`}
-          </div>
+          {/* The page's own h1 — the Operating Budgets page's size. The book's
+              name on the roll-up; the property's own name once one is open. */}
+          <h1 style={{ marginTop: 4 }}>{(propertyCode && props.find((p) => p.code === propertyCode)?.name) || book.name}</h1>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
