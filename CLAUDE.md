@@ -1339,7 +1339,11 @@ time — and the team does not have time to open the GL over $80.
   "TIES TO THE BUDGET" mark (`tieRecoveries` → `draft.recoveryTie`); a category
   with money and no line to land on shows in red. It REPLACED two tables
   ("Rent by tenant" and a separate Recoveries card) listing the same tenants —
-  do not split them again. Hover a tenant for its methodology.
+  do not split them again. Hover a tenant for its methodology. A **$/SF**
+  column (the year's total ÷ the suite's SF; totals over the SF in view) sits
+  after Total, and a **$ · $/SF** toggle shows the months as ANNUALIZED $/SF
+  (× 12 ÷ SF) so a month reads against a lease's quoted rate. It follows the
+  view, so Gross gives gross $/SF and Base rent the rent rate.
 - **Recoveries**: the recon year's CAM methodology (PRS, admin fee,
   exclusions, cap, gross lease — from the unit page) applied to the budget's
   expense pools. **Recoveries follow RENT's months** (`tenancy: lease.rows` →

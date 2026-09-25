@@ -27,6 +27,8 @@ import { DecisionPill, DecisionModal, type LeasingCall, type SavePayload } from 
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const money0 = (n: number) => (n < 0 ? "-" : "") + Math.abs(Math.round(n)).toLocaleString("en-US");
+/** Dollars per square foot, to the cent: "$24.50". */
+const psf$ = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toFixed(2);
 const pct = (n: number) => `${(+n).toFixed(2).replace(/\.?0+$/, "")}%`;
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "right", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
@@ -170,6 +172,9 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const [toDecide, setToDecide] = useState(false);
   const [jumpsOnly, setJumpsOnly] = useState(false);
   const [openUnit, setOpenUnit] = useState<string | null>(null);
+  // $ or $/SF: in $/SF each month reads ANNUALIZED (× 12 ÷ the suite's SF), so
+  // a month compares straight across to a lease's quoted rate.
+  const [unit, setUnit] = useState<"usd" | "psf">("usd");
   if (!allRows.length) return null;
   const callOf = new Map((leasing?.calls ?? []).map((c) => [canonRef(c.unitRef), c]));
   // A lease in place is never a call owed — only expiring, holdover and
@@ -190,6 +195,16 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
     .filter(({ r }) => { if (!toDecide) return true; const c = callOf.get(canonRef(r.unitRef)); return !!c && c.mode !== "contracted" && !c.assumption; });
   const partTotals = (p: Part) => MONTHS.map((_, i) => rows.reduce((a, { r }) => a + (keepMonth(r, i) ? r[p][i] || 0 : 0), 0));
   const grandMonths = MONTHS.map((_, i) => rows.reduce((a, x) => a + x.months[i], 0));
+  // The SF behind the rows in view — each suite once; a recovery-only row
+  // (a recon tenant matching no suite) carries none.
+  const totalSf = [...new Map(rows.filter(({ r }) => !r.recoveryOnly && r.sqft > 0).map(({ r }) => [canonRef(r.unitRef), r.sqft])).values()].reduce((a, b) => a + b, 0);
+  const perSf = (annual: number, sf: number) => (sf > 0 ? annual / sf : null);
+  /** A month as shown: dollars, or annualized $/SF. */
+  const monthShown = (v: number, sf: number) => {
+    if (unit === "usd") return money0(v);
+    const x = perSf(v * 12, sf);
+    return x == null ? "–" : psf$(x);
+  };
   const allTie = tie.length === 0 || tie.every((t) => t.ties);
   const lineOf = (p: Part) => p === "rent" ? rentLine : tie.find((t) => t.basis === p)?.lines.map((l) => l.label).join(" + ");
 
@@ -207,8 +222,9 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
     return (
       <tr key={key} style={{ background: strong ? "rgba(11,74,125,0.06)" : undefined }}>
         <td colSpan={2} style={{ ...cell, textAlign: "left" }}>{label}</td>
-        {months.map((v, i) => <td key={i} style={cell}>{money0(v)}</td>)}
+        {months.map((v, i) => <td key={i} style={cell}>{monthShown(v, totalSf)}</td>)}
         <td style={{ ...cell, fontWeight: strong ? 900 : 700, borderLeft: "1px solid var(--border)" }}>{money0(months.reduce((a, b) => a + b, 0))}</td>
+        <td style={{ ...cell, fontWeight: strong ? 800 : 600 }}>{(() => { const x = perSf(months.reduce((a, b) => a + b, 0), totalSf); return x == null ? "–" : psf$(x); })()}</td>
       </tr>
     );
   };
@@ -253,6 +269,10 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
           )}
           <span style={{ display: "inline-flex", gap: 4 }}>{views.map((v) => seg(view, v, VIEW_LABEL[v], setView))}</span>
           <span style={{ display: "inline-flex", gap: 4, paddingLeft: 10, borderLeft: "1px solid var(--border)" }}>
+            {seg(unit, "usd", "$", setUnit)}
+            {seg(unit, "psf", "$/SF", setUnit)}
+          </span>
+          <span style={{ display: "inline-flex", gap: 4, paddingLeft: 10, borderLeft: "1px solid var(--border)" }}>
             {seg(sure, "all", "All", setSure)}
             {seg(sure, "contracted", "Contracted", setSure)}
             {seg(sure, "assumed", "Speculative", setSure)}
@@ -267,11 +287,12 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
               <th style={{ ...th, textAlign: "left" }}>Suite</th>
               {MONTHS.map((m) => <th key={m} style={th}>{m}</th>)}
               <th style={{ ...th, borderLeft: "1px solid var(--border)" }}>Total</th>
+              <th style={th}>$/SF</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={15} className="muted small" style={{ ...td, textAlign: "left", padding: 14 }}>
+              <tr><td colSpan={16} className="muted small" style={{ ...td, textAlign: "left", padding: 14 }}>
                 {jumpsOnly ? "No tenant's estimates jump." : toDecide ? "Every leasing call is made." : sure === "assumed" ? "Nothing speculative — no renewals, holds or lease-ups assumed yet." : "Nothing contracted."}
               </td></tr>
             )}
@@ -319,11 +340,12 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                     const has = Math.abs(v) > 0.5;
                     return (
                       <td key={i} style={{ ...td, background: has ? (r.assumed[i] ? ASSUMED_BG : CONTRACTED_BG) : undefined, color: has ? "var(--text)" : "var(--muted)" }}>
-                        {has ? money0(v) : "–"}
+                        {has ? monthShown(v, r.sqft) : "–"}
                       </td>
                     );
                   })}
                   <td style={{ ...td, fontWeight: 800, borderLeft: "1px solid var(--border)" }}>{nothing ? "–" : money0(total)}</td>
+                  <td style={{ ...td, color: nothing ? "var(--muted)" : undefined }}>{nothing || !(r.sqft > 0) ? "–" : psf$(total / r.sqft)}</td>
                 </tr>
               );
             })}
@@ -339,7 +361,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                   const t = p === "rent" ? null : tie.find((x) => x.basis === p);
                   if (!t || t.ties || sure !== "all") return null;
                   return (
-                    <tr><td colSpan={15} style={{ ...td, textAlign: "left", paddingLeft: 22, color: "#b91c1c", fontWeight: 600 }}>
+                    <tr><td colSpan={16} style={{ ...td, textAlign: "left", paddingLeft: 22, color: "#b91c1c", fontWeight: 600 }}>
                       {t.lines.length === 0
                         ? `This statement has no ${PART_LABEL[p]} recovery line, so ${money0(t.estimateTotal)} of tenant recoveries is not in the budget. Add the line to the property's statement mapping.`
                         : `The budget lines carry ${money0(t.linesTotal)} against ${money0(t.estimateTotal)} from the tenants — a difference of ${money0(t.linesTotal - t.estimateTotal)}.`}
@@ -359,7 +381,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 14, height: 14, borderRadius: 3, background: ASSUMED_BG, border: "1px dashed rgba(22,163,74,0.45)" }} /> Assumed (leasing decision)
         </span>
-        <span>Dimmed = pays nothing this year. Hover a tenant for how their figure was reached.</span>
+        <span>Dimmed = pays nothing this year. $/SF is the year&rsquo;s total over the suite&rsquo;s SF (totals: over the {Math.round(totalSf).toLocaleString("en-US")} SF in view){unit === "psf" ? "; months in $/SF are annualized (× 12)" : ""}. Hover a tenant for how their figure was reached.</span>
       </div>
       {leasing?.error && <div style={{ color: "#b91c1c", fontSize: 13, padding: "0 14px 10px" }}>{leasing.error}</div>}
       {leasing && (leasing.dealCapital.ti > 0 || leasing.dealCapital.lc > 0) && (
