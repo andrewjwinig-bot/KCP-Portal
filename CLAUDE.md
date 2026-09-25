@@ -1126,6 +1126,10 @@ time — and the team does not have time to open the GL over $80.
   `scopeAllowsLine` (contributors.ts) let him type expense-section lines only
   — never revenue, never real estate taxes or insurance (Drew's) — checked by
   the line-overrides route on every save.
+- **The grid ABBREVIATES for width, display only** (`abbrev` in
+  `BudgetStatementTable.tsx`): "Reimbursements/Reimbursable" → "Reimb.",
+  "Maintenance" → "Maint.", and the reprojection column is "26 Reproj". Keys,
+  saves and notes keep the full label — never abbreviate the label itself.
 - **The draft grid LOOKS LIKE THE OPERATING BUDGETS PAGE**: a card per
   section under brand group headings, tinted alternate months, fixed
   percentage columns, cross-section totals in brand-bordered cards, occupancy
@@ -1395,8 +1399,10 @@ time — and the team does not have time to open the GL over $80.
   4910-8503 on Electric, where nothing posts.
 - **Shopping centres have no condo association**: the mapping's "Condo Assn"
   recovery line (4970-*) — and the REIMBURSABLE section's Management Fee (6610-8502; the
-  centres' fee is non-reimbursable, 6610-8501) — are dropped from every SC
-  budget draft — only while it
+  centres' fee is non-reimbursable, 6610-8501) — and, at every centre but
+  7010, **Cleaning & Supplies** and **Office Center/Other** (6*-8503, the
+  office part of a building; only Parkwood has an office centre) — are
+  dropped from every SC budget draft — only while it
   is empty (budget AND forecast $0), so a centre that ever posts to it keeps
   the line and no money is hidden.
 - **The budget is WHOLE DOLLARS, everywhere.** Each suite's rent month is
