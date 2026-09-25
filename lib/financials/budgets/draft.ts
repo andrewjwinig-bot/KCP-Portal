@@ -38,6 +38,7 @@ import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 import { groupOf } from "@/lib/reports/monthly";
 import { listBudgets } from "./storage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { isVacancyUtilitiesLine, resolveRate, monthsAt, type VacancyUtilities } from "./vacancyUtilities";
 import { assembledGlConsolidated } from "@/lib/financials/operating-statements/statementStore";
 import { cashOnGl, distributionsOnGl, plannedDistributions, projectBalance, rollForward, DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL, type DraftCash } from "./cashForecast";
 
@@ -64,7 +65,9 @@ export type DraftSource = "reproj-growth" | "reproj-flat" | "leases" | "cam-esti
   /** The management fee: last year's rate × this budget's gross revenue. */
   | "fee"
   /** LIK Management (2010)'s fee REVENUE: every building's budgeted fee. */
-  | "fee-rollup";
+  | "fee-rollup"
+  /** Non-reimbursable utilities: vacant SF × a $/SF rate (`vacancyUtilities.ts`). */
+  | "vacancy";
 
 export type BudgetDraftLine = {
   label: string;
@@ -73,6 +76,8 @@ export type BudgetDraftLine = {
   byProperty?: { code: string; name: string; months: number[]; total: number }[];
   /** A management-fee line's rate, % of gross revenue (`managementFee.ts`). */
   feePct?: number;
+  /** Non-reimbursable utilities on vacant space: the rate and the SF by month. */
+  vacancy?: VacancyUtilities;
   /** Drafted 12 monthly amounts (display orientation: positive). */
   months: number[];
   total: number;
@@ -387,7 +392,7 @@ function typedLine(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrid
   // Step 1 — the schedule and the leasing decisions — and change there.
   if (l.source === "leases") return l;
   // The management fee is a formula on revenue — typed revenue moves it.
-  if (l.source === "fee" || l.source === "fee-rollup") return l;
+  if (l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy") return l;
   // A payroll share is the book's total × this property's share — changed by
   // the total, never typed here (other accounts on the line still are).
   if (l.source === "pool" && !l.subLines?.some((s) => s.typeable)) return l;
@@ -753,6 +758,22 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   const priorProperty = await priorBudgetProperty(meta.propertyCode, basisYear);
   const itemized = itemizedLines(priorProperty, sections, typedDoc);
   applyTyped(sections, typedDoc, itemized);
+  // NON-REIMBURSABLE UTILITIES are the vacant space's: vacant SF by month ×
+  // a $/SF rate, so a lease-up takes its suite off the line from its start.
+  if (lease.hasData) {
+    for (const sec of sections) {
+      sec.lines = sec.lines.map((l) => {
+        if (!isVacancyUtilitiesLine(sec.role, l.label)) return l;
+        const v = resolveRate(typedDoc, sec.name, l.label, l.basisTotal, lease.rows ?? []);
+        if (!v) return l;
+        const months = monthsAt(v.rate, v.sf);
+        return { ...l, months, total: r0(sum(months)), source: "vacancy" as DraftSource, subLines: undefined, typed: undefined, vacancy: v };
+      });
+      const subtotal = new Array(12).fill(0);
+      for (const l of sec.lines) addInto(subtotal, l.months);
+      sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
+    }
+  }
   // The fee on revenue as it stands, so the CAM pool carries it (a business
   // park's fee is recoverable); set again once the recoveries are in.
   const feeRates = priorFeeRates(priorProperty);

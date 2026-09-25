@@ -39,6 +39,7 @@ import { negativeLines } from "@/lib/financials/budgets/negativeLines";
 import { recoveryCategory, recoveryMakeup, CATEGORY_LABEL, type RecoveryCategory } from "@/lib/financials/budgets/recoveryMakeup";
 import { RecoveryMakeupModal } from "./RecoveryMakeupModal";
 import { OccupancyBySuiteModal } from "./OccupancyBySuiteModal";
+import { RATE_ACCOUNT, type VacancyUtilities } from "@/lib/financials/budgets/vacancyUtilities";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const COLOR_BRAND = "#0b4a7d";
@@ -134,7 +135,42 @@ export function CellInput({ initial, onDone }: { initial: number; onDone: (v: nu
   );
 }
 
-function Row({ label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, onCellClick, flagNegative }: {
+/** The $/SF rate on non-reimbursable utilities: shown as a pill, typed in place. */
+function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boolean; onSave: (cents: number | null) => void }) {
+  const [open, setOpen] = useState(false);
+  const tip = {
+    title: "Utilities on vacant space",
+    rows: [
+      { label: "Rate", value: `$${v.rate.toFixed(2)}/SF/yr${v.rateTyped ? " (typed)" : ""}` },
+      ...(v.defaultRate != null ? [{ label: "This year ÷ today's vacant SF", value: `$${v.defaultRate.toFixed(2)}/SF` }] : []),
+      { label: "Vacant SF today", value: Math.round(v.sfToday).toLocaleString("en-US") },
+    ],
+    footer: { label: "Each month", value: "vacant SF × rate ÷ 12" },
+  };
+  if (open) {
+    return (
+      <span style={{ width: 90, display: "inline-block" }}>
+        <input autoFocus defaultValue={v.rate.toFixed(2)} inputMode="decimal" aria-label="Utilities $/SF on vacant space"
+          style={{ width: "100%", textAlign: "right" }}
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={(e) => { setOpen(false); const n = parseTyped(e.currentTarget.value); if (n === null) { if (v.rateTyped) onSave(null); } else if (n !== undefined && Math.abs(n - v.rate) >= 0.005) onSave(Math.round(n * 100)); }}
+          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); else if (e.key === "Escape") setOpen(false); }} />
+      </span>
+    );
+  }
+  const pill = <Pill tone={TONE_BLUE}>${v.rate.toFixed(2)}/SF vacant</Pill>;
+  return (
+    <HoverCard title={tip.title} rows={tip.rows} footer={tip.footer} width={300} help={false}>
+      {canEdit
+        ? <button type="button" onClick={() => setOpen(true)} aria-label="Edit the utilities rate" style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>{pill}</button>
+        : pill}
+    </HoverCard>
+  );
+}
+
+function Row({ extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, onCellClick, flagNegative }: {
+  /** Rendered after the pill — the vacant-SF rate editor on utilities. */
+  extra?: React.ReactNode;
   label: string; months: number[]; total: number; basis: number | null; variant?: Variant;
   badge?: { tone: PillTone; text: string }; onLabel?: () => void;
   /** Revenue-like: up is good. Expense-like: down is good. */
@@ -229,6 +265,7 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
           </HoverCard>
         ) : abbrev(label)}
         {note && <NoteMark label={label} note={note.note} onOpen={note.onOpen} />}
+        {extra && <span style={{ marginLeft: badge || onAccept ? undefined : "auto", flex: "0 0 auto", display: "inline-flex" }}>{extra}</span>}
         {(badge || onAccept || (onReset && typed?.some(Boolean))) && (
           <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto", flex: "0 0 auto" }}>
             {onAccept && (
@@ -454,7 +491,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 // save to the Budget Inputs store (the same figures Greg keys on his
                 // page), so the grid and his page cannot disagree.
                 // A payroll share is set by the book's total above the grid.
-        const locked = l.source === "cam-estimate" || l.source === "leases" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup";
+        const locked = l.source === "cam-estimate" || l.source === "leases" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy";
                 const mayType = !!onEdit && (!canType || canType(sec.name, l.label));
                 const typeable = mayType && !locked && !viaSubs;
                 const keyed = !!l.inputKind;
@@ -463,7 +500,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 return (
                   <Fragment key={l.label + l.mask}>
                     <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal} flagNegative={sec.role !== "debt-service"}
-                      badge={draft.consolidated || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
+                      badge={draft.consolidated || l.source === "vacancy" || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
@@ -474,6 +511,18 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                       {...(() => {
                         const cat = l.source === "cam-estimate" && recTenants.length ? recoveryCategory(l.label, l.mask, estKind) : null;
                         if (l.source === "fee-rollup" && draft.feeRollup?.length) return { cellHover: feeRollupHover };
+                        if (l.source === "vacancy" && l.vacancy) {
+                          const v = l.vacancy;
+                          return {
+                            cellHover: (m: number) => ({
+                              title: `Vacant space · ${MONTHS[m]}`,
+                              rows: [{ label: "Vacant SF", value: Math.round(v.sf[m]).toLocaleString("en-US") }, { label: "Rate", value: `$${v.rate.toFixed(2)}/SF/yr` }],
+                              footer: { label: "SF × rate ÷ 12", value: money0(l.months[m]), color: COLOR_BRAND },
+                            }),
+                            extra: <VacancyRate v={v} canEdit={mayType && !draft.consolidated}
+                              onSave={(cents) => onEdit!(sec, l, cents == null ? "all" : 0, cents, RATE_ACCOUNT)} />,
+                          };
+                        }
                         return cat ? { cellHover: recoveryHover(cat), onCellClick: (m: number) => setMakeupAt({ cat, m }) } : {};
                       })()}
                       toggle={subs.length ? { open: isOpen, onToggle: () => setToggled((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />

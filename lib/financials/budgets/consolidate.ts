@@ -40,7 +40,7 @@ export function consolidateDrafts(name: string, drafts: BudgetDraft[]): BudgetDr
       for (const l of sec.lines) {
         let line = s.lines.find((x) => x.label === l.label) as (BudgetDraftLine & { byProperty?: PropertyShare[] }) | undefined;
         if (!line) {
-          line = { ...l, months: zero(), total: 0, basisTotal: 0, typed: undefined, subLines: undefined, pool: undefined, inputKind: undefined, feePct: undefined, byProperty: [] };
+          line = { ...l, months: zero(), total: 0, basisTotal: 0, typed: undefined, subLines: undefined, pool: undefined, inputKind: undefined, feePct: undefined, vacancy: undefined, byProperty: [] };
           s.lines.push(line);
         }
         line.months = add(line.months, l.months);
