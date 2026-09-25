@@ -237,11 +237,22 @@ export default function BudgetDraftPage() {
           ...s,
           lines: s.lines.map((l) => {
             if (l.label !== line.label || !l.subLines) return l;
-            const subLines = l.subLines.map((x) => {
-              if (x.account !== account) return x;
+            // The account is a sub-line (a GL account or a bucket) or an ITEM
+            // under a bucket ("Contractual/Backflow Inspections") — set its
+            // month, then roll the bucket and the line up from it, so the cell
+            // shows the figure at once rather than after the draft rebuilds.
+            type Sub = NonNullable<typeof l.subLines>[number];
+            const setMonth = (x: Sub): Sub => {
               const months = x.months.slice(); months[month] = Math.round(value);
               const typed = (x.typed ?? new Array(12).fill(false)).slice(); typed[month] = true;
               return { ...x, months, typed, total: months.reduce((a, b) => a + b, 0) };
+            };
+            const subLines = l.subLines.map((x) => {
+              if (x.account === account) return setMonth(x);
+              if (!x.items?.some((it) => it.account === account)) return x;
+              const items = x.items.map((it) => (it.account === account ? setMonth(it) : it));
+              const months = x.months.map((_, i) => items.reduce((a, it) => a + it.months[i], 0));
+              return { ...x, items, months, total: months.reduce((a, b) => a + b, 0) };
             });
             const months = l.months.map((_, i) => subLines.reduce((a, x) => a + x.months[i], 0));
             return { ...l, subLines, months, total: months.reduce((a, b) => a + b, 0) };
