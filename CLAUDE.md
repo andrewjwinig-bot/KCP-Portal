@@ -1446,6 +1446,15 @@ time — and the team does not have time to open the GL over $80.
   prior-year column shows what the GL's distribution accounts (<4000, named
   "distribut…") paid this year. A book roll-up sums each property's
   distributions and balance (`consolidateCash`).
+- **NON-REIMBURSABLE UTILITIES ARE THE VACANT SPACE'S** (owner;
+  `vacancyUtilities.ts`, source `vacancy`, not typeable by month): each month
+  is vacant SF × a $/SF/yr rate ÷ 12, a suite being vacant in a month it pays
+  no rent — so a lease-up takes its suite off the line from its start month,
+  and a backed-out lease (Rite Aid) puts its space on it. The rate is the
+  line's blue "$x.xx/SF vacant" pill, typed in place (stored as CENTS under
+  `<section>::Utilities#@psf`, month 0 — the typed-month store keeps whole
+  numbers); untyped it defaults to this year's line ÷ today's vacant SF. No
+  vacancy today and no typed rate → the line keeps its grown figure.
 - **PENDING (build when the 2027 draft is finished): "Publish to Budgets".**
   The Budget Draft is a WORKSPACE — nothing reads it. The budget of record is
   the workbook store on `/financials/budgets` (`lib/financials/budgets/storage.ts`),
