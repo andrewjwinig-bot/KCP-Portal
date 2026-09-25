@@ -1,0 +1,405 @@
+// Operating Statements — cross-property "flags to investigate" review.
+//
+// Sweeps every mapped property and, for EACH uploaded month of the year,
+// collects the statement lines that trip a "?" trend flag (amount jump vs
+// recent months, or vs the same month last year) — excluding the ones staff
+// have dismissed. The result is organized property → line → month, so a line's
+// flagged months across the year sit together rather than in one flat list.
+
+import "server-only";
+import { monthlyStatements, getMapping } from "./mappingStore";
+import { listFullGls, getDismissedFlags, getNotesBundle } from "./statementStore";
+import { assembleGls, reconcileGlFiles } from "./glAssemble";
+import { summaryForPeriod } from "./glParser";
+import { computeStatement } from "./compute";
+import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
+import { lineMonthly } from "./lineSeries";
+import { trendFlags } from "./trends";
+import { seasonalTrendFlags, meetsFlagFloor, FLAG_MIN_DOLLARS, revenueShortfallReason } from "./flagRules";
+import { basisForLine } from "./rentCheck";
+import { loadRentCheckShared, loadRentCheckContext, runRentCheck, billingFlagReason } from "./rentCheckRun";
+import { markMissingDebt, mortgagePaymentsFor } from "./debtFlag";
+import { expectedPostedThrough } from "./outstanding";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/**
+ * How many tenants the checklist names before "and N more".
+ *
+ * Higher than the statement's "?" hover (four), because these two consumers
+ * are a page and a SPREADSHEET CELL — someone works this list with the file
+ * open, and a name they have to go and look up is a trip they should not have
+ * to make. Twelve covers every real case seen so far without turning one row
+ * into a paragraph.
+ */
+const BILLING_NAMES_ON_CHECKLIST = 12;
+
+/** One month where a line tripped a flag. */
+export type ReviewMonth = {
+  period: number;
+  monthLabel: string;
+  flags: string[];
+  /**
+   * A tenant not billed what their lease says, named.
+   *
+   * Held APART from `flags` because it must never be displaced by an
+   * auto-explain note the way a trend reason is: a trend flag is a heuristic
+   * saying "this looks odd, and here is a written opinion about it", while
+   * this is evidence — these specific tenants were charged the wrong amount.
+   * The checklist shows both.
+   */
+  billing?: string;
+  actual: number;
+  budget: number | null;
+  variance: number | null;
+  note: string | null;
+  /** Who wrote the note: "ai" (auto-explain) or "user" (a person wrote or
+   *  edited it). Null when there is no note. */
+  noteSource?: "ai" | "user" | null;
+};
+
+/** A statement line and every month of the year it was flagged. */
+export type ReviewLine = {
+  lineKey: string;
+  section: string;
+  line: string;
+  months: ReviewMonth[];
+};
+
+/** A data-completeness issue on the latest month: a line we have evidence
+ *  should carry a figure but that reads ~$0 (unposted), so a statement isn't
+ *  actually complete. Higher priority than a trend "?" — it's likely an error /
+ *  missing posting, not just a swing. */
+export type ReviewIssue = {
+  type: "not-posted" | "missing-debt";
+  lineKey: string;
+  section: string;
+  line: string;
+  period: number;
+  monthLabel: string;
+  /** Roughly how much is expected (budgeted YTD, or scheduled debt). */
+  expected: number;
+};
+
+/** A property with its flagged lines (each carrying its flagged months). */
+export type ReviewProperty = {
+  key: string;
+  propertyCode: string;
+  propertyName: string;
+  hasData: boolean;
+  /** Latest uploaded month (1-12) and how many months are on file. */
+  latestPeriod: number;
+  latestMonthLabel: string;
+  monthsCovered: number;
+  lines: ReviewLine[];
+  /** Total flagged (line, month) instances after dismissals. */
+  flaggedMonthCount: number;
+  /** Latest-month not-posted / missing-debt issues (data completeness). */
+  issues: ReviewIssue[];
+  /** GL self-reconciliation: does the file's own reported ending balances tie to
+   *  its transactions? `mismatches > 0` means the import may be corrupt/partial. */
+  tieOut: { checked: number; mismatches: number } | null;
+  /** Coverage vs the expected posted-through month (current year only). Behind
+   *  = the statement is stale (imported through an earlier month than expected). */
+  coverage: { through: number; expected: number; behind: boolean } | null;
+};
+
+export type ReviewResult = {
+  year: number;
+  generatedAt: string;
+  properties: ReviewProperty[];
+  /** Portfolio rollups for the header / dashboard badge. */
+  totals: { flaggedMonthCount: number; issueCount: number; propertiesWithIssues: number; tieOutIssues: number; coverageGaps: number };
+};
+
+function propertyName(key: string, fallback: string): string {
+  return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
+}
+
+/** Collect every active "?" flagged line, per month, across all properties. */
+export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
+  const [mappings, fulls] = await Promise.all([monthlyStatements(), listFullGls()]);
+  const properties: ReviewProperty[] = [];
+  // The rent roll and the tenant directory are the same for every property, so
+  // they are read ONCE for the whole sweep rather than thirteen times.
+  // Null (no rent roll imported) simply means the billing check does not run.
+  const rentCheckShared = await loadRentCheckShared().catch(() => null);
+  // The Debt Tracker's schedule for a month, read once for the whole sweep.
+  const debtCache = new Map<number, Promise<Record<string, number>>>();
+  const debtFor = (M: number) => {
+    if (!debtCache.has(M)) debtCache.set(M, mortgagePaymentsFor(year, M).catch(() => ({})));
+    return debtCache.get(M)!;
+  };
+
+  for (const m of mappings) {
+    const name = propertyName(m.key, m.entityName);
+    const stored = assembleGls(fulls.filter((g) => g.key === m.key && g.year === year));
+    if (!stored) {
+      properties.push({ key: m.key, propertyCode: m.propertyCode, propertyName: name, hasData: false, latestPeriod: 0, latestMonthLabel: "—", monthsCovered: 0, lines: [], flaggedMonthCount: 0, issues: [], tieOut: null, coverage: null });
+      continue;
+    }
+    const storedPY = assembleGls(fulls.filter((g) => g.key === m.key && g.year === year - 1));
+    const max = stored.maxPeriodInFile;
+    const mapping = await getMapping(m.key);
+    if (!mapping) continue;
+    const budget = await resolvePropertyBudget(m.propertyCode, year);
+
+    // Enumerate the statement's lines (section ladder + masks) from the latest
+    // month; masks don't change month to month.
+    // Only line up a same-year budget (matching the statement page), so the
+    // not-posted / paid-YTD signals key off the right plan.
+    const sameYearBudget = budget && !budget.fallback ? budget : null;
+    const statementMax = computeStatement({
+      mapping, propertyName: name, year, period: max,
+      gl: summaryForPeriod(stored.monthly, max),
+      budgetLookup: sameYearBudget ? makeBudgetLookup(sameYearBudget, max) : undefined,
+    });
+    // Month statements, built once each and shared by every pass below.
+    //
+    // The every-month passes start at the FIRST MONTH THE GL COVERS. Months
+    // before it are zeros the assembler filled in, not months where nothing
+    // posted — an August-only upload would otherwise report "debt not posted"
+    // and "billed $0" for January through July.
+    const firstMonth = Math.min(max, Math.max(1, stored.coverageStartMonth ?? 1));
+    const stmtByMonth = new Map<number, ReturnType<typeof computeStatement>>([[max, statementMax]]);
+    const monthStatement = (P: number) => {
+      let st = stmtByMonth.get(P);
+      if (!st) {
+        st = computeStatement({
+          mapping, propertyName: name, year, period: P,
+          gl: summaryForPeriod(stored.monthly, P),
+          // The SAME-year budget, as the statement page and statementMax use —
+          // a prior-year fallback plan is hidden there, so measuring a month's
+          // variance against it here would make the two disagree.
+          budgetLookup: sameYearBudget ? makeBudgetLookup(sameYearBudget, P) : undefined,
+        });
+        stmtByMonth.set(P, st);
+      }
+      return st;
+    };
+
+    // NOT-POSTED KNOWN OBLIGATIONS — taxes, insurance, the management fee and
+    // debt, the four things billed whether or not anyone acts.
+    //
+    // The budget-based three are judged YEAR TO DATE ("nothing posted all year
+    // against the YTD budget"), so the latest month is the whole answer and
+    // asking every month would list the same finding eight times. DEBT is
+    // per-month by nature — the lender schedules each payment — so every month
+    // is asked: a June mortgage never posted used to vanish the moment July's
+    // did, because only the latest month was checked.
+    //
+    // A DISMISSED ITEM IS DONE, whatever kind it is. Missing postings used to
+    // ignore dismissals, so the list could never reach zero: a line someone had
+    // checked and ruled out ("no insurance bill this month, it's annual") sat
+    // on it for good. The page is meant to be chipped down to nothing.
+    const issues: ReviewIssue[] = [];
+    const hasDebt = statementMax.sections.some((sec) => sec.role === "debt-service" && sec.lines.length);
+    for (let M = hasDebt ? firstMonth : max; M <= max; M++) {
+      const st = monthStatement(M);
+      await markMissingDebt(st, m.key, m.propertyCode, year, M, await debtFor(M));
+      const dismissedM = new Set(await getDismissedFlags(m.key, year, M).catch(() => [] as string[]));
+      for (const sec of st.sections) {
+        for (const l of sec.lines) {
+          const em = l.expectedMissing;
+          if (!em) continue;
+          // Earlier months: debt only (the budget kind is YTD, asked at the latest).
+          if (M < max && em.basis !== "debt") continue;
+          if (dismissedM.has(`${sec.name}::${l.label}`)) continue;
+          issues.push({
+            type: em.basis === "debt" ? "missing-debt" : "not-posted",
+            lineKey: `${sec.name}::${l.label}`, section: sec.name, line: l.label,
+            period: M, monthLabel: MONTHS[M - 1], expected: em.expected,
+          });
+        }
+      }
+    }
+    issues.sort((a, b) => b.period - a.period || b.expected - a.expected);
+
+    // GL tie-out: does each uploaded FILE reconcile with itself? Per file, not
+    // on the stitched composite, which false-alarms (see reconcileGlFiles).
+    const recon = reconcileGlFiles(fulls.filter((g) => g.key === m.key && g.year === year));
+    const tieOut = recon.checked > 0 ? { checked: recon.checked, mismatches: recon.mismatches.length } : null;
+    // Coverage vs expected posted-through — only meaningful for the current year.
+    const exp = expectedPostedThrough();
+    const through = stored.coverageEnd ?? max;
+    const coverage = year === exp.year ? { through, expected: exp.period, behind: through < exp.period } : null;
+
+    // Pass 1 (in-memory): which (line, month) trip a flag. The monthly series is
+    // computed once per line; a flag at month M evaluates the series 1..M.
+    type Hit = { period: number; flags: string[] };
+    const hitsByLine = new Map<string, { section: string; line: string; hits: Hit[]; history: number[] }>();
+    const flaggedPeriods = new Set<number>();
+    for (const sec of statementMax.sections) {
+      const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
+      for (const l of sec.lines) {
+        const lineKey = `${sec.name}::${l.label}`;
+        const amounts = lineMonthly(stored.monthly, l.mask, sign, max);
+        const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
+        const hits: Hit[] = [];
+        for (let M = firstMonth; M <= max; M++) {
+          const series = amounts.slice(0, M);
+          const pySame = pyAmounts.length >= M ? pyAmounts[M - 1] : null;
+          const base = trendFlags(series, [], series[M - 1] ?? null, pySame);
+          // Same seasonal / lumpy adjustment as the per-property page + export.
+          const f = seasonalTrendFlags(sec.role, l, M, series[M - 1] ?? 0, base, null, series);
+          if (f.length) { hits.push({ period: M, flags: f }); flaggedPeriods.add(M); }
+        }
+        if (hits.length) hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits, history: amounts });
+      }
+    }
+
+    // BILLING PASS — a tenant not charged what their lease says.
+    //
+    // It runs over EVERY month, not only the ones pass 1 flagged, and that is
+    // the point: a billing mismatch is invisible to a trend check by
+    // construction. The GL agrees with last month and with last year because
+    // the same wrong amount posts every month — which is precisely how a lease
+    // that was never keyed survives a year of statements.
+    //
+    // Only lines with a rent-roll column to check against (base rent, CAM, RE
+    // tax, other) — four per property at most — and the same `runRentCheck`
+    // the statement and the drill-down table call, so all three agree.
+    const billingByLineMonth = new Map<string, string>();
+    const billedLines = statementMax.sections.flatMap((sec) =>
+      sec.lines.map((l) => ({ sec, l, basis: basisForLine(l.label, l.mask) }))
+    ).filter((x) => !!x.basis);
+    if (rentCheckShared && billedLines.length) {
+      try {
+        const ctx = await loadRentCheckContext(m.key, year, null, rentCheckShared);
+        if (ctx) {
+          for (const { sec, l, basis } of billedLines) {
+            const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
+            for (let M = firstMonth; M <= max; M++) {
+              const res = runRentCheck(ctx, { property: m.propertyCode, year, period: M, scope: "month", mask: l.mask, sign, basis: basis! });
+              const reason = billingFlagReason(res, basis!, FLAG_MIN_DOLLARS, BILLING_NAMES_ON_CHECKLIST);
+              if (!reason) continue;
+              billingByLineMonth.set(`${sec.name}::${l.label}|${M}`, reason);
+              flaggedPeriods.add(M);
+              const lineKey = `${sec.name}::${l.label}`;
+              if (!hitsByLine.has(lineKey)) {
+                hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits: [], history: lineMonthly(stored.monthly, l.mask, sign, max) });
+              }
+            }
+          }
+        }
+      } catch { /* the check is an extra; it must never fail the review */ }
+    }
+
+    // REVENUE PASS — a lease-billed revenue line short of budget.
+    //
+    // Like billing, it runs over EVERY month: a steady shortfall never trips a
+    // trend check, so pass 1 would never have flagged the month for it. It
+    // needs each month's budget, which pass 1 deliberately never computes — so
+    // it only runs when the property HAS a budget and a lease-billed revenue
+    // line, and the month statements it builds are kept for pass 2 to reuse.
+    const shortfallByLineMonth = new Map<string, string>();
+    const revenueLines = statementMax.sections.flatMap((sec) =>
+      (sec.role === "revenue" || sec.role === "reimbursement") ? sec.lines.filter((l) => basisForLine(l.label, l.mask)).map((l) => ({ sec, l })) : []);
+    if (sameYearBudget && revenueLines.length) {
+      for (let M = firstMonth; M <= max; M++) {
+        const st = monthStatement(M);
+        for (const sec of st.sections) {
+          for (const l of sec.lines) {
+            const reason = revenueShortfallReason(sec.role, l, l.periodActual, l.periodBudget);
+            if (!reason) continue;
+            const lineKey = `${sec.name}::${l.label}`;
+            shortfallByLineMonth.set(`${lineKey}|${M}`, reason);
+            flaggedPeriods.add(M);
+            if (!hitsByLine.has(lineKey)) {
+              const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
+              hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits: [], history: lineMonthly(stored.monthly, l.mask, sign, max) });
+            }
+          }
+        }
+      }
+    }
+
+    // Pass 2: only for months that actually have flags, pull that month's
+    // statement (for per-month actual/budget/variance) + notes + dismissals.
+    type PeriodData = {
+      amounts: Map<string, { actual: number; budget: number | null; variance: number | null }>;
+      notes: Record<string, string>;
+      sources: Record<string, string>;
+      dismissed: Set<string>;
+    };
+    const perPeriod = new Map<number, PeriodData>();
+    await Promise.all([...flaggedPeriods].map(async (P) => {
+      const stmtP = monthStatement(P);
+      const amounts = new Map<string, { actual: number; budget: number | null; variance: number | null }>();
+      for (const sec of stmtP.sections) {
+        for (const l of sec.lines) {
+          amounts.set(`${sec.name}::${l.label}`, { actual: l.periodActual, budget: l.periodBudget, variance: l.periodVariance });
+        }
+      }
+      const [{ notes, sources }, dismissedArr] = await Promise.all([
+        getNotesBundle(m.key, year, P),
+        getDismissedFlags(m.key, year, P),
+      ]);
+      perPeriod.set(P, { amounts, notes, sources, dismissed: new Set(dismissedArr) });
+    }));
+
+    // Assemble, dropping dismissed (line, month) instances.
+    const lines: ReviewLine[] = [];
+    let flaggedMonthCount = 0;
+    for (const [lineKey, { section, line, hits, history }] of hitsByLine) {
+      const months: ReviewMonth[] = [];
+      // Every month with something to say about this line: a trend hit, a
+      // billing mismatch, or both on the same month.
+      const periods = [...new Set([
+        ...hits.map((h) => h.period),
+        ...[...billingByLineMonth.keys()].filter((k) => k.startsWith(`${lineKey}|`)).map((k) => Number(k.split("|")[1])),
+        ...[...shortfallByLineMonth.keys()].filter((k) => k.startsWith(`${lineKey}|`)).map((k) => Number(k.split("|")[1])),
+      ])].sort((a, b) => a - b);
+      for (const period of periods) {
+        const pp = perPeriod.get(period);
+        if (!pp || pp.dismissed.has(lineKey)) continue;
+        const a = pp.amounts.get(lineKey);
+        const billing = billingByLineMonth.get(`${lineKey}|${period}`);
+        const trend = hits.find((h) => h.period === period)?.flags ?? [];
+        // The trend floor gates the TREND flags only. A billing mismatch is
+        // evidence and carries its own floor (the untied dollars), so it must
+        // not be filtered on this line's budget variance — the line can sit
+        // exactly on budget and still have a tenant nobody charged, which is
+        // the case that floor exists to ignore.
+        //
+        // Same floor as the statement page, applied HERE rather than in pass 1
+        // because pass 1 deliberately never computes a month's budget — that is
+        // what makes scanning every month of every property affordable.
+        const keepTrend = trend.length > 0 && meetsFlagFloor(a?.variance ?? null, { label: line }, history);
+        // The shortfall carries its own floor, like billing — not the trend's.
+        const shortfall = shortfallByLineMonth.get(`${lineKey}|${period}`);
+        const flags = [...(billing ? [billing] : []), ...(shortfall ? [shortfall] : []), ...(keepTrend ? trend : [])];
+        if (!flags.length) continue;
+        months.push({
+          period, monthLabel: MONTHS[period - 1], flags, ...(billing ? { billing } : {}),
+          actual: a?.actual ?? 0, budget: a?.budget ?? null, variance: a?.variance ?? null,
+          note: pp.notes[lineKey] ?? null,
+          noteSource: pp.notes[lineKey] ? (pp.sources[lineKey] === "user" ? "user" : "ai") : null,
+        });
+      }
+      if (months.length) {
+        months.sort((a, b) => a.period - b.period);
+        lines.push({ lineKey, section, line, months });
+        flaggedMonthCount += months.length;
+      }
+    }
+    // Most-flagged lines first, then alphabetical.
+    lines.sort((a, b) => b.months.length - a.months.length || a.line.localeCompare(b.line));
+
+    properties.push({
+      key: m.key, propertyCode: m.propertyCode, propertyName: name, hasData: true,
+      latestPeriod: max, latestMonthLabel: MONTHS[max - 1], monthsCovered: max,
+      lines, flaggedMonthCount, issues, tieOut, coverage,
+    });
+  }
+
+  const totals = {
+    flaggedMonthCount: properties.reduce((s, p) => s + p.flaggedMonthCount, 0),
+    issueCount: properties.reduce((s, p) => s + p.issues.length, 0),
+    propertiesWithIssues: properties.filter((p) => p.issues.length > 0).length,
+    tieOutIssues: properties.filter((p) => (p.tieOut?.mismatches ?? 0) > 0).length,
+    coverageGaps: properties.filter((p) => p.coverage?.behind).length,
+  };
+  return { year, generatedAt: new Date().toISOString(), properties, totals };
+}

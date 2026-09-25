@@ -1,0 +1,2078 @@
+# Workflow preferences
+
+- After pushing a feature branch, always open a PR against `main` and merge it (squash) automatically without waiting for the user to do it. The user has standing approval for this.
+
+# AvidXchange submissions — invoices/statements MUST be PDFs in the shared invoice format
+
+Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the billable **invoice/statement** MUST be a **PDF** and MUST follow the same look and formatting as the portal's other invoice PDFs — one consistent invoice template across every flow (Allocated Expense, Credit Card, Payroll, commissions). Never send a spreadsheet (or any non-PDF) to Avid *as the invoice*. When you add or change anything that emails Avid, the invoice attachment is a PDF built from the shared invoice look — do NOT hand-roll a new invoice layout; reuse/extend the existing invoice PDF builders so all Avid-bound invoices stay visually identical.
+
+- **No zips, one invoice per email.** AvidXchange cannot open a ZIP and ingests one invoice per email, so NEVER send Avid a `.zip` (or multiple invoices in one file/email). Each invoice PDF goes to `kormancommercial@avidbill.com` as its OWN email with a single PDF attachment. The cc'd team (Marie/Drew/Harry) get ONE separate summary email instead of being copied on every invoice — that email carries the per-building summary + the xlsx references (and may include the full zip, which is fine for them since only Avid can't open it). Shared helper: `lib/invoicing/avidDelivery.ts` (`deliverInvoicesToAvid`) — all three flows (Allocated, Credit Card, Payroll) send through it.
+- Supporting **xlsx workbooks** (allocation summary, GL Journal Entry, TOP SHEET) are internal references for the cc'd controller/Drew only — they are NOT the Avid invoice. They ride only on the team summary email, never as the thing Avid processes.
+- Current invoice PDF builders: `lib/allocated-invoicer/invoice.ts` (`buildAllocInvoicePdf`), `lib/expenses/invoice.ts` (`buildInvoicePdf`), `lib/pdf/renderInvoicePdf.ts` (payroll), `lib/pdf/renderCommissionInvoicePdf.ts`. These should share one consistent look; if they drift, reconcile them rather than adding a fourth style.
+
+# Known data gaps / accepted exceptions (do NOT re-flag as bugs)
+
+- **Payroll allocation — Harry Feldman sums to ~94.86%, not 100%.** This is intentional and accepted, NOT a keying error. His allocation workbook row (`data/allocation.xlsx`) is: ~85% across the shopping centers, 5% Interstate/Bellmawr (`0800`), 5% Eastwick (the `Eastwick` column → "Eastwick JV"), and **5% Middletown**. Middletown is a land parcel Korman owns but the portal does NOT track (no property code, no allocation column), so that ~5.14% has nowhere to land and his tracked total reads 94.86%. The dashboard allocation-gap warning will keep flagging him — that's expected. Leave it as-is unless the user decides to add Middletown as a tracked land property (they'd supply its GL code, and Nancy would add a `Middletown` column with the 5% to the workbook).
+
+# UI consistency — pills, badges, fonts, sizes
+
+The user has flagged repeated drift in pill / chip / badge styling across new pages. Do NOT re-invent chip styles inline. Always use the shared primitives:
+
+- `Pill` + `Badge` + `StatPill` components all live in `app/components/Pill.tsx`. Use `Pill` for colored status/priority chips, `Badge` for tab counters, and `StatPill` for any "label + big number" KPI tile (big number on top, small muted label below). The `.pill` / `.pills` CSS classes in `globals.css` back StatPill — use `<div className="pills">` to wrap a row of them.
+- Tone palettes (`maintenanceStatusTone`, `priorityTone`, `reservationStatusTone`, `TONE_BLUE`, `TONE_NEUTRAL`, etc.) live in the same file.
+- Canonical pill footprint: `11px / 700 weight`, `padding 2px 8px`, `borderRadius 999`. Canonical badge footprint: `padding 1px 7px`.
+- Section labels use `11px / 700 / uppercase / 0.06em letter-spacing / var(--muted)`. Tile big-numbers use `22–28px / 800–900`.
+- If a new semantic doesn't fit an existing tone, add a new exported tone helper in `Pill.tsx` — don't inline a new `{bg, fg, border}` tuple in a page.
+- When adding a new admin page, reuse the existing tab + filter + table primitives from `/maintenance/page.tsx` or `/reservations/page.tsx` rather than starting from scratch.
+- For date inputs, ALWAYS use `Calendar` from `app/components/Calendar.tsx` — never reach for `<input type="date">`. Pass `variant="card"` on admin pages and `variant="underline"` on public-facing tenant forms. Use `disableWeekends` and `minISO`/`maxISO` where the business rule warrants.
+
+**Before building ANY new UI, look at how existing pages already do it and match them — the user has repeatedly flagged that new pages drift from the established look. Reuse the shared component, don't reinvent. Known shared primitives:**
+- **Downloads/exports** → `DownloadMenu` from `app/components/DownloadMenu.tsx` (the "Download ▾" dropdown used by Operating Statements, Reprojections, Budgets). Items take `href` (link) or `onClick` (client-side Excel/PDF). Never hand-roll separate per-format download buttons.
+- **Collapsible "accounts that didn't fit" lists** → `AccountListCard` from `app/components/AccountListCard.tsx` (collapsed by default, Account/Name/Amount table + total) — shared by Operating Statements ("Non-operating accounts") and the Cash Sheet ("Accounts not mapped to a bucket").
+- **Sharing a private link** → `ShareLinkCard` from `app/components/ShareLinkCard.tsx` — a centred MODAL (portal-rendered, since the trigger usually sits in a scrolling table cell that would crop a popover): a link box with Copy, the access PIN with its own Copy, view count, an email action behind a deliberate confirm step, and Revoke. Used by the CAM statement (`TenantShareLink`) and the K-1 roster; a third share flow should use it too rather than growing its own. The component owns the look and interaction; each caller passes its own actions, because a tenant link and a K-1 link are different objects (`pinOptional={false}` for a K-1, whose PIN is mandatory). **Always offer both ways out**: copy the link and send it yourself, or have the app email it — copying mutates nothing, which is how you demo or test a link without touching an investor's stored data.
+- **The message is ADDRESSED to whoever is actually being mailed.** Greet by
+  FIRST name via `addressAs` (which leaves a company or a trust its full name —
+  "Hello Hyman," and "Hello Berton," name something that is not the recipient),
+  and when the investor is NOT among the recipients the mail names them as the
+  SUBJECT instead of saying "your": "Jeffrey Honickman's 6 Schedule K-1s are
+  ready in their secure investor portal". "Your 6 Schedule K-1s" to someone who
+  holds none of them is the sentence that makes a recipient check whether the
+  mail is real. `onBehalf` is decided by NAME, never by which address was the
+  primary — and requires a name to be on file, because with none we cannot tell
+  an accountant's address from the investor's own second one. The confirm's
+  button names the real recipients too. Both messages of a send are addressed
+  identically.
+- **Each recipient on the confirm is TICKABLE, so a send can go to some of the
+  addresses on file.** "Add my accountant" and "send it to my accountant" are
+  different instructions, and the list used to be all-or-nothing. Ticked by
+  default (an untouched confirm behaves as it always did) and held as
+  EXCLUSIONS, so a recipient arriving late is included rather than dropped. The
+  pick is a FILTER applied server-side over that owner's own record
+  (`selectRecipients`) — never the address list itself, or a client-supplied
+  address becomes a way to mail a K-1 link anywhere. An empty pick reaches
+  nobody and is NOT read as "unset"; a real batch ignores the pick, since one
+  address list cannot describe many owners.
+- **Sending a link to a tenant or investor is ALWAYS behind a confirm that
+  names every recipient**, one address per line, and says how the PIN travels
+  (for a K-1, as its own separate email). Copying a link and mailing it are one
+  click apart in the same dialog, so the send cannot be a click you make by
+  accident. **The confirm shows the MESSAGE, not just the recipients**
+  (`loadDraft` on `ShareLinkCard`): subject and body as they will send, typed
+  IN PLACE with no edit mode to enter, and the PIN follow-up is typed in place
+  too — the guard belongs in the code, not in a disabled box, so an edit that
+  drops the PIN gets it appended back (`applyK1PinEdit`), exactly as a dropped
+  link is. The subject/body controls are deliberately stripped of the global
+  input styling — the one place in the app that does that — so the card reads
+  as the email rather than as a form; don't "fix" them back to the pill. A send is irreversible —
+  you cannot unsend an investor their tax document — so the wording is read
+  before, not found in a reply afterwards. `lib/investors/k1ShareEmail.ts`
+  composes it and **the send and the preview call the same function**, so a
+  preview cannot drift from what goes out — and both compose against the
+  PICKED recipients (`addressedAs`), so unticking someone changes the wording
+  that is READ, not only the wording that is sent; an edit that drops the signed link
+  gets it appended back, and the audit line records `· edited wording`. **Minting a link
+  and emailing it must never be the same call**: `useK1`'s investor `send`
+  takes an explicit flag, because for a while the By Investor card's "Create
+  link" posted `send: true` and emailed the investor with no confirmation at
+  all.
+- **Dropdowns and text inputs are styled ON THE ELEMENT, in `globals.css`.**
+  Not per page, and not by a wrapper component — styling a native control page
+  by page never held: an audit found **68 of the app's 78 `<select>`s, across 34
+  files, rendering as raw OS dropdowns** next to brand-styled buttons, because
+  the next bare `<select>` is always one edit away. So `select`, the text-ish
+  `input` types and `textarea` carry the look themselves and nothing has to opt
+  in. **Never restyle a control inline**; if one looks wrong, the baseline is
+  wrong. Two deliberate tiers:
+  - the **quiet neutral pill** is the DEFAULT, so a row of eight filters reads
+    as one calm strip rather than eight blue claims on the eye;
+  - **`.select-brand`** (or `Select` from `app/components/YearSelect.tsx`, which
+    applies it) is the brand-outlined pill for the ONE control a page is driven
+    by — the year, the property, the owner. `YearSelect` is the year helper;
+    `.select-sm` / `small` is the compact variant for a card header or a row.
+  Everything is a pill (`999`), matching `.btn` and the tab controls, so a
+  toolbar of buttons, dropdowns and search boxes shares one shape. Gotchas:
+  never set `background` (the shorthand) on a select — it paints over the
+  chevron the baseline draws; use `background-color`. The chevron is the
+  `--select-chevron` / `--select-chevron-brand` token so the dark theme swaps
+  its stroke. Controls inside a `td`/`th` are pulled back to dense padding, so
+  the baseline can't blow a table row's height open.
+- **Roster table cells** → `th` / `td` / `thL` / `tdL` from
+  `app/components/tableStyles.ts` (`thDetail` / `tdDetail` for a table nested
+  inside an expanded row). Ten pages had each re-typed their own, at four
+  different paddings, on top of the `globals.css` table base — so two rosters
+  side by side never matched. Right-aligned is the DEFAULT because most columns
+  here are money; the `L` variants are for the identifying columns that lead a
+  row. Investor Info's three tabs all use them, which is what makes By
+  Property, By Investor and Statement of Values read as one page.
+- **A stored document in a table row** → `DocChip` from `app/components/DocChip.tsx` — a status/year pill plus a document icon, the whole thing a link opening the file in a new tab, wrapped in the shared `HoverCard`. **Never render the filename in the cell**: names range from `k1.pdf` to `2025 Parkwood SC K1P V1 FINAL SIGNED.pdf`, so a cell either truncates to nothing useful or makes every row a different shape. The name is the hover's title, where it can be read whole. The chip has a `minWidth` and pins its icon to the right edge so the icon (and any button after it) lines up down the column whatever the label says. Used by the K-1 cell on Investor Info and the per-investor document list.
+- **A roster of things, grouped, each expanding to its detail** → ONE card
+  holding ONE table, with a tinted **band row** opening each group (the group's
+  label plus its subtotals) and a row that expands in place into a detail row
+  (`<td colSpan>`). Reference: the Monthly Statements roster
+  (`app/tenant-statements/page.tsx` — `th`/`td`/`thL`/`tdL`, the property band,
+  `TenantRows`); Investor Info's By Property list follows it. **Do NOT render a
+  card per item.** Investor Info did, with a coloured top rail on each; fifteen
+  of them read as a stack of banners, cost a screen of scrolling, and matched
+  nothing else in the portal. A band carries only figures that are true of the
+  group — a per-item count like "owners" must be left blank there rather than
+  summed, since a person holding two stakes would be counted twice.
+- When a section's purpose mirrors something on another page (a download menu, a hidden-accounts list, a KPI row, a tab+filter+table), copy that page's component/markup/spacing rather than approximating it inline.
+
+**The sidebar (`app/components/Sidebar.tsx`)**: within a group the order is
+`GROUP_CHILD_ORDER` — Financials: Cash Analysis, Operating Statements, Reprojections,
+Budgets, Management Fees (Balance Sheet and the 1099 Register are NOT in the
+sidebar — occasional reports, reached from the Report Center); Banking: Bank Transfers,
+Debt Tracker, Security Deposits, Bank Recs. A SUB-PAGE (Flags to Investigate,
+Budget Draft, Bank Acc Tracker, and Budget Inputs for anyone who has Budgets)
+shows only while you are in its parent (`showFor`) and is listed straight after
+it. Past Tenants is off the sidebar (the page does not work). **Reports** sits at
+the bottom: the Report Center.
+
+**The Report Center (`/reports`) lists every report once, from
+`lib/reports/catalog.ts`** — name, one-line description, formats, and the page
+that produces it — banded by category (Financial, Tenants & leasing, CAM &
+recoveries, Banking & debt, Payroll & invoicing, Investors, Custom). It is a
+LANDING page: each row opens the page that runs the report, where the Download
+menu lives; it does not duplicate them. A new report, or a custom one that exists
+only in the center, is ONE catalog entry (`catalog.test.ts` checks every `href`
+is a real page). The landing path is open to everyone (`isPathAllowed` allows
+exactly `/reports`, not `/reports/*`) and each person sees only the reports whose
+page they can open.
+
+**Chart series colours are the `--series-1…6` / `--series-other` tokens in
+`globals.css`** (the validated categorical palette, light and dark each checked
+against `--card`). Colour follows the ENTITY in fixed order — rank it once per
+chart, never cycle, and fold a 7th into `--series-other`. A bar chart's y axis
+comes from `tightScale` (`lib/charts/tightScale.ts`): bars start at zero, the
+top sits just above the data, and a small credit gets only the room it needs.
+Reference: the line-detail modal's stacked **By month** chart
+(`app/financials/operating-statements/MonthlyBars.tsx`) — YTD only, one
+segment per vendor per month, and it is ALSO the filter (click a month, click a
+vendor in the legend) for the charge list below. It replaced the "By tenant /
+unit" table in YTD, which only restated that list; the rent-roll suite table
+stays, because it is a check rather than a restatement.
+
+**Hovers / tooltips — ALWAYS use the shared rich style, never a plain native `title=` or a tiny SVG `<title>`, whenever the hover conveys real data.** The user wants every data-bearing hover to feel considered: a styled card with a title, colored value rows, and an optional footer/delta line — not a small plain browser tooltip. This is the default for ALL future hovers where applicable; do not ship a plain `title=` tooltip for a value/breakdown and wait to be asked to upgrade it.
+- **In an SVG chart** → `ChartTooltip` (+ `HoverBands`) from `app/components/ChartTooltip.tsx`. Track a hovered index in the chart, render `HoverBands` last (full-height hit bands + dashed guide line), enlarge the point(s) on the active index, and render `ChartTooltip` with pre-formatted string rows (title = the x label; one row per series with its color; footer = the delta/variance). Reference implementation: the Management Fees chart (`app/financials/management-fees/page.tsx`).
+- **On an HTML element** (a table cell, a chip/pill, an inline callout) → `HoverCard` from `app/components/HoverCard.tsx` — same card look, portal-rendered so table/card overflow never clips it. Pass `title`, `rows`, optional `footer`.
+- A bare `title=` is fine ONLY for a trivial action/label affordance (a "Close"/"Download"/"Open in new tab" icon button) — never for numbers, breakdowns, lease terms, variances, or any figure a user would want to read clearly.
+
+# Excel exports — one look, from `lib/excel/theme.ts`
+
+**Every workbook is built with `newWorkbook()` and styled from the shared
+theme.** Five ExcelJS exports had each styled themselves from scratch and had
+drifted exactly the way pages drift — the same navy re-typed in five files, the
+accounting number format re-typed in four and written a fifth way in the TOP
+SHEET, `wb.creator` disagreeing, and print setup configured in one workbook out
+of five, so a lender who opened a balance sheet and hit Print got whatever Excel
+guessed. Two workbooks from the same portal did not read as coming from the same
+company. `noDrift.test.ts` now fails the build if an export re-types a brand hex,
+re-types a money format, or calls `new ExcelJS.Workbook()` directly.
+
+- **Tokens**: `COLOR` (brand navy `FF0B4A7D`, tints, border, semantic
+  positive/negative/warn), `FMT` (accounting money — red parens, em-dash zero —
+  plus cents, percent, date, sqft), `FONT_NAME` (Calibri), `PRINT_WIDE` /
+  `PRINT_TALL`. A new semantic goes in `theme.ts`, never inline in an export —
+  the same rule `Pill.tsx` has for the UI.
+- **Primitives**: `titleBlock` (the letterhead — entity, what the document IS,
+  as-of, EIN; a workbook is forwarded far more often than it is read in place,
+  so it must say what it is without the email it arrived in), `headerBand`,
+  `sectionBar`, `totalEmphasis`, `footNote` (the basis of presentation — always,
+  on anything that leaves the building), `freezeAbove`, `repeatHeader`.
+- **`newWorkbook()` sets `calcProperties.fullCalcOnLoad`, and that is
+  CORRECTNESS, not tidiness.** ExcelJS DROPS a cached `result: 0` when it writes
+  a formula cell (pinned by a round-trip in `theme.test.ts`), so any total that
+  legitimately nets to zero opens BLANK until Excel recalculates. The balance
+  sheet found this the hard way: the proof row is the one cell meant to read
+  zero, and it was the one cell that opened empty. Every workbook with formulas
+  has the same exposure, so the flag belongs to the constructor rather than to
+  whoever remembers.
+- **The theme is deliberately NOT `server-only`.** The TOP SHEET is built in the
+  browser, and the client-side exports still on SheetJS are the ones the theme
+  most needs to reach once they migrate.
+- **A MACHINE IMPORT IS NOT A DOCUMENT — never theme one.** Several workbooks
+  are read back by software, not by a person: they carry no header row, no
+  title, data from row 1, and positional columns. A letterhead shifts every row
+  and breaks the import on its first line. These stay on SheetJS and stay bare,
+  and that is a correctness decision, not an oversight — say so in a comment on
+  each so a later migration pass doesn't "finish the job":
+  - `lib/payroll/export.ts` → `buildPayrollGLXlsx` ("GL Journal Entry") —
+    `JRNL | entity | account | DW | date | description | period | amount`.
+  - `lib/commissions/journalEntryExcel.ts` — the JE imported into accounting.
+  - `lib/financials/budgets/skylineExport.ts` — its own comment already says it
+    deliberately drops the title, header and total rows because Skyline wants
+    raw data.
+  - `lib/allocation/export.ts` → the **"Upload Template"** SHEET (sheet 1,
+    "Allocations", IS themed) — `parseAllocationWorkbook` finds its header by
+    scanning for a row carrying both `EmployeeName` and `Recoverable`.
+  A file can be mixed, so decide per SHEET, not per file. Each of these is
+  pinned by a test asserting row 1 is still data/header.
+- **Migration off SheetJS is in progress, a few at a time.** `xlsx@0.18.5`
+  community edition **cannot style cells at all** — fills, fonts and borders are
+  Pro — so a SheetJS export can only be themed by moving it to ExcelJS.
+  **Themed so far**: the per-property **rent roll**, the assistant's **table**,
+  the **1099 register** (the three that go to an outsider), the **payroll
+  summary**, the allocation template's **Allocations** sheet, and the
+  **management fees** grid (a building per row, as the page reads).
+  **Still to do**: cash sheet, allocated-invoicer, rent-roll
+  trend, plus the inline `aoa_to_sheet` calls in `app/commissions`,
+  `app/expenses`, `app/expenses/history`,
+  `app/financials/operating-statements/review` and `app/investors`. Don't add a
+  second theme for them — migrate them.
+- **A very wide sheet gets a ONE-LINE letterhead, not the three-band
+  `titleBlock`.** The allocation grid already spends two rows on its own group
+  and column headers; a full block pushed the data off the first screen. The
+  brand bar carries the wordmark and what the sheet is, on one row.
+- **Migrating one means it becomes `async`.** ExcelJS's `writeBuffer()` is a
+  promise where SheetJS's `write` was synchronous, so the builder and every
+  caller change shape. A client-side export that used `XLSX.writeFile` also has
+  to build the Blob and trigger the download itself.
+- **A migrated export's test should read the workbook BACK** (`wb.xlsx.load`),
+  so the assertions are about the file rather than the builder's bookkeeping.
+  Two ExcelJS quirks to expect: a formula cell whose cached `result` was `0`
+  comes back with no result at all, and `calcPr` is written but never parsed
+  back — so `fullCalcOnLoad` cannot be asserted on a round-trip (it is pinned in
+  `theme.test.ts` and, against raw XML, in the balance sheet's
+  `exportSmoke.test.ts`).
+
+# Excel exports — totals must be live formulas, never static numbers
+
+The user wants downloaded workbooks to stay accurate and be easy to edit. **Any total, subtotal, or rollup row/column in an .xlsx export MUST be written as a live Excel formula (`=SUM(...)`, cross-references, etc.), NOT a value computed in JS and dropped in as a static number.** Line-item cells carry the source values; every cell that aggregates them is a formula that references the exact source cells above/beside it — so editing a line flows through and the numbers always tie. This applies to both export stacks:
+
+- **ExcelJS** (server-side, styled — `statementExport.ts`, `reprojExport.ts`, `budgetDownload.ts`, `topSheet.ts`): `cell.value = { formula: "SUM(C5:C9)", result: <cachedValue> }`. Always cache the JS-computed `result` so the value shows before Excel recalcs.
+- **SheetJS/xlsx** (mostly client-side AoA — `cash-sheet/export.ts`, `payroll/export.ts`, `allocation/export.ts`, `allocated-invoicer/export.ts`): after `aoa_to_sheet`, set `ws[addr] = { t: "n", f: "SUM(D5:D6)", v: <cachedValue> }` (or add `.f` to an existing numeric cell). Address cells with `XLSX.utils.encode_cell` / `encode_col`.
+
+**Safety pattern (follow it):** when a total's relationship to its sources is anything beyond a trivial column sum (rollups, signed differences like `NOI = Rev − Opex`, favorability-signed variance), evaluate the formula's expected value in JS and compare it to the known total; **write the formula only if it reconciles (within ~$0.50), else fall back to a static number** so a displayed value is never wrong on an unusual data shape. **There is ONE implementation — `liveFormula` / `liveSum` / `liveAdd` in `lib/excel/theme.ts`** — and it had been copied into `statementExport.ts` and `reprojExport.ts` separately before that. Call it; don't re-type the tolerance. Each export still builds its own EXPRESSION (a signed multi-group sum, a favorability-signed difference) — that part is export-specific — but the reconcile-or-fall-back decision is shared. `liveAdd` is for a total that sums SUBTOTALS: summing the line items again double-counts, the trap the 1099 register and the balance sheet both document.
+
+Reference points already converted: single-period Operating Statement, Full-Year statement, Reprojection, Budget download (all tabs), Cash Sheet Portfolio Total, Payroll summary + GL offset (`=-SUM(...)` so column H nets to $0), Allocation template, allocated-invoicer. **Exceptions that legitimately have no total row:** the Skyline import (one row per GL, no footer) and the rent-roll trend workbook (its "Total" is a per-period column, and percentages can't be summed). If you build a NEW export, wire its totals as formulas from the start.
+
+# Shared links — the host they are built on
+
+**Every emailed link is built by `linkOrigin(req)` (`lib/linkOrigin.ts`), never
+from the request's `Host` header directly.** Five routes each derived it
+themselves — CAM tenant links (mint + send), monthly statement links, payment
+allocation requests, investor K-1 shares — so a link minted from a preview
+deployment carried that preview's hostname forever, and one minted before a
+custom domain was attached carried `kcp-portal.vercel.app` forever. A link is
+emailed and then lives for months; the host baked into it matters more than the
+one that happened to serve the request.
+
+- **Link tracking is OFF on anything carrying a signed portal link**
+  (`noLinkTracking` on `sendMail`, → Postmark `TrackLinks: "None"`). Left on,
+  Postmark rewrites every URL to `track.pstmrk.it/...`: the investor sees a wall
+  of tracking URL on a mail about their tax documents, which is what a phishing
+  attempt looks like, and it puts a THIRD-PARTY domain between the sending
+  domain and the link domain — the exact separation this section exists to
+  avoid. Omitting the field falls back to the server setting, so it must be set
+  explicitly on every such send.
+- Set **`PORTAL_ORIGIN`** in the Vercel project (e.g.
+  `https://portal.kormancommercial.com`). Unset, it falls back to the request
+  host, so nothing breaks before the domain exists.
+- **This is a deliverability control, not tidiness.** Mail already goes out from
+  `@kormancommercial.com` through Postmark, so a link pointing at a `vercel.app`
+  host puts the sending domain and the link domain in different organisational
+  domains — a heuristic spam filters score against directly, and a recipient
+  reads the same way.
+- **Changing the host later is safe, with one condition**: the signed token
+  carries no hostname, so an old link keeps working as long as the old hostname
+  stays attached to the project. Never detach a hostname that has been emailed
+  — point it at the app and let it redirect.
+
+# Rent roll — one source
+
+**Read the rent roll through `lib/rentroll/current.ts`** (`resolveCurrentRentroll`,
+`composeCurrentRoll`, or `rollAsOf` for "the roll as of month X"), never
+`getJSON("rentroll", "current")`. That stored pointer is a COPY that is only
+rewritten when someone opens the Rent Roll page, so after a re-import or a
+parser fix it can carry figures the Rent Roll page no longer shows — 1100's
+Ferry Good Treats read $2,000 on the Rent Roll page and $0 on the operating
+statement, which called the correctly billed charge "UNEXPECTED $2,000".
+Anything checking a specific month (the operating statement's rent check) uses
+`rollAsOf`, so a later import cannot move a past month's expectation.
+`lib/rentroll/oneSource.test.ts` fails the build if a new file reads the pointer.
+
+# Tenant monthly statements (open A/R) — sources of truth
+
+The tenant portal's Statements tab carries TWO statements: the annual CAM/RET
+reconciliation (unchanged) and the **monthly statement of account** — every open
+charge Skyline is carrying for that tenant, aged, categorized, and paired with
+how-to-pay instructions. Sources of truth:
+
+- **The Skyline "Statement" report is the only input.** Parser:
+  `lib/statements/parseSkylineStatements.ts`. Never hand-key a tenant's open
+  balance anywhere.
+- **A statement has THREE parts and the amount due is the sum of two of them:**
+  the lines above `PREVIOUS MONTH ENDING BALANCE` (already outstanding), then
+  `CURRENT CHARGES` … `TOTAL CURRENT` (newly billed this month). **Total Amount
+  Due = PREVIOUS MONTH ENDING BALANCE + TOTAL CURRENT.** Reading the first
+  subtotal as the amount due understates every tenant with current charges —
+  that shipped once and put $1,164.90 in front of a tenant who owed $14,510.98.
+  `reportedBalance` is the grand total; `priorBalance`/`currentTotal` are the
+  halves; each charge carries its `section`. Each half reconciles to its OWN
+  printed subtotal, and `tiesOut` requires both halves and the grand total.
+  Two Crystal Reports quirks it also handles (don't "fix" them out): a tenant
+  continued across a page break, and a detail group re-rendered 2–4× (deduped
+  per section, only when the dedupe reconciles).
+- **The Statement report is an OPEN-ITEMS report, and its sections are relative
+  to WHEN it was run — not to the statement date.** Run after the 1st, that
+  month's charges are already outstanding: they print above `PREVIOUS MONTH
+  ENDING BALANCE` and `TOTAL CURRENT` is legitimately 0 for every tenant. A
+  tenant who has paid simply has fewer open lines and a smaller balance. None of
+  that indicates a bad export — do NOT add a check that refuses a file for
+  having empty current-charge sections. That was tried and it blocked every
+  real import: the evidence against it is that 53 of 67 tenants in the sample
+  export carry September charges (194 rows) in the prior section. It also means
+  the portal reflects the last import, so re-import to pick up payments.
+- **Unit refs are stored in the app's canonical form** — Skyline's `-CU` charge
+  suffix stripped (`2300-1817-CU` → `2300-1817`), matching the rent roll, the
+  recon rosters and the portal token. `skylineUnitRef` keeps the raw value. If a
+  portal lookup ever misses, check this first.
+- **Storage**: one record per statement period (`lib/statements/store.ts`,
+  prefix `tenant-statements`, keyed `YYYY-MM`). Uploading a second export into
+  the same month (SC and BP run separately) MERGES by unit ref — it never
+  replaces the month. A period is hidden from tenants until **published**;
+  re-importing a published month keeps it published.
+- **The tie-out is the publish gate** (`shouldAutoPublish` in `store.ts`): a
+  month where EVERY tenant reconciles publishes itself on import; a single
+  untied tenant holds the WHOLE month back, judged on the merged month so a
+  later clean export can't publish over an earlier one's bad tenant. It never
+  un-publishes — a tenant that stops reconciling is flagged "under review" on
+  their own statement rather than retracting everyone else's. Staff can switch
+  auto-publish off per browser (`kcp.stmt.autoPublish`). Because tying out is the
+  norm, the roster has NO "ties out" column — only the exception is flagged, as a
+  REVIEW pill on the tenant's own row plus a banner that filters to them.
+- **Every derived number comes from `lib/statements/summary.ts`** (`summarize`,
+  `agingOf`, `statementCharges`) — the portal, the PDF and the admin roster all
+  call it, so they cannot disagree. Aging is by CALENDAR MONTH against the
+  statement period (this month = Current, last month = 1–30, …), which is how a
+  rent ledger actually ages.
+- **Order mirrors the laser statement — do NOT re-sort it.** Tenants stay in the
+  sequence Skyline printed (which is NOT alphabetical: `1100-34` precedes
+  `1100-12330`), and charges stay in printed order (oldest first, the aggregate
+  "Open Credits" row last). The store merge preserves that sequence, updating a
+  re-imported tenant in place and appending a second export's new tenants after
+  the first's. The admin roster defaults to "Statement order" so it reads down
+  alongside the paper statements; "Largest balance first" is an opt-in sort.
+  Statement order is already property-grouped, so the roster draws a subtotal
+  band per property (open A/R, past due, tenant count) plus a clickable
+  "Open A/R by property" strip that filters. A tenant's expanded charge list has
+  sortable columns (date / description / type / amount) that always default —
+  and return on a third click — to the printed order.
+- **Payment instructions** (`lib/statements/payment.ts`) are editable data, not
+  copy in a component: built-in defaults < the global override < a per-property
+  override, edited on the Monthly Statements page. Do NOT hard-code remit-to or
+  AR contact details into the portal or the PDF. Bank/routing numbers stay OUT
+  of the portal — the ACH note points tenants at AR instead.
+- **The PDF** (`lib/statements/monthlyStatementPdf.ts`) deliberately mirrors
+  `lib/cam/retail/statementPdf.ts` — same letterhead, tinted section bars, zebra
+  rows, boxed balance. If one drifts, reconcile them rather than adding a style.
+- **The portal's Statements tab is ONE chronological index, not a toggle.**
+  Everything on the account in one timeline, newest first, grouped by year: each
+  month's statement of account, with that year's CAM/RET reconciliation sitting
+  alongside its December as the document that closes the year. Selecting a row
+  opens it below the index. A segmented control between "account balance" and
+  "reconciliation" split one timeline into two views of the same account — don't
+  reintroduce it.
+- **Say "open charges only, as of <date>" wherever a balance appears.** The
+  report lists unpaid items, so a tenant who has paid sees their rent drop off;
+  without the caveat they read that as "you forgot to bill me". The as-of date
+  is the import THIS tenant's figures came from (`statement.importedAt`), not the
+  period — a later upload covering other buildings doesn't make their numbers
+  newer.
+- **The portal does NOT require a year-end reconciliation.** A tenant can have a
+  monthly statement and never appear in a recon (5 of the 10 properties in the
+  sample export have no recon fixture), so the shell's identity comes from
+  `/api/portal/[token]` — unit ref, suite, and a name from the rent roll falling
+  back to their latest statement — and the reconciliation is just one more
+  document when it exists. Don't reintroduce a hard dependency on it. NOTE: the
+  project's tsconfig is non-strict, so a null `data` (the recon) will NOT be
+  caught for you — guard it.
+- **Portal links are managed from Monthly Statements as well as the recon page.**
+  Shared control `app/cam-recon/TenantShareLink.tsx` (mint / copy / email / PIN /
+  revoke) — reuse it, don't build a second share flow. Its API authorizes on
+  EITHER `/cam-recon` or `/tenant-statements` (the controller has the latter
+  only). Roster status comes from the bulk endpoint
+  `/api/tenant-statements/links?period=` so 67 rows don't fire 67 requests; the
+  link's (year, kind) resolve as existing link → newest recon year → the
+  statement's year, so a never-reconciled tenant still gets a working portal.
+- **Payment declarations are a remittance advice, NOT a payment.** Nothing in
+  `lib/statements/remittance.ts` moves money or marks a charge paid; it records
+  which open charges a tenant says their cheque covers, so a partial payment
+  isn't applied by guesswork. The tenant selects charges (everything ticked by
+  default — paying in full is what we want), and on confirming gets a 6-character
+  reference for the cheque memo; AR is emailed the application immediately and it
+  shows on the roster. **The amount is always recomputed server-side from the
+  stored statement** (`resolveSelection`) — a client-supplied total is ignored,
+  because that figure is what a payment gets applied against. The reference
+  alphabet excludes I/L/O/U so a handwritten memo line can't be misread.
+- **The reverse flow — a payment we hold and can't apply.** Staff record the
+  amount on the roster ("Record a payment") and the tenant is emailed a link to
+  allocate it against their own open charges. Same selection UI, but the target
+  is the amount RECEIVED rather than the whole balance, and it starts with
+  nothing ticked so they build up to it. An exact match isn't required — a
+  cheque often part-pays a charge — so the gap is recorded and shown to staff as
+  "$X of the $Y received is still unapplied" rather than being reconciled away.
+  Answering closes the request (`AllocationRequest` → `Remittance.requestId` +
+  `receivedAmount`). The request is saved even when the email can't go, so a
+  cheque is never lost because sending failed.
+- Admin page `/tenant-statements`; portal view `app/portal/[token]/MonthlyStatements.tsx`;
+  tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
+  to the token's one unit).
+
+# Management fees — the intercompany must tie exactly
+
+**No property or building pays an outside management fee. Every dollar goes to
+LIK Management (2010).** Confirmed by the owner — do NOT reintroduce "some
+buildings may be managed by a third party" as an explanation for a gap.
+
+- **Account `6610` (fee EXPENSE at each building) and account `4510` (fee
+  REVENUE at 2010) are two sides of ONE transaction and must be equal in every
+  period.** Because nothing is paid outside, there is no structural reason for a
+  variance: any difference is an error of timing or amount, not scope.
+- **The two sides are produced completely differently, which is the root cause.**
+  6610 is posted per building as part of each building's monthly close, computed
+  from that building's actual revenue. 4510 is TWO HAND-KEYED journal entries at
+  2010 — "Management Fees - NILLC" and "Mgmt Fees - Other". A manual accrual
+  against automatic postings drifts by construction.
+- **2026 through July, the evidence:** not one month tied. February carried no
+  entry at all ($59,868 billed, $0 booked) and March ran +$55,092 catching up.
+  The year netted to $4,424 on ~$410,000 — which is exactly why it went
+  unnoticed. **The annual figure looking close is the trap**; check the months.
+- **When they disagree, 6610 is the evidence and 4510 is the estimate.** The
+  building side is thirteen independent postings the buildings' own statements,
+  budgets and CAM recons already rely on. The fix runs one way: make 4510 equal
+  the sum of 6610. `suggestedEntry` in `lib/financials/management-fees/intercompany.ts`
+  states that figure, split the way the two entries are actually keyed, so the
+  manual step is mechanical rather than estimated.
+- **The tie-out is judged only through the month BOTH sides have posted**, so a
+  building running behind cannot read as 2010 over-booking, and a month neither
+  side has posted is `pending` rather than a discrepancy. A missed entry
+  (`not-posted`) is reported separately from a wrong one (`off`) — they are
+  different problems.
+- **The one way this report can manufacture a false gap is its own input.** A
+  fee-paying building with no GL loaded contributes nothing to the buildings
+  column while 2010 booked its fee, which reads as 2010 over-booking by exactly
+  that amount. `missingGl` carries those buildings and the card says the
+  comparison is incomplete rather than blaming the ledger. Check it first.
+- **The BUDGET banner on the same page is a different check** (property 6610
+  budgets vs 2010's 4510 plan) and was the only one that existed. A budget
+  agreeing says nothing about whether the entries were made — keep both, labelled
+  BUDGET and ACTUAL.
+- **The page's grid is a BUILDING PER ROW, months across** (grouped BP / SC /
+  Other with a subtotal band each, then a Total row), ending in the full-year
+  **reprojection**, the budget and the variance ($ and %). A month the building
+  has not posted carries its BUDGET in italics, so each row sums to where the
+  year should land — the Reprojections page's convention (actual to date +
+  budget for the rest). Missing / negative fees keep their amber / red cells,
+  explained in a `HoverCard`. The Excel download (`export.ts`, ExcelJS on the
+  shared theme) is the SAME layout — subtotals per group, a grand total over
+  the SUBTOTALS, reprojection and variance as live formulas — pinned by
+  `export.test.ts` reading the file back.
+- **`2010`'s statement line "Management Fees" has mask `4510-*,4230-8501`**,
+  bundling base rent into a line named for fees. As of 2026 nothing posts to
+  4230-8501 at 2010, so it is cosmetic — do NOT "fix" it expecting the numbers to
+  move. `2000` (Clearing) carries the identical mask.
+
+# Operating statements — which properties are run monthly
+
+**`monthlyStatements()` (`mappingStore.ts`) is the list of statements run each
+month** — every mapping except `NOT_IMPORTED_MONTHLY`, currently **Korman Homes
+(PHOMES)**, a rollup of the residential properties that the owner does not
+import monthly. The statement picker, the "GL uploads behind" reminders,
+Flags to Investigate, the not-posted alerts, the monthly report, Reprojections
+and the assistant read it. `availableStatements()` still returns every mapping
+for the pages that need PHOMES (Cash Analysis, Budgets, Balance Sheet); the
+Skyline month-end consolidation runs in the Task Tracker still list PHOMES.
+
+# Operating statements — the "?" is a signal, so keep it scarce
+
+The amber **"?"** next to a statement line means "this month looks off, go look".
+It is only worth anything if it appears where someone would actually spend the
+time — and the team does not have time to open the GL over $80.
+
+- **A line's VARIANCE is the last word** (`meetsFlagFloor` / `FLAG_MIN_DOLLARS`
+  in `lib/financials/operating-statements/flagRules.ts`, currently **$500**). The
+  trend checks in `trends.ts` already ignore a move under $500, but they measure
+  a line against ITS OWN recent months or against last year — **not against
+  budget** — so a line sitting on budget could still earn a "?" for having
+  moved. 9510's July statement is the worked example: Maintenance Salaries 577
+  vs 615, Building Maintenance 422 vs 500, Landscaping 212 vs 515 — $38, $78 and
+  $303 of variance, each carrying a "?", while the one line that mattered
+  (Parking Lot Maintenance, 28,350 vs 592) carried the same mark and no more
+  weight. A mark on four lines that means something on one is not a signal.
+- **Dollars, not percent.** 577 vs 615 is −6.2%, which looks dramatic and is
+  $38. Every floor here is absolute dollars.
+- **An UNBUDGETED line passes the floor** and falls back to the trend checks'
+  own $500 gate — there is no variance to measure, and suppressing it here would
+  mean a line with no budget could never be flagged at all.
+- **Both "?" paths share the rule and must keep sharing it**: the per-property
+  statement (`/api/financials/operating-statements`, which passes
+  `l.periodVariance` into `seasonalTrendFlags`) and the cross-property Review
+  (`review.ts`). The Review applies it in its SECOND pass, on purpose — pass 1
+  never computes a month's budget, which is what makes scanning every month of
+  every property affordable. Pinned by `flagRules.test.ts` against the real 9510
+  numbers.
+- **AUTO-EXPLAIN RUNS ON IMPORT, and explains exactly the lines carrying a
+  "?".** It used to ask first, and asking was the wrong default: the explanation
+  is most useful the moment the numbers land, and the person who just imported
+  is the person who would have clicked yes. The card is now a status line, not a
+  choice. It is cheap by construction — it skips any line already carrying a
+  note (manual OR AI, so a re-import costs nothing) and it now runs the SAME
+  `seasonalTrendFlags` + variance floor as the "?", where before it ran on the
+  raw trend signal and would spend a note on a line the statement had already
+  decided not to mark. `analyze/route.ts` must keep passing `l.periodVariance`
+  in, or the floor never bites; pinned by `flagRules.test.ts`.
+- **The note REACHES A CONCLUSION; it does not describe.** "There is a large
+  charge on this line" is worthless — the charge is already on the statement.
+  The prompt walks a fixed analysis: find the charge (vendor, date, amount) →
+  decide what it IS from the description (repaving / roof / HVAC / build-out
+  read as CAPITAL; patching, cleaning, a service call read as repairs) → say
+  which of **capital on an operating line / wrong GL account / wrong property /
+  missed or doubled bill / genuine unbudgeted one-off** it looks like → say the
+  one action. On a CAM-recoverable line it must also say whether the treatment
+  changes what tenants are billed, because a capital item left in a reimbursable
+  line overstates the CAM pool. 9510's Parking Lot Maintenance — $21,750 against
+  a $592 budget — is the shape this exists for.
+  - **It sees the ACCOUNT each charge posted to**, plus every account rolling
+    into the line (`accountsOnThisLine`). A coding call cannot be made without
+    knowing where the charge currently sits — that was missing, and it is why
+    notes could only ever say "there is a charge".
+  - **A PRIOR MONTH EARNS ITS MENTION BY SIZE, NOT BY RECENCY**
+    (`PRIOR_MONTH_MIN_DOLLARS`, $10,000). Two real notes set the boundary.
+    NOT worth it: *"March's $745.39 PECO charge is on the wrong GL"* — true, and
+    sending someone to look at July for it wastes the trip. WORTH it: *"HDL
+    Servicing $121,000 on 1/27 … the redevelopment GC billing to capital
+    accounts all year. Capitalize it; left here it grossly inflates tenant
+    CAM."* The route splits the payload by the LARGEST SINGLE prior charge —
+    never their total, which catches every ordinary recurring line by June — into
+    `priorMonthsWorthMentioning` (reportable) or `priorMonthsForContextOnly`
+    (comparison material, never the finding). **The key NAME carries the rule**,
+    so the model cannot mistake one list for the other.
+  - **NEVER "miscoded" WITHOUT A DESTINATION.** *"The $68.90 Termite Proofing
+    charges are miscoded here"* is half a finding: it says a charge is wrong and
+    not where it belongs, leaving the reader to go hunting — which is the work
+    the note existed to do. It could not do better, because the only accounts it
+    ever saw were the ones on the line it was looking at. `accountDirectory` now
+    carries the property's whole operating chart (account, name, the line it
+    rolls into) so a note can say *"move it to 6350-0000 Pest Control, where the
+    rest of them post"*.
+  - **LENGTH TRACKS WHAT THERE IS TO DO, not what was noticed.** Something to fix
+    (recode, capitalize, chase an invoice) earns ~45 words. Nothing to fix — it
+    genuinely cost more than planned — is ONE LINE of about twelve words:
+    *"Thirteen snow invoices Jan–Mar; a heavy winter, genuinely over."* No
+    speculative cross-check, and no re-budgeting advice: they set the budget and
+    they know it was low. A possible DOUBLE-PAY is raised only on evidence (same
+    vendor, same amount, twice; or a transaction count that broke its pattern),
+    never on a hunch.
+  - **"NONE" MEANS NOTHING TO DO, AND IT DROPS THE MARK.** A line with a clean
+    recurring pattern and a cost simply running above last year does not need a
+    note saying so — *"Single Waste Management invoice each month, clean
+    pattern; costs running ~8% over last year on rate escalation. No error…"* is
+    four lines confirming nothing needs doing. The model returns `NONE` and the
+    route DISMISSES the flag (`setFlagDismissed`) rather than writing a note, so
+    the "?" goes away and the checklist doesn't carry it. Reversible — the same
+    endpoint the ✕ on the statement uses restores it.
+  - **SEASONALITY IS NOT A MISSING INVOICE.** Grounds and landscaping post
+    roughly April–November (`isGroundsLine` / `GROUNDS_SEASON` in
+    `flagRules.ts`), the mirror of the snow rule that existed from the start.
+    Without it: *"No grounds spend at all Jan–Apr … chase Sharp's Landscaping
+    for missing monthly invoices"* — the observation is a good one, a contract
+    that stops invoicing IS worth catching, but it was counting winter as
+    evidence. Judge a missing contract only over the months the line should post.
+  - **NEVER REPORT THAT A BUDGETED PROJECT HAS NOT HAPPENED.** *"The budgeted
+    big project also has not happened"* is speculation dressed as a finding, and
+    it contradicts the provision principle above: money set aside for work that
+    was not needed is a good outcome. Report what DID post and what looks wrong
+    with it.
+  - **A CAPITAL / TI LINE'S BUDGET IS NOT A COMMITMENT, AND A $0 BUDGET IS NOT
+    A FINDING** (`isCapitalLine` in `flagRules.ts` → the payload key
+    `budgetIsNotACommitment_thisIsCapitalOrTI`). Real note: *"July's Exit Design
+    $7,000 and J.W. Electrical $6,202/$3,694 are correctly on 1440-0000, but the
+    whole year's TI spend sits against a zero budget. Tie it to the tenant
+    allowances in the new leases and get the funding approved."* The first
+    sentence IS the note. TI is spent because a lease was signed, and a budget
+    set a year earlier cannot have known which suites would lease or what
+    allowance they would carry — so an unbudgeted TI line describes how the
+    business works, not an error, and telling the owner to "get the funding
+    approved" tells them to approve what they approved when they signed the
+    lease. This does NOT suppress the flag: naming the spend and confirming it
+    landed on the right account is the useful half. The line is caught by its
+    ACCOUNT (14xx) as well as its label and section role, because a TI line does
+    not always sit in a section typed `capital`.
+  - **THE NOTE IS ABOUT THE MONTH IT SITS BESIDE.** Two separate lists go to
+    the model — `thisMonthsCharges` (where the finding must come from) and
+    `priorMonthsForContextOnly` (there only to say whether this month's amount
+    is normal, never reportable as the finding). Handing it one merged list is
+    how a July note ended up about March's electricity bill, and sending
+    someone to look at July for a March charge wastes the trip.
+  - **`cls` reads THIS MONTH first, then YTD** — it used to read YTD first, so a
+    line surfaced on a year-to-date variance and the note described whatever
+    charge was biggest across the year. When only the YEAR is off (`scope:
+    "year-to-date"`, this month on budget), the note must OPEN with "Year to
+    date:" so it reads as a different kind of statement rather than as this
+    month's news.
+  - **It runs on Opus**, because the job is a judgement (is this capital? is it
+    on the right account?) rather than a summary. Affordable only because the
+    variance floor keeps the flagged set small — do not widen the set without
+    revisiting the model. Roughly $0.12–0.16 per property-month at Opus 5's
+    $5/$25 per MTok, so ~$2 for a thirteen-property import. **Note that Opus 5
+    runs ADAPTIVE THINKING when `thinking` is omitted** (unlike 4.8/4.7, where
+    omitting it meant none) — that is most of the output spend and most of the
+    latency. `output_config: { effort: "medium" }` is the dial if it ever needs
+    trimming; quality is why it is on `high` (the default) now.
+  - **`max_tokens` MUST HOLD THE THINKING TOO — it is 16,000.** Thinking
+    tokens count against the ceiling. At 6,000 a property with a dozen flagged
+    lines spent it reasoning, stopped on `max_tokens` before the JSON of notes
+    was written, and returned "Couldn't parse the analysis" — and the import
+    loop, which never read the response status, showed "Done — every flagged
+    line carries a note" with no notes written anywhere. The route now names a
+    `max_tokens` / refusal stop, and BOTH callers (the import's auto-explain and
+    Flags to Investigate's "Auto-explain all") read each response and list the
+    properties that failed, with the reason. Never go back to a `fetch` whose
+    result is not checked: a 502 does not throw.
+  - **`maxDuration = 300` IS REQUIRED ON THIS ROUTE.** It was never set, which
+    was survivable on Sonnet with a 2,000-token ceiling and a small prompt.
+    Moving to Opus with 6,000 tokens, adaptive thinking, the account directory
+    and the split transaction lists pushed one call past Vercel's short default
+    and **every run came back 502 with nothing written** — the same omission
+    that made the assistant 504. A model call that fails must also SAY WHY: the
+    route now logs and returns the API's own message rather than a bare
+    "Analysis failed (502)", and the statement page renders a failure in red
+    instead of as a muted status line.
+  - Length is "as short as the finding allows": ~20 words for a routine line, up
+    to ~45 when a coding or capitalization call needs them. Never padding.
+- **Every AI note is editable and a manual edit is permanent.** Auto-explain
+  never overwrites a `user` note, and skips its own `ai` notes unless `force`.
+  **On the statement page the way back is "Clear AI notes"**
+  (`clearAiNotes` → `POST .../clear-notes`), not a checkbox: it deletes that
+  month's `ai` notes, keeps anything a person wrote or edited, and restores the
+  month's dismissed "?" flags. The old **"re-explain done"** checkbox was
+  removed because it could not do the job it was there for — it walks the
+  CURRENTLY flagged set, and a note outlives the flag that earned it, so a line
+  explained under looser rules keeps its wording and `force` never reaches it.
+  That is exactly how "it isn't overriding the comments" happened. The Review
+  page keeps its checkbox, since there is no cross-property clear; `force`
+  stays on the endpoint either way.
+- **FLAGS TO INVESTIGATE IS A REVIEW-SESSION PAGE, and the goal is an EMPTY
+  LIST** (`app/financials/operating-statements/review/page.tsx`). One property
+  at a time (brand `Select` + ← / →, rent-roll order, "Next: <property> (n) →"
+  once one is clear), its open items YEAR TO DATE in ONE table banded by month,
+  January down. A row is line → actual → budget → variance → WHY (the note,
+  ✨ AI-tagged, else the rule's reason; BILLING and NOT POSTED pills lead).
+  **Every row can be dismissed, missing postings included** — they used to
+  ignore dismissals, so the list could never reach zero. A dismissed row stays
+  dimmed with Undo until you leave the property. A note written on the row is
+  a `user` note (auto-explain never overwrites it). The Excel download is the
+  SAME themed workbook the import emails (`review/checklist`), not a second
+  export. Don't go back to cards-per-property with nested expanders — three
+  clicks to read one variance is what this replaced.
+- **THE MONTH'S CHECKLIST IS EMAILED ON IMPORT.** One workbook, every
+  property's open items, built server-side on the shared Excel theme
+  (`reviewWorkbook.ts`) and sent by
+  `POST /api/financials/operating-statements/review/email`. It is one email per
+  IMPORT, not per property (several files usually land together), and it fires
+  only AFTER auto-explain has finished — otherwise the checklist arrives with
+  its most useful column empty. Also on demand from Flags to Investigate
+  ("Email checklist"). Recipients: `REVIEW_CHECKLIST_TO` (comma-separated),
+  falling back to `VERIFIED_FROM` so it works before anyone configures it.
+- **The checklist carries BOTH kinds of item, and MISSING leads.** A line that
+  should carry a figure and reads ~$0 (budgeted, or a scheduled debt payment) is
+  an error of omission — the statement is not finished — and it sorts above
+  every trend flag, tinted, whatever the dollars. The Review page's old Excel
+  export dropped these entirely, so the item most likely to be a real error was
+  the one missing from the file. Within each kind, largest dollars first, which
+  is the order you would work them in.
+- **Every row has a real tick box** (a bordered empty cell) and the "What to
+  check" column carries the auto-explain note, falling back to the flag reason —
+  never blank, or the row is a line item with no question on it. It never mails
+  an empty checklist: nothing to resolve means no email.
+- **NOT EVERY LINE DESERVES THE SAME BAR.** A budget on Electric is a bill that
+  is coming; a budget on Parking Lot Maintenance is money set aside in case the
+  lot needs patching. Three kinds, in `flagRules.ts`:
+  - **CONTRACTUAL** (utilities, insurance, taxes, payroll, security, cleaning,
+    snow, management fee) → the tight `FLAG_MIN_DOLLARS` floor. This sets the
+    VARIANCE floor only — see the not-posted rule below, which is narrower.
+  - **DISCRETIONARY / as-needed** (repairs, maintenance, paving, painting,
+    legal, misc) → the loose `LOOSE_FLAG_MIN_DOLLARS` floor ($1,500), and NO
+    not-posted flag at all: a year that needed no repaving is a good year, not
+    an unposted charge. This is the same exemption capital already had.
+  - **AMBIGUOUS** (landscaping, grounds, pest, window washing) → a contract at
+    SOME properties and call-someone at others. The label cannot settle it, so
+    **the property's own ledger does**: `postsRegularly(history)` — posted in
+    ≥70% of the months so far, needing at least three — picks the tight floor,
+    otherwise the loose one. Under three months it declines to guess and takes
+    the loose floor, because the direction here is less noise.
+  - CONTRACTUAL is checked FIRST because the words overlap: "Maintenance
+    Salaries" is payroll and "Parking Lot Cleaning" is a sweeping contract;
+    only "Parking Lot Maintenance" is the as-needed one, and the difference is
+    one word.
+- **"NOT POSTED" NEEDS AN OBLIGATION, NOT A BUDGET** (`isKnownObligation` in
+  `flagRules.ts`, applied inside `budgetExpectedMissing`). The signal answers
+  one question — is a figure the statement should be carrying simply ABSENT —
+  and a budget cannot answer it. A budget is a plan; a plan with nothing
+  against it is usually timing (the Electric bill has not been keyed yet) or
+  the right outcome (the lot needed no patching). Only four things can be
+  accused on a budget alone, because each gets billed whether or not anyone
+  acts: **real-estate taxes, insurance, the management fee, and debt**. Debt
+  does not come through the budget path at all — `markMissingDebt` writes its
+  own finding from the lender's schedule, which IS evidence, and that is the
+  shape the whole rule is modelled on. Everything else is left to the variance
+  and trend checks, where a line merely running light belongs.
+  The earlier rule ("a CONTRACTUAL line with a $0 year IS a missing posting")
+  was too wide and the owner said so: a $0 Electric line in March, a
+  landscaping contract between seasons and a July snow line each read as "not
+  posted to the GL", and the card kept for real omissions filled with lines
+  nobody acted on. **The narrow rule already existed** — `isSignificantNotPosted`
+  gated the weekly ALERT EMAIL on exactly these four categories and only that
+  email, while the dashboard card, the statement's ⚠ and the review checklist
+  each showed every budgeted line. One signal meaning two things depending on
+  where it is read is the defect; the rule now lives at the point the finding is
+  MADE, and `isSignificantNotPosted` delegates to it.
+- **The ⚠ "not posted" mark: which CELL it belongs on lives in `flagRules`**
+  (`marksPeriodUnposted` / `marksYtdUnposted`), shared by the statement page,
+  the Excel export and the PDF. All three used to decide it themselves and all
+  three were wrong the same way: a budget finding is YTD-scoped ("nothing
+  posted all year") and yet painted the MONTHLY cell too, on a month that had
+  budgeted nothing — Parking Lot Maintenance read `⚠ | 0` for July. **A month
+  that budgeted nothing cannot be missing anything.** A DEBT finding is
+  per-month by nature and still marks the month.
+- **THE RENT-ROLL CHECK MUST NAME WHICH RENT-ROLL COLUMN IT IS CHECKING**
+  (`basisForLine` / `RentCheckBasis` in `rentCheck.ts`). The Skyline rent roll
+  bills FOUR things per suite, in four columns — **BASE RENT**, **OPERATING
+  EXPENSE** (CAM), **REAL ESTATE TAX** and **OTHER EXPENSE** — and the statement
+  has a reimbursement line for each. Every line was being checked against BASE
+  RENT. 4500's July Common Area is the worked example: the GL billed $30,030 of
+  CAM, the rent roll's OPERATING EXPENSE column says **$30,030 exactly**, and
+  the table reported a **$109,301 "billing variance"** plus three NOT BILLED
+  pills — because it had compared against $139,331 of base rent. A month that
+  ties to the dollar read as the worst billing failure in the portfolio.
+  - The map: `4230` → base, `4910`/`4901` → cam, `4920` → ret, `4930`
+    (Insurance) → other. **The LABEL is read before the mask**, because the
+    masks overlap — Electric is `4710-*,4910-8503` and 4910 is the CAM family.
+    `4910-8503` is the ELECTRIC sub-account and is excluded from CAM explicitly;
+    the CAM sub-accounts in use are `-0000`, `-8501`, `-8502`, `-8506`.
+  - **NULL IS THE IMPORTANT ANSWER.** Electric reimbursement, condo fees,
+    percentage rents and the 8502 service-centre lines are billed per suite and
+    NONE of them is a rent-roll column, so there is nothing to reconcile
+    against. Those lines now show the per-tenant GL summary instead of a table
+    asserting a variance it cannot support — which is what they did before,
+    against base rent.
+  - **The rent roll has NO INSURANCE COLUMN**, so an insurance line is checked
+    against OTHER EXPENSE, Skyline's catch-all. That is a real approximation
+    and the footnote says so; do not present its difference as a billing error.
+  - The column, the KPI tile and the hover all carry `BASIS_LABEL` ("Rent roll
+    · CAM"), because a table that does not say which column it compared is how
+    this went unnoticed.
+- **A "TIES" MARK GOES ONE PER VIEW, NEVER ONE PER ROW OF A LONG LIST**
+  (`tiesTone` in `Pill.tsx` — deliberately the SAME green the rent check's TIES
+  pill uses, because it is the same claim). A green pill on 66 of 67 tenant
+  rows makes the eye filter 66 greens to find the one red, which is exactly why
+  the monthly-statements roster has NO ties-out column and flags only the
+  exception — do not "improve" that. A single mark at the top of a statement is
+  the opposite case: there is one of it, it costs nothing, and it answers a
+  question you would otherwise leave the page to ask.
+  The worked example is **GL TIES** on the statement header: `reconcileGl` runs
+  each account's monthly nets against the ending balance the file reports, and
+  it was computed on UPLOAD and then surfaced only on the cross-property Review
+  — so the page you work in all month never said whether its own numbers hang
+  together. **A file with no ending balances to check against shows NOTHING**,
+  not a green pill: "not checkable" is not "fine".
+  **It is judged PER UPLOADED FILE (`reconcileGlFiles` in `glAssemble.ts`),
+  never on the stitched ledger.** The composite takes its opening balances from
+  the earliest upload and its closing balances from the furthest-reaching one,
+  and those are not on the same basis — an August-only Skyline GL opens its P&L
+  accounts at zero, not at their Jan–Jul total — so a Jan–Jul upload plus an
+  August one read **"48 DON'T TIE"** at 4500 on files that each tied on upload.
+  Only files still contributing a month are judged, so a bad upload a later
+  re-upload replaced does not keep the pill red. The checklist email's "GL
+  doesn't reconcile" note reads the same function.
+- **THE HEADER CARRIES ONE NUMBER: "Items to Investigate", AND IT TICKS DOWN.**
+  It counts the lines still carrying a "?" and is recomputed from the SAME
+  `dismissedFlags` state the mark itself reads, so dismissing one drops the
+  count with no refetch — which is the whole point: how much is left to do on
+  this property, right now. Clicking it filters the statement to those lines.
+  `carriesInvestigateMark` is the ONE predicate behind the mark, the count and
+  the filter; before it, the header counted **Lines Favorable / Lines
+  Unfavorable** — lines whose VARIANCE cleared a threshold, which is a
+  different question and not one anyone acts on. 1100's July read `0 / 0`, and
+  a favorable-variance count is not a to-do list in any case. `varianceCounts`
+  and `lineMatchesClass` went with them rather than being left to rot.
+  **A NOT-POSTED KNOWN OBLIGATION COUNTS AS AN ITEM** (taxes, insurance, the
+  management fee, a scheduled mortgage payment reading $0). It was excluded
+  because it carries its own ⚠ rather than a "?", which meant the to-do count
+  skipped the likeliest real error on the page. It counts only where the ⚠ is
+  actually drawn for the month in view (`showsUnposted`), carries a red `!` to
+  dismiss it, and a dismissal clears the ⚠, the count and the "Debt service not
+  posted" banner alike. In the Review, DEBT is asked for EVERY month (the lender
+  schedules each payment — a June mortgage never posted used to vanish once
+  July's posted); the budget-based three stay latest-month, because they are
+  judged year to date and asking every month would repeat one finding.
+- **A TENANT NOT BILLED WHAT THEIR LEASE SAYS IS A THIRD KIND OF FINDING, AND
+  IT IS INVISIBLE TO EVERY TREND CHECK** (`billingFlagReason` /
+  `runRentCheck` in `rentCheckRun.ts`). The same wrong amount posts every
+  month, so the GL agrees with last month AND with last year — which is exactly
+  how a lease that was never keyed survives a year of statements.
+  - **All three consumers call ONE runner.** The statement's "?", the Review /
+    emailed checklist, and the drill-down table go through `runRentCheck`; the
+    modal's route is a thin wrapper over it. A mark that disagreed with the
+    table it opens would be worse than no mark.
+  - **WHEN EVERY SUITE TIES IT SAYS NOTHING** — the first test. Otherwise the
+    reason NAMES them, worst first: *"3 suites do not tie to the rent roll's
+    CAM column: Wawa (not billed $7,917), Lafayette Hill Cleaners (short
+    $2,445)…"*. Four names in the statement's hover; **twelve on the
+    checklist** (`BILLING_NAMES_ON_CHECKLIST`), because that reader has the
+    spreadsheet open and a name they must look up is a trip they should not make.
+  - **It is NOT put through the seasonal / variance trend filter.** It is
+    evidence, not a signal, and it carries its own floor — `FLAG_MIN_DOLLARS`
+    on the TOTAL untied dollars, not per suite, so a rate change that left nine
+    suites $60 short each surfaces where a per-suite test would never see it.
+    In `review.ts` the trend floor gates the TREND half of a month only.
+  - **The Review runs it over EVERY month, not just the ones pass 1 flagged.**
+    Restricting it to `flaggedPeriods` would miss precisely the case it exists
+    for. Cost is bounded: ≤4 lines per property have a rent-roll column at all,
+    and `loadRentCheckShared` reads the rent roll and tenant directory ONCE for
+    the whole sweep.
+  - **On the checklist it is its own kind, `BILLING`, and a note never
+    displaces it.** MISSING and BILLING are errors of FACT and sort above
+    REVIEW, a judgement call — $470 of billing error leads $27,758 of variance.
+    Where a month has both, `whatToCheck` shows the tenants AND the note.
+  - The check never fails the statement or the review: no rent roll imported,
+    or anything thrown, and it simply does not run.
+- **A LEASE-BILLED REVENUE LINE SHORT OF BUDGET IS A FOURTH KIND OF "?"**
+  (`revenueShortfallReason` in `flagRules.ts`). Trend flags need a line to MOVE
+  and the rent-roll check needs a suite to be billed wrong; a lease the budget
+  assumed that isn't billing, a CAM or tax recovery keyed low, or a tenant who
+  left is short by the same amount every month and trips neither — when the
+  suite reads vacant on the roll it even TIES. Only the budget remembers what
+  should have come in. Rules: revenue/reimbursement role, a line with a
+  rent-roll basis (`basisForLine` — base rent, CAM, RE tax, insurance: billed
+  on a lease every month, so it lands near budget), and ≥ `FLAG_MIN_DOLLARS`
+  SHORT. Never over (a new lease or escalation), never lumpy income
+  (percentage rent, recon true-ups, late fees are budgeted evenly and post in
+  lumps). Its own floor, like billing — NOT put through the trend filters,
+  which exist to ignore a steady gap. All three consumers call it: the
+  statement's "?", the Review (its own pass over EVERY month, reusing the month
+  statements it builds in pass 2), and auto-explain's selection.
+- **THE LEASE TERM IS IN THE HOVER, NOT IN COLUMNS**, and the CAVEATS NAME THE
+  DATE. On most rows the lease spans the whole window, so two date columns
+  would be noise beside seven others; it decides the rows carrying a pill,
+  which is where someone hovers. *"Lease starts 07/15/2026, inside this window
+  — the real charge is prorated"* beats "starts or ends inside this window",
+  which left the reader to find out which end and when. **Rent still posting
+  after a lease ENDED is its own finding** — it read `UNEXPECTED` and said
+  nothing, indistinguishable from a charge on the wrong suite, and it does NOT
+  require the roll to have marked the suite vacant (a tenant can be gone and
+  the suite not yet re-flagged). The mirror too: a lease that has not STARTED
+  is owed nothing, so its $0 is not a missed bill.
+- **A LINE-DETAIL MODAL SHOWS THE SUITE TABLE OR THE TRANSACTION LIST, NOT
+  BOTH.** On a rent or CAM line the two ARE the same data: rent posts one
+  charge per suite a month, so the raw GL list under the suite table repeated
+  it row for row — same eight tenants, same eight amounts, stacked. The suite
+  table wins because it carries the rent roll and open A/R beside the charge.
+  The list stays only where it adds something: a suite billed more than once in
+  the window (`summarizes`, which is YTD scope by construction) or a charge
+  naming NO suite, which the suite table cannot show. Its **Ref** was the one
+  column the suite table lacked, so `refByUnit` carries it up — populated only
+  where a suite has exactly one charge, since two charges have no single ref.
+  The same `summarizes` rule already governed the per-tenant summary ABOVE the
+  list; this is it applied in the other direction.
+- **The ▲ "driver" mark in the GL drill-down must STAND OUT, not just be big**
+  (`drivers.ts`). It tested share alone — a third of the line, or a fifth once
+  there were three transactions — but N roughly-equal charges are each 1/N of
+  the line, so any set of five or fewer marked EVERY row. Four monthly
+  landscaping invoices within 1% of each other lit up entirely. A driver is now
+  a meaningful slice AND at least 1.8× the median of the OTHER charges, so a
+  recurring series marks nothing. A lone transaction is never marked — it is
+  trivially 100% of its line.
+- **NOTHING POSTED IS NOT A FAVORABLE VARIANCE** (`nothingPosted`). A $0 actual
+  makes the variance exactly the budget and the percentage exactly 100% — by
+  arithmetic, not performance — and it rendered as a GREEN "+100.0%", which
+  reads as money saved. 9510's July showed three in one section: Insurance 0 vs
+  653, Real Estate Taxes 0 vs 1,391, Building Maintenance 1 vs 200 at +99.5%.
+  The figure stays (0 against a $653 budget is worth seeing) but loses the green
+  and never counts as a "favorable line"; whatever is really going on is already
+  said by the ⚠ / ✅ marker in the actual column.
+- **The green ✓ "paid <month>" claims the YEAR'S OBLIGATION IS ALREADY MET, so
+  it needs a real obligation and a believable figure** (`fullyFundedYtd` in
+  `compute.ts`). Two ways that claim went wrong, both fixed:
+  - **An AS-NEEDED line has no obligation to have met.** It now takes the same
+    `isDiscretionaryLine` exemption `budgetExpectedMissing` does, one level up:
+    a provision that has been spent is not a prepayment. 9510's July is the
+    worked example — Legal & Accounting, $103 budgeted for the month, nothing
+    posted, **$10,460 spent year-to-date against a ~$1,236 annual provision**.
+    A line running 1,350% over was carrying a reassuring green tick.
+  - **Several times the annual budget is an OVERRUN, not a prepayment**
+    (`FULLY_FUNDED_MAX_MULTIPLE`, 1.5×). A prepaid premium lands near budget;
+    8× it does not. The band is generous because a renewal can jump 30–40%.
+- **The auto-explain status line says NOTHING on success.** "Explained 9 of 18
+  flagged lines · 9 had nothing to investigate" tallies what is already on the
+  screen — the notes appeared and nine "?" went away. A run that did nothing
+  still has to say why, or it reads as broken.
+- **The red/green VARIANCE TINT needs real dollars on the percent route.**
+  `cellFlag` fired on `dollar OR percent`, so at the default 10% and a $500
+  floor it caught Electric at $689 on a $4,080 budget — true, and not worth a
+  red cell. Five of ten rows tinted leaves the eye nowhere to land. `dollar`
+  ($5,000) still fires on its own; the PERCENT route now also has to clear
+  `LOOSE_FLAG_MIN_DOLLARS`, the same $1,500 an as-needed line is held to.
+- **AI work in progress shows `AnalyzingBar`** (`app/components/ai/AiKit.tsx`),
+  not a disabled button reading "Analyzing…". Same visual language as
+  `ThinkingCard` — twinkling sparkle, shimmer text, pulsing dots — so AI work
+  looks like AI work wherever it runs. DETERMINATE with `done`/`total` (the
+  cross-property run knows its steps, and names the property being read) and an
+  indeterminate sweep without them (one property is one opaque call). Used by
+  Flags to Investigate's "Auto-explain all" and the statement page's
+  "Auto-explain flagged lines".
+- **`countAnomaly` is deliberately NOT gated.** It has no dollar floor, but it
+  is inert on both "?" paths (both call `trendFlags` with an empty counts array);
+  it only feeds auto-explain's written notes, where a missed or doubled bill is
+  worth mentioning whatever the amount.
+
+# Budget season — the Expenses step and leasing assumptions
+
+- **Three expense lines are KEYED, not grown** (`lib/financials/budgets/expenseInputs.ts`,
+  stored per budget-year + property in `expenseInputStore.ts`). Every other
+  expense line is this year's forecast × the book's growth %.
+  - **Real estate taxes** (Drew): default this year + 3% (`RET_DEFAULT_GROWTH_PCT`)
+    in the months they post; an annual override is spread the same way.
+  - **Insurance** (Drew): the renewal premium, annual, spread LIKE THIS YEAR
+    (`spreadLike`) — a March lump stays a March lump. Grows with the book until keyed.
+  - **Building maintenance** (Greg): twelve months.
+  - **Every one of the three takes EITHER twelve months OR a total** — any
+    month cell and the total are typeable, and whichever was typed last saves
+    (`resolveKind`: typed months are taken as typed; an annual is spread like
+    this year, maintenance evenly). A **Spread…** menu re-lays the current total
+    (like last year, evenly, quarterly, twice a year, all in one month —
+    `spreadPattern`) and the months can then be typed over. The Save / Accept /
+    Reset buttons sit UNDER the line name, not in a trailing column: that column
+    scrolled off the right edge and nobody could find where to key taxes.
+  `expenseInputKindOf` matches EXPENSE sections only — the revenue side carries
+  "Real Estate Taxes"/"Insurance" recovery lines with the same names.
+- **Keying a figure IS completing it.** A saved input ticks its contribution
+  on the Expenses step (`deriveContributions`' `entered` map); there is no
+  separate tick to remember.
+- **ONE MASTER BUDGET PAGE** — `/financials/budgets/draft` is where Drew,
+  Harry, Nancy and admin collaborate: the masthead, then a **KPI row**
+  (`BudgetKpis` — revenue, operating expenses, NOI, net cash flow after capital
+  and debt, each against this year's forecast), then the budget grid
+  ("Expenses & review"), then **Revenues BELOW it** — the rent schedule, the
+  leasing calls and Revenue by tenant are supplemental data supporting the
+  budget's revenue lines, which is the order the owner's own budget workbooks
+  use. The headings carry no "Step 1 / Step 2" numbering. The progress
+  strip (`BudgetSteps`) was REMOVED at the owner's request — the To-decide
+  filter and the review sign-off say what is outstanding; don't bring it back.
+  Step 1's count tiles and blurb went with it, and the debt-service loans sit
+  in a collapsed `<details>` whose summary line carries the totals. The keyed expenses are typed
+  in the grid itself (Step 2); each is still editable only by its owner (the
+  route's `canEdit`) — on the draft page that is Drew / admin, and Greg keys
+  maintenance on his own page.
+  `/api/budget-inputs` is authorized for `/budget-inputs` OR
+  `/financials/budgets` (`SENSITIVE_API_PREFIXES` takes a list). Harry was
+  granted `/financials/budgets` (scoped to the shopping centres, as Nancy is to
+  the parks) — he owns the SC leasing calls and could not open the page. The
+  page opens on the viewer's own book, and the strip/Step 1 follow the BOOK's
+  category (they were hard-coded to Shopping Centers).
+- **(Retired as Greg's link — see "Greg budgets the expenses ON THE DRAFT PAGE".) `/budget-inputs`**
+  It renders `ExpenseInputsPanel`, backed by the same store the draft grid types into. He alone of the service logins is granted it; its API returns only the three
+  keyed lines, never rents or NOI, and the SERVER checks `canEdit` on every save.
+  Drew and admin see and key all three.
+- **An existing tenant's leasing dates come from the LEASE, not an
+  assumption** (`renewalStartMonth` in `leaseRevenue.ts`). A renewal's new rent
+  starts the day after the term expires (11/30/26 → 12/1/26); a vacate is paid
+  through the term; a holdover renews, or is gone, from January. Only a VACANT
+  space takes an assumed start month. Both a renewal and a lease-up take an
+  assumed TERM in years (`termYears`) — it does not move this year's rent; it
+  records the deal for later years and the commission estimate.
+
+- **The budget year is NEXT year by default** (2027 in 2026) — the page, Budget
+  Inputs and both APIs. It is built from this year's forecast.
+- **The draft reads as a FULL-YEAR OPERATING STATEMENT**
+  (`app/financials/budgets/draft/BudgetStatementTable.tsx`): a column per month,
+  then Budget, this year's Forecast and the change — the same ladder and
+  styling as the statement's Full-Year grid. Do NOT go back to a card per
+  section showing one annual figure; the monthly shape (taxes in May/Nov, a March
+  premium, snow in winter, a lease-up starting in June) IS the budget. There is
+  no master growth-% control: every line carries its own basis (entered, tax
+  +3%, leases, the recovery estimate), and what is left grows by a fixed 3%.
+- **Recoveries (CAM / INS / RET) are IN the draft** (`recoveryMath.ts`,
+  `reimbursementEstimate.ts`): each tenant keeps their share from the last
+  reconciliation, applied to the BUDGET's own pools (so keyed taxes and
+  insurance flow straight to tenants). Retail scales the share by the pool
+  change (a capped tenant no faster than its cap); office recomputes the
+  increase over each tenant's base year. The leasing assumptions set who pays
+  and when — a vacate stops after its term, a retail lease-up pays pro-rata from
+  its start month, a suite vacant on the roll pays nothing. The monthly totals
+  replace the reimbursement lines by `basisForLine`.
+- **The leasing card is visibly the OWNER'S work** — Harry's (SC) or Nancy's
+  (BP), in their `contributorTone` colour, "N OF M DECIDED" until every row has a
+  decision, then "COMPLETED BY <who> · <timestamp>". Each row carries who made
+  that call and when (`updatedBy`/`updatedAt`, set server-side from the signed-in
+  user, and the save is checked with `canEdit`). **"Hold current" / "Leave
+  vacant" are saved as `kind: "hold"`**, not as nothing — otherwise a space
+  someone decided and a space nobody looked at read the same. A saved decision
+  completes that suite's vacancy/renewal contribution on the progress rail.
+
+- **Months are TYPED straight into the grid** (Drew / admin — `canEditLines`,
+  checked server-side). A typed month replaces ONLY that month
+  (`lineOverrides.ts`, stored per year + property in `lineOverrideStore.ts`,
+  keyed `section::label`); `null` means "not typed", so blanking a cell hands it
+  back to the computed figure — zero is a figure someone can mean. Typing into
+  the Budget column spreads an annual evenly; Reset clears the line. Typed
+  months are tinted. They are laid over the draft BEFORE the recovery pools are
+  read (a typed CAM expense moves tenant recoveries) and again after (a typed
+  recovery month stands). **The three Budget Inputs lines (taxes, insurance,
+  building maintenance) ARE typed in the grid, but they save to the Budget
+  Inputs STORE, never to the typed-month overrides** (`editLine`'s `inputKind`
+  branch → `POST /api/budget-inputs`): a month saves the KIND's twelve months
+  (every line carrying it, with the edit applied), the Budget column saves an
+  annual (spread like this year), ↺ clears it back to the default, and
+  **Accept** keeps the figure as shown and marks it entered. One store behind
+  the grid and Greg's `/budget-inputs` page, so the two cannot disagree. Only a
+  CHANGE commits: tabbing across a month leaves it computed.
+
+- **Leasing calls are made IN the Revenue by tenant table** — there is no
+  separate Vacancies & renewals card any more. Every suite needing a call
+  (expiring, holdover, vacant) carries a pill on its row: amber **DECIDE**, then
+  the decision itself ("RENEW $24.00/SF", "HOLD", "LEASE-UP JUN") in the
+  owner's colour. The pill opens `DecisionModal` (`LeasingDecision.tsx`): the
+  suite's SF, expiring rent ($/mo and $/SF/yr) and expiry (MM-YY, amber for a
+  holdover), then decision → rent $/SF/yr → term → TI $/SF → LC % → what it
+  does in the budget year, with who decided and when. The TABLE owns which
+  window is open (not the row), so a save that re-projects — or filters the row
+  out of "To decide" — never closes it mid-edit. A **To decide · n** filter is
+  the count (the "N OF M DECIDED" header pill was removed as a duplicate), and
+  the table's TIES mark shows only as **DOESN'T TIE** — the exception — never a
+  green pill on a table that ties. **Rent is keyed as ANNUAL $/SF**, starting
+  at the tenant's current $/SF (so a flat renewal needs no typing); `monthlyRent`
+  is derived (× SF ÷ 12) and a renewal left at today's $/SF holds today's rent
+  exactly. **TI is $/SF × the suite's SF; the leasing commission is a PERCENT OF THE RENT over the term** (`leasingCommission`: LC % × new annual rent × term years — no term, no commission). Both land on the Capital section's
+  Tenant improvements (1440) and Outside Leasing Commissions (1940-8501) lines in
+  the month the new rent starts** (`tiMonthly`/`lcMonthly` in `leaseRevenue.ts`);
+  **There is no separate HOLD for an expiring lease** (owner's call): a tenant
+  staying IS a renewal, its rent box starts at today's $/SF, and a renewal left
+  there carries no rent at all so the projection holds today's rent to the
+  dollar. It still takes TI, LC % and term. A decision saved as `hold` before
+  reads as "RENEW $x/SF" and projects the same; `hold` survives only as
+  "Leave vacant" on a vacant suite. **TI, Outside Leasing Commissions AND the internal broker's commission
+  (6620-8501) are ONLY what Harry / Nancy key on their calls** — $0 until
+  they do, and $0 is a real answer (a year with no deals has no TI or
+  commissions). They are NEVER this year's figure grown: 9510's TI read the
+  2026 reprojection +3% while no call carried TI, budgeting last year's leases
+  a second time. Only a property with no leasing data at all keeps the grown
+  figure (`dealLine` in `draft.ts`, pinned by `draft.test.ts`). "Holdover" means the lease has ALREADY ended — 11/30/26 in
+  September is a live lease, not a holdover.
+- **THE RENT ROLL REVIEW is the page the leasing owner is SENT**
+  (`/financials/budgets/review?group=SC|BP&year=`; Harry → SC, Nancy → BP, and
+  a bare URL picks the viewer's own group). One card, one table: a row per
+  property (calls decided, sign-off), expanding in place into that property's
+  Revenue by tenant table with the DECIDE pills, then **"Rent & assumptions look
+  good"** — disabled until every call is made. The sign-off is stored per
+  budget year + property (`rentReviewStore.ts`, `POST
+  /api/financials/budgets/rent-review`, owner / Drew / admin only via
+  `canEdit`) and is a statement about the decisions AS THEY STOOD: a decision
+  changed afterwards reads **CHANGED SINCE CONFIRMED** rather than keeping the
+  tick. The budget draft shows the same status on the property's revenue table
+  and links to the review. Decisions save through the SAME leasing-assumptions
+  endpoint, so everything flows into the budget as it is made. It is NOT in
+  the sidebar (owner's call) — it is reached by the link sent to Harry /
+  Nancy and from the sign-off pill on the draft's revenue table.
+- **THE LINK HARRY / NANCY ARE SENT OPENS WITHOUT SIGNING IN**
+  (`/budget-review/[token]`, a landing page with the KORMAN band and NO portal
+  chrome — excluded in `middleware.ts` and `AppShell` like `/investor/`). The
+  token is signed by `lib/financials/budgets/reviewLink.ts`, DOMAIN-SEPARATED
+  (`kcp.budget.review.v1:`) from the tenant and K-1 signers so no other token
+  opens it (pinned by `reviewLink.test.ts`), and scoped to ONE person, ONE
+  group, ONE year. Every public route (`/api/budget-review/[token]/…`)
+  re-verifies it, refuses any property outside the group, and stamps decisions
+  and sign-offs with that person's name — the SAME `leasingDecisionFromBody`
+  the signed-in route uses. The link's draft endpoint returns ONLY what the
+  decisions need (rent + recoveries by suite, the leasing calls, the recovery
+  tie-out) — never the expense lines, NOI or debt: the link is for making the
+  calls, not for reading the budget. Drew / admin get the link IN FULL at the
+  top of the signed-in review page (created on first visit, then reused until
+  revoked) with Copy, "Open it as Harry sees it" and Revoke — shown inline
+  rather than behind a `ShareLinkCard` button, because the owner opened the
+  signed-in page (sidebar and all) thinking it was the link. There is no PIN
+  and no email step: the owner sends it himself. The page itself is ONE
+  component (`RentReviewView`) fed by a `ReviewApi`, so the signed-in page and
+  the link cannot drift. Its list comes from `reviewOverview`.
+- **BUDGET BUCKETS** (`lineBuckets.ts`) — a few lines are budgeted by KIND of
+  spend, as the owner's workbook does: Building / Parking Lot Maint. and
+  Landscaping → Contractual · Recurring · Big Projects (non-recoverable
+  Building Maint. → Recurring · Big Projects); Insurance → Liability · Property
+  · Other; Cleaning & Supplies (business parks) → Cleaning & Supplies ·
+  Vacancies. They REPLACE the account split on those lines (a ledger cannot
+  tell a contract from a big project). Everything starts COLLAPSED — lines, buckets and items (owner's call). The BASE bucket
+  (Recurring / Property / Cleaning) IS the line's existing figure — typed as
+  the line was, so insurance and building maintenance still save to Budget
+  Inputs — and every other bucket starts at zero and ADDS to the line, stored
+  as a typed sub-line (`section::label#<bucket>`). `applyTyped` runs twice, so
+  it takes a bucketed line back to its base first; never let it add the
+  extras twice. The client's Budget Inputs path reads each line's BASE months.
+- **BUCKETED LINES ARE ITEMIZED FROM LAST YEAR'S BUDGET OF RECORD**
+  (`lineItems.ts`, `priorBudgetProperty` in `draft.ts`). The workbook's
+  "Building Maint" / "INS RET DEBT" tabs budget Building Maintenance as named
+  items — Contractual (Sprinkler Inspection, Backflow, Roof Inspections…),
+  Recurring (Fire Extinguisher Service, Misc…), Big Projects — and the draft
+  used to throw that away and grow one total. Now each item carries forward
+  +3% month by month, **Big Projects start at $0** (a project is decided each
+  year; last year's figure shows in italics in the prior-year column — items
+  have no reprojection), a bucket with no items is budgeted at the bucket, and
+  the line is the sum (source `items`, pill "Items"). Typed months key
+  `section::label#<bucket>` or `…#<bucket>/<item>` in the ONE typed-month
+  store. With no prior workbook the line keeps the base-bucket rule below.
+- **Greg budgets the expenses ON THE DRAFT PAGE, with Drew** (owner's call).
+  His separate `/budget-inputs` link is retired from the sidebar and his
+  grant; he has `/financials/budgets`. `lineEditScope` /
+  `scopeAllowsLine` (contributors.ts) let him type expense-section lines only
+  — never revenue, never real estate taxes or insurance (Drew's) — checked by
+  the line-overrides route on every save.
+- **The grid ABBREVIATES for width, display only** (`abbrev` in
+  `BudgetStatementTable.tsx`): "Reimbursements/Reimbursable" → "Reimb.",
+  "Maintenance" → "Maint.", and the reprojection column is "26 Reproj". Keys,
+  saves and notes keep the full label — never abbreviate the label itself.
+- **The draft grid LOOKS LIKE THE OPERATING BUDGETS PAGE**: a card per
+  section under brand group headings, tinted alternate months, fixed
+  percentage columns, cross-section totals in brand-bordered cards, occupancy
+  in its own card. Match `app/financials/budgets/page.tsx`, not the other way.
+- **The grid opens with Occupancy % / SF by month** (a suite is occupied in a
+  month it pays rent; the forecast column is today's roll) **and carries the
+  RECOVERY RATIO under the reimbursements** — reimbursements ÷ the
+  reimbursable-expense pool, annual only (a monthly ratio swings on a tax
+  bill's month).
+- **EVERY DEAL ALSO BUDGETS THE INTERNAL BROKER'S COMMISSION**
+  (`internalCommission` in `lib/commissions.ts` — the SAME rules the
+  Commissions pages pay: Harry $1.00/SF at the shopping centres, Nancy's
+  `INCENTIVE_TIERS` $/SF by term at the business parks, a term between the
+  standard ones taking the highest tier reached, no term → none). A renewal,
+  lease-up or hold that the leasing owner keys puts it on
+  **Commissions-Internal Broker (6620-8501)** in the month the new lease
+  starts (`commissionMonthly` in `leaseRevenue.ts`) — a derived sub-line of
+  the salaries line, not typeable; the outside broker's LC % still lands on
+  **Outside Leasing Commissions (1940-8501)** (the mapping's name for it; it
+  was "Capitalized Lease Costs"). The decision dialog shows both. A derived
+  sub-line (these commissions, a payroll share) never takes a typed month.
+- **Land (1410-0000) and Appliances (1470-0000)** are dropped from Capital
+  Improvements' split while they are empty (`HIDE_WHEN_EMPTY`); 6620-8501 and
+  1940-8501 are named from `ACCOUNT_NAME_FALLBACK` where the GL leaves them
+  unnamed.
+- **PAYROLL IS ENTERED ONCE FOR THE BOOK AND ALLOCATED BY SHARE**
+  (`payrollPools.ts`, `payrollPoolStore.ts`, `PayrollPoolsCard`,
+  `/api/financials/budgets/payroll-pools`). Maintenance Salaries (6030-8502)
+  and Salaries & Wages + Marketing Salaries (6010-8501) are one total each for
+  the shopping centres ("From 2026 Payroll Budget"), split by each property's
+  share — read off last year's budget of record (the workbook's Allocated
+  Expenses tab → `line.allocations`, only the blocks whose note says payroll).
+  Drew types the total once by clicking the line (it opens at the top of the line's history popup); every
+  property's line becomes its share (source `pool`, pill "Payroll", not
+  typeable per property — onto the GL's sub-line where the line has several
+  accounts). Until entered a block carries last year +3%. Later this links to
+  the `lik-payroll` book, which already `feeds` these books.
+- **A LEASE IN PLACE CAN BE BACKED OUT** (`kind: "stop"` + `startMonth`,
+  applied LAST in `projectLeaseRevenue` over every suite with a tenant). A
+  tenant who will not pay — Rite Aid at 7010, in bankruptcy — earns no rent
+  from that month, and so no recoveries (they follow rent's months). Every
+  in-place lease is listed as `leasing.contracted` and shows a quiet "Back
+  out" action on row hover (`.row-quiet-action`); it is NEVER a call owed, so
+  it counts toward neither "To decide" nor the review's open calls.
+  **Rite Aid (7010-12311) is backed out from January as a SEED**
+  (`SEEDED` in `leasingAssumptions.ts`, every budget year from 2027): the
+  owner asked for it when the page's save was refusing "stop" — the route kept
+  its OWN list of kinds, which the back-out never reached, and the error
+  rendered under the table behind the dialog. Both routes now read ONE list
+  (`LEASE_KINDS` / `isLeaseKind`) and the dialog shows a failed save itself. A
+  saved decision replaces a seed; undoing one ("Keeps paying") records the unit
+  in the doc's `cleared` so the seed stays undone.
+  **A back-out also stops RECOVERIES from its month on EVERY path**
+  (`tenancy` in `reimbursementEstimate.ts` wraps the lookup): a recon tenant
+  that matches no rent row used to fall back to a FULL year and never read the
+  back-out, so Rite Aid would have kept paying CAM / INS / RET with no rent.
+- **THE MANAGEMENT FEE IS A FORMULA: LAST YEAR'S RATE × THIS BUDGET'S GROSS
+  REVENUE, MONTH BY MONTH** (`managementFee.ts`, source `fee`, pill "6% of
+  revenue", not typeable). The rate is the one the budget of record's own
+  formula carries (`ROUND(E$24*0.06,0)`, row 24 = TOTAL REVENUES = rental and
+  other + reimbursements), read by the parser into `feePercent`; a property
+  whose workbook has none keeps the grown figure. It is set before the
+  recoveries (a business park's fee is RECOVERABLE, 6610-8502, so it sits in
+  the CAM pool) and again after; where it is recoverable and moved, the
+  recoveries run once more so pool and fee agree.
+- **2010'S FEE REVENUE (4510) IS THE SUM OF THE BUILDINGS' FEES**
+  (`managementFeeRollup` in `draft.ts`, source `fee-rollup`): 2010's draft
+  builds each fee-paying building's draft — the Management Fees page's set, so
+  not LIK itself and not a fund (a fund's draft consolidates buildings already
+  counted) — and totals their 6610 lines. The two sides of the intercompany
+  entry therefore tie in the budget by construction. Hover a month for the
+  buildings. It is slow by nature (every building's draft), so the draft route
+  has `maxDuration = 300`.
+- **Occupancy SF opens Occupancy by Suite** (`OccupancyBySuiteModal`, the
+  Operating Budgets page's view): each suite's occupied SF by month, off the
+  draft's own `tenantRevenue` (occupied = pays rent that month), dark green for
+  a lease in place, light green for a leasing assumption.
+- **A recovery line's month shows its tenants** (`recoveryMakeup.ts`): hover a
+  CAM / INS / RET reimbursement cell for the top eight tenants, that month's pool
+  and recovery ratio (plus the year's); click for every tenant
+  (`RecoveryMakeupModal`). The category uses `basisForLine`, the same rule that
+  put those months on the line. The pool is that category's reimbursable
+  expenses: taxes for RET, insurance for INS (inside CAM for office), the rest
+  for CAM.
+- **Sub-lines carry "+3%" too** (buckets, items, GL accounts) — only while
+  the row IS its reference (last year's budget for a seeded item, else the
+  reprojection) × 1.03 and nothing on it is typed.
+- **A line that is $0 every month carries no "+3%" / "Flat" / "Tax +3%"**
+  (`growthOnNothing`, grid and line-history popup) — 3% of nothing is nothing.
+  Nor does a line with ANY typed month (`growthOverTyped`), zeroed ones
+  included: the grid kept "+3%" on a row someone had cleared.
+  Pills naming where a figure COMES from (Leases, Recoveries, Payroll, % of
+  revenue) stay even at zero.
+- **A NEGATIVE REVENUE OR EXPENSE IS FLAGGED** (`negativeLines.ts`,
+  `flagNegative` in `BudgetStatementTable.tsx`): a budget month or total below
+  zero on a line (or its sub-lines / items) is filled amber, and a banner above
+  the grid names the lines. Not the reprojection column (last year's actuals),
+  not subtotals / NOI / cash flow (which can go negative), and not Debt
+  Service (loan proceeds are a credit).
+- **INPUT CELLS ARE LIGHT BLUE** (Excel's input-cell convention, as the old
+  draft workbooks did): every cell the VIEWER can type — grid months, the
+  Budget column, the line-history 2027 Budget row — carries `--input-cell`;
+  a figure someone has typed over is bold `--input-typed` blue on top of it.
+  White means calculated. Because it follows `canType` / `lineEditScope`, Greg
+  sees only his expense lines in blue. Both tokens swap in the dark theme.
+- **THE DRAFT PAGE'S WRITES GO OUT ONE AT A TIME** (`queued` in
+  `draft/page.tsx`), and a reload waits for them. The stores rewrite a whole
+  document per save, so a Tab across three months fired three saves that each
+  read before the others wrote — the last erased the rest, and the typed
+  months were gone on refresh (9510's Capital / TI). Never fire a store write
+  from this page outside the queue.
+- **EVERY BUDGET LINE TAKES A NOTE** (`lineNoteStore.ts`, `budget-line-notes`,
+  keyed `section::label` per year + property; `POST
+  /api/financials/budgets/line-notes`, anyone signed in, stamped with who and
+  when; `LineNote.tsx`). The mark is invisible until the row is hovered while a
+  line has none, and solid brand once it has one — forty icons on a quiet grid
+  is the clutter the owner keeps removing. The draft route returns `notes`.
+- **A TENANT WHOSE ESTIMATES JUMP CARRIES AN AMBER ▲** (`estimateJump.ts`):
+  today's combined monthly CAM + INS + RET billing (rent roll) against the
+  budget's, flagged at +15% AND +$100/mo — both floors, like every other flag.
+  A tenant billed nothing today (new lease, lease-up, gross) is never flagged.
+  The hover is the bill by category; "▲ Estimates up · n" filters to them.
+- **Revenue by tenant reads like the Rent Roll**: TENANT first (600 weight,
+  a vacancy in muted italics), then the SUITE as a bold brand-coloured code, a
+  larger row font and rent-roll row height.
+- **Every leasing field the card keys is STORED** (`setLeasingAssumption`):
+  `rentPsf`, `tiPsf`, `lcPct` were dropped on save for a while — a lease-up
+  saved with no rent projected $0 and no TI/commission ever reached the budget.
+  The projection reads rent through `assumedMonthlyRent` (the derived monthly
+  figure, else $/SF × SF ÷ 12), so a rent keyed as $/SF always projects. Rent /
+  TI / LC save LIVE (~0.7s after typing stops) and saves are QUEUED on the page,
+  because the store rewrites a property's whole set of decisions per save.
+- **Lines have GL SUB-LINES** (`subLines` on a draft line, from the
+  reprojection's per-account `accounts`). A line built from several accounts
+  (Building Maintenance = 6220-8502 + 6220-8503, Office Center/Other = 6*-8503)
+  opens (▸) into one row per account, each grown on its own months; the line
+  is their SUM and is typed THROUGH them (override key `section::label#account`).
+  A line whose figure comes from elsewhere (leases, Budget Inputs, recoveries)
+  shows its split read-only. The grid's pills sit on the line's own row
+  ("+3%", "Flat") so every row is one row tall.
+- **The line-history popup LEADS WITH A MONTHLY TABLE** (`HistoryMonthly`):
+  Jan–Dec + Total, rows {year} Budget (this draft), {year−1} Reproj. (actual
+  to date, then that year's budget in italics), {year−1} Budget, each prior
+  year's Actual, and the average of the complete years. Every actual cell
+  opens THAT MONTH'S GL — the operating statements' own `LineDetailModal`,
+  moved to `app/financials/operating-statements/LineDetailModal.tsx` so both
+  pages open the same drill-down; a row's Total opens the year to date. The
+  owner budgets month by month — seasonality and one-offs are read where they
+  happen, not flattened into an annual average. `lineHistory` carries
+  `budgetMonths` per year for it. **A year imported "Monthly totals only"
+  has totals and NO transactions** (`transactionsStored: false`): its row
+  carries a TOTALS ONLY pill, and the drill-down says so and how to fix it
+  (re-upload without the box) instead of an empty list —
+  `transactionDetail()` in `statementStore.ts`, returned as `detail` by the
+  transactions route. The bars stay below as the visual aid.
+  The {year} Budget row is TYPEABLE there (a month, or the Total to spread an
+  annual) through the grid's own `editLine`, for exactly the lines the grid
+  lets that viewer type; the popup reads the line LIVE from the draft so a
+  save re-renders it. The row carries the line's source pill ("+3%", "Tax
+  +3%"…) only while nothing on the line is typed — a pill claiming "+3%" over
+  a line someone has edited would be false.
+  A PAYROLL line's total is entered at the top of this same popup (click the
+  line) — not in a card above the grid, which the owner found too loud.
+- **The line-history popup's years are a BAR CHART** (`HistoryBars`): one bar
+  per year of actuals, each year's budget a tick across its bar, a dashed
+  average of the full years shown, and the CURRENT year taken to a full year
+  from its REPROJECTION (the draft line's `basisTotal`, passed as `forecast`)
+  — drawn lighter and dashed, because it is a projection. Hover a year for its
+  variance. It replaced the Budget / Actual / Variance table.
+- **The line-history popup has a COMMENTS box, not a suggestion card**
+  (`historyComments.ts`). The "What the history supports" card, its "Use this"
+  and the STEADY / TRENDING / AS-NEEDED pill were removed at the owner's
+  request — the monthly table's budget row IS the number, and a card that
+  disagreed with it read as a contradiction. The comments read the same
+  numbers as the table and each says what to do: the history's own reading,
+  this year's run-rate against its budget, a month that stood out, the draft
+  against the reprojection and against what history supports, and a seasonal
+  line spread evenly. Every comparison has a dollar floor ($250 and 3%).
+- **Until the rent schedule is imported, the rail's vacancy/renewal items
+  come off the RENT ROLL** (`deriveContributions`' `fromRoll`, filled by the
+  progress route from `projectLeaseRevenue`) — the same list the leasing card
+  works from — so Harry/Nancy are owners in "Who owes what" from day one and
+  their step is not "blocked" on an import they don't control.
+- **TWO steps, and the cards are numbered to match the rail**: 1
+  **Revenues**, 2 **Expenses & review** (the monthly grid, where taxes,
+  insurance and building maintenance are keyed too — the separate Budget
+  Inputs card was folded into it at the owner's request). Recoveries are NOT a step — nobody does them;
+  they are derived — so they live in the Revenues table. **Revenues is ONE
+  card** (`InPlaceRevenueCard` with children): the schedule import and its
+  tiles, then "Vacancies & renewals" (the leasing decisions, in the owner's
+  colour), then "Revenue by tenant". A vacant suite is one the roll marks
+  vacant or names "Vacant" — never read that name as a tenant (it put empty
+  suites on the expiring list).
+- **Once the RENT SCHEDULE is imported (Step 1), it drives rent and Step 2**
+  (`projectLeaseRevenue`'s `schedule` argument, read by the draft AND the
+  progress route so the rail counts exactly the card's rows). Each suite's
+  contracted months are taken as scheduled — steps included; a suite whose
+  charges STOP inside the year is an expiring lease; a tenant with NO charges
+  is a holdover; a suite with no tenant is a vacancy. Months after a lease ends
+  carry NOTHING until someone decides (the schedule has no rent for them); a
+  renew/hold then fills from the month after the term. Before an import it
+  falls back to today's rent roll held flat.
+- **"Revenue by tenant" is ONE table for every suite's income**
+  (`RevenueByTenantCard`, rows from `combineTenantRevenue` → `draft.tenantRevenue`).
+  A row per suite in the rent side's order — vacancies and gross leases
+  INCLUDED, dimmed when they pay nothing, so "who pays nothing" is visible — a
+  column per month, totals down and across. Filters: **Gross · Base rent ·
+  Recoveries · CAM · INS · RET**, and separately **All · Contracted ·
+  Speculative**. DARK green = a lease in place, LIGHT green = a leasing
+  assumption. The total rows name the budget line each part lands on, with ONE
+  "TIES TO THE BUDGET" mark (`tieRecoveries` → `draft.recoveryTie`); a category
+  with money and no line to land on shows in red. It REPLACED two tables
+  ("Rent by tenant" and a separate Recoveries card) listing the same tenants —
+  do not split them again. Hover a tenant for its methodology. A **$/SF**
+  column (the year's total ÷ the suite's SF; totals over the SF in view) sits
+  after Total, and a **$ · $/SF** toggle shows the months as ANNUALIZED $/SF
+  (× 12 ÷ SF) so a month reads against a lease's quoted rate. It follows the
+  view, so Gross gives gross $/SF and Base rent the rent rate.
+- **Recoveries**: the recon year's CAM methodology (PRS, admin fee,
+  exclusions, cap, gross lease — from the unit page) applied to the budget's
+  expense pools. **Recoveries follow RENT's months** (`tenancy: lease.rows` →
+  `tenancyMonths`): first rent month to last, so a lease ending with no
+  decision stops paying recoveries when it stops paying rent, a renewal/hold
+  carries on (assumed), a holdover with no decision pays nothing. A recon
+  tenant there part of the recon year (`occPct` < 1) is scaled to a full year;
+  one who vacated in the recon year is dropped. **A tenant on no
+  reconciliation (a newer lease) and a lease-up are assumed NNN** — pro-rata
+  SF share of each pool, no admin fee (`retailProRata`); an office one takes the BUDGET YEAR as its base year (owner's call),
+  so it is listed at zero with that reason.
+- **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
+  `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
+  property's draft built (four at a time) and summed line by line, matched by
+  section + label; rollups, occupancy (every suite) and the loans add up. It
+  is READ-ONLY — no typing, notes or source pills (a "+3%" cannot describe
+  eleven properties) — and a line's detail is its split BY PROPERTY
+  (`byProperty` → `PropertyBreakdownModal`: a donut of the six largest on
+  `--series-1…6`, the rest folded into Other, beside the full table, which is
+  the record since a credit cannot be a slice). Shopping Centers, JV III, NI
+  LLC and Korman Homes roll up (`rollsUp`).
+- **A FUND'S LOANS ARE ALLOCATED TO ITS BUILDINGS** (`FUND_SHELL`,
+  `fundDebtShares`, `shareOfDebt` in `debtBudget.ts`). JV III's and NI LLC's
+  mortgages are booked on the holding entity (3600 / 4000) and imported into
+  the Debt Tracker there; each building's draft carries ITS SHARE of the
+  fund's schedule on its Interest / Mortgage Amortization lines, so the "All
+  …" roll-up (the sum of the tabs) carries the fund's whole debt service. The
+  share is read off LAST YEAR'S BUDGET OF RECORD — the building's own debt
+  lines (9210 / 2720 / 2740-8501) over the fund's — so it allocates exactly as
+  the workbook did; with none, square footage. The debt card says which. The
+  roll-up merges the per-building shares back into one loan row. The fund
+  statements (PJV3 / PNIPLX) still carry the loans whole.
+- **7010 IS TWO RECOVERY POTS** (`mixedPools.ts`, `officePoolRatios` /
+  `mixedOfficeCode` in `reimbursementEstimate.ts`). Parkwood is retail with an
+  office centre upstairs, reconciled as two recons — the retail tenants on
+  `7010`, the office tenants on `7010O` — and the budget scales each by ITS
+  pool. **The -8503 suffix is the OFFICE part of a building (owner)**, so a
+  line's office share is read, in order: its -8503 GL sub-lines; wholly office
+  if every account is -8503 (water & sewer, office cleaning); else the split
+  the CAM recon keeps (`MIXED_7010`, the ONE allocation source); else the
+  workbook's 86 / 14. Each suite recovers in exactly ONE pot — an office suite
+  used to be listed again as a retail tenant "on no recon" at a pro-rata NNN
+  share of the whole building. Office suites carry the shared `PortionPill`
+  (moved into `Pill.tsx` from the CAM recon page) in Revenue by tenant; retail
+  is the rest, so only OFFICE is tagged. **7010's mapping**: `4910-8503` (the
+  office tenants' CAM recovery) is on "Common Area", and the old "Electric"
+  reimbursement line is **"Electric - Office Tenants"** (`4710-*`), the office
+  tenants' direct electric billed back. Every other mapping still lists
+  4910-8503 on Electric, where nothing posts.
+- **Shopping centres have no condo association**: the mapping's "Condo Assn"
+  recovery line (4970-*) — and the REIMBURSABLE section's Management Fee (6610-8502; the
+  centres' fee is non-reimbursable, 6610-8501) — and, at every centre but
+  7010, **Cleaning & Supplies** and **Office Center/Other** (6*-8503, the
+  office part of a building; only Parkwood has an office centre) — are
+  dropped from every SC budget draft — only while it
+  is empty (budget AND forecast $0), so a centre that ever posts to it keeps
+  the line and no money is hidden.
+- **The budget is WHOLE DOLLARS, everywhere.** Each suite's rent month is
+  rounded at the source (`leaseRevenue.ts`) and the rent line is the SUM of
+  those rounded suites, so the Revenue table and the line tie to the dollar;
+  recoveries, keyed inputs, debt and TI/LC were already whole. Only RATES
+  keep decimals ($/SF, PRS %, change %).
+- **Derived lines are NOT typeable in the grid**: the recovery lines
+  (`cam-estimate`) and rent and the deals' TI / commissions (`leases`), all
+  Step 1. `applyTyped` ignores any stored override on them, the grid offers
+  no edit, and the line-history "Use this" is hidden; their pill links back to
+  Step 1. (The Budget Inputs lines are typeable, but into their own store —
+  see above; "Use this" stays hidden on them.) Typing over them would
+  break the tie to the tenants' methodology and the leasing decisions.
+- **Debt service comes from the LOANS, not this year's figure** (`debtBudget.ts`):
+  each loan's `buildSchedule` gives the budget year's interest (→ the Interest
+  line) and principal (→ Mortgage Amortization) month by month — interest falls
+  and principal rises as it amortizes. Holding-entity loans route to their fund
+  statement (`LOAN_TO_STATEMENT`: 3600 → PJV3, 4000 → PNIPLX, as the Cash Sheet
+  does). A loan maturing before/during the year is ASSUMED REFINANCED on the
+  same terms and the Debt service card says so — a budget that silently stops
+  paying a mortgage overstates cash flow. No loans on file → the lines keep
+  this year's figure.
+- **NOI excludes capital.** Total Operating Expenses is the operating sections
+  only (`EXPENSE_ROLES`); capital and debt sit below NOI. It used to count
+  capital as an operating expense, understating NOI by the year's TI and
+  improvements — and the grid then took capital off a second time for cash flow.
+- **THE DRAFT ENDS IN DISTRIBUTIONS AND A PROJECTED BANK BALANCE**
+  (`cashForecast.ts`, `draft.cash`). Below cash flow after debt service, a
+  typeable **Distributions** row (typed months save as `Cash::Distributions`
+  in the typed-month store; Drew / admin only — Greg's scope excludes it), then
+  **Projected Bank Balance** = last month's + cash flow − distributions. The
+  opening is the GL's operating cash (every `isCashAccount` except security
+  deposits — that is tenants' money) at its last posted month, ROLLED TO DEC 31
+  on the reprojection's cash flow less the plan's remaining distributions;
+  typeable over (`Cash::Opening Balance`, month 0). Null openings on the GL →
+  no balance claimed ("no GL opening balances on file"). **The owner's plan is
+  seeded** (`DISTRIBUTION_PLAN`): Gray's Ferry (4500) $500K, Revere (7300)
+  $300K, Parkwood (7010) $200K, Trust #4 (8200) $200K = $1.2M a year, paid
+  half in APRIL and half in OCTOBER; a typed month replaces the plan's. The
+  prior-year column shows what the GL's distribution accounts (<4000, named
+  "distribut…") paid this year. A book roll-up sums each property's
+  distributions and balance (`consolidateCash`).
+- **NON-REIMBURSABLE UTILITIES ARE THE VACANT SPACE'S** (owner;
+  `vacancyUtilities.ts`, source `vacancy`, not typeable by month): each month
+  is vacant SF × a $/SF/yr rate ÷ 12, a suite being vacant in a month it pays
+  no rent — so a lease-up takes its suite off the line from its start month,
+  and a backed-out lease (Rite Aid) puts its space on it. The rate is the
+  line's blue "$x.xx/SF vacant" pill, typed in place (stored as CENTS under
+  `<section>::Utilities#@psf`, month 0 — the typed-month store keeps whole
+  numbers); untyped it defaults to this year's line ÷ today's vacant SF.
+  **Every SHOPPING CENTRE is on it and shares ONE rate** (owner): typed at any
+  centre it saves under the pseudo property `book:shopping-centers`
+  (`SC_RATE_SCOPE`) and applies to all of them; a centre with nothing typed
+  and no vacancy today sits at $0 on the rate rather than falling back to
+  +3%. Other properties keep a per-property rate, and with no vacancy and no
+  typed rate keep their grown figure.
+- **PENDING (build when the 2027 draft is finished): "Publish to Budgets".**
+  The Budget Draft is a WORKSPACE — nothing reads it. The budget of record is
+  the workbook store on `/financials/budgets` (`lib/financials/budgets/storage.ts`),
+  which the operating statements' budget-vs-actual and "?" flags, the Cash
+  Sheet, management fees and the monthly report all read. The plan the owner
+  agreed to defer: a publish step on the draft (Drew/admin) that writes it as a
+  `BudgetWorkbook` (draft/final) so the existing downloads and Skyline export
+  work on it, then retire "+ Create Live Budget" (`build.ts`), an older parallel
+  builder with a master growth % and none of the leasing / recoveries / Budget
+  Inputs / typed-month work. Until then, do not wire anything else to read the
+  draft.
+
+# Balance Sheet — sources of truth
+
+`/financials/balance-sheet`, gated with the other statement pages
+(`/api/financials` → `/financials`). It exists because a lender's annual
+**Borrower Certification** asks for four things — balance sheet, detailed income
+and expense statement, rent roll, and each guarantor's financial statement — and
+the portal produced three of them.
+
+- **The Statement of Values is NOT a balance sheet and must never be sent as
+  one.** `entityValues.ts` is a market-value net-asset statement: real estate at
+  NOI ÷ cap rate, two asset lines, one liability, equity as a single figure,
+  hand-keyed and frozen at `STATEMENT_AS_OF`. Nothing forces it to balance and
+  it will not tie to the income statement filed beside it. It is the right
+  document for "what is my interest worth" and the wrong one for a lender. The
+  two are on different bases and are **not expected to agree** — the page says
+  so, in `BasisNote`.
+- **Every figure is a GL account balance — nothing is keyed.** The GL importer
+  has always captured `beginning` (the year's opening), twelve monthly nets and
+  `ytdTotal` per account with no P&L filtering; what was missing was any notion
+  of what an account IS. Balance = opening + the nets through the as-of month
+  (`balanceAt`), so ANY month can be asked for, not just December. Never read
+  `summaryForPeriod()` for this — it drops dormant accounts, and a balance-sheet
+  account with a real balance and no activity is exactly that.
+- **The sheet proves itself; it is never plugged.** A ledger is double-entry, so
+  every signed balance sums to zero. Assets are debit-normal (positive as the GL
+  signs them); liabilities and capital credit-normal and flipped for
+  presentation. **"Net income (loss) for the period" is the P&L accounts' own
+  net, not a plug** — including it is precisely what makes assets equal
+  liabilities plus capital. `proof.difference` is displayed either way, and on a
+  balanced ledger the gap is EXACTLY what the sheet failed to place, which is
+  why unclassified accounts are surfaced rather than dropped.
+- **Account classification is INFERRED and correctable, in that order**
+  (`classify.ts`): an explicit per-property override → the account-number range
+  map → a keyword rule on the GL's own account name → unclassified and surfaced.
+  **Ranges beat names deliberately**: "Security Deposits" names both the
+  restricted-cash asset (`0250-*`) and the liability owed back to the tenant
+  (`2130-0000`), so reading the name first puts one of them on the wrong half of
+  the sheet. `1940` splits on its SUB-account — `-0000` is accumulated
+  amortization, `-8501` the capitalized cost.
+- **This chart of accounts is offset from the usual convention**: balance sheet
+  is roughly **0110–3799**, revenue and expense **4000 up** (`isProfitAndLoss`).
+  The ranges were reconstructed from three artifacts describing the same CoA —
+  `cash-analysis/accountCodes.ts`, `data/operating-statements/line-mappings.json`
+  and the names the GL parser captures. They are an inference, which is why
+  overrides exist (`overrideStore.ts`, per property) and why the proof is shown.
+  Do NOT reuse `ACCOUNT_EXCLUDED`'s `"Depn"` tag to hide depreciation: it marks
+  those accounts non-cash for CASH-FLOW purposes, and accumulated depreciation
+  is essential here.
+- **It refuses to be confidently wrong.** A GL with no Beginning Balances yields
+  activity, not balances — cash would read as the year's cash flow and the
+  mortgage as principal paid, numbers that look plausible and are not balances.
+  That case warns and sets `usable: false` rather than rendering. Same for a
+  partial-year GL and an as-of month past coverage.
+- **The mortgage is cross-checked against the debt schedule.** The GL comes from
+  Skyline and `lib/debt/` from the lender's own statements, so agreement is real
+  evidence for a figure being certified, and a gap usually means a principal
+  payment posted to the wrong month.
+- **Excel totals are live formulas** per the export rule — a group total sums
+  its own accounts, a section total sums the GROUP totals (summing accounts
+  again double-counts), and the workbook carries its own proof row. **Keep
+  `wb.calcProperties.fullCalcOnLoad`**: ExcelJS drops a cached `result: 0`, and
+  the proof is the one cell meant to read zero, so without it the evidence the
+  sheet balances opens blank. Pinned by `exportSmoke.test.ts` against the file's
+  XML, because ExcelJS writes `calcPr` but does not parse it back.
+- **Say the basis on anything that leaves the building.** Books-basis, real
+  estate at cost less accumulated depreciation, unaudited, not reviewed or
+  compiled. A market-value statement that looks like audited cost-basis is the
+  thing that causes trouble.
+
+# 1099 Register — sources of truth
+
+A worksheet for the accountants, NOT a filing. `/financials/ten99`, gated with
+the other statement pages (`financials-statements` → Drew, Alison, admin).
+
+- **It reads CASH accounts, never expense accounts** (`lib/financials/ten99/register.ts`).
+  A 1099 reports what was PAID in the calendar year, so an accrued-but-unpaid
+  invoice must not appear and a prior-year invoice paid this year must. Money out
+  of the cash account is that figure by construction, and reading the one side
+  also means a check split across five expense lines counts once. Payments are
+  cash rows with a NEGATIVE amount; deposits are ignored. `isCashAccount` lives in
+  `lib/financials/cashAccounts.ts` — ONE definition shared with the bank-rec book
+  side, so a payment can't reconcile on one page and be invisible on the other.
+- **Vendors total per FILING ENTITY (EIN), not per property.** `filingEntityFor`
+  maps a GL key → entity via `PROPERTY_DEFS.ein`; fund shells (PJV3 / PNIPLX)
+  resolve through their member buildings, which is where the EIN lives. This is
+  the whole point of the page: the eight Neshaminy Interplex buildings are one
+  filer, so a vendor paid $250 by each of four of them is $1,000 to the filer and
+  reportable — invisible if you look building by building. Equally, one vendor
+  paid by two different EINs is two sub-threshold vendors, NOT one reportable
+  one. Don't "helpfully" sum across entities.
+- **Vendor grouping is an EXACT match after case/punctuation folding
+  (`foldVendor`) — never fuzzy.** "ABC Landscaping" and "ABC Landscaping LLC"
+  stay two rows. They may well be one vendor, but merging is a guess, and a guess
+  here silently moves money onto the wrong person's form. Two rows the accountant
+  can combine beats one row nobody can take apart. (Same reasoning as the K-1
+  matcher that was removed.)
+- **Payments with no vendor name are counted and surfaced, never dropped** — they
+  land in the entity's `unnamed` bucket and a banner says so, because a silently
+  discarded payment is how a vendor goes missing from the register.
+- **Exclusions are global and permanent, not per-year** (`exclusionStore.ts`,
+  keyed by the folded name): a utility is a corporation in every year and for
+  every building that pays it, so the expensive first pass is meant to carry
+  forward. Marking records a REASON, it does not make a determination — the
+  corporation exemption is the accountant's call and the page says so. An
+  excluded vendor still counts in `scannedTotal`; the exclusion is about
+  reportability, not about pretending the payment didn't happen.
+- **`scannedTotal` is the sanity check.** If it reads $0 the GL is missing or was
+  imported as monthly totals only (no transaction detail) — the page says which
+  rather than showing a confident empty list.
+- **The export is two sheets** (`export.ts`): the register by entity, and every
+  payment behind it so a figure traces to a check. Per the Excel rule, subtotals
+  are `=SUM()` over their own vendor rows and the grand total sums the SUBTOTALS
+  (not the rows again, which would double-count). Payment Detail's total must
+  equal the register's grand total — if it ever doesn't, a payment is being
+  counted in one place and not the other.
+- **Deliberately out of scope: TINs, W-9s, addresses, box classification, and
+  e-filing.** No taxpayer IDs are stored anywhere in this feature. If that
+  changes it is a security decision on the order of the K-1s (encrypted at rest,
+  its own access key), not an incremental feature.
+
+# Investor K-1 delivery — sources of truth
+
+Schedule K-1s carry taxpayer IDs, income allocations and capital accounts. This
+is the most sensitive data in the app; the rules below are safety rules, not
+preferences.
+
+- **The two ownership maps are at DIFFERENT LEVELS OF THE CHAIN. Never derive
+  one from the other.** `PROPERTY_OWNERSHIP` (`ownership.ts`) is the **legal
+  partner** list — who receives a K-1. `BENEFICIARY_STAKES`
+  (`beneficiaries.ts`) is a **look-through** map: it resolves each partnership
+  down to the ultimate human/trust beneficiaries, which is what a Statement of
+  Values needs and what a K-1 is NOT. Corporate partners are dissolved on the
+  way through and appear nowhere in it — 2300's legal partners are Hyman Korman
+  Co. (47.5%) and The Korman Co (52.5%), and neither name occurs in its 30
+  beneficiary rows; same for GRAYS FERRY SC ASSOC. INC at 4500. Both maps sum to
+  100% of the same property, which is exactly why one looks like a substitute
+  for the other. **It is not.** This was tried: 0800's 38 beneficiary rows were
+  rolled into a 32-owner "partner" roster that totalled a convincing 100.0000%
+  and was wrong — Hyman Korman Co. holds a real 0800 interest and gets a real
+  K-1, and it was absent, because the map had already fragmented it out to the
+  end investors. It shipped and was reverted. A missing property's K-1 roster
+  can only come from the partnership's own K-1 set or partnership agreement,
+  hand-keyed like every other entry.
+- **A property's ownership table SECTIONS when a partner is itself a
+  partnership** (`app/investors/ownerSections.ts`, pinned by its own test).
+  The entity heads a band carrying its share of the property — and its own K-1
+  cell, because 0800 issues one to Hyman Korman Co. as much as to the fourteen
+  trusts — with its investors alphabetically beneath it; then the partners who
+  hold the property directly follow under an "Other investors" band carrying
+  their combined share. That is how the K-1 schedule prints, and a corporate
+  partner read in alphabetical order between two individuals loses the fact
+  that twenty-four people sit behind it. Where every partner is a person, the
+  table stays one flat list — nothing else changed.
+  **Two layout traps, both hit while building this:** the detail `<td>` needs
+  `maxWidth: 0` or a wide inner table stretches the roster above it off the
+  card instead of scrolling in its own wrapper; and the sections render is the
+  `<tbody>`'s contents, not a `<tbody>` — nesting a second one makes the
+  browser hoist the rows out and the whole column model collapses (the select
+  column went to 779px).
+- **Ownership is TIERED, and the roster models both tiers.** A partner can
+  itself be a partnership: `PropertyOwner.subOwners` carries that entity's own
+  partners, and **their `ownerPct` is a share of THAT OWNER, not of the
+  property** — an investor's effective interest is `sub.ownerPct ×
+  owner.ownerPct`. 0800 is the worked example: Hyman Korman Co. holds 80% and
+  has 24 partners of its own; fourteen trusts hold the other 20% directly. On
+  By Property the entity is the row, with a "N investors in <entity>" control
+  that opens the tier beneath it — each sub-row showing its effective % of the
+  property and the resulting $ (the net individual value), plus its share of
+  the entity as context. **Sub-owners are NOT K-1 upload targets**: their K-1
+  is issued by the entity above, not by the property, and the row says so. Only
+  the property's own partners (HKC + the 14) can take an upload — 15 rows, not
+  38.
+- **`PROPERTY_OWNERSHIP` does not cover the whole portfolio, which is why a
+  property can be missing from Investor Info.** A property in the beneficiary
+  map but not the partner roster renders on Statement of Values and is invisible
+  to By Property / By Investor, so it can take no K-1 uploads. Still
+  partner-roster-less: 0900, 1500, 2040, 2080, 3600, 4000, 4900, 5610, 9200,
+  CWD, LAND, WHIT. **Key each from the property's own K-1 schedule** — the
+  two-column "partner / beneficiary / % / $" sheet Drew has per property. Its
+  entity subtotals (e.g. "TOTAL HYMAN KORMAN COMPANY: 100.000%") are the tier
+  boundary: rows under a heading are that entity's `subOwners`, and rows under
+  "OTHER INVESTORS" are direct partners of the property.
+- **When an interest is ASSIGNED to a new entity, change the NAME, never the
+  ID.** An id is a K-1 upload target and a Filing Tracker key, so renaming it
+  orphans every document already filed against it — the member changed, the
+  interest did not. Worked example: the Berton E. Korman 2012 Family Trust
+  assigned its 23.13% of The Korman Co to **BEK 2012 LLC** (EIN 42-2968946,
+  410 Lancaster Ave Suite 5A, Haverford PA 19041); `-bk2012` kept its id, took
+  the new name, and records the predecessor in `detailedName` so the row's
+  history reads off the page. The percentage does NOT move to the assignment's
+  rounded "23.13%" — the schedule's 23.1333% is the real figure and the tier
+  has to keep totalling 100%. One edit to `kormanCoInvestors` propagates to all
+  seven rosters that compose it, which is the point of defining it once.
+- **The owner roster is `lib/properties/ownership.ts`** (`PROPERTY_OWNERSHIP`).
+  Nothing about who holds an interest is re-keyed for K-1s. `hasK1Distribution`
+  marks the partnerships that actually distribute; 7010 Parkwood was added to
+  that set (21 owners).
+- **ONE table, not two.** The K-1 columns live in the property card's existing
+  ownership table (`app/investors/page.tsx`), which already carries owner,
+  vendor code, held-as and share — a separate "Schedule K-1s" roster underneath
+  repeated all of it and made the card enormous. `K1Panel.tsx` now exports the
+  pieces that render inside that table (`K1Header` band, `K1SelectCell`,
+  `K1Cell`, `K1PortalCell`, `K1ShareResults`); don't reintroduce a second table.
+  K-1 state is held by `useK1Registry` (`useK1.ts`) ONE level up, because the
+  table is built inside a `.map` where a hook can't be called; it loads lazily
+  per open card. **By Investor works the same way** — `investorSlice` /
+  `K1InvestorCells` add the same two columns to that table (uploads happen on
+  the property since a batch arrives per partnership, but a re-send belongs
+  there, because "Carol called, she can't find hers" starts from her name). On a person holding several stakes the roll-up row shows
+  "N separate K-1s" and carries no cell — the interest rows below do, because
+  those are separate documents.
+- **A K-1 is uploaded ONTO an owner — nothing reads the filename.** The roster
+  IS the workflow: one row per owner on the property card, drop that owner's PDF
+  on their row (`POST /api/investor-k1` takes an `ownerId`). Choosing the row is
+  the assignment, so there is no matching step and no confirm step. **Do NOT
+  reintroduce filename matching.** An earlier version scored vendor code → trust
+  name → plain name and it could not resolve the case that actually matters: **6
+  of Parkwood's 21 owners share a name with another owner** (Alison Korman
+  Feldman holds both a GST trust interest and a personal one), so the file most
+  in need of routing was exactly the one it refused. Picking the row is faster
+  than confirming a guess and cannot be wrong in a way nobody notices.
+- **ONE LINK PER INVESTOR — across every partnership, not per property.** An
+  investor in four partnerships holds ONE link and ONE PIN; the portal lists
+  every K-1 they have, each row led by its PROPERTY (without it, four K-1s read
+  identically). `personGroup` therefore matches by name across ALL of
+  `PROPERTY_OWNERSHIP`, the same identity the By Investor view has always used.
+  **The link is DURABLE**: a send reuses the person's existing live link and
+  widens its `ownerIds`, so releasing a second partnership never invalidates the
+  link (or PIN) they already have. Only Revoke kills a link. **A SEND RELEASES
+  THE WHOLE PERSON** — every K-1 they hold for that year, across every
+  partnership, not just the one it was sent from. It was scoped to a single
+  partnership so a finished 7010 K-1 could not also expose an unfinalised 9510
+  draft, and that broke the promise in the place it is felt: an investor in
+  fifteen partnerships opened their link and saw the one K-1 sent last, with
+  the other fourteen uploaded, covered by the link, and invisible — nothing
+  telling them or us that the rest existed. The draft risk is upstream instead:
+  don't upload a draft onto an owner's row (the row IS the assignment, and a
+  second upload for the same year is refused). The scope a send publishes is still
+  computed by `releases` on the draft endpoint, but the confirm NO LONGER lists
+  those partnerships — for an investor holding eleven interests it ran to eleven
+  names and pushed the message itself off the screen. Do not reinstate the list;
+  the send is still bounded by that scope and `releases` still reports it. Later uploads still appear on the same link with no
+  re-send, once sent.
+- **A link's coverage is resolved through the PERSON at read time**
+  (`lib/investors/linkCoverage.ts`, `coveredOwnerIds`), never from the
+  `ownerIds` snapshot alone. `ownerIds` is written once at mint from
+  `personGroup`, so a link minted before an interest existed does not list it:
+  when 0800 was keyed in, every link already issued silently stopped covering
+  its holders' new 0800 rows — the roster read "no link" for people who hold
+  one, and the portal would have omitted a K-1 they should see. It applies the
+  SAME rule as `personGroup` (normalised name across the roster), just later,
+  so it widens only to interests the mint would have included had they existed
+  and never groups people the mint would have kept apart. Used by the roster,
+  the portal, the file route and the share route's existing-link lookup — they
+  must agree, or a link shows in one place and not another. **Widening coverage
+  does not widen what is readable**: a document is visible only once PUBLISHED,
+  and publishing is per owner per year as part of a deliberate send.
+- **`InvestorLink.propertyCode` is PROVENANCE — where the link happened to be
+  minted — and nothing user-facing may be derived from it.** The link belongs
+  to the investor: the portal lists every published K-1 across every
+  partnership they hold, the roster indexes a link under every covered owner
+  id, and `shareOne` widens an existing link to cover interests added since. So
+  the portal's header describes its DOCUMENTS, never `link.propertyCode` —
+  which it used to, and which labelled a lone K-1 with the wrong partnership
+  whenever an investor's only document came from somewhere other than where
+  their link was first created.
+- **The group is always derived server-side** in `personGroup()`, never from a
+  client-supplied set, or a caller could mint a link onto a co-owner's K-1. Each
+  document is labelled with its `heldAs` too, since a trust interest and a
+  personal one in the same partnership are separate K-1s. A batch collapses to
+  one entry per person (two ticked interests would otherwise mint a link then
+  immediately revoke it), and `linkOwnerIds()` covers links minted before
+  `ownerIds` existed. Index links under every covered id — keying on `ownerId`
+  alone made the person row read "NO LINK" for a link it owned.
+- **The share control is the SAME card everywhere** — `ShareLinkCard`
+  (`app/components/ShareLinkCard.tsx`), extracted from the tenant statement
+  share flow so a link is minted, copied, emailed and revoked identically on
+  both. It sits on the property card's Portal column AND on the By Investor
+  card header (`K1InvestorShare`), because one link per investor means the
+  person's own row is the natural place to reach for it. The email address
+  lives INSIDE the card under "Sends to" (`recipientSlot`) rather than as a
+  table column — it is only relevant where you send from. There is no "NO LINK"
+  pill: the button already reads `Share` when there is no link and `Link` when
+  there is.
+- **`/investor/preview` renders a page with no side effects** — `?owner=<id>`
+  shows what a REAL investor would see (staff-only, `canManageK1`), minting
+  nothing, publishing nothing and recording no view, so you can check a link
+  before anyone gets one. Bare `/investor/preview` shows a fictional investor
+  with a generated PDF (`lib/investors/k1Preview.ts`).
+- **An investor's contact details live in ONE place: the contact card on their
+  own row in By Investor** (`app/investors/InvestorContactCard.tsx`, stored in
+  `ownerContactsStore`). Email, additional recipients, phone, mailing address,
+  notes. Statement of Values renders the SAME component, so there is one editor
+  and one store — do not add a second contact form. They had grown into three
+  (an address on the SoV tab, a K-1 email inside the share popover, a trustee
+  directory nobody thought of as contact info) and there was no phone field at
+  all.
+- **EVERY address carries a NAME, the primary included** (`recipientNames` on
+  `resolveOwnerEmail`, keyed by lowercased address; `lib/investors/mailAddress.ts`).
+  The primary was assumed to be the investor's and went out with no addressee
+  at all — but plenty of investors have only their accountant's or their
+  trustee's address on file, and that person is who the mail should greet. It
+  defaults to whoever the address resolved THROUGH (the trustee, when it came
+  from the trustee directory), falling back to the investor, and `emailName` on
+  the contact record sets it outright. ONE map over every address, so no
+  consumer has to know which one was the primary.
+  The send confirm is the one place a bare `cborgmann@gmmsfoundation.com` is
+  read before mailing somebody a tax document, and the outgoing mail addresses
+  them by name — a K-1 link arriving with no addressee reads like something
+  that leaked. The ADDRESS stays the source of truth for who receives; a name
+  is a label over it, and the extras' names are pruned to the live addresses so
+  a removed recipient's name can't reattach to a later one. `formatAddress` always quotes and escapes
+  it, and strips CR/LF — a name is user input reaching a mail header.
+- **`alsoEmail` is a list of ADDITIONAL RECIPIENTS — an accountant, a manager,
+  a trustee — and every one of them receives the investor's K-1 link.** That is
+  the point (investors ask for it), and it means adding an address here lets
+  that person open this investor's K-1. So it is edited one row at a time
+  rather than as a comma-separated field, `sentTo` records the full list, and
+  the results panel names everyone who was mailed. The per-owner-id override
+  deliberately does NOT carry extra recipients: it exists to redirect one
+  interest's mail, not to widen who can see it.
+- **The contact map and the ownership roster use DIFFERENT NAMING SYSTEMS**, and
+  `ownerContact()` bridges them. `ownerContacts.ts` is keyed by the
+  Statement-of-Values beneficiary name ("CAROLYN JACOBS"); the roster — and so
+  Investor Info — uses the fuller legal name ("Carolyn Korman Jacobs"). Without
+  the bridge the hub offered "+ Add contact info" for people whose details were
+  already on file. The reduction (first + last word, single letters dropped) is
+  indexed once and a short key reached by TWO contacts is dropped rather than
+  resolved to either. `ownerContactExact()` is the un-reduced lookup, used
+  where the answer must be REPORTED: `resolveOwnerEmail` labels an exact hit
+  "Owner contacts" and a reduced one "Matched on name — check it".
+- **Emails come from `resolveOwnerEmail`**, which reads the beneficiary contacts
+  AND the trustee directory and takes a per-OWNER-ID override on top
+  (`ownerEmailStore`). Keyed by owner id, the override needs no name matching at
+  all. The relaxed name match counts ONLY where it resolves to exactly one
+  address across both sources, and a relaxed hit is surfaced as "Matched on
+  name — check it": a wrong address here mails one investor's K-1 link to
+  another investor. Never make this fuzzier. On the roster, **By Property shows
+  EMAIL** (nothing is physically mailed from there) and **By Investor shows
+  ADDRESS**.
+- **Where two rows share a name, "Held as" is the disambiguator** — it renders
+  "Held personally" rather than a dash on those rows, plus a SHARED NAME pill
+  whose hover shows the trust name and vendor code. Keep that; a dash there
+  makes two rows look identical.
+- **One K-1 per owner per year, enforced on upload.** A second upload onto the
+  same owner is refused (409) rather than silently replacing — delete the
+  existing one first, so a document is never swapped out from under a link
+  that's already shared.
+- **AN UPLOAD IS VISIBLE ON THE INVESTOR'S LINK AS SOON AS IT LANDS.** Visibility
+  is *uploaded-unless-withheld* (`K1Document.withheld`), not hidden-until-sent.
+  Catherine Altman held eleven interests, opened her link and saw the one K-1
+  from Grays Ferry — the other ten uploaded, covered by her link, and invisible,
+  with nothing on the page saying they existed. `visibleK1sForOwner` is the ONE
+  rule, read by the portal, the file route and the zip; a list route and a file
+  route that disagree means an investor sees a K-1 and gets a 404 on clicking
+  it. `withheld` is written as the EXCEPTION so it is absent on every existing
+  document and they all became visible with no migration — had it been
+  `visible === true`, the whole store would have gone dark on deploy. It is
+  also the retraction path: a K-1 dropped on the wrong row is pulled straight
+  back by unpublishing, which sets it. `published` survives but now records
+  only that a SEND happened, which is what the roster pill and the tax tracker
+  mean by "sent" — an upload must never tick either.
+- **SENDING is what publishes. There is no separate publish step** — do not
+  reintroduce one. It was the second half of a two-step check whose first half
+  (confirming a filename match) no longer exists, and the link is the real gate:
+  nothing is reachable without a signed token AND a PIN. `shareOne` publishes
+  that owner's K-1 for the year as part of minting the link, which also makes
+  publishing PER OWNER rather than the old all-or-nothing per year. The thing
+  this protects is real though: an investor holding a live link from a prior
+  year would otherwise see a new upload the instant it landed, including one
+  dropped on the wrong row — so an upload stays invisible until someone
+  deliberately sends it. The PATCH publish/unpublish endpoint remains as the
+  retraction path; it is just not a step in the normal flow.
+- **A send is RECORDED ON THE LINK, and the Portal pill reports it.**
+  `InvestorLink.sentAt` / `sentTo` / `pinSentAt` / `sendCount` are written by
+  `shareOne` after the email actually goes. Before this, a link EXISTING and a
+  link having been EMAILED were the same pill ("SHARED"), and the only places
+  that knew the difference were the results panel that disappears, `/audit`
+  (behind a second admin password), and Postmark — so "did this investor's K-1
+  go out?" was unanswerable from the roster. The pill now reads `SENT <date>`
+  (green) / `OPENED n×` (green) / `LINK ONLY` (amber, created but never
+  emailed), and the hover carries the full stamp — `Sep 9, 2026 at 3:47 PM
+  EDT` — plus recipients and whether the PIN email went, because a send is a
+  thing you quote back to an investor on the phone.
+  **`sendCount` null means UNKNOWN, not never** — links minted before tracking
+  carry no record, and claiming "never emailed" for a K-1 that was emailed is
+  the worse error, so those read a neutral `SHARED`. New links are minted with
+  `sendCount: 0` explicitly so "known never sent" is distinguishable from
+  "predates the record". The three states live in `app/investors/sendState.ts`
+  and are pinned by `sendState.test.ts`; By Property and By Investor render the
+  SAME `SendPill`, since two views disagreeing about whether a K-1 was sent
+  would be worse than either alone.
+- **The K-1 cell says whether the FILE is there, not whether it was sent** —
+  green `VIEW` (opens it) or red `MISSING` (which is also the drop target).
+  Sent-ness is the Portal column's job (`NO LINK` / `SHARED` / `OPENED n×`);
+  carrying it in both columns was redundant.
+- **Access is its own gate — deliberately NOT the `/investors` prefix.** The
+  K-1 UI lives INSIDE `/investors` (`K1Panel` on the property card,
+  `K1InvestorDocs` on the By Investor card) but is gated on `canManageK1` — the
+  `investor-k1` capability key — never on `canEditOwnership`. The API enforces
+  the same rule server-side. `/investor-k1` is no longer a page; the key
+  outlived it.
+  **Granted to Drew, Harry, Alison and admin.** Alison was deliberately excluded
+  for a while: she is herself a Parkwood owner, so the grant shows her
+  co-owners' taxpayer IDs, income allocations and capital accounts. The owner
+  granted it knowing that — she is an executive of the business, not an outside
+  investor. There is NO finer grain: the capability is one thing (upload,
+  delete, send, revoke, preview), so "view and send" carries the rest; a
+  half-applied split across every K-1 route would be worse than none.
+  **The two lists now coincide** — everyone who can reach Investor Info can also
+  manage K-1s — so keeping the key separate is now about the MECHANISM: the next
+  person granted the ownership page must not receive tax documents with it.
+  `k1.test.ts` pins that `/investors` cannot prefix-match `/investor-k1` (the
+  same shape as the middleware trap where bare `investor` matches `/investors`).
+- **The tax tracker's K-1 ticks sync from actual sends.**
+  `/api/investor-k1/sent?year=` returns booleans keyed by owner id — no names,
+  no filenames — and `isTaskEffectivelyDone(task, checked, sent)` merges them
+  over the manual localStorage ticks. **Additive only**: a K-1 handed over on
+  paper or emailed outside the portal still counts, so this never un-ticks what
+  a person set. A portal-sent investor's box is disabled with a SENT badge —
+  revoking their link is the way to undo it, and doing so reverts the task,
+  because "sent" means a published K-1 AND a live link. NOTE the year offset:
+  the tracker's year is the DEADLINE year, so a task due March 2026 asks for
+  tax year **2025** — fetch `viewYear - 1`.
+- **K-1 tasks derive from `hasK1Distribution`.** The hand-written list in
+  `tax-data.ts` stays (its `entity` strings key `PARCEL_INFO` through
+  `baseEntityName`), but any flagged partnership without one gets a task
+  appended automatically. 7010 was missing entirely — 21 owners, actively being
+  distributed, invisible to the tracker. Flag a partnership in `ownership.ts`
+  and its task appears.
+- **Investor links are domain-separated from tenant links** (`lib/investors/k1Link.ts`,
+  HMAC prefixed `kcp.investor.k1.v1:`). Both fall back to `SITE_AUTH_SECRET`, so
+  without that prefix a tenant token could open a K-1. Pinned by
+  `k1Link.test.ts` — don't collapse the two signers into one.
+- **Bulk send goes through the SAME per-owner function.** `POST
+  /api/investor-k1/share` takes `ownerId` (single, unchanged shape) or
+  `ownerIds[]`; both call `shareOne`, so the checks that matter — a published
+  K-1 exists, any earlier link for that owner is revoked first, a fresh PIN per
+  owner, the email carries a LINK not the K-1 — cannot drift between the two
+  paths. Never add a second implementation for the batch. Ids are de-duplicated
+  (a repeat would revoke the link just minted and email twice), the batch is
+  capped at 50, it runs sequentially because the link store is
+  read-modify-write, and one owner failing (no published K-1, no email on file)
+  is reported on that owner's row rather than aborting the rest. Only owners
+  with a PUBLISHED K-1 are selectable in the UI.
+- **`/investor/preview` is the demo, not a test send.** `lib/investors/k1Preview.ts`
+  fabricates a two-document payload (a trust interest and a personal one, which
+  is the case worth showing) and a minimal real PDF, rendered by the ACTUAL
+  portal page so it cannot drift from what investors see. Gated on
+  `canManageK1`, checked BEFORE any token logic in all three
+  `/api/investor/[token]*` routes — it must never become a path to real
+  documents — and carries a banner saying nothing on it is real. Testing by
+  emailing yourself works too, but it publishes a K-1, mints a live link and
+  ticks the tax tracker; the preview does none of that.
+- **Every linked row has a Revoke.** It is how you undo a test send or a link
+  that went to the wrong address: the link dies immediately, the K-1 stops being
+  readable, and because "sent" means a published K-1 AND a live link, the tax
+  tracker reverts too. The endpoint existed from the start but had no control.
+- **The PIN is emailed automatically, as its OWN message** — a second email
+  sent right after the link email, to the same recipient list. It used to be a
+  manual hand-off ("send the PIN separately — a text or a call"), and a
+  delivery step that depends on someone remembering is a step that gets missed:
+  the investor is left holding a link they cannot open. **The two messages are
+  DISJOINT and `k1ShareEmail.test.ts` pins that** — the link email carries no
+  PIN, the PIN email carries no link. That is the whole value of the split now
+  that both go to one mailbox: a forwarded link email does not hand over
+  access, and neither message alone opens the document. **Do not "simplify"
+  this into one email.** It was considered and rejected: a K-1 carries taxpayer
+  IDs and capital accounts, and one message holding both makes the PIN
+  decoration. The genuinely separate channel is SMS to the contact card's phone
+  — `composeK1PinEmail` is the function that would be replaced if a provider is
+  ever added. The PIN email goes to `alsoEmail` too, because an additional
+  recipient who cannot open the document is not an additional recipient.
+- **The additional recipients are Cc'd by default, and that is addressing
+  only.** A checkbox in the confirm switches between the investor on To with
+  their accountant visibly Cc'd (the default — it is how that relationship
+  actually works) and everyone addressed together on To. **It never changes WHO
+  receives the mail**, and `lib/investors/recipients.test.ts` pins exactly that:
+  `addressRecipients` must reach the same set under both settings. Both the link
+  email and the PIN email are addressed identically — a PIN arriving To when the
+  link arrived Cc reads as a different conversation. With no primary address on
+  file nobody is Cc'd onto a mail with no addressee; whoever we have is
+  addressed directly. The confirm tags each recipient TO / CC, because the
+  header is a detail but the LIST is the thing the confirm exists to state.
+- **Both emails are BLIND-copied to the team** (`shareCopyTo()` in the share
+  route → `sendMail`'s `bcc`, default `dwinig@kormancommercial.com`, overridden
+  or switched off with `K1_SHARE_COPY_TO` and no deploy). It is the record that
+  both halves actually left Postmark — copying only the link email would
+  confirm the half that was never in doubt. **Blind, not a visible Cc**: a Cc
+  puts an internal address on an investor's tax-document email and invites a
+  reply-all onto it. The confirm names who is copied, because a copy the UI
+  never mentions is what surprises someone later. `lib/mail.test.ts` pins the
+  Bcc reaching the Postmark payload — without it the copies would stop
+  arriving with nothing going red.
+- **The PIN is still shown to staff, and a failed PIN send is shouted about.**
+  The results panel lists one row per investor with their own PIN and the
+  interest label (`heldAs`) beneath the name — without it two rows reading
+  "Alison Korman Feldman" carry different PINs and staff can't tell which is
+  which. Each row says `EMAILED` / `NOT EMAILED`, and a link that went out
+  without its PIN gets its own red banner naming those investors: that is the
+  one outcome that leaves someone holding an unopenable link. The heading
+  reflects what actually happened (`Links created` when mail isn't configured),
+  not what was requested.
+- **The PIN is mandatory** (unlike the tenant portal, where it's optional), PDFs
+  live in private blob storage and are streamed through an authorized route that
+  re-checks `published && ownerId === link.ownerId`, and the share email carries
+  a LINK, never the K-1 as an attachment. The portal deliberately shows only the
+  documents — no percentages, no co-owners, no capital accounts.
+- `/investor/[token]` is public (token+PIN gated), so it's excluded in
+  `middleware.ts` and `AppShell`. NOTE the middleware exclusion is written
+  `investor/` with the slash: bare `investor` also prefix-matches `/investors`
+  and would make the whole ownership page public.
+
+# CAM / RET reconciliation — sources of truth (do not duplicate data)
+
+The user has repeatedly flagged data living in the wrong place / pages drifting. These are the canonical sources — read/write here, never re-key the same value somewhere else:
+
+- **Per-tenant CAM methodology** (admin fee %, stipulated PRS per CAM/INS/RET category, expense-line exclusions, admin-fee exclusions, CAM cap, gross-lease flag) lives in `lib/cam/retailConfigSeed.ts` (`RETAIL_CONFIG_SEED`). This is what the **unit page** (`app/units/[unitRef]/CamConfigCard.tsx`, via `/api/cam-config/[unitRef]`) reads and edits, and what the reconciliation resolves. The unit page IS the source of truth. When a tenant's admin/PRS/exclusion is wrong or missing, fix it here — NEVER hard-code it on the roster.
+- **Roster seeds** (`lib/cam/retail/seed/<code>.ts`) carry ONLY rent-roll facts: `sqft`, `camEscrow`/`insEscrow`/`retEscrow` (billed during the year), and partial-year `occPct`. Do NOT put `camPrs`/`insPrs`/`retPrs`/`adminFeePct`/exclusions on the roster — they belong in the config seed above.
+- **A tenant on a reduced CAM pool** (e.g. a pad excluded from some expense lines) is modeled as real **expense-line exclusions** in the config seed (`excludedCamLines`), NOT a flat pool override. That way the excluded lines render struck-through on the statement, checked on the unit page, and listed in the Notes — and the effective pool falls out of the line math. Never back into a pool total with an override.
+- **Reconciliation field precedence** (`lib/cam/retail/assemble.ts`): roster override → config stipulated/seed → computed-from-SF. Because methodology is in the config seed, the recon and the unit page always agree.
+- **Property-wide insurance pool** is a single building figure (`RetailExpensePool.insAmount`). Recon-time corrections to it are PROPERTY-WIDE and live in `lib/cam/retail/poolStore.ts` (keyed by `<property>-<year>`), edited as the **Property Insurance row inside the Final Expense Summary** on the CAM Reconciliation page — NOT per tenant. Insurance is edited ONLY at the property level. The per-tenant `CamConfig.insAmountOverride` is no longer exposed on the unit page (the "Manual Insurance" UI was removed). **Wawa at Brookwood (`2300`) is a hardcoded special case** in `lib/cam/retail/assemble.ts`: its INS is billed on the building's **Liability Insurance** CAM line (~$40K), not the property INS pool (~$9K) — forced off the pool line so it holds regardless of saved config, and footnoted in the Tenant CAM Methodology table. Don't re-add a per-tenant insurance UI without revisiting this.
+- **Retail Final Expense Summary** (the property-level editable expense table on the retail recon page, mirroring the office one): one card with every CAM operating-expense line, then **Property Insurance**, then **Real Estate Taxes**. CAM-line + RET FINAL overrides (CAM keyed by label, RET by key `"RET"`) live in `lib/cam/retail/finalStore.ts`; the insurance row is stored separately in `poolStore.ts` (key `insAmount`) but edited in the same card. All keyed by `<property>-<year>` and applied to the seeded pool in the retail GET so every tenant's CAM/INS/RET recomputes. The workbook seed (`seed/<code>.ts`) is the default; the stores only hold changed values. To the right of FINAL the card shows a **moving 3-year expense-history** trend (years before the recon year), separated by a vertical divider: retail from `lib/cam/retail/expenseHistory.ts` (code seed, per property), office from `lib/rentroll/baseYearExpenses.ts` (the same source as the Operating Expense History page). A **"Full Expense History →"** button deep-links to the property's full year-by-year page — both office and retail now live on the one **Operating Expense History** page `/rentroll/base-years?property=<code>` (office shows the base-year tools; retail shows a simple year-by-year table via `RetailHistoryCard`). `lib/cam/retail/expenseHistory.ts` holds only the **frozen prior years**; the **recon year column is pulled LIVE** from the reconciliation FINAL (effective pool + Final Expense Summary overrides) via the retail recon API, so it always reflects the actual finalized amount. When a recon year closes, move its finalized figures into `expenseHistory.ts` as the next frozen year.
+- **Mixed-center expense allocation** (e.g. 7010 retail+office) has ONE source: `lib/cam/retail/allocation.ts` (`MixedCenter` / `MIXED_7010`). The retail pool, office pool, and the on-screen allocation breakdown are all DERIVED from it — add or change an expense line there once, never edit the derived pools directly.
+- **Quarterly-billed tenants** (e.g. Wawa @ 9510) get their own dropdown entry **below the parent property** on the recon page (a pseudo-property keyed like `9510-WAWA-Q`), defined in `lib/cam/retail/quarterly.ts` (`QUARTERLY_BILLINGS`) and rendered by the `QuarterlyBilling` worksheet. Staff manually enter each quarter's eligible CAM expenses + RET; the lease share applies per quarter and the **YTD balance backs out billed/paid YTD** (`balance = due YTD − billed YTD`). Entered figures persist in `lib/cam/retail/quarterlyStore.ts` (`cam-retail-quarterly`, keyed `<key>-<year>`) via `/api/cam-recon/quarterly`. Their quarterly payments are NOT escrow (the annual recon roster keeps escrow 0). Eventually feed the eligible expenses from the monthly operating statements + link to the task tracker.
+- **Office recon** config/expenses come from the office seeds + `/api/cam-recon/office`; same principle — one source.
+- **A CLOSED YEAR'S OFFICE EXPENSES ARE SEED-ONLY — corrections go through
+  code, not the page** (`ADJUSTMENTS_FROM_YEAR = 2026` in
+  `lib/cam/office/loadResult.ts`). From 2026 the Final Expense Summary's FINAL
+  overrides drive the recon; **2025 and earlier read the seeded
+  expense-history pool directly**, so that card renders read-only and an
+  override would not be read even if one existed. Deliberate: a year closes
+  under the figures its statements went out on, and a later edit must not
+  retroactively move it. So a pre-2026 office expense fix is an edit to
+  `SEED_EXPENSES` in `lib/rentroll/baseYearExpenses.ts` — and when you change a
+  LINE you must move `opEx` / `opExGrossedUp` for that year with it, because
+  those totals are the sum of the property's own lines. (The recon itself reads
+  `lines` through `poolFromSeedExpenses` and never the totals; the Operating
+  Expense History page reads the totals.) Worked example: 40C0's 2025 Security
+  was Parking Lot Maint.'s $2,756 copied down and is $1,952 — fixed in the seed
+  precisely so the History page, which base-year stops are computed from, stops
+  reporting the wrong figure. **ESCROW is the exception and IS editable on the
+  page in any year** (`configStore.ts` office / `escrowStore.ts` retail — the
+  inline Escrow cells on the Building Summary), because escrow is "what was
+  actually billed" and staff correct it at recon time; it does not appear in
+  the expense history, so nothing else drifts.
+- **NOTHING IMPORTS ESCROW BILLED.** Every `opexEscrow` / `retEscrow` /
+  `camEscrow` / `insEscrow` is hand-keyed into a seed from the reconciliation
+  workbook, then optionally corrected through the stores above. It is the one
+  input in this engine with no ingestion path, which is how the same figure
+  lands in two rows. The roadmap already wants final expenses fed from the
+  operating statements; escrow billed could come from the GL or rent roll the
+  same way.
+- **Tie-out tests** (`lib/cam/retail/compute.*.test.ts`) are the guardrail. After any seeding/mapping change, run them; they must stay green (per-tenant balances tie to the workbook within a few dollars).
+
+# CAM / RET reconciliation — page consistency
+
+Office and retail recon pages + the per-tenant statement must look/behave the same. Reuse, don't reinvent:
+
+- Shared building blocks already exist — use them: `OccCallout` (occupancy callout + hover lease term), `PortionPill` (RETAIL/OFFICE tag), `ImportInstructions` (`app/components/ImportInstructions.tsx`, Skyline steps; `stop` adds the double-charge warning), `BalanceRow` + `FinalBalanceRow` (statement waterfall + boxed balance), `CARD_TITLE` (large card titles).
+- **Occupancy**: assume 100%; only flag tenants < 100% with the amber `(NN% occ)` callout (hover shows lease term). Tenant statements ALWAYS show the `× Occupancy` step so every calc to the amount due is visible.
+- **Building Summary is always the top content card.**
+- **Tenant statements**: one card with side-by-side columns (CAM/INS/RET for retail, CAM/RET for office), colored section labels, `BalanceRow` rows, `FinalBalanceRow` boxed balance — no per-block bordered cards. For retail, each column stacks its expense schedule (`ColumnSchedule` — Acct/Expense/Actual) above its reconciliation, so the single-line INS/RET pools sit beside the longer CAM schedule rather than each taking a near-empty full-width card.
+- **Schedules + allocation tables** lead with an `Acct` (GL account) column on the far left.
+- **Year-end**: exactly two compiled exports — "SC Year-End Adjustments" (shopping centers) and "BP Year-End Adjustments" (business parks) — as header buttons next to "All Tenant PDFs", with an ⓘ popover for the import steps. No per-building year-end. Posting date is fixed at 4/30 of the following year (no date picker).
+- **Estimates** live on the dedicated `/cam-recon/estimates` page with the full import steps incl. the STOP-current-charges warning.
+- Unit refs render as a `<code>` element (12px, default monospace) matching the Rent Roll. Building summary tables use whole dollars (`money0`); detail statements use cents (`money`). Gross-lease rows are dimmed (opacity) with a `(Gross)` marker. The recon page remembers the last-viewed property/year via `localStorage`.
+
+When the user reports a value mismatch between pages, trace it to the shared source above and fix it there once — don't patch the symptom on one page.
+
+# CAM / RET reconciliation — planned capabilities (roadmap / TODO)
+
+Not built yet — captured so we build to them. The recon engine is a pure
+function (pool + tenant inputs → CAM/INS/RET result) and fixtures are keyed
+`byYear`, so these layer on top rather than requiring a rewrite. Near-term
+sequence the user is following: finish the **9510** CAM/RET rec → the **condo
+budget** → then stand up **monthly operating statements**. Long-term vision:
+this program eventually replaces **Skyline** (the accounting system); until
+then the user imports Skyline reports, so keep ingestion paths import-friendly.
+
+- **Annual new-year reconciliations (all properties).** A 2026 rec runs early
+  2027 (and so on each year). Add `byYear[<year>]` per fixture; methodology
+  (PRS/admin/exclusions/cap/discount/gross lease) carries forward from the
+  unit-page config automatically. The new-year work is sourcing that year's
+  **final expenses** + **tenancy** (below).
+- **Final expenses ← monthly operating statements.** Once operating statements
+  exist, pull each year's CAM/INS/RET expense actuals from them (YTD during the
+  year, finalized at year-end) instead of hand-seeding `seed/<code>.ts`; the
+  Final Expense Summary becomes the reconcile-and-finalize step. Also drives a
+  real-time **budget vs. actual** comparison.
+- **Full-year tenancy roster (don't drop mid-year vacates).** Build the roster
+  from the **whole year's** rent-roll snapshots + move-out/leasing data, NOT
+  just the December rent roll — a tenant who vacated mid-year must still be
+  reconciled for their occupied time. The engine already prorates partial years
+  via `occPct` / `rcd` / `vacatedISO`.
+- **On-demand YTD move-out reconciliation.** Close out a departing tenant on
+  command (don't wait for the annual run): feed the engine YTD expense pools
+  (from operating statements), the tenant's YTD escrow billed, and occupancy
+  through the move-out date → `balance = YTD due − YTD escrow`. An interim/
+  move-out statement layered on the existing per-tenant compute + PDF.
+- **Per-year methodology snapshot.** Retail methodology is currently "current
+  state" (the unit page), shared across years. For correct multi-year + mid-year
+  close-outs, freeze each recon year's methodology when it closes (like office
+  base years) so later edits don't retroactively change a closed year.

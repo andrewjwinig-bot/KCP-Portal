@@ -1,0 +1,589 @@
+import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
+import { ALL_USERS, isPathAllowed, USERS, type UserId } from "@/lib/users";
+import { PROPERTY_OWNERSHIP } from "@/lib/properties/ownership";
+import { resolveOwnerEmail } from "@/lib/investors/ownerEmail";
+import { getContactOverrides } from "@/lib/properties/ownerContactsStore";
+import { allOwnerEmails } from "@/lib/investors/ownerEmailStore";
+import {
+  investorLinkSecret, signInvestorToken, saveInvestorLink, listInvestorLinks,
+  revokeInvestorLink, generatePin, linkOwnerIds, type InvestorLink,
+} from "@/lib/investors/k1Link";
+import { k1sForOwner, saveK1 } from "@/lib/investors/k1Store";
+import { sendMail, sendMailDetailed, isMailConfigured, isMailTestMode, VERIFIED_FROM } from "@/lib/mail";
+import { logAudit, auditIp } from "@/lib/audit";
+import { linkOrigin } from "@/lib/linkOrigin";
+import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
+import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit,
+  applyK1PinEdit, PREVIEW_URL_PLACEHOLDER, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
+import { addressRecipients, reached, selectRecipients, addressedAs } from "@/lib/investors/recipients";
+import { formatAddressList } from "@/lib/investors/mailAddress";
+import { partnershipName } from "@/lib/investors/partnershipName";
+
+/** The preview's `only` param, filtered through the same rule the send uses —
+ *  so a pick can narrow the preview and can never widen it either. */
+function selectRecipientList(primary: string | null, also: string[], onlyParam: string): string[] {
+  const only = onlyParam.split(",").map((a) => a.trim()).filter(Boolean);
+  const sel = selectRecipients(primary, also, only);
+  return reached(addressRecipients(sel.primary, sel.secondary, false));
+}
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+async function currentUser(): Promise<UserId | null> {
+  const secret = process.env.SITE_AUTH_SECRET;
+  if (!secret) return null;
+  const id = await verifySiteToken((await cookies()).get(SITE_COOKIE)?.value, secret);
+  if (!id || !(ALL_USERS as readonly string[]).includes(id)) return null;
+  return isPathAllowed(id as UserId, "/investor-k1") ? (id as UserId) : null;
+}
+
+/**
+ * Who gets a copy of every investor K-1 email — the link and the PIN alike.
+ *
+ * BLIND copy, not a visible Cc. The copy exists so there is a record in our
+ * own inbox that both messages actually left Postmark; a visible Cc would also
+ * put an internal address on an investor's tax-document email and invite a
+ * reply-all onto it, neither of which the record needs.
+ *
+ * Override with `K1_SHARE_COPY_TO` (comma-separated), or set it to empty to
+ * turn the copies off — neither needs a deploy.
+ */
+const shareCopyTo = () => (process.env.K1_SHARE_COPY_TO ?? "dwinig@kormancommercial.com").trim();
+
+const propName = partnershipName;
+
+type ShareResult = {
+  ownerId: string;
+  ownerName: string;
+  /** Trust / detailed name. Two interests held by one person produce two rows
+   *  with the same name and DIFFERENT PINs, so the label is what tells staff
+   *  which PIN goes with which link. */
+  heldAs?: string | null;
+  url?: string;
+  pin?: string;
+  sentTo: string[];
+  mailError: string | null;
+  /** Who got the PIN's own email. Empty means it did NOT go out and somebody
+   *  has to hand the PIN over — which is why the results panel shouts about
+   *  it rather than letting a link sit unopenable. */
+  pinSentTo: string[];
+  pinError: string | null;
+  /** Who was blind-copied, reported back so the confirmation can SAY the copy
+   *  went rather than leaving staff to check an inbox to find out. */
+  copiedTo: string[];
+  /** Postmark's message id for the link email — searchable in Activity, and
+   *  the only hard evidence that a specific message was accepted. */
+  messageId?: string | null;
+  /** A TEST token accepted the send and delivered NOTHING. Reported loudly,
+   *  because from the app's side it is indistinguishable from a real send. */
+  testMode?: boolean;
+  /** Set when this owner couldn't be shared at all — the batch continues. */
+  error?: string;
+};
+
+/**
+ * Mint (or re-mint) ONE investor link and optionally email it.
+ *
+ * The single-owner and bulk paths both go through here — there is deliberately
+ * no second implementation, so the checks that matter (a published K-1 exists,
+ * any earlier link is revoked first, a fresh PIN per owner, the email carries a
+ * LINK and never the K-1 itself) cannot drift apart between them.
+ */
+const normName = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+/**
+ * Every interest ONE PERSON holds — across EVERY partnership, not just the one
+ * you happen to be standing on.
+ *
+ * An investor in four partnerships should hold ONE link, not four links and
+ * four PINs, and it should keep working as later years and other properties are
+ * added. So the link covers the whole person and the portal labels each K-1
+ * with its property.
+ *
+ * Computed here from the roster, never from anything the caller sent: a link
+ * covers whatever this returns, so if a client could name the set it could mint
+ * a link onto a co-owner's K-1. Matching is by name, which is the same identity
+ * the Investor Info "By Investor" view has always used to group a person across
+ * properties — one curated ownership file is the authority for who is who.
+ */
+function personGroup(_propertyCode: string, ownerId: string) {
+  const all = PROPERTY_OWNERSHIP.flatMap((p) => p.owners.map((o) => ({ o, code: p.propertyCode })));
+  const found = all.find((x) => x.o.id === ownerId);
+  if (!found) return null;
+  const group = all.filter((x) => normName(x.o.name) === normName(found.o.name)).map((x) => x.o);
+  // The owner's OWN partnership, resolved from the id rather than taken from
+  // the caller. Ids are unique across the roster (pinned by a test), so an id
+  // identifies its property on its own — which is what lets a batch span
+  // partnerships instead of being one property's at a time.
+  return { owner: found.o, group, code: found.code };
+}
+
+async function shareOne(
+  req: NextRequest, user: UserId, secret: string, propertyCode: string, ownerId: string, year: number | null, send: boolean,
+  /** A staff edit of the draft, from the confirm step. Single sends only —
+   *  a batch reaches many different investors, so one hand-written body
+   *  cannot be right for all of them and the canonical draft is used. */
+  draft?: { subject?: unknown; body?: unknown; followUp?: { subject?: unknown; body?: unknown } | null } | null,
+  /** Put the additional recipients on Cc rather than addressing them all on
+   *  To. Same people either way — it changes how the mail reads, not who
+   *  receives it. */
+  ccSecondary?: boolean,
+  /** Addresses staff ticked in the confirm. Undefined = everyone on file. */
+  only?: string[],
+): Promise<ShareResult> {
+  const found = personGroup(propertyCode, ownerId);
+  if (!found) return { ownerId, ownerName: ownerId, sentTo: [], mailError: null, pinSentTo: [], pinError: null, copiedTo: [], error: "That owner isn't on this partnership." };
+  const { owner, group } = found;
+  // The owner's own partnership. Taking it from the request was fine while a
+  // batch was one property's rows; a batch spanning partnerships has no single
+  // code to pass, and the email names this partnership — so it is resolved
+  // from the owner, which is right in both cases.
+  const ownerProperty = found.code || propertyCode;
+
+  // Sending IS the release. There is no separate publish step: an upload sits
+  // invisible until someone deliberately sends it, and the send is that
+  // deliberate act. That still holds — nothing becomes readable without
+  // somebody choosing to send it.
+  //
+  // WHAT A SEND RELEASES IS THE WHOLE PERSON, not the partnership it was sent
+  // from. One link per investor is the promise, and half-releasing it broke
+  // that promise in the place it is felt: an investor in fifteen partnerships
+  // opened their link and saw the one K-1 that happened to be sent last, with
+  // the other fourteen uploaded, covered by the link, and invisible. Nothing
+  // told them — or us — that the rest existed.
+  //
+  // It was scoped to one partnership so that releasing a finished 7010 K-1
+  // could not also expose an unfinalised 9510 draft. That risk is real but it
+  // is upstream: the protection is not uploading a draft onto an owner's row,
+  // which is already the rule (the row is the assignment, and a second upload
+  // for the same year is refused outright). And it is no longer silent — the
+  // confirm names every partnership the send will release, so what becomes
+  // readable is read before it goes, not discovered afterwards.
+  const mine = (await Promise.all(group.map((o) => k1sForOwner(o.id))))
+    .flat()
+    .filter((d) => year == null || d.taxYear === year);
+  if (mine.length === 0) {
+    return {
+      ownerId, ownerName: owner.name, heldAs: owner.detailedName ?? null, sentTo: [], mailError: null,
+      pinSentTo: [], pinError: null, copiedTo: [],
+      error: `${owner.name} has no ${year ?? ""} K-1 uploaded yet.`.replace("  ", " "),
+    };
+  }
+  const at = new Date().toISOString();
+  for (const d of mine.filter((d) => !d.published)) {
+    d.published = true;
+    d.publishedAt = d.publishedAt ?? at;
+    await saveK1(d);
+  }
+  const published = mine;
+
+  // An investor has ONE durable link. Releasing another partnership must not
+  // invalidate the link (and PIN) they already have — that would mean re-sending
+  // everyone every time a partnership finishes. So reuse the live link if there
+  // is one, widening it to cover any interests added since; only mint when they
+  // have none. Revoke is the deliberate way to kill a link.
+  const ids = group.map((o) => o.id);
+  const existing = (await listInvestorLinks())
+    .find((l) => !l.revoked && coveredOwnerIds(l).some((id) => ids.includes(id)));
+
+  let link: InvestorLink;
+  if (existing) {
+    const covered = new Set(coveredOwnerIds(existing));
+    const widened = ids.filter((id) => !covered.has(id));
+    link = widened.length
+      ? { ...existing, ownerIds: [...covered, ...widened] }
+      : existing;
+    if (widened.length) await saveInvestorLink(link);
+  } else {
+    link = {
+      id: "il_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8),
+      ownerId: owner.id, ownerIds: ids, ownerName: owner.name, propertyCode: ownerProperty,
+      createdAt: new Date().toISOString(), createdBy: USERS[user]?.label ?? user,
+      revoked: false, expiresAt: null,
+      pin: generatePin(),   // never optional for a K-1, and never reused between owners
+      views: [], lastViewedAt: null, viewCount: 0,
+      // Explicitly 0, not absent. A link minted from here on KNOWS it has
+      // never been emailed; a link with no `sendCount` at all predates send
+      // tracking, and the roster must say "unknown" for those rather than
+      // claiming they were never sent.
+      sendCount: 0, sentAt: null, sentTo: [], pinSentAt: null,
+    };
+    await saveInvestorLink(link);
+  }
+  const url = `${linkOrigin(req)}/investor/${await signInvestorToken(secret, { v: 1, id: link.id, o: link.ownerId, p: link.propertyCode })}`;
+
+  let mailError: string | null = null;
+  let sentTo: string[] = [];
+  let pinSentTo: string[] = [];
+  let pinError: string | null = null;
+  /** Only populated once mail actually went, so it reports the copy that was
+   *  really made rather than the one that was configured. */
+  let copiedTo: string[] = [];
+  /** Postmark's id for the link email — the thing to search Activity for. */
+  let messageId: string | null = null;
+  /** True when a TEST token accepted the send and delivered nothing. */
+  let testMode = false;
+  let wasEdited = false;
+  /** How many addresses this owner has on file, and whether the send was
+   *  narrowed to fewer — recorded so the audit line says "2 of 3" rather than
+   *  leaving a deliberate omission to look like a missing address. */
+  let onFileCount = 0;
+  let narrowed = false;
+  if (send) {
+    const overrides = await allOwnerEmails();
+    const resolved = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email, await getContactOverrides());
+    const email = resolved.email ?? "";
+    // An investor can nominate an accountant or manager to receive what they
+    // receive. Everyone on the list gets the SAME link, so `sentTo` records all
+    // of them and the results panel shows the list — a K-1 reaching a second
+    // person is a deliberate act, never a silent one.
+    // WHO receives it is identical either way; this only changes how the mail
+    // reads. On Cc the investor is the addressee and their accountant is
+    // visibly copied, which is how that relationship actually works — on To
+    // they are co-addressees. `sentTo` still records everyone, because a K-1
+    // reaching a second person is a deliberate act whichever header carried
+    // them. `addressRecipients` is tested on exactly that invariant.
+    // Narrowed to what was ticked FIRST, then addressed. The selection is a
+    // filter over the addresses on file — never the list itself — so a
+    // client-supplied address can't become a way to mail this K-1 link
+    // anywhere. Sending to the accountant alone is a real instruction, and
+    // with the investor dropped the accountant simply becomes the addressee.
+    const picked = selectRecipients(email, resolved.alsoEmail, only);
+    const addressed = addressRecipients(picked.primary, picked.secondary, ccSecondary !== false);
+    const recipients = reached(addressed);
+    onFileCount = [email, ...(resolved.alsoEmail ?? [])].filter(Boolean).length;
+    narrowed = recipients.length < onFileCount;
+    // Addressed BY NAME where we have one: a K-1 link arriving with no
+    // addressee reads like something that leaked rather than something that
+    // was sent. The name is a label over the address — delivery never depends
+    // on one being present, and `formatAddress` quotes it so a comma in a name
+    // cannot split the joined header.
+    const names = resolved.recipientNames;
+    const headers = () => ({
+      to: formatAddressList(addressed.to, names),
+      ...(addressed.cc.length ? { cc: formatAddressList(addressed.cc, names) } : {}),
+    });
+    if (!email && !recipients.length) mailError = `No email on file for ${owner.name}. Copy the link and send it yourself.`;
+    // Distinct from having no address at all: there ARE addresses, none was
+    // ticked. Falling through to everyone would mail an investor their tax
+    // document when staff had chosen not to.
+    else if (!recipients.length) mailError = "No recipients were selected, so the link was created but not sent.";
+    else if (!isMailConfigured()) mailError = "Email isn't configured, so the link was created but not sent.";
+    else {
+      // Same composer the preview endpoint uses, then the staff edit folded in
+      // — so what was read in the confirm is what leaves the building.
+      // Composed against WHO IS ACTUALLY BEING MAILED. Greeting the investor
+      // on a message that only reaches their accountant reads as misdirected,
+      // and "your 6 Schedule K-1s" to someone who holds none of them is the
+      // sentence that makes a recipient check whether the mail is real.
+      const addressedTo = addressedAs(owner.name, recipients, names);
+      const canonical = composeK1ShareEmail({
+        ownerName: owner.name, propertyName: propName(ownerProperty),
+        documentCount: published.length, taxYear: published[0].taxYear, url,
+        ...addressedTo,
+      });
+      const { email: draftEmail, edited } = applyK1EmailEdit(canonical, draft, url);
+      wasEdited = edited;
+      const copyTo = shareCopyTo();
+      // Detailed, because this result is REPORTED to a person as "Sent". A
+      // bare boolean made an accepted-but-undelivered send (a Postmark test
+      // token, an inactive recipient) look exactly like a real one.
+      // The HTML alternative rides along ONLY on the canonical wording. An
+      // edited draft is plain text by definition — rebuilding HTML from
+      // arbitrary edited prose would either mangle it or quietly drop the
+      // edit, and the edit is the whole point of showing the message first.
+      const res = await sendMailDetailed({
+        ...headers(), from: VERIFIED_FROM, subject: draftEmail.subject, textBody: draftEmail.body,
+        // The investor must see portal.kormancommercial.com, not a tracking
+        // redirector — see `noLinkTracking`.
+        noLinkTracking: true,
+        ...(edited ? {} : canonical.html ? { htmlBody: canonical.html } : {}),
+        ...(copyTo ? { bcc: copyTo } : {}),
+      });
+      const ok = res.ok;
+      messageId = res.messageId ?? null;
+      testMode = !!res.testMode;
+      if (ok) {
+        sentTo = recipients;
+        copiedTo = copyTo ? copyTo.split(",").map((a) => a.trim()).filter(Boolean) : [];
+      } else {
+        mailError = res.error
+          ? `Postmark refused it: ${res.error} The link is created — copy it and send it yourself.`
+          : "The email failed to send. The link is created — copy it and send it yourself.";
+      }
+
+      // The PIN follows as its OWN message, automatically. Staff used to have
+      // to call or text it, and a delivery step that depends on remembering is
+      // a step that gets missed — an investor holding a link they can't open
+      // is a support call either way.
+      //
+      // Only after the link actually went: a PIN on its own tells the
+      // recipient nothing and is one more thing to explain. It goes to the
+      // SAME list, because an additional recipient who can't open the document
+      // is not an additional recipient.
+      if (ok) {
+        // Addressed identically to the link email — the two are a pair.
+        const canonicalPin = composeK1PinEmail({ ownerName: owner.name, pin: link.pin ?? "", ...addressedTo });
+        // Editable in the confirm like the link email, and guarded the same
+        // way: an edit that drops the PIN gets it appended back, because an
+        // investor holding a link with no PIN cannot open the document.
+        const { email: pinMail, edited: pinEdited } = applyK1PinEdit(canonicalPin, draft?.followUp, link.pin ?? "");
+        if (pinEdited) wasEdited = true;
+        // Copied as well, so the inbox record shows BOTH halves went out. A
+        // copy of only the link email would confirm the half that was never
+        // in doubt and stay silent on the one that was.
+        // Addressed exactly like the link email — the two messages are a pair,
+        // and a PIN that arrives To when the link arrived Cc reads as a
+        // different conversation.
+        const pinOk = link.pin
+          ? await sendMail({
+              ...headers(), from: VERIFIED_FROM, subject: pinMail.subject, textBody: pinMail.body,
+              noLinkTracking: true,
+              ...(copyTo ? { bcc: copyTo } : {}),
+            })
+          : false;
+        if (pinOk) pinSentTo = recipients;
+        else pinError = "The PIN email didn't go out — give them the PIN below yourself, or they can't open the link.";
+      }
+    }
+  }
+
+  // Record the send ON THE LINK, so "did this actually go out, and when" is
+  // answerable from the roster forever after — not only in the results panel
+  // that disappears, the admin audit log behind a second password, or
+  // Postmark. A link EXISTING and a link having been EMAILED are different
+  // facts, and the roster has to be able to tell them apart.
+  if (sentTo.length) {
+    const at = new Date().toISOString();
+    link.sentAt = at;
+    link.sentTo = sentTo;
+    link.pinSentAt = pinSentTo.length ? at : null;
+    link.sendCount = (link.sendCount ?? 0) + 1;
+    // Overwrite any earlier `manual` stamp. A link marked sent by hand and
+    // then genuinely sent from the portal must stop claiming "Recorded by
+    // hand — sent from Outlook", and must stop asserting the PIN went by hand
+    // when the portal's own PIN email just failed.
+    link.sentVia = "portal";
+    await saveInvestorLink(link);
+  }
+
+  await logAudit({
+    event: "investor-k1.share", user: USERS[user]?.label ?? user, ip: auditIp(req),
+    detail: `${ownerProperty} · ${owner.name}${sentTo.length ? ` · emailed ${sentTo.join(", ")}${narrowed ? ` (${sentTo.length} of ${onFileCount} on file)` : ""}` : " · link only"}${wasEdited ? " · edited wording" : ""}${sentTo.length ? (pinSentTo.length ? " · PIN emailed" : " · PIN NOT emailed") : ""}${messageId ? ` · postmark ${messageId}` : ""}${testMode ? " · TEST MODE, NOT DELIVERED" : ""}`,
+  });
+  return { ownerId: owner.id, ownerName: owner.name, heldAs: owner.detailedName ?? null, url, pin: link.pin, sentTo, mailError, pinSentTo, pinError, copiedTo, messageId, testMode };
+}
+
+/** How many owners one request may share at once. Parkwood has 21; the cap is
+ *  about bounding the work per request, not about the roster size. */
+const MAX_BATCH = 50;
+
+/**
+ * POST { propertyCode, ownerId | ownerIds[], send? } — mint investor links.
+ *
+ * `ownerId` returns the flat single-owner shape the page has always used.
+ * `ownerIds` returns `results[]`, one entry per owner, and a failure on one
+ * owner (nothing uploaded, no email on file) is reported on that entry rather
+ * than aborting the rest — sending 19 of 21 and being told which two to chase
+ * beats sending none.
+ */
+export async function POST(req: NextRequest) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  const secret = investorLinkSecret();
+  if (!secret) return NextResponse.json({ error: "Investor sharing is not configured (no link secret set)." }, { status: 500 });
+
+  const body = await req.json().catch(() => ({}));
+  const propertyCode = String(body?.propertyCode ?? "");
+  const send = body?.send === true;
+  const rawYear = Number(body?.year);
+  const year = Number.isFinite(rawYear) && rawYear > 0 ? rawYear : null;
+
+  // Which of THIS owner's addresses to mail. Absent means everyone on file, so
+  // a caller that never sends the field behaves as before. An empty array is a
+  // real choice — nobody — and is NOT read as unset.
+  const only: string[] | undefined = Array.isArray(body?.only)
+    ? body.only.map((x: unknown) => String(x)).filter(Boolean)
+    : undefined;
+
+  if (Array.isArray(body?.ownerIds)) {
+    // De-duplicated: two entries for one owner would revoke the link the first
+    // pass just minted and email them twice.
+    const raw = [...new Set(body.ownerIds.map((x: unknown) => String(x)).filter(Boolean))] as string[];
+    // Collapse to one entry per PERSON. Two interests of one owner ticked
+    // separately would otherwise mint a link and then immediately revoke it.
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const id of raw) {
+      const g = personGroup(propertyCode, id);
+      const key = g ? normName(g.owner.name) : id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      ids.push(id);
+    }
+    if (ids.length === 0) return NextResponse.json({ error: "Pick at least one investor." }, { status: 400 });
+    if (ids.length > MAX_BATCH) return NextResponse.json({ error: `Too many at once (max ${MAX_BATCH}).` }, { status: 400 });
+
+    // Sequential on purpose: each share revokes that owner's prior link and
+    // writes a link record, and the link store is read-modify-write.
+    // A draft edit is only meaningful when the batch is one person — the UI's
+    // single-investor Share card posts through this path. Two or more
+    // recipients get the canonical wording, because one hand-written body
+    // addressed to somebody cannot be right for everybody.
+    const draft = ids.length === 1 ? (body?.draft ?? null) : null;
+    // Unlike the draft, this applies to a batch as happily as to one: it is a
+    // convention about addressing, not wording meant for one person.
+    const ccSecondary = body?.ccSecondary !== false;
+    // A recipient pick is one person's addresses, so it cannot describe a
+    // batch — applied across many owners it would match almost none of them
+    // and quietly send to nobody. Honoured only where the UI offers it: a
+    // batch of one, which is the path the single-investor Share card posts.
+    const pickOnly = ids.length === 1 ? only : undefined;
+    const results: ShareResult[] = [];
+    for (const id of ids) results.push(await shareOne(req, user, secret, propertyCode, id, year, send, draft, ccSecondary, pickOnly));
+    return NextResponse.json({ ok: true, results }, { status: 201 });
+  }
+
+  // The draft edit belongs to a single send: a batch addresses many different
+  // investors, so one hand-written body cannot be right for all of them.
+  const one = await shareOne(req, user, secret, propertyCode, String(body?.ownerId ?? ""), year, send, body?.draft ?? null, body?.ccSecondary !== false, only);
+  if (one.error) return NextResponse.json({ error: one.error }, { status: 400 });
+  return NextResponse.json({
+    ok: true, url: one.url, pin: one.pin, sentTo: one.sentTo, mailError: one.mailError,
+    pinSentTo: one.pinSentTo, pinError: one.pinError,
+  }, { status: 201 });
+}
+
+/**
+ * GET ?propertyCode=&ownerId=&year= — the exact email the send would compose.
+ *
+ * Read-only and side-effect-free by construction: it publishes nothing, mints
+ * nothing and revokes nothing. It exists so "Email the investor" can show the
+ * message before it goes out rather than after — the send is irreversible
+ * (you cannot unsend a link to an investor's tax document), so reading it
+ * first is the point.
+ *
+ * It re-signs the EXISTING link's token, which is why it can only preview an
+ * investor who already has a link. That matches the UI: the confirm step only
+ * opens on a link that exists.
+ */
+export async function GET(req: NextRequest) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  const secret = investorLinkSecret();
+  if (!secret) return NextResponse.json({ error: "Investor sharing is not configured (no link secret set)." }, { status: 500 });
+
+  const q = req.nextUrl.searchParams;
+  const propertyCode = String(q.get("propertyCode") ?? "");
+  const found = personGroup(propertyCode, String(q.get("ownerId") ?? ""));
+  if (!found) return NextResponse.json({ error: "That owner isn't on this partnership." }, { status: 400 });
+  const { owner, group } = found;
+  const rawYear = Number(q.get("year"));
+  const year = Number.isFinite(rawYear) && rawYear > 0 ? rawYear : null;
+
+  // EXACTLY the scope the send releases — every K-1 this person holds for the
+  // year, across every partnership. A preview narrower than the send would
+  // understate what is about to become readable, which is the one thing the
+  // confirm exists to prevent.
+  const mine = (await Promise.all(group.map((o) => k1sForOwner(o.id))))
+    .flat()
+    .filter((d) => year == null || d.taxYear === year);
+  if (mine.length === 0) {
+    return NextResponse.json({ error: `${owner.name} has no ${year ?? ""} K-1 uploaded yet.`.replace("  ", " ") }, { status: 400 });
+  }
+
+  const ids = group.map((o) => o.id);
+  const link = (await listInvestorLinks())
+    .find((l) => !l.revoked && coveredOwnerIds(l).some((id) => ids.includes(id)));
+  const url = link
+    ? `${linkOrigin(req)}/investor/${await signInvestorToken(secret, { v: 1, id: link.id, o: link.ownerId, p: link.propertyCode })}`
+    : `${linkOrigin(req)}${PREVIEW_URL_PLACEHOLDER}`;
+
+  const overrides = await allOwnerEmails();
+  const resolved = resolveOwnerEmail(owner.name, owner.detailedName ?? null, overrides[owner.id]?.email, await getContactOverrides());
+  const recipients = [resolved.email ?? "", ...resolved.alsoEmail].filter(Boolean);
+  // The confirm posts the addresses it has ticked, so the preview composes
+  // against exactly the same set the send will. Without it, unticking the
+  // investor would leave the preview greeting them and the sent mail not —
+  // and the preview is the thing that was read.
+  const onlyParam = req.nextUrl.searchParams.get("only");
+  const picked = onlyParam === null
+    ? recipients
+    : selectRecipientList(resolved.email, resolved.alsoEmail, onlyParam);
+  const addressedTo = addressedAs(owner.name, picked, resolved.recipientNames);
+
+  const email: K1ShareEmail = composeK1ShareEmail({
+    ownerName: owner.name, propertyName: propName(propertyCode),
+    documentCount: mine.length, taxYear: mine[0].taxYear, url, ...addressedTo,
+  });
+  // The second message the send delivers, addressed identically.
+  const pinEmail = link?.pin ? composeK1PinEmail({ ownerName: owner.name, pin: link.pin, ...addressedTo }) : null;
+  const copyTo = shareCopyTo();
+  // What this send makes readable, named. A send releases the whole person, so
+  // the confirm has to say which partnerships that is — otherwise the widening
+  // is exactly the silent exposure the narrow scope was guarding against.
+  const releases = [...new Set(mine.map((d) => d.propertyCode))]
+    .map((code) => ({ propertyCode: code, propertyName: propName(code) }));
+  return NextResponse.json({
+    ok: true, ...email, followUp: pinEmail, recipients, hasLink: !!link, releases,
+    // Reported so the confirm can say who is blind-copied. A copy nobody can
+    // see in the UI is the kind of thing that surprises someone later.
+    copyTo: copyTo ? copyTo.split(",").map((a) => a.trim()).filter(Boolean) : [],
+  });
+}
+
+/**
+ * PATCH { linkId } — record that a person sent this link themselves.
+ *
+ * The Outlook route hands you the drafts and then the app is blind: it cannot
+ * observe a send it did not make, so without this the roster reads LINK ONLY
+ * for an investor who has had their K-1 for a week. A wrong record is worse
+ * than none, which is why this exists — and why it is stamped `manual` rather
+ * than passed off as a send the app watched happen.
+ *
+ * It does NOT publish anything. Publishing is what the send does, and by the
+ * time you are marking one sent the link already exists, which means the
+ * documents were already released when it was created.
+ */
+export async function PATCH(req: NextRequest) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+
+  const body = await req.json().catch(() => ({}));
+  const linkId = String(body?.linkId ?? "");
+  const link = (await listInvestorLinks()).find((l) => l.id === linkId && !l.revoked);
+  if (!link) return NextResponse.json({ error: "That link no longer exists." }, { status: 404 });
+
+  const at = new Date().toISOString();
+  link.sentAt = at;
+  // Recorded from the roster's own resolution, never from the client: this
+  // decides what the hover tells you about who holds the document.
+  link.sentTo = Array.isArray(body?.sentTo) ? body.sentTo.map((x: unknown) => String(x)).filter(Boolean) : (link.sentTo ?? []);
+  // The PIN travels with it when a person sends both drafts, which is what the
+  // dialog asks them to do — but the app did not see it, so it claims nothing
+  // more precise than the link's own timestamp.
+  link.pinSentAt = at;
+  link.sendCount = (link.sendCount ?? 0) + 1;
+  link.sentVia = "manual";
+  await saveInvestorLink(link);
+
+  await logAudit({
+    event: "investor-k1.mark-sent", user: USERS[user]?.label ?? user, ip: auditIp(req),
+    detail: `${link.propertyCode} · ${link.ownerName} · marked sent by hand${link.sentTo?.length ? ` · ${link.sentTo.join(", ")}` : ""}`,
+  });
+  return NextResponse.json({ ok: true, sentAt: at });
+}
+
+/** DELETE ?id= — revoke a link. */
+export async function DELETE(req: NextRequest) {
+  const user = await currentUser();
+  if (!user) return NextResponse.json({ error: "Not authorized" }, { status: 401 });
+  const id = req.nextUrl.searchParams.get("id") ?? "";
+  const ok = await revokeInvestorLink(id);
+  if (!ok) return NextResponse.json({ error: "That link no longer exists." }, { status: 404 });
+  await logAudit({ event: "investor-k1.revoke", user: USERS[user]?.label ?? user, ip: auditIp(req), detail: id });
+  return NextResponse.json({ ok: true });
+}
