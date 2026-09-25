@@ -38,7 +38,7 @@ import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 import { groupOf } from "@/lib/reports/monthly";
 import { listBudgets } from "./storage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
-import { isVacancyUtilitiesLine, resolveRate, monthsAt, type VacancyUtilities } from "./vacancyUtilities";
+import { isVacancyUtilitiesLine, resolveRate, monthsAt, SC_RATE_SCOPE, type VacancyUtilities } from "./vacancyUtilities";
 import { assembledGlConsolidated } from "@/lib/financials/operating-statements/statementStore";
 import { cashOnGl, distributionsOnGl, plannedDistributions, projectBalance, rollForward, DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL, type DraftCash } from "./cashForecast";
 
@@ -760,11 +760,14 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   applyTyped(sections, typedDoc, itemized);
   // NON-REIMBURSABLE UTILITIES are the vacant space's: vacant SF by month ×
   // a $/SF rate, so a lease-up takes its suite off the line from its start.
+  // Every shopping centre shares ONE typed rate (the book's key).
   if (lease.hasData) {
+    const sc = isShoppingCenter(meta.propertyCode);
+    const bookDoc = sc ? await getLineOverrides(budgetYear, SC_RATE_SCOPE).catch(() => ({} as LineOverrides)) : null;
     for (const sec of sections) {
       sec.lines = sec.lines.map((l) => {
         if (!isVacancyUtilitiesLine(sec.role, l.label)) return l;
-        const v = resolveRate(typedDoc, sec.name, l.label, l.basisTotal, lease.rows ?? []);
+        const v = resolveRate(typedDoc, sec.name, l.label, l.basisTotal, lease.rows ?? [], sc ? { bookDoc, scope: SC_RATE_SCOPE, always: true } : undefined);
         if (!v) return l;
         const months = monthsAt(v.rate, v.sf);
         return { ...l, months, total: r0(sum(months)), source: "vacancy" as DraftSource, subLines: undefined, typed: undefined, vacancy: v };

@@ -61,6 +61,10 @@ export function monthsAt(rate: number, sf: number[]): number[] {
   return sf.map((s) => Math.round((s * rate) / 12));
 }
 
+/** The shopping centres share ONE rate (owner): typed on any centre, it is
+ *  every centre's. Stored in the typed-month store under this pseudo property. */
+export const SC_RATE_SCOPE = "book:shopping-centers";
+
 export type VacancyUtilities = {
   /** $/SF/yr in use. */
   rate: number;
@@ -70,15 +74,25 @@ export type VacancyUtilities = {
   /** Vacant SF by month. */
   sf: number[];
   sfToday: number;
+  /** Where a typed rate saves: the book's shared key (every shopping centre),
+   *  else the property's own. */
+  scope?: string;
 };
 
-/** The rate for the line: typed, else the default. Null when neither exists
- *  (no vacancy today and nothing typed) — the line then keeps its figure. */
-export function resolveRate(doc: LineOverrides, section: string, label: string, basisAnnual: number, rows: RentRow[]): VacancyUtilities | null {
-  const typed = doc[rateKey(section, label)]?.months?.[0];
+/** The rate for the line: typed (the shared book rate first, when there is
+ *  one), else the default. Null when neither exists — the line then keeps its
+ *  figure — unless `always` (the shopping centres), where it starts at $0 so
+ *  the line is on the rate and ready to be typed. */
+export function resolveRate(
+  doc: LineOverrides, section: string, label: string, basisAnnual: number, rows: RentRow[],
+  opts?: { bookDoc?: LineOverrides | null; scope?: string; always?: boolean },
+): VacancyUtilities | null {
+  const key = rateKey(section, label);
+  const typed = opts?.bookDoc?.[key]?.months?.[0] ?? (opts?.bookDoc ? null : doc[key]?.months?.[0]);
   const sfToday = vacantSfToday(rows);
   const def = defaultRate(basisAnnual, sfToday);
-  const rate = typed != null ? Number(typed) / 100 : def;
+  let rate = typed != null ? Number(typed) / 100 : def;
+  if ((rate == null || !Number.isFinite(rate)) && opts?.always) rate = 0;
   if (rate == null || !Number.isFinite(rate)) return null;
-  return { rate, rateTyped: typed != null, defaultRate: def, sf: vacantSfByMonth(rows), sfToday };
+  return { rate, rateTyped: typed != null, defaultRate: def, sf: vacantSfByMonth(rows), sfToday, scope: opts?.scope };
 }

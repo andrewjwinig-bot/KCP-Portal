@@ -145,7 +145,7 @@ function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boo
       ...(v.defaultRate != null ? [{ label: "This year ÷ today's vacant SF", value: `$${v.defaultRate.toFixed(2)}/SF` }] : []),
       { label: "Vacant SF today", value: Math.round(v.sfToday).toLocaleString("en-US") },
     ],
-    footer: { label: "Each month", value: "vacant SF × rate ÷ 12" },
+    footer: { label: v.scope ? "One rate for every shopping centre" : "Each month", value: "vacant SF × rate ÷ 12" },
   };
   if (open) {
     return (
@@ -374,7 +374,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   onLine: (sec: BudgetDraftSection, line: Line) => void;
   /** Present when the viewer may type months; month "all" = an annual spread
    *  evenly; `account` types one sub-line (a GL account) of the line. */
-  onEdit?: (sec: BudgetDraftSection, line: Line, month: number | "all" | "accept", value: number | null, account?: string) => void;
+  onEdit?: (sec: BudgetDraftSection, line: Line, month: number | "all" | "accept", value: number | null, account?: string, propertyCode?: string) => void;
 }) {
   const [edit, setEdit] = useState<EditAt>(null);
   const [toggled, setToggled] = useState<Set<string>>(new Set());
@@ -520,7 +520,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                               footer: { label: "SF × rate ÷ 12", value: money0(l.months[m]), color: COLOR_BRAND },
                             }),
                             extra: <VacancyRate v={v} canEdit={mayType && !draft.consolidated}
-                              onSave={(cents) => onEdit!(sec, l, cents == null ? "all" : 0, cents, RATE_ACCOUNT)} />,
+                              onSave={(cents) => onEdit!(sec, l, cents == null ? "all" : 0, cents, RATE_ACCOUNT, v.scope)} />,
                           };
                         }
                         return cat ? { cellHover: recoveryHover(cat), onCellClick: (m: number) => setMakeupAt({ cat, m }) } : {};
