@@ -1420,6 +1420,22 @@ time — and the team does not have time to open the GL over $80.
   only (`EXPENSE_ROLES`); capital and debt sit below NOI. It used to count
   capital as an operating expense, understating NOI by the year's TI and
   improvements — and the grid then took capital off a second time for cash flow.
+- **THE DRAFT ENDS IN DISTRIBUTIONS AND A PROJECTED BANK BALANCE**
+  (`cashForecast.ts`, `draft.cash`). Below cash flow after debt service, a
+  typeable **Distributions** row (typed months save as `Cash::Distributions`
+  in the typed-month store; Drew / admin only — Greg's scope excludes it), then
+  **Projected Bank Balance** = last month's + cash flow − distributions. The
+  opening is the GL's operating cash (every `isCashAccount` except security
+  deposits — that is tenants' money) at its last posted month, ROLLED TO DEC 31
+  on the reprojection's cash flow less the plan's remaining distributions;
+  typeable over (`Cash::Opening Balance`, month 0). Null openings on the GL →
+  no balance claimed ("no GL opening balances on file"). **The owner's plan is
+  seeded** (`DISTRIBUTION_PLAN`): Gray's Ferry (4500) $500K, Revere (7300)
+  $300K, Parkwood (7010) $200K, Trust #4 (8200) $200K = $1.2M a year, paid
+  half in APRIL and half in OCTOBER; a typed month replaces the plan's. The
+  prior-year column shows what the GL's distribution accounts (<4000, named
+  "distribut…") paid this year. A book roll-up sums each property's
+  distributions and balance (`consolidateCash`).
 - **PENDING (build when the 2027 draft is finished): "Publish to Budgets".**
   The Budget Draft is a WORKSPACE — nothing reads it. The budget of record is
   the workbook store on `/financials/budgets` (`lib/financials/budgets/storage.ts`),

@@ -38,6 +38,8 @@ import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 import { groupOf } from "@/lib/reports/monthly";
 import { listBudgets } from "./storage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { assembledGlConsolidated } from "@/lib/financials/operating-statements/statementStore";
+import { cashOnGl, distributionsOnGl, plannedDistributions, projectBalance, rollForward, DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL, type DraftCash } from "./cashForecast";
 
 /** The revenue line the lease projection replaces — base/rental income. */
 const RENTAL_LINE_RE = /rental|rent income|base rent|minimum rent/i;
@@ -189,6 +191,8 @@ export type BudgetDraft = {
   lineEditScope?: "all" | "expenses" | null;
   /** True when the current-year reprojection couldn't be loaded (no draft). */
   missingBasis?: boolean;
+  /** Below cash flow: distributions and the projected bank balance. */
+  cash?: DraftCash;
 };
 
 /** One suite's whole revenue for the budget year — base rent plus its CAM,
@@ -877,7 +881,44 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   }
 
   const noiMonths = revMonths.map((v, i) => r0(v - expMonths[i]));
+
+  // DISTRIBUTIONS AND THE BANK BALANCE (`cashForecast.ts`). Cash flow after
+  // capital and debt, less the partners' distributions, rolled forward from
+  // the cash on the GL today.
+  const cash = await (async (): Promise<DraftCash> => {
+    const below = new Array(12).fill(0);
+    for (const sec of sections) if (sec.role === "capital" || sec.role === "debt-service") addInto(below, sec.subtotal);
+    const cashFlow = noiMonths.map((v, i) => v - below[i]);
+    // This year's cash flow by month, off the reprojection it is grown from.
+    const basisFlow = new Array(12).fill(0);
+    for (const sec of r.sections) {
+      const sign = sec.role === "revenue" || sec.role === "reimbursement" ? 1 : -1;
+      for (const l of sec.lines) for (let i = 0; i < 12; i++) basisFlow[i] += sign * (l.blended?.[i] || 0);
+    }
+    const gl = await assembledGlConsolidated(key, basisYear).catch(() => null);
+    const onGl = cashOnGl(gl);
+    const plan = plannedDistributions(meta.propertyCode);
+    const projectedYearEnd = onGl ? rollForward(onGl.balance, onGl.month, basisFlow, plan) : null;
+    const dist = mergeMonths(plan, typedDoc[lineKey(DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL)]);
+    const anyTyped = dist.typed.some(Boolean);
+    const openTyped = typedDoc[lineKey(DISTRIBUTIONS_SECTION, OPENING_LABEL)]?.months?.[0];
+    const opening = openTyped != null ? r0(openTyped) : projectedYearEnd ?? 0;
+    return {
+      gl: onGl ? { balance: onGl.balance, year: basisYear, month: onGl.month, accounts: onGl.accounts } : null,
+      projectedYearEnd,
+      opening,
+      openingTyped: openTyped != null,
+      distributions: {
+        months: dist.months, total: r0(sum(dist.months)), typed: anyTyped ? dist.typed : undefined,
+        source: anyTyped ? "entered" : sum(plan) ? "plan" : "none",
+        basisYearActual: distributionsOnGl(gl),
+      },
+      balance: projectBalance(opening, cashFlow, dist.months),
+    };
+  })();
+
   return {
+    cash,
     propertyCode: meta.propertyCode,
     propertyName: meta.propertyName,
     budgetYear,

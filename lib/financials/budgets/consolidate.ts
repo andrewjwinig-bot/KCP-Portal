@@ -86,5 +86,27 @@ export function consolidateDrafts(name: string, drafts: BudgetDraft[]): BudgetDr
       principal: r0(drafts.reduce((a, d) => a + (d.debt?.principal ?? 0), 0)),
     } : undefined,
     consolidated: { properties: drafts.map((d) => ({ code: d.propertyCode, name: d.propertyName })) },
+    cash: consolidateCash(drafts),
+  };
+}
+
+/** The book's cash: every property's distributions and bank balance, summed —
+ *  each property's balance already rolls its own opening forward. */
+export function consolidateCash(drafts: BudgetDraft[]): BudgetDraft["cash"] {
+  const withCash = drafts.filter((d) => d.cash);
+  if (!withCash.length) return undefined;
+  const dist = withCash.reduce((a, d) => add(a, d.cash!.distributions.months), zero()).map(r0);
+  const actual = withCash.reduce((a, d) => add(a, d.cash!.distributions.basisYearActual), zero()).map(r0);
+  const gls = withCash.map((d) => d.cash!.gl).filter(Boolean);
+  const month = gls.length ? Math.min(...gls.map((g) => g!.month)) : 0;
+  const yearEnds = withCash.map((d) => d.cash!.projectedYearEnd);
+  return {
+    gl: gls.length ? { balance: r0(gls.reduce((a, g) => a + g!.balance, 0)), year: gls[0]!.year, month, accounts: [] } : null,
+    projectedYearEnd: yearEnds.some((v) => v != null) ? r0(yearEnds.reduce((a: number, v) => a + (v ?? 0), 0)) : null,
+    opening: r0(withCash.reduce((a, d) => a + d.cash!.opening, 0)),
+    openingTyped: withCash.some((d) => d.cash!.openingTyped),
+    distributions: { months: dist, total: r0(dist.reduce((a, v) => a + v, 0)), source: dist.some((v) => v) ? "plan" : "none", basisYearActual: actual },
+    balance: withCash.reduce((a, d) => add(a, d.cash!.balance), zero()).map(r0),
+    byProperty: withCash.map((d) => ({ code: d.propertyCode, name: d.propertyName, opening: d.cash!.opening, distributions: d.cash!.distributions.total, yearEnd: d.cash!.balance[11] })),
   };
 }

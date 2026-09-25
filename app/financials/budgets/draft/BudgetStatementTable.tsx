@@ -29,7 +29,8 @@
 // and commissions the deals carry — those are Step 1's leases and decisions.
 
 import { Fragment, useRef, useState } from "react";
-import { Pill, type PillTone } from "@/app/components/Pill";
+import { Pill, TONE_BLUE, type PillTone } from "@/app/components/Pill";
+import { DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL } from "@/lib/financials/budgets/cashForecast";
 import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/draft";
 import type { SectionRole } from "@/lib/financials/operating-statements/types";
 import { NoteMark, type LineNote } from "./LineNote";
@@ -340,6 +341,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   // there when you want them.
   const [openBuckets, setOpenBuckets] = useState<Set<string>>(new Set());
   const [occOpen, setOccOpen] = useState(false);
+  const [openingEdit, setOpeningEdit] = useState(false);
   const [makeupAt, setMakeupAt] = useState<{ cat: RecoveryCategory; m: number } | null>(null);
   const estKind = draft.reimbursementEstimate?.kind;
   const recTenants = draft.tenantRevenue ?? [];
@@ -588,6 +590,76 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     body.push(<RollupCard key="cfa" label="Cash Flow After Debt Service" months={cfaM} total={sum(cfaM)} basis={noiBasis - basisOf(capital) - basisOf(debt)} favorableUp />);
   } else {
     body.push(<RollupCard key="cf" label="Cash Flow" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} favorableUp />);
+  }
+
+  // DISTRIBUTIONS AND THE PROJECTED BANK BALANCE (`cashForecast.ts`): what is
+  // left in the bank once the partners are paid, from the cash on the GL today.
+  const cash = draft.cash;
+  if (cash) {
+    const distSec = { name: DISTRIBUTIONS_SECTION, role: "debt-service", lines: [], subtotal: [], total: 0 } as unknown as BudgetDraftSection;
+    const distLine = (label: string) => ({ label, mask: "", months: cash.distributions.months, total: cash.distributions.total, basisTotal: 0, source: "entered" }) as Line;
+    const mayDist = !!onEdit && !draft.consolidated && (!canType || canType(DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL));
+    const distKey = `${DISTRIBUTIONS_SECTION}::${DISTRIBUTIONS_LABEL}`;
+    const basisDist = sum(cash.distributions.basisYearActual);
+    const mon = (m: number) => MONTHS[Math.max(0, m - 1)];
+    const glNote = cash.gl
+      ? `cash on the GL at ${mon(cash.gl.month)} ${cash.gl.year}${cash.gl.month < 12 && cash.projectedYearEnd != null ? `, rolled to Dec 31 on the ${draft.basisYear} reprojection` : ""}`
+      : "no GL opening balances on file";
+    const openingTip = cash.byProperty?.length
+      ? { title: "Opening balance by property", rows: cash.byProperty.map((p) => ({ label: `${p.code} ${p.name}`, value: money0(p.opening) })), footer: { label: "Total", value: money0(cash.opening), color: COLOR_BRAND } }
+      : cash.gl?.accounts.length
+        ? { title: `Cash on the GL · ${mon(cash.gl.month)} ${cash.gl.year}`, rows: cash.gl.accounts.map((a) => ({ label: `${a.code}${a.name ? ` · ${a.name}` : ""}`, value: money0(a.balance) })),
+            footer: { label: cash.projectedYearEnd != null && cash.gl.month < 12 ? "Rolled to Dec 31" : "Total", value: money0(cash.projectedYearEnd ?? cash.gl.balance), color: COLOR_BRAND } }
+        : null;
+    const openingShown = <b style={{ color: cash.openingTyped ? TYPED_FG : undefined }}>{money0(cash.opening)}</b>;
+    body.push(
+      <div key="cash" className="card" style={{ padding: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Distributions &amp; bank balance</span>
+          <span className="small muted" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            Opening {openingTip ? <HoverCard title={openingTip.title} rows={openingTip.rows} footer={openingTip.footer} width={320} help={false}>{openingShown}</HoverCard> : openingShown}
+            <span>· {cash.openingTyped ? "typed" : glNote}</span>
+            {mayDist && (openingEdit
+              ? <span style={{ width: 110 }}><CellInput initial={cash.opening} onDone={(v) => { setOpeningEdit(false); if (v !== undefined && (v === null ? cash.openingTyped : Math.round(v) !== Math.round(cash.opening))) onEdit!(distSec, distLine(OPENING_LABEL), 0, v); }} /></span>
+              : <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} onClick={() => setOpeningEdit(true)}>Edit</button>)}
+            {mayDist && cash.openingTyped && !openingEdit && <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} title="Back to the GL" onClick={() => onEdit!(distSec, distLine(OPENING_LABEL), 0, null)}>↺</button>}
+          </span>
+        </div>
+        <div className="tableWrap" style={{ marginTop: 0 }}>
+          <table style={TABLE}>
+            <Colgroup />
+            <thead>
+              <tr>
+                <th>Line</th>
+                {MONTHS.map((m) => <th key={m} style={headR}>{m}</th>)}
+                <th style={{ ...headR, color: COLOR_BRAND }}>Budget</th>
+                <th style={headR}>{draft.basisYear} {basisDist ? "Actual" : ""}</th>
+                <th style={headR}>Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              <Row label={DISTRIBUTIONS_LABEL} months={cash.distributions.months} total={cash.distributions.total} basis={basisDist || null}
+                favorableUp={false}
+                badge={cash.distributions.source === "plan" && !draft.consolidated ? { tone: TONE_BLUE, text: "Apr / Oct plan" } : undefined}
+                typed={cash.distributions.typed}
+                rowKey={mayDist ? distKey : undefined} edit={edit} setEdit={mayDist ? setEdit : undefined}
+                onCommit={mayDist ? (m, v) => onEdit!(distSec, distLine(DISTRIBUTIONS_LABEL), m, v) : undefined}
+                onReset={mayDist && cash.distributions.typed ? () => onEdit!(distSec, distLine(DISTRIBUTIONS_LABEL), "all", null) : undefined} />
+              <tr style={{ background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }}>
+                <td style={{ ...lab, fontWeight: 800, color: COLOR_BRAND }}>Projected Bank Balance</td>
+                {cash.balance.map((v, i) => <td key={i} style={{ ...num, fontWeight: 800, color: v < 0 ? "#b91c1c" : COLOR_BRAND }}>{money0(v)}</td>)}
+                <td style={{ ...num, fontWeight: 900, fontSize: 13.5, color: cash.balance[11] < 0 ? "#b91c1c" : COLOR_BRAND }}>{money0(cash.balance[11])}</td>
+                <td style={{ ...num, color: "var(--muted)" }}>{money0(cash.opening)}</td>
+                <td style={{ ...num, color: cash.balance[11] >= cash.opening ? "#15803d" : "#b91c1c" }}>{`${cash.balance[11] >= cash.opening ? "+" : "−"}${money0(Math.abs(cash.balance[11] - cash.opening))}`}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="muted small" style={{ padding: "6px 14px 10px" }}>
+          Each month&rsquo;s balance = last month&rsquo;s + {debt.length ? "cash flow after debt service" : "cash flow"} − distributions. The {draft.basisYear} column is the opening balance (Budget = Dec 31, {draft.budgetYear}).{basisDist ? ` Distributions' ${draft.basisYear} figure is what the GL shows paid so far.` : ""} Security deposits are left out — that cash is owed back to tenants.
+        </div>
+      </div>,
+    );
   }
 
   return (
