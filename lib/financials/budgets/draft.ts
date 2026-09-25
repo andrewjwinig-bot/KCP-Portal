@@ -835,11 +835,16 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     for (const sec of sections) {
       // Cleaning & Supplies is a business-park line: on a centre it is empty,
       // and its buckets (Cleaning / Vacancies) would be two rows of nothing.
-      sec.lines = sec.lines.map((l) => /^cleaning/i.test(l.label) && l.total === 0 && l.basisTotal === 0 && l.subLines?.some((x) => x.bucket) ? { ...l, subLines: undefined } : l);
       const before = sec.lines.length;
       // The management fee is NON-reimbursable at the centres (6610-8501); the
       // reimbursable section's Management Fee (6610-8502) is always empty there.
-      const hidden = (l: BudgetDraftLine) => isCondoAssnLine(l.label) || (sec.role === "reimbursable-expense" && /^\s*management\s+fee/i.test(l.label));
+      // Cleaning & Supplies and Office Center/Other (6*-8503, the OFFICE part
+      // of a building) belong to Parkwood (7010), the one centre with an
+      // office centre upstairs — at the others they are empty rows (owner).
+      const officeCentre = !!mixedCenterFor(meta.propertyCode);
+      const hidden = (l: BudgetDraftLine) => isCondoAssnLine(l.label)
+        || (sec.role === "reimbursable-expense" && /^\s*management\s+fee/i.test(l.label))
+        || (!officeCentre && (/^\s*cleaning\s*&\s*supplies/i.test(l.label) || /^\s*office\s+center/i.test(l.label)));
       sec.lines = sec.lines.filter((l) => !(hidden(l) && l.total === 0 && l.basisTotal === 0));
       if (sec.lines.length !== before) {
         const subtotal = new Array(12).fill(0);

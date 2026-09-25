@@ -95,6 +95,11 @@ const NEGATIVE_FG = "#b45309";
 const INPUT_BG = "var(--input-cell)";
 const TYPED_FG = "var(--input-typed)";
 
+/** Display only — "Reimbursements" / "Reimbursable" read as "Reimb." and
+ *  "Maintenance" as "Maint." so the line column stays narrow. Keys, saves and
+ *  notes keep the full label. */
+const abbrev = (s: string) => s.replace(/\breimburs(?:ements?|able)\b/gi, "Reimb.").replace(/\bmaintenance\b/gi, "Maint.");
+
 /** "$1,200", "1200", "(1,200)", "-1200" → a number; blank → null. */
 function parseTyped(s: string): number | null | undefined {
   const t = s.trim();
@@ -217,12 +222,12 @@ function Row({ label, months, total, basis, variant = "line", badge, onLabel, fa
         {!toggle && (variant === "line" || (sub && depth === 1)) && <span style={{ flex: "0 0 14px" }} />}
         {onLabel ? (
           <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
-            className="os-line-name" style={{ cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{label}</span>
+            className="os-line-name" style={{ cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{abbrev(label)}</span>
         ) : labelNote ? (
           <HoverCard title={label} width={280} rows={[]} footer={{ label: "Budget note", value: labelNote }}>
-            <span style={{ borderBottom: "1px dotted var(--muted)", cursor: "default" }}>{label}</span>
+            <span style={{ borderBottom: "1px dotted var(--muted)", cursor: "default" }}>{abbrev(label)}</span>
           </HoverCard>
-        ) : label}
+        ) : abbrev(label)}
         {note && <NoteMark label={label} note={note.note} onOpen={note.onOpen} />}
         {(badge || onAccept || (onReset && typed?.some(Boolean))) && (
           <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto", flex: "0 0 auto" }}>
@@ -398,7 +403,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
         <th>Line</th>
         {MONTHS.map((m) => <th key={m} style={headR}>{m}</th>)}
         <th style={{ ...headR, color: COLOR_BRAND }}>Budget</th>
-        <th style={headR}>{draft.basisYear} Reproj.</th>
+        <th style={headR}>{String(draft.basisYear).slice(2)} Reproj</th>
         <th style={headR}>Change</th>
       </tr>
     </thead>
@@ -424,7 +429,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     return (
       <div key={sec.name} className="card" style={{ padding: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
-          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</span>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{abbrev(sec.name)}</span>
           {secSubs.length > 0 && (
             <button type="button" onClick={() => setSec(!secOpen)}
               style={{ border: "none", background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: 0, letterSpacing: "0.04em", textTransform: "uppercase" }}>
@@ -633,7 +638,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 <th>Line</th>
                 {MONTHS.map((m) => <th key={m} style={headR}>{m}</th>)}
                 <th style={{ ...headR, color: COLOR_BRAND }}>Budget</th>
-                <th style={headR}>{draft.basisYear} {basisDist ? "Actual" : ""}</th>
+                <th style={headR}>{String(draft.basisYear).slice(2)} {basisDist ? "Actual" : "Open"}</th>
                 <th style={headR}>Change</th>
               </tr>
             </thead>
@@ -668,7 +673,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
       {occOpen && <OccupancyBySuiteModal suites={recTenants.filter((t) => !t.recoveryOnly && t.sqft > 0)} year={draft.budgetYear} onClose={() => setOccOpen(false)} />}
       {makeupAt && <RecoveryMakeupModal makeup={recoveryMakeup(makeupAt.cat, makeupAt.m, recTenants, draft.sections, estKind)} month={MONTHS[makeupAt.m]} year={draft.budgetYear} onClose={() => setMakeupAt(null)} />}
       <div className="muted small" style={{ padding: "2px 4px" }}>
-        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules · <b>Payroll</b> this property&rsquo;s share of the book&rsquo;s payroll total — click the line to enter it · <b>Items</b> built item by item from the {draft.basisYear} budget (contracts and recurring +3%, Big Projects from $0), its figures in <i>italics</i> in the {draft.basisYear} column. <b>{draft.basisYear} Reproj.</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
+        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules · <b>Payroll</b> this property&rsquo;s share of the book&rsquo;s payroll total — click the line to enter it · <b>Items</b> built item by item from the {draft.basisYear} budget (contracts and recurring +3%, Big Projects from $0), its figures in <i>italics</i> in the {draft.basisYear} column. <b>{String(draft.basisYear).slice(2)} Reproj</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
         {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget</b> to spread an annual. <span style={{ background: INPUT_BG, padding: "0 4px", borderRadius: 3 }}>Light blue</span> = you can type it; <span style={{ background: INPUT_BG, color: TYPED_FG, fontWeight: 800, padding: "0 4px", borderRadius: 3 }}>bold blue</span> = typed; ↺ resets a line.</>}
       </div>
     </div>
