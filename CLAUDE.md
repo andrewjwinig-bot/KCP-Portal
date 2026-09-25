@@ -1453,8 +1453,13 @@ time — and the team does not have time to open the GL over $80.
   and a backed-out lease (Rite Aid) puts its space on it. The rate is the
   line's blue "$x.xx/SF vacant" pill, typed in place (stored as CENTS under
   `<section>::Utilities#@psf`, month 0 — the typed-month store keeps whole
-  numbers); untyped it defaults to this year's line ÷ today's vacant SF. No
-  vacancy today and no typed rate → the line keeps its grown figure.
+  numbers); untyped it defaults to this year's line ÷ today's vacant SF.
+  **Every SHOPPING CENTRE is on it and shares ONE rate** (owner): typed at any
+  centre it saves under the pseudo property `book:shopping-centers`
+  (`SC_RATE_SCOPE`) and applies to all of them; a centre with nothing typed
+  and no vacancy today sits at $0 on the rate rather than falling back to
+  +3%. Other properties keep a per-property rate, and with no vacancy and no
+  typed rate keep their grown figure.
 - **PENDING (build when the 2027 draft is finished): "Publish to Budgets".**
   The Budget Draft is a WORKSPACE — nothing reads it. The budget of record is
   the workbook store on `/financials/budgets` (`lib/financials/budgets/storage.ts`),

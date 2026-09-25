@@ -176,7 +176,7 @@ export default function BudgetDraftPage() {
     return null;
   }
 
-  async function editLine(sec: BudgetDraftSection, line: BudgetDraftSection["lines"][number], month: number | "all" | "accept", value: number | null, account?: string) {
+  async function editLine(sec: BudgetDraftSection, line: BudgetDraftSection["lines"][number], month: number | "all" | "accept", value: number | null, account?: string, scopeCode?: string) {
     if (!draft) return;
     setEditError(null);
     // A BUCKETED line (maintenance, insurance, cleaning): its base bucket IS
@@ -276,7 +276,7 @@ export default function BudgetDraftPage() {
     }
     const r = await queued(() => fetch("/api/financials/budgets/line-overrides", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ year: draft.budgetYear, propertyCode: draft.propertyCode, section: sec.name, label: line.label, account: saveAccount, month, value }),
+      body: JSON.stringify({ year: draft.budgetYear, propertyCode: scopeCode ?? draft.propertyCode, section: sec.name, label: line.label, account: saveAccount, month, value }),
     })).catch(() => null);
     if (!r || !r.ok) {
       const j = r ? await r.json().catch(() => ({})) : {};

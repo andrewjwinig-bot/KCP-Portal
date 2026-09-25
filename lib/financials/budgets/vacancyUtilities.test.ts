@@ -43,3 +43,20 @@ describe("utilities on vacant space", () => {
     expect(resolveRate({}, "Non-Reimbursable Expenses", "Utilities", 4000, rows)!.rate).toBe(1);
   });
 });
+
+describe("shopping centres share one rate", () => {
+  const key = rateKey("Non-Reimbursable Expenses", "Utilities");
+  it("a rate typed for the book applies at every centre, over the property's own", () => {
+    const bookDoc = { [key]: { months: [120, null, null, null, null, null, null, null, null, null, null, null] } };
+    const own = { [key]: { months: [50, null, null, null, null, null, null, null, null, null, null, null] } };
+    const v = resolveRate(own, "Non-Reimbursable Expenses", "Utilities", 4000, rows, { bookDoc, scope: "book:shopping-centers", always: true })!;
+    expect(v.rate).toBe(1.2);
+    expect(v.scope).toBe("book:shopping-centers");
+  });
+  it("a fully leased centre with nothing typed is still on the rate, at $0", () => {
+    const leased = [row("A", 2000, 0, "contracted")];
+    const v = resolveRate({}, "Non-Reimbursable Expenses", "Utilities", 5000, leased, { bookDoc: {}, always: true })!;
+    expect(v.rate).toBe(0);
+    expect(resolveRate({}, "Non-Reimbursable Expenses", "Utilities", 5000, leased)).toBeNull();
+  });
+});
