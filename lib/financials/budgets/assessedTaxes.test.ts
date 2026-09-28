@@ -41,14 +41,14 @@ describe("Bucks and Montgomery — assessment × each body's millage, on its own
     expect(month("9510", 5)).toBe(Math.round(971_730 * (5.462 + 0.49 + 2.3633) * 1.03 / 1000));
     expect(month("9510", 9)).toBe(Math.round(971_730 * 27.422 * 1.03 / 1000));
   });
-  it("Bensalem: county + township in April, school in August — 241.5974 mills in 2026", () => {
+  it("Bensalem: county + township in April, school in August — 241.5974 mills in 2026, less the 2% discount", () => {
     const b = ASSESSED_TAXES.find((a) => a.code === "4060")!.jurisdiction.bills;
     expect(b.reduce((s, x) => s + x.levies.reduce((t, l) => t + l.mills, 0), 0)).toBeCloseTo(241.5974, 4);
-    expect(month("4060", 4)).toBe(Math.round(483_450 * (29.65 + 23) * 1.03 / 1000));
-    expect(month("4060", 8)).toBe(Math.round(483_450 * 188.9474 * 1.03 / 1000));
+    expect(month("4060", 4)).toBe(Math.round(483_450 * (29.65 + 23) * 1.03 * 0.98 / 1000));
+    expect(month("4060", 8)).toBe(Math.round(483_450 * 188.9474 * 1.03 * 0.98 / 1000));
   });
   it("Kor Center A/B/C split their one parcel 33/28/39 — the whole bill, once", () => {
-    const whole = Math.round(269_560 * 241.5974 * 1.03 / 1000);
+    const whole = Math.round(269_560 * 241.5974 * 1.03 * 0.98 / 1000);
     const sum = total("40A0") + total("40B0") + total("40C0");
     expect(Math.abs(sum - whole)).toBeLessThanOrEqual(3);
   });
@@ -103,5 +103,25 @@ describe("a stored tax against the computed one", () => {
   it("accepting the computed figure keeps the computed source", () => {
     const out = withSeedComparison({ months: seed.months!.slice(), at: "2026-10-01T00:00:00Z" }, seed);
     expect(out.source!.pill).toBe("Per city");
+  });
+});
+
+describe("the business parks' 2026 reassessment schedule", () => {
+  // The owner's schedule: New Assessment, effective 1/1/2026.
+  const SCHEDULE: Record<string, number> = { "3610": 178_730, "3620": 187_520, "3640": 237_330, "4050": 199_240, "4060": 483_450, "4070": 332_560 };
+  it("every building carries the schedule's new assessment", () => {
+    for (const [code, v] of Object.entries(SCHEDULE)) expect(input(code).source!.formula!.assessed).toBe(v);
+    expect(input("4080").source!.parcels!.map((p) => p.assessed)).toEqual([649_000, 45_080]);
+    const kor = ["40A0", "40B0", "40C0"].reduce((s, c) => s + input(c).source!.formula!.assessed, 0);
+    expect(Math.abs(kor - 269_560)).toBeLessThanOrEqual(1);
+  });
+  it("reproduces the schedule's tax at the schedule's rates with its 2% discount", () => {
+    // Building 1: 178,730 × (27.45 + 23 + 181.3315) × 0.98 = $40,597.78 on the schedule.
+    expect(Math.round(178_730 * (27.45 + 23 + 181.3315) * 0.98 / 10) / 100).toBeCloseTo(40597.78, 1);
+  });
+  it("Bucks bills take the 2% discount; Philadelphia and Montgomery do not", () => {
+    expect(ASSESSED_TAXES.find((a) => a.code === "4060")!.jurisdiction.discountPct).toBe(2);
+    expect(ASSESSED_TAXES.find((a) => a.code === "7200")!.jurisdiction.discountPct ?? 0).toBe(0);
+    expect(ASSESSED_TAXES.find((a) => a.code === "9510")!.jurisdiction.discountPct ?? 0).toBe(0);
   });
 });
