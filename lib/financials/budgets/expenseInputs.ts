@@ -151,7 +151,20 @@ export function grow(months: number[], pct: number): number[] {
 
 /** The figure a kind defaults to before anyone keys it. */
 export function defaultMonths(kind: ExpenseInputKind, basis: number[], growthPct: number): number[] {
+  if (kind === "insurance") return renewalMonths(basis, 1 + growthPct / 100) ?? grow(basis, growthPct);
   return grow(basis, kind === "ret" ? RET_DEFAULT_GROWTH_PCT : growthPct);
+}
+
+/** Insurance RENEWS IN NOVEMBER (owner). So the budget year's January–
+ *  October are the policy already bound — the monthly rate last year's plan
+ *  carries in November / December — and only November–December take the
+ *  next renewal's increase. Growing every month 3% would price ten months of
+ *  a policy whose premium is already known. Null when last year carries no
+ *  November / December rate to roll (the caller then grows month by month). */
+export function renewalMonths(prior: number[], factor: number): number[] | null {
+  const rate = (prior[11] || 0) !== 0 ? prior[11] : prior[10] || 0;
+  if (!rate) return null;
+  return Array.from({ length: 12 }, (_, i) => r0(i < 10 ? rate : rate * factor));
 }
 
 export type ResolvedExpense = { months: number[]; entered: boolean };

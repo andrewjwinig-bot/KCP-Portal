@@ -1200,6 +1200,16 @@ time — and the team does not have time to open the GL over $80.
   the line is the sum (source `items`, pill "Items"). Typed months key
   `section::label#<bucket>` or `…#<bucket>/<item>` in the ONE typed-month
   store. With no prior workbook the line keeps the base-bucket rule below.
+- **INSURANCE RENEWS IN NOVEMBER** (owner; `renewalMonths` in
+  `expenseInputs.ts`). Until Drew keys the renewal quote, each policy's
+  budget-year January–October is the monthly rate last year's plan carries in
+  NOVEMBER / DECEMBER (the renewal already bound — the 2026 workbooks carry
+  Jan–Oct at one rate and Nov–Dec at +2%), and only November–December take
+  +3% for the next renewal. Growing all twelve months 3% priced ten months of
+  a policy whose premium is already known. Applied to the itemized policies
+  (GL, Umbrella, Property, D&O — pill "Nov renewal +3%") and to the
+  un-itemized default; a policy with nothing in Nov/Dec (a lump elsewhere)
+  still grows month by month.
 - **Greg budgets the expenses ON THE DRAFT PAGE, with Drew** (owner's call).
   His separate `/budget-inputs` link is retired from the sidebar and his
   grant; he has `/financials/budgets`. `lineEditScope` /

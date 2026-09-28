@@ -9,6 +9,8 @@
 // So a bucketed line (`lineBuckets.ts`) is SEEDED from last year's budget of
 // record, item by item:
 //   • every contractual / recurring item carries forward, its months +3%;
+//   • INSURANCE RENEWS IN NOVEMBER: Jan–Oct hold the rate last year's plan
+//     carries in Nov / Dec (the policy already bound), Nov–Dec take the 3%;
 //   • BIG PROJECTS START AT $0 — a project is decided each year, and last
 //     year's roof or repaving is not assumed to repeat (the owner's call);
 //     last year's figure stays visible beside it for reference;
@@ -24,6 +26,7 @@
 
 import type { BudgetLine, PropertyBudget } from "./types";
 import { bucketsFor, type BucketSet } from "./lineBuckets";
+import { renewalMonths } from "./expenseInputs";
 import { lineKey, mergeMonths, type LineOverrides } from "./lineOverrides";
 import type { SectionRole } from "@/lib/financials/operating-statements/types";
 
@@ -51,6 +54,9 @@ const r0 = (n: number) => Math.round(n);
 const zero = () => new Array(12).fill(0) as number[];
 const grown = (m: number[]) => m.map((v) => r0((v || 0) * ITEM_GROWTH));
 const isBig = (b: string) => /big project/i.test(b);
+/** Insurance renews in November: Jan–Oct hold last year's Nov/Dec rate, Nov–
+ *  Dec take the 3% (`renewalMonths`). */
+const renewed = (m: number[]) => renewalMonths(m.map((v) => v || 0), ITEM_GROWTH) ?? grown(m);
 
 /** Which of the line's buckets a workbook sub-line belongs to. */
 function bucketOf(set: BucketSet, label: string): string | null {
@@ -84,10 +90,12 @@ export function seedBuckets(set: BucketSet, prior: BudgetLine | null | undefined
     if (!b || !out.has(b)) continue;
     const bucket = out.get(b)!;
     const items = (s.subLines ?? []).filter((x) => !x.isSubtotal);
-    const direct = set.buckets.includes("Liability") && !(b === "Property" && /^property$/i.test(s.label.trim()));
+    const insurance = set.buckets.includes("Liability");
+    const direct = insurance && !(b === "Property" && /^property$/i.test(s.label.trim()));
+    const seedOf = (prior: number[]) => (isBig(b) ? zero() : insurance ? renewed(prior) : grown(prior));
     const add = (x: BudgetLine) => {
       const prior = x.months.map((v) => v || 0);
-      bucket.items.push({ name: x.label.trim(), prior, seed: isBig(b) ? zero() : grown(prior), note: x.notes ?? undefined });
+      bucket.items.push({ name: x.label.trim(), prior, seed: seedOf(prior), note: x.notes ?? undefined });
       bucket.prior = bucket.prior.map((v, i) => v + prior[i]);
     };
     if (items.length) items.forEach(add);
@@ -95,7 +103,7 @@ export function seedBuckets(set: BucketSet, prior: BudgetLine | null | undefined
     else {
       const prior = s.months.map((v) => v || 0);
       bucket.prior = bucket.prior.map((v, i) => v + prior[i]);
-      bucket.seed = isBig(b) ? zero() : grown(prior);
+      bucket.seed = seedOf(prior);
       if (s.notes) bucket.note = s.notes;
     }
   }

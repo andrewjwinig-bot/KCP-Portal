@@ -51,7 +51,23 @@ describe("insurance", () => {
     expect(seeds.find((b) => b.name === "Liability")!.items.map((i) => i.name)).toEqual(["General Liability", "Umbrella"]);
     const p = seeds.find((b) => b.name === "Property")!;
     expect(p.items).toEqual([]);
-    expect(p.seed![0]).toBe(824);
+    expect(p.seed![0]).toBe(800);
+    expect(p.seed![10]).toBe(824);
+  });
+
+  // 4500's 2026 plan: the November 2026 renewal is +2% on General Liability.
+  it("renews in November: Jan–Oct at last year's Nov/Dec rate, Nov–Dec +3%", () => {
+    const gl = [...m(2930).slice(0, 10), 2988.6, 2988.6];
+    const seeds = seedBuckets(bucketsFor("reimbursable-expense", "Insurance")!, L("Insurance", m(0), [L("General Liability", gl), L("Property", m(0))]))!;
+    const item = seeds.find((b) => b.name === "Liability")!.items[0];
+    expect(item.seed.slice(0, 10)).toEqual(m(2989).slice(0, 10));
+    expect(item.seed.slice(10)).toEqual([3078, 3078]);
+  });
+
+  it("a policy with nothing in Nov/Dec grows month by month instead", () => {
+    const lump = [0, 0, 1200, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const seeds = seedBuckets(bucketsFor("reimbursable-expense", "Insurance")!, L("Insurance", m(0), [L("Umbrella", lump), L("Property", m(0))]))!;
+    expect(seeds.find((b) => b.name === "Liability")!.items[0].seed[2]).toBe(1236);
   });
 });
 

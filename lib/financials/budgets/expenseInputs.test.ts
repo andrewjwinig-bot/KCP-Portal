@@ -66,8 +66,17 @@ describe("resolveKind", () => {
     expect(r.months[10]).toBe(7000);
   });
 
-  it("insurance grows with the book until the premium is keyed", () => {
-    expect(resolveKind("insurance", new Array(12).fill(1000), 4, null).months[0]).toBe(1040);
+  it("insurance renews in November until the premium is keyed: Jan–Oct hold this year's Nov/Dec rate", () => {
+    const basis = [...new Array(10).fill(1000), 1020, 1020];
+    const r = resolveKind("insurance", basis, 3, null).months;
+    expect(r[0]).toBe(1020);
+    expect(r[9]).toBe(1020);
+    expect(r[10]).toBe(1051);
+  });
+
+  it("insurance with nothing in Nov/Dec grows month by month", () => {
+    const basis = [0, 0, 12000, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    expect(resolveKind("insurance", basis, 3, null).months[2]).toBe(12360);
   });
 
   it("maintenance takes Greg's twelve months as keyed", () => {
