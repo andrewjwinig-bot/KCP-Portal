@@ -992,6 +992,8 @@ time — and the team does not have time to open the GL over $80.
     recon's RET pool ($159,405) is that parcel's 2025 tax, and Clear Channel's
     flat $3,017 is the billboard parcel's ($215,500). The rear parcel and the
     billboard are on the line, out of the pool.
+  - **0800 Bellmawr and 0300 Airport Interplex Two are NOT budgeted** (owner),
+    so they have no tax seed and none is owed — do not flag them as gaps.
 - **Keying a figure IS completing it.** A saved input ticks its contribution
   on the Expenses step (`deriveContributions`' `entered` map); there is no
   separate tick to remember.
