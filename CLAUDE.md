@@ -974,10 +974,15 @@ time — and the team does not have time to open the GL over $80.
     replace the mills when the body sets them. Budgeted at FACE; no
     early-payment discount.
   - **Hover the pill for the working; CLICK it for the trail**
-    (`SourceBadge.tsx`): each parcel's address, prior and budget-year value,
-    tax, CAM or not, where the value was read, and links to the county record,
-    the data query and the rate sheet — so a figure can be retraced without
-    asking how it was built.
+    (`SourceBadge.tsx`). The dialog reads as the CALCULATION: three `StatPill`
+    tiles — Assessed value × Millage = the tax (`total` = the brand-bordered
+    `.pill-total`) — then a Bills table (each bill's due month, its taxing
+    bodies and their mills, an amber "2026 + 3%" pill on a rate not yet
+    adopted), a Parcels table (prior / assessed / tax, an In CAM / Not in CAM
+    pill), the sources as `btn sm` links, and a one-line footnote. It used to
+    open on a paragraph of method text; the owner asked for it simpler and in
+    the program's own KPI-tile language. Data: `source.formula`, `.bills`,
+    `.footnote` on the input.
   - **Parcels**: Building 8 (4080) is TWO parcels (-002 and -002-015); Kor
     Center A/B/C SHARE one parcel (02-001-002-005) at 33/28/39 (`share`, the
     2026 budget's split); Brookwood (2300) is 1861 + 1847 Street Rd; 2070 is

@@ -54,14 +54,17 @@ export function StatPill({
   value,
   sub,
   accent,
+  total,
 }: {
   label: string;
   value: React.ReactNode;
   sub?: string;
   accent?: string;
+  /** The result tile of a row — brand-bordered (`.pill-total`). */
+  total?: boolean;
 }) {
   return (
-    <div className="pill">
+    <div className={total ? "pill pill-total" : "pill"}>
       <b style={accent ? { color: accent } : undefined}>{value}</b>
       <span className="small muted">{label}</span>
       {sub && <span className="small muted">{sub}</span>}
