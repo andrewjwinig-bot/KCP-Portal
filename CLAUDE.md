@@ -947,6 +947,15 @@ time — and the team does not have time to open the GL over $80.
     scrolled off the right edge and nobody could find where to key taxes.
   `expenseInputKindOf` matches EXPENSE sections only — the revenue side carries
   "Real Estate Taxes"/"Insurance" recovery lines with the same names.
+- **TAXES FROM AN ASSESSMENT NOTICE ARE SEEDED** (`assessedTaxes.ts`,
+  `ASSESSED_TAXES`): taxable assessed value × the millage, the whole bill in
+  its DUE month, laid under the Budget Inputs store by `getExpenseInputs` as
+  the `ret` input (so it reads "Entered"). Philadelphia is 1.3998% (City
+  0.6317% + School 0.7681%), due March 31; the 1% February discount is NOT
+  assumed. 2027 seeds: **7200 Elbridge $2,347,900 → $32,866** and **7010
+  Parkwood $13,174,000 → $184,410**, both March. Typing taxes replaces the
+  seed; ↺ clears it and STAYS cleared (`seedCleared` on the stored doc). A new
+  notice is one row in `ASSESSED_TAXES`.
 - **Keying a figure IS completing it.** A saved input ticks its contribution
   on the Expenses step (`deriveContributions`' `entered` map); there is no
   separate tick to remember.
