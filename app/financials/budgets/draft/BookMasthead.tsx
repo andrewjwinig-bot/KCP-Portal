@@ -22,8 +22,10 @@ const tab = (active: boolean): React.CSSProperties => ({
   cursor: "pointer", whiteSpace: "nowrap",
 });
 
-export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onYear, years }: {
+export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onYear, years, hideBooks = [] }: {
   book: BudgetBook;
+  /** Books this viewer may not open (the payroll book, for anyone but Drew / Alison). */
+  hideBooks?: string[];
   year: number;
   /** Null = the roll-up across the whole book. */
   propertyCode: string | null;
@@ -38,7 +40,7 @@ export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onY
     <div className="card" style={{ padding: "14px 16px" }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
         <div style={{ minWidth: 0 }}>
-          <div style={secLabel}>{year} Operating Budget</div>
+          <div style={secLabel}>{year} {book.id === "lik-payroll" ? "Payroll Budget" : "Operating Budget"}</div>
           {/* The page's own h1 — the Operating Budgets page's size. The book's
               name on the roll-up; the property's own name once one is open. */}
           <h1 style={{ marginTop: 4 }}>{(propertyCode && props.find((p) => p.code === propertyCode)?.name) || book.name}</h1>
@@ -48,7 +50,7 @@ export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onY
           <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <span style={secLabel}>Budget</span>
             <select value={book.id} onChange={(e) => onBook(e.target.value)} className="select-brand select-sm">
-              {budgetBooks().map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              {budgetBooks().filter((b) => !hideBooks.includes(b.id)).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 3 }}>

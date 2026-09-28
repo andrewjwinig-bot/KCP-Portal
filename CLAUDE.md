@@ -1280,6 +1280,37 @@ time — and the team does not have time to open the GL over $80.
   salary / wage / payroll line (`scopeAllowsLine`). Anything built for the
   LIK Payroll book (per-employee pay and allocation) goes behind the same
   gate. Pinned by `contributors.test.ts`.
+- **THE 2010 LIK PAYROLL BUDGET** (`payrollBudget.ts`, `payrollBudgetStore.ts`
+  — `budget-payroll`, one doc per year; `/api/financials/budgets/payroll`
+  GET/PUT; `PayrollBudget.tsx`, shown when the Budget Draft's book is "2010 LIK
+  Payroll"). The owner's payroll workbook rebuilt as its four sheets, in order:
+  **pay & taxes** (salary or per pay × 26, FICA 6.2% to the wage base,
+  Medicare 1.45% capped at $200,000 AS THE WORKBOOK CAPS IT, UC flat, FUTA 6%
+  on the first $7,000 OF WAGES, work comp, 401(k) % of salary → gross),
+  **health** (Life/Dental/LTD/STD/Vision annual + monthly medical × 12 = the
+  medical column), **allocation %** (LIK Operating/Other, JV III, NI LLC, SC,
+  Office Works Direct/Indirect, Marketing-All, Interstate, Middletown,
+  Eastwick — must total 100%) and **by building**.
+  - An employee's GROUP is their account: Maintenance Salaries 6030-8502
+    (Loiseau, Masciantonio, Gosik — their SC share is the 2026 workbook's
+    $118,748 to the dollar) or Salaries & Wages 6010-8501 (everyone else).
+  - Each (fund, account) takes its building share on the WORKBOOK'S basis:
+    PRS (sq ft) or the keyed Alt PRS — SC 6010 + marketing Alt (9510 out),
+    6030 PRS; NI LLC 6010 + marketing PRS, 6030 Alt (40C0 out); JV III Alt
+    30/35/35. Selectable per column. Marketing-All splits SC 46 / NI 34 / JV 20.
+    Misc: 2010 = LIK Operating + Other; 0800 = Interstate + Middletown; 4900 =
+    Office Works Direct + Indirect; Eastwick has no property code. Monthly
+    rounds to $10 as the workbook does. Everything allocated must equal gross.
+  - A year never saved starts from the year before, else `SEED_2026` (the
+    owner's 2026 inputs). Two deliberate differences from the workbook:
+    Susan Weissman's FUTA is $326, not a flat $420 (she earns $5,441, under the
+    $7,000 wage base); Harry's SC is 85, not the 86 shown beside 5/5/5 (101%).
+  - DREW'S AND ALISON'S ALONE (`canSeePayroll`): the route refuses both verbs,
+    and the book is left out of everyone else's book list.
+  - NEXT (not built): feed the property drafts' salary lines from it (it
+    replaces `payrollPools.ts`'s last-year +3% blocks), and give Harry's
+    Payroll Invoicer its 2027 allocation from it (employee × building %,
+    recoverable = maintenance) effective 1/1/27.
 - **A LEASE IN PLACE CAN BE BACKED OUT** (`kind: "stop"` + `startMonth`,
   applied LAST in `projectLeaseRevenue` over every suite with a tenant). A
   tenant who will not pay — Rite Aid at 7010, in bankruptcy — earns no rent
