@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { canSeePayroll } from "@/lib/financials/budgets/contributors";
+import { budgetUser } from "@/lib/financials/budgets/currentUser";
+import { stripPayrollAllocations } from "@/lib/financials/budgets/payrollPools";
 import { getBudget, deleteBudget, saveBudget } from "@/lib/financials/budgets/storage";
 import { enrichWithRentRollDates } from "@/lib/financials/budgets/enrich";
 
@@ -9,6 +12,9 @@ export const revalidate = 0;
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
   try {
     const wb = await getBudget(params.id);
+    // Payroll allocations (the book's salary totals and each property's
+    // share) are Drew's and Alison's alone — taken off for anyone else.
+    if (wb && !canSeePayroll(await budgetUser())) stripPayrollAllocations(wb);
     if (!wb) return NextResponse.json({ error: "Not found" }, { status: 404 });
     // Layer in lease windows from the portal's stored rent roll for
     // any rent-roster tenant whose dates the workbook didn't already

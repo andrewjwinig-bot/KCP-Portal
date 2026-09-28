@@ -4,7 +4,14 @@ import { consolidateDrafts } from "@/lib/financials/budgets/consolidate";
 import { bookById } from "@/lib/financials/budgets/books";
 import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
-import { canEditLines, lineEditScope } from "@/lib/financials/budgets/contributors";
+import { canEditLines, lineEditScope, canSeePayroll } from "@/lib/financials/budgets/contributors";
+import type { BudgetDraft as Draft } from "@/lib/financials/budgets/draft";
+
+/** Strip the payroll book's totals and shares off every line for a viewer who
+ *  may not see payroll (`canSeePayroll`) — the line keeps only its own figure. */
+function withoutPayroll(d: Draft): Draft {
+  return { ...d, sections: d.sections.map((s) => ({ ...s, lines: s.lines.map((l) => (l.pool ? { ...l, pool: undefined } : l)) })) };
+}
 import { getLineNotes } from "@/lib/financials/budgets/lineNoteStore";
 
 export const runtime = "nodejs";
@@ -65,5 +72,6 @@ export async function GET(req: Request) {
   // The notes left on its lines ride with it, keyed `section::label`.
   const notes = await getLineNotes(draft.budgetYear, draft.propertyCode).catch(() => ({}));
   const user = await budgetUser();
-  return NextResponse.json({ ...draft, notes, canEditLines: canEditLines(user), lineEditScope: lineEditScope(user) });
+  const shown = canSeePayroll(user) ? draft : withoutPayroll(draft);
+  return NextResponse.json({ ...shown, notes, canEditLines: canEditLines(user), lineEditScope: lineEditScope(user) });
 }

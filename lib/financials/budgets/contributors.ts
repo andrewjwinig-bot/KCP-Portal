@@ -88,6 +88,15 @@ export function isBudgetAuthor(user: UserId | null | undefined): boolean {
   return user === "drew" || user === "admin" || user === "alison";
 }
 
+/** THE PAYROLL BUDGET IS DREW'S AND ALISON'S ALONE (owner) — plus admin. The
+ *  book-wide salary totals, each property's share of them, and the LIK
+ *  Payroll book are withheld from everyone else, Greg, Nancy and Harry
+ *  included, on the SERVER: the payroll-pools route refuses them and the
+ *  draft route strips each line's `pool` detail. */
+export function canSeePayroll(user: UserId | null | undefined): boolean {
+  return user === "drew" || user === "alison" || user === "admin";
+}
+
 /** Typing months straight into the budget grid: the budget's authors (Drew,
  *  admin, Alison). Greg types the expense lines through `lineEditScope`. */
 export function canEditLines(user: UserId | null | undefined): boolean {
@@ -110,7 +119,7 @@ export function lineEditScope(user: UserId | null | undefined): LineEditScope {
 export function scopeAllowsLine(scope: LineEditScope, section: string, label: string): boolean {
   if (scope === "all") return true;
   if (scope !== "expenses") return false;
-  return /expense/i.test(section) && !/real\s*estate\s*tax|insurance/i.test(label);
+  return /expense/i.test(section) && !/real\s*estate\s*tax|insurance|salar|wage|payroll/i.test(label);
 }
 
 /** One outstanding (or completed) part of the budget. */

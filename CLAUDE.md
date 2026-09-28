@@ -1268,6 +1268,18 @@ time — and the team does not have time to open the GL over $80.
   typeable per property — onto the GL's sub-line where the line has several
   accounts). Until entered a block carries last year +3%. Later this links to
   the `lik-payroll` book, which already `feeds` these books.
+- **THE PAYROLL BUDGET IS DREW'S AND ALISON'S ALONE** (owner; plus admin —
+  `canSeePayroll` in `contributors.ts`). Enforced on the SERVER, never by
+  hiding a control: the payroll-pools route refuses GET and POST to anyone
+  else; the draft route strips each line's `pool` (the book total and the
+  property's share); and the stored-budget routes (`[id]`, its xlsx and PDF
+  downloads) strip every allocation whose note says payroll
+  (`stripPayrollAllocations`) — the 2026 workbooks carry the book-wide salary
+  totals there. A property's own salary LINE keeps its figure (it is part of
+  that property's NOI, on its statements already). Greg cannot type a
+  salary / wage / payroll line (`scopeAllowsLine`). Anything built for the
+  LIK Payroll book (per-employee pay and allocation) goes behind the same
+  gate. Pinned by `contributors.test.ts`.
 - **A LEASE IN PLACE CAN BE BACKED OUT** (`kind: "stop"` + `startMonth`,
   applied LAST in `projectLeaseRevenue` over every suite with a tenant). A
   tenant who will not pay — Rite Aid at 7010, in bankruptcy — earns no rent

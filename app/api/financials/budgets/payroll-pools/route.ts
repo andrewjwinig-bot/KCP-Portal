@@ -4,7 +4,7 @@ import { payrollBlocks, poolAnnual, allocatePool } from "@/lib/financials/budget
 import { getPoolEntries, setPoolEntry } from "@/lib/financials/budgets/payrollPoolStore";
 import { priorBudgetProperties } from "@/lib/financials/budgets/draft";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
-import { canEditLines } from "@/lib/financials/budgets/contributors";
+import { canSeePayroll } from "@/lib/financials/budgets/contributors";
 import { USERS } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -20,10 +20,12 @@ export async function GET(req: Request) {
   const year = Number(url.searchParams.get("year")) || new Date().getFullYear() + 1;
   const book = bookById(url.searchParams.get("book") ?? "");
   if (!book) return NextResponse.json({ error: "Unknown book." }, { status: 400 });
-  const [prior, entries, user] = await Promise.all([
+  // Payroll is Drew's and Alison's alone — refused, not merely hidden.
+  const user = await budgetUser();
+  if (!canSeePayroll(user)) return NextResponse.json({ error: "The payroll budget is restricted." }, { status: 403 });
+  const [prior, entries] = await Promise.all([
     priorBudgetProperties(book.properties, year - 1),
     getPoolEntries(year, book.id).catch(() => ({})),
-    budgetUser(),
   ]);
   const blocks = payrollBlocks(prior).map((b) => {
     const e = (entries as Record<string, { annual: number; by?: string; at?: string }>)[b.key];
@@ -33,14 +35,14 @@ export async function GET(req: Request) {
       .map((c) => ({ code: c, sharePct: b.shares[c.toUpperCase()], amount: (allocatePool(b, annual, c) ?? []).reduce((a, v) => a + v, 0) }));
     return { ...b, annual, entered, by: e?.by ?? null, at: e?.at ?? null, split };
   });
-  return NextResponse.json({ year, basisYear: year - 1, book: book.id, blocks, canEdit: canEditLines(user) });
+  return NextResponse.json({ year, basisYear: year - 1, book: book.id, blocks, canEdit: canSeePayroll(user) });
 }
 
 // POST { year, book, key, annual } — annual null hands the block back to last year +3%.
 export async function POST(req: Request) {
   const user = await budgetUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  if (!canEditLines(user)) return NextResponse.json({ error: "Only Drew, Alison or admin can set the payroll totals." }, { status: 403 });
+  if (!canSeePayroll(user)) return NextResponse.json({ error: "Only Drew or Alison can set the payroll totals." }, { status: 403 });
   try {
     const b = await req.json();
     const year = Number(b?.year);
