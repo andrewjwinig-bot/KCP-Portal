@@ -24,6 +24,9 @@ describe("real estate taxes from the assessment notice", () => {
   it("Hyman Korman Co (5600) 2027: $307,000 × 1.3998% = $4,297 in March", () => {
     expect(assessedTaxInput(2027, "5600")!.months![2]).toBe(4297);
   });
+  it("Parkwood Professional (1100) 2027: $1,240,000 × 1.3998% = $17,358 in March", () => {
+    expect(assessedTaxInput(2027, "1100")!.months![2]).toBe(17358);
+  });
   it("seeds nothing for another year or property", () => {
     expect(assessedTaxInput(2028, "7200")).toBeNull();
     expect(assessedTaxInput(2027, "9510")).toBeNull();

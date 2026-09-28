@@ -55,6 +55,8 @@ export const ASSESSED_TAXES: AssessedTax[] = [
     parcels: [{ number: "882832400", label: "Shopping Center", assessed: 2_347_900, recoverable: true }] },
   { code: "7010", year: 2027, ratePct: PHILA_RET_RATE_PCT, dueMonth: 3, source: PHILA_2027,
     parcels: [{ number: "882078060", label: "Shopping Center", assessed: 13_174_000, recoverable: true }] },
+  { code: "1100", year: 2027, ratePct: PHILA_RET_RATE_PCT, dueMonth: 3, source: PHILA_2027,
+    parcels: [{ number: "882077811", label: "Parkwood Professional Bldg", assessed: 1_240_000, recoverable: true }] },
   { code: "5600", year: 2027, ratePct: PHILA_RET_RATE_PCT, dueMonth: 3, source: PHILA_2027,
     parcels: [{ number: "882830600", label: "Post Office", assessed: 307_000, recoverable: true }] },
   // Gray's Ferry. The 2026 budget of record (INS RET DEBT tab) carries the
