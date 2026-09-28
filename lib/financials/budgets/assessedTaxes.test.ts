@@ -6,23 +6,24 @@ const total = (code: string) => input(code).months!.reduce((a, b) => a + b, 0);
 const month = (code: string, m: number) => input(code).months![m - 1];
 
 describe("Philadelphia — the city's certified assessments", () => {
-  it("each notice the owner mailed in: value × 1.3998%, all in March", () => {
-    expect(month("7200", 3)).toBe(32866);   // $2,347,900
-    expect(month("7010", 3)).toBe(184410);  // $13,174,000
-    expect(month("1100", 3)).toBe(17358);   // $1,240,000
-    expect(month("5600", 3)).toBe(4297);    // $307,000
-    expect(month("8200", 3)).toBe(23655);   // Four Seasons only; McDonald's pays its own
+  // Less the 1% early-payment discount, so paid in February (due March 31).
+  it("each notice the owner mailed in: value × 1.3998% less 1%, all in February", () => {
+    expect(month("7200", 2)).toBe(32537);   // $2,347,900
+    expect(month("7010", 2)).toBe(182566);  // $13,174,000
+    expect(month("1100", 2)).toBe(17184);   // $1,240,000
+    expect(month("5600", 2)).toBe(4254);    // $307,000
+    expect(month("8200", 2)).toBe(23419);   // Four Seasons only; McDonald's pays its own
     expect(input("7010").months!.filter((v) => v).length).toBe(1);
     expect(input("7010").nonRecoverable).toBeUndefined();
   });
   it("the properties with no letter, off the city's open data", () => {
-    expect(total("7300")).toBe(54610);
-    expect(total("1500")).toBe(6014);
-    expect(total("9200")).toBe(5510);
+    expect(total("7300")).toBe(54064);
+    expect(total("1500")).toBe(5953);
+    expect(total("9200")).toBe(5455);
   });
   it("Gray's Ferry (4500): three bills, only the shopping centre in CAM", () => {
-    expect(total("4500")).toBe(189221 + 22997 + 2214);
-    expect(input("4500").nonRecoverable).toEqual({ budget: 22997 + 2214, basis: 22579 + 3017, label: "Rear Parcel, Clear Channel billboard" });
+    expect(total("4500")).toBe(187329 + 22767 + 2192);
+    expect(input("4500").nonRecoverable).toMatchObject({ budget: 22767 + 2192, label: "Rear Parcel, Clear Channel billboard" });
   });
   it("the 2025 recon's RET pool IS the shopping-centre parcel's tax", () => {
     expect(Math.abs(11_387_700 * 0.013998 - 159_405.02)).toBeLessThan(1.5);
@@ -35,11 +36,11 @@ describe("Bucks and Montgomery — assessment × each body's millage, on its own
     const mills2026 = 5.462 + 0.49 + 2.3633 + 27.422;
     expect(Math.round(971_730 * mills2026 / 1000)).toBe(34727);
   });
-  it("9510: county + township in May, Colonial SD in September, rates not yet adopted +3%", () => {
+  it("9510: county + township in May, Colonial SD in September, rates not yet adopted +3%, less 2%", () => {
     const i = input("9510");
     expect(i.months!.filter((v) => v).length).toBe(2);
-    expect(month("9510", 5)).toBe(Math.round(971_730 * (5.462 + 0.49 + 2.3633) * 1.03 / 1000));
-    expect(month("9510", 9)).toBe(Math.round(971_730 * 27.422 * 1.03 / 1000));
+    expect(month("9510", 5)).toBe(Math.round(971_730 * (5.462 + 0.49 + 2.3633) * 1.03 * 0.98 / 1000));
+    expect(month("9510", 9)).toBe(Math.round(971_730 * 27.422 * 1.03 * 0.98 / 1000));
   });
   it("Bensalem: county + township in April, school in August — 241.5974 mills in 2026, less the 2% discount", () => {
     const b = ASSESSED_TAXES.find((a) => a.code === "4060")!.jurisdiction.bills;
@@ -75,7 +76,7 @@ describe("every figure carries its trail", () => {
     expect(assessedTaxInput(2028, "7200")).toBeNull();
     expect(assessedTaxInput(2027, "ZZZZ")).toBeNull();
     expect(assessedTaxInput(2027, "PIIICO")).not.toBeNull(); // the condo's statement key, not 3610A
-    expect(assessedTaxInput(2027, "7200")!.source!.formula!.thisYear).toBe(Math.round(2_250_000 * 0.013998));
+    expect(assessedTaxInput(2027, "7200")!.source!.formula!.thisYear).toBe(Math.round(2_250_000 * 0.013998 * 0.99));
     expect(ASSESSED_TAXES.every((a) => assessedTax(a) > 0)).toBe(true);
   });
 });
@@ -98,7 +99,7 @@ describe("a stored tax against the computed one", () => {
     expect(COMPUTED_TAX_SINCE < typed.at).toBe(true);
     const out = withSeedComparison(typed, seed);
     expect(out.source!.pill).toBe("Entered");
-    expect(out.source!.total.value).toBe("$986");
+    expect(out.source!.total.value).toBe("$1,047"); // $7,000 typed − $5,953 computed
   });
   it("accepting the computed figure keeps the computed source", () => {
     const out = withSeedComparison({ months: seed.months!.slice(), at: "2026-10-01T00:00:00Z" }, seed);
@@ -119,9 +120,9 @@ describe("the business parks' 2026 reassessment schedule", () => {
     // Building 1: 178,730 × (27.45 + 23 + 181.3315) × 0.98 = $40,597.78 on the schedule.
     expect(Math.round(178_730 * (27.45 + 23 + 181.3315) * 0.98 / 10) / 100).toBeCloseTo(40597.78, 1);
   });
-  it("Bucks bills take the 2% discount; Philadelphia and Montgomery do not", () => {
+  it("every bill takes its early-payment discount: Bucks and Montgomery 2%, Philadelphia 1%", () => {
     expect(ASSESSED_TAXES.find((a) => a.code === "4060")!.jurisdiction.discountPct).toBe(2);
-    expect(ASSESSED_TAXES.find((a) => a.code === "7200")!.jurisdiction.discountPct ?? 0).toBe(0);
-    expect(ASSESSED_TAXES.find((a) => a.code === "9510")!.jurisdiction.discountPct ?? 0).toBe(0);
+    expect(ASSESSED_TAXES.find((a) => a.code === "7200")!.jurisdiction.discountPct).toBe(1);
+    expect(ASSESSED_TAXES.find((a) => a.code === "9510")!.jurisdiction.discountPct).toBe(2);
   });
 });

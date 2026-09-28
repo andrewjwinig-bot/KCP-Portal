@@ -965,7 +965,9 @@ time — and the team does not have time to open the GL over $80.
     assessments from the city's open data (`assessments` on phl.carto.com —
     `phlQueryUrl` rebuilds the query); the six mailed Notices of Valuation
     matched it to the dollar (`notice`). 1.3998% (City 6.317 + School 7.681
-    mills, unchanged since 2016), one bill in MARCH.
+    mills, unchanged since 2016), one bill — due March 31, budgeted in
+    FEBRUARY because the 1% discount requires payment by the last day of
+    February.
   - **Bucks** (pill "Per county"): values from the county's parcel layer
     (`Bucks_County_Parcels` on ArcGIS — `bucksParcelUrl`), rates from the
     county's 2026 millage sheet. County + township bill in APRIL, school in
@@ -979,10 +981,13 @@ time — and the team does not have time to open the GL over $80.
   - **Outside Philadelphia values move only on APPEAL**, so otherwise only
     rates move. A rate not yet adopted for the budget year is the latest
     adopted + `RET_DEFAULT_GROWTH_PCT` (`adopted: false`), and the source says
-    so — replace the mills when the body sets them. **BUCKS takes the 2%
-    early-payment discount** (`discountPct` on the jurisdiction) — the owner
-    pays within the discount period, as the business parks' 2026
-    reassessment schedule does. Philadelphia and Montgomery are at FACE.
+    so — replace the mills when the body sets them. **EVERY BILL ASSUMES ITS
+    EARLY-PAYMENT DISCOUNT** (`discountPct` on the jurisdiction; owner's
+    call — "assume early payment discounts, just make note"): Bucks 2% (as
+    the business parks' 2026 reassessment schedule does), Montgomery 2%,
+    Philadelphia 1%. The method text, footnote and the dialog's discount
+    tile say so. Montgomery's bill months stay the Tax Tracker's; if a
+    school discount window closes before September, move the month.
   - **The business parks were reassessed on appeal, effective 1/1/2026** (the
     owner's "Bucks County 2026 RET Reassessments" schedule: JV III $1,399,380
     → $603,580, NI LLC $3,244,570 → $1,978,890). The county's records carry
