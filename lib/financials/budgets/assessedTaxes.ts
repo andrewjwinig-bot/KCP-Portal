@@ -32,9 +32,10 @@
 // the budget year (the county and township set theirs in December, the school
 // district in June) is the latest adopted rate + `RET_DEFAULT_GROWTH_PCT`, and
 // the source says which. Swap in the adopted rate when it is set and the bill
-// recomputes. Philadelphia and Montgomery are budgeted at FACE. BUCKS takes the
-// 2% early-payment discount (`discountPct`) — the owner pays within the
-// discount period, and the business parks' reassessment schedule applies it.
+// recomputes. EVERY BILL TAKES ITS EARLY-PAYMENT DISCOUNT (`discountPct`) — the
+// owner pays within the discount period (owner's call; the business parks'
+// reassessment schedule applies Bucks' 2%): Philadelphia 1% (paid by the last
+// day of February, so the bill lands in FEBRUARY), Bucks and Montgomery 2%.
 //
 // A property can be SEVERAL PARCELS, all on the one tax line. A parcel NOT in
 // CAM is kept OUT of the pool tenants' RET recoveries are figured on
@@ -72,11 +73,13 @@ export type Jurisdiction = {
 const PHL: Jurisdiction = {
   id: "PHL", county: "Philadelphia", pill: "Per city",
   source: "City of Philadelphia Office of Property Assessment — certified 2027 assessments",
-  bills: [{ label: "City + School District", dueMonth: 3, levies: [
+  // Due March 31; paid by the last day of February for the 1% discount.
+  bills: [{ label: "City + School District", dueMonth: 2, levies: [
     { body: "City of Philadelphia", mills: 6.317, rateYear: "2016–", adopted: true },
     { body: "School District of Philadelphia", mills: 7.681, rateYear: "2016–", adopted: true },
   ] }],
   rateLink: { label: "Tax rate (phila.gov)", href: "https://www.phila.gov/services/payments-assistance-taxes/taxes/property-and-real-estate-taxes/real-estate-tax/" },
+  discountPct: 1,
 };
 
 // Bucks County, 2026 millage (county 29.65 = general 24.0035 + college 1.1777
@@ -116,6 +119,7 @@ const montco = (id: string, muni: Levy, school: Levy, countyMonth: number): Juri
     { label: school.body, dueMonth: 9, levies: [school] },
   ],
   rateLink: MONTCO_RATES,
+  discountPct: 2,
 });
 // County-bill months from the Tax Tracker (Whitemarsh 5/1, Upper Dublin 3/31).
 const WHITEMARSH = montco("WHITEMARSH",
@@ -323,8 +327,8 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
   const levyText = j.bills.map((b) =>
     `${b.label} (${MONTHS[b.dueMonth - 1]}): ${b.levies.map((l) => `${l.body} ${l.mills} mills${l.adopted ? "" : ` (${l.rateYear} + ${RET_DEFAULT_GROWTH_PCT}%)`}`).join(" + ")}`).join("; ");
   const method = j.county === "Philadelphia"
-    ? "Taxable assessed value (land + building) × 1.3998% (City 0.6317% + School District 0.7681%), the whole bill in March — due March 31. The 1% early-payment discount is not assumed."
-    : `Assessed value × each taxing body's millage (mills per $1,000), on the bill that body sends: ${levyText}. Values move only on appeal (the business parks were reassessed effective 1/1/2026), so otherwise only the rates move; a rate not yet adopted for ${a.year} is the latest adopted + ${RET_DEFAULT_GROWTH_PCT}% — replace it when the body sets it. ${j.discountPct ? `Less the ${j.discountPct}% early-payment discount, which is taken.` : "Budgeted at face: no early-payment discount."}`;
+    ? "Taxable assessed value (land + building) × 1.3998% (City 0.6317% + School District 0.7681%), less the 1% early-payment discount — assumed taken, so the bill is paid in February (due March 31; the discount runs to the last day of February)."
+    : `Assessed value × each taxing body's millage (mills per $1,000), on the bill that body sends: ${levyText}. Values move only on appeal (the business parks were reassessed effective 1/1/2026), so otherwise only the rates move; a rate not yet adopted for ${a.year} is the latest adopted + ${RET_DEFAULT_GROWTH_PCT}% — replace it when the body sets it. ${j.discountPct ? `Less the ${j.discountPct}% early-payment discount, assumed taken.` : "Budgeted at face: no early-payment discount."}`;
 
   // The calculation, for the source dialog: assessed value × effective mills
   // = the tax, then one row per bill.
@@ -339,8 +343,8 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
   const thisYear = a.parcels.every((p) => p.prior != null) ? a.parcels.reduce((s, p) => s + parcelTaxNow(p, j), 0) : undefined;
   const formula = { assessed: Math.round(assessedSum), mills: j.bills.reduce((s, b) => s + billMills(b), 0), tax: total, thisYear, thisYearLabel: `${a.year - 1} at ${a.year - 1} rates`, ...(j.discountPct ? { discountPct: j.discountPct } : {}) };
   const footnote = j.county === "Philadelphia"
-    ? "Philadelphia reassesses each year; the rate has been 1.3998% since 2016. Budgeted at face — the 1% early-payment discount is not assumed."
-    : `Values move only on appeal, so otherwise only the rates move. Rates not yet adopted for ${a.year} carry the latest adopted + ${RET_DEFAULT_GROWTH_PCT}%. ${j.discountPct ? `Less the ${j.discountPct}% early-payment discount, which is paid for.` : "Budgeted at face — no early-payment discount."}`;
+    ? "Philadelphia reassesses each year; the rate has been 1.3998% since 2016. Assumes the 1% early-payment discount — paid by the last day of February."
+    : `Values move only on appeal, so otherwise only the rates move. Rates not yet adopted for ${a.year} carry the latest adopted + ${RET_DEFAULT_GROWTH_PCT}%. ${j.discountPct ? `Assumes the ${j.discountPct}% early-payment discount — each bill paid within its discount period.` : "Budgeted at face — no early-payment discount."}`;
 
   const dataLink = j.county === "Philadelphia"
     ? [{ label: `City open data ${a.year - 1}–${a.year}`, href: phlQueryUrl(a.parcels.map((p) => p.number), [a.year - 1, a.year]) }]
