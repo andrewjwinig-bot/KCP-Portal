@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { HoverCard } from "@/app/components/HoverCard";
-import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, type PillTone } from "@/app/components/Pill";
+import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, tiesTone, type PillTone } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import type { ExpenseInput } from "@/lib/financials/budgets/expenseInputs";
 
@@ -19,7 +19,8 @@ type Source = NonNullable<ExpenseInput["source"]>;
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const usd = (n: number | null | undefined) => (n == null ? "–" : `$${Math.round(n).toLocaleString("en-US")}`);
 
-export function SourceBadge({ source, tone, text, label }: { source: Source; tone: PillTone; text: string; label: string }) {
+export function SourceBadge({ source, tone, text, label, basis }: { source: Source; tone: PillTone; text: string; label: string;
+  /** This year's line as the draft reprojects it — actuals to date. */ basis?: number }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -29,12 +30,12 @@ export function SourceBadge({ source, tone, text, label }: { source: Source; ton
           <Pill tone={tone}>{text}</Pill>
         </button>
       </HoverCard>
-      {open && <SourceDialog source={source} label={label} onClose={() => setOpen(false)} />}
+      {open && <SourceDialog source={source} label={label} basis={basis} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function SourceDialog({ source, label, onClose }: { source: Source; label: string; onClose: () => void }) {
+function SourceDialog({ source, label, basis, onClose }: { source: Source; label: string; basis?: number; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -67,6 +68,22 @@ function SourceDialog({ source, label, onClose }: { source: Source; label: strin
               <StatPill label={source.total.label} value={source.total.value} accent="var(--brand)" total />
             </div>
           ) : source.method ? <div className="small">{source.method}</div> : null}
+
+          {/* The check against the actual bills: this year's tax at this
+              year's adopted rates, against what the ledger carries for the
+              year (the draft's reprojection — actuals to date). */}
+          {f?.thisYear != null && basis != null && Math.abs(basis) >= 1 && (() => {
+            const diff = basis - f.thisYear!;
+            const ties = Math.abs(diff) <= Math.max(250, Math.abs(f.thisYear!) * 0.02);
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)" }}>
+                <span style={secLabel}>Check against this year</span>
+                <span className="small"><span className="muted">{f.thisYearLabel}</span> <b>{usd(f.thisYear)}</b></span>
+                <span className="small"><span className="muted">on the ledger (reprojection)</span> <b>{usd(basis)}</b></span>
+                <span style={{ marginLeft: "auto" }}><Pill tone={tiesTone(ties)}>{ties ? "TIES" : `DOESN'T TIE · ${diff > 0 ? "+" : "-"}${usd(Math.abs(diff))}`}</Pill></span>
+              </div>
+            );
+          })()}
 
           {bills.length > 0 && (
             <div>

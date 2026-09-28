@@ -276,7 +276,7 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
                 style={{ fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>Accept</button>
             )}
             {badge && (badgeHref ? <a href={badgeHref} style={{ textDecoration: "none" }}><Pill tone={badge.tone}>{badge.text} →</Pill></a>
-              : badgeSource ? <SourceBadge source={badgeSource} tone={badge.tone} text={badge.text} label={label} />
+              : badgeSource ? <SourceBadge source={badgeSource} tone={badge.tone} text={badge.text} label={label} basis={basis} />
               : <Pill tone={badge.tone}>{badge.text}</Pill>)}
             {onReset && typed?.some(Boolean) && (
               <button type="button" onClick={onReset} title="Reset typed months" aria-label="Reset typed months"

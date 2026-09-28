@@ -52,7 +52,9 @@ export type ExpenseInput = {
     /** How the figure is computed, in a sentence. */
     method?: string;
     /** The calculation as three figures: assessed value × mills = tax. */
-    formula?: { assessed: number; mills: number; tax: number };
+    formula?: { assessed: number; mills: number; tax: number;
+      /** This year's tax at this year's ADOPTED rates — checked against the ledger. */
+      thisYear?: number; thisYearLabel?: string };
     /** One entry per bill the taxing bodies send, in the month it is due. */
     bills?: { label: string; month: string; mills: number; tax: number; levies: { body: string; mills: number; rateYear: string; adopted: boolean }[] }[];
     /** A short basis-of-presentation line under the detail. */

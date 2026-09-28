@@ -74,6 +74,8 @@ describe("every figure carries its trail", () => {
   it("seeds nothing for another year or an unknown property", () => {
     expect(assessedTaxInput(2028, "7200")).toBeNull();
     expect(assessedTaxInput(2027, "ZZZZ")).toBeNull();
+    expect(assessedTaxInput(2027, "PIIICO")).not.toBeNull(); // the condo's statement key, not 3610A
+    expect(assessedTaxInput(2027, "7200")!.source!.formula!.thisYear).toBe(Math.round(2_250_000 * 0.013998));
     expect(ASSESSED_TAXES.every((a) => assessedTax(a) > 0)).toBe(true);
   });
 });

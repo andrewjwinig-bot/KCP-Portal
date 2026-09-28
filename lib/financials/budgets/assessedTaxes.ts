@@ -177,7 +177,7 @@ export const ASSESSED_TAXES: AssessedTax[] = [
   T("3610", BENSALEM, [{ number: "02-001-002-004-001", label: "Building 1", address: "1 Interplex Dr", ...same(178_730), recoverable: true }]),
   T("3620", BENSALEM, [{ number: "02-001-002-004-002", label: "Building 2", address: "2 Interplex Dr", ...same(187_520), recoverable: true }]),
   T("3640", BENSALEM, [{ number: "02-001-002-004-004", label: "Building 4", address: "4 Interplex Dr", ...same(237_330), recoverable: true }]),
-  T("3610A", BENSALEM_SEP, [{ number: "02-001-002-016", label: "JV III Condo (common)", address: "Interplex Dr", ...same(21_330), recoverable: true }]),
+  T("PIIICO", BENSALEM_SEP, [{ number: "02-001-002-016", label: "JV III Condo (common)", address: "Interplex Dr", ...same(21_330), recoverable: true }]),
   T("4050", BENSALEM, [{ number: "02-001-002-002", label: "Building 5", address: "5 Neshaminy Interplex Cir", ...same(199_240), recoverable: true }]),
   T("4060", BENSALEM, [{ number: "02-001-001", label: "Building 6", address: "6 Neshaminy Interplex Cir", ...same(483_450), recoverable: true }]),
   T("4070", BENSALEM, [{ number: "02-001-001-001", label: "Building 7", address: "7 Interplex Cir", ...same(332_560), recoverable: true }]),
@@ -326,7 +326,10 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
     tax: known.reduce((s, p) => s + parcelBillTax(p, b), 0),
     levies: b.levies.map((l) => ({ body: l.body, mills: l.mills, rateYear: l.rateYear, adopted: l.adopted })),
   }));
-  const formula = { assessed: Math.round(assessedSum), mills: j.bills.reduce((s, b) => s + billMills(b), 0), tax: total };
+  // This year's tax, off last year's values at the rates adopted today — what
+  // the ledger should show as paid. The dialog sets it against the line.
+  const thisYear = a.parcels.every((p) => p.prior != null) ? a.parcels.reduce((s, p) => s + parcelTaxNow(p, j), 0) : undefined;
+  const formula = { assessed: Math.round(assessedSum), mills: j.bills.reduce((s, b) => s + billMills(b), 0), tax: total, thisYear, thisYearLabel: `${a.year - 1} at ${a.year - 1} rates` };
   const footnote = j.county === "Philadelphia"
     ? "Philadelphia reassesses each year; the rate has been 1.3998% since 2016. Budgeted at face — the 1% early-payment discount is not assumed."
     : `${j.county} County does not reassess, so only the rates move. Rates not yet adopted for ${a.year} carry the latest adopted + ${RET_DEFAULT_GROWTH_PCT}%. Budgeted at face — no early-payment discount.`;
