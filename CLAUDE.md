@@ -955,7 +955,10 @@ time — and the team does not have time to open the GL over $80.
   assumed. 2027 seeds: **7200 Elbridge $2,347,900 → $32,866** and **7010
   Parkwood $13,174,000 → $184,410**, both March. Typing taxes replaces the
   seed; ↺ clears it and STAYS cleared (`seedCleared` on the stored doc). A new
-  notice is one row in `ASSESSED_TAXES`.
+  notice is one row in `ASSESSED_TAXES`. The line's "Entered" pill hovers the
+  SOURCE (`ExpenseInput.source` → `inputSource`): "City of Philadelphia Office
+  of Property Assessment, Notice of Valuation for 2027", the assessed value,
+  the rate, the due month and the tax.
 - **Keying a figure IS completing it.** A saved input ticks its contribution
   on the Expenses step (`deriveContributions`' `entered` map); there is no
   separate tick to remember.
