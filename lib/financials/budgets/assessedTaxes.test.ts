@@ -27,6 +27,9 @@ describe("real estate taxes from the assessment notice", () => {
   it("Parkwood Professional (1100) 2027: $1,240,000 × 1.3998% = $17,358 in March", () => {
     expect(assessedTaxInput(2027, "1100")!.months![2]).toBe(17358);
   });
+  it("Trust #4 (8200) 2027: $1,689,900 × 1.3998% = $23,655 in March", () => {
+    expect(assessedTaxInput(2027, "8200")!.months![2]).toBe(23655);
+  });
   it("seeds nothing for another year or property", () => {
     expect(assessedTaxInput(2028, "7200")).toBeNull();
     expect(assessedTaxInput(2027, "9510")).toBeNull();
