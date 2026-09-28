@@ -7,6 +7,7 @@
 // Drew's and Alison's alone — the route refuses anyone else.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL, TONE_BLUE } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { HoverCard } from "@/app/components/HoverCard";
@@ -75,6 +76,14 @@ export function PayrollBudget({ year }: { year: number }) {
   const [seeded, setSeeded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  // The health-benefits window: null closed, "" the whole list, else the employee opened from.
+  const [healthFor, setHealthFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (healthFor === null) return;
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape" && !(ev.target instanceof HTMLInputElement)) setHealthFor(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [healthFor]);
 
   useEffect(() => {
     setDoc(null); setError(null);
@@ -167,7 +176,7 @@ export function PayrollBudget({ year }: { year: number }) {
               ]} footer={{ label: "-8502 is the recoverable (CAM) account", value: "" }}>REC</HoverCard>
             </th>
             <th style={th}>Per pay</th><th style={th}>Annual salary</th><th style={th}>FICA</th><th style={th}>Medicare</th>
-            <th style={th}>UC</th><th style={th}>FUTA</th><th style={th}>Work. comp</th><th style={th}>Medical</th>
+            <th style={th}>UC</th><th style={th}>FUTA</th><th style={th}>Work. comp</th><th style={th}><button type="button" className="btn sm" onClick={() => setHealthFor("")}>Medical ▸</button></th>
             <th style={th}>401(k) %</th><th style={th}>401(k)</th><th style={th}>Gross annual</th><th style={th} />
           </tr></thead>
           <tbody>
@@ -195,7 +204,7 @@ export function PayrollBudget({ year }: { year: number }) {
                     </label>
                   </td>
                   <Cell value={e.workComp} show={num0(e.workComp)} onSave={(v) => setEmp(e.id, { workComp: v })} width={70} />
-                  <td style={td}>{num0(c.medical)}</td>
+                  <td style={{ ...td, cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: 3 }} onClick={() => setHealthFor(e.id)}>{num0(c.medical)}</td>
                   <PctCell value={e.k401Pct} onSave={(v) => setEmp(e.id, { k401Pct: v })} />
                   <td style={td}>{num0(c.k401)}</td>
                   <td style={{ ...td, fontWeight: 800 }}>{num0(c.gross)}</td>
@@ -225,9 +234,21 @@ export function PayrollBudget({ year }: { year: number }) {
         </div>
       </div>
 
-      {/* 2 — HEALTH BENEFITS */}
-      <div style={STEP_LABEL}>Health benefits — into the medical column</div>
-      <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+      {/* HEALTH BENEFITS — the detail behind the Medical column, opened from it
+          (owner: it only feeds that column, so it does not need its own card). */}
+      {healthFor !== null && typeof document !== "undefined" && createPortal(
+        <div onClick={() => setHealthFor(null)} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
+          <div onClick={(ev) => ev.stopPropagation()} role="dialog" aria-label="Health benefits"
+            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 1280, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+            <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+              <div>
+                <div style={secLabel}>{year} Payroll budget · Medical column</div>
+                <div style={{ fontSize: 17, fontWeight: 800, marginTop: 2 }}>Health benefits · {money0(a.totals.medical)}</div>
+                <div className="muted small" style={{ marginTop: 2 }}>Life, Dental, LTD, STD and Vision are annual premiums; medical is monthly × 12. Light blue cells are typed.</div>
+              </div>
+              <button type="button" className="btn sm" onClick={() => setHealthFor(null)}>Close</button>
+            </div>
+            <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
             <th style={thL}>#</th><th style={thL}>Employee</th>
@@ -238,7 +259,7 @@ export function PayrollBudget({ year }: { year: number }) {
             {doc.employees.map((e, i) => {
               const c = employeeCost(e, r);
               return (
-                <tr key={e.id}>
+                <tr key={e.id} style={{ background: healthFor === e.id ? "rgba(11,74,125,0.07)" : undefined }}>
                   <td style={{ ...tdL, color: "var(--muted)" }}>{i + 1}</td>
                   <td style={{ ...tdL, fontWeight: 600 }}>{e.name || <span className="muted">—</span>}</td>
                   {FRINGE.map((k) => (
@@ -262,7 +283,11 @@ export function PayrollBudget({ year }: { year: number }) {
             </tr>
           </tbody>
         </table>
-      </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {/* 3 — ALLOCATION % */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
