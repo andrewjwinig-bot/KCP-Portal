@@ -548,12 +548,17 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                         const ref = seeded ? (y.prior ?? 0) : y.bucket === "extra" ? 0 : (y.basisTotal ?? 0);
                         const untyped = !y.typed?.some(Boolean) && !(y.bucket === "base" && entered);
                         const grown = untyped && Math.abs(ref) >= 0.5 && Math.abs(y.total - ref * 1.03) <= Math.max(12, Math.abs(y.total) * 0.002);
+                        // Insurance renews in November: Jan–Oct carry last
+                        // year's Nov/Dec rate and only Nov–Dec take the 3%.
+                        const renewal = seeded && l.inputKind === "insurance" && untyped && Math.abs(ref) >= 0.5;
                         return (
                           <Row key={k} variant="sub" depth={depth} toggle={toggle} flagNegative={sec.role !== "debt-service"} label={y.label ?? `${y.account}${y.name ? ` · ${y.name}` : ""}`}
                             months={y.months} total={y.total}
                             basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
-                            badge={grown && !draft.consolidated ? badgeFor("reproj-growth") : undefined}
+                            badge={draft.consolidated ? undefined
+                              : renewal ? { tone: badgeFor("reproj-growth").tone, text: "Nov renewal +3%" }
+                              : grown ? badgeFor("reproj-growth") : undefined}
                             favorableUp={favorableUp}
                             typed={y.bucket === "base" && entered ? new Array(12).fill(true) : y.typed}
                             onAccept={typeableY && y.bucket === "base" && keyed && !entered ? () => onEdit!(sec, l, "accept", null, y.account) : undefined}
@@ -729,7 +734,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
       {occOpen && <OccupancyBySuiteModal suites={recTenants.filter((t) => !t.recoveryOnly && t.sqft > 0)} year={draft.budgetYear} onClose={() => setOccOpen(false)} />}
       {makeupAt && <RecoveryMakeupModal makeup={recoveryMakeup(makeupAt.cat, makeupAt.m, recTenants, draft.sections, estKind)} month={MONTHS[makeupAt.m]} year={draft.budgetYear} onClose={() => setMakeupAt(null)} />}
       <div className="muted small" style={{ padding: "2px 4px" }}>
-        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules · <b>Payroll</b> this property&rsquo;s share of the book&rsquo;s payroll total — click the line to enter it · <b>Items</b> built item by item from the {draft.basisYear} budget (contracts and recurring +3%, Big Projects from $0), its figures in <i>italics</i> in the {draft.basisYear} column. <b>{String(draft.basisYear).slice(2)} Reproj</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
+        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules · <b>Payroll</b> this property&rsquo;s share of the book&rsquo;s payroll total — click the line to enter it · <b>Items</b> built item by item from the {draft.basisYear} budget (contracts and recurring +3%, insurance at its November renewal rate with Nov–Dec +3%, Big Projects from $0), its figures in <i>italics</i> in the {draft.basisYear} column. <b>{String(draft.basisYear).slice(2)} Reproj</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
         {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget</b> to spread an annual. <span style={{ background: INPUT_BG, padding: "0 4px", borderRadius: 3 }}>Light blue</span> = you can type it; <span style={{ background: INPUT_BG, color: TYPED_FG, fontWeight: 800, padding: "0 4px", borderRadius: 3 }}>bold blue</span> = typed; ↺ resets a line.</>}
       </div>
     </div>
