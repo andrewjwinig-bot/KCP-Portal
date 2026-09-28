@@ -961,6 +961,17 @@ time — and the team does not have time to open the GL over $80.
   SOURCE (`ExpenseInput.source` → `inputSource`): "City of Philadelphia Office
   of Property Assessment, Notice of Valuation for 2027", the assessed value,
   the rate, the due month and the tax.
+  **A property is PARCELS** (`Parcel`, numbers from the Tax Tracker's
+  `PARCEL_INFO`): all on the one Real Estate Taxes line, itemized in the
+  hover. A parcel NOT in CAM (`recoverable: false`) is taken out of the RET
+  recovery pool in draft.ts (`nonRecoverable`, both the budget and this year's
+  basis) — ALWAYS, even after the taxes are typed over, since the parcel is
+  still there. A parcel with no notice yet carries `fallback` (this year's
+  figure) and the hover says so. **4500 Gray's Ferry**: Shopping Center
+  882051606 $13,517,700 → $189,221 and Rear Parcel 874545940 $1,642,900 →
+  $22,997 (both in CAM — the 2026 workbook's INS RET DEBT tab carries them as
+  one recoverable row), Clear Channel billboard 885969440 NOT in CAM (Clear
+  Channel pays its own parcel's tax), at 2026's $14,278 until its notice.
 - **Keying a figure IS completing it.** A saved input ticks its contribution
   on the Expenses step (`deriveContributions`' `entered` map); there is no
   separate tick to remember.

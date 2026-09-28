@@ -42,6 +42,10 @@ export type ExpenseInput = {
   /** Where a seeded figure came from, row by row — shown on the line's pill. */
   source?: { /** The pill's text in place of "Entered" — a figure PROVIDED
    *  by a document, not estimated. */ pill?: string; title: string; rows: { label: string; value: string }[]; total: { label: string; value: string } };
+  /** A seeded tax's parcels that are NOT in CAM (a billboard parcel): kept
+   *  out of the RET recovery pool — `budget` this draft's, `basis` this
+   *  year's. */
+  nonRecoverable?: { budget: number; basis: number; label: string };
   by?: string;
   at?: string;
 };

@@ -9,6 +9,7 @@
 // lease-based revenue projection and CAM/RET estimate sync replace them in the
 // next Phase-1 increments.
 
+import { assessedTaxInput } from "./assessedTaxes";
 import "server-only";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
 import type { ReprojLine } from "@/lib/financials/reprojections/compute";
@@ -815,6 +816,15 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
         pool[kind][0] += l.total; pool[kind][1] += l.basisTotal;
       }
     }
+  }
+  // A parcel NOT in CAM (Gray's Ferry's billboard) is on the tax line but not
+  // in the pool tenants' RET is figured on — out of both years, so the ratio
+  // compares like with like. Held whether or not someone has since typed the
+  // taxes: the parcel is still there (assessedTaxes.ts).
+  const offPool = assessedTaxInput(budgetYear, meta.propertyCode)?.nonRecoverable;
+  if (offPool) {
+    pool.ret[0] = Math.max(0, pool.ret[0] - offPool.budget);
+    pool.ret[1] = Math.max(0, pool.ret[1] - offPool.basis);
   }
   const ratioOf = ([budget, basis]: number[]) => (basis > 0 ? budget / basis : 1);
   reimbursementEstimate = (await estimateReimbursements(meta.propertyCode, budgetYear, growthPct, {
