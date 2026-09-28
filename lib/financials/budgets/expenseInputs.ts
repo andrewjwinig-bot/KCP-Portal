@@ -40,14 +40,37 @@ export type ExpenseInput = {
   months?: number[];
   note?: string;
   /** Where a seeded figure came from, row by row — shown on the line's pill. */
-  source?: { /** The pill's text in place of "Entered" — a figure PROVIDED
-   *  by a document, not estimated. */ pill?: string; title: string; rows: { label: string; value: string }[]; total: { label: string; value: string } };
+  source?: {
+    /** The pill's text in place of "Entered" — a figure PROVIDED by a
+     *  document, not estimated. */
+    pill?: string; title: string; rows: { label: string; value: string }[]; total: { label: string; value: string };
+    /** The working, parcel by parcel, so the figure can be retraced — shown
+     *  when the pill is clicked. */
+    parcels?: SourceParcel[];
+    /** Where every input came from, as links. */
+    links?: { label: string; href: string }[];
+    /** How the figure is computed, in a sentence. */
+    method?: string;
+  };
   /** A seeded tax's parcels that are NOT in CAM (a billboard parcel): kept
    *  out of the RET recovery pool — `budget` this draft's, `basis` this
    *  year's. */
   nonRecoverable?: { budget: number; basis: number; label: string };
   by?: string;
   at?: string;
+};
+
+export type SourceParcel = {
+  number: string; label: string; address?: string;
+  /** This budget year's taxable assessed value; null while unknown. */
+  assessed: number | null;
+  /** The year before's, for the change. */
+  prior?: number | null;
+  tax: number;
+  recoverable: boolean;
+  /** Where the value was read: the owner's mailed notice, or the city's data. */
+  from: string;
+  href?: string;
 };
 
 /** Everything keyed for one property's budget. */
