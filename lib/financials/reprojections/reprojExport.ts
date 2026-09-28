@@ -13,7 +13,10 @@ import { newWorkbook, liveFormula, COLOR, FMT, PRINT_WIDE, KORMAN_TEXT } from "@
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONEY_FMT = FMT.money;
 
-export type ReprojMeta = { propertyCode: string; propertyName: string; year: number; budgetYear: number | null };
+export type ReprojMeta = { propertyCode: string; propertyName: string; year: number; budgetYear: number | null;
+  /** A T-12 (trailing twelve months of actuals): the month headings, the span,
+   *  and no budget / variance columns. */
+  t12?: { labels: string[]; span: string } };
 type Notes = Record<string, string>;
 
 type Row =
@@ -103,7 +106,8 @@ function sheetName(code: string, name: string, taken: Set<string>): string {
 function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection, meta: ReprojMeta, notes: Notes) {
   const ws = wb.addWorksheet(tabName, { views: [{ state: "frozen", xSplit: 1, ySplit: 4 }], pageSetup: { ...PRINT_WIDE } });
   const through = r.actualThroughMonth;
-  const nCols = 16;
+  const t12 = meta.t12;
+  const nCols = t12 ? 14 : 16;
   const rows = reprojRows(r);
   const { byKey, list } = collectFootnotes(rows, notes);
 
@@ -120,14 +124,14 @@ function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection
   ws.getRow(1).height = 20;
   ws.mergeCells(2, 1, 2, nCols);
   const title = ws.getCell(2, 1);
-  title.value = `${meta.year} Reprojection — ${meta.propertyCode} ${meta.propertyName}`;
+  title.value = t12 ? `T-12 Actuals — ${meta.propertyCode} ${meta.propertyName}` : `${meta.year} Reprojection — ${meta.propertyCode} ${meta.propertyName}`;
   title.font = { bold: true, size: 14, color: { argb: "FFFFFFFF" } };
   title.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND_DARK } };
   title.alignment = { vertical: "middle", indent: 1 };
   ws.getRow(2).height = 24;
   ws.mergeCells(3, 1, 3, nCols);
   const sub = ws.getCell(3, 1);
-  sub.value = `Actuals Jan–${through > 0 ? MONTHS[through - 1] : "(none)"} · budget thereafter${meta.budgetYear ? ` · Budget FY ${meta.budgetYear}` : ""}`;
+  sub.value = t12 ? `Trailing twelve months, actuals · ${t12.span}` : `Actuals Jan–${through > 0 ? MONTHS[through - 1] : "(none)"} · budget thereafter${meta.budgetYear ? ` · Budget FY ${meta.budgetYear}` : ""}`;
   sub.font = { italic: true, size: 10, color: { argb: "FFFFFFFF" } };
   sub.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRAND } };
   sub.alignment = { vertical: "middle", indent: 1 };
@@ -136,7 +140,7 @@ function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection
   const edge = (cell: ExcelJS.Cell, col: number) => { if (boundaryCols.has(col)) cell.border = { ...(cell.border ?? {}), right: { style: "thin", color: { argb: BORDER } } }; };
 
   const hdr = ws.getRow(4);
-  ["Line", ...MONTHS, "Full Year", "Ann Bud", "Var"].forEach((h, i) => {
+  (t12 ? ["Line", ...t12.labels, "T-12"] : ["Line", ...MONTHS, "Full Year", "Ann Bud", "Var"]).forEach((h, i) => {
     const cell = hdr.getCell(i + 1);
     cell.value = h;
     cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
@@ -253,11 +257,13 @@ function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection
 
     for (let i = 0; i < 12; i++) {
       const f = groups ? colSum(groups, 2 + i, (r) => valBlended(r, i), row.t.blended[i]) : undefined;
-      money(gr.getCell(2 + i), row.t.blended[i], { bold: isTotal, actual: i < through, brand2: isTotal, col: 2 + i, formula: f });
+      money(gr.getCell(2 + i), row.t.blended[i], { bold: isTotal, actual: !t12 && i < through, brand2: isTotal, col: 2 + i, formula: f });
     }
     money(gr.getCell(14), row.t.reprojTotal, { bold: true, brand2: true, col: 14, formula: fyFormula(rn, row.t) });
-    money(gr.getCell(15), row.t.budgetTotal, { bold: isTotal, col: 15, formula: groups ? colSum(groups, 15, valBudget, row.t.budgetTotal) : undefined });
-    money(gr.getCell(16), row.t.variance, { bold: isTotal, col: 16, formula: varFormula(rn, row.t) });
+    if (!t12) {
+      money(gr.getCell(15), row.t.budgetTotal, { bold: isTotal, col: 15, formula: groups ? colSum(groups, 15, valBudget, row.t.budgetTotal) : undefined });
+      money(gr.getCell(16), row.t.variance, { bold: isTotal, col: 16, formula: varFormula(rn, row.t) });
+    }
     if (isTotal) for (let c = 1; c <= nCols; c++) {
       const cell = gr.getCell(c);
       cell.border = { ...(cell.border ?? {}), top: { style: "thin", color: { argb: BORDER } } };
@@ -268,7 +274,7 @@ function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection
 
   if (r.unbudgetedAccounts.length) {
     ws.addRow([]);
-    const u = ws.addRow(["Unbudgeted Actuals (not in any line)"]);
+    const u = ws.addRow([t12 ? "Accounts not on any statement line" : "Unbudgeted Actuals (not in any line)"]);
     u.getCell(1).font = { bold: true, color: { argb: "FFB45309" } };
     for (const acct of r.unbudgetedAccounts) {
       const ur = ws.addRow([acct.account]);
@@ -293,6 +299,13 @@ function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection
   ws.addRow([]);
   const stamp = ws.addRow([`Report run ${reportStamp()}`]);
   stamp.getCell(1).font = { italic: true, size: 9, color: { argb: "FF6B7280" } };
+}
+
+/** A T-12 workbook — the same sheet, twelve trailing months of actuals. */
+export async function buildT12Xlsx(r: Reprojection, meta: ReprojMeta): Promise<Buffer> {
+  const wb = newWorkbook();
+  writeReprojSheet(wb, "T-12", r, meta, {});
+  return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
 export async function buildReprojXlsx(r: Reprojection, meta: ReprojMeta, notes: Notes = {}): Promise<Buffer> {
