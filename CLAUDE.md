@@ -1472,6 +1472,30 @@ time — and the team does not have time to open the GL over $80.
   Inputs / typed-month work. Until then, do not wire anything else to read the
   draft.
 
+# T-12 — trailing twelve months of actuals
+
+`/financials/t12`, reached from the Report Center (Financial), NOT the
+sidebar. The twelve months ending at a posted month (default: the latest the
+property's GL reaches; any of the 24 before it can be picked) — **actuals
+only, nothing from the budget**.
+
+- **It is the Reprojections engine on stitched months** (`lib/financials/t12/`):
+  a GL is stored a calendar year at a time, so `stitchMonthly` lays the two
+  years' nets end to end (Sep–Dec of 2025, Jan–Aug of 2026) and `reproject`
+  runs on them with `actualThroughMonth: 12` and no budget lines. The ladder,
+  rollups and sub-lines are therefore the statement's own; do not build a
+  second engine.
+- **The grid is the Reprojections page's**, extracted to
+  `app/financials/reprojections/ReprojTable.tsx` (with `HeaderSelect` /
+  `SegToggle`) and given `labels` ("Sep 25"…), `totalLabel` ("T-12") and
+  `plain` (no green actual shading — every month is an actual). Both pages
+  render it; keep them on one component.
+- **A month no GL covers reads $0, and the page SAYS which** (`missingMonths`)
+  in an amber banner — a short T-12 must never pass for a full one.
+- **Excel** is the Reprojections sheet writer with `meta.t12`
+  (`buildT12Xlsx`): the trailing month headings, a live `=SUM` T-12 column,
+  no Ann Bud / Var. Pinned by `t12/export.test.ts` reading the file back.
+
 # Balance Sheet — sources of truth
 
 `/financials/balance-sheet`, gated with the other statement pages
