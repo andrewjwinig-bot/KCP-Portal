@@ -29,7 +29,7 @@
 // and commissions the deals carry — those are Step 1's leases and decisions.
 
 import { Fragment, useRef, useState } from "react";
-import { Pill, TONE_BLUE, TONE_GREEN, type PillTone } from "@/app/components/Pill";
+import { Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, type PillTone } from "@/app/components/Pill";
 import { SourceBadge } from "./SourceBadge";
 import { DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL } from "@/lib/financials/budgets/cashForecast";
 import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/draft";
@@ -507,7 +507,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                     <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal} flagNegative={sec.role !== "debt-service"} badgeSource={l.inputSource}
                       badge={draft.consolidated || l.source === "vacancy" || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined
                         // A figure PROVIDED by a document (the city's notice) says so, rather than "Entered".
-                        : l.inputSource?.pill ? { tone: TONE_GREEN, text: l.inputSource.pill } : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
+                        : l.inputSource?.pill ? { tone: l.inputSource.pill === "Entered" ? TONE_AMBER : TONE_GREEN, text: l.inputSource.pill } : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}

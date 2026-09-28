@@ -77,3 +77,29 @@ describe("every figure carries its trail", () => {
     expect(ASSESSED_TAXES.every((a) => assessedTax(a) > 0)).toBe(true);
   });
 });
+
+import { isDeliberateOverride, withSeedComparison, COMPUTED_TAX_SINCE } from "./assessedTaxes";
+
+describe("a stored tax against the computed one", () => {
+  const seed = assessedTaxInput(2027, "1500")!;
+  it("a figure stored before the computation shipped is superseded", () => {
+    expect(isDeliberateOverride({ months: new Array(12).fill(0), at: "2026-09-20T12:00:00Z" })).toBe(false);
+    expect(isDeliberateOverride({ annual: 8659, at: "2026-09-20T12:00:00Z" })).toBe(false);
+    expect(isDeliberateOverride({ annual: 8659 })).toBe(false);
+  });
+  it("$0 is never a deliberate tax on a taxed property", () => {
+    expect(isDeliberateOverride({ months: new Array(12).fill(0), at: "2026-10-01T00:00:00Z" })).toBe(false);
+  });
+  it("a figure typed after it stands, labelled against the computed one", () => {
+    const typed = { annual: 7000, at: "2026-10-01T00:00:00Z" };
+    expect(isDeliberateOverride(typed)).toBe(true);
+    expect(COMPUTED_TAX_SINCE < typed.at).toBe(true);
+    const out = withSeedComparison(typed, seed);
+    expect(out.source!.pill).toBe("Entered");
+    expect(out.source!.total.value).toBe("$986");
+  });
+  it("accepting the computed figure keeps the computed source", () => {
+    const out = withSeedComparison({ months: seed.months!.slice(), at: "2026-10-01T00:00:00Z" }, seed);
+    expect(out.source!.pill).toBe("Per city");
+  });
+});

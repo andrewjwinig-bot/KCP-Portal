@@ -950,8 +950,16 @@ time — and the team does not have time to open the GL over $80.
 - **REAL ESTATE TAXES ARE COMPUTED FROM PUBLIC RECORD** (`assessedTaxes.ts`,
   `ASSESSED_TAXES`): assessed value × each taxing body's millage, on the bill
   that body sends, in the month it is due — laid under the Budget Inputs store
-  by `getExpenseInputs` as the `ret` input. Typing taxes replaces the seed; ↺
-  clears it and STAYS cleared (`seedCleared`). The model is JURISDICTION →
+  by `getExpenseInputs` as the `ret` input. **The computed figure WINS over
+  anything stored before it shipped** (`COMPUTED_TAX_SINCE`,
+  `isDeliberateOverride`): those entries were keyed against "this year + 3%",
+  and they made 1100, 4500 and 5600 read ENTERED and 1500 read $0 (a $0
+  accepted where no tax had posted beat a real $6,014 bill). Only a non-zero
+  tax typed AFTER the cutoff overrides it — `withSeedComparison` then keeps
+  the computed pill if it is the same figure, or reads an AMBER "Entered"
+  whose hover says typed vs computed and the difference. ↺ just deletes the
+  entry, so the line goes back to the computed figure (the old `seedCleared`
+  is ignored). The model is JURISDICTION →
   BILLS → LEVIES (`Levy.mills`, `adopted`), and a property is PARCELS.
   - **Philadelphia** (pill "Per city"): the OPA's certified budget-year
     assessments from the city's open data (`assessments` on phl.carto.com —
