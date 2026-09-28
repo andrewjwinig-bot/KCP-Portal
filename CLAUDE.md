@@ -947,32 +947,51 @@ time — and the team does not have time to open the GL over $80.
     scrolled off the right edge and nobody could find where to key taxes.
   `expenseInputKindOf` matches EXPENSE sections only — the revenue side carries
   "Real Estate Taxes"/"Insurance" recovery lines with the same names.
-- **PHILADELPHIA TAXES COME FROM THE CITY'S CERTIFIED ASSESSMENTS**
-  (`assessedTaxes.ts`, `ASSESSED_TAXES`): taxable assessed value (land +
-  building) × 1.3998% (City 0.6317% + School 0.7681%), the whole bill in
-  MARCH (due 3/31; the 1% February discount is NOT assumed), laid under the
-  Budget Inputs store by `getExpenseInputs` as the `ret` input. The values are
-  the OPA's certified assessments from the city's open data (`assessments` on
-  phl.carto.com — `phlQueryUrl` rebuilds the exact query); the six Notices of
-  Valuation the owner mailed in (7200, 7010, 4500 ×2, 5600, 1100, 8200) agreed
-  with it to the dollar, and `notice` records which. 2027: 7200 $32,866 · 7010
-  $184,410 · 1100 $17,358 · 5600 $4,297 · 8200 $23,655 (Four Seasons only —
-  McDonald's pays its own bill on 882047229) · 7300 $54,610 · 1500 $6,014 ·
-  9200 $5,510 · 4500 $214,432. Typing taxes replaces the seed; ↺ clears it and
-  STAYS cleared (`seedCleared`). The pill reads **"Per city"**; hover gives the
-  working, and **clicking it opens the trail** (`SourceBadge.tsx`): each
-  parcel's address, prior and budget-year value, tax, CAM or not, where the
-  value was read, and links to property.phila.gov, the open-data query and the
-  rate page — so a figure can be retraced without asking how it was built.
-  **A property is PARCELS**, all on the one tax line. A parcel NOT in CAM
-  (`recoverable: false`) is taken out of the RET recovery pool in draft.ts
-  (`nonRecoverable`, budget AND this year's basis) — ALWAYS, even after the
-  taxes are typed over. **4500 Gray's Ferry: ONLY the shopping centre
-  (882051606) is in CAM** — proven, not assumed: the 2025 recon's RET pool
-  ($159,405) is that parcel's 2025 tax ($11,387,700 × 1.3998%), and Clear
-  Channel's flat $3,017 is the billboard parcel's ($215,500). The rear parcel
-  (874545940) and the billboard (885969440) are on the line, out of the pool.
-  (The 2026 workbook's "$14,278 Clear Channel" row is NOT the billboard's tax.)
+- **REAL ESTATE TAXES ARE COMPUTED FROM PUBLIC RECORD** (`assessedTaxes.ts`,
+  `ASSESSED_TAXES`): assessed value × each taxing body's millage, on the bill
+  that body sends, in the month it is due — laid under the Budget Inputs store
+  by `getExpenseInputs` as the `ret` input. Typing taxes replaces the seed; ↺
+  clears it and STAYS cleared (`seedCleared`). The model is JURISDICTION →
+  BILLS → LEVIES (`Levy.mills`, `adopted`), and a property is PARCELS.
+  - **Philadelphia** (pill "Per city"): the OPA's certified budget-year
+    assessments from the city's open data (`assessments` on phl.carto.com —
+    `phlQueryUrl` rebuilds the query); the six mailed Notices of Valuation
+    matched it to the dollar (`notice`). 1.3998% (City 6.317 + School 7.681
+    mills, unchanged since 2016), one bill in MARCH.
+  - **Bucks** (pill "Per county"): values from the county's parcel layer
+    (`Bucks_County_Parcels` on ArcGIS — `bucksParcelUrl`), rates from the
+    county's 2026 millage sheet. County + township bill in APRIL, school in
+    AUGUST (September where the Tax Tracker says 9/10). Bensalem 241.5974
+    mills, Nockamixon 160.064.
+  - **Montgomery** (pill "Per county"): values from the county's property
+    records (`montcoParcelUrl`), whose own per-body tax estimate the figures
+    reproduce exactly (9510: $34,727 on 2026 rates — pinned by the test);
+    rates from the county's millage table. County + municipal bill in the
+    Tax Tracker's month, school in SEPTEMBER.
+  - **Outside Philadelphia nothing is reassessed**, so only rates move. A rate
+    not yet adopted for the budget year is the latest adopted +
+    `RET_DEFAULT_GROWTH_PCT` (`adopted: false`), and the source says so —
+    replace the mills when the body sets them. Budgeted at FACE; no
+    early-payment discount.
+  - **Hover the pill for the working; CLICK it for the trail**
+    (`SourceBadge.tsx`): each parcel's address, prior and budget-year value,
+    tax, CAM or not, where the value was read, and links to the county record,
+    the data query and the rate sheet — so a figure can be retraced without
+    asking how it was built.
+  - **Parcels**: Building 8 (4080) is TWO parcels (-002 and -002-015); Kor
+    Center A/B/C SHARE one parcel (02-001-002-005) at 33/28/39 (`share`, the
+    2026 budget's split); Brookwood (2300) is 1861 + 1847 Street Rd; 2070 is
+    two Nockamixon parcels; 9820 is 120 + 122 N Spring Garden; the JV III
+    condo is 3610A (02-001-002-016). **8200 is the Four Seasons parcel only —
+    McDonald's pays its own bill on 882047229.** 9840 (3044 Joshua Rd) is
+    65-00-06280-00-9 — the Tax Tracker lists 9860's number for it.
+  - **A parcel NOT in CAM** (`recoverable: false`) is taken out of the RET
+    recovery pool in draft.ts (`nonRecoverable`, budget AND this year's
+    basis) — ALWAYS, even after the taxes are typed over. **4500 Gray's Ferry:
+    ONLY the shopping centre (882051606) is in CAM** — proven: the 2025
+    recon's RET pool ($159,405) is that parcel's 2025 tax, and Clear Channel's
+    flat $3,017 is the billboard parcel's ($215,500). The rear parcel and the
+    billboard are on the line, out of the pool.
 - **Keying a figure IS completing it.** A saved input ticks its contribution
   on the Expenses step (`deriveContributions`' `entered` map); there is no
   separate tick to remember.
