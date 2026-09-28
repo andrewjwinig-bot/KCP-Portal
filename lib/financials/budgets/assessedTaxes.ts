@@ -337,7 +337,7 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
   // This year's tax, off last year's values at the rates adopted today — what
   // the ledger should show as paid. The dialog sets it against the line.
   const thisYear = a.parcels.every((p) => p.prior != null) ? a.parcels.reduce((s, p) => s + parcelTaxNow(p, j), 0) : undefined;
-  const formula = { assessed: Math.round(assessedSum), mills: j.bills.reduce((s, b) => s + billMills(b), 0), tax: total, thisYear, thisYearLabel: `${a.year - 1} at ${a.year - 1} rates` };
+  const formula = { assessed: Math.round(assessedSum), mills: j.bills.reduce((s, b) => s + billMills(b), 0), tax: total, thisYear, thisYearLabel: `${a.year - 1} at ${a.year - 1} rates`, ...(j.discountPct ? { discountPct: j.discountPct } : {}) };
   const footnote = j.county === "Philadelphia"
     ? "Philadelphia reassesses each year; the rate has been 1.3998% since 2016. Budgeted at face — the 1% early-payment discount is not assumed."
     : `Values move only on appeal, so otherwise only the rates move. Rates not yet adopted for ${a.year} carry the latest adopted + ${RET_DEFAULT_GROWTH_PCT}%. ${j.discountPct ? `Less the ${j.discountPct}% early-payment discount, which is paid for.` : "Budgeted at face — no early-payment discount."}`;

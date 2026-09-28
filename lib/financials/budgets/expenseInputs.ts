@@ -54,7 +54,9 @@ export type ExpenseInput = {
     /** The calculation as three figures: assessed value × mills = tax. */
     formula?: { assessed: number; mills: number; tax: number;
       /** This year's tax at this year's ADOPTED rates — checked against the ledger. */
-      thisYear?: number; thisYearLabel?: string };
+      thisYear?: number; thisYearLabel?: string;
+      /** Early-payment discount taken, % — the tiles show it between the millage and the tax. */
+      discountPct?: number };
     /** One entry per bill the taxing bodies send, in the month it is due. */
     bills?: { label: string; month: string; mills: number; tax: number; levies: { body: string; mills: number; rateYear: string; adopted: boolean }[] }[];
     /** A short basis-of-presentation line under the detail. */

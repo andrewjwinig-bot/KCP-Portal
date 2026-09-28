@@ -64,6 +64,10 @@ function SourceDialog({ source, label, basis, onClose }: { source: Source; label
               <StatPill label="Assessed value" value={usd(f.assessed)} sub={`${parcels.length} parcel${parcels.length === 1 ? "" : "s"}`} />
               <span style={op}>×</span>
               <StatPill label="Millage" value={f.mills.toFixed(3)} sub={`${bills.length} bill${bills.length === 1 ? "" : "s"}`} />
+              {f.discountPct ? (<>
+                <span style={op}>−</span>
+                <StatPill label="Early-pay discount" value={`${f.discountPct}%`} sub={`${usd(Math.round((f.assessed * f.mills) / 1000) - f.tax)} saved`} />
+              </>) : null}
               <span style={op}>=</span>
               <StatPill label={source.total.label} value={source.total.value} accent="var(--brand)" total />
             </div>
@@ -90,7 +94,7 @@ function SourceDialog({ source, label, basis, onClose }: { source: Source; label
               <div style={secLabel}>Bills</div>
               <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 6 }}>
                 <thead>
-                  <tr><th style={thL}>Bill</th><th style={thL}>Due</th><th style={thL}>Taxing bodies</th><th style={th}>Mills</th><th style={th}>Tax</th></tr>
+                  <tr><th style={thL}>Bill</th><th style={thL}>Due</th><th style={thL}>Taxing bodies</th><th style={th}>Mills</th><th style={th}>{f?.discountPct ? `Tax (less ${f.discountPct}%)` : "Tax"}</th></tr>
                 </thead>
                 <tbody>
                   {bills.map((b) => (
