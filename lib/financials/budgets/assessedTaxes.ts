@@ -32,7 +32,9 @@
 // the budget year (the county and township set theirs in December, the school
 // district in June) is the latest adopted rate + `RET_DEFAULT_GROWTH_PCT`, and
 // the source says which. Swap in the adopted rate when it is set and the bill
-// recomputes. Bills are budgeted at FACE: no early-payment discount assumed.
+// recomputes. Philadelphia and Montgomery are budgeted at FACE. BUCKS takes the
+// 2% early-payment discount (`discountPct`) — the owner pays within the
+// discount period, and the business parks' reassessment schedule applies it.
 //
 // A property can be SEVERAL PARCELS, all on the one tax line. A parcel NOT in
 // CAM is kept OUT of the pool tenants' RET recoveries are figured on
@@ -61,6 +63,8 @@ export type Jurisdiction = {
   bills: Bill[];
   rateLink: { label: string; href: string };
   pill: string;
+  /** Early-payment discount the owner takes, % of the bill. */
+  discountPct?: number;
 };
 
 // ─── Rates ────────────────────────────────────────────────────────────────
@@ -87,6 +91,7 @@ const bucks = (id: string, twp: Levy, school: Levy, schoolMonth = 8): Jurisdicti
     { label: school.body, dueMonth: schoolMonth, levies: [school] },
   ],
   rateLink: BUCKS_RATES,
+  discountPct: 2,
 });
 const BENSALEM_TWP: Levy = { body: "Bensalem Township", mills: 23.0, rateYear: "2026", adopted: false };
 const BENSALEM_SD: Levy = { body: "Bensalem Township SD", mills: 188.9474, rateYear: "2026–27", adopted: false };
@@ -143,6 +148,9 @@ export type Parcel = {
   fallback?: number;
   /** The owner's mailed notice agreed with the open data. */
   notice?: boolean;
+  /** Matches the owner's 2026 business-park reassessment schedule (the
+   *  appeal that took the parks' values down, effective 1/1/2026). */
+  schedule?: boolean;
 };
 
 export type AssessedTax = { code: string; year: number; jurisdiction: Jurisdiction; parcels: Parcel[] };
@@ -174,22 +182,22 @@ export const ASSESSED_TAXES: AssessedTax[] = [
   ]),
 
   // ── Bucks: Neshaminy Interplex, Bensalem ──
-  T("3610", BENSALEM, [{ number: "02-001-002-004-001", label: "Building 1", address: "1 Interplex Dr", ...same(178_730), recoverable: true }]),
-  T("3620", BENSALEM, [{ number: "02-001-002-004-002", label: "Building 2", address: "2 Interplex Dr", ...same(187_520), recoverable: true }]),
-  T("3640", BENSALEM, [{ number: "02-001-002-004-004", label: "Building 4", address: "4 Interplex Dr", ...same(237_330), recoverable: true }]),
+  T("3610", BENSALEM, [{ number: "02-001-002-004-001", label: "Building 1", address: "1 Interplex Dr", ...same(178_730), recoverable: true, schedule: true }]),
+  T("3620", BENSALEM, [{ number: "02-001-002-004-002", label: "Building 2", address: "2 Interplex Dr", ...same(187_520), recoverable: true, schedule: true }]),
+  T("3640", BENSALEM, [{ number: "02-001-002-004-004", label: "Building 4", address: "4 Interplex Dr", ...same(237_330), recoverable: true, schedule: true }]),
   T("PIIICO", BENSALEM_SEP, [{ number: "02-001-002-016", label: "JV III Condo (common)", address: "Interplex Dr", ...same(21_330), recoverable: true }]),
-  T("4050", BENSALEM, [{ number: "02-001-002-002", label: "Building 5", address: "5 Neshaminy Interplex Cir", ...same(199_240), recoverable: true }]),
-  T("4060", BENSALEM, [{ number: "02-001-001", label: "Building 6", address: "6 Neshaminy Interplex Cir", ...same(483_450), recoverable: true }]),
-  T("4070", BENSALEM, [{ number: "02-001-001-001", label: "Building 7", address: "7 Interplex Cir", ...same(332_560), recoverable: true }]),
+  T("4050", BENSALEM, [{ number: "02-001-002-002", label: "Building 5", address: "5 Neshaminy Interplex Cir", ...same(199_240), recoverable: true, schedule: true }]),
+  T("4060", BENSALEM, [{ number: "02-001-001", label: "Building 6", address: "6 Neshaminy Interplex Cir", ...same(483_450), recoverable: true, schedule: true }]),
+  T("4070", BENSALEM, [{ number: "02-001-001-001", label: "Building 7", address: "7 Interplex Cir", ...same(332_560), recoverable: true, schedule: true }]),
   // Building 8 is two parcels — the 2026 budget carried both.
   T("4080", BENSALEM, [
-    { number: "02-001-002", label: "Building 8", address: "8 Neshaminy Interplex Cir", ...same(649_000), recoverable: true },
-    { number: "02-001-002-015", label: "Building 8 lot", address: "Interplex Dr", ...same(45_080), recoverable: true },
+    { number: "02-001-002", label: "Building 8", address: "8 Neshaminy Interplex Cir", ...same(649_000), recoverable: true, schedule: true },
+    { number: "02-001-002-015", label: "Building 8 lot", address: "Interplex Dr", ...same(45_080), recoverable: true, schedule: true },
   ]),
   // Kor Center A, B and C are ONE parcel; the 2026 budget split it 33/28/39.
-  T("40A0", BENSALEM, [{ number: "02-001-002-005", label: "Kor Center (33%)", address: "2 Interplex Dr", ...same(269_560), share: 0.33, recoverable: true }]),
-  T("40B0", BENSALEM, [{ number: "02-001-002-005", label: "Kor Center (28%)", address: "2 Interplex Dr", ...same(269_560), share: 0.28, recoverable: true }]),
-  T("40C0", BENSALEM, [{ number: "02-001-002-005", label: "Kor Center (39%)", address: "2 Interplex Dr", ...same(269_560), share: 0.39, recoverable: true }]),
+  T("40A0", BENSALEM, [{ number: "02-001-002-005", label: "Kor Center (33%)", address: "2 Interplex Dr", ...same(269_560), share: 0.33, recoverable: true, schedule: true }]),
+  T("40B0", BENSALEM, [{ number: "02-001-002-005", label: "Kor Center (28%)", address: "2 Interplex Dr", ...same(269_560), share: 0.28, recoverable: true, schedule: true }]),
+  T("40C0", BENSALEM, [{ number: "02-001-002-005", label: "Kor Center (39%)", address: "2 Interplex Dr", ...same(269_560), share: 0.39, recoverable: true, schedule: true }]),
   T("0900", BENSALEM_SEP, [{ number: "02-001-002-013", label: "2-Acre Lot", address: "Interplex Dr", ...same(45_520), recoverable: true }]),
   // Brookwood: the centre and its Street Rd parcel.
   T("2300", BENSALEM, [
@@ -226,18 +234,18 @@ export const billMills = (b: Bill) => b.levies.reduce((s, l) => s + levyMills(l)
 const billMillsNow = (b: Bill) => b.levies.reduce((s, l) => s + l.mills, 0);
 
 /** One parcel's tax on one bill, whole dollars. */
-export function parcelBillTax(p: Parcel, b: Bill): number {
+export function parcelBillTax(p: Parcel, b: Bill, discountPct = 0): number {
   if (p.assessed == null) return 0;
-  return Math.round((p.assessed * (p.share ?? 1) * billMills(b)) / 1000);
+  return Math.round((p.assessed * (p.share ?? 1) * billMills(b) * (1 - discountPct / 100)) / 1000);
 }
 /** One parcel's tax for the year — unknown value: this year's + 3%. */
 export function parcelTax(p: Parcel, j: Jurisdiction): number {
   if (p.assessed == null) return Math.round((p.fallback ?? 0) * grow);
-  return j.bills.reduce((s, b) => s + parcelBillTax(p, b), 0);
+  return j.bills.reduce((s, b) => s + parcelBillTax(p, b, j.discountPct), 0);
 }
 /** This year's tax on a parcel — prior value × today's adopted rates. */
 const parcelTaxNow = (p: Parcel, j: Jurisdiction) =>
-  p.prior != null ? Math.round(j.bills.reduce((s, b) => s + (p.prior! * (p.share ?? 1) * billMillsNow(b)) / 1000, 0)) : Math.round(p.fallback ?? 0);
+  p.prior != null ? Math.round(j.bills.reduce((s, b) => s + (p.prior! * (p.share ?? 1) * billMillsNow(b) * (1 - (j.discountPct ?? 0) / 100)) / 1000, 0)) : Math.round(p.fallback ?? 0);
 
 /** The property's tax, all parcels. */
 export const assessedTax = (a: AssessedTax) => a.parcels.reduce((s, p) => s + parcelTax(p, a.jurisdiction), 0);
@@ -273,7 +281,7 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
   const j = a.jurisdiction;
   const months = new Array(12).fill(0);
   const known = a.parcels.filter((p) => p.assessed != null);
-  for (const b of j.bills) months[b.dueMonth - 1] += known.reduce((s, p) => s + parcelBillTax(p, b), 0);
+  for (const b of j.bills) months[b.dueMonth - 1] += known.reduce((s, p) => s + parcelBillTax(p, b, j.discountPct), 0);
   const unknown = a.parcels.filter((p) => p.assessed == null);
   if (unknown.length) months[j.bills[0].dueMonth - 1] += unknown.reduce((s, p) => s + parcelTax(p, j), 0);
   const total = months.reduce((s, v) => s + v, 0);
@@ -308,7 +316,7 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
     tax: parcelTax(p, j), recoverable: p.recoverable,
     from: p.assessed == null
       ? `No value — this year's ${usd(p.fallback ?? 0)} + ${RET_DEFAULT_GROWTH_PCT}%`
-      : `${p.notice ? "Notice of Valuation (mailed) · matches " : ""}${recordName(j)}${p.share ? ` · ${Math.round(p.share * 100)}% of the shared parcel` : ""}`,
+      : `${p.notice ? "Notice of Valuation (mailed) · matches " : p.schedule ? "2026 reassessment schedule · matches " : ""}${recordName(j)}${p.share ? ` · ${Math.round(p.share * 100)}% of the shared parcel` : ""}`,
     href: parcelUrl(p, j),
   }));
 
@@ -316,14 +324,14 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
     `${b.label} (${MONTHS[b.dueMonth - 1]}): ${b.levies.map((l) => `${l.body} ${l.mills} mills${l.adopted ? "" : ` (${l.rateYear} + ${RET_DEFAULT_GROWTH_PCT}%)`}`).join(" + ")}`).join("; ");
   const method = j.county === "Philadelphia"
     ? "Taxable assessed value (land + building) × 1.3998% (City 0.6317% + School District 0.7681%), the whole bill in March — due March 31. The 1% early-payment discount is not assumed."
-    : `Assessed value × each taxing body's millage (mills per $1,000), on the bill that body sends: ${levyText}. ${j.county} County does not reassess, so only the rates move; a rate not yet adopted for ${a.year} is the latest adopted + ${RET_DEFAULT_GROWTH_PCT}% — replace it when the body sets it. Budgeted at face: no early-payment discount.`;
+    : `Assessed value × each taxing body's millage (mills per $1,000), on the bill that body sends: ${levyText}. Values move only on appeal (the business parks were reassessed effective 1/1/2026), so otherwise only the rates move; a rate not yet adopted for ${a.year} is the latest adopted + ${RET_DEFAULT_GROWTH_PCT}% — replace it when the body sets it. ${j.discountPct ? `Less the ${j.discountPct}% early-payment discount, which is taken.` : "Budgeted at face: no early-payment discount."}`;
 
   // The calculation, for the source dialog: assessed value × effective mills
   // = the tax, then one row per bill.
   const assessedSum = known.reduce((s, p) => s + (p.assessed ?? 0) * (p.share ?? 1), 0);
   const bills = j.bills.map((b) => ({
     label: b.label, month: MONTHS[b.dueMonth - 1], mills: billMills(b),
-    tax: known.reduce((s, p) => s + parcelBillTax(p, b), 0),
+    tax: known.reduce((s, p) => s + parcelBillTax(p, b, j.discountPct), 0),
     levies: b.levies.map((l) => ({ body: l.body, mills: l.mills, rateYear: l.rateYear, adopted: l.adopted })),
   }));
   // This year's tax, off last year's values at the rates adopted today — what
@@ -332,7 +340,7 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
   const formula = { assessed: Math.round(assessedSum), mills: j.bills.reduce((s, b) => s + billMills(b), 0), tax: total, thisYear, thisYearLabel: `${a.year - 1} at ${a.year - 1} rates` };
   const footnote = j.county === "Philadelphia"
     ? "Philadelphia reassesses each year; the rate has been 1.3998% since 2016. Budgeted at face — the 1% early-payment discount is not assumed."
-    : `${j.county} County does not reassess, so only the rates move. Rates not yet adopted for ${a.year} carry the latest adopted + ${RET_DEFAULT_GROWTH_PCT}%. Budgeted at face — no early-payment discount.`;
+    : `Values move only on appeal, so otherwise only the rates move. Rates not yet adopted for ${a.year} carry the latest adopted + ${RET_DEFAULT_GROWTH_PCT}%. ${j.discountPct ? `Less the ${j.discountPct}% early-payment discount, which is paid for.` : "Budgeted at face — no early-payment discount."}`;
 
   const dataLink = j.county === "Philadelphia"
     ? [{ label: `City open data ${a.year - 1}–${a.year}`, href: phlQueryUrl(a.parcels.map((p) => p.number), [a.year - 1, a.year]) }]

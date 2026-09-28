@@ -976,11 +976,21 @@ time — and the team does not have time to open the GL over $80.
     reproduce exactly (9510: $34,727 on 2026 rates — pinned by the test);
     rates from the county's millage table. County + municipal bill in the
     Tax Tracker's month, school in SEPTEMBER.
-  - **Outside Philadelphia nothing is reassessed**, so only rates move. A rate
-    not yet adopted for the budget year is the latest adopted +
-    `RET_DEFAULT_GROWTH_PCT` (`adopted: false`), and the source says so —
-    replace the mills when the body sets them. Budgeted at FACE; no
-    early-payment discount.
+  - **Outside Philadelphia values move only on APPEAL**, so otherwise only
+    rates move. A rate not yet adopted for the budget year is the latest
+    adopted + `RET_DEFAULT_GROWTH_PCT` (`adopted: false`), and the source says
+    so — replace the mills when the body sets them. **BUCKS takes the 2%
+    early-payment discount** (`discountPct` on the jurisdiction) — the owner
+    pays within the discount period, as the business parks' 2026
+    reassessment schedule does. Philadelphia and Montgomery are at FACE.
+  - **The business parks were reassessed on appeal, effective 1/1/2026** (the
+    owner's "Bucks County 2026 RET Reassessments" schedule: JV III $1,399,380
+    → $603,580, NI LLC $3,244,570 → $1,978,890). The county's records carry
+    the new values, and every one matches the schedule (`schedule` on the
+    parcel; pinned by the test, which also reproduces the schedule's Building
+    1 tax of $40,597.78 at its rates less 2%). The schedule used the rates of
+    the time (27.45 / 23 / 181.3315); the budget uses the rates since adopted
+    (29.65 / 23 / 188.9474) + 3%.
   - **Hover the pill for the working; CLICK it for the trail**
     (`SourceBadge.tsx`). The dialog reads as the CALCULATION: three `StatPill`
     tiles — Assessed value × Millage = the tax (`total` = the brand-bordered
