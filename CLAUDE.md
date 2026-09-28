@@ -990,12 +990,25 @@ time — and the team does not have time to open the GL over $80.
     pill), the sources as `btn sm` links, and a one-line footnote. It used to
     open on a paragraph of method text; the owner asked for it simpler and in
     the program's own KPI-tile language. Data: `source.formula`, `.bills`,
-    `.footnote` on the input.
+    `.footnote` on the input. **It also CHECKS ITSELF against the actual
+    bills**: this year's tax at this year's ADOPTED rates (`formula.thisYear`,
+    last year's values × today's mills, no growth) against the line's own
+    reprojection — the ledger's actual payments to date — with a TIES /
+    DOESN'T TIE pill (`tiesTone`; within 2% or $250). The ledger IS the record
+    of the bills paid; Bensalem's collector has no online bill lookup, so this
+    is how a Bucks figure gets checked against a real bill.
+  - **Audited 9/28/26**: every coded value re-pulled from the city's open
+    data, the Bucks parcel layer and Montgomery's property records — all 33
+    parcels match; Montgomery's own per-body bill estimates are reproduced
+    within $1 (rounding). 2040 KF Nockamixon and 2080 LKF Nock carry an RET
+    line on their mapping but own no Bucks parcel and have no budget of
+    record — holding partnerships around 2070's land — so they have no seed.
   - **Parcels**: Building 8 (4080) is TWO parcels (-002 and -002-015); Kor
     Center A/B/C SHARE one parcel (02-001-002-005) at 33/28/39 (`share`, the
     2026 budget's split); Brookwood (2300) is 1861 + 1847 Street Rd; 2070 is
     two Nockamixon parcels; 9820 is 120 + 122 N Spring Garden; the JV III
-    condo is 3610A (02-001-002-016). **8200 is the Four Seasons parcel only —
+    condo is PIIICO (02-001-002-016 — its statement key; it was first seeded
+    under a made-up 3610A that no budget reads). **8200 is the Four Seasons parcel only —
     McDonald's pays its own bill on 882047229.** 9840 (3044 Joshua Rd) is
     65-00-06280-00-9 — the Tax Tracker lists 9860's number for it.
   - **A parcel NOT in CAM** (`recoverable: false`) is taken out of the RET
