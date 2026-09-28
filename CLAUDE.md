@@ -1573,17 +1573,39 @@ time — and the team does not have time to open the GL over $80.
   and no vacancy today sits at $0 on the rate rather than falling back to
   +3%. Other properties keep a per-property rate, and with no vacancy and no
   typed rate keep their grown figure.
-- **PENDING (build when the 2027 draft is finished): "Publish to Budgets".**
-  The Budget Draft is a WORKSPACE — nothing reads it. The budget of record is
-  the workbook store on `/financials/budgets` (`lib/financials/budgets/storage.ts`),
-  which the operating statements' budget-vs-actual and "?" flags, the Cash
-  Sheet, management fees and the monthly report all read. The plan the owner
-  agreed to defer: a publish step on the draft (Drew/admin) that writes it as a
-  `BudgetWorkbook` (draft/final) so the existing downloads and Skyline export
-  work on it, then retire "+ Create Live Budget" (`build.ts`), an older parallel
-  builder with a master growth % and none of the leasing / recoveries / Budget
-  Inputs / typed-month work. Until then, do not wire anything else to read the
-  draft.
+- **PUBLISH TO BUDGETS** (`publish.ts`, `POST/GET/DELETE
+  /api/financials/budgets/publish`, `PublishCard` on a book's roll-up tab or a
+  one-property book's own tab; Drew / Alison / admin — `isBudgetAuthor`). The
+  draft is a WORKSPACE; publishing writes a BOOK's drafts into the budget
+  store as one `BudgetWorkbook` (`kind: "published"`, `status: "final"`, id
+  `published-<book>-<year>`, the book roll-up as `CONSOLIDATED`) — the SAME
+  shape a staff workbook parses into, so the statements' Budget column and
+  "?" flags, the Cash Sheet, management fees, the monthly report, the Budgets
+  page, its downloads and the Skyline import all read it unchanged.
+  - **The GL account on every line is the whole job** (the statements find a
+    budget by account): a line built from several accounts publishes AS its
+    GL sub-lines (parent carries none, so nothing counts twice); else the one
+    account the reprojection found (`glAccounts` on the draft line); else last
+    year's budget line of the same name; else an exact mask; else last year's
+    Skyline import. Anything left is reported UNMAPPED (amber pill), never
+    guessed. Buckets / items stay descriptive rows with no account, as the
+    workbook keeps them. Skyline: revenue a credit, the rest a debit.
+  - **A PUBLISHED FUTURE YEAR TAKES EFFECT ON JANUARY 1** (owner: "2026 still
+    reigns until 1/1/27"). Every reader asks for the budget of the year it is
+    looking at; the ones that used to take "the newest year on file" (opex
+    summary, search KPIs, cash-sheet fee rates, reserves, the Budgets page's
+    default tab, the crosswalk's fallback) now take the year IN FORCE
+    (`inForce.ts` — `pickBudgetYear`: that year, else the latest before it).
+  - **ONE workbook per property per year** (`preferredWorkbooks`: published,
+    then final, then newest) — the crosswalk used to SUM every workbook of a
+    year carrying the property, so a published draft beside a staff workbook
+    would have doubled every budget figure. A publish over another workbook
+    for the same year asks first (409 → confirm) and replaces it.
+  - The card says "CHANGED SINCE PUBLISHED" when the draft has moved
+    (`draftFingerprint` — every line's months PROPERTY BY PROPERTY, so moving
+    money between buildings counts). Republish / Unpublish.
+  - `+ Create Live Budget` (`build.ts`) is the older parallel builder; retire
+    it once 2027 is published from the draft.
 
 # T-12 — trailing twelve months of actuals
 

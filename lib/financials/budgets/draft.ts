@@ -38,6 +38,7 @@ import { availableStatements } from "@/lib/financials/operating-statements/mappi
 import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 import { groupOf } from "@/lib/reports/monthly";
 import { listBudgets } from "./storage";
+import { preferredWorkbooks } from "./inForce";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { isVacancyUtilitiesLine, resolveRate, monthsAt, SC_RATE_SCOPE, type VacancyUtilities } from "./vacancyUtilities";
 import { assembledGlConsolidated } from "@/lib/financials/operating-statements/statementStore";
@@ -82,6 +83,9 @@ export type BudgetDraftLine = {
   inputSource?: ExpenseInput["source"];
   /** Non-reimbursable utilities on vacant space: the rate and the SF by month. */
   vacancy?: VacancyUtilities;
+  /** The GL accounts the reprojection found on this line — what Publish to
+   *  Budgets codes a single-account line to (`publish.ts`). */
+  glAccounts?: string[];
   /** Drafted 12 monthly amounts (display orientation: positive). */
   months: number[];
   total: number;
@@ -464,8 +468,8 @@ export async function priorBudgetProperty(propertyCode: string, year: number) {
 /** Every property of a book in the budget of record for `year`. */
 export async function priorBudgetProperties(codes: string[], year: number) {
   const wbs = (await listBudgets().catch(() => [])).filter((w) => w.year === year);
-  const rank = (w: (typeof wbs)[number]) => (w.status === "draft" ? 1 : 0);
-  wbs.sort((a, b) => rank(a) - rank(b));
+  const ranked = preferredWorkbooks(wbs);
+  wbs.splice(0, wbs.length, ...ranked);
   const out: NonNullable<(typeof wbs)[number]["properties"][number]>[] = [];
   for (const c of codes) {
     const code = String(c ?? "").toUpperCase();
@@ -649,7 +653,10 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
         source: grown ? "reproj-growth" : "reproj-flat",
       };
     });
-    const lines = built.map((b, i) => withSubLines(b, sec.lines[i].accounts, r.accountNames ?? {}, isExpense ? factor : null, sec.role));
+    const lines = built.map((b, i) => ({
+      ...withSubLines(b, sec.lines[i].accounts, r.accountNames ?? {}, isExpense ? factor : null, sec.role),
+      glAccounts: (sec.lines[i].accounts ?? []).map((x) => x.account),
+    }));
     const subtotal = new Array(12).fill(0);
     for (const l of lines) addInto(subtotal, l.months);
     return { name: sec.name, role: sec.role, lines, subtotal: subtotal.map(r0), total: r0(sum(subtotal)) };

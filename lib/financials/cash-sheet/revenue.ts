@@ -16,6 +16,7 @@ import { getJSON } from "@/lib/storage";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { summarizeSnapshot } from "@/lib/rentroll/snapshot";
 import { listBudgets } from "@/lib/financials/budgets/storage";
+import { yearInForce, preferredWorkbooks } from "@/lib/financials/budgets/inForce";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { monthKey } from "./util";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
@@ -32,7 +33,13 @@ const LIK_CODE = "2010"; // LIK Management, Inc.
  *  budget's "Management Fee" line (GL 6610-*). Varies by property. */
 async function managementFeePcts(): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
-  for (const wb of await listBudgets()) {
+  // The year in force wins: oldest first, so a later write (a newer year, a
+  // preferred workbook) replaces — and never a year that is not in force yet.
+  const inForce = yearInForce();
+  const wbs = preferredWorkbooks(await listBudgets()).reverse()
+    .filter((w) => w.year <= inForce)
+    .sort((a, b) => a.year - b.year);
+  for (const wb of wbs) {
     for (const property of wb.properties) {
       if (property.propertyCode === "CONSOLIDATED") continue;
       for (const sec of property.sections) {

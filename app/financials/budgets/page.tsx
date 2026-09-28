@@ -6,6 +6,7 @@ import { useUser } from "@/app/components/UserProvider";
 import { Pill, StatPill, TONE_AMBER, TONE_GREEN, type PillTone } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
 import type { BudgetWorkbook, OccupancyDetailRow } from "@/lib/financials/budgets/types";
+import { pickBudgetYear } from "@/lib/financials/budgets/inForce";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
@@ -69,7 +70,12 @@ export default function BudgetsPage() {
         ? all.filter((s) => s.properties.some((p) => budgetScope.has(p.propertyCode)))
         : all;
       setSummaries(list);
-      if (list.length > 0 && !selectedId) setSelectedId(list[0].id);
+      // Open on the budget IN FORCE (this year's), not the newest on file — a
+      // published next-year budget sits beside it until January 1st.
+      if (list.length > 0 && !selectedId) {
+        const inForce = pickBudgetYear(list.map((w) => w.year));
+        setSelectedId((list.find((w) => w.year === inForce) ?? list[0]).id);
+      }
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load");

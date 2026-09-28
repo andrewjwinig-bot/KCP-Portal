@@ -6,6 +6,7 @@
 
 import "server-only";
 import { listBudgets } from "./storage";
+import { pickBudgetYear, preferredWorkbooks } from "./inForce";
 
 export type BudgetOpexSummary = {
   year: number;
@@ -17,12 +18,17 @@ const isRet = (label: string, gl: string | null) =>
 
 export async function budgetOpexSummary(): Promise<BudgetOpexSummary> {
   const wbs = await listBudgets();
-  const year = wbs.reduce((m, w) => Math.max(m, w.year || 0), 0);
+  // The budget IN FORCE, not the newest on file — a 2027 budget published in
+  // October must not stand in for 2026's until January.
+  const year = pickBudgetYear(wbs.map((w) => w.year)) ?? 0;
   const byProperty: Record<string, { opex: number; ret: number }> = {};
+  const taken = new Set<string>();
 
-  for (const wb of wbs) {
+  for (const wb of preferredWorkbooks(wbs)) {
     if (wb.year !== year) continue;
     for (const p of wb.properties) {
+      if (taken.has(p.propertyCode.toUpperCase())) continue;
+      taken.add(p.propertyCode.toUpperCase());
       // The reimbursable operating-expense section (exclude the
       // "Non-Reimbursable Expenses" section, which is broader than CAM).
       const sec = p.sections.find(

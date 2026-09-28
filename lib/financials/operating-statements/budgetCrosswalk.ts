@@ -19,6 +19,7 @@ import { listBudgets } from "@/lib/financials/budgets/storage";
 import type { BudgetWorkbook } from "@/lib/financials/budgets/types";
 import type { BudgetLine, RentDetail } from "@/lib/financials/budgets/types";
 import { accountMatchesMask, accountsMatchingMask, claimAccounts } from "./mask";
+import { pickBudgetYear, preferredWorkbooks } from "@/lib/financials/budgets/inForce";
 import type { LineBudget } from "./types";
 
 /** Flattened budget line keyed by GL account. */
@@ -114,8 +115,17 @@ export async function resolvePropertyBudget(
   // Candidate (year → flat lines + structured tree) for this property.
   const byYear = new Map<number, FlatBudgetLine[]>();
   const byYearTree = new Map<number, BudgetLine[]>();
-  for (const wb of workbooks) {
-    const props = wb.properties.filter((p) => codeSet.has(String(p.propertyCode ?? "").toUpperCase()));
+  // ONE workbook per property per year: a published draft and a staff
+  // workbook (or a live budget) carrying the same property would otherwise
+  // be summed, doubling every budget figure.
+  const taken = new Set<string>();
+  for (const wb of preferredWorkbooks(workbooks)) {
+    const props = wb.properties.filter((p) => {
+      const code = String(p.propertyCode ?? "").toUpperCase();
+      if (!codeSet.has(code) || taken.has(`${wb.year}|${code}`)) return false;
+      taken.add(`${wb.year}|${code}`);
+      return true;
+    });
     if (!props.length) continue;
     const flat: FlatBudgetLine[] = [];
     const tree: BudgetLine[] = [];
@@ -136,8 +146,9 @@ export async function resolvePropertyBudget(
   };
 
   if (byYear.has(year)) return build(year, false);
-  // Nearest available year (prefer the most recent).
-  const best = [...byYear.keys()].sort((a, b) => b - a)[0];
+  // Nearest available year: the latest before it, else the earliest after —
+  // never a later year's budget ahead of its time.
+  const best = pickBudgetYear([...byYear.keys()], year)!;
   return build(best, true);
 }
 

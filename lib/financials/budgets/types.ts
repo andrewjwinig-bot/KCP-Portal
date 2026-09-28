@@ -232,7 +232,9 @@ export type BudgetCategory = "Shopping Centers" | "Office" | "Residential" | "Ot
  *  Kind = "live"     → a portal-built budget populated from rent roll +
  *  debt tracker + prior budget at × growth. Both share the same shape so
  *  the viewer is identical. */
-export type BudgetKind = "imported" | "live";
+/** "published" = written from the Budget Draft by Publish to Budgets
+ *  (`publish.ts`) — the budget of record for its year. */
+export type BudgetKind = "imported" | "live" | "published";
 
 export type BudgetWorkbook = {
   id: string;                     // e.g. "shopping-centers-2026"
@@ -249,6 +251,15 @@ export type BudgetWorkbook = {
     rentRollUploadedAt?: string;
     priorBudgetId?: string;
     opExGrowthPct?: number;
+    /** Publish to Budgets: the book it was published from, and a
+     *  fingerprint of the draft AS PUBLISHED (`draftFingerprint`) so the
+     *  draft page can say when it has moved since. */
+    book?: string;
+    publishedFrom?: "draft";
+    draftFingerprint?: string;
+    /** Draft lines no GL account could be found for — on the Budgets page,
+     *  invisible to the statements' Budget column. */
+    unmapped?: { propertyCode: string; section: string; label: string; total: number }[];
   };
   /** Workbook-level rollup ("All Shopping Centers" sheet), if present. */
   rollup?: PropertyBudget;
