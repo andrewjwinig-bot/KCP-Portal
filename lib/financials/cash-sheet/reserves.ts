@@ -9,6 +9,7 @@
 
 import "server-only";
 import { listBudgets } from "@/lib/financials/budgets/storage";
+import { pickBudgetYear, preferredWorkbooks } from "@/lib/financials/budgets/inForce";
 import type { BudgetLine } from "@/lib/financials/budgets/types";
 
 const RESERVE_WINDOW_MONTHS = 3; // current month + next two
@@ -38,15 +39,18 @@ export async function bigProjectsReserveFor(year: number, month: number): Promis
   const budgets = await listBudgets();
   if (!budgets.length) return { byCode: {}, detail: {} };
   const years = budgets.map((b) => b.year);
-  const useYear = years.includes(year) ? year : Math.max(...years);
+  const useYear = pickBudgetYear(years, year)!;
+  const taken = new Set<string>();
   const wm = windowMonths(month);
   const idx = wm.map((m) => m - 1); // 0-based into the months array
   const byCode: Record<string, number> = {};
   const detail: Record<string, ReserveDetail> = {};
-  for (const wb of budgets) {
+  for (const wb of preferredWorkbooks(budgets)) {
     if (wb.year !== useYear) continue;
     for (const property of wb.properties) {
       if (property.propertyCode === "CONSOLIDATED") continue;
+      if (taken.has(property.propertyCode.toUpperCase())) continue;
+      taken.add(property.propertyCode.toUpperCase());
       const lines: ReserveLine[] = [];
       const visit = (bl: BudgetLine[]) => {
         for (const line of bl) {

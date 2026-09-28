@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildBudgetDraft, type BudgetDraft } from "@/lib/financials/budgets/draft";
+import { buildBudgetDraft } from "@/lib/financials/budgets/draft";
 import { consolidateDrafts } from "@/lib/financials/budgets/consolidate";
 import { bookById } from "@/lib/financials/budgets/books";
 import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
@@ -13,6 +13,7 @@ function withoutPayroll(d: Draft): Draft {
   return { ...d, sections: d.sections.map((s) => ({ ...s, lines: s.lines.map((l) => (l.pool ? { ...l, pool: undefined } : l)) })) };
 }
 import { getLineNotes } from "@/lib/financials/budgets/lineNoteStore";
+import { buildBookDrafts } from "@/lib/financials/budgets/bookDrafts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,19 +37,7 @@ export async function GET(req: Request) {
     if (!book || !book.rollsUp) return NextResponse.json({ error: "No roll-up for that book." }, { status: 404 });
     const year = Number(url.searchParams.get("year")) || now.getFullYear() + 1;
     const growth = Number(url.searchParams.get("growth"));
-    const list = await availableStatements();
-    const keys = book.properties.map((c) => list.find((m) => m.propertyCode.toUpperCase() === c.toUpperCase())?.key).filter((k): k is string => !!k);
-    const drafts: BudgetDraft[] = [];
-    const queue = [...keys];
-    const worker = async () => {
-      for (let k = queue.shift(); k; k = queue.shift()) {
-        const d = await buildBudgetDraft(k, year, Number.isFinite(growth) ? growth : 3).catch(() => null);
-        if (d) drafts.push(d);
-      }
-    };
-    await Promise.all([worker(), worker(), worker(), worker()]);
-    // Keep the book's own order, whatever order the drafts finished in.
-    drafts.sort((a, b) => book.properties.indexOf(a.propertyCode) - book.properties.indexOf(b.propertyCode));
+    const drafts = await buildBookDrafts(book, year, Number.isFinite(growth) ? growth : 3);
     const all = consolidateDrafts(`All ${book.name}`, drafts);
     if (!all) return NextResponse.json({ missingBasis: true, key: `book:${bookId}`, year, basisYear: year - 1 }, { status: 200 });
     return NextResponse.json({ ...all, notes: {}, canEditLines: false, lineEditScope: null });

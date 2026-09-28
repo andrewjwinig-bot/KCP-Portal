@@ -20,6 +20,7 @@ import { LineHistoryModal } from "./LineHistoryModal";
 import { scopeAllowsLine } from "@/lib/financials/budgets/contributors";
 import { NoteDialog } from "./LineNote";
 import { PayrollPoolsCard } from "./PayrollPoolsCard";
+import { PublishCard } from "./PublishCard";
 
 import type { LeasingCall, SavePayload } from "./LeasingDecision";
 
@@ -341,6 +342,11 @@ export default function BudgetDraftPage() {
       {/* The property's budget at a glance — revenue, operating expenses,
           NOI and cash flow, each against this year's forecast. */}
       {draft && <BudgetKpis draft={draft} />}
+      {/* Publish to Budgets — on the book's roll-up, or a one-property book's
+          own tab: the draft becomes the budget of record for its year. */}
+      {draft && (draft.consolidated || (!book.rollsUp && book.properties.includes(draft.propertyCode))) && (
+        <PublishCard book={book} draft={draft} />
+      )}
 
 
       {loading && !draft && (
