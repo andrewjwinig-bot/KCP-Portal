@@ -2,8 +2,11 @@
 
 /**
  * A ROLL-UP line's detail ("All Shopping Centers"): which properties make up
- * its budget. A donut of the shares beside the full breakdown — the roll-up has
- * no history of its own; every figure is a property's.
+ * its budget. The year MONTH BY MONTH first — one bar per month stacked by
+ * property (the operating statements' own `MonthlyBars`), so a tax bill in
+ * May or a lease-up starting in June reads where it happens — then a donut of
+ * the shares beside the full breakdown. The roll-up has no history of its
+ * own; every figure is a property's.
  *
  * Colour follows the PROPERTY, ranked once by size: the six largest take
  * --series-1…6, the rest fold into --series-other ("Other"). A credit cannot
@@ -11,6 +14,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { MonthlyBars, type BarTxn } from "@/app/financials/operating-statements/MonthlyBars";
 
 const SERIES = [1, 2, 3, 4, 5, 6].map((i) => `var(--series-${i})`);
 const OTHER = "var(--series-other)";
@@ -20,7 +24,7 @@ const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTrans
 const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "right", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
 const td: React.CSSProperties = { padding: "7px 8px", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
 
-type Share = { code: string; name: string; total: number };
+type Share = { code: string; name: string; total: number; months?: number[] };
 
 export function PropertyBreakdownModal({ label, section, year, rows, onClose }: {
   label: string; section: string; year: number; rows: Share[]; onClose: () => void;
@@ -31,6 +35,12 @@ export function PropertyBreakdownModal({ label, section, year, rows, onClose }: 
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   const [active, setActive] = useState<string | null>(null);
+  const [month, setMonth] = useState<number | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  // One "charge" per property per month — a segment is that property's month.
+  const bars: BarTxn[] = useMemo(() => rows.flatMap((r) => (r.months ?? []).map((v, i) => ({
+    month: i + 1, amount: v || 0, vendor: r.code, vendorLabel: `${r.code} ${r.name}`, date: null, description: "Budget",
+  })).filter((t) => Math.abs(t.amount) >= 0.5)), [rows]);
 
   const sorted = useMemo(() => [...rows].sort((a, b) => b.total - a.total), [rows]);
   const total = sorted.reduce((a, r) => a + r.total, 0);
@@ -67,7 +77,7 @@ export function PropertyBreakdownModal({ label, section, year, rows, onClose }: 
 
   const body = (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
-      <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 820, width: "100%", padding: 18, display: "flex", flexDirection: "column", gap: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 900, width: "100%", padding: 18, display: "flex", flexDirection: "column", gap: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div>
             <div style={secLabel}>{section} · {year} budget by property</div>
@@ -78,6 +88,14 @@ export function PropertyBreakdownModal({ label, section, year, rows, onClose }: 
         {!sorted.length ? (
           <div className="muted small">No property budgets anything on this line.</div>
         ) : (
+          <>
+          {bars.length > 0 && (
+            <div>
+              <div style={{ ...secLabel, marginBottom: 4 }}>By month{month ? ` · ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][month - 1]}` : ""}</div>
+              <MonthlyBars txns={bars} period={12} year={year} selectedMonth={month} onSelectMonth={setMonth}
+                selectedVendor={picked} onSelectVendor={setPicked} />
+            </div>
+          )}
           <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
             <svg viewBox="0 0 220 220" width={220} height={220} role="img" aria-label={`${label} by property`} style={{ flex: "0 0 auto" }}>
               {arcs.map((a) => (
@@ -101,14 +119,14 @@ export function PropertyBreakdownModal({ label, section, year, rows, onClose }: 
                 <thead>
                   <tr>
                     <th style={{ ...th, textAlign: "left" }}>Property</th>
-                    <th style={th}>Budget</th>
+                    <th style={th}>{month ? `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][month - 1]} budget` : "Budget"}</th>
                     <th style={th}>Share</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sorted.map((x) => (
                     <tr key={x.code} onMouseEnter={() => setActive(colorOf.get(x.code) === OTHER ? "__other" : x.code)} onMouseLeave={() => setActive(null)}
-                      style={{ background: hoverRow?.code === x.code ? "rgba(11,74,125,0.05)" : undefined }}>
+                      style={{ background: hoverRow?.code === x.code || picked === x.code ? "rgba(11,74,125,0.05)" : undefined, opacity: picked && picked !== x.code ? 0.5 : 1 }}>
                       <td style={{ ...td, textAlign: "left" }}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                           <span style={{ width: 10, height: 10, borderRadius: 3, background: colorOf.get(x.code) ?? "transparent", border: colorOf.get(x.code) ? "none" : "1px solid var(--border)", flex: "0 0 auto" }} />
@@ -116,19 +134,20 @@ export function PropertyBreakdownModal({ label, section, year, rows, onClose }: 
                           <span style={{ fontWeight: 600 }}>{x.name}</span>
                         </span>
                       </td>
-                      <td style={td}>{money0(x.total)}</td>
+                      <td style={td}>{money0(month ? (x.months?.[month - 1] ?? 0) : x.total)}</td>
                       <td style={{ ...td, color: "var(--muted)" }}>{total ? pct(x.total / total) : "–"}</td>
                     </tr>
                   ))}
                   <tr style={{ fontWeight: 800 }}>
                     <td style={{ ...td, textAlign: "left", borderTop: "2px solid var(--border)" }}>Total</td>
-                    <td style={{ ...td, borderTop: "2px solid var(--border)" }}>{money0(total)}</td>
+                    <td style={{ ...td, borderTop: "2px solid var(--border)" }}>{money0(month ? sorted.reduce((a, r) => a + (r.months?.[month - 1] ?? 0), 0) : total)}</td>
                     <td style={{ ...td, borderTop: "2px solid var(--border)", color: "var(--muted)" }}>100%</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
+          </>
         )}
       </div>
     </div>
