@@ -117,3 +117,24 @@ describe("what a contributor may SEE", () => {
     }
   });
 });
+
+import { canEditLines, lineEditScope, scopeAllowsLine } from "./contributors";
+
+describe("who can edit the budget draft", () => {
+  it("Alison edits everything, as Drew and admin do", () => {
+    expect(canEditLines("alison")).toBe(true);
+    expect(lineEditScope("alison")).toBe("all");
+    expect(canEdit("alison", "ret", "SC")).toBe(true);
+    expect(canEdit("alison", "renewal", "BP")).toBe(true);
+  });
+  it("Greg types expense lines only — never taxes, insurance or revenue", () => {
+    expect(lineEditScope("greg")).toBe("expenses");
+    expect(scopeAllowsLine("expenses", "Reimbursable Expenses", "Building Maintenance")).toBe(true);
+    expect(scopeAllowsLine("expenses", "Reimbursable Expenses", "Insurance")).toBe(false);
+    expect(scopeAllowsLine("expenses", "Revenue", "Rental Income")).toBe(false);
+  });
+  it("Harry and Nancy type nothing into the grid", () => {
+    expect(lineEditScope("harry")).toBeNull();
+    expect(lineEditScope("nancy")).toBeNull();
+  });
+});

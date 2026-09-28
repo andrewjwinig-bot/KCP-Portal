@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const user = await budgetUser();
     if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
     const scope = lineEditScope(user);
-    if (!scope) return NextResponse.json({ error: "Only Drew can type figures into the budget." }, { status: 403 });
+    if (!scope) return NextResponse.json({ error: "Only Drew, Alison or admin can type figures into the budget." }, { status: 403 });
 
     const b = await req.json();
     const year = Number(b?.year);
