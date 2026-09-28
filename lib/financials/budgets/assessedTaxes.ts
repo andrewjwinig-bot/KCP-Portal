@@ -357,3 +357,46 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
     },
   };
 }
+
+// ─── A figure typed over the computation ──────────────────────────────────
+
+/** When the computed tax shipped. A tax stored before it was keyed against
+ *  "this year + 3%" and is superseded; one stored after is a deliberate
+ *  override of the computed figure. */
+export const COMPUTED_TAX_SINCE = "2026-09-28T19:00:00Z";
+
+const sumOf = (m: number[]) => m.reduce((a, b) => a + (b || 0), 0);
+
+/** A stored tax that should stand over the computed one: typed after the
+ *  computation shipped, and not $0 (no taxed property owes nothing). */
+export function isDeliberateOverride(stored: ExpenseInput): boolean {
+  const total = stored.months?.length === 12 ? sumOf(stored.months) : stored.annual ?? 0;
+  return !!stored.at && stored.at >= COMPUTED_TAX_SINCE && Math.abs(total) >= 1;
+}
+
+/** A deliberate override, labelled. If it IS the computed figure (typed to
+ *  the dollar, or accepted as shown) it carries the computed source and pill;
+ *  if it differs it reads "Entered" and says by how much, so a typed figure
+ *  cannot pass for the assessment. */
+export function withSeedComparison(stored: ExpenseInput, seed: ExpenseInput): ExpenseInput {
+  const seedMonths = seed.months ?? [];
+  const seedTotal = sumOf(seedMonths);
+  const typedTotal = stored.months?.length === 12 ? sumOf(stored.months) : stored.annual ?? null;
+  if (typedTotal == null || !seed.source) return stored;
+  const sameMonths = stored.months?.length === 12 && stored.months.every((v, i) => Math.round(v || 0) === Math.round(seedMonths[i] || 0));
+  if (sameMonths || (stored.months == null && Math.abs(typedTotal - seedTotal) < 1)) return { ...stored, source: seed.source };
+  return {
+    ...stored,
+    source: {
+      ...seed.source,
+      pill: "Entered",
+      title: `Typed over the ${seed.source.pill === "Per city" ? "city's" : "county's"} figure`,
+      rows: [
+        { label: "Typed", value: usd(typedTotal) },
+        { label: `Computed (${seed.source.pill})`, value: usd(seedTotal) },
+        { label: "Click ↺", value: "to use the computed figure" },
+      ],
+      total: { label: "Typed minus computed", value: `${typedTotal - seedTotal < 0 ? "-" : ""}${usd(Math.abs(typedTotal - seedTotal))}` },
+    },
+  };
+}
