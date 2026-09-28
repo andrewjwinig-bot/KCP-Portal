@@ -40,7 +40,8 @@ export type ExpenseInput = {
   months?: number[];
   note?: string;
   /** Where a seeded figure came from, row by row — shown on the line's pill. */
-  source?: { title: string; rows: { label: string; value: string }[]; total: { label: string; value: string } };
+  source?: { /** The pill's text in place of "Entered" — a figure PROVIDED
+   *  by a document, not estimated. */ pill?: string; title: string; rows: { label: string; value: string }[]; total: { label: string; value: string } };
   by?: string;
   at?: string;
 };

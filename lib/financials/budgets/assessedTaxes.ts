@@ -48,6 +48,7 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
     note: `$${a.assessed.toLocaleString("en-US")} taxable assessed value × ${a.ratePct}% = $${assessedTax(a).toLocaleString("en-US")}, due ${month} (${a.source})`,
     by: "Assessment notice",
     source: {
+      pill: "Per notice",
       title: a.source,
       rows: [
         { label: "Taxable assessed value", value: `$${a.assessed.toLocaleString("en-US")}` },
