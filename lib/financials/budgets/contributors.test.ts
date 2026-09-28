@@ -138,3 +138,29 @@ describe("who can edit the budget draft", () => {
     expect(lineEditScope("nancy")).toBeNull();
   });
 });
+
+import { canSeePayroll } from "./contributors";
+import { stripPayrollAllocations } from "./payrollPools";
+
+describe("the payroll budget is Drew's and Alison's alone", () => {
+  it("only Drew, Alison and admin see payroll", () => {
+    for (const u of ["drew", "alison", "admin"] as const) expect(canSeePayroll(u)).toBe(true);
+    for (const u of ["greg", "nancy", "harry", "maint", "controller"] as any[]) expect(canSeePayroll(u)).toBe(false);
+    expect(canSeePayroll(null)).toBe(false);
+  });
+  it("Greg cannot type a salary line", () => {
+    expect(scopeAllowsLine("expenses", "Reimbursable Expenses", "Maintenance Salaries")).toBe(false);
+    expect(scopeAllowsLine("expenses", "Non-Reimbursable Expenses", "Salaries & Wages")).toBe(false);
+  });
+  it("a budget loses its payroll allocations, and only those", () => {
+    const line = (allocations: any[]) => ({ glAccount: "6030-8502", label: "Maintenance Salaries", months: [], total: 0, allocations, subLines: [] } as any);
+    const wb: any = { properties: [{ sections: [{ lines: [
+      line([{ blockLabel: "Maint", sourceNote: "From 2026 Payroll Budget", portfolioTotal: 500000 }, { blockLabel: "Trash", sourceNote: "sqft", portfolioTotal: 9000 }]),
+      line([{ blockLabel: "Maint", sourceNote: "From 2026 Payroll Budget", portfolioTotal: 500000 }]),
+    ] }] }] };
+    stripPayrollAllocations(wb);
+    const [a, b] = wb.properties[0].sections[0].lines;
+    expect(a.allocations.map((x: any) => x.blockLabel)).toEqual(["Trash"]);
+    expect(b.allocations).toBeUndefined();
+  });
+});

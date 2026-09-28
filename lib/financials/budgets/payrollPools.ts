@@ -35,6 +35,23 @@ const PAYROLL = /payroll/i;
 
 const walk = (l: BudgetLine, f: (l: BudgetLine) => void) => { f(l); (l.subLines ?? []).forEach((s) => walk(s, f)); };
 
+/** A budget workbook with its PAYROLL allocations taken off — the book-wide
+ *  salary totals and every property's share of them — for a viewer who may
+ *  not see payroll (`canSeePayroll`: Drew, Alison, admin). Each line keeps its
+ *  own figure; only the payroll detail behind it goes. Mutates and returns. */
+export function stripPayrollAllocations<W extends { properties: PropertyBudget[]; rollup?: PropertyBudget; reforecastSnapshot?: { properties: PropertyBudget[]; rollup?: PropertyBudget } }>(wb: W): W {
+  const scrub = (l: BudgetLine) => {
+    if (l.allocations?.length) {
+      const kept = l.allocations.filter((a) => !PAYROLL.test(a.sourceNote ?? ""));
+      l.allocations = kept.length ? kept : undefined;
+    }
+    (l.subLines ?? []).forEach(scrub);
+  };
+  const props = [...wb.properties, ...(wb.rollup ? [wb.rollup] : []), ...(wb.reforecastSnapshot?.properties ?? []), ...(wb.reforecastSnapshot?.rollup ? [wb.reforecastSnapshot.rollup] : [])];
+  for (const p of props) for (const s of p.sections) s.lines.forEach(scrub);
+  return wb;
+}
+
 /** The payroll blocks allocated across a book, read off last year's budget. */
 export function payrollBlocks(prior: PropertyBudget[]): PoolBlock[] {
   const out = new Map<string, PoolBlock>();

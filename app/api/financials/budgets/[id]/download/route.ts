@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { canSeePayroll } from "@/lib/financials/budgets/contributors";
+import { budgetUser } from "@/lib/financials/budgets/currentUser";
+import { stripPayrollAllocations } from "@/lib/financials/budgets/payrollPools";
 import { getBudget } from "@/lib/financials/budgets/storage";
 import { generateBudgetDownloadXlsx } from "@/lib/financials/budgets/budgetDownload";
 
@@ -18,6 +21,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: "?property=<code> required" }, { status: 400 });
     }
     const wb = await getBudget(params.id);
+    // Payroll allocations (the book's salary totals and each property's
+    // share) are Drew's and Alison's alone — taken off for anyone else.
+    if (wb && !canSeePayroll(await budgetUser())) stripPayrollAllocations(wb);
     if (!wb) return NextResponse.json({ error: "Budget not found" }, { status: 404 });
     const property = wb.properties.find((p) => p.propertyCode.toUpperCase() === propertyCode);
     if (!property) {
