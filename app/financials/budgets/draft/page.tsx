@@ -17,7 +17,9 @@ import { useUser } from "@/app/components/UserProvider";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
-import { scopeAllowsLine } from "@/lib/financials/budgets/contributors";
+import { scopeAllowsLine, canSeePayroll } from "@/lib/financials/budgets/contributors";
+import type { UserId } from "@/lib/users";
+import { PayrollBudget } from "./PayrollBudget";
 import { NoteDialog } from "./LineNote";
 import { PayrollPoolsCard } from "./PayrollPoolsCard";
 import { PublishCard } from "./PublishCard";
@@ -91,6 +93,10 @@ export default function BudgetDraftPage() {
   const { user } = useUser();
   const [bookId, setBookId] = useState<string>(user.budgetScope?.codes.has("3610") ? "jv3" : "shopping-centers");
   const book = bookById(bookId) ?? bookById("shopping-centers")!;
+  // The payroll book is Drew's and Alison's alone — the route enforces it;
+  // this only keeps it out of everyone else's book list.
+  const payrollOk = canSeePayroll(user.id as UserId);
+  const isPayroll = book.id === "lik-payroll" && payrollOk;
   // The progress + rent-schedule category the book belongs to (the leasing
   // owner splits the same way: shopping centres → Harry, parks → Nancy).
   const category = bookId === "shopping-centers" ? "Shopping Centers" : bookId === "jv3" || bookId === "ni-llc" ? "Office" : book.name;
@@ -318,6 +324,7 @@ export default function BudgetDraftPage() {
       <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
       <BookMasthead
         book={book}
+        hideBooks={payrollOk ? [] : ["lik-payroll"]}
         year={year}
         propertyCode={label?.propertyCode ?? null}
         years={[thisYear, thisYear + 1, thisYear + 2]}
@@ -341,6 +348,9 @@ export default function BudgetDraftPage() {
 
       {/* The property's budget at a glance — revenue, operating expenses,
           NOI and cash flow, each against this year's forecast. */}
+      {/* The 2010 LIK PAYROLL book is not a property budget: it is the
+          per-employee payroll the other books allocate (Drew & Alison only). */}
+      {isPayroll ? <PayrollBudget year={year} /> : (<>
       {draft && <BudgetKpis draft={draft} />}
       {/* Publish to Budgets — on the book's roll-up, or a one-property book's
           own tab: the draft becomes the budget of record for its year. */}
@@ -479,6 +489,8 @@ export default function BudgetDraftPage() {
             }} />
         )}
       </InPlaceRevenueCard>
+
+      </>)}
 
       {/* Always visible while you work the budget — the question "what is
           holding this up" is asked continuously in a room with four people in
