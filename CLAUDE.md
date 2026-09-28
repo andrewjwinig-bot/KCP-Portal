@@ -1512,7 +1512,10 @@ time — and the team does not have time to open the GL over $80.
   (`byProperty` → `PropertyBreakdownModal`: a donut of the six largest on
   `--series-1…6`, the rest folded into Other, beside the full table, which is
   the record since a credit cannot be a slice). Shopping Centers, JV III, NI
-  LLC and Korman Homes roll up (`rollsUp`).
+  LLC and Korman Homes roll up (`rollsUp`). Above the donut, the line's year MONTH BY MONTH
+  stacked by property — the operating statements' own `MonthlyBars` (one
+  segment = one property's month, legend = property filter, click a month to
+  read that month's figures in the table).
 - **A FUND'S LOANS ARE ALLOCATED TO ITS BUILDINGS** (`FUND_SHELL`,
   `fundDebtShares`, `shareOfDebt` in `debtBudget.ts`). JV III's and NI LLC's
   mortgages are booked on the holding entity (3600 / 4000) and imported into

@@ -64,7 +64,7 @@ export default function BudgetDraftPage() {
   // The line open in the note dialog.
   const [noteLine, setNoteLine] = useState<{ section: string; label: string } | null>(null);
   // A roll-up line's split by property (the book's "All …" view).
-  const [breakdown, setBreakdown] = useState<{ label: string; section: string; rows: { code: string; name: string; total: number }[] } | null>(null);
+  const [breakdown, setBreakdown] = useState<{ label: string; section: string; rows: { code: string; name: string; total: number; months?: number[] }[] } | null>(null);
   const [missingBasis, setMissingBasis] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -396,7 +396,7 @@ export default function BudgetDraftPage() {
             onNote={draft.consolidated ? undefined : (sec, label) => setNoteLine({ section: sec.name, label })}
             badgeFor={(src, feePct) => sourceBadge(src, GROWTH, feePct)}
             onLine={draft.consolidated
-              ? (sec, l) => setBreakdown({ label: l.label, section: sec.name, rows: (l.byProperty ?? []).map((b) => ({ code: b.code, name: b.name, total: b.total })) })
+              ? (sec, l) => setBreakdown({ label: l.label, section: sec.name, rows: (l.byProperty ?? []).map((b) => ({ code: b.code, name: b.name, total: b.total, months: b.months })) })
               : (sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.map((p) => p.key) })}
           />
 
