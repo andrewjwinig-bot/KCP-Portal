@@ -1288,7 +1288,8 @@ time — and the team does not have time to open the GL over $80.
   Medicare 1.45% capped at $200,000 AS THE WORKBOOK CAPS IT, UC flat, FUTA 6%
   on the first $7,000 OF WAGES, work comp, 401(k) % of salary → gross),
   **health** (Life/Dental/LTD/STD/Vision annual + monthly medical × 12 = the
-  medical column), **allocation %** (LIK Operating/Other, JV III, NI LLC, SC,
+  medical column — a POPUP opened from that column, not its own card, since it
+  only feeds it), **allocation %** (LIK Operating/Other, JV III, NI LLC, SC,
   Office Works Direct/Indirect, Marketing-All, Interstate, Middletown,
   Eastwick — must total 100%) and **by building**.
   - An employee's GROUP is their account, shown as a **REC** checkbox (owner:
