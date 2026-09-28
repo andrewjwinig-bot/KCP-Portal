@@ -39,6 +39,8 @@ export type ExpenseInput = {
   annual?: number;
   months?: number[];
   note?: string;
+  /** Where a seeded figure came from, row by row — shown on the line's pill. */
+  source?: { title: string; rows: { label: string; value: string }[]; total: { label: string; value: string } };
   by?: string;
   at?: string;
 };

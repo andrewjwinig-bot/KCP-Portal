@@ -168,7 +168,9 @@ function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boo
   );
 }
 
-function Row({ extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, onCellClick, flagNegative }: {
+function Row({ badgeSource, extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, onCellClick, flagNegative }: {
+  /** Where the figure came from, on hover of its pill (an assessment notice). */
+  badgeSource?: BudgetDraftSection["lines"][number]["inputSource"];
   /** Rendered after the pill — the vacant-SF rate editor on utilities. */
   extra?: React.ReactNode;
   label: string; months: number[]; total: number; basis: number | null; variant?: Variant;
@@ -272,7 +274,9 @@ function Row({ extra, label, months, total, basis, variant = "line", badge, onLa
               <button type="button" onClick={onAccept} className="btn" aria-label={`Accept ${label} as shown`}
                 style={{ fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>Accept</button>
             )}
-            {badge && (badgeHref ? <a href={badgeHref} style={{ textDecoration: "none" }}><Pill tone={badge.tone}>{badge.text} →</Pill></a> : <Pill tone={badge.tone}>{badge.text}</Pill>)}
+            {badge && (badgeHref ? <a href={badgeHref} style={{ textDecoration: "none" }}><Pill tone={badge.tone}>{badge.text} →</Pill></a>
+              : badgeSource ? <HoverCard title={badgeSource.title} width={320} rows={badgeSource.rows} footer={{ ...badgeSource.total, color: COLOR_BRAND }} help={false}><Pill tone={badge.tone}>{badge.text}</Pill></HoverCard>
+              : <Pill tone={badge.tone}>{badge.text}</Pill>)}
             {onReset && typed?.some(Boolean) && (
               <button type="button" onClick={onReset} title="Reset typed months" aria-label="Reset typed months"
                 style={{ border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>↺</button>
@@ -499,7 +503,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 const isOpen = isOpenKey(key);
                 return (
                   <Fragment key={l.label + l.mask}>
-                    <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal} flagNegative={sec.role !== "debt-service"}
+                    <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal} flagNegative={sec.role !== "debt-service"} badgeSource={l.inputSource}
                       badge={draft.consolidated || l.source === "vacancy" || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
