@@ -953,7 +953,9 @@ time — and the team does not have time to open the GL over $80.
   the `ret` input (so it reads "Entered"). Philadelphia is 1.3998% (City
   0.6317% + School 0.7681%), due March 31; the 1% February discount is NOT
   assumed. 2027 seeds: **7200 Elbridge $2,347,900 → $32,866** and **7010
-  Parkwood $13,174,000 → $184,410**, both March. Typing taxes replaces the
+  Parkwood $13,174,000 → $184,410** and **5600 Hyman Korman Co (Post Office
+  882830600) $307,000 → $4,297** and **1100 Parkwood Professional (882077811)
+  $1,240,000 → $17,358**, all March. Typing taxes replaces the
   seed; ↺ clears it and STAYS cleared (`seedCleared` on the stored doc). A new
   notice is one row in `ASSESSED_TAXES`. The line's pill reads **"Per notice"**
   (`source.pill`) rather than "Entered" — a figure PROVIDED by the city, not an
@@ -967,11 +969,12 @@ time — and the team does not have time to open the GL over $80.
   recovery pool in draft.ts (`nonRecoverable`, both the budget and this year's
   basis) — ALWAYS, even after the taxes are typed over, since the parcel is
   still there. A parcel with no notice yet carries `fallback` (this year's
-  figure) and the hover says so. **4500 Gray's Ferry**: Shopping Center
+  figure) + 3%, and the hover says so. **4500 Gray's Ferry**: Shopping Center
   882051606 $13,517,700 → $189,221 and Rear Parcel 874545940 $1,642,900 →
   $22,997 (both in CAM — the 2026 workbook's INS RET DEBT tab carries them as
   one recoverable row), Clear Channel billboard 885969440 NOT in CAM (Clear
-  Channel pays its own parcel's tax), at 2026's $14,278 until its notice.
+  Channel pays its own parcel's tax) — the owner has no notice for it, so it
+  is 2026's $14,278 + 3% = $14,706.
 - **Keying a figure IS completing it.** A saved input ticks its contribution
   on the Expenses step (`deriveContributions`' `entered` map); there is no
   separate tick to remember.

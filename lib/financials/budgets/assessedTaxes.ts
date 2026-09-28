@@ -17,9 +17,10 @@
 // a parcel that is NOT in CAM — Gray's Ferry's Clear Channel billboard — is
 // kept OUT of the pool tenants' RET recoveries are figured on (`nonRecoverable`
 // on the input, read by draft.ts). A parcel whose notice has not arrived is
-// carried at `fallback` (this year's budget for it) and says so in the hover.
+// carried at `fallback` (this year's budget for it) + 3% — the same growth an
+// un-noticed tax takes everywhere else — and says so in the hover.
 
-import type { ExpenseInput } from "./expenseInputs";
+import { RET_DEFAULT_GROWTH_PCT, type ExpenseInput } from "./expenseInputs";
 
 /** Philadelphia real estate tax, % of taxable assessed value (City + School). */
 export const PHILA_RET_RATE_PCT = 1.3998;
@@ -32,7 +33,8 @@ export type Parcel = {
   assessed: number | null;
   /** In the tenants' RET recovery pool (CAM). */
   recoverable: boolean;
-  /** This year's tax on the parcel, carried while `assessed` is null. */
+  /** This year's tax on the parcel; while `assessed` is null the budget
+   *  carries it + `RET_DEFAULT_GROWTH_PCT`. */
   fallback?: number;
 };
 
@@ -53,10 +55,15 @@ export const ASSESSED_TAXES: AssessedTax[] = [
     parcels: [{ number: "882832400", label: "Shopping Center", assessed: 2_347_900, recoverable: true }] },
   { code: "7010", year: 2027, ratePct: PHILA_RET_RATE_PCT, dueMonth: 3, source: PHILA_2027,
     parcels: [{ number: "882078060", label: "Shopping Center", assessed: 13_174_000, recoverable: true }] },
+  { code: "1100", year: 2027, ratePct: PHILA_RET_RATE_PCT, dueMonth: 3, source: PHILA_2027,
+    parcels: [{ number: "882077811", label: "Parkwood Professional Bldg", assessed: 1_240_000, recoverable: true }] },
+  { code: "5600", year: 2027, ratePct: PHILA_RET_RATE_PCT, dueMonth: 3, source: PHILA_2027,
+    parcels: [{ number: "882830600", label: "Post Office", assessed: 307_000, recoverable: true }] },
   // Gray's Ferry. The 2026 budget of record (INS RET DEBT tab) carries the
   // centre as one row — the shopping centre and rear parcel together, in the
   // tenants' pool — and Clear Channel's billboard parcel as its own ($14,278),
-  // which is not in CAM (Clear Channel pays its own parcel's tax).
+  // which is not in CAM (Clear Channel pays its own parcel's tax). No notice
+  // for the billboard, so it grows 3% (owner).
   { code: "4500", year: 2027, ratePct: PHILA_RET_RATE_PCT, dueMonth: 3, source: PHILA_2027,
     parcels: [
       { number: "882051606", label: "Shopping Center", assessed: 13_517_700, recoverable: true },
@@ -68,9 +75,11 @@ export const ASSESSED_TAXES: AssessedTax[] = [
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
 
-/** One parcel's tax, in whole dollars — the fallback while no notice. */
+/** One parcel's tax, in whole dollars — with no notice, this year's + 3%. */
 export const parcelTax = (p: Parcel, ratePct: number) =>
-  p.assessed != null ? Math.round((p.assessed * ratePct) / 100) : Math.round(p.fallback ?? 0);
+  p.assessed != null
+    ? Math.round((p.assessed * ratePct) / 100)
+    : Math.round((p.fallback ?? 0) * (1 + RET_DEFAULT_GROWTH_PCT / 100));
 
 /** The property's tax, all parcels. */
 export const assessedTax = (a: AssessedTax) => a.parcels.reduce((s, p) => s + parcelTax(p, a.ratePct), 0);
@@ -93,7 +102,7 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
         label: `${p.label} (${p.number})${p.recoverable ? "" : " · not in CAM"}`,
         value: p.assessed != null
           ? `${usd(p.assessed)} → ${usd(parcelTax(p, a.ratePct))}`
-          : `${usd(parcelTax(p, a.ratePct))} · this year, notice not in`,
+          : `${usd(parcelTax(p, a.ratePct))} · ${usd(p.fallback ?? 0)} + ${RET_DEFAULT_GROWTH_PCT}%, no notice`,
       }))
     : [{ label: "Taxable assessed value", value: usd(a.parcels[0].assessed ?? 0) }];
   rows.push({ label: "Rate (City + School)", value: `${a.ratePct}%` }, { label: "Due", value: month });
@@ -102,7 +111,7 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
   const detail = a.parcels
     .map((p) => p.assessed != null
       ? `${many ? `${p.label} ` : ""}${usd(p.assessed)} × ${a.ratePct}% = ${usd(parcelTax(p, a.ratePct))}`
-      : `${p.label} ${usd(parcelTax(p, a.ratePct))} (this year's, notice not yet in)`)
+      : `${p.label} ${usd(parcelTax(p, a.ratePct))} (this year's ${usd(p.fallback ?? 0)} + ${RET_DEFAULT_GROWTH_PCT}%, no notice)`)
     .join("; ");
   return {
     months,
