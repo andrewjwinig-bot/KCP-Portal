@@ -955,7 +955,9 @@ time — and the team does not have time to open the GL over $80.
   assumed. 2027 seeds: **7200 Elbridge $2,347,900 → $32,866** and **7010
   Parkwood $13,174,000 → $184,410** and **5600 Hyman Korman Co (Post Office
   882830600) $307,000 → $4,297** and **1100 Parkwood Professional (882077811)
-  $1,240,000 → $17,358**, all March. Typing taxes replaces the
+  $1,240,000 → $17,358** and **8200 Trust #4 (Four Seasons, 882047230)
+  $1,689,900 → $23,655** (its McDonald's parcel is $0 in the 2026 workbook
+  and not carried), all March. Typing taxes replaces the
   seed; ↺ clears it and STAYS cleared (`seedCleared` on the stored doc). A new
   notice is one row in `ASSESSED_TAXES`. The line's pill reads **"Per notice"**
   (`source.pill`) rather than "Entered" — a figure PROVIDED by the city, not an

@@ -59,6 +59,11 @@ export const ASSESSED_TAXES: AssessedTax[] = [
     parcels: [{ number: "882077811", label: "Parkwood Professional Bldg", assessed: 1_240_000, recoverable: true }] },
   { code: "5600", year: 2027, ratePct: PHILA_RET_RATE_PCT, dueMonth: 3, source: PHILA_2027,
     parcels: [{ number: "882830600", label: "Post Office", assessed: 307_000, recoverable: true }] },
+  // Trust #4: the Four Seasons parcel at 2811 Cottman Ave. Its McDonald's
+  // parcel (882047229) is budgeted at $0 in the 2026 workbook, so it is not
+  // carried here.
+  { code: "8200", year: 2027, ratePct: PHILA_RET_RATE_PCT, dueMonth: 3, source: PHILA_2027,
+    parcels: [{ number: "882047230", label: "Four Seasons, 2811 Cottman Ave", assessed: 1_689_900, recoverable: true }] },
   // Gray's Ferry. The 2026 budget of record (INS RET DEBT tab) carries the
   // centre as one row — the shopping centre and rear parcel together, in the
   // tenants' pool — and Clear Channel's billboard parcel as its own ($14,278),
