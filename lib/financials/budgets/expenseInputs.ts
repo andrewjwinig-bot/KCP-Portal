@@ -51,6 +51,12 @@ export type ExpenseInput = {
     links?: { label: string; href: string }[];
     /** How the figure is computed, in a sentence. */
     method?: string;
+    /** The calculation as three figures: assessed value × mills = tax. */
+    formula?: { assessed: number; mills: number; tax: number };
+    /** One entry per bill the taxing bodies send, in the month it is due. */
+    bills?: { label: string; month: string; mills: number; tax: number; levies: { body: string; mills: number; rateYear: string; adopted: boolean }[] }[];
+    /** A short basis-of-presentation line under the detail. */
+    footnote?: string;
   };
   /** A seeded tax's parcels that are NOT in CAM (a billboard parcel): kept
    *  out of the RET recovery pool — `budget` this draft's, `basis` this

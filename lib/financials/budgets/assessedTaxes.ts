@@ -72,12 +72,12 @@ const PHL: Jurisdiction = {
     { body: "City of Philadelphia", mills: 6.317, rateYear: "2016–", adopted: true },
     { body: "School District of Philadelphia", mills: 7.681, rateYear: "2016–", adopted: true },
   ] }],
-  rateLink: { label: "Philadelphia real estate tax rate (phila.gov)", href: "https://www.phila.gov/services/payments-assistance-taxes/taxes/property-and-real-estate-taxes/real-estate-tax/" },
+  rateLink: { label: "Tax rate (phila.gov)", href: "https://www.phila.gov/services/payments-assistance-taxes/taxes/property-and-real-estate-taxes/real-estate-tax/" },
 };
 
 // Bucks County, 2026 millage (county 29.65 = general 24.0035 + college 1.1777
 // + debt 3.4764 + parks 0.9924).
-const BUCKS_RATES = { label: "Bucks County 2026 millage rates (7/1/2026)", href: "https://www.buckscounty.gov/DocumentCenter/View/27738/2026-MILLAGE-RATES-7_1_2026" };
+const BUCKS_RATES = { label: "Bucks 2026 millage sheet", href: "https://www.buckscounty.gov/DocumentCenter/View/27738/2026-MILLAGE-RATES-7_1_2026" };
 const BUCKS_COUNTY: Levy = { body: "Bucks County", mills: 29.65, rateYear: "2026", adopted: false };
 const bucks = (id: string, twp: Levy, school: Levy, schoolMonth = 8): Jurisdiction => ({
   id, county: "Bucks", pill: "Per county",
@@ -98,7 +98,7 @@ const NOCKAMIXON = bucks("NOCKAMIXON",
   { body: "Palisades SD", mills: 123.414, rateYear: "2026–27", adopted: false });
 
 // Montgomery County, 2026 (county 5.462 + community college 0.49).
-const MONTCO_RATES = { label: "Montgomery County & municipality millage rates", href: "https://www.montgomerycountypa.gov/622/County-Municipality-Millage-Rates" };
+const MONTCO_RATES = { label: "Montgomery millage table", href: "https://www.montgomerycountypa.gov/622/County-Municipality-Millage-Rates" };
 const montco = (id: string, muni: Levy, school: Levy, countyMonth: number): Jurisdiction => ({
   id, county: "Montgomery", pill: "Per county",
   source: "Montgomery County Board of Assessment Appeals — property records, 2026 millage",
@@ -318,8 +318,21 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
     ? "Taxable assessed value (land + building) × 1.3998% (City 0.6317% + School District 0.7681%), the whole bill in March — due March 31. The 1% early-payment discount is not assumed."
     : `Assessed value × each taxing body's millage (mills per $1,000), on the bill that body sends: ${levyText}. ${j.county} County does not reassess, so only the rates move; a rate not yet adopted for ${a.year} is the latest adopted + ${RET_DEFAULT_GROWTH_PCT}% — replace it when the body sets it. Budgeted at face: no early-payment discount.`;
 
+  // The calculation, for the source dialog: assessed value × effective mills
+  // = the tax, then one row per bill.
+  const assessedSum = known.reduce((s, p) => s + (p.assessed ?? 0) * (p.share ?? 1), 0);
+  const bills = j.bills.map((b) => ({
+    label: b.label, month: MONTHS[b.dueMonth - 1], mills: billMills(b),
+    tax: known.reduce((s, p) => s + parcelBillTax(p, b), 0),
+    levies: b.levies.map((l) => ({ body: l.body, mills: l.mills, rateYear: l.rateYear, adopted: l.adopted })),
+  }));
+  const formula = { assessed: Math.round(assessedSum), mills: j.bills.reduce((s, b) => s + billMills(b), 0), tax: total };
+  const footnote = j.county === "Philadelphia"
+    ? "Philadelphia reassesses each year; the rate has been 1.3998% since 2016. Budgeted at face — the 1% early-payment discount is not assumed."
+    : `${j.county} County does not reassess, so only the rates move. Rates not yet adopted for ${a.year} carry the latest adopted + ${RET_DEFAULT_GROWTH_PCT}%. Budgeted at face — no early-payment discount.`;
+
   const dataLink = j.county === "Philadelphia"
-    ? [{ label: `Certified assessments ${a.year - 1}–${a.year} (city open data query)`, href: phlQueryUrl(a.parcels.map((p) => p.number), [a.year - 1, a.year]) }]
+    ? [{ label: `City open data ${a.year - 1}–${a.year}`, href: phlQueryUrl(a.parcels.map((p) => p.number), [a.year - 1, a.year]) }]
     : [];
   return {
     months,
@@ -332,9 +345,12 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
       rows,
       total: { label: `${a.year} real estate tax${many ? `, ${a.parcels.length} parcels` : ""}`, value: usd(total) },
       method,
+      formula,
+      bills,
+      footnote,
       parcels,
       links: [
-        ...a.parcels.map((p) => ({ label: `${p.label} ${p.number} — ${recordName(j)}`, href: parcelUrl(p, j) })),
+        ...a.parcels.map((p) => ({ label: `${p.label} · ${recordName(j)}`, href: parcelUrl(p, j) })),
         ...dataLink,
         j.rateLink,
       ],
