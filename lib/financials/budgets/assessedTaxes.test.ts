@@ -1,44 +1,79 @@
 import { describe, it, expect } from "vitest";
-import { assessedTaxInput, ASSESSED_TAXES, assessedTax, phlQueryUrl } from "./assessedTaxes";
+import { assessedTaxInput, ASSESSED_TAXES, assessedTax, phlQueryUrl, billMills } from "./assessedTaxes";
 
-const march = (code: string) => assessedTaxInput(2027, code)!.months![2];
+const input = (code: string) => assessedTaxInput(2027, code)!;
+const total = (code: string) => input(code).months!.reduce((a, b) => a + b, 0);
+const month = (code: string, m: number) => input(code).months![m - 1];
 
-describe("real estate taxes from the city's certified assessments", () => {
+describe("Philadelphia — the city's certified assessments", () => {
   it("each notice the owner mailed in: value × 1.3998%, all in March", () => {
-    expect(march("7200")).toBe(32866);   // $2,347,900
-    expect(march("7010")).toBe(184410);  // $13,174,000
-    expect(march("1100")).toBe(17358);   // $1,240,000
-    expect(march("5600")).toBe(4297);    // $307,000
-    expect(march("8200")).toBe(23655);   // $1,689,900 — Four Seasons only; McDonald's pays its own
-    const i = assessedTaxInput(2027, "7010")!;
-    expect(i.months!.filter((v) => v).length).toBe(1);
-    expect(i.nonRecoverable).toBeUndefined();
+    expect(month("7200", 3)).toBe(32866);   // $2,347,900
+    expect(month("7010", 3)).toBe(184410);  // $13,174,000
+    expect(month("1100", 3)).toBe(17358);   // $1,240,000
+    expect(month("5600", 3)).toBe(4297);    // $307,000
+    expect(month("8200", 3)).toBe(23655);   // Four Seasons only; McDonald's pays its own
+    expect(input("7010").months!.filter((v) => v).length).toBe(1);
+    expect(input("7010").nonRecoverable).toBeUndefined();
   });
   it("the properties with no letter, off the city's open data", () => {
-    expect(march("7300")).toBe(54610);   // $3,901,300
-    expect(march("1500")).toBe(6014);    // $429,600
-    expect(march("9200")).toBe(5510);    // $393,600
+    expect(total("7300")).toBe(54610);
+    expect(total("1500")).toBe(6014);
+    expect(total("9200")).toBe(5510);
   });
   it("Gray's Ferry (4500): three bills, only the shopping centre in CAM", () => {
-    const i = assessedTaxInput(2027, "4500")!;
-    // 13,517,700 → 189,221; rear 1,642,900 → 22,997; billboard 158,200 → 2,214.
-    expect(i.months![2]).toBe(189221 + 22997 + 2214);
-    // Out of the pool: this year's rear + billboard (1,613,000 + 215,500 at 1.3998%).
-    expect(i.nonRecoverable).toEqual({ budget: 22997 + 2214, basis: 22579 + 3017, label: "Rear Parcel, Clear Channel billboard" });
+    expect(total("4500")).toBe(189221 + 22997 + 2214);
+    expect(input("4500").nonRecoverable).toEqual({ budget: 22997 + 2214, basis: 22579 + 3017, label: "Rear Parcel, Clear Channel billboard" });
   });
   it("the 2025 recon's RET pool IS the shopping-centre parcel's tax", () => {
-    // $11,387,700 × 1.3998% vs POOL_4500.retAmount $159,405.02.
     expect(Math.abs(11_387_700 * 0.013998 - 159_405.02)).toBeLessThan(1.5);
   });
-  it("every figure carries its trail: parcels, links, the query", () => {
-    const s = assessedTaxInput(2027, "4500")!.source!;
+});
+
+describe("Bucks and Montgomery — assessment × each body's millage, on its own bill", () => {
+  it("reproduces Montgomery County's own 2026 estimate for Lafayette Hill ($34,727)", () => {
+    // county 5,308 + college 476 + Whitemarsh 2,296 + Colonial 26,647, off the county's record.
+    const mills2026 = 5.462 + 0.49 + 2.3633 + 27.422;
+    expect(Math.round(971_730 * mills2026 / 1000)).toBe(34727);
+  });
+  it("9510: county + township in May, Colonial SD in September, rates not yet adopted +3%", () => {
+    const i = input("9510");
+    expect(i.months!.filter((v) => v).length).toBe(2);
+    expect(month("9510", 5)).toBe(Math.round(971_730 * (5.462 + 0.49 + 2.3633) * 1.03 / 1000));
+    expect(month("9510", 9)).toBe(Math.round(971_730 * 27.422 * 1.03 / 1000));
+  });
+  it("Bensalem: county + township in April, school in August — 241.5974 mills in 2026", () => {
+    const b = ASSESSED_TAXES.find((a) => a.code === "4060")!.jurisdiction.bills;
+    expect(b.reduce((s, x) => s + x.levies.reduce((t, l) => t + l.mills, 0), 0)).toBeCloseTo(241.5974, 4);
+    expect(month("4060", 4)).toBe(Math.round(483_450 * (29.65 + 23) * 1.03 / 1000));
+    expect(month("4060", 8)).toBe(Math.round(483_450 * 188.9474 * 1.03 / 1000));
+  });
+  it("Kor Center A/B/C split their one parcel 33/28/39 — the whole bill, once", () => {
+    const whole = Math.round(269_560 * 241.5974 * 1.03 / 1000);
+    const sum = total("40A0") + total("40B0") + total("40C0");
+    expect(Math.abs(sum - whole)).toBeLessThanOrEqual(3);
+  });
+  it("Building 8 carries both of its parcels", () => {
+    expect(input("4080").source!.parcels!.length).toBe(2);
+  });
+  it("mills for the budget year: adopted as-is, the rest +3%", () => {
+    const phl = ASSESSED_TAXES.find((a) => a.code === "7200")!.jurisdiction.bills[0];
+    expect(billMills(phl)).toBeCloseTo(13.998, 6);
+  });
+});
+
+describe("every figure carries its trail", () => {
+  it("parcels, their county records, and the rates", () => {
+    const s = input("4500").source!;
     expect(s.parcels!.map((p) => p.number)).toEqual(["882051606", "874545940", "885969440"]);
     expect(s.links!.some((l) => l.href === "https://property.phila.gov/?p=885969440")).toBe(true);
     expect(decodeURIComponent(phlQueryUrl(["882051606"], [2026, 2027]))).toContain("'882051606'");
+    expect(input("9510").source!.links!.some((l) => l.href.includes("propertyrecords.montcopa.org") && l.href.includes("650004654006"))).toBe(true);
+    expect(input("4060").source!.links!.some((l) => l.href.includes("Bucks_County_Parcels"))).toBe(true);
+    expect(input("4060").source!.links!.some((l) => l.href.includes("buckscounty.gov"))).toBe(true);
   });
-  it("seeds nothing for another year or property", () => {
+  it("seeds nothing for another year or an unknown property", () => {
     expect(assessedTaxInput(2028, "7200")).toBeNull();
-    expect(assessedTaxInput(2027, "9510")).toBeNull();
+    expect(assessedTaxInput(2027, "ZZZZ")).toBeNull();
     expect(ASSESSED_TAXES.every((a) => assessedTax(a) > 0)).toBe(true);
   });
 });
