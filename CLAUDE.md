@@ -993,7 +993,7 @@ time — and the team does not have time to open the GL over $80.
     (29.65 / 23 / 188.9474) + 3%.
   - **Hover the pill for the working; CLICK it for the trail**
     (`SourceBadge.tsx`). The dialog reads as the CALCULATION: three `StatPill`
-    tiles — Assessed value × Millage = the tax (`total` = the brand-bordered
+    tiles — Assessed value × Millage (− the early-pay discount, its own tile, where one is taken) = the tax (`total` = the brand-bordered
     `.pill-total`) — then a Bills table (each bill's due month, its taxing
     bodies and their mills, an amber "2026 + 3%" pill on a rate not yet
     adopted), a Parcels table (prior / assessed / tax, an In CAM / Not in CAM
