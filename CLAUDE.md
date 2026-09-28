@@ -1000,13 +1000,10 @@ time — and the team does not have time to open the GL over $80.
     pill), the sources as `btn sm` links, and a one-line footnote. It used to
     open on a paragraph of method text; the owner asked for it simpler and in
     the program's own KPI-tile language. Data: `source.formula`, `.bills`,
-    `.footnote` on the input. **It also CHECKS ITSELF against the actual
-    bills**: this year's tax at this year's ADOPTED rates (`formula.thisYear`,
-    last year's values × today's mills, no growth) against the line's own
-    reprojection — the ledger's actual payments to date — with a TIES /
-    DOESN'T TIE pill (`tiesTone`; within 2% or $250). The ledger IS the record
-    of the bills paid; Bensalem's collector has no online bill lookup, so this
-    is how a Bucks figure gets checked against a real bill.
+    `.footnote` on the input.
+    It deliberately does NOT compare against the line's reprojection: most
+    months' tax has not posted yet, so the reprojection understates the year
+    and the comparison read a false DOESN'T TIE (owner removed it).
   - **Audited 9/28/26**: every coded value re-pulled from the city's open
     data, the Bucks parcel layer and Montgomery's property records — all 33
     parcels match; Montgomery's own per-body bill estimates are reproduced
