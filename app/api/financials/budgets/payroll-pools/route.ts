@@ -40,7 +40,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const user = await budgetUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  if (!canEditLines(user)) return NextResponse.json({ error: "Only Drew can set the payroll totals." }, { status: 403 });
+  if (!canEditLines(user)) return NextResponse.json({ error: "Only Drew, Alison or admin can set the payroll totals." }, { status: 403 });
   try {
     const b = await req.json();
     const year = Number(b?.year);

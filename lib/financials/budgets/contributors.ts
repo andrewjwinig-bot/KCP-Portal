@@ -78,13 +78,20 @@ export function ownerFor(kind: ContributionKind, allocGroup: "SC" | "BP" | undef
  * actually did it.
  */
 export function canEdit(user: UserId, kind: ContributionKind, allocGroup: "SC" | "BP" | undefined): boolean {
-  return user === "drew" || user === "admin" || ownerFor(kind, allocGroup) === user;
+  return isBudgetAuthor(user) || ownerFor(kind, allocGroup) === user;
 }
 
-/** Typing months straight into the budget grid is the budget's own author's
- *  job — Drew, or admin. The owners' parts have their own screens. */
+/** Who can change ANY part of the budget: Drew (its author), admin, and
+ *  Alison — the president signs each draft off last, and a reviewer who spots
+ *  a figure to change should be able to change it (owner's call). */
+export function isBudgetAuthor(user: UserId | null | undefined): boolean {
+  return user === "drew" || user === "admin" || user === "alison";
+}
+
+/** Typing months straight into the budget grid: the budget's authors (Drew,
+ *  admin, Alison). Greg types the expense lines through `lineEditScope`. */
 export function canEditLines(user: UserId | null | undefined): boolean {
-  return user === "drew" || user === "admin";
+  return isBudgetAuthor(user);
 }
 
 /** What a viewer may TYPE into the budget grid: everything (Drew, admin), the

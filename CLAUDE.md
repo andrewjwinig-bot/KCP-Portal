@@ -1215,6 +1215,12 @@ time — and the team does not have time to open the GL over $80.
   (GL, Umbrella, Property, D&O — pill "Nov renewal +3%") and to the
   un-itemized default; a policy with nothing in Nov/Dec (a lump elsewhere)
   still grows month by month.
+- **ALISON EDITS THE WHOLE DRAFT, AS DREW AND ADMIN DO** (owner's call;
+  `isBudgetAuthor` in `contributors.ts` — behind `canEditLines`, `canEdit`
+  and `lineEditScope: "all"`): every line, taxes / insurance / maintenance
+  inputs, payroll totals, leasing calls and the rent-review sign-off. She
+  reviews each draft, and a reviewer who spots a figure should be able to fix
+  it. Pinned by `contributors.test.ts`.
 - **Greg budgets the expenses ON THE DRAFT PAGE, with Drew** (owner's call).
   His separate `/budget-inputs` link is retired from the sidebar and his
   grant; he has `/financials/budgets`. `lineEditScope` /
