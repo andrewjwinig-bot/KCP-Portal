@@ -30,6 +30,7 @@
 
 import { Fragment, useRef, useState } from "react";
 import { Pill, TONE_BLUE, TONE_GREEN, type PillTone } from "@/app/components/Pill";
+import { SourceBadge } from "./SourceBadge";
 import { DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL } from "@/lib/financials/budgets/cashForecast";
 import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/draft";
 import type { SectionRole } from "@/lib/financials/operating-statements/types";
@@ -275,7 +276,7 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
                 style={{ fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>Accept</button>
             )}
             {badge && (badgeHref ? <a href={badgeHref} style={{ textDecoration: "none" }}><Pill tone={badge.tone}>{badge.text} →</Pill></a>
-              : badgeSource ? <HoverCard title={badgeSource.title} width={320} rows={badgeSource.rows} footer={{ ...badgeSource.total, color: COLOR_BRAND }} help={false}><Pill tone={badge.tone}>{badge.text}</Pill></HoverCard>
+              : badgeSource ? <SourceBadge source={badgeSource} tone={badge.tone} text={badge.text} label={label} />
               : <Pill tone={badge.tone}>{badge.text}</Pill>)}
             {onReset && typed?.some(Boolean) && (
               <button type="button" onClick={onReset} title="Reset typed months" aria-label="Reset typed months"

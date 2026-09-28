@@ -947,36 +947,32 @@ time — and the team does not have time to open the GL over $80.
     scrolled off the right edge and nobody could find where to key taxes.
   `expenseInputKindOf` matches EXPENSE sections only — the revenue side carries
   "Real Estate Taxes"/"Insurance" recovery lines with the same names.
-- **TAXES FROM AN ASSESSMENT NOTICE ARE SEEDED** (`assessedTaxes.ts`,
-  `ASSESSED_TAXES`): taxable assessed value × the millage, the whole bill in
-  its DUE month, laid under the Budget Inputs store by `getExpenseInputs` as
-  the `ret` input (so it reads "Entered"). Philadelphia is 1.3998% (City
-  0.6317% + School 0.7681%), due March 31; the 1% February discount is NOT
-  assumed. 2027 seeds: **7200 Elbridge $2,347,900 → $32,866** and **7010
-  Parkwood $13,174,000 → $184,410** and **5600 Hyman Korman Co (Post Office
-  882830600) $307,000 → $4,297** and **1100 Parkwood Professional (882077811)
-  $1,240,000 → $17,358** and **8200 Trust #4 (Four Seasons, 882047230)
-  $1,689,900 → $23,655** (its McDonald's parcel is NOT carried — McDonald's
-  pays its own RET bill directly), all March. Typing taxes replaces the
-  seed; ↺ clears it and STAYS cleared (`seedCleared` on the stored doc). A new
-  notice is one row in `ASSESSED_TAXES`. The line's pill reads **"Per notice"**
-  (`source.pill`) rather than "Entered" — a figure PROVIDED by the city, not an
-  estimate — and hovers the
-  SOURCE (`ExpenseInput.source` → `inputSource`): "City of Philadelphia Office
-  of Property Assessment, Notice of Valuation for 2027", the assessed value,
-  the rate, the due month and the tax.
-  **A property is PARCELS** (`Parcel`, numbers from the Tax Tracker's
-  `PARCEL_INFO`): all on the one Real Estate Taxes line, itemized in the
-  hover. A parcel NOT in CAM (`recoverable: false`) is taken out of the RET
-  recovery pool in draft.ts (`nonRecoverable`, both the budget and this year's
-  basis) — ALWAYS, even after the taxes are typed over, since the parcel is
-  still there. A parcel with no notice yet carries `fallback` (this year's
-  figure) + 3%, and the hover says so. **4500 Gray's Ferry**: Shopping Center
-  882051606 $13,517,700 → $189,221 and Rear Parcel 874545940 $1,642,900 →
-  $22,997 (both in CAM — the 2026 workbook's INS RET DEBT tab carries them as
-  one recoverable row), Clear Channel billboard 885969440 NOT in CAM (Clear
-  Channel pays its own parcel's tax) — the owner has no notice for it, so it
-  is 2026's $14,278 + 3% = $14,706.
+- **PHILADELPHIA TAXES COME FROM THE CITY'S CERTIFIED ASSESSMENTS**
+  (`assessedTaxes.ts`, `ASSESSED_TAXES`): taxable assessed value (land +
+  building) × 1.3998% (City 0.6317% + School 0.7681%), the whole bill in
+  MARCH (due 3/31; the 1% February discount is NOT assumed), laid under the
+  Budget Inputs store by `getExpenseInputs` as the `ret` input. The values are
+  the OPA's certified assessments from the city's open data (`assessments` on
+  phl.carto.com — `phlQueryUrl` rebuilds the exact query); the six Notices of
+  Valuation the owner mailed in (7200, 7010, 4500 ×2, 5600, 1100, 8200) agreed
+  with it to the dollar, and `notice` records which. 2027: 7200 $32,866 · 7010
+  $184,410 · 1100 $17,358 · 5600 $4,297 · 8200 $23,655 (Four Seasons only —
+  McDonald's pays its own bill on 882047229) · 7300 $54,610 · 1500 $6,014 ·
+  9200 $5,510 · 4500 $214,432. Typing taxes replaces the seed; ↺ clears it and
+  STAYS cleared (`seedCleared`). The pill reads **"Per city"**; hover gives the
+  working, and **clicking it opens the trail** (`SourceBadge.tsx`): each
+  parcel's address, prior and budget-year value, tax, CAM or not, where the
+  value was read, and links to property.phila.gov, the open-data query and the
+  rate page — so a figure can be retraced without asking how it was built.
+  **A property is PARCELS**, all on the one tax line. A parcel NOT in CAM
+  (`recoverable: false`) is taken out of the RET recovery pool in draft.ts
+  (`nonRecoverable`, budget AND this year's basis) — ALWAYS, even after the
+  taxes are typed over. **4500 Gray's Ferry: ONLY the shopping centre
+  (882051606) is in CAM** — proven, not assumed: the 2025 recon's RET pool
+  ($159,405) is that parcel's 2025 tax ($11,387,700 × 1.3998%), and Clear
+  Channel's flat $3,017 is the billboard parcel's ($215,500). The rear parcel
+  (874545940) and the billboard (885969440) are on the line, out of the pool.
+  (The 2026 workbook's "$14,278 Clear Channel" row is NOT the billboard's tax.)
 - **Keying a figure IS completing it.** A saved input ticks its contribution
   on the Expenses step (`deriveContributions`' `entered` map); there is no
   separate tick to remember.
