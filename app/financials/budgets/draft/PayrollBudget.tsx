@@ -160,7 +160,12 @@ export function PayrollBudget({ year }: { year: number }) {
       <div className="card" style={{ padding: 0, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
-            <th style={thL}>#</th><th style={thL}>Employee</th><th style={thL}>Salary line</th>
+            <th style={thL}>#</th><th style={thL}>Employee</th><th style={{ ...th, textAlign: "center" }}>
+              <HoverCard title="REC — recoverable" width={300} rows={[
+                { label: "Ticked", value: `Maint. Salaries ${GROUP_GL.maintenance}` },
+                { label: "Unticked", value: `Salaries & Wages ${GROUP_GL.office}` },
+              ]} footer={{ label: "-8502 is the recoverable (CAM) account", value: "" }}>REC</HoverCard>
+            </th>
             <th style={th}>Per pay</th><th style={th}>Annual salary</th><th style={th}>FICA</th><th style={th}>Medicare</th>
             <th style={th}>UC</th><th style={th}>FUTA</th><th style={th}>Work. comp</th><th style={th}>Medical</th>
             <th style={th}>401(k) %</th><th style={th}>401(k)</th><th style={th}>Gross annual</th><th style={th} />
@@ -172,12 +177,12 @@ export function PayrollBudget({ year }: { year: number }) {
                 <tr key={e.id}>
                   <td style={{ ...tdL, color: "var(--muted)" }}>{i + 1}</td>
                   <TextCell value={e.name} placeholder="Name (Last, First)" onSave={(v) => setEmp(e.id, { name: v })} />
-                  <td style={tdL}>
-                    <select className="select-sm" value={e.group} onChange={(ev) => setEmp(e.id, { group: ev.target.value === "maintenance" ? "maintenance" : "office" })}>
-                      <option value="office">Salaries &amp; Wages {GROUP_GL.office}</option>
-                      <option value="maintenance">Maint. Salaries {GROUP_GL.maintenance}</option>
-                    </select>
+                  <td style={{ ...td, textAlign: "center", background: INPUT_BG }}>
+                    <input type="checkbox" checked={e.group === "maintenance"} aria-label={`${e.name} recoverable (${GROUP_GL.maintenance})`}
+                      onChange={(ev) => setEmp(e.id, { group: ev.target.checked ? "maintenance" : "office" })} />
                   </td>
+                  {/* Per pay comes off the payroll report; the annual follows (× pays),
+                      and keying the annual sets per pay (÷ pays). One figure stored. */}
                   <Cell value={c.perPay} show={num0(c.perPay)} onSave={(v) => setEmp(e.id, { salary: v * r.pays })} />
                   <Cell value={e.salary} show={num0(e.salary)} onSave={(v) => setEmp(e.id, { salary: v })} />
                   <td style={td}>{num0(c.fica)}</td>

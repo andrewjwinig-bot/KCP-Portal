@@ -1291,7 +1291,8 @@ time — and the team does not have time to open the GL over $80.
   medical column), **allocation %** (LIK Operating/Other, JV III, NI LLC, SC,
   Office Works Direct/Indirect, Marketing-All, Interstate, Middletown,
   Eastwick — must total 100%) and **by building**.
-  - An employee's GROUP is their account: Maintenance Salaries 6030-8502
+  - An employee's GROUP is their account, shown as a **REC** checkbox (owner:
+    -8502 is the recoverable account): ticked = Maintenance Salaries 6030-8502
     (Loiseau, Masciantonio, Gosik — their SC share is the 2026 workbook's
     $118,748 to the dollar) or Salaries & Wages 6010-8501 (everyone else).
   - Each (fund, account) takes its building share on the WORKBOOK'S basis:
