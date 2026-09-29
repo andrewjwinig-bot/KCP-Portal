@@ -36,7 +36,7 @@ const tone = (n: number) => (n > 0.5 ? UP : n < -0.5 ? DOWN : "var(--muted)");
 const LABEL = { cam: "CAM", ins: "INS", ret: "RET" } as const;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const monthName = (ym?: string | null) => (ym ? `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}` : "");
-const SOURCE = { statement: "monthly statement", rentroll: "rent roll", recon: "recon INS escrow" } as const;
+const SOURCE = { statement: "monthly statement", rentroll: "rent roll", recon: "last recon's INS due ÷ 12 (how the estimate was set)" } as const;
 
 type Sort = "suite" | "change" | "pct";
 type Only = "all" | "flagged" | "fallback" | "differs";
