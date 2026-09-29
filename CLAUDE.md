@@ -1440,8 +1440,12 @@ time — and the team does not have time to open the GL over $80.
     property budget. A tenant whose INS is the liability line (Wawa at 2300)
     reads the Liability bucket; no bucket on the line → the old ratio.
     The CAM cell's hover IS the worksheet (`CamWorksheet`): each line's
-    recon actual · projection · budget, then GLA → SF → PRS → tenant CAM
+    2027 BUDGET only (owner: the recon year does not belong on the budget's
+    hover), then GLA → SF → PRS → tenant CAM
     expense → admin fee (on its base, † lines excluded) → total → monthly.
+    The RECON-YEAR column's cell hovers that year's own working instead
+    (`reconTip`, off `method.reconCalc`): each category's pool × PRS
+    (+ admin, occupancy) = the amount due, and a month.
   - **EACH 2027 CAM / INS / RET CELL HOVERS ITS OWN CALCULATION** (owner: "i
     need to follow the calculation flow"; `calcTip` in
     `EstimatesByTenantCard.tsx`) — on the cell, not in the Why hover, which
