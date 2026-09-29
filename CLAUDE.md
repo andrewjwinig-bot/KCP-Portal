@@ -1561,7 +1561,14 @@ time — and the team does not have time to open the GL over $80.
   carries on (assumed), a holdover with no decision pays nothing. A recon
   tenant there part of the recon year (`occPct` < 1) is scaled to a full year;
   one who vacated in the recon year is dropped. **A tenant on no
-  reconciliation (a newer lease) and a lease-up are assumed NNN** — pro-rata
+  reconciliation (a newer lease) and a lease-up are assumed NNN** — UNLESS
+  the unit page says otherwise: that path reads the unit's CAM config
+  (`getOrEmptyCamConfig`, saved → seed) and a GROSS lease pays nothing
+  (method `new` / `gross`). PLCB at 4500 was budgeted $4,800/mo as "NNN"
+  because its recon row was keyed 4500-3009 while the suite is 4500-3007 on
+  the rent roll and unit page — re-keyed to 3007 in the roster and config
+  seeds; a recon unit ref that does not match the rent roll makes the tenant
+  read as "on no recon" in the budget. Otherwise pro-rata
   SF share of each pool, no admin fee (`retailProRata`); an office one takes the BUDGET YEAR as its base year (owner's call),
   so it is listed at zero with that reason.
 - **RET RECOVERIES SCALE FROM THE RECONCILED POOL STRAIGHT TO THE BUDGET'S**

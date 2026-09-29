@@ -25,7 +25,7 @@ describe("4500 retail reconciliation — connected from app data", () => {
     "4500-3021": [55346.45, 1136.35, 1045.82], // Fresh Grocer — CAM PRS stipulated 67.96%, 5% admin, excl Bldg Maint
     "4500-3000": [0, 0, 3017],                 // Clear Channel — flat billboard RET
     "4500-3005": [0, 0, 3079.96],              // USPS — RET only
-    "4500-3009": [0, 0, 0],                    // PLCB — gross
+    "4500-3007": [0, 0, 0],                    // PLCB — gross
   };
 
   for (const [unitRef, [cam, ins, ret]] of Object.entries(expected)) {

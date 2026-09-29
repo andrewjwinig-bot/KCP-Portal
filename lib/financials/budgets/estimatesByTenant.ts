@@ -202,6 +202,7 @@ function reasonFor(r: TenantRevenueRow, now: Estimates | null, recon: Estimates 
   if (m?.kind === "retail" && m.grossLease) return "Gross lease — no recoveries";
   if (!now || now.total === 0) {
     if (m?.kind === "leaseup") return "Lease-up — new estimate from its start month";
+    if (m?.kind === "new" && m.assumption === "gross") return "Gross lease (unit page) — no recoveries";
     if (m?.kind === "new") return m.assumption === "nnn" ? "Newer lease, on no reconciliation — pro-rata share, NNN" : "Newer lease — base year is the budget year";
     return "Not billed today — first estimate";
   }

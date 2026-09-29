@@ -48,7 +48,7 @@ export const ROSTER_4500_2025: RetailRosterUnit[] = [
   // USPS recovers RET only (excluded from CAM + INS in propertyRules).
   { unitRef: "4500-3005", suite: "3005", name: "USPS",           sqft: 1600,  camEscrow: 0, insEscrow: 0, retEscrow: 0 },
   // PLCB — gross lease (grossLease in the config seed); pays nothing.
-  { unitRef: "4500-3009", suite: "3009", name: "PLCB",           sqft: 8000,  camEscrow: 0, insEscrow: 0, retEscrow: 0 },
+  { unitRef: "4500-3007", suite: "3007", name: "PLCB",           sqft: 8000,  camEscrow: 0, insEscrow: 0, retEscrow: 0 },
 ];
 
 export const TENANTS_4500_2025 = assembleRetail(POOL_4500, ROSTER_4500_2025, GLA_4500);
