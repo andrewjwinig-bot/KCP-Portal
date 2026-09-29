@@ -2037,6 +2037,15 @@ preferences.
   rounded "23.13%" — the schedule's 23.1333% is the real figure and the tier
   has to keep totalling 100%. One edit to `kormanCoInvestors` propagates to all
   seven rosters that compose it, which is the point of defining it once.
+- **A directly held property issues SCHEDULE Es, not K-1s** (`taxForm:
+  "schedule-e"` on its `PROPERTY_OWNERSHIP` entry → `lib/investors/taxForm.ts`).
+  0900 Lincoln BLS (land, no EIN, five co-owners keyed from the preparer's
+  schedule — the same five as 0300) is the first. It rides the SAME upload, link,
+  PIN and send; `taxFormFor` / `taxFormNoun` name it "Schedule E" in the portal
+  and both emails, and a link holding both kinds says "tax documents". The
+  preparer's attachment is ONE PDF — a summary page with every owner's figures,
+  then a page per owner — so it is split and each owner gets only their page;
+  the summary is never sent.
 - **The owner roster is `lib/properties/ownership.ts`** (`PROPERTY_OWNERSHIP`).
   Nothing about who holds an interest is re-keyed for K-1s. `hasK1Distribution`
   marks the partnerships that actually distribute; 7010 Parkwood was added to

@@ -18,6 +18,7 @@
  * the staff member's wording. Emailing it would put a 404 under the word
  * "link" and leave the real one appended below the signature.
  */
+import { taxFormNoun } from "./taxForm";
 import { addressAs } from "./firstName";
 
 export const PREVIEW_URL_PLACEHOLDER = "/investor/…";
@@ -67,6 +68,9 @@ export type K1ShareEmailInput = {
    * ("Jeffrey Honickman's 6 Schedule K-1s") instead of saying "your".
    */
   onBehalf?: boolean;
+  /** The partnerships the documents come from — names the FORM ("Schedule E"
+   *  for a directly held property). Absent → Schedule K-1. */
+  propertyCodes?: string[];
 };
 
 /**
@@ -86,6 +90,8 @@ export function greeting(names: readonly string[] | undefined): string {
 
 export function composeK1ShareEmail(i: K1ShareEmailInput): K1ShareEmail {
   const many = i.documentCount > 1;
+  const form = taxFormNoun(i.propertyCodes ?? [], 1);
+  const forms = taxFormNoun(i.propertyCodes ?? [], 2);
   const who = i.onBehalf ? i.ownerName.trim() : "";
   // Wording as Drew rewrote it by hand on the first real send: the ask is
   // "use this link to access the documents", and the closing invites a reply
@@ -99,11 +105,11 @@ export function composeK1ShareEmail(i: K1ShareEmailInput): K1ShareEmail {
   // "They" throughout, because nothing here knows an investor's pronouns.
   const opening = who
     ? (many
-        ? `${who}'s ${i.documentCount} Schedule K-1s are ready in their secure investor portal — one link covers every partnership they hold an interest in.`
-        : `${who}'s Schedule K-1 for ${i.propertyName} is ready in their secure investor portal.`)
+        ? `${who}'s ${i.documentCount} ${forms} are ready in their secure investor portal — one link covers every partnership they hold an interest in.`
+        : `${who}'s ${form} for ${i.propertyName} is ready in their secure investor portal.`)
     : (many
-        ? `Your ${i.documentCount} Schedule K-1s are ready in your secure investor portal — one link covers every partnership you hold an interest in.`
-        : `Your Schedule K-1 for ${i.propertyName} is ready in your secure investor portal.`);
+        ? `Your ${i.documentCount} ${forms} are ready in your secure investor portal — one link covers every partnership you hold an interest in.`
+        : `Your ${form} for ${i.propertyName} is ready in your secure investor portal.`);
   const pinLine = "You'll be asked for a 6-digit access PIN. It arrives in a separate email, just after this one.";
   const closing = who
     ? `This link is private to ${who}. If you need a copy sent elsewhere or have any issues accessing the files, reply and we'll arrange it.`
@@ -112,8 +118,8 @@ export function composeK1ShareEmail(i: K1ShareEmailInput): K1ShareEmail {
 
   return {
     subject: many
-      ? `${who ? `${who}'s` : "Your"} ${i.taxYear} Schedule K-1s — Korman Commercial Properties`
-      : `${who ? `${who}'s` : "Your"} ${i.taxYear} Schedule K-1 — ${i.propertyName}`,
+      ? `${who ? `${who}'s` : "Your"} ${i.taxYear} ${forms} — Korman Commercial Properties`
+      : `${who ? `${who}'s` : "Your"} ${i.taxYear} ${form} — ${i.propertyName}`,
     body: [
       hello,
       "",

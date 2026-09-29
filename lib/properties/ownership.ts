@@ -70,6 +70,14 @@ export interface PropertyOwnership {
   propertyType?: PropType;
   /** Whether this property files K-1 distributions (drives Filing Tracker). */
   hasK1Distribution?: boolean;
+  /**
+   * The tax form its owners receive, when it is NOT a Schedule K-1. A property
+   * held directly (co-owners, no partnership return — 0900 Lincoln BLS has no
+   * EIN) gives each owner a Schedule E page instead. It rides the SAME upload,
+   * link, PIN and send as a K-1; only the name on the row, the portal and the
+   * email changes (`lib/investors/taxForm.ts`).
+   */
+  taxForm?: "schedule-e";
   owners: PropertyOwner[];
 }
 
@@ -455,6 +463,28 @@ export const PROPERTY_OWNERSHIP: PropertyOwnership[] = [
       { id: "k1-0300-akgsts", name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
       { id: "k1-0300-cagsts", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111100 },
       { id: "k1-0300-ssgsts", name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
+    ],
+  },
+
+  {
+    // Lincoln BLS — 2.09 acres of land held DIRECTLY by five owners, with no
+    // partnership return (no EIN), so each owner gets a SCHEDULE E page rather
+    // than a K-1 — the preparer's "Sch E Attachment" is one page per owner.
+    // Keyed from that schedule (owner, 9/29/26): the same five holders, in the
+    // same shares, as Airport Interplex Two (0300), named the same way so each
+    // joins their existing investor link. 99.99% as printed — rounding in the
+    // source, not a missing owner.
+    propertyCode: "0900",
+    propertyName: "Lincoln BLS",
+    propertyType: "Land",
+    hasK1Distribution: true,
+    taxForm: "schedule-e",
+    owners: [
+      { id: "k1-0900-bert4", name: "Berton E. Korman", detailedName: "Berton E Korman TUA Dtd 02232018 As Amended", address: "410 Lancaster Ave", city: "Haverford", state: "PA", zip: "19041", ownerPct: 0.333300 },
+      { id: "k1-0900-stev1", name: "Steven H. Korman", address: "580 West Germantown Pike Suite 200", city: "Plymouth Meeting", state: "Pennsylvania", zip: "19462", ownerPct: 0.333300 },
+      { id: "k1-0900-akgst", name: "Alison Korman Feldman", detailedName: "Leonard I Korman GST Subject TR FBO Alison Feldman", address: "6015 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
+      { id: "k1-0900-cagst", name: "Catherine Korman Altman", detailedName: "Leonard I Korman GST Subject TR FBO Catherine Altman", address: "241 A South 6th St.", city: "Philadelphia", state: "PA", zip: "19106", ownerPct: 0.111100 },
+      { id: "k1-0900-ssgst", name: "Susan Korman Schurr", detailedName: "Leonard I Korman GST Subject TR FBO Susan Schurr", address: "6100 Sheaff Lane", city: "Fort Washington", state: "PA", zip: "19034", ownerPct: 0.111100 },
     ],
   },
 
