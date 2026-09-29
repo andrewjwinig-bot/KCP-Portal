@@ -44,3 +44,27 @@ describe("the recovery check: tenants never recover more than the pool", () => {
     expect(recoveryCheck(e).find((x) => x.group === "ret")!.over).toBe(true);
   });
 });
+
+import { officeRecovery } from "./recoveryMath";
+
+describe("office recoveries: a tenant pays only what is over its base year", () => {
+  const base = { unitRef: "4060-205", name: "Presidential Bank", sqft: 2000, proRataPct: 10, retBase: 50_000, retActual: 60_000, opexBaseTotal: 200_000, opexActualTotal: 200_000 };
+  const ratio = (cam: number, ret: number) => ({ cam, ins: 1, ret });
+  it("Op Ex is stopped LINE BY LINE — a line under its base never offsets one over it", () => {
+    // Line A $20K over base, line B $20K under: the total nets to zero, the recon charges line A.
+    const r = officeRecovery({ ...base, opexLines: [{ actual: 120_000, baseCost: 100_000 }, { actual: 80_000, baseCost: 100_000 }] }, ratio(1, 1));
+    expect(r.camYear).toBe(2_000); // 10% × $20,000
+  });
+  it("an aggregate-stop lease nets the total", () => {
+    const r = officeRecovery({ ...base, aggregateBaseYear: true, opexLines: [{ actual: 120_000, baseCost: 100_000 }, { actual: 80_000, baseCost: 100_000 }] }, ratio(1, 1));
+    expect(r.camYear).toBe(0);
+  });
+  it("RET below the base year — the business parks' 2026 reassessment — is $0, never a credit", () => {
+    const r = officeRecovery(base, ratio(1, 0.5)); // $60K → $30K budget, base $50K
+    expect(r.retYear).toBe(0);
+  });
+  it("a base year after the last recon (its dollars not known yet) budgets nothing", () => {
+    const r = officeRecovery({ ...base, opexBaseTotal: 0, retBase: 0, baseUnknown: true }, ratio(1.1, 1.1));
+    expect([r.camYear, r.retYear]).toEqual([0, 0]);
+  });
+});

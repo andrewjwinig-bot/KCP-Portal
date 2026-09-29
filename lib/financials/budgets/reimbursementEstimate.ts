@@ -441,6 +441,9 @@ export async function estimateReimbursements(
         opexBaseTotal: t.opexBaseTotal, opexActualTotal: t.opexActualTotal,
         retBase: t.retLine?.baseCost ?? 0, retActual: t.retLine?.actual ?? 0,
         noBaseStop: t.noBaseStop,
+        opexLines: (t.opexLines ?? []).map((l) => ({ actual: l.actual, baseCost: l.baseCost })),
+        aggregateBaseYear: t.aggregateBaseYear,
+        baseUnknown: !t.noBaseStop && (t.baseYear ?? 0) > reconYear,
       }, ratios, months, note);
       recs.push(rec); extra.set(rec, { assumed, method });
     }

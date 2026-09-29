@@ -34,6 +34,16 @@ export type OfficeTenantIn = {
   opexBaseTotal: number; opexActualTotal: number;
   retBase: number; retActual: number;
   noBaseStop?: boolean;
+  /** Each Op Ex line's recon-year actual and base-year cost. With them the
+   *  base-year stop is applied LINE BY LINE, as the reconciliation applies it:
+   *  a line below its base contributes $0 and never offsets one above. */
+  opexLines?: { actual: number; baseCost: number }[];
+  /** The rare lease whose stop is on the Op Ex TOTAL, not line by line. */
+  aggregateBaseYear?: boolean;
+  /** The base year is after the last reconciliation, so its dollars are not
+   *  known yet (the recon's history reads $0 for it). Nothing is budgeted —
+   *  never the full share against a $0 base. */
+  baseUnknown?: boolean;
 };
 
 export type TenantRecovery = {
@@ -90,7 +100,16 @@ export function officeRecovery(t: OfficeTenantIn, ratio: PoolRatios, months: boo
   const retBudget = t.retActual * ratio.ret;
   const opexBase = t.noBaseStop ? 0 : t.opexBaseTotal;
   const retBase = t.noBaseStop ? 0 : t.retBase;
-  const camYear = r0(Math.max(0, opexBudget - opexBase) * share);
+  // Line by line, as the recon does, unless the lease stops on the total. A
+  // tenant pays nothing on a line (or a total) that sits at or below its base.
+  if (t.baseUnknown) return {
+    unitRef: t.unitRef, name: t.name, months, note: note ?? "Base year after the last reconciliation — its base is not known yet, so nothing is budgeted",
+    camYear: 0, insYear: 0, retYear: 0, cam: new Array(12).fill(0), ins: new Array(12).fill(0), ret: new Array(12).fill(0),
+  };
+  const opexIncrease = t.noBaseStop || t.aggregateBaseYear || !t.opexLines?.length
+    ? Math.max(0, opexBudget - opexBase)
+    : t.opexLines.reduce((a, l) => a + Math.max(0, l.actual * ratio.cam - l.baseCost), 0);
+  const camYear = r0(opexIncrease * share);
   const retYear = r0(Math.max(0, retBudget - retBase) * share);
   return {
     unitRef: t.unitRef, name: t.name, months, note,
