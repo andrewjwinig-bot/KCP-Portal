@@ -132,7 +132,15 @@ export type ReimbursementEstimate = {
   totals: { camAnnual: number; insAnnual: number; retAnnual: number };
   /** The building's recovery income, month by month — what the draft carries. */
   monthly: { cam: number[]; ins: number[]; ret: number[] };
+  /** The budget's own recoverable pools, in dollars (set by the draft). */
+  pools?: Coverage3;
+  /** The RECON year's own recovery: what tenants were due against the pool
+   *  it was figured on — the ratio the budget's should resemble. */
+  reconCoverage?: { due: Coverage3; pool: Coverage3 };
+  /** Categories the recovery check scaled back to their ceiling (`recoveryCheck.ts`). */
+  capped?: Partial<Record<"camIns" | "ret", { before: number; after: number; pool: number; ceiling: number }>>;
 };
+export type Coverage3 = { cam: number; ins: number; ret: number };
 
 function latestYear(byYear: Record<number, unknown> | undefined): number | null {
   const ys = Object.keys(byYear ?? {}).map(Number).filter((n) => Number.isFinite(n));
@@ -283,11 +291,19 @@ export async function estimateReimbursements(
 
   const recs: TenantRecovery[] = [];
   const extra = new Map<TenantRecovery, { assumed: boolean[]; method?: ReimbMethod }>();
+  let reconCoverage: { due: Coverage3; pool: Coverage3 } | undefined;
 
   if (kind === "retail") {
     const loaded = await loadRetailRecon(code, reconYear);
     if (!loaded) return null;
     const ts = loaded.result.tenants;
+    {
+      const p0 = ts.find((t) => t.camDenom > 0) ?? ts[0];
+      if (p0) reconCoverage = {
+        due: { cam: sum(ts.map((t) => t.camDue)), ins: sum(ts.map((t) => t.insDue)), ret: sum(ts.map((t) => t.retDue)) },
+        pool: { cam: p0.camPoolFull ?? 0, ins: p0.insPool ?? 0, ret: p0.retPool ?? 0 },
+      };
+    }
     if (pr) {
       const direct = retRatio(opts.retBudgetPool, ts.find((t) => t.retPool > 0)?.retPool);
       if (direct != null) ratios.ret = direct;
@@ -354,6 +370,14 @@ export async function estimateReimbursements(
   } else {
     const loaded = await loadOfficeRecon(code, reconYear);
     if (!loaded) return null;
+    {
+      const live = loaded.result.tenants.filter((t) => !t.isVacant);
+      const p0 = loaded.result.tenants.find((t) => (t.opexActualTotal ?? 0) > 0) ?? loaded.result.tenants[0];
+      if (p0) reconCoverage = {
+        due: { cam: sum(live.map((t) => t.opexAmountDue)), ins: 0, ret: sum(live.map((t) => t.retAmountDue)) },
+        pool: { cam: p0.opexActualTotal ?? 0, ins: 0, ret: p0.retLine?.actual ?? 0 },
+      };
+    }
     if (pr) {
       const direct = retRatio(opts.retBudgetPool, loaded.result.tenants.find((t) => (t.retLine?.actual ?? 0) > 0)?.retLine?.actual);
       if (direct != null) ratios.ret = direct;
@@ -421,12 +445,19 @@ export async function estimateReimbursements(
   });
   if (officeEst) tenants.push(...officeEst.tenants.map((t) => ({ ...t, portion: "office" as const })));
   const totals = { camAnnual: sum(monthly.cam), insAnnual: sum(monthly.ins), retAnnual: sum(monthly.ret) };
+  if (officeEst?.reconCoverage && reconCoverage) {
+    for (const k of ["cam", "ins", "ret"] as const) {
+      reconCoverage.due[k] += officeEst.reconCoverage.due[k];
+      reconCoverage.pool[k] += officeEst.reconCoverage.pool[k];
+    }
+  }
   return {
     kind, propertyCode: code, reconYear, budgetYear, growthPct,
     ratios: { cam: round4(ratios.cam), ins: round4(ratios.ins), ret: round4(ratios.ret) },
     fromBudgetPools: !!pr,
     factor: round4(ratios.cam),
     tenants, totals, monthly,
+    ...(reconCoverage ? { reconCoverage } : {}),
   };
 }
 

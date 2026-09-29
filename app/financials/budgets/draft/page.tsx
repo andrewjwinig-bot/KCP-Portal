@@ -24,6 +24,7 @@ import { PayrollBudget } from "./PayrollBudget";
 import { NoteDialog } from "./LineNote";
 import { PayrollPoolsCard } from "./PayrollPoolsCard";
 import { PublishCard } from "./PublishCard";
+import { RecoveryCheckCard } from "./RecoveryCheckCard";
 
 import type { LeasingCall, SavePayload } from "./LeasingDecision";
 
@@ -358,6 +359,7 @@ export default function BudgetDraftPage() {
       {draft && (draft.consolidated || (!book.rollsUp && book.properties.includes(draft.propertyCode))) && (
         <PublishCard book={book} draft={draft} />
       )}
+      {draft?.recoveryChecks?.length ? <RecoveryCheckCard checks={draft.recoveryChecks} year={draft.budgetYear} /> : null}
 
 
       {loading && !draft && (

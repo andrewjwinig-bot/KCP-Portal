@@ -1577,6 +1577,22 @@ time — and the team does not have time to open the GL over $80.
   pool) = +17.5%. CAM and INS still use the reprojection ratio — their recon
   pools are not built line-for-line like the draft's, so a direct ratio would
   compare different things.
+- **THE RECOVERY CHECK — TENANTS NEVER RECOVER MORE THAN THE POOL**
+  (`recoveryCheck.ts`; owner: "we shouldn't overrecover like that … the whole
+  budget relies on these recoveries"). Every recovery is revenue, so an
+  inflated one overstates NOI and, once imported, over-bills tenants. The
+  RATIO is a year's recoveries ÷ the budget's own recoverable pool, in two
+  groups — **CAM + INS together** (the recon files liability insurance as a
+  CAM line where the budget files it under Insurance, so apart each reads
+  wrong) and **RET alone**. The CEILING is 100% of the pool, or the recon
+  year's own ratio where admin fees took it higher (`reconCoverage`: dues ÷
+  the pool they were figured on, retail and office, both pots at 7010).
+  `capRecoveries` runs in the draft BEFORE the hand-set estimates: a group
+  over its ceiling is scaled back pro rata (shares kept) and recorded as
+  `capped`; a hand-set estimate over it is FLAGGED (`over`), never capped.
+  Shown as the **Recovery ratio** row under the CAM estimates table's Total
+  (with the recon's ratio beside it and a banner when capped / over) and, for
+  every property in a book, the **Recovery check** card on the "All …" tab.
 - **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
   `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
   property's draft built (four at a time) and summed line by line, matched by

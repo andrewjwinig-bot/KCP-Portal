@@ -14,6 +14,8 @@ const r0 = (n: number) => Math.round(n);
 const add = (a: number[], b: number[]) => a.map((v, i) => v + (b?.[i] || 0));
 const zero = () => new Array(12).fill(0) as number[];
 
+import { recoveryCheck } from "./recoveryCheck";
+
 export type PropertyShare = { code: string; name: string; months: number[]; total: number };
 
 function mergeSubs(into: BudgetSubLine[], from: BudgetSubLine[] | undefined): BudgetSubLine[] {
@@ -86,6 +88,9 @@ export function consolidateDrafts(name: string, drafts: BudgetDraft[]): BudgetDr
       principal: r0(drafts.reduce((a, d) => a + (d.debt?.principal ?? 0), 0)),
     } : undefined,
     consolidated: { properties: drafts.map((d) => ({ code: d.propertyCode, name: d.propertyName })) },
+    // THE RECOVERY CHECK for every property in the book, on one screen.
+    recoveryChecks: drafts.map((d) => ({ code: d.propertyCode, name: d.propertyName, checks: recoveryCheck(d.reimbursementEstimate) }))
+      .filter((x) => x.checks.length),
     cash: consolidateCash(drafts),
   };
 }
