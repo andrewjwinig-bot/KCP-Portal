@@ -859,6 +859,8 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   reimbursementEstimate = (await estimateReimbursements(meta.propertyCode, budgetYear, growthPct, {
     poolRatios: { cam: ratioOf(pool.cam), ins: ratioOf(pool.ins), ret: ratioOf(pool.ret) },
     officePoolRatios: mixed ? { cam: ratioOf(officePool.cam), ins: ratioOf(officePool.ins), ret: ratioOf(officePool.ret) } : undefined,
+    retBudgetPool: pool.ret[0],
+    officeRetBudgetPool: mixed ? officePool.ret[0] : undefined,
     assumptions,
     // Recoveries start and stop where RENT does — the same leasing decisions.
     tenancy: lease.hasData ? lease.rows : undefined,
