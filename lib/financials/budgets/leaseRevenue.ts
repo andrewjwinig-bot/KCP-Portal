@@ -66,12 +66,12 @@ export type RentRow = {
   /** What the suite is billed a month TODAY for recoveries, off the rent
    *  roll's Operating Expense / Other Expense / Real Estate Tax columns —
    *  the current estimate the budget's figure is compared with. */
-  billing?: { cam: number; ins: number; ret: number };
+  billing?: { cam: number; ins: number; ret: number; rent?: number };
 };
 
 /** A roll unit's current monthly recovery billing. */
-const billingOf = (u: { opexMonth?: number; otherMonth?: number; reTaxMonth?: number } | null | undefined) =>
-  u ? { cam: u.opexMonth || 0, ins: u.otherMonth || 0, ret: u.reTaxMonth || 0 } : undefined;
+const billingOf = (u: { opexMonth?: number; otherMonth?: number; reTaxMonth?: number; baseRent?: number } | null | undefined) =>
+  u ? { cam: u.opexMonth || 0, ins: u.otherMonth || 0, ret: u.reTaxMonth || 0, rent: u.baseRent || 0 } : undefined;
 
 export type LeaseRevenueProjection = {
   /** 12 monthly projected base rent (assumption-adjusted), display-positive. */
@@ -369,7 +369,7 @@ export async function projectLeaseRevenue(
   expiring.sort((a, b) => (a.leaseTo ?? "").localeCompare(b.leaseTo ?? ""));
   vacant.sort((a, b) => b.sqft - a.sqft);
   const roundedRows = rows
-    .map((r) => ({ ...r, months: r.months.map(r0), billing: r.billing && { cam: r0(r.billing.cam), ins: r0(r.billing.ins), ret: r0(r.billing.ret) } }))
+    .map((r) => ({ ...r, months: r.months.map(r0), billing: r.billing && { cam: r0(r.billing.cam), ins: r0(r.billing.ins), ret: r0(r.billing.ret), rent: r0(r.billing.rent ?? 0) } }))
     .sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true }));
   const roundedRental = Array.from({ length: 12 }, (_, m) => roundedRows.reduce((s, r) => s + r.months[m], 0));
   return {

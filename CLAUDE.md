@@ -1398,6 +1398,21 @@ time — and the team does not have time to open the GL over $80.
   budget's, flagged at +15% AND +$100/mo — both floors, like every other flag.
   A tenant billed nothing today (new lease, lease-up, gross) is never flagged.
   The hover is the bill by category; "▲ Estimates up · n" filters to them.
+- **CAM ESTIMATES BY TENANT** (`estimatesByTenant.ts`,
+  `EstimatesByTenantCard.tsx`, its own card below Revenues; Excel via the shared
+  `DownloadMenu` → `estimatesExport.ts`, themed, every derived figure a live
+  formula, pinned by `estimatesByTenant.test.ts` reading the file back). The
+  owner: this is where tenants push back, because the estimate "directly
+  changes their monthly rent". Per tenant: billed TODAY (rent roll CAM / INS /
+  RET), the budget's monthly estimate (each category's recovery averaged over
+  the months it is billed — the SAME `monthlyEstimate` the ▲ flag reads, so the
+  two views cannot disagree), the change $/mo and %, and the WHOLE monthly
+  bill (base rent + recoveries) before and after — the number the tenant
+  quotes back. Today's base rent rides on `billing.rent` (the roll's
+  `baseRent`); next year's is the first month paid. Sort by suite / $ / %,
+  $/month or $/SF/yr, a "▲ Big jumps" filter (15% AND $100/mo). A new lease
+  reads NEW (no % — nothing to compare), gross leases and vacancies are left
+  out, and the tenant hover is Revenue by tenant's own `tenantTip`.
 - **Revenue by tenant reads like the Rent Roll**: TENANT first (600 weight,
   a vacancy in muted italics), then the SUITE as a bold brand-coloured code, a
   larger row font and rent-roll row height.
