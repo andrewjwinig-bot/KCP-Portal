@@ -28,6 +28,13 @@ export type RetailTenantIn = {
   capped?: boolean; capGrowthPct?: number | null;
 };
 
+/** One Op Ex line of an office tenant's schedule. `budget` is the line's own
+ *  budget-year figure (the draft's GL account, on the tenant's gross-up basis);
+ *  without it the line is its recon-year actual × the building's Op Ex change. */
+export type OfficeLineIn = { label?: string; account?: string; actual: number; baseCost: number; budget?: number };
+/** The line-by-line working behind an office tenant's Op Ex. */
+export type OfficeLineOut = { label: string; account: string; budget: number; base: number; over: number; fromLine: boolean };
+
 export type OfficeTenantIn = {
   unitRef: string; name: string; sqft: number;
   proRataPct: number;
@@ -37,7 +44,7 @@ export type OfficeTenantIn = {
   /** Each Op Ex line's recon-year actual and base-year cost. With them the
    *  base-year stop is applied LINE BY LINE, as the reconciliation applies it:
    *  a line below its base contributes $0 and never offsets one above. */
-  opexLines?: { actual: number; baseCost: number }[];
+  opexLines?: OfficeLineIn[];
   /** The rare lease whose stop is on the Op Ex TOTAL, not line by line. */
   aggregateBaseYear?: boolean;
   /** The base year is after the last reconciliation, so its dollars are not
@@ -57,6 +64,8 @@ export type TenantRecovery = {
   /** Why the year is short, when it is. */
   note?: string;
   leaseUp?: boolean;
+  /** Office: each Op Ex line's budget against its base (line-by-line stop). */
+  opexDetail?: OfficeLineOut[];
 };
 
 const r0 = (n: number) => Math.round(n);
@@ -106,13 +115,22 @@ export function officeRecovery(t: OfficeTenantIn, ratio: PoolRatios, months: boo
     unitRef: t.unitRef, name: t.name, months, note: note ?? "Base year after the last reconciliation — its base is not known yet, so nothing is budgeted",
     camYear: 0, insYear: 0, retYear: 0, cam: new Array(12).fill(0), ins: new Array(12).fill(0), ret: new Array(12).fill(0),
   };
-  const opexIncrease = t.noBaseStop || t.aggregateBaseYear || !t.opexLines?.length
+  // Each line's own budget where the draft has one, else its actual × the
+  // building's Op Ex change.
+  const lines = (t.opexLines ?? []).map((l) => {
+    const budget = l.budget ?? l.actual * ratio.cam;
+    const base = t.noBaseStop ? 0 : l.baseCost;
+    return { label: l.label ?? l.account ?? "", account: l.account ?? "", budget: r0(budget), base: r0(base), over: r0(Math.max(0, budget - base)), fromLine: l.budget != null };
+  });
+  const opexIncrease = !lines.length
     ? Math.max(0, opexBudget - opexBase)
-    : t.opexLines.reduce((a, l) => a + Math.max(0, l.actual * ratio.cam - l.baseCost), 0);
+    : t.noBaseStop || t.aggregateBaseYear
+      ? Math.max(0, lines.reduce((a, l) => a + l.budget, 0) - (t.noBaseStop ? 0 : t.opexBaseTotal))
+      : lines.reduce((a, l) => a + l.over, 0);
   const camYear = r0(opexIncrease * share);
   const retYear = r0(Math.max(0, retBudget - retBase) * share);
   return {
-    unitRef: t.unitRef, name: t.name, months, note,
+    unitRef: t.unitRef, ...(lines.length ? { opexDetail: lines } : {}), name: t.name, months, note,
     camYear, insYear: 0, retYear,
     cam: spread(camYear, months), ins: new Array(12).fill(0), ret: spread(retYear, months),
   };

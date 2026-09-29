@@ -68,3 +68,19 @@ describe("office recoveries: a tenant pays only what is over its base year", () 
     expect([r.camYear, r.retYear]).toEqual([0, 0]);
   });
 });
+
+describe("office Op Ex on each line's OWN budget", () => {
+  it("a line's budget, not the building rate, decides whether it crosses base", () => {
+    // Snow falls, electric rises: the building rate (×1.0) would say neither moves.
+    const r = officeRecovery({
+      unitRef: "4070-301", name: "Veltri", sqft: 3000, proRataPct: 10,
+      opexBaseTotal: 200_000, opexActualTotal: 200_000, retBase: 0, retActual: 0,
+      opexLines: [
+        { label: "Snow Removal", account: "6280-8502", actual: 100_000, baseCost: 100_000, budget: 70_000 },
+        { label: "Electric", account: "6410-8502", actual: 100_000, baseCost: 100_000, budget: 130_000 },
+      ],
+    }, { cam: 1, ins: 1, ret: 1 });
+    expect(r.camYear).toBe(3_000); // 10% × electric's $30,000 over base; snow under base is $0
+    expect(r.opexDetail!.map((l) => [l.label, l.over, l.fromLine])).toEqual([["Snow Removal", 0, true], ["Electric", 30_000, true]]);
+  });
+});
