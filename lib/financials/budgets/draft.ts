@@ -901,6 +901,12 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     tenancy: lease.hasData ? lease.rows : undefined,
     statementBilling: stmtBilling,
     accountBudgets: accountBudgetsOf(sections),
+    // Retail CAM line by line off the reimbursable lines — not at a mixed
+    // centre, whose retail pool is an allocation of each line (mixedPools.ts).
+    camLines: mixed ? null : sections.filter((sec) => sec.role === "reimbursable-expense").flatMap((sec) => sec.lines.map((l) => ({
+      label: l.label, mask: l.mask, glAccounts: l.glAccounts, total: l.total, basisTotal: l.basisTotal,
+      subLines: l.subLines?.map((x) => ({ account: x.account, total: x.total, basisTotal: x.basisTotal })),
+    }))),
   }).catch(() => null)) ?? undefined;
   // A tenant's estimate set by hand on the CAM estimates table IS the budget:
   // laid over before the recovery lines are read, so they carry it.

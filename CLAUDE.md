@@ -1419,6 +1419,23 @@ time — and the team does not have time to open the GL over $80.
   dollars: the CATCH-UP from today to the reconciled actual, then the BUDGET
   change (pool %, share, cap) — "+$140 to the 2025 actual · +$40 budget (CAM
   pool +6.0%)". A backed-out lease, a lease-up and a newer lease say so.
+  - **RETAIL CAM IS BUDGETED LINE BY LINE, AS THE OWNER'S ESTIMATE WORKSHEET
+    IS** (`retailCamBudget.ts`, fed `camLines` — the draft's reimbursable
+    lines — by `draft.ts`). Each recon CAM line takes ITS OWN 2027 budget
+    line (GL account → sub-line or single-account line; else name; Liability
+    Insurance → the Insurance line's Liability bucket), then the recon's own
+    formula: the tenant's excluded lines struck, the controllable cap grown
+    to the budget year, × PRS, + admin % × PRS × the pool less its
+    admin-excluded lines. Pinned by `retailCamBudget.test.ts` against the
+    Wakefern (4500-3021) worksheet: $386,433 pool → $262,620 + $6,353 =
+    $268,973. It REPLACED recon due × (2027 budget ÷ 2026 reprojection),
+    which put the 2026 → 2027 swing on the 2025 actual (snow 51K → 87K → 50K
+    read as a 43% cut to 51K) — "im getting different numbers". A line with
+    no budget match keeps that ratio and is starred (`from: "ratio"`). Not at
+    a mixed centre (7010), whose retail pool is an allocation of each line.
+    The CAM cell's hover IS the worksheet (`CamWorksheet`): each line's
+    recon actual · projection · budget, then GLA → SF → PRS → tenant CAM
+    expense → admin fee (on its base, † lines excluded) → total → monthly.
   - **EACH 2027 CAM / INS / RET CELL HOVERS ITS OWN CALCULATION** (owner: "i
     need to follow the calculation flow"; `calcTip` in
     `EstimatesByTenantCard.tsx`) — on the cell, not in the Why hover, which

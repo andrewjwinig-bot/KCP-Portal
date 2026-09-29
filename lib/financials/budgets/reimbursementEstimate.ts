@@ -31,6 +31,8 @@ import {
   type PoolRatios, type TenantRecovery,
 } from "./recoveryMath";
 
+import { camLineBudgetResolver, retailCamBudget, type BudgetLineRef, type RetailCamResult, type RetailCamLineOut } from "./retailCamBudget";
+
 const r0 = (n: number) => Math.round(n);
 const sum = (a: number[]) => a.reduce((s, n) => s + (n || 0), 0);
 const canon = (ref: string) => String(ref ?? "").toUpperCase().replace(/-CU$/, "");
@@ -95,6 +97,10 @@ export type RetailBasis = {
   flat?: boolean;
   /** The CAM cap bit this year. */
   capped?: boolean;
+  /** CAM, line by line: each recon line's actual, projection and budget. */
+  lines?: RetailCamLineOut[];
+  /** The pool the admin fee is taken on. */
+  adminBase?: number;
 };
 
 export type ReimbTenantEstimate = {
@@ -223,6 +229,10 @@ export type EstimateOptions = {
    *  sub-lines). An office tenant's Op Ex is budgeted LINE BY LINE off these —
    *  each recon line on its own account's budget, not one building-wide rate. */
   accountBudgets?: Map<string, number> | null;
+  /** The draft's REIMBURSABLE expense lines. With them a retail tenant's CAM is
+   *  budgeted LINE BY LINE — each recon line on its own budget line, through
+   *  the recon's exclusions, cap, PRS and admin fee (`retailCamBudget.ts`). */
+  camLines?: BudgetLineRef[] | null;
 };
 
 /** RET from the reconciled pool to the budget's: budget ÷ recon. */
@@ -353,6 +363,7 @@ export async function estimateReimbursements(
       const direct = retRatio(opts.retBudgetPool, ts.find((t) => t.retPool > 0)?.retPool);
       if (direct != null) ratios.ret = direct;
     }
+    const resolveCam = opts.camLines?.length ? camLineBudgetResolver(opts.camLines) : null;
     for (const t of ts) {
       // A tenant who left during the recon year is not in the budget year.
       if (t.vacatedISO && Number(String(t.vacatedISO).slice(0, 4)) <= reconYear) continue;
@@ -361,11 +372,16 @@ export async function estimateReimbursements(
       // share; the budget year is a full one, so scale it back up (a fixed
       // RET is a fixed figure, not an occupancy share).
       const occ = t.occPct > 0 && t.occPct < 1 ? t.occPct : 1;
+      // CAM line by line off the budget's own lines where the draft gave
+      // them; the three categories are otherwise the recon due × the ratio.
+      const cam = resolveCam && t.camSchedule?.length
+        ? retailCamBudget(t, resolveCam, { cam: ratios.cam, ins: ratios.ins }, budgetYear - reconYear + 1)
+        : null;
       const rec = retailRecovery({
         unitRef: t.unitRef, name: t.name, sqft: t.sqft,
-        camDue: t.camDue / occ, insDue: t.insDue / occ, retDue: t.flatRet != null ? t.retDue : t.retDue / occ,
-        capped: t.capped, capGrowthPct: t.camCap?.growthPct ?? null,
-      }, ratios, months, note);
+        camDue: cam ? cam.year : t.camDue / occ, insDue: t.insDue / occ, retDue: t.flatRet != null ? t.retDue : t.retDue / occ,
+        capped: cam ? false : t.capped, capGrowthPct: t.camCap?.growthPct ?? null,
+      }, cam ? { ...ratios, cam: 1 } : ratios, months, note);
       recs.push(rec);
       extra.set(rec, {
         assumed,
@@ -376,7 +392,7 @@ export async function estimateReimbursements(
           reconOcc: occ < 1 ? occ : null,
           recon: { cam: r0(t.camDue), ins: r0(t.insDue), ret: r0(t.retDue) },
           escrow: { cam: r0(t.camEscrow), ins: r0(t.insEscrow), ret: r0(t.retEscrow) },
-          ...(t.grossLease ? {} : { basis: retailBasis(t, ratios, rec) }),
+          ...(t.grossLease ? {} : { basis: retailBasis(t, ratios, rec, cam) }),
         },
       });
     }
@@ -385,7 +401,10 @@ export async function estimateReimbursements(
     if (pr) {
       const first = ts.find((t) => t.camDenom > 0) ?? ts[0];
       const pools = {
-        cam: (first?.camPoolFull ?? 0) * ratios.cam,
+        cam: resolveCam && first?.camSchedule?.length
+          ? retailCamBudget({ ...first, camSchedule: first.camSchedule.map((l) => ({ ...l, billed: true })), camCap: undefined, grossLease: false },
+              resolveCam, { cam: ratios.cam, ins: ratios.ins }, 1).pool
+          : (first?.camPoolFull ?? 0) * ratios.cam,
         ins: (first?.insPool ?? 0) * ratios.ins,
         ret: (first?.retPool ?? 0) * ratios.ret,
       };
@@ -566,7 +585,7 @@ function retailBasis(
   t: { sqft: number; camPrs: number; insPrs: number; retPrs: number; adminFeePct: number; retDiscountPct?: number;
     camDenom: number; insDenom: number; retDenom: number; camPoolEffective: number; insPool: number; retPool: number;
     flatRet?: number; capped?: boolean; camCap?: { growthPct: number } },
-  ratios: PoolRatios, rec: TenantRecovery,
+  ratios: PoolRatios, rec: TenantRecovery, cam?: RetailCamResult | null,
 ): Partial<Record<"cam" | "ins" | "ret", RetailBasis>> {
   let camRatio = ratios.cam;
   const capBites = !!t.capped && t.camCap?.growthPct != null && 1 + t.camCap.growthPct / 100 < camRatio;
@@ -577,7 +596,13 @@ function retailBasis(
     return { expense, gla: r0(gla), sf: r0(t.sqft), prs, share, admin: 0, adminPct: 0, discountPct: 0, year, ...extra };
   };
   const out: Partial<Record<"cam" | "ins" | "ret", RetailBasis>> = {};
-  if (rec.camYear) {
+  if (rec.camYear && cam) {
+    out.cam = {
+      expense: cam.pool, gla: r0(t.camDenom), sf: r0(t.sqft), prs: t.camPrs, share: cam.share, admin: rec.camYear - cam.share,
+      adminPct: t.adminFeePct || 0, discountPct: 0, year: rec.camYear, capped: cam.capped || undefined,
+      adminBase: cam.adminBase, lines: cam.lines,
+    };
+  } else if (rec.camYear) {
     const b = cat(t.camPoolEffective, camRatio, t.camDenom, t.camPrs, rec.camYear, { adminPct: t.adminFeePct || 0, capped: capBites || undefined });
     b.admin = rec.camYear - b.share;
     out.cam = b;
