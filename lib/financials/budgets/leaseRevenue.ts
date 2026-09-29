@@ -84,6 +84,14 @@ const billingOf = (u: { unitRef?: string; opexMonth?: number; otherMonth?: numbe
       ? { cam: u.opexMonth || 0, ins: 0, ret: u.reTaxMonth || 0, rent: u.baseRent || 0, uo: u.otherMonth || 0 }
       : { cam: u.opexMonth || 0, ins: u.otherMonth || 0, ret: u.reTaxMonth || 0, rent: u.baseRent || 0 };
 
+/** One leasing call's capital: TI, the outside LC and the internal broker's
+ *  commission, in the month its new rent starts. */
+export type DealCost = {
+  unitRef: string; tenant: string; kind: string; month: number; sqft: number;
+  ti: number; lc: number; commission: number;
+  tiPsf: number | null; lcPct: number | null; termYears: number | null; annualRent: number;
+};
+
 export type LeaseRevenueProjection = {
   /** 12 monthly projected base rent (assumption-adjusted), display-positive. */
   rentalMonthly: number[];
@@ -98,6 +106,9 @@ export type LeaseRevenueProjection = {
    *  starts — the capital the deals cost, beside the rent they bring. */
   tiMonthly: number[];
   lcMonthly: number[];
+  /** Each deal behind those lines — who, when, and what it costs (the grid's
+   *  hover on the TI / leasing commission / internal commission cells). */
+  deals?: DealCost[];
   /** The internal broker's commissions on the deals, in the month each starts. */
   commissionMonthly?: number[];
   /** How many assumptions were applied to shape the projection. */
@@ -193,11 +204,20 @@ export async function projectLeaseRevenue(
   // beside the outside LC. Keyed off the property being projected.
   const commissionMonthly = new Array(12).fill(0);
   let curGroup: string | undefined;
-  const dealCosts = (a: LeaseAssumption, sqft: number, startMonth: number, monthlyRent: number) => {
+  const deals: DealCost[] = [];
+  const dealCosts = (a: LeaseAssumption, sqft: number, startMonth: number, monthlyRent: number, unitRef: string, tenant: string) => {
     if (startMonth < 1 || startMonth > 12) return;
-    if (sqft > 0) tiMonthly[startMonth - 1] += (a.tiPsf ?? 0) * sqft;
-    lcMonthly[startMonth - 1] += leasingCommission(a.lcPct, monthlyRent, a.termYears);
-    commissionMonthly[startMonth - 1] += internalCommission(curGroup, sqft, a.termYears);
+    const ti = sqft > 0 ? (a.tiPsf ?? 0) * sqft : 0;
+    const lc = leasingCommission(a.lcPct, monthlyRent, a.termYears);
+    const commission = internalCommission(curGroup, sqft, a.termYears);
+    tiMonthly[startMonth - 1] += ti;
+    lcMonthly[startMonth - 1] += lc;
+    commissionMonthly[startMonth - 1] += commission;
+    if (ti || lc || commission) deals.push({
+      unitRef, tenant, kind: a.kind, month: startMonth, sqft: r0(sqft),
+      ti: r0(ti), lc: r0(lc), commission: r0(commission),
+      tiPsf: a.tiPsf ?? null, lcPct: a.lcPct ?? null, termYears: a.termYears ?? null, annualRent: r0(monthlyRent * 12),
+    });
   };
   const expiring: ExpiringLease[] = [];
   const vacant: VacantUnit[] = [];
@@ -260,7 +280,7 @@ export async function projectLeaseRevenue(
           const start = a.startMonth ?? 1;
           const rent = assumedMonthlyRent(a, sqft) ?? 0;
           for (let m = 0; m < 12; m++) if (m + 1 >= start) { rentalMonthly[m] += rent; row.months[m] = rent; row.assumed[m] = true; }
-          dealCosts(a, sqft, start, rent);
+          dealCosts(a, sqft, start, rent, ref, "");
           assumptionsApplied++;
           row.status = "lease-up";
         }
@@ -284,7 +304,7 @@ export async function projectLeaseRevenue(
       if (a?.kind === "renew" || a?.kind === "hold") {
         const rent = a.kind === "renew" ? (assumedMonthlyRent(a, sqft) ?? lastRent) : lastRent;
         for (let m = from - 1; m < 12; m++) { rentalMonthly[m] += rent; row.months[m] += rent; row.assumed[m] = true; }
-        dealCosts(a, sqft, from, rent);
+        dealCosts(a, sqft, from, rent, ref, tenant);
       }
       expiring.push({
         unitRef: ref, tenant,
@@ -317,7 +337,7 @@ export async function projectLeaseRevenue(
           const start = a.startMonth ?? 1;
           const rent = assumedMonthlyRent(a, u.sqft || 0) ?? 0;
           for (let m = 0; m < 12; m++) if (m + 1 >= start) { rentalMonthly[m] += rent; row.months[m] = rent; row.assumed[m] = true; }
-          dealCosts(a, u.sqft || 0, start, rent);
+          dealCosts(a, u.sqft || 0, start, rent, u.unitRef, "");
           assumptionsApplied++;
           row.status = "lease-up";
         }
@@ -345,8 +365,8 @@ export async function projectLeaseRevenue(
       if (a) assumptionsApplied++;
       // A renewal — or a tenant HELD at today's rent for a new term, who can
       // still be given TI and a broker paid — costs its deal when the term rolls.
-      if (a?.kind === "renew") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth), assumedMonthlyRent(a, u.sqft || 0) ?? cur);
-      if (a?.kind === "hold") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth), cur);
+      if (a?.kind === "renew") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth), assumedMonthlyRent(a, u.sqft || 0) ?? cur, u.unitRef, u.occupantName || "");
+      if (a?.kind === "hold") dealCosts(a, u.sqft || 0, renewalStartMonth(expMonth), cur, u.unitRef, u.occupantName || "");
 
       if (end && end.y <= budgetYear) {
         expiring.push({
@@ -394,6 +414,7 @@ export async function projectLeaseRevenue(
     tiMonthly: tiMonthly.map(r0),
     lcMonthly: lcMonthly.map(r0),
     commissionMonthly: commissionMonthly.map(r0),
+    deals,
     inPlaceUnits,
     expiring,
     vacant,

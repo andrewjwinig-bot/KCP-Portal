@@ -1255,6 +1255,13 @@ time — and the team does not have time to open the GL over $80.
   **Outside Leasing Commissions (1940-8501)** (the mapping's name for it; it
   was "Capitalized Lease Costs"). The decision dialog shows both. A derived
   sub-line (these commissions, a payroll share) never takes a typed month.
+- **HOVER A DEAL-DRIVEN CELL FOR ITS DEALS** (`deals` on the draft, from
+  `dealCosts` in `leaseRevenue.ts` → `dealTip` in `BudgetStatementTable.tsx`):
+  Tenant improvements, Outside Leasing Commissions and the Commissions-Internal
+  Broker sub-line are locked (they are Harry's / Nancy's calls), so the month
+  cell's hover lists each deal landing that month — tenant · suite, the
+  amount, and how it was figured (renewal / lease-up, $/SF × SF, LC % × annual
+  rent × term) — and the Budget column's hover lists the year's.
 - **Land (1410-0000) and Appliances (1470-0000)** are dropped from Capital
   Improvements' split while they are empty (`HIDE_WHEN_EMPTY`); 6620-8501 and
   1940-8501 are named from `ACCOUNT_NAME_FALLBACK` where the GL leaves them
