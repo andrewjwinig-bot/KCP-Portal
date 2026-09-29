@@ -14,11 +14,13 @@ import { createPortal } from "react-dom";
 export type TipRow = { label: string; value: string; color?: string };
 
 export function HoverCard({
-  children, title, rows, footer, width = 260, help = true, style,
+  children, title, rows, footer, width = 260, help = true, style, body,
 }: {
   children: React.ReactNode;
   title?: string;
   rows: TipRow[];
+  /** Richer content than label/value rows (a small table), below the rows. */
+  body?: React.ReactNode;
   footer?: TipRow;
   width?: number;
   /** Show a help cursor on the trigger. */
@@ -50,7 +52,7 @@ export function HoverCard({
             font: "inherit", color: "var(--text)",
           }}
         >
-          {title && <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: rows.length ? 8 : 0 }}>{title}</div>}
+          {title && <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: rows.length || body ? 8 : 0 }}>{title}</div>}
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             {rows.map((r, k) => (
               <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
@@ -60,6 +62,7 @@ export function HoverCard({
               </div>
             ))}
           </div>
+          {body}
           {footer && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
               <span style={{ color: "var(--muted)" }}>{footer.label}</span>

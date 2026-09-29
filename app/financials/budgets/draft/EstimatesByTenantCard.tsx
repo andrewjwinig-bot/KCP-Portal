@@ -273,7 +273,7 @@ function whyRows(e: EstimateRow, ry: number | null, year: number): TipRow[] {
 /** One category's calculation, for the hover on that 2027 cell: the pool →
  *  the GLA → the tenant's SF and PRS → the year → the month (retail), or the
  *  Op Ex lines over base × the share (office). */
-function calcTip(e: EstimateRow, part: "cam" | "ins" | "ret", year: number): { rows: TipRow[]; footer?: TipRow } | null {
+function calcTip(e: EstimateRow, part: "cam" | "ins" | "ret", year: number, ry: number | null = null): { rows: TipRow[]; footer?: TipRow; body?: React.ReactNode; width?: number } | null {
   const w = e.why.find((x) => x.part === part);
   const m = e.method;
   if (!w) return null;
@@ -284,6 +284,10 @@ function calcTip(e: EstimateRow, part: "cam" | "ins" | "ret", year: number): { r
       ? { label: "Est. monthly charge (set by hand)", value: money0(w.next), color: "var(--brand)" }
       : { label: "Est. monthly charge", value: `${money0(final)} ÷ ${w.months || 12} = ${money0(w.next)}`, color: "var(--brand)" };
   const b = m?.kind === "retail" ? m.basis?.[part] : undefined;
+  if (b?.lines?.length && m?.kind === "retail") {
+    const final = w.year ?? b.year;
+    return { rows: [], body: <CamWorksheet b={b} year={year} ry={ry ?? year - 2} final={final} />, footer: monthly(final), width: 470 };
+  }
   if (b && m?.kind === "retail") {
     if (b.flat) rows.push({ label: "Own parcel — fixed RET", value: money0(b.year) });
     else {
@@ -318,6 +322,60 @@ function calcTip(e: EstimateRow, part: "cam" | "ins" | "ret", year: number): { r
   return null;
 }
 
+/** The owner's CAM estimate worksheet, in the hover: each line's recon-year
+ *  actual, this year's projection and the budget (struck where the tenant is
+ *  excluded), then GLA → SF → PRS → tenant expense → admin fee → total. */
+function CamWorksheet({ b, year, ry, final }: { b: NonNullable<Extract<NonNullable<EstimateRow["method"]>, { kind: "retail" }>["basis"]>["cam"] & object; year: number; ry: number; final: number }) {
+  const lines = b.lines ?? [];
+  const num: React.CSSProperties = { textAlign: "right", padding: "1px 0 1px 10px", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
+  const lab: React.CSSProperties = { padding: "1px 0", whiteSpace: "nowrap" };
+  const head: React.CSSProperties = { ...num, fontSize: 10.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" };
+  const n0 = (v: number | null) => (v == null ? "–" : money0(v));
+  const billed = lines.filter((l) => l.billed);
+  const tot = (k: "actual" | "budget") => billed.reduce((a, l) => a + l[k], 0);
+  const projTot = billed.every((l) => l.projected != null) ? billed.reduce((a, l) => a + (l.projected ?? 0), 0) : null;
+  const adminEx = lines.filter((l) => l.billed && l.adminExcluded).map((l) => l.label);
+  const kv = (label: string, value: string, strong = false, color?: string) => (
+    <tr><td style={{ ...lab, fontWeight: strong ? 800 : 400, color: color ?? (strong ? "var(--text)" : "var(--muted)") }} colSpan={3}>{label}</td>
+      <td style={{ ...num, fontWeight: strong ? 800 : 700, color }}>{value}</td></tr>
+  );
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+      <thead><tr><th style={{ ...head, textAlign: "left", padding: 0 }}>Common area maintenance</th>
+        <th style={head}>{ry} actual</th><th style={head}>{year - 1} proj.</th><th style={head}>{year} budget</th></tr></thead>
+      <tbody>
+        {lines.map((l) => {
+          const off: React.CSSProperties = l.billed ? {} : { textDecoration: "line-through", color: "var(--muted)" };
+          return (
+            <tr key={l.label}>
+              <td style={{ ...lab, ...off }}>{l.label}{l.billed && l.adminExcluded ? " †" : ""}{l.from === "ratio" ? " *" : ""}</td>
+              <td style={{ ...num, ...off }}>{n0(l.actual)}</td>
+              <td style={{ ...num, ...off }}>{n0(l.projected)}</td>
+              <td style={{ ...num, ...off, fontWeight: l.billed ? 700 : 400 }}>{n0(l.budget)}</td>
+            </tr>
+          );
+        })}
+        <tr style={{ borderTop: "1px solid var(--border)" }}>
+          <td style={{ ...lab, fontWeight: 800 }}>Total</td>
+          <td style={{ ...num, fontWeight: 800 }}>{money0(tot("actual"))}</td>
+          <td style={{ ...num, fontWeight: 800 }}>{n0(projTot)}</td>
+          <td style={{ ...num, fontWeight: 800 }}>{money0(tot("budget"))}</td>
+        </tr>
+        {b.capped && kv("Controllable CAM capped → pool", money0(b.expense), false, UP)}
+        <tr><td colSpan={4} style={{ height: 6 }} /></tr>
+        {kv("Center GLA", b.gla > 0 ? `${b.gla.toLocaleString("en-US")} SF` : "–")}
+        {kv("Tenant square feet", `${b.sf.toLocaleString("en-US")} SF`)}
+        {kv(`Tenant proportional share${b.gla > 0 && Math.abs((b.sf / b.gla) * 100 - b.prs) >= 0.005 ? " (stipulated)" : ""}`, `${b.prs.toFixed(2)}%`)}
+        {kv("Tenant CAM expense", money0(b.share))}
+        {b.adminPct ? kv(`Administrative fee ${b.adminPct}%${adminEx.length ? ` († excluded — on ${money0(b.adminBase ?? 0)})` : ""}`, money0(b.admin)) : null}
+        {kv("Total tenant expense / budget", money0(b.year), true)}
+        {Math.abs(final - b.year) >= 1 && kv("After the recovery-ratio check", money0(final), false, UP)}
+        {lines.some((l) => l.from === "ratio") && <tr><td colSpan={4} style={{ ...lab, color: "var(--muted)", fontSize: 11, paddingTop: 4 }}>* no budget line found — grown at the pool&apos;s rate</td></tr>}
+      </tbody>
+    </table>
+  );
+}
+
 function Row({ e, v, ry, year, canOverride, onEdit }: {
   e: EstimateRow; v: (m: number | null | undefined, sf: number) => string; ry: number | null; year: number; canOverride: boolean; onEdit: () => void;
 }) {
@@ -334,8 +392,8 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
           const body = p !== "total" && e.annual?.[p]
             ? <span className="muted" style={{ fontStyle: "italic", fontSize: 12, fontWeight: 400, lineHeight: 1.25, display: "inline-block" }}>at recon<br />{money0(e.annual[p]!)} in May</span>
             : <>{v(e.next[p], e.sqft)}</>;
-          const tip = p !== "total" ? calcTip(e, p, year) : null;
-          return tip ? <HoverCard title={`${e.tenant || "—"} · ${LABEL[p]} ${year}`} width={320} rows={tip.rows} footer={tip.footer}>{body}</HoverCard> : body;
+          const tip = p !== "total" ? calcTip(e, p, year, ry) : null;
+          return tip ? <HoverCard title={`${e.tenant || "—"} · ${LABEL[p]} ${year}`} width={tip.width ?? 320} rows={tip.rows} body={tip.body} footer={tip.footer}>{body}</HoverCard> : body;
         })()}
       </td>
     );
