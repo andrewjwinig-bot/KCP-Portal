@@ -22,6 +22,7 @@ import { estimateReimbursements, type ReimbursementEstimate } from "./reimbursem
 import { expenseInputKindOf, resolveKind, splitAcrossLines, type ExpenseInputKind, type ExpenseInput } from "./expenseInputs";
 import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { statementBillingFor } from "./statementBilling";
+import { capRecoveries } from "./recoveryCheck";
 import type { StatementBilling } from "./statementBillingMath";
 import { getExpenseInputs } from "./expenseInputStore";
 import { getLineOverrides } from "./lineOverrideStore";
@@ -210,6 +211,8 @@ export type BudgetDraft = {
   missingBasis?: boolean;
   /** Below cash flow: distributions and the projected bank balance. */
   cash?: DraftCash;
+  /** A book roll-up only: each property's recovery check (`recoveryCheck.ts`). */
+  recoveryChecks?: { code: string; name: string; checks: import("./recoveryCheck").GroupCheck[] }[];
 };
 
 /** One suite's whole revenue for the budget year — base rent plus its CAM,
@@ -867,6 +870,13 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   }).catch(() => null)) ?? undefined;
   // A tenant's estimate set by hand on the CAM estimates table IS the budget:
   // laid over before the recovery lines are read, so they carry it.
+  // THE RECOVERY CHECK: no category may recover more than its budgeted pool
+  // (or the recon year's own ratio of it) — scaled back pro rata if the math
+  // says otherwise, and the card says so. Before the hand-set estimates, which
+  // are deliberate and are flagged rather than capped.
+  if (reimbursementEstimate) capRecoveries(reimbursementEstimate, {
+    cam: pool.cam[0] + officePool.cam[0], ins: pool.ins[0] + officePool.ins[0], ret: pool.ret[0] + officePool.ret[0],
+  });
   if (reimbursementEstimate) applyEstimateOverrides(reimbursementEstimate, estimateOverrides);
 
   if (reimbursementEstimate) {

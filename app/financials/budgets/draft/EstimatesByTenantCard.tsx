@@ -17,6 +17,7 @@ import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { estimateRows, estimateTotals, skylineEstimateRows, allFromStatement, type EstimateRow, type WhyPart } from "@/lib/financials/budgets/estimatesByTenant";
 import { buildEstimatesXlsx } from "@/lib/financials/budgets/estimatesExport";
+import { recoveryCheck, type GroupCheck } from "@/lib/financials/budgets/recoveryCheck";
 import { chargeRowsToCSV } from "@/lib/cam/office/exports";
 import type { TenantRevenueRow } from "@/lib/financials/budgets/draft";
 import type { ReimbursementEstimate } from "@/lib/financials/budgets/reimbursementEstimate";
@@ -56,6 +57,7 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
   const all = useMemo(() => estimateRows(rows, est), [rows, est]);
   const tot = useMemo(() => estimateTotals(all), [all]);
   const ry = est?.reconYear ?? null;
+  const check = useMemo(() => recoveryCheck(est), [est]);
   const shown = useMemo(() => {
     const list = all.filter((r) => only === "flagged" ? !!r.jump
       : only === "fallback" ? !!r.now && !allFromStatement(r)
@@ -126,6 +128,19 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
         <span className="muted small" style={{ marginLeft: "auto" }}>Billed today is read off each tenant&apos;s latest monthly statement; <i>italic</i> = not on it (rent roll / recon), amber = the statement and rent roll disagree</span>
       </div>
 
+      {check.some((c) => c.over || c.capped) && (
+        <div style={{ margin: "0 14px 10px", padding: "8px 12px", borderRadius: 8, fontSize: 13,
+          background: check.some((c) => c.over) ? "rgba(220,38,38,0.08)" : "rgba(217,119,6,0.10)",
+          border: `1px solid ${check.some((c) => c.over) ? "rgba(220,38,38,0.35)" : "rgba(217,119,6,0.35)"}` }}>
+          {check.filter((c) => c.over).map((c) => (
+            <div key={c.group}><b>{c.label} over-recovers:</b> {money0(c.recovered)} a year against a {money0(c.pool)} budget pool ({pct0(c.ratio)}) — a figure set by hand is over the ceiling. Tenants would be over-billed.</div>
+          ))}
+          {check.filter((c) => c.capped && !c.over).map((c) => (
+            <div key={c.group}><b>{c.label} capped:</b> the methodology came to {money0(c.capped!.before)} a year against a {money0(c.pool)} pool, so every tenant was scaled back to {money0(c.recovered)} ({pct0(c.ratio)}). Worth a look — a pool the draft sees differently from the recon is the usual cause.</div>
+          ))}
+        </div>
+      )}
+
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -161,6 +176,7 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
               <td style={{ ...td, borderTop: DIVIDE, color: tone(tot.change) }}>{pctS(tot.changePct)}</td>
               <td style={{ ...td, borderTop: DIVIDE }} />
             </tr>
+            {check.length > 0 && <CheckRow check={check} ry={ry} year={year} />}
           </tbody>
         </table>
       </div>
@@ -176,6 +192,51 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
           onClose={() => setEditing(null)} onSaved={() => { setEditing(null); onSaved(); }} />
       )}
     </div>
+  );
+}
+
+const pct0 = (r: number | null | undefined) => (r == null ? "–" : `${(r * 100).toFixed(1)}%`);
+
+/** RECOVERY RATIO — the year's recoveries ÷ the budget's recoverable pool, by
+ *  group, beside the recon year's own ratio. Over 100% (or over last year's
+ *  ratio, where admin fees took it higher) is over-billing (`recoveryCheck.ts`). */
+function CheckRow({ check, ry, year }: { check: GroupCheck[]; ry: number | null; year: number }) {
+  const g = (k: GroupCheck["group"]) => check.find((c) => c.group === k);
+  const all = check.reduce((a, c) => ({ rec: a.rec + c.recovered, pool: a.pool + c.pool }), { rec: 0, pool: 0 });
+  const allRecon = (() => {
+    const w = check.filter((c) => c.reconRatio != null);
+    const pool = w.reduce((s, c) => s + c.pool, 0);
+    return pool > 0 ? w.reduce((s, c) => s + c.reconRatio! * c.pool, 0) / pool : null;
+  })();
+  const color = (c?: GroupCheck) => (!c ? undefined : c.over ? "#b91c1c" : c.capped ? UP : "#15803d");
+  const cell = (c: GroupCheck | undefined, span: number, first = false) => (
+    <td colSpan={span} style={{ ...td, borderTop: "1px dashed var(--border)", ...(first ? { borderLeft: DIVIDE } : {}), textAlign: span > 1 ? "center" : "right" }}>
+      {c ? (
+        <HoverCard title={`${c.label} · recovery ratio`} width={340} rows={[
+          { label: `${year} recoveries`, value: money0(c.recovered) },
+          { label: `${year} budget pool`, value: money0(c.pool) },
+          { label: "Ratio", value: pct0(c.ratio), color: color(c) },
+          ...(c.reconRatio != null ? [{ label: `${ry} recon ratio`, value: pct0(c.reconRatio) }] : []),
+          { label: "Ceiling", value: `${money0(c.ceiling)} (${c.reconRatio != null && c.reconRatio > 1 ? `${ry} ratio` : "100% of the pool"})` },
+          ...(c.capped ? [{ label: "Methodology came to", value: `${money0(c.capped.before)} — capped`, color: UP }] : []),
+        ]}>
+          <span style={{ fontWeight: 800, color: color(c) }}>{span > 1 ? `${c.label} ` : ""}{pct0(c.ratio)}{c.capped ? " · capped" : ""}</span>
+        </HoverCard>
+      ) : "–"}
+    </td>
+  );
+  return (
+    <tr>
+      <td style={{ ...td, textAlign: "left", borderTop: "1px dashed var(--border)", fontWeight: 700 }} colSpan={2}>
+        Recovery ratio <span className="muted small" style={{ fontWeight: 400 }}>· a year&apos;s recoveries ÷ the recoverable pool</span>
+      </td>
+      <td colSpan={4} style={{ ...td, borderTop: "1px dashed var(--border)", borderLeft: DIVIDE }} />
+      {ry != null && <td style={{ ...td, borderTop: "1px dashed var(--border)", borderLeft: DIVIDE, color: "var(--muted)", fontWeight: 700 }}>{pct0(allRecon)}</td>}
+      {cell(g("camIns"), 2, true)}
+      {cell(g("ret"), 1)}
+      <td style={{ ...td, borderTop: "1px dashed var(--border)", fontWeight: 800 }}>{pct0(all.pool > 0 ? all.rec / all.pool : null)}</td>
+      <td colSpan={3} style={{ ...td, borderTop: "1px dashed var(--border)", borderLeft: DIVIDE }} />
+    </tr>
   );
 }
 
