@@ -89,7 +89,10 @@ export type ReimbTenantEstimate = {
    *  replaced, and why. */
   computed?: { cam: number; ins: number; ret: number };
   overridden?: Partial<Record<"cam" | "ins" | "ret", boolean>>;
-  overrideNote?: string;
+overrideNote?: string;
+  /** Recoveries collected ONLY at reconciliation, booked as one May amount
+   *  (`reconOnly.ts`) — the year's figure for each such category. */
+  atRecon?: Partial<Record<"cam" | "ins" | "ret", number>>;
 };
 
 /** A suite's months in the budget year, as the RENT projection has them — so

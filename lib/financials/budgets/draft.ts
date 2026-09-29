@@ -23,6 +23,7 @@ import { expenseInputKindOf, resolveKind, splitAcrossLines, type ExpenseInputKin
 import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { statementBillingFor } from "./statementBilling";
 import { capRecoveries } from "./recoveryCheck";
+import { landReconOnlyInMay } from "./reconOnly";
 import type { StatementBilling } from "./statementBillingMath";
 import { getExpenseInputs } from "./expenseInputStore";
 import { getLineOverrides } from "./lineOverrideStore";
@@ -242,6 +243,8 @@ export type TenantRevenueRow = {
   computed?: { cam: number; ins: number; ret: number };
   overridden?: Partial<Record<"cam" | "ins" | "ret", boolean>>;
   overrideNote?: string;
+  /** Recoveries collected only at reconciliation, booked in May (`reconOnly.ts`). */
+  atRecon?: Partial<Record<"cam" | "ins" | "ret", number>>;
 };
 
 const canonRef = (ref: string) => String(ref ?? "").trim().toUpperCase().replace(/-CU$/, "");
@@ -297,6 +300,7 @@ export function combineTenantRevenue(rentRows: RentRow[], est: ReimbursementEsti
     if (lead) {
       row.note = lead.note; row.method = lead.method; row.portion = lead.portion;
       if (lead.overridden) { row.computed = lead.computed; row.overridden = lead.overridden; row.overrideNote = lead.overrideNote; }
+      if (lead.atRecon) row.atRecon = lead.atRecon;
     }
   };
   const out: TenantRevenueRow[] = rentRows.map((r) => {
@@ -908,6 +912,9 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     cam: pool.cam[0] + officePool.cam[0], ins: pool.ins[0] + officePool.ins[0], ret: pool.ret[0] + officePool.ret[0],
   });
   if (reimbursementEstimate) applyEstimateOverrides(reimbursementEstimate, estimateOverrides);
+  // A charge collected only at reconciliation lands in MAY, when it is
+  // collected — not spread over twelve months it is never billed in.
+  if (reimbursementEstimate) landReconOnlyInMay(reimbursementEstimate, lease.rows, stmtBilling);
 
   if (reimbursementEstimate) {
     const est = reimbursementEstimate;
