@@ -1399,20 +1399,31 @@ time — and the team does not have time to open the GL over $80.
   A tenant billed nothing today (new lease, lease-up, gross) is never flagged.
   The hover is the bill by category; "▲ Estimates up · n" filters to them.
 - **CAM ESTIMATES BY TENANT** (`estimatesByTenant.ts`,
-  `EstimatesByTenantCard.tsx`, its own card below Revenues; Excel via the shared
-  `DownloadMenu` → `estimatesExport.ts`, themed, every derived figure a live
-  formula, pinned by `estimatesByTenant.test.ts` reading the file back). The
-  owner: this is where tenants push back, because the estimate "directly
-  changes their monthly rent". Per tenant: billed TODAY (rent roll CAM / INS /
-  RET), the budget's monthly estimate (each category's recovery averaged over
-  the months it is billed — the SAME `monthlyEstimate` the ▲ flag reads, so the
-  two views cannot disagree), the change $/mo and %, and the WHOLE monthly
-  bill (base rent + recoveries) before and after — the number the tenant
-  quotes back. Today's base rent rides on `billing.rent` (the roll's
-  `baseRent`); next year's is the first month paid. Sort by suite / $ / %,
-  $/month or $/SF/yr, a "▲ Big jumps" filter (15% AND $100/mo). A new lease
-  reads NEW (no % — nothing to compare), gross leases and vacancies are left
-  out, and the tenant hover is Revenue by tenant's own `tenantTip`.
+  `EstimatesByTenantCard.tsx`, its own card below Revenues). The REVIEW before
+  the estimates are imported into Skyline as each tenant's monthly charges,
+  and the answer when a tenant pushes back — NOT tenant letters, and NO base
+  rent (owner). Per tenant, monthly: CAM / INS / RET billed TODAY (rent roll),
+  the recon year's ACTUAL (amount due ÷ 12, off the engine's `method.recon`),
+  the BUDGET (each category averaged over the months billed — the same
+  `monthlyEstimate` the ▲ flag reads), the change $ and %, and **WHY**, in
+  dollars: the CATCH-UP from today to the reconciled actual, then the BUDGET
+  change (pool %, share, cap) — "+$140 to the 2025 actual · +$40 budget (CAM
+  pool +6.0%)". A backed-out lease, a lease-up and a newer lease say so.
+  - **An estimate can be SET BY HAND** (Drew / Alison / admin, a REASON
+    required — the tenant will ask; `estimateOverrides.ts`,
+    `estimateOverrideStore.ts` → `budget-estimate-overrides`, `POST
+    /api/financials/budgets/estimate-overrides`). The override IS the budget:
+    `applyEstimateOverrides` lays it over the reimbursement estimate before the
+    recovery lines are read, in the months the tenant is billed, so the lines,
+    Revenue by tenant and the import all carry it. The engine's figure is kept
+    (`computed`) and shown beside it; "Back to computed" clears it.
+  - **The Skyline import** is the CAM recon's own recurring-charge CSV
+    (`SkylineChargeRow` / `chargeRowsToCSV`: unit `<ref>-CU`, CAM seq 2, INS 3,
+    RET 4, freq M, effective 1/1) — a computed estimate rounded to $10 as the
+    recon's own `nextYearEstimate` does, an override exactly as keyed. The
+    owner may send Skyline's exact format; if it differs, change
+    `skylineEstimateRows` only. The review WORKBOOK (`estimatesExport.ts`) is
+    a separate themed document with live formulas and the why.
 - **Revenue by tenant reads like the Rent Roll**: TENANT first (600 weight,
   a vacancy in muted italics), then the SUITE as a bold brand-coloured code, a
   larger row font and rent-roll row height.

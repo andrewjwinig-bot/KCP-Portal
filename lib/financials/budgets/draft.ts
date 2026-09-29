@@ -39,6 +39,8 @@ import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 import { groupOf } from "@/lib/reports/monthly";
 import { listBudgets } from "./storage";
 import { preferredWorkbooks } from "./inForce";
+import { applyEstimateOverrides } from "./estimateOverrides";
+import { getEstimateOverrides } from "./estimateOverrideStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { isVacancyUtilitiesLine, resolveRate, monthsAt, SC_RATE_SCOPE, type VacancyUtilities } from "./vacancyUtilities";
 import { assembledGlConsolidated } from "@/lib/financials/operating-statements/statementStore";
@@ -228,6 +230,10 @@ export type TenantRevenueRow = {
   recoveryOnly?: boolean;
   /** Today's monthly recovery billing, off the rent roll. */
   billing?: RentRow["billing"];
+  /** An estimate override on this suite (`estimateOverrides.ts`). */
+  computed?: { cam: number; ins: number; ret: number };
+  overridden?: Partial<Record<"cam" | "ins" | "ret", boolean>>;
+  overrideNote?: string;
 };
 
 const canonRef = (ref: string) => String(ref ?? "").trim().toUpperCase().replace(/-CU$/, "");
@@ -249,7 +255,10 @@ export function combineTenantRevenue(rentRows: RentRow[], est: ReimbursementEsti
     }
     // The note and method of the tenant actually paying — else the first.
     const lead = ts.find((t) => t.monthsActive > 0) ?? ts[0];
-    if (lead) { row.note = lead.note; row.method = lead.method; row.portion = lead.portion; }
+    if (lead) {
+      row.note = lead.note; row.method = lead.method; row.portion = lead.portion;
+      if (lead.overridden) { row.computed = lead.computed; row.overridden = lead.overridden; row.overrideNote = lead.overrideNote; }
+    }
   };
   const out: TenantRevenueRow[] = rentRows.map((r) => {
     const row: TenantRevenueRow = {
@@ -612,6 +621,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   }
 
   const typedDoc = await getLineOverrides(budgetYear, meta.propertyCode).catch(() => ({} as LineOverrides));
+  const estimateOverrides = await getEstimateOverrides(budgetYear, meta.propertyCode).catch(() => ({}));
 
   const sections: BudgetDraftSection[] = r.sections.map((sec) => {
     const isExpense = EXPENSE_ROLE_SET.has(sec.role);
@@ -841,6 +851,9 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     // Recoveries start and stop where RENT does — the same leasing decisions.
     tenancy: lease.hasData ? lease.rows : undefined,
   }).catch(() => null)) ?? undefined;
+  // A tenant's estimate set by hand on the CAM estimates table IS the budget:
+  // laid over before the recovery lines are read, so they carry it.
+  if (reimbursementEstimate) applyEstimateOverrides(reimbursementEstimate, estimateOverrides);
 
   if (reimbursementEstimate) {
     const est = reimbursementEstimate;

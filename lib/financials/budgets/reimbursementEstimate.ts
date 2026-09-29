@@ -79,6 +79,12 @@ export type ReimbTenantEstimate = {
   method?: ReimbMethod;
   /** A mixed centre's part this tenant is reconciled in (7010: retail / office). */
   portion?: "retail" | "office";
+  /** Set when an estimate override replaced the engine's figure
+   *  (`estimateOverrides.ts`): the engine's monthly figures, which parts were
+   *  replaced, and why. */
+  computed?: { cam: number; ins: number; ret: number };
+  overridden?: Partial<Record<"cam" | "ins" | "ret", boolean>>;
+  overrideNote?: string;
 };
 
 /** A suite's months in the budget year, as the RENT projection has them — so
