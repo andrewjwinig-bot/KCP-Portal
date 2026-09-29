@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import ExcelJS from "exceljs";
-import { estimateRows, estimateTotals, skylineEstimateRows, currentBilling } from "./estimatesByTenant";
+import { estimateRows, estimateTotals, skylineEstimateRows, currentBilling, round5 } from "./estimatesByTenant";
 import { buildEstimatesXlsx } from "./estimatesExport";
 import { applyEstimateOverrides, seededEstimateOverrides } from "./estimateOverrides";
 import { chargeRowsToCSV } from "@/lib/cam/office/exports";
@@ -63,7 +63,7 @@ describe("CAM estimates by tenant", () => {
     expect(t.next.total).toBe(1080 + 300 + 250);
     expect(t.flagged).toBe(1);
   });
-  it("Skyline: the CAM recon's recurring-charge format, computed estimates to the nearest $10", () => {
+  it("Skyline: the CAM recon's recurring-charge format, computed estimates to the nearest $5", () => {
     const sky = skylineEstimateRows(rows, 2027);
     expect(sky[0]).toEqual({ unit: "7010-1-CU", seq: 2, chargeCode: "CAM", chargeDescription: "2027 CAM Estimate", freq: "M", effectiveDate: "2027-01-01", endDate: "", amount: 580 });
     const csv = chargeRowsToCSV(sky).split("\n");
@@ -165,7 +165,7 @@ describe("no new monthly charges for an existing tenant", () => {
   ] as any, est);
   it("McDonald's RET stays $0 a month — settled at reconciliation, the recovery kept in the budget", () => {
     const r = rows.find((x) => x.unitRef === "4500-2851")!;
-    expect(r.next).toEqual({ cam: 1602, ins: 0, ret: 0, total: 1602 });
+    expect(r.next).toEqual({ cam: 1600, ins: 0, ret: 0, total: 1600 }); // $1,602 → nearest $5
     expect(r.annual).toEqual({ ret: 693 * 12 });
     expect(r.reason).toMatch(/^RET settled at reconciliation, not billed monthly/);
     expect(skylineEstimateRows(rows, 2027).filter((x) => x.unit === "4500-2851-CU" && x.amount).map((x) => x.chargeCode)).toEqual(["CAM"]);
@@ -177,6 +177,12 @@ describe("no new monthly charges for an existing tenant", () => {
   });
   it("a new lease starts its estimates", () => {
     expect(rows.find((x) => x.unitRef === "4500-2893")!.next.cam).toBe(250);
+  });
+});
+
+describe("2027 estimates end in 0 or 5", () => {
+  it("rounds to the nearest $5", () => {
+    expect([603, 602, 607.4, 608, 1602, 0].map(round5)).toEqual([605, 600, 605, 610, 1600, 0]);
   });
 });
 

@@ -1455,12 +1455,14 @@ time — and the team does not have time to open the GL over $80.
     the city.
   - **Seeded estimates** (`SEEDED` in `estimateOverrides.ts`) — a billing
     arrangement the engine cannot see, laid under the stored overrides; a
-    stored clear keeps the seed undone. McDonald's at 4500 pays RET annually at
-    reconciliation, never monthly (2025 recon: $0 RET escrow) → RET $0 from 2027.
+    stored clear keeps the seed undone. (McDonald's $0 RET seed is retired —
+    `reconOnlyParts` covers it and keeps the revenue.)
   - **The Skyline import** is the CAM recon's own recurring-charge CSV
     (`SkylineChargeRow` / `chargeRowsToCSV`: unit `<ref>-CU`, CAM seq 2, INS 3,
-    RET 4, freq M, effective 1/1) — a computed estimate rounded to $10 as the
-    recon's own `nextYearEstimate` does, an override exactly as keyed. The
+    RET 4, freq M, effective 1/1) — a computed estimate ROUNDED TO THE NEAREST $5
+    (owner: "cleaner and easier", $603 → $605; `round5`, in the table AND the
+    import, so the two show one figure; it replaced the $10 the recon's own
+    `nextYearEstimate` uses), an override exactly as keyed. The
     owner may send Skyline's exact format; if it differs, change
     `skylineEstimateRows` only. The review WORKBOOK (`estimatesExport.ts`) is
     a separate themed document with live formulas and the why.
