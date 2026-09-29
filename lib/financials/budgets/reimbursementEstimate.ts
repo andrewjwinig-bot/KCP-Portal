@@ -19,6 +19,7 @@
 // behaviour: last recon × the growth % for each year since.
 
 import "server-only";
+import { getOrEmptyCamConfig } from "@/lib/cam/configStorage";
 import { RETAIL_RECON_FIXTURES } from "@/lib/cam/retail/registry";
 import { OFFICE_RECON_FIXTURES } from "@/lib/cam/office/registry";
 import { loadRetailRecon } from "@/lib/cam/retail/loadResult";
@@ -62,7 +63,7 @@ export type ReimbMethod =
     }
   | { kind: "leaseup"; sqft: number; startMonth: number }
   /** In place on the roll but on no reconciliation — a lease newer than it. */
-  | { kind: "new"; sqft: number; assumption: "nnn" | "base-year" };
+  | { kind: "new"; sqft: number; assumption: "nnn" | "base-year" | "gross" };
 
 export type ReimbTenantEstimate = {
   unitRef: string;
@@ -361,6 +362,18 @@ export async function estimateReimbursements(
         if (row.status === "vacant" || row.status === "lease-up" || onRecon.has(canon(row.unitRef)) || excluded(row.unitRef)) continue;
         const { months, assumed } = tenancyMonths(row);
         if (!months.some(Boolean) || !(row.sqft > 0)) continue;
+        // The UNIT PAGE is the source of truth for a tenant's methodology,
+        // on a recon or not: a lease marked gross there pays no recoveries.
+        // (PLCB at 4500 was billed $4,800/mo as "NNN" while its unit page
+        // said gross — this path never read it.)
+        const cfg = await getOrEmptyCamConfig(row.unitRef).catch(() => null);
+        if (cfg?.grossLease) {
+          const rec = retailRecovery({ unitRef: row.unitRef, name: row.tenant || "Tenant", sqft: row.sqft, camDue: 0, insDue: 0, retDue: 0 }, ratios, months,
+            "Gross lease (unit page) — no recoveries");
+          recs.push(rec);
+          extra.set(rec, { assumed, method: { kind: "new", sqft: row.sqft, assumption: "gross" } });
+          continue;
+        }
         const rec = retailProRata(row.unitRef, row.tenant || "New tenant", row.sqft, months, pools, denoms,
           `Not on the ${reconYear} reconciliation — assumed NNN at its pro-rata share`);
         recs.push(rec);

@@ -115,7 +115,7 @@ export const RETAIL_CONFIG_SEED: Record<string, RetailConfigSeedEntry> = {
     excludedCamLines: ["Building Maintenance"],
     adminFeeExcludedLines: ["Liability Insurance", "Security", "Electric (Common)", "Water / Sewer"],
   },
-  "4500-3009": { grossLease: true }, // PLCB — gross lease
+  "4500-3007": { grossLease: true }, // PLCB (Fine Wine & Good Spirits) — gross lease. Was keyed 3009; the suite is 3007 on the rent roll.
 
   // ── 7010 · Parkwood Shopping/Office Center (mixed retail + office) ──────
   // PRS is COMPUTED (unit SF / category GLA) via PROPERTY_CAM_RULES["7010"]
