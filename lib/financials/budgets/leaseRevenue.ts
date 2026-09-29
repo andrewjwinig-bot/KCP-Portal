@@ -65,13 +65,22 @@ export type RentRow = {
   status: "contracted" | "expiring" | "holdover" | "vacant" | "lease-up";
   /** What the suite is billed a month TODAY for recoveries, off the rent
    *  roll's Operating Expense / Other Expense / Real Estate Tax columns —
-   *  the current estimate the budget's figure is compared with. */
-  billing?: { cam: number; ins: number; ret: number; rent?: number };
+   *  the current estimate the budget's figure is compared with. In
+   *  PHILADELPHIA the Other Expense column is INS and the Use & Occupancy
+   *  tax combined — carried whole as `uo`, and `ins` is left 0 (the roll
+   *  cannot split it; the estimates table reads INS off the recon's escrow
+   *  and takes the rest as U&O). */
+  billing?: { cam: number; ins: number; ret: number; rent?: number; uo?: number };
 };
 
 /** A roll unit's current monthly recovery billing. */
-const billingOf = (u: { opexMonth?: number; otherMonth?: number; reTaxMonth?: number; baseRent?: number } | null | undefined) =>
-  u ? { cam: u.opexMonth || 0, ins: u.otherMonth || 0, ret: u.reTaxMonth || 0, rent: u.baseRent || 0 } : undefined;
+const PHILADELPHIA = new Set(PROPERTY_DEFS.filter((d) => /philadelphia/i.test(d.city ?? "")).map((d) => d.id.toUpperCase()));
+export const billsUseAndOccupancy = (unitRef: string) => PHILADELPHIA.has(String(unitRef).split("-")[0].toUpperCase());
+const billingOf = (u: { unitRef?: string; opexMonth?: number; otherMonth?: number; reTaxMonth?: number; baseRent?: number } | null | undefined) =>
+  !u ? undefined
+    : billsUseAndOccupancy(u.unitRef ?? "")
+      ? { cam: u.opexMonth || 0, ins: 0, ret: u.reTaxMonth || 0, rent: u.baseRent || 0, uo: u.otherMonth || 0 }
+      : { cam: u.opexMonth || 0, ins: u.otherMonth || 0, ret: u.reTaxMonth || 0, rent: u.baseRent || 0 };
 
 export type LeaseRevenueProjection = {
   /** 12 monthly projected base rent (assumption-adjusted), display-positive. */
@@ -369,7 +378,7 @@ export async function projectLeaseRevenue(
   expiring.sort((a, b) => (a.leaseTo ?? "").localeCompare(b.leaseTo ?? ""));
   vacant.sort((a, b) => b.sqft - a.sqft);
   const roundedRows = rows
-    .map((r) => ({ ...r, months: r.months.map(r0), billing: r.billing && { cam: r0(r.billing.cam), ins: r0(r.billing.ins), ret: r0(r.billing.ret), rent: r0(r.billing.rent ?? 0) } }))
+    .map((r) => ({ ...r, months: r.months.map(r0), billing: r.billing && { ...r.billing, cam: r0(r.billing.cam), ins: r0(r.billing.ins), ret: r0(r.billing.ret), rent: r0(r.billing.rent ?? 0), ...(r.billing.uo != null ? { uo: r0(r.billing.uo) } : {}) } }))
     .sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true }));
   const roundedRental = Array.from({ length: 12 }, (_, m) => roundedRows.reduce((s, r) => s + r.months[m], 0));
   return {

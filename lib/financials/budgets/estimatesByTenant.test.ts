@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import ExcelJS from "exceljs";
-import { estimateRows, estimateTotals, skylineEstimateRows } from "./estimatesByTenant";
+import { estimateRows, estimateTotals, skylineEstimateRows, currentBilling } from "./estimatesByTenant";
 import { buildEstimatesXlsx } from "./estimatesExport";
-import { applyEstimateOverrides } from "./estimateOverrides";
+import { applyEstimateOverrides, seededEstimateOverrides } from "./estimateOverrides";
 import { chargeRowsToCSV } from "@/lib/cam/office/exports";
 
 const m = (v: number) => new Array(12).fill(v);
@@ -85,6 +85,20 @@ describe("CAM estimates by tenant", () => {
   });
 });
 
+describe("Philadelphia: the roll's Other Expense is INS + U&O", () => {
+  it("Victra at 4500: $234 = $20 INS (the recon's $160 escrow over 8 months) + $214 U&O", () => {
+    const b = currentBilling({ billing: { cam: 900, ins: 0, ret: 300, uo: 234 }, method: retail({ cam: 0, ins: 0, ret: 0 }, { reconOcc: 0.6932, escrow: { cam: 2000, ins: 160, ret: 2056 } }) } as any);
+    expect(b).toEqual({ cam: 900, ins: 20, ret: 300, uo: 214 });
+  });
+  it("McDonald's: $492 is all U&O — no INS escrow, no INS", () => {
+    const b = currentBilling({ billing: { cam: 2214, ins: 0, ret: 0, uo: 492 }, method: retail({ cam: 0, ins: 0, ret: 0 }, { escrow: { cam: 26568, ins: 0, ret: 0 } }) } as any);
+    expect(b).toEqual({ cam: 2214, ins: 0, ret: 0, uo: 492 });
+  });
+  it("outside Philadelphia the column IS insurance", () => {
+    expect(currentBilling({ billing: { cam: 100, ins: 40, ret: 50 } } as any)).toEqual({ cam: 100, ins: 40, ret: 50 });
+  });
+});
+
 describe("an estimate set by hand IS the budget", () => {
   const mk = (): any => ({
     reconYear: 2025, budgetYear: 2027, ratios: { cam: 1, ins: 1, ret: 1 },
@@ -108,6 +122,18 @@ describe("an estimate set by hand IS the budget", () => {
   it("only in the months the tenant is billed", () => {
     const est = applyEstimateOverrides(mk(), { "7010-2": { cam: 350, note: "x" } });
     expect(est.tenants[1].cam).toEqual([...m(350).slice(0, 6), ...m(0).slice(0, 6)]);
+  });
+  it("McDonald's at Gray's Ferry is billed no monthly RET (annual, at reconciliation)", () => {
+    expect(seededEstimateOverrides(2027, "4500")["4500-2851"]).toEqual(expect.objectContaining({ ret: 0 }));
+    expect(seededEstimateOverrides(2026, "4500")).toEqual({});
+    const est = applyEstimateOverrides(mk(), { "7010-1": { ret: 0, note: "annual" } });
+    expect(est.tenants[0].ret).toEqual(m(0));
+    expect(est.tenants[0].cam).toEqual(m(500));
+  });
+  it("a cleared seed (an empty override) changes nothing", () => {
+    const est = applyEstimateOverrides(mk(), { "7010-1": {} });
+    expect(est.tenants[0].ret).toEqual(m(200));
+    expect(est.tenants[0].overridden).toBeUndefined();
   });
   it("no overrides leaves the estimate alone", () => {
     const a = mk();
