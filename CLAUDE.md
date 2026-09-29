@@ -1461,8 +1461,9 @@ time — and the team does not have time to open the GL over $80.
     (`SkylineChargeRow` / `chargeRowsToCSV`: unit `<ref>-CU`, CAM seq 2, INS 3,
     RET 4, freq M, effective 1/1) — a computed estimate ROUNDED TO THE NEAREST $5
     (owner: "cleaner and easier", $603 → $605; `round5`, in the table AND the
-    import, so the two show one figure; it replaced the $10 the recon's own
-    `nextYearEstimate` uses), an override exactly as keyed. The
+    import, so the two show one figure; the CAM recon's own Estimates page
+    (`nextYearEstimate`) rounds its monthly figure to $5 too), an override
+    exactly as keyed. The
     owner may send Skyline's exact format; if it differs, change
     `skylineEstimateRows` only. The review WORKBOOK (`estimatesExport.ts`) is
     a separate themed document with live formulas and the why.

@@ -43,7 +43,7 @@ describe("Year End Adjustments export", () => {
 describe("Next-year estimate", () => {
   it("Bucks County ties to CAM EST BILLING tab (550/50 CAM, 230/20 RET)", () => {
     const est = nextYearEstimate(byUnit["4070-103"]);
-    expect(est).toMatchObject({ annualCam: 550, monthlyCam: 50, annualRet: 230, monthlyRet: 20 });
+    expect(est).toMatchObject({ annualCam: 550, monthlyCam: 45, annualRet: 230, monthlyRet: 20 }); // $45.83 → $45, $19.17 → $20
   });
   it("Veltri 415 ties out (5860/490 CAM, 2400/200 RET)", () => {
     const est = nextYearEstimate(byUnit["4070-415"]);
@@ -52,6 +52,6 @@ describe("Next-year estimate", () => {
   it("estimate rows carry next year's description + monthly freq", () => {
     const rows = estimateChargeRows(result, "2026-01-01");
     const cam = rows.find((r) => r.unit === "4070-103-CU" && r.chargeCode === "CAM")!;
-    expect(cam).toMatchObject({ seq: 2, freq: "M", chargeDescription: "2026 CAM Estimate", amount: 50 });
+    expect(cam).toMatchObject({ seq: 2, freq: "M", chargeDescription: "2026 CAM Estimate", amount: 45 }); // nearest $5
   });
 });
