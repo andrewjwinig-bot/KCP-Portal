@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { HoverCard } from "@/app/components/HoverCard";
 import { RentCheckTable } from "./RentCheckTable";
 import { MonthlyBars } from "./MonthlyBars";
-import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
+import { basisForLine, checkBasisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { driverIndexes } from "@/lib/financials/operating-statements/drivers";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
@@ -199,7 +199,7 @@ export function LineDetailModal({ viewKey, property, year, period, monthLabel, l
   // percentage rents do not — and before `basisForLine` existed every one of
   // them was silently compared to BASE RENT. A line with no basis falls back to
   // the per-tenant GL summary, which claims nothing it cannot support.
-  const rentCheckBasis = tab === "gl" ? basisForLine(line.label, line.mask) : null;
+  const rentCheckBasis = tab === "gl" ? checkBasisForLine(line.label, line.mask, property || viewKey) : null;
   const showRentCheck = !!rentCheckBasis && glGroups.filter((g) => g.unit).length >= 2;
 
   return (

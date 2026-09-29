@@ -15,6 +15,7 @@ import type { LeaseAssumption } from "./leasingAssumptions";
 import type { InPlaceCharge } from "./inPlaceRevenue";
 import { internalCommission } from "@/lib/commissions";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { billsUseAndOccupancy } from "@/lib/financials/operating-statements/rentCheck";
 
 const r0 = (n: number) => Math.round(n);
 
@@ -70,12 +71,13 @@ export type RentRow = {
    *  tax combined — carried whole as `uo`, and `ins` is left 0 (the roll
    *  cannot split it; the estimates table reads INS off the recon's escrow
    *  and takes the rest as U&O). */
-  billing?: { cam: number; ins: number; ret: number; rent?: number; uo?: number };
+  billing?: { cam: number; ins: number; ret: number; rent?: number; uo?: number;
+    /** Philadelphia: the INS charge on the tenant's latest monthly statement,
+     *  and the statement month it came from (`statementBilling.ts`). */
+    insStmt?: number; insStmtMonth?: string };
 };
 
 /** A roll unit's current monthly recovery billing. */
-const PHILADELPHIA = new Set(PROPERTY_DEFS.filter((d) => /philadelphia/i.test(d.city ?? "")).map((d) => d.id.toUpperCase()));
-export const billsUseAndOccupancy = (unitRef: string) => PHILADELPHIA.has(String(unitRef).split("-")[0].toUpperCase());
 const billingOf = (u: { unitRef?: string; opexMonth?: number; otherMonth?: number; reTaxMonth?: number; baseRent?: number } | null | undefined) =>
   !u ? undefined
     : billsUseAndOccupancy(u.unitRef ?? "")

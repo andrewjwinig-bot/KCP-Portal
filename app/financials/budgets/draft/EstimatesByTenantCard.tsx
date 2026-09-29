@@ -174,7 +174,7 @@ function whyRows(e: EstimateRow, ry: number | null, year: number): TipRow[] {
     if (w.overridden && w.computed != null) rows.push({ label: "  computed was", value: money0(w.computed), color: "var(--muted)" });
   }
   if (e.uo != null) {
-    rows.push({ label: "INS today from", value: `the ${ry ?? "last"} recon's INS escrow`, color: "var(--muted)" });
+    rows.push({ label: "INS today from", value: e.insFrom === "statement" ? `the ${e.insMonth ?? "latest"} monthly statement` : e.insFrom === "recon" ? `the ${ry ?? "last"} recon's INS escrow` : "nothing on file", color: "var(--muted)" });
     if (e.uo) rows.push({ label: "U&O billed today (not an estimate)", value: money0(e.uo), color: "var(--muted)" });
   }
   const m = e.method;

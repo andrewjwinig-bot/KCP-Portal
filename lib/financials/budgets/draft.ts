@@ -20,7 +20,8 @@ import { projectLeaseRevenue, type ExpiringLease, type VacantUnit, type RentRow,
 import { getLeasingAssumptions } from "./leasingAssumptions";
 import { estimateReimbursements, type ReimbursementEstimate } from "./reimbursementEstimate";
 import { expenseInputKindOf, resolveKind, splitAcrossLines, type ExpenseInputKind, type ExpenseInput } from "./expenseInputs";
-import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
+import { basisForLine, billsUseAndOccupancy } from "@/lib/financials/operating-statements/rentCheck";
+import { statementBillingFor } from "./statementBilling";
 import { getExpenseInputs } from "./expenseInputStore";
 import { getLineOverrides } from "./lineOverrideStore";
 import { getInPlaceRevenue } from "./inPlaceStore";
@@ -240,6 +241,16 @@ const canonRef = (ref: string) => String(ref ?? "").trim().toUpperCase().replace
 
 /** Join the rent rows and the recovery estimate, suite by suite. A suite with
  *  two recovery entries (a recon tenant and a lease-up) sums them. */
+/** Lay each Philadelphia suite's statement INS onto its billing. */
+function withStatementIns(rows: TenantRevenueRow[], stmt: Map<string, { ins?: number; month?: string }> | null): TenantRevenueRow[] {
+  if (!stmt?.size) return rows;
+  return rows.map((r) => {
+    const s = stmt.get(String(r.unitRef).toUpperCase());
+    if (!r.billing || s?.ins == null) return r;
+    return { ...r, billing: { ...r.billing, insStmt: s.ins, insStmtMonth: s.month } };
+  });
+}
+
 export function combineTenantRevenue(rentRows: RentRow[], est: ReimbursementEstimate | null | undefined): TenantRevenueRow[] {
   const zero = () => new Array(12).fill(0) as number[];
   const byUnit = new Map<string, ReimbursementEstimate["tenants"]>();
@@ -981,6 +992,10 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     };
   })();
 
+  // Philadelphia: the rent roll's Other Expense is INS + U&O, so today's INS
+  // is read off the tenants' monthly statements (`statementBilling.ts`).
+  const stmtBilling = lease.hasData && billsUseAndOccupancy(meta.propertyCode)
+    ? await statementBillingFor(meta.propertyCode).catch(() => null) : null;
   return {
     cash,
     propertyCode: meta.propertyCode,
@@ -1014,7 +1029,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     reimbursementEstimate,
     feeRollup,
     recoveryTie,
-    tenantRevenue: lease.hasData ? combineTenantRevenue(lease.rows ?? [], reimbursementEstimate) : undefined,
+    tenantRevenue: lease.hasData ? withStatementIns(combineTenantRevenue(lease.rows ?? [], reimbursementEstimate), stmtBilling) : undefined,
     rentLineLabel,
     debt: debt ? { loans: debt.loans, interest: r0(sum(debt.interest)), principal: r0(sum(debt.principal)), fundShare: debtShare } : undefined,
   };

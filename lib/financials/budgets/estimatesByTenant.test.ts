@@ -4,6 +4,8 @@ import { estimateRows, estimateTotals, skylineEstimateRows, currentBilling } fro
 import { buildEstimatesXlsx } from "./estimatesExport";
 import { applyEstimateOverrides, seededEstimateOverrides } from "./estimateOverrides";
 import { chargeRowsToCSV } from "@/lib/cam/office/exports";
+import { statementMonthlyBilling } from "./statementBillingMath";
+import { checkBasisForLine } from "@/lib/financials/operating-statements/rentCheck";
 
 const m = (v: number) => new Array(12).fill(v);
 const retail = (recon: { cam: number; ins: number; ret: number }, extra: any = {}) =>
@@ -88,11 +90,15 @@ describe("CAM estimates by tenant", () => {
 describe("Philadelphia: the roll's Other Expense is INS + U&O", () => {
   it("Victra at 4500: $234 = $20 INS (the recon's $160 escrow over 8 months) + $214 U&O", () => {
     const b = currentBilling({ billing: { cam: 900, ins: 0, ret: 300, uo: 234 }, method: retail({ cam: 0, ins: 0, ret: 0 }, { reconOcc: 0.6932, escrow: { cam: 2000, ins: 160, ret: 2056 } }) } as any);
-    expect(b).toEqual({ cam: 900, ins: 20, ret: 300, uo: 214 });
+    expect(b).toEqual({ cam: 900, ins: 20, ret: 300, uo: 214, insFrom: "recon" });
   });
   it("McDonald's: $492 is all U&O — no INS escrow, no INS", () => {
     const b = currentBilling({ billing: { cam: 2214, ins: 0, ret: 0, uo: 492 }, method: retail({ cam: 0, ins: 0, ret: 0 }, { escrow: { cam: 26568, ins: 0, ret: 0 } }) } as any);
-    expect(b).toEqual({ cam: 2214, ins: 0, ret: 0, uo: 492 });
+    expect(b).toMatchObject({ cam: 2214, ins: 0, ret: 0, uo: 492 });
+  });
+  it("the INS charge on the latest monthly statement wins over the recon escrow", () => {
+    const b = currentBilling({ billing: { cam: 900, ins: 0, ret: 300, uo: 234, insStmt: 21, insStmtMonth: "2026-09" }, method: retail({ cam: 0, ins: 0, ret: 0 }, { reconOcc: 0.6932, escrow: { cam: 2000, ins: 160, ret: 2056 } }) } as any);
+    expect(b).toEqual({ cam: 900, ins: 21, ret: 300, uo: 213, insFrom: "statement", insMonth: "2026-09" });
   });
   it("outside Philadelphia the column IS insurance", () => {
     expect(currentBilling({ billing: { cam: 100, ins: 40, ret: 50 } } as any)).toEqual({ cam: 100, ins: 40, ret: 50 });
@@ -139,5 +145,29 @@ describe("an estimate set by hand IS the budget", () => {
     const a = mk();
     expect(applyEstimateOverrides(a, {})).toBe(a);
     expect(a.tenants[0].computed).toBeUndefined();
+  });
+});
+
+describe("the monthly statement's INS charge", () => {
+  const c = (dateISO: string | null, description: string, amount: number, category: any, extra: any = {}) => ({ dateISO, description, amount, category, ...extra });
+  it("the newest month's INS charges, not a year-end adjustment or a credit", () => {
+    expect(statementMonthlyBilling([
+      c("2026-08-01", "INS Insurance", 20, "insurance"),
+      c("2026-09-01", "INS Insurance", 20, "insurance"),
+      c("2026-09-01", "U&O Tax", 214, "uando"),
+      c("2026-04-30", "2025 INS Adjustment", 90, "insurance", { reconYear: 2025 }),
+      c("2026-09-05", "INS credit", -5, "insurance"),
+    ] as any)).toEqual({ ins: 20, month: "2026-09" });
+  });
+  it("a tenant who has paid shows none", () => {
+    expect(statementMonthlyBilling([c("2026-09-01", "Rent", 1000, "rent")] as any)).toEqual({});
+  });
+});
+
+describe("the operating statement's rent check in Philadelphia", () => {
+  it("has no column to check an insurance line against (Other Expense is INS + U&O)", () => {
+    expect(checkBasisForLine("Insurance", "4930-*", "4500")).toBeNull();
+    expect(checkBasisForLine("Insurance", "4930-*", "9510")).toBe("other");
+    expect(checkBasisForLine("Common Area", "4910-*", "4500")).toBe("cam");
   });
 });

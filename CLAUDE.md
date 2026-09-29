@@ -1423,10 +1423,20 @@ time — and the team does not have time to open the GL over $80.
   - **In PHILADELPHIA the rent roll's Other Expense is INS + U&O in one
     figure** (Victra at 4500: $234 = $20 INS + $214 Use & Occupancy tax;
     McDonald's $492 is all U&O). The roll cannot split it, so `currentBilling`
-    takes today's INS from the last recon's INS ESCROW over the months it
-    billed ($160 ÷ 8 = $20) and shows the rest as U&O — reference only, never
-    an estimate, never imported. Everywhere else the column IS insurance. The
-    ▲ flag on Revenue by tenant reads the same function.
+    takes today's INS from, in order: the INS charge on the tenant's latest
+    MONTHLY STATEMENT (`statementBilling.ts`, newest of the last 6 imported
+    months; year-end adjustments and credits ignored) — else the last recon's
+    INS ESCROW over the months it billed ($160 ÷ 8 = $20), because the
+    statement is open items only and a tenant who paid shows no INS line. The
+    rest of the column is U&O — reference only, never an estimate, never
+    imported; the hover says which source INS came from. Everywhere else the
+    column IS insurance. The ▲ flag on Revenue by tenant reads the same
+    function. The operating statement's RENT CHECK does not check a
+    Philadelphia insurance line at all (`checkBasisForLine` → null, the
+    per-tenant GL summary instead): comparing insurance billed to INS + U&O
+    read every U&O dollar as insurance never billed. The budget's recovery
+    mapping keeps `basisForLine`, since a line's category does not change with
+    the city.
   - **Seeded estimates** (`SEEDED` in `estimateOverrides.ts`) — a billing
     arrangement the engine cannot see, laid under the stored overrides; a
     stored clear keeps the seed undone. McDonald's at 4500 pays RET annually at
