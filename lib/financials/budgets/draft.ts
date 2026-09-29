@@ -213,6 +213,9 @@ export type BudgetDraft = {
   cash?: DraftCash;
   /** A book roll-up only: each property's recovery check (`recoveryCheck.ts`). */
   recoveryChecks?: { code: string; name: string; checks: import("./recoveryCheck").GroupCheck[] }[];
+  /** Each leasing call's TI / outside LC / internal commission — who and
+   *  when — behind the capital and commission lines (the grid's hover). */
+  deals?: import("./leaseRevenue").DealCost[];
 };
 
 /** One suite's whole revenue for the budget year — base rent plus its CAM,
@@ -1044,6 +1047,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     reimbursementEstimate,
     feeRollup,
     recoveryTie,
+    deals: lease.hasData ? lease.deals : undefined,
     tenantRevenue: lease.hasData ? withStatementBilling(combineTenantRevenue(lease.rows ?? [], reimbursementEstimate), stmtBilling) : undefined,
     rentLineLabel,
     debt: debt ? { loans: debt.loans, interest: r0(sum(debt.interest)), principal: r0(sum(debt.principal)), fundShare: debtShare } : undefined,

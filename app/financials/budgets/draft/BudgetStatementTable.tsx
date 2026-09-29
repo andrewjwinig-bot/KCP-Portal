@@ -169,7 +169,7 @@ function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boo
   );
 }
 
-function Row({ badgeSource, extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, onCellClick, flagNegative }: {
+function Row({ badgeSource, extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, totalHover, onCellClick, flagNegative }: {
   /** Where the figure came from, on hover of its pill (an assessment notice). */
   badgeSource?: BudgetDraftSection["lines"][number]["inputSource"];
   /** Rendered after the pill — the vacant-SF rate editor on utilities. */
@@ -200,6 +200,8 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
   labelNote?: string;
   /** A month cell's breakdown, shown on hover (a recovery line's tenants). */
   cellHover?: (m: number) => { title: string; rows: TipRow[]; footer?: TipRow } | null;
+  /** The Budget (year) cell's hover, where the line has one. */
+  totalHover?: () => { title: string; rows: TipRow[]; footer?: TipRow } | null;
   /** Clicking a month cell (a recovery line opens its full tenant list). */
   onCellClick?: (m: number) => void;
   /** A revenue / expense line should never go negative: such a cell is
@@ -223,7 +225,7 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
       ...(flagNegative && key !== "b" && v < -0.5 ? { background: NEGATIVE_BG, color: NEGATIVE_FG, fontWeight: 800 } : {}),
       ...(open ? { padding: "2px 4px" } : {}),
     };
-    const tip = !open && m != null && m < 12 && cellHover ? cellHover(m) : null;
+    const tip = open || m == null ? null : m < 12 ? (cellHover ? cellHover(m) : null) : m === 12 && totalHover ? totalHover() : null;
     const clickable = !editable && !!onCellClick && m != null && m < 12;
     const shown = Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span> : money0(v);
     return (
@@ -287,7 +289,7 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
         </div>
       </td>
       {months.map((m, i) => cell(m, i, undefined, i))}
-      {cell(total, "t", subtotal ? { fontSize: 14, fontWeight: 800 } : { fontSize: 14, fontWeight: 600 }, editable ? 12 : undefined)}
+      {cell(total, "t", subtotal ? { fontSize: 14, fontWeight: 800 } : { fontSize: 14, fontWeight: 600 }, editable || totalHover ? 12 : undefined)}
       {basis == null ? <td style={num} /> : priorYear ? (
         <td style={{ ...num, color: "var(--muted)", fontStyle: "italic" }}>
           <HoverCard title={`${priorYear} budget`} width={260} rows={[]} footer={{ label: "Items have no reprojection", value: money0(basis) }}>
@@ -403,6 +405,30 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     if (rest.length) tip.push({ label: `${rest.length} other building${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, x) => a + x.v, 0)), color: "var(--muted)" });
     return { title: `Buildings' management fees · ${MONTHS[m]}`, rows: tip, footer: { label: "Total fee revenue", value: money0(rows.reduce((a, x) => a + x.v, 0)), color: COLOR_BRAND } };
   };
+  // A capital / commission line built from the leasing calls: which deals
+  // make up the month (or the year), and how each was figured.
+  type DealField = "ti" | "lc" | "commission";
+  const DEAL_TITLE: Record<DealField, string> = { ti: "Tenant improvements", lc: "Outside leasing commissions", commission: "Internal broker's commission" };
+  const KIND: Record<string, string> = { renew: "Renewal", hold: "Renewal", leaseup: "Lease-up" };
+  const dealBasis = (d: NonNullable<typeof draft.deals>[number], f: DealField) =>
+    f === "ti" ? `${d.tiPsf != null ? `$${d.tiPsf.toFixed(2)}/SF × ` : ""}${d.sqft.toLocaleString("en-US")} SF`
+    : f === "lc" ? `${d.lcPct ?? 0}% × ${money0(d.annualRent)}/yr × ${d.termYears ?? 0} yr`
+    : `${d.sqft.toLocaleString("en-US")} SF${d.termYears ? ` · ${d.termYears}-yr term` : ""}`;
+  const dealTip = (f: DealField, m: number | null) => {
+    const list = (draft.deals ?? []).filter((d) => d[f] > 0 && (m == null || d.month === m + 1)).sort((a, b) => b[f] - a[f]);
+    if (!list.length) return null;
+    const rows: TipRow[] = list.slice(0, 10).flatMap((d) => [
+      { label: `${d.tenant || "Lease-up"} · ${d.unitRef}`, value: money0(d[f]) },
+      { label: `  ${KIND[d.kind] ?? d.kind}${m == null ? ` · ${MONTHS[d.month - 1]}` : ""} · ${dealBasis(d, f)}`, value: "", color: "var(--muted)" },
+    ]);
+    if (list.length > 10) rows.push({ label: `${list.length - 10} more deal${list.length - 10 === 1 ? "" : "s"}`, value: money0(list.slice(10).reduce((a, d) => a + d[f], 0)), color: "var(--muted)" });
+    return { title: `${DEAL_TITLE[f]} · ${m == null ? draft.budgetYear : MONTHS[m]}`, rows, footer: { label: `${list.length} deal${list.length === 1 ? "" : "s"}`, value: money0(list.reduce((a, d) => a + d[f], 0)), color: COLOR_BRAND } };
+  };
+  const dealField = (label: string, mask: string, account?: string): DealField | null =>
+    account === "6620-8501" ? "commission"
+    : /tenant improvement|^1440/i.test(label) || /^1440/.test(mask) ? "ti"
+    : /lease cost|leasing commission/i.test(label) || /1940-8501/.test(mask) ? "lc" : null;
+
   const recoveryHover = (cat: RecoveryCategory) => (m: number) => {
     const mk = recoveryMakeup(cat, m, recTenants, draft.sections, estKind);
     if (!mk.tenants.length) return null;
@@ -518,6 +544,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                       {...(() => {
                         const cat = l.source === "cam-estimate" && recTenants.length ? recoveryCategory(l.label, l.mask, estKind) : null;
                         if (l.source === "fee-rollup" && draft.feeRollup?.length) return { cellHover: feeRollupHover };
+                        const df = l.source === "leases" && draft.deals?.length ? dealField(l.label, l.mask) : null;
+                        if (df) return { cellHover: (m: number) => dealTip(df, m), totalHover: () => dealTip(df, null) };
                         if (l.source === "vacancy" && l.vacancy) {
                           const v = l.vacancy;
                           return {
@@ -565,7 +593,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                             rowKey={typeableY ? k : undefined} edit={edit} setEdit={typeableY ? setEdit : undefined}
                             onCommit={typeableY ? (m, v) => onEdit!(sec, l, m, v, y.account) : undefined}
                             onReset={typeableY ? () => onEdit!(sec, l, "all", null, y.account) : undefined}
-                            note={onNote && seeded ? { note: notes?.[`${sec.name}::${noteLabel}`], onOpen: () => onNote(sec, noteLabel) } : undefined} />
+                            note={onNote && seeded ? { note: notes?.[`${sec.name}::${noteLabel}`], onOpen: () => onNote(sec, noteLabel) } : undefined}
+                            {...(y.account === "6620-8501" && draft.deals?.length ? { cellHover: (m: number) => dealTip("commission", m), totalHover: () => dealTip("commission", null) } : {})} />
                         );
                       };
                       const bKey = `${key}#${x.account}`;
