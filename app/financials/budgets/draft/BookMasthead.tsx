@@ -22,7 +22,9 @@ const tab = (active: boolean): React.CSSProperties => ({
   cursor: "pointer", whiteSpace: "nowrap",
 });
 
-export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onYear, years, hideBooks = [] }: {
+export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onYear, years, hideBooks = [], actions }: {
+  /** Header actions (the draft's Download menu), beside the selectors. */
+  actions?: React.ReactNode;
   book: BudgetBook;
   /** Books this viewer may not open (the payroll book, for anyone but Drew / Alison). */
   hideBooks?: string[];
@@ -59,6 +61,7 @@ export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onY
               {years.map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </label>
+          {actions && <div style={{ alignSelf: "flex-end" }}>{actions}</div>}
         </div>
       </div>
 

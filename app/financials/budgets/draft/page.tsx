@@ -24,6 +24,7 @@ import { PayrollBudget } from "./PayrollBudget";
 import { NoteDialog } from "./LineNote";
 import { PayrollPoolsCard } from "./PayrollPoolsCard";
 import { PublishCard } from "./PublishCard";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { RecoveryCheckCard } from "./RecoveryCheckCard";
 
 import type { LeasingCall, SavePayload } from "./LeasingDecision";
@@ -331,6 +332,19 @@ export default function BudgetDraftPage() {
         propertyCode={label?.propertyCode ?? null}
         years={[thisYear, thisYear + 1, thisYear + 2]}
         onYear={setYear}
+        actions={isPayroll ? undefined : (() => {
+          // The draft as the presentation-ready budget PDF, marked DRAFT —
+          // this property, or the whole book (roll-up, then each property).
+          const onBookTab = key.startsWith("book:");
+          const items = [
+            ...(!onBookTab && label ? [{ label: "This property (PDF)", description: `${label.propertyCode} ${year} draft budget, marked DRAFT`,
+              href: `/api/financials/budgets/draft/pdf?key=${encodeURIComponent(key)}&year=${year}` }] : []),
+            ...(book.properties.length ? [{ label: `${book.rollsUp ? `All ${book.name}` : book.name} (PDF)`,
+              description: book.rollsUp ? "The roll-up, then each property — marked DRAFT" : "Marked DRAFT",
+              href: `/api/financials/budgets/draft/pdf?book=${encodeURIComponent(book.id)}&year=${year}` }] : []),
+          ];
+          return items.length ? <DownloadMenu label="Download draft" items={items} /> : undefined;
+        })()}
         onBook={(id) => {
           setBookId(id);
           // Land on the book's first property, so switching books never leaves
