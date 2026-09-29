@@ -184,7 +184,7 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
         Today = the rent roll&rsquo;s monthly Operating Expense (CAM), Other Expense (INS) and Real Estate Tax.{" "}
         {ry != null && <>{ry} actual = the tenant&rsquo;s reconciled amount due ÷ 12. </>}
         {year} = the budget&rsquo;s recovery averaged over the months billed, or the figure set by hand (<b style={{ color: "var(--brand)" }}>blue</b>) — which is what the budget carries.
-        The Skyline import rounds a computed estimate to the nearest $10 and imports a hand-set one as keyed. Amber ▲ = up 15%+ and $100+/month.
+        Each computed estimate is rounded to the nearest $5 (it ends in 0 or 5), in the table and the import; a hand-set one stands as keyed. Amber ▲ = up 15%+ and $100+/month.
       </div>
 
       {editing && (

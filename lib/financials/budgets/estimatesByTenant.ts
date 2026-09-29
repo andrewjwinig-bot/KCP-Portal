@@ -83,6 +83,8 @@ export type EstimateRow = {
 };
 
 const r0 = (n: number) => Math.round(n || 0);
+/** The 2027 monthly estimate is billed in whole $5s — it ends in 0 or 5. */
+export const round5 = (n: number) => Math.round((n || 0) / 5) * 5;
 const money = (n: number) => `$${Math.abs(r0(n)).toLocaleString("en-US")}`;
 const signed = (n: number) => `${n >= 0 ? "+" : "−"}${money(n)}`;
 const LABEL: Record<EstimatePart, string> = { cam: "CAM", ins: "INS", ret: "RET" };
@@ -180,7 +182,10 @@ export function estimateRows(rows: TenantRevenueRow[], est?: ReimbursementEstima
   const reconYear = est?.reconYear;
   for (const r of rows) {
     if (!r.tenant && !r.recoveryOnly) continue; // a vacancy owes nothing
-    const next: Estimates = { cam: r0(monthlyEstimate(r.cam)), ins: r0(monthlyEstimate(r.ins)), ret: r0(monthlyEstimate(r.ret)), total: 0 };
+    // Each monthly estimate to the nearest $5 (owner: "cleaner and easier" —
+    // $603 → $605); a figure set by hand stands exactly as keyed.
+    const est5 = (p: EstimatePart) => (r.overridden?.[p] ? r0(monthlyEstimate(r[p])) : round5(monthlyEstimate(r[p])));
+    const next: Estimates = { cam: est5("cam"), ins: est5("ins"), ret: est5("ret"), total: 0 };
     const b = r.billing;
     const cur = currentBilling(r);
     const now: Estimates | null = cur ? { cam: cur.cam, ins: cur.ins, ret: cur.ret, total: 0 } : null;
@@ -311,9 +316,9 @@ function mostCommon(xs: string[]): string | null {
   return best;
 }
 
-/** Skyline bills an estimate in whole $10s (`nextYearEstimate` in the recon's
- *  own export); an override is imported exactly as keyed. */
-export const skylineMonthly = (w: WhyPart) => (w.overridden ? r0(w.next) : Math.round(w.next / 10) * 10);
+/** Each computed estimate is imported in whole $5s (`round5`) — the same
+ *  figure the table shows; an override is imported exactly as keyed. */
+export const skylineMonthly = (w: WhyPart) => (w.overridden ? r0(w.next) : round5(w.next));
 
 /** The Skyline recurring-charge rows — the SAME format the CAM recon's
  *  Estimates page uploads (`SkylineChargeRow`, unit "<ref>-CU", monthly,
