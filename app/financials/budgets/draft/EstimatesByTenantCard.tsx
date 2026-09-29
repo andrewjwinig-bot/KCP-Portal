@@ -15,7 +15,7 @@ import { createPortal } from "react-dom";
 import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL, TONE_BLUE, PortionPill } from "@/app/components/Pill";
 import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
-import { estimateRows, estimateTotals, skylineEstimateRows, type EstimateRow, type WhyPart } from "@/lib/financials/budgets/estimatesByTenant";
+import { estimateRows, estimateTotals, skylineEstimateRows, allFromStatement, type EstimateRow, type WhyPart } from "@/lib/financials/budgets/estimatesByTenant";
 import { buildEstimatesXlsx } from "@/lib/financials/budgets/estimatesExport";
 import { chargeRowsToCSV } from "@/lib/cam/office/exports";
 import type { TenantRevenueRow } from "@/lib/financials/budgets/draft";
@@ -33,8 +33,12 @@ const DIVIDE = "2px solid var(--border)";
 const UP = "#b45309", DOWN = "#15803d";
 const tone = (n: number) => (n > 0.5 ? UP : n < -0.5 ? DOWN : "var(--muted)");
 const LABEL = { cam: "CAM", ins: "INS", ret: "RET" } as const;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const monthName = (ym?: string | null) => (ym ? `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}` : "");
+const SOURCE = { statement: "monthly statement", rentroll: "rent roll", recon: "recon INS escrow" } as const;
 
 type Sort = "suite" | "change" | "pct";
+type Only = "all" | "flagged" | "fallback" | "differs";
 type Unit = "month" | "psf";
 
 export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyCode, canOverride, queued, onSaved }: {
@@ -47,17 +51,19 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
 }) {
   const [sort, setSort] = useState<Sort>("suite");
   const [unit, setUnit] = useState<Unit>("month");
-  const [onlyFlagged, setOnlyFlagged] = useState(false);
+  const [only, setOnly] = useState<Only>("all");
   const [editing, setEditing] = useState<EstimateRow | null>(null);
   const all = useMemo(() => estimateRows(rows, est), [rows, est]);
   const tot = useMemo(() => estimateTotals(all), [all]);
   const ry = est?.reconYear ?? null;
   const shown = useMemo(() => {
-    const list = onlyFlagged ? all.filter((r) => r.jump) : all.slice();
+    const list = all.filter((r) => only === "flagged" ? !!r.jump
+      : only === "fallback" ? !!r.now && !allFromStatement(r)
+      : only === "differs" ? !!r.differs?.length : true);
     if (sort === "change") list.sort((a, b) => b.change - a.change);
     if (sort === "pct") list.sort((a, b) => (b.changePct ?? -Infinity) - (a.changePct ?? -Infinity));
     return list;
-  }, [all, sort, onlyFlagged]);
+  }, [all, sort, only]);
   if (!all.length) return null;
 
   const v = (monthly: number | null | undefined, sf: number) =>
@@ -94,6 +100,9 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
         <StatPill label={`${year} budget`} value={`${money0(tot.next.total)}/mo`} sub={tot.overridden ? `${tot.overridden} set by hand` : "monthly estimate"} />
         <StatPill label="Change" value={signed(tot.change)} sub={`${pctS(tot.changePct)} a month`} accent={tone(tot.change)} />
         <StatPill label="Big jumps" value={String(tot.flagged)} sub="≥15% and ≥$100/mo" accent={tot.flagged ? UP : undefined} />
+        <StatPill label="Today from statement" value={`${tot.fromStatement} of ${tot.tenants}`}
+          sub={tot.statementMonth ? `${monthName(tot.statementMonth)} statement · ${tot.fallback} fall back` : "no monthly statement imported"}
+          accent={tot.fallback ? UP : undefined} />
       </div>
 
       <div style={{ padding: "0 14px 10px", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -106,8 +115,15 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
         <button type="button" style={seg(unit === "month")} onClick={() => setUnit("month")}>$ / month</button>
         <button type="button" style={seg(unit === "psf")} onClick={() => setUnit("psf")}>$ / SF / yr</button>
         {tot.flagged > 0 && (
-          <button type="button" style={seg(onlyFlagged)} onClick={() => setOnlyFlagged((f) => !f)}>▲ Big jumps · {tot.flagged}</button>
+          <button type="button" style={seg(only === "flagged")} onClick={() => setOnly((o) => (o === "flagged" ? "all" : "flagged"))}>▲ Big jumps · {tot.flagged}</button>
         )}
+        {tot.fallback > 0 && (
+          <button type="button" style={seg(only === "fallback")} onClick={() => setOnly((o) => (o === "fallback" ? "all" : "fallback"))}>Not on statement · {tot.fallback}</button>
+        )}
+        {tot.differs > 0 && (
+          <button type="button" style={seg(only === "differs")} onClick={() => setOnly((o) => (o === "differs" ? "all" : "differs"))}>Statement ≠ rent roll · {tot.differs}</button>
+        )}
+        <span className="muted small" style={{ marginLeft: "auto" }}>Billed today is read off each tenant&apos;s latest monthly statement; <i>italic</i> = not on it (rent roll / recon), amber = the statement and rent roll disagree</span>
       </div>
 
       <div style={{ overflowX: "auto" }}>
@@ -133,7 +149,7 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
               <Row key={e.unitRef + e.tenant} e={e} v={v} ry={ry} year={year} canOverride={canOverride} onEdit={() => setEditing(e)} />
             ))}
             <tr style={{ fontWeight: 800 }}>
-              <td style={{ ...td, textAlign: "left", borderTop: DIVIDE }} colSpan={2}>Total{onlyFlagged ? " · all tenants" : ""}</td>
+              <td style={{ ...td, textAlign: "left", borderTop: DIVIDE }} colSpan={2}>Total{only !== "all" ? " · all tenants" : ""}</td>
               {(["cam", "ins", "ret", "total"] as const).map((k, i) => (
                 <td key={`n${k}`} style={{ ...td, borderTop: DIVIDE, ...(i === 0 ? { borderLeft: DIVIDE } : {}) }}>{money0(tot.now[k])}</td>
               ))}
@@ -173,10 +189,12 @@ function whyRows(e: EstimateRow, ry: number | null, year: number): TipRow[] {
     rows.push({ label: `  → ${year}${w.overridden ? " (set by hand)" : ""}`, value: `${money0(w.next)}${w.budgetChange != null ? ` (${signed(w.budgetChange)}${pool})` : ""}`, color: w.overridden ? "var(--brand)" : tone(w.next - (w.recon ?? w.now)) });
     if (w.overridden && w.computed != null) rows.push({ label: "  computed was", value: money0(w.computed), color: "var(--muted)" });
   }
-  if (e.uo != null) {
-    rows.push({ label: "INS today from", value: e.insFrom === "statement" ? `the ${e.insMonth ?? "latest"} monthly statement` : e.insFrom === "recon" ? `the ${ry ?? "last"} recon's INS escrow` : "nothing on file", color: "var(--muted)" });
-    if (e.uo) rows.push({ label: "U&O billed today (not an estimate)", value: money0(e.uo), color: "var(--muted)" });
+  if (e.billedFrom) {
+    const src = (p: "cam" | "ins" | "ret") => e.billedFrom![p] === "statement" ? `${monthName(e.billedMonth)} statement` : SOURCE[e.billedFrom![p]];
+    rows.push({ label: "Today from", value: `CAM ${src("cam")} · INS ${src("ins")} · RET ${src("ret")}`, color: "var(--muted)" });
+    for (const d of e.differs ?? []) rows.push({ label: `  ${LABEL[d.part]}: statement vs rent roll`, value: `${money0(d.statement)} vs ${money0(d.rentRoll)}`, color: UP });
   }
+  if (e.uo) rows.push({ label: "U&O billed today (not an estimate)", value: money0(e.uo), color: "var(--muted)" });
   const m = e.method;
   if (m?.kind === "retail") {
     rows.push({ label: "Share (CAM / INS / RET)", value: `${m.camPrs.toFixed(2)}% / ${m.insPrs.toFixed(2)}% / ${m.retPrs.toFixed(2)}%` });
@@ -218,7 +236,17 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
         </span>
       </td>
       <td style={{ ...td, textAlign: "left" }}><code style={SUITE}>{e.unitRef}</code></td>
-      <td style={{ ...td, borderLeft: DIVIDE }}>{v(n?.cam, e.sqft)}</td><td style={td}>{v(n?.ins, e.sqft)}</td><td style={td}>{v(n?.ret, e.sqft)}</td>
+      {(["cam", "ins", "ret"] as const).map((p) => {
+        const off = !!n && e.billedFrom?.[p] !== "statement";
+        const diff = e.differs?.some((d) => d.part === p);
+        return (
+          <td key={p} style={{ ...td, ...(p === "cam" ? { borderLeft: DIVIDE } : {}),
+            ...(off ? { fontStyle: "italic", color: "var(--muted)" } : {}),
+            ...(diff ? { background: "rgba(217,119,6,0.12)" } : {}) }}>
+            {v(n?.[p], e.sqft)}
+          </td>
+        );
+      })}
       <td style={{ ...td, fontWeight: 700 }}>{v(n?.total, e.sqft)}</td>
       {ry != null && <td style={{ ...td, borderLeft: DIVIDE, color: "var(--muted)" }}>{v(e.recon?.total, e.sqft)}</td>}
       {nextCell("cam")}{nextCell("ins")}{nextCell("ret")}{nextCell("total")}

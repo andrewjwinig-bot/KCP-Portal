@@ -73,7 +73,7 @@ export async function buildEstimatesXlsx(o: { propertyName: string; propertyCode
   tot.getCell(14).value = { formula: `IF(G${r}=0,"",M${r}/G${r})`, result: nowT ? chg / nowT : "" };
   tot.getCell(14).numFmt = FMT.percent;
   r += 2;
-  footNote(ws, r, `Today = the monthly Operating Expense (CAM), Other Expense (INS) and Real Estate Tax each tenant is billed on the current rent roll. ${ry} actual = the tenant's reconciled ${ry} amount due ÷ 12. ${o.year} = the budget's recovery for each category averaged over the months billed, or the figure set by hand (bold blue). Why splits the change into the catch-up to the ${ry} actual and the ${o.year} budget's pool change. Highlighted: up 15%+ and $100+/month. Prepared from the Budget Draft; unaudited.`, width);
+  footNote(ws, r, `Today = the CAM, INS and RET charges on each tenant's latest monthly statement (Skyline Statement report), by charge date; a charge with no line that month falls back to the rent roll (in Philadelphia, INS to the last recon's INS escrow, since the roll's Other Expense there includes U&O). ${ry} actual = the tenant's reconciled ${ry} amount due ÷ 12. ${o.year} = the budget's recovery for each category averaged over the months billed, or the figure set by hand (bold blue). Why splits the change into the catch-up to the ${ry} actual and the ${o.year} budget's pool change. Highlighted: up 15%+ and $100+/month. Prepared from the Budget Draft; unaudited.`, width);
   ws.columns = [{ width: 12 }, { width: 28 }, { width: 9 }, ...Array.from({ length: 11 }, () => ({ width: 12 })), { width: 60 }];
   return wb.xlsx.writeBuffer() as Promise<ArrayBuffer>;
 }

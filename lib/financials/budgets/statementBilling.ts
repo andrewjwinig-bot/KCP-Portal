@@ -1,18 +1,19 @@
-// What a Philadelphia tenant is billed a month for INSURANCE, read off the
-// monthly statements (the Skyline Statement report). The rent roll cannot say:
-// its Other Expense column is insurance and the Use & Occupancy tax in one
-// figure. The statement lists each charge by its own description, so its
-// INS line is the figure itself.
+// What each tenant is billed a month TODAY, read off the monthly statements
+// (the Skyline Statement report) — the ONE source for the CAM estimates
+// table's "today" column. Each statement line carries its date and its kind,
+// so a tenant's month is the sum of that month's rent / CAM / INS / RET / U&O
+// lines (`statementMonthlyBilling`). It is the only report that splits
+// Philadelphia's Other Expense into insurance and Use & Occupancy.
 //
-// The report is OPEN ITEMS only — a tenant who has paid shows no INS line — so
-// this is the first source, not the only one: `currentBilling` falls back to
-// the last reconciliation's INS escrow where no statement carries one.
+// Per tenant, the NEWEST imported statement month that carries any of their
+// charges is the one read; `currentBilling` falls back to the rent roll only
+// for a kind that month has no line for, and says so.
 
 import "server-only";
 import { allRuns } from "@/lib/statements/store";
 import { statementMonthlyBilling, type StatementBilling } from "./statementBillingMath";
 
-/** The newest statement months to look back through for an open INS line. */
+/** How many of the newest statement periods to look back through. */
 const LOOKBACK = 6;
 
 export async function statementBillingFor(code: string): Promise<Map<string, StatementBilling>> {
@@ -23,9 +24,10 @@ export async function statementBillingFor(code: string): Promise<Map<string, Sta
     for (const st of run.statements ?? []) {
       if (String(st.propertyCode).toUpperCase() !== want) continue;
       const ref = String(st.unitRef).toUpperCase();
-      if (out.get(ref)?.ins != null) continue; // a newer month already answered
       const b = statementMonthlyBilling(st.charges ?? []);
-      if (b.ins != null) out.set(ref, b);
+      if (!b.month) continue;
+      const had = out.get(ref);
+      if (!had || (had.month ?? "") < b.month) out.set(ref, b);
     }
   }
   return out;

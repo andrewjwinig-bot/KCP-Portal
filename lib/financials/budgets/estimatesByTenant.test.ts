@@ -87,21 +87,32 @@ describe("CAM estimates by tenant", () => {
   });
 });
 
-describe("Philadelphia: the roll's Other Expense is INS + U&O", () => {
-  it("Victra at 4500: $234 = $20 INS (the recon's $160 escrow over 8 months) + $214 U&O", () => {
-    const b = currentBilling({ billing: { cam: 900, ins: 0, ret: 300, uo: 234 }, method: retail({ cam: 0, ins: 0, ret: 0 }, { reconOcc: 0.6932, escrow: { cam: 2000, ins: 160, ret: 2056 } }) } as any);
-    expect(b).toEqual({ cam: 900, ins: 20, ret: 300, uo: 214, insFrom: "recon" });
+describe("billed today: the monthly statement first", () => {
+  const rec = retail({ cam: 0, ins: 0, ret: 0 }, { reconOcc: 0.6932, escrow: { cam: 2000, ins: 160, ret: 2056 } });
+  it("every charge off the statement month, U&O on its own line (Victra at 4500)", () => {
+    const b = currentBilling({ billing: { cam: 900, ins: 0, ret: 300, uo: 234, stmt: { month: "2026-09", cam: 900, ins: 20, ret: 300, uo: 214, rent: 2000 } }, method: rec } as any);
+    expect(b).toEqual({ cam: 900, ins: 20, ret: 300, uo: 214, month: "2026-09", differs: [], from: { cam: "statement", ins: "statement", ret: "statement" } });
+  });
+  it("a statement that disagrees with the rent roll is listed, and the statement wins", () => {
+    const b = currentBilling({ billing: { cam: 900, ins: 40, ret: 300, stmt: { month: "2026-09", cam: 950, ins: 40, ret: 300 } } } as any)!;
+    expect(b.cam).toBe(950);
+    expect(b.differs).toEqual([{ part: "cam", statement: 950, rentRoll: 900 }]);
+  });
+  it("a charge the statement month has no line for falls back, and says so", () => {
+    const b = currentBilling({ billing: { cam: 900, ins: 40, ret: 300, stmt: { month: "2026-09", cam: 900 } } } as any)!;
+    expect(b.from).toEqual({ cam: "statement", ins: "rentroll", ret: "rentroll" });
+    expect([b.ins, b.ret]).toEqual([40, 300]);
+  });
+  it("Philadelphia with no INS line: the recon escrow ($160 over 8 months = $20), the rest U&O", () => {
+    const b = currentBilling({ billing: { cam: 900, ins: 0, ret: 300, uo: 234 }, method: rec } as any)!;
+    expect([b.ins, b.uo, b.from.ins]).toEqual([20, 214, "recon"]);
   });
   it("McDonald's: $492 is all U&O — no INS escrow, no INS", () => {
-    const b = currentBilling({ billing: { cam: 2214, ins: 0, ret: 0, uo: 492 }, method: retail({ cam: 0, ins: 0, ret: 0 }, { escrow: { cam: 26568, ins: 0, ret: 0 } }) } as any);
-    expect(b).toMatchObject({ cam: 2214, ins: 0, ret: 0, uo: 492 });
+    const b = currentBilling({ billing: { cam: 2214, ins: 0, ret: 0, uo: 492 }, method: retail({ cam: 0, ins: 0, ret: 0 }, { escrow: { cam: 26568, ins: 0, ret: 0 } }) } as any)!;
+    expect([b.ins, b.uo]).toEqual([0, 492]);
   });
-  it("the INS charge on the latest monthly statement wins over the recon escrow", () => {
-    const b = currentBilling({ billing: { cam: 900, ins: 0, ret: 300, uo: 234, insStmt: 21, insStmtMonth: "2026-09" }, method: retail({ cam: 0, ins: 0, ret: 0 }, { reconOcc: 0.6932, escrow: { cam: 2000, ins: 160, ret: 2056 } }) } as any);
-    expect(b).toEqual({ cam: 900, ins: 21, ret: 300, uo: 213, insFrom: "statement", insMonth: "2026-09" });
-  });
-  it("outside Philadelphia the column IS insurance", () => {
-    expect(currentBilling({ billing: { cam: 100, ins: 40, ret: 50 } } as any)).toEqual({ cam: 100, ins: 40, ret: 50 });
+  it("outside Philadelphia with no statement, the rent roll's column IS insurance", () => {
+    expect(currentBilling({ billing: { cam: 100, ins: 40, ret: 50 } } as any)).toMatchObject({ cam: 100, ins: 40, ret: 50, from: { ins: "rentroll" } });
   });
 });
 
@@ -148,19 +159,25 @@ describe("an estimate set by hand IS the budget", () => {
   });
 });
 
-describe("the monthly statement's INS charge", () => {
+describe("a tenant's month off their statement lines", () => {
   const c = (dateISO: string | null, description: string, amount: number, category: any, extra: any = {}) => ({ dateISO, description, amount, category, ...extra });
-  it("the newest month's INS charges, not a year-end adjustment or a credit", () => {
+  it("the newest month's charges by kind — not a year-end adjustment or a credit", () => {
     expect(statementMonthlyBilling([
+      c("2026-08-01", "Base Rent", 2000, "rent"),
       c("2026-08-01", "INS Insurance", 20, "insurance"),
+      c("2026-09-01", "Base Rent", 2000, "rent"),
+      c("2026-09-01", "CAM Escrow", 900, "cam"),
       c("2026-09-01", "INS Insurance", 20, "insurance"),
+      c("2026-09-01", "RET Escrow", 300, "ret"),
       c("2026-09-01", "U&O Tax", 214, "uando"),
-      c("2026-04-30", "2025 INS Adjustment", 90, "insurance", { reconYear: 2025 }),
-      c("2026-09-05", "INS credit", -5, "insurance"),
-    ] as any)).toEqual({ ins: 20, month: "2026-09" });
+      c("2026-04-30", "2025 CAM Adjustment", 90, "cam", { reconYear: 2025 }),
+      c("2026-09-05", "Late fee", 50, "other"),
+      c("2026-09-06", "CAM credit", -5, "cam"),
+      c(null, "Open Credits", -100, "credit"),
+    ] as any)).toEqual({ month: "2026-09", rent: 2000, cam: 900, ins: 20, ret: 300, uo: 214 });
   });
-  it("a tenant who has paid shows none", () => {
-    expect(statementMonthlyBilling([c("2026-09-01", "Rent", 1000, "rent")] as any)).toEqual({});
+  it("nothing dated, nothing to read", () => {
+    expect(statementMonthlyBilling([c(null, "Open Credits", -100, "credit")] as any)).toEqual({});
   });
 });
 
