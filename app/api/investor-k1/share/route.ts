@@ -283,6 +283,7 @@ async function shareOne(
       const canonical = composeK1ShareEmail({
         ownerName: owner.name, propertyName: propName(ownerProperty),
         documentCount: published.length, taxYear: published[0].taxYear, url,
+        propertyCodes: published.map((d) => d.propertyCode),
         ...addressedTo,
       });
       const { email: draftEmail, edited } = applyK1EmailEdit(canonical, draft, url);
@@ -518,6 +519,7 @@ export async function GET(req: NextRequest) {
   const email: K1ShareEmail = composeK1ShareEmail({
     ownerName: owner.name, propertyName: propName(propertyCode),
     documentCount: mine.length, taxYear: mine[0].taxYear, url, ...addressedTo,
+    propertyCodes: mine.map((d) => d.propertyCode),
   });
   // The second message the send delivers, addressed identically.
   const pinEmail = link?.pin ? composeK1PinEmail({ ownerName: owner.name, pin: link.pin, ...addressedTo }) : null;

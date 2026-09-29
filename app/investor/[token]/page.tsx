@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Centered, BRAND } from "@/app/statement/[token]/StatementView";
+import { taxFormFor, taxFormNoun } from "@/lib/investors/taxForm";
 
 type Doc = {
   id: string; taxYear: number; filename: string; size: number; publishedAt: string | null;
@@ -162,7 +163,7 @@ function Documents({ token }: { token: string }) {
             )}
           </div>
         )}
-        <h1 style={{ margin: 0 }}>Your Schedule K-1{data.documents.length > 1 ? "s" : ""}</h1>
+        <h1 style={{ margin: 0 }}>Your {taxFormNoun(data.documents.map((d) => d.propertyCode), data.documents.length)}</h1>
         {/* The investor's name reads as part of the heading, not as a caption:
             this page opens from an emailed link, and whose account it is has to
             be unmistakable at a glance — a link forwarded or opened by the
@@ -219,7 +220,7 @@ function Documents({ token }: { token: string }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 16 }}>
                     {d.propertyName}
-                    <span className="muted" style={{ fontWeight: 500, fontSize: 13 }}> · {d.taxYear} Schedule K-1</span>
+                    <span className="muted" style={{ fontWeight: 500, fontSize: 13 }}> · {d.taxYear} {taxFormFor(d.propertyCode)}</span>
                   </div>
                   {d.heldAs && (
                     <div style={{ fontSize: 12.5, marginTop: 2, fontStyle: "italic", color: BRAND }}>{d.heldAs}</div>
