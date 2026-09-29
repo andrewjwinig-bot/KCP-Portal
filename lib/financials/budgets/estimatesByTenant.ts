@@ -43,6 +43,9 @@ export type WhyPart = {
   poolPct: number | null;
   overridden: boolean;
   computed?: number;
+  /** Settled at reconciliation, never billed monthly: the year's recovery the
+   *  budget carries for it (the monthly estimate and the import are $0). */
+  annual?: number;
 };
 
 export type EstimateRow = {
@@ -74,6 +77,9 @@ export type EstimateRow = {
   billedMonth?: string;
   /** Where the statement and the rent roll disagree. */
   differs?: CurrentBilling["differs"];
+  /** Charges settled at reconciliation, not billed monthly — the year's
+   *  recovery the budget carries for each (`reconOnlyParts`). */
+  annual?: Partial<Record<EstimatePart, number>>;
 };
 
 const r0 = (n: number) => Math.round(n || 0);
@@ -141,18 +147,53 @@ export function currentBilling(r: Pick<TenantRevenueRow, "billing" | "method">):
   return { cam, ins, ret, ...(uo != null ? { uo } : {}), from, month: st?.month, differs };
 }
 
+/** NO NEW MONTHLY CHARGES FOR AN EXISTING TENANT (owner: "these are signed
+ *  leases — we can't just add new charges to tenants who in previous years and
+ *  currently aren't paying"). A tenant already in place — on a reconciliation,
+ *  or billed anything today — keeps $0 for every category billed $0 today:
+ *  what they owe for it, if anything, is collected at reconciliation only, as
+ *  it always has been (McDonald's RET, USPS's RET, Clear Channel's own-parcel
+ *  RET at 4500). The budget still carries that recovery as revenue — it is
+ *  collected, at year-end — but the MONTHLY estimate and the Skyline import
+ *  are $0. Only a genuinely NEW lease (no recon, nothing billed) starts new
+ *  estimates. A hand-set estimate is a deliberate decision and overrides this. */
+export function reconOnlyParts(r: Pick<TenantRevenueRow, "method" | "overridden">, now: { cam: number; ins: number; ret: number } | null): EstimatePart[] {
+  const m = r.method;
+  const onRecon = m?.kind === "retail" || m?.kind === "office";
+  const billedToday = !!now && now.cam + now.ins + now.ret > 0;
+  if (!onRecon && !billedToday) return [];
+  return ESTIMATE_PARTS.filter((p) => (now?.[p] ?? 0) === 0 && !r.overridden?.[p]);
+}
+
+/** The ▲ jump, on what is billed MONTHLY — the table and Revenue by tenant
+ *  both read it, so they cannot disagree. */
+export function jumpFor(r: TenantRevenueRow): EstimateJump | null {
+  const cur = currentBilling(r);
+  const now = cur ? { cam: cur.cam, ins: cur.ins, ret: cur.ret } : null;
+  const off = new Set(reconOnlyParts(r, now));
+  const z = new Array(12).fill(0) as number[];
+  return estimateJump({ cam: off.has("cam") ? z : r.cam, ins: off.has("ins") ? z : r.ins, ret: off.has("ret") ? z : r.ret, billing: now });
+}
+
 export function estimateRows(rows: TenantRevenueRow[], est?: ReimbursementEstimate | null): EstimateRow[] {
   const out: EstimateRow[] = [];
   const reconYear = est?.reconYear;
   for (const r of rows) {
     if (!r.tenant && !r.recoveryOnly) continue; // a vacancy owes nothing
     const next: Estimates = { cam: r0(monthlyEstimate(r.cam)), ins: r0(monthlyEstimate(r.ins)), ret: r0(monthlyEstimate(r.ret)), total: 0 };
-    next.total = next.cam + next.ins + next.ret;
     const b = r.billing;
     const cur = currentBilling(r);
     const now: Estimates | null = cur ? { cam: cur.cam, ins: cur.ins, ret: cur.ret, total: 0 } : null;
     if (now) now.total = now.cam + now.ins + now.ret;
-    if ((!now || now.total === 0) && next.total === 0) continue; // gross lease: nothing to say
+    const annual: Partial<Record<EstimatePart, number>> = {};
+    for (const p of reconOnlyParts(r, now)) {
+      const year = r0(r[p].reduce((a, v) => a + (v || 0), 0));
+      if (year) annual[p] = year;
+      next[p] = 0;
+    }
+    next.total = next.cam + next.ins + next.ret;
+    const anyAnnual = Object.values(annual).some((v) => (v ?? 0) > 0);
+    if ((!now || now.total === 0) && next.total === 0 && !anyAnnual) continue; // gross lease: nothing to say
 
     // The recon year's actual, a month — scaled to a full year where the
     // tenant was there only part of it, as the engine does.
@@ -174,6 +215,7 @@ export function estimateRows(rows: TenantRevenueRow[], est?: ReimbursementEstima
         poolPct: ratio && Number.isFinite(ratio) ? (ratio - 1) * 100 : null,
         overridden: !!r.overridden?.[part],
         computed: r.computed?.[part],
+        ...(annual[part] != null ? { annual: annual[part] } : {}),
       };
     }).filter((w) => w.now || w.next || w.recon);
 
@@ -183,7 +225,8 @@ export function estimateRows(rows: TenantRevenueRow[], est?: ReimbursementEstima
       now, recon, next, change,
       changePct: now && now.total > 0.5 ? (change / now.total) * 100 : null,
       why, reason: reasonFor(r, now, recon, next, why, reconYear),
-      jump: estimateJump(cur ? { ...r, billing: { cam: cur.cam, ins: cur.ins, ret: cur.ret } } : r),
+      jump: jumpFor(r),
+      ...(anyAnnual ? { annual } : {}),
       assumed: r.assumed.some(Boolean),
       overridden: !!r.overridden && Object.values(r.overridden).some(Boolean),
       overrideNote: r.overrideNote,
@@ -197,16 +240,26 @@ export function estimateRows(rows: TenantRevenueRow[], est?: ReimbursementEstima
 /** The one-line why: the override if there is one; else whichever of the
  *  catch-up and the budget change moved the bill most, in dollars. */
 function reasonFor(r: TenantRevenueRow, now: Estimates | null, recon: Estimates | null, next: Estimates, why: WhyPart[], reconYear?: number): string {
+  const ann = why.filter((w) => w.annual);
+  const base = reasonCore(r, now, recon, next, why.filter((w) => !w.annual), reconYear);
+  if (!ann.length) return base;
+  const note = `${ann.map((w) => LABEL[w.part]).join(" + ")} settled at reconciliation, not billed monthly (${ann.map((w) => `${money(w.annual!)}/yr`).join(" + ")})`;
+  return next.total === 0 && (!now || now.total === 0) ? note : `${note} · ${base}`;
+}
+
+function reasonCore(r: TenantRevenueRow, now: Estimates | null, recon: Estimates | null, next: Estimates, why: WhyPart[], reconYear?: number): string {
   if (r.overridden && Object.values(r.overridden).some(Boolean)) return `Set by hand${r.overrideNote ? ` — ${r.overrideNote}` : ""}`;
   const m = r.method;
   if (m?.kind === "retail" && m.grossLease) return "Gross lease — no recoveries";
   if (!now || now.total === 0) {
     if (m?.kind === "leaseup") return "Lease-up — new estimate from its start month";
     if (m?.kind === "new" && m.assumption === "gross") return "Gross lease (unit page) — no recoveries";
+    if (m?.kind === "new" && m.assumption === "held") return "Not on a reconciliation — no recoveries billed today, none assumed";
     if (m?.kind === "new") return m.assumption === "nnn" ? "Newer lease, on no reconciliation — pro-rata share, NNN" : "Newer lease — base year is the budget year";
     return "Not billed today — first estimate";
   }
   if (next.total === 0) return r.status === "expiring" ? "Lease ends before the year — nothing billed" : "Backed out of the budget — nothing billed";
+  if (m?.kind === "new" && m.assumption === "held") return "Not on a reconciliation — held at what it is billed today, no new charges";
   if (!recon) return "No reconciliation to compare against";
   const catchUp = recon.total - now.total, budget = next.total - recon.total;
   const big = why.slice().sort((a, b) => Math.abs((b.next - b.now)) - Math.abs((a.next - a.now)))[0];

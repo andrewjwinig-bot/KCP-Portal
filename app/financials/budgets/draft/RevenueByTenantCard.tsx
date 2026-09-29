@@ -23,7 +23,7 @@ import type { ReimbursementEstimate } from "@/lib/financials/budgets/reimburseme
 import type { RecoveryTie, TenantRevenueRow } from "@/lib/financials/budgets/draft";
 import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
 import { estimateJump, ESTIMATE_JUMP_PCT, ESTIMATE_JUMP_MIN_DOLLARS, type EstimateJump } from "@/lib/financials/budgets/estimateJump";
-import { currentBilling } from "@/lib/financials/budgets/estimatesByTenant";
+import { jumpFor } from "@/lib/financials/budgets/estimatesByTenant";
 import { DecisionPill, DecisionModal, type LeasingCall, type SavePayload } from "./LeasingDecision";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -189,7 +189,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const cellsOf = (r: TenantRevenueRow, ps: Part[]) => MONTHS.map((_, i) => (keepMonth(r, i) ? ps.reduce((a, p) => a + (r[p][i] || 0), 0) : 0));
   // Tenants whose recovery estimates jump — judged on the whole bill, whatever
   // the filter, because it is the tenant's reaction being anticipated.
-  const jumps = new Map(allRows.map((r) => [r.unitRef + r.tenant, estimateJump(currentBilling(r) ? { ...r, billing: currentBilling(r) } : r)] as const).filter(([, j]) => j));
+  const jumps = new Map(allRows.map((r) => [r.unitRef + r.tenant, jumpFor(r)] as const).filter(([, j]) => j));
   const rows = allRows.map((r) => ({ r, months: cellsOf(r, parts) }))
     .filter(({ r }) => !jumpsOnly || jumps.has(r.unitRef + r.tenant))
     .filter(({ months }) => sure === "all" || months.some((v) => Math.abs(v) > 0.5))

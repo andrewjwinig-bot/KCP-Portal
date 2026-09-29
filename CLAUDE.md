@@ -1560,46 +1560,32 @@ time — and the team does not have time to open the GL over $80.
   decision stops paying recoveries when it stops paying rent, a renewal/hold
   carries on (assumed), a holdover with no decision pays nothing. A recon
   tenant there part of the recon year (`occPct` < 1) is scaled to a full year;
-  one who vacated in the recon year is dropped. **A tenant on no
-  reconciliation (a newer lease) and a lease-up are assumed NNN** — UNLESS
-  the unit page says otherwise: that path reads the unit's CAM config
-  (`getOrEmptyCamConfig`, saved → seed) and a GROSS lease pays nothing
-  (method `new` / `gross`). PLCB at 4500 was budgeted $4,800/mo as "NNN"
-  because its recon row was keyed 4500-3009 while the suite is 4500-3007 on
-  the rent roll and unit page — re-keyed to 3007 in the roster and config
-  seeds; a recon unit ref that does not match the rent roll makes the tenant
-  read as "on no recon" in the budget. Otherwise pro-rata
-  SF share of each pool, no admin fee (`retailProRata`); an office one takes the BUDGET YEAR as its base year (owner's call),
-  so it is listed at zero with that reason.
-- **RET RECOVERIES SCALE FROM THE RECONCILED POOL STRAIGHT TO THE BUDGET'S**
-  (`retBudgetPool` → `retRatio` in `reimbursementEstimate.ts`): budget RET
-  pool (the tax line less parcels not in CAM) ÷ the recon's own RET pool. It
-  used to be 3% × (budget ÷ THIS YEAR'S REPROJECTED RET line), and the
-  reprojection is the wrong denominator for a tax: most of the year's bill has
-  not posted, so it understated the basis and blew the ratio up — 4500 read
-  $36,226/mo of RET estimates (~$435K a year) against a $203,656 tax line. A
-  tax does not grow 3% either; it moves with the assessment and the millage,
-  which the budget's tax line already carries. 4500 now: $187,329 (the
-  shopping-centre parcel, 2027 assessment, less 1%) ÷ $159,405 (the 2025
-  pool) = +17.5%. CAM and INS still use the reprojection ratio — their recon
-  pools are not built line-for-line like the draft's, so a direct ratio would
-  compare different things.
-- **THE RECOVERY CHECK — TENANTS NEVER RECOVER MORE THAN THE POOL**
-  (`recoveryCheck.ts`; owner: "we shouldn't overrecover like that … the whole
-  budget relies on these recoveries"). Every recovery is revenue, so an
-  inflated one overstates NOI and, once imported, over-bills tenants. The
-  RATIO is a year's recoveries ÷ the budget's own recoverable pool, in two
-  groups — **CAM + INS together** (the recon files liability insurance as a
-  CAM line where the budget files it under Insurance, so apart each reads
-  wrong) and **RET alone**. The CEILING is 100% of the pool, or the recon
-  year's own ratio where admin fees took it higher (`reconCoverage`: dues ÷
-  the pool they were figured on, retail and office, both pots at 7010).
-  `capRecoveries` runs in the draft BEFORE the hand-set estimates: a group
-  over its ceiling is scaled back pro rata (shares kept) and recorded as
-  `capped`; a hand-set estimate over it is FLAGGED (`over`), never capped.
-  Shown as the **Recovery ratio** row under the CAM estimates table's Total
-  (with the recon's ratio beside it and a banner when capped / over) and, for
-  every property in a book, the **Recovery check** card on the "All …" tab.
+  one who vacated in the recon year is dropped.
+  **NO NEW CHARGES FOR AN EXISTING TENANT — THESE ARE SIGNED LEASES** (owner:
+  "we can really only assume new NNN charges for speculative lease-up of
+  vacant spaces … can't assume any new charges on existing tenants"):
+  - **Only a LEASE-UP of a vacant suite takes an assumed NNN pro-rata share**
+    (`retailLeaseUp`).
+  - **An existing tenant on no reconciliation is HELD AT WHAT IT IS BILLED
+    TODAY**, category by category — its latest monthly statement, else the
+    rent roll (Philadelphia INS never from the roll's Other Expense) — and
+    nothing it is not billed (method `new` / `held`). It used to be assumed NNN
+    at a pro-rata share, which invented charges on signed leases.
+  - **A unit marked GROSS on its unit page pays nothing** (`new` / `gross`;
+    `getOrEmptyCamConfig`, saved → seed). PLCB at 4500 was budgeted
+    $4,800/mo as "NNN" because its recon row was keyed 4500-3009 while the
+    suite is 4500-3007 on the rent roll and unit page — re-keyed to 3007. A
+    recon unit ref that does not match the rent roll makes a tenant read as
+    "on no recon".
+  - **A tenant on a reconciliation gets NO MONTHLY ESTIMATE for a category it
+    is billed $0 for today** (`reconOnlyParts`): McDonald's RET, USPS's RET,
+    Clear Channel's own-parcel RET at 4500 — owed, but collected at
+    reconciliation only, as always. The budget keeps the recovery as revenue;
+    the monthly estimate, the ▲ flag and the Skyline import carry $0 (the
+    cell reads "at recon"). A hand-set estimate overrides it. (The McDonald's
+    $0 RET seed that preceded this removed the revenue too — retired.)
+  - An office tenant on no reconciliation takes the BUDGET YEAR as its base
+    year (owner's call), so it is listed at zero with that reason.
 - **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
   `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
   property's draft built (four at a time) and summed line by line, matched by

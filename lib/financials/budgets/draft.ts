@@ -820,6 +820,10 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   const feeRates = priorFeeRates(priorProperty);
   let fee = applyManagementFee(sections, feeRates);
 
+  // What each tenant is billed TODAY, off their monthly statements' dated
+  // charge lines (`statementBilling.ts`) — the CAM estimates table's baseline,
+  // and what an existing tenant not on a reconciliation is held at.
+  const stmtBilling = lease.hasData ? await statementBillingFor(meta.propertyCode).catch(() => null) : null;
   let reimbursementEstimate: ReimbursementEstimate | undefined;
   // A RECOVERABLE fee is in the pool the recoveries are figured on, and the
   // recoveries are in the revenue the fee is figured on — one more pass once
@@ -867,6 +871,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     assumptions,
     // Recoveries start and stop where RENT does — the same leasing decisions.
     tenancy: lease.hasData ? lease.rows : undefined,
+    statementBilling: stmtBilling,
   }).catch(() => null)) ?? undefined;
   // A tenant's estimate set by hand on the CAM estimates table IS the budget:
   // laid over before the recovery lines are read, so they carry it.
@@ -1005,9 +1010,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     };
   })();
 
-  // What each tenant is billed TODAY, off their monthly statements' dated
-  // charge lines (`statementBilling.ts`) — the CAM estimates table's baseline.
-  const stmtBilling = lease.hasData ? await statementBillingFor(meta.propertyCode).catch(() => null) : null;
+
   return {
     cash,
     propertyCode: meta.propertyCode,

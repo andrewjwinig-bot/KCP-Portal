@@ -63,7 +63,7 @@ export type ReimbMethod =
     }
   | { kind: "leaseup"; sqft: number; startMonth: number }
   /** In place on the roll but on no reconciliation — a lease newer than it. */
-  | { kind: "new"; sqft: number; assumption: "nnn" | "base-year" | "gross" };
+  | { kind: "new"; sqft: number; assumption: "nnn" | "base-year" | "gross" | "held" };
 
 export type ReimbTenantEstimate = {
   unitRef: string;
@@ -99,6 +99,8 @@ export type SuiteTenancy = {
   months: number[];
   assumed: boolean[];
   status: "contracted" | "expiring" | "holdover" | "vacant" | "lease-up";
+  /** Billed a month today, off the rent roll (`RentRow.billing`). */
+  billing?: { cam: number; ins: number; ret: number; uo?: number };
 };
 
 /**
@@ -179,6 +181,9 @@ export type EstimateOptions = {
   retBudgetPool?: number | null;
   /** A mixed centre's office RET pool, in dollars. */
   officeRetBudgetPool?: number | null;
+  /** Each suite's charges on its latest monthly statement (`statementBilling.ts`),
+   *  keyed by upper-case unit ref — what an existing tenant is billed today. */
+  statementBilling?: Map<string, { cam?: number; ins?: number; ret?: number }> | null;
 };
 
 /** RET from the reconciled pool to the budget's: budget ÷ recon. */
@@ -374,10 +379,32 @@ export async function estimateReimbursements(
           extra.set(rec, { assumed, method: { kind: "new", sqft: row.sqft, assumption: "gross" } });
           continue;
         }
-        const rec = retailProRata(row.unitRef, row.tenant || "New tenant", row.sqft, months, pools, denoms,
-          `Not on the ${reconYear} reconciliation — assumed NNN at its pro-rata share`);
+        // AN EXISTING TENANT IS NEVER ASSUMED ONTO NEW CHARGES (owner: "we can
+        // really only assume new NNN charges for speculative lease-up of
+        // vacant spaces"). A signed lease not on the reconciliation keeps
+        // exactly what it is billed today — statement first, else the rent
+        // roll — category by category, and nothing it is not billed. Only a
+        // lease-up (above) takes a pro-rata NNN share.
+        const st = opts.statementBilling?.get(canon(row.unitRef));
+        const b = row.billing;
+        const phl = b?.uo != null; // Philadelphia: the roll's Other Expense is INS + U&O
+        const today = {
+          cam: r0(st?.cam ?? b?.cam ?? 0),
+          ins: r0(st?.ins ?? (phl ? 0 : b?.ins ?? 0)),
+          ret: r0(st?.ret ?? b?.ret ?? 0),
+        };
+        const billed = today.cam + today.ins + today.ret > 0;
+        const flat = (v: number) => months.map((on) => (on ? v : 0));
+        const cam = flat(today.cam), ins = flat(today.ins), ret = flat(today.ret);
+        const rec: TenantRecovery = {
+          unitRef: row.unitRef, name: row.tenant || "Tenant", months,
+          note: billed
+            ? `Not on the ${reconYear} reconciliation — held at what it is billed today; no new charges assumed`
+            : `Not on the ${reconYear} reconciliation and billed no recoveries today — none assumed`,
+          camYear: sum(cam), insYear: sum(ins), retYear: sum(ret), cam, ins, ret,
+        };
         recs.push(rec);
-        extra.set(rec, { assumed, method: { kind: "new", sqft: row.sqft, assumption: "nnn" } });
+        extra.set(rec, { assumed, method: { kind: "new", sqft: row.sqft, assumption: "held" } });
       }
     }
   } else {

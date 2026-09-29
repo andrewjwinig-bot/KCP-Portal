@@ -140,13 +140,6 @@ describe("an estimate set by hand IS the budget", () => {
     const est = applyEstimateOverrides(mk(), { "7010-2": { cam: 350, note: "x" } });
     expect(est.tenants[1].cam).toEqual([...m(350).slice(0, 6), ...m(0).slice(0, 6)]);
   });
-  it("McDonald's at Gray's Ferry is billed no monthly RET (annual, at reconciliation)", () => {
-    expect(seededEstimateOverrides(2027, "4500")["4500-2851"]).toEqual(expect.objectContaining({ ret: 0 }));
-    expect(seededEstimateOverrides(2026, "4500")).toEqual({});
-    const est = applyEstimateOverrides(mk(), { "7010-1": { ret: 0, note: "annual" } });
-    expect(est.tenants[0].ret).toEqual(m(0));
-    expect(est.tenants[0].cam).toEqual(m(500));
-  });
   it("a cleared seed (an empty override) changes nothing", () => {
     const est = applyEstimateOverrides(mk(), { "7010-1": {} });
     expect(est.tenants[0].ret).toEqual(m(200));
@@ -156,6 +149,34 @@ describe("an estimate set by hand IS the budget", () => {
     const a = mk();
     expect(applyEstimateOverrides(a, {})).toBe(a);
     expect(a.tenants[0].computed).toBeUndefined();
+  });
+});
+
+describe("no new monthly charges for an existing tenant", () => {
+  const rows = estimateRows([
+    // McDonald's at 4500: billed CAM today, no RET — owed $7,074 at the 2025 recon, $0 escrow.
+    row({ unitRef: "4500-2851", tenant: "McDonald's", cam: m(1602), ret: m(693), billing: { cam: 1550, ins: 0, ret: 0 },
+      method: retail({ cam: 20956, ins: 0, ret: 7074 }, { escrow: { cam: 26568, ins: 0, ret: 0 } }) }),
+    // USPS: RET only, settled at reconciliation, billed nothing today.
+    row({ unitRef: "4500-3005", tenant: "USPS", ret: m(296), billing: { cam: 0, ins: 0, ret: 0 },
+      method: retail({ cam: 0, ins: 0, ret: 3080 }, { escrow: { cam: 0, ins: 0, ret: 0 } }) }),
+    // A genuinely new lease — no recon, nothing billed — does start estimates.
+    row({ unitRef: "4500-2893", tenant: "Newco", cam: m(250), method: { kind: "new", sqft: 1000, assumption: "nnn" } }),
+  ] as any, est);
+  it("McDonald's RET stays $0 a month — settled at reconciliation, the recovery kept in the budget", () => {
+    const r = rows.find((x) => x.unitRef === "4500-2851")!;
+    expect(r.next).toEqual({ cam: 1602, ins: 0, ret: 0, total: 1602 });
+    expect(r.annual).toEqual({ ret: 693 * 12 });
+    expect(r.reason).toMatch(/^RET settled at reconciliation, not billed monthly/);
+    expect(skylineEstimateRows(rows, 2027).filter((x) => x.unit === "4500-2851-CU" && x.amount).map((x) => x.chargeCode)).toEqual(["CAM"]);
+  });
+  it("USPS gets no monthly RET estimate, and nothing in the import", () => {
+    const r = rows.find((x) => x.unitRef === "4500-3005")!;
+    expect(r.next.total).toBe(0);
+    expect(chargeRowsToCSV(skylineEstimateRows(rows, 2027))).not.toContain("4500-3005");
+  });
+  it("a new lease starts its estimates", () => {
+    expect(rows.find((x) => x.unitRef === "4500-2893")!.next.cam).toBe(250);
   });
 });
 
