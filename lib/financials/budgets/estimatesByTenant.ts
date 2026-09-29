@@ -46,6 +46,10 @@ export type WhyPart = {
   /** Settled at reconciliation, never billed monthly: the year's recovery the
    *  budget carries for it (the monthly estimate and the import are $0). */
   annual?: number;
+  /** The year's recovery the budget carries for this category, and the
+   *  number of months it is billed in — the last two steps of the working. */
+  year?: number;
+  months?: number;
 };
 
 export type EstimateRow = {
@@ -229,6 +233,8 @@ export function estimateRows(rows: TenantRevenueRow[], est?: ReimbursementEstima
         overridden: !!r.overridden?.[part],
         computed: r.computed?.[part],
         ...(annual[part] != null ? { annual: annual[part] } : {}),
+        year: r0(r[part].reduce((a, v) => a + (v || 0), 0)),
+        months: r[part].filter((v) => Math.abs(v || 0) >= 0.5).length,
       };
     }).filter((w) => w.now || w.next || w.recon);
 

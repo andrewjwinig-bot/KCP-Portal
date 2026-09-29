@@ -53,6 +53,10 @@ export type ReimbMethod =
       recon: { cam: number; ins: number; ret: number };
       /** What the recon year actually BILLED in escrow (annual). */
       escrow?: { cam: number; ins: number; ret: number };
+      /** The working, category by category: the budget pool this tenant
+       *  shares in, the GLA it is divided over, the tenant's SF and PRS, and
+       *  the year it comes to — so the hover can be followed line by line. */
+      basis?: Partial<Record<"cam" | "ins" | "ret", RetailBasis>>;
     }
   | {
       kind: "office";
@@ -66,6 +70,32 @@ export type ReimbMethod =
   | { kind: "leaseup"; sqft: number; startMonth: number }
   /** In place on the roll but on no reconciliation — a lease newer than it. */
   | { kind: "new"; sqft: number; assumption: "nnn" | "base-year" | "gross" | "held" };
+
+/** One category's working for a retail tenant on a reconciliation:
+ *  expense × PRS (= tenant SF ÷ applicable GLA, or stipulated) + admin fee
+ *  = the year's recovery. */
+export type RetailBasis = {
+  /** The budget-year pool this tenant shares in (after its exclusions and cap). */
+  expense: number;
+  /** The GLA the pool is divided over (0 when the PRS is stipulated / flat). */
+  gla: number;
+  sf: number;
+  /** % of the pool. */
+  prs: number;
+  /** expense × PRS. */
+  share: number;
+  /** The admin fee on it (CAM only). */
+  admin: number;
+  adminPct: number;
+  /** RET discount %, where the lease takes one. */
+  discountPct: number;
+  /** The year's recovery the engine carries (share + admin, less any discount). */
+  year: number;
+  /** A fixed RET (own parcel) — not a share of any pool. */
+  flat?: boolean;
+  /** The CAM cap bit this year. */
+  capped?: boolean;
+};
 
 export type ReimbTenantEstimate = {
   unitRef: string;
@@ -346,6 +376,7 @@ export async function estimateReimbursements(
           reconOcc: occ < 1 ? occ : null,
           recon: { cam: r0(t.camDue), ins: r0(t.insDue), ret: r0(t.retDue) },
           escrow: { cam: r0(t.camEscrow), ins: r0(t.insEscrow), ret: r0(t.retEscrow) },
+          ...(t.grossLease ? {} : { basis: retailBasis(t, ratios, rec) }),
         },
       });
     }
@@ -525,3 +556,39 @@ export async function estimateReimbursements(
 }
 
 const round4 = (n: number) => Math.round(n * 10000) / 10000;
+
+/** The working behind a retail tenant's three recoveries. The engine budgets
+ *  recon due × the pool's ratio; that is the SAME as the recon's own formula
+ *  run on the budget pool (recon pool × ratio), which is what this lays out:
+ *  the share is PRS × that pool, and the admin fee is the rest of the year, so
+ *  the rows add to the figure the budget carries to the dollar. */
+function retailBasis(
+  t: { sqft: number; camPrs: number; insPrs: number; retPrs: number; adminFeePct: number; retDiscountPct?: number;
+    camDenom: number; insDenom: number; retDenom: number; camPoolEffective: number; insPool: number; retPool: number;
+    flatRet?: number; capped?: boolean; camCap?: { growthPct: number } },
+  ratios: PoolRatios, rec: TenantRecovery,
+): Partial<Record<"cam" | "ins" | "ret", RetailBasis>> {
+  let camRatio = ratios.cam;
+  const capBites = !!t.capped && t.camCap?.growthPct != null && 1 + t.camCap.growthPct / 100 < camRatio;
+  if (capBites) camRatio = 1 + t.camCap!.growthPct / 100;
+  const cat = (pool: number, ratio: number, gla: number, prs: number, year: number, extra: Partial<RetailBasis> = {}): RetailBasis => {
+    const expense = r0(pool * ratio);
+    const share = r0((expense * prs) / 100);
+    return { expense, gla: r0(gla), sf: r0(t.sqft), prs, share, admin: 0, adminPct: 0, discountPct: 0, year, ...extra };
+  };
+  const out: Partial<Record<"cam" | "ins" | "ret", RetailBasis>> = {};
+  if (rec.camYear) {
+    const b = cat(t.camPoolEffective, camRatio, t.camDenom, t.camPrs, rec.camYear, { adminPct: t.adminFeePct || 0, capped: capBites || undefined });
+    b.admin = rec.camYear - b.share;
+    out.cam = b;
+  }
+  if (rec.insYear) out.ins = cat(t.insPool, ratios.ins, t.insDenom, t.insPrs, rec.insYear);
+  if (rec.retYear) {
+    if (t.flatRet != null) out.ret = { expense: 0, gla: 0, sf: r0(t.sqft), prs: 0, share: rec.retYear, admin: 0, adminPct: 0, discountPct: 0, year: rec.retYear, flat: true };
+    else {
+      const b = cat(t.retPool, ratios.ret, t.retDenom, t.retPrs, rec.retYear, { discountPct: t.retDiscountPct || 0 });
+      out.ret = b;
+    }
+  }
+  return out;
+}
