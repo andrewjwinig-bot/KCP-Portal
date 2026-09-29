@@ -248,6 +248,27 @@ const canonRef = (ref: string) => String(ref ?? "").trim().toUpperCase().replace
 
 /** Join the rent rows and the recovery estimate, suite by suite. A suite with
  *  two recovery entries (a recon tenant and a lease-up) sums them. */
+/** The draft's budget-year total per GL account, off every expense line: its
+ *  GL sub-lines where it has them, else the one account it posts to. A line
+ *  spread over several accounts with no split is left out (no guessing) — an
+ *  office tenant's line with no account budget falls back to the building
+ *  rate. */
+function accountBudgetsOf(sections: BudgetDraftSection[]): Map<string, number> {
+  const out = new Map<string, number>();
+  const add = (a: string, v: number) => out.set(a, (out.get(a) ?? 0) + (v || 0));
+  for (const sec of sections) {
+    if (!EXPENSE_ROLE_SET.has(sec.role) && sec.role !== "reimbursable-expense") continue;
+    for (const l of sec.lines) {
+      const subs = (l.subLines ?? []).filter((x) => /^\d{4}-\d{4}$/.test(x.account));
+      if (subs.length) { for (const x of subs) add(x.account, x.total); continue; }
+      const accts = (l.glAccounts ?? []).filter((a) => /^\d{4}-\d{4}$/.test(a));
+      if (accts.length === 1) add(accts[0], l.total);
+      else if (!accts.length && /^\d{4}-\d{4}$/.test(l.mask.trim())) add(l.mask.trim(), l.total);
+    }
+  }
+  return out;
+}
+
 /** Lay each suite's latest statement month onto its billing. */
 function withStatementBilling(rows: TenantRevenueRow[], stmt: Map<string, StatementBilling> | null): TenantRevenueRow[] {
   if (!stmt?.size) return rows;
@@ -875,6 +896,7 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
     // Recoveries start and stop where RENT does — the same leasing decisions.
     tenancy: lease.hasData ? lease.rows : undefined,
     statementBilling: stmtBilling,
+    accountBudgets: accountBudgetsOf(sections),
   }).catch(() => null)) ?? undefined;
   // A tenant's estimate set by hand on the CAM estimates table IS the budget:
   // laid over before the recovery lines are read, so they carry it.

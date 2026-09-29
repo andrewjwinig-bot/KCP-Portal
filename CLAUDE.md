@@ -1604,6 +1604,14 @@ time — and the team does not have time to open the GL over $80.
     40C0-CP) budget RET. A base year AFTER the last recon (`baseUnknown`) has no
     known base — the recon's history reads $0 for it — so nothing is budgeted,
     never the full share against a $0 base.
+    **Each Op Ex line is budgeted off ITS OWN GL account's 2027 budget** (the
+    draft's `accountBudgetsOf` → `accountBudgets` → `OfficeLineIn.budget`),
+    scaled onto the tenant's basis (a grossed-up "-95" line moves by the same
+    factor as its plain account) — not one building-wide rate, because snow
+    can fall while electric rises and line by line that decides who crosses
+    base. A line with no budget account falls back to the building rate and is
+    starred in the hover. The CAM estimates hover shows the working: each line's
+    budget − base = over, the lines at/under base, and × the share.
 - **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
   `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
   property's draft built (four at a time) and summed line by line, matched by

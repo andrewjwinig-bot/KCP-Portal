@@ -265,7 +265,19 @@ function whyRows(e: EstimateRow, ry: number | null, year: number): TipRow[] {
     if (m.excludedLines) rows.push({ label: "Excluded CAM lines", value: String(m.excludedLines) });
   } else if (m?.kind === "office") {
     rows.push({ label: "Pro-rata share", value: `${m.proRataPct.toFixed(2)}%` });
-    if (m.baseYear) rows.push({ label: "Base year", value: String(m.baseYear) });
+    rows.push({ label: "Base year", value: m.noBaseStop ? "None (full NNN)" : m.baseYear ? String(m.baseYear) : "–" });
+    // Op Ex is stopped LINE BY LINE: each line's budget against its base.
+    if (m.lines?.length) {
+      const over = m.lines.filter((l) => l.over > 0);
+      rows.push({ label: `Op Ex, line by line (${year} budget vs base)`, value: "", color: "var(--muted)" });
+      for (const l of over.slice(0, 10)) rows.push({ label: `  ${l.label}${l.fromLine ? "" : " *"}`, value: `${money0(l.budget)} − ${money0(l.base)} = ${money0(l.over)}`, color: UP });
+      if (over.length > 10) rows.push({ label: `  ${over.length - 10} more lines over base`, value: money0(over.slice(10).reduce((a, l) => a + l.over, 0)), color: "var(--muted)" });
+      const under = m.lines.length - over.length;
+      if (under) rows.push({ label: `  ${under} line${under === 1 ? "" : "s"} at or under base`, value: "$0", color: "var(--muted)" });
+      const tot = over.reduce((a, l) => a + l.over, 0);
+      rows.push({ label: `  Over base × ${m.proRataPct.toFixed(2)}%`, value: `${money0(tot)} × share = ${money0(tot * m.proRataPct / 100)}/yr`, color: "var(--brand)" });
+      if (m.lines.some((l) => !l.fromLine)) rows.push({ label: "  * no budget line for that account — grown at the building's Op Ex rate", value: "", color: "var(--muted)" });
+    }
   }
   return rows;
 }

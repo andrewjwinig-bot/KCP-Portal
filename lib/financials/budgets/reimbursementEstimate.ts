@@ -60,6 +60,8 @@ export type ReimbMethod =
       baseYear: number | null;
       noBaseStop: boolean;
       recon: { cam: number; ins: number; ret: number };
+      /** The Op Ex working, line by line: each line's budget against its base. */
+      lines?: import("./recoveryMath").OfficeLineOut[];
     }
   | { kind: "leaseup"; sqft: number; startMonth: number }
   /** In place on the roll but on no reconciliation — a lease newer than it. */
@@ -184,6 +186,10 @@ export type EstimateOptions = {
   /** Each suite's charges on its latest monthly statement (`statementBilling.ts`),
    *  keyed by upper-case unit ref — what an existing tenant is billed today. */
   statementBilling?: Map<string, { cam?: number; ins?: number; ret?: number }> | null;
+  /** The draft's budget-year total per GL account (expense lines and their GL
+   *  sub-lines). An office tenant's Op Ex is budgeted LINE BY LINE off these —
+   *  each recon line on its own account's budget, not one building-wide rate. */
+  accountBudgets?: Map<string, number> | null;
 };
 
 /** RET from the reconciled pool to the budget's: budget ÷ recon. */
@@ -441,11 +447,22 @@ export async function estimateReimbursements(
         opexBaseTotal: t.opexBaseTotal, opexActualTotal: t.opexActualTotal,
         retBase: t.retLine?.baseCost ?? 0, retActual: t.retLine?.actual ?? 0,
         noBaseStop: t.noBaseStop,
-        opexLines: (t.opexLines ?? []).map((l) => ({ actual: l.actual, baseCost: l.baseCost })),
+        opexLines: (t.opexLines ?? []).map((l) => {
+          // The line's own budget-year figure: the draft's budget for its GL
+          // account, scaled onto the tenant's basis (a grossed-up tenant's
+          // "-95" line moves by the same factor as the plain account).
+          const acct = String(l.glAccount).replace(/-95$/, "");
+          const budget = opts.accountBudgets?.get(acct);
+          const plain = OFFICE_RECON_FIXTURES[code]?.pool?.values?.[acct]?.[String(reconYear)];
+          const lineBudget = budget == null ? undefined
+            : plain != null && plain > 0 ? l.actual * (budget / plain)
+            : acct === l.glAccount ? budget : undefined;
+          return { label: l.label, account: acct, actual: l.actual, baseCost: l.baseCost, budget: lineBudget };
+        }),
         aggregateBaseYear: t.aggregateBaseYear,
         baseUnknown: !t.noBaseStop && (t.baseYear ?? 0) > reconYear,
       }, ratios, months, note);
-      recs.push(rec); extra.set(rec, { assumed, method });
+      recs.push(rec); extra.set(rec, { assumed, method: rec.opexDetail ? { ...method, lines: rec.opexDetail } as ReimbMethod : method });
     }
     // A lease newer than the reconciliation — or an office lease-up — has the
     // budget year (or a year after the recon) as its base year: no increase to
