@@ -13,7 +13,7 @@ import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
 import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
 import { seasonalTrendFlags, FLAG_MIN_DOLLARS, revenueShortfallReason } from "@/lib/financials/operating-statements/flagRules";
-import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
+import { basisForLine, checkBasisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { loadRentCheckContext, runRentCheck, billingFlagReason } from "@/lib/financials/operating-statements/rentCheckRun";
 import { markPaidMonths } from "@/lib/financials/operating-statements/paidMonth";
 import { collectNotPosted } from "@/lib/financials/operating-statements/notPosted";
@@ -188,7 +188,7 @@ export async function GET(req: Request) {
   // No rent roll imported → no context → the check simply doesn't run.
   const billingReasons: Record<string, string> = {};
   const billedLines = statement.sections.flatMap((sec) =>
-    sec.lines.map((l) => ({ sec, l, basis: basisForLine(l.label, l.mask) }))
+    sec.lines.map((l) => ({ sec, l, basis: checkBasisForLine(l.label, l.mask, key) }))
   ).filter((x) => !!x.basis && !dismissed.has(`${x.sec.name}::${x.l.label}`));
   if (billedLines.length) {
     try {

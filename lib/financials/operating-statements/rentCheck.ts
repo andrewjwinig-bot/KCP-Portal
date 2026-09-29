@@ -19,6 +19,8 @@
 
 /** A dollar of slack. Contract rent is exact, so anything beyond rounding is a
  *  real difference worth looking at. */
+import { PROPERTY_DEFS } from "@/lib/properties/data";
+
 export const RENT_TOL = 1;
 
 export type RentCheckUnit = {
@@ -183,6 +185,24 @@ export function basisForLine(label: string, mask: string): RentCheckBasis | null
   if (all(/^4930/)) return "other";
   if (all(/^4230/)) return "base";
   return null;
+}
+
+/** A PHILADELPHIA property's rent roll carries INSURANCE and the Use &
+ *  Occupancy tax together in its Other Expense column (Victra at 4500: $234 =
+ *  $20 INS + $214 U&O; McDonald's $492 is all U&O). */
+const PHILADELPHIA = new Set(PROPERTY_DEFS.filter((d) => /philadelphia/i.test(d.city ?? "")).map((d) => d.id.toUpperCase()));
+export const billsUseAndOccupancy = (codeOrRef: string) => PHILADELPHIA.has(String(codeOrRef ?? "").split("-")[0].toUpperCase());
+
+/** `basisForLine` for the OPERATING STATEMENT's rent check, which knows the
+ *  property: in Philadelphia an insurance line has NO column to check against
+ *  — Other Expense there is INS + U&O, so comparing a month's insurance
+ *  billing to it read every U&O dollar as insurance never billed. Null hands
+ *  the line to the per-tenant GL summary, which claims nothing. The budget's
+ *  recovery mapping keeps `basisForLine` itself (a line's CATEGORY does not
+ *  change with the city). */
+export function checkBasisForLine(label: string, mask: string, propertyCode: string): RentCheckBasis | null {
+  const b = basisForLine(label, mask);
+  return b === "other" && billsUseAndOccupancy(propertyCode) ? null : b;
 }
 
 export type RentCheckInput = {

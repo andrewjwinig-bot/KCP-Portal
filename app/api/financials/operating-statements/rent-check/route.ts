@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { basisForLine, type RentCheckBasis } from "@/lib/financials/operating-statements/rentCheck";
+import { basisForLine, billsUseAndOccupancy, type RentCheckBasis } from "@/lib/financials/operating-statements/rentCheck";
 import { loadRentCheckContext, runRentCheck } from "@/lib/financials/operating-statements/rentCheckRun";
 
 export const runtime = "nodejs";
@@ -34,6 +34,11 @@ export async function GET(req: Request) {
       ? sent
       : (basisForLine(label, mask ?? "") ?? "base");
 
+  // Philadelphia's Other Expense is INS + U&O, so there is nothing to check
+  // an insurance line against (`checkBasisForLine`).
+  if (basis === "other" && billsUseAndOccupancy(property || key || "")) {
+    return NextResponse.json({ rows: [], totals: null, basis, notCheckable: "In Philadelphia the rent roll's Other Expense is insurance and U&O together, so there is no insurance column to check against." });
+  }
   if (!key || !year || !mask) {
     return NextResponse.json({ error: "key, year and mask are required" }, { status: 400 });
   }

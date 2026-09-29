@@ -16,7 +16,7 @@ import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import { lineMonthly } from "./lineSeries";
 import { trendFlags } from "./trends";
 import { seasonalTrendFlags, meetsFlagFloor, FLAG_MIN_DOLLARS, revenueShortfallReason } from "./flagRules";
-import { basisForLine } from "./rentCheck";
+import { basisForLine, checkBasisForLine } from "./rentCheck";
 import { loadRentCheckShared, loadRentCheckContext, runRentCheck, billingFlagReason } from "./rentCheckRun";
 import { markMissingDebt, mortgagePaymentsFor } from "./debtFlag";
 import { expectedPostedThrough } from "./outstanding";
@@ -262,7 +262,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     // the statement and the drill-down table call, so all three agree.
     const billingByLineMonth = new Map<string, string>();
     const billedLines = statementMax.sections.flatMap((sec) =>
-      sec.lines.map((l) => ({ sec, l, basis: basisForLine(l.label, l.mask) }))
+      sec.lines.map((l) => ({ sec, l, basis: checkBasisForLine(l.label, l.mask, m.key) }))
     ).filter((x) => !!x.basis);
     if (rentCheckShared && billedLines.length) {
       try {
