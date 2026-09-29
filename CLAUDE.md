@@ -1029,7 +1029,10 @@ time — and the team does not have time to open the GL over $80.
     ONLY the shopping centre (882051606) is in CAM** — proven: the 2025
     recon's RET pool ($159,405) is that parcel's 2025 tax, and Clear Channel's
     flat $3,017 is the billboard parcel's ($215,500). The rear parcel and the
-    billboard are on the line, out of the pool.
+    billboard are on the line, out of the pool. **The rear parcel (874545940)
+    was reassessed for 2027**: $14,277.96 of tax before the discount, which is
+    $1,020,000 × 1.3998% to the cent (the owner quoted $1,010,000, so confirm on
+    the notice). The city's open data still reads $1,642,900.
   - **0800 Bellmawr and 0300 Airport Interplex Two are NOT budgeted** (owner),
     so they have no tax seed and none is owed — do not flag them as gaps.
 - **Keying a figure IS completing it.** A saved input ticks its contribution
