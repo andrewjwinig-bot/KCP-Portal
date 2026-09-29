@@ -292,7 +292,13 @@ function calcTip(e: EstimateRow, part: "cam" | "ins" | "ret", year: number, ry: 
     if (b.flat) rows.push({ label: "Own parcel — fixed RET", value: money0(b.year) });
     else {
       const notes = [part === "cam" && m.excludedLines ? `${m.excludedLines} line${m.excludedLines === 1 ? "" : "s"} excluded` : "", b.capped ? `capped +${m.capPct}%` : ""].filter(Boolean).join(", ");
-      rows.push({ label: `Expense (${year} pool${notes ? `, ${notes}` : ""})`, value: money0(b.expense) });
+      if (b.actual != null) {
+        // A pool read straight off the budget line (property insurance).
+        const name = part === "ins" ? "Property insurance" : "Expense";
+        rows.push({ label: `${name} ${ry ?? year - 2} actual`, value: money0(b.actual), color: "var(--muted)" });
+        if (b.projected != null) rows.push({ label: `${name} ${year - 1} projected`, value: money0(b.projected), color: "var(--muted)" });
+        rows.push({ label: `${name} ${year} budget`, value: money0(b.expense) });
+      } else rows.push({ label: `Expense (${year} pool${notes ? `, ${notes}` : ""})`, value: money0(b.expense) });
       rows.push({ label: "Applicable GLA", value: b.gla > 0 ? `${b.gla.toLocaleString("en-US")} SF` : "–" });
       rows.push({ label: "Tenant SF", value: `${b.sf.toLocaleString("en-US")} SF` });
       const computed = b.gla > 0 ? (b.sf / b.gla) * 100 : null;

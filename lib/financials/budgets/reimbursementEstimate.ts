@@ -31,7 +31,7 @@ import {
   type PoolRatios, type TenantRecovery,
 } from "./recoveryMath";
 
-import { camLineBudgetResolver, retailCamBudget, type BudgetLineRef, type RetailCamResult, type RetailCamLineOut } from "./retailCamBudget";
+import { camLineBudgetResolver, retailCamBudget, insuranceBucketBudget, type BudgetLineRef, type RetailCamResult, type RetailCamLineOut } from "./retailCamBudget";
 
 const r0 = (n: number) => Math.round(n);
 const sum = (a: number[]) => a.reduce((s, n) => s + (n || 0), 0);
@@ -101,6 +101,10 @@ export type RetailBasis = {
   lines?: RetailCamLineOut[];
   /** The pool the admin fee is taken on. */
   adminBase?: number;
+  /** A pool read straight off the budget: the recon year's figure and this
+   *  year's projection beside it. */
+  actual?: number;
+  projected?: number;
 };
 
 export type ReimbTenantEstimate = {
@@ -364,6 +368,23 @@ export async function estimateReimbursements(
       if (direct != null) ratios.ret = direct;
     }
     const resolveCam = opts.camLines?.length ? camLineBudgetResolver(opts.camLines) : null;
+    // INS off the budget's PROPERTY insurance (the pool tenants recover —
+    // liability is a CAM line), not the whole Insurance line's change. A
+    // tenant whose INS is the LIABILITY line (Wawa at 2300) reads that bucket.
+    const insProperty = opts.camLines?.length ? insuranceBucketBudget(opts.camLines, "Property") : null;
+    const insLiability = opts.camLines?.length ? insuranceBucketBudget(opts.camLines, "Liability") : null;
+    const poolIns = (() => {
+      const n = new Map<number, number>();
+      for (const t of ts) if (t.insPool > 0) n.set(r0(t.insPool), (n.get(r0(t.insPool)) ?? 0) + 1);
+      return [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    })();
+    const insBudgetFor = (t: { insPool: number; camSchedule?: { label: string; amount: number }[] }) => {
+      if (!(t.insPool > 0)) return null;
+      if (poolIns != null && Math.abs(r0(t.insPool) - poolIns) <= 1) return insProperty;
+      const liab = t.camSchedule?.find((l) => /liab/i.test(l.label));
+      if (liab && Math.abs(liab.amount - t.insPool) <= 1) return insLiability;
+      return null;
+    };
     for (const t of ts) {
       // A tenant who left during the recon year is not in the budget year.
       if (t.vacatedISO && Number(String(t.vacatedISO).slice(0, 4)) <= reconYear) continue;
@@ -377,11 +398,13 @@ export async function estimateReimbursements(
       const cam = resolveCam && t.camSchedule?.length
         ? retailCamBudget(t, resolveCam, { cam: ratios.cam, ins: ratios.ins }, budgetYear - reconYear + 1)
         : null;
+      const insB = t.grossLease || !(t.insPrs > 0) ? null : insBudgetFor(t);
+      const insYear = insB ? r0((t.insPrs / 100) * insB.budget) : null;
       const rec = retailRecovery({
         unitRef: t.unitRef, name: t.name, sqft: t.sqft,
-        camDue: cam ? cam.year : t.camDue / occ, insDue: t.insDue / occ, retDue: t.flatRet != null ? t.retDue : t.retDue / occ,
+        camDue: cam ? cam.year : t.camDue / occ, insDue: insYear ?? t.insDue / occ, retDue: t.flatRet != null ? t.retDue : t.retDue / occ,
         capped: cam ? false : t.capped, capGrowthPct: t.camCap?.growthPct ?? null,
-      }, cam ? { ...ratios, cam: 1 } : ratios, months, note);
+      }, { ...ratios, ...(cam ? { cam: 1 } : {}), ...(insYear != null ? { ins: 1 } : {}) }, months, note);
       recs.push(rec);
       extra.set(rec, {
         assumed,
@@ -392,7 +415,7 @@ export async function estimateReimbursements(
           reconOcc: occ < 1 ? occ : null,
           recon: { cam: r0(t.camDue), ins: r0(t.insDue), ret: r0(t.retDue) },
           escrow: { cam: r0(t.camEscrow), ins: r0(t.insEscrow), ret: r0(t.retEscrow) },
-          ...(t.grossLease ? {} : { basis: retailBasis(t, ratios, rec, cam) }),
+          ...(t.grossLease ? {} : { basis: retailBasis(t, ratios, rec, cam, insB) }),
         },
       });
     }
@@ -405,7 +428,7 @@ export async function estimateReimbursements(
           ? retailCamBudget({ ...first, camSchedule: first.camSchedule.map((l) => ({ ...l, billed: true })), camCap: undefined, grossLease: false },
               resolveCam, { cam: ratios.cam, ins: ratios.ins }, 1).pool
           : (first?.camPoolFull ?? 0) * ratios.cam,
-        ins: (first?.insPool ?? 0) * ratios.ins,
+        ins: insProperty ? insProperty.budget : (first?.insPool ?? 0) * ratios.ins,
         ret: (first?.retPool ?? 0) * ratios.ret,
       };
       const denoms = { cam: first?.camDenom ?? 0, ins: first?.insDenom ?? 0, ret: first?.retDenom ?? 0 };
@@ -586,6 +609,7 @@ function retailBasis(
     camDenom: number; insDenom: number; retDenom: number; camPoolEffective: number; insPool: number; retPool: number;
     flatRet?: number; capped?: boolean; camCap?: { growthPct: number } },
   ratios: PoolRatios, rec: TenantRecovery, cam?: RetailCamResult | null,
+  ins?: { budget: number; projected: number } | null,
 ): Partial<Record<"cam" | "ins" | "ret", RetailBasis>> {
   let camRatio = ratios.cam;
   const capBites = !!t.capped && t.camCap?.growthPct != null && 1 + t.camCap.growthPct / 100 < camRatio;
@@ -607,7 +631,11 @@ function retailBasis(
     b.admin = rec.camYear - b.share;
     out.cam = b;
   }
-  if (rec.insYear) out.ins = cat(t.insPool, ratios.ins, t.insDenom, t.insPrs, rec.insYear);
+  if (rec.insYear && ins) out.ins = {
+    expense: ins.budget, projected: ins.projected, actual: r0(t.insPool), gla: r0(t.insDenom), sf: r0(t.sqft), prs: t.insPrs,
+    share: rec.insYear, admin: 0, adminPct: 0, discountPct: 0, year: rec.insYear,
+  };
+  else if (rec.insYear) out.ins = cat(t.insPool, ratios.ins, t.insDenom, t.insPrs, rec.insYear);
   if (rec.retYear) {
     if (t.flatRet != null) out.ret = { expense: 0, gla: 0, sf: r0(t.sqft), prs: 0, share: rec.retYear, admin: 0, adminPct: 0, discountPct: 0, year: rec.retYear, flat: true };
     else {

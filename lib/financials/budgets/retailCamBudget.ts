@@ -144,3 +144,15 @@ export function retailCamBudget(
   const admin = r0(((t.adminFeePct || 0) / 100) * prs * adminBase);
   return { pool: r0(pool), share, admin, adminBase: r0(adminBase), year: share + admin, capped, capAmount, lines };
 }
+
+/** The budget-year figure for one of the Insurance line's buckets — "Property"
+ *  is the INS pool tenants recover (liability sits in CAM), "Liability" the
+ *  CAM line. Null when the draft has no such bucket with money on it. */
+export function insuranceBucketBudget(lines: BudgetLineRef[], bucket: "Property" | "Liability"): { budget: number; projected: number } | null {
+  for (const l of lines) {
+    if (!/insurance/i.test(l.label)) continue;
+    const b = l.subLines?.find((s) => s.account.toLowerCase() === bucket.toLowerCase());
+    if (b && b.total > 0) return { budget: r0(b.total), projected: r0(b.basisTotal) };
+  }
+  return null;
+}
