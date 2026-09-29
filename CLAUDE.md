@@ -1593,6 +1593,17 @@ time — and the team does not have time to open the GL over $80.
     $0 RET seed that preceded this removed the revenue too — retired.)
   - An office tenant on no reconciliation takes the BUDGET YEAR as its base
     year (owner's call), so it is listed at zero with that reason.
+  - **OFFICE: A TENANT PAYS ONLY WHAT IS OVER ITS BASE YEAR, AND NEVER LESS
+    THAN $0** (`officeRecovery`). Op Ex is stopped LINE BY LINE, as the recon
+    does — a line under its base contributes $0 and never offsets one over it
+    (it used to net the total, understating) — unless the lease is an
+    `aggregateBaseYear` one. RET is `max(0, budget RET − base-year RET)`: after
+    the business parks' 2026 reassessment every building's 2027 RET is below
+    every base-year tenant's base, so ONLY the full-NNN tenants (Spectrum
+    Control 4080-401, Penn Emblem 40A0-A, Just Children 40B0-1, Polymershapes
+    40C0-CP) budget RET. A base year AFTER the last recon (`baseUnknown`) has no
+    known base — the recon's history reads $0 for it — so nothing is budgeted,
+    never the full share against a $0 base.
 - **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
   `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
   property's draft built (four at a time) and summed line by line, matched by
