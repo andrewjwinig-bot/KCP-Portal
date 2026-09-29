@@ -496,7 +496,9 @@ export default function BudgetDraftPage() {
       {draft?.tenantRevenue?.length ? (
         <div>
           <EstimatesByTenantCard rows={draft.tenantRevenue} est={draft.reimbursementEstimate} year={draft.budgetYear}
-            propertyName={draft.propertyName} propertyCode={draft.propertyCode} />
+            propertyName={draft.propertyName} propertyCode={draft.propertyCode}
+            canOverride={draft.lineEditScope === "all" && !draft.consolidated}
+            queued={queued} onSaved={() => setRefreshTick((n) => n + 1)} />
         </div>
       ) : null}
 
