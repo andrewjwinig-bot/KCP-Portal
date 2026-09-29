@@ -85,6 +85,8 @@ export type EstimateRow = {
 const r0 = (n: number) => Math.round(n || 0);
 /** The 2027 monthly estimate is billed in whole $5s — it ends in 0 or 5. */
 export const round5 = (n: number) => Math.round((n || 0) / 5) * 5;
+/** Excel's ROUND(x, -1): half away from zero. */
+const round10 = (n: number) => Math.sign(n || 0) * Math.round(Math.abs(n || 0) / 10) * 10 || 0;
 const money = (n: number) => `$${Math.abs(r0(n)).toLocaleString("en-US")}`;
 const signed = (n: number) => `${n >= 0 ? "+" : "−"}${money(n)}`;
 const LABEL: Record<EstimatePart, string> = { cam: "CAM", ins: "INS", ret: "RET" };
@@ -121,10 +123,16 @@ export function currentBilling(r: Pick<TenantRevenueRow, "billing" | "method">):
   const st = b.stmt?.month ? b.stmt : undefined;
   const phl = b.uo != null; // the roll's Other Expense is INS + U&O
   const m = r.method;
+  // Philadelphia INS with no statement line: rebuild the estimate billed
+  // since January the way it was SET — the recon year's INS amount due
+  // (scaled to a full year for a part-year tenant), rounded to $10, ÷ 12,
+  // rounded to $10 (the recon's own `nextYearEstimate`). Fresh Grocer at 4500:
+  // $8,336 → $8,340 ÷ 12 = $695 → $700, which is what it is billed. Last
+  // year's ESCROW was the old fallback and it is a year stale ($600).
   const reconIns = (): number | null => {
-    if (m?.kind !== "retail" || !m.escrow) return null;
-    const months = Math.max(1, Math.round((m.reconOcc && m.reconOcc > 0 ? m.reconOcc : 1) * 12));
-    return r0(m.escrow.ins / months);
+    if (m?.kind !== "retail" || !m.recon) return null;
+    const occ = m.reconOcc && m.reconOcc > 0 ? m.reconOcc : 1;
+    return round10(round10((m.recon.ins || 0) / occ) / 12);
   };
   const from = { cam: "rentroll" as BilledFrom, ins: "rentroll" as BilledFrom, ret: "rentroll" as BilledFrom };
   const differs: CurrentBilling["differs"] = [];

@@ -1437,8 +1437,12 @@ time — and the team does not have time to open the GL over $80.
     Philadelphia's Other Expense (INS + U&O in one rent-roll figure: Victra at
     4500 $234 = $20 INS + $214 U&O; McDonald's $492 is all U&O).
     A kind the statement month has NO line for falls back — CAM / RET to the
-    rent roll's columns; INS to Other Expense, or in Philadelphia to the last
-    recon's INS escrow over the months billed ($160 ÷ 8 = $20) — and the cell
+    rent roll's columns; INS to Other Expense, or in Philadelphia to the
+    estimate REBUILT THE WAY IT WAS SET — the last recon's INS amount due
+    (full-year), to $10, ÷ 12, to $10 (`nextYearEstimate`'s rule): Fresh
+    Grocer 4500-3021 $8,336 → $700, what it is billed; JP Morgan, Nail
+    Parlor, Hilti and Victra all tie the same way. It used to read last
+    year's ESCROW ($7,200 ÷ 12 = $600), a year stale — and the cell
     says so (italic), because the report is OPEN ITEMS: a tenant who has paid
     shows no line. Run the export on the 1st–2nd, before payments, and nearly
     every tenant reads off the statement. The card counts it ("Today from

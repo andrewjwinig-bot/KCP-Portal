@@ -88,7 +88,7 @@ describe("CAM estimates by tenant", () => {
 });
 
 describe("billed today: the monthly statement first", () => {
-  const rec = retail({ cam: 0, ins: 0, ret: 0 }, { reconOcc: 0.6932, escrow: { cam: 2000, ins: 160, ret: 2056 } });
+  const rec = retail({ cam: 5783, ins: 163, ret: 2234 }, { reconOcc: 0.6932, escrow: { cam: 2000, ins: 160, ret: 2056 } });
   it("every charge off the statement month, U&O on its own line (Victra at 4500)", () => {
     const b = currentBilling({ billing: { cam: 900, ins: 0, ret: 300, uo: 234, stmt: { month: "2026-09", cam: 900, ins: 20, ret: 300, uo: 214, rent: 2000 } }, method: rec } as any);
     expect(b).toEqual({ cam: 900, ins: 20, ret: 300, uo: 214, month: "2026-09", differs: [], from: { cam: "statement", ins: "statement", ret: "statement" } });
@@ -103,7 +103,11 @@ describe("billed today: the monthly statement first", () => {
     expect(b.from).toEqual({ cam: "statement", ins: "rentroll", ret: "rentroll" });
     expect([b.ins, b.ret]).toEqual([40, 300]);
   });
-  it("Philadelphia with no INS line: the recon escrow ($160 over 8 months = $20), the rest U&O", () => {
+  it("Fresh Grocer at 4500: no INS line → the 2025 recon's INS due rebuilt as the 2026 estimate ($8,336 → $700), not last year's $600 escrow", () => {
+    const b = currentBilling({ billing: { cam: 23100, ins: 0, ret: 10000, uo: 700 }, method: retail({ cam: 286946, ins: 8336, ret: 109046 }, { escrow: { cam: 231600, ins: 7200, ret: 108000 } }) } as any)!;
+    expect([b.ins, b.from.ins]).toEqual([700, "recon"]);
+  });
+  it("Philadelphia with no INS line: the recon's INS due, full-year, ÷ 12 ($163 at 69% → $20), the rest U&O", () => {
     const b = currentBilling({ billing: { cam: 900, ins: 0, ret: 300, uo: 234 }, method: rec } as any)!;
     expect([b.ins, b.uo, b.from.ins]).toEqual([20, 214, "recon"]);
   });
