@@ -249,7 +249,7 @@ function whyRows(e: EstimateRow, ry: number | null, year: number): TipRow[] {
     if (w.recon != null) rows.push({ label: `  → ${ry} actual`, value: `${money0(w.recon)} (${signed(w.catchUp ?? 0)})`, color: tone(w.catchUp ?? 0) });
     rows.push({ label: `  → ${year}${w.overridden ? " (set by hand)" : ""}`, value: `${money0(w.next)}${w.budgetChange != null ? ` (${signed(w.budgetChange)}${pool})` : ""}`, color: w.overridden ? "var(--brand)" : tone(w.next - (w.recon ?? w.now)) });
     if (w.overridden && w.computed != null) rows.push({ label: "  computed was", value: money0(w.computed), color: "var(--muted)" });
-    if (w.annual) rows.push({ label: `  settled at reconciliation`, value: `${money0(w.annual)} in ${year} · no monthly estimate`, color: "var(--muted)" });
+    if (w.annual) rows.push({ label: `  collected at reconciliation`, value: `${money0(w.annual)} in May ${year} · no monthly estimate`, color: "var(--muted)" });
   }
   if (e.billedFrom) {
     const src = (p: "cam" | "ins" | "ret") => e.billedFrom![p] === "statement" ? `${monthName(e.billedMonth)} statement` : SOURCE[e.billedFrom![p]];
@@ -294,7 +294,9 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
         style={{ ...td, ...(p === "cam" ? { borderLeft: DIVIDE } : {}), ...(p === "total" ? { fontWeight: 700 } : {}),
           ...(canOverride ? { background: "var(--input-cell)", cursor: "pointer" } : {}),
           ...(over ? { color: "var(--input-typed)", fontWeight: 800 } : {}) }}>
-        {p !== "total" && e.annual?.[p] ? <span className="muted" style={{ fontStyle: "italic", fontSize: 12, fontWeight: 400 }}>at recon</span> : v(e.next[p], e.sqft)}
+        {p !== "total" && e.annual?.[p]
+          ? <span className="muted" style={{ fontStyle: "italic", fontSize: 12, fontWeight: 400, lineHeight: 1.25, display: "inline-block" }}>at recon<br />{money0(e.annual[p]!)} in May</span>
+          : v(e.next[p], e.sqft)}
       </td>
     );
   };

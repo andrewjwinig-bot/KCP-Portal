@@ -1596,7 +1596,14 @@ time — and the team does not have time to open the GL over $80.
     Clear Channel's own-parcel RET at 4500 — owed, but collected at
     reconciliation only, as always. The budget keeps the recovery as revenue;
     the monthly estimate, the ▲ flag and the Skyline import carry $0 (the
-    cell reads "at recon"). A hand-set estimate overrides it. (The McDonald's
+    cell reads "at recon · $X in May"). A hand-set estimate overrides it.
+    **That revenue is booked as ONE MAY ENTRY** (owner: "we have until end of
+    April" — the year-end adjustment posts 4/30 and is collected in May;
+    `landReconOnlyInMay` in `reconOnly.ts`, run after the overrides), not
+    spread over twelve months it is never billed in — spread evenly, every
+    month but May read short against the GL and May far over. The total is
+    unchanged. The grid's recovery line tags its May cell **AT RECON**, and
+    the hover names those tenants and "Includes at-recon collections". (The McDonald's
     $0 RET seed that preceded this removed the revenue too — retired.)
   - An office tenant on no reconciliation takes the BUDGET YEAR as its base
     year (owner's call), so it is listed at zero with that reason.

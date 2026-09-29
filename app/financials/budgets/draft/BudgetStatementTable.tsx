@@ -169,7 +169,7 @@ function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boo
   );
 }
 
-function Row({ badgeSource, extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, totalHover, onCellClick, flagNegative }: {
+function Row({ badgeSource, extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, totalHover, cellMark, onCellClick, flagNegative }: {
   /** Where the figure came from, on hover of its pill (an assessment notice). */
   badgeSource?: BudgetDraftSection["lines"][number]["inputSource"];
   /** Rendered after the pill — the vacant-SF rate editor on utilities. */
@@ -202,6 +202,8 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
   cellHover?: (m: number) => { title: string; rows: TipRow[]; footer?: TipRow } | null;
   /** The Budget (year) cell's hover, where the line has one. */
   totalHover?: () => { title: string; rows: TipRow[]; footer?: TipRow } | null;
+  /** A small tag under a month's figure (a recovery line's May: "at recon"). */
+  cellMark?: (m: number) => string | null;
   /** Clicking a month cell (a recovery line opens its full tenant list). */
   onCellClick?: (m: number) => void;
   /** A revenue / expense line should never go negative: such a cell is
@@ -227,7 +229,12 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
     };
     const tip = open || m == null ? null : m < 12 ? (cellHover ? cellHover(m) : null) : m === 12 && totalHover ? totalHover() : null;
     const clickable = !editable && !!onCellClick && m != null && m < 12;
-    const shown = Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span> : money0(v);
+    const mark = m != null && m < 12 && cellMark ? cellMark(m) : null;
+    const shown = Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span>
+      : mark ? <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.15 }}>
+          {money0(v)}<span style={{ fontSize: 9.5, fontWeight: 700, color: "#b45309", textTransform: "uppercase", letterSpacing: "0.04em" }}>{mark}</span>
+        </span>
+      : money0(v);
     return (
       <td key={key} style={{ ...style, ...(clickable ? { cursor: "pointer" } : {}) }} className={(editable || clickable) && m != null ? "os-cell" : undefined}
         onClick={editable && m != null && !open ? () => setEdit!({ row: rowKey!, m }) : clickable ? () => onCellClick!(m!) : undefined}>
@@ -429,14 +436,24 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     : /tenant improvement|^1440/i.test(label) || /^1440/.test(mask) ? "ti"
     : /lease cost|leasing commission/i.test(label) || /1940-8501/.test(mask) ? "lc" : null;
 
+  // At-recon collections booked in May, per recovery category.
+  const RECON_MONTH = 4;
+  const atReconTotal = (cat: RecoveryCategory, m: number) =>
+    m === RECON_MONTH ? recTenants.reduce((a, t) => a + (t.atRecon?.[cat] ?? 0), 0) : 0;
+
   const recoveryHover = (cat: RecoveryCategory) => (m: number) => {
     const mk = recoveryMakeup(cat, m, recTenants, draft.sections, estKind);
     if (!mk.tenants.length) return null;
     const top = mk.tenants.slice(0, 8);
     const rest = mk.tenants.slice(8);
-    const rows: TipRow[] = top.map((t) => ({ label: t.tenant || t.unitRef, value: money0(t.amount) }));
+    // A tenant whose charge is collected only at reconciliation lands its year
+    // here, in May (reconOnly.ts) — say so on its row and in the total.
+    const atRecon = (unitRef: string) => m === RECON_MONTH ? recTenants.find((t) => t.unitRef === unitRef)?.atRecon?.[cat] ?? 0 : 0;
+    const rows: TipRow[] = top.map((t) => ({ label: `${t.tenant || t.unitRef}${atRecon(t.unitRef) ? " · at recon" : ""}`, value: money0(t.amount), ...(atRecon(t.unitRef) ? { color: "#b45309" } : {}) }));
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"} · click for all`, value: money0(rest.reduce((a, t) => a + t.amount, 0)), color: "var(--muted)" });
     rows.push({ label: `${CATEGORY_LABEL[cat]} pool this month`, value: money0(mk.pool), color: "var(--muted)" });
+    const inMay = atReconTotal(cat, m);
+    if (inMay) rows.push({ label: "Includes at-recon collections (the year's true-up, due by 4/30)", value: money0(inMay), color: "#b45309" });
     return {
       title: `${CATEGORY_LABEL[cat]} recoveries · ${MONTHS[m]}`,
       rows,
@@ -558,7 +575,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                               onSave={(cents) => onEdit!(sec, l, cents == null ? "all" : 0, cents, RATE_ACCOUNT, v.scope)} />,
                           };
                         }
-                        return cat ? { cellHover: recoveryHover(cat), onCellClick: (m: number) => setMakeupAt({ cat, m }) } : {};
+                        return cat ? { cellHover: recoveryHover(cat), onCellClick: (m: number) => setMakeupAt({ cat, m }), cellMark: (m: number) => (atReconTotal(cat, m) ? "at recon" : null) } : {};
                       })()}
                       toggle={subs.length ? { open: isOpen, onToggle: () => setToggled((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />
                     {isOpen && subs.flatMap((x) => {
