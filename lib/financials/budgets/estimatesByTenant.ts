@@ -69,9 +69,11 @@ export type EstimateRow = {
   /** Philadelphia's Use & Occupancy tax billed today (the roll's Other
    *  Expense) — shown for reference, NOT an estimate and not imported. */
   uo?: number;
-  /** Where today's INS came from, when not the rent roll (Philadelphia). */
-  insFrom?: "statement" | "recon";
-  insMonth?: string;
+  /** Where each of today's figures came from, and the statement month read. */
+  billedFrom?: CurrentBilling["from"];
+  billedMonth?: string;
+  /** Where the statement and the rent roll disagree. */
+  differs?: CurrentBilling["differs"];
 };
 
 const r0 = (n: number) => Math.round(n || 0);
@@ -79,28 +81,64 @@ const money = (n: number) => `$${Math.abs(r0(n)).toLocaleString("en-US")}`;
 const signed = (n: number) => `${n >= 0 ? "+" : "−"}${money(n)}`;
 const LABEL: Record<EstimatePart, string> = { cam: "CAM", ins: "INS", ret: "RET" };
 
-/** What a suite is billed a month TODAY, by category. In Philadelphia the
- *  roll's Other Expense is INS AND the Use & Occupancy tax in one figure
- *  (Victra at 4500: $234 = $20 INS + $214 U&O), so it cannot say what the INS
- *  estimate is. Today's INS is, in order: the INS charge on the tenant's latest
- *  MONTHLY STATEMENT (the charge itself); else what the last reconciliation
- *  billed in INS escrow over the months it billed (Victra: $160 over 8 months
- *  = $20) — the statement is open items only, so a tenant who has paid shows
- *  none. The rest of the column is U&O — not an estimate, never imported. */
-export function currentBilling(r: Pick<TenantRevenueRow, "billing" | "method">): { cam: number; ins: number; ret: number; uo?: number; insFrom?: "statement" | "recon"; insMonth?: string } | null {
+export type BilledFrom = "statement" | "rentroll" | "recon";
+export type CurrentBilling = {
+  cam: number; ins: number; ret: number;
+  /** Philadelphia's Use & Occupancy tax — reference only, never an estimate. */
+  uo?: number;
+  /** Where each figure came from. */
+  from: { cam: BilledFrom; ins: BilledFrom; ret: BilledFrom };
+  /** The statement month read ("YYYY-MM"), when there was one. */
+  month?: string;
+  /** Where the statement and the rent roll disagree about a charge. */
+  differs: { part: EstimatePart; statement: number; rentRoll: number }[];
+};
+
+/** What a suite is billed a month TODAY, by category — ONE source first: the
+ *  tenant's latest MONTHLY STATEMENT, whose dated lines give that month's
+ *  CAM, INS, RET and U&O charge by charge (`statementBilling.ts`). A kind the
+ *  statement month has no line for falls back, and says so:
+ *    CAM / RET → the rent roll's Operating Expense / Real Estate Tax column;
+ *    INS → the rent roll's Other Expense — except in PHILADELPHIA, where that
+ *      column is INS + U&O in one figure (Victra at 4500: $234 = $20 + $214),
+ *      so it falls back to the last recon's INS escrow over the months it
+ *      billed ($160 ÷ 8 = $20).
+ *  U&O is the statement's U&O line, else the rest of the Other Expense column.
+ *  A statement figure that disagrees with the rent roll is listed in
+ *  `differs`, so the two sources are checked against each other rather than
+ *  silently mixed. */
+export function currentBilling(r: Pick<TenantRevenueRow, "billing" | "method">): CurrentBilling | null {
   const b = r.billing;
   if (!b) return null;
-  if (b.uo == null) return { cam: b.cam, ins: b.ins, ret: b.ret };
+  const st = b.stmt?.month ? b.stmt : undefined;
+  const phl = b.uo != null; // the roll's Other Expense is INS + U&O
   const m = r.method;
-  let ins: number, insFrom: "statement" | "recon" | undefined;
-  if (b.insStmt != null) { ins = r0(b.insStmt); insFrom = "statement"; }
-  else {
-    const months = m?.kind === "retail" ? Math.max(1, Math.round((m.reconOcc && m.reconOcc > 0 ? m.reconOcc : 1) * 12)) : 12;
-    ins = r0(m?.kind === "retail" && m.escrow ? m.escrow.ins / months : 0);
-    insFrom = m?.kind === "retail" && m.escrow ? "recon" : undefined;
-  }
-  ins = Math.min(ins, r0(b.uo));
-  return { cam: b.cam, ins, ret: b.ret, uo: Math.max(0, r0(b.uo) - ins), insFrom, insMonth: insFrom === "statement" ? b.insStmtMonth : undefined };
+  const reconIns = (): number | null => {
+    if (m?.kind !== "retail" || !m.escrow) return null;
+    const months = Math.max(1, Math.round((m.reconOcc && m.reconOcc > 0 ? m.reconOcc : 1) * 12));
+    return r0(m.escrow.ins / months);
+  };
+  const from = { cam: "rentroll" as BilledFrom, ins: "rentroll" as BilledFrom, ret: "rentroll" as BilledFrom };
+  const differs: CurrentBilling["differs"] = [];
+  const pick = (part: "cam" | "ret", roll: number) => {
+    const v = st?.[part];
+    if (v == null) return r0(roll);
+    from[part] = "statement";
+    if (Math.abs(v - roll) >= 1) differs.push({ part, statement: r0(v), rentRoll: r0(roll) });
+    return r0(v);
+  };
+  const cam = pick("cam", b.cam), ret = pick("ret", b.ret);
+  let ins: number;
+  if (st?.ins != null) {
+    ins = r0(st.ins); from.ins = "statement";
+    if (!phl && Math.abs(st.ins - b.ins) >= 1) differs.push({ part: "ins", statement: ins, rentRoll: r0(b.ins) });
+  } else if (phl) {
+    const rc = reconIns();
+    ins = Math.min(rc ?? 0, r0(b.uo));
+    if (rc != null) from.ins = "recon";
+  } else ins = r0(b.ins);
+  const uo = phl ? (st?.uo != null ? r0(st.uo) : Math.max(0, r0(b.uo) - ins)) : undefined;
+  return { cam, ins, ret, ...(uo != null ? { uo } : {}), from, month: st?.month, differs };
 }
 
 export function estimateRows(rows: TenantRevenueRow[], est?: ReimbursementEstimate | null): EstimateRow[] {
@@ -112,8 +150,7 @@ export function estimateRows(rows: TenantRevenueRow[], est?: ReimbursementEstima
     next.total = next.cam + next.ins + next.ret;
     const b = r.billing;
     const cur = currentBilling(r);
-    const insNow = cur?.ins ?? 0, uoNow = cur?.uo;
-    const now: Estimates | null = b ? { cam: r0(b.cam), ins: r0(insNow), ret: r0(b.ret), total: 0 } : null;
+    const now: Estimates | null = cur ? { cam: cur.cam, ins: cur.ins, ret: cur.ret, total: 0 } : null;
     if (now) now.total = now.cam + now.ins + now.ret;
     if ((!now || now.total === 0) && next.total === 0) continue; // gross lease: nothing to say
 
@@ -146,11 +183,12 @@ export function estimateRows(rows: TenantRevenueRow[], est?: ReimbursementEstima
       now, recon, next, change,
       changePct: now && now.total > 0.5 ? (change / now.total) * 100 : null,
       why, reason: reasonFor(r, now, recon, next, why, reconYear),
-      jump: estimateJump(cur ? { ...r, billing: cur } : r),
+      jump: estimateJump(cur ? { ...r, billing: { cam: cur.cam, ins: cur.ins, ret: cur.ret } } : r),
       assumed: r.assumed.some(Boolean),
       overridden: !!r.overridden && Object.values(r.overridden).some(Boolean),
       overrideNote: r.overrideNote,
-      ...(uoNow != null ? { uo: r0(uoNow), insFrom: cur?.insFrom, insMonth: cur?.insMonth } : {}),
+      ...(cur ? { billedFrom: cur.from, billedMonth: cur.month, differs: cur.differs } : {}),
+      ...(cur?.uo != null ? { uo: cur.uo } : {}),
     });
   }
   return out;
@@ -180,7 +218,20 @@ function reasonFor(r: TenantRevenueRow, now: Estimates | null, recon: Estimates 
   return parts.join(" · ") + capped;
 }
 
-export type EstimateTotals = { now: Estimates; recon: Estimates; next: Estimates; change: number; changePct: number | null; flagged: number; tenants: number; overridden: number };
+export type EstimateTotals = {
+  now: Estimates; recon: Estimates; next: Estimates; change: number; changePct: number | null; flagged: number; tenants: number; overridden: number;
+  /** Tenants whose whole "today" came off the monthly statement. */
+  fromStatement: number;
+  /** Tenants with at least one charge NOT on the statement (rent roll / recon). */
+  fallback: number;
+  /** Tenants whose statement disagrees with the rent roll. */
+  differs: number;
+  /** The statement month most tenants were read from ("YYYY-MM"). */
+  statementMonth: string | null;
+};
+
+/** Every "today" figure came off the statement. */
+export const allFromStatement = (r: EstimateRow) => !!r.billedFrom && ESTIMATE_PARTS.every((p) => r.billedFrom![p] === "statement");
 
 export function estimateTotals(rows: EstimateRow[]): EstimateTotals {
   const z = (): Estimates => ({ cam: 0, ins: 0, ret: 0, total: 0 });
@@ -191,7 +242,19 @@ export function estimateTotals(rows: EstimateRow[]): EstimateTotals {
   return {
     now, recon, next, change, changePct: now.total > 0.5 ? (change / now.total) * 100 : null,
     flagged: rows.filter((r) => r.jump).length, tenants: rows.length, overridden: rows.filter((r) => r.overridden).length,
+    fromStatement: rows.filter(allFromStatement).length,
+    fallback: rows.filter((r) => r.now && !allFromStatement(r)).length,
+    differs: rows.filter((r) => r.differs?.length).length,
+    statementMonth: mostCommon(rows.map((r) => r.billedMonth).filter(Boolean) as string[]),
   };
+}
+
+function mostCommon(xs: string[]): string | null {
+  const n = new Map<string, number>();
+  for (const x of xs) n.set(x, (n.get(x) ?? 0) + 1);
+  let best: string | null = null;
+  for (const [k, c] of n) if (best == null || c > n.get(best)! || (c === n.get(best)! && k > best)) best = k;
+  return best;
 }
 
 /** Skyline bills an estimate in whole $10s (`nextYearEstimate` in the recon's

@@ -72,9 +72,9 @@ export type RentRow = {
    *  cannot split it; the estimates table reads INS off the recon's escrow
    *  and takes the rest as U&O). */
   billing?: { cam: number; ins: number; ret: number; rent?: number; uo?: number;
-    /** Philadelphia: the INS charge on the tenant's latest monthly statement,
-     *  and the statement month it came from (`statementBilling.ts`). */
-    insStmt?: number; insStmtMonth?: string };
+    /** The tenant's latest monthly statement month, by kind
+     *  (`statementBilling.ts`) — the first source for "billed today". */
+    stmt?: import("./statementBillingMath").StatementBilling };
 };
 
 /** A roll unit's current monthly recovery billing. */

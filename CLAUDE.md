@@ -1420,17 +1420,26 @@ time — and the team does not have time to open the GL over $80.
     recovery lines are read, in the months the tenant is billed, so the lines,
     Revenue by tenant and the import all carry it. The engine's figure is kept
     (`computed`) and shown beside it; "Back to computed" clears it.
-  - **In PHILADELPHIA the rent roll's Other Expense is INS + U&O in one
-    figure** (Victra at 4500: $234 = $20 INS + $214 Use & Occupancy tax;
-    McDonald's $492 is all U&O). The roll cannot split it, so `currentBilling`
-    takes today's INS from, in order: the INS charge on the tenant's latest
-    MONTHLY STATEMENT (`statementBilling.ts`, newest of the last 6 imported
-    months; year-end adjustments and credits ignored) — else the last recon's
-    INS ESCROW over the months it billed ($160 ÷ 8 = $20), because the
-    statement is open items only and a tenant who paid shows no INS line. The
-    rest of the column is U&O — reference only, never an estimate, never
-    imported; the hover says which source INS came from. Everywhere else the
-    column IS insurance. The ▲ flag on Revenue by tenant reads the same
+  - **"BILLED TODAY" IS READ OFF THE MONTHLY STATEMENTS — ONE SOURCE**
+    (owner: "we have to make it work using the monthly statements report";
+    `statementBilling.ts` / `statementBillingMath.ts`, `currentBilling`). Every
+    statement line carries its DATE and its kind (`classifyCharge`), so each
+    tenant's newest statement month (of the last 6 imported) gives rent, CAM,
+    INS, RET and U&O charge by charge — dated, owed, not a year-end adjustment
+    (`reconYear`), not a credit. It is the only report that splits
+    Philadelphia's Other Expense (INS + U&O in one rent-roll figure: Victra at
+    4500 $234 = $20 INS + $214 U&O; McDonald's $492 is all U&O).
+    A kind the statement month has NO line for falls back — CAM / RET to the
+    rent roll's columns; INS to Other Expense, or in Philadelphia to the last
+    recon's INS escrow over the months billed ($160 ÷ 8 = $20) — and the cell
+    says so (italic), because the report is OPEN ITEMS: a tenant who has paid
+    shows no line. Run the export on the 1st–2nd, before payments, and nearly
+    every tenant reads off the statement. The card counts it ("Today from
+    statement · n of m", a "Not on statement" filter), and where the statement
+    and the rent roll DISAGREE the cell is amber and the hover gives both
+    ("Statement ≠ rent roll" filter) — the two sources are checked against
+    each other, never silently mixed. U&O is reference only, never an
+    estimate, never imported. The ▲ flag on Revenue by tenant reads the same
     function. The operating statement's RENT CHECK does not check a
     Philadelphia insurance line at all (`checkBasisForLine` → null, the
     per-tenant GL summary instead): comparing insurance billed to INS + U&O
