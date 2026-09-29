@@ -155,6 +155,9 @@ export type Parcel = {
   /** Matches the owner's 2026 business-park reassessment schedule (the
    *  appeal that took the parks' values down, effective 1/1/2026). */
   schedule?: boolean;
+  /** Reassessed after the city's certified value — on appeal. Overrides the
+   *  open data, which still carries the old value; says what it came from. */
+  reassessed?: string;
 };
 
 export type AssessedTax = { code: string; year: number; jurisdiction: Jurisdiction; parcels: Parcel[] };
@@ -181,7 +184,12 @@ export const ASSESSED_TAXES: AssessedTax[] = [
   // recon is that parcel's $215,500 × 1.3998%).
   T("4500", PHL, [
     { number: "882051606", label: "Shopping Center", address: "2815 Grays Ferry Ave", assessed: 13_517_700, prior: 11_387_700, recoverable: true, notice: true },
-    { number: "874545940", label: "Rear Parcel", address: "3001R Grays Ferry Ave", assessed: 1_642_900, prior: 1_613_000, recoverable: false, notice: true },
+    // Reassessed for 2027 (owner, 9/29/26): $14,277.96 of tax before the
+    // discount, which is $1,020,000 × 1.3998% to the cent. The owner quoted
+    // the value as $1,010,000, which would be $14,137.98 — the TAX figure is
+    // the one the value reproduces, so it is keyed; confirm against the
+    // reassessment notice. The city's open data still reads $1,642,900.
+    { number: "874545940", label: "Rear Parcel", address: "3001R Grays Ferry Ave", assessed: 1_020_000, prior: 1_613_000, recoverable: false, reassessed: "Reassessed for 2027 — $14,277.96 before the 1% discount" },
     { number: "885969440", label: "Clear Channel billboard", address: "3043R Grays Ferry Ave", assessed: 158_200, prior: 215_500, recoverable: false },
   ]),
 
@@ -320,6 +328,7 @@ export function assessedTaxInput(year: number, code: string): ExpenseInput | nul
     tax: parcelTax(p, j), recoverable: p.recoverable,
     from: p.assessed == null
       ? `No value — this year's ${usd(p.fallback ?? 0)} + ${RET_DEFAULT_GROWTH_PCT}%`
+      : p.reassessed ? p.reassessed
       : `${p.notice ? "Notice of Valuation (mailed) · matches " : p.schedule ? "2026 reassessment schedule · matches " : ""}${recordName(j)}${p.share ? ` · ${Math.round(p.share * 100)}% of the shared parcel` : ""}`,
     href: parcelUrl(p, j),
   }));

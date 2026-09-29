@@ -50,6 +50,8 @@ export type ReimbMethod =
       reconOcc: number | null;
       /** The recon's own dues, the starting point. */
       recon: { cam: number; ins: number; ret: number };
+      /** What the recon year actually BILLED in escrow (annual). */
+      escrow?: { cam: number; ins: number; ret: number };
     }
   | {
       kind: "office";
@@ -295,6 +297,7 @@ export async function estimateReimbursements(
           excludedLines: t.camExcludedLabels?.length ?? 0,
           reconOcc: occ < 1 ? occ : null,
           recon: { cam: r0(t.camDue), ins: r0(t.insDue), ret: r0(t.retDue) },
+          escrow: { cam: r0(t.camEscrow), ins: r0(t.insEscrow), ret: r0(t.retEscrow) },
         },
       });
     }

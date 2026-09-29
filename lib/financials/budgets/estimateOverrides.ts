@@ -14,6 +14,22 @@ export const ESTIMATE_PARTS: EstimatePart[] = ["cam", "ins", "ret"];
 export type EstimateOverride = Partial<Record<EstimatePart, number>> & { note?: string; by?: string; at?: string };
 export type EstimateOverrides = Record<string, EstimateOverride>;
 
+/** Estimates decided in code rather than on the table — a billing arrangement
+ *  the engine cannot see. A stored override (or a stored clear) replaces one.
+ *  McDonald's at Gray's Ferry (owner, 9/29/26) pays RET once a year at
+ *  reconciliation, never monthly (2025 recon: $0 RET escrow against $7,074
+ *  due). Its $492 of Other Expense on the roll is U&O, not INS — it pays no
+ *  INS (`currentBilling`). */
+const SEEDED: { code: string; fromYear: number; unitRef: string; o: EstimateOverride }[] = [
+  { code: "4500", fromYear: 2027, unitRef: "4500-2851", o: { ret: 0, note: "No monthly RET — billed annually at reconciliation (2025 recon: $0 RET escrow)", by: "Seed" } },
+];
+
+export function seededEstimateOverrides(year: number, code: string): EstimateOverrides {
+  const out: EstimateOverrides = {};
+  for (const x of SEEDED) if (x.code === String(code).toUpperCase() && year >= x.fromYear) out[x.unitRef] = { ...x.o };
+  return out;
+}
+
 const r0 = (n: number) => Math.round(n || 0);
 const sum = (a: number[]) => a.reduce((s, v) => s + (v || 0), 0);
 
@@ -25,7 +41,7 @@ export function applyEstimateOverrides(est: ReimbursementEstimate, overrides: Es
   if (!overrides || !Object.keys(overrides).length) return est;
   for (const t of est.tenants) {
     const o = overrides[t.unitRef];
-    if (!o) continue;
+    if (!o || !ESTIMATE_PARTS.some((p) => o[p] != null)) continue; // a cleared seed
     const any = t.cam.map((_, i) => Math.abs(t.cam[i] || 0) + Math.abs(t.ins[i] || 0) + Math.abs(t.ret[i] || 0) > 0.5);
     const active = any.some(Boolean) ? any : any.map(() => true);
     const n = active.filter(Boolean).length || 1;

@@ -22,8 +22,14 @@ describe("Philadelphia — the city's certified assessments", () => {
     expect(total("9200")).toBe(5455);
   });
   it("Gray's Ferry (4500): three bills, only the shopping centre in CAM", () => {
-    expect(total("4500")).toBe(187329 + 22767 + 2192);
-    expect(input("4500").nonRecoverable).toMatchObject({ budget: 22767 + 2192, label: "Rear Parcel, Clear Channel billboard" });
+    expect(total("4500")).toBe(187329 + 14135 + 2192);
+    expect(input("4500").nonRecoverable).toMatchObject({ budget: 14135 + 2192, label: "Rear Parcel, Clear Channel billboard" });
+  });
+  it("the rear parcel's 2027 reassessment: $14,277.96 before the 1% discount", () => {
+    const rear = input("4500").source!.parcels!.find((p) => p.number === "874545940")!;
+    expect(1_020_000 * 0.013998).toBeCloseTo(14_277.96, 2);
+    expect(rear.tax).toBe(14135);
+    expect(rear.from).toMatch(/Reassessed for 2027/);
   });
   it("the 2025 recon's RET pool IS the shopping-centre parcel's tax", () => {
     expect(Math.abs(11_387_700 * 0.013998 - 159_405.02)).toBeLessThan(1.5);

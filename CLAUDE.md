@@ -1029,7 +1029,10 @@ time — and the team does not have time to open the GL over $80.
     ONLY the shopping centre (882051606) is in CAM** — proven: the 2025
     recon's RET pool ($159,405) is that parcel's 2025 tax, and Clear Channel's
     flat $3,017 is the billboard parcel's ($215,500). The rear parcel and the
-    billboard are on the line, out of the pool.
+    billboard are on the line, out of the pool. **The rear parcel (874545940)
+    was reassessed for 2027**: $14,277.96 of tax before the discount, which is
+    $1,020,000 × 1.3998% to the cent (the owner quoted $1,010,000, so confirm on
+    the notice). The city's open data still reads $1,642,900.
   - **0800 Bellmawr and 0300 Airport Interplex Two are NOT budgeted** (owner),
     so they have no tax seed and none is owed — do not flag them as gaps.
 - **Keying a figure IS completing it.** A saved input ticks its contribution
@@ -1417,6 +1420,17 @@ time — and the team does not have time to open the GL over $80.
     recovery lines are read, in the months the tenant is billed, so the lines,
     Revenue by tenant and the import all carry it. The engine's figure is kept
     (`computed`) and shown beside it; "Back to computed" clears it.
+  - **In PHILADELPHIA the rent roll's Other Expense is INS + U&O in one
+    figure** (Victra at 4500: $234 = $20 INS + $214 Use & Occupancy tax;
+    McDonald's $492 is all U&O). The roll cannot split it, so `currentBilling`
+    takes today's INS from the last recon's INS ESCROW over the months it
+    billed ($160 ÷ 8 = $20) and shows the rest as U&O — reference only, never
+    an estimate, never imported. Everywhere else the column IS insurance. The
+    ▲ flag on Revenue by tenant reads the same function.
+  - **Seeded estimates** (`SEEDED` in `estimateOverrides.ts`) — a billing
+    arrangement the engine cannot see, laid under the stored overrides; a
+    stored clear keeps the seed undone. McDonald's at 4500 pays RET annually at
+    reconciliation, never monthly (2025 recon: $0 RET escrow) → RET $0 from 2027.
   - **The Skyline import** is the CAM recon's own recurring-charge CSV
     (`SkylineChargeRow` / `chargeRowsToCSV`: unit `<ref>-CU`, CAM seq 2, INS 3,
     RET 4, freq M, effective 1/1) — a computed estimate rounded to $10 as the

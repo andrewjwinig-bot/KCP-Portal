@@ -173,6 +173,10 @@ function whyRows(e: EstimateRow, ry: number | null, year: number): TipRow[] {
     rows.push({ label: `  → ${year}${w.overridden ? " (set by hand)" : ""}`, value: `${money0(w.next)}${w.budgetChange != null ? ` (${signed(w.budgetChange)}${pool})` : ""}`, color: w.overridden ? "var(--brand)" : tone(w.next - (w.recon ?? w.now)) });
     if (w.overridden && w.computed != null) rows.push({ label: "  computed was", value: money0(w.computed), color: "var(--muted)" });
   }
+  if (e.uo != null) {
+    rows.push({ label: "INS today from", value: `the ${ry ?? "last"} recon's INS escrow`, color: "var(--muted)" });
+    if (e.uo) rows.push({ label: "U&O billed today (not an estimate)", value: money0(e.uo), color: "var(--muted)" });
+  }
   const m = e.method;
   if (m?.kind === "retail") {
     rows.push({ label: "Share (CAM / INS / RET)", value: `${m.camPrs.toFixed(2)}% / ${m.insPrs.toFixed(2)}% / ${m.retPrs.toFixed(2)}%` });
