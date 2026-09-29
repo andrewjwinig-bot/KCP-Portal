@@ -243,36 +243,7 @@ function CheckRow({ check, ry, year }: { check: GroupCheck[]; ry: number | null;
 /** The why, one category at a time: today → the reconciled actual → the budget. */
 function whyRows(e: EstimateRow, ry: number | null, year: number): TipRow[] {
   const rows: TipRow[] = [];
-  const m0 = e.method;
-  const basis = m0?.kind === "retail" ? m0.basis : undefined;
   for (const w of e.why) {
-    // The calculation, step by step, where the tenant is on a retail recon:
-    // the pool → the GLA it is shared over → this tenant's SF and PRS → the
-    // year → the month. Every figure can be checked against the budget grid
-    // and the unit page.
-    const b = basis?.[w.part];
-    if (b && m0?.kind === "retail") {
-      rows.push({ label: `${LABEL[w.part]} — the calculation`, value: "", color: "var(--brand)" });
-      if (b.flat) rows.push({ label: "  Own parcel — a fixed RET, not a pool share", value: money0(b.year) });
-      else {
-        const notes = [w.part === "cam" && m0.excludedLines ? `after ${m0.excludedLines} excluded line${m0.excludedLines === 1 ? "" : "s"}` : "", b.capped ? `capped at +${m0.capPct}%` : ""].filter(Boolean).join(", ");
-        rows.push({ label: `  Expense (${year} budget pool${notes ? `, ${notes}` : ""})`, value: money0(b.expense) });
-        rows.push({ label: "  Applicable GLA", value: b.gla > 0 ? `${b.gla.toLocaleString("en-US")} SF` : "–" });
-        rows.push({ label: "  Tenant SF", value: `${b.sf.toLocaleString("en-US")} SF` });
-        const computed = b.gla > 0 ? (b.sf / b.gla) * 100 : null;
-        const stipulated = computed == null || Math.abs(computed - b.prs) >= 0.005;
-        rows.push({ label: `  Tenant PRS${stipulated ? " (stipulated)" : " (SF ÷ GLA)"}`, value: `${b.prs.toFixed(2)}%`, color: stipulated ? UP : undefined });
-        rows.push({ label: "  Tenant est. expense", value: `${money0(b.expense)} × ${b.prs.toFixed(2)}% = ${money0(b.share)}` });
-        if (b.adminPct && Math.abs(b.admin) >= 0.5) rows.push({ label: `  + Admin fee ${b.adminPct}%`, value: money0(b.admin) });
-        if (b.discountPct && Math.abs(b.year - b.share) >= 0.5) rows.push({ label: `  − Discount ${b.discountPct}%`, value: money0(b.year - b.share) });
-        if (b.year !== b.share) rows.push({ label: "  = Tenant's year", value: money0(b.year), color: "var(--brand)" });
-      }
-      const final = w.year ?? b.year;
-      if (Math.abs(final - b.year) >= 1 && !w.overridden) rows.push({ label: "  After the recovery-ratio check", value: money0(final), color: UP });
-      if (w.annual) rows.push({ label: "  Est. monthly charge", value: `$0 — ${money0(w.annual)} collected in May`, color: "var(--muted)" });
-      else if (w.overridden) rows.push({ label: "  Est. monthly charge (set by hand)", value: money0(w.next), color: "var(--brand)" });
-      else rows.push({ label: "  Est. monthly charge", value: `${money0(final)} ÷ ${w.months || 12} = ${money0(w.next)}${(w.months || 12) < 12 ? ` (${w.months} mo)` : ""}`, color: "var(--brand)" });
-    }
     const pool = w.poolPct != null ? `, pool ${w.poolPct >= 0 ? "+" : "−"}${Math.abs(w.poolPct).toFixed(1)}%` : "";
     rows.push({ label: `${LABEL[w.part]} today`, value: money0(w.now) });
     if (w.recon != null) rows.push({ label: `  → ${ry} actual`, value: `${money0(w.recon)} (${signed(w.catchUp ?? 0)})`, color: tone(w.catchUp ?? 0) });
@@ -295,20 +266,56 @@ function whyRows(e: EstimateRow, ry: number | null, year: number): TipRow[] {
   } else if (m?.kind === "office") {
     rows.push({ label: "Pro-rata share", value: `${m.proRataPct.toFixed(2)}%` });
     rows.push({ label: "Base year", value: m.noBaseStop ? "None (full NNN)" : m.baseYear ? String(m.baseYear) : "–" });
-    // Op Ex is stopped LINE BY LINE: each line's budget against its base.
-    if (m.lines?.length) {
-      const over = m.lines.filter((l) => l.over > 0);
-      rows.push({ label: `Op Ex, line by line (${year} budget vs base)`, value: "", color: "var(--muted)" });
-      for (const l of over.slice(0, 10)) rows.push({ label: `  ${l.label}${l.fromLine ? "" : " *"}`, value: `${money0(l.budget)} − ${money0(l.base)} = ${money0(l.over)}`, color: UP });
-      if (over.length > 10) rows.push({ label: `  ${over.length - 10} more lines over base`, value: money0(over.slice(10).reduce((a, l) => a + l.over, 0)), color: "var(--muted)" });
-      const under = m.lines.length - over.length;
-      if (under) rows.push({ label: `  ${under} line${under === 1 ? "" : "s"} at or under base`, value: "$0", color: "var(--muted)" });
-      const tot = over.reduce((a, l) => a + l.over, 0);
-      rows.push({ label: `  Over base × ${m.proRataPct.toFixed(2)}%`, value: `${money0(tot)} × share = ${money0(tot * m.proRataPct / 100)}/yr`, color: "var(--brand)" });
-      if (m.lines.some((l) => !l.fromLine)) rows.push({ label: "  * no budget line for that account — grown at the building's Op Ex rate", value: "", color: "var(--muted)" });
-    }
   }
   return rows;
+}
+
+/** One category's calculation, for the hover on that 2027 cell: the pool →
+ *  the GLA → the tenant's SF and PRS → the year → the month (retail), or the
+ *  Op Ex lines over base × the share (office). */
+function calcTip(e: EstimateRow, part: "cam" | "ins" | "ret", year: number): { rows: TipRow[]; footer?: TipRow } | null {
+  const w = e.why.find((x) => x.part === part);
+  const m = e.method;
+  if (!w) return null;
+  const rows: TipRow[] = [];
+  const monthly = (final: number): TipRow => w.annual
+    ? { label: "Est. monthly charge", value: `$0 · ${money0(w.annual)} at recon (May)`, color: "var(--muted)" }
+    : w.overridden
+      ? { label: "Est. monthly charge (set by hand)", value: money0(w.next), color: "var(--brand)" }
+      : { label: "Est. monthly charge", value: `${money0(final)} ÷ ${w.months || 12} = ${money0(w.next)}`, color: "var(--brand)" };
+  const b = m?.kind === "retail" ? m.basis?.[part] : undefined;
+  if (b && m?.kind === "retail") {
+    if (b.flat) rows.push({ label: "Own parcel — fixed RET", value: money0(b.year) });
+    else {
+      const notes = [part === "cam" && m.excludedLines ? `${m.excludedLines} line${m.excludedLines === 1 ? "" : "s"} excluded` : "", b.capped ? `capped +${m.capPct}%` : ""].filter(Boolean).join(", ");
+      rows.push({ label: `Expense (${year} pool${notes ? `, ${notes}` : ""})`, value: money0(b.expense) });
+      rows.push({ label: "Applicable GLA", value: b.gla > 0 ? `${b.gla.toLocaleString("en-US")} SF` : "–" });
+      rows.push({ label: "Tenant SF", value: `${b.sf.toLocaleString("en-US")} SF` });
+      const computed = b.gla > 0 ? (b.sf / b.gla) * 100 : null;
+      const stipulated = computed == null || Math.abs(computed - b.prs) >= 0.005;
+      rows.push({ label: `Tenant PRS${stipulated ? " (stipulated)" : ""}`, value: `${b.prs.toFixed(2)}%`, color: stipulated ? UP : undefined });
+      rows.push({ label: "Tenant est. expense", value: money0(b.share) });
+      if (b.adminPct && Math.abs(b.admin) >= 0.5) rows.push({ label: `+ Admin fee ${b.adminPct}%`, value: money0(b.admin) });
+      if (b.discountPct && Math.abs(b.year - b.share) >= 0.5) rows.push({ label: `− Discount ${b.discountPct}%`, value: money0(b.year - b.share) });
+      if (b.year !== b.share) rows.push({ label: "Tenant's year", value: money0(b.year) });
+    }
+    const final = w.year ?? b.year;
+    if (Math.abs(final - b.year) >= 1 && !w.overridden) rows.push({ label: "After recovery-ratio check", value: money0(final), color: UP });
+    return { rows, footer: monthly(final) };
+  }
+  if (m?.kind === "office" && part === "cam" && m.lines?.length) {
+    const over = m.lines.filter((l) => l.over > 0);
+    rows.push({ label: "Base year", value: m.noBaseStop ? "None (full NNN)" : m.baseYear ? String(m.baseYear) : "–" });
+    for (const l of over.slice(0, 8)) rows.push({ label: `${l.label}${l.fromLine ? "" : " *"}`, value: `${money0(l.budget)} − ${money0(l.base)} = ${money0(l.over)}`, color: UP });
+    if (over.length > 8) rows.push({ label: `${over.length - 8} more lines over base`, value: money0(over.slice(8).reduce((a, l) => a + l.over, 0)), color: "var(--muted)" });
+    const under = m.lines.length - over.length;
+    if (under) rows.push({ label: `${under} line${under === 1 ? "" : "s"} at or under base`, value: "$0", color: "var(--muted)" });
+    const tot = over.reduce((a, l) => a + l.over, 0);
+    rows.push({ label: `Over base × ${m.proRataPct.toFixed(2)}%`, value: money0((tot * m.proRataPct) / 100) });
+    if (m.lines.some((l) => !l.fromLine)) rows.push({ label: "* no budget line — building's Op Ex rate", value: "", color: "var(--muted)" });
+    return { rows, footer: monthly(w.year ?? 0) };
+  }
+  return null;
 }
 
 function Row({ e, v, ry, year, canOverride, onEdit }: {
@@ -323,9 +330,13 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
         style={{ ...td, ...(p === "cam" ? { borderLeft: DIVIDE } : {}), ...(p === "total" ? { fontWeight: 700 } : {}),
           ...(canOverride ? { background: "var(--input-cell)", cursor: "pointer" } : {}),
           ...(over ? { color: "var(--input-typed)", fontWeight: 800 } : {}) }}>
-        {p !== "total" && e.annual?.[p]
-          ? <span className="muted" style={{ fontStyle: "italic", fontSize: 12, fontWeight: 400, lineHeight: 1.25, display: "inline-block" }}>at recon<br />{money0(e.annual[p]!)} in May</span>
-          : v(e.next[p], e.sqft)}
+        {(() => {
+          const body = p !== "total" && e.annual?.[p]
+            ? <span className="muted" style={{ fontStyle: "italic", fontSize: 12, fontWeight: 400, lineHeight: 1.25, display: "inline-block" }}>at recon<br />{money0(e.annual[p]!)} in May</span>
+            : <>{v(e.next[p], e.sqft)}</>;
+          const tip = p !== "total" ? calcTip(e, p, year) : null;
+          return tip ? <HoverCard title={`${e.tenant || "—"} · ${LABEL[p]} ${year}`} width={320} rows={tip.rows} footer={tip.footer}>{body}</HoverCard> : body;
+        })()}
       </td>
     );
   };
@@ -358,7 +369,7 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
       <td style={{ ...td, borderLeft: DIVIDE, fontWeight: 700, color: tone(e.change) }}>{e.jump ? `▲ ${signed(e.change)}` : signed(e.change)}</td>
       <td style={{ ...td, color: tone(e.change) }}>{e.jump ? <Pill tone={TONE_AMBER}>{pctS(e.changePct)}</Pill> : pctS(e.changePct)}</td>
       <td style={{ ...td, textAlign: "left", whiteSpace: "normal", minWidth: 200, maxWidth: 260, fontSize: 12.5 }}>
-        <HoverCard title={`${e.tenant || "—"} · ${e.unitRef} · why`} width={460} rows={whyRows(e, ry, year)}
+        <HoverCard title={`${e.tenant || "—"} · ${e.unitRef} · why`} width={400} rows={whyRows(e, ry, year)}
           footer={{ label: `${year} vs today, a month`, value: `${signed(e.change)} (${pctS(e.changePct)})`, color: tone(e.change) }}>
           <span>{e.reason}</span>
         </HoverCard>
