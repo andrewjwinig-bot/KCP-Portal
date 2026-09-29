@@ -7,11 +7,15 @@
 //      credit). Pasted into Property Management → Data Import → Unit Charges.
 //
 //   2. CAM/RET Estimate — next year's recurring monthly estimate. Charge
-//      code CAM / RET, monthly amount = ROUND(thisYearAmountDue rounded to
-//      the nearest $10, then /12 to the nearest $10). Staff may override the
+//      code CAM / RET, monthly amount = thisYearAmountDue rounded to the
+//      nearest $10, then /12 to the nearest $5 — every estimate ends in 0 or 5,
+//      as the budget's CAM estimates do (owner). Staff may override the
 //      monthly figure before upload.
 
 import type { BuildingReconResult, TenantReconResult } from "./types";
+
+/** Nearest $5, half away from zero — a monthly estimate ends in 0 or 5. */
+export const round5 = (x: number) => Math.sign(x) * Math.round(Math.abs(x) / 5) * 5 || 0;
 
 /** Excel ROUND(x, digits): half away from zero, digits may be negative
  *  (e.g. -1 → nearest 10). */
@@ -74,7 +78,7 @@ export type NextYearEstimate = {
 };
 
 /** Next-year recurring estimate per tenant, derived from this year's amount
- *  due (rounded to the nearest $10, then /12 to the nearest $10). */
+ *  due (rounded to the nearest $10, then /12 to the nearest $5). */
 export function nextYearEstimate(t: TenantReconResult): NextYearEstimate {
   const annualCam = excelRound(t.opexAmountDue, -1);
   const annualRet = excelRound(t.retAmountDue, -1);
@@ -83,9 +87,9 @@ export function nextYearEstimate(t: TenantReconResult): NextYearEstimate {
     skylineUnit: t.skylineUnit,
     name: t.name,
     annualCam,
-    monthlyCam: excelRound(annualCam / 12, -1),
+    monthlyCam: round5(annualCam / 12),
     annualRet,
-    monthlyRet: excelRound(annualRet / 12, -1),
+    monthlyRet: round5(annualRet / 12),
   };
 }
 
