@@ -204,21 +204,29 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
   // Keyed `<code>@<year>` so changing the year refetches, but re-renders don't.
   const loaded = useRef<Set<string>>(new Set());
 
+  // The per-partnership counts ("K-1 7/21") and the per-investor ones. Read on
+  // mount AND again after every upload / delete, so the pill ticks as files go
+  // in rather than waiting for a page refresh.
+  const loadSummary = useCallback(async (isAlive: () => boolean = () => true) => {
+    const r = await fetch(`/api/investor-k1?summary=1&year=${summaryYear}`, { cache: "no-store" }).then((x) => x.json()).catch(() => null);
+    if (!isAlive() || !r?.properties) return false;
+    setSummary(Object.fromEntries(r.properties.map((p: { code: string; owners: number; uploaded: number }) =>
+      [p.code, { owners: p.owners, uploaded: p.uploaded }])));
+    if (Array.isArray(r.ownerIds)) setK1Owners(new Set<string>(r.ownerIds));
+    return true;
+  }, [summaryYear]);
+
   useEffect(() => {
     if (!enabled) return;
     let alive = true;
     void (async () => {
-      const r = await fetch(`/api/investor-k1?summary=1&year=${summaryYear}`).then((x) => x.json()).catch(() => null);
-      if (!alive || !r?.properties) return;
-      setSummary(Object.fromEntries(r.properties.map((p: { code: string; owners: number; uploaded: number }) =>
-        [p.code, { owners: p.owners, uploaded: p.uploaded }])));
-      if (Array.isArray(r.ownerIds)) setK1Owners(new Set<string>(r.ownerIds));
+      if (!(await loadSummary(() => alive))) return;
       const c = await fetch("/api/investor-k1?contacts=1").then((x) => x.json()).catch(() => null);
       if (!alive || !Array.isArray(c?.owners)) return;
       setEmails(Object.fromEntries((c.owners as (OwnerEmail & { ownerId: string })[]).map((o) => [o.ownerId, o])));
     })();
     return () => { alive = false; };
-  }, [enabled, summaryYear]);
+  }, [enabled, summaryYear, loadSummary]);
 
   const yearOf = useCallback((code: string) => years[code] ?? thisYear - 1, [years]);
 
@@ -269,11 +277,11 @@ export function useK1Registry(enabled: boolean, openK1Codes: string[]) {
     setErrors((e) => ({ ...e, [code]: null }));
     try {
       await fn();
-      await refresh(code);
+      await Promise.all([refresh(code), loadSummary()]);
     } catch (e) {
       setErrors((x) => ({ ...x, [code]: e instanceof Error ? e.message : "Something went wrong." }));
     } finally { setBusyCode(null); }
-  }, [refresh]);
+  }, [refresh, loadSummary]);
 
   const slice = useCallback((code: string): K1Slice => {
     const payload = data[code] ?? null;
