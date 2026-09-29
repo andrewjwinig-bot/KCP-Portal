@@ -68,17 +68,25 @@ describe("recoveries follow the rent months", () => {
     expect(half.cam).toEqual([...new Array(6).fill(1000), ...new Array(6).fill(0)]);
   });
 
-  it("a tenant on no reconciliation is assumed NNN at its pro-rata share", async () => {
+  it("an existing tenant on no reconciliation is held at what it is billed today — never assumed NNN", async () => {
     loadRetailRecon.mockResolvedValue({ result: { tenants: [
       { unitRef: "2300-1", name: "Old", camDue: 12000, insDue: 0, retDue: 0, occPct: 1, camDenom: 10000, insDenom: 10000, retDenom: 10000, camPoolFull: 100000, insPool: 0, retPool: 0 },
     ] } });
     const e = (await estimateReimbursements("2300", 2026, 0, {
       poolRatios: { cam: 1, ins: 1, ret: 1 },
-      tenancy: [suite("2300-1", flat(500)), { ...suite("2300-9", flat(400)), sqft: 1000 }],
+      tenancy: [
+        suite("2300-1", flat(500)),
+        { ...suite("2300-9", flat(400)), sqft: 1000, billing: { cam: 300, ins: 0, ret: 120 } },
+        { ...suite("2300-8", flat(400)), sqft: 1000, billing: { cam: 0, ins: 0, ret: 0 } },
+      ],
+      statementBilling: new Map([["2300-9", { cam: 310 }]]),
     }))!;
     const n = e.tenants.find((t) => t.unitRef === "2300-9")!;
-    expect(n.camAnnual).toBe(10000); // 1,000 of 10,000 SF × $100,000
-    expect(n.method).toMatchObject({ kind: "new", assumption: "nnn" });
+    expect(n.camAnnual).toBe(310 * 12); // the statement's CAM, not a pro-rata $10,000
+    expect(n.retAnnual).toBe(120 * 12); // the roll's RET where the statement has none
+    expect(n.insAnnual).toBe(0);        // not billed today → no new charge
+    expect(n.method).toMatchObject({ kind: "new", assumption: "held" });
+    expect(e.tenants.find((t) => t.unitRef === "2300-8")!.camAnnual).toBe(0);
   });
 
   it("scales a part-year recon tenant up to a full year", async () => {

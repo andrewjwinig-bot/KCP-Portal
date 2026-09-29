@@ -16,13 +16,11 @@ export type EstimateOverrides = Record<string, EstimateOverride>;
 
 /** Estimates decided in code rather than on the table — a billing arrangement
  *  the engine cannot see. A stored override (or a stored clear) replaces one.
- *  McDonald's at Gray's Ferry (owner, 9/29/26) pays RET once a year at
- *  reconciliation, never monthly (2025 recon: $0 RET escrow against $7,074
- *  due). Its $492 of Other Expense on the roll is U&O, not INS — it pays no
- *  INS (`currentBilling`). */
-const SEEDED: { code: string; fromYear: number; unitRef: string; o: EstimateOverride }[] = [
-  { code: "4500", fromYear: 2027, unitRef: "4500-2851", o: { ret: 0, note: "No monthly RET — billed annually at reconciliation (2025 recon: $0 RET escrow)", by: "Seed" } },
-];
+ *  (McDonald's RET at 4500 was seeded here as $0; the general rule —
+ *  `reconOnlyParts`: $0 escrow in the recon year though owed, nothing billed
+ *  today → settled at reconciliation — now covers it, and keeps the recovery
+ *  in the budget's revenue, which a $0 override removed.) */
+const SEEDED: { code: string; fromYear: number; unitRef: string; o: EstimateOverride }[] = [];
 
 export function seededEstimateOverrides(year: number, code: string): EstimateOverrides {
   const out: EstimateOverrides = {};
