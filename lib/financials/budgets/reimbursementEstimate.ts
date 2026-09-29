@@ -162,7 +162,19 @@ export type EstimateOptions = {
   excludeUnits?: Set<string>;
   /** Internal — the office part of a mixed centre covers only its own suites. */
   onlyUnits?: Set<string>;
+  /** The budget's RET pool in DOLLARS (the tax line, less any parcel not in
+   *  CAM). With it, RET scales from the RECONCILED pool straight to the
+   *  budget's — no assumed growth in between. A tax does not grow 3% a year:
+   *  it moves when the assessment or the millage does, and the budget's tax
+   *  line already says by how much (`assessedTaxes.ts`). */
+  retBudgetPool?: number | null;
+  /** A mixed centre's office RET pool, in dollars. */
+  officeRetBudgetPool?: number | null;
 };
+
+/** RET from the reconciled pool to the budget's: budget ÷ recon. */
+const retRatio = (budget: number | null | undefined, recon: number | null | undefined) =>
+  budget != null && recon != null && recon > 0 && budget >= 0 ? budget / recon : null;
 
 /** Estimate a property's tenant CAM/INS/RET recoveries for `budgetYear`, or null
  *  when the property has no recon fixture (recovery lines stay as forecast). */
@@ -190,6 +202,7 @@ export async function estimateReimbursements(
     officeUnits = new Set((oLoaded?.result.tenants ?? []).map((t) => canon(t.unitRef)));
     officeEst = await estimateReimbursements(officeCode, budgetYear, growthPct, {
       ...opts, poolRatios: opts.officePoolRatios ?? opts.poolRatios, onlyUnits: officeUnits,
+      retBudgetPool: opts.officeRetBudgetPool ?? null,
     });
   }
   const excluded = (ref: string) => (!!officeUnits && officeUnits.has(canon(ref))) || (!!opts.excludeUnits && opts.excludeUnits.has(canon(ref)))
@@ -275,6 +288,10 @@ export async function estimateReimbursements(
     const loaded = await loadRetailRecon(code, reconYear);
     if (!loaded) return null;
     const ts = loaded.result.tenants;
+    if (pr) {
+      const direct = retRatio(opts.retBudgetPool, ts.find((t) => t.retPool > 0)?.retPool);
+      if (direct != null) ratios.ret = direct;
+    }
     for (const t of ts) {
       // A tenant who left during the recon year is not in the budget year.
       if (t.vacatedISO && Number(String(t.vacatedISO).slice(0, 4)) <= reconYear) continue;
@@ -337,6 +354,10 @@ export async function estimateReimbursements(
   } else {
     const loaded = await loadOfficeRecon(code, reconYear);
     if (!loaded) return null;
+    if (pr) {
+      const direct = retRatio(opts.retBudgetPool, loaded.result.tenants.find((t) => (t.retLine?.actual ?? 0) > 0)?.retLine?.actual);
+      if (direct != null) ratios.ret = direct;
+    }
     for (const t of loaded.result.tenants) {
       if (t.isVacant) continue;
       const { months, assumed, note } = tenancy(t.unitRef);

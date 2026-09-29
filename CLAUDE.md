@@ -1564,6 +1564,19 @@ time — and the team does not have time to open the GL over $80.
   reconciliation (a newer lease) and a lease-up are assumed NNN** — pro-rata
   SF share of each pool, no admin fee (`retailProRata`); an office one takes the BUDGET YEAR as its base year (owner's call),
   so it is listed at zero with that reason.
+- **RET RECOVERIES SCALE FROM THE RECONCILED POOL STRAIGHT TO THE BUDGET'S**
+  (`retBudgetPool` → `retRatio` in `reimbursementEstimate.ts`): budget RET
+  pool (the tax line less parcels not in CAM) ÷ the recon's own RET pool. It
+  used to be 3% × (budget ÷ THIS YEAR'S REPROJECTED RET line), and the
+  reprojection is the wrong denominator for a tax: most of the year's bill has
+  not posted, so it understated the basis and blew the ratio up — 4500 read
+  $36,226/mo of RET estimates (~$435K a year) against a $203,656 tax line. A
+  tax does not grow 3% either; it moves with the assessment and the millage,
+  which the budget's tax line already carries. 4500 now: $187,329 (the
+  shopping-centre parcel, 2027 assessment, less 1%) ÷ $159,405 (the 2025
+  pool) = +17.5%. CAM and INS still use the reprojection ratio — their recon
+  pools are not built line-for-line like the draft's, so a direct ratio would
+  compare different things.
 - **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
   `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
   property's draft built (four at a time) and summed line by line, matched by
