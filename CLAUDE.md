@@ -1433,6 +1433,12 @@ time — and the team does not have time to open the GL over $80.
     read as a 43% cut to 51K) — "im getting different numbers". A line with
     no budget match keeps that ratio and is starred (`from: "ratio"`). Not at
     a mixed centre (7010), whose retail pool is an allocation of each line.
+    **INS the same way** (`insuranceBucketBudget`): the pool is the Insurance
+    line's PROPERTY bucket (liability is a CAM line), × the tenant's INS PRS
+    — it was the recon's property premium × the WHOLE Insurance line's change,
+    liability included, which put 4500's pool at $16,027 against a $12,192
+    property budget. A tenant whose INS is the liability line (Wawa at 2300)
+    reads the Liability bucket; no bucket on the line → the old ratio.
     The CAM cell's hover IS the worksheet (`CamWorksheet`): each line's
     recon actual · projection · budget, then GLA → SF → PRS → tenant CAM
     expense → admin fee (on its base, † lines excluded) → total → monthly.

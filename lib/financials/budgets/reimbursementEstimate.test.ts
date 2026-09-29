@@ -118,6 +118,23 @@ describe("the hover's working ties to the year", () => {
   });
 });
 
+describe("INS off the budget's property insurance", () => {
+  it("reads the Insurance line's Property bucket, not the whole line's change", async () => {
+    loadRetailRecon.mockResolvedValue({ result: { tenants: [
+      { unitRef: "2300-1", name: "Grocer", sqft: 56648, occPct: 1, camPrs: 0, insPrs: 68.41, retPrs: 0, adminFeePct: 0,
+        camDenom: 0, insDenom: 82809, retDenom: 0, camPoolFull: 0, camPoolEffective: 0, insPool: 11645, retPool: 0,
+        camDue: 0, insDue: 7966, retDue: 0, camSchedule: [], adminExcludedLabels: [] },
+    ] } });
+    const e = (await estimateReimbursements("2300", 2027, 3, {
+      poolRatios: { cam: 1, ins: 1.3, ret: 1 }, tenancy: [suite("2300-1", flat(500))],
+      camLines: [{ label: "Insurance", mask: "6510-*", total: 81164, basisTotal: 94000,
+        subLines: [{ account: "Liability", total: 68972, basisTotal: 82476 }, { account: "Property", total: 12192, basisTotal: 11524 }] }],
+    }))!;
+    expect(e.tenants[0].insAnnual).toBe(Math.round(12192 * 0.6841)); // 8,341 — not 11,645 × 1.03 × 1.3
+    expect((e.tenants[0].method as any).basis.ins).toMatchObject({ expense: 12192, actual: 11645, projected: 11524 });
+  });
+});
+
 describe("estimateReimbursements", () => {
   it("scales the latest retail recon to the budget year (CAM/INS/RET)", async () => {
     loadRetailRecon.mockResolvedValue({ result: { tenants: [
