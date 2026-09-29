@@ -20,13 +20,15 @@ const MARGIN = 36;
 const CONTENT_W = PAGE_W - MARGIN * 2; // 720
 
 // Column layout — GL | Line | Jan–Dec | Total = 720 total.
+// Months get the width: a roll-up's six-figure months ($423,444) must print
+// whole, never "$423,…" on a page meant for investors.
 const COL = {
-  gl:    { x: MARGIN,                        w: 50 },
-  line:  { x: MARGIN + 50,                   w: 175 },
-  // Months start at MARGIN + 225 and each is 33 wide → 12 * 33 = 396.
-  monthW: 33,
-  monthsX: MARGIN + 225,
-  total: { x: MARGIN + 225 + 33 * 12,        w: 99 }, // 99 left after months
+  gl:    { x: MARGIN,                        w: 48 },
+  line:  { x: MARGIN + 48,                   w: 150 },
+  // Months start at MARGIN + 198 and each is 38 wide → 12 * 38 = 456.
+  monthW: 38,
+  monthsX: MARGIN + 198,
+  total: { x: MARGIN + 198 + 38 * 12,        w: 66 }, // 66 left after months
 };
 
 // Brand palette — same navy as the Excel export / page header.
@@ -70,6 +72,11 @@ function drawText(
   opts: { maxWidth?: number; align?: "left" | "right" | "center" } = {},
 ) {
   let draw = str;
+  // A FIGURE shrinks to fit rather than truncating — "$1,234,567" cut to
+  // "$1,23…" is a wrong number, not a shorter one. Text still truncates.
+  if (opts.maxWidth != null && /^\(?-?\$[\d,]+\)?$/.test(str)) {
+    while (size > 5.5 && font.widthOfTextAtSize(str, size) > opts.maxWidth) size -= 0.25;
+  }
   // Truncate to maxWidth with ellipsis when it would overflow.
   if (opts.maxWidth != null) {
     while (draw.length > 1 && font.widthOfTextAtSize(draw, size) > opts.maxWidth) {
@@ -143,12 +150,21 @@ function subtotalKeysAfter(sectionName: string, hasDebt: boolean, hasCapital: bo
   return [];
 }
 
+export type BudgetPdfOptions = {
+  /** A DRAFT budget (the Budget Draft page, not yet published): marked DRAFT
+   *  in the title band and on every page, so a copy shared with investors can
+   *  never be read as the adopted budget. */
+  draft?: boolean;
+};
+
 export async function generateBudgetDownloadPdf(
   wb: BudgetWorkbook,
   property: PropertyBudget,
+  opts: BudgetPdfOptions = {},
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`${wb.year} Operating Budget — ${property.propertyCode} ${property.propertyName}`);
+  const kind = opts.draft ? "DRAFT Operating Budget" : "Operating Budget";
+  pdf.setTitle(`${wb.year} ${kind} — ${property.propertyCode === "CONSOLIDATED" ? property.propertyName : `${property.propertyCode} ${property.propertyName}`}`);
   pdf.setProducer("KCP Portal");
 
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
@@ -161,13 +177,21 @@ export async function generateBudgetDownloadPdf(
 
   // ── Title band ─────────────────────────────────────────────────────
   fillRect(page, 0, 0, PAGE_W, 34, NAVY_DARK);
-  drawText(page, `${property.propertyCode}  —  ${property.propertyName}`, 0, 8, bold, 16, WHITE, {
+  // A book's roll-up has no property code of its own — just its name.
+  const heading = property.propertyCode === "CONSOLIDATED" ? property.propertyName : `${property.propertyCode}  —  ${property.propertyName}`;
+  drawText(page, heading, 0, 8, bold, 16, WHITE, {
     maxWidth: PAGE_W, align: "center",
   });
   fillRect(page, 0, 34, PAGE_W, 22, NAVY);
-  drawText(page, `${wb.year} Operating Budget  ·  ${wb.category}`, 0, 39, bold, 11, WHITE, {
+  drawText(page, `${wb.year} ${kind}  ·  ${wb.category}`, 0, 39, bold, 11, WHITE, {
     maxWidth: PAGE_W, align: "center",
   });
+  if (opts.draft) {
+    // A boxed DRAFT stamp at the top-left of the title band.
+    const w = bold.widthOfTextAtSize("DRAFT", 12) + 16;
+    page.drawRectangle({ x: MARGIN, y: py(page, 29), width: w, height: 22, color: RED });
+    drawText(page, "DRAFT", MARGIN, 11, bold, 12, WHITE, { maxWidth: w, align: "center" });
+  }
 
   // Meta line.
   y = 64;
@@ -175,6 +199,7 @@ export async function generateBudgetDownloadPdf(
   if (property.rentableSqft) metaParts.push(`Rentable SF: ${property.rentableSqft.toLocaleString("en-US")}`);
   if (wb.source?.opExGrowthPct != null) metaParts.push(`OpEx defaulted at ${wb.source.opExGrowthPct}% over prior`);
   metaParts.push(`Generated ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}`);
+  if (opts.draft) metaParts.push("Draft for discussion — subject to change");
   drawText(page, metaParts.join("    ·    "), 0, y, regular, 9, MUTED, {
     maxWidth: PAGE_W, align: "center",
   });
@@ -296,8 +321,10 @@ export async function generateBudgetDownloadPdf(
     fillRect(page, MARGIN, y, CONTENT_W, rowH, ROLLUP_FILL);
     drawHLine(page, MARGIN, y, CONTENT_W, NAVY);
     drawHLine(page, MARGIN, y + rowH, CONTENT_W, NAVY);
-    drawText(page, label, COL.line.x + 3, y + 7, bold, 10, NAVY_DARK, {
-      maxWidth: COL.line.w + COL.gl.w - 6,
+    // From the left edge: "TOTAL OPERATING EXPENSES" does not fit the Line
+    // column alone and ran into January.
+    drawText(page, label, COL.gl.x + 6, y + 7, bold, 10, NAVY_DARK, {
+      maxWidth: COL.line.w + COL.gl.w - 10,
     });
     for (let m = 0; m < 12; m++) {
       const { text, color } = fmtMoney(months[m]);
@@ -366,7 +393,7 @@ export async function generateBudgetDownloadPdf(
   for (let i = 0; i < pages.length; i++) {
     drawText(
       pages[i],
-      `Page ${i + 1} of ${pages.length}`,
+      `${opts.draft ? `DRAFT  ·  ${wb.year} Operating Budget  ·  ` : ""}Page ${i + 1} of ${pages.length}`,
       0,
       PAGE_H - 20,
       regular, 8, MUTED,

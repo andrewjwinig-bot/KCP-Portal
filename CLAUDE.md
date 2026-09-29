@@ -1619,6 +1619,20 @@ time — and the team does not have time to open the GL over $80.
     base. A line with no budget account falls back to the building rate and is
     starred in the hover. The CAM estimates hover shows the working: each line's
     budget − base = over, the lines at/under base, and × the share.
+- **THE DRAFT DOWNLOADS AS THE PRESENTATION-READY BUDGET PDF, MARKED DRAFT**
+  (`GET /api/financials/budgets/draft/pdf?key=|book=&year=`, the masthead's
+  "Download draft" menu). It is the SAME renderer as a published budget's PDF
+  (`generateBudgetDownloadPdf` with `{ draft: true }`: a red DRAFT stamp in the
+  title band, "DRAFT Operating Budget", "Draft for discussion — subject to
+  change", and DRAFT on every page's footer), fed by the publish step's own
+  `draftToPropertyBudget` — so it is exactly what publishing would produce
+  and matches every other budget report. For investors (owner): JUST THE
+  FIGURES — GL, line, Jan–Dec, Total; no reprojection or change columns, and
+  NO distributions / bank balance (the draft's cash section is not part of a
+  budget). A book is ONE PDF: its roll-up, then each property. The PDF's
+  month columns were widened (38pt) and a FIGURE shrinks to fit rather than
+  truncating — a roll-up's "$423,…" is a wrong number, not a shorter one.
+  The LIK payroll book has no draft PDF.
 - **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
   `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
   property's draft built (four at a time) and summed line by line, matched by
