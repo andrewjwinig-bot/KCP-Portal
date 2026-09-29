@@ -100,6 +100,24 @@ describe("recoveries follow the rent months", () => {
   });
 });
 
+describe("the hover's working ties to the year", () => {
+  it("expense × PRS + admin = the CAM year; INS and RET = expense × PRS", async () => {
+    // Recon: CAM pool $100,000, PRS 5%, admin 10% → due $5,500. INS pool
+    // $20,000 → $1,000. RET pool $40,000 → $2,000.
+    loadRetailRecon.mockResolvedValue({ result: { tenants: [
+      { unitRef: "2300-1", name: "Acme", sqft: 5000, occPct: 1, camPrs: 5, insPrs: 5, retPrs: 5, adminFeePct: 10,
+        camDenom: 100000, insDenom: 100000, retDenom: 100000, camPoolFull: 100000, camPoolEffective: 100000, insPool: 20000, retPool: 40000,
+        camDue: 5500, insDue: 1000, retDue: 2000 },
+    ] } });
+    const e = (await estimateReimbursements("2300", 2026, 0, { poolRatios: { cam: 1.1, ins: 1.05, ret: 1 }, tenancy: [suite("2300-1", flat(500))] }))!;
+    const m = e.tenants[0].method as any;
+    expect(m.basis.cam).toMatchObject({ expense: 110000, gla: 100000, sf: 5000, prs: 5, share: 5500, admin: 550, year: 6050 });
+    expect(m.basis.ins).toMatchObject({ expense: 21000, share: 1050, year: 1050 });
+    expect(m.basis.ret).toMatchObject({ expense: 40000, share: 2000, year: 2000 });
+    expect(e.tenants[0].camAnnual).toBe(m.basis.cam.year);
+  });
+});
+
 describe("estimateReimbursements", () => {
   it("scales the latest retail recon to the budget year (CAM/INS/RET)", async () => {
     loadRetailRecon.mockResolvedValue({ result: { tenants: [
