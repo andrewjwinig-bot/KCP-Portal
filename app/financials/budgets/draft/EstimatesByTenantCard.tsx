@@ -286,19 +286,14 @@ function calcTip(e: EstimateRow, part: "cam" | "ins" | "ret", year: number, ry: 
   const b = m?.kind === "retail" ? m.basis?.[part] : undefined;
   if (b?.lines?.length && m?.kind === "retail") {
     const final = w.year ?? b.year;
-    return { rows: [], body: <CamWorksheet b={b} year={year} ry={ry ?? year - 2} final={final} />, footer: monthly(final), width: 470 };
+    return { rows: [], body: <CamWorksheet b={b} year={year} ry={ry ?? year - 2} final={final} />, footer: monthly(final), width: 380 };
   }
   if (b && m?.kind === "retail") {
     if (b.flat) rows.push({ label: "Own parcel — fixed RET", value: money0(b.year) });
     else {
       const notes = [part === "cam" && m.excludedLines ? `${m.excludedLines} line${m.excludedLines === 1 ? "" : "s"} excluded` : "", b.capped ? `capped +${m.capPct}%` : ""].filter(Boolean).join(", ");
-      if (b.actual != null) {
-        // A pool read straight off the budget line (property insurance).
-        const name = part === "ins" ? "Property insurance" : "Expense";
-        rows.push({ label: `${name} ${ry ?? year - 2} actual`, value: money0(b.actual), color: "var(--muted)" });
-        if (b.projected != null) rows.push({ label: `${name} ${year - 1} projected`, value: money0(b.projected), color: "var(--muted)" });
-        rows.push({ label: `${name} ${year} budget`, value: money0(b.expense) });
-      } else rows.push({ label: `Expense (${year} pool${notes ? `, ${notes}` : ""})`, value: money0(b.expense) });
+      if (b.actual != null) rows.push({ label: `${part === "ins" ? "Property insurance" : "Expense"} ${year} budget`, value: money0(b.expense) });
+      else rows.push({ label: `Expense (${year} pool${notes ? `, ${notes}` : ""})`, value: money0(b.expense) });
       rows.push({ label: "Applicable GLA", value: b.gla > 0 ? `${b.gla.toLocaleString("en-US")} SF` : "–" });
       rows.push({ label: "Tenant SF", value: `${b.sf.toLocaleString("en-US")} SF` });
       const computed = b.gla > 0 ? (b.sf / b.gla) * 100 : null;
@@ -339,36 +334,31 @@ function CamWorksheet({ b, year, ry, final }: { b: NonNullable<Extract<NonNullab
   const n0 = (v: number | null) => (v == null ? "–" : money0(v));
   const billed = lines.filter((l) => l.billed);
   const tot = (k: "actual" | "budget") => billed.reduce((a, l) => a + l[k], 0);
-  const projTot = billed.every((l) => l.projected != null) ? billed.reduce((a, l) => a + (l.projected ?? 0), 0) : null;
   const adminEx = lines.filter((l) => l.billed && l.adminExcluded).map((l) => l.label);
   const kv = (label: string, value: string, strong = false, color?: string) => (
-    <tr><td style={{ ...lab, fontWeight: strong ? 800 : 400, color: color ?? (strong ? "var(--text)" : "var(--muted)") }} colSpan={3}>{label}</td>
+    <tr><td style={{ ...lab, fontWeight: strong ? 800 : 400, color: color ?? (strong ? "var(--text)" : "var(--muted)") }}>{label}</td>
       <td style={{ ...num, fontWeight: strong ? 800 : 700, color }}>{value}</td></tr>
   );
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
       <thead><tr><th style={{ ...head, textAlign: "left", padding: 0 }}>Common area maintenance</th>
-        <th style={head}>{ry} actual</th><th style={head}>{year - 1} proj.</th><th style={head}>{year} budget</th></tr></thead>
+        <th style={head}>{year} budget</th></tr></thead>
       <tbody>
         {lines.map((l) => {
           const off: React.CSSProperties = l.billed ? {} : { textDecoration: "line-through", color: "var(--muted)" };
           return (
             <tr key={l.label}>
               <td style={{ ...lab, ...off }}>{l.label}{l.billed && l.adminExcluded ? " †" : ""}{l.from === "ratio" ? " *" : ""}</td>
-              <td style={{ ...num, ...off }}>{n0(l.actual)}</td>
-              <td style={{ ...num, ...off }}>{n0(l.projected)}</td>
               <td style={{ ...num, ...off, fontWeight: l.billed ? 700 : 400 }}>{n0(l.budget)}</td>
             </tr>
           );
         })}
         <tr style={{ borderTop: "1px solid var(--border)" }}>
           <td style={{ ...lab, fontWeight: 800 }}>Total</td>
-          <td style={{ ...num, fontWeight: 800 }}>{money0(tot("actual"))}</td>
-          <td style={{ ...num, fontWeight: 800 }}>{n0(projTot)}</td>
           <td style={{ ...num, fontWeight: 800 }}>{money0(tot("budget"))}</td>
         </tr>
         {b.capped && kv("Controllable CAM capped → pool", money0(b.expense), false, UP)}
-        <tr><td colSpan={4} style={{ height: 6 }} /></tr>
+        <tr><td colSpan={2} style={{ height: 6 }} /></tr>
         {kv("Center GLA", b.gla > 0 ? `${b.gla.toLocaleString("en-US")} SF` : "–")}
         {kv("Tenant square feet", `${b.sf.toLocaleString("en-US")} SF`)}
         {kv(`Tenant proportional share${b.gla > 0 && Math.abs((b.sf / b.gla) * 100 - b.prs) >= 0.005 ? " (stipulated)" : ""}`, `${b.prs.toFixed(2)}%`)}
@@ -376,10 +366,31 @@ function CamWorksheet({ b, year, ry, final }: { b: NonNullable<Extract<NonNullab
         {b.adminPct ? kv(`Administrative fee ${b.adminPct}%${adminEx.length ? ` († excluded — on ${money0(b.adminBase ?? 0)})` : ""}`, money0(b.admin)) : null}
         {kv("Total tenant expense / budget", money0(b.year), true)}
         {Math.abs(final - b.year) >= 1 && kv("After the recovery-ratio check", money0(final), false, UP)}
-        {lines.some((l) => l.from === "ratio") && <tr><td colSpan={4} style={{ ...lab, color: "var(--muted)", fontSize: 11, paddingTop: 4 }}>* no budget line found — grown at the pool&apos;s rate</td></tr>}
+        {lines.some((l) => l.from === "ratio") && <tr><td colSpan={2} style={{ ...lab, color: "var(--muted)", fontSize: 11, paddingTop: 4 }}>* no budget line found — grown at the pool&apos;s rate</td></tr>}
       </tbody>
     </table>
   );
+}
+
+/** The recon year's own working, for the hover on its column: each
+ *  category's pool × the tenant's share (+ admin), the year ÷ 12. */
+function reconTip(e: EstimateRow, ry: number): { rows: TipRow[]; footer: TipRow } | null {
+  const m = e.method;
+  if (m?.kind !== "retail" || !m.reconCalc || !e.recon) return null;
+  const c = m.reconCalc;
+  const rows: TipRow[] = [];
+  const occ = c.occ < 1 ? ` × ${(c.occ * 100).toFixed(1)}% occ` : "";
+  if (m.recon.cam) {
+    rows.push({ label: `CAM pool${c.capped ? " (capped)" : ""} × ${m.camPrs.toFixed(2)}%${occ}`, value: `${money0(c.camPool)} → ${money0(c.camShare)}` });
+    if (c.camAdmin) rows.push({ label: `  + admin fee ${m.adminFeePct}%`, value: money0(c.camAdmin) });
+    rows.push({ label: "  CAM due", value: `${money0(m.recon.cam)} · ${money0(e.recon.cam)}/mo`, color: "var(--brand)" });
+  }
+  if (m.recon.ins) rows.push({ label: `INS pool × ${m.insPrs.toFixed(2)}%${occ}`, value: `${money0(c.insPool)} → ${money0(m.recon.ins)} · ${money0(e.recon.ins)}/mo` });
+  if (m.recon.ret) rows.push(c.flatRet != null
+    ? { label: "RET — own parcel, fixed", value: `${money0(m.recon.ret)} · ${money0(e.recon.ret)}/mo` }
+    : { label: `RET pool × ${m.retPrs.toFixed(2)}%${c.retDiscountPct ? ` − ${c.retDiscountPct}%` : ""}${occ}`, value: `${money0(c.retPool)} → ${money0(m.recon.ret)} · ${money0(e.recon.ret)}/mo` });
+  if (!rows.length) return null;
+  return { rows, footer: { label: `${ry} due, a month`, value: money0(e.recon.total) } };
 }
 
 function Row({ e, v, ry, year, canOverride, onEdit }: {
@@ -428,7 +439,10 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
         );
       })}
       <td style={{ ...td, fontWeight: 700 }}>{v(n?.total, e.sqft)}</td>
-      {ry != null && <td style={{ ...td, borderLeft: DIVIDE, color: "var(--muted)" }}>{v(e.recon?.total, e.sqft)}</td>}
+      {ry != null && <td style={{ ...td, borderLeft: DIVIDE, color: "var(--muted)" }}>{(() => {
+        const tip = reconTip(e, ry);
+        return tip ? <HoverCard title={`${e.tenant || "—"} · ${ry} reconciliation`} width={330} rows={tip.rows} footer={tip.footer}>{v(e.recon?.total, e.sqft)}</HoverCard> : v(e.recon?.total, e.sqft);
+      })()}</td>}
       {nextCell("cam")}{nextCell("ins")}{nextCell("ret")}{nextCell("total")}
       <td style={{ ...td, borderLeft: DIVIDE, fontWeight: 700, color: tone(e.change) }}>{e.jump ? `▲ ${signed(e.change)}` : signed(e.change)}</td>
       <td style={{ ...td, color: tone(e.change) }}>{e.jump ? <Pill tone={TONE_AMBER}>{pctS(e.changePct)}</Pill> : pctS(e.changePct)}</td>

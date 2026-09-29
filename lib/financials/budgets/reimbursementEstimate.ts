@@ -55,6 +55,11 @@ export type ReimbMethod =
       recon: { cam: number; ins: number; ret: number };
       /** What the recon year actually BILLED in escrow (annual). */
       escrow?: { cam: number; ins: number; ret: number };
+      /** The recon year's working: its pools and the CAM share / admin fee. */
+      reconCalc?: {
+        camPool: number; camShare: number; camAdmin: number; insPool: number; retPool: number;
+        retDiscountPct: number; flatRet: number | null; capped: boolean; occ: number;
+      };
       /** The working, category by category: the budget pool this tenant
        *  shares in, the GLA it is divided over, the tenant's SF and PRS, and
        *  the year it comes to — so the hover can be followed line by line. */
@@ -415,6 +420,12 @@ export async function estimateReimbursements(
           reconOcc: occ < 1 ? occ : null,
           recon: { cam: r0(t.camDue), ins: r0(t.insDue), ret: r0(t.retDue) },
           escrow: { cam: r0(t.camEscrow), ins: r0(t.insEscrow), ret: r0(t.retEscrow) },
+          // The recon year's own working, for the hover on its column.
+          reconCalc: {
+            camPool: r0(t.camPoolEffective), camShare: r0(t.camShare), camAdmin: r0(t.camAdmin),
+            insPool: r0(t.insPool), retPool: r0(t.retPool), retDiscountPct: t.retDiscountPct || 0,
+            flatRet: t.flatRet ?? null, capped: !!t.capped, occ: t.occPct > 0 && t.occPct < 1 ? t.occPct : 1,
+          },
           ...(t.grossLease ? {} : { basis: retailBasis(t, ratios, rec, cam, insB) }),
         },
       });
