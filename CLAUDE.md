@@ -1419,9 +1419,11 @@ time — and the team does not have time to open the GL over $80.
   dollars: the CATCH-UP from today to the reconciled actual, then the BUDGET
   change (pool %, share, cap) — "+$140 to the 2025 actual · +$40 budget (CAM
   pool +6.0%)". A backed-out lease, a lease-up and a newer lease say so.
-  - **THE HOVER IS THE CALCULATION, STEP BY STEP** (owner: "i need to follow
-    the calculation flow"). For a retail tenant on a recon, each category
-    reads: Expense (the budget pool this tenant shares in — after its
+  - **EACH 2027 CAM / INS / RET CELL HOVERS ITS OWN CALCULATION** (owner: "i
+    need to follow the calculation flow"; `calcTip` in
+    `EstimatesByTenantCard.tsx`) — on the cell, not in the Why hover, which
+    was "way too busy" with all three stacked in it. For a retail tenant on a
+    recon, each category reads: Expense (the budget pool this tenant shares in — after its
     excluded lines and cap) → Applicable GLA → Tenant SF → Tenant PRS (marked
     "stipulated" when it is not SF ÷ GLA) → Tenant est. expense (expense ×
     PRS) → + admin fee / − RET discount → the year → Est. monthly charge
@@ -1429,8 +1431,9 @@ time — and the team does not have time to open the GL over $80.
     in `reimbursementEstimate.ts`): the engine budgets recon due × the pool
     ratio, which IS the recon formula run on recon pool × ratio, so the rows
     add to the budgeted figure to the dollar (admin = year − share). A
-    recovery-ratio cap that trimmed the year shows as its own row. Office
-    keeps its line-by-line base-year working.
+    recovery-ratio cap that trimmed the year shows as its own row. An office
+    tenant's CAM cell carries its line-by-line base-year working. The Why
+    hover keeps only today → recon actual → budget and where today came from.
   - **An estimate can be SET BY HAND** (Drew / Alison / admin, a REASON
     required — the tenant will ask; `estimateOverrides.ts`,
     `estimateOverrideStore.ts` → `budget-estimate-overrides`, `POST
