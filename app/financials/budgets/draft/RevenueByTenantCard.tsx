@@ -66,7 +66,7 @@ const SHORT: Record<Part, string> = { rent: "Rent", cam: "CAM", ins: "INS", ret:
  * change. Gross shows everything. A methodology line that is about one part
  * (admin fee, exclusions, cap — all CAM) appears only when that part is in view.
  */
-function tenantTip(r: TenantRevenueRow, est: ReimbursementEstimate | undefined, parts: Part[], viewLabel: string): { rows: TipRow[]; footer: TipRow } {
+export function tenantTip(r: TenantRevenueRow, est: ReimbursementEstimate | undefined, parts: Part[], viewLabel: string): { rows: TipRow[]; footer: TipRow } {
   const rows: TipRow[] = [];
   const rec = parts.filter((p) => p !== "rent") as Exclude<Part, "rent">[];
   const join = (f: (p: Exclude<Part, "rent">) => string) => rec.map((p) => (rec.length > 1 ? `${SHORT[p]} ${f(p)}` : f(p))).join(" · ");

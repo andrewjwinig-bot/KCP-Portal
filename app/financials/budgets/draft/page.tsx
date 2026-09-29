@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_RED, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable, growthOnNothing } from "./BudgetStatementTable";
 import { RevenueByTenantCard } from "./RevenueByTenantCard";
+import { EstimatesByTenantCard } from "./EstimatesByTenantCard";
 import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
 import { BudgetKpis } from "./BudgetKpis";
 import LoadingState from "@/app/components/LoadingState";
@@ -489,6 +490,15 @@ export default function BudgetDraftPage() {
             }} />
         )}
       </InPlaceRevenueCard>
+
+      {/* What each tenant is billed a month today vs the budget — the
+          change the January estimate letters carry (and the calls they start). */}
+      {draft?.tenantRevenue?.length ? (
+        <div>
+          <EstimatesByTenantCard rows={draft.tenantRevenue} est={draft.reimbursementEstimate} year={draft.budgetYear}
+            propertyName={draft.propertyName} propertyCode={draft.propertyCode} />
+        </div>
+      ) : null}
 
       </>)}
 
