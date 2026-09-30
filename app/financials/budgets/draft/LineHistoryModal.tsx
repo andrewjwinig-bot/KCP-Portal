@@ -98,7 +98,7 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
               <HistoryBars years={data.years} forecast={forecast} budget={budget != null ? { year, value: budget } : null} />
 
               <div className="muted small" style={{ marginTop: 12, lineHeight: 1.6 }}>
-                <strong>Actual</strong> is the line&rsquo;s GL; the tick on each bar is that year&rsquo;s <strong>budget</strong>. {forecast != null ? <>The current year is its <strong>reprojection</strong> — actual to date plus budget for the rest — so it reads as a full year. </> : null}The last bar is this draft&rsquo;s {year} budget, so you can see where it lands. The dashed line is the average of the full years shown. Hover a year for its variance.
+                <strong>Actual</strong> is the line&rsquo;s GL; the tick on each bar is that year&rsquo;s <strong>budget</strong>. {forecast != null ? <>The current year is its <strong>reprojection</strong> — actual to date plus budget for the remaining periods.</> : null}
               </div>
             </>
           )}
