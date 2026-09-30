@@ -1238,7 +1238,7 @@ time — and the team does not have time to open the GL over $80.
   section under brand group headings, tinted alternate months, fixed
   percentage columns, cross-section totals in brand-bordered cards, occupancy
   in its own card. Match `app/financials/budgets/page.tsx`, not the other way.
-- **The grid opens with Occupancy % / SF by month** (a suite is occupied in a
+- **The grid opens with Occupancy % by month** (a suite is occupied in a
   month it pays rent; the forecast column is today's roll). **There is NO
   recovery-ratio row and NO monthly ratio anywhere** (owner): a month's
   recovery is a flat estimate (the year ÷ months billed) while a month's
@@ -1248,7 +1248,7 @@ time — and the team does not have time to open the GL over $80.
   ratio. No leased-share flag (tried and removed by the owner). The modal
   (click a month) shows each tenant's year, % of the year's pool and SF
   share (`sfShares`) side by side.
-- **Rental income, Occupancy % and Occupancy SF cells hover their tenants**
+- **Rental income and Occupancy % cells hover their tenants**
   the same way (top eight, "· assumed" on a leasing assumption; occupancy adds
   vacant SF and the month's starts / ends). **Hovers name TENANTS, never suite
   numbers** (owner) — a nameless suite on a leasing assumption is "SPEC Tenant" (`tenantLabel`), any other nameless row "Unnamed tenant".
@@ -1368,7 +1368,7 @@ time — and the team does not have time to open the GL over $80.
   entry therefore tie in the budget by construction. Hover a month for the
   buildings. It is slow by nature (every building's draft), so the draft route
   has `maxDuration = 300`.
-- **Occupancy SF opens Occupancy by Suite** (`OccupancyBySuiteModal`, the
+- **Occupancy % opens Occupancy by Suite** (the Occupancy SF row was removed — owner; the SF lives in the hover and the modal) (`OccupancyBySuiteModal`, the
   Operating Budgets page's view): each suite's occupied SF by month, off the
   draft's own `tenantRevenue` (occupied = pays rent that month), dark green for
   a lease in place, light green for a leasing assumption.
