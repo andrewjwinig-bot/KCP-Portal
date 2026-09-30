@@ -143,11 +143,15 @@ export function CellInput({ initial, onDone }: { initial: number; onDone: (v: nu
 function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boolean; onSave: (cents: number | null) => void }) {
   const [open, setOpen] = useState(false);
   const tip = {
-    title: "Utilities on vacant space",
+    title: "Utilities on vacant space — the rate",
+    // The working, not just the answer: this year's line ÷ today's vacant SF
+    // is the default, so both figures are shown and the rate can be checked.
     rows: [
-      { label: "Rate", value: `$${v.rate.toFixed(2)}/SF/yr${v.rateTyped ? " (typed)" : ""}` },
-      ...(v.defaultRate != null ? [{ label: "This year ÷ today's vacant SF", value: `$${v.defaultRate.toFixed(2)}/SF` }] : []),
-      { label: "Vacant SF today", value: Math.round(v.sfToday).toLocaleString("en-US") },
+      { label: "This year's utilities (full-year reprojection)", value: money0(v.basisAnnual) },
+      { label: "÷ Vacant SF on today's rent roll", value: Math.round(v.sfToday).toLocaleString("en-US") },
+      ...(v.defaultRate != null ? [{ label: "= Default rate", value: `$${v.defaultRate.toFixed(2)}/SF/yr` }] : [{ label: "Default rate", value: "none — no vacancy today" }]),
+      { label: v.rateTyped ? (v.scope ? "Rate in use — typed (shared by every centre)" : "Rate in use — typed") : "Rate in use — the default", value: `$${v.rate.toFixed(2)}/SF/yr`, color: "var(--brand)" },
+      { label: "Vacant SF over the budget year (avg)", value: Math.round(v.sf.reduce((a, n) => a + n, 0) / 12).toLocaleString("en-US") },
     ],
     footer: { label: v.scope ? "One rate for every shopping centre" : "Each month", value: "vacant SF × rate ÷ 12" },
   };
@@ -164,7 +168,7 @@ function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boo
   }
   const pill = <Pill tone={TONE_BLUE}>${v.rate.toFixed(2)}/SF vacant</Pill>;
   return (
-    <HoverCard title={tip.title} rows={tip.rows} footer={tip.footer} width={300} help={false}>
+    <HoverCard title={tip.title} rows={tip.rows} footer={tip.footer} width={360} help={false}>
       {canEdit
         ? <button type="button" onClick={() => setOpen(true)} aria-label="Edit the utilities rate" style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>{pill}</button>
         : pill}
