@@ -1205,7 +1205,7 @@ time — and the team does not have time to open the GL over $80.
   +3% month by month, **Big Projects start at $0** (a project is decided each
   year; last year's figure shows in italics in the prior-year column — items
   have no reprojection), a bucket with no items is budgeted at the bucket, and
-  the line is the sum (source `items`, pill "Items"). Typed months key
+  the line is the sum (source `items`; NO pill — the ▸ already says the line opens into items, owner). Typed months key
   `section::label#<bucket>` or `…#<bucket>/<item>` in the ONE typed-month
   store. With no prior workbook the line keeps the base-bucket rule below.
 - **INSURANCE RENEWS IN NOVEMBER** (owner; `renewalMonths` in
