@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { vacantSfByMonth, vacantSfToday, defaultRate, monthsAt, resolveRate, rateKey, isVacancyUtilitiesLine } from "./vacancyUtilities";
+import { vacantSfByMonth, vacantSfToday, defaultRate, monthsAt, resolveRate, rateKey, isVacancyUtilitiesLine, sharedRateFor } from "./vacancyUtilities";
 import type { RentRow } from "./leaseRevenue";
 
 const row = (unitRef: string, sqft: number, rentFrom: number | null, status: RentRow["status"]): RentRow => ({
@@ -66,5 +66,10 @@ describe("shopping centres share one rate", () => {
     expect(v.fixedDefault).toBe(true);
     const leased = [row("A", 2000, 0, "contracted")];
     expect(resolveRate({}, "Non-Reimbursable Expenses", "Utilities", 5000, leased, { bookDoc: {}, always: true, fixedDefault: 1 })!.rate).toBe(1);
+  });
+  it("the business parks share their own rate, at the same $1.00 default; other properties share none", () => {
+    expect(sharedRateFor("SC")).toMatchObject({ scope: "book:shopping-centers", fixedDefault: 1 });
+    expect(sharedRateFor("BP")).toMatchObject({ scope: "book:business-parks", fixedDefault: 1 });
+    expect(sharedRateFor(undefined)).toBeNull();
   });
 });

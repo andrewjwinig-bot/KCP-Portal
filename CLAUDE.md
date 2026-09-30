@@ -1795,7 +1795,10 @@ time — and the team does not have time to open the GL over $80.
   draws minimal power). "This year ÷ today's vacant SF" read $2.01 at 1100
   because its empty bank was still drawing ~1,000 kWh/mo (PECO 9/2026:
   $74.66/mo fixed + ~$0.205/kWh); minimal use there is ~$1,500/yr ≈
-  $1.20/SF, less on bigger spaces — so $1.00. Other properties keep a per-property rate, and with no vacancy and no
+  $1.20/SF, less on bigger spaces — so $1.00. **The business parks work
+  the same way** (owner): their own shared rate (`BP_RATE_SCOPE`,
+  `book:business-parks`), the same $1.00 default, and a fully leased building
+  at $0 — `sharedRateFor(allocGroup)` picks the group. Other properties keep a per-property rate, and with no vacancy and no
   typed rate keep their grown figure.
 - **PUBLISH TO BUDGETS** (`publish.ts`, `POST/GET/DELETE
   /api/financials/budgets/publish`, `PublishCard` on a book's roll-up tab or a
