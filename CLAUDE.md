@@ -1553,6 +1553,17 @@ time — and the team does not have time to open the GL over $80.
   review", amber) above the pool × the higher of the recon year's ratio and
   115% (`ADMIN_ALLOWANCE`, the highest admin fee on any lease). 4500's 2× RET
   is the case it exists for.
+- **REVENUE BY TENANT CARRIES ONE PILL: DECIDE** (owner: "this section feels
+  very busy"). A call still owed is the amber DECIDE — the exception; a MADE
+  call is a quiet "Edit call" row action (like "Back out") because the row
+  already shows it — rent starting in November IS the lease-up. The decision
+  is named in the month cells' hover ("Leasing call: Lease-up Nov ·
+  $15.00/SF"), which also shows the OTHER unit ($/SF annualized in the $ view,
+  dollars in the $/SF view). No GROSS pill (the hover says it). ONE total row
+  — the view's own (Gross revenue / Total recoveries / Total CAM …), its label
+  hovering the split by part and the line each lands on; the red "doesn't tie"
+  row still appears for a part that misses its line. `decisionLabel` is
+  exported and proper case.
 - **Revenue by tenant reads like the Rent Roll**: TENANT first (600 weight,
   a vacancy in muted italics), then the SUITE as a bold brand-coloured code, a
   larger row font and rent-roll row height.
