@@ -52,7 +52,10 @@ const COLOR_BRAND = "#0b4a7d";
 // their own brand-bordered cards. The draft is the budget before it is
 // published there, so the two must read as the same document.
 const MONTH_TINT = "rgba(15,23,42,0.035)";
-const COL_PCT = { line: 25, month: 4.8, budget: 7, reproj: 6.2, change: 4.2 };
+// Line as snug as the labels allow (they ellipsize, full name on hover), so the
+// grid fits without a horizontal scroll: at the 1,090px floor a month is still
+// the ~57px a six-figure month needs.
+const COL_PCT = { line: 18, month: 5.25, budget: 7.6, reproj: 6.8, change: 4.6 };
 function Colgroup() {
   return (
     <colgroup>
@@ -64,7 +67,7 @@ function Colgroup() {
     </colgroup>
   );
 }
-const TABLE: React.CSSProperties = { tableLayout: "fixed", width: "100%", minWidth: 1180 };
+const TABLE: React.CSSProperties = { tableLayout: "fixed", width: "100%", minWidth: 1090 };
 const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12, whiteSpace: "nowrap", verticalAlign: "middle", paddingLeft: 6, paddingRight: 6 };
 const lab: React.CSSProperties = { textAlign: "left", verticalAlign: "middle", fontSize: 14 };
 const headR: React.CSSProperties = { textAlign: "right", whiteSpace: "nowrap" };
@@ -273,9 +276,9 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
             className="os-line-name" style={{ cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{abbrev(label)}</span>
         ) : labelNote ? (
           <HoverCard title={label} width={280} rows={[]} footer={{ label: "Budget note", value: labelNote }}>
-            <span style={{ borderBottom: "1px dotted var(--muted)", cursor: "default" }}>{abbrev(label)}</span>
+            <span style={{ borderBottom: "1px dotted var(--muted)", cursor: "default", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, display: "inline-block", maxWidth: "100%", verticalAlign: "bottom" }}>{abbrev(label)}</span>
           </HoverCard>
-        ) : abbrev(label)}
+        ) : <span title={label} style={{ overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{abbrev(label)}</span>}
         {note && <NoteMark label={label} note={note.note} onOpen={note.onOpen} />}
         {extra && <span style={{ marginLeft: badge || onAccept ? undefined : "auto", flex: "0 0 auto", display: "inline-flex" }}>{extra}</span>}
         {(badge || onAccept || (onReset && typed?.some(Boolean))) && (
@@ -324,7 +327,7 @@ function StatRow({ label, months, total, basis, change, changeGood, onLabel, tot
 }) {
   return (
     <tr>
-      <td style={{ ...lab, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>
+      <td title={label} style={{ ...lab, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
         {onLabel ? (
           <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
             className="os-line-name" style={{ cursor: "pointer" }}>{label}</span>
