@@ -14,6 +14,24 @@ export type PropertyFacts = {
   waterService?: string;
   hvac?: string;
   restrooms?: string;
+  // Insurance — the Statement of Values columns (lib/insurance/sov.ts). Kept
+  // here, with the rest of the building's facts, so the broker's form is
+  // filled FROM property info each year rather than re-keyed on the form.
+  // Text on purpose: the form's own answers are "Partial", "Yes - Central
+  // Station Alarm", "included in above"; the fill writes a clean number back
+  // as a number.
+  occupancyDescription?: string;
+  yearUpgrade?: string;
+  stories?: string;
+  buildingCount?: string;
+  sprinklered?: string;
+  pctSprinklered?: string;
+  units?: string;
+  floorArea?: string;
+  parkingSqft?: string;
+  basement?: string;
+  floodZone?: string;
+  protection?: string;
   updatedAt?: string;
 };
 
@@ -27,6 +45,18 @@ export const PROPERTY_FACT_KEYS = [
   "waterService",
   "hvac",
   "restrooms",
+  "occupancyDescription",
+  "yearUpgrade",
+  "stories",
+  "buildingCount",
+  "sprinklered",
+  "pctSprinklered",
+  "units",
+  "floorArea",
+  "parkingSqft",
+  "basement",
+  "floodZone",
+  "protection",
 ] as const;
 
 type Manifest = { facts: Record<string, PropertyFacts>; updatedAt: string };
@@ -40,6 +70,11 @@ const store = createMapStore<PropertyFacts>({
 
 export async function getFacts(id: string): Promise<PropertyFacts | null> {
   return await store.get(id);
+}
+
+/** Every property's facts, keyed by property id. */
+export async function allFacts(): Promise<Record<string, PropertyFacts>> {
+  return await store.all();
 }
 
 export async function saveFacts(id: string, patch: Partial<PropertyFacts>): Promise<PropertyFacts> {

@@ -1844,6 +1844,34 @@ only, nothing from the budget**.
   (`buildT12Xlsx`): the trailing month headings, a live `=SUM` T-12 column,
   no Ann Bud / Var. Pinned by `t12/export.test.ts` reading the file back.
 
+# Insurance Schedule of Values — sources of truth
+
+`/insurance`, in the Report Center under **Insurance** (Drew, Alison, admin).
+The broker sends a Statement of Values each year for the insurance
+applications; the page imports it, matches each location to a property, and
+writes the portal's data back into it (`lib/insurance/sov.ts`).
+
+- **The workbook is THE BROKER'S FORM, not our document.** The download is
+  their own file with cells written in — layout, formulas (Price per SF, Total,
+  the totals row), the Vacant Land tab all untouched, and a formula cell is
+  never overwritten. Do NOT theme it. It loads through `newWorkbook()` only for
+  `fullCalcOnLoad`, so the formulas recompute over the new areas.
+- **Property info is the source; the form is the output.** The descriptive
+  columns come from each property's **Building Facts** (`lib/properties/facts.ts`,
+  the Insurance group — construction, year built and roof age are the same
+  facts maintenance already keeps). Floor area and units come from the rent
+  roll unless a figure is keyed on the property. "Fill property info from this
+  sheet" seeds only EMPTY facts from the broker's file — the one-time bootstrap.
+- **Rows are LOCATIONS, not properties.** Trust #4 (8200) is two rows and
+  Butler & Main (9000) three; a property-level figure cannot be split across
+  them, so those rows are left as the form has them. Matching is an explicit
+  rule list (`LOCATION_RULES`) — a new row matches nothing and is surfaced,
+  never guessed. Office Works (4900) shares Building 5's address and is matched
+  by name first.
+- **BI values are opt-in** (12 × the rent roll's monthly billings): BI is a
+  coverage decision (18 months, percentage rent), so the page offers the figure
+  rather than imposing it.
+
 # Balance Sheet — sources of truth
 
 `/financials/balance-sheet`, gated with the other statement pages

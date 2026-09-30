@@ -125,6 +125,7 @@ export const USERS: Record<UserId, UserDef> = {
       "/financials",
       "/cam-recon",
       "/reports",
+      "/insurance",
       "/audit",
       "/security",
     ],
@@ -226,7 +227,7 @@ export const USERS: Record<UserId, UserDef> = {
     navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "investor-k1"]),
     allowedPathPrefixes: [
       "/dashboard", "/properties", "/rentroll", "/units", "/investors", "/debt",
-      "/bank-transfers", "/financials", "/cam-recon", "/reports",
+      "/bank-transfers", "/financials", "/cam-recon", "/reports", "/insurance",
       // Capability key, not a page — the K-1 tooling renders inside /investors.
       // Granted by the owner in full knowledge that Alison is herself a
       // Parkwood owner, so this shows her every co-owner's K-1. See the note
@@ -352,6 +353,7 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   ["/api/bank-rec", "/bank-rec"],
   ["/api/bank-transfers", "/bank-transfers"],
   ["/api/debt", "/debt"],
+  ["/api/insurance", "/insurance"],
 ];
 // Cross-cutting endpoints under a sensitive prefix that must stay open (used by
 // global search / dashboard for everyone). Aggregate, low-detail.
