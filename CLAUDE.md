@@ -116,6 +116,11 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
   nothing else in the portal. A band carries only figures that are true of the
   group — a per-item count like "owners" must be left blank there rather than
   summed, since a person holding two stakes would be counted twice.
+- **Named things are Title Case in UI copy** (owner: "more polished and
+  professional") — a line, account, document, report or section keeps its
+  proper name: Payroll Budget, Management Fee, Debt Service, Rent Roll,
+  Revenue by Tenant, Real Estate Taxes. The sentence around it stays sentence
+  case ("This property's share of the 2010 LIK Payroll Budget").
 - When a section's purpose mirrors something on another page (a download menu, a hidden-accounts list, a KPI row, a tab+filter+table), copy that page's component/markup/spacing rather than approximating it inline.
 
 **The sidebar (`app/components/Sidebar.tsx`)**: within a group the order is
