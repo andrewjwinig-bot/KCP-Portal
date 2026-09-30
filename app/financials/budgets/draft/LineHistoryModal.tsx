@@ -8,7 +8,7 @@
 // last year" applied to every line is wrong in both directions at once.
 
 import { useEffect, useState } from "react";
-import { Pill, StatPill, TONE_GREEN, TONE_AMBER, TONE_RED, TONE_BLUE, TONE_NEUTRAL, type PillTone } from "@/app/components/Pill";
+import { Pill, TONE_GREEN, TONE_AMBER, TONE_RED, TONE_BLUE, TONE_NEUTRAL, type PillTone } from "@/app/components/Pill";
 import { HistoryLoading } from "./HistoryLoading";
 import { HistoryBars } from "./HistoryBars";
 import { HistoryMonthly } from "./HistoryMonthly";
@@ -16,7 +16,6 @@ import { historyComments } from "@/lib/financials/budgets/historyComments";
 import type { LineHistory } from "@/lib/financials/budgets/lineHistory";
 import type { LineInsight, LineShape } from "@/lib/financials/budgets/lineInsight";
 
-const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 const SHAPE: Record<LineShape, { tone: PillTone; text: string; what: string }> = {
@@ -95,15 +94,6 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
                 </div>
               )}
 
-              <div className="pills" style={{ marginTop: 14 }}>
-                {ins.trendPct != null && <StatPill label="Trend / yr" value={`${ins.trendPct > 0 ? "+" : ""}${ins.trendPct}%`} accent={ins.trendPct > 0 ? "#b45309" : "#15803d"} />}
-                {ins.volatilityPct != null && <StatPill label="Year-to-year swing" value={`${ins.volatilityPct}%`} />}
-                {ins.budgetBiasPct != null && (
-                  <StatPill label="Budget vs actual" value={`${ins.budgetBiasPct > 0 ? "+" : ""}${ins.budgetBiasPct}%`}
-                    accent={Math.abs(ins.budgetBiasPct) >= 10 ? "#b45309" : undefined} sub={ins.budgetBiasPct > 0 ? "we budget low" : "we budget high"} />
-                )}
-                {data.averageActual != null && <StatPill label={`${data.completeYears}-yr average`} value={money0(data.averageActual)} />}
-              </div>
 
               <HistoryBars years={data.years} forecast={forecast} budget={budget != null ? { year, value: budget } : null} />
 
