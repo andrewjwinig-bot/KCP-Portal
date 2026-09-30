@@ -147,9 +147,12 @@ function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boo
     // The working, not just the answer: this year's line ÷ today's vacant SF
     // is the default, so both figures are shown and the rate can be checked.
     rows: [
-      { label: "This year's utilities (full-year reprojection)", value: money0(v.basisAnnual) },
-      { label: "÷ Vacant SF on today's rent roll", value: Math.round(v.sfToday).toLocaleString("en-US") },
-      ...(v.defaultRate != null ? [{ label: "= Default rate", value: `$${v.defaultRate.toFixed(2)}/SF/yr` }] : [{ label: "Default rate", value: "none — no vacancy today" }]),
+      ...(v.fixedDefault
+        ? [{ label: "Default rate (shopping centres)", value: `$${(v.defaultRate ?? 0).toFixed(2)}/SF/yr — minimal use on vacant space` },
+           { label: "This year's utilities (for reference)", value: money0(v.basisAnnual), color: "var(--muted)" }]
+        : [{ label: "This year's utilities (full-year reprojection)", value: money0(v.basisAnnual) },
+           { label: "÷ Vacant SF on today's rent roll", value: Math.round(v.sfToday).toLocaleString("en-US") },
+           ...(v.defaultRate != null ? [{ label: "= Default rate", value: `$${v.defaultRate.toFixed(2)}/SF/yr` }] : [{ label: "Default rate", value: "none — no vacancy today" }])]),
       { label: v.rateTyped ? (v.scope ? "Rate in use — typed (shared by every centre)" : "Rate in use — typed") : "Rate in use — the default", value: `$${v.rate.toFixed(2)}/SF/yr`, color: "var(--brand)" },
       { label: "Vacant SF over the budget year (avg)", value: Math.round(v.sf.reduce((a, n) => a + n, 0) / 12).toLocaleString("en-US") },
     ],

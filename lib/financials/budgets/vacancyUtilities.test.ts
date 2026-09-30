@@ -59,4 +59,12 @@ describe("shopping centres share one rate", () => {
     expect(v.rate).toBe(0);
     expect(resolveRate({}, "Non-Reimbursable Expenses", "Utilities", 5000, leased)).toBeNull();
   });
+  it("the centres default to a fixed $1.00/SF when nothing is typed, even fully leased today", () => {
+    const v = resolveRate({}, "Non-Reimbursable Expenses", "Utilities", 25000, rows, { bookDoc: {}, scope: "book:shopping-centers", always: true, fixedDefault: 1 })!;
+    expect(v.rate).toBe(1);
+    expect(v.rateTyped).toBe(false);
+    expect(v.fixedDefault).toBe(true);
+    const leased = [row("A", 2000, 0, "contracted")];
+    expect(resolveRate({}, "Non-Reimbursable Expenses", "Utilities", 5000, leased, { bookDoc: {}, always: true, fixedDefault: 1 })!.rate).toBe(1);
+  });
 });
