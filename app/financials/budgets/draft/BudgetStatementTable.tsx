@@ -37,7 +37,7 @@ import type { SectionRole } from "@/lib/financials/operating-statements/types";
 import { NoteMark, type LineNote } from "./LineNote";
 import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import { negativeLines } from "@/lib/financials/budgets/negativeLines";
-import { recoveryCategory, recoveryMakeup, CATEGORY_LABEL, type RecoveryCategory } from "@/lib/financials/budgets/recoveryMakeup";
+import { recoveryCategory, recoveryMakeup, tenantLabel, SPEC_TENANT, CATEGORY_LABEL, type RecoveryCategory } from "@/lib/financials/budgets/recoveryMakeup";
 import { RecoveryMakeupModal } from "./RecoveryMakeupModal";
 import { OccupancyBySuiteModal } from "./OccupancyBySuiteModal";
 import { RATE_ACCOUNT, type VacancyUtilities } from "@/lib/financials/budgets/vacancyUtilities";
@@ -457,7 +457,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const recoveryYearHover = (cat: RecoveryCategory) => () => {
     const mk = recoveryMakeup(cat, 0, recTenants, draft.sections, estKind);
     const list = recTenants
-      .map((t) => ({ name: t.tenant || "Unnamed tenant", year: (t[cat] ?? []).reduce((a, v) => a + (v || 0), 0) }))
+      .map((t) => ({ name: tenantLabel(t), year: (t[cat] ?? []).reduce((a, v) => a + (v || 0), 0) }))
       .filter((x) => Math.abs(x.year) >= 0.5)
       .sort((a, b) => b.year - a.year);
     if (!list.length) return null;
@@ -475,7 +475,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   // RENT and OCCUPANCY hovers — the same quick card the recovery cells carry:
   // who makes up the month, by tenant NAME (never a suite number), largest
   // first, a lease assumption marked, and the month's moves.
-  const nameOf = (t: { tenant: string }) => t.tenant || "Unnamed tenant";
+  const nameOf = tenantLabel;
+  // "· assumed" marks a named tenant's assumed months; a SPEC Tenant is
+  // an assumption by definition, so it carries no suffix.
+  const assumedTag = (t: { tenant: string }, on: boolean) => (on && tenantLabel(t) !== SPEC_TENANT ? " · assumed" : "");
   const occSuites = recTenants.filter((t) => !t.recoveryOnly && t.sqft > 0);
   const occTotalSf = occSuites.reduce((a, t) => a + t.sqft, 0);
   const pays = (t: { rent: number[] }, m: number) => (t.rent[m] || 0) > 0.5;
@@ -494,7 +497,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const list = recTenants.filter((t) => Math.abs(amt(t)) >= 0.5).sort((a, b) => amt(b) - amt(a));
     if (!list.length) return null;
     const assumedIn = (t: (typeof recTenants)[number]) => (m == null ? t.assumed.some(Boolean) : !!t.assumed[m]);
-    const rows: TipRow[] = list.slice(0, 8).map((t) => ({ label: `${nameOf(t)}${assumedIn(t) ? " · assumed" : ""}`, value: money0(amt(t)), ...(assumedIn(t) ? { color: "#65a30d" } : {}) }));
+    const rows: TipRow[] = list.slice(0, 8).map((t) => ({ label: `${nameOf(t)}${assumedTag(t, assumedIn(t))}`, value: money0(amt(t)), ...(assumedIn(t) ? { color: "#65a30d" } : {}) }));
     const rest = list.slice(8);
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, t) => a + amt(t), 0)), color: "var(--muted)" });
     const total = list.reduce((a, t) => a + amt(t), 0);
@@ -504,7 +507,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const occ = occSuites.filter((t) => pays(t, m)).sort((a, b) => b.sqft - a.sqft);
     const vacant = occSuites.filter((t) => !pays(t, m));
     const occSf = occ.reduce((a, t) => a + t.sqft, 0);
-    const rows: TipRow[] = occ.slice(0, 8).map((t) => ({ label: `${nameOf(t)}${t.assumed[m] ? " · assumed" : ""}`, value: `${sfFmt(t.sqft)} SF`, ...(t.assumed[m] ? { color: "#65a30d" } : {}) }));
+    const rows: TipRow[] = occ.slice(0, 8).map((t) => ({ label: `${nameOf(t)}${assumedTag(t, !!t.assumed[m])}`, value: `${sfFmt(t.sqft)} SF`, ...(t.assumed[m] ? { color: "#65a30d" } : {}) }));
     const rest = occ.slice(8);
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: `${sfFmt(rest.reduce((a, t) => a + t.sqft, 0))} SF`, color: "var(--muted)" });
     if (vacant.length) rows.push({ label: `Vacant · ${vacant.length} space${vacant.length === 1 ? "" : "s"}`, value: `${sfFmt(occTotalSf - occSf)} SF`, color: "#b45309" });
@@ -520,7 +523,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     // A tenant whose charge is collected only at reconciliation lands its year
     // here, in May (reconOnly.ts) — say so on its row and in the total.
     const atRecon = (unitRef: string) => m === RECON_MONTH ? recTenants.find((t) => t.unitRef === unitRef)?.atRecon?.[cat] ?? 0 : 0;
-    const rows: TipRow[] = top.map((t) => ({ label: `${t.tenant || "Unnamed tenant"}${atRecon(t.unitRef) ? " · at recon" : ""}`, value: money0(t.amount), ...(atRecon(t.unitRef) ? { color: "#b45309" } : {}) }));
+    const rows: TipRow[] = top.map((t) => ({ label: `${t.tenant}${atRecon(t.unitRef) ? " · at recon" : ""}`, value: money0(t.amount), ...(atRecon(t.unitRef) ? { color: "#b45309" } : {}) }));
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"} · click for all`, value: money0(rest.reduce((a, t) => a + t.amount, 0)), color: "var(--muted)" });
     const inMay = atReconTotal(cat, m);
     if (inMay) rows.push({ label: "Includes at-recon collections (the year's true-up, due by 4/30)", value: money0(inMay), color: "#b45309" });
