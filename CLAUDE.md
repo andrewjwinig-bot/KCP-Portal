@@ -1790,9 +1790,12 @@ time — and the team does not have time to open the GL over $80.
   numbers); untyped it defaults to this year's line ÷ today's vacant SF.
   **Every SHOPPING CENTRE is on it and shares ONE rate** (owner): typed at any
   centre it saves under the pseudo property `book:shopping-centers`
-  (`SC_RATE_SCOPE`) and applies to all of them; a centre with nothing typed
-  and no vacancy today sits at $0 on the rate rather than falling back to
-  +3%. Other properties keep a per-property rate, and with no vacancy and no
+  (`SC_RATE_SCOPE`) and applies to all of them. **Untyped, the centres'
+  rate is a fixed $1.00/SF/yr** (`SC_DEFAULT_RATE_PSF`, owner: a vacant space
+  draws minimal power). "This year ÷ today's vacant SF" read $2.01 at 1100
+  because its empty bank was still drawing ~1,000 kWh/mo (PECO 9/2026:
+  $74.66/mo fixed + ~$0.205/kWh); minimal use there is ~$1,500/yr ≈
+  $1.20/SF, less on bigger spaces — so $1.00. Other properties keep a per-property rate, and with no vacancy and no
   typed rate keep their grown figure.
 - **PUBLISH TO BUDGETS** (`publish.ts`, `POST/GET/DELETE
   /api/financials/budgets/publish`, `PublishCard` on a book's roll-up tab or a

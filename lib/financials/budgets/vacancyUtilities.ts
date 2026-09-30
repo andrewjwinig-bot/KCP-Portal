@@ -65,12 +65,23 @@ export function monthsAt(rate: number, sf: number[]): number[] {
  *  every centre's. Stored in the typed-month store under this pseudo property. */
 export const SC_RATE_SCOPE = "book:shopping-centers";
 
+/** The shopping centres' untyped rate: $1.00/SF/yr of vacant space (owner).
+ *  A shut-down space draws minimal power; 1100's vacant bank bill (PECO,
+ *  9/2026) puts that at ~$900/yr of fixed customer charge + ~250 kWh/mo at
+ *  ~$0.205 — ~$1,500, ~$1.20/SF on ~1,250 SF, less on a larger space. "This
+ *  year ÷ today's vacant SF" read $2.01 there because the empty bank was still
+ *  drawing ~1,000 kWh a month, which is a thing to fix, not to budget. */
+export const SC_DEFAULT_RATE_PSF = 1.0;
+
 export type VacancyUtilities = {
   /** $/SF/yr in use. */
   rate: number;
   rateTyped: boolean;
-  /** What the rate defaults to (this year ÷ today's vacant SF). */
+  /** What the rate defaults to (this year ÷ today's vacant SF, or a fixed rate). */
   defaultRate: number | null;
+  /** True when the default is a fixed $/SF (the shopping centres') rather
+   *  than this year ÷ today's vacant SF. */
+  fixedDefault?: boolean;
   /** This year's line (the reprojection) — the default's numerator. */
   basisAnnual: number;
   /** Vacant SF by month. */
@@ -87,14 +98,14 @@ export type VacancyUtilities = {
  *  the line is on the rate and ready to be typed. */
 export function resolveRate(
   doc: LineOverrides, section: string, label: string, basisAnnual: number, rows: RentRow[],
-  opts?: { bookDoc?: LineOverrides | null; scope?: string; always?: boolean },
+  opts?: { bookDoc?: LineOverrides | null; scope?: string; always?: boolean; fixedDefault?: number },
 ): VacancyUtilities | null {
   const key = rateKey(section, label);
   const typed = opts?.bookDoc?.[key]?.months?.[0] ?? (opts?.bookDoc ? null : doc[key]?.months?.[0]);
   const sfToday = vacantSfToday(rows);
-  const def = defaultRate(basisAnnual, sfToday);
+  const def = opts?.fixedDefault ?? defaultRate(basisAnnual, sfToday);
   let rate = typed != null ? Number(typed) / 100 : def;
   if ((rate == null || !Number.isFinite(rate)) && opts?.always) rate = 0;
   if (rate == null || !Number.isFinite(rate)) return null;
-  return { rate, rateTyped: typed != null, defaultRate: def, basisAnnual, sf: vacantSfByMonth(rows), sfToday, scope: opts?.scope };
+  return { rate, rateTyped: typed != null, defaultRate: def, fixedDefault: opts?.fixedDefault != null, basisAnnual, sf: vacantSfByMonth(rows), sfToday, scope: opts?.scope };
 }
