@@ -1011,9 +1011,11 @@ tr:hover .row-quiet-action, .row-quiet-action:focus-visible { opacity: 0.8; }
  * line has no note, so a grid of forty lines is not forty icons; solid brand
  * once a note exists, so a line with something to say is findable. */
 .budget-note {
-  border: none; background: transparent; padding: 0; cursor: pointer;
+  border: none; background: transparent; padding: 0; cursor: pointer; flex: 0 0 auto;
   color: var(--muted); opacity: 0; line-height: 0; transition: opacity 0.12s ease;
 }
 tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 .budget-note:hover { opacity: 1; color: var(--brand); }
-.budget-note.has { opacity: 1; color: var(--brand); }
+/* A line WITH a note: always shown, solid brand, and never dimmed by the row
+   hover (which would make it read like the empty "add a note" mark). */
+.budget-note.has, tr:hover .budget-note.has { opacity: 1; color: var(--brand); }

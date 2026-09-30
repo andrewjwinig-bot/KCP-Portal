@@ -15,11 +15,13 @@ const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTrans
 const stamp = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 /** The note glyph — a small speech bubble, drawn so it matches at any zoom. */
-function Glyph() {
+/** Outline when there is no note; FILLED when there is one, so a line with a
+ *  note reads at a glance, hovered or not. */
+function Glyph({ filled }: { filled?: boolean }) {
   return (
     <svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true" style={{ display: "block" }}>
       <path d="M2.5 3.5h11a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5v-2.5H2.5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1z"
-        fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -28,7 +30,7 @@ export function NoteMark({ label, note, onOpen }: { label: string; note?: LineNo
   const btn = (
     <button type="button" onClick={onOpen} aria-label={note ? `Note on ${label}` : `Add a note to ${label}`}
       className={note ? "budget-note has" : "budget-note"}>
-      <Glyph />
+      <Glyph filled={!!note} />
     </button>
   );
   if (!note) return btn;
