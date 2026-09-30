@@ -71,6 +71,8 @@ export type VacancyUtilities = {
   rateTyped: boolean;
   /** What the rate defaults to (this year ÷ today's vacant SF). */
   defaultRate: number | null;
+  /** This year's line (the reprojection) — the default's numerator. */
+  basisAnnual: number;
   /** Vacant SF by month. */
   sf: number[];
   sfToday: number;
@@ -94,5 +96,5 @@ export function resolveRate(
   let rate = typed != null ? Number(typed) / 100 : def;
   if ((rate == null || !Number.isFinite(rate)) && opts?.always) rate = 0;
   if (rate == null || !Number.isFinite(rate)) return null;
-  return { rate, rateTyped: typed != null, defaultRate: def, sf: vacantSfByMonth(rows), sfToday, scope: opts?.scope };
+  return { rate, rateTyped: typed != null, defaultRate: def, basisAnnual, sf: vacantSfByMonth(rows), sfToday, scope: opts?.scope };
 }
