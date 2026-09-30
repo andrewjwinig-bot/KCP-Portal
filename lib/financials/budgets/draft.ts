@@ -22,7 +22,7 @@ import { estimateReimbursements, type ReimbursementEstimate } from "./reimbursem
 import { expenseInputKindOf, resolveKind, splitAcrossLines, type ExpenseInputKind, type ExpenseInput } from "./expenseInputs";
 import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { statementBillingFor } from "./statementBilling";
-import { capRecoveries } from "./recoveryCheck";
+import { attachPools } from "./recoveryCheck";
 import { landReconOnlyInMay } from "./reconOnly";
 import type { StatementBilling } from "./statementBillingMath";
 import { getExpenseInputs } from "./expenseInputStore";
@@ -912,11 +912,10 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   }).catch(() => null)) ?? undefined;
   // A tenant's estimate set by hand on the CAM estimates table IS the budget:
   // laid over before the recovery lines are read, so they carry it.
-  // THE RECOVERY CHECK: no category may recover more than its budgeted pool
-  // (or the recon year's own ratio of it) — scaled back pro rata if the math
-  // says otherwise, and the card says so. Before the hand-set estimates, which
-  // are deliberate and are flagged rather than capped.
-  if (reimbursementEstimate) capRecoveries(reimbursementEstimate, {
+  // THE RECOVERY CHECK reads the budget's pools against the recoveries — a
+  // review flag only; nothing is scaled back (owner: admin fees take a fully
+  // leased NNN centre past 100%).
+  if (reimbursementEstimate) attachPools(reimbursementEstimate, {
     cam: pool.cam[0] + officePool.cam[0], ins: pool.ins[0] + officePool.ins[0], ret: pool.ret[0] + officePool.ret[0],
   });
   if (reimbursementEstimate) applyEstimateOverrides(reimbursementEstimate, estimateOverrides);

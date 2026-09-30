@@ -3,11 +3,11 @@
 // THE RECOVERY CHECK, every property in the book on one screen (the "All …"
 // tab). Per property: what tenants are budgeted to recover against the
 // recoverable pool they recover it from — CAM + INS together, RET alone — and
-// the recon year's own ratio beside it (`recoveryCheck.ts`). Over the ceiling
-// is over-billing and overstated NOI; a group the engine had to scale back
-// says so. Click a property's tab to see its tenants.
+// the recon year's own ratio beside it (`recoveryCheck.ts`). Above the ceiling
+// is flagged for review — nothing is scaled back. Click a property's tab to see
+// its tenants.
 
-import { Pill, TONE_AMBER, TONE_RED, TONE_GREEN } from "@/app/components/Pill";
+import { Pill, TONE_AMBER, TONE_GREEN } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
 import type { BudgetDraft } from "@/lib/financials/budgets/draft";
@@ -19,21 +19,20 @@ const pct = (r: number | null | undefined) => (r == null ? "–" : `${(r * 100).
 export function RecoveryCheckCard({ checks, year }: { checks: NonNullable<BudgetDraft["recoveryChecks"]>; year: number }) {
   if (!checks.length) return null;
   const over = checks.filter((p) => p.checks.some((c) => c.over)).length;
-  const capped = checks.filter((p) => p.checks.some((c) => c.capped)).length;
   const cells = (c?: GroupCheck) => {
     if (!c || !(c.pool > 0)) return <><td style={td}>–</td><td style={td}>–</td><td style={td}>–</td></>;
-    const color = c.over ? "#b91c1c" : c.capped ? "#b45309" : undefined;
+    const color = c.over ? "#b45309" : undefined;
     return (
       <>
         <td style={td}>{money0(c.recovered)}</td>
         <td style={td}>{money0(c.pool)}</td>
         <td style={{ ...td, fontWeight: 800, color }}>
-          <HoverCard title={`${c.label} · recovery ratio`} width={320} rows={[
+          <HoverCard title={`${c.label} · Recovery Ratio`} width={320} rows={[
             { label: `${year} recoveries`, value: money0(c.recovered) },
             { label: `${year} budget pool`, value: money0(c.pool) },
             ...(c.reconRatio != null ? [{ label: "Recon year's ratio", value: pct(c.reconRatio) }] : []),
-            { label: "Ceiling", value: money0(c.ceiling) },
-            ...(c.capped ? [{ label: "Methodology came to", value: `${money0(c.capped.before)} — capped`, color: "#b45309" }] : []),
+            { label: "Review above", value: money0(c.ceiling) },
+            ...(c.over ? [{ label: "Above it by", value: money0(c.recovered - c.ceiling), color: "#b45309" }] : []),
           ]}>
             <span>{pct(c.ratio)}</span>
           </HoverCard>
@@ -45,11 +44,10 @@ export function RecoveryCheckCard({ checks, year }: { checks: NonNullable<Budget
   return (
     <div className="card" style={{ padding: 0 }}>
       <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 16, fontWeight: 800 }}>Recovery check</span>
-        {over > 0 ? <Pill tone={TONE_RED}>{over} over-recovering</Pill>
-          : capped > 0 ? <Pill tone={TONE_AMBER}>{capped} capped to the pool</Pill>
-          : <Pill tone={TONE_GREEN}>No property over its pool</Pill>}
-        <span className="muted small">Each property&apos;s {year} recoveries ÷ the recoverable pool they come from, beside the recon year&apos;s ratio. Over 100% (or last year&apos;s ratio, where admin fees took it higher) is over-billing.</span>
+        <span style={{ fontSize: 16, fontWeight: 800 }}>Recovery Check</span>
+        {over > 0 ? <Pill tone={TONE_AMBER}>{over} to review</Pill>
+          : <Pill tone={TONE_GREEN}>All within range</Pill>}
+        <span className="muted small">Each property&apos;s {year} recoveries ÷ the recoverable pool they come from, beside the recon year&apos;s ratio. Admin fees take a fully leased NNN property past 100%, so only a ratio above 115% (or the recon year&apos;s, if higher) is flagged — nothing is adjusted.</span>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -68,7 +66,7 @@ export function RecoveryCheckCard({ checks, year }: { checks: NonNullable<Budget
           <tbody>
             {checks.map((p) => (
               <tr key={p.code}>
-                <td style={tdL}><span style={{ fontWeight: 600 }}>{p.name}</span> <code style={{ fontSize: 12 }}>{p.code}</code></td>
+                <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)" }}>{p.code}</code> <span style={{ fontWeight: 600 }}>{p.name}</span></td>
                 {cells(p.checks.find((c) => c.group === "camIns"))}
                 {cells(p.checks.find((c) => c.group === "ret"))}
               </tr>
