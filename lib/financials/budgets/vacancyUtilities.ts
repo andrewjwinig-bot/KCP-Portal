@@ -73,15 +73,32 @@ export const SC_RATE_SCOPE = "book:shopping-centers";
  *  drawing ~1,000 kWh a month, which is a thing to fix, not to budget. */
 export const SC_DEFAULT_RATE_PSF = 1.0;
 
+/** The business parks work the same way (owner): ONE shared rate, typed on
+ *  any park building, under its own pseudo property; untyped, the same
+ *  $1.00/SF — a vacant office/flex suite on its own meter draws the fixed
+ *  charge and little else. */
+export const BP_RATE_SCOPE = "book:business-parks";
+export const BP_DEFAULT_RATE_PSF = 1.0;
+
+/** The shared scope and default for a property's group, or null (a property
+ *  outside both keeps its own rate and this year ÷ vacant SF). */
+export function sharedRateFor(group: "SC" | "BP" | undefined): { scope: string; fixedDefault: number; label: string } | null {
+  if (group === "SC") return { scope: SC_RATE_SCOPE, fixedDefault: SC_DEFAULT_RATE_PSF, label: "shopping centres" };
+  if (group === "BP") return { scope: BP_RATE_SCOPE, fixedDefault: BP_DEFAULT_RATE_PSF, label: "business parks" };
+  return null;
+}
+
 export type VacancyUtilities = {
   /** $/SF/yr in use. */
   rate: number;
   rateTyped: boolean;
   /** What the rate defaults to (this year ÷ today's vacant SF, or a fixed rate). */
   defaultRate: number | null;
-  /** True when the default is a fixed $/SF (the shopping centres') rather
-   *  than this year ÷ today's vacant SF. */
+  /** True when the default is a fixed $/SF (a shared group's) rather than
+   *  this year ÷ today's vacant SF. */
   fixedDefault?: boolean;
+  /** The group sharing the rate ("shopping centres" / "business parks"). */
+  groupLabel?: string;
   /** This year's line (the reprojection) — the default's numerator. */
   basisAnnual: number;
   /** Vacant SF by month. */
@@ -98,7 +115,7 @@ export type VacancyUtilities = {
  *  the line is on the rate and ready to be typed. */
 export function resolveRate(
   doc: LineOverrides, section: string, label: string, basisAnnual: number, rows: RentRow[],
-  opts?: { bookDoc?: LineOverrides | null; scope?: string; always?: boolean; fixedDefault?: number },
+  opts?: { bookDoc?: LineOverrides | null; scope?: string; always?: boolean; fixedDefault?: number; groupLabel?: string },
 ): VacancyUtilities | null {
   const key = rateKey(section, label);
   const typed = opts?.bookDoc?.[key]?.months?.[0] ?? (opts?.bookDoc ? null : doc[key]?.months?.[0]);
@@ -107,5 +124,5 @@ export function resolveRate(
   let rate = typed != null ? Number(typed) / 100 : def;
   if ((rate == null || !Number.isFinite(rate)) && opts?.always) rate = 0;
   if (rate == null || !Number.isFinite(rate)) return null;
-  return { rate, rateTyped: typed != null, defaultRate: def, fixedDefault: opts?.fixedDefault != null, basisAnnual, sf: vacantSfByMonth(rows), sfToday, scope: opts?.scope };
+  return { rate, rateTyped: typed != null, defaultRate: def, fixedDefault: opts?.fixedDefault != null, groupLabel: opts?.groupLabel, basisAnnual, sf: vacantSfByMonth(rows), sfToday, scope: opts?.scope };
 }

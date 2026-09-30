@@ -46,7 +46,7 @@ import { preferredWorkbooks } from "./inForce";
 import { applyEstimateOverrides } from "./estimateOverrides";
 import { getEstimateOverrides } from "./estimateOverrideStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
-import { isVacancyUtilitiesLine, resolveRate, monthsAt, SC_RATE_SCOPE, SC_DEFAULT_RATE_PSF, type VacancyUtilities } from "./vacancyUtilities";
+import { isVacancyUtilitiesLine, resolveRate, monthsAt, sharedRateFor, type VacancyUtilities } from "./vacancyUtilities";
 import { assembledGlConsolidated } from "@/lib/financials/operating-statements/statementStore";
 import { cashOnGl, distributionsOnGl, plannedDistributions, projectBalance, rollForward, DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL, type DraftCash } from "./cashForecast";
 
@@ -828,12 +828,14 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
   // a $/SF rate, so a lease-up takes its suite off the line from its start.
   // Every shopping centre shares ONE typed rate (the book's key).
   if (lease.hasData) {
-    const sc = isShoppingCenter(meta.propertyCode);
-    const bookDoc = sc ? await getLineOverrides(budgetYear, SC_RATE_SCOPE).catch(() => ({} as LineOverrides)) : null;
+    // Shopping centres and business parks each share ONE rate (their book's
+    // key) with a $1.00/SF default; anything else keeps its own.
+    const shared = sharedRateFor(PROPERTY_DEFS.find((d) => d.id === String(meta.propertyCode).toUpperCase())?.allocGroup);
+    const bookDoc = shared ? await getLineOverrides(budgetYear, shared.scope).catch(() => ({} as LineOverrides)) : null;
     for (const sec of sections) {
       sec.lines = sec.lines.map((l) => {
         if (!isVacancyUtilitiesLine(sec.role, l.label)) return l;
-        const v = resolveRate(typedDoc, sec.name, l.label, l.basisTotal, lease.rows ?? [], sc ? { bookDoc, scope: SC_RATE_SCOPE, always: true, fixedDefault: SC_DEFAULT_RATE_PSF } : undefined);
+        const v = resolveRate(typedDoc, sec.name, l.label, l.basisTotal, lease.rows ?? [], shared ? { bookDoc, scope: shared.scope, always: true, fixedDefault: shared.fixedDefault, groupLabel: shared.label } : undefined);
         if (!v) return l;
         const months = monthsAt(v.rate, v.sf);
         return { ...l, months, total: r0(sum(months)), source: "vacancy" as DraftSource, subLines: undefined, typed: undefined, vacancy: v };
