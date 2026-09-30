@@ -1438,7 +1438,9 @@ time — and the team does not have time to open the GL over $80.
   today's combined monthly CAM + INS + RET billing (rent roll) against the
   budget's, flagged at +15% AND +$100/mo — both floors, like every other flag.
   A tenant billed nothing today (new lease, lease-up, gross) is never flagged.
-  The hover is the bill by category; "▲ Estimates up · n" filters to them.
+  It lives ONLY on CAM Estimates by Tenant ("▲ Big jumps" filter) — Revenue by
+  Tenant carried a second copy and the owner removed it: estimates are that
+  card's subject.
 - **CAM ESTIMATES BY TENANT** (`estimatesByTenant.ts`,
   `EstimatesByTenantCard.tsx`, its own card below Revenues). The REVIEW before
   the estimates are imported into Skyline as each tenant's monthly charges,
@@ -1564,6 +1566,14 @@ time — and the team does not have time to open the GL over $80.
   hovering the split by part and the line each lands on; the red "doesn't tie"
   row still appears for a part that misses its line. `decisionLabel` is
   exported and proper case.
+- **A TENANT'S DETAIL IS A CLICK, NOT A HOVER** (`TenantDetailModal.tsx`,
+  owner: the hover was "very busy and crowded"). Click the name on Revenue by
+  Tenant: Base Rent / Recoveries / Gross tiles (with $/SF), a Monthly billing
+  table (today → budget, change, year), and the methodology as a table with a
+  column per category (PRS, recon due, pool change) plus one line of facts
+  (admin fee, cap, exclusions, part year). The hover keeps only the year by
+  part. $/SF is never labelled "annualized" — a $/SF rent is annual by
+  convention.
 - **Revenue by tenant reads like the Rent Roll**: TENANT first (600 weight,
   a vacancy in muted italics), then the SUITE as a bold brand-coloured code, a
   larger row font and rent-roll row height.

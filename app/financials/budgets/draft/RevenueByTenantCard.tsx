@@ -22,8 +22,7 @@ import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import type { ReimbursementEstimate } from "@/lib/financials/budgets/reimbursementEstimate";
 import type { RecoveryTie, TenantRevenueRow } from "@/lib/financials/budgets/draft";
 import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
-import { estimateJump, ESTIMATE_JUMP_PCT, ESTIMATE_JUMP_MIN_DOLLARS, type EstimateJump } from "@/lib/financials/budgets/estimateJump";
-import { jumpFor } from "@/lib/financials/budgets/estimatesByTenant";
+import { TenantDetailModal } from "./TenantDetailModal";
 import { DecisionPill, DecisionModal, decisionLabel, type LeasingCall, type SavePayload } from "./LeasingDecision";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -67,86 +66,17 @@ const SHORT: Record<Part, string> = { rent: "Rent", cam: "CAM", ins: "INS", ret:
  * change. Gross shows everything. A methodology line that is about one part
  * (admin fee, exclusions, cap — all CAM) appears only when that part is in view.
  */
-export function tenantTip(r: TenantRevenueRow, est: ReimbursementEstimate | undefined, parts: Part[], viewLabel: string): { rows: TipRow[]; footer: TipRow } {
-  const rows: TipRow[] = [];
-  const rec = parts.filter((p) => p !== "rent") as Exclude<Part, "rent">[];
-  const join = (f: (p: Exclude<Part, "rent">) => string) => rec.map((p) => (rec.length > 1 ? `${SHORT[p]} ${f(p)}` : f(p))).join(" · ");
-  const m = r.method;
-
-  // The figures themselves — one line each when there is more than one; a
-  // single part's figure is the footer.
-  if (parts.length > 1) for (const p of parts) rows.push({ label: PART_LABEL[p], value: money0(yr(r[p])) });
-
-  // TODAY's monthly estimate against the budget's — what the tenant is billed
-  // now (rent roll) and what the budget has them billed, so the change in
-  // their escrow reads at a glance.
-  if (rec.length && est) {
-    const prior = est.budgetYear - 1;
-    for (const p of rec) {
-      const active = r[p].filter((v) => Math.abs(v) > 0.5).length;
-      const next = active ? yr(r[p]) / active : 0;
-      const now = r.billing?.[p] ?? null;
-      if (now == null && !next) continue;
-      const chg = now && next ? ` (${next >= now ? "+" : "−"}${Math.abs(((next - now) / now) * 100).toFixed(1)}%)` : "";
-      rows.push({
-        label: `${SHORT[p]} est. '${String(prior).slice(2)}→'${String(est.budgetYear).slice(2)}`,
-        value: `${now != null ? `$${money0(now)}` : "—"} → $${money0(next)}/mo${chg}`,
-      });
-    }
-  }
-
-  if (rec.length && est) {
-    if (m?.kind === "retail") {
-      if (m.grossLease) rows.push({ label: "Lease", value: "Gross — pays no recoveries", color: "#b45309" });
-      const prs = { cam: m.camPrs, ins: m.insPrs, ret: m.retPrs };
-      rows.push({ label: "Share (PRS)", value: join((p) => pct(prs[p])) });
-      if (rec.includes("cam")) {
-        if (m.adminFeePct) rows.push({ label: "Admin fee", value: pct(m.adminFeePct) });
-        if (m.excludedLines) rows.push({ label: "Excluded CAM lines", value: String(m.excludedLines) });
-        if (m.capPct != null) rows.push({ label: "CAM cap", value: `${pct(m.capPct)} / yr on controllables` });
-      }
-      rows.push({ label: `${est.reconYear} recon due`, value: join((p) => money0(m.recon[p])) });
-      if (m.reconOcc != null) rows.push({ label: "Part year in recon", value: `${Math.round(m.reconOcc * 100)}% — scaled to a full year`, color: "#b45309" });
-      // How much each pool grew, recon year → budget year, as a percent — one
-      // line per category in view, named for it.
-      const yy = (y: number) => `'${String(y).slice(2)}`;
-      for (const p of rec) {
-        const chg = (est.ratios[p] - 1) * 100;
-        rows.push({ label: `${SHORT[p]} change ${yy(est.reconYear)}→${yy(est.budgetYear)}`, value: `${chg >= 0 ? "+" : "−"}${Math.abs(chg).toFixed(1)}%` });
-      }
-    } else if (m?.kind === "office") {
-      rows.push({ label: "Pro-rata share", value: pct(m.proRataPct) });
-      rows.push({ label: "Base year", value: m.noBaseStop ? "None — pays the full share" : m.baseYear ? String(m.baseYear) : "—" });
-      rows.push({ label: `${est.reconYear} recon due`, value: join((p) => money0(m.recon[p])) });
-    } else if (m?.kind === "leaseup" || m?.kind === "new") {
-      rows.push({ label: "Method", value: m.kind === "new" && m.assumption === "base-year" ? `Base year ${est.budgetYear} — nothing until ${est.budgetYear + 1}` : `Assumed NNN, pro rata on ${m.sqft.toLocaleString("en-US")} SF` });
-    }
-  }
-  if (r.note) rows.push({ label: "Note", value: r.note });
+export function tenantTip(r: TenantRevenueRow, _est: ReimbursementEstimate | undefined, parts: Part[], viewLabel: string): { rows: TipRow[]; footer: TipRow } {
+  // A QUICK look only — the year by part. The methodology, today's billing
+  // and the pool changes live in the detail window a click opens
+  // (`TenantDetailModal`); the hover that carried them all was "very busy
+  // and crowded" (owner).
+  const rows: TipRow[] = parts.length > 1 ? parts.map((p) => ({ label: PART_LABEL[p], value: money0(yr(r[p])) })) : [];
   const total = parts.reduce((a, p) => a + yr(r[p]), 0);
+  rows.push({ label: "Click for the detail", value: "↗", color: "var(--muted)" });
   return { rows, footer: { label: parts.length > 1 ? viewLabel : `${PART_LABEL[parts[0]]}, year`, value: money0(total) } };
 }
 
-/**
- * The amber ▲ beside a tenant whose monthly recovery estimates jump from what
- * they are billed today to what the budget bills them. Its hover is the
- * tenant's bill, category by category — the conversation the property
- * manager will be having in January.
- */
-function JumpMark({ j, year }: { j: EstimateJump; year: number }) {
-  const yy = (y: number) => `'${String(y).slice(2)}`;
-  const up = (now: number, next: number) => now > 0.5 ? ` (${next >= now ? "+" : "−"}${Math.abs(((next - now) / now) * 100).toFixed(0)}%)` : "";
-  return (
-    <HoverCard title="Estimates jump next year" width={320}
-      rows={[
-        ...j.parts.map((p) => ({ label: SHORT[p.part], value: `$${money0(p.now)} → $${money0(p.next)}/mo${up(p.now, p.next)}` })),
-        { label: `Total ${yy(year - 1)} → ${yy(year)}`, value: `$${money0(j.now)} → $${money0(j.next)}/mo`, color: "#b45309" },
-      ]}
-      footer={{ label: "Increase", value: `+$${money0(j.changeDollars)}/mo · +${j.changePct.toFixed(0)}%` }}>
-      <span aria-label="Estimates jump next year" style={{ color: "#b45309", fontSize: 13, fontWeight: 800, lineHeight: 1, cursor: "default" }}>▲</span>
-    </HoverCard>
-  );
-}
 
 /** The leasing calls this table carries — every suite expiring, held over or
  *  vacant — made from the row's pill. */
@@ -171,8 +101,9 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const [view, setView] = useState<View>("gross");
   const [sure, setSure] = useState<Sure>("all");
   const [toDecide, setToDecide] = useState(false);
-  const [jumpsOnly, setJumpsOnly] = useState(false);
   const [openUnit, setOpenUnit] = useState<string | null>(null);
+  // The tenant whose detail is open (click a name).
+  const [detail, setDetail] = useState<TenantRevenueRow | null>(null);
   // $ or $/SF: in $/SF each month reads ANNUALIZED (× 12 ÷ the suite's SF), so
   // a month compares straight across to a lease's quoted rate.
   const [unit, setUnit] = useState<"usd" | "psf">("usd");
@@ -187,11 +118,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const parts = PARTS[view].filter((p) => !(office && p === "ins"));
   const keepMonth = (r: TenantRevenueRow, i: number) => sure === "all" || (sure === "assumed") === !!r.assumed[i];
   const cellsOf = (r: TenantRevenueRow, ps: Part[]) => MONTHS.map((_, i) => (keepMonth(r, i) ? ps.reduce((a, p) => a + (r[p][i] || 0), 0) : 0));
-  // Tenants whose recovery estimates jump — judged on the whole bill, whatever
-  // the filter, because it is the tenant's reaction being anticipated.
-  const jumps = new Map(allRows.map((r) => [r.unitRef + r.tenant, jumpFor(r)] as const).filter(([, j]) => j));
   const rows = allRows.map((r) => ({ r, months: cellsOf(r, parts) }))
-    .filter(({ r }) => !jumpsOnly || jumps.has(r.unitRef + r.tenant))
     .filter(({ months }) => sure === "all" || months.some((v) => Math.abs(v) > 0.5))
     .filter(({ r }) => { if (!toDecide) return true; const c = callOf.get(canonRef(r.unitRef)); return !!c && c.mode !== "contracted" && !c.assumption; });
   const partTotals = (p: Part) => MONTHS.map((_, i) => rows.reduce((a, { r }) => a + (keepMonth(r, i) ? r[p][i] || 0 : 0), 0));
@@ -259,14 +186,6 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
           {leasing && calls.length > 0 && (
             <button type="button" className={toDecide ? "btn sm primary" : "btn sm"} onClick={() => setToDecide((t) => !t)} aria-pressed={toDecide}>To decide · {calls.length - decided.length}</button>
           )}
-          {jumps.size > 0 && (
-            <HoverCard title="Estimates jumping" width={300}
-              rows={[{ label: "Flagged when", value: `CAM + INS + RET rise ${ESTIMATE_JUMP_PCT}%+ and $${ESTIMATE_JUMP_MIN_DOLLARS}+/mo` }]}
-              footer={{ label: "Compared", value: "today's billing → the budget" }}>
-              <button type="button" className={jumpsOnly ? "btn sm primary" : "btn sm"} onClick={() => setJumpsOnly((t) => !t)} aria-pressed={jumpsOnly}
-                style={jumpsOnly ? undefined : { color: "#b45309" }}>▲ Estimates up · {jumps.size}</button>
-            </HoverCard>
-          )}
           <span style={{ display: "inline-flex", gap: 4 }}>{views.map((v) => seg(view, v, VIEW_LABEL[v], setView))}</span>
           <span style={{ display: "inline-flex", gap: 4, paddingLeft: 10, borderLeft: "1px solid var(--border)" }}>
             {seg(unit, "usd", "$", setUnit)}
@@ -293,7 +212,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
           <tbody>
             {rows.length === 0 && (
               <tr><td colSpan={16} className="muted small" style={{ ...td, textAlign: "left", padding: 14 }}>
-                {jumpsOnly ? "No tenant's estimates jump." : toDecide ? "Every leasing call is made." : sure === "assumed" ? "Nothing speculative — no renewals, holds or lease-ups assumed yet." : "Nothing contracted."}
+                {toDecide ? "Every leasing call is made." : sure === "assumed" ? "Nothing speculative — no renewals, holds or lease-ups assumed yet." : "Nothing contracted."}
               </td></tr>
             )}
             {rows.map(({ r, months }) => {
@@ -317,7 +236,6 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                   {!call && st && <Pill tone={st.tone}>{st.text}</Pill>}
                 </span>
               );
-              const jump = jumps.get(r.unitRef + r.tenant);
               // A suite needing a call carries its DECIDE / decision pill,
               // which stands in for EXPIRES / HOLDOVER / LEASE-UP.
               const decision = call && leasing ? <DecisionPill call={call} owner={leasing.owner} onOpen={() => setOpenUnit(call.unitRef)} /> : null;
@@ -326,11 +244,11 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                   <td style={{ ...td, textAlign: "left", minWidth: 230, whiteSpace: "normal" }}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                       {vacant || !r.tenant ? nameCell : (
-                        <HoverCard title={`${r.tenant || "—"} · ${r.unitRef}`} width={420} rows={tip.rows} footer={tip.footer}>
-                          {nameCell}
+                        <HoverCard title={`${r.tenant || "—"} · ${r.unitRef}`} width={260} rows={tip.rows} footer={tip.footer} help={false}>
+                          <button type="button" onClick={() => setDetail(r)} className="os-line-name"
+                            style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", textAlign: "left" }}>{nameCell}</button>
                         </HoverCard>
                       )}
-                      {jump && <JumpMark j={jump} year={year} />}
                       {decision}
                     </span>
                   </td>
@@ -341,7 +259,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                     // view, dollars in the $/SF view — and, on an assumed
                     // month, the call behind it: what the RENEW / LEASE-UP
                     // pill used to say on the row.
-                    const other = unit === "usd" ? (r.sqft > 0 ? `${psf$((v * 12) / r.sqft)}/SF annualized` : null) : money0(v);
+                    const other = unit === "usd" ? (r.sqft > 0 ? `${psf$((v * 12) / r.sqft)}/SF` : null) : money0(v);
                     const made = r.assumed[i] && call ? decisionLabel(call) : null;
                     const cellTip = has ? {
                       title: `${vacant || !r.tenant ? "Vacant" : r.tenant} · ${MONTHS[i]} ${year}`,
@@ -396,7 +314,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 14, height: 14, borderRadius: 3, background: ASSUMED_BG, border: "1px dashed rgba(22,163,74,0.45)" }} /> Assumed (leasing decision)
         </span>
-        <span>Dimmed = pays nothing this year.{unit === "psf" ? " Months in $/SF are annualized." : ""}</span>
+        <span>Dimmed = pays nothing this year. Click a tenant for their detail.</span>
       </div>
       {leasing?.error && <div style={{ color: "#b91c1c", fontSize: 13, padding: "0 14px 10px" }}>{leasing.error}</div>}
       {leasing && (leasing.dealCapital.ti > 0 || leasing.dealCapital.lc > 0) && (
@@ -404,6 +322,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
           The leasing calls carry <b style={{ color: "var(--text)" }}>${Math.round(leasing.dealCapital.ti).toLocaleString("en-US")}</b> of TI and <b style={{ color: "var(--text)" }}>${Math.round(leasing.dealCapital.lc).toLocaleString("en-US")}</b> of leasing commissions, on the Capital lines in the month each new rent starts.
         </div>
       )}
+      {detail && <TenantDetailModal r={detail} est={est} year={year} onClose={() => setDetail(null)} />}
       {openCall && leasing && (
         <DecisionModal key={openCall.unitRef} call={openCall} owner={leasing.owner} budgetYear={year} fromSchedule={fromSchedule}
           onSave={leasing.onSave} onClose={() => setOpenUnit(null)} error={leasing.error} />
