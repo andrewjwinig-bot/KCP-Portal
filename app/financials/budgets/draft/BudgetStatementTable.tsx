@@ -55,7 +55,7 @@ const MONTH_TINT = "rgba(15,23,42,0.035)";
 // Line as snug as the labels allow (they ellipsize, full name on hover), so the
 // grid fits without a horizontal scroll: at the 1,090px floor a month is still
 // the ~57px a six-figure month needs.
-const COL_PCT = { line: 18, month: 5.25, budget: 7.6, reproj: 6.8, change: 4.6 };
+const COL_PCT = { line: 15, month: 5.5, budget: 7.6, reproj: 6.8, change: 4.6 };
 function Colgroup() {
   return (
     <colgroup>
@@ -726,7 +726,6 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const avgSf = sum(occSf) / 12;
     const todaySf = suites.reduce((a, t) => a + (t.status === "vacant" || t.status === "lease-up" ? 0 : t.sqft), 0);
     const p = (sf: number) => (sf / totalSf) * 100;
-    const sf = (n: number) => Math.round(n).toLocaleString("en-US");
     const up = Math.abs(avgSf - todaySf) < 0.5 ? null : avgSf > todaySf;
     body.push(
       <div key="occ" className="card" style={{ padding: 0 }}>
@@ -743,8 +742,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
               </tr>
             </thead>
             <tbody>
-              <StatRow label="Occupancy %" monthTip={occupancyHover} months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={up} />
-              <StatRow onLabel={() => setOccOpen(true)} monthTip={occupancyHover} label={`Occupancy SF (of ${sf(totalSf)})`} months={occSf.map(sf)} total={sf(avgSf)} basis={sf(todaySf)} change={up == null ? "–" : `${up ? "+" : "−"}${sf(Math.abs(avgSf - todaySf))}`} changeGood={up} />
+              <StatRow label="Occupancy %" onLabel={() => setOccOpen(true)} monthTip={occupancyHover} months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={up} />
             </tbody>
           </table>
         </div>
