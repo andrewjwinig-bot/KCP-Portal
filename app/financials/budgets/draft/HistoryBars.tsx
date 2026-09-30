@@ -93,7 +93,8 @@ export function HistoryBars({ years, forecast, budget }: {
           );
         })}
         {/* Each year's budget: a tick across the bar. */}
-        {bars.map((b, i) => b.budget == null ? null : (
+        {/* Never a $0 tick: on the axis it reads as a dash, not a budget. */}
+        {bars.map((b, i) => b.budget == null || Math.abs(b.budget) < 0.5 ? null : (
           <line key={`b${b.year}`} x1={cx(i) - bw / 2 - 6} x2={cx(i) + bw / 2 + 6} y1={y(b.budget)} y2={y(b.budget)}
             stroke="var(--muted)" strokeWidth={2.5} strokeLinecap="round" />
         ))}
@@ -123,7 +124,7 @@ export function HistoryBars({ years, forecast, budget }: {
       <div className="muted" style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12, marginTop: 4 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 2, background: "var(--series-1)" }} /> Actual</span>
         {bars.some((b) => b.projected) && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 2, background: "var(--series-1)", opacity: 0.35, outline: "1.5px dashed var(--series-1)" }} /> Reprojected (actual to date + budget for the rest)</span>}
-        {bars.some((b) => b.budget != null) && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 3, borderRadius: 2, background: "var(--muted)" }} /> Budget</span>}
+        {bars.some((b) => b.budget != null && Math.abs(b.budget) >= 0.5) && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 3, borderRadius: 2, background: "var(--muted)" }} /> Budget</span>}
         {budget && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 2, background: "var(--series-3)" }} /> {budget.year} budget (this draft)</span>}
         {avg != null && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, borderTop: "2px dashed var(--series-2)" }} /> Average</span>}
       </div>
