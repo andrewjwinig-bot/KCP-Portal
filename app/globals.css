@@ -1010,6 +1010,10 @@ tr:hover .row-quiet-action, .row-quiet-action:focus-visible { opacity: 0.8; }
 /* The note mark on a budget line: invisible until the row is hovered while a
  * line has no note, so a grid of forty lines is not forty icons; solid brand
  * once a note exists, so a line with something to say is findable. */
+/* A budget line figured elsewhere on the page: a quiet icon that jumps there. */
+.source-link { color: var(--muted); opacity: 0.75; transition: opacity 0.12s ease, color 0.12s ease; }
+.source-link:hover, .source-link:focus-visible { opacity: 1; color: var(--brand); background: rgba(11,74,125,0.08); }
+
 .budget-note {
   border: none; background: transparent; padding: 0; cursor: pointer; flex: 0 0 auto;
   color: var(--muted); opacity: 0; line-height: 0; transition: opacity 0.12s ease;

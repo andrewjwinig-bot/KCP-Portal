@@ -179,6 +179,29 @@ function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boo
   );
 }
 
+/** A line whose figure is WORKED OUT ELSEWHERE on the page (recoveries, rent,
+ *  the deals): a small quiet icon that jumps there, the source named on hover
+ *  — not a pill, which crowded the line name out of the narrow Line column. */
+const SOURCE_WHERE: Record<string, string> = {
+  "#revenue-by-tenant": "Revenue by tenant — each tenant's recoveries, below",
+  "#step-rent": "Revenues — the rent schedule and leasing calls, below",
+};
+function SourceLink({ text, href }: { text: string; href: string }) {
+  return (
+    <HoverCard title={`From ${text}`} width={280} help={false}
+      rows={[{ label: "Worked out in", value: SOURCE_WHERE[href] ?? "another section" }]}
+      footer={{ label: "Click to jump there", value: "↓" }}>
+      <a href={href} aria-label={`Go to where ${text} is worked out`} className="source-link"
+        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: 999, flex: "0 0 auto" }}>
+        <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M6 3.5H3.5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V10M9 2.5h4.5V7M13.5 2.5 7 9"
+            fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </a>
+    </HoverCard>
+  );
+}
+
 function Row({ badgeSource, extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, totalHover, cellMark, onCellClick, flagNegative }: {
   /** Where the figure came from, on hover of its pill (an assessment notice). */
   badgeSource?: BudgetDraftSection["lines"][number]["inputSource"];
@@ -294,7 +317,7 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
               <button type="button" onClick={onAccept} className="btn" aria-label={`Accept ${label} as shown`}
                 style={{ fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>Accept</button>
             )}
-            {badge && (badgeHref ? <a href={badgeHref} style={{ textDecoration: "none" }}><Pill tone={badge.tone}>{badge.text} →</Pill></a>
+            {badge && (badgeHref ? <SourceLink text={badge.text} href={badgeHref} />
               : badgeSource ? <SourceBadge source={badgeSource} tone={badge.tone} text={badge.text} label={label} />
               : <Pill tone={badge.tone}>{badge.text}</Pill>)}
             {onReset && typed?.some(Boolean) && (
