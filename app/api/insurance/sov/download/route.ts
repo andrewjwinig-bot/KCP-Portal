@@ -2,13 +2,13 @@
 // `?bi=1` also replaces BI values with the rent roll's annualised billings.
 
 import { NextResponse } from "next/server";
-import { getStoredSov, buildFilledSov } from "@/lib/insurance/server";
+import { getSovForm, buildFilledSov } from "@/lib/insurance/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const stored = await getStoredSov();
+  const stored = await getSovForm();
   if (!stored) return NextResponse.json({ error: "Upload the Statement of Values first." }, { status: 404 });
   const updateBi = new URL(req.url).searchParams.get("bi") === "1";
   const out = await buildFilledSov(stored, { updateBi });

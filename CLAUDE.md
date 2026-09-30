@@ -1871,6 +1871,12 @@ writes the portal's data back into it (`lib/insurance/sov.ts`).
   rule list (`LOCATION_RULES`) — a new row matches nothing and is surfaced,
   never guessed. Office Works (4900) shares Building 5's address and is matched
   by name first.
+- **The yearly job is: open, download, send — no upload.** The broker's 2026
+  form ships with the app (`data/insurance/sov-template.xlsx`, traced into the
+  routes by `outputFileTracingIncludes` in `next.config.mjs`); `getSovForm`
+  uses the last IMPORTED form if there is one, else that. Import only when the
+  broker sends a new or changed form; "Use the built-in form" undoes an
+  import. The Task Tracker's August "Insurance Applications" opens `/insurance`.
 - **BI values are opt-in** (12 × the rent roll's monthly billings): BI is a
   coverage decision (18 months, percentage rent), so the page offers the figure
   rather than imposing it.

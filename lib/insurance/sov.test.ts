@@ -110,3 +110,14 @@ describe("insurance SOV", () => {
     expect(cellValueFor("floorArea", "included in above")).toBe("included in above");
   });
 });
+
+describe("the built-in form (data/insurance/sov-template.xlsx)", () => {
+  it("reads as a Statement of Values and every location matches a property", async () => {
+    const { readFileSync } = await import("node:fs");
+    const wb = newWorkbook();
+    await wb.xlsx.load(readFileSync("data/insurance/sov-template.xlsx") as unknown as ArrayBuffer);
+    const sov = readSov(wb)!;
+    expect(sov.rows.length).toBe(27);
+    expect(sov.rows.filter((r) => !matchLocation(r.values))).toEqual([]);
+  });
+});

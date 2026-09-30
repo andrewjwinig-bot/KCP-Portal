@@ -2,7 +2,7 @@
 // preview of what the portal would write into it.
 //   GET    → the stored form's rows, matched to properties, with the fill plan
 //   POST   → upload (multipart `file`): replaces the stored form
-//   DELETE → forget the stored form
+//   DELETE → forget the imported form (back to the built-in 2026 one)
 // Gated by SENSITIVE_API_PREFIXES (/api/insurance → /insurance).
 
 import { NextResponse } from "next/server";
@@ -12,7 +12,7 @@ import { ALL_USERS, type UserId } from "@/lib/users";
 import { logAudit, auditIp } from "@/lib/audit";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import {
-  getStoredSov, saveStoredSov, clearStoredSov, parseSovBuffer, portalData,
+  getSovForm, saveStoredSov, clearStoredSov, parseSovBuffer, portalData,
 } from "@/lib/insurance/server";
 import { planFill, seedableFacts } from "@/lib/insurance/sov";
 
@@ -28,7 +28,7 @@ async function currentUser(): Promise<UserId | null> {
 
 export async function GET(req: Request) {
   try {
-    const stored = await getStoredSov();
+    const stored = await getSovForm();
     if (!stored) return NextResponse.json({ ok: true, stored: null });
     const sov = await parseSovBuffer(Buffer.from(stored.base64, "base64"));
     if (!sov) return NextResponse.json({ ok: false, error: "The stored file no longer reads as a Statement of Values — upload it again." });
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
     const names = Object.fromEntries(PROPERTY_DEFS.map((d) => [d.id, d.name]));
     return NextResponse.json({
       ok: true,
-      stored: { fileName: stored.fileName, uploadedAt: stored.uploadedAt, uploadedBy: stored.uploadedBy },
+      stored: { fileName: stored.fileName, uploadedAt: stored.uploadedAt, uploadedBy: stored.uploadedBy, builtIn: stored.builtIn },
       sheetName: sov.sheetName,
       otherSheets: sov.otherSheets,
       columns: Object.keys(sov.columns),
