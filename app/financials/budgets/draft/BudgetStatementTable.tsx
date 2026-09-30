@@ -31,6 +31,7 @@
 import { Fragment, useRef, useState } from "react";
 import { Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, type PillTone } from "@/app/components/Pill";
 import { SourceBadge } from "./SourceBadge";
+import { SourceIcon, SourceIconButton } from "./SourceIcon";
 import { DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL } from "@/lib/financials/budgets/cashForecast";
 import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/draft";
 import type { SectionRole } from "@/lib/financials/operating-statements/types";
@@ -100,6 +101,10 @@ const NEGATIVE_FG = "#b45309";
 const INPUT_BG = "var(--input-cell)";
 const TYPED_FG = "var(--input-typed)";
 
+/** The sources whose marker is a short TEXT pill ("+3%", "Flat", "Tax +3%") —
+ *  the method in a word. Everything else is an icon. */
+const GROWTH_SOURCES = new Set(["reproj-growth", "reproj-flat", "ret-default"]);
+
 /** Display only — "Reimbursements" / "Reimbursable" read as "Reimb." and
  *  "Maintenance" as "Maint." so the line column stays narrow. Keys, saves and
  *  notes keep the full label. */
@@ -139,7 +144,7 @@ export function CellInput({ initial, onDone }: { initial: number; onDone: (v: nu
   );
 }
 
-/** The $/SF rate on non-reimbursable utilities: shown as a pill, typed in place. */
+/** The $/SF rate on non-reimbursable utilities: an ⓘ with the working, typed in place. */
 function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boolean; onSave: (cents: number | null) => void }) {
   const [open, setOpen] = useState(false);
   const tip = {
@@ -169,42 +174,25 @@ function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boo
       </span>
     );
   }
-  const pill = <Pill tone={TONE_BLUE}>${v.rate.toFixed(2)}/SF vacant</Pill>;
+  // An ⓘ like every other source marker; the rate is in its hover, and a
+  // click types a new one.
   return (
-    <HoverCard title={tip.title} rows={tip.rows} footer={tip.footer} width={360} help={false}>
-      {canEdit
-        ? <button type="button" onClick={() => setOpen(true)} aria-label="Edit the utilities rate" style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>{pill}</button>
-        : pill}
+    <HoverCard title={tip.title} rows={canEdit ? [...tip.rows, { label: tip.footer.label, value: tip.footer.value }] : tip.rows} footer={canEdit ? { label: "Click to change the rate", value: `$${v.rate.toFixed(2)}/SF` } : tip.footer} width={360} help={false}>
+      <SourceIconButton kind="info" label={canEdit ? "Edit the utilities rate" : "Utilities rate"} onClick={canEdit ? () => setOpen(true) : undefined} />
     </HoverCard>
   );
 }
 
-/** A line whose figure is WORKED OUT ELSEWHERE on the page (recoveries, rent,
- *  the deals): a small quiet icon that jumps there, the source named on hover
- *  — not a pill, which crowded the line name out of the narrow Line column. */
+/** Where a line worked out elsewhere on the page sends you. */
 const SOURCE_WHERE: Record<string, string> = {
   "#revenue-by-tenant": "Revenue by tenant — each tenant's recoveries, below",
   "#step-rent": "Revenues — the rent schedule and leasing calls, below",
 };
-function SourceLink({ text, href }: { text: string; href: string }) {
-  return (
-    <HoverCard title={`From ${text}`} width={280} help={false}
-      rows={[{ label: "Worked out in", value: SOURCE_WHERE[href] ?? "another section" }]}
-      footer={{ label: "Click to jump there", value: "↓" }}>
-      <a href={href} aria-label={`Go to where ${text} is worked out`} className="source-link"
-        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, borderRadius: 999, flex: "0 0 auto" }}>
-        <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M6 3.5H3.5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V10M9 2.5h4.5V7M13.5 2.5 7 9"
-            fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </a>
-    </HoverCard>
-  );
-}
 
-function Row({ badgeSource, extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, badgeHref, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, totalHover, cellMark, onCellClick, flagNegative }: {
-  /** Where the figure came from, on hover of its pill (an assessment notice). */
-  badgeSource?: BudgetDraftSection["lines"][number]["inputSource"];
+function Row({ icon, extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, totalHover, cellMark, onCellClick, flagNegative }: {
+  /** The line's source marker — an ⓘ (the working, on hover) or a ↗ (worked
+   *  out elsewhere). Replaces a text pill, which crowded the line name out. */
+  icon?: React.ReactNode;
   /** Rendered after the pill — the vacant-SF rate editor on utilities. */
   extra?: React.ReactNode;
   label: string; months: number[]; total: number; basis: number | null; variant?: Variant;
@@ -216,7 +204,6 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
   rowKey?: string; edit?: EditAt; setEdit?: (e: EditAt) => void;
   onCommit?: (m: number | "all", v: number | null) => void;
   onReset?: () => void;
-  badgeHref?: string;
   /** A line with sub-lines carries a disclosure to open them. */
   toggle?: { open: boolean; onToggle: () => void };
   /** A keyed input (taxes, insurance, building maintenance) not yet entered:
@@ -310,16 +297,14 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
           </HoverCard>
         ) : <span title={label} style={{ overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{abbrev(label)}</span>}
         {note && <span style={{ flex: "0 0 auto", display: "inline-flex" }}><NoteMark label={label} note={note.note} onOpen={note.onOpen} /></span>}
-        {extra && <span style={{ marginLeft: badge || onAccept ? undefined : "auto", flex: "0 0 auto", display: "inline-flex" }}>{extra}</span>}
+        {(extra || icon) && <span style={{ marginLeft: badge || onAccept ? undefined : "auto", flex: "0 0 auto", display: "inline-flex", gap: 2 }}>{icon}{extra}</span>}
         {(badge || onAccept || (onReset && typed?.some(Boolean))) && (
           <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto", flex: "0 0 auto" }}>
             {onAccept && (
               <button type="button" onClick={onAccept} className="btn" aria-label={`Accept ${label} as shown`}
                 style={{ fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>Accept</button>
             )}
-            {badge && (badgeHref ? <SourceLink text={badge.text} href={badgeHref} />
-              : badgeSource ? <SourceBadge source={badgeSource} tone={badge.tone} text={badge.text} label={label} />
-              : <Pill tone={badge.tone}>{badge.text}</Pill>)}
+            {badge && <Pill tone={badge.tone}>{badge.text}</Pill>}
             {onReset && typed?.some(Boolean) && (
               <button type="button" onClick={onReset} title="Reset typed months" aria-label="Reset typed months"
                 style={{ border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>↺</button>
@@ -420,21 +405,46 @@ function RollupCard({ label, months, total, basis, favorableUp }: {
   );
 }
 
-export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, onNote, canType }: {
+export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, onNote, canType, onOpenPayroll }: {
   draft: BudgetDraft;
+  /** Opens the 2010 LIK Payroll budget — only for a viewer who may see it. */
+  onOpenPayroll?: () => void;
   /** Which lines this viewer may type (Greg: the expense lines). Absent = all. */
   canType?: (section: string, label: string) => boolean;
   /** Notes on the lines, keyed `section::label`. */
   notes?: Record<string, LineNote>;
   /** Opens the note dialog for a line. */
   onNote?: (sec: BudgetDraftSection, label: string) => void;
-  badgeFor: (source: Line["source"], feePct?: number) => { tone: PillTone; text: string };
+  badgeFor: (source: Line["source"], feePct?: number) => { tone: PillTone; text: string } | null;
   onLine: (sec: BudgetDraftSection, line: Line) => void;
   /** Present when the viewer may type months; month "all" = an annual spread
    *  evenly; `account` types one sub-line (a GL account) of the line. */
   onEdit?: (sec: BudgetDraftSection, line: Line, month: number | "all" | "accept", value: number | null, account?: string, propertyCode?: string) => void;
 }) {
   const [edit, setEdit] = useState<EditAt>(null);
+  // Where a line's figure comes from, as ONE small icon — never a text pill.
+  const sourceIcon = (l: Line): React.ReactNode => {
+    if (l.inputSource) return <SourceBadge source={l.inputSource} label={l.label} />;
+    const jump = l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : null;
+    if (jump) return <SourceIcon kind="link" href={jump} label={`Go to where ${l.label} is worked out`} title={l.source === "leases" ? "From the leases" : "From the recoveries"}
+      rows={[{ label: "Worked out in", value: SOURCE_WHERE[jump] }]} footer={{ label: "Click to jump there", value: "↓" }} />;
+    if (l.source === "pool") {
+      // The payroll budget is Drew's and Alison's alone: they get a link, and
+      // the route strips `pool` for everyone else, who are told the source.
+      return l.pool && onOpenPayroll
+        ? <SourceIcon kind="link" onClick={onOpenPayroll} label="Open the payroll budget" title="From the payroll budget"
+            rows={[{ label: "Worked out in", value: "2010 LIK Payroll — each employee's pay, allocated by building" }]} footer={{ label: "Click to open it", value: "↗" }} />
+        : <SourceIcon title="Source: payroll budget" rows={[{ label: "This property's share of", value: "the 2010 LIK Payroll budget" }]} label="Source: payroll budget" />;
+    }
+    if (l.source === "fee") return <SourceIcon title={`Management fee · ${l.feePct ?? "–"}% of revenue`} label="How the management fee is figured"
+      rows={[{ label: "Rate (last year's budget formula)", value: `${l.feePct ?? "–"}%` }, { label: "× This budget's total revenue", value: "month by month" }]}
+      footer={{ label: "Year", value: money0(l.total), color: COLOR_BRAND }} />;
+    if (l.source === "fee-rollup") return <SourceIcon title="Sum of the buildings' fees" label="How 2010's fee revenue is figured"
+      rows={[{ label: "Each fee-paying building's", value: "6610 management fee" }]} footer={{ label: "Hover a month", value: "for the buildings" }} />;
+    if (l.source === "loans") return <SourceIcon title="From the loans" label="How debt service is figured"
+      rows={[{ label: "Each loan's schedule", value: "interest and principal by month" }]} footer={{ label: "See", value: "Debt service, below" }} />;
+    return null;
+  };
   const [toggled, setToggled] = useState<Set<string>>(new Set());
   // A bucket's ITEMS (Sprinkler Inspection, Backflow…) fold under it, closed
   // by default: the bucket's total is what reads down the page, the items are
@@ -643,12 +653,13 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 const isOpen = isOpenKey(key);
                 return (
                   <Fragment key={l.label + l.mask}>
-                    <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal} flagNegative={sec.role !== "debt-service"} badgeSource={l.inputSource}
-                      badge={draft.consolidated || l.source === "vacancy" || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined
-                        // A figure PROVIDED by a document (the city's notice) says so, rather than "Entered".
-                        : l.inputSource?.pill ? { tone: l.inputSource.pill === "Entered" ? TONE_AMBER : TONE_GREEN, text: l.inputSource.pill }
-                        // An itemized line needs no pill: its ▸ already says it opens into items.
-                        : l.source === "items" ? undefined : badgeFor(l.source, l.feePct)} badgeHref={l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : undefined}
+                    <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal} flagNegative={sec.role !== "debt-service"}
+                      icon={draft.consolidated ? undefined : sourceIcon(l)}
+                      // Only the short GROWTH pills ("+3%", "Flat") stay as text;
+                      // every other source is an icon (sourceIcon), and an
+                      // itemized line needs nothing — its ▸ says it opens.
+                      badge={draft.consolidated || l.inputSource || !GROWTH_SOURCES.has(l.source) || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined
+                        : badgeFor(l.source, l.feePct) ?? undefined}
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
