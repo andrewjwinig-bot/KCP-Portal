@@ -78,9 +78,7 @@ export function HistoryBars({ years, forecast, budget }: {
           </g>
         ))}
         {bars.map((b, i) => {
-          if (b.value == null) {
-            return <text key={b.year} x={cx(i)} y={y(0) - 6} fontSize={11} textAnchor="middle" fill="var(--muted)">no GL</text>;
-          }
+          if (b.value == null) return null;
           const top = y(Math.max(0, b.value)), bot = y(Math.min(0, b.value));
           const on = hover === i;
           return (

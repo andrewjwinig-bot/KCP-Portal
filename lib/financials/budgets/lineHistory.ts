@@ -73,6 +73,9 @@ export async function lineHistory(opts: {
   const years: LineYear[] = [];
   for (let y = throughYear - back + 1; y <= throughYear; y++) {
     const glsY = fulls.filter((g) => g.key === key && g.year === y);
+    // A year with NO GL loaded is left out entirely (owner): an empty "no GL"
+    // bar or row says nothing. Import that year's GL and it appears.
+    if (!glsY.length) continue;
     const stored = assembleGls(glsY);
     const leanN = glsY.filter((g) => g.transactionsStored === false).length;
     const detail = !glsY.length ? undefined : leanN === 0 ? "stored" as const : leanN === glsY.length ? "lean" as const : "partial" as const;
