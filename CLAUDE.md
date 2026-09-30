@@ -1857,11 +1857,14 @@ writes the portal's data back into it (`lib/insurance/sov.ts`).
   never overwritten. Do NOT theme it. It loads through `newWorkbook()` only for
   `fullCalcOnLoad`, so the formulas recompute over the new areas.
 - **Property info is the source; the form is the output.** The descriptive
-  columns come from each property's **Building Facts** (`lib/properties/facts.ts`,
-  the Insurance group — construction, year built and roof age are the same
-  facts maintenance already keeps). Floor area and units come from the rent
-  roll unless a figure is keyed on the property. "Fill property info from this
-  sheet" seeds only EMPTY facts from the broker's file — the one-time bootstrap.
+  columns come from each property's **Building Facts** (`lib/properties/facts.ts`)
+  — ONE list, no separate "insurance" group (owner's call). They are SEEDED
+  from the broker's 2026 form (`factsSeed.ts`, laid under anything keyed — an
+  edit wins, a cleared field stays cleared). **Floor area, units and occupancy
+  are NOT facts**: they are the rent roll's, shown in the property's header
+  tiles, and the form reads them from the rent roll — never a second keyed
+  copy. "Fill property info from this sheet" seeds only EMPTY facts from a
+  later year's form.
 - **Rows are LOCATIONS, not properties.** Trust #4 (8200) is two rows and
   Butler & Main (9000) three; a property-level figure cannot be split across
   them, so those rows are left as the form has them. Matching is an explicit

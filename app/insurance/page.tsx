@@ -300,7 +300,7 @@ export default function InsurancePage() {
           <p className="muted small" style={{ margin: 0 }}>
             <Pill tone={TONE_BLUE}>Blue</Pill>{" "}
             cells are what the download writes; hover one for what the form had and where the new figure comes from.
-            Keep the answers current on each property&rsquo;s page under <b>Building Facts → Insurance</b> — next
+            Keep the answers current on each property&rsquo;s page under <b>Building Facts</b> — next
             year&rsquo;s form fills from there.
           </p>
         </>

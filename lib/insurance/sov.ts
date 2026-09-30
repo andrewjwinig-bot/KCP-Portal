@@ -247,8 +247,6 @@ export const FACT_TO_COLUMN: [factKey: string, column: FillableKey][] = [
   ["buildingCount", "buildings"],
   ["sprinklered", "sprinklered"],
   ["pctSprinklered", "pctSprinklered"],
-  ["units", "units"],
-  ["floorArea", "floorArea"],
   ["parkingSqft", "parkingSqft"],
   ["basement", "basement"],
   ["floodZone", "floodZone"],
@@ -275,11 +273,11 @@ export function portalFactsFor(
     if (typeof v === "number" && Number.isFinite(v)) out[col] = { value: v, source: "Property info" };
     else if (typeof v === "string" && v.trim()) out[col] = { value: v.trim(), source: "Property info" };
   }
-  // The rent roll is the default for area and suite count; a figure keyed on
-  // the property page (a building measured differently from its GLA) wins.
+  // Area and suite count are the rent roll's, as the property page's header
+  // tiles show them — not facts, so there is one figure, not two.
   if (roll) {
-    if (!out.floorArea && roll.totalSqft > 0) out.floorArea = { value: Math.round(roll.totalSqft), source: "Rent roll GLA" };
-    if (!out.units && roll.units > 0) out.units = { value: roll.units, source: "Rent roll suites" };
+    if (roll.totalSqft > 0) out.floorArea = { value: Math.round(roll.totalSqft), source: "Rent roll GLA" };
+    if (roll.units > 0) out.units = { value: roll.units, source: "Rent roll suites" };
     if (roll.annualGross > 0) out.biValues = { value: Math.round(roll.annualGross), source: "Rent roll · 12 × monthly rent + recoveries" };
   }
   return out;

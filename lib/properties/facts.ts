@@ -3,6 +3,7 @@
 
 import "server-only";
 import { createMapStore } from "@/lib/collectionStore";
+import { FACTS_SEED } from "./factsSeed";
 
 export type PropertyFacts = {
   yearBuilt?: number | null;
@@ -14,20 +15,18 @@ export type PropertyFacts = {
   waterService?: string;
   hvac?: string;
   restrooms?: string;
-  // Insurance — the Statement of Values columns (lib/insurance/sov.ts). Kept
-  // here, with the rest of the building's facts, so the broker's form is
-  // filled FROM property info each year rather than re-keyed on the form.
-  // Text on purpose: the form's own answers are "Partial", "Yes - Central
-  // Station Alarm", "included in above"; the fill writes a clean number back
-  // as a number.
+  // Also the insurance Statement of Values' columns (lib/insurance/sov.ts), so
+  // the broker's form is filled FROM here each year rather than re-keyed. Text
+  // on purpose: the form's own answers are "Partial", "Yes - Central Station
+  // Alarm"; the fill writes a clean number back as a number. Floor area, units
+  // and occupancy are NOT facts — they are the rent roll's, shown in the
+  // property's header tiles.
   occupancyDescription?: string;
   yearUpgrade?: string;
   stories?: string;
   buildingCount?: string;
   sprinklered?: string;
   pctSprinklered?: string;
-  units?: string;
-  floorArea?: string;
   parkingSqft?: string;
   basement?: string;
   floodZone?: string;
@@ -51,8 +50,6 @@ export const PROPERTY_FACT_KEYS = [
   "buildingCount",
   "sprinklered",
   "pctSprinklered",
-  "units",
-  "floorArea",
   "parkingSqft",
   "basement",
   "floodZone",
@@ -68,13 +65,24 @@ const store = createMapStore<PropertyFacts>({
   legacy: { prefix: "property-facts", id: "all", extract: (b) => (b as Manifest)?.facts ?? {} },
 });
 
+/** Stored facts laid over the seed (factsSeed.ts): anything keyed wins,
+ *  including a field cleared to "". */
+function withSeed(id: string, stored: PropertyFacts | null): PropertyFacts | null {
+  const seed = FACTS_SEED[id] as PropertyFacts | undefined;
+  if (!seed) return stored;
+  return { ...seed, ...(stored ?? {}) };
+}
+
 export async function getFacts(id: string): Promise<PropertyFacts | null> {
-  return await store.get(id);
+  return withSeed(id, await store.get(id));
 }
 
 /** Every property's facts, keyed by property id. */
 export async function allFacts(): Promise<Record<string, PropertyFacts>> {
-  return await store.all();
+  const stored = await store.all();
+  const out: Record<string, PropertyFacts> = {};
+  for (const id of new Set([...Object.keys(FACTS_SEED), ...Object.keys(stored)])) out[id] = withSeed(id, stored[id] ?? null)!;
+  return out;
 }
 
 export async function saveFacts(id: string, patch: Partial<PropertyFacts>): Promise<PropertyFacts> {
