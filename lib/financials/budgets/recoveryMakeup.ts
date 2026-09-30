@@ -100,9 +100,3 @@ export function recoveryMakeup(
   const ratioYear = hasPool ? (totalYear / poolYear) * 100 : null;
   return { category: cat, tenants: rows, total, poolYear, totalYear, ratioYear, leasedShare: leased };
 }
-
-/** A category's year ratio more than this many points above the leased share
- *  is flagged on the recovery line's annual hover: at a NNN centre tenants pay
- *  about their SF share, so the gap needs a reason (admin fees, a stipulated
- *  share, a pad with no SF on the roll, an estimate set by hand). */
-export const RECOVERY_GAP_FLAG_PTS = 10;

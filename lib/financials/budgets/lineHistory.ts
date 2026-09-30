@@ -82,10 +82,13 @@ export async function lineHistory(opts: {
 
     let budget: number | null = null;
     let budgetMonths: number[] | null = null;
-    let budgetFallback = false;
+    const budgetFallback = false;
     try {
       const b = await resolvePropertyBudget(propertyCode, y);
-      if (b) {
+      // A FALLBACK is another year's budget (budgets are on file from 2026
+      // only), so it is not this year's plan: a 2024 actual against the 2026
+      // budget is no comparison. No budget, no tick, no variance.
+      if (b && !b.fallback) {
         // The mask is looked up on its own rather than through a section's
         // sibling masks — there is no statement here to claim accounts
         // against, and a line's own mask is what the caller is asking about.
@@ -94,7 +97,6 @@ export async function lineHistory(opts: {
         budget = hit ? r0(hit.annualBudget) : null;
         // Month by month, for the history's monthly table.
         if (hit) budgetMonths = Array.from({ length: 12 }, (_, i) => r0(makeBudgetLookup(b, i + 1)("", mask, [mask])?.periodBudget ?? 0));
-        budgetFallback = !!b.fallback;
       }
     } catch { /* a year with no budget file simply has no budget */ }
 
