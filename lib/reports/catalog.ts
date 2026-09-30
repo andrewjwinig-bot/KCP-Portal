@@ -15,6 +15,7 @@ export type ReportCategory =
   | "Banking & debt"
   | "Payroll & invoicing"
   | "Investors"
+  | "Insurance"
   | "Custom";
 
 export type ReportEntry = {
@@ -36,6 +37,7 @@ export const REPORT_CATEGORIES: ReportCategory[] = [
   "Banking & debt",
   "Payroll & invoicing",
   "Investors",
+  "Insurance",
   "Custom",
 ];
 
@@ -132,6 +134,11 @@ export const REPORTS: ReportEntry[] = [
   { id: "statement-of-values", category: "Investors", name: "Statement of Values",
     description: "Each owner's interest and its value, with owner statements.",
     formats: ["Excel", "PDF", "ZIP"], href: "/investors" },
+
+  // ── Insurance ──────────────────────────────────────────────────────────
+  { id: "insurance-sov", category: "Insurance", name: "Insurance Schedule of Values",
+    description: "The broker's SOV, imported and filled back in from property info and the rent roll.",
+    formats: ["Excel"], href: "/insurance" },
 ];
 
 /** Case-insensitive match on name, description and category. */
