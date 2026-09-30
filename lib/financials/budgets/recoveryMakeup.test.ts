@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recoveryCategory, recoveryMakeup } from "./recoveryMakeup";
+import { recoveryCategory, recoveryMakeup, tenantLabel } from "./recoveryMakeup";
 
 const z = () => new Array(12).fill(0);
 const t = (unitRef: string, tenant: string, cam: number, ret: number) =>
@@ -49,5 +49,11 @@ describe("recoveryMakeup", () => {
     expect(rowA.year).toBe(4800);
     expect(rowA.poolShare).toBeCloseTo(40);
     expect(rowA.sfShare).toBeCloseTo(37.5);
+  });
+  it("names a nameless suite on a leasing assumption SPEC Tenant", () => {
+    expect(tenantLabel({ tenant: "Wawa", assumed: [true] })).toBe("Wawa");
+    expect(tenantLabel({ tenant: "", status: "lease-up" })).toBe("SPEC Tenant");
+    expect(tenantLabel({ tenant: "Vacant", assumed: [false, true] })).toBe("SPEC Tenant");
+    expect(tenantLabel({ tenant: "", assumed: [false] })).toBe("Unnamed tenant");
   });
 });

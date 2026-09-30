@@ -35,7 +35,7 @@ export function RecoveryMakeupModal({ makeup: mk, month, year, onClose }: { make
         <div className="pills">
           <StatPill label={`${label} recovered · year`} value={money0(mk.totalYear)} />
           <StatPill label={`${label} pool · year`} value={money0(mk.poolYear)} />
-          <StatPill label="Recovery ratio · year" value={pct(mk.ratioYear)} total />
+          <StatPill label="Annual Recovery Ratio" value={pct(mk.ratioYear)} total />
           <StatPill label="Leased share · year" value={pct(mk.leasedShare)} sub="avg SF paying rent" />
         </div>
         <div className="tableWrap" style={{ marginTop: 0 }}>
@@ -52,7 +52,7 @@ export function RecoveryMakeupModal({ makeup: mk, month, year, onClose }: { make
             <tbody>
               {mk.tenants.map((t) => (
                 <tr key={t.unitRef + t.tenant}>
-                  <td style={{ ...td, textAlign: "left", fontWeight: 600, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>{t.tenant || "Unnamed tenant"}</td>
+                  <td style={{ ...td, textAlign: "left", fontWeight: 600, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>{t.tenant}</td>
                   <td style={td}>{money0(t.amount)}</td>
                   <td style={td}>{money0(t.year)}</td>
                   <td style={td}>{pct(t.poolShare)}</td>

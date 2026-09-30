@@ -36,6 +36,16 @@ export function recoveryCategory(label: string, mask: string, kind: "retail" | "
 const poolCategory = (label: string, kind: "retail" | "office" | undefined): RecoveryCategory =>
   /real\s*estate\s*tax/i.test(label) ? "ret" : /insurance/i.test(label) && kind !== "office" ? "ins" : "cam";
 
+/** How a tenant is NAMED in the draft's hovers — never by suite number. A
+ *  suite with no tenant that pays on a leasing assumption is a speculative
+ *  lease-up: "SPEC Tenant". Anything else nameless is "Unnamed tenant". */
+export const SPEC_TENANT = "SPEC Tenant";
+export function tenantLabel(t: { tenant?: string | null; status?: string; assumed?: boolean[] }): string {
+  const name = (t.tenant ?? "").trim();
+  if (name && !/^vacant$/i.test(name)) return name;
+  return t.status === "lease-up" || t.assumed?.some(Boolean) ? SPEC_TENANT : "Unnamed tenant";
+}
+
 export type RecoveryMakeup = {
   category: RecoveryCategory;
   /** Tenants recovering anything this month, largest first — with their
@@ -88,7 +98,7 @@ export function recoveryMakeup(
     .map((t) => {
       const year = yearOf(t);
       return {
-        unitRef: t.unitRef, tenant: t.tenant, amount: part(t)?.[month] || 0, year,
+        unitRef: t.unitRef, tenant: tenantLabel(t), amount: part(t)?.[month] || 0, year,
         poolShare: hasPool ? (year / poolYear) * 100 : null,
         sfShare: byUnit.get(t.unitRef) ?? null,
       };

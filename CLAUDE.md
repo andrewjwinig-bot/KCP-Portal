@@ -1251,7 +1251,7 @@ time — and the team does not have time to open the GL over $80.
 - **Rental income, Occupancy % and Occupancy SF cells hover their tenants**
   the same way (top eight, "· assumed" on a leasing assumption; occupancy adds
   vacant SF and the month's starts / ends). **Hovers name TENANTS, never suite
-  numbers** (owner) — a nameless row reads "Unnamed tenant".
+  numbers** (owner) — a nameless suite on a leasing assumption is "SPEC Tenant" (`tenantLabel`), any other nameless row "Unnamed tenant".
 - **EVERY DEAL ALSO BUDGETS THE INTERNAL BROKER'S COMMISSION**
   (`internalCommission` in `lib/commissions.ts` — the SAME rules the
   Commissions pages pay: Harry $1.00/SF at the shopping centres, Nancy's
