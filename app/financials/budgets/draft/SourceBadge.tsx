@@ -23,7 +23,9 @@ export function SourceBadge({ source, tone, text, label }: { source: Source; ton
   const [open, setOpen] = useState(false);
   return (
     <>
-      <HoverCard title={source.title} width={340} rows={source.rows} footer={{ ...source.total, color: "var(--brand)" }} help={false}>
+      <HoverCard title={source.title} width={source.formula ? 460 : 380} rows={source.formula ? [] : source.rows}
+        body={source.formula ? <SourceHoverBody source={source} /> : undefined}
+        footer={{ ...source.total, color: "var(--brand)" }} help={false}>
         <button type="button" onClick={() => setOpen(true)} aria-label={`Sources for ${label}`}
           style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>
           <Pill tone={tone}>{text}</Pill>
@@ -41,10 +43,6 @@ function SourceDialog({ source, label, onClose }: { source: Source; label: strin
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const parcels = source.parcels ?? [];
-  const bills = source.bills ?? [];
-  const f = source.formula;
-  const op: React.CSSProperties = { fontSize: 22, fontWeight: 800, color: "var(--muted)", padding: "0 2px", alignSelf: "center" };
   const body = (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "80px 16px", overflowY: "auto" }}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Sources for ${label}`}
@@ -56,7 +54,23 @@ function SourceDialog({ source, label, onClose }: { source: Source; label: strin
           </div>
           <button type="button" className="btn sm" onClick={onClose}>Close</button>
         </div>
-        <div style={{ padding: "4px 18px 16px", display: "grid", gap: 16 }}>
+        <div style={{ padding: "4px 18px 16px" }}><SourceDetail source={source} /></div>
+      </div>
+    </div>
+  );
+  return typeof document !== "undefined" ? createPortal(body, document.body) : null;
+}
+
+/** The whole working — the calculation tiles, the bills, the parcels, the
+ *  sources and the footnote. ONE component, rendered by the pill's dialog AND
+ *  the line's history popup, so the two cannot show different figures. */
+export function SourceDetail({ source }: { source: Source }) {
+  const parcels = source.parcels ?? [];
+  const bills = source.bills ?? [];
+  const f = source.formula;
+  const op: React.CSSProperties = { fontSize: 22, fontWeight: 800, color: "var(--muted)", padding: "0 2px", alignSelf: "center" };
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
           {/* The calculation, as the tiles that feed it. */}
           {f ? (
             <div className="pills" style={{ alignItems: "stretch" }}>
@@ -143,8 +157,59 @@ function SourceDialog({ source, label, onClose }: { source: Source; label: strin
 
           {source.footnote && <div className="muted small">{source.footnote}</div>}
         </div>
+  );
+}
+
+/** The hover: the calculation in one line, then each bill — the figure is
+ *  important enough to read in full without opening anything. */
+function SourceHoverBody({ source }: { source: Source }) {
+  const f = source.formula!;
+  const bills = source.bills ?? [];
+  const parcels = source.parcels ?? [];
+  const gross = Math.round((f.assessed * f.mills) / 1000);
+  const cell: React.CSSProperties = { padding: "3px 0", fontSize: 12.5, fontVariantNumeric: "tabular-nums" };
+  const outOfCam = parcels.filter((p) => !p.recoverable);
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", rowGap: 3, fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+        <span className="muted">Assessed value · {parcels.length} parcel{parcels.length === 1 ? "" : "s"}</span><b style={{ textAlign: "right" }}>{usd(f.assessed)}</b>
+        <span className="muted">× Millage</span><b style={{ textAlign: "right" }}>{f.mills.toFixed(3)}</b>
+        {f.discountPct ? (<>
+          <span className="muted">Gross tax</span><span style={{ textAlign: "right" }}>{usd(gross)}</span>
+          <span className="muted">− Early-pay discount {f.discountPct}%</span><span style={{ textAlign: "right", color: "#15803d" }}>−{usd(gross - f.tax)}</span>
+        </>) : null}
       </div>
+      {bills.length > 0 && (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={{ ...cell, ...secLabel, textAlign: "left" }}>Bill</th>
+              <th style={{ ...cell, ...secLabel, textAlign: "left" }}>Due</th>
+              <th style={{ ...cell, ...secLabel, textAlign: "right" }}>Mills</th>
+              <th style={{ ...cell, ...secLabel, textAlign: "right" }}>Tax</th>
+            </tr>
+          </thead>
+          <tbody>
+            {bills.map((b) => (
+              <tr key={b.label} style={{ borderTop: "1px solid var(--border)" }}>
+                <td style={{ ...cell, fontWeight: 600 }}>
+                  {b.label}
+                  {b.levies.some((l) => !l.adopted) && <span style={{ color: "#b45309", fontWeight: 700 }}> · est. rate</span>}
+                </td>
+                <td style={cell}>{b.month}</td>
+                <td style={{ ...cell, textAlign: "right" }}>{b.mills.toFixed(3)}</td>
+                <td style={{ ...cell, textAlign: "right", fontWeight: 700 }}>{usd(b.tax)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {outOfCam.length > 0 && (
+        <div className="small" style={{ color: "#b45309" }}>
+          Not in CAM: {outOfCam.map((p) => p.label).join(", ")} — kept out of the RET recovery pool.
+        </div>
+      )}
+      <div className="muted small">Click the pill for every parcel and the sources.</div>
     </div>
   );
-  return typeof document !== "undefined" ? createPortal(body, document.body) : null;
 }

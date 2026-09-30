@@ -18,6 +18,7 @@ import { useUser } from "@/app/components/UserProvider";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
+import { SourceDetail } from "./SourceBadge";
 import { scopeAllowsLine, canSeePayroll } from "@/lib/financials/budgets/contributors";
 import type { UserId } from "@/lib/users";
 import { PayrollBudget } from "./PayrollBudget";
@@ -556,6 +557,14 @@ export default function BudgetDraftPage() {
           extra={histLine.poolKeys?.length && draft ? (
             <PayrollPoolsCard year={draft.budgetYear} bookId={bookId} bookName={book.name} propertyCode={draft.propertyCode}
               onlyKeys={histLine.poolKeys} queued={queued} onSaved={() => setRefreshTick((n) => n + 1)} />
+          ) : hLine?.inputSource ? (
+            // A provided figure (real estate taxes off the public record): the
+            // SAME working the line's pill opens, here where the line is read.
+            <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--brand)", borderRadius: 10, padding: "10px 14px 14px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>How it is figured</div>
+              <div style={{ fontSize: 15, fontWeight: 800, margin: "2px 0 6px" }}>{hLine.inputSource.title}</div>
+              <SourceDetail source={hLine.inputSource} />
+            </div>
           ) : null}
           onClose={() => setHistLine(null)}
           onUseSuggestion={draft?.canEditLines && !histLine.locked ? (amount) => { applySuggestion(histLine.section, histLine.label, amount); setHistLine(null); } : undefined}
