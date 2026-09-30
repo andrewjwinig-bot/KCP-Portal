@@ -24,7 +24,7 @@ import type { RecoveryTie, TenantRevenueRow } from "@/lib/financials/budgets/dra
 import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
 import { estimateJump, ESTIMATE_JUMP_PCT, ESTIMATE_JUMP_MIN_DOLLARS, type EstimateJump } from "@/lib/financials/budgets/estimateJump";
 import { jumpFor } from "@/lib/financials/budgets/estimatesByTenant";
-import { DecisionPill, DecisionModal, type LeasingCall, type SavePayload } from "./LeasingDecision";
+import { DecisionPill, DecisionModal, decisionLabel, type LeasingCall, type SavePayload } from "./LeasingDecision";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const money0 = (n: number) => (n < 0 ? "-" : "") + Math.abs(Math.round(n)).toLocaleString("en-US");
@@ -252,8 +252,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
             {leasing?.headerExtra}
           </div>
           <div className="muted small" style={{ marginTop: 2 }}>
-            {fromSchedule ? "Rent from the rent schedule" : "Rent from today's rent roll"}{leasing ? <> — click a suite&rsquo;s <b>DECIDE</b> pill to make its leasing call.</> : "."}
-            {est ? ` Recoveries: ${est.reconYear} CAM methodology applied to the ${year} budget's expense pools; new tenants assumed NNN.` : ""}
+            {fromSchedule ? "Rent from the rent schedule" : "Rent from today's rent roll"}{est ? ` · recoveries on the ${est.reconYear} CAM methodology` : ""}. Hover a month for $/SF and the leasing call.
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, flexWrap: "wrap" }}>
@@ -316,7 +315,6 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                       pool. Retail is the rest, so only the exception is tagged. */}
                   {r.portion === "office" && <span style={{ marginLeft: 6 }}><PortionPill portion="office" /></span>}
                   {!call && st && <Pill tone={st.tone}>{st.text}</Pill>}
-                  {gross && <Pill tone={TONE_BLUE}>GROSS</Pill>}
                 </span>
               );
               const jump = jumps.get(r.unitRef + r.tenant);
@@ -339,9 +337,24 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                   <td style={{ ...td, textAlign: "left" }}><code style={SUITE}>{r.unitRef}</code></td>
                   {months.map((v, i) => {
                     const has = Math.abs(v) > 0.5;
+                    // The OTHER unit on hover — $/SF (annualized) in the $
+                    // view, dollars in the $/SF view — and, on an assumed
+                    // month, the call behind it: what the RENEW / LEASE-UP
+                    // pill used to say on the row.
+                    const other = unit === "usd" ? (r.sqft > 0 ? `${psf$((v * 12) / r.sqft)}/SF annualized` : null) : money0(v);
+                    const made = r.assumed[i] && call ? decisionLabel(call) : null;
+                    const cellTip = has ? {
+                      title: `${vacant || !r.tenant ? "Vacant" : r.tenant} · ${MONTHS[i]} ${year}`,
+                      rows: [
+                        { label: view === "gross" ? "Rent + recoveries" : VIEW_LABEL[view], value: unit === "usd" ? money0(v) : `${monthShown(v, r.sqft)}/SF` },
+                        ...(other ? [{ label: unit === "usd" ? "Per SF" : "Dollars", value: other }] : []),
+                        ...(gross ? [{ label: "Lease", value: "Gross — pays no recoveries" }] : []),
+                      ],
+                      footer: made ? { label: "Leasing call", value: made, color: "#0b4a7d" } : { label: r.assumed[i] ? "Assumed" : "Lease in place", value: "" },
+                    } : null;
                     return (
                       <td key={i} style={{ ...td, background: has ? (r.assumed[i] ? ASSUMED_BG : CONTRACTED_BG) : undefined, color: has ? "var(--text)" : "var(--muted)" }}>
-                        {has ? monthShown(v, r.sqft) : "–"}
+                        {cellTip ? <HoverCard title={cellTip.title} rows={cellTip.rows} footer={cellTip.footer} width={280} help={false}><span>{monthShown(v, r.sqft)}</span></HoverCard> : "–"}
                       </td>
                     );
                   })}
@@ -350,28 +363,29 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                 </tr>
               );
             })}
-            {/* One row per part in view, naming the budget line it lands on,
-                then the grand total when there is more than one. */}
-            {parts.map((p, k) => (
-              <Fragment key={p}>
-                {totalRow(
-                  <>Total {PART_LABEL[p]}{lineOf(p) ? <span className="muted" style={{ fontWeight: 600, fontSize: 12 }}> → {lineOf(p)}</span> : null}</>,
-                  partTotals(p), parts.length === 1, p, k === 0,
-                )}
-                {(() => {
-                  const t = p === "rent" ? null : tie.find((x) => x.basis === p);
-                  if (!t || t.ties || sure !== "all") return null;
-                  return (
-                    <tr><td colSpan={16} style={{ ...td, textAlign: "left", paddingLeft: 22, color: "#b91c1c", fontWeight: 600 }}>
-                      {t.lines.length === 0
-                        ? `This statement has no ${PART_LABEL[p]} recovery line, so ${money0(t.estimateTotal)} of tenant recoveries is not in the budget. Add the line to the property's statement mapping.`
-                        : `The budget lines carry ${money0(t.linesTotal)} against ${money0(t.estimateTotal)} from the tenants — a difference of ${money0(t.linesTotal - t.estimateTotal)}.`}
-                    </td></tr>
-                  );
-                })()}
-              </Fragment>
-            ))}
-            {parts.length > 1 && totalRow(view === "gross" ? "Gross revenue" : "Total recoveries", grandMonths, true, "grand", true)}
+            {/* ONE total row — the view's own (owner: four subtotal rows under
+                every table was busy). Its label hovers the split by part and
+                the budget line each lands on; a part that does not tie to its
+                line still gets its red row, because that is the exception. */}
+            {totalRow(
+              <HoverCard title="Where it lands" width={340} help={false}
+                rows={parts.map((p) => ({ label: `${PART_LABEL[p]}${lineOf(p) ? ` → ${lineOf(p)}` : ""}`, value: money0(partTotals(p).reduce((a, b) => a + b, 0)) }))}
+                footer={{ label: "Total", value: money0(grandMonths.reduce((a, b) => a + b, 0)), color: "#0b4a7d" }}>
+                <span>{view === "gross" ? "Gross revenue" : view === "recoveries" ? "Total recoveries" : `Total ${PART_LABEL[parts[0]]}`}{parts.length === 1 && lineOf(parts[0]) ? <span className="muted" style={{ fontWeight: 600, fontSize: 12 }}> → {lineOf(parts[0])}</span> : null}</span>
+              </HoverCard>,
+              grandMonths, true, "grand", true,
+            )}
+            {parts.map((p) => {
+              const t = p === "rent" ? null : tie.find((x) => x.basis === p);
+              if (!t || t.ties || sure !== "all") return null;
+              return (
+                <tr key={`tie-${p}`}><td colSpan={16} style={{ ...td, textAlign: "left", paddingLeft: 22, color: "#b91c1c", fontWeight: 600 }}>
+                  {t.lines.length === 0
+                    ? `This statement has no ${PART_LABEL[p]} recovery line, so ${money0(t.estimateTotal)} of tenant recoveries is not in the budget. Add the line to the property's statement mapping.`
+                    : `${PART_LABEL[p]}: the budget lines carry ${money0(t.linesTotal)} against ${money0(t.estimateTotal)} from the tenants — a difference of ${money0(t.linesTotal - t.estimateTotal)}.`}
+                </td></tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -382,7 +396,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 14, height: 14, borderRadius: 3, background: ASSUMED_BG, border: "1px dashed rgba(22,163,74,0.45)" }} /> Assumed (leasing decision)
         </span>
-        <span>Dimmed = pays nothing this year. $/SF is the year&rsquo;s total over the suite&rsquo;s SF (totals: over the {Math.round(totalSf).toLocaleString("en-US")} SF in view){unit === "psf" ? "; months in $/SF are annualized (× 12)" : ""}. Hover a tenant for how their figure was reached.</span>
+        <span>Dimmed = pays nothing this year.{unit === "psf" ? " Months in $/SF are annualized." : ""}</span>
       </div>
       {leasing?.error && <div style={{ color: "#b91c1c", fontSize: 13, padding: "0 14px 10px" }}>{leasing.error}</div>}
       {leasing && (leasing.dealCapital.ti > 0 || leasing.dealCapital.lc > 0) && (

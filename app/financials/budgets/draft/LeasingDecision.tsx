@@ -87,21 +87,22 @@ function effectText(kind: string, end: Date | null, year: number, month: number)
   }
 }
 
-/** The pill's words for a decision. */
-function decisionLabel(call: LeasingCall): string | null {
+/** A decision in words — "Renew $15.00/SF", "Lease-up Nov · $15.00/SF".
+ *  Read in the table's hovers; nothing on the row spells it out any more. */
+export function decisionLabel(call: LeasingCall): string | null {
   const a = call.assumption;
   if (!a) return null;
-  if (call.mode === "vacant" && a.kind === "hold") return "LEAVE VACANT";
-  if (a.kind === "stop") return `BACKED OUT FROM ${MONTHS[(a.startMonth ?? 1) - 1].toUpperCase()}`;
+  if (call.mode === "vacant" && a.kind === "hold") return "Leave vacant";
+  if (a.kind === "stop") return `Backed out from ${MONTHS[(a.startMonth ?? 1) - 1]}`;
   const psf = a.rentPsf ?? (a.monthlyRent != null && call.sqft > 0 ? round2((a.monthlyRent * 12) / call.sqft) : null);
   // A renewal with no rent keyed — or an old "hold" — renews at today's rent.
   const today = call.sqft > 0 && call.currentRent ? round2((call.currentRent * 12) / call.sqft) : null;
   const renewAt = psf ?? today;
   switch (a.kind) {
     case "hold":
-    case "renew": return renewAt != null ? `RENEW $${renewAt.toFixed(2)}/SF` : "RENEW";
-    case "vacate": return "VACATE";
-    case "leaseup": return `LEASE-UP ${MONTHS[(a.startMonth ?? 1) - 1].toUpperCase()}${psf != null ? ` · $${psf.toFixed(2)}/SF` : ""}`;
+    case "renew": return renewAt != null ? `Renew $${renewAt.toFixed(2)}/SF` : "Renew";
+    case "vacate": return "Vacate";
+    case "leaseup": return `Lease-up ${MONTHS[(a.startMonth ?? 1) - 1]}${psf != null ? ` · $${psf.toFixed(2)}/SF` : ""}`;
     default: return null;
   }
 }
@@ -115,20 +116,23 @@ export function DecisionPill({ call, owner, onOpen }: {
   onOpen: () => void;
 }) {
   const label = decisionLabel(call);
-  // A lease in place owes no call — so no amber DECIDE on every row, only a
-  // quiet action that shows when the row is hovered.
-  if (call.mode === "contracted" && !label) {
+  // Only a call still OWED carries a pill (amber DECIDE) — the exception. A
+  // made call reads off the table itself (the months it fills, and the cell
+  // hovers name it), so it is a quiet row action like "Back out" (owner: the
+  // RENEW / LEASE-UP pills repeated what the row already showed).
+  if (label || call.mode === "contracted") {
     return (
-      <button type="button" className="row-quiet-action" onClick={(e) => { e.stopPropagation(); onOpen(); }} aria-label={`Back out ${call.unitRef}'s rent`}>
-        Back out
+      <button type="button" className="row-quiet-action" onClick={(e) => { e.stopPropagation(); onOpen(); }}
+        aria-label={label ? `Change decision: ${label}` : `Back out ${call.unitRef}'s rent`}>
+        {label ? "Edit call" : "Back out"}
       </button>
     );
   }
   return (
     <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(); }}
       style={{ border: "none", background: "none", padding: 0, cursor: "pointer" }}
-      aria-label={label ? `Change decision: ${label}` : `Decide ${call.unitRef}`}>
-      <Pill tone={label ? contributorTone(owner.id) : TONE_AMBER}>{label ?? "DECIDE"}</Pill>
+      aria-label={`Decide ${call.unitRef}`}>
+      <Pill tone={TONE_AMBER}>DECIDE</Pill>
     </button>
   );
 }
