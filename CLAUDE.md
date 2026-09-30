@@ -1535,6 +1535,15 @@ time — and the team does not have time to open the GL over $80.
     owner may send Skyline's exact format; if it differs, change
     `skylineEstimateRows` only. The review WORKBOOK (`estimatesExport.ts`) is
     a separate themed document with live formulas and the why.
+- **THE RECOVERY CHECK IS A REVIEW, NEVER AN ADJUSTMENT** (`recoveryCheck.ts`,
+  `RecoveryCheckCard` on a book's "All …" tab; code first, then name). Each
+  property's recoveries ÷ its recoverable pool, CAM + INS together and RET
+  alone. It used to SCALE a group back to 100% of its pool — the owner removed
+  that: a fully leased NNN centre with admin fees legitimately recovers MORE
+  than its pool, so a cap cut real revenue. A group is only FLAGGED ("to
+  review", amber) above the pool × the higher of the recon year's ratio and
+  115% (`ADMIN_ALLOWANCE`, the highest admin fee on any lease). 4500's 2× RET
+  is the case it exists for.
 - **Revenue by tenant reads like the Rent Roll**: TENANT first (600 weight,
   a vacancy in muted italics), then the SUITE as a bold brand-coloured code, a
   larger row font and rent-roll row height.

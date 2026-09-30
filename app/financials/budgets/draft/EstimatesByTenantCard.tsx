@@ -128,15 +128,10 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
         <span className="muted small" style={{ marginLeft: "auto" }}>Billed today is read off each tenant&apos;s latest monthly statement; <i>italic</i> = not on it (rent roll / recon), amber = the statement and rent roll disagree</span>
       </div>
 
-      {check.some((c) => c.over || c.capped) && (
-        <div style={{ margin: "0 14px 10px", padding: "8px 12px", borderRadius: 8, fontSize: 13,
-          background: check.some((c) => c.over) ? "rgba(220,38,38,0.08)" : "rgba(217,119,6,0.10)",
-          border: `1px solid ${check.some((c) => c.over) ? "rgba(220,38,38,0.35)" : "rgba(217,119,6,0.35)"}` }}>
+      {check.some((c) => c.over) && (
+        <div style={{ margin: "0 14px 10px", padding: "8px 12px", borderRadius: 8, fontSize: 13, background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)" }}>
           {check.filter((c) => c.over).map((c) => (
-            <div key={c.group}><b>{c.label} over-recovers:</b> {money0(c.recovered)} a year against a {money0(c.pool)} budget pool ({pct0(c.ratio)}) — a figure set by hand is over the ceiling. Tenants would be over-billed.</div>
-          ))}
-          {check.filter((c) => c.capped && !c.over).map((c) => (
-            <div key={c.group}><b>{c.label} capped:</b> the methodology came to {money0(c.capped!.before)} a year against a {money0(c.pool)} pool, so every tenant was scaled back to {money0(c.recovered)} ({pct0(c.ratio)}). Worth a look — a pool the draft sees differently from the recon is the usual cause.</div>
+            <div key={c.group}><b>{c.label} to review:</b> {money0(c.recovered)} a year against a {money0(c.pool)} budget pool ({pct0(c.ratio)}) — above what admin fees explain. Check the tenants&apos; shares and any estimate set by hand before importing.</div>
           ))}
         </div>
       )}
@@ -208,7 +203,7 @@ function CheckRow({ check, ry, year }: { check: GroupCheck[]; ry: number | null;
     const pool = w.reduce((s, c) => s + c.pool, 0);
     return pool > 0 ? w.reduce((s, c) => s + c.reconRatio! * c.pool, 0) / pool : null;
   })();
-  const color = (c?: GroupCheck) => (!c ? undefined : c.over ? "#b91c1c" : c.capped ? UP : "#15803d");
+  const color = (c?: GroupCheck) => (!c ? undefined : c.over ? UP : "#15803d");
   const cell = (c: GroupCheck | undefined, span: number, first = false) => (
     <td colSpan={span} style={{ ...td, borderTop: "1px dashed var(--border)", ...(first ? { borderLeft: DIVIDE } : {}), textAlign: span > 1 ? "center" : "right" }}>
       {c ? (
@@ -217,10 +212,9 @@ function CheckRow({ check, ry, year }: { check: GroupCheck[]; ry: number | null;
           { label: `${year} budget pool`, value: money0(c.pool) },
           { label: "Ratio", value: pct0(c.ratio), color: color(c) },
           ...(c.reconRatio != null ? [{ label: `${ry} recon ratio`, value: pct0(c.reconRatio) }] : []),
-          { label: "Ceiling", value: `${money0(c.ceiling)} (${c.reconRatio != null && c.reconRatio > 1 ? `${ry} ratio` : "100% of the pool"})` },
-          ...(c.capped ? [{ label: "Methodology came to", value: `${money0(c.capped.before)} — capped`, color: UP }] : []),
+          { label: "Review above", value: `${money0(c.ceiling)} (${c.reconRatio != null && c.reconRatio > 1.15 ? `${ry} ratio` : "115% of the pool — admin fees"})` },
         ]}>
-          <span style={{ fontWeight: 800, color: color(c) }}>{span > 1 ? `${c.label} ` : ""}{pct0(c.ratio)}{c.capped ? " · capped" : ""}</span>
+          <span style={{ fontWeight: 800, color: color(c) }}>{span > 1 ? `${c.label} ` : ""}{pct0(c.ratio)}</span>
         </HoverCard>
       ) : "–"}
     </td>
