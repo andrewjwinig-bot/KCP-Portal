@@ -1,7 +1,9 @@
 "use client";
 
-/** Every tenant behind one recovery line in one month, with what share of the
- *  expense pool that recovers — the full list behind the grid cell's hover. */
+/** Every tenant behind one recovery line in one month — the full list behind
+ *  the grid cell's hover — with each tenant's YEAR against its share of the
+ *  year's pool and its SF share. No monthly ratio: a flat monthly estimate
+ *  against a lumpy month's expense is timing, not a ratio. */
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { StatPill } from "@/app/components/Pill";
@@ -22,7 +24,7 @@ export function RecoveryMakeupModal({ makeup: mk, month, year, onClose }: { make
   const label = CATEGORY_LABEL[mk.category];
   const body = (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 20px", overflow: "auto" }}>
-      <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 640, width: "100%", padding: 18, display: "flex", flexDirection: "column", gap: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ maxWidth: 720, width: "100%", padding: 18, display: "flex", flexDirection: "column", gap: 14, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
           <div>
             <div style={secLabel}>{label} recoveries · {month} {year}</div>
@@ -31,33 +33,38 @@ export function RecoveryMakeupModal({ makeup: mk, month, year, onClose }: { make
           <button className="btn sm" onClick={onClose}>Close</button>
         </div>
         <div className="pills">
-          <StatPill label={`${label} pool · ${month}`} value={money0(mk.pool)} />
-          <StatPill label={`Recovery ratio · ${month}`} value={pct(mk.ratio)} />
-          <StatPill label="Recovery ratio · year" value={pct(mk.ratioYear)} />
+          <StatPill label={`${label} recovered · year`} value={money0(mk.totalYear)} />
+          <StatPill label={`${label} pool · year`} value={money0(mk.poolYear)} />
+          <StatPill label="Recovery ratio · year" value={pct(mk.ratioYear)} total />
+          <StatPill label="Leased share · year" value={pct(mk.leasedShare)} sub="avg SF paying rent" />
         </div>
         <div className="tableWrap" style={{ marginTop: 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
                 <th style={{ ...th, textAlign: "left" }}>Tenant</th>
-                <th style={{ ...th, textAlign: "left" }}>Suite</th>
                 <th style={th}>{month}</th>
+                <th style={th}>Year</th>
                 <th style={th}>% of pool</th>
+                <th style={th}>SF share</th>
               </tr>
             </thead>
             <tbody>
               {mk.tenants.map((t) => (
                 <tr key={t.unitRef + t.tenant}>
-                  <td style={{ ...td, textAlign: "left", fontWeight: 600, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>{t.tenant || "—"}</td>
-                  <td style={{ ...td, textAlign: "left" }}><code style={{ fontWeight: 700, color: "var(--brand)" }}>{t.unitRef}</code></td>
+                  <td style={{ ...td, textAlign: "left", fontWeight: 600, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>{t.tenant || "Unnamed tenant"}</td>
                   <td style={td}>{money0(t.amount)}</td>
-                  <td style={{ ...td, color: "var(--muted)" }}>{Math.abs(mk.pool) >= 0.5 ? pct((t.amount / mk.pool) * 100) : "–"}</td>
+                  <td style={td}>{money0(t.year)}</td>
+                  <td style={td}>{pct(t.poolShare)}</td>
+                  <td style={{ ...td, color: "var(--muted)" }}>{pct(t.sfShare)}</td>
                 </tr>
               ))}
               <tr style={{ fontWeight: 800 }}>
-                <td colSpan={2} style={{ ...td, textAlign: "left", ...secLabel, color: "var(--text)", borderTop: "2px solid var(--border)" }}>Total recovered</td>
+                <td style={{ ...td, textAlign: "left", ...secLabel, color: "var(--text)", borderTop: "2px solid var(--border)" }}>Total recovered</td>
                 <td style={{ ...td, borderTop: "2px solid var(--border)" }}>{money0(mk.total)}</td>
-                <td style={{ ...td, borderTop: "2px solid var(--border)" }}>{pct(mk.ratio)}</td>
+                <td style={{ ...td, borderTop: "2px solid var(--border)" }}>{money0(mk.totalYear)}</td>
+                <td style={{ ...td, borderTop: "2px solid var(--border)" }}>{pct(mk.ratioYear)}</td>
+                <td style={{ ...td, color: "var(--muted)", borderTop: "2px solid var(--border)" }}>{pct(mk.leasedShare)}</td>
               </tr>
             </tbody>
           </table>

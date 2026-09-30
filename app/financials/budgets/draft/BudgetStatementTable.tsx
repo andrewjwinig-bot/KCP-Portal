@@ -37,7 +37,7 @@ import type { SectionRole } from "@/lib/financials/operating-statements/types";
 import { NoteMark, type LineNote } from "./LineNote";
 import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import { negativeLines } from "@/lib/financials/budgets/negativeLines";
-import { recoveryCategory, recoveryMakeup, CATEGORY_LABEL, type RecoveryCategory } from "@/lib/financials/budgets/recoveryMakeup";
+import { recoveryCategory, recoveryMakeup, RECOVERY_GAP_FLAG_PTS, CATEGORY_LABEL, type RecoveryCategory } from "@/lib/financials/budgets/recoveryMakeup";
 import { RecoveryMakeupModal } from "./RecoveryMakeupModal";
 import { OccupancyBySuiteModal } from "./OccupancyBySuiteModal";
 import { RATE_ACCOUNT, type VacancyUtilities } from "@/lib/financials/budgets/vacancyUtilities";
@@ -313,8 +313,12 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
 
 /** A small italic metric row — occupancy, the recovery ratio — that reads
  *  the statement rather than adding to it. Pre-formatted strings; "" = blank. */
-function StatRow({ label, months, total, basis, change, changeGood, onLabel }: {
-  label: string; months: string[]; total: string; basis: string; change: string; changeGood?: boolean | null;
+function StatRow({ label, months, total, basis, change, changeGood, onLabel, totalStyle, monthTip }: {
+  label: string; months: string[]; total: React.ReactNode; basis: string; change: string; changeGood?: boolean | null;
+  /** Colours the total (the recovery ratio's amber flag). */
+  totalStyle?: React.CSSProperties;
+  /** A month's tenant breakdown on hover — the same card the recovery cells use. */
+  monthTip?: (m: number) => { title: string; rows: TipRow[]; footer?: TipRow } | null;
   /** Makes the label a link (Occupancy SF opens the suite-by-suite view). */
   onLabel?: () => void;
 }) {
@@ -326,8 +330,15 @@ function StatRow({ label, months, total, basis, change, changeGood, onLabel }: {
             className="os-line-name" style={{ cursor: "pointer" }}>{label}</span>
         ) : label}
       </td>
-      {months.map((m, i) => <td key={i} style={{ ...num, fontSize: 13 }}>{m}</td>)}
-      <td style={{ ...num, fontSize: 13, fontWeight: 700 }}>{total}</td>
+      {months.map((m, i) => {
+        const tip = m && monthTip ? monthTip(i) : null;
+        return (
+          <td key={i} style={{ ...num, fontSize: 13 }}>
+            {tip ? <HoverCard title={tip.title} rows={tip.rows} footer={tip.footer} width={300}><span>{m}</span></HoverCard> : m}
+          </td>
+        );
+      })}
+      <td style={{ ...num, fontSize: 13, fontWeight: 700, ...totalStyle }}>{total}</td>
       <td style={{ ...num, color: "var(--muted)" }}>{basis}</td>
       <td style={{ ...num, color: changeGood == null ? "var(--muted)" : changeGood ? "#15803d" : "#b91c1c" }}>{change}</td>
     </tr>
@@ -441,6 +452,71 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const atReconTotal = (cat: RecoveryCategory, m: number) =>
     m === RECON_MONTH ? recTenants.reduce((a, t) => a + (t.atRecon?.[cat] ?? 0), 0) : 0;
 
+  // A recovery line's ANNUAL cell: the tenants' years and the year's ratio —
+  // where the ratio means something (recoveryMakeup.ts).
+  const recoveryYearHover = (cat: RecoveryCategory) => () => {
+    const mk = recoveryMakeup(cat, 0, recTenants, draft.sections, estKind);
+    const list = recTenants
+      .map((t) => ({ name: t.tenant || "Unnamed tenant", year: (t[cat] ?? []).reduce((a, v) => a + (v || 0), 0) }))
+      .filter((x) => Math.abs(x.year) >= 0.5)
+      .sort((a, b) => b.year - a.year);
+    if (!list.length) return null;
+    const rows: TipRow[] = list.slice(0, 8).map((x) => ({ label: x.name, value: money0(x.year) }));
+    const rest = list.slice(8);
+    if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, x) => a + x.year, 0)), color: "var(--muted)" });
+    rows.push({ label: `${CATEGORY_LABEL[cat]} pool`, value: money0(mk.poolYear), color: "var(--muted)" });
+    // At a NNN centre tenants pay about their SF share, so a ratio well above
+    // the leased share needs a reason — admin fees, a stipulated share, a pad
+    // with no SF on the roll, an estimate set by hand (the modal's columns).
+    const high = mk.ratioYear != null && mk.leasedShare != null && mk.ratioYear - mk.leasedShare > RECOVERY_GAP_FLAG_PTS;
+    if (mk.leasedShare != null) rows.push({ label: "Leased share", value: `${mk.leasedShare.toFixed(1)}%`, color: "var(--muted)" });
+    return {
+      title: `${CATEGORY_LABEL[cat]} recoveries · year`,
+      rows,
+      footer: { label: high ? "Recovery ratio · above the leased share" : "Recovery ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: high ? "#b45309" : COLOR_BRAND },
+    };
+  };
+
+  // RENT and OCCUPANCY hovers — the same quick card the recovery cells carry:
+  // who makes up the month, by tenant NAME (never a suite number), largest
+  // first, a lease assumption marked, and the month's moves.
+  const nameOf = (t: { tenant: string }) => t.tenant || "Unnamed tenant";
+  const occSuites = recTenants.filter((t) => !t.recoveryOnly && t.sqft > 0);
+  const occTotalSf = occSuites.reduce((a, t) => a + t.sqft, 0);
+  const pays = (t: { rent: number[] }, m: number) => (t.rent[m] || 0) > 0.5;
+  const sfFmt = (n: number) => Math.round(n).toLocaleString("en-US");
+  const moves = (m: number): TipRow[] => {
+    if (m === 0) return [];
+    const inn = occSuites.filter((t) => pays(t, m) && !pays(t, m - 1));
+    const out = occSuites.filter((t) => !pays(t, m) && pays(t, m - 1));
+    return [
+      ...inn.map((t) => ({ label: `Starts · ${nameOf(t)}`, value: `+${sfFmt(t.sqft)} SF`, color: "#15803d" })),
+      ...out.map((t) => ({ label: `Ends · ${nameOf(t)}`, value: `−${sfFmt(t.sqft)} SF`, color: "#b91c1c" })),
+    ];
+  };
+  const rentHover = (m: number | null) => {
+    const amt = (t: (typeof recTenants)[number]) => (m == null ? t.rent.reduce((a, v) => a + (v || 0), 0) : t.rent[m] || 0);
+    const list = recTenants.filter((t) => Math.abs(amt(t)) >= 0.5).sort((a, b) => amt(b) - amt(a));
+    if (!list.length) return null;
+    const assumedIn = (t: (typeof recTenants)[number]) => (m == null ? t.assumed.some(Boolean) : !!t.assumed[m]);
+    const rows: TipRow[] = list.slice(0, 8).map((t) => ({ label: `${nameOf(t)}${assumedIn(t) ? " · assumed" : ""}`, value: money0(amt(t)), ...(assumedIn(t) ? { color: "#65a30d" } : {}) }));
+    const rest = list.slice(8);
+    if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, t) => a + amt(t), 0)), color: "var(--muted)" });
+    const total = list.reduce((a, t) => a + amt(t), 0);
+    return { title: `Rental income · ${m == null ? "year" : MONTHS[m]}`, rows, footer: { label: "Total", value: money0(total), color: COLOR_BRAND } };
+  };
+  const occupancyHover = (m: number) => {
+    const occ = occSuites.filter((t) => pays(t, m)).sort((a, b) => b.sqft - a.sqft);
+    const vacant = occSuites.filter((t) => !pays(t, m));
+    const occSf = occ.reduce((a, t) => a + t.sqft, 0);
+    const rows: TipRow[] = occ.slice(0, 8).map((t) => ({ label: `${nameOf(t)}${t.assumed[m] ? " · assumed" : ""}`, value: `${sfFmt(t.sqft)} SF`, ...(t.assumed[m] ? { color: "#65a30d" } : {}) }));
+    const rest = occ.slice(8);
+    if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: `${sfFmt(rest.reduce((a, t) => a + t.sqft, 0))} SF`, color: "var(--muted)" });
+    if (vacant.length) rows.push({ label: `Vacant · ${vacant.length} space${vacant.length === 1 ? "" : "s"}`, value: `${sfFmt(occTotalSf - occSf)} SF`, color: "#b45309" });
+    rows.push(...moves(m));
+    return { title: `Occupancy · ${MONTHS[m]}`, rows, footer: { label: `${sfFmt(occSf)} of ${sfFmt(occTotalSf)} SF`, value: occTotalSf > 0 ? `${((occSf / occTotalSf) * 100).toFixed(1)}%` : "–", color: COLOR_BRAND } };
+  };
+
   const recoveryHover = (cat: RecoveryCategory) => (m: number) => {
     const mk = recoveryMakeup(cat, m, recTenants, draft.sections, estKind);
     if (!mk.tenants.length) return null;
@@ -449,15 +525,16 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     // A tenant whose charge is collected only at reconciliation lands its year
     // here, in May (reconOnly.ts) — say so on its row and in the total.
     const atRecon = (unitRef: string) => m === RECON_MONTH ? recTenants.find((t) => t.unitRef === unitRef)?.atRecon?.[cat] ?? 0 : 0;
-    const rows: TipRow[] = top.map((t) => ({ label: `${t.tenant || t.unitRef}${atRecon(t.unitRef) ? " · at recon" : ""}`, value: money0(t.amount), ...(atRecon(t.unitRef) ? { color: "#b45309" } : {}) }));
+    const rows: TipRow[] = top.map((t) => ({ label: `${t.tenant || "Unnamed tenant"}${atRecon(t.unitRef) ? " · at recon" : ""}`, value: money0(t.amount), ...(atRecon(t.unitRef) ? { color: "#b45309" } : {}) }));
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"} · click for all`, value: money0(rest.reduce((a, t) => a + t.amount, 0)), color: "var(--muted)" });
-    rows.push({ label: `${CATEGORY_LABEL[cat]} pool this month`, value: money0(mk.pool), color: "var(--muted)" });
     const inMay = atReconTotal(cat, m);
     if (inMay) rows.push({ label: "Includes at-recon collections (the year's true-up, due by 4/30)", value: money0(inMay), color: "#b45309" });
+    // The YEAR's ratio only — a month's flat estimate against that month's
+    // lumpy expense is timing, not a ratio (recoveryMakeup.ts).
     return {
       title: `${CATEGORY_LABEL[cat]} recoveries · ${MONTHS[m]}`,
       rows,
-      footer: { label: `Recovery ratio${mk.ratioYear != null ? ` (year ${mk.ratioYear.toFixed(1)}%)` : ""}`, value: mk.ratio == null ? "–" : `${mk.ratio.toFixed(1)}%`, color: COLOR_BRAND },
+      footer: { label: "Recovery ratio · year", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND },
     };
   };
   // EVERYTHING starts collapsed (the owner's call): the statement reads at the
@@ -494,18 +571,6 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     </thead>
   );
 
-  // THE RECOVERY RATIO — reimbursements as a share of the recoverable expense
-  // pool, for the year (a monthly ratio would swing on a tax bill's month).
-  const reimb = byRole(["reimbursement"]);
-  const pool = byRole(["reimbursable-expense"]);
-  const poolBudget = pool.reduce((a, x) => a + x.total, 0);
-  const poolBasis = basisOf(pool);
-  const ratioRow = reimb.length && Math.abs(poolBudget) > 0.5 ? (() => {
-    const ratio = (reimb.reduce((a, x) => a + x.total, 0) / poolBudget) * 100;
-    const ratioBasis = Math.abs(poolBasis) > 0.5 ? (basisOf(reimb) / poolBasis) * 100 : null;
-    return <StatRow key="recovery-ratio" label="Recovery ratio (% of pool)" months={new Array(12).fill("")} total={pctS(ratio)} basis={pctS(ratioBasis)} change={pts(ratio, ratioBasis)} changeGood={ratioBasis == null || Math.abs(ratio - ratioBasis) < 0.05 ? null : ratio > ratioBasis} />;
-  })() : null;
-  const lastReimb = reimb[reimb.length - 1]?.name;
 
   const section = (sec: BudgetDraftSection, favorableUp: boolean, subtotal = true) => {
     const secSubs = sec.lines.filter((l) => l.subLines?.length).map((l) => `${sec.name}::${l.label}`);
@@ -575,7 +640,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                               onSave={(cents) => onEdit!(sec, l, cents == null ? "all" : 0, cents, RATE_ACCOUNT, v.scope)} />,
                           };
                         }
-                        return cat ? { cellHover: recoveryHover(cat), onCellClick: (m: number) => setMakeupAt({ cat, m }), cellMark: (m: number) => (atReconTotal(cat, m) ? "at recon" : null) } : {};
+                        if (l.source === "leases" && draft.rentLineLabel && l.label === draft.rentLineLabel && recTenants.length) {
+                          return { cellHover: (m: number) => rentHover(m), totalHover: () => rentHover(null) };
+                        }
+                        return cat ? { cellHover: recoveryHover(cat), totalHover: recoveryYearHover(cat), onCellClick: (m: number) => setMakeupAt({ cat, m }), cellMark: (m: number) => (atReconTotal(cat, m) ? "at recon" : null) } : {};
                       })()}
                       toggle={subs.length ? { open: isOpen, onToggle: () => setToggled((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />
                     {isOpen && subs.flatMap((x) => {
@@ -624,7 +692,6 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 );
               })}
               {subtotal && <Row label={`Total ${sec.name}`} months={sec.subtotal} total={sec.total} basis={sum(sec.lines.map((l) => l.basisTotal))} variant="subtotal" favorableUp={favorableUp} />}
-              {sec.name === lastReimb && ratioRow}
             </tbody>
           </table>
         </div>
@@ -675,8 +742,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
               </tr>
             </thead>
             <tbody>
-              <StatRow label="Occupancy %" months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={up} />
-              <StatRow onLabel={() => setOccOpen(true)} label={`Occupancy SF (of ${sf(totalSf)})`} months={occSf.map(sf)} total={sf(avgSf)} basis={sf(todaySf)} change={up == null ? "–" : `${up ? "+" : "−"}${sf(Math.abs(avgSf - todaySf))}`} changeGood={up} />
+              <StatRow label="Occupancy %" monthTip={occupancyHover} months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={up} />
+              <StatRow onLabel={() => setOccOpen(true)} monthTip={occupancyHover} label={`Occupancy SF (of ${sf(totalSf)})`} months={occSf.map(sf)} total={sf(avgSf)} basis={sf(todaySf)} change={up == null ? "–" : `${up ? "+" : "−"}${sf(Math.abs(avgSf - todaySf))}`} changeGood={up} />
             </tbody>
           </table>
         </div>
