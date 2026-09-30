@@ -279,7 +279,7 @@ function Row({ badgeSource, extra, label, months, total, basis, variant = "line"
             <span style={{ borderBottom: "1px dotted var(--muted)", cursor: "default", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, display: "inline-block", maxWidth: "100%", verticalAlign: "bottom" }}>{abbrev(label)}</span>
           </HoverCard>
         ) : <span title={label} style={{ overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{abbrev(label)}</span>}
-        {note && <NoteMark label={label} note={note.note} onOpen={note.onOpen} />}
+        {note && <span style={{ flex: "0 0 auto", display: "inline-flex" }}><NoteMark label={label} note={note.note} onOpen={note.onOpen} /></span>}
         {extra && <span style={{ marginLeft: badge || onAccept ? undefined : "auto", flex: "0 0 auto", display: "inline-flex" }}>{extra}</span>}
         {(badge || onAccept || (onReset && typed?.some(Boolean))) && (
           <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto", flex: "0 0 auto" }}>
@@ -671,7 +671,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                             basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
                             badge={draft.consolidated ? undefined
-                              : renewal ? { tone: badgeFor("reproj-growth").tone, text: "Nov renewal +3%" }
+                              : renewal ? { tone: badgeFor("reproj-growth").tone, text: "+3% Nov" }
                               : grown ? badgeFor("reproj-growth") : undefined}
                             favorableUp={favorableUp}
                             typed={y.bucket === "base" && entered ? new Array(12).fill(true) : y.typed}
