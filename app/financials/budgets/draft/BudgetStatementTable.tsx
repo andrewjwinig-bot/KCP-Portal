@@ -774,9 +774,14 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     );
   }
 
-  // OCCUPANCY, month by month, off the same suites as Revenue by tenant: a
-  // suite is occupied in a month it pays rent. Its own card at the top, as on
-  // the Operating Budgets page; "Today" is the current roll.
+  // THE TOP CARD — the property at a glance before the lines: OCCUPANCY, month
+  // by month, off the same suites as Revenue by tenant (a suite is occupied in
+  // a month it pays rent), and the PROJECTED BANK BALANCE (`cashForecast.ts`),
+  // where the year leaves the bank once cash flow and distributions land. The
+  // Distributions themselves stay at the bottom, below cash flow, where they
+  // are keyed (owner).
+  const cash = draft.cash;
+  const topRows: React.ReactNode[] = [];
   const suites = (draft.tenantRevenue ?? []).filter((t) => !t.recoveryOnly && t.sqft > 0);
   const totalSf = suites.reduce((a, t) => a + t.sqft, 0);
   if (totalSf > 0) {
@@ -785,8 +790,35 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const todaySf = suites.reduce((a, t) => a + (t.status === "vacant" || t.status === "lease-up" ? 0 : t.sqft), 0);
     const p = (sf: number) => (sf / totalSf) * 100;
     const up = Math.abs(avgSf - todaySf) < 0.5 ? null : avgSf > todaySf;
+    topRows.push(<StatRow key="occ" label="Occupancy %" onLabel={() => setOccOpen(true)} monthTip={occupancyHover} months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={up} />);
+  }
+  if (cash) {
+    const end = cash.balance[11];
+    const balTip = (m: number) => ({
+      title: `Projected Bank Balance · ${MONTHS[m]}`,
+      rows: [
+        { label: m === 0 ? "Opening balance" : `${MONTHS[m - 1]} balance`, value: money0(m === 0 ? cash.opening : cash.balance[m - 1]) },
+        { label: debt.length ? "+ Cash Flow After Debt Service" : "+ Cash Flow", value: money0(cfaM[m]) },
+        { label: "− Distributions", value: money0(cash.distributions.months[m] || 0) },
+      ],
+      footer: { label: "Balance", value: money0(cash.balance[m]), color: COLOR_BRAND },
+    });
+    topRows.push(
+      <tr key="bank" style={{ borderTop: topRows.length ? "1px solid var(--border)" : undefined }}>
+        <td style={{ ...lab, fontWeight: 800, color: COLOR_BRAND, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Projected Bank Balance</td>
+        {cash.balance.map((v, i) => {
+          const t = balTip(i);
+          return <td key={i} style={{ ...num, fontSize: 13, fontWeight: 700, color: v < 0 ? "#b91c1c" : COLOR_BRAND }}><HoverCard title={t.title} rows={t.rows} footer={t.footer} width={300}><span>{money0(v)}</span></HoverCard></td>;
+        })}
+        <td style={{ ...num, fontSize: 13, fontWeight: 800, color: end < 0 ? "#b91c1c" : COLOR_BRAND }}>{money0(end)}</td>
+        <td style={{ ...num, color: "var(--muted)" }}>{money0(cash.opening)}</td>
+        <td style={{ ...num, color: end >= cash.opening ? "#15803d" : "#b91c1c" }}>{`${end >= cash.opening ? "+" : "−"}${money0(Math.abs(end - cash.opening))}`}</td>
+      </tr>,
+    );
+  }
+  if (topRows.length) {
     body.push(
-      <div key="occ" className="card" style={{ padding: 0 }}>
+      <div key="top" className="card" style={{ padding: 0 }}>
         <div className="tableWrap" style={{ marginTop: 0 }}>
           <table style={TABLE}>
             <Colgroup />
@@ -794,14 +826,12 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
               <tr>
                 <th />
                 {MONTHS.map((m) => <th key={m} style={headR}>{m}</th>)}
-                <th style={headR}>Avg</th>
-                <th style={headR}>Today</th>
+                <th style={headR}><HoverCard title="Budget column" width={280} help={false} rows={[{ label: "Occupancy %", value: "the year's average" }, ...(cash ? [{ label: "Bank balance", value: `Dec 31, ${draft.budgetYear}` }] : [])]}><span>Budget</span></HoverCard></th>
+                <th style={headR}><HoverCard title="Now column" width={300} help={false} rows={[{ label: "Occupancy %", value: "today's rent roll" }, ...(cash ? [{ label: "Bank balance", value: `the opening, Dec 31, ${draft.basisYear}` }] : [])]}><span>Now</span></HoverCard></th>
                 <th style={headR}>Change</th>
               </tr>
             </thead>
-            <tbody>
-              <StatRow label="Occupancy %" onLabel={() => setOccOpen(true)} monthTip={occupancyHover} months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={up} />
-            </tbody>
+            <tbody>{topRows}</tbody>
           </table>
         </div>
       </div>,
@@ -828,9 +858,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     body.push(<RollupCard key="cf" label="Cash Flow" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} favorableUp />);
   }
 
-  // DISTRIBUTIONS AND THE PROJECTED BANK BALANCE (`cashForecast.ts`): what is
-  // left in the bank once the partners are paid, from the cash on the GL today.
-  const cash = draft.cash;
+  // DISTRIBUTIONS (`cashForecast.ts`) — its own card at the bottom, where the
+  // partners' payments are keyed; the bank balance they feed sits at the top.
   if (cash) {
     const distSec = { name: DISTRIBUTIONS_SECTION, role: "debt-service", lines: [], subtotal: [], total: 0 } as unknown as BudgetDraftSection;
     const distLine = (label: string) => ({ label, mask: "", months: cash.distributions.months, total: cash.distributions.total, basisTotal: 0, source: "entered" }) as Line;
@@ -851,7 +880,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     body.push(
       <div key="cash" className="card" style={{ padding: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Distributions &amp; bank balance</span>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Distributions</span>
           <span className="small muted" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             Opening {openingTip ? <HoverCard title={openingTip.title} rows={openingTip.rows} footer={openingTip.footer} width={320} help={false}>{openingShown}</HoverCard> : openingShown}
             <span>· {cash.openingTyped ? "typed" : glNote}</span>
@@ -869,7 +898,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 <th>Line</th>
                 {MONTHS.map((m) => <th key={m} style={headR}>{m}</th>)}
                 <th style={{ ...headR, color: COLOR_BRAND }}>Budget</th>
-                <th style={headR}>{String(draft.basisYear).slice(2)} {basisDist ? "Actual" : "Open"}</th>
+                <th style={headR}>{String(draft.basisYear).slice(2)} Actual</th>
                 <th style={headR}>Change</th>
               </tr>
             </thead>
@@ -881,18 +910,11 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 rowKey={mayDist ? distKey : undefined} edit={edit} setEdit={mayDist ? setEdit : undefined}
                 onCommit={mayDist ? (m, v) => onEdit!(distSec, distLine(DISTRIBUTIONS_LABEL), m, v) : undefined}
                 onReset={mayDist && cash.distributions.typed ? () => onEdit!(distSec, distLine(DISTRIBUTIONS_LABEL), "all", null) : undefined} />
-              <tr style={{ background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }}>
-                <td style={{ ...lab, fontWeight: 800, color: COLOR_BRAND }}>Projected Bank Balance</td>
-                {cash.balance.map((v, i) => <td key={i} style={{ ...num, fontWeight: 800, color: v < 0 ? "#b91c1c" : COLOR_BRAND }}>{money0(v)}</td>)}
-                <td style={{ ...num, fontWeight: 900, fontSize: 13.5, color: cash.balance[11] < 0 ? "#b91c1c" : COLOR_BRAND }}>{money0(cash.balance[11])}</td>
-                <td style={{ ...num, color: "var(--muted)" }}>{money0(cash.opening)}</td>
-                <td style={{ ...num, color: cash.balance[11] >= cash.opening ? "#15803d" : "#b91c1c" }}>{`${cash.balance[11] >= cash.opening ? "+" : "−"}${money0(Math.abs(cash.balance[11] - cash.opening))}`}</td>
-              </tr>
             </tbody>
           </table>
         </div>
         <div className="muted small" style={{ padding: "6px 14px 10px" }}>
-          Each month&rsquo;s balance = last month&rsquo;s + {debt.length ? "cash flow after debt service" : "cash flow"} − distributions. The {draft.basisYear} column is the opening balance (Budget = Dec 31, {draft.budgetYear}).{basisDist ? ` Distributions' ${draft.basisYear} figure is what the GL shows paid so far.` : ""} Security deposits are left out — that cash is owed back to tenants.
+          The opening balance feeds the Projected Bank Balance at the top: each month = last month&rsquo;s + {debt.length ? "Cash Flow After Debt Service" : "Cash Flow"} − Distributions.{basisDist ? ` The ${draft.basisYear} column is what the GL shows paid so far.` : ""} Security deposits are left out — that cash is owed back to tenants.
         </div>
       </div>,
     );
@@ -903,9 +925,19 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
       {body}
       {occOpen && <OccupancyBySuiteModal suites={recTenants.filter((t) => !t.recoveryOnly && t.sqft > 0)} year={draft.budgetYear} onClose={() => setOccOpen(false)} />}
       {makeupAt && <RecoveryMakeupModal makeup={recoveryMakeup(makeupAt.cat, makeupAt.m, recTenants, draft.sections, estKind)} month={MONTHS[makeupAt.m]} year={draft.budgetYear} onClose={() => setMakeupAt(null)} />}
-      <div className="muted small" style={{ padding: "2px 4px" }}>
-        <b>Leases</b> rent roll &amp; leasing calls · <b>Recoveries</b> each tenant&rsquo;s CAM methodology (Revenues, below) · <b>Entered</b> keyed here · <b>Tax +3%</b> this year&rsquo;s taxes +3% · <b>+3%</b> this year&rsquo;s reprojection grown by month · <b>Flat</b> carried unchanged · <b>Loans</b> the Debt Tracker&rsquo;s schedules · <b>Payroll</b> this property&rsquo;s share of the book&rsquo;s payroll total — click the line to enter it · <b>Items</b> built item by item from the {draft.basisYear} budget (contracts and recurring +3%, insurance at its November renewal rate with Nov–Dec +3%, Big Projects from $0), its figures in <i>italics</i> in the {draft.basisYear} column. <b>{String(draft.basisYear).slice(2)} Reproj</b> = the {draft.basisYear} reprojection: actuals to date + budget for the rest. Click a line&rsquo;s name for its history.
-        {onEdit && <><br />Click a month to type (Tab = next month, blank = back to computed); type into <b>Budget</b> to spread an annual. <span style={{ background: INPUT_BG, padding: "0 4px", borderRadius: 3 }}>Light blue</span> = you can type it; <span style={{ background: INPUT_BG, color: TYPED_FG, fontWeight: 800, padding: "0 4px", borderRadius: 3 }}>bold blue</span> = typed; ↺ resets a line.</>}
+      {/* The key, on demand — a paragraph under the grid is what nobody
+          reads (owner). One quiet ⓘ; the icons on each line explain themselves. */}
+      <div className="muted small" style={{ padding: "2px 4px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <HoverCard title="Reading the grid" width={360} help={false} rows={[
+          { label: "+3% / Flat / Tax +3%", value: "grown from this year" },
+          { label: "ⓘ", value: "hover for how the line is figured" },
+          { label: "↗", value: "worked out elsewhere — click to go" },
+          { label: `${String(draft.basisYear).slice(2)} Reproj`, value: "actuals to date + budget for the rest" },
+          ...(onEdit ? [{ label: "Light blue / bold blue", value: "you can type it / typed" }, { label: "Budget column", value: "type an annual to spread it" }] : []),
+        ]} footer={{ label: "Click a line's name", value: "for its history" }}>
+          <SourceIconButton kind="info" label="How to read the grid" />
+        </HoverCard>
+        <span>How to read the grid</span>
       </div>
     </div>
   );

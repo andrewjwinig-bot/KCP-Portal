@@ -1249,6 +1249,10 @@ time — and the team does not have time to open the GL over $80.
   "Flat", "Tax +3%", "+3% Nov"). There is NO "Entered" pill — a keyed figure
   already reads bold blue — and no "Items" pill (the ▸ says it). Don't add a
   new text pill to a line; add an icon.
+- **NO PARAGRAPH OF KEY UNDER THE GRID** (owner: "way too much text … nobody
+  is going to read this"). The legend is ONE quiet ⓘ "How to read the grid"
+  with a short hover; each line's own icon explains the line. Don't grow it
+  back into prose.
 - **The grid ABBREVIATES for width, display only** (`abbrev` in
   `BudgetStatementTable.tsx`): "Reimbursements/Reimbursable" → "Reimb.",
   "Maintenance" → "Maint.", and the reprojection column is "26 Reproj". Keys,
@@ -1805,8 +1809,12 @@ time — and the team does not have time to open the GL over $80.
   only (`EXPENSE_ROLES`); capital and debt sit below NOI. It used to count
   capital as an operating expense, understating NOI by the year's TI and
   improvements — and the grid then took capital off a second time for cash flow.
-- **THE DRAFT ENDS IN DISTRIBUTIONS AND A PROJECTED BANK BALANCE**
-  (`cashForecast.ts`, `draft.cash`). Below cash flow after debt service, a
+- **THE PROJECTED BANK BALANCE SITS AT THE TOP, WITH OCCUPANCY %; THE
+  DISTRIBUTIONS STAY AT THE BOTTOM** (owner): the grid's first card reads the
+  property at a glance (Occupancy %, then the balance — Budget = Dec 31, Now =
+  the opening, each month hovering last month + cash flow − distributions), and
+  the Distributions card below cash flow is where they (and the opening) are
+  keyed. (`cashForecast.ts`, `draft.cash`.) Below cash flow after debt service, a
   typeable **Distributions** row (typed months save as `Cash::Distributions`
   in the typed-month store; Drew / admin only — Greg's scope excludes it), then
   **Projected Bank Balance** = last month's + cash flow − distributions. The
