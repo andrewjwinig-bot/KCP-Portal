@@ -35,7 +35,7 @@ export function RecoveryMakeupModal({ makeup: mk, month, year, onClose }: { make
         <div className="pills">
           <StatPill label={`${label} recovered · year`} value={money0(mk.totalYear)} />
           <StatPill label={`${label} pool · year`} value={money0(mk.poolYear)} />
-          <StatPill label="Recovery ratio · year" value={pct(mk.ratioYear)} total />
+          <StatPill label="Annual Recovery Ratio" value={pct(mk.ratioYear)} total />
           <StatPill label="Leased share · year" value={pct(mk.leasedShare)} sub="avg SF paying rent" />
         </div>
         <div className="tableWrap" style={{ marginTop: 0 }}>

@@ -468,7 +468,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     return {
       title: `${CATEGORY_LABEL[cat]} recoveries · year`,
       rows,
-      footer: { label: "Recovery ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND },
+      footer: { label: "Annual Recovery Ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND },
     };
   };
 
@@ -532,7 +532,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     return {
       title: `${CATEGORY_LABEL[cat]} recoveries · ${MONTHS[m]}`,
       rows,
-      footer: { label: "Recovery ratio · year", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND },
+      footer: { label: "Annual Recovery Ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND },
     };
   };
   // EVERYTHING starts collapsed (the owner's call): the statement reads at the
