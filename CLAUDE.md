@@ -1239,10 +1239,22 @@ time — and the team does not have time to open the GL over $80.
   percentage columns, cross-section totals in brand-bordered cards, occupancy
   in its own card. Match `app/financials/budgets/page.tsx`, not the other way.
 - **The grid opens with Occupancy % / SF by month** (a suite is occupied in a
-  month it pays rent; the forecast column is today's roll) **and carries the
-  RECOVERY RATIO under the reimbursements** — reimbursements ÷ the
-  reimbursable-expense pool, annual only (a monthly ratio swings on a tax
-  bill's month).
+  month it pays rent; the forecast column is today's roll). **There is NO
+  recovery-ratio row and NO monthly ratio anywhere** (owner): a month's
+  recovery is a flat estimate (the year ÷ months billed) while a month's
+  expense is whatever posted (taxes in February, snow in winter), so their
+  quotient is timing, not a ratio. The ratio lives ONLY on a recovery line's
+  ANNUAL (Budget) cell hover — the tenants' years, the pool, the year's
+  ratio, and the LEASED SHARE (avg SF paying rent ÷ total SF,
+  `sfShares`); at a NNN centre tenants pay about their SF share, so a ratio
+  more than `RECOVERY_GAP_FLAG_PTS` (10) above it turns the footer amber. The
+  modal (click a month) shows each tenant's year, % of the year's pool and SF
+  share side by side — admin fees, stipulated shares, a pad with no SF on the
+  roll and hand-set estimates are the honest reasons a tenant sits above.
+- **Rental income, Occupancy % and Occupancy SF cells hover their tenants**
+  the same way (top eight, "· assumed" on a leasing assumption; occupancy adds
+  vacant SF and the month's starts / ends). **Hovers name TENANTS, never suite
+  numbers** (owner) — a nameless row reads "Unnamed tenant".
 - **EVERY DEAL ALSO BUDGETS THE INTERNAL BROKER'S COMMISSION**
   (`internalCommission` in `lib/commissions.ts` — the SAME rules the
   Commissions pages pay: Harry $1.00/SF at the shopping centres, Nancy's
@@ -1364,9 +1376,8 @@ time — and the team does not have time to open the GL over $80.
   draft's own `tenantRevenue` (occupied = pays rent that month), dark green for
   a lease in place, light green for a leasing assumption.
 - **A recovery line's month shows its tenants** (`recoveryMakeup.ts`): hover a
-  CAM / INS / RET reimbursement cell for the top eight tenants, that month's pool
-  and recovery ratio (plus the year's); click for every tenant
-  (`RecoveryMakeupModal`). The category uses `basisForLine`, the same rule that
+  CAM / INS / RET reimbursement cell for the top eight tenants and the YEAR's
+  recovery ratio; click for every tenant (`RecoveryMakeupModal`). The category uses `basisForLine`, the same rule that
   put those months on the line. The pool is that category's reimbursable
   expenses: taxes for RET, insurance for INS (inside CAM for office), the rest
   for CAM.
