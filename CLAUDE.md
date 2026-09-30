@@ -1244,13 +1244,10 @@ time — and the team does not have time to open the GL over $80.
   recovery is a flat estimate (the year ÷ months billed) while a month's
   expense is whatever posted (taxes in February, snow in winter), so their
   quotient is timing, not a ratio. The ratio lives ONLY on a recovery line's
-  ANNUAL (Budget) cell hover — the tenants' years, the pool, the year's
-  ratio, and the LEASED SHARE (avg SF paying rent ÷ total SF,
-  `sfShares`); at a NNN centre tenants pay about their SF share, so a ratio
-  more than `RECOVERY_GAP_FLAG_PTS` (10) above it turns the footer amber. The
-  modal (click a month) shows each tenant's year, % of the year's pool and SF
-  share side by side — admin fees, stipulated shares, a pad with no SF on the
-  roll and hand-set estimates are the honest reasons a tenant sits above.
+  ANNUAL (Budget) cell hover — the tenants' years, the pool and the year's
+  ratio. No leased-share flag (tried and removed by the owner). The modal
+  (click a month) shows each tenant's year, % of the year's pool and SF
+  share (`sfShares`) side by side.
 - **Rental income, Occupancy % and Occupancy SF cells hover their tenants**
   the same way (top eight, "· assumed" on a leasing assumption; occupancy adds
   vacant SF and the month's starts / ends). **Hovers name TENANTS, never suite

@@ -37,7 +37,7 @@ import type { SectionRole } from "@/lib/financials/operating-statements/types";
 import { NoteMark, type LineNote } from "./LineNote";
 import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import { negativeLines } from "@/lib/financials/budgets/negativeLines";
-import { recoveryCategory, recoveryMakeup, RECOVERY_GAP_FLAG_PTS, CATEGORY_LABEL, type RecoveryCategory } from "@/lib/financials/budgets/recoveryMakeup";
+import { recoveryCategory, recoveryMakeup, CATEGORY_LABEL, type RecoveryCategory } from "@/lib/financials/budgets/recoveryMakeup";
 import { RecoveryMakeupModal } from "./RecoveryMakeupModal";
 import { OccupancyBySuiteModal } from "./OccupancyBySuiteModal";
 import { RATE_ACCOUNT, type VacancyUtilities } from "@/lib/financials/budgets/vacancyUtilities";
@@ -465,15 +465,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const rest = list.slice(8);
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, x) => a + x.year, 0)), color: "var(--muted)" });
     rows.push({ label: `${CATEGORY_LABEL[cat]} pool`, value: money0(mk.poolYear), color: "var(--muted)" });
-    // At a NNN centre tenants pay about their SF share, so a ratio well above
-    // the leased share needs a reason — admin fees, a stipulated share, a pad
-    // with no SF on the roll, an estimate set by hand (the modal's columns).
-    const high = mk.ratioYear != null && mk.leasedShare != null && mk.ratioYear - mk.leasedShare > RECOVERY_GAP_FLAG_PTS;
-    if (mk.leasedShare != null) rows.push({ label: "Leased share", value: `${mk.leasedShare.toFixed(1)}%`, color: "var(--muted)" });
     return {
       title: `${CATEGORY_LABEL[cat]} recoveries · year`,
       rows,
-      footer: { label: high ? "Recovery ratio · above the leased share" : "Recovery ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: high ? "#b45309" : COLOR_BRAND },
+      footer: { label: "Recovery ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND },
     };
   };
 
