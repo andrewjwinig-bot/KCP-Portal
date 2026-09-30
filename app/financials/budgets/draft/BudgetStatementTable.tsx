@@ -105,6 +105,16 @@ const TYPED_FG = "var(--input-typed)";
  *  the method in a word. Everything else is an icon. */
 const GROWTH_SOURCES = new Set(["reproj-growth", "reproj-flat", "ret-default"]);
 
+/** A GL sub-line reads by its account NAME, as buckets and items do — the
+ *  code only where two accounts on the line share a name (or there is none),
+ *  since a code is how the ledger tells them apart, not how anyone reads a
+ *  budget. */
+function subName(y: { account: string; name?: string | null }, siblings: { name?: string | null; label?: string | null }[]): string {
+  if (!y.name) return y.account;
+  const clash = siblings.filter((o) => !o.label && o.name === y.name).length > 1;
+  return clash ? `${y.name} (${y.account})` : y.name;
+}
+
 /** Display only — "Reimbursements" / "Reimbursable" read as "Reimb." and
  *  "Maintenance" as "Maint." so the line column stays narrow. Keys, saves and
  *  notes keep the full label. */
@@ -709,7 +719,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                         // year's Nov/Dec rate and only Nov–Dec take the 3%.
                         const renewal = seeded && l.inputKind === "insurance" && untyped && Math.abs(ref) >= 0.5;
                         return (
-                          <Row key={k} variant="sub" depth={depth} toggle={toggle} flagNegative={sec.role !== "debt-service"} label={y.label ?? `${y.account}${y.name ? ` · ${y.name}` : ""}`}
+                          <Row key={k} variant="sub" depth={depth} toggle={toggle} flagNegative={sec.role !== "debt-service"} label={y.label ?? subName(y, subs)}
                             months={y.months} total={y.total}
                             basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
