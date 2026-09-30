@@ -32,6 +32,7 @@ import { Fragment, useRef, useState } from "react";
 import { Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, type PillTone } from "@/app/components/Pill";
 import { SourceBadge } from "./SourceBadge";
 import { SourceIcon, SourceIconButton } from "./SourceIcon";
+import { DebtIcon } from "./DebtDetail";
 import { DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL } from "@/lib/financials/budgets/cashForecast";
 import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/draft";
 import type { SectionRole } from "@/lib/financials/operating-statements/types";
@@ -451,8 +452,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
       footer={{ label: "Year", value: money0(l.total), color: COLOR_BRAND }} />;
     if (l.source === "fee-rollup") return <SourceIcon title="Sum of the Buildings' Management Fees" label="How 2010's Management Fee revenue is figured"
       rows={[{ label: "Each fee-paying building's", value: "6610 Management Fee" }]} footer={{ label: "Hover a month", value: "for the buildings" }} />;
-    if (l.source === "loans") return <SourceIcon title="From the Loans" label="How Debt Service is figured"
-      rows={[{ label: "Each loan's schedule", value: "Interest and Principal by month" }]} footer={{ label: "See", value: "Debt Service, below" }} />;
+    if (l.source === "loans" && draft.debt?.loans.length) return <DebtIcon debt={draft.debt} year={draft.budgetYear} part={/amorti[sz]ation|principal/i.test(l.label) ? "principal" : "interest"} />;
     return null;
   };
   const [toggled, setToggled] = useState<Set<string>>(new Set());
@@ -660,7 +660,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 // save to the Budget Inputs store (the same figures Greg keys on his
                 // page), so the grid and his page cannot disagree.
                 // A payroll share is set by the book's total above the grid.
-        const locked = l.source === "cam-estimate" || l.source === "leases" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy";
+        const locked = l.source === "cam-estimate" || l.source === "leases" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans";
                 const mayType = !!onEdit && (!canType || canType(sec.name, l.label));
                 const typeable = mayType && !locked && !viaSubs;
                 const keyed = !!l.inputKind;

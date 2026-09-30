@@ -1783,6 +1783,15 @@ time — and the team does not have time to open the GL over $80.
   same terms and the Debt service card says so — a budget that silently stops
   paying a mortgage overstates cash flow. No loans on file → the lines keep
   this year's figure.
+  **The loan-driven lines are LOCKED** (owner: "it just doesn't seem like a
+  line that should be a manual input") — `typedLine` ignores any override on
+  source `loans`, the grid and line-history popup offer no edit, and change
+  happens in the Debt Tracker's terms. Their ⓘ (`DebtIcon` in
+  `DebtDetail.tsx`) hovers each loan's share and opens the working the way the
+  taxes' does: Balance Jan 1 → Interest + Principal = Debt Service tiles, then
+  the loans (rate, maturity, balances, Interest Only / Refinance Assumed). The
+  same `DebtDetail` sits in the line's history popup; the collapsed debt card
+  under the grid it replaced is gone.
 - **NO DEBT, NO DEBT SERVICE GROUP** (owner): a property whose debt-service
   lines are $0 in the budget AND the reprojection shows no Debt Service group,
   and the grid ends in a single "Cash Flow" rollup instead of before / after
