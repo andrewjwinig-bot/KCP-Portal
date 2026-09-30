@@ -105,6 +105,16 @@ const TYPED_FG = "var(--input-typed)";
  *  the method in a word. Everything else is an icon. */
 const GROWTH_SOURCES = new Set(["reproj-growth", "reproj-flat", "ret-default"]);
 
+/** A GL sub-line reads by its account NAME, as buckets and items do — the
+ *  code only where two accounts on the line share a name (or there is none),
+ *  since a code is how the ledger tells them apart, not how anyone reads a
+ *  budget. */
+function subName(y: { account: string; name?: string | null }, siblings: { name?: string | null; label?: string | null }[]): string {
+  if (!y.name) return y.account;
+  const clash = siblings.filter((o) => !o.label && o.name === y.name).length > 1;
+  return clash ? `${y.name} (${y.account})` : y.name;
+}
+
 /** Display only — "Reimbursements" / "Reimbursable" read as "Reimb." and
  *  "Maintenance" as "Maint." so the line column stays narrow. Keys, saves and
  *  notes keep the full label. */
@@ -148,18 +158,18 @@ export function CellInput({ initial, onDone }: { initial: number; onDone: (v: nu
 function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boolean; onSave: (cents: number | null) => void }) {
   const [open, setOpen] = useState(false);
   const tip = {
-    title: "Utilities on vacant space — the rate",
+    title: "Utilities on Vacant Space — Rate",
     // The working, not just the answer: this year's line ÷ today's vacant SF
     // is the default, so both figures are shown and the rate can be checked.
     rows: [
       ...(v.fixedDefault
         ? [{ label: `Default rate (${v.groupLabel ?? "shared"})`, value: `$${(v.defaultRate ?? 0).toFixed(2)}/SF/yr — minimal use on vacant space` },
-           { label: "This year's utilities (for reference)", value: money0(v.basisAnnual), color: "var(--muted)" }]
-        : [{ label: "This year's utilities (full-year reprojection)", value: money0(v.basisAnnual) },
-           { label: "÷ Vacant SF on today's rent roll", value: Math.round(v.sfToday).toLocaleString("en-US") },
+           { label: "This year's Utilities (for reference)", value: money0(v.basisAnnual), color: "var(--muted)" }]
+        : [{ label: "This year's Utilities (full-year Reprojection)", value: money0(v.basisAnnual) },
+           { label: "÷ Vacant SF on today's Rent Roll", value: Math.round(v.sfToday).toLocaleString("en-US") },
            ...(v.defaultRate != null ? [{ label: "= Default rate", value: `$${v.defaultRate.toFixed(2)}/SF/yr` }] : [{ label: "Default rate", value: "none — no vacancy today" }])]),
       { label: v.rateTyped ? (v.scope ? `Rate in use — typed (shared by all ${v.groupLabel ?? "properties in the group"})` : "Rate in use — typed") : "Rate in use — the default", value: `$${v.rate.toFixed(2)}/SF/yr`, color: "var(--brand)" },
-      { label: "Vacant SF over the budget year (avg)", value: Math.round(v.sf.reduce((a, n) => a + n, 0) / 12).toLocaleString("en-US") },
+      { label: "Vacant SF over the Budget year (avg)", value: Math.round(v.sf.reduce((a, n) => a + n, 0) / 12).toLocaleString("en-US") },
     ],
     footer: { label: v.scope ? `One rate for all ${v.groupLabel ?? "the group"}` : "Each month", value: "vacant SF × rate ÷ 12" },
   };
@@ -185,8 +195,8 @@ function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boo
 
 /** Where a line worked out elsewhere on the page sends you. */
 const SOURCE_WHERE: Record<string, string> = {
-  "#revenue-by-tenant": "Revenue by tenant — each tenant's recoveries, below",
-  "#step-rent": "Revenues — the rent schedule and leasing calls, below",
+  "#revenue-by-tenant": "Revenue by Tenant — each tenant's recoveries, below",
+  "#step-rent": "Revenues — the Rent Schedule and leasing calls, below",
 };
 
 function Row({ icon, extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, totalHover, cellMark, onCellClick, flagNegative }: {
@@ -426,23 +436,23 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const sourceIcon = (l: Line): React.ReactNode => {
     if (l.inputSource) return <SourceBadge source={l.inputSource} label={l.label} />;
     const jump = l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : null;
-    if (jump) return <SourceIcon kind="link" href={jump} label={`Go to where ${l.label} is worked out`} title={l.source === "leases" ? "From the leases" : "From the recoveries"}
+    if (jump) return <SourceIcon kind="link" href={jump} label={`Go to where ${l.label} is worked out`} title={l.source === "leases" ? "From the Leases" : "From Recoveries"}
       rows={[{ label: "Worked out in", value: SOURCE_WHERE[jump] }]} footer={{ label: "Click to jump there", value: "↓" }} />;
     if (l.source === "pool") {
       // The payroll budget is Drew's and Alison's alone: they get a link, and
       // the route strips `pool` for everyone else, who are told the source.
       return l.pool && onOpenPayroll
-        ? <SourceIcon kind="link" onClick={onOpenPayroll} label="Open the payroll budget" title="From the payroll budget"
-            rows={[{ label: "Worked out in", value: "2010 LIK Payroll — each employee's pay, allocated by building" }]} footer={{ label: "Click to open it", value: "↗" }} />
-        : <SourceIcon title="Source: payroll budget" rows={[{ label: "This property's share of", value: "the 2010 LIK Payroll budget" }]} label="Source: payroll budget" />;
+        ? <SourceIcon kind="link" onClick={onOpenPayroll} label="Open the Payroll Budget" title="From the Payroll Budget"
+            rows={[{ label: "Worked out in", value: "2010 LIK Payroll Budget — each employee's pay, allocated by building" }]} footer={{ label: "Click to open it", value: "↗" }} />
+        : <SourceIcon title="Source: Payroll Budget" rows={[{ label: "This property's share of", value: "the 2010 LIK Payroll Budget" }]} label="Source: Payroll Budget" />;
     }
-    if (l.source === "fee") return <SourceIcon title={`Management fee · ${l.feePct ?? "–"}% of revenue`} label="How the management fee is figured"
-      rows={[{ label: "Rate (last year's budget formula)", value: `${l.feePct ?? "–"}%` }, { label: "× This budget's total revenue", value: "month by month" }]}
+    if (l.source === "fee") return <SourceIcon title={`Management Fee · ${l.feePct ?? "–"}% of Revenue`} label="How the Management Fee is figured"
+      rows={[{ label: "Rate (last year's Budget formula)", value: `${l.feePct ?? "–"}%` }, { label: "× This Budget's Total Revenue", value: "month by month" }]}
       footer={{ label: "Year", value: money0(l.total), color: COLOR_BRAND }} />;
-    if (l.source === "fee-rollup") return <SourceIcon title="Sum of the buildings' fees" label="How 2010's fee revenue is figured"
-      rows={[{ label: "Each fee-paying building's", value: "6610 management fee" }]} footer={{ label: "Hover a month", value: "for the buildings" }} />;
-    if (l.source === "loans") return <SourceIcon title="From the loans" label="How debt service is figured"
-      rows={[{ label: "Each loan's schedule", value: "interest and principal by month" }]} footer={{ label: "See", value: "Debt service, below" }} />;
+    if (l.source === "fee-rollup") return <SourceIcon title="Sum of the Buildings' Management Fees" label="How 2010's Management Fee revenue is figured"
+      rows={[{ label: "Each fee-paying building's", value: "6610 Management Fee" }]} footer={{ label: "Hover a month", value: "for the buildings" }} />;
+    if (l.source === "loans") return <SourceIcon title="From the Loans" label="How Debt Service is figured"
+      rows={[{ label: "Each loan's schedule", value: "Interest and Principal by month" }]} footer={{ label: "See", value: "Debt Service, below" }} />;
     return null;
   };
   const [toggled, setToggled] = useState<Set<string>>(new Set());
@@ -709,7 +719,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                         // year's Nov/Dec rate and only Nov–Dec take the 3%.
                         const renewal = seeded && l.inputKind === "insurance" && untyped && Math.abs(ref) >= 0.5;
                         return (
-                          <Row key={k} variant="sub" depth={depth} toggle={toggle} flagNegative={sec.role !== "debt-service"} label={y.label ?? `${y.account}${y.name ? ` · ${y.name}` : ""}`}
+                          <Row key={k} variant="sub" depth={depth} toggle={toggle} flagNegative={sec.role !== "debt-service"} label={y.label ?? subName(y, subs)}
                             months={y.months} total={y.total}
                             basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
