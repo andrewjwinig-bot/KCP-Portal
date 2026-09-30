@@ -1284,8 +1284,6 @@ export type PropertyFactsState = {
   buildingCount?: string;
   sprinklered?: string;
   pctSprinklered?: string;
-  units?: string;
-  floorArea?: string;
   parkingSqft?: string;
   basement?: string;
   floodZone?: string;
@@ -1295,37 +1293,31 @@ export type PropertyFactsState = {
 
 type FactField = { key: keyof PropertyFactsState; label: string; placeholder: string; type?: "number" };
 
-// Construction, year built and roof age are read by the insurance Statement of
-// Values as well (lib/insurance/sov.ts FACT_TO_COLUMN) — one fact, both uses.
+// One list. The insurance Statement of Values (/insurance) is filled from
+// these, so the broker's form reads whatever is kept here. Floor area, units
+// and occupancy are NOT facts — they come from the rent roll and show in the
+// header tiles above.
 const FACT_FIELDS: FactField[] = [
-  { key: "yearBuilt",         label: "Year Built",         placeholder: "e.g. 1987", type: "number" },
-  { key: "constructionType",  label: "Construction Type",  placeholder: "e.g. Masonry, Fire Resistive" },
-  { key: "roofAge",           label: "Roof Age",           placeholder: "e.g. 12 yrs (replaced 2014)" },
-  { key: "roofType",          label: "Roof Type",          placeholder: "e.g. TPO membrane" },
-  { key: "electricalService", label: "Electrical Service", placeholder: "e.g. 800A 277/480V 3-phase" },
-  { key: "ceilingHeight",     label: "Ceiling Height",     placeholder: `e.g. 12'–14' clear` },
-  { key: "waterService",      label: "Water Service",      placeholder: "e.g. 2-inch domestic, 6-inch fire" },
-  { key: "hvac",              label: "HVAC",               placeholder: "e.g. Rooftop Carrier units, 5 zones" },
-  { key: "restrooms",         label: "Restrooms",          placeholder: "e.g. 4 ADA-compliant, 2 per floor" },
+  { key: "yearBuilt",            label: "Year Built",         placeholder: "e.g. 1987", type: "number" },
+  { key: "yearUpgrade",          label: "Year Upgrade",       placeholder: "e.g. 2019" },
+  { key: "constructionType",     label: "Construction",       placeholder: "e.g. Masonry, Fire Resistive" },
+  { key: "occupancyDescription", label: "Occupancy Type",     placeholder: "e.g. Mercantile, Office" },
+  { key: "stories",              label: "# of Stories",       placeholder: "e.g. 2" },
+  { key: "buildingCount",        label: "# of Buildings",     placeholder: "e.g. 1" },
+  { key: "roofAge",              label: "Roof Age",           placeholder: "e.g. 12 yrs (replaced 2014)" },
+  { key: "roofType",             label: "Roof Type",          placeholder: "e.g. TPO membrane" },
+  { key: "sprinklered",          label: "Sprinklered",        placeholder: "e.g. Sprinklered & Central Station Alarm" },
+  { key: "pctSprinklered",       label: "% Sprinklered",      placeholder: "e.g. 100%" },
+  { key: "protection",           label: "Protection",         placeholder: "e.g. Unarmed security guard, card keys" },
+  { key: "basement",             label: "Basement",           placeholder: "Y / N / Partial" },
+  { key: "floodZone",            label: "FEMA Flood Zone",    placeholder: "e.g. No, Zone X" },
+  { key: "parkingSqft",          label: "Parking SF",         placeholder: "e.g. 180,000" },
+  { key: "electricalService",    label: "Electrical Service", placeholder: "e.g. 800A 277/480V 3-phase" },
+  { key: "ceilingHeight",        label: "Ceiling Height",     placeholder: `e.g. 12'–14' clear` },
+  { key: "waterService",         label: "Water Service",      placeholder: "e.g. 2-inch domestic, 6-inch fire" },
+  { key: "hvac",                 label: "HVAC",               placeholder: "e.g. Rooftop Carrier units, 5 zones" },
+  { key: "restrooms",            label: "Restrooms",          placeholder: "e.g. 4 ADA-compliant, 2 per floor" },
 ];
-
-// The broker's Statement of Values columns (/insurance fills the form from
-// these). Floor area and units fall back to the rent roll when left blank.
-const INSURANCE_FIELDS: FactField[] = [
-  { key: "occupancyDescription", label: "Occupancy",         placeholder: "e.g. Mercantile, Office" },
-  { key: "yearUpgrade",          label: "Year Upgrade",      placeholder: "e.g. 2019" },
-  { key: "stories",              label: "# of Stories",      placeholder: "e.g. 2" },
-  { key: "buildingCount",        label: "# of Buildings",    placeholder: "e.g. 1" },
-  { key: "sprinklered",          label: "Sprinklered",       placeholder: "e.g. Sprinklered & Central Station Alarm" },
-  { key: "pctSprinklered",       label: "% Sprinklered",     placeholder: "e.g. 100%" },
-  { key: "units",                label: "Units",             placeholder: "Blank = rent roll suites" },
-  { key: "floorArea",            label: "Floor Area (SF)",   placeholder: "Blank = rent roll GLA" },
-  { key: "parkingSqft",          label: "Parking SF",        placeholder: "e.g. 180000" },
-  { key: "basement",             label: "Basement",          placeholder: "Y / N / Partial" },
-  { key: "floodZone",            label: "FEMA Flood Zone",   placeholder: "e.g. No, Zone X" },
-  { key: "protection",           label: "Protection",        placeholder: "e.g. Unarmed security guard, card keys" },
-];
-const ALL_FACT_FIELDS = [...FACT_FIELDS, ...INSURANCE_FIELDS];
 
 function BuildingFacts({
   propId, facts, onSaved, canEdit,
@@ -1370,7 +1362,7 @@ function BuildingFacts({
   }
 
   const filledCount = facts
-    ? ALL_FACT_FIELDS.reduce((n, f) => {
+    ? FACT_FIELDS.reduce((n, f) => {
         const v = facts[f.key];
         return n + ((typeof v === "string" && v.trim()) || typeof v === "number" ? 1 : 0);
       }, 0)
@@ -1382,12 +1374,6 @@ function BuildingFacts({
     return (typeof v === "string" && v.trim()) ? v : "—";
   }
 
-  const groupLabel = (text: string) => (
-    <div style={{ gridColumn: "1 / -1", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-      {text}
-      <a href="/insurance" style={{ fontSize: 11, fontWeight: 600, textTransform: "none", letterSpacing: 0, color: "var(--brand)" }}>Schedule of Values →</a>
-    </div>
-  );
 
   return (
     <section>
@@ -1415,12 +1401,11 @@ function BuildingFacts({
         <div className="muted small">Loading…</div>
       ) : editing ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-          {ALL_FACT_FIELDS.map((f, i) => {
+          {FACT_FIELDS.map((f) => {
             const raw = draft[f.key];
             const value = raw == null ? "" : String(raw);
             return (
               <Fragment key={f.key}>
-              {i === FACT_FIELDS.length && groupLabel("Insurance")}
               <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
                   {f.label}
@@ -1463,10 +1448,6 @@ function BuildingFacts({
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px 24px" }}>
           {FACT_FIELDS.map((f) => (
-            <InfoField key={f.key} label={f.label} value={displayValue(f.key)} />
-          ))}
-          {groupLabel("Insurance")}
-          {INSURANCE_FIELDS.map((f) => (
             <InfoField key={f.key} label={f.label} value={displayValue(f.key)} />
           ))}
         </div>
