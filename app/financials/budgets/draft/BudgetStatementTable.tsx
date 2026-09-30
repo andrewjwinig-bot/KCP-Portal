@@ -596,7 +596,12 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const revenue = byRole(["revenue", "reimbursement"]);
   const expense = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
   const capital = byRole(["capital"]);
-  const debt = byRole(["debt-service"]);
+  // A property with NO DEBT shows no Debt Service group at all — the table
+  // ends in "Cash Flow" instead of "before / after debt service" over a
+  // section of zeros. Only while it is empty (budget AND reprojection $0), so
+  // a loan paid off this year still shows the year it stopped.
+  const hasFigures = (sec: BudgetDraftSection) => sec.lines.some((l) => Math.abs(l.total) >= 0.5 || Math.abs(l.basisTotal ?? 0) >= 0.5);
+  const debt = byRole(["debt-service"]).filter(hasFigures);
 
   const basisOf = (secs: BudgetDraftSection[]) => secs.reduce((s, sec) => s + sum(sec.lines.map((l) => l.basisTotal)), 0);
   const monthsOf = (secs: BudgetDraftSection[]) => { const m = new Array(12).fill(0); for (const s of secs) addInto(m, s.subtotal); return m; };

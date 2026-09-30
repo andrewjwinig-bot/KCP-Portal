@@ -1774,6 +1774,10 @@ time — and the team does not have time to open the GL over $80.
   same terms and the Debt service card says so — a budget that silently stops
   paying a mortgage overstates cash flow. No loans on file → the lines keep
   this year's figure.
+- **NO DEBT, NO DEBT SERVICE GROUP** (owner): a property whose debt-service
+  lines are $0 in the budget AND the reprojection shows no Debt Service group,
+  and the grid ends in a single "Cash Flow" rollup instead of before / after
+  debt service. Only while empty — a loan paid off this year still shows.
 - **NOI excludes capital.** Total Operating Expenses is the operating sections
   only (`EXPENSE_ROLES`); capital and debt sit below NOI. It used to count
   capital as an operating expense, understating NOI by the year's TI and
