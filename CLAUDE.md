@@ -961,19 +961,19 @@ time — and the team does not have time to open the GL over $80.
   entry, so the line goes back to the computed figure (the old `seedCleared`
   is ignored). The model is JURISDICTION →
   BILLS → LEVIES (`Levy.mills`, `adopted`), and a property is PARCELS.
-  - **Philadelphia** (pill "Per city"): the OPA's certified budget-year
+  - **Philadelphia** (source "Per city", in the ⓘ hover): the OPA's certified budget-year
     assessments from the city's open data (`assessments` on phl.carto.com —
     `phlQueryUrl` rebuilds the query); the six mailed Notices of Valuation
     matched it to the dollar (`notice`). 1.3998% (City 6.317 + School 7.681
     mills, unchanged since 2016), one bill — due March 31, budgeted in
     FEBRUARY because the 1% discount requires payment by the last day of
     February.
-  - **Bucks** (pill "Per county"): values from the county's parcel layer
+  - **Bucks** (source "Per county", in the ⓘ hover): values from the county's parcel layer
     (`Bucks_County_Parcels` on ArcGIS — `bucksParcelUrl`), rates from the
     county's 2026 millage sheet. County + township bill in APRIL, school in
     AUGUST (September where the Tax Tracker says 9/10). Bensalem 241.5974
     mills, Nockamixon 160.064.
-  - **Montgomery** (pill "Per county"): values from the county's property
+  - **Montgomery** (source "Per county", in the ⓘ hover): values from the county's property
     records (`montcoParcelUrl`), whose own per-body tax estimate the figures
     reproduce exactly (9510: $34,727 on 2026 rates — pinned by the test);
     rates from the county's millage table. County + municipal bill in the
@@ -1230,6 +1230,15 @@ time — and the team does not have time to open the GL over $80.
   `scopeAllowsLine` (contributors.ts) let him type expense-section lines only
   — never revenue, never real estate taxes or insurance (Drew's) — checked by
   the line-overrides route on every save.
+- **A LINE'S SOURCE IS AN ICON, NOT A PILL** (`SourceIcon.tsx`, owner: "the
+  pills dont need to take over" — the line names kept getting cut off). ⓘ =
+  the working, on hover (a computed tax, the vacant-space utilities rate —
+  click to type it — the management fee's %, debt from the loans); ↗ = worked
+  out elsewhere, click to go (recoveries, rent / deals, the payroll budget for
+  those who may see it). Only the short GROWTH pills stay as text ("+3%",
+  "Flat", "Tax +3%", "+3% Nov"). There is NO "Entered" pill — a keyed figure
+  already reads bold blue — and no "Items" pill (the ▸ says it). Don't add a
+  new text pill to a line; add an icon.
 - **The grid ABBREVIATES for width, display only** (`abbrev` in
   `BudgetStatementTable.tsx`): "Reimbursements/Reimbursable" → "Reimb.",
   "Maintenance" → "Maint.", and the reprojection column is "26 Reproj". Keys,
@@ -1283,7 +1292,7 @@ time — and the team does not have time to open the GL over $80.
   share — read off last year's budget of record (the workbook's Allocated
   Expenses tab → `line.allocations`, only the blocks whose note says payroll).
   Drew types the total once by clicking the line (it opens at the top of the line's history popup); every
-  property's line becomes its share (source `pool`, pill "Payroll", not
+  property's line becomes its share (source `pool`, a ↗ to the payroll budget for Drew / Alison / admin, else an ⓘ "Source: payroll budget", not
   typeable per property — onto the GL's sub-line where the line has several
   accounts). Until entered a block carries last year +3%. Later this links to
   the `lik-payroll` book, which already `feeds` these books.
@@ -1747,7 +1756,7 @@ time — and the team does not have time to open the GL over $80.
 - **Derived lines are NOT typeable in the grid**: the recovery lines
   (`cam-estimate`) and rent and the deals' TI / commissions (`leases`), all
   Step 1. `applyTyped` ignores any stored override on them, the grid offers
-  no edit, and the line-history "Use this" is hidden; a small quiet ↗ icon (`SourceLink`, the source named on hover — not a pill, owner) links back to
+  no edit, and the line-history "Use this" is hidden; a small quiet ↗ icon (`SourceIcon`, the source named on hover — not a pill, owner) links back to
   Step 1. (The Budget Inputs lines are typeable, but into their own store —
   see above; "Use this" stays hidden on them.) Typing over them would
   break the tie to the tenants' methodology and the leasing decisions.
@@ -1785,7 +1794,7 @@ time — and the team does not have time to open the GL over $80.
   is vacant SF × a $/SF/yr rate ÷ 12, a suite being vacant in a month it pays
   no rent — so a lease-up takes its suite off the line from its start month,
   and a backed-out lease (Rite Aid) puts its space on it. The rate is the
-  line's blue "$x.xx/SF vacant" pill, typed in place (stored as CENTS under
+  line's ⓘ (the rate and its working on hover), clicked to type a new one (stored as CENTS under
   `<section>::Utilities#@psf`, month 0 — the typed-month store keeps whole
   numbers); untyped it defaults to this year's line ÷ today's vacant SF.
   **Every SHOPPING CENTRE is on it and shares ONE rate** (owner): typed at any

@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { HoverCard } from "@/app/components/HoverCard";
+import { SourceIconButton } from "./SourceIcon";
 import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, type PillTone } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import type { ExpenseInput } from "@/lib/financials/budgets/expenseInputs";
@@ -19,17 +20,17 @@ type Source = NonNullable<ExpenseInput["source"]>;
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const usd = (n: number | null | undefined) => (n == null ? "–" : `$${Math.round(n).toLocaleString("en-US")}`);
 
-export function SourceBadge({ source, tone, text, label }: { source: Source; tone: PillTone; text: string; label: string }) {
+/** The ⓘ on a line whose figure was provided (the city's notice) or keyed —
+ *  hover for the working, click for the trail. It used to be a text pill
+ *  ("Per city", "Entered") that crowded the line name out. */
+export function SourceBadge({ source, label }: { source: Source; label: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <HoverCard title={source.title} width={source.formula ? 460 : 380} rows={source.formula ? [] : source.rows}
         body={source.formula ? <SourceHoverBody source={source} /> : undefined}
         footer={{ ...source.total, color: "var(--brand)" }} help={false}>
-        <button type="button" onClick={() => setOpen(true)} aria-label={`Sources for ${label}`}
-          style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>
-          <Pill tone={tone}>{text}</Pill>
-        </button>
+        <SourceIconButton kind="info" label={`Sources for ${label}`} onClick={() => setOpen(true)} />
       </HoverCard>
       {open && <SourceDialog source={source} label={label} onClose={() => setOpen(false)} />}
     </>

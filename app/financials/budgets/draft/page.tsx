@@ -38,19 +38,20 @@ const GROWTH = 3;
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
-function sourceBadge(source: DraftSource, growthPct: number, feePct?: number): { tone: PillTone; text: string } {
+function sourceBadge(source: DraftSource, growthPct: number, feePct?: number): { tone: PillTone; text: string } | null {
   switch (source) {
     case "reproj-growth": return { tone: TONE_BLUE, text: `${growthPct >= 0 ? "+" : ""}${growthPct}%` };
     case "reproj-flat": return { tone: TONE_NEUTRAL, text: "Flat" };
     case "leases": return { tone: TONE_GREEN, text: "Leases" };
     case "cam-estimate": return { tone: TONE_TEAL, text: "Recoveries" };
     case "ret-default": return { tone: TONE_BLUE, text: "Tax +3%" };
-    case "entered": return { tone: TONE_GREEN, text: "Entered" };
+    // A keyed figure already reads as typed (bold blue) — no "Entered" pill.
+    case "entered": return null;
     case "loans": return { tone: TONE_TEAL, text: "Loans" };
-    case "items": return { tone: TONE_BLUE, text: "Items" };
+    case "items": return null;
     case "pool": return { tone: TONE_TEAL, text: "Payroll" };
     case "fee-rollup": return { tone: TONE_TEAL, text: "Buildings' fees" };
-    case "fee": return { tone: TONE_TEAL, text: `${feePct ?? "–"}% of revenue` };
+    case "fee": return { tone: TONE_TEAL, text: `${feePct ?? "–"}%` };
     case "vacancy": return { tone: TONE_TEAL, text: "Vacant SF" };
   }
 }
@@ -413,6 +414,7 @@ export default function BudgetDraftPage() {
             notes={draft.notes}
             onNote={draft.consolidated ? undefined : (sec, label) => setNoteLine({ section: sec.name, label })}
             badgeFor={(src, feePct) => sourceBadge(src, GROWTH, feePct)}
+            onOpenPayroll={payrollOk ? () => { setBookId("lik-payroll"); window.scrollTo({ top: 0, behavior: "smooth" }); } : undefined}
             onLine={draft.consolidated
               ? (sec, l) => setBreakdown({ label: l.label, section: sec.name, rows: (l.byProperty ?? []).map((b) => ({ code: b.code, name: b.name, total: b.total, months: b.months })) })
               : (sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.map((p) => p.key) })}
@@ -552,7 +554,7 @@ export default function BudgetDraftPage() {
           budget={histLine.budget ?? null}
           budgetMonths={hLine?.months ?? histLine.months ?? null}
           budgetTyped={hLine?.inputKind && hLine.source === "entered" ? new Array(12).fill(true) : hLine?.typed}
-          badge={hLine && hLine.source !== "items" && !growthOnNothing(hLine.source, hLine.months) ? sourceBadge(hLine.source, GROWTH, hLine.feePct) : null}
+          badge={hLine && !growthOnNothing(hLine.source, hLine.months) ? sourceBadge(hLine.source, GROWTH, hLine.feePct) : null}
           onEdit={hCanType && hSec && hLine ? (m, v) => editLine(hSec, hLine, m, v) : undefined}
           extra={histLine.poolKeys?.length && draft ? (
             <PayrollPoolsCard year={draft.budgetYear} bookId={bookId} bookName={book.name} propertyCode={draft.propertyCode}
