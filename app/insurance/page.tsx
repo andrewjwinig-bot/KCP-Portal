@@ -2,13 +2,16 @@
 
 // Insurance — the broker's Statement of Values, filled from the portal.
 //
-// Each year the broker sends the SOV back to be updated for the insurance
-// applications. Import it here and the page reads every location on it,
-// matches each to a property, and shows what the portal would write into it:
+// An EXPORT, not an import: each year the broker wants the SOV back, updated,
+// with the insurance applications. The page opens on the broker's form (kept
+// in the portal — see getSovForm), matches every location to a property, and
+// shows what the portal writes into it:
 // the building facts kept on each property's page, and the rent roll's area,
 // suite count and (opt-in) annualised billings for BI. The download is the
 // broker's OWN workbook with those cells written in — their layout, their
 // formulas, their Vacant Land tab — so it goes back as the form they sent.
+// Replacing the form is a quiet link, for the rare year the broker changes it;
+// it must never read as the first step.
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -137,12 +140,8 @@ export default function InsurancePage() {
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Insurance — Schedule of Values</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <button className="btn" disabled={!!busy} onClick={() => fileRef.current?.click()}>
-            {busy === "upload" ? "Importing…" : "Import broker's new form"}
-          </button>
-          <input ref={fileRef} type="file" accept=".xlsx" style={{ display: "none" }}
-            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void upload(f); }} />
           <DownloadMenu
+            label="Export"
             disabled={!data?.stored}
             items={[{
               label: "Schedule of Values (Excel)",
@@ -156,11 +155,10 @@ export default function InsurancePage() {
       </div>
 
       <p className="muted" style={{ marginTop: -6, maxWidth: 900 }}>
-        The broker&rsquo;s Statement of Values for the insurance applications, filled with today&rsquo;s data —
-        construction, occupancy, stories, sprinklers and the rest from each property&rsquo;s <b>Building Facts</b>,
-        floor area and units from the <b>rent roll</b>. <b>Download</b> gives you the broker&rsquo;s own workbook
-        with those cells written in, ready to send; addresses, insured values and notes are left as they sent them.
-        Only import a form if the broker sends a new or changed one.
+        The Statement of Values the broker asks for with the insurance applications, already filled with
+        today&rsquo;s data — construction, occupancy, stories, sprinklers and the rest from each property&rsquo;s
+        <b> Building Facts</b>, floor area and units from the <b>rent roll</b>. <b>Export</b> gives you the Excel file
+        in the broker&rsquo;s own layout, ready to send. Nothing to upload.
       </p>
 
       {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "#b91c1c", fontWeight: 600, fontSize: 13 }}>{error}</div>}
@@ -173,8 +171,8 @@ export default function InsurancePage() {
             textAlign: "center", padding: "36px 20px",
             ...(drop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "rgba(11,74,125,0.04)" } : null),
           }}>
-          <div style={{ fontWeight: 700, marginBottom: 6 }}>{drop.dragging ? "Drop to import" : "No Statement of Values imported yet"}</div>
-          <div className="muted small">Drag the broker&rsquo;s .xlsx here, or use <b>Import SOV</b> above.</div>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>{drop.dragging ? "Drop to import" : "The broker's form isn't available"}</div>
+          <div className="muted small">Drag the broker&rsquo;s .xlsx here to use it as the form.</div>
         </div>
       )}
 
@@ -182,18 +180,26 @@ export default function InsurancePage() {
         <>
           <div className="pills">
             <StatPill label="Locations" value={rows.length} sub={`${rows.length - unmatched.length} matched to a property`} />
-            <StatPill label="Cells to update" value={changedCells} sub={`on ${changedRows} locations`} accent={changedCells ? "var(--brand)" : undefined} />
+            <StatPill label="Updated from the portal" value={changedCells} sub={`cells on ${changedRows} locations`} accent={changedCells ? "var(--brand)" : undefined} />
             <StatPill label="Total insured value" value={data.totalInsuredValue != null ? money0(data.totalInsuredValue) : "—"} sub="as the form carries it" />
             <StatPill label="BI values" value={money0(biNext)} sub={updateBi ? `with the rent roll · form had ${money0(biSheet)}` : "as the form carries it"} />
           </div>
 
+          <input ref={fileRef} type="file" accept=".xlsx" style={{ display: "none" }}
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void upload(f); }} />
           <div className="card" {...drop.dropHandlers}
             style={drop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "rgba(11,74,125,0.04)" } : undefined}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontWeight: 800 }}>{data.stored.fileName}</div>
                 {data.stored.builtIn ? (
-                  <p className="muted small" style={{ margin: "2px 0 0", fontStyle: "italic" }}>The broker&rsquo;s 2026 form, kept in the portal — no upload needed</p>
+                  <p className="muted small" style={{ margin: "2px 0 0" }}>
+                    The broker&rsquo;s form, kept in the portal.{" "}
+                    <button type="button" disabled={!!busy} onClick={() => fileRef.current?.click()}
+                      style={{ background: "none", border: "none", padding: 0, color: "var(--brand)", cursor: "pointer", font: "inherit", fontWeight: 600 }}>
+                      {busy === "upload" ? "Replacing…" : "Broker changed their form? Replace it"}
+                    </button>
+                  </p>
                 ) : (
                   <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
                     <LastImported at={data.stored.uploadedAt} by={data.stored.uploadedBy} style={{ margin: "2px 0 0" }} />
