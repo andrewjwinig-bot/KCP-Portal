@@ -34,7 +34,7 @@ type Row = {
 type Payload = {
   ok: boolean;
   error?: string;
-  stored: { fileName: string; uploadedAt: string; uploadedBy: string | null } | null;
+  stored: { fileName: string; uploadedAt: string; uploadedBy: string | null; builtIn?: boolean } | null;
   sheetName?: string;
   otherSheets?: string[];
   columns?: string[];
@@ -96,6 +96,15 @@ export default function InsurancePage() {
   }
   const drop = useFileDrop((files) => void upload(files[0]), { accept: byExt([".xlsx"]), disabled: !!busy });
 
+  async function revert() {
+    if (!confirm("Stop using the imported form and go back to the broker's 2026 form kept in the portal?")) return;
+    setBusy("revert");
+    try {
+      await fetch("/api/insurance/sov", { method: "DELETE" });
+      await load();
+    } finally { setBusy(null); }
+  }
+
   async function seedFacts() {
     const s = data?.seed;
     if (!s || !s.fields) return;
@@ -129,14 +138,14 @@ export default function InsurancePage() {
         <h1 style={{ margin: 0 }}>Insurance — Schedule of Values</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <button className="btn" disabled={!!busy} onClick={() => fileRef.current?.click()}>
-            {busy === "upload" ? "Importing…" : data?.stored ? "Import a new SOV" : "Import SOV"}
+            {busy === "upload" ? "Importing…" : "Import broker's new form"}
           </button>
           <input ref={fileRef} type="file" accept=".xlsx" style={{ display: "none" }}
             onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void upload(f); }} />
           <DownloadMenu
             disabled={!data?.stored}
             items={[{
-              label: "Updated SOV (Excel)",
+              label: "Schedule of Values (Excel)",
               description: updateBi
                 ? "The broker's workbook with property info, rent-roll area / suites and BI written in"
                 : "The broker's workbook with property info and rent-roll area / suites written in",
@@ -147,11 +156,11 @@ export default function InsurancePage() {
       </div>
 
       <p className="muted" style={{ marginTop: -6, maxWidth: 900 }}>
-        Import the Statement of Values the broker sends for the insurance applications. Each location is matched to
-        a property and filled from the portal — construction, occupancy, stories, sprinklers and the rest from the
-        property&rsquo;s <b>Building Facts</b>, floor area and units from the <b>rent roll</b>. The download is the
-        broker&rsquo;s own workbook with those cells written in; addresses, insured values and notes are left as
-        they sent them.
+        The broker&rsquo;s Statement of Values for the insurance applications, filled with today&rsquo;s data —
+        construction, occupancy, stories, sprinklers and the rest from each property&rsquo;s <b>Building Facts</b>,
+        floor area and units from the <b>rent roll</b>. <b>Download</b> gives you the broker&rsquo;s own workbook
+        with those cells written in, ready to send; addresses, insured values and notes are left as they sent them.
+        Only import a form if the broker sends a new or changed one.
       </p>
 
       {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "#b91c1c", fontWeight: 600, fontSize: 13 }}>{error}</div>}
@@ -183,7 +192,14 @@ export default function InsurancePage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontWeight: 800 }}>{data.stored.fileName}</div>
-                <LastImported at={data.stored.uploadedAt} by={data.stored.uploadedBy} style={{ margin: "2px 0 0" }} />
+                {data.stored.builtIn ? (
+                  <p className="muted small" style={{ margin: "2px 0 0", fontStyle: "italic" }}>The broker&rsquo;s 2026 form, kept in the portal — no upload needed</p>
+                ) : (
+                  <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                    <LastImported at={data.stored.uploadedAt} by={data.stored.uploadedBy} style={{ margin: "2px 0 0" }} />
+                    <button className="btn sm" disabled={!!busy} onClick={() => void revert()}>Use the built-in form</button>
+                  </div>
+                )}
                 {!!data.otherSheets?.length && (
                   <div className="muted small" style={{ marginTop: 2 }}>
                     Reads the <b>{data.sheetName}</b> tab; {data.otherSheets.join(", ")} {data.otherSheets.length === 1 ? "is" : "are"} passed through unchanged.

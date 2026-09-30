@@ -1,11 +1,16 @@
 // Server side of the insurance Statement of Values: the stored copy of the
 // broker's form, and what the portal knows about each property.
 //
-// The uploaded file is kept (base64 in one JSON blob — the form is ~50 KB) so
-// the page reopens on it and the filled copy is always built from the broker's
-// OWN file, formatting and all, rather than from a reconstruction of it.
+// The filled copy is always built from the broker's OWN file, formatting and
+// all, rather than from a reconstruction of it. That file is, in order: the
+// last one imported (base64 in one JSON blob, ~100 KB), else the form the
+// broker sent in 2026, shipped with the app (`data/insurance/sov-template.xlsx`)
+// — so the yearly job is open the page, download, send, with no upload unless
+// the broker changes their form.
 
 import "server-only";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { getJSON, storeJSON, deleteJSON } from "@/lib/storage";
 import { newWorkbook } from "@/lib/excel/theme";
 import { allFacts } from "@/lib/properties/facts";
@@ -29,6 +34,20 @@ export type StoredSov = {
 
 export async function getStoredSov(): Promise<StoredSov | null> {
   return (await getJSON(PREFIX, ID)) as StoredSov | null;
+}
+
+export const BUILT_IN_FILE_NAME = "Schedule of Values - Korman.xlsx";
+
+/** The form to fill: the last import, else the built-in 2026 form. */
+export async function getSovForm(): Promise<(StoredSov & { builtIn: boolean }) | null> {
+  const stored = await getStoredSov();
+  if (stored) return { ...stored, builtIn: false };
+  try {
+    const buf = await readFile(path.join(process.cwd(), "data", "insurance", "sov-template.xlsx"));
+    return { fileName: BUILT_IN_FILE_NAME, uploadedAt: "2026-09-30T00:00:00.000Z", uploadedBy: null, base64: buf.toString("base64"), builtIn: true };
+  } catch {
+    return null;
+  }
 }
 
 export async function saveStoredSov(s: StoredSov): Promise<void> {

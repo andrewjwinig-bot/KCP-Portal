@@ -42,6 +42,10 @@ const nextConfig = {
   serverExternalPackages: ["pdf-parse"],
   experimental: {
     serverActions: { bodySizeLimit: "20mb" },
+    // The insurance SOV routes read the broker's form shipped in data/.
+    outputFileTracingIncludes: {
+      "/api/insurance/**": ["./data/insurance/**"],
+    },
   },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

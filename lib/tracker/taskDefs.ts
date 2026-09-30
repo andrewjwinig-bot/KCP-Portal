@@ -688,6 +688,8 @@ export const TASK_DEFS: TaskDef[] = [
     category: "seasonal",
     dueDay: 1,
     months: [8],
+    link: "/insurance",
+    notes: "Open the Schedule of Values — it fills from Building Facts and the rent roll; download and send to the broker",
   },
 
   // September
