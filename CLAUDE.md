@@ -1747,7 +1747,7 @@ time — and the team does not have time to open the GL over $80.
 - **Derived lines are NOT typeable in the grid**: the recovery lines
   (`cam-estimate`) and rent and the deals' TI / commissions (`leases`), all
   Step 1. `applyTyped` ignores any stored override on them, the grid offers
-  no edit, and the line-history "Use this" is hidden; their pill links back to
+  no edit, and the line-history "Use this" is hidden; a small quiet ↗ icon (`SourceLink`, the source named on hover — not a pill, owner) links back to
   Step 1. (The Budget Inputs lines are typeable, but into their own store —
   see above; "Use this" stays hidden on them.) Typing over them would
   break the tie to the tenants' methodology and the leasing decisions.
