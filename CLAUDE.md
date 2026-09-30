@@ -1215,7 +1215,7 @@ time — and the team does not have time to open the GL over $80.
   Jan–Oct at one rate and Nov–Dec at +2%), and only November–December take
   +3% for the next renewal. Growing all twelve months 3% priced ten months of
   a policy whose premium is already known. Applied to the itemized policies
-  (GL, Umbrella, Property, D&O — pill "Nov renewal +3%") and to the
+  (GL, Umbrella, Property, D&O — pill "+3% Nov", kept short so the line name fits) and to the
   un-itemized default; a policy with nothing in Nov/Dec (a lump elsewhere)
   still grows month by month.
 - **ALISON EDITS THE WHOLE DRAFT, AS DREW AND ADMIN DO** (owner's call;

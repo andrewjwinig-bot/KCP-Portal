@@ -671,7 +671,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                             basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
                             badge={draft.consolidated ? undefined
-                              : renewal ? { tone: badgeFor("reproj-growth").tone, text: "Nov renewal +3%" }
+                              : renewal ? { tone: badgeFor("reproj-growth").tone, text: "+3% Nov" }
                               : grown ? badgeFor("reproj-growth") : undefined}
                             favorableUp={favorableUp}
                             typed={y.bucket === "base" && entered ? new Array(12).fill(true) : y.typed}
