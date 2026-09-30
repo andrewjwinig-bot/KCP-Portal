@@ -19,6 +19,7 @@ import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
 import { SourceDetail } from "./SourceBadge";
+import { DebtDetail } from "./DebtDetail";
 import { scopeAllowsLine, canSeePayroll } from "@/lib/financials/budgets/contributors";
 import type { UserId } from "@/lib/users";
 import { PayrollBudget } from "./PayrollBudget";
@@ -417,68 +418,9 @@ export default function BudgetDraftPage() {
             onOpenPayroll={payrollOk ? () => { setBookId("lik-payroll"); window.scrollTo({ top: 0, behavior: "smooth" }); } : undefined}
             onLine={draft.consolidated
               ? (sec, l) => setBreakdown({ label: l.label, section: sec.name, rows: (l.byProperty ?? []).map((b) => ({ code: b.code, name: b.name, total: b.total, months: b.months })) })
-              : (sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.map((p) => p.key) })}
+              : (sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.map((p) => p.key) })}
           />
 
-          {/* The loans behind the debt-service lines — so "why is interest
-              $X" is answered on the page, and a maturity inside the year is
-              called out rather than silently refinanced. */}
-          {draft.debt && draft.debt.loans.length > 0 && (
-            <details className="card" style={{ padding: 0, overflow: "hidden" }}>
-              <summary style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", padding: "10px 14px", cursor: "pointer" }}>
-                <span style={SUB_LABEL}>Debt service — {money0(draft.debt.interest)} interest · {money0(draft.debt.principal)} principal · {draft.debt.loans.length} loan{draft.debt.loans.length === 1 ? "" : "s"}{draft.debt.loans.some((l) => l.refinanceAssumed) ? " · refinance assumed" : ""}</span>
-                <a href="/debt" className="muted small" style={{ fontWeight: 700 }} onClick={(e) => e.stopPropagation()}>Debt Tracker →</a>
-              </summary>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 720 }}>
-                  <thead>
-                    <tr>
-                      <th style={{ ...tdL, ...thS }}>Loan</th>
-                      <th style={{ ...tdR, ...thS }}>Rate</th>
-                      <th style={{ ...tdR, ...thS }}>Balance Jan 1</th>
-                      <th style={{ ...tdR, ...thS }}>Interest</th>
-                      <th style={{ ...tdR, ...thS }}>Principal</th>
-                      <th style={{ ...tdR, ...thS }}>Balance Dec 31</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {draft.debt.loans.map((l) => (
-                      <tr key={l.id}>
-                        <td style={{ ...tdL, whiteSpace: "normal" }}>
-                          <span style={{ fontWeight: 700 }}>{l.lender || "Loan"}</span>
-                          {l.interestOnly && <span style={{ marginLeft: 6 }}><Pill tone={TONE_NEUTRAL}>interest-only</Pill></span>}
-                          {l.share != null && (
-                            <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
-                              The fund&rsquo;s loan — this building carries {(l.share * 100).toFixed(1)}% of its interest and principal
-                              {draft.debt?.fundShare?.basis === "sqft" ? " (by square footage — no prior budget to follow)" : ", as last year's budget allocated it"}; balances are the whole loan.
-                            </div>
-                          )}
-                          {l.refinanceAssumed && (
-                            <div style={{ fontSize: 11.5, color: "#b45309", marginTop: 2 }}>
-                              Matures {l.maturityDate} — assumed refinanced on the same terms
-                            </div>
-                          )}
-                        </td>
-                        <td style={tdR}>{l.ratePct.toFixed(2)}%</td>
-                        <td style={tdR}>{money0(l.balanceStart)}</td>
-                        <td style={tdR}>{money0(l.interest)}</td>
-                        <td style={tdR}>{money0(l.principal)}</td>
-                        <td style={tdR}>{money0(l.balanceEnd)}</td>
-                      </tr>
-                    ))}
-                    {draft.debt.loans.length > 1 && (
-                      <tr style={{ borderTop: "2px solid var(--border)" }}>
-                        <td style={{ ...tdL, fontWeight: 800 }} colSpan={3}>Total debt service</td>
-                        <td style={{ ...tdR, fontWeight: 800 }}>{money0(draft.debt.interest)}</td>
-                        <td style={{ ...tdR, fontWeight: 800 }}>{money0(draft.debt.principal)}</td>
-                        <td />
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </details>
-          )}
 
 
         </>
@@ -540,7 +482,7 @@ export default function BudgetDraftPage() {
         // re-projects after every save, so the snapshot taken on click would go stale.
         const hSec = draft?.sections.find((x) => x.name === histLine.section);
         const hLine = hSec?.lines.find((x) => x.label === histLine.label);
-        const hLocked = !hLine || hLine.source === "cam-estimate" || hLine.source === "leases" || hLine.source === "pool" || hLine.source === "fee" || hLine.source === "fee-rollup" || !!hLine.subLines?.some((x) => x.typeable);
+        const hLocked = !hLine || hLine.source === "cam-estimate" || hLine.source === "leases" || hLine.source === "pool" || hLine.source === "fee" || hLine.source === "fee-rollup" || hLine.source === "loans" || !!hLine.subLines?.some((x) => x.typeable);
         const hCanType = !!draft?.lineEditScope && !hLocked && scopeAllowsLine(draft.lineEditScope ?? null, histLine.section, histLine.label);
         return (
         <LineHistoryModal
@@ -559,6 +501,13 @@ export default function BudgetDraftPage() {
           extra={histLine.poolKeys?.length && draft ? (
             <PayrollPoolsCard year={draft.budgetYear} bookId={bookId} bookName={book.name} propertyCode={draft.propertyCode}
               onlyKeys={histLine.poolKeys} queued={queued} onSaved={() => setRefreshTick((n) => n + 1)} />
+          ) : hLine?.source === "loans" && draft?.debt?.loans.length ? (
+            // Debt service: the loans' schedule, the same working the line's ⓘ opens.
+            <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--brand)", borderRadius: 10, padding: "10px 14px 14px" }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>How it is figured</div>
+              <div style={{ fontSize: 15, fontWeight: 800, margin: "2px 0 10px" }}>{draft.budgetYear} Debt Service from the Loans</div>
+              <DebtDetail debt={draft.debt} year={draft.budgetYear} />
+            </div>
           ) : hLine?.inputSource ? (
             // A provided figure (real estate taxes off the public record): the
             // SAME working the line's pill opens, here where the line is read.

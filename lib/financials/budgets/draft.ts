@@ -453,6 +453,9 @@ function typedLine(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrid
   if (l.source === "leases") return l;
   // The management fee is a formula on revenue — typed revenue moves it.
   if (l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy") return l;
+  // Debt service is the lender's schedule (Debt Tracker) — change the loan's
+  // terms there; a typed month would let the budget drift off the note.
+  if (l.source === "loans") return l;
   // A payroll share is the book's total × this property's share — changed by
   // the total, never typed here (other accounts on the line still are).
   if (l.source === "pool" && !l.subLines?.some((s) => s.typeable)) return l;
