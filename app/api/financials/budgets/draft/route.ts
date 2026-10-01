@@ -38,7 +38,7 @@ export async function GET(req: Request) {
     const year = Number(url.searchParams.get("year")) || now.getFullYear() + 1;
     const growth = Number(url.searchParams.get("growth"));
     const drafts = await buildBookDrafts(book, year, Number.isFinite(growth) ? growth : 3);
-    const all = consolidateDrafts(`All ${book.name}`, drafts);
+    const all = consolidateDrafts(`All ${book.name}`, drafts, { sharedBank: !!book.sharedBankAccount });
     if (!all) return NextResponse.json({ missingBasis: true, key: `book:${bookId}`, year, basisYear: year - 1 }, { status: 200 });
     return NextResponse.json({ ...all, notes: {}, canEditLines: false, lineEditScope: null });
   }

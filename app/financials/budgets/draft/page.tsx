@@ -28,6 +28,7 @@ import { PayrollPoolsCard } from "./PayrollPoolsCard";
 import { PublishCard } from "./PublishCard";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { RecoveryCheckCard } from "./RecoveryCheckCard";
+import { EstimatesByPropertyCard } from "./EstimatesByPropertyCard";
 
 import type { LeasingCall, SavePayload } from "./LeasingDecision";
 
@@ -376,7 +377,6 @@ export default function BudgetDraftPage() {
       {draft && (draft.consolidated || (!book.rollsUp && book.properties.includes(draft.propertyCode))) && (
         <PublishCard book={book} draft={draft} />
       )}
-      {draft?.recoveryChecks?.length ? <RecoveryCheckCard checks={draft.recoveryChecks} year={draft.budgetYear} /> : null}
 
 
       {loading && !draft && (
@@ -429,7 +429,9 @@ export default function BudgetDraftPage() {
           suite's rent and recoveries — sit BELOW the budget, the order the
           owner's own budget workbooks use: the statement first, then the
           tenants behind its revenue lines. */}
-      <InPlaceRevenueCard
+      {/* The roll-up has no rent schedule to import or leasing calls to make —
+          those are each property's own (owner: the roll-up is the glance). */}
+      {!key.startsWith("book:") && <InPlaceRevenueCard
         year={year}
         category={category}
         propertyCode={label?.propertyCode ?? null}
@@ -450,11 +452,18 @@ export default function BudgetDraftPage() {
               headerExtra: <ReviewStatus year={draft.budgetYear} propertyCode={draft.propertyCode} calls={leasingCalls(draft.leasing)} refreshTick={refreshTick} />,
             }} />
         )}
-      </InPlaceRevenueCard>
+      </InPlaceRevenueCard>}
+
+      {/* THE RECOVERY CHECK sits with the recovery detail below the grid, not
+          above the budget it reviews (owner). */}
+      {draft?.recoveryChecks?.length ? <RecoveryCheckCard checks={draft.recoveryChecks} year={draft.budgetYear} /> : null}
 
       {/* What each tenant is billed a month today vs the budget — the
           change the January estimate letters carry (and the calls they start). */}
-      {draft?.tenantRevenue?.length ? (
+      {draft?.consolidated && draft.tenantRevenue?.length ? (
+        <EstimatesByPropertyCard rows={draft.tenantRevenue} properties={draft.consolidated.properties} year={draft.budgetYear}
+          onOpen={(code) => { const match = props.find((p) => p.propertyCode === code); if (match) { setKey(match.key); window.scrollTo({ top: 0, behavior: "smooth" }); } }} />
+      ) : draft?.tenantRevenue?.length ? (
         <div>
           <EstimatesByTenantCard rows={draft.tenantRevenue} est={draft.reimbursementEstimate} year={draft.budgetYear}
             propertyName={draft.propertyName} propertyCode={draft.propertyCode}
