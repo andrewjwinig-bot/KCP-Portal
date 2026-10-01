@@ -26,17 +26,23 @@ function Glyph({ filled }: { filled?: boolean }) {
   );
 }
 
-export function NoteMark({ label, note, onOpen }: { label: string; note?: LineNote; onOpen: () => void }) {
+/** `auto` is the draft's own comment on how the line was figured ("+3% over
+ *  the 2026 reprojection") — it replaced the "+3%" pill (owner: "just add it
+ *  as a comment"). It shows the mark like a note does; a person's note, when
+ *  there is one, leads and the basis sits under it. */
+export function NoteMark({ label, note, auto, onOpen }: { label: string; note?: LineNote; auto?: string; onOpen: () => void }) {
+  const shown = !!note || !!auto;
   const btn = (
     <button type="button" onClick={onOpen} aria-label={note ? `Note on ${label}` : `Add a note to ${label}`}
-      className={note ? "budget-note has" : "budget-note"}>
-      <Glyph filled={!!note} />
+      className={shown ? "budget-note has" : "budget-note"}>
+      <Glyph filled={shown} />
     </button>
   );
-  if (!note) return btn;
+  if (!shown) return btn;
   return (
-    <HoverCard title={note.text} width={300} rows={[]}
-      footer={{ label: note.by, value: stamp(note.at) }}>
+    <HoverCard title={note ? note.text : auto!} width={300}
+      rows={note && auto ? [{ label: "Basis", value: auto }] : []}
+      footer={note ? { label: note.by, value: stamp(note.at) } : { label: "Set by the draft", value: "click to add a note" }}>
       {btn}
     </HoverCard>
   );

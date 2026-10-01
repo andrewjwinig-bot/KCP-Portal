@@ -220,7 +220,7 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
    *  keep the figure as shown and mark it entered, in one click. */
   onAccept?: () => void;
   /** The line's note mark — present on every budget line. */
-  note?: { note?: LineNote; onOpen: () => void };
+  note?: { note?: LineNote; auto?: string; onOpen: () => void };
   /** A sub-line's depth: 1 = a bucket or GL account, 2 = an item under it. */
   depth?: number;
   /** Set when `basis` is LAST YEAR'S BUDGET rather than the reprojection —
@@ -306,7 +306,7 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
             <span style={{ borderBottom: "1px dotted var(--muted)", cursor: "default", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, display: "inline-block", maxWidth: "100%", verticalAlign: "bottom" }}>{abbrev(label)}</span>
           </HoverCard>
         ) : <span title={label} style={{ overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{abbrev(label)}</span>}
-        {note && <span style={{ flex: "0 0 auto", display: "inline-flex" }}><NoteMark label={label} note={note.note} onOpen={note.onOpen} /></span>}
+        {note && <span style={{ flex: "0 0 auto", display: "inline-flex" }}><NoteMark label={label} note={note.note} auto={note.auto} onOpen={note.onOpen} /></span>}
         {(extra || icon) && <span style={{ marginLeft: badge || onAccept ? undefined : "auto", flex: "0 0 auto", display: "inline-flex", gap: 2 }}>{icon}{extra}</span>}
         {(badge || onAccept || (onReset && typed?.some(Boolean))) && (
           <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto", flex: "0 0 auto" }}>
@@ -432,6 +432,23 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   onEdit?: (sec: BudgetDraftSection, line: Line, month: number | "all" | "accept", value: number | null, account?: string, propertyCode?: string) => void;
 }) {
   const [edit, setEdit] = useState<EditAt>(null);
+  // The draft's own comment on a GROWN line — where the "+3%" pill used to
+  // say it. Only while it is still true: nothing typed and something to grow.
+  const yy = (y: number) => String(y);
+  const basisComment = (l: Line): string | undefined => {
+    if (l.inputSource || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed)) return undefined;
+    if (l.source === "reproj-growth") return `+3% over the ${yy(draft.basisYear)} reprojection`;
+    if (l.source === "ret-default") return `${yy(draft.basisYear)} taxes +3%`;
+    if (l.source === "reproj-flat") return `Carried flat from the ${yy(draft.basisYear)} reprojection`;
+    return undefined;
+  };
+  // A seeded item / bucket: +3% over last year's BUDGET (items have no
+  // reprojection), or $0 for a Big Project decided each year.
+  const seededComment = (y: { total: number }, ref: number, untyped: boolean): string | undefined => {
+    if (!untyped) return undefined;
+    if (Math.abs(ref) < 0.5) return undefined;
+    return Math.abs(y.total - ref * 1.03) <= Math.max(12, Math.abs(y.total) * 0.002) ? `+3% over the ${yy(draft.basisYear)} budget` : undefined;
+  };
   // Where a line's figure comes from, as ONE small icon — never a text pill.
   const sourceIcon = (l: Line): React.ReactNode => {
     if (l.inputSource) return <SourceBadge source={l.inputSource} label={l.label} />;
@@ -677,7 +694,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
-                      note={onNote ? { note: notes?.[key], onOpen: () => onNote(sec, l.label) } : undefined}
+                      note={onNote ? { note: notes?.[key], auto: basisComment(l), onOpen: () => onNote(sec, l.label) } : undefined}
                       rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
                       onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
                       onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}
@@ -734,7 +751,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                             rowKey={typeableY ? k : undefined} edit={edit} setEdit={typeableY ? setEdit : undefined}
                             onCommit={typeableY ? (m, v) => onEdit!(sec, l, m, v, y.account) : undefined}
                             onReset={typeableY ? () => onEdit!(sec, l, "all", null, y.account) : undefined}
-                            note={onNote && seeded ? { note: notes?.[`${sec.name}::${noteLabel}`], onOpen: () => onNote(sec, noteLabel) } : undefined}
+                            note={onNote && seeded ? { note: notes?.[`${sec.name}::${noteLabel}`], auto: seededComment(y, ref, untyped), onOpen: () => onNote(sec, noteLabel) } : undefined}
                             {...(y.account === "6620-8501" && draft.deals?.length ? { cellHover: (m: number) => dealTip("commission", m), totalHover: () => dealTip("commission", null) } : {})} />
                         );
                       };

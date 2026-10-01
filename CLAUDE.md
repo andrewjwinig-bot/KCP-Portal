@@ -1248,7 +1248,12 @@ time — and the team does not have time to open the GL over $80.
   those who may see it). There are NO growth pills either — "+3%", "Flat" and
   "Tax +3%" only restated the Change column beside them (owner); insurance's
   November renewal is an ⓘ on the policy row, since its Change reads ~0.5%,
-  not 3%. There is NO "Entered" pill — a keyed figure
+  not 3%.
+  The basis is said as the line's COMMENT instead (owner: "just add it as a
+  comment"): `NoteMark`'s `auto` — "+3% over the 2026 reprojection", "2026
+  taxes +3%", a seeded item's "+3% over the 2026 budget" — lights the note
+  mark while it is still true (nothing typed, something to grow); a person's
+  note leads and the basis sits under it. There is NO "Entered" pill — a keyed figure
   already reads bold blue — and no "Items" pill (the ▸ says it). Don't add a
   new text pill to a line; add an icon.
 - **NO PARAGRAPH OF KEY UNDER THE GRID** (owner: "way too much text … nobody
