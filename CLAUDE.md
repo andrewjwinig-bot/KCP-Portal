@@ -301,6 +301,15 @@ Anything checking a specific month (the operating statement's rent check) uses
 `rollAsOf`, so a later import cannot move a past month's expectation.
 `lib/rentroll/oneSource.test.ts` fails the build if a new file reads the pointer.
 
+**An import MERGES into its month, never overwrites it** (`mergeSameMonth` in
+`current.ts`, used by `/api/rentroll` and `/api/rentroll/history`). Snapshots
+are keyed by report month, and writing an office-only file straight over a
+month that already held the full roll erased every retail and residential
+property for that month — and, with no older snapshot to carry them forward,
+from the current roll too (it happened: Nancy imported the updated office
+roll). The import's properties replace theirs; everything else in the month is
+kept. Pinned by `composeCurrentRoll.test.ts`.
+
 # Tenant monthly statements (open A/R) — sources of truth
 
 The tenant portal's Statements tab carries TWO statements: the annual CAM/RET

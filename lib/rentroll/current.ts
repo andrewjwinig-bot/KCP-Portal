@@ -42,6 +42,20 @@ export function composeCurrentRoll<T extends { properties?: any[] }>(snapshots: 
   return { ...(newest as T), properties: props };
 }
 
+/** Lay a newly imported roll over the SAME MONTH's existing snapshot,
+ *  property by property: the import's properties replace theirs, and every
+ *  property the import did not carry is KEPT. A snapshot is keyed by its
+ *  report month, so writing an office-only file straight over a month that
+ *  already held the full roll erased every retail and residential property
+ *  for that month — and with no older snapshot to carry them forward, from
+ *  the current roll too. Re-importing a property still replaces it. */
+export function mergeSameMonth<T extends { properties?: any[] }>(existing: T | null | undefined, imported: T): T {
+  if (!existing || !Array.isArray(existing.properties) || !existing.properties.length) return imported;
+  const incoming = new Set((imported.properties ?? []).map(propCode));
+  const kept = existing.properties.filter((p) => !incoming.has(propCode(p)));
+  return kept.length ? { ...imported, properties: [...(imported.properties ?? []), ...kept] } : imported;
+}
+
 export async function resolveCurrentRentroll(): Promise<RentRollData | null> {
   const snapshots = (await listJSON(HISTORY_PREFIX)) as RentRollData[];
   const composed = composeCurrentRoll(snapshots);
