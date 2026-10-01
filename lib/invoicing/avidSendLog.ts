@@ -10,7 +10,7 @@ const PREFIX = "avid-send-log";
 const idFor = (source: string, period: string) =>
   `${source}-${period}`.replace(/[^0-9A-Za-z]+/g, "-") || "unknown";
 
-export type AvidSource = "allocated" | "credit-card" | "payroll";
+export type AvidSource = "allocated" | "credit-card" | "payroll" | "commissions";
 
 export type AvidSendEntry = {
   source: AvidSource;

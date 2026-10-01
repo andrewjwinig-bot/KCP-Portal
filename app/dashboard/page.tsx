@@ -865,7 +865,7 @@ function DashboardInner() {
               })()}
 
               {(user.id === "nancy" || user.id === "harry" || isAdmin || user.navKeys.has("all") || user.navKeys.has("commissions") || user.navKeys.has("commissions-retail")) && (
-                <CommissionsReminder />
+                <CommissionsReminder href={isPathAllowed(user.id, "/commissions") ? "/commissions" : "/commissions/retail"} />
               )}
 
               {(isHarryUser || isAlison || isAdmin || user.id === "drew") && (

@@ -26,7 +26,9 @@ const TONE: Record<Tone, { border: string; bg: string; dot: string }> = {
   neutral: { border: "rgba(15,23,42,0.12)",   bg: "rgba(15,23,42,0.025)",  dot: "#64748b" },
 };
 
-export default function CommissionsReminder({ standalone = false }: { standalone?: boolean }) {
+/** `href` is the commissions page THIS viewer can open — Harry has only the
+ *  retail one, and a link he cannot open bounces him back to the dashboard. */
+export default function CommissionsReminder({ standalone = false, href = "/commissions" }: { standalone?: boolean; href?: string }) {
   const [entries, setEntries] = useState<CommissionEntry[]>([]);
   const [log, setLog] = useState<SentLog>({});
   const [loaded, setLoaded] = useState(false);
@@ -101,7 +103,7 @@ export default function CommissionsReminder({ standalone = false }: { standalone
         <div style={{ fontWeight: 600, fontSize: 14 }}>{info.title}</div>
         <div className="muted small" style={{ marginTop: 2 }}>{info.sub}</div>
       </div>
-      <Link href="/commissions" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>Open →</Link>
+      <Link href={href} style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>Open →</Link>
       <button onClick={dismiss} aria-label="Dismiss" title="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 15, lineHeight: 1, padding: 0, flexShrink: 0, alignSelf: "center" }}>×</button>
     </div>
   );

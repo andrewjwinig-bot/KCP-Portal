@@ -117,6 +117,10 @@ export const USERS: Record<UserId, UserDef> = {
       "/units",
       "/allocated-invoicer",
       "/tenant-statements",
+      // The dashboard's Commissions reminder ("Send commissions to AvidBill")
+      // is Drew's to act on — without this its Open → bounced him straight
+      // back to the dashboard. Reachable, not in his sidebar.
+      "/commissions",
       // Capability key, not a page: the K-1 tooling renders inside /investors.
       "/investor-k1",
       "/deposits",
