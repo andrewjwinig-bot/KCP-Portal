@@ -310,6 +310,23 @@ from the current roll too (it happened: Nancy imported the updated office
 roll). The import's properties replace theirs; everything else in the month is
 kept. Pinned by `composeCurrentRoll.test.ts`.
 
+**A MOVE-OUT IS WHAT THE RENT ROLL SAYS, NEVER A LEASE DATE**
+(`confirmedMoveouts` in `lib/leasing/confirmedMoveouts.ts`, behind
+`recentlyVacatedTenants`). A tenant is a close-out only when they were on an
+earlier roll of their property and are ABSENT from the newest roll covering it.
+An expired lease is a chance to renew, and the renewal reaches the portal only
+with the next import — so a tenant still on that roll (renewed, or holding over
+while it is keyed) is NEVER a move-out, and one with no roll since expiration
+waits for it. Owner: "we cant move tenants out who renew" — Regional Cardiology
+(6), Search Engines Marketer (4), Reliant Care (8), Land Medical (4) and Julia
+Meehan-Haley Eicher (1) sat in Pending Close-Outs on expired lease dates and had
+all renewed. The watcher acts only on `kind: "vacated"` candidates and PRUNES
+queued waiting/ready entries that no longer qualify (approved ones stay); the
+dashboard's GET hides them at once. Name drift ("Consultant"/"Consultants") is
+the same tenant (`sameTenant`), a tenant who moved suites has not moved out, and
+a property missing from a partial import is not evidence anyone left. Pinned by
+`confirmedMoveouts.test.ts`.
+
 # Tenant monthly statements (open A/R) — sources of truth
 
 The tenant portal's Statements tab carries TWO statements: the annual CAM/RET
