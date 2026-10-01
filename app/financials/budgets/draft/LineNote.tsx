@@ -40,8 +40,13 @@ export function NoteMark({ label, note, auto, onOpen }: { label: string; note?: 
   );
   if (!shown) return btn;
   return (
-    <HoverCard title={note ? note.text : auto!} width={300}
-      rows={note && auto ? [{ label: "Basis", value: auto }] : []}
+    // The line's name is the title; the note is the BODY, in normal weight —
+    // a sentence set as a bold title read as a heading, not a note (owner).
+    <HoverCard title={label} width={300} rows={[]}
+      body={<div style={{ fontSize: 13, lineHeight: 1.45 }}>
+        <div style={{ whiteSpace: "pre-wrap" }}>{note ? note.text : auto}</div>
+        {note && auto && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Basis: {auto}</div>}
+      </div>}
       footer={note ? { label: note.by, value: stamp(note.at) } : { label: "Set by the draft", value: "click to add a note" }}>
       {btn}
     </HoverCard>
