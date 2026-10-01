@@ -17,7 +17,7 @@
 // instead of duplicating.
 
 import "server-only";
-import { getJSON, storeJSON, listJSON } from "@/lib/storage";
+import { getJSON, storeJSON, listJSON, deleteJSON } from "@/lib/storage";
 
 const PREFIX = "moveout-closeout";
 
@@ -131,4 +131,16 @@ export async function markApproved(key: string, by: string | null): Promise<Clos
   const merged: CloseOut = { ...existing, status: "approved", approvedAt: now, approvedBy: by, updatedAt: now };
   await storeJSON(PREFIX, idFor(key), merged);
   return merged;
+}
+
+/** Delete every waiting / ready entry whose key is not in `keep` — a tenant
+ *  who is no longer a confirmed move-out (they renewed). Approved entries are
+ *  the finalized record and are never touched. Returns the keys removed. */
+export async function pruneCloseOuts(keep: Set<string>): Promise<string[]> {
+  const removed: string[] = [];
+  for (const c of await listCloseOuts()) {
+    if (c.status === "approved" || keep.has(c.key)) continue;
+    if (await deleteJSON(PREFIX, idFor(c.key)).catch(() => false)) removed.push(c.key);
+  }
+  return removed;
 }

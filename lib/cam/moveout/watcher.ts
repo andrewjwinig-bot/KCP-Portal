@@ -17,7 +17,7 @@ import type { SecurityDeposit } from "@/lib/deposits/deposits";
 import { moveoutCandidates } from "./candidates";
 import { computeMoveoutStatement, moveoutBalance, moveoutOk, type MoveoutOk } from "./compute";
 import { buildMoveoutPdf, moveoutFileBase } from "./artifacts";
-import { closeOutKey, upsertCloseOut, getCloseOut, type CloseOutDeposit } from "./queue";
+import { closeOutKey, upsertCloseOut, getCloseOut, pruneCloseOuts, type CloseOutDeposit } from "./queue";
 import { pickDeposit, depositSettlement } from "./deposit";
 
 const GL_FROM_YEAR = 2026; // interim recon sources actuals from the imported GL
@@ -87,6 +87,9 @@ export type WatchResult = {
    *  deferred rather than sent with a fabricated "no deposit" settlement. */
   depositsLoaded: boolean;
   details: { key: string; name: string; property: string; status: "waiting" | "ready"; balance: number; unpostedMonths: number; notified?: boolean }[];
+  /** Queued close-outs dropped because the tenant is still on the rent roll
+   *  (renewed, or holding over while the renewal is keyed). */
+  pruned: string[];
 };
 
 /** Scan every move-out candidate, refresh the queue, and email a one-time
@@ -108,14 +111,19 @@ export async function runMoveoutWatch(opts?: { notify?: boolean; now?: Date }): 
     depositsLoaded = false;
   }
 
-  const res: WatchResult = { checked: 0, waiting: 0, ready: 0, newlyReady: 0, notified: 0, mailConfigured: isMailConfigured(), depositsLoaded, details: [] };
+  const res: WatchResult = { checked: 0, waiting: 0, ready: 0, newlyReady: 0, notified: 0, mailConfigured: isMailConfigured(), depositsLoaded, details: [], pruned: [] };
+  const live = new Set<string>();
 
   for (const cand of cands) {
+    // Only a tenant the rent roll shows GONE is a move-out. An expired lease
+    // still on the roll is a renewal waiting to be keyed — never close it out.
+    if (cand.kind !== "vacated") continue;
     // Need a resolvable vacate month in an auto-sourceable year; otherwise this
     // one is handled manually on the interim page.
     if (cand.year == null || cand.month == null || cand.year < GL_FROM_YEAR) continue;
     const year = cand.year;
     const key = closeOutKey(cand.propertyCode, cand.unitRef, year);
+    live.add(key);
     const prior = await getCloseOut(key);
     if (prior?.status === "approved") continue; // already finalized — leave it
 
@@ -185,6 +193,12 @@ export async function runMoveoutWatch(opts?: { notify?: boolean; now?: Date }): 
     }
     res.details.push({ key, name: c.meta.name, property: cand.propertyCode, status: "ready", balance, unpostedMonths: 0, notified: didNotify });
   }
+
+  // Anything still queued but no longer a confirmed move-out — the tenant
+  // renewed, or was staged off an expired lease date before this rule — is
+  // removed. Approved entries are a record and stay. Skipped when the rent
+  // roll produced no candidates at all, so a failed read cannot empty the queue.
+  if (cands.length) res.pruned = await pruneCloseOuts(live);
 
   return res;
 }
