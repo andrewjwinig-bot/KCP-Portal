@@ -13,7 +13,8 @@ import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { HoverCard } from "@/app/components/HoverCard";
 import LoadingState from "@/app/components/LoadingState";
 import { STEP_LABEL } from "./stepStyles";
-import { RaiseTestCard } from "./RaiseTestCard";
+import { RaisePlanCard } from "./RaisePlanCard";
+import type { BuildingContext } from "@/lib/financials/budgets/payrollContext";
 import {
   ALLOC_COLUMNS, FRINGE, GROUP_GL, allocatePayroll, employeeCost, allocTotal, monthly10,
   type PayrollBudgetDoc, type PayrollEmployee, type FundKey, type AllocKey, type FringeKey, type Rates,
@@ -75,6 +76,7 @@ const newId = () => `emp-${Date.now().toString(36)}`;
 export function PayrollBudget({ year }: { year: number }) {
   const [doc, setDoc] = useState<PayrollBudgetDoc | null>(null);
   const [seeded, setSeeded] = useState(false);
+  const [context, setContext] = useState<Record<string, BuildingContext>>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   // The health-benefits window: null closed, "" the whole list, else the employee opened from.
@@ -90,7 +92,7 @@ export function PayrollBudget({ year }: { year: number }) {
     setDoc(null); setError(null);
     fetch(`/api/financials/budgets/payroll?year=${year}`, { cache: "no-store" })
       .then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j?.error ?? "Couldn't load the payroll budget."); return j; })
-      .then((j) => { setDoc(j.doc); setSeeded(!!j.seeded); })
+      .then((j) => { setDoc(j.doc); setSeeded(!!j.seeded); setContext(j.context ?? {}); })
       .catch((e) => setError(e.message));
   }, [year]);
 
@@ -146,7 +148,13 @@ export function PayrollBudget({ year }: { year: number }) {
         <StatPill label="Gross payroll" value={money0(a.totals.gross)} total />
       </div>
 
-      <RaiseTestCard doc={doc} onApply={(id, salary) => setEmp(id, { salary })} />
+      <RaisePlanCard doc={doc} context={context}
+        onPlan={(raisePlan) => update((d) => ({ ...d, raisePlan }))}
+        onApply={(index, id, salary) => update((d) => ({
+          ...d,
+          employees: d.employees.map((e) => (e.id === id ? { ...e, salary } : e)),
+          raisePlan: d.raisePlan ? { ...d.raisePlan, raises: d.raisePlan.raises.filter((_, i) => i !== index) } : d.raisePlan,
+        }))} />
 
       {/* The statutory rates — typed once, used on every row. */}
       <div className="card" style={{ padding: "10px 14px" }}>

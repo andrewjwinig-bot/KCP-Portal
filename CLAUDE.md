@@ -1392,21 +1392,33 @@ time — and the team does not have time to open the GL over $80.
     $7,000 wage base); Harry's SC is 85, not the 86 shown beside 5/5/5 (101%).
   - DREW'S AND ALISON'S ALONE (`canSeePayroll`): the route refuses both verbs,
     and the book is left out of everyone else's book list.
-  - **TEST A RAISE** (`RaiseTestCard.tsx`, `raiseImpact` / `applyRaise` in
-    `payrollBudget.ts`): pick an employee, key a raise (% or $) or a one-time
-    bonus, and the WHOLE allocation is re-run and diffed against the budget —
-    the same FICA / Medicare / FUTA caps, 401(k) match, allocation % and fund
-    basis — so each building and misc entity shows now / with / change (year
-    and month), banded by fund. A sandbox: nothing saves. "Apply to the
-    budget" sets the salary (raises only). A BONUS is wages for the payroll
-    taxes but not the 401(k) match (a % of salary), and is never saved —
-    `PayrollEmployee.bonus` exists only for the test and `sanitizePayrollDoc`
-    drops it. Its **NOI impact** column is the change ÷ each building's
-    budgeted NOI (`/api/financials/budgets/kpis?year=` — the payroll year's
-    budget, else the one in force before it; the footnote names the year); a
-    fund band is over its buildings' NOI combined. Maintenance Salaries are
-    recoverable, so for a maintenance employee it says the figure is BEFORE
-    CAM recoveries rather than pretending to model them.
+  - **THE RAISE PLAN** (`RaisePlanCard.tsx`; `raisePlanImpact`,
+    `poolDollars`, `applyRaise` in `payrollBudget.ts`; building context in
+    `payrollContext.ts`). The owner asked what metric VALIDATES a raise; the
+    answer agreed was that no single building ratio does — whether a person
+    deserves it is a market / performance call, and any one raise is noise
+    against a building's NOI. What the numbers CAN answer: (1) what it really
+    costs us, and (2) does it fit the year's plan. So the card is a POOL plus
+    a list of raises (% or $ of salary, or a one-time bonus):
+    - **Pool**: a % of SALARIES (a merit budget is quoted on base pay) or a $
+      figure, spent in PAY dollars (salary increases + bonuses); tiles show
+      pool / raises / left (or over) / fully loaded cost / NET OF RECOVERIES.
+    - **Net of recoveries**: Maintenance Salaries (6030-8502) are recoverable,
+      so each building's maintenance share of a raise is netted by its
+      budgeted recovery rate (reimbursements ÷ reimbursable expenses, capped
+      100% — close for NNN, rough for office base-year stops; the card says
+      so). `RaiseImpactRow.deltaMaintenance` carries the recoverable part.
+    - **Where it lands**: every building / entity, banded by fund, with the
+      change per year / month, net, its allocation of the cost, and the net
+      cost as a % of budgeted NOI and of CASH FLOW AFTER DEBT SERVICE (what a
+      raise actually comes out of). The context is the payroll year's budget
+      of record, else the one in force before it; the footnote names the year.
+      It rides on the payroll GET (`context`), so it is behind `canSeePayroll`.
+    - The plan is SAVED on the doc (`raisePlan`, kept by `sanitizePayrollDoc`)
+      but is never in the budget's figures. **Apply** sets the salary and
+      takes the raise off the plan. A BONUS is wages for FICA / Medicare /
+      FUTA but not the 401(k) match, and is never applied —
+      `PayrollEmployee.bonus` exists only for the plan's math.
   - NEXT (not built): feed the property drafts' salary lines from it (it
     replaces `payrollPools.ts`'s last-year +3% blocks), and give Harry's
     Payroll Invoicer its 2027 allocation from it (employee × building %,

@@ -104,6 +104,9 @@ export type PayrollBudgetDoc = {
   funds: Record<FundKey, FundTable>;
   /** Marketing-All split across the funds, % (SC 46 / NI LLC 34 / JV III 20). */
   marketingSplit: Record<FundKey, number>;
+  /** The year's raise plan — tentative, never in the figures above until
+   *  applied (`raisePlanImpact`). */
+  raisePlan?: RaisePlan;
   /** Where the doc came from, when it was seeded. */
   seededFrom?: string;
   updatedBy?: string;
@@ -231,25 +234,43 @@ export function allocatePayroll(doc: PayrollBudgetDoc): PayrollAllocation {
   return { employees, totals, byEntity, funds, misc, marketing: { total: mkt, byFund }, allocated };
 }
 
-// ─── "Test a raise": what one employee's raise or bonus does to every entity ──
+// ─── The raise plan: what the year's raises cost, and where it lands ───────
 /** A raise as a % or $ of salary, or a one-time bonus in dollars. */
 export type RaiseTest = { employeeId: string; kind: "pct" | "dollar" | "bonus"; amount: number };
 
+/** The year's raise POOL — the control a raise is judged against: a % of
+ *  this budget's SALARIES (a merit budget is quoted on base pay), or a dollar
+ *  figure. It is spent in PAY dollars (salary increases + bonuses); the taxes
+ *  and 401(k) on top are shown as the fully loaded cost beside it. */
+export type RaisePool = { kind: "pct" | "dollar"; amount: number };
+export type RaisePlan = { pool: RaisePool; raises: RaiseTest[] };
+export const DEFAULT_POOL: RaisePool = { kind: "pct", amount: 3 };
+
 export type RaiseImpactRow = {
-  /** Fund building ("SC" + "4500") or a misc entity ("2010"). */
+  /** Fund label ("Shopping Centers") or "Misc". */
   group: string; code: string | null; label: string;
   before: number; after: number; delta: number;
+  /** The part of `delta` on Maintenance Salaries (6030-8502) — recoverable. */
+  deltaMaintenance: number;
+};
+
+export type RaiseEmployeeImpact = {
+  id: string; name: string; group: PayGroup;
+  before: EmployeeCost; after: EmployeeCost;
+  /** Pay dollars this year: salary increase + bonus — what the pool spends. */
+  pay: number;
+  /** Fully loaded: pay + FICA / Medicare / FUTA + 401(k). */
+  cost: number;
 };
 
 export type RaiseImpact = {
-  employee: { id: string; name: string; before: EmployeeCost; after: EmployeeCost };
-  /** Gross payroll before / after — the change is the employee's alone. */
+  employees: RaiseEmployeeImpact[];
   totalBefore: number; totalAfter: number;
   /** Every building and entity whose share moves, largest change first. */
   rows: RaiseImpactRow[];
 };
 
-/** The employee as the test would leave them: a new salary, or a bonus. */
+/** The employee as the raise would leave them: a new salary, or a bonus. */
 export function applyRaise(e: PayrollEmployee, t: RaiseTest): PayrollEmployee {
   const amt = Number.isFinite(t.amount) ? t.amount : 0;
   if (t.kind === "bonus") return { ...e, bonus: (e.bonus || 0) + amt };
@@ -258,34 +279,59 @@ export function applyRaise(e: PayrollEmployee, t: RaiseTest): PayrollEmployee {
 }
 
 /**
- * Re-run the whole allocation with one employee's raise (or bonus) and diff it
- * against the budget as it stands — so the answer runs through the SAME
- * taxes (FICA stopping at its wage base, FUTA at $7,000), the 401(k) match,
- * the allocation % and each fund's building basis as the budget itself. Pure:
- * nothing is saved.
+ * Re-run the whole allocation with every raise in `raises` applied and diff it
+ * against the budget as it stands — the SAME taxes (FICA stopping at its wage
+ * base, FUTA at $7,000), 401(k) match, allocation % and fund basis as the
+ * budget itself. Several raises to one employee stack. Pure: nothing saved.
  */
-export function raiseImpact(doc: PayrollBudgetDoc, t: RaiseTest): RaiseImpact | null {
-  const emp = doc.employees.find((e) => e.id === t.employeeId);
-  if (!emp) return null;
-  const next = { ...doc, employees: doc.employees.map((e) => (e.id === emp.id ? applyRaise(e, t) : e)) };
+export function raisePlanImpact(doc: PayrollBudgetDoc, raises: RaiseTest[]): RaiseImpact {
+  const live = raises.filter((t) => t.amount && doc.employees.some((e) => e.id === t.employeeId));
+  const next = { ...doc, employees: doc.employees.map((e) => live.filter((t) => t.employeeId === e.id).reduce(applyRaise, e)) };
   const a = allocatePayroll(doc), b = allocatePayroll(next);
   const rows: RaiseImpactRow[] = [];
   for (let i = 0; i < a.funds.length; i++) {
     const fa = a.funds[i], fb = b.funds[i];
     fa.rows.forEach((ra, j) => {
       const rb = fb.rows[j];
-      rows.push({ group: fa.label, code: ra.code, label: ra.code, before: ra.total, after: rb.total, delta: rb.total - ra.total });
+      rows.push({ group: fa.label, code: ra.code, label: ra.code, before: ra.total, after: rb.total,
+        delta: rb.total - ra.total, deltaMaintenance: rb.maintenance - ra.maintenance });
     });
   }
   a.misc.forEach((ma, i) => {
     const mb = b.misc[i];
-    rows.push({ group: "Misc", code: ma.code, label: ma.label, before: ma.annual, after: mb.annual, delta: mb.annual - ma.annual });
+    rows.push({ group: "Misc", code: ma.code, label: ma.label, before: ma.annual, after: mb.annual, delta: mb.annual - ma.annual, deltaMaintenance: 0 });
   });
+  const employees = doc.employees
+    .filter((e) => live.some((t) => t.employeeId === e.id))
+    .map((e, i) => {
+      const n = next.employees[doc.employees.indexOf(e)];
+      const before = employeeCost(e, doc.rates), after = employeeCost(n, doc.rates);
+      return { id: e.id, name: e.name, group: e.group, before, after,
+        pay: (after.salary - before.salary) + (after.bonus - before.bonus), cost: after.gross - before.gross };
+    });
   return {
-    employee: { id: emp.id, name: emp.name, before: employeeCost(emp, doc.rates), after: employeeCost(applyRaise(emp, t), doc.rates) },
+    employees,
     totalBefore: a.totals.gross, totalAfter: b.totals.gross,
     rows: rows.filter((x) => Math.abs(x.delta) >= 0.5).sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta)),
   };
+}
+
+/** One raise — the plan of one. */
+export function raiseImpact(doc: PayrollBudgetDoc, t: RaiseTest) {
+  if (!doc.employees.some((e) => e.id === t.employeeId)) return null;
+  const r = raisePlanImpact(doc, [t]);
+  const e = r.employees[0] ?? (() => {
+    const emp = doc.employees.find((x) => x.id === t.employeeId)!;
+    const c = employeeCost(emp, doc.rates);
+    return { id: emp.id, name: emp.name, group: emp.group, before: c, after: c, pay: 0, cost: 0 };
+  })();
+  return { ...r, employee: e };
+}
+
+/** The pool in pay dollars. */
+export function poolDollars(doc: PayrollBudgetDoc, pool: RaisePool): number {
+  if (pool.kind === "dollar") return pool.amount || 0;
+  return sum(doc.employees.map((e) => e.salary || 0)) * (pool.amount || 0) / 100;
 }
 
 /** The workbook rounds a monthly allocation to the nearest $10. */
@@ -398,8 +444,16 @@ export function sanitizePayrollDoc(raw: any, year: number): PayrollBudgetDoc | n
     };
   }
   const ms = raw.marketingSplit ?? SEED_2026.marketingSplit;
+  const rp = raw.raisePlan;
+  const ids = new Set(employees.map((e) => e.id));
+  const raisePlan: RaisePlan | undefined = rp && typeof rp === "object" ? {
+    pool: { kind: rp.pool?.kind === "dollar" ? "dollar" : "pct", amount: n(rp.pool?.amount ?? DEFAULT_POOL.amount) },
+    raises: (Array.isArray(rp.raises) ? rp.raises : []).slice(0, 200)
+      .filter((t: any) => ids.has(String(t?.employeeId)))
+      .map((t: any) => ({ employeeId: String(t.employeeId), kind: t.kind === "dollar" || t.kind === "bonus" ? t.kind : "pct", amount: n(t.amount) })),
+  } : undefined;
   return {
-    year, rates, employees, funds,
+    year, rates, employees, funds, raisePlan,
     marketingSplit: { sc: n(ms.sc), niLlc: n(ms.niLlc), jv3: n(ms.jv3) },
     seededFrom: typeof raw.seededFrom === "string" ? raw.seededFrom.slice(0, 120) : undefined,
   };

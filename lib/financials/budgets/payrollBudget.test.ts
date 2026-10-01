@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SEED_2026, raiseImpact as _ri, employeeCost, allocatePayroll, allocTotal, seedPayrollBudget, sanitizePayrollDoc, monthly10, fundShares } from "./payrollBudget";
+import { SEED_2026, raiseImpact as _ri, raisePlanImpact, poolDollars, employeeCost, allocatePayroll, allocTotal, seedPayrollBudget, sanitizePayrollDoc, monthly10, fundShares } from "./payrollBudget";
 
 const doc = { ...SEED_2026, year: 2026 };
 const cost = (id: string) => employeeCost(doc.employees.find((e) => e.id === id)!, doc.rates);
@@ -120,5 +120,33 @@ describe("test a raise — runs through the same taxes and allocation, saves not
     const before = JSON.stringify(doc);
     raiseImpact(doc, { employeeId: "winig-drew", kind: "dollar", amount: 5_000 });
     expect(JSON.stringify(doc)).toBe(before);
+  });
+});
+
+describe("the raise plan — several raises, a pool, and the recoverable part", () => {
+  it("stacks raises and splits out Maintenance Salaries for the recoveries", () => {
+    const r = raisePlanImpact(doc, [
+      { employeeId: "gosik-jason", kind: "pct", amount: 3 },
+      { employeeId: "winig-drew", kind: "dollar", amount: 5_000 },
+    ]);
+    expect(r.employees.map((e) => e.id).sort()).toEqual(["gosik-jason", "winig-drew"]);
+    const gosik = r.employees.find((e) => e.id === "gosik-jason")!;
+    expect(gosik.pay).toBeCloseTo(64_228 * 0.03, 2);
+    const cost = r.employees.reduce((s, e) => s + e.cost, 0);
+    expect(Math.abs(r.rows.reduce((s, x) => s + x.delta, 0) - cost)).toBeLessThan(0.01);
+    // Only Gosik is maintenance, so the maintenance part of the rows is his cost.
+    expect(Math.abs(r.rows.reduce((s, x) => s + x.deltaMaintenance, 0) - gosik.cost)).toBeLessThan(0.01);
+  });
+  it("the pool is a % of salaries, or a dollar figure", () => {
+    const salaries = doc.employees.reduce((s, e) => s + e.salary, 0);
+    expect(poolDollars(doc, { kind: "pct", amount: 3 })).toBeCloseTo(salaries * 0.03, 2);
+    expect(poolDollars(doc, { kind: "dollar", amount: 40_000 })).toBe(40_000);
+  });
+  it("the plan is saved with the doc, never in its figures, and drops unknown employees", () => {
+    const clean = sanitizePayrollDoc({ ...doc, raisePlan: { pool: { kind: "pct", amount: 4 }, raises: [
+      { employeeId: "gosik-jason", kind: "bonus", amount: 1000 }, { employeeId: "nobody", kind: "pct", amount: 9 },
+    ] } }, 2027)!;
+    expect(clean.raisePlan).toEqual({ pool: { kind: "pct", amount: 4 }, raises: [{ employeeId: "gosik-jason", kind: "bonus", amount: 1000 }] });
+    expect(allocatePayroll(clean).totals.gross).toBeCloseTo(allocatePayroll(doc).totals.gross, 2);
   });
 });

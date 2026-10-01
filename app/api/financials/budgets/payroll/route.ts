@@ -3,6 +3,8 @@ import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { canSeePayroll } from "@/lib/financials/budgets/contributors";
 import { getPayrollBudget, savePayrollBudget } from "@/lib/financials/budgets/payrollBudgetStore";
 import { sanitizePayrollDoc } from "@/lib/financials/budgets/payrollBudget";
+import { payrollContextFrom } from "@/lib/financials/budgets/payrollContext";
+import { listBudgets } from "@/lib/financials/budgets/storage";
 import { USERS } from "@/lib/users";
 
 export const runtime = "nodejs";
@@ -12,7 +14,8 @@ export const revalidate = 0;
 // THE LIK PAYROLL BUDGET (`lib/financials/budgets/payrollBudget.ts`) —
 // per-employee pay, benefits and allocation. Drew's and Alison's alone
 // (`canSeePayroll`), refused to everyone else on BOTH verbs.
-//   GET ?year=      → the doc (seeded from the year before when never saved)
+//   GET ?year=      → the doc (seeded from the year before when never saved),
+//                     plus each building's budget context for Test a Raise
 //   PUT { doc }     → save the whole doc
 
 const yearOf = (v: unknown) => {
@@ -24,8 +27,8 @@ export async function GET(req: Request) {
   const user = await budgetUser();
   if (!canSeePayroll(user)) return NextResponse.json({ error: "The payroll budget is restricted." }, { status: 403 });
   const year = yearOf(new URL(req.url).searchParams.get("year")) ?? new Date().getFullYear() + 1;
-  const { doc, seeded } = await getPayrollBudget(year);
-  return NextResponse.json({ doc, seeded });
+  const [{ doc, seeded }, workbooks] = await Promise.all([getPayrollBudget(year), listBudgets().catch(() => [])]);
+  return NextResponse.json({ doc, seeded, context: payrollContextFrom(workbooks, year) });
 }
 
 export async function PUT(req: Request) {
