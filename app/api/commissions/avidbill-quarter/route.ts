@@ -7,12 +7,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Quarter-end send to kormancommercial@avidbill.com — one PDF per
- * logged commission, attached to a single email.
+ * Quarter-end send to kormancommercial@avidbill.com — one PDF per logged
+ * commission, each as its OWN email (Avid takes one invoice per email).
  *
- * GET form: invoked by Vercel cron (vercel.json crons array). Auth
- *   via `Authorization: Bearer <CRON_SECRET>` header that Vercel
- *   sets on scheduled invocations.
+ * GET form: invoked by Vercel cron EVERY MORNING (vercel.json) for the
+ *   most recently completed quarter, so nobody has to remember to send.
+ *   It sends only invoices not yet delivered — a no-op once the quarter is
+ *   out, a late-logged commission goes the next morning, and a failed run
+ *   is finished by the next one. Auth via `Authorization: Bearer
+ *   <CRON_SECRET>` header that Vercel sets on scheduled invocations.
  *
  * POST form: manual / dev triggers. Body shape
  *   { quarterLabel?: string, dryRun?: boolean, force?: boolean }

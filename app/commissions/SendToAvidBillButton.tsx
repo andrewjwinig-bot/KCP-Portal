@@ -162,7 +162,7 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
                   {preview.count} invoice{preview.count === 1 ? "" : "s"} · {toMoney(preview.total)}
                 </div>
                 <div className="muted small">
-                  Will email <b>kormancommercial@avidbill.com</b> with one PDF per commission in <b>{quarterLabel}</b>.
+                  Will email <b>kormancommercial@avidbill.com</b> one invoice per email for <b>{quarterLabel}</b> (any already sent are skipped). This also goes out automatically each morning once the quarter closes.
                   {preview.alreadySent && (
                     <div style={{ marginTop: 6, color: "#b45309" }}>
                       ⚠ Already sent for this quarter — clicking Send will be ignored unless we force it.

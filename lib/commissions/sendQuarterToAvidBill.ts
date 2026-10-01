@@ -1,18 +1,24 @@
-// Quarterly batch-send to AvidBill — generates a PDF invoice per
-// commission logged in the target quarter (office + retail combined),
-// attaches them all to a single email, and persists a sent-record so
-// reruns of the same quarter don't double-send. Invoked by
-// /api/commissions/avidbill-quarter, which is in turn driven by the
-// Vercel cron entry in vercel.json.
+// Quarterly send to AvidXchange — one PDF invoice per commission logged in the
+// target quarter (office + retail combined), delivered through the SAME shared
+// sender every other invoicer uses (`deliverInvoicesToAvid`): each invoice is
+// its OWN email with a single PDF, because Avid ingests one invoice per email
+// and never opens a zip. It used to attach every PDF to ONE email, so Avid saw
+// only the first. Marie gets one summary email (cc Drew and Harry); the memo +
+// GL import files still go to her separately (sendQuarterMemo). Retry-safe: an
+// invoice that already went out is never re-sent, and the quarter is marked
+// sent only once every invoice and the summary are out. Invoked by
+// /api/commissions/avidbill-quarter (button + the quarterly Vercel cron).
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
-import { sendMail, isMailConfigured } from "@/lib/mail";
+import { isMailConfigured } from "@/lib/mail";
+import { deliverInvoicesToAvid } from "@/lib/invoicing/avidDelivery";
+import { getAvidSent } from "@/lib/invoicing/avidSentStore";
 import { renderCommissionInvoicePdf, invoiceNumberFor } from "@/lib/pdf/renderCommissionInvoicePdf";
 import type { CommissionEntry } from "@/lib/commissions";
 import { parseQuarterLabel, quarterShortCode } from "@/lib/commissions";
 
-const AVIDBILL_TO = "kormancommercial@avidbill.com";
+const TEAM_CC = ["dwinig@kormancommercial.com", "hfeldman@kormancommercial.com"]; // Drew, Harry
 const COMMISSIONS_PREFIX = "commissions";
 const OFFICE_ID = "entries";
 const RETAIL_ID = "entries-retail";
@@ -36,12 +42,10 @@ function safeName(s: string): string {
   return (s ?? "").toString().replace(/[^a-z0-9\-_. ]/gi, "_").trim();
 }
 
+/** The invoice number leads, so two commissions on the same suite and tenant
+ *  can never share a filename — the per-invoice "already sent" ledger keys on it. */
 function invoiceFileName(entry: CommissionEntry): string {
-  return `Invoice - ${safeName(entry.building) || "—"} - ${safeName(entry.suite) || "—"} - ${safeName(entry.tenant) || "—"}.pdf`;
-}
-
-function moneyStr(n: number): string {
-  return Number(n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
+  return `${invoiceNumberFor(entry.id)} - ${safeName(entry.building) || "—"} - ${safeName(entry.suite) || "—"} - ${safeName(entry.tenant) || "—"}.pdf`;
 }
 
 /** Returns the most recently completed quarter as of the supplied
@@ -76,11 +80,14 @@ function billableAmount(entry: CommissionEntry, kind: "office" | "retail"): numb
   return kind === "office" ? base * OFFICE_MARKUP : base;
 }
 
-/** Render one PDF per logged commission for the target quarter,
- *  attach to one email, and persist a sent-record. */
+/** Send the quarter's commission invoices to AvidXchange — only the ones that
+ *  have not gone yet. Safe to run every day: a quarter whose invoices are all
+ *  out is a no-op, a commission logged late goes on its own, and a run that
+ *  failed part-way is finished by the next one. */
 export async function sendQuarterToAvidBill(opts: {
   quarterLabel: string;
   dryRun?: boolean;
+  /** Send a quarter that went out the OLD way (every PDF on one email). */
   force?: boolean;
 }): Promise<SendResult> {
   const { quarterLabel, dryRun = false, force = false } = opts;
@@ -88,9 +95,13 @@ export async function sendQuarterToAvidBill(opts: {
   if (!parsed) {
     return { ok: false, quarterLabel, count: 0, total: 0, reason: "Unparseable quarter" };
   }
+  const code = quarterShortCode(parsed.quarter, parsed.year);
 
-  const sentLog = await loadSentLog();
-  if (!force && sentLog[quarterLabel]) {
+  const [sentLog, ledger] = await Promise.all([loadSentLog(), getAvidSent("commissions", code)]);
+  // Sent before invoices went one per email: there is no per-invoice record,
+  // so nothing can tell which invoices Avid actually took. Never re-send it
+  // on its own — that is a person's call (`force`), after checking with AP.
+  if (!force && sentLog[quarterLabel] && Object.keys(ledger.invoices).length === 0) {
     return {
       ok: true, quarterLabel, count: sentLog[quarterLabel].count, total: sentLog[quarterLabel].total,
       alreadySent: true,
@@ -110,51 +121,55 @@ export async function sendQuarterToAvidBill(opts: {
     return { ok: true, quarterLabel, count: 0, total: 0, reason: "No commissions logged for that quarter" };
   }
 
-  // Render all PDFs in parallel — pure CPU, no I/O.
-  const attachments = await Promise.all(rows.map(async ({ entry, amount }) => {
-    const bytes = await renderCommissionInvoicePdf({
-      entry,
-      amount,
-      invoiceNumber: invoiceNumberFor(entry.id),
-    });
-    return { name: invoiceFileName(entry), content: bytes, contentType: "application/pdf" };
-  }));
+  const pending = rows.filter((r) => !ledger.invoices[invoiceFileName(r.entry)]);
+  if (pending.length === 0 && ledger.teamSummaryAt) {
+    return { ok: true, quarterLabel, count: rows.length, total: rows.reduce((s, r) => s + r.amount, 0), alreadySent: true };
+  }
 
   const total = rows.reduce((s, r) => s + r.amount, 0);
-  const code = quarterShortCode(parsed.quarter, parsed.year);
-  const subject = `Korman Commercial — ${code} Leasing Commission Invoices (${rows.length})`;
-  const textLines: string[] = [
-    `Attached: ${rows.length} commission invoice${rows.length === 1 ? "" : "s"} for ${quarterLabel}.`,
-    "",
-    `Total billable: ${moneyStr(total)}`,
-    "",
-    "Each invoice carries the vendor LIKM4 and account code 1940-8501",
-    "(Outside Leasing Commissions). Tenant, building/suite, lease window,",
-    "and any comments are in the line description.",
-    "",
-    "— LIK Management Inc",
-  ];
-
   if (dryRun) {
-    return { ok: true, quarterLabel, count: rows.length, total, dryRun: true };
+    // The preview is what WILL go: the invoices not yet sent.
+    return { ok: true, quarterLabel, count: pending.length, total: pending.reduce((s, r) => s + r.amount, 0), dryRun: true };
   }
   if (!isMailConfigured()) {
     return { ok: false, quarterLabel, count: rows.length, total, reason: "Mail not configured" };
   }
 
-  const sent = await sendMail({
-    to: AVIDBILL_TO,
-    // Commissions go from dwinig@ so AvidBill / payable replies land
-    // in Drew's inbox rather than the service catch-all. Sender must
-    // be verified in Postmark first; falls back to the default
-    // MAINTENANCE_REPLY_FROM when COMMISSIONS_REPLY_FROM isn't set.
-    from: process.env.COMMISSIONS_REPLY_FROM || undefined,
-    subject,
-    textBody: textLines.join("\n"),
-    attachments,
+  // Render all PDFs in parallel — pure CPU, no I/O.
+  const invoices = await Promise.all(rows.map(async ({ entry, amount }) => {
+    const bytes = await renderCommissionInvoicePdf({
+      entry,
+      amount,
+      invoiceNumber: invoiceNumberFor(entry.id),
+    });
+    return {
+      propertyLabel: `${entry.building || "—"} Suite ${entry.suite || "—"} — ${entry.tenant || "—"}`,
+      fileName: invoiceFileName(entry),
+      pdf: Buffer.from(bytes),
+    };
+  }));
+
+  // The team summary's "by building" table.
+  const byBuilding = new Map<string, number>();
+  for (const r of rows) byBuilding.set(r.entry.building || "—", (byBuilding.get(r.entry.building || "—") ?? 0) + r.amount);
+  const byProperty = [...byBuilding].map(([code, amount]) => ({ code, name: "Leasing Commissions", amount }));
+
+  const res = await deliverInvoicesToAvid({
+    source: "commissions",
+    label: "Leasing Commissions",
+    period: code,
+    invoices,
+    byProperty,
+    total,
+    teamCc: TEAM_CC,
   });
-  if (!sent) {
-    return { ok: false, quarterLabel, count: rows.length, total, reason: "Postmark send failed" };
+
+  if (!res.allDelivered) {
+    const out = res.avidSent + res.alreadySent;
+    return {
+      ok: false, quarterLabel, count: out, total,
+      reason: `${out} of ${rows.length} invoices reached AvidXchange${res.teamNotified ? "" : " and the team summary did not go"} — send again to finish; nothing already sent goes twice`,
+    };
   }
 
   sentLog[quarterLabel] = { sentAt: new Date().toISOString(), count: rows.length, total };
