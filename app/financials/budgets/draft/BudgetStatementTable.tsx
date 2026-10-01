@@ -104,9 +104,6 @@ const TYPED_FG = "var(--input-typed)";
 
 /** The sources whose marker is a short TEXT pill ("+3%", "Flat", "Tax +3%") —
  *  the method in a word. Everything else is an icon. */
-// No "Flat" pill (owner): a line carried unchanged already reads 0.0% in the
-// Change column.
-const GROWTH_SOURCES = new Set(["reproj-growth", "ret-default"]);
 
 /** A GL sub-line reads by its account NAME, as buckets and items do — the
  *  code only where two accounts on the line share a name (or there is none),
@@ -675,11 +672,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                   <Fragment key={l.label + l.mask}>
                     <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal} flagNegative={sec.role !== "debt-service"}
                       icon={draft.consolidated ? undefined : sourceIcon(l)}
-                      // Only the short GROWTH pills ("+3%", "Flat") stay as text;
-                      // every other source is an icon (sourceIcon), and an
-                      // itemized line needs nothing — its ▸ says it opens.
-                      badge={draft.consolidated || l.inputSource || !GROWTH_SOURCES.has(l.source) || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined
-                        : badgeFor(l.source, l.feePct) ?? undefined}
+                      // NO growth pills (owner): "+3%", "Flat", "Tax +3%" only restated
+                      // the Change column beside them. The icon names any OTHER source.
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
@@ -719,12 +713,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                         const typeableY = mayType && y.typeable;
                         const k = `${key}#${y.account}`;
                         const noteLabel = `${l.label}#${y.account}`;
-                        // "+3%" on a sub-line only while it really IS its
-                        // reference grown 3% and nothing on it is typed — a
-                        // Big Project from $0, or a typed month, loses it.
                         const ref = seeded ? (y.prior ?? 0) : y.bucket === "extra" ? 0 : (y.basisTotal ?? 0);
                         const untyped = !y.typed?.some(Boolean) && !(y.bucket === "base" && entered);
-                        const grown = untyped && Math.abs(ref) >= 0.5 && Math.abs(y.total - ref * 1.03) <= Math.max(12, Math.abs(y.total) * 0.002);
                         // Insurance renews in November: Jan–Oct carry last
                         // year's Nov/Dec rate and only Nov–Dec take the 3%.
                         const renewal = seeded && l.inputKind === "insurance" && untyped && Math.abs(ref) >= 0.5;
@@ -733,9 +723,11 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                             months={y.months} total={y.total}
                             basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
-                            badge={draft.consolidated ? undefined
-                              : renewal ? { tone: badgeFor("reproj-growth").tone, text: "+3% Nov" }
-                              : grown ? badgeFor("reproj-growth") : undefined}
+                            // "+3% Nov" was a pill; the Change column reads the
+                            // ~0.5% and this ⓘ says why it is not 3%.
+                            icon={draft.consolidated || !renewal ? undefined : <SourceIcon title="Insurance renews in November" label="How this policy is budgeted"
+                              rows={[{ label: "Jan–Oct", value: `last year's Nov/Dec rate (already bound)` }, { label: "Nov–Dec", value: "+3% for the next renewal" }]}
+                              footer={{ label: "Year", value: money0(y.total), color: COLOR_BRAND }} />}
                             favorableUp={favorableUp}
                             typed={y.bucket === "base" && entered ? new Array(12).fill(true) : y.typed}
                             onAccept={typeableY && y.bucket === "base" && keyed && !entered ? () => onEdit!(sec, l, "accept", null, y.account) : undefined}
@@ -945,7 +937,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
           reads (owner). One quiet ⓘ; the icons on each line explain themselves. */}
       <div className="muted small" style={{ padding: "2px 4px", display: "inline-flex", alignItems: "center", gap: 6 }}>
         <HoverCard title="Reading the grid" width={360} help={false} rows={[
-          { label: "+3% / Flat / Tax +3%", value: "grown from this year" },
+          { label: "Change", value: "against this year's reprojection" },
           { label: "ⓘ", value: "hover for how the line is figured" },
           { label: "↗", value: "worked out elsewhere — click to go" },
           { label: `${String(draft.basisYear).slice(2)} Reproj`, value: "actuals to date + budget for the rest" },

@@ -41,11 +41,11 @@ const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTrans
 
 function sourceBadge(source: DraftSource, growthPct: number, feePct?: number): { tone: PillTone; text: string } | null {
   switch (source) {
-    case "reproj-growth": return { tone: TONE_BLUE, text: `${growthPct >= 0 ? "+" : ""}${growthPct}%` };
+    case "reproj-growth": return null; // the Change column already reads it
     case "reproj-flat": return null; // the Change column already reads 0.0%
     case "leases": return { tone: TONE_GREEN, text: "Leases" };
     case "cam-estimate": return { tone: TONE_TEAL, text: "Recoveries" };
-    case "ret-default": return { tone: TONE_BLUE, text: "Tax +3%" };
+    case "ret-default": return null;
     // A keyed figure already reads as typed (bold blue) — no "Entered" pill.
     case "entered": return null;
     case "loans": return { tone: TONE_TEAL, text: "Loans" };

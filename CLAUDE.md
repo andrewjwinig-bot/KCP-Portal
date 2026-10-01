@@ -1245,8 +1245,10 @@ time — and the team does not have time to open the GL over $80.
   the working, on hover (a computed tax, the vacant-space utilities rate —
   click to type it — the management fee's %, debt from the loans); ↗ = worked
   out elsewhere, click to go (recoveries, rent / deals, the payroll budget for
-  those who may see it). Only the short GROWTH pills stay as text ("+3%",
-  "Tax +3%", "+3% Nov") — no "Flat" (the Change column already reads 0.0%). There is NO "Entered" pill — a keyed figure
+  those who may see it). There are NO growth pills either — "+3%", "Flat" and
+  "Tax +3%" only restated the Change column beside them (owner); insurance's
+  November renewal is an ⓘ on the policy row, since its Change reads ~0.5%,
+  not 3%. There is NO "Entered" pill — a keyed figure
   already reads bold blue — and no "Items" pill (the ▸ says it). Don't add a
   new text pill to a line; add an icon.
 - **NO PARAGRAPH OF KEY UNDER THE GRID** (owner: "way too much text … nobody
