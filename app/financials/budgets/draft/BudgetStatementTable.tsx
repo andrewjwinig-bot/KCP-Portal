@@ -28,7 +28,7 @@
 // break the tie to the tenants and their methodology. Nor is rent, or the TI
 // and commissions the deals carry — those are Step 1's leases and decisions.
 
-import { Fragment, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, type PillTone } from "@/app/components/Pill";
 import { SourceBadge } from "./SourceBadge";
 import { SourceIcon, SourceIconButton } from "./SourceIcon";
@@ -104,7 +104,6 @@ const TYPED_FG = "var(--input-typed)";
 
 /** The sources whose marker is a short TEXT pill ("+3%", "Flat", "Tax +3%") —
  *  the method in a word. Everything else is an icon. */
-const GROWTH_SOURCES = new Set(["reproj-growth", "reproj-flat", "ret-default"]);
 
 /** A GL sub-line reads by its account NAME, as buckets and items do — the
  *  code only where two accounts on the line share a name (or there is none),
@@ -462,6 +461,9 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const [openBuckets, setOpenBuckets] = useState<Set<string>>(new Set());
   const [occOpen, setOccOpen] = useState(false);
   const [openingEdit, setOpeningEdit] = useState(false);
+  // Distributions ticked on for a property that has none yet (see below).
+  const [distOn, setDistOn] = useState(false);
+  useEffect(() => { setDistOn(false); }, [draft.propertyCode]);
   const [makeupAt, setMakeupAt] = useState<{ cat: RecoveryCategory; m: number } | null>(null);
   const estKind = draft.reimbursementEstimate?.kind;
   const recTenants = draft.tenantRevenue ?? [];
@@ -670,11 +672,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                   <Fragment key={l.label + l.mask}>
                     <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal} flagNegative={sec.role !== "debt-service"}
                       icon={draft.consolidated ? undefined : sourceIcon(l)}
-                      // Only the short GROWTH pills ("+3%", "Flat") stay as text;
-                      // every other source is an icon (sourceIcon), and an
-                      // itemized line needs nothing — its ▸ says it opens.
-                      badge={draft.consolidated || l.inputSource || !GROWTH_SOURCES.has(l.source) || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed) ? undefined
-                        : badgeFor(l.source, l.feePct) ?? undefined}
+                      // NO growth pills (owner): "+3%", "Flat", "Tax +3%" only restated
+                      // the Change column beside them. The icon names any OTHER source.
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
                       typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
                       onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
@@ -714,12 +713,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                         const typeableY = mayType && y.typeable;
                         const k = `${key}#${y.account}`;
                         const noteLabel = `${l.label}#${y.account}`;
-                        // "+3%" on a sub-line only while it really IS its
-                        // reference grown 3% and nothing on it is typed — a
-                        // Big Project from $0, or a typed month, loses it.
                         const ref = seeded ? (y.prior ?? 0) : y.bucket === "extra" ? 0 : (y.basisTotal ?? 0);
                         const untyped = !y.typed?.some(Boolean) && !(y.bucket === "base" && entered);
-                        const grown = untyped && Math.abs(ref) >= 0.5 && Math.abs(y.total - ref * 1.03) <= Math.max(12, Math.abs(y.total) * 0.002);
                         // Insurance renews in November: Jan–Oct carry last
                         // year's Nov/Dec rate and only Nov–Dec take the 3%.
                         const renewal = seeded && l.inputKind === "insurance" && untyped && Math.abs(ref) >= 0.5;
@@ -728,9 +723,11 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                             months={y.months} total={y.total}
                             basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
-                            badge={draft.consolidated ? undefined
-                              : renewal ? { tone: badgeFor("reproj-growth").tone, text: "+3% Nov" }
-                              : grown ? badgeFor("reproj-growth") : undefined}
+                            // "+3% Nov" was a pill; the Change column reads the
+                            // ~0.5% and this ⓘ says why it is not 3%.
+                            icon={draft.consolidated || !renewal ? undefined : <SourceIcon title="Insurance renews in November" label="How this policy is budgeted"
+                              rows={[{ label: "Jan–Oct", value: `last year's Nov/Dec rate (already bound)` }, { label: "Nov–Dec", value: "+3% for the next renewal" }]}
+                              footer={{ label: "Year", value: money0(y.total), color: COLOR_BRAND }} />}
                             favorableUp={favorableUp}
                             typed={y.bucket === "base" && entered ? new Array(12).fill(true) : y.typed}
                             onAccept={typeableY && y.bucket === "base" && keyed && !entered ? () => onEdit!(sec, l, "accept", null, y.account) : undefined}
@@ -877,10 +874,21 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
             footer: { label: cash.projectedYearEnd != null && cash.gl.month < 12 ? "Rolled to Dec 31" : "Total", value: money0(cash.projectedYearEnd ?? cash.gl.balance), color: COLOR_BRAND } }
         : null;
     const openingShown = <b style={{ color: cash.openingTyped ? TYPED_FG : undefined }}>{money0(cash.opening)}</b>;
+    // NOT EVERY PROPERTY DISTRIBUTES (owner): with nothing budgeted, typed or
+    // paid this year the row is hidden behind a "Distributions" checkbox —
+    // tick it to key some. Once a figure exists it always shows (it is money
+    // in the bank balance; clear it with ↺ to hide the row again).
+    const hasDist = Math.abs(cash.distributions.total) >= 0.5 || Math.abs(basisDist) >= 0.5 || !!cash.distributions.typed?.some(Boolean);
+    const showDist = hasDist || distOn;
     body.push(
       <div key="cash" className="card" style={{ padding: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Distributions</span>
+          {hasDist || !mayDist
+            ? <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Distributions{!hasDist ? <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> · none this year</span> : null}</span>
+            : <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>
+                <input type="checkbox" checked={distOn} onChange={(e) => setDistOn(e.target.checked)} />
+                Distributions{!distOn ? <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> · none this year</span> : null}
+              </label>}
           <span className="small muted" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             Opening {openingTip ? <HoverCard title={openingTip.title} rows={openingTip.rows} footer={openingTip.footer} width={320} help={false}>{openingShown}</HoverCard> : openingShown}
             <span>· {cash.openingTyped ? "typed" : glNote}</span>
@@ -890,7 +898,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
             {mayDist && cash.openingTyped && !openingEdit && <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} title="Back to the GL" onClick={() => onEdit!(distSec, distLine(OPENING_LABEL), 0, null)}>↺</button>}
           </span>
         </div>
-        <div className="tableWrap" style={{ marginTop: 0 }}>
+        {showDist && <div className="tableWrap" style={{ marginTop: 0 }}>
           <table style={TABLE}>
             <Colgroup />
             <thead>
@@ -912,10 +920,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 onReset={mayDist && cash.distributions.typed ? () => onEdit!(distSec, distLine(DISTRIBUTIONS_LABEL), "all", null) : undefined} />
             </tbody>
           </table>
-        </div>
-        <div className="muted small" style={{ padding: "6px 14px 10px" }}>
+        </div>}
+        {showDist && <div className="muted small" style={{ padding: "6px 14px 10px" }}>
           The opening balance feeds the Projected Bank Balance at the top: each month = last month&rsquo;s + {debt.length ? "Cash Flow After Debt Service" : "Cash Flow"} − Distributions.{basisDist ? ` The ${draft.basisYear} column is what the GL shows paid so far.` : ""} Security deposits are left out — that cash is owed back to tenants.
-        </div>
+        </div>}
       </div>,
     );
   }
@@ -929,7 +937,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
           reads (owner). One quiet ⓘ; the icons on each line explain themselves. */}
       <div className="muted small" style={{ padding: "2px 4px", display: "inline-flex", alignItems: "center", gap: 6 }}>
         <HoverCard title="Reading the grid" width={360} help={false} rows={[
-          { label: "+3% / Flat / Tax +3%", value: "grown from this year" },
+          { label: "Change", value: "against this year's reprojection" },
           { label: "ⓘ", value: "hover for how the line is figured" },
           { label: "↗", value: "worked out elsewhere — click to go" },
           { label: `${String(draft.basisYear).slice(2)} Reproj`, value: "actuals to date + budget for the rest" },
