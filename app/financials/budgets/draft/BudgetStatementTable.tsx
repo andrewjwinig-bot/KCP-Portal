@@ -104,7 +104,9 @@ const TYPED_FG = "var(--input-typed)";
 
 /** The sources whose marker is a short TEXT pill ("+3%", "Flat", "Tax +3%") —
  *  the method in a word. Everything else is an icon. */
-const GROWTH_SOURCES = new Set(["reproj-growth", "reproj-flat", "ret-default"]);
+// No "Flat" pill (owner): a line carried unchanged already reads 0.0% in the
+// Change column.
+const GROWTH_SOURCES = new Set(["reproj-growth", "ret-default"]);
 
 /** A GL sub-line reads by its account NAME, as buckets and items do — the
  *  code only where two accounts on the line share a name (or there is none),

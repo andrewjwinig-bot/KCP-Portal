@@ -1246,7 +1246,7 @@ time — and the team does not have time to open the GL over $80.
   click to type it — the management fee's %, debt from the loans); ↗ = worked
   out elsewhere, click to go (recoveries, rent / deals, the payroll budget for
   those who may see it). Only the short GROWTH pills stay as text ("+3%",
-  "Flat", "Tax +3%", "+3% Nov"). There is NO "Entered" pill — a keyed figure
+  "Tax +3%", "+3% Nov") — no "Flat" (the Change column already reads 0.0%). There is NO "Entered" pill — a keyed figure
   already reads bold blue — and no "Items" pill (the ▸ says it). Don't add a
   new text pill to a line; add an icon.
 - **NO PARAGRAPH OF KEY UNDER THE GRID** (owner: "way too much text … nobody
