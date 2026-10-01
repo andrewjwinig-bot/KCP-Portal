@@ -923,7 +923,9 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   }
   // A roll-up of separately banked properties (the shopping centres) has no
   // bank balance: a sum of separate accounts is not a balance anyone holds.
-  const noBank = !!draft.consolidated && !draft.consolidated.sharedBank;
+  // Nor does a building inside a fund that banks through ONE account (JV III,
+  // NI LLC): the balance is the fund's, on its roll-up (owner).
+  const noBank = (!!draft.consolidated && !draft.consolidated.sharedBank) || !!draft.bankAtFund;
   if (cash && !noBank) {
     const end = cash.balance[11];
     const balTip = (m: number) => ({

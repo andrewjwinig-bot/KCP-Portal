@@ -198,6 +198,9 @@ export type BudgetDraft = {
   consolidated?: { properties: { code: string; name: string }[];
     /** One bank account for the whole book (JV III, NI LLC) — else no roll-up bank balance. */
     sharedBank?: boolean };
+  /** A building whose fund banks through one account (JV III, NI LLC): the
+   *  fund's name. It shows no Projected Bank Balance of its own. */
+  bankAtFund?: string;
   /** The budget line base rent lands on. */
   rentLineLabel?: string;
   /** The loans behind the debt-service lines (Debt Tracker), when any. */
