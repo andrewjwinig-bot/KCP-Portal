@@ -972,7 +972,14 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       // of a building) belong to Parkwood (7010), the one centre with an
       // office centre upstairs — at the others they are empty rows (owner).
       const officeCentre = !!mixedCenterFor(meta.propertyCode);
+      // Electric REIMBURSEMENT (4710-*) is billed back only where a tenant is
+      // sub-metered — at the centres it is $0 everywhere (owner), so the
+      // recovery row goes too; 7010's "Electric - Office Tenants" stays the
+      // moment it carries a figure.
       const hidden = (l: BudgetDraftLine) => isCondoAssnLine(l.label)
+        || (sec.role === "reimbursement" && /^\s*electric/i.test(l.label))
+        // Bad Debt is $0 at every centre too (owner).
+        || /^\s*bad\s+debt/i.test(l.label)
         || (sec.role === "reimbursable-expense" && /^\s*management\s+fee/i.test(l.label))
         || (!officeCentre && (/^\s*cleaning\s*&\s*supplies/i.test(l.label) || /^\s*office\s+center/i.test(l.label)));
       sec.lines = sec.lines.filter((l) => !(hidden(l) && l.total === 0 && l.basisTotal === 0));

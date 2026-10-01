@@ -484,6 +484,25 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const [makeupAt, setMakeupAt] = useState<{ cat: RecoveryCategory; m: number } | null>(null);
   const estKind = draft.reimbursementEstimate?.kind;
   const recTenants = draft.tenantRevenue ?? [];
+  // A BOOK'S ROLL-UP reads BY BUILDING, never by tenant (owner: "this is the
+  // rollup so the detail is more building level not tenant level"). Every
+  // hover that names tenants on a property tab names buildings here, in the
+  // book's own property order. A suite's building is its unit ref's prefix.
+  const rollupProps = draft.consolidated?.properties;
+  const bldgOf = (unitRef: string) => unitRef.split("-")[0].toUpperCase();
+  const bldgLabel = (code: string) => {
+    const p = rollupProps?.find((x) => x.code.toUpperCase() === code);
+    return p ? `${p.code} ${p.name}` : code;
+  };
+  /** Sum `amt` per building, as hover rows (zero buildings dropped). */
+  const byBuilding = <T extends { unitRef: string }>(list: T[], amt: (t: T) => number): TipRow[] => {
+    const sums = new Map<string, number>();
+    for (const t of list) sums.set(bldgOf(t.unitRef), (sums.get(bldgOf(t.unitRef)) ?? 0) + amt(t));
+    const order = (rollupProps ?? []).map((x) => x.code.toUpperCase());
+    return [...sums].filter(([, v]) => Math.abs(v) >= 0.5)
+      .sort((a, b) => (order.indexOf(a[0]) >>> 0) - (order.indexOf(b[0]) >>> 0))
+      .map(([code, v]) => ({ label: bldgLabel(code), value: money0(v) }));
+  };
   // A recovery line's month: which tenants make it up, and what share of its
   // pool that recovers. Top eight on hover; click for all of them.
   // 2010's fee revenue: which buildings' fees make up the month.
@@ -533,8 +552,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
       .filter((x) => Math.abs(x.year) >= 0.5)
       .sort((a, b) => b.year - a.year);
     if (!list.length) return null;
-    const rows: TipRow[] = list.slice(0, 8).map((x) => ({ label: x.name, value: money0(x.year) }));
-    const rest = list.slice(8);
+    const rows: TipRow[] = rollupProps
+      ? byBuilding(recTenants, (t) => (t[cat] ?? []).reduce((a, v) => a + (v || 0), 0))
+      : list.slice(0, 8).map((x) => ({ label: x.name, value: money0(x.year) }));
+    const rest = rollupProps ? [] : list.slice(8);
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, x) => a + x.year, 0)), color: "var(--muted)" });
     rows.push({ label: `${CATEGORY_LABEL[cat]} pool`, value: money0(mk.poolYear), color: "var(--muted)" });
     return {
@@ -568,6 +589,9 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const amt = (t: (typeof recTenants)[number]) => (m == null ? t.rent.reduce((a, v) => a + (v || 0), 0) : t.rent[m] || 0);
     const list = recTenants.filter((t) => Math.abs(amt(t)) >= 0.5).sort((a, b) => amt(b) - amt(a));
     if (!list.length) return null;
+    if (rollupProps) {
+      return { title: `Rental income · ${m == null ? "year" : MONTHS[m]}`, rows: byBuilding(list, amt), footer: { label: "Total", value: money0(list.reduce((a, t) => a + amt(t), 0)), color: COLOR_BRAND } };
+    }
     const assumedIn = (t: (typeof recTenants)[number]) => (m == null ? t.assumed.some(Boolean) : !!t.assumed[m]);
     const rows: TipRow[] = list.slice(0, 8).map((t) => ({ label: `${nameOf(t)}${assumedTag(t, assumedIn(t))}`, value: money0(amt(t)), ...(assumedIn(t) ? { color: "#65a30d" } : {}) }));
     const rest = list.slice(8);
@@ -576,6 +600,26 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     return { title: `Rental income · ${m == null ? "year" : MONTHS[m]}`, rows, footer: { label: "Total", value: money0(total), color: COLOR_BRAND } };
   };
   const occupancyHover = (m: number) => {
+    if (rollupProps) {
+      // Each building's occupancy that month, and its SF moves since last month.
+      const codes = (rollupProps ?? []).map((x) => x.code.toUpperCase());
+      let occAll = 0;
+      const rows: TipRow[] = [];
+      for (const code of codes) {
+        const suites = occSuites.filter((t) => bldgOf(t.unitRef) === code);
+        const tot = suites.reduce((a, t) => a + t.sqft, 0);
+        if (!(tot > 0)) continue;
+        const o = suites.filter((t) => pays(t, m)).reduce((a, t) => a + t.sqft, 0);
+        occAll += o;
+        const net = m === 0 ? 0 : o - suites.filter((t) => pays(t, m - 1)).reduce((a, t) => a + t.sqft, 0);
+        rows.push({
+          label: `${bldgLabel(code)}${net ? ` · ${net > 0 ? "+" : "−"}${sfFmt(Math.abs(net))} SF` : ""}`,
+          value: `${((o / tot) * 100).toFixed(1)}%`,
+          ...(net > 0 ? { color: "#15803d" } : net < 0 ? { color: "#b91c1c" } : {}),
+        });
+      }
+      return { title: `Occupancy · ${MONTHS[m]}`, rows, footer: { label: `${sfFmt(occAll)} of ${sfFmt(occTotalSf)} SF`, value: occTotalSf > 0 ? `${((occAll / occTotalSf) * 100).toFixed(1)}%` : "–", color: COLOR_BRAND } };
+    }
     const occ = occSuites.filter((t) => pays(t, m)).sort((a, b) => b.sqft - a.sqft);
     const vacant = occSuites.filter((t) => !pays(t, m));
     const occSf = occ.reduce((a, t) => a + t.sqft, 0);
@@ -590,6 +634,12 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const recoveryHover = (cat: RecoveryCategory) => (m: number) => {
     const mk = recoveryMakeup(cat, m, recTenants, draft.sections, estKind);
     if (!mk.tenants.length) return null;
+    if (rollupProps) {
+      const rows = byBuilding(recTenants, (t) => t[cat]?.[m] || 0);
+      const inMay = atReconTotal(cat, m);
+      if (inMay) rows.push({ label: "Includes at-recon collections (the year's true-up, due by 4/30)", value: money0(inMay), color: "#b45309" });
+      return { title: `${CATEGORY_LABEL[cat]} recoveries · ${MONTHS[m]}`, rows, footer: { label: "Annual Recovery Ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND } };
+    }
     const top = mk.tenants.slice(0, 8);
     const rest = mk.tenants.slice(8);
     // A tenant whose charge is collected only at reconciliation lands its year
@@ -718,7 +768,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                         if (l.source === "leases" && draft.rentLineLabel && l.label === draft.rentLineLabel && recTenants.length) {
                           return { cellHover: (m: number) => rentHover(m), totalHover: () => rentHover(null) };
                         }
-                        return cat ? { cellHover: recoveryHover(cat), totalHover: recoveryYearHover(cat), onCellClick: (m: number) => setMakeupAt({ cat, m }), cellMark: (m: number) => (atReconTotal(cat, m) ? "at recon" : null) } : {};
+                        return cat ? { cellHover: recoveryHover(cat), totalHover: recoveryYearHover(cat), onCellClick: rollupProps ? undefined : (m: number) => setMakeupAt({ cat, m }), cellMark: (m: number) => (atReconTotal(cat, m) ? "at recon" : null) } : {};
                       })()}
                       toggle={subs.length ? { open: isOpen, onToggle: () => setToggled((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />
                     {isOpen && subs.flatMap((x) => {
@@ -948,7 +998,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {body}
-      {occOpen && <OccupancyBySuiteModal suites={recTenants.filter((t) => !t.recoveryOnly && t.sqft > 0)} year={draft.budgetYear} onClose={() => setOccOpen(false)} />}
+      {occOpen && <OccupancyBySuiteModal suites={recTenants.filter((t) => !t.recoveryOnly && t.sqft > 0)} year={draft.budgetYear} buildings={rollupProps} onClose={() => setOccOpen(false)} />}
       {makeupAt && <RecoveryMakeupModal makeup={recoveryMakeup(makeupAt.cat, makeupAt.m, recTenants, draft.sections, estKind)} month={MONTHS[makeupAt.m]} year={draft.budgetYear} onClose={() => setMakeupAt(null)} />}
       {/* The key, on demand — a paragraph under the grid is what nobody
           reads (owner). One quiet ⓘ; the icons on each line explain themselves. */}
