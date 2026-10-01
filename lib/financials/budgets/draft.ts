@@ -81,7 +81,7 @@ export type BudgetDraftLine = {
   label: string;
   mask: string;
   /** A roll-up line's figure, property by property (`consolidate.ts`). */
-  byProperty?: { code: string; name: string; months: number[]; total: number }[];
+  byProperty?: { code: string; name: string; months: number[]; total: number; basisTotal?: number }[];
   /** A management-fee line's rate, % of gross revenue (`managementFee.ts`). */
   feePct?: number;
   /** Where a keyed figure came from (the Budget Inputs note — e.g. the
@@ -195,7 +195,9 @@ export type BudgetDraft = {
   /** Set on a BOOK's roll-up ("All Shopping Centers"): the sum of these
    *  properties' drafts (`consolidate.ts`) — read-only, and each line carries
    *  its per-property split in `byProperty`. */
-  consolidated?: { properties: { code: string; name: string }[] };
+  consolidated?: { properties: { code: string; name: string }[];
+    /** One bank account for the whole book (JV III, NI LLC) — else no roll-up bank balance. */
+    sharedBank?: boolean };
   /** The budget line base rent lands on. */
   rentLineLabel?: string;
   /** The loans behind the debt-service lines (Debt Tracker), when any. */

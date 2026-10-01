@@ -16,7 +16,7 @@ const zero = () => new Array(12).fill(0) as number[];
 
 import { recoveryCheck } from "./recoveryCheck";
 
-export type PropertyShare = { code: string; name: string; months: number[]; total: number };
+export type PropertyShare = { code: string; name: string; months: number[]; total: number; basisTotal?: number };
 
 function mergeSubs(into: BudgetSubLine[], from: BudgetSubLine[] | undefined): BudgetSubLine[] {
   for (const x of from ?? []) {
@@ -31,7 +31,7 @@ function mergeSubs(into: BudgetSubLine[], from: BudgetSubLine[] | undefined): Bu
   return into;
 }
 
-export function consolidateDrafts(name: string, drafts: BudgetDraft[]): BudgetDraft | null {
+export function consolidateDrafts(name: string, drafts: BudgetDraft[], opts?: { sharedBank?: boolean }): BudgetDraft | null {
   if (!drafts.length) return null;
   const first = drafts[0];
   const sections: BudgetDraftSection[] = [];
@@ -49,7 +49,7 @@ export function consolidateDrafts(name: string, drafts: BudgetDraft[]): BudgetDr
         line.total += l.total || 0;
         line.basisTotal += l.basisTotal || 0;
         if (l.subLines?.length) line.subLines = mergeSubs(line.subLines ?? [], l.subLines);
-        if (Math.abs(l.total || 0) >= 0.5) line.byProperty!.push({ code: d.propertyCode, name: d.propertyName, months: l.months.slice(), total: r0(l.total) });
+        if (Math.abs(l.total || 0) >= 0.5 || Math.abs(l.basisTotal || 0) >= 0.5) line.byProperty!.push({ code: d.propertyCode, name: d.propertyName, months: l.months.slice(), total: r0(l.total), basisTotal: r0(l.basisTotal || 0) });
       }
     }
   }
@@ -87,7 +87,7 @@ export function consolidateDrafts(name: string, drafts: BudgetDraft[]): BudgetDr
       interest: r0(drafts.reduce((a, d) => a + (d.debt?.interest ?? 0), 0)),
       principal: r0(drafts.reduce((a, d) => a + (d.debt?.principal ?? 0), 0)),
     } : undefined,
-    consolidated: { properties: drafts.map((d) => ({ code: d.propertyCode, name: d.propertyName })) },
+    consolidated: { properties: drafts.map((d) => ({ code: d.propertyCode, name: d.propertyName })), sharedBank: !!opts?.sharedBank },
     // THE RECOVERY CHECK for every property in the book, on one screen.
     recoveryChecks: drafts.map((d) => ({ code: d.propertyCode, name: d.propertyName, checks: recoveryCheck(d.reimbursementEstimate) }))
       .filter((x) => x.checks.length),

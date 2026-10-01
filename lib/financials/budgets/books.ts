@@ -29,6 +29,11 @@ export type BudgetBook = {
   rollsUp: boolean;
   /** Payroll feeds the others rather than standing on its own. */
   feeds?: BudgetBookId[];
+  /** The whole book banks through ONE account (a fund), so its roll-up's
+   *  Projected Bank Balance is a real balance. A book of separately banked
+   *  properties (each shopping centre has its own account) shows none — a sum
+   *  of separate accounts is not a balance anyone holds (owner). */
+  sharedBankAccount?: boolean;
 };
 
 const codes = (f: (p: PropertyDef) => boolean): string[] =>
@@ -49,6 +54,7 @@ export function budgetBooks(): BudgetBook[] {
       subtitle: "Lincoln Joint Venture III",
       properties: codes((p) => p.fundGroup === "JV III" && p.entityKind !== "Condo"),
       rollsUp: true,
+      sharedBankAccount: true,
     },
     {
       id: "ni-llc",
@@ -57,6 +63,7 @@ export function budgetBooks(): BudgetBook[] {
       // The LLC shell itself (4000) is the entity, not a building in the book.
       properties: codes((p) => p.fundGroup === "NI LLC" && !p.entityKind),
       rollsUp: true,
+      sharedBankAccount: true,
     },
     {
       id: "condo",

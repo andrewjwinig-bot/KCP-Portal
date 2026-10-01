@@ -1794,6 +1794,17 @@ time — and the team does not have time to open the GL over $80.
   Operating Expenses / NOI / cash-flow cards (`splitOf` signs and sums the
   sections; `RollupCard`'s `tip`). The roll-up is the GLANCE that tells you
   which property to open (owner).
+  **The year's hover POINTS AT THE OUTLIER**: a property whose budget sits
+  $2,500 AND 10% off its own reprojection (`byProperty[].basisTotal`) is
+  amber with "+12% vs 26 Reproj", and the footer counts them. **CAM estimates
+  read one row per PROPERTY** on the roll-up (`EstimatesByPropertyCard`:
+  today / mo, budget / mo, change, ▲ big jumps; click opens the property's
+  tab). **No Revenues card** on the roll-up (no schedule to import, no calls
+  to make), and the **Recovery Check sits BELOW the grid**, not above it.
+  **Projected Bank Balance shows on a roll-up only where the book banks
+  through ONE account** (`sharedBankAccount` on the book: JV III, NI LLC);
+  each shopping centre has its own account, so the Shopping Centers roll-up
+  shows distributions but no balance or opening (owner).
 - **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
   `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
   property's draft built (four at a time) and summed line by line, matched by

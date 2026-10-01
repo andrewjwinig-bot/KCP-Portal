@@ -503,25 +503,52 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   /** EVERY CELL OF A ROLL-UP HOVERS ITS SPLIT BY PROPERTY (owner): each line's
    *  `byProperty`, signed and summed for a subtotal or a cross-section total. */
   type Signed = { sec: BudgetDraftSection; sign: 1 | -1 };
-  const splitOf = (parts: Signed[]): Map<string, number[]> => {
-    const out = new Map<string, number[]>();
+  type Split = Map<string, { months: number[]; basis: number }>;
+  const splitOf = (parts: Signed[]): Split => {
+    const out: Split = new Map();
     for (const { sec, sign } of parts) for (const l of sec.lines) for (const p of l.byProperty ?? []) {
-      const acc = out.get(p.code) ?? new Array(12).fill(0);
-      p.months.forEach((v, i) => { acc[i] += sign * (v || 0); });
+      const acc = out.get(p.code) ?? { months: new Array(12).fill(0), basis: 0 };
+      p.months.forEach((v, i) => { acc.months[i] += sign * (v || 0); });
+      acc.basis += sign * (p.basisTotal || 0);
       out.set(p.code, acc);
     }
     return out;
   };
-  const splitTip = (title: string, split: Map<string, number[]>) => (m: number | null) => {
+  // THE YEAR'S HOVER POINTS AT THE OUTLIER (owner: "use the roll up as a
+  // glance to then look for things … to drill down on"): a property whose
+  // budget sits well off its own reprojection is tinted amber and says by how
+  // much. Both floors, like every other flag here — dollars AND percent.
+  const OFF_DOLLARS = 2500, OFF_PCT = 10;
+  const offBy = (v: number, basis: number) => {
+    const d = v - basis;
+    if (Math.abs(d) < OFF_DOLLARS) return null;
+    if (Math.abs(basis) >= 0.5 && Math.abs(d) / Math.abs(basis) * 100 < OFF_PCT) return null;
+    return Math.abs(basis) >= 0.5 ? `${d >= 0 ? "+" : "−"}${Math.abs((d / Math.abs(basis)) * 100).toFixed(0)}%` : "new";
+  };
+  const splitTip = (title: string, split: Split) => (m: number | null) => {
     if (!rollupProps) return null;
     const val = (ms: number[]) => (m == null ? ms.reduce((a, v) => a + v, 0) : ms[m] || 0);
+    const yy = String(draft.basisYear).slice(2);
+    let flagged = 0;
     const rows: TipRow[] = rollupProps
-      .map((p) => ({ p, v: val(split.get(p.code) ?? []) }))
-      .filter((x) => Math.abs(x.v) >= 0.5)
-      .map((x) => ({ label: `${x.p.code} ${x.p.name}`, value: money0(x.v), ...(x.v < 0 ? { color: "#b91c1c" } : {}) }));
+      .map((p) => ({ p, x: split.get(p.code) }))
+      .filter((r) => r.x && (Math.abs(val(r.x.months)) >= 0.5 || (m == null && Math.abs(r.x.basis) >= 0.5)))
+      .map(({ p, x }) => {
+        const v = val(x!.months);
+        const off = m == null ? offBy(v, x!.basis) : null;
+        if (off) flagged++;
+        return {
+          label: `${p.code} ${p.name}${off ? ` · ${off} vs ${yy} Reproj` : ""}`,
+          value: money0(v),
+          ...(off ? { color: "#b45309" } : v < 0 ? { color: "#b91c1c" } : {}),
+        };
+      });
     if (!rows.length) return null;
-    const total = [...split.values()].reduce((a, ms) => a + val(ms), 0);
-    return { title: `${title} · ${m == null ? draft.budgetYear : MONTHS[m]}`, rows, footer: { label: "Total", value: money0(total), color: COLOR_BRAND } };
+    const total = [...split.values()].reduce((a, x) => a + val(x.months), 0);
+    return {
+      title: `${title} · ${m == null ? draft.budgetYear : MONTHS[m]}`, rows,
+      footer: { label: flagged ? `Total · ${flagged} to look at` : "Total", value: money0(total), color: flagged ? "#b45309" : COLOR_BRAND },
+    };
   };
   const lineSplit = (l: Line) => splitOf([{ sec: { lines: [l] } as unknown as BudgetDraftSection, sign: 1 }]);
   /** Sum `amt` per building, as hover rows (zero buildings dropped). */
@@ -894,7 +921,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const up = Math.abs(avgSf - todaySf) < 0.5 ? null : avgSf > todaySf;
     topRows.push(<StatRow key="occ" label="Occupancy %" onLabel={() => setOccOpen(true)} monthTip={occupancyHover} months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={up} />);
   }
-  if (cash) {
+  // A roll-up of separately banked properties (the shopping centres) has no
+  // bank balance: a sum of separate accounts is not a balance anyone holds.
+  const noBank = !!draft.consolidated && !draft.consolidated.sharedBank;
+  if (cash && !noBank) {
     const end = cash.balance[11];
     const balTip = (m: number) => ({
       title: `Projected Bank Balance · ${MONTHS[m]}`,
@@ -994,14 +1024,14 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 <input type="checkbox" checked={distOn} onChange={(e) => setDistOn(e.target.checked)} />
                 Distributions{!distOn ? <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> · none this year</span> : null}
               </label>}
-          <span className="small muted" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {!noBank && <span className="small muted" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
             Opening {openingTip ? <HoverCard title={openingTip.title} rows={openingTip.rows} footer={openingTip.footer} width={320} help={false}>{openingShown}</HoverCard> : openingShown}
             <span>· {cash.openingTyped ? "typed" : glNote}</span>
             {mayDist && (openingEdit
               ? <span style={{ width: 110 }}><CellInput initial={cash.opening} onDone={(v) => { setOpeningEdit(false); if (v !== undefined && (v === null ? cash.openingTyped : Math.round(v) !== Math.round(cash.opening))) onEdit!(distSec, distLine(OPENING_LABEL), 0, v); }} /></span>
               : <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} onClick={() => setOpeningEdit(true)}>Edit</button>)}
             {mayDist && cash.openingTyped && !openingEdit && <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} title="Back to the GL" onClick={() => onEdit!(distSec, distLine(OPENING_LABEL), 0, null)}>↺</button>}
-          </span>
+          </span>}
         </div>
         {showDist && <div className="tableWrap" style={{ marginTop: 0 }}>
           <table style={TABLE}>
@@ -1026,7 +1056,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
             </tbody>
           </table>
         </div>}
-        {showDist && <div className="muted small" style={{ padding: "6px 14px 10px" }}>
+        {showDist && !noBank && <div className="muted small" style={{ padding: "6px 14px 10px" }}>
           The opening balance feeds the Projected Bank Balance at the top: each month = last month&rsquo;s + {debt.length ? "Cash Flow After Debt Service" : "Cash Flow"} − Distributions.{basisDist ? ` The ${draft.basisYear} column is what the GL shows paid so far.` : ""} Security deposits are left out — that cash is owed back to tenants.
         </div>}
       </div>,
