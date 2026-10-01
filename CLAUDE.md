@@ -1804,7 +1804,10 @@ time — and the team does not have time to open the GL over $80.
   **Projected Bank Balance shows on a roll-up only where the book banks
   through ONE account** (`sharedBankAccount` on the book: JV III, NI LLC);
   each shopping centre has its own account, so the Shopping Centers roll-up
-  shows distributions but no balance or opening (owner).
+  shows distributions but no balance or opening (owner). The BUILDING tabs
+  inside JV III / NI LLC show none either (`bankAtFund`, set by the draft
+  route) — the balance is the fund's. Each Korman Homes property banks on
+  its own, so its roll-up shows none and each property tab keeps its own.
 - **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
   `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
   property's draft built (four at a time) and summed line by line, matched by

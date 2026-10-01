@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildBudgetDraft } from "@/lib/financials/budgets/draft";
 import { consolidateDrafts } from "@/lib/financials/budgets/consolidate";
-import { bookById } from "@/lib/financials/budgets/books";
+import { bookById, budgetBooks } from "@/lib/financials/budgets/books";
 import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { canEditLines, lineEditScope, canSeePayroll } from "@/lib/financials/budgets/contributors";
@@ -62,5 +62,8 @@ export async function GET(req: Request) {
   const notes = await getLineNotes(draft.budgetYear, draft.propertyCode).catch(() => ({}));
   const user = await budgetUser();
   const shown = canSeePayroll(user) ? draft : withoutPayroll(draft);
-  return NextResponse.json({ ...shown, notes, canEditLines: canEditLines(user), lineEditScope: lineEditScope(user) });
+  // A building in a fund that banks through ONE account (JV III, NI LLC) has
+  // no balance of its own — the fund's roll-up carries it (owner).
+  const fund = budgetBooks().find((b) => b.sharedBankAccount && b.properties.includes(draft.propertyCode));
+  return NextResponse.json({ ...shown, bankAtFund: fund?.name, notes, canEditLines: canEditLines(user), lineEditScope: lineEditScope(user) });
 }
