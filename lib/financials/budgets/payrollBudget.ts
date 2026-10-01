@@ -75,6 +75,10 @@ export type PayrollEmployee = {
   k401Pct: number;
   /** % of this employee to each entity — sums to 100. */
   alloc: Partial<Record<AllocKey, number>>;
+  /** A one-time bonus — wages for FICA / Medicare / FUTA, not for the 401(k)
+   *  match (a % of SALARY). Only the "Test a raise" sandbox sets it; it is
+   *  never saved (`sanitizePayrollDoc` does not carry it). */
+  bonus?: number;
 };
 
 export type Rates = {
@@ -111,7 +115,7 @@ const sum = (a: number[]) => a.reduce((s, v) => s + (v || 0), 0);
 
 // ─── Sheets 1 + 2: pay, taxes and benefits ─────────────────────────────────
 export type EmployeeCost = {
-  perPay: number; salary: number;
+  perPay: number; salary: number; bonus: number;
   fica: number; medi: number; uc: number; futa: number; workComp: number;
   fringe: number; medicalAnnual: number; medical: number;
   k401: number; gross: number;
@@ -119,16 +123,18 @@ export type EmployeeCost = {
 
 export function employeeCost(e: PayrollEmployee, r: Rates): EmployeeCost {
   const salary = e.salary || 0;
-  const fica = Math.min(salary, r.ficaBase) * r.ficaPct / 100;
-  const medi = Math.min(salary, r.mediBase) * r.mediPct / 100;
-  const futa = e.futa ? Math.min(salary, r.futaBase) * r.futaPct / 100 : 0;
+  const bonus = e.bonus || 0;
+  const wages = salary + bonus;
+  const fica = Math.min(wages, r.ficaBase) * r.ficaPct / 100;
+  const medi = Math.min(wages, r.mediBase) * r.mediPct / 100;
+  const futa = e.futa ? Math.min(wages, r.futaBase) * r.futaPct / 100 : 0;
   const fringe = sum(FRINGE.map((k) => e.fringe?.[k] || 0));
   const medicalAnnual = (e.medicalMonthly || 0) * 12;
   const medical = fringe + medicalAnnual;
   const k401 = salary * (e.k401Pct || 0) / 100;
-  const gross = salary + fica + medi + (e.uc || 0) + futa + (e.workComp || 0) + medical + k401;
+  const gross = wages + fica + medi + (e.uc || 0) + futa + (e.workComp || 0) + medical + k401;
   return {
-    perPay: r.pays ? salary / r.pays : 0, salary,
+    perPay: r.pays ? salary / r.pays : 0, salary, bonus,
     fica: r2(fica), medi: r2(medi), uc: e.uc || 0, futa: r2(futa), workComp: e.workComp || 0,
     fringe: r2(fringe), medicalAnnual: r2(medicalAnnual), medical: r2(medical),
     k401: r2(k401), gross: r2(gross),
@@ -190,7 +196,7 @@ export function allocatePayroll(doc: PayrollBudgetDoc): PayrollAllocation {
     }
     return { ...cost, id: e.id, name: e.name, group: e.group, allocTotal: allocTotal(e) };
   });
-  const keys: (keyof EmployeeCost)[] = ["perPay", "salary", "fica", "medi", "uc", "futa", "workComp", "fringe", "medicalAnnual", "medical", "k401", "gross"];
+  const keys: (keyof EmployeeCost)[] = ["perPay", "salary", "bonus", "fica", "medi", "uc", "futa", "workComp", "fringe", "medicalAnnual", "medical", "k401", "gross"];
   const totals = Object.fromEntries(keys.map((k) => [k, r2(sum(employees.map((x) => x[k] as number)))])) as EmployeeCost;
 
   const mkt = byEntity.marketing.total;
@@ -223,6 +229,63 @@ export function allocatePayroll(doc: PayrollBudgetDoc): PayrollAllocation {
 
   const allocated = sum(funds.map((f) => f.office + f.maintenance + f.marketing)) + sum(misc.map((m) => m.annual));
   return { employees, totals, byEntity, funds, misc, marketing: { total: mkt, byFund }, allocated };
+}
+
+// ─── "Test a raise": what one employee's raise or bonus does to every entity ──
+/** A raise as a % or $ of salary, or a one-time bonus in dollars. */
+export type RaiseTest = { employeeId: string; kind: "pct" | "dollar" | "bonus"; amount: number };
+
+export type RaiseImpactRow = {
+  /** Fund building ("SC" + "4500") or a misc entity ("2010"). */
+  group: string; code: string | null; label: string;
+  before: number; after: number; delta: number;
+};
+
+export type RaiseImpact = {
+  employee: { id: string; name: string; before: EmployeeCost; after: EmployeeCost };
+  /** Gross payroll before / after — the change is the employee's alone. */
+  totalBefore: number; totalAfter: number;
+  /** Every building and entity whose share moves, largest change first. */
+  rows: RaiseImpactRow[];
+};
+
+/** The employee as the test would leave them: a new salary, or a bonus. */
+export function applyRaise(e: PayrollEmployee, t: RaiseTest): PayrollEmployee {
+  const amt = Number.isFinite(t.amount) ? t.amount : 0;
+  if (t.kind === "bonus") return { ...e, bonus: (e.bonus || 0) + amt };
+  const salary = t.kind === "pct" ? (e.salary || 0) * (1 + amt / 100) : (e.salary || 0) + amt;
+  return { ...e, salary: Math.round(salary * 100) / 100 };
+}
+
+/**
+ * Re-run the whole allocation with one employee's raise (or bonus) and diff it
+ * against the budget as it stands — so the answer runs through the SAME
+ * taxes (FICA stopping at its wage base, FUTA at $7,000), the 401(k) match,
+ * the allocation % and each fund's building basis as the budget itself. Pure:
+ * nothing is saved.
+ */
+export function raiseImpact(doc: PayrollBudgetDoc, t: RaiseTest): RaiseImpact | null {
+  const emp = doc.employees.find((e) => e.id === t.employeeId);
+  if (!emp) return null;
+  const next = { ...doc, employees: doc.employees.map((e) => (e.id === emp.id ? applyRaise(e, t) : e)) };
+  const a = allocatePayroll(doc), b = allocatePayroll(next);
+  const rows: RaiseImpactRow[] = [];
+  for (let i = 0; i < a.funds.length; i++) {
+    const fa = a.funds[i], fb = b.funds[i];
+    fa.rows.forEach((ra, j) => {
+      const rb = fb.rows[j];
+      rows.push({ group: fa.label, code: ra.code, label: ra.code, before: ra.total, after: rb.total, delta: rb.total - ra.total });
+    });
+  }
+  a.misc.forEach((ma, i) => {
+    const mb = b.misc[i];
+    rows.push({ group: "Misc", code: ma.code, label: ma.label, before: ma.annual, after: mb.annual, delta: mb.annual - ma.annual });
+  });
+  return {
+    employee: { id: emp.id, name: emp.name, before: employeeCost(emp, doc.rates), after: employeeCost(applyRaise(emp, t), doc.rates) },
+    totalBefore: a.totals.gross, totalAfter: b.totals.gross,
+    rows: rows.filter((x) => Math.abs(x.delta) >= 0.5).sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta)),
+  };
 }
 
 /** The workbook rounds a monthly allocation to the nearest $10. */

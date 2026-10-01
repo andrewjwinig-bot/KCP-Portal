@@ -33,8 +33,8 @@ describe("a book's roll-up", () => {
   it("carries each line's split by property, for its detail", () => {
     const snow = all.sections[1].lines[0];
     expect(snow.byProperty).toEqual([
-      { code: "1100", name: "Andorra", months: m(100), total: 1200 },
-      { code: "2300", name: "Brookwood", months: m(200), total: 2400 },
+      { code: "1100", name: "Andorra", months: m(100), total: 1200, basisTotal: 1100 },
+      { code: "2300", name: "Brookwood", months: m(200), total: 2400, basisTotal: 2200 },
     ]);
   });
   it("sums the rollups and keeps every suite for occupancy; is read-only", () => {

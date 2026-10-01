@@ -13,6 +13,7 @@ import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { HoverCard } from "@/app/components/HoverCard";
 import LoadingState from "@/app/components/LoadingState";
 import { STEP_LABEL } from "./stepStyles";
+import { RaiseTestCard } from "./RaiseTestCard";
 import {
   ALLOC_COLUMNS, FRINGE, GROUP_GL, allocatePayroll, employeeCost, allocTotal, monthly10,
   type PayrollBudgetDoc, type PayrollEmployee, type FundKey, type AllocKey, type FringeKey, type Rates,
@@ -144,6 +145,8 @@ export function PayrollBudget({ year }: { year: number }) {
         <StatPill label="Taxes & benefits" value={money0(benefits)} sub={`${a.totals.salary ? ((benefits / a.totals.salary) * 100).toFixed(1) : "0"}% on salary`} />
         <StatPill label="Gross payroll" value={money0(a.totals.gross)} total />
       </div>
+
+      <RaiseTestCard doc={doc} onApply={(id, salary) => setEmp(id, { salary })} />
 
       {/* The statutory rates — typed once, used on every row. */}
       <div className="card" style={{ padding: "10px 14px" }}>

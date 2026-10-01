@@ -1392,6 +1392,16 @@ time — and the team does not have time to open the GL over $80.
     $7,000 wage base); Harry's SC is 85, not the 86 shown beside 5/5/5 (101%).
   - DREW'S AND ALISON'S ALONE (`canSeePayroll`): the route refuses both verbs,
     and the book is left out of everyone else's book list.
+  - **TEST A RAISE** (`RaiseTestCard.tsx`, `raiseImpact` / `applyRaise` in
+    `payrollBudget.ts`): pick an employee, key a raise (% or $) or a one-time
+    bonus, and the WHOLE allocation is re-run and diffed against the budget —
+    the same FICA / Medicare / FUTA caps, 401(k) match, allocation % and fund
+    basis — so each building and misc entity shows now / with / change (year
+    and month), banded by fund. A sandbox: nothing saves. "Apply to the
+    budget" sets the salary (raises only). A BONUS is wages for the payroll
+    taxes but not the 401(k) match (a % of salary), and is never saved —
+    `PayrollEmployee.bonus` exists only for the test and `sanitizePayrollDoc`
+    drops it.
   - NEXT (not built): feed the property drafts' salary lines from it (it
     replaces `payrollPools.ts`'s last-year +3% blocks), and give Harry's
     Payroll Invoicer its 2027 allocation from it (employee × building %,

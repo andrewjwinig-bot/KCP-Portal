@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SEED_2026, employeeCost, allocatePayroll, allocTotal, seedPayrollBudget, sanitizePayrollDoc, monthly10, fundShares } from "./payrollBudget";
+import { SEED_2026, raiseImpact as _ri, employeeCost, allocatePayroll, allocTotal, seedPayrollBudget, sanitizePayrollDoc, monthly10, fundShares } from "./payrollBudget";
 
 const doc = { ...SEED_2026, year: 2026 };
 const cost = (id: string) => employeeCost(doc.employees.find((e) => e.id === id)!, doc.rates);
@@ -86,5 +86,39 @@ describe("a new year and a saved doc", () => {
     expect(d.employees[0].alloc).toEqual({ sc: 100 });
     expect(new Set(d.employees.map((e) => e.id)).size).toBe(2);
     expect(d.funds.sc.buildings).toHaveLength(10);
+  });
+});
+
+describe("test a raise — runs through the same taxes and allocation, saves nothing", () => {
+  it("a 5% raise for Harry lands 85 / 5 / 5 / 5 and sums to his gross change", () => {
+    const raiseImpact = _ri;
+    const r = raiseImpact(doc, { employeeId: "feldman-harry", kind: "pct", amount: 5 });
+    expect(r.employee.after.salary).toBe(168_000);
+    const dGross = r.employee.after.gross - r.employee.before.gross;
+    // 8,000 salary + Medicare 1.45% + FICA 6.2% (under the base) + 401(k) at his %
+    expect(dGross).toBeGreaterThan(8_000 * 1.0765);
+    expect(Math.abs(r.totalAfter - r.totalBefore - dGross)).toBeLessThan(0.01);
+    const sumDelta = r.rows.reduce((s: number, x: any) => s + x.delta, 0);
+    expect(Math.abs(sumDelta - dGross)).toBeLessThan(0.01);
+    // SC buildings carry 85%; 9510 has no 6010 (Alt PRS 0) so it never moves
+    const sc = r.rows.filter((x: any) => x.group === "Shopping Centers").reduce((s: number, x: any) => s + x.delta, 0);
+    expect(Math.abs(sc - dGross * 0.85)).toBeLessThan(0.01);
+    expect(r.rows.find((x: any) => x.code === "9510")).toBeUndefined();
+    expect(r.rows.find((x: any) => x.code === "0800")!.delta).toBeCloseTo(dGross * 0.10, 2);
+  });
+  it("a bonus is wages for FICA but not for the 401(k), and FICA stops at its base", () => {
+    const raiseImpact = _ri;
+    const alison = raiseImpact(doc, { employeeId: "korman-feldman-alison", kind: "bonus", amount: 10_000 });
+    // $283K salary: past the FICA base AND the $200K Medicare cap, so a bonus adds no tax
+    expect(alison.employee.after.gross - alison.employee.before.gross).toBeCloseTo(10_000, 2);
+    expect(alison.employee.after.k401).toBe(alison.employee.before.k401);
+    const marie = raiseImpact(doc, { employeeId: "jaster-marie", kind: "bonus", amount: 1_000 });
+    expect(marie.employee.after.gross - marie.employee.before.gross).toBeCloseTo(1_076.5, 2);
+  });
+  it("does not touch the doc", () => {
+    const raiseImpact = _ri;
+    const before = JSON.stringify(doc);
+    raiseImpact(doc, { employeeId: "winig-drew", kind: "dollar", amount: 5_000 });
+    expect(JSON.stringify(doc)).toBe(before);
   });
 });
