@@ -2,10 +2,11 @@
 
 // THE RECOVERY CHECK, every property in the book on one screen (the "All …"
 // tab). Per property: what tenants are budgeted to recover against the
-// recoverable pool they recover it from — CAM + INS together, RET alone — and
-// the recon year's own ratio beside it (`recoveryCheck.ts`). Above the ceiling
-// is flagged for review — nothing is scaled back. Click a property's tab to see
-// its tenants.
+// recoverable pool they recover it from — CAM + INS together, RET alone
+// (`recoveryCheck.ts`). The budget year's ratio ONLY — the recon year's sat
+// beside it and the owner removed it ("we need 2027 recovery ratio here, not
+// past years"). Above the ceiling is flagged for review — nothing is scaled
+// back. Click a property's tab to see its tenants.
 
 import { Pill, TONE_AMBER, TONE_GREEN } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
@@ -30,13 +31,11 @@ export function RecoveryCheckCard({ checks, year }: { checks: NonNullable<Budget
           <HoverCard title={`${c.label} · Recovery Ratio`} width={320} rows={[
             { label: `${year} recoveries`, value: money0(c.recovered) },
             { label: `${year} budget pool`, value: money0(c.pool) },
-            ...(c.reconRatio != null ? [{ label: "Recon year's ratio", value: pct(c.reconRatio) }] : []),
             { label: "Review above", value: money0(c.ceiling) },
             ...(c.over ? [{ label: "Above it by", value: money0(c.recovered - c.ceiling), color: "#b45309" }] : []),
           ]}>
             <span>{pct(c.ratio)}</span>
           </HoverCard>
-          {c.reconRatio != null && <span className="muted small" style={{ fontWeight: 400 }}> · {pct(c.reconRatio)}</span>}
         </td>
       </>
     );
@@ -47,7 +46,7 @@ export function RecoveryCheckCard({ checks, year }: { checks: NonNullable<Budget
         <span style={{ fontSize: 16, fontWeight: 800 }}>Recovery Check</span>
         {over > 0 ? <Pill tone={TONE_AMBER}>{over} to review</Pill>
           : <Pill tone={TONE_GREEN}>All within range</Pill>}
-        <span className="muted small">Each property&apos;s {year} recoveries ÷ the recoverable pool they come from, beside the recon year&apos;s ratio. Admin fees take a fully leased NNN property past 100%, so only a ratio above 115% (or the recon year&apos;s, if higher) is flagged — nothing is adjusted.</span>
+        <span className="muted small">Each property&apos;s {year} recoveries ÷ the recoverable pool they come from. Admin fees take a fully leased NNN property past 100%, so only a ratio above 115% is flagged — nothing is adjusted.</span>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -59,8 +58,8 @@ export function RecoveryCheckCard({ checks, year }: { checks: NonNullable<Budget
             </tr>
             <tr>
               <th style={thL}>Property</th>
-              <th style={th}>Recovered</th><th style={th}>Pool</th><th style={th}>Ratio · recon</th>
-              <th style={th}>Recovered</th><th style={th}>Pool</th><th style={th}>Ratio · recon</th>
+              <th style={th}>Recovered</th><th style={th}>Pool</th><th style={th}>{year} Ratio</th>
+              <th style={th}>Recovered</th><th style={th}>Pool</th><th style={th}>{year} Ratio</th>
             </tr>
           </thead>
           <tbody>

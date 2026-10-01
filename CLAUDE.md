@@ -1588,7 +1588,9 @@ time — and the team does not have time to open the GL over $80.
   than its pool, so a cap cut real revenue. A group is only FLAGGED ("to
   review", amber) above the pool × the higher of the recon year's ratio and
   115% (`ADMIN_ALLOWANCE`, the highest admin fee on any lease). 4500's 2× RET
-  is the case it exists for.
+  is the case it exists for. The card shows the BUDGET YEAR's ratio only — no
+  recon-year column beside it (owner: "we need 2027 recovery ratio here not past
+  years"); the recon ratio still raises the review ceiling behind the scenes.
 - **REVENUE BY TENANT CARRIES ONE PILL: DECIDE** (owner: "this section feels
   very busy"). A call still owed is the amber DECIDE — the exception; a MADE
   call is a quiet "Edit call" row action (like "Back out") because the row
