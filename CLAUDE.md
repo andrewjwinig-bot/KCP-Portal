@@ -1401,7 +1401,12 @@ time — and the team does not have time to open the GL over $80.
     budget" sets the salary (raises only). A BONUS is wages for the payroll
     taxes but not the 401(k) match (a % of salary), and is never saved —
     `PayrollEmployee.bonus` exists only for the test and `sanitizePayrollDoc`
-    drops it.
+    drops it. Its **NOI impact** column is the change ÷ each building's
+    budgeted NOI (`/api/financials/budgets/kpis?year=` — the payroll year's
+    budget, else the one in force before it; the footnote names the year); a
+    fund band is over its buildings' NOI combined. Maintenance Salaries are
+    recoverable, so for a maintenance employee it says the figure is BEFORE
+    CAM recoveries rather than pretending to model them.
   - NEXT (not built): feed the property drafts' salary lines from it (it
     replaces `payrollPools.ts`'s last-year +3% blocks), and give Harry's
     Payroll Invoicer its 2027 allocation from it (employee × building %,

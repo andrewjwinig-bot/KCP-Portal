@@ -8,7 +8,7 @@
 // applied to the budget with one click; a bonus cannot (the budget carries
 // salaries, not one-time pay).
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { StatPill, Pill, TONE_NEUTRAL } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { HoverCard } from "@/app/components/HoverCard";
@@ -34,6 +34,39 @@ export function RaiseTestCard({ doc, onApply }: { doc: PayrollBudgetDoc; onApply
     [open, doc, employeeId, kind, amount],
   );
   const emp = doc.employees.find((e) => e.id === employeeId);
+
+  // Each building's budgeted NOI for the payroll budget's year (else the
+  // budget in force before it) — what a raise is measured against.
+  const [noi, setNoi] = useState<Map<string, { noi: number; year: number }> | null>(null);
+  useEffect(() => {
+    if (!open || noi) return;
+    fetch(`/api/financials/budgets/kpis?year=${doc.year}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { properties: [] }))
+      .then((j) => {
+        const m = new Map<string, { noi: number; year: number }>();
+        for (const p of j.properties ?? []) {
+          const r = (p.rollups ?? []).find((x: { name: string }) => /net operating income/i.test(x.name));
+          if (r && Number.isFinite(r.total)) m.set(String(p.code).toUpperCase(), { noi: r.total, year: p.year });
+        }
+        setNoi(m);
+      })
+      .catch(() => setNoi(new Map()));
+  }, [open, noi, doc.year]);
+  const noiYears = noi ? [...new Set([...noi.values()].map((v) => v.year))].sort() : [];
+  const noiOf = (code: string | null) => (code && noi ? noi.get(code.toUpperCase()) ?? null : null);
+  /** The raise as a % of NOI — a cost, so it reads as a reduction. */
+  const noiCell = (delta: number, base: number | null, title: string) => {
+    if (base == null || Math.abs(base) < 1) return <td style={{ ...td, color: "var(--muted)" }}>–</td>;
+    const p = (-delta / Math.abs(base)) * 100;
+    return (
+      <td style={{ ...td, color: UP }}>
+        <HoverCard title={title} rows={[
+          { label: "Budgeted NOI", value: money0(base) },
+          { label: "With the change", value: money0(base - delta) },
+        ]} footer={{ label: "NOI impact", value: `${p.toFixed(2)}%`, color: UP }}>{Math.abs(p) < 0.005 ? "–" : `${p.toFixed(2)}%`}</HoverCard>
+      </td>
+    );
+  };
 
   // Group the moving rows by fund / misc, in the budget's own order.
   const groups = useMemo(() => {
@@ -106,6 +139,7 @@ export function RaiseTestCard({ doc, onApply }: { doc: PayrollBudgetDoc; onApply
                 <thead><tr>
                   <th style={thL}>Where it lands</th><th style={th}>Budget now</th><th style={th}>With the {kind === "bonus" ? "bonus" : "raise"}</th>
                   <th style={th}>Change / yr</th><th style={th}>Change / mo</th><th style={th}>Allocation</th>
+                  <th style={th}>NOI impact</th>
                 </tr></thead>
                 <tbody>
                   {groups.map(({ g, rows }) => {
@@ -117,6 +151,11 @@ export function RaiseTestCard({ doc, onApply }: { doc: PayrollBudgetDoc; onApply
                         <td style={{ ...td, color: UP }}>{signed(sub)}</td>
                         <td style={{ ...td, color: UP }}>{signed(sub / 12)}</td>
                         <td style={td}>{dGross ? `${((sub / dGross) * 100).toFixed(1)}%` : "–"}</td>
+                        {(() => {
+                          const withNoi = rows.filter((r) => noiOf(r.code));
+                          const base = withNoi.length ? withNoi.reduce((s2, r) => s2 + noiOf(r.code)!.noi, 0) : null;
+                          return noiCell(withNoi.reduce((s2, r) => s2 + r.delta, 0), g === "Misc" ? null : base, `${g} NOI`);
+                        })()}
                       </tr>,
                       ...rows.map((r) => (
                         <tr key={`${g}-${r.label}`}>
@@ -134,6 +173,7 @@ export function RaiseTestCard({ doc, onApply }: { doc: PayrollBudgetDoc; onApply
                           </td>
                           <td style={{ ...td, color: UP }}>{signed(r.delta / 12)}</td>
                           <td style={{ ...td, color: "var(--muted)" }}>{dGross ? `${((r.delta / dGross) * 100).toFixed(1)}%` : "–"}</td>
+                          {noiCell(r.delta, noiOf(r.code)?.noi ?? null, `${label(r)} NOI`)}
                         </tr>
                       )),
                     ];
@@ -144,9 +184,14 @@ export function RaiseTestCard({ doc, onApply }: { doc: PayrollBudgetDoc; onApply
                     <td style={{ ...td, borderTop: "2px solid var(--border)", color: UP }}>{signed(dGross)}</td>
                     <td style={{ ...td, borderTop: "2px solid var(--border)", color: UP }}>{signed(dGross / 12)}</td>
                     <td style={{ ...td, borderTop: "2px solid var(--border)" }}>100%</td>
+                    <td style={{ ...td, borderTop: "2px solid var(--border)" }} />
                   </tr>
                 </tbody>
               </table>
+              <div className="muted small" style={{ padding: "8px 14px" }}>
+                NOI impact = the change ÷ each building&rsquo;s {noiYears.length ? noiYears.join(" / ") : doc.year} budgeted NOI{noi && noiYears.length && !noiYears.includes(doc.year) ? ` (no ${doc.year} budget published yet)` : ""}; a fund&rsquo;s band is over its buildings&rsquo; NOI combined.
+                {emp?.group === "maintenance" && <> <b>Before CAM recoveries</b> — Maintenance Salaries ({"6030-8502"}) are recoverable, so tenants reimburse part of this and the real NOI hit is smaller.</>}
+              </div>
             </div>
           )}
 
