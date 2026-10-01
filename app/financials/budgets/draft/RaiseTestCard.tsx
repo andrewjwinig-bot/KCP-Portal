@@ -105,7 +105,7 @@ export function RaiseTestCard({ doc, onApply }: { doc: PayrollBudgetDoc; onApply
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr>
                   <th style={thL}>Where it lands</th><th style={th}>Budget now</th><th style={th}>With the {kind === "bonus" ? "bonus" : "raise"}</th>
-                  <th style={th}>Change / yr</th><th style={th}>Change / mo</th><th style={th}>Share</th>
+                  <th style={th}>Change / yr</th><th style={th}>Change / mo</th><th style={th}>Allocation</th>
                 </tr></thead>
                 <tbody>
                   {groups.map(({ g, rows }) => {
