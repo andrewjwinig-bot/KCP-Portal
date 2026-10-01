@@ -51,7 +51,7 @@ export function BudgetKpis({ draft }: { draft: BudgetDraft }) {
       <StatPill label="Operating expenses" value={money0(opex.now)} sub={vs(opex)} />
       {nnn && (
         <StatPill label={office ? "Op Ex + RET / SF" : "NNN / SF"} value={psf(nnn.cam + nnn.ins + nnn.ret)}
-          sub={`CAM ${psf(nnn.cam)}${office ? "" : ` · INS ${psf(nnn.ins)}`} · RET ${psf(nnn.ret)} · on ${Math.round(gla).toLocaleString("en-US")} SF${office ? " · before base-year stops" : " · before admin fees"}`} />
+          sub={`CAM ${psf(nnn.cam)} · RET ${psf(nnn.ret)}${office ? "" : ` · INS ${psf(nnn.ins)}`}`} />
       )}
       <StatPill label="NOI" value={money0(noi.now)} sub={vs(noi)} accent={tone(noi.now) ?? "#15803d"} />
       <StatPill label="Net cash flow" value={money0(cf.now)} sub={`${vs(cf)} · after capital & debt`} accent={tone(cf.now)} />

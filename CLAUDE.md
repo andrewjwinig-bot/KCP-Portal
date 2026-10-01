@@ -1079,9 +1079,9 @@ time — and the team does not have time to open the GL over $80.
   expenses and NOI; owner: "how much each tenant will pay in addition to their
   base rent"): the budget's recoverable pools (`reimbursementEstimate.pools` —
   CAM, INS, RET, non-CAM parcels already out) ÷ the building's rentable SF,
-  each part in the sub-line. Before admin fees / caps / exclusions (each
-  lease's own); an office building reads "Op Ex + RET / SF … before base-year
-  stops". Property tabs only — never a roll-up.
+  the sub-line JUST "CAM $x · RET $y · INS $z" (owner — no SF, no caveats).
+  An office building's tile reads "Op Ex + RET / SF" (its INS is inside CAM).
+  Property tabs only — never a roll-up.
 - **ONE MASTER BUDGET PAGE** — `/financials/budgets/draft` is where Drew,
   Harry, Nancy and admin collaborate: the masthead, then a **KPI row**
   (`BudgetKpis` — revenue, operating expenses, NOI, net cash flow after capital
