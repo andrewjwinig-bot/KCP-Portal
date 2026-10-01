@@ -118,7 +118,7 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
                   </HoverCard>
                 )}
                 <span className="muted small">
-                  Rent schedule imported {new Date(rec.importedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })} by {rec.importedBy}
+                  Rent schedule imported {new Date(rec.importedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}{rec.importedBy && rec.importedBy !== "Unknown" ? ` by ${rec.importedBy}` : ""}
                 </span>
               </div>
             )}
