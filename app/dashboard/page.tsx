@@ -1065,9 +1065,9 @@ function DashboardInner() {
         </div>
         )}
 
-        {/* Drew doesn't see the Action Items strip, so surface the commissions
-            cycle (upcoming → paid) here so it isn't forgotten. */}
-        {isDrew && <CommissionsReminder standalone />}
+        {/* No commissions reminder for Drew (owner: "it doesnt involve me"):
+            the quarter's invoices go to AvidXchange on their own each morning
+            (sendQuarterToAvidBill), so there is nothing here for him to do. */}
 
         {/* ── Drew's task tracker (Harry can view it too) + Drew's payroll & CC saved-status ── */}
         {(user.id === "drew" || user.id === "harry") && <DrewTasksThisWeek />}
