@@ -386,9 +386,15 @@ function GroupHeader({ label }: { label: string }) {
 /** A cross-section total (Total Revenues, NOI, cash flow) in its own card —
  *  the Operating Budgets page's `SubtotalCard`, plus this page's reprojection
  *  and change columns. */
-function RollupCard({ label, months, total, basis, favorableUp }: {
+function RollupCard({ label, months, total, basis, favorableUp, tip }: {
   label: string; months: number[]; total: number; basis: number; favorableUp: boolean;
+  /** A book's roll-up: each cell hovers its split by property (m = null for the year). */
+  tip?: (m: number | null) => { title: string; rows: TipRow[]; footer?: TipRow } | null;
 }) {
+  const hov = (m: number | null, node: React.ReactNode) => {
+    const t = tip?.(m);
+    return t ? <HoverCard title={t.title} rows={t.rows} footer={t.footer} width={300}><span>{node}</span></HoverCard> : node;
+  };
   const change = total - basis;
   const pct = Math.abs(basis) < 0.5 ? null : (change / Math.abs(basis)) * 100;
   const good = Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
@@ -401,8 +407,8 @@ function RollupCard({ label, months, total, basis, favorableUp }: {
           <tbody>
             <tr>
               <td style={{ ...lab, fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND, borderBottom: "none" }}>{label}</td>
-              {months.map((m, i) => <td key={i} style={{ ...cell, color: m < 0 ? "#b91c1c" : undefined }}>{money0(m)}</td>)}
-              <td style={{ ...cell, fontSize: 14, fontWeight: 900, color: total < 0 ? "#b91c1c" : COLOR_BRAND }}>{money0(total)}</td>
+              {months.map((m, i) => <td key={i} style={{ ...cell, color: m < 0 ? "#b91c1c" : undefined }}>{hov(i, money0(m))}</td>)}
+              <td style={{ ...cell, fontSize: 14, fontWeight: 900, color: total < 0 ? "#b91c1c" : COLOR_BRAND }}>{hov(null, money0(total))}</td>
               <td style={{ ...cell, fontWeight: 600, fontSize: 12, color: "var(--muted)" }}>{money0(basis)}</td>
               <td style={{ ...cell, fontSize: 12, color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
                 {pct == null ? "–" : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
@@ -494,6 +500,30 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const p = rollupProps?.find((x) => x.code.toUpperCase() === code);
     return p ? `${p.code} ${p.name}` : code;
   };
+  /** EVERY CELL OF A ROLL-UP HOVERS ITS SPLIT BY PROPERTY (owner): each line's
+   *  `byProperty`, signed and summed for a subtotal or a cross-section total. */
+  type Signed = { sec: BudgetDraftSection; sign: 1 | -1 };
+  const splitOf = (parts: Signed[]): Map<string, number[]> => {
+    const out = new Map<string, number[]>();
+    for (const { sec, sign } of parts) for (const l of sec.lines) for (const p of l.byProperty ?? []) {
+      const acc = out.get(p.code) ?? new Array(12).fill(0);
+      p.months.forEach((v, i) => { acc[i] += sign * (v || 0); });
+      out.set(p.code, acc);
+    }
+    return out;
+  };
+  const splitTip = (title: string, split: Map<string, number[]>) => (m: number | null) => {
+    if (!rollupProps) return null;
+    const val = (ms: number[]) => (m == null ? ms.reduce((a, v) => a + v, 0) : ms[m] || 0);
+    const rows: TipRow[] = rollupProps
+      .map((p) => ({ p, v: val(split.get(p.code) ?? []) }))
+      .filter((x) => Math.abs(x.v) >= 0.5)
+      .map((x) => ({ label: `${x.p.code} ${x.p.name}`, value: money0(x.v), ...(x.v < 0 ? { color: "#b91c1c" } : {}) }));
+    if (!rows.length) return null;
+    const total = [...split.values()].reduce((a, ms) => a + val(ms), 0);
+    return { title: `${title} · ${m == null ? draft.budgetYear : MONTHS[m]}`, rows, footer: { label: "Total", value: money0(total), color: COLOR_BRAND } };
+  };
+  const lineSplit = (l: Line) => splitOf([{ sec: { lines: [l] } as unknown as BudgetDraftSection, sign: 1 }]);
   /** Sum `amt` per building, as hover rows (zero buildings dropped). */
   const byBuilding = <T extends { unitRef: string }>(list: T[], amt: (t: T) => number): TipRow[] => {
     const sums = new Map<string, number>();
@@ -679,6 +709,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const cfbM = r.netOperatingIncome.months.map((v, i) => v - capM[i]);
   const cfaM = cfbM.map((v, i) => v - debtM[i]);
   const noiBasis = basisOf(revenue) - basisOf(expense);
+  const signed = (secs: BudgetDraftSection[], sign: 1 | -1): Signed[] => secs.map((sec) => ({ sec, sign }));
 
   // One card per statement section: a header strip, the column heads, its
   // lines, its subtotal — and, on the reimbursements, the recovery ratio.
@@ -750,6 +781,12 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                       onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}
                       {...(() => {
                         const cat = l.source === "cam-estimate" && recTenants.length ? recoveryCategory(l.label, l.mask, estKind) : null;
+                        // A roll-up line: its split by property (a recovery line keeps
+                        // its own building hover, which adds the year's ratio).
+                        if (rollupProps && !cat && l.byProperty?.length) {
+                          const t = splitTip(l.label, lineSplit(l));
+                          return { cellHover: (m: number) => t(m), totalHover: () => t(null) };
+                        }
                         if (l.source === "fee-rollup" && draft.feeRollup?.length) return { cellHover: feeRollupHover };
                         const df = l.source === "leases" && draft.deals?.length ? dealField(l.label, l.mask) : null;
                         if (df) return { cellHover: (m: number) => dealTip(df, m), totalHover: () => dealTip(df, null) };
@@ -814,7 +851,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                   </Fragment>
                 );
               })}
-              {subtotal && <Row label={`Total ${sec.name}`} months={sec.subtotal} total={sec.total} basis={sum(sec.lines.map((l) => l.basisTotal))} variant="subtotal" favorableUp={favorableUp} />}
+              {subtotal && <Row label={`Total ${sec.name}`} months={sec.subtotal} total={sec.total} basis={sum(sec.lines.map((l) => l.basisTotal))} variant="subtotal" favorableUp={favorableUp}
+                {...(rollupProps ? (() => { const t = splitTip(`Total ${sec.name}`, splitOf([{ sec, sign: 1 }])); return { cellHover: (m: number) => t(m), totalHover: () => t(null) }; })() : {})} />}
             </tbody>
           </table>
         </div>
@@ -904,22 +942,22 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
 
   body.push(<GroupHeader key="g-rev" label="Revenues" />);
   revenue.forEach((x) => body.push(section(x, true)));
-  body.push(<RollupCard key="tr" label="Total Revenues" months={r.totalRevenues.months} total={r.totalRevenues.total} basis={basisOf(revenue)} favorableUp />);
+  body.push(<RollupCard key="tr" label="Total Revenues" months={r.totalRevenues.months} total={r.totalRevenues.total} basis={basisOf(revenue)} favorableUp tip={rollupProps ? splitTip("Total Revenues", splitOf(signed(revenue, 1))) : undefined} />);
   body.push(<GroupHeader key="g-opex" label="Operating Expenses" />);
   expense.forEach((x) => body.push(section(x, false)));
-  body.push(<RollupCard key="te" label="Total Operating Expenses" months={r.totalOperatingExpenses.months} total={r.totalOperatingExpenses.total} basis={basisOf(expense)} favorableUp={false} />);
-  body.push(<RollupCard key="noi" label="Net Operating Income" months={r.netOperatingIncome.months} total={r.netOperatingIncome.total} basis={noiBasis} favorableUp />);
+  body.push(<RollupCard key="te" label="Total Operating Expenses" months={r.totalOperatingExpenses.months} total={r.totalOperatingExpenses.total} basis={basisOf(expense)} favorableUp={false} tip={rollupProps ? splitTip("Total Operating Expenses", splitOf(signed(expense, 1))) : undefined} />);
+  body.push(<RollupCard key="noi" label="Net Operating Income" months={r.netOperatingIncome.months} total={r.netOperatingIncome.total} basis={noiBasis} favorableUp tip={rollupProps ? splitTip("Net Operating Income", splitOf([...signed(revenue, 1), ...signed(expense, -1)])) : undefined} />);
   if (capital.length) {
     body.push(<GroupHeader key="g-cap" label="Capital Improvements" />);
     capital.forEach((x) => body.push(section(x, false, false)));
   }
   if (debt.length) {
-    body.push(<RollupCard key="cfb" label="Cash Flow Before Debt Service" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} favorableUp />);
+    body.push(<RollupCard key="cfb" label="Cash Flow Before Debt Service" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} favorableUp tip={rollupProps ? splitTip("Cash Flow Before Debt Service", splitOf([...signed(revenue, 1), ...signed(expense, -1), ...signed(capital, -1)])) : undefined} />);
     body.push(<GroupHeader key="g-debt" label="Debt Service" />);
     debt.forEach((x) => body.push(section(x, false)));
-    body.push(<RollupCard key="cfa" label="Cash Flow After Debt Service" months={cfaM} total={sum(cfaM)} basis={noiBasis - basisOf(capital) - basisOf(debt)} favorableUp />);
+    body.push(<RollupCard key="cfa" label="Cash Flow After Debt Service" months={cfaM} total={sum(cfaM)} basis={noiBasis - basisOf(capital) - basisOf(debt)} favorableUp tip={rollupProps ? splitTip("Cash Flow After Debt Service", splitOf([...signed(revenue, 1), ...signed(expense, -1), ...signed(capital, -1), ...signed(debt, -1)])) : undefined} />);
   } else {
-    body.push(<RollupCard key="cf" label="Cash Flow" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} favorableUp />);
+    body.push(<RollupCard key="cf" label="Cash Flow" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} favorableUp tip={rollupProps ? splitTip("Cash Flow", splitOf([...signed(revenue, 1), ...signed(expense, -1), ...signed(capital, -1)])) : undefined} />);
   }
 
   // DISTRIBUTIONS (`cashForecast.ts`) — its own card at the bottom, where the

@@ -1789,6 +1789,11 @@ time — and the team does not have time to open the GL over $80.
   row per building; a recovery cell does NOT open the tenant list (the line's
   label opens the by-property split). The property's own tab is the drill-down
   to tenants.
+  **EVERY CELL hovers its split by property** — each line (from its
+  `byProperty`), each section subtotal, and the Total Revenues / Total
+  Operating Expenses / NOI / cash-flow cards (`splitOf` signs and sums the
+  sections; `RollupCard`'s `tip`). The roll-up is the GLANCE that tells you
+  which property to open (owner).
 - **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
   `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
   property's draft built (four at a time) and summed line by line, matched by
