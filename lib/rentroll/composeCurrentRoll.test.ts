@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { composeCurrentRoll, rollAsOf } from "./current";
+import { composeCurrentRoll, rollAsOf, mergeSameMonth } from "./current";
 
 // A minimal snapshot: report month + a property per code, each with one unit.
 const snap = (reportTo: string, codes: string[]) => ({
@@ -72,3 +72,18 @@ describe("rollAsOf — the roll a past month is checked against", () => {
   });
 });
 
+
+describe("mergeSameMonth — a partial import never erases the rest of its month", () => {
+  it("an office-only file over a full September keeps retail and residential", () => {
+    const full = snap("9/30/2026", ["3610", "4500", "9800"]);
+    const office = snap("9/30/2026", ["3610"]);
+    office.properties[0].units[0].occupantName = "Re-imported";
+    const merged = mergeSameMonth(full, office);
+    expect(merged.properties.map((p: any) => p.propertyCode).sort()).toEqual(["3610", "4500", "9800"]);
+    expect(merged.properties.find((p: any) => p.propertyCode === "3610").units[0].occupantName).toBe("Re-imported");
+  });
+  it("a first import of a month is stored as is", () => {
+    const office = snap("9/30/2026", ["3610"]);
+    expect(mergeSameMonth(null, office)).toBe(office);
+  });
+});

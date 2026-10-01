@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { listJSON, getJSON, storeJSON } from "@/lib/storage";
 import { parseRentRollExcel, type RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { snapshotMonthKey, summarizeSnapshot } from "@/lib/rentroll/snapshot";
+import { mergeSameMonth } from "@/lib/rentroll/current";
 
 const RENTROLL_PREFIX = "rentroll";
 const RENTROLL_ID     = "current";
@@ -60,7 +61,8 @@ export async function POST(req: NextRequest) {
     let key = snapshotMonthKey(rentroll);
     if (monthOverride && /^\d{4}-\d{2}$/.test(monthOverride)) key = monthOverride;
 
-    await storeJSON(HISTORY_PREFIX, key, rentroll);
+    const prior = await getJSON(HISTORY_PREFIX, key).catch(() => null);
+    await storeJSON(HISTORY_PREFIX, key, mergeSameMonth(prior as any, rentroll));
 
     return NextResponse.json({ ok: true, month: key, summary: summarizeSnapshot(rentroll) });
   } catch (err: any) {

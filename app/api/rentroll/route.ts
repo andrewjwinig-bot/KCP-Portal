@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseRentRollExcel, stripStoreNumber } from "@/lib/rentroll/parseRentRollExcel";
 import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
-import { composeCurrentRoll } from "@/lib/rentroll/current";
+import { composeCurrentRoll, mergeSameMonth } from "@/lib/rentroll/current";
 import { storeJSON, getJSON, listJSON } from "@/lib/storage";
 import { recordImport } from "@/lib/tracker/importEvents";
 
@@ -119,7 +119,7 @@ export async function GET() {
  *
  * That means you can import past rent rolls in any order to backfill
  * history: each is filed under its report month, and the newest month
- * stays "current". Re-importing a month overwrites just that snapshot.
+ * stays "current". Re-importing a month MERGES into that snapshot by property.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -139,10 +139,13 @@ export async function POST(req: NextRequest) {
     const uploadedAt  = new Date().toISOString();
     const imported    = { uploadedAt, uploadedBy, ...parsed };
 
-    // File this upload under its report month. Re-importing a month
-    // overwrites that snapshot.
+    // File this upload under its report month, MERGED into whatever that
+    // month already holds (mergeSameMonth): a partial file — office only —
+    // replaces the properties it carries and keeps the rest. Overwriting the
+    // month outright erased the retail and residential properties.
     const importedMonth = snapshotMonthKey(imported);
-    await storeJSON(HISTORY_PREFIX, importedMonth, imported);
+    const prior = await getJSON(HISTORY_PREFIX, importedMonth).catch(() => null);
+    await storeJSON(HISTORY_PREFIX, importedMonth, mergeSameMonth(prior as any, imported));
 
     // "Current" = a per-property union across every snapshot (each property
     // from the latest snapshot that has it). Backfilling an older roll never
