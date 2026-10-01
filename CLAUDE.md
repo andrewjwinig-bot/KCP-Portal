@@ -1779,6 +1779,16 @@ time — and the team does not have time to open the GL over $80.
   month columns were widened (38pt) and a FIGURE shrinks to fit rather than
   truncating — a roll-up's "$423,…" is a wrong number, not a shorter one.
   The LIK payroll book has no draft PDF.
+- **A BOOK'S ROLL-UP READS BY BUILDING, NEVER BY TENANT** (owner: "this is
+  the rollup so the detail is more building level not tenant level … showing
+  50 tenants isnt as relevant"). On a book's "All …" tab every hover that
+  names tenants on a property tab names BUILDINGS (`rollupProps` /
+  `byBuilding` in `BudgetStatementTable.tsx`): Occupancy % (each building's %
+  and its SF moves), rental income and the CAM / INS / RET recovery cells.
+  Clicking Occupancy % opens `OccupancyBySuiteModal` with `buildings` — one
+  row per building; a recovery cell does NOT open the tenant list (the line's
+  label opens the by-property split). The property's own tab is the drill-down
+  to tenants.
 - **A BOOK'S "ALL …" TAB IS THE SUM OF ITS PROPERTY TABS** (`consolidate.ts`,
   `GET /api/financials/budgets/draft?book=<id>`, page key `book:<id>`): every
   property's draft built (four at a time) and summed line by line, matched by
@@ -1821,7 +1831,8 @@ time — and the team does not have time to open the GL over $80.
   tenants' direct electric billed back. Every other mapping still lists
   4910-8503 on Electric, where nothing posts.
 - **Shopping centres have no condo association**: the mapping's "Condo Assn"
-  recovery line (4970-*) — and the REIMBURSABLE section's Management Fee (6610-8502; the
+  recovery line (4970-*) — the Electric REIMBURSEMENT line (4710-*, $0 at
+  every centre — owner) — Bad Debt ($0 at every centre — owner) — and the REIMBURSABLE section's Management Fee (6610-8502; the
   centres' fee is non-reimbursable, 6610-8501) — and, at every centre but
   7010, **Cleaning & Supplies** and **Office Center/Other** (6*-8503, the
   office part of a building; only Parkwood has an office centre) — are
