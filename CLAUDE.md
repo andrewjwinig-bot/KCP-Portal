@@ -1850,6 +1850,11 @@ time — and the team does not have time to open the GL over $80.
   prior-year column shows what the GL's distribution accounts (<4000, named
   "distribut…") paid this year. A book roll-up sums each property's
   distributions and balance (`consolidateCash`).
+  **Not every property distributes** (owner): with nothing budgeted, typed or
+  paid this year the Distributions row is hidden behind a "Distributions ·
+  none this year" CHECKBOX; tick it to key some. Once a figure exists the row
+  always shows (it moves the bank balance) — ↺ clears it back. No stored flag:
+  the figures themselves decide.
 - **NON-REIMBURSABLE UTILITIES ARE THE VACANT SPACE'S** (owner;
   `vacancyUtilities.ts`, source `vacancy`, not typeable by month): each month
   is vacant SF × a $/SF/yr rate ÷ 12, a suite being vacant in a month it pays
