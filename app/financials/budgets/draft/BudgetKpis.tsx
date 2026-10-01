@@ -30,10 +30,29 @@ export function BudgetKpis({ draft }: { draft: BudgetDraft }) {
   };
   const tone = (n: number) => (n < 0 ? "#b91c1c" : undefined);
 
+  // NNN CHARGES PER SF (owner: "so we can quickly see how much each tenant will
+  // pay in addition to their base rent"): the budget's recoverable pools —
+  // CAM, INS, RET, the same pools the recoveries are figured on (non-CAM
+  // parcels already out) — over the building's rentable SF. Before admin fees,
+  // caps and exclusions, which are each lease's own. A property tab only: a
+  // roll-up's SF spans buildings that bill separately.
+  const est = draft.reimbursementEstimate;
+  const gla = (draft.tenantRevenue ?? []).filter((t) => !t.recoveryOnly).reduce((a, t) => a + (t.sqft || 0), 0);
+  const pools = est?.pools;
+  const nnn = !draft.consolidated && pools && gla > 0
+    ? { cam: pools.cam / gla, ins: pools.ins / gla, ret: pools.ret / gla }
+    : null;
+  const psf = (n: number) => `$${n.toFixed(2)}`;
+  const office = est?.kind === "office";
+
   return (
     <div className="pills">
       <StatPill label={`${draft.budgetYear} Total revenue`} value={money0(rev.now)} sub={vs(rev)} />
       <StatPill label="Operating expenses" value={money0(opex.now)} sub={vs(opex)} />
+      {nnn && (
+        <StatPill label={office ? "Op Ex + RET / SF" : "NNN / SF"} value={psf(nnn.cam + nnn.ins + nnn.ret)}
+          sub={`CAM ${psf(nnn.cam)}${office ? "" : ` · INS ${psf(nnn.ins)}`} · RET ${psf(nnn.ret)} · on ${Math.round(gla).toLocaleString("en-US")} SF${office ? " · before base-year stops" : " · before admin fees"}`} />
+      )}
       <StatPill label="NOI" value={money0(noi.now)} sub={vs(noi)} accent={tone(noi.now) ?? "#15803d"} />
       <StatPill label="Net cash flow" value={money0(cf.now)} sub={`${vs(cf)} · after capital & debt`} accent={tone(cf.now)} />
     </div>
