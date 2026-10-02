@@ -4,6 +4,8 @@ import { isMailConfigured } from "@/lib/mail";
 import { reportAlreadySent, markReportSent } from "@/lib/invoicing/reportSent";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { deliverInvoicesToAvid } from "@/lib/invoicing/avidDelivery";
+import { budgetUser } from "@/lib/financials/budgets/currentUser";
+import { USERS } from "@/lib/users";
 
 // The review-before-send gate's release step for the Credit Card and Payroll
 // invoicers. AvidXchange can't open a ZIP and takes one invoice per email, so
@@ -79,7 +81,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ sent: false, reason: "already-sent", byProperty: body.byProperty, total: body.total, invoiceCount, sentAt });
     }
 
+    // Who released it — the AP Outbox names the sender for every flow.
+    const sender = await budgetUser();
     const result = await deliverInvoicesToAvid({
+      by: sender ? USERS[sender]?.label ?? sender : null,
       source: body.source,
       label,
       period: body.period,

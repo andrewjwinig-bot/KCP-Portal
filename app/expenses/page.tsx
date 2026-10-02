@@ -1855,13 +1855,13 @@ export default function ExpensesPage() {
           <div className="card" style={{ maxWidth: 520, width: "100%" }}>
             <b style={{ fontSize: 16 }}>Reminder</b>
             <div style={{ fontSize: 15, lineHeight: 1.5, marginTop: 8 }}>
-              Save files to Accounting drive and send invoices to <b>kormancommercial@avidbill.com</b>.
+              Save the files to the Accounting drive. <b>Don&rsquo;t email the ZIP to AvidXchange</b> — Avid can&rsquo;t open a ZIP and the send wouldn&rsquo;t be recorded. Use <b>Review &amp; Send to AvidXchange</b>, which sends one invoice per email and logs it.
               <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>
                 The GL Journal Entry + TOP SHEET summary are emailed automatically to Marie Jaster.
               </div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-              <button className="btn primary large" onClick={() => setShowAfterZipModal(false)}>Sent</button>
+              <button className="btn primary large" onClick={() => setShowAfterZipModal(false)}>Got it</button>
             </div>
           </div>
         </div>

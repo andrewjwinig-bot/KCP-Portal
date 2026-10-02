@@ -8,6 +8,7 @@ import { getImportEvents, reminderSatisfied, reminderOutstanding, type ImportEve
 import { outstandingGlUploads, type OutstandingGl } from "@/lib/financials/operating-statements/outstanding";
 import { recentlyVacatedTenants, type VacatedTenant } from "@/lib/leasing/recentlyVacated";
 import { collectNotPosted, significantNotPosted, type NotPostedItem } from "@/lib/financials/operating-statements/notPosted";
+import { portalOrigin } from "@/lib/linkOrigin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -135,7 +136,7 @@ function buildDigest(
       const through = b.latest ? `through ${MON_SHORT[b.latest.period - 1]} ${b.latest.year}` : "no GL yet";
       lines.push(`  • ${b.propertyCode} — ${b.name}  (${through})`);
     }
-    lines.push(`  → Post PM & AP, close the month, then upload each GL: https://portal.kormancommercial.com/financials/operating-statements`);
+    lines.push(`  → Post PM & AP, close the month, then upload each GL: ${portalOrigin()}/financials/operating-statements`);
     lines.push("");
   }
 
@@ -148,7 +149,7 @@ function buildDigest(
       lines.push(`  • ${i.propertyCode} ${i.propertyName} — ${i.line} (${i.monthLabel}): ~${money0(i.expected)} expected${tag}`);
     }
     if (notPosted.length > 25) lines.push(`  … and ${notPosted.length - 25} more`);
-    lines.push(`  → Post them (or confirm they don't apply): https://portal.kormancommercial.com/financials/operating-statements/review`);
+    lines.push(`  → Post them (or confirm they don't apply): ${portalOrigin()}/financials/operating-statements/review`);
     lines.push("");
   }
 
@@ -158,11 +159,11 @@ function buildDigest(
     for (const v of vacated) {
       lines.push(`  • ${v.occupantName} — ${v.propertyCode} · ${v.unitRef}${v.sqft ? ` · ${v.sqft.toLocaleString()} sf` : ""}`);
     }
-    lines.push(`  → Run each move-out CAM/RET close-out: https://portal.kormancommercial.com/cam-recon/interim`);
+    lines.push(`  → Run each move-out CAM/RET close-out: ${portalOrigin()}/cam-recon/interim`);
     lines.push("");
   }
 
-  lines.push(`Open the tracker: https://portal.kormancommercial.com/tracker`);
+  lines.push(`Open the tracker: ${portalOrigin()}/tracker`);
   lines.push("");
   lines.push(`— KCP Portal`);
 

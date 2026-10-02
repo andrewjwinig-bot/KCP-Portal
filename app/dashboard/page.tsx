@@ -523,7 +523,7 @@ function DashboardInner() {
             : <span className="muted">—</span>}
         </td>
         <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-          {OFFICE_INTERIM.has(propertyCode.toUpperCase()) ? (() => {
+          {OFFICE_INTERIM.has(propertyCode.toUpperCase()) && isPathAllowed(user.id, "/cam-recon/interim") ? (() => {
             const d = parseLeaseTo(unit.leaseTo);
             const y = d ? d.getFullYear() : new Date().getFullYear();
             const m = d ? d.getMonth() + 1 : 12;
@@ -1050,14 +1050,15 @@ function DashboardInner() {
         {/* ── Each person's own tasks, saved-status and imports ── */}
         {/* Each sees their OWN tasks (owner: Harry doesn't need Drew's) — the
             credit-card statement, payroll and the commissions are Harry's. */}
-        {(user.id === "drew" || user.id === "harry") && <DrewTasksThisWeek owner={user.id === "harry" ? "harry" : "drew"} />}
+        {(user.id === "drew" || user.id === "harry" || user.id === "nancy") && <DrewTasksThisWeek owner={user.id === "harry" ? "harry" : user.id === "nancy" ? "nancy" : "drew"} />}
         {(user.id === "drew" || user.id === "harry") && <DailyDigestModal userId={user.id} owner={user.id === "harry" ? "harry" : "drew"} />}
         {/* No Allocated Expenses card for Drew (owner): the AP Outbox shows the
             batch once it reaches AvidXchange, and flags it if it was generated
             but never sent. */}
         {user.id === "harry" && <DrewSavedStatus rows={["payroll", "cc"]} />}
         {(user.id === "drew" || user.id === "harry" || isAdmin) && <ImportsToDoCard owner={user.id === "harry" ? "harry" : user.id === "drew" ? "drew" : undefined} />}
-        {(user.id === "drew" || user.id === "harry" || isAdmin) && <NotPostedCard order={-1} />}
+        {/* Not Harry: the statements it reports on (and links to) are not his. */}
+        {(user.id === "drew" || isAdmin) && <NotPostedCard order={-1} />}
         {(user.id === "drew" || user.id === "harry" || user.id === "marie" || isAdmin) && <ApOutboxCard order={-1} />}
         {(user.id === "drew" || user.id === "harry" || user.id === "nancy" || user.id === "marie" || isAdmin) && <MoveOutsCard order={-1} />}
 

@@ -23,7 +23,7 @@ import {
   type Category, type TaskDef, type TaskInstructions,
 } from "../../lib/tracker/taskDefs";
 
-type OwnerFilter = "drew" | "harry" | "marie" | "both";
+type OwnerFilter = "drew" | "harry" | "nancy" | "marie" | "both";
 
 // Each person opens on their OWN list (owner: Harry doesn't need Drew's). The
 // credit-card statement, payroll and SC commissions are Harry's, BP commissions
@@ -31,10 +31,11 @@ type OwnerFilter = "drew" | "harry" | "marie" | "both";
 const OWNER_FILTERS: { id: OwnerFilter; label: string }[] = [
   { id: "drew",   label: "Drew" },
   { id: "harry",  label: "Harry" },
+  { id: "nancy",  label: "Nancy" },
   { id: "marie", label: "Marie" },
   { id: "both",   label: "All" },
 ];
-const defaultOwner = (id: string): OwnerFilter => (id === "marie" ? "marie" : id === "harry" ? "harry" : "drew");
+const defaultOwner = (id: string): OwnerFilter => (id === "marie" ? "marie" : id === "harry" ? "harry" : id === "nancy" ? "nancy" : "drew");
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 

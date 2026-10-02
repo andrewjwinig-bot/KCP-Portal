@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useCanOpen } from "@/app/components/useCanOpen";
 
 type AvidSource = "allocated" | "credit-card" | "payroll" | "commissions";
 type Send = {
@@ -34,6 +35,9 @@ function when(iso: string): string {
 }
 
 export default function ApOutboxCard({ order = -1 }: { order?: number }) {
+  const canOpen = useCanOpen();
+  // A row links to its invoicer only for someone who can open it.
+  const hrefFor = (src: AvidSource) => { const h = HREF[src]; return h && canOpen(h) ? h : undefined; };
   const [sends, setSends] = useState<Send[] | null>(null);
   // A batch generated but never sent — the thing this card exists to catch.
   const [unsent, setUnsent] = useState<{ source: AvidSource; label: string; period: string; at: string; by?: string | null; days: number }[]>([]);
@@ -60,9 +64,9 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
       </div>
 
       {unsent.map((u) => {
-        const Row = (HREF[u.source] ? Link : "div") as any;
+        const Row = (hrefFor(u.source) ? Link : "div") as any;
         return (
-          <Row key={`unsent-${u.source}`} href={HREF[u.source]}
+          <Row key={`unsent-${u.source}`} href={hrefFor(u.source)}
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", marginBottom: 4, borderRadius: 8, textDecoration: "none", color: "var(--text)", background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)" }}>
             <span style={{ fontSize: 13 }}>⚠️</span>
             <span style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
@@ -81,11 +85,11 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
       ) : rows.length === 0 ? null : (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {rows.slice(0, TOP).map((s) => {
-            const Row = (HREF[s.source] ? Link : "div") as any;
+            const Row = (hrefFor(s.source) ? Link : "div") as any;
             return (
             <Row
               key={`${s.source}-${s.period}`}
-              href={HREF[s.source]}
+              href={hrefFor(s.source)}
               style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", borderRadius: 8, textDecoration: "none", color: "var(--text)", background: "rgba(22,163,74,0.05)" }}
             >
               <span style={{ fontSize: 13 }}>{s.partial ? "🕗" : "✅"}</span>

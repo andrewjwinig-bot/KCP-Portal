@@ -10,6 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { PROPERTY_DEFS, BANK_ACCOUNTS } from "../../lib/properties/data";
 import { PROPERTY_OWNERSHIP, ownerNamesForProperty, soleOwnerName } from "../../lib/properties/ownership";
 import { useUser } from "./UserProvider";
+import { isPathAllowed } from "@/lib/users";
 import { TAX_TASKS, PARCEL_INFO, filingLabel, baseEntityName } from "../tracker/tax-data";
 import { STAFF } from "@/lib/maintenance/staff";
 import {
@@ -136,7 +137,7 @@ const PAGES: PageEntry[] = [
   { label: "Security Deposits", href: "/deposits", navKey: "deposits",
     description: "Per-tenant security deposit ledger",
     keywords: ["deposit", "security deposit", "sd", "tenant deposits"] },
-  { label: "Task Tracker", href: "/tracker", navKey: "tracker",
+  { label: "Task Tracker", href: "/tracker", navKey: "task-tracker",
     description: "Weekly / monthly task checklist",
     keywords: ["tasks", "todo", "checklist", "weekly", "monthly"] },
   { label: "Filing Tracker", href: "/tracker/taxes", navKey: "tracker",
@@ -154,7 +155,7 @@ const PAGES: PageEntry[] = [
   { label: "Balance Sheet", href: "/financials/balance-sheet", navKey: "financials-statements",
     description: "Statement of financial position by partnership — assets, liabilities and partners' capital, from the GL",
     keywords: ["balance sheet", "statement of financial position", "assets", "liabilities", "partners capital", "equity", "borrower certification", "lender", "net book value", "accumulated depreciation"] },
-  { label: "Operating Statements", href: "/financials/operating-statements", navKey: "financials-budgets",
+  { label: "Operating Statements", href: "/financials/operating-statements", navKey: "financials-statements",
     description: "Monthly actuals vs budget — comparative income statement by property",
     keywords: ["operating statement", "income statement", "actuals", "variance", "p&l", "profit and loss", "comparative income", "gl", "general ledger", "financials"] },
   { label: "Payroll Invoicer", href: "/", navKey: "payroll-invoicer",
@@ -817,8 +818,11 @@ export default function GlobalSearch() {
     }
 
     out.sort((a, b) => b.score - a.score);
-    return out;
-  }, [query, tenants, maintRequests, reservations, budgetKpis, user.navKeys]);
+    // Every hit must lead somewhere this person can open — owner, tax filing,
+    // maintenance and reservation hits, and the budget answer, linked to pages
+    // half the profiles lack, so a click bounced back to the dashboard.
+    return out.filter((h) => !h.href || !h.href.startsWith("/") || isPathAllowed(user.id, h.href.split(/[?#]/)[0] || "/"));
+  }, [query, tenants, maintRequests, reservations, budgetKpis, user.navKeys, user.id]);
 
   // Group results into sections, limiting each group to 6 with "+N more".
   const grouped = useMemo(() => {

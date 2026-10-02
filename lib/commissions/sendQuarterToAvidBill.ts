@@ -89,8 +89,10 @@ export async function sendQuarterToAvidBill(opts: {
   dryRun?: boolean;
   /** Send a quarter that went out the OLD way (every PDF on one email). */
   force?: boolean;
+  /** Who released it, for the AP Outbox — "Automatic" from the daily cron. */
+  by?: string | null;
 }): Promise<SendResult> {
-  const { quarterLabel, dryRun = false, force = false } = opts;
+  const { quarterLabel, dryRun = false, force = false, by = null } = opts;
   const parsed = parseQuarterLabel(quarterLabel);
   if (!parsed) {
     return { ok: false, quarterLabel, count: 0, total: 0, reason: "Unparseable quarter" };
@@ -155,6 +157,7 @@ export async function sendQuarterToAvidBill(opts: {
   const byProperty = [...byBuilding].map(([code, amount]) => ({ code, name: "Leasing Commissions", amount }));
 
   const res = await deliverInvoicesToAvid({
+    by,
     source: "commissions",
     label: "Leasing Commissions",
     period: code,

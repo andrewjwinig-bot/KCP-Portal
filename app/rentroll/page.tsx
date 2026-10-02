@@ -7,6 +7,8 @@ import { PROPERTY_DEFS } from "../../lib/properties/data";
 import type { RentRollData, RentRollUnit, RentRollProperty } from "../../lib/rentroll/parseRentRollExcel";
 import { amenityFor } from "../../lib/rentroll/amenities";
 import { useUser } from "../components/UserProvider";
+import AllowedLink from "../components/AllowedLink";
+import { isPathAllowed } from "@/lib/users";
 import { LastImported } from "../components/LastImported";
 import { blobSrc } from "../../lib/blobProxy";
 import { normName } from "../../lib/centers/registry";
@@ -141,7 +143,7 @@ function ChangeColumn({ title, tone, rows, actions, leftBorder }: {
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
             {actions.map((a) => (
-              <Link key={a.href + a.label} href={a.href} style={{ fontWeight: 700, fontSize: 12.5, color: "#0b4a7d", textDecoration: "none" }}>{a.label} →</Link>
+              <AllowedLink key={a.href + a.label} href={a.href} style={{ fontWeight: 700, fontSize: 12.5, color: "#0b4a7d", textDecoration: "none" }}>{a.label} →</AllowedLink>
             ))}
           </div>
         </>
@@ -1882,7 +1884,7 @@ export default function RentRollPage() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
               <ChangeColumn
                 title="New tenants" tone="#15803d" rows={uploadChanges.newTenants}
-                actions={[{ label: "Log commissions", href: "/commissions" }, { label: "Log security deposits", href: "/deposits" }]}
+                actions={[{ label: "Log commissions", href: isPathAllowed(user.id, "/commissions") ? "/commissions" : "/commissions/retail" }, { label: "Log security deposits", href: "/deposits" }]}
               />
               <ChangeColumn
                 title="Vacated" tone="#b45309" rows={uploadChanges.vacated} leftBorder

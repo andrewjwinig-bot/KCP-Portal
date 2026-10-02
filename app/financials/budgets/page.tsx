@@ -3,6 +3,7 @@
 import LoadingState from "@/app/components/LoadingState";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUser } from "@/app/components/UserProvider";
+import { isPathAllowed } from "@/lib/users";
 import { Pill, StatPill, TONE_AMBER, TONE_GREEN, type PillTone } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
 import type { BudgetWorkbook, OccupancyDetailRow } from "@/lib/financials/budgets/types";
@@ -565,6 +566,7 @@ function BudgetTable({
    *  as `lastEditedBy`. */
   editor: string;
 }) {
+  const { user } = useUser();
   // Reforecast toggle — flips wb.reforecasting on the server. While
   // on, monthly cells + notes become editable + autosave per blur.
   const [togglingReforecast, setTogglingReforecast] = useState(false);
@@ -876,14 +878,14 @@ function BudgetTable({
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {property.propertyCode !== "CONSOLIDATED" && (
               <>
-                <a className="btn" href={`/financials/operating-statements?property=${encodeURIComponent(property.propertyCode)}&year=${workbook.year}`}
+                {isPathAllowed(user.id, "/financials/operating-statements") && <a className="btn" href={`/financials/operating-statements?property=${encodeURIComponent(property.propertyCode)}&year=${workbook.year}`}
                   title={`Open ${property.propertyCode}'s operating statement`} style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}>
                   Statements
-                </a>
-                <a className="btn" href={`/financials/reprojections?property=${encodeURIComponent(property.propertyCode)}&year=${workbook.year}`}
+                </a>}
+                {isPathAllowed(user.id, "/financials/reprojections") && <a className="btn" href={`/financials/reprojections?property=${encodeURIComponent(property.propertyCode)}&year=${workbook.year}`}
                   title={`Open ${property.propertyCode}'s full-year reprojection`} style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}>
                   Reprojection
-                </a>
+                </a>}
               </>
             )}
             <ButtonMenu

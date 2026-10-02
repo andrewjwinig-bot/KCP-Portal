@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { priorQuarterLabel, sendQuarterToAvidBill } from "@/lib/commissions/sendQuarterToAvidBill";
 import { sendQuarterMemoToKorman } from "@/lib/commissions/sendQuarterMemo";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
-import { authorizeRequest, type UserId } from "@/lib/users";
+import { authorizeRequest, USERS, type UserId } from "@/lib/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,13 +61,21 @@ async function authorized(req: Request): Promise<boolean> {
   return false;
 }
 
+async function senderLabel(req: Request): Promise<string | null> {
+  const siteSecret = process.env.SITE_AUTH_SECRET;
+  const match = (req.headers.get("cookie") ?? "").split(/;\s*/).find((c) => c.startsWith(`${SITE_COOKIE}=`));
+  if (!siteSecret || !match) return null;
+  const id = await verifySiteToken(decodeURIComponent(match.slice(SITE_COOKIE.length + 1)), siteSecret);
+  return id ? (USERS as Record<string, { label?: string }>)[id]?.label ?? id : null;
+}
+
 export async function GET(req: Request) {
   if (!(await authorized(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const quarterLabel = priorQuarterLabel();
   // Both quarter-end sends: per-commission invoices → AvidBill, and the memo
   // top-sheet + GL import files → the office (mjaster@). The memo send is
   // best-effort so an AvidBill success is still reported if it fails.
-  const avidBill = await sendQuarterToAvidBill({ quarterLabel });
+  const avidBill = await sendQuarterToAvidBill({ quarterLabel, by: "Automatic" });
   const kormanMemo = await sendQuarterMemoToKorman({ quarterLabel }).catch((e) => ({ ok: false, quarterLabel, funds: [], attachments: 0, reason: e instanceof Error ? e.message : "error" }));
   return NextResponse.json({ avidBill, kormanMemo });
 }
@@ -77,7 +85,7 @@ export async function POST(req: Request) {
   let body: { quarterLabel?: string; dryRun?: boolean; force?: boolean } = {};
   try { body = await req.json(); } catch { /* empty body ok */ }
   const quarterLabel = body.quarterLabel ?? priorQuarterLabel();
-  const avidBill = await sendQuarterToAvidBill({ quarterLabel, dryRun: !!body.dryRun, force: !!body.force });
+  const avidBill = await sendQuarterToAvidBill({ quarterLabel, dryRun: !!body.dryRun, force: !!body.force, by: await senderLabel(req) });
   const kormanMemo = await sendQuarterMemoToKorman({ quarterLabel, dryRun: !!body.dryRun, force: !!body.force })
     .catch((e) => ({ ok: false, quarterLabel, funds: [], attachments: 0, reason: e instanceof Error ? e.message : "error" }));
   return NextResponse.json({ avidBill, kormanMemo });

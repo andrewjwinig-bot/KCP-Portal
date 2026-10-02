@@ -13,6 +13,7 @@ import { companiesForProperty } from "@/lib/tenants/companies";
 import { bestTenantMatch } from "@/lib/tenants/match";
 import { sendMail, NEW_REQUEST_NOTIFY } from "@/lib/mail";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { portalOrigin } from "@/lib/linkOrigin";
 
 // Public submission endpoint. Same honeypot + rate-limit + middleware
 // exemption pattern as /api/maintenance/submit.
@@ -244,7 +245,7 @@ function teamNotificationBody(r: Reservation): string {
     `Reference:   ${r.id}`,
     "",
     "Status: PENDING approval. Open the reservation in the portal:",
-    "https://kcp-portal.vercel.app/reservations",
+    `${portalOrigin()}/reservations`,
   ].filter((l) => l !== null).join("\n");
 }
 

@@ -19,6 +19,7 @@ import { summarize } from "@/lib/maintenance/summarize";
 import { companiesForProperty } from "@/lib/tenants/companies";
 import { bestTenantMatch } from "@/lib/tenants/match";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { portalOrigin } from "@/lib/linkOrigin";
 
 // Public tenant submission endpoint — no site auth. Middleware exempts
 // this path. Protected by:
@@ -365,6 +366,6 @@ function teamNotificationBody(args: {
   if (args.photoUrls.length) {
     lines.push("", `Photos (${args.photoUrls.length}):`, ...args.photoUrls.map((u) => `  ${u}`));
   }
-  lines.push("", "Open the request in the portal: https://kcp-portal.vercel.app/maintenance");
+  lines.push("", `Open the request in the portal: ${portalOrigin()}/maintenance`);
   return lines.join("\n");
 }
