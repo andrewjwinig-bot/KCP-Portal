@@ -11,6 +11,23 @@ Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the bill
 - Supporting **xlsx workbooks** (allocation summary, GL Journal Entry, TOP SHEET) are internal references for the cc'd controller/Drew only — they are NOT the Avid invoice. They ride only on the team summary email, never as the thing Avid processes.
 - Current invoice PDF builders: `lib/allocated-invoicer/invoice.ts` (`buildAllocInvoicePdf`), `lib/expenses/invoice.ts` (`buildInvoicePdf`), `lib/pdf/renderInvoicePdf.ts` (payroll), `lib/pdf/renderCommissionInvoicePdf.ts`. These should share one consistent look; if they drift, reconcile them rather than adding a fourth style.
 
+# Whose job is it — Drew's vs Harry's tasks and imports
+
+**The credit-card statement, the payroll report and the commissions are
+HARRY'S** (owner: "files for HARRY to import not DREW"; "harry doesnt need to
+see DRews tasks anymore just his own"). `owner` on a task (`taskDefs.ts`,
+`ownerOf`, default Drew) and on an import reminder (`imports.ts`) decides
+whose it is: Allocate CC Charges and BP Commissions are Harry's tasks; the
+Credit Card Statement and the biweekly **Payroll Report** (ticked when a pay
+period is saved — `recordImport("imp-payroll")` in `/api/periods`) are his
+imports. Each person's dashboard (Tasks This Week, the daily digest, Data
+Imports, the saved-status card) and the Task Tracker's default view show ONLY
+their own — Drew / Harry / Marie / All on the tracker. Drew keeps SEEING what
+went out: the **AP Outbox** card lists every Credit Card, Payroll, Allocated
+and Commissions batch sent to AvidXchange ("visible so i can see if they went
+out … just not on Drew to be the one to do it"). Drew's saved-status card is
+Allocated Expenses only; Harry's is Payroll + Credit Card.
+
 # Known data gaps / accepted exceptions (do NOT re-flag as bugs)
 
 - **Payroll allocation — Harry Feldman sums to ~94.86%, not 100%.** This is intentional and accepted, NOT a keying error. His allocation workbook row (`data/allocation.xlsx`) is: ~85% across the shopping centers, 5% Interstate/Bellmawr (`0800`), 5% Eastwick (the `Eastwick` column → "Eastwick JV"), and **5% Middletown**. Middletown is a land parcel Korman owns but the portal does NOT track (no property code, no allocation column), so that ~5.14% has nowhere to land and his tracked total reads 94.86%. The dashboard allocation-gap warning will keep flagging him — that's expected. Leave it as-is unless the user decides to add Middletown as a tracked land property (they'd supply its GL code, and Nancy would add a `Middletown` column with the 5% to the workbook).

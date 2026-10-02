@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { HoverCard } from "@/app/components/HoverCard";
+import type { TaskOwner } from "@/lib/tracker/taskDefs";
 import { IMPORT_REMINDERS, sortByUrgency, reminderStatus, reminderPeriodLabel, type ImportCoverage, type ImportEvent, type ReminderStatus } from "@/lib/tracker/imports";
 
 function fmtDate(iso?: string): string {
@@ -21,7 +22,10 @@ function fmtDate(iso?: string): string {
     : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export default function ImportsToDoCard() {
+/** `owner` narrows the list to that person's imports (Drew's or Harry's);
+ *  with none (admin) it shows every one. */
+export default function ImportsToDoCard({ owner }: { owner?: TaskOwner } = {}) {
+  const reminders = owner ? IMPORT_REMINDERS.filter((r) => (r.owner ?? "drew") === owner) : IMPORT_REMINDERS;
   const [events, setEvents] = useState<Record<string, ImportEvent> | null>(null);
   // How much of a multi-file import actually landed. The GL is thirteen files,
   // so a timestamp cannot say whether the MONTH is in — this can.
@@ -44,7 +48,7 @@ export default function ImportsToDoCard() {
             of these", and recency is the opposite of that signal: newest-first
             puts what you just did at the top and buries what you forgot at the
             bottom. */}
-        {sortByUrgency(IMPORT_REMINDERS, (r) => events?.[r.id]?.at, new Date(), (r) => coverage[r.id]).map((r) => {
+        {sortByUrgency(reminders, (r) => events?.[r.id]?.at, new Date(), (r) => coverage[r.id]).map((r) => {
           const ev = events?.[r.id];
           const cov = coverage[r.id];
           const status = reminderStatus(r, ev?.at, new Date(), cov);

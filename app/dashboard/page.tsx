@@ -1069,11 +1069,14 @@ function DashboardInner() {
             the quarter's invoices go to AvidXchange on their own each morning
             (sendQuarterToAvidBill), so there is nothing here for him to do. */}
 
-        {/* ── Drew's task tracker (Harry can view it too) + Drew's payroll & CC saved-status ── */}
-        {(user.id === "drew" || user.id === "harry") && <DrewTasksThisWeek />}
-        {(user.id === "drew" || user.id === "harry") && <DailyDigestModal userId={user.id} />}
-        {user.id === "drew" && <DrewSavedStatus />}
-        {(user.id === "drew" || user.id === "harry" || isAdmin) && <ImportsToDoCard />}
+        {/* ── Each person's own tasks, saved-status and imports ── */}
+        {/* Each sees their OWN tasks (owner: Harry doesn't need Drew's) — the
+            credit-card statement, payroll and the commissions are Harry's. */}
+        {(user.id === "drew" || user.id === "harry") && <DrewTasksThisWeek owner={user.id === "harry" ? "harry" : "drew"} />}
+        {(user.id === "drew" || user.id === "harry") && <DailyDigestModal userId={user.id} owner={user.id === "harry" ? "harry" : "drew"} />}
+        {user.id === "drew" && <DrewSavedStatus rows={["alloc"]} />}
+        {user.id === "harry" && <DrewSavedStatus rows={["payroll", "cc"]} />}
+        {(user.id === "drew" || user.id === "harry" || isAdmin) && <ImportsToDoCard owner={user.id === "harry" ? "harry" : user.id === "drew" ? "drew" : undefined} />}
         {(user.id === "drew" || user.id === "harry" || isAdmin) && <NotPostedCard order={-1} />}
         {(user.id === "drew" || user.id === "harry" || user.id === "marie" || isAdmin) && <ApOutboxCard order={-1} />}
         {(user.id === "drew" || user.id === "harry" || user.id === "nancy" || user.id === "marie" || isAdmin) && <MoveOutsCard order={-1} />}

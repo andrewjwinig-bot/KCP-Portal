@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence } from "../../lib/tracker/taskDefs";
+import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence, type TaskOwner } from "../../lib/tracker/taskDefs";
 import { importsForWeek, reminderOutstanding, type ImportReminder, type ImportEvent, type ImportCoverage } from "../../lib/tracker/imports";
 
 // Same per-month localStorage bucket the Tracker + Tasks-This-Week card use,
@@ -78,7 +78,7 @@ function CaughtUp() {
  * import, so Drew can't miss them. Shows once per calendar day per user
  * (tracked in localStorage); dismiss with "Got it" or the backdrop.
  */
-export default function DailyDigestModal({ userId }: { userId: string }) {
+export default function DailyDigestModal({ userId, owner = "drew" }: { userId: string; owner?: TaskOwner }) {
   const seenKey = `daily-digest-seen-${userId}`;
 
   const { occ, imports } = useMemo<{ occ: TaskOccurrence[]; imports: ImportReminder[] }>(() => {
@@ -86,8 +86,12 @@ export default function DailyDigestModal({ userId }: { userId: string }) {
     const sinceMon = (now.getDay() + 6) % 7; // 0=Sun → week starts Monday
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - sinceMon);
     const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59);
-    return { occ: taskOccurrencesBetween(start, end), imports: importsForWeek(start, end) };
-  }, []);
+    // Only this person's tasks and imports — Harry no longer sees Drew's (owner).
+    return {
+      occ: taskOccurrencesBetween(start, end).filter((o) => o.owner === owner),
+      imports: importsForWeek(start, end).filter((r) => (r.owner ?? "drew") === owner),
+    };
+  }, [owner]);
 
   const [open, setOpen] = useState(false);
   const [checked, setChecked] = useState<Record<string, Record<string, boolean>>>({});

@@ -19,17 +19,22 @@ import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
 import { bankRecKey, bankRecPeriod } from "../../lib/bank-rec/util";
 import {
   MONTHS, WEEKDAYS, CATEGORIES, TASK_DEFS,
-  tasksForMonth, effDay, daysInMonth, firstDOW, dueName,
+  tasksForMonth, effDay, daysInMonth, firstDOW, dueName, ownerOf,
   type Category, type TaskDef, type TaskInstructions,
 } from "../../lib/tracker/taskDefs";
 
-type OwnerFilter = "drew" | "marie" | "both";
+type OwnerFilter = "drew" | "harry" | "marie" | "both";
 
+// Each person opens on their OWN list (owner: Harry doesn't need Drew's). The
+// credit-card statement, payroll and commissions are Harry's (`owner` on the
+// task); "All" is everyone's.
 const OWNER_FILTERS: { id: OwnerFilter; label: string }[] = [
   { id: "drew",   label: "Drew" },
+  { id: "harry",  label: "Harry" },
   { id: "marie", label: "Marie" },
-  { id: "both",   label: "Both" },
+  { id: "both",   label: "All" },
 ];
+const defaultOwner = (id: string): OwnerFilter => (id === "marie" ? "marie" : id === "harry" ? "harry" : "drew");
 
 // ─── CONSTANTS ──────────────────────────────────────────────────────────────
 
@@ -100,11 +105,9 @@ export default function TrackerPage() {
   const [detailTask, setDetailTask] = useState<{ id?: string; label: string; instructions?: TaskInstructions } | null>(null);
 
   // ── Owner filter: Drew (default for admin/maint), Marie (default for marie), Both ──
-  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>(
-    user.id === "marie" ? "marie" : "drew",
-  );
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>(defaultOwner(user.id));
   useEffect(() => {
-    setOwnerFilter(user.id === "marie" ? "marie" : "drew");
+    setOwnerFilter(defaultOwner(user.id));
   }, [user.id]);
 
   // ── Marie task state (period-bucketed, synced to /api/marie-tasks) ──
@@ -116,7 +119,9 @@ export default function TrackerPage() {
   );
 
   // Only fetch Marie's task state when the view actually needs it
-  const showMarie = ownerFilter !== "drew";
+  const showMarie = ownerFilter === "marie" || ownerFilter === "both";
+  // Drew's own sections (pinned reminders, tax filings) — not on Harry's view.
+  const showDrewOnly = ownerFilter === "drew" || ownerFilter === "both";
   useEffect(() => {
     if (!showMarie) return;
     setMarieLoading(true);
@@ -196,7 +201,9 @@ export default function TrackerPage() {
     return { total: tasks.length, done };
   }
 
-  const tasks = useMemo(() => tasksForMonth(viewYear, viewMonth), [viewYear, viewMonth]);
+  const tasks = useMemo(() => tasksForMonth(viewYear, viewMonth)
+    .filter((t) => ownerFilter === "both" || ownerFilter === "marie" || ownerOf(t) === ownerFilter),
+    [viewYear, viewMonth, ownerFilter]);
 
   const toggle = useCallback((id: string) => {
     setChecked(prev => {
@@ -215,15 +222,15 @@ export default function TrackerPage() {
   }, [viewYear]);
 
   // Tax tasks due in this month
-  const taxTasksThisMonth = useMemo(() =>
+  const taxTasksThisMonth = useMemo(() => !showDrewOnly ? [] :
     TAX_TASKS
       .filter(t => t.dueMonth === viewMonth + 1)
       .sort((a, b) => a.dueDay - b.dueDay),
-    [viewMonth]
+    [viewMonth, showDrewOnly]
   );
 
   // Pinned tasks are always shown at top, never on the calendar
-  const pinnedTasks = useMemo(() => TASK_DEFS.filter(t => t.pinned), []);
+  const pinnedTasks = useMemo(() => showDrewOnly ? TASK_DEFS.filter(t => t.pinned && ownerOf(t) === "drew") : [], [showDrewOnly]);
 
   // Tasks grouped by their effective calendar day (for dots) — excludes pinned
   const dayMap = useMemo(() => {

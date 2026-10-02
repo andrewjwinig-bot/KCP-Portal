@@ -116,7 +116,14 @@ export interface TaskDef {
   pillOverride?: string;        // custom pill label instead of category default
   link?: string;
   instructions?: TaskInstructions;
+  /** Whose task it is — Drew's unless said otherwise. Harry processes the
+   *  credit-card statement, payroll and the commissions (owner), so those are
+   *  his: his dashboard and tracker show only his, Drew's only Drew's. */
+  owner?: TaskOwner;
 }
+
+export type TaskOwner = "drew" | "harry";
+export const ownerOf = (t: { owner?: TaskOwner }): TaskOwner => t.owner ?? "drew";
 
 export const TASK_DEFS: TaskDef[] = [
 
@@ -524,6 +531,7 @@ export const TASK_DEFS: TaskDef[] = [
     id: "m-alloc-cc",
     label: "Allocate CC Charges",
     category: "routine",
+    owner: "harry",
     dueDay: 20,
     approxDay: true,
     notes: "Same time as monthly close",
@@ -597,6 +605,7 @@ export const TASK_DEFS: TaskDef[] = [
     id: "q-bp",
     label: "BP Commissions",
     category: "quarterly",
+    owner: "harry",
     dueDay: 31,
     endOfMonth: true,
     months: [1, 4, 7, 10],
@@ -889,6 +898,7 @@ export type TaskOccurrence = {
   category: Category;
   date: Date;
   link?: string;
+  owner: TaskOwner;
 };
 
 /** Concrete (non-pinned) task occurrences whose due date falls in [start, end]. */
@@ -905,7 +915,7 @@ export function taskOccurrencesBetween(start: Date, end: Date): TaskOccurrence[]
       if (!day || day < 1) continue;
       const d = new Date(y, m, day);
       if (d >= start && d <= end) {
-        out.push({ id: t.id, label: t.label, category: t.category, date: d, link: t.link });
+        out.push({ id: t.id, label: t.label, category: t.category, date: d, link: t.link, owner: ownerOf(t) });
       }
     }
     cursor.setMonth(cursor.getMonth() + 1);

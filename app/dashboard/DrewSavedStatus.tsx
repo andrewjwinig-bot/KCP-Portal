@@ -42,9 +42,19 @@ function processed(at?: string, by?: string | null): string {
 }
 type AllocRun = { periodText: string; periodEndDate: string; statementMonth: string; ranAt: string; ranBy?: string };
 
-/** Drew's at-a-glance status: the most recent Payroll, CC Expenses, and
- *  Allocated Expenses run. */
-export default function DrewSavedStatus() {
+type RowKey = "payroll" | "cc" | "alloc";
+const TITLE: Record<string, string> = {
+  "payroll,cc": "Payroll & Credit Card",
+  alloc: "Allocated Expenses",
+  "payroll,cc,alloc": "Payroll, CC & Allocated Expenses",
+};
+
+/** At-a-glance status: the most recent Payroll, CC Expenses and Allocated
+ *  Expenses run — each person sees THEIR rows (owner: the payroll report and
+ *  the credit-card statement are Harry's to import, so they sit on his
+ *  dashboard, not Drew's). */
+export default function DrewSavedStatus({ rows = ["payroll", "cc", "alloc"] }: { rows?: RowKey[] }) {
+  const has = (k: RowKey) => rows.includes(k);
   const [periods, setPeriods] = useState<Period[] | null>(null);
   const [statements, setStatements] = useState<Statement[] | null>(null);
   const [runs, setRuns] = useState<AllocRun[] | null>(null);
@@ -52,19 +62,20 @@ export default function DrewSavedStatus() {
   useEffect(() => {
     // no-store so the browser/edge never serves a stale "most recent" snapshot.
     const opts = { cache: "no-store" as const };
-    fetch("/api/periods", opts)
+    if (has("payroll")) fetch("/api/periods", opts)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setPeriods(j?.periods ?? []))
       .catch(() => setPeriods([]));
-    fetch("/api/statements", opts)
+    if (has("cc")) fetch("/api/statements", opts)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setStatements(Array.isArray(j) ? j : []))
       .catch(() => setStatements([]));
-    fetch("/api/allocation/last-run", opts)
+    if (has("alloc")) fetch("/api/allocation/last-run", opts)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => setRuns(j?.runs ?? []))
       .catch(() => setRuns([]));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.join(",")]);
 
   const payroll = periods?.[0] ?? null;
   const cc = statements?.[0] ?? null;
@@ -73,33 +84,33 @@ export default function DrewSavedStatus() {
   return (
     <div className="card" style={{ order: -1 }}>
       <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 12 }}>
-        Payroll, CC &amp; Allocated Expenses
+        {TITLE[rows.join(",")] ?? "Payroll, CC & Allocated Expenses"}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <Row
+        {has("payroll") && <Row
           title="Payroll"
-          href="/payroll"
+          href="/"
           loading={periods == null}
           saved={!!payroll}
           period={periodPill(payroll?.name)}
           line={payroll ? processed(payroll.savedAt, payroll.savedBy) : "Nothing saved yet"}
-        />
-        <Row
+        />}
+        {has("cc") && <Row
           title="Credit Card Expenses"
           href="/expenses"
           loading={statements == null}
           saved={!!cc}
           period={periodPill(cc?.periodText || cc?.statementMonth)}
           line={cc ? processed(cc.savedAt, cc.savedBy) : "Nothing saved yet"}
-        />
-        <Row
+        />}
+        {has("alloc") && <Row
           title="Allocated Expenses"
           href="/allocated-invoicer"
           loading={runs == null}
           saved={!!alloc}
           period={periodPill(alloc?.statementMonth || alloc?.periodText)}
           line={alloc ? processed(alloc.ranAt, alloc.ranBy) : "Nothing run yet"}
-        />
+        />}
       </div>
     </div>
   );
