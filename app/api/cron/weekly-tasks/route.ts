@@ -106,7 +106,9 @@ function buildDigest(
   lines.push("");
 
   // ── Files to import (with what's already been imported this period) ──────
-  const imports = importsForWeek(start, end);
+  // Drew's digest: his imports only — the CC statement and payroll report are
+  // Harry's (owner), the same split as the dashboard.
+  const imports = importsForWeek(start, end).filter((r) => (r.owner ?? "drew") === "drew");
   // Not-yet-due is not outstanding: the AP report covers bills paid on
   // Wednesday, so it cannot be missing on a Monday.
   const outstandingImports = imports.filter((r) => reminderOutstanding(r, importEvents[r.id]?.at, now));
@@ -177,7 +179,7 @@ function buildDigest(
 async function runDigest(req: Request) {
   const now = new Date();
   const { start, end } = weekBounds(now);
-  const tasks = taskOccurrencesBetween(start, end);
+  const tasks = taskOccurrencesBetween(start, end).filter((t) => t.owner === "drew");
 
   let completions: Record<string, unknown> = {};
   try { completions = await getCompletions(); } catch { /* best-effort */ }

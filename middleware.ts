@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { HISTORY_COOKIE, verifyHistoryToken } from "./lib/history-auth";
 import { SITE_COOKIE, verifySiteTokenFull } from "./lib/site-auth";
-import { ALL_USERS, authorizeRequest, type UserId } from "./lib/users";
+import { ALL_USERS, authorizeRequest, isPathAllowed, type UserId } from "./lib/users";
 
 // Two layers:
 //  - Site auth (SITE_PASSWORD / SITE_AUTH_SECRET): gates every page + API
@@ -12,9 +12,14 @@ import { ALL_USERS, authorizeRequest, type UserId } from "./lib/users";
 // If the SITE env vars aren't set, site auth is treated as not configured and
 // pages stay open (useful for local dev without a password).
 export const config = {
-  // Catch everything except static asset routes and the two login endpoints.
+  // Catch everything except static asset routes and the public endpoints.
+  // EVERY public entry ends at a path boundary ("statement/", "api/tenants/
+  // lookup") — the list is matched by PREFIX, and "api/statement" once also
+  // matched /api/statements (the credit-card statements) and "api/tenants" the
+  // internal /api/tenants/past archive, so both answered with no login.
+  // Pinned by middleware.test.ts.
   matcher: [
-    "/((?!_next/static|_next/image|_next/data|favicon.ico|images|login|submit|service|reserve|centers|statement|portal|investor/|budget-review/|api/budget-review/|api/statement|api/portal|api/investor/|api/site/login|api/site/logout|api/maintenance/inbound|api/maintenance/submit|api/tenants|api/reservations/submit|api/reservations/tenants|api/leasing-inquiry|api/center-image|api/commissions/avidbill-quarter|api/cron/weekly-tasks|api/cron/moveout-closeouts|api/cron/allocated-send).*)",
+    "/((?!_next/static|_next/image|_next/data|favicon.ico|images|login|submit|service|reserve|centers|statement/|portal/|investor/|budget-review/|api/budget-review/|api/statement/|api/portal/|api/investor/|api/site/login|api/site/logout|api/maintenance/inbound|api/maintenance/submit|api/tenants/lookup|api/tenants/companies|api/reservations/submit|api/reservations/tenants|api/leasing-inquiry|api/center-image|api/commissions/avidbill-quarter|api/cron/weekly-tasks|api/cron/moveout-closeouts|api/cron/allocated-send).*)",
   ],
 };
 
@@ -39,6 +44,7 @@ function isAdminPath(pathname: string): boolean {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  let signedInUser: string | null = null;
 
   // ── Site-wide auth ──────────────────────────────────────────────────
   const sitePassword = process.env.SITE_PASSWORD;
@@ -65,6 +71,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(url);
     }
     const siteUser = full.userId;
+    signedInUser = siteUser;
 
     // ── Forced 2FA enrollment ─────────────────────────────────────────
     // An enroll-pending session may only reach the 2FA setup page + its APIs
@@ -103,6 +110,15 @@ export async function middleware(req: NextRequest) {
     // Always allow the admin login screen + its API; site auth above already
     // gated whether you can reach them.
     if (pathname === "/history/login" || pathname.startsWith("/api/history/")) {
+      return NextResponse.next();
+    }
+    // The pay-period COLLECTION (save one, list their names and totals) belongs
+    // to whoever runs the Payroll Invoicer ("/") — Harry. It sat behind the
+    // admin password, so his Save failed, the dashboard's Payroll row read
+    // "Nothing saved yet" and the Payroll Report import never ticked. A saved
+    // period's full detail (/api/periods/<id>) stays admin-only.
+    if (pathname === "/api/periods" && signedInUser && (ALL_USERS as readonly string[]).includes(signedInUser)
+      && isPathAllowed(signedInUser as UserId, "/")) {
       return NextResponse.next();
     }
     const adminSecret = process.env.HISTORY_AUTH_SECRET;

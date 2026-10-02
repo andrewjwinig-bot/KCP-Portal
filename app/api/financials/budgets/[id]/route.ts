@@ -94,6 +94,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       wb.statusAt = new Date().toISOString();
       await saveBudget(wb);
     }
+    // Saved whole; returned with payroll stripped, exactly as the GET is —
+    // otherwise toggling draft/final handed the book's salary totals to anyone.
+    if (!canSeePayroll(await budgetUser())) stripPayrollAllocations(wb);
     return NextResponse.json({ workbook: wb });
   } catch (e) {
     return NextResponse.json(
