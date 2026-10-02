@@ -24,7 +24,7 @@ import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { buildFullYearPayload, combineGls, type FullYearPayload } from "@/lib/financials/operating-statements/fullYear";
 import { logAudit, auditIp } from "@/lib/audit";
 import { savePendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
-import { prepareAllocation, prepareAllocationFromGl } from "@/lib/allocated-invoicer/autoProcess";
+import { prepareAllocation, prepareAllocationFromGl, autoSendAllocation } from "@/lib/allocated-invoicer/autoProcess";
 import { glFromPosting } from "@/lib/allocated-invoicer/postingIntake";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { expectedPostedThrough, outstandingGlUploads } from "@/lib/financials/operating-statements/outstanding";
@@ -33,6 +33,8 @@ import { recordImport } from "@/lib/tracker/importEvents";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+// A 2000 G&A import now also builds and emails the allocated invoices.
+export const maxDuration = 300;
 
 function propertyName(key: string, fallback: string): string {
   return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
@@ -564,10 +566,17 @@ export async function POST(req: Request) {
           uploadedBy: typeof uploadedByRaw === "string" ? uploadedByRaw : null,
         });
       } catch { /* best-effort — the statement upload still succeeds */ }
-      // Prepare the allocated invoices: allocate + carryover + per-building
-      // summary, then STAGE a pending send. Nothing is finalized or emailed —
-      // it waits on the invoicer page for Harry/Drew to review & send to Avid.
+      // Prepare the allocated invoices (allocate + carryover + per-building
+      // summary, staged), then SEND them to AvidXchange straight away — no
+      // review step (owner). `autoSendAllocation` holds a split that doesn't
+      // tie to the GL, and the daily cron retries a send that fails here.
       try { allocated = await prepareAllocation(buf, importedBy); } catch { /* best-effort */ }
+      if (allocated?.ok && allocated.staged && allocated.statementMonth) {
+        try {
+          const auto = await autoSendAllocation(allocated.statementMonth, importedBy);
+          allocated = { ...allocated, autoSent: auto.sent, autoHeld: auto.held };
+        } catch { /* best-effort — the cron retries */ }
+      }
     }
 
     // On-import "things to check": scan THIS property's just-imported latest

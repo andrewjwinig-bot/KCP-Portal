@@ -1074,7 +1074,9 @@ function DashboardInner() {
             credit-card statement, payroll and the commissions are Harry's. */}
         {(user.id === "drew" || user.id === "harry") && <DrewTasksThisWeek owner={user.id === "harry" ? "harry" : "drew"} />}
         {(user.id === "drew" || user.id === "harry") && <DailyDigestModal userId={user.id} owner={user.id === "harry" ? "harry" : "drew"} />}
-        {user.id === "drew" && <DrewSavedStatus rows={["alloc"]} />}
+        {/* No Allocated Expenses card for Drew (owner): the AP Outbox shows the
+            batch once it reaches AvidXchange, and flags it if it was generated
+            but never sent. */}
         {user.id === "harry" && <DrewSavedStatus rows={["payroll", "cc"]} />}
         {(user.id === "drew" || user.id === "harry" || isAdmin) && <ImportsToDoCard owner={user.id === "harry" ? "harry" : user.id === "drew" ? "drew" : undefined} />}
         {(user.id === "drew" || user.id === "harry" || isAdmin) && <NotPostedCard order={-1} />}

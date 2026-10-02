@@ -511,9 +511,9 @@ export default function OperatingStatementsPage() {
       },
       report: (rows) => {
         const ok = rows.filter((r) => r.status === "done");
-        const raws = ok.map((r) => r.raw as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean; years?: number[]; perYear?: { year: number; maxPeriodInFile: number }[]; notPosted?: { count: number } | null; allocated?: { ok: boolean; total?: number; byProperty?: unknown[]; staged?: boolean; invoiceCount?: number } | null });
+        const raws = ok.map((r) => r.raw as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean; years?: number[]; perYear?: { year: number; maxPeriodInFile: number }[]; notPosted?: { count: number } | null; allocated?: { ok: boolean; total?: number; byProperty?: unknown[]; staged?: boolean; invoiceCount?: number; autoSent?: boolean; autoHeld?: string } | null });
         const notPostedTotal = raws.reduce((a, r) => a + (r.notPosted?.count ?? 0), 0);
-        const alloc = raws.map((r) => r.allocated as ({ ok: boolean; total?: number; byProperty?: unknown[]; staged?: boolean; invoiceCount?: number } | null | undefined)).find((a) => a?.ok && (a.total ?? 0) > 0) ?? null;
+        const alloc = raws.map((r) => r.allocated as ({ ok: boolean; total?: number; byProperty?: unknown[]; staged?: boolean; invoiceCount?: number; autoSent?: boolean; autoHeld?: string } | null | undefined)).find((a) => a?.ok && (a.total ?? 0) > 0) ?? null;
         const entities = new Set(ok.map((r) => r.entity)).size;
         const accounts = ok.reduce((a, r) => a + (r.count ?? 0), 0);
         const years = [...new Set(raws.flatMap((r) => r.years ?? [r.year]).filter(Boolean))].sort((a, b) => a - b);
@@ -530,7 +530,10 @@ export default function OperatingStatementsPage() {
               ? [{ id: "notposted", title: `${notPostedTotal} line${notPostedTotal === 1 ? "" : "s"} not posted`, subtitle: "A budgeted or scheduled figure still reads $0 — post it or confirm it doesn't apply.", href: "/financials/operating-statements/review", cta: "Review →" }]
               : []),
             ...(alloc
-              ? [{ id: "alloc", title: `Allocated invoices prepared — $${Math.round(alloc.total ?? 0).toLocaleString("en-US")}`, subtitle: `${alloc.invoiceCount ?? 0} invoices across ${(alloc.byProperty?.length ?? 0)} properties, ready to review. Nothing sent yet — review & send to AvidXchange on the invoicer.`, href: "/allocated-invoicer", cta: "Review & Send →" }]
+              // Sent on its own (owner) — the card says so; a held one says why.
+              ? [alloc.autoSent
+                ? { id: "alloc", title: `Allocated invoices sent to AvidXchange — $${Math.round(alloc.total ?? 0).toLocaleString("en-US")}`, subtitle: `${alloc.invoiceCount ?? 0} invoices across ${(alloc.byProperty?.length ?? 0)} properties, one email each. Nothing else to do.`, href: "/allocated-invoicer", cta: "View →" }
+                : { id: "alloc", title: `Allocated invoices prepared — $${Math.round(alloc.total ?? 0).toLocaleString("en-US")}`, subtitle: `${alloc.invoiceCount ?? 0} invoices across ${(alloc.byProperty?.length ?? 0)} properties — not sent${alloc.autoHeld ? `: ${alloc.autoHeld}.` : ". Tomorrow morning's run retries the send."}`, href: "/allocated-invoicer", cta: "Review & Send →" }]
               : raws.some((r) => r.allocatedGlReady)
                 ? [{ id: "alloc", title: "Allocated Invoicer", subtitle: "Ready to bill properties for this period.", href: "/allocated-invoicer", cta: "Go to Invoicer →" }]
                 : []),
