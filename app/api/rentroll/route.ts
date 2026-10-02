@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sameTenant } from "@/lib/leasing/confirmedMoveouts";
 import { parseRentRollExcel, stripStoreNumber } from "@/lib/rentroll/parseRentRollExcel";
 import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
 import { composeCurrentRoll, mergeSameMonth } from "@/lib/rentroll/current";
@@ -182,7 +183,6 @@ export async function POST(req: NextRequest) {
     type ChangeRow = { propertyCode: string; unitRef: string; occupantName: string; sqft: number; leaseTo: string | null };
     const changes: { newTenants: ChangeRow[]; vacated: ChangeRow[] } = { newTenants: [], vacated: [] };
     try {
-      const norm = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
       // Restrict the diff to the properties actually in THIS import. A partial
       // import (e.g. office-only) must not report the omitted properties'
       // tenants (retail) as "vacated" just because they aren't in the file.
@@ -222,15 +222,30 @@ export async function POST(req: NextRequest) {
       }
 
       if (was.size > 0) {
+        // Judged within a PROPERTY and by `sameTenant`, the rule the move-out
+        // check uses: a tenant who moved suites, or whose name drifted
+        // ("Consultant"/"Consultants"), is neither vacated nor new — the exact
+        // compare offered them "Close out" and "Log commissions". A property
+        // the prior roll didn't carry says nothing either way.
+        const names = (m: Map<string, any>) => {
+          const by = new Map<string, string[]>();
+          for (const u of m.values()) {
+            const k = String(u.propertyCode ?? "").toUpperCase();
+            by.set(k, [...(by.get(k) ?? []), u.occupantName]);
+          }
+          return by;
+        };
+        const nowNames = names(now), wasNames = names(was);
         for (const [ref, u] of now) {
-          const b = was.get(ref);
-          if (!b || norm(b.occupantName) !== norm(u.occupantName)) {
+          const prior = wasNames.get(String(u.propertyCode ?? "").toUpperCase());
+          if (!prior) continue;
+          if (!prior.some((n) => sameTenant(n, u.occupantName))) {
             changes.newTenants.push({ propertyCode: u.propertyCode, unitRef: ref, occupantName: u.occupantName, sqft: u.sqft ?? 0, leaseTo: u.leaseTo ?? null });
           }
         }
         for (const [ref, u] of was) {
-          const a = now.get(ref);
-          if (!a || norm(a.occupantName) !== norm(u.occupantName)) {
+          const current = nowNames.get(String(u.propertyCode ?? "").toUpperCase()) ?? [];
+          if (!current.some((n) => sameTenant(n, u.occupantName))) {
             changes.vacated.push({ propertyCode: u.propertyCode, unitRef: ref, occupantName: u.occupantName, sqft: u.sqft ?? 0, leaseTo: u.leaseTo ?? null });
           }
         }

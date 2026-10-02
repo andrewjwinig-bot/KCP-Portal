@@ -7,6 +7,7 @@
 // move-out close-out.
 
 import "server-only";
+import { sameTenant } from "@/lib/leasing/confirmedMoveouts";
 import { listJSON } from "@/lib/storage";
 import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
@@ -80,13 +81,17 @@ async function snapshotsByMonth(): Promise<{ month: string; data: RentRollData }
     .sort((a, b) => a.month.localeCompare(b.month));
 }
 
-/** Current occupant (normalized) per unit — used to exclude the live tenant of
- *  each unit from the "past" set. */
-async function currentOccupantByUnit(): Promise<Map<string, string>> {
+/** Every current tenant's name, per PROPERTY — a tenancy is past only when
+ *  that tenant is on no suite of the property today. Per suite and per
+ *  spelling, a tenant who moved suites or whose name drifted
+ *  ("Consultant"/"Consultants") read as a former tenant (`sameTenant`, the
+ *  move-out rule). */
+async function currentTenantsByProperty(): Promise<Map<string, string[]>> {
   const current = await resolveCurrentRentroll();
-  const map = new Map<string, string>();
+  const map = new Map<string, string[]>();
   for (const p of current?.properties ?? []) {
-    for (const u of p.units) if (isRealTenant(u)) map.set(u.unitRef, normTenantName(u.occupantName));
+    const k = String(p.propertyCode ?? "").toUpperCase();
+    for (const u of p.units) if (isRealTenant(u)) map.set(k, [...(map.get(k) ?? []), u.occupantName]);
   }
   return map;
 }
@@ -101,7 +106,7 @@ type Acc = {
 /** Every PAST tenancy across the portfolio, newest departure first. */
 export async function listPastTenancies(): Promise<PastTenancy[]> {
   const snaps = await snapshotsByMonth();
-  const currentByUnit = await currentOccupantByUnit();
+  const currentByProperty = await currentTenantsByProperty();
   const acc = new Map<string, Acc>();
 
   for (const { month, data } of snaps) {
@@ -129,8 +134,8 @@ export async function listPastTenancies(): Promise<PastTenancy[]> {
 
   const out: PastTenancy[] = [];
   for (const [key, a] of acc) {
-    // Past = not the current occupant of that unit.
-    if (currentByUnit.get(a.unitRef) === normTenantName(a.name)) continue;
+    // Past = on no suite of this property today.
+    if ((currentByProperty.get(a.propertyCode.toUpperCase()) ?? []).some((n) => sameTenant(n, a.name))) continue;
     out.push({
       key, unitRef: a.unitRef, suite: a.suite, propertyCode: a.propertyCode, propertyName: propName(a.propertyCode),
       name: a.name, firstMonth: a.firstMonth, lastMonth: a.lastMonth, monthsOccupied: a.months.size,

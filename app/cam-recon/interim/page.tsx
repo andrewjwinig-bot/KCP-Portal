@@ -623,7 +623,12 @@ export default function InterimReconPage() {
   // the Skyline GL adjustment + final statement and emails the post-approval
   // package to the office. Matches the daily watcher's approval email link.
   const unpostedMonths = retail?.unpostedMonths ?? r?.unpostedMonths ?? 0;
-  const canFinalize = !!meta && !meta.manual && !!(r || retail) && unpostedMonths === 0;
+  // Finalizing is a CLOSE-OUT, so it needs a confirmed move-out: gone from the
+  // newest rent roll covering the property (the server checks it too). A
+  // tenant still on the roll — renewed, or holding over — gets an interim
+  // statement only.
+  const confirmedGone = !!meta && candidates.some((c) => c.kind === "vacated" && c.propertyCode === meta.property && c.unitRef === meta.unitRef);
+  const canFinalize = !!meta && !meta.manual && !!(r || retail) && unpostedMonths === 0 && confirmedGone;
   const [finalizing, setFinalizing] = useState(false);
   const [finalizeMsg, setFinalizeMsg] = useState<string | null>(null);
   useEffect(() => { setFinalizing(false); setFinalizeMsg(null); }, [meta?.unitRef, meta?.year, meta?.asOfMonth]);
@@ -655,6 +660,11 @@ export default function InterimReconPage() {
               style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
               {finalizing ? "Finalizing…" : finalizeDone ? "✓ Finalized" : "Approve & finalize"}
             </button>
+          )}
+          {!confirmedGone && !meta.manual && (
+            <span className="muted small" style={{ maxWidth: 260 }}>
+              Still on the rent roll — an interim statement only. It can be finalized once a rent roll no longer shows them.
+            </span>
           )}
         </div>
       </div>
@@ -703,18 +713,21 @@ export default function InterimReconPage() {
       {candidates.length > 0 && (
         <div className="card" style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600, flex: "1 1 460px" }}>
-            <span>Move-out candidate <span className="muted" style={{ fontWeight: 500 }}>· recently vacated &amp; expiring soon</span></span>
+            <span>Move-out candidate <span className="muted" style={{ fontWeight: 500 }}>· confirmed move-outs, then leases ending</span></span>
             <select
               value={candidates.some((c) => c.propertyCode === property && c.unitRef === unitRef) ? `${property}|${unitRef}` : ""}
               onChange={(e) => { const c = candidates.find((x) => `${x.propertyCode}|${x.unitRef}` === e.target.value); if (c) pickCandidate(c); }}
               className={SELECT_BRAND} style={{ width: "100%" }}
             >
-              <option value="">Select a recently vacated / expiring-soon tenant…</option>
+              <option value="">Select a move-out or a lease ending…</option>
               {candidates.map((c) => {
                 const past = c.days != null && c.days < 0;
-                const status = c.kind === "vacated" ? "Vacated"
-                  : past ? `Expired ${Math.abs(c.days!)}d ago`
-                  : c.days != null ? `Expires in ${c.days}d` : "Expiring";
+                // Only "Moved out" is a close-out. A lease past its date while
+                // the tenant is still on the rent roll is a renewal not yet
+                // keyed, or a holdover — never offered as a move-out.
+                const status = c.kind === "vacated" ? "Moved out (off the rent roll)"
+                  : past ? `Lease ended ${Math.abs(c.days!)}d ago · still on the rent roll`
+                  : c.days != null ? `Lease ends in ${c.days}d` : "Lease ending";
                 return (
                   <option key={`${c.propertyCode}|${c.unitRef}|${c.name}`} value={`${c.propertyCode}|${c.unitRef}`}>
                     {c.name} — {c.propertyCode} {c.unitRef} · {status}

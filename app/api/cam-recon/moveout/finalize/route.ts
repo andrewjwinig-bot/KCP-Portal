@@ -8,6 +8,7 @@ import { computeMoveoutStatement, moveoutBalance, moveoutOk } from "@/lib/cam/mo
 import { buildMoveoutPdf, buildMoveoutGlCsv, moveoutGlRows, moveoutEffectiveDate, moveoutFileBase } from "@/lib/cam/moveout/artifacts";
 import { tenantDepositSettlement } from "@/lib/cam/moveout/deposit";
 import { recordMoveoutSend } from "@/lib/cam/moveout/sendLog";
+import { moveoutCandidates } from "@/lib/cam/moveout/candidates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,6 +63,16 @@ export async function POST(req: Request) {
   const key = closeOutKey(property, unitRef, year);
   const already = await getCloseOut(key);
   if (already?.status === "approved") return NextResponse.json({ ok: true, alreadyApproved: true, entry: already });
+
+  // A close-out needs a CONFIRMED move-out — gone from the newest rent roll
+  // covering the property. Without this a renewed tenant (still on the roll,
+  // lease date passed) could be finalized from the interim page, mailing the
+  // approver a GL adjustment and a deposit release. Fails closed.
+  const cands = await moveoutCandidates().catch(() => null);
+  if (!cands) return NextResponse.json({ error: "Couldn't confirm the move-out against the rent roll — try again." }, { status: 503 });
+  if (!cands.some((x) => x.kind === "vacated" && x.propertyCode.toUpperCase() === property.toUpperCase() && x.unitRef === unitRef)) {
+    return NextResponse.json({ error: `${unitRef} is still on the newest rent roll — renewed or holding over, so not a move-out. Finalize once a rent roll no longer shows them.` }, { status: 409 });
+  }
 
   // Re-compute from source so we finalize the current numbers, not a stale snapshot.
   const c = await computeMoveoutStatement(property, year, unitRef, vacateMonth);

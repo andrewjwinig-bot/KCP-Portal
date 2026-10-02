@@ -27,6 +27,34 @@ import { type OfficeLeaseConfig } from "@/lib/cam/office/assemble";
 import { getOverrides, mergeConfig } from "@/lib/cam/office/configStore";
 import { getUnitConfigs } from "@/lib/cam/office/unitConfig";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
+import { listJSON } from "@/lib/storage";
+import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
+import { confirmedMoveouts, sameTenant } from "@/lib/leasing/confirmedMoveouts";
+import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
+
+type RollUnit = RentRollData["properties"][number]["units"][number];
+
+/**
+ * The suite AS THE DEPARTING TENANT HELD IT. A confirmed move-out (gone from
+ * the newest roll covering the property) is read off the last roll that still
+ * showed them — never the current roll, which by then may carry the NEXT
+ * tenant: a re-leased suite used to hand the departed tenant's close-out the
+ * successor's name, lease dates and CAM / RET billing. Anyone still on the
+ * roll (an interim for an expiring lease) keeps the live row.
+ */
+async function departingUnit(property: string, unitRef: string, live: RollUnit | undefined): Promise<RollUnit | undefined> {
+  const history = ((await listJSON("rentroll-history").catch(() => [])) as RentRollData[]) ?? [];
+  const gone = confirmedMoveouts(history, new Date(), 730)
+    .filter((v) => v.propertyCode.toUpperCase() === property.toUpperCase() && v.unitRef === unitRef)
+    .sort((a, b) => String(b.lastSeen).localeCompare(String(a.lastSeen)))[0];
+  if (!gone) return live;
+  if (live && sameTenant(live.occupantName, gone.occupantName)) return live;
+  const snap = history.find((h) => snapshotMonthKey(h) === gone.lastSeen
+    && (h.properties ?? []).some((p) => p.propertyCode.toUpperCase() === property.toUpperCase()));
+  const unit = snap?.properties.find((p) => p.propertyCode.toUpperCase() === property.toUpperCase())
+    ?.units.find((u) => u.unitRef === unitRef && sameTenant(u.occupantName, gone.occupantName));
+  return unit ?? undefined;
+}
 
 export const JV_III = new Set(["3610", "3620", "3640"]);
 
@@ -103,7 +131,7 @@ export async function computeMoveoutStatement(
     const roster = retailFix.byYear[ry]?.roster ?? [];
     const rosterU = roster.find((u) => u.unitRef === unitRef);
     if (!rosterU) return { ok: false, status: 404, error: `${unitRef} isn't on the ${property} roster.`, meta: { property, unitRef } };
-    const live = liveByRef.get(unitRef);
+    const live = await departingUnit(property, unitRef, liveByRef.get(unitRef));
     const leaseFrom = live?.leaseFrom ?? rosterU.rcd ?? null;
     const leaseTo = live?.leaseTo ?? null;
     const name = live?.occupantName ?? rosterU.name;
@@ -182,7 +210,7 @@ export async function computeMoveoutStatement(
 
   const cfgYear = Object.keys(fixture.byYear).map(Number).sort((a, b) => b - a)[0];
   const rosterU = (fixture.byYear[cfgYear]?.roster ?? []).find((u) => u.unitRef === unitRef);
-  const live = liveByRef.get(unitRef);
+  const live = await departingUnit(property, unitRef, liveByRef.get(unitRef));
   const leaseFrom = live?.leaseFrom ?? rosterU?.leaseFrom ?? null;
   const leaseTo = live?.leaseTo ?? rosterU?.leaseTo ?? null;
   const sqft = live?.sqft ?? rosterU?.sqft ?? 0;
