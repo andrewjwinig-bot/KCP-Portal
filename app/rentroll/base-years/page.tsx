@@ -12,6 +12,7 @@ import {
 } from "@/lib/rentroll/baseYearExpenses";
 import { RETAIL_EXPENSE_HISTORY } from "@/lib/cam/retail/expenseHistory";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { pickBudgetYear, preferredWorkbooks } from "@/lib/financials/budgets/inForce";
 
 const RETAIL_NAME = new Map(PROPERTY_DEFS.map((p) => [p.id.toUpperCase(), p.name]));
 const RETAIL_HISTORY_CODES = Object.keys(RETAIL_EXPENSE_HISTORY).sort();
@@ -91,7 +92,7 @@ export default function BaseYearExpensesPage() {
   const [tenantMeta, setTenantMeta] = useState<Record<string, TenantMeta>>({});
   // 2026 budget figures for the Summary's "2026 Est" column (as-is annual
   // totals; CAM = Total OpEx less RET & Electric).
-  const [budget2026, setBudget2026] = useState<{ camAsIs: number; ret: number; electric: number } | null>(null);
+  const [budget2026, setBudget2026] = useState<{ camAsIs: number; ret: number; electric: number; year: number } | null>(null);
   // Live recon-year FINAL for a retail center (the finalized CAM/RET recon
   // amounts), so the history's recon-year column reflects the actual final.
   const [retailRecon, setRetailRecon] = useState<{ year: number; lines: Record<string, number>; ins: number; ret: number } | null>(null);
@@ -125,10 +126,15 @@ export default function BaseYearExpensesPage() {
     (async () => {
       try {
         const list = await fetch("/api/financials/budgets").then((r) => (r.ok ? r.json() : null));
-        const wb = (list?.workbooks ?? []).find(
-          (w: { year: number; properties: { propertyCode: string }[] }) =>
-            w.year === 2026 && w.properties?.some((p) => p.propertyCode.toUpperCase() === propCode.toUpperCase()),
-        );
+        // The budget IN FORCE for this property (this year's, else the latest
+        // before it), from the preferred workbook — it was hard-coded to 2026
+        // and the first workbook listed, so it would have kept reading 2026
+        // in 2027 and could pick a staff workbook over the published one.
+        type Wb = { id: string; year: number; kind?: string; status?: string; uploadedAt?: string; properties: { propertyCode: string }[] };
+        const withProp = ((list?.workbooks ?? []) as Wb[])
+          .filter((w) => w.properties?.some((p) => p.propertyCode.toUpperCase() === propCode.toUpperCase()));
+        const inForce = pickBudgetYear(withProp.map((w) => w.year), new Date().getFullYear());
+        const wb = preferredWorkbooks(withProp.filter((w) => w.year === inForce) as any[])[0] as Wb | undefined;
         if (!wb) { if (alive) setBudget2026(null); return; }
         const detail = await fetch(`/api/financials/budgets/${wb.id}`).then((r) => (r.ok ? r.json() : null));
         const prop = detail?.workbook?.properties?.find(
@@ -149,7 +155,7 @@ export default function BaseYearExpensesPage() {
         const ret = lineTotal(/real estate tax/i);
         const electric = lineTotal(/electric/i);
         const totalReimb = secLines.reduce((a, l) => a + (typeof l.total === "number" ? l.total : 0), 0);
-        if (alive) setBudget2026({ camAsIs: Math.max(0, totalReimb - ret - electric), ret, electric });
+        if (alive) setBudget2026({ camAsIs: Math.max(0, totalReimb - ret - electric), ret, electric, year: wb.year });
       } catch {
         if (alive) setBudget2026(null);
       }
@@ -363,7 +369,7 @@ function RetailHistoryCard({ property, hist, recon }: {
 
 function SummaryTable({ expenses, budget2026 }: {
   expenses: PropertyExpenses;
-  budget2026: { camAsIs: number; ret: number; electric: number } | null;
+  budget2026: { camAsIs: number; ret: number; electric: number; year: number } | null;
 }) {
   const [mode, setMode] = useState<"total" | "psf">("psf");
   const last5 = expenseYears(expenses).slice(-5).reverse();
@@ -442,7 +448,7 @@ function SummaryTable({ expenses, budget2026 }: {
               <th>
                 {mode === "psf" ? "$ / SF" : "Total $"}
               </th>
-              <th style={{ textAlign: "right", background: estBg }}>2026 Est</th>
+              <th style={{ textAlign: "right", background: estBg }}>{budget2026?.year ?? new Date().getFullYear()} Est</th>
               <th style={{ textAlign: "right", background: avgBg }}>3-Yr Avg</th>
               {last5.map((y) => (
                 <th key={y} style={{ textAlign: "right" }}>{y}</th>
@@ -482,7 +488,7 @@ function SummaryTable({ expenses, budget2026 }: {
           ? `$ / SF divides each as-is figure by ${rentable.toLocaleString()} rentable SF.`
           : "Figures are the as-is annual totals."}
         {" "}CAM is operating expenses (RET &amp; Electric excluded); Electric is billed separately. No gross-up.
-        {budget2026 && " 2026 Est is the operating budget's reimbursable expenses (CAM = Total Reimbursable Expenses less RET & Electric), shown exactly as budgeted."}
+        {budget2026 && ` ${budget2026.year} Est is the operating budget's reimbursable expenses (CAM = Total Reimbursable Expenses less RET & Electric), shown exactly as budgeted.`}
       </p>
     </div>
   );
