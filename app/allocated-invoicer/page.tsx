@@ -17,7 +17,6 @@ import {
   isYearEndMonth,
   baseAccountCode,
   type PropertyCarry,
-  type MonthExpense,
 } from "../../lib/allocated-invoicer/carryover";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -178,7 +177,6 @@ export default function AllocatedInvoicerPage() {
   // December, when everything posts). Loaded on mount; updated on Finalize.
   const [carryover, setCarryover] = useState<Record<string, PropertyCarry>>({});
   const [committedPeriods, setCommittedPeriods] = useState<string[]>([]);
-  const [finalizing, setFinalizing] = useState(false);
   const [heldModal, setHeldModal] = useState<{ propName: string; accounts: DecoratedAccount[] } | null>(null);
   useEffect(() => {
     fetch("/api/allocation/carryover")
@@ -651,42 +649,6 @@ export default function AllocatedInvoicerPage() {
     recordRun();
   }
 
-  // Finalize the statement month: accrue held expenses, reset billed ones. The
-  // ONLY carryover mutation point — run once after this month's invoices are
-  // sent. Idempotent (a month can't be finalized twice).
-  async function finalizeMonthAction() {
-    if (!glResult || !statementMonth) { alert("Load a GL with a statement month first."); return; }
-    if (alreadyFinalized) { alert(`${statementMonth} has already been finalized.`); return; }
-    const expenses: MonthExpense[] = decoratedAccounts
-      .filter((a) => a.thisMonth !== 0)
-      .map((a) => ({ propertyId: a.propertyId, accountCode: a.accountCode, accountName: a.accountName, amount: a.thisMonth }));
-    const msg = yearEnd
-      ? `Finalize ${statementMonth} (YEAR-END)?\n\nEvery held balance will be flushed and billed to clear the year — nothing carries into next year.`
-      : `Finalize ${statementMonth}?\n\nExpenses under $${CARRYOVER_THRESHOLD} carry forward; billed expenses reset to $0. Run this once, after you've sent this month's invoices.`;
-    if (!confirm(msg)) return;
-    setFinalizing(true);
-    try {
-      const res = await fetch("/api/allocation/carryover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ statementMonth, expenses }),
-      });
-      const j = await res.json();
-      if (!res.ok) {
-        alert(j?.error ?? "Failed to finalize month.");
-        if (j?.ledger) { setCarryover(j.ledger.balances ?? {}); setCommittedPeriods(j.ledger.committedPeriods ?? []); }
-        return;
-      }
-      setCarryover(j.ledger?.balances ?? {});
-      setCommittedPeriods(j.ledger?.committedPeriods ?? []);
-      alert(`Finalized ${statementMonth}. Carryover updated.`);
-    } catch (e: any) {
-      alert("Failed to finalize month: " + (e?.message ?? String(e)));
-    } finally {
-      setFinalizing(false);
-    }
-  }
-
   // Download the allocation % per property (the applied 9303 basis) so staff can
   // verify the allocations independently of any GL run.
   function downloadAllocationPct() {
@@ -738,6 +700,9 @@ export default function AllocatedInvoicerPage() {
         propName={(id) => ALLOC_PROPERTIES.find((p) => p.id === id)?.name ?? id}
         onLoadGl={loadPendingGl}
         loadableMonth={pendingGl?.statementMonth ?? null}
+        onSent={() => fetch("/api/allocation/carryover").then((r) => r.json()).then((j) => {
+          setCarryover(j.ledger?.balances ?? {}); setCommittedPeriods(j.ledger?.committedPeriods ?? []);
+        }).catch(() => {})}
         toolbar={<>
           <button className="btn sm" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={() => setShowAllocModal(true)} title="View / download the allocation percentages">Allocation %</button>
           <button className="btn sm" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={downloadAllocationPct} title="Download the allocation percentages as CSV">⭳ %</button>
@@ -1084,26 +1049,10 @@ export default function AllocatedInvoicerPage() {
         </div>
       )}
 
-      {/* ── Finalize ── */}
-      {glResult && (
-        <div className="card">
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <button
-              className="btn"
-              style={{ background: alreadyFinalized ? "#94a3b8" : "#16a34a", color: "#fff", fontWeight: 700, borderColor: "transparent", whiteSpace: "nowrap", opacity: (!statementMonth || alreadyFinalized || finalizing) ? 0.7 : 1 }}
-              disabled={!statementMonth || alreadyFinalized || finalizing}
-              onClick={finalizeMonthAction}
-            >
-              {finalizing ? "Finalizing…" : alreadyFinalized ? `✓ ${statementMonth} Finalized` : "Finalize Month & Update Carryover"}
-            </button>
-            <span className="small muted" style={{ flex: 1, minWidth: 220 }}>
-              {yearEnd
-                ? "Year-end: finalizing flushes every held balance so nothing carries into next year."
-                : `Run once, after you've downloaded and sent this month's invoices. Held expenses accrue until they cross $${CARRYOVER_THRESHOLD}.`}
-            </span>
-          </div>
-        </div>
-      )}
+      {/* No manual "Finalize Month" here any more: it closed a month's
+          carryover WITHOUT sending it, which is how July 2026 ended up
+          finalized with no record of reaching AvidXchange. The send finalizes
+          the carryover itself, only after delivery. */}
 
       {/* Allocations table modal */}
       {showAllocModal && (
