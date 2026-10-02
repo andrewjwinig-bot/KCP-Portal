@@ -422,7 +422,7 @@ async function buildMonthInvoices(c: ComputedAllocation, prefix: string): Promis
       const pdf = buildAllocInvoicePdf({
         propertyId: id, propertyName: propName(id),
         periodText: gl.periodText, periodEndDate: gl.periodEndDate, statementMonth,
-        invoiceDate: invDate, invoiceId: makeAllocInvoiceId(id),
+        invoiceDate: invDate, invoiceId: makeAllocInvoiceId(id, statementMonth, !!c.supplemental),
         lineItems, carriedForward, grandTotal,
       });
       const suppTag = c.supplemental ? " - SUPPLEMENTAL" : "";

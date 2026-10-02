@@ -57,10 +57,19 @@ function truncate(s: string, maxChars: number): string {
 
 // ─── ID generator ────────────────────────────────────────────────────────────
 
-export function makeAllocInvoiceId(propId: string): string {
-  const n = Math.floor(10 + Math.random() * 90);
+// The invoice # AvidXchange sees (owner: "AEXXXX (allocated expense)", the way
+// payroll's read PR…): AE + property + MMYY of the month billed — Gray's Ferry,
+// July 2026 → AE45000726. A late-charge (catch-up) invoice is a TRUE-UP of a
+// month already billed: TU + property + MMYY of the month it was sent with.
+// Deterministic, so the same month and building always carry the same number
+// and Avid's duplicate check can catch a resend. It used to be the property +
+// a RANDOM two digits, which said nothing and could collide across months.
+export function makeAllocInvoiceId(propId: string, statementMonth?: string | null, trueUp = false): string {
   const clean = String(propId || "ALI").replace(/[^A-Z0-9]/gi, "").toUpperCase();
-  return `${clean}${n}`;
+  const months = String(statementMonth ?? "").match(/\d{4}-\d{2}/g);
+  const last = months?.[months.length - 1];
+  const mmyy = last ? `${last.slice(5, 7)}${last.slice(2, 4)}` : "";
+  return `${trueUp ? "TU" : "AE"}${clean}${mmyy}`;
 }
 
 // ─── PDF builder ─────────────────────────────────────────────────────────────
