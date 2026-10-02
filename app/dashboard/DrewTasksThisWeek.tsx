@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence } from "../../lib/tracker/taskDefs";
+import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence, type TaskOwner } from "../../lib/tracker/taskDefs";
 import { importsForWeek, reminderSatisfied, type ImportReminder, type ImportEvent, type ImportCoverage } from "../../lib/tracker/imports";
 import { TaskModal } from "../components/MyTasks";
 import { type Priority, type Repeat, type Todo, openBucketOf, parseDueDate, priorityOf, startOfDay } from "@/lib/todos/types";
@@ -65,14 +65,18 @@ function TaskRow({ item, now }: { item: Item; now: Date }) {
 /** Drew's master-tracker tasks due this week + personal to-dos, checkable in
  *  place. Dated to-dos merge into the weekly list; undated ones ("ongoing")
  *  fall to an Open Tasks list below. */
-export default function DrewTasksThisWeek() {
+export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwner } = {}) {
   const { occ, imports } = useMemo<{ occ: TaskOccurrence[]; imports: ImportReminder[] }>(() => {
     const now = new Date();
     const sinceMon = (now.getDay() + 6) % 7; // 0=Sun → start week on Monday
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - sinceMon);
     const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59);
-    return { occ: taskOccurrencesBetween(start, end), imports: importsForWeek(start, end) };
-  }, []);
+    // Only this person's tasks and imports — Harry no longer sees Drew's (owner).
+    return {
+      occ: taskOccurrencesBetween(start, end).filter((o) => o.owner === owner),
+      imports: importsForWeek(start, end).filter((r) => (r.owner ?? "drew") === owner),
+    };
+  }, [owner]);
 
   const [checked, setChecked] = useState<Record<string, Record<string, boolean>>>({});
   useEffect(() => {

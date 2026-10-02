@@ -1,21 +1,25 @@
 "use client";
 
 // Dashboard "AP Outbox" — a timestamped audit trail of every batch released to
-// AvidXchange (Allocated, Credit Card, Payroll): when, by whom, how many
+// AvidXchange (Allocated, Credit Card, Payroll, Commissions): when, by whom, how many
 // invoices, and the total. Records are what matters here, so nothing is ever
-// hidden — newest first, each linking to the flow that sent it.
+// hidden — newest first, each linking to the flow that sent it. Drew sees the
+// Credit Card and Payroll batches here even though Harry sends them (owner:
+// "visible so i can see if they went out") — the record, not the to-do.
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-type AvidSource = "allocated" | "credit-card" | "payroll";
+type AvidSource = "allocated" | "credit-card" | "payroll" | "commissions";
 type Send = {
   source: AvidSource; label: string; period: string;
   sentAt: string; sentBy: string | null;
   invoiceCount: number; propertyCount: number; total: number; partial: boolean;
 };
 
-const HREF: Record<AvidSource, string> = {
+/** Where each batch came from. Commissions has no link: the page differs by
+ *  person (and Drew has none), so the row is the record on its own. */
+const HREF: Partial<Record<AvidSource, string>> = {
   allocated: "/allocated-invoicer",
   "credit-card": "/expenses",
   payroll: "/",
@@ -59,8 +63,10 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {rows.slice(0, TOP).map((s) => (
-            <Link
+          {rows.slice(0, TOP).map((s) => {
+            const Row = (HREF[s.source] ? Link : "div") as any;
+            return (
+            <Row
               key={`${s.source}-${s.period}`}
               href={HREF[s.source]}
               style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", borderRadius: 8, textDecoration: "none", color: "var(--text)", background: "rgba(22,163,74,0.05)" }}
@@ -74,8 +80,9 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
               <span className="muted" style={{ fontSize: 11, whiteSpace: "nowrap", minWidth: 96, textAlign: "right" }}>
                 {when(s.sentAt)}{s.sentBy ? ` · ${s.sentBy}` : ""}
               </span>
-            </Link>
-          ))}
+            </Row>
+            );
+          })}
         </div>
       )}
     </div>

@@ -4,7 +4,9 @@
 // This is the source of truth for "what do I need to import." Add/adjust
 // entries here; the weekly email and (later) the dashboard read from it.
 
-export type ImportCadence = "monthly" | "weekly" | "quarterly" | "as-needed";
+import type { TaskOwner } from "./taskDefs";
+
+export type ImportCadence = "monthly" | "weekly" | "biweekly" | "quarterly" | "as-needed";
 
 export type ImportReminder = {
   id: string;
@@ -48,6 +50,19 @@ export type ImportReminder = {
    * is the difference between a nag and an instruction.
    */
   periodIs?: "current-month" | "prior-month" | "this-week";
+  /** Who imports it — Drew unless said otherwise (`ownerOf`). The CC statement
+   *  and the payroll report are Harry's. */
+  owner?: TaskOwner;
+};
+
+/** A biweekly import (payroll) is done if it happened in the last 14 days, and
+ *  late once three weeks have gone by without one. */
+const BIWEEKLY_DAYS = 14;
+const BIWEEKLY_LATE_DAYS = 21;
+const daysSince = (iso: string | undefined, now: Date) => {
+  if (!iso) return Infinity;
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? Infinity : (now.getTime() - t) / 86_400_000;
 };
 
 export const IMPORT_REMINDERS: ImportReminder[] = [
@@ -60,7 +75,11 @@ export const IMPORT_REMINDERS: ImportReminder[] = [
   { id: "imp-alloc-gl", label: "2000 G&A GL", cadence: "monthly", when: "By the 20th",
     link: "/allocated-invoicer", feeds: "Allocated Expense invoices", periodIs: "prior-month", dueFromDay: 20 },
   { id: "imp-cc", label: "Credit Card Statement", cadence: "monthly", when: "At monthly close",
-    link: "/expenses", feeds: "Credit Card Expense Coder", periodIs: "prior-month" },
+    link: "/expenses", feeds: "Credit Card Expense Coder", periodIs: "prior-month", owner: "harry" },
+  // Each pay period's payroll report, into the Payroll Invoicer — recorded
+  // when the period is saved (`/api/periods`).
+  { id: "imp-payroll", label: "Payroll Report", cadence: "biweekly", when: "Each pay period",
+    link: "/", feeds: "Payroll invoices to Avid", owner: "harry" },
   // The Skyline "Statement" report — every tenant's open charges. It is an
   // OPEN-ITEMS report read as of WHEN IT IS RUN, so it is THIS month's, not
   // last month's, and the portal shows whatever the last import said: a tenant
@@ -136,6 +155,7 @@ export function reminderSatisfied(
 ): boolean {
   // Evidence beats a timestamp. A partial import is NOT done, however recent.
   if (coverage && coverage.total > 0) return coverage.done >= coverage.total;
+  if (reminder.cadence === "biweekly") return daysSince(lastAt, now) <= BIWEEKLY_DAYS;
   if (!lastAt) return false;
   const at = new Date(lastAt);
   if (Number.isNaN(at.getTime())) return false;
@@ -176,6 +196,7 @@ export function reminderStatus(
 ): ReminderStatus {
   if (reminderSatisfied(reminder, lastAt, now, coverage)) return "done";
   if (!reminderDueYet(reminder, now)) return "not-yet-due";
+  if (reminder.cadence === "biweekly") return lastAt && daysSince(lastAt, now) <= BIWEEKLY_LATE_DAYS ? "due" : lastAt ? "overdue" : "due";
   if (reminder.cadence === "weekly") {
     // Its day has passed (reminderDueYet) and it has not happened. By Friday
     // that is late; on the Wednesday itself it is simply today's job.
@@ -197,6 +218,7 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
  * reminder does not name a period, rather than guessing at one.
  */
 export function reminderPeriodLabel(reminder: ImportReminder, now: Date): string | null {
+  if (reminder.cadence === "biweekly") return "this pay period";
   const mode = reminder.periodIs ?? (reminder.cadence === "weekly" ? "this-week" : "current-month");
   if (mode === "this-week") return "this week";
   if (mode === "prior-month") {
@@ -241,5 +263,5 @@ export function importsForWeek(weekStart: Date, weekEnd: Date): ImportReminder[]
     return false;
   })();
   return IMPORT_REMINDERS.filter((r) =>
-    r.cadence === "weekly" || (r.cadence === "monthly" && spansFirst) || r.cadence === "quarterly" && spansFirst);
+    r.cadence === "weekly" || r.cadence === "biweekly" || (r.cadence === "monthly" && spansFirst) || r.cadence === "quarterly" && spansFirst);
 }

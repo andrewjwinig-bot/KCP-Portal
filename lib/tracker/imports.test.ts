@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { IMPORT_REMINDERS, reminderStatus, reminderDueYet, reminderOutstanding, sortByUrgency, type ImportReminder } from "./imports";
+import { IMPORT_REMINDERS, reminderStatus, reminderDueYet, reminderOutstanding, sortByUrgency, reminderSatisfied, importsForWeek, type ImportReminder } from "./imports";
 
 const weekly = (over: Partial<ImportReminder> = {}): ImportReminder => ({
   id: "w", label: "Weekly", cadence: "weekly", when: "Every Wednesday",
@@ -174,5 +174,23 @@ describe("the tenant statement import", () => {
     expect(reminderStatus(st, undefined, new Date(2026, 8, 3))).toBe("not-yet-due");
     expect(reminderStatus(st, undefined, new Date(2026, 8, 5))).toBe("due");
     expect(reminderStatus(st, undefined, new Date(2026, 8, 6))).toBe("overdue");
+  });
+});
+
+describe("owners and the biweekly payroll import", () => {
+  const R: any[] = IMPORT_REMINDERS, st = reminderStatus, sat = reminderSatisfied, wk = importsForWeek;
+  const payroll = R.find((r: any) => r.id === "imp-payroll");
+  it("the credit-card statement and the payroll report are Harry's, the rest Drew's", () => {
+    const harry = R.filter((r: any) => r.owner === "harry").map((r: any) => r.id).sort();
+    expect(harry).toEqual(["imp-cc", "imp-payroll"]);
+  });
+  it("payroll is done within 14 days, due after, late after 21", () => {
+    const now = new Date(2026, 9, 2);
+    const ago = (d: number) => new Date(now.getTime() - d * 86_400_000).toISOString();
+    expect(sat(payroll, ago(10), now)).toBe(true);
+    expect(st(payroll, ago(16), now)).toBe("due");
+    expect(st(payroll, ago(25), now)).toBe("overdue");
+    expect(st(payroll, undefined, now)).toBe("due");
+    expect(wk(new Date(2026, 9, 5), new Date(2026, 9, 11)).some((r: any) => r.id === "imp-payroll")).toBe(true);
   });
 });

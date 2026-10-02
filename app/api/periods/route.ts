@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storeJSON, listJSON } from "@/lib/storage";
+import { recordImport } from "@/lib/tracker/importEvents";
 
 // Always read fresh — otherwise Next caches the GET and the dashboard freezes on
 // a stale "most recent payroll" until redeploy.
@@ -44,6 +45,8 @@ export async function POST(req: NextRequest) {
       employees,
     };
     await storeJSON("periods", id, period);
+    // Ticks Harry's "Payroll Report" import (biweekly) on the dashboard.
+    try { await recordImport("imp-payroll", { at: period.savedAt, by: period.savedBy }); } catch { /* best-effort */ }
     return NextResponse.json({ id, savedAt: period.savedAt });
   } catch (e: any) {
     const msg = e?.message || e?.toString() || "Unknown error";
