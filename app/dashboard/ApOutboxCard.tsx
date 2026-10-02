@@ -35,12 +35,14 @@ function when(iso: string): string {
 
 export default function ApOutboxCard({ order = -1 }: { order?: number }) {
   const [sends, setSends] = useState<Send[] | null>(null);
+  // A batch generated but never sent — the thing this card exists to catch.
+  const [unsent, setUnsent] = useState<{ source: AvidSource; label: string; period: string; at: string; by?: string | null; days: number }[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     fetch("/api/avid-sends?limit=8", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setSends(j?.sends ?? []))
+      .then((j) => { setSends(j?.sends ?? []); setUnsent(j?.unsent ?? []); })
       .catch(() => setSends([]))
       .finally(() => setLoaded(true));
   }, []);
@@ -57,11 +59,26 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
         </div>
       </div>
 
-      {rows.length === 0 ? (
+      {unsent.map((u) => {
+        const Row = (HREF[u.source] ? Link : "div") as any;
+        return (
+          <Row key={`unsent-${u.source}`} href={HREF[u.source]}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", marginBottom: 4, borderRadius: 8, textDecoration: "none", color: "var(--text)", background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)" }}>
+            <span style={{ fontSize: 13 }}>⚠️</span>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
+              <b style={{ fontWeight: 700 }}>{u.label}</b>{u.period ? ` · ${u.period}` : ""}
+              <span style={{ color: "#b45309", fontWeight: 700 }}> · not sent to AvidXchange</span>
+              <span className="muted"> — generated {when(u.at)}{u.by ? ` by ${u.by}` : ""}</span>
+            </span>
+          </Row>
+        );
+      })}
+
+      {rows.length === 0 && unsent.length === 0 ? (
         <div className="small muted" style={{ fontWeight: 600 }}>
           Nothing sent to AvidXchange yet — the last batch released from each invoicer will show here with a timestamp.
         </div>
-      ) : (
+      ) : rows.length === 0 ? null : (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {rows.slice(0, TOP).map((s) => {
             const Row = (HREF[s.source] ? Link : "div") as any;

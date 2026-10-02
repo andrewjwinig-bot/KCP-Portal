@@ -54,6 +54,7 @@ import {
   savePendingSend,
   getPendingSend,
   markPendingSent,
+  listPendingSends,
 } from "./pendingSendStore";
 import { getPendingGl } from "./pendingGlStore";
 import { deliverInvoicesToAvid, type AvidInvoicePdf } from "@/lib/invoicing/avidDelivery";
@@ -464,6 +465,9 @@ export type PrepareResult = {
   staged?: boolean;
   /** This period was already sent to Avid (idempotent). */
   alreadySent?: boolean;
+  /** Set on a GL import: sent to Avid automatically, or why it was held. */
+  autoSent?: boolean;
+  autoHeld?: string;
 };
 
 /**
@@ -711,4 +715,46 @@ export async function sendAllocation(period: string, by?: string | null): Promis
 
 function pendingBack(p: { summary: { byProperty: { code: string; name: string; amount: number }[]; total: number; invoiceCount: number } }) {
   return { total: p.summary.total, byProperty: p.summary.byProperty, invoiceCount: p.summary.invoiceCount };
+}
+
+
+// ─── AUTOMATIC SEND (owner: "when the 2000 GL is imported the allocated
+// expense invoicer can automatically send to avidxchange without review … to
+// save the step and ensure it got sent") ──────────────────────────────────────
+//
+// The review gate above stays for the cases a person should look at; the
+// ordinary month goes out on its own:
+//   • only a send staged from a FULL 2000 G&A GL upload (`fileBase64`) — one
+//     staged from a mid-month posting report (`glJson`) is an interim figure
+//     and waits for review;
+//   • only when the allocation TIES to the GL (`summary.tieOut.ties`) — a split
+//     that does not add back to the source is held, never sent;
+//   • never twice (`sendAllocation` refuses a sent period; carryover is
+//     idempotent per month).
+// Import-time runs it for the period just staged; the daily cron
+// (`/api/cron/allocated-send`) retries anything still staged, oldest first, so
+// a send that failed (mail down, a timeout) is finished the next morning.
+
+export type AutoSendResult = { period: string; sent: boolean; held?: string; result?: SendResult };
+
+export async function autoSendAllocation(period: string, by?: string | null): Promise<AutoSendResult> {
+  const pending = await getPendingSend("allocated", period);
+  if (!pending) return { period, sent: false, held: "nothing staged" };
+  if (pending.sentAt) return { period, sent: false, held: "already sent" };
+  if (!pending.fileBase64) return { period, sent: false, held: "staged from a posting report — review and send" };
+  if (pending.summary?.tieOut && pending.summary.tieOut.ties === false) {
+    return { period, sent: false, held: "allocation doesn't tie to the GL — review and send" };
+  }
+  const result = await sendAllocation(period, by ? `${by} (auto)` : "Auto-sent on GL import");
+  return { period, sent: !!result.ok && !!result.emailed, result };
+}
+
+/** Every allocated send still staged, oldest first (carryover chains month to month). */
+export async function autoSendStagedAllocations(by?: string | null): Promise<AutoSendResult[]> {
+  const staged = (await listPendingSends())
+    .filter((p) => p.source === "allocated" && !p.sentAt)
+    .sort((a, b) => a.period.localeCompare(b.period));
+  const out: AutoSendResult[] = [];
+  for (const p of staged) out.push(await autoSendAllocation(p.period, by));
+  return out;
 }
