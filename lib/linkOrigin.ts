@@ -29,3 +29,15 @@ export function linkOrigin(req: NextRequest): string {
   const proto = req.headers.get("x-forwarded-proto") ?? "https";
   return `${proto}://${req.headers.get("host") ?? req.nextUrl.host}`;
 }
+
+/**
+ * The portal's origin where there is no request to read it from — a cron job
+ * or an email composed in a helper. `PORTAL_ORIGIN`, else the company domain.
+ * Two staff emails hard-coded `kcp-portal.vercel.app` and the crons the
+ * company domain, so a link's host depended on which email it came in.
+ */
+export function portalOrigin(): string {
+  const pinned = (process.env.PORTAL_ORIGIN ?? "").trim().replace(/\/+$/, "");
+  if (pinned) return /^https?:\/\//i.test(pinned) ? pinned : `https://${pinned}`;
+  return "https://portal.kormancommercial.com";
+}

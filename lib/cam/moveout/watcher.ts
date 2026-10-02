@@ -10,6 +10,7 @@
 // Approval itself (the one human touch) happens on the dashboard / interim page
 // and is handled by the finalize endpoint — not here.
 
+import { portalOrigin } from "@/lib/linkOrigin";
 import "server-only";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { listDeposits } from "@/lib/deposits/storage";
@@ -21,7 +22,7 @@ import { closeOutKey, upsertCloseOut, getCloseOut, pruneCloseOuts, type CloseOut
 import { pickDeposit, depositSettlement } from "./deposit";
 
 const GL_FROM_YEAR = 2026; // interim recon sources actuals from the imported GL
-const PORTAL_BASE = "https://portal.kormancommercial.com";
+const PORTAL_BASE = portalOrigin();
 const FROM = "dwinig@kormancommercial.com"; // verified Postmark sender
 const APPROVER: Record<"office" | "retail", { email: string; first: string }> = {
   office: { email: "nfox@kormancommercial.com", first: "Nancy" },

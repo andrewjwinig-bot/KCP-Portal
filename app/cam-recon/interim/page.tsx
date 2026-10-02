@@ -13,6 +13,7 @@ import { drawRetailStatement } from "@/lib/cam/retail/statementPdf";
 import type { TenantReconResult } from "@/lib/cam/office/types";
 import type { RetailTenantResult } from "@/lib/cam/retail/types";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
+import AllowedLink from "@/app/components/AllowedLink";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 /** Percent to at most 2 decimals, trailing zeros dropped (2.2626… → "2.26", 5 → "5"). */
@@ -652,7 +653,7 @@ export default function InterimReconPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
         <div style={{ fontSize: 16, fontWeight: 800 }}>Move-out close-out package</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <Link href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>Deposits →</Link>
+          <AllowedLink href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>Deposits →</AllowedLink>
           {letterButton}
           {canFinalize && (
             <button className="btn primary" onClick={approveFinalize} disabled={finalizing || finalizeDone}

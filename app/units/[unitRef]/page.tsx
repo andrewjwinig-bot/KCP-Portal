@@ -23,6 +23,8 @@ import { centerByCode } from "@/lib/centers/registry";
 import FloorplanCard from "./FloorplanCard";
 import ShareFolderCard from "@/app/components/ShareFolderCard";
 import { useUser } from "@/app/components/UserProvider";
+import { isPathAllowed } from "@/lib/users";
+import AllowedLink from "@/app/components/AllowedLink";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -547,9 +549,9 @@ export default function UnitDetailPage() {
           title="Maintenance Requests for this Unit"
           count={unitRequests.length}
           link={
-            <Link href="/maintenance" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+            <AllowedLink href="/maintenance" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
               Open Maintenance →
-            </Link>
+            </AllowedLink>
           }
         >
           {unitRequests.length === 0 ? (
@@ -565,8 +567,10 @@ export default function UnitDetailPage() {
                   r.priority === "High" ? { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" }
                     : r.priority === "Medium" ? { bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" }
                       : null;
+                // Linked to the request only for someone who can open Maintenance.
+                const MaintRow = (isPathAllowed(user.id, "/maintenance") ? Link : "div") as any;
                 return (
-                  <Link
+                  <MaintRow
                     key={r.id}
                     href={`/maintenance?openId=${encodeURIComponent(r.id)}`}
                     style={{
@@ -597,7 +601,7 @@ export default function UnitDetailPage() {
                       padding: "2px 8px", borderRadius: 999,
                       background: statusColor.bg, color: statusColor.fg, border: `1px solid ${statusColor.border}`,
                     }}>{r.status}</span>
-                  </Link>
+                  </MaintRow>
                 );
               })}
             </div>

@@ -13,6 +13,7 @@ import {
 import { StatPill } from "@/app/components/Pill";
 import { useUser } from "@/app/components/UserProvider";
 import DepositForm, { type UnitOption } from "./DepositForm";
+import AllowedLink from "@/app/components/AllowedLink";
 
 function money(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -227,7 +228,7 @@ export default function SecurityDepositsPage() {
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Security Deposits</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <Link href="/tenants/past" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>Past Tenants →</Link>
+          <AllowedLink href="/tenants/past" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>Past Tenants →</AllowedLink>
           <button className="btn primary" onClick={startGlobalAdd}
             style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}>
             + Add Deposit

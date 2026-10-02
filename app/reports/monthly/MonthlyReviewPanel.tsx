@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { StatPill, Pill, TONE_AMBER } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
+import { useCanOpen } from "@/app/components/useCanOpen";
 import LoadingState from "@/app/components/LoadingState";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -97,6 +98,7 @@ const GROUP_ACCENT: Record<string, string> = { bp: "#0b4a7d", sc: "#0d9488", lik
  *  (compact header + a "Full view / Print →" link); standalone renders the full
  *  page header with a Print/PDF button and print styling. */
 export default function MonthlyReviewPanel({ embedded = false }: { embedded?: boolean }) {
+  const canOpen = useCanOpen();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -193,7 +195,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
                     <span style={{ fontWeight: 800, color: noiVar >= 0 ? GREEN : RED }}>{noiVar >= 0 ? "+" : ""}{money(noiVar)} {p.noiBudget ? `(${((noiVar / Math.abs(p.noiBudget)) * 100).toFixed(1)}%)` : ""}</span>
                   </div>
                 )}
-                <Link href="/financials/operating-statements/review" className="noprint muted small" style={{ color: BRAND, fontWeight: 600, textDecoration: "none" }}>Flags to Investigate →</Link>
+                {canOpen("/financials/operating-statements/review") && <Link href="/financials/operating-statements/review" className="noprint muted small" style={{ color: BRAND, fontWeight: 600, textDecoration: "none" }}>Flags to Investigate →</Link>}
               </div>
             </div>
 
@@ -280,6 +282,8 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
 function HighlightCard({ title, accent, rows, empty, href, hrefLabel }: {
   title: string; accent: string; rows: { left: string; mid: string; right: string }[]; empty: string; href?: string; hrefLabel?: string;
 }) {
+  const canOpen = useCanOpen();
+  if (href && !canOpen(href)) href = undefined;
   return (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
@@ -342,6 +346,9 @@ function baseYear2(raw: number | string | null | undefined): string {
 // renewal not yet keyed, or a holdover — never a move-out (owner: "we cant
 // move tenants out who renew"). It used to read EXPIRED with "Close out →".
 function LeaseMovement({ report, reconYear }: { report: Report; reconYear: number }) {
+  // The statement / close-out lives on the CAM recon page — linked only for
+  // those who can open it (Marie and Alison see this panel without it).
+  const canOpenRecon = useCanOpen()("/cam-recon/interim");
   type Row = { propertyCode: string; unitRef: string; tenant: string; sqft: number; leaseTo: string | null; days: number | null; status: "expiring" | "past-term" | "vacated"; goneAsOf?: string };
 
   // Base year and held security deposit come from the same per-unit sources the
@@ -415,9 +422,9 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
           {dep(r.unitRef)}
         </td>
         <td style={{ textAlign: "right" }}>
-          <Link href={stmtHref(r)} className="noprint" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 12, textDecoration: "none", whiteSpace: "nowrap" }}>
+          {canOpenRecon && <Link href={stmtHref(r)} className="noprint" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 12, textDecoration: "none", whiteSpace: "nowrap" }}>
             {gone ? "Close out →" : "Statement →"}
-          </Link>
+          </Link>}
         </td>
       </tr>
     );

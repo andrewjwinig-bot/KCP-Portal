@@ -19,4 +19,8 @@ describe("generated but never sent to AvidXchange", () => {
   it("ignores batches before the send log existed, and old history", () => {
     expect(unsentBatches([{ source: "allocated", label: "A", period: "Jul", at: "2026-08-20T00:00:00Z" }], [], now)).toEqual([]);
   });
+  it("a send recorded for the SAME period counts whenever it went (re-downloaded later)", () => {
+    expect(unsentBatches([{ source: "allocated", label: "A", period: "August 2026", at: "2026-09-28T00:00:00Z" }],
+      [{ source: "allocated", sentAt: "2026-09-10T00:00:00Z", period: "2026-08" }], now)).toEqual([]);
+  });
 });

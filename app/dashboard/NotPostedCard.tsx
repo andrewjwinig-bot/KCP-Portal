@@ -40,8 +40,10 @@ export default function NotPostedCard({ order = -1 }: { order?: number }) {
       .finally(() => setLoaded(true));
   }, [year]);
 
-  // Loading or scan unavailable — render nothing (don't clutter the dashboard).
-  if (!loaded) return null;
+  // Loading or scan unavailable — render nothing. A failed fetch (no access,
+  // an error) must NOT fall through to the green "all posted": that is a
+  // claim the card cannot make without the data.
+  if (!loaded || !data) return null;
   const items = data?.items ?? [];
   const TOP = 6;
 

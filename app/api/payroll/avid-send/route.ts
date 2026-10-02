@@ -10,6 +10,8 @@ import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../../../../lib/payr
 import { isMailConfigured } from "@/lib/mail";
 import { reportAlreadySent, markReportSent } from "@/lib/invoicing/reportSent";
 import { deliverInvoicesToAvid } from "@/lib/invoicing/avidDelivery";
+import { budgetUser } from "@/lib/financials/budgets/currentUser";
+import { USERS } from "@/lib/users";
 import { readFile } from "fs/promises";
 import path from "path";
 
@@ -101,7 +103,10 @@ export async function POST(req: Request) {
     const summaryBuf = Buffer.from(await (await buildPayrollExportXlsx({ payDate, invoices })).arrayBuffer());
     const glBuf = Buffer.from(await buildPayrollGLXlsx({ payDate, invoices }).arrayBuffer());
 
+    // Who released it — the AP Outbox names the sender for every flow.
+    const sender = await budgetUser();
     const result = await deliverInvoicesToAvid({
+      by: sender ? USERS[sender]?.label ?? sender : null,
       source: "payroll",
       label: "Payroll",
       period: payDate,

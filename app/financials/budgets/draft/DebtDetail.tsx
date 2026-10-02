@@ -15,6 +15,7 @@ import { Pill, StatPill, TONE_AMBER, TONE_NEUTRAL } from "@/app/components/Pill"
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import type { BudgetDraft } from "@/lib/financials/budgets/draft";
 import { SourceIconButton } from "./SourceIcon";
+import AllowedLink from "@/app/components/AllowedLink";
 
 type Debt = NonNullable<BudgetDraft["debt"]>;
 
@@ -82,7 +83,7 @@ export function DebtDetail({ debt, year }: { debt: Debt; year: number }) {
 
       <div className="muted small" style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <span>Each loan&apos;s amortization schedule from the Debt Tracker — the lender&apos;s own terms — run month by month through {year}. Change the terms there, not here.{debt.loans.some((l) => l.refinanceAssumed) ? " A loan maturing by year-end is assumed refinanced on the same terms, so the budget keeps paying it." : ""}</span>
-        <a href="/debt" className="btn sm">Open the Debt Tracker</a>
+        <AllowedLink href="/debt" className="btn sm">Open the Debt Tracker</AllowedLink>
       </div>
     </div>
   );

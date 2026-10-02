@@ -20,6 +20,7 @@ import {
 } from "../tracker/tax-data";
 import { StatPill } from "../components/Pill";
 import ShareFolderCard from "../components/ShareFolderCard";
+import AllowedLink from "@/app/components/AllowedLink";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -839,9 +840,9 @@ export function PropertyDetailBody({
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)" }}>Portfolio PRS %</span>
-                <Link href="/allocated-invoicer" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
+                <AllowedLink href="/allocated-invoicer" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
                   Open Allocated Invoicer →
-                </Link>
+                </AllowedLink>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 {([
@@ -886,9 +887,9 @@ export function PropertyDetailBody({
             title="Ownership"
             count={ownershipEntry.owners.length}
             link={
-              <Link href="/investors" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+              <AllowedLink href="/investors" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
                 Open Investor Info →
-              </Link>
+              </AllowedLink>
             }
           >
             {k1Tasks.map((t) => {
@@ -976,9 +977,9 @@ export function PropertyDetailBody({
             title="Tax Filings"
             count={filingTasks.length}
             link={
-              <Link href="/tracker/taxes" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+              <AllowedLink href="/tracker/taxes" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
                 Open Filing Tracker →
-              </Link>
+              </AllowedLink>
             }
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1131,9 +1132,9 @@ export function PropertyDetailBody({
             title="Maintenance Requests"
             count={propRequests.length}
             link={
-              <Link href={`/maintenance?property=${encodeURIComponent(prop.name)}`} style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+              <AllowedLink href={`/maintenance?property=${encodeURIComponent(prop.name)}`} style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
                 Open Maintenance →
-              </Link>
+              </AllowedLink>
             }
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1154,8 +1155,10 @@ export function PropertyDetailBody({
                     r.priority === "High" ? { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" }
                       : r.priority === "Medium" ? { bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" }
                         : null;
+                  // Linked to the request only for someone who can open Maintenance.
+                  const MaintRow = (isPathAllowed(user.id, "/maintenance") ? Link : "div") as any;
                   return (
-                    <Link
+                    <MaintRow
                       key={r.id}
                       href={`/maintenance?openId=${encodeURIComponent(r.id)}`}
                       style={{
@@ -1186,7 +1189,7 @@ export function PropertyDetailBody({
                         padding: "2px 8px", borderRadius: 999,
                         background: statusColor.bg, color: statusColor.fg, border: `1px solid ${statusColor.border}`,
                       }}>{r.status}</span>
-                    </Link>
+                    </MaintRow>
                   );
                 })}
             </div>
