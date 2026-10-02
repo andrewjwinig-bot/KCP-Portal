@@ -43,20 +43,6 @@ function movedOut(c: CloseOut): string {
 function interimHref(c: CloseOut): string {
   return `/cam-recon/interim?property=${encodeURIComponent(c.property)}&unitRef=${encodeURIComponent(c.unitRef)}&year=${c.year}&asOf=${c.vacateMonth}`;
 }
-// The actual move-out date — the lease end when we have it, else the last day
-// of the vacate month. Used to keep the dashboard to tenants who've ALREADY
-// left (expired), not upcoming move-outs.
-function moveOutDate(c: CloseOut): Date {
-  if (c.leaseTo) {
-    const d = new Date(c.leaseTo);
-    if (!isNaN(d.getTime())) return d;
-  }
-  return new Date(c.year, c.vacateMonth, 0); // day 0 of next month = last day of vacate month
-}
-function hasExpired(c: CloseOut): boolean {
-  return moveOutDate(c).getTime() <= Date.now();
-}
-
 export default function MoveOutsCard({ order = -1 }: { order?: number }) {
   const [closeOuts, setCloseOuts] = useState<CloseOut[] | null>(null);
   const [sends, setSends] = useState<Send[]>([]);
@@ -90,8 +76,10 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
   }, [load]);
 
   if (!loaded) return null;
-  // Only tenants who've actually moved out (expired) — not upcoming move-outs.
-  const rows = (closeOuts ?? []).filter(hasExpired);
+  // Every queued close-out is a CONFIRMED move-out (gone from the rent roll —
+  // the API filters to them), so the lease date doesn't gate it: a tenant who
+  // left before their lease end used to be hidden here.
+  const rows = closeOuts ?? [];
   const ready = rows.filter((c) => c.status === "ready");
   const waiting = rows.filter((c) => c.status === "waiting");
   // Nothing to show and nothing ever finalized → hide the card entirely.

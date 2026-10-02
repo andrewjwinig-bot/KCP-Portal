@@ -5,14 +5,22 @@ import "server-only";
 import { listDeposits } from "@/lib/deposits/storage";
 import type { SecurityDeposit } from "@/lib/deposits/deposits";
 import type { CloseOutDeposit } from "./queue";
+import { sameTenant } from "@/lib/leasing/confirmedMoveouts";
 
-/** The departing tenant's deposit — by unit ref, falling back to a company-name
- *  contains match (deposits are sometimes filed under the company, not the
- *  unit). Prefers one still on file over a refunded/forfeited record. */
+/** The departing tenant's deposit. The SUITE alone is not enough: once a
+ *  suite is re-leased it holds the new tenant's deposit too, and the close-out
+ *  netted against that. So: a deposit on this suite filed under THIS tenant
+ *  first; then one filed under their name anywhere (deposits are sometimes
+ *  filed under the company, not the unit); then the suite's, when no name is
+ *  known or nothing matches it. Prefers one still on file. */
 export function pickDeposit(all: SecurityDeposit[], unitRef: string, name: string | undefined): SecurityDeposit | null {
+  const n = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const isTenant = (d: SecurityDeposit) => !!name && (sameTenant(d.tenantCompany, name)
+    || n(d.tenantCompany).includes(n(name)) || (n(d.tenantCompany).length >= 8 && n(name).includes(n(d.tenantCompany))));
   const byUnit = all.filter((d) => d.unitRef.toLowerCase() === unitRef.toLowerCase());
-  const byName = name ? all.filter((d) => d.tenantCompany.toLowerCase().includes(name.toLowerCase())) : [];
-  const pool = byUnit.length ? byUnit : byName;
+  const unitAndName = byUnit.filter(isTenant);
+  const byName = all.filter(isTenant);
+  const pool = unitAndName.length ? unitAndName : byName.length ? byName : byUnit;
   return pool.find((d) => !d.refunded && !d.tenantDefaulted) ?? pool[pool.length - 1] ?? null;
 }
 

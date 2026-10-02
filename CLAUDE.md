@@ -352,7 +352,18 @@ the same rule** (`lib/reports/monthly.ts`): its VACATED rows ARE
 `confirmedMoveouts`, its new leases skip a tenant already in the property last
 month, and a lease past its date while still on the roll reads **PAST TERM**
 (renewal not yet keyed / holdover) with no close-out link — it used to say
-EXPIRED · Close out →.
+EXPIRED · Close out →. **Every other move-out reader follows it too**: the
+interim page's candidates ARE `moveoutCandidates` (a lease past its date while
+on the roll reads "still on the rent roll", never a move-out), **finalize
+refuses anyone not confirmed gone** (409, fails closed), Drew's dashboard
+"recently vacated" reads `/api/rentroll/vacated`, and the rent-roll import's
+Vacated / New panel, Past Tenants and the Management Fees vacated/commenced
+notes judge within the PROPERTY by `sameTenant` and skip a property a partial
+import didn't carry. **A close-out reads the departed tenant's OWN row**
+(`departingUnit` in `lib/cam/moveout/compute.ts` — the last roll that showed
+them) and their own deposit (`pickDeposit`: suite + name first), never the
+suite's next tenant. A "Tenants Vacating" entry matches by NAME, so it can't
+pass its chip to a suite's next tenant.
 
 # Tenant monthly statements (open A/R) — sources of truth
 

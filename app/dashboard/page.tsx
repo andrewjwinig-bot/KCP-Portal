@@ -15,6 +15,7 @@ import { fireNotification } from "../../lib/notifications";
 import ExpirationChart from "./ExpirationChart";
 import DrewSavedStatus from "./DrewSavedStatus";
 import ImportsToDoCard from "./ImportsToDoCard";
+import { sameTenant } from "@/lib/leasing/confirmedMoveouts";
 import NotPostedCard from "./NotPostedCard";
 import ApOutboxCard from "./ApOutboxCard";
 import MoveOutsCard from "./MoveOutsCard";
@@ -122,10 +123,10 @@ function DashboardInner() {
   const [rentroll, setRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
-  const [vacatingMatchers, setVacatingMatchers] = useState<{ unitRefs: Set<string>; names: Set<string> }>({ unitRefs: new Set(), names: new Set() });
+  const [vacatingList, setVacatingList] = useState<{ unitRef: string; tenant: string }[]>([]);
   // A rent-roll snapshot from ~60 days ago, diffed against the current roll to
   // surface tenants who already vacated (so Drew can run their close-out).
-  const [priorSnapshot, setPriorSnapshot] = useState<RentRollData | null>(null);
+  const [vacatedRows, setVacatedRows] = useState<{ propertyCode: string; unitRef: string; occupantName: string; sqft: number; leaseTo: string | null; unit: RentRollUnit | null }[]>([]);
   const [tenantMeta, setTenantMeta] = useState<Record<string, { baseYear?: number | string | null }>>({});
   // Security deposits (for the vacating-tenants "owed" column): per-unit held
   // amount = deposits not yet refunded / defaulted / partially resolved.
@@ -263,10 +264,7 @@ function DashboardInner() {
     fetch("/api/leasing-activity").then((r) => r.json()).then((j) => {
       const la = j?.leasingActivity ?? {};
       const list = (la?.tenantsVacating ?? []) as { unitRef?: string; tenant?: string }[];
-      setVacatingMatchers({
-        unitRefs: new Set(list.map(v => v.unitRef ?? "").filter(Boolean)),
-        names:    new Set(list.map(v => (v.tenant ?? "").toLowerCase().trim()).filter(Boolean)),
-      });
+      setVacatingList(list.map((v) => ({ unitRef: v.unitRef ?? "", tenant: v.tenant ?? "" })));
       // Upcoming option-to-renew notice dates within 30 days (or past-due)
       const opts = (la?.optionsToRenew ?? []) as { tenant?: string; building?: string; noticeDate?: string }[];
       const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -291,31 +289,23 @@ function DashboardInner() {
     }).catch(() => {});
   }, []);
 
+  // A "Tenants Vacating" entry names a TENANT. Matched by suite alone, it
+  // outlived them: once they left and the suite re-leased, the new tenant
+  // inherited the VACATING chip. The suite only counts when the name agrees
+  // (or the entry carries no name).
   function isVacating(unitRef: string, tenantName: string): boolean {
-    return vacatingMatchers.unitRefs.has(unitRef) || vacatingMatchers.names.has(tenantName.toLowerCase().trim());
+    return vacatingList.some((v) => v.tenant
+      ? sameTenant(v.tenant, tenantName)
+      : !!v.unitRef && v.unitRef === unitRef);
   }
 
-  // Pull the snapshot from ~60 days back so we can detect who's since vacated.
-  // Only Drew's dashboard uses it, so gate the extra fetches on that.
+  // Tenants CONFIRMED gone (`confirmedMoveouts`, via /api/rentroll/vacated) —
+  // the same rule as Pending Close-Outs. Only Drew's dashboard uses it.
   useEffect(() => {
     if (user.id !== "drew") return;
     let alive = true;
-    (async () => {
-      try {
-        const hist = await fetch("/api/rentroll/history").then((r) => (r.ok ? r.json() : null));
-        const snaps = (hist?.snapshots ?? []) as { month: string }[];
-        if (!snaps.length) return;
-        const target = new Date();
-        target.setDate(target.getDate() - 60);
-        const targetKey = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, "0")}`;
-        // Newest snapshot at or before ~60 days ago; fall back to the oldest we have.
-        const atOrBefore = snaps.filter((s) => s.month <= targetKey).sort((a, b) => b.month.localeCompare(a.month));
-        const pick = atOrBefore[0] ?? [...snaps].sort((a, b) => a.month.localeCompare(b.month))[0];
-        if (!pick) return;
-        const full = await fetch(`/api/rentroll/history/${pick.month}`).then((r) => (r.ok ? r.json() : null));
-        if (alive && full?.rentroll) setPriorSnapshot(full.rentroll as RentRollData);
-      } catch { /* best-effort — card still shows upcoming vacates */ }
-    })();
+    fetch("/api/rentroll/vacated", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive) setVacatedRows(j?.vacated ?? []); }).catch(() => {});
     return () => { alive = false; };
   }, [user.id]);
 
@@ -474,35 +464,23 @@ function DashboardInner() {
     : expiring;
 
   // ── Tenants who already vacated in the last ~60 days (Drew only) ──
-  // Diff the ~60-day-old snapshot against the current roll: a unit occupied by
-  // a named tenant then, now vacant or taken by someone else, means that tenant
-  // left — a close-out candidate. These are gone from the live roll, so they'd
-  // never surface in `expiring` above.
+  // Confirmed move-outs only — gone from the newest roll covering their
+  // property. A renamed tenant or one who moved suites is not one.
   const recentlyVacated = useMemo(() => {
-    if (!isDrew || !rentroll || !priorSnapshot || !showExpiring) return [];
-    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const currentByRef = new Map<string, RentRollUnit>();
-    for (const p of rentroll.properties) for (const u of p.units) currentByRef.set(u.unitRef, u);
-
+    if (!isDrew || !showExpiring) return [];
     const rows: { propertyCode: string; unit: RentRollUnit; days: number }[] = [];
-    for (const prop of priorSnapshot.properties) {
+    for (const v of vacatedRows) {
       if (expiringScope !== "all") {
-        const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === prop.propertyCode.toUpperCase());
-        const t = def?.type;
+        const t = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === v.propertyCode.toUpperCase())?.type;
         if (expiringScope === "office" && t !== "Office") continue;
         if (expiringScope === "retail" && t !== "Retail") continue;
       }
-      for (const unit of prop.units) {
-        if (unit.isVacant || unit.amenity || !unit.occupantName) continue;
-        const cur = currentByRef.get(unit.unitRef);
-        const gone = !cur || cur.isVacant || norm(cur.occupantName) !== norm(unit.occupantName);
-        if (!gone) continue;
-        const d = parseLeaseTo(unit.leaseTo);
-        rows.push({ propertyCode: prop.propertyCode, unit, days: d ? daysBetween(new Date(), d) : -1 });
-      }
+      const unit = v.unit ?? ({ unitRef: v.unitRef, occupantName: v.occupantName, sqft: v.sqft, leaseTo: v.leaseTo } as RentRollUnit);
+      const d = parseLeaseTo(unit.leaseTo);
+      rows.push({ propertyCode: v.propertyCode, unit, days: d ? daysBetween(new Date(), d) : -1 });
     }
     return rows.sort((a, b) => a.unit.occupantName.localeCompare(b.unit.occupantName));
-  }, [isDrew, rentroll, priorSnapshot, showExpiring, expiringScope]);
+  }, [isDrew, vacatedRows, showExpiring, expiringScope]);
 
   // Shared row renderer for both the upcoming-vacates table and the
   // recently-vacated section, so they stay visually identical. `vacated` flips

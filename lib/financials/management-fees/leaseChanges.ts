@@ -9,10 +9,10 @@
 
 import "server-only";
 import { getJSON } from "@/lib/storage";
+import { sameTenant } from "@/lib/leasing/confirmedMoveouts";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 
 const HISTORY_PREFIX = "rentroll-history";
-const norm = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
 export type LeaseChange = {
   kind: "commenced" | "vacated";
@@ -28,10 +28,14 @@ async function snapshot(year: number, month: number): Promise<RentRollData | nul
   return (await getJSON(HISTORY_PREFIX, `${year}-${String(month).padStart(2, "0")}`)) as RentRollData | null;
 }
 
-/** Occupied units of one building (property code), keyed by unitRef. */
-function occupiedUnits(snap: RentRollData | null, code: string): Map<string, UnitLite> {
+/** Occupied units of one building (property code), keyed by unitRef — or
+ *  NULL when the snapshot does not carry the building at all (a partial,
+ *  office-only import), which says nothing about who is there. */
+function occupiedUnits(snap: RentRollData | null, code: string): Map<string, UnitLite> | null {
   const out = new Map<string, UnitLite>();
-  if (!snap) return out;
+  if (!snap) return null;
+  const has = (snap.properties ?? []).some((p) => String(p.propertyCode).toUpperCase() === code.toUpperCase());
+  if (!has) return null;
   for (const p of snap.properties ?? []) {
     if (String(p.propertyCode).toUpperCase() !== code.toUpperCase()) continue;
     for (const u of p.units ?? []) {
@@ -55,22 +59,26 @@ export async function leaseChangesByMonth(code: string, year: number): Promise<L
   for (let m = 1; m <= 12; m++) {
     const curr = occupiedUnits(snaps[m - 1], code);
     const prev = occupiedUnits(m === 1 ? decPrev : snaps[m - 2], code);
-    // No comparison possible (missing either snapshot) → no annotations.
+    // No comparison possible (either month missing, or a partial import that
+    // doesn't carry this building) → no annotations, rather than every tenant
+    // "vacating" one month and "commencing" the next.
+    if (!curr || !prev) { out.push([]); continue; }
     if (!curr.size && !prev.size) { out.push([]); continue; }
-    if ((m === 1 && !decPrev) || (m > 1 && !snaps[m - 2]) || !snaps[m - 1]) { out.push([]); continue; }
 
+    // A tenant still in the BUILDING (moved suites, or a name that drifted —
+    // `sameTenant`, the move-out rule) neither vacated nor commenced.
+    const prevNames = [...prev.values()].map((u) => u.occupantName);
+    const currNames = [...curr.values()].map((u) => u.occupantName);
     const changes: LeaseChange[] = [];
-    // Commenced: occupied now, but not by the same tenant before.
+    // Commenced: occupied now by a tenant not in the building before.
     for (const [ref, u] of curr) {
-      const before = prev.get(ref);
-      if (!before || norm(before.occupantName) !== norm(u.occupantName)) {
+      if (!prevNames.some((n) => sameTenant(n, u.occupantName))) {
         changes.push({ kind: "commenced", tenant: u.occupantName, unitRef: ref, amount: Math.round(u.grossRentTotal ?? 0) });
       }
     }
-    // Vacated: occupied before, but not by the same tenant now.
+    // Vacated: in the building before, nowhere in it now.
     for (const [ref, u] of prev) {
-      const after = curr.get(ref);
-      if (!after || norm(after.occupantName) !== norm(u.occupantName)) {
+      if (!currNames.some((n) => sameTenant(n, u.occupantName))) {
         changes.push({ kind: "vacated", tenant: u.occupantName, unitRef: ref, amount: -Math.round(u.grossRentTotal ?? 0) });
       }
     }
