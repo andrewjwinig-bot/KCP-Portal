@@ -11,6 +11,7 @@ import { toMoney } from "../../lib/expenses/utils";
 import { ALLOC_PCT } from "../../lib/properties/data";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { AvidReviewModal, AvidSuccessModal } from "@/app/components/AvidSend";
+import { InvoicerOverview } from "./InvoicerOverview";
 import {
   CARRYOVER_THRESHOLD,
   isYearEndMonth,
@@ -194,7 +195,6 @@ export default function AllocatedInvoicerPage() {
   // generated.
   type AllocRun = { periodText: string; periodEndDate: string; statementMonth: string; ranAt: string; ranBy?: string; byProperty?: { code: string; name: string; amount: number }[]; total?: number };
   const [runs, setRuns] = useState<AllocRun[] | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
   useEffect(() => {
     fetch("/api/allocation/last-run").then((r) => r.json()).then((j) => setRuns(j.runs ?? [])).catch(() => setRuns([]));
   }, []);
@@ -732,65 +732,17 @@ export default function AllocatedInvoicerPage() {
         </div>
       </header>
 
-      {/* ── Last allocation run ── */}
-      {runs !== null && (
-        runs.length === 0 ? (
-          <div className="small" style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)", color: "var(--muted)", fontWeight: 600 }}>
-            No allocation runs recorded yet — generate the invoices and the period will be logged here.
-          </div>
-        ) : (
-          <div className="small" style={{ padding: "7px 12px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.2)", color: "#0b4a7d", fontWeight: 600, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span>Last sent <b>{runs[0].statementMonth || runs[0].periodText || "—"}</b>{runs[0].total ? <> · <b>{toMoney(runs[0].total)}</b></> : null}</span>
-            <button type="button" onClick={() => setHistoryOpen((o) => !o)} style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: "#0b4a7d", background: "none", border: "none", cursor: "pointer", textDecoration: "underline", padding: 0 }}>
-              {historyOpen ? "Hide history" : "View history"}
-            </button>
-          </div>
-        )
-      )}
-
-      {/* ── Allocation history detail (per-building, for later justification) ── */}
-      {historyOpen && runs && runs.length > 0 && (
-        <div className="card">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-            <b>Allocation history</b>
-            <span className="muted small">Per-building amounts invoiced each run — reference to justify what was allocated (this isn&rsquo;t computed in Skyline).</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 12 }}>
-            {runs.map((r, i) => (
-              <div key={`${r.periodEndDate || r.statementMonth}-${i}`} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "8px 12px", background: "rgba(11,74,125,0.04)" }}>
-                  <b style={{ color: "#0b4a7d" }}>{r.statementMonth || r.periodText || "—"}</b>
-                  {r.periodText && r.periodText !== r.statementMonth && <span className="muted small">{r.periodText}</span>}
-                  <span className="muted small">Run {new Date(r.ranAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}{r.ranBy ? ` by ${r.ranBy}` : ""}</span>
-                  <span style={{ marginLeft: "auto", fontWeight: 800 }}>{r.total != null ? toMoney(r.total) : "—"}</span>
-                </div>
-                {r.byProperty && r.byProperty.length > 0 ? (
-                  <div className="tableWrap">
-                    <table>
-                      <thead>
-                        <tr><th>Property</th><th style={{ textAlign: "right" }}>Allocated</th></tr>
-                      </thead>
-                      <tbody>
-                        {r.byProperty.map((b) => (
-                          <tr key={b.code}>
-                            <td><code style={{ fontSize: 12 }}>{b.code}</code> {b.name}</td>
-                            <td style={{ textAlign: "right" }}>{toMoney(b.amount)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot>
-                        <tr><td style={{ fontWeight: 700 }}>Total</td><td style={{ textAlign: "right", fontWeight: 800 }}>{toMoney(r.byProperty.reduce((s, b) => s + b.amount, 0))}</td></tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="small muted" style={{ padding: "8px 12px" }}>No per-building detail recorded for this run (run before detail was tracked).</div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* ── Was it sent · open balances · monthly history ── */}
+      <InvoicerOverview
+        carryover={carryover}
+        propName={(id) => ALLOC_PROPERTIES.find((p) => p.id === id)?.name ?? id}
+        onLoadGl={loadPendingGl}
+        loadableMonth={pendingGl?.statementMonth ?? null}
+        toolbar={<>
+          <button className="btn sm" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={() => setShowAllocModal(true)} title="View / download the allocation percentages">Allocation %</button>
+          <button className="btn sm" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={downloadAllocationPct} title="Download the allocation percentages as CSV">⭳ %</button>
+        </>}
+      />
 
       {/* ── Allocation tie-out — the split must add back up to the source GL ── */}
       {allocTie && (
@@ -879,36 +831,11 @@ export default function AllocatedInvoicerPage() {
         </div>
       )}
 
-      {/* ── Already auto-processed hand-off — offer the invoice PDFs ── */}
-      {pendingGl && !pendingDismissed && !glResult && pendingGl.alreadyProcessed && (
-        <div className="card" style={{ borderColor: "rgba(11,74,125,0.4)", background: "rgba(11,74,125,0.05)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 20 }}>✅</span>
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontWeight: 800, color: "#0b4a7d" }}>
-                {loadingPending ? `Loading ${pendingGl.statementMonth}…` : `${pendingGl.statementMonth} has been sent to AvidXchange`}
-              </div>
-              <div className="muted small" style={{ marginTop: 2 }}>
-                It was reviewed and released — allocation ran, carryover was finalized, and the invoices were emailed to Avid (cc Marie &amp; Drew) with a per-building summary. Load it here only if you need to re-download the PDFs.
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              {!loadingPending && (
-                <button className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={loadPendingGl}>Load to download invoices →</button>
-              )}
-              <button className="btn" style={{ fontWeight: 700 }} onClick={() => setPendingDismissed(true)}>Dismiss</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── 2000 G&A General Ledger (pulled from Operating Statements) ── */}
-      <div className="card">
+      {/* ── 2000 G&A General Ledger — only while a month is loaded for review ── */}
+      {(glResult || loadingPending) && (<div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
           <b>2000 G&amp;A General Ledger</b>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={() => setShowAllocModal(true)} title="View / download the allocation percentages">Allocation %</button>
-            <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={downloadAllocationPct} title="Download the allocation percentages as CSV">⭳ %</button>
             <DownloadMenu
               label="Download"
               variant="primary"
@@ -943,17 +870,8 @@ export default function AllocatedInvoicerPage() {
               </div>
             )}
           </>
-        ) : (
-          <div style={{ marginTop: 12, padding: "14px 16px", borderRadius: 10, background: "rgba(15,23,42,0.03)", border: "1px dashed var(--border)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 20 }}>📥</span>
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontWeight: 700 }}>No 2000 G&amp;A GL imported yet</div>
-              <div className="muted small" style={{ marginTop: 2 }}>Import the month&rsquo;s 2000 G&amp;A General Ledger on the Operating Statements page — it&rsquo;ll load here automatically, ready to review &amp; send.</div>
-            </div>
-            <a href="/financials/operating-statements" className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap", textDecoration: "none" }}>Go to Operating Statements →</a>
-          </div>
-        )}
-      </div>
+        ) : null}
+      </div>)}
 
       {/* ── Charts ── */}
       {glResult && allocationRows.length > 0 && (

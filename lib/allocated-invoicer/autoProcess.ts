@@ -56,6 +56,7 @@ import {
   markPendingSent,
   listPendingSends,
 } from "./pendingSendStore";
+import { saveInvoiceArchive } from "./invoiceArchive";
 import { getPendingGl } from "./pendingGlStore";
 import { deliverInvoicesToAvid, type AvidInvoicePdf } from "@/lib/invoicing/avidDelivery";
 
@@ -692,6 +693,13 @@ export async function sendAllocation(period: string, by?: string | null): Promis
       try { led = applyRecognized(led, res.recognizedUpdates, nowISO()); } catch { /* best-effort */ }
       try { await saveAllocLedger(led); } catch { /* best-effort */ }
       try { await markPendingSent("allocated", period, by); } catch { /* best-effort */ }
+      // Keep the PDFs exactly as sent — a finalized month can't be regenerated.
+      try {
+        await saveInvoiceArchive({
+          period, sentAt: new Date().toISOString(), sentBy: by ?? null,
+          invoices: invoices.map((i) => ({ fileName: i.zipPath || i.fileName, propertyLabel: i.propertyLabel, pdfBase64: i.pdf.toString("base64") })),
+        });
+      } catch { /* best-effort */ }
     }
 
     const sentAt = new Date().toISOString();
