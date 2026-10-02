@@ -13,11 +13,13 @@ Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the bill
 
 # Whose job is it — Drew's vs Harry's tasks and imports
 
-**The credit-card statement, the payroll report and the commissions are
-HARRY'S** (owner: "files for HARRY to import not DREW"; "harry doesnt need to
-see DRews tasks anymore just his own"). `owner` on a task (`taskDefs.ts`,
-`ownerOf`, default Drew) and on an import reminder (`imports.ts`) decides
-whose it is: Allocate CC Charges and BP Commissions are Harry's tasks; the
+**The credit-card statement, the payroll report and the SC commissions are
+HARRY'S; the BP commissions are NANCY'S** (owner: "files for HARRY to import
+not DREW"; "harry doesnt need to see DRews tasks anymore just his own"; "BP
+commissiosn are nancy. harry is SC commissions"). `owner` on a task
+(`taskDefs.ts`, `ownerOf`, default Drew) and on an import reminder
+(`imports.ts`) decides whose it is: Allocate CC Charges and SC Commissions are
+Harry's tasks, BP Commissions Nancy's (on the tracker's All view); the
 Credit Card Statement and the biweekly **Payroll Report** (ticked when a pay
 period is saved — `recordImport("imp-payroll")` in `/api/periods`) are his
 imports. Each person's dashboard (Tasks This Week, the daily digest, Data
@@ -343,7 +345,12 @@ queued waiting/ready entries that no longer qualify (approved ones stay); the
 dashboard's GET hides them at once. Name drift ("Consultant"/"Consultants") is
 the same tenant (`sameTenant`), a tenant who moved suites has not moved out, and
 a property missing from a partial import is not evidence anyone left. Pinned by
-`confirmedMoveouts.test.ts`.
+`confirmedMoveouts.test.ts`. **The Monthly Review's "Vacating & Expiring" uses
+the same rule** (`lib/reports/monthly.ts`): its VACATED rows ARE
+`confirmedMoveouts`, its new leases skip a tenant already in the property last
+month, and a lease past its date while still on the roll reads **PAST TERM**
+(renewal not yet keyed / holdover) with no close-out link — it used to say
+EXPIRED · Close out →.
 
 # Tenant monthly statements (open A/R) — sources of truth
 

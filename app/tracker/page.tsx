@@ -26,8 +26,8 @@ import {
 type OwnerFilter = "drew" | "harry" | "marie" | "both";
 
 // Each person opens on their OWN list (owner: Harry doesn't need Drew's). The
-// credit-card statement, payroll and commissions are Harry's (`owner` on the
-// task); "All" is everyone's.
+// credit-card statement, payroll and SC commissions are Harry's, BP commissions
+// Nancy's (`owner` on the task); "All" is everyone's.
 const OWNER_FILTERS: { id: OwnerFilter; label: string }[] = [
   { id: "drew",   label: "Drew" },
   { id: "harry",  label: "Harry" },

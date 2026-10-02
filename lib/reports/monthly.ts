@@ -17,6 +17,7 @@ import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operat
 import { listBudgets } from "@/lib/financials/budgets/storage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { composeCurrentRoll } from "@/lib/rentroll/current";
+import { confirmedMoveouts, sameTenant } from "@/lib/leasing/confirmedMoveouts";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const HISTORY_PREFIX = "rentroll-history";
@@ -47,7 +48,9 @@ export type GroupMetrics = {
   newLeases: number; vacated: number;
 };
 
-export type LeaseChange = { propertyCode: string; group: ReportGroupKey; unitRef: string; tenant: string; sqft: number };
+export type LeaseChange = { propertyCode: string; group: ReportGroupKey; unitRef: string; tenant: string; sqft: number;
+  /** Vacated only: the lease end and the roll that no longer shows them. */
+  leaseTo?: string | null; goneAsOf?: string };
 export type Expiration = { propertyCode: string; group: ReportGroupKey; unitRef: string; tenant: string; sqft: number; leaseTo: string; days: number };
 
 export type MonthlyReport = {
@@ -71,7 +74,6 @@ function monthKeyOf(r: { reportTo?: string | null; uploadedAt?: string | null })
   const d = r.uploadedAt ? new Date(r.uploadedAt) : new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
-const norm = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
 function parseUSDate(s: string | null | undefined): Date | null {
   const m = (s ?? "").match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
   return m ? new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2])) : null;
@@ -128,24 +130,41 @@ export async function buildMonthlyReport(year: number, month: number, now: Date)
     occPctPrior = t > 0 ? (o / t) * 100 : null;
   }
 
-  // ── Leasing diff (new leases / vacated) vs prior month ──
-  const newLeases: LeaseChange[] = [], vacated: LeaseChange[] = [];
+  // ── Leasing movement ──
+  // VACATED is the rent roll's word, never a lease date — the SAME rule as the
+  // dashboard's close-outs (`confirmedMoveouts`): on an earlier roll of their
+  // property and absent from the newest roll covering it. So a renewal still
+  // on the roll, a tenant who moved suites, a name that drifted
+  // ("Consultant"/"Consultants") and a property missing from a partial import
+  // are never read as move-outs. It used to diff this month's roll against
+  // last month's unit by unit, which counted every one of those.
+  const upTo = rentRollMonth ?? monthKey;
+  const vacated: LeaseChange[] = confirmedMoveouts(history.filter((h) => monthKeyOf(h) <= upTo), now, 60)
+    .map((v) => ({ propertyCode: v.propertyCode, group: groupOf(v.propertyCode), unitRef: v.unitRef, tenant: v.occupantName,
+      sqft: v.sqft ?? 0, leaseTo: v.leaseTo, goneAsOf: v.goneAsOf }));
+  // NEW LEASES vs last month — the same safeguards the other way round: a
+  // tenant already somewhere in the property last month (renamed, or moved
+  // suites) is not a new lease, and a property the prior roll did not carry
+  // tells us nothing.
+  const newLeases: LeaseChange[] = [];
   if (roll && prior) {
-    const nowOcc = occupiedUnits(roll), wasOcc = occupiedUnits(prior);
-    for (const [ref, u] of nowOcc) {
-      const b = wasOcc.get(ref);
-      if (!b || norm(b.occupantName) !== norm(u.occupantName)) newLeases.push({ propertyCode: u.propertyCode, group: groupOf(u.propertyCode), unitRef: ref, tenant: u.occupantName, sqft: u.sqft });
-    }
-    for (const [ref, u] of wasOcc) {
-      const a = nowOcc.get(ref);
-      if (!a || norm(a.occupantName) !== norm(u.occupantName)) vacated.push({ propertyCode: u.propertyCode, group: groupOf(u.propertyCode), unitRef: ref, tenant: u.occupantName, sqft: u.sqft });
+    const priorByProp = new Map<string, string[]>();
+    for (const p of prior.properties ?? []) priorByProp.set(String(p.propertyCode).toUpperCase(),
+      (p.units ?? []).filter((u) => !u.isVacant && !u.amenity && u.occupantName).map((u) => u.occupantName));
+    for (const [ref, u] of occupiedUnits(roll)) {
+      const was = priorByProp.get(String(u.propertyCode).toUpperCase());
+      if (!was) continue;
+      if (was.some((n) => sameTenant(n, u.occupantName))) continue;
+      newLeases.push({ propertyCode: u.propertyCode, group: groupOf(u.propertyCode), unitRef: ref, tenant: u.occupantName, sqft: u.sqft });
     }
   }
   for (const l of newLeases) groups[l.group].newLeases += 1;
   for (const l of vacated) groups[l.group].vacated += 1;
 
-  // ── Lease-ends in the window: expired in the last 60 days … expiring in the
-  //    next 60. The Monthly Review surfaces these as one movement section. ──
+  // ── Lease-ends in the window: past term in the last 60 days … expiring in
+  //    the next 60. Every one of these is ON the rent roll, so one whose date
+  //    has passed is a renewal not yet keyed or a holdover — NEVER a move-out
+  //    (the panel says "Past term", not "Expired · Close out"). ──
   const expirations: Expiration[] = [];
   if (roll) {
     for (const prop of roll.properties ?? []) for (const u of prop.units ?? []) {
