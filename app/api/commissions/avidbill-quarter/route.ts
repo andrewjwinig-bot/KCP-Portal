@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { priorQuarterLabel, sendQuarterToAvidBill } from "@/lib/commissions/sendQuarterToAvidBill";
 import { sendQuarterMemoToKorman } from "@/lib/commissions/sendQuarterMemo";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
+import { authorizeRequest, type UserId } from "@/lib/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -49,7 +50,10 @@ async function authorized(req: Request): Promise<boolean> {
     if (match) {
       const token = decodeURIComponent(match.slice(SITE_COOKIE.length + 1));
       const userId = await verifySiteToken(token, siteSecret);
-      if (userId) return true;
+      // A signed-in user must ALSO be allowed the commissions API — the route
+      // sits outside middleware (for the cron), so it has to apply the
+      // per-user check itself, or anyone could send a quarter to Avid.
+      if (userId && authorizeRequest(userId as UserId, "/api/commissions")) return true;
     }
   }
   // No bearer + no site auth configured = dev sandbox, permit.

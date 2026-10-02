@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getBudget, saveBudget } from "@/lib/financials/budgets/storage";
 import { findLineByPath, recomputeProperty } from "@/lib/financials/budgets/recompute";
+import { canSeePayroll } from "@/lib/financials/budgets/contributors";
+import { budgetUser } from "@/lib/financials/budgets/currentUser";
+import { stripPayrollAllocations } from "@/lib/financials/budgets/payrollPools";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,6 +73,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     recomputeProperty(property);
     await saveBudget(wb);
 
+    // Payroll allocations stay with Drew / Alison / admin, as on the GET.
+    if (!canSeePayroll(await budgetUser())) stripPayrollAllocations(wb);
     return NextResponse.json({ workbook: wb });
   } catch (e) {
     return NextResponse.json(

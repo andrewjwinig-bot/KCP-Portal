@@ -5,6 +5,7 @@ import { ALL_USERS, canManageK1, type UserId } from "@/lib/users";
 import { PREVIEW_TOKEN } from "@/lib/investors/k1Preview";
 import { verifyInvestorToken, investorLinkSecret, getInvestorLink } from "@/lib/investors/k1Link";
 import { investorPinCookieName, investorPinMatches, makeInvestorPinCookie } from "@/lib/investors/k1Access";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,11 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
   const link = await getInvestorLink(payload.id);
   if (!link || link.revoked) return NextResponse.json({ error: "This link has been revoked." }, { status: 401 });
 
+  // Throttle per link + IP, as the tenant portal does: the PIN is six digits
+  // and is the one thing standing between a forwarded link and a K-1.
+  if (!checkRateLimit(`k1pin:${link.id}:${getClientIp(req)}`, 10)) {
+    return NextResponse.json({ error: "Too many attempts. Please wait a few minutes and try again." }, { status: 429 });
+  }
   const body = await req.json().catch(() => ({}));
   if (!investorPinMatches(link.pin, String(body?.pin ?? ""))) {
     return NextResponse.json({ error: "That PIN doesn't match." }, { status: 401 });

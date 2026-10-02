@@ -336,6 +336,8 @@ export function isPathAllowed(userId: UserId, pathname: string): boolean {
 // stay available to any signed-in user — gating them would break shared flows.
 const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]][] = [
   ["/api/commissions/retail", "/commissions/retail"],
+  // The quarter's sent-log (dates only) — Harry's retail reminder reads it too.
+  ["/api/commissions/avidbill-sent", ["/commissions", "/commissions/retail"]],
   ["/api/commissions", "/commissions"],
   // Budgets API maps to the Budgets page specifically (Nancy is limited to it);
   // listed before the broad /api/financials → /financials mapping.
