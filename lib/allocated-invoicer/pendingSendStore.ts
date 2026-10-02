@@ -40,6 +40,11 @@ export type PendingSend = {
   /** Set once actually sent to Avid. */
   sentAt?: string | null;
   sentBy?: string | null;
+  /** Set when every month it covers turned out to be finalized ALREADY (the
+   *  old manual Finalize button, or a later batch) — so nothing was sent from
+   *  it. Deliberately NOT `sentAt`: a finalize is not a delivery, and recording
+   *  one as a send is how a month reads "sent" with no email behind it. */
+  finalizedAt?: string | null;
 };
 
 const keyOf = (source: PendingSource, period: string) => `${source}:${period}`;
@@ -74,6 +79,17 @@ export async function markPendingSent(source: PendingSource, period: string, by?
   const k = keyOf(source, period);
   if (items[k]) {
     items[k] = { ...items[k], sentAt: new Date().toISOString(), sentBy: by ?? null };
+    await storeJSON(PREFIX, ID, { items });
+  }
+}
+
+/** Close a staged send whose months were finalized elsewhere — nothing sent. */
+export async function markPendingFinalized(source: PendingSource, period: string): Promise<void> {
+  const cur = (await getJSON(PREFIX, ID)) as { items?: Record<string, PendingSend> } | null;
+  const items = { ...(cur?.items ?? {}) };
+  const k = keyOf(source, period);
+  if (items[k] && !items[k].sentAt) {
+    items[k] = { ...items[k], finalizedAt: new Date().toISOString() };
     await storeJSON(PREFIX, ID, { items });
   }
 }

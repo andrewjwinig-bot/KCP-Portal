@@ -54,6 +54,7 @@ import {
   savePendingSend,
   getPendingSend,
   markPendingSent,
+  markPendingFinalized,
   listPendingSends,
 } from "./pendingSendStore";
 import { saveInvoiceArchive } from "./invoiceArchive";
@@ -594,8 +595,10 @@ export async function sendAllocation(period: string, by?: string | null): Promis
     if ("error" in res) return { ok: false, reason: res.error };
 
     if (res.months.length === 0 && !res.catchup) {
-      // Every month finalized out-of-band since prepare, nothing new → already sent.
-      await markPendingSent("allocated", period, by);
+      // Every month finalized out-of-band since prepare, nothing new. That is
+      // NOT a send — record it as finalized so the history can't claim an
+      // email went to AvidXchange that never did.
+      await markPendingFinalized("allocated", period);
       return { ok: false, reason: "already-finalized", statementMonth: period, ...pendingBack(pending) };
     }
 
@@ -749,6 +752,7 @@ export async function autoSendAllocation(period: string, by?: string | null): Pr
   const pending = await getPendingSend("allocated", period);
   if (!pending) return { period, sent: false, held: "nothing staged" };
   if (pending.sentAt) return { period, sent: false, held: "already sent" };
+  if (pending.finalizedAt) return { period, sent: false, held: "already finalized" };
   if (!pending.fileBase64) return { period, sent: false, held: "staged from a posting report — review and send" };
   if (pending.summary?.tieOut && pending.summary.tieOut.ties === false) {
     return { period, sent: false, held: "allocation doesn't tie to the GL — review and send" };
@@ -760,7 +764,7 @@ export async function autoSendAllocation(period: string, by?: string | null): Pr
 /** Every allocated send still staged, oldest first (carryover chains month to month). */
 export async function autoSendStagedAllocations(by?: string | null): Promise<AutoSendResult[]> {
   const staged = (await listPendingSends())
-    .filter((p) => p.source === "allocated" && !p.sentAt)
+    .filter((p) => p.source === "allocated" && !p.sentAt && !p.finalizedAt)
     .sort((a, b) => a.period.localeCompare(b.period));
   const out: AutoSendResult[] = [];
   for (const p of staged) out.push(await autoSendAllocation(p.period, by));

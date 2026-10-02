@@ -15,11 +15,18 @@
 //   3. EVERY PRIOR MONTH — one row each; click for the by-building split and
 //      the invoice PDFs exactly as they were sent (view one, or the month as
 //      a ZIP — `/api/allocation/invoices`).
+//
+// Every row answers "did it reach AvidXchange?" with ONE status from the
+// history route: sent · sent in a batch (a Jan–Aug send covers August) ·
+// finalized with NO send on record (closed by the old manual Finalize — check
+// AvidXchange) · NOT SENT, which carries a Send button, because a month that
+// hasn't gone must be sendable from right here.
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
+import { HoverCard } from "@/app/components/HoverCard";
 import type { PropertyCarry } from "@/lib/allocated-invoicer/carryover";
 import { periodKey } from "@/lib/invoicing/unsent";
 
@@ -29,6 +36,9 @@ type HistoryPeriod = {
   byProperty: { code: string; name: string; amount: number }[];
   invoices: { fileName: string; propertyLabel: string }[] | null;
   staged?: boolean;
+  status: "sent" | "sent-in-batch" | "finalized" | "not-sent" | "run-only";
+  batch?: string | null;
+  sendable?: boolean;
 };
 
 const money = (n: number | null | undefined) => n == null ? "—" : "$" + (Math.round(n * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -36,7 +46,7 @@ const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString("
 const GREEN = "#15803d";
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
-export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth, toolbar }: {
+export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth, onSent, toolbar }: {
   carryover: Record<string, PropertyCarry>;
   propName: (id: string) => string;
   /** Load the imported 2000 GL into the page (review a held month, or
@@ -44,18 +54,56 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
   onLoadGl: () => void;
   /** The statement month that GL is for (`YYYY-MM`), if one is imported. */
   loadableMonth: string | null;
+  /** After a send from here — the page refreshes its carryover. */
+  onSent?: () => void;
   toolbar?: React.ReactNode;
 }) {
   const [periods, setPeriods] = useState<HistoryPeriod[] | null>(null);
   const [open, setOpen] = useState<HistoryPeriod | null>(null);
   const [openProp, setOpenProp] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/allocation/history", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => setPeriods(j?.periods ?? []))
-      .catch(() => setPeriods([]));
-  }, []);
+  const [sending, setSending] = useState<string | null>(null);
+  const [sendMsg, setSendMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const loadHistory = () => fetch("/api/allocation/history", { cache: "no-store" })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => { const list: HistoryPeriod[] = j?.periods ?? []; setPeriods(list); return list; })
+    .catch(() => { setPeriods([]); return [] as HistoryPeriod[]; });
+  useEffect(() => { loadHistory(); }, []);
+
+  // The Send button: the same send the import runs (one PDF per email to
+  // AvidXchange, the team summary, carryover finalized only after delivery).
+  async function send(p: HistoryPeriod) {
+    if (!window.confirm(`Send ${p.label}${p.total != null ? ` (${money(p.total)}` + (p.invoiceCount ? `, ${p.invoiceCount} invoice${p.invoiceCount === 1 ? "" : "s"}` : "") + ")" : ""} to AvidXchange now?\n\nEach invoice goes to kormancommercial@avidbill.com as its own email.`)) return;
+    setSending(p.period); setSendMsg(null);
+    try {
+      const r = await fetch("/api/allocation/pending-send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ period: p.period }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) setSendMsg({ ok: false, text: j.error || `Send failed (${r.status}).` });
+      else setSendMsg({ ok: true, text: `${p.label} sent to AvidXchange.` });
+      const list = await loadHistory();
+      setOpen((o) => (o ? list.find((x) => x.period === o.period) ?? null : o));
+      onSent?.();
+    } catch (e) {
+      setSendMsg({ ok: false, text: e instanceof Error ? e.message : "Send failed." });
+    } finally { setSending(null); }
+  }
+  const sendBtn = (p: HistoryPeriod, primary = true) => (
+    <button type="button" className={`btn sm${primary ? " primary" : ""}`} disabled={!!sending}
+      onClick={(e) => { e.stopPropagation(); send(p); }} style={{ whiteSpace: "nowrap" }}>
+      {sending === p.period ? "Sending…" : "Send to AvidXchange"}
+    </button>
+  );
+  const statusCell = (p: HistoryPeriod) => {
+    switch (p.status) {
+      case "sent": return <>{fmtDate(p.sentAt)}{p.sentBy ? <span className="muted"> · {p.sentBy}</span> : null}</>;
+      case "sent-in-batch": return <>{fmtDate(p.sentAt)}<span className="muted"> · in the {p.batch} batch</span></>;
+      case "finalized": return <HoverCard title="Finalized — no send on record" rows={[]} width={300}
+        body={<div style={{ fontSize: 12.5, lineHeight: 1.45 }}>Its carryover was closed (the old manual Finalize, or a later batch), but the portal has no record of the invoices reaching AvidXchange. Check AvidXchange for this month.</div>}>
+        <Pill tone={TONE_NEUTRAL}>FINALIZED · NO SEND RECORD</Pill></HoverCard>;
+      case "not-sent": return <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}><Pill tone={TONE_AMBER}>NOT SENT</Pill>{sendBtn(p, false)}</span>;
+      default: return <span className="muted">Processed — never staged to send</span>;
+    }
+  };
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
@@ -63,8 +111,9 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  const lastSent = periods?.find((p) => p.sentAt) ?? null;
-  const staged = periods?.find((p) => p.staged && (!lastSent || p.period.localeCompare(lastSent.period) > 0)) ?? null;
+  // The hero names a MONTH ("August 2026 has been sent"), not a range row.
+  const lastSent = periods?.find((p) => p.sentAt && !p.period.includes("_to_")) ?? periods?.find((p) => p.sentAt) ?? null;
+  const staged = periods?.filter((p) => p.status === "not-sent") ?? [];
 
   // Open balances: each property's held accounts, largest first.
   const balances = useMemo(() => Object.values(carryover)
@@ -93,7 +142,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
               <div style={{ fontSize: 24, fontWeight: 900, color: GREEN, lineHeight: 1.2 }}>{lastSent.label} has been sent to AvidXchange</div>
               <button type="button" onClick={() => setOpen(lastSent)}
                 style={{ marginTop: 4, padding: 0, border: "none", background: "none", cursor: "pointer", color: "var(--text)", fontSize: 13.5, textAlign: "left" }}>
-                Sent {fmtDate(lastSent.sentAt)}{lastSent.sentBy ? ` by ${lastSent.sentBy}` : ""} · <b>{money(lastSent.total)}</b>
+                Sent {fmtDate(lastSent.sentAt)}{lastSent.sentBy ? ` by ${lastSent.sentBy}` : ""}{lastSent.batch ? ` in the ${lastSent.batch} batch` : ""}{lastSent.total != null ? <> · <b>{money(lastSent.total)}</b></> : null}
                 {lastSent.invoiceCount ? ` · ${lastSent.invoiceCount} invoice${lastSent.invoiceCount === 1 ? "" : "s"}` : ""}
                 <span style={{ color: "#0b4a7d", fontWeight: 700, marginLeft: 8 }}>View invoices →</span>
               </button>
@@ -105,14 +154,18 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
             <div className="muted small" style={{ marginTop: 4 }}>The invoices send themselves when the month&rsquo;s 2000 G&amp;A GL is imported on Operating Statements.</div>
           </div>
         )}
-        {staged && (
-          <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8, background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        {staged.map((p) => (
+          <div key={p.period} style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8, background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <Pill tone={TONE_AMBER}>NOT SENT</Pill>
-            <span style={{ fontSize: 13.5 }}><b>{staged.label}</b> was prepared ({money(staged.total)}) but hasn&rsquo;t gone to AvidXchange — tomorrow morning&rsquo;s run retries it unless it&rsquo;s held for review.</span>
-            {loadableMonth && periodKey(loadableMonth) === periodKey(staged.period) && (
-              <button type="button" className="btn sm" style={{ marginLeft: "auto" }} onClick={onLoadGl}>Review &amp; send →</button>
+            <span style={{ fontSize: 13.5, flex: 1, minWidth: 220 }}><b>{p.label}</b> was prepared ({money(p.total)}{p.invoiceCount ? `, ${p.invoiceCount} invoice${p.invoiceCount === 1 ? "" : "s"}` : ""}) but hasn&rsquo;t gone to AvidXchange.</span>
+            {loadableMonth && periodKey(loadableMonth) === periodKey(p.period) && (
+              <button type="button" className="btn sm" onClick={onLoadGl}>Review first</button>
             )}
+            {sendBtn(p)}
           </div>
+        ))}
+        {sendMsg && (
+          <div className="small" style={{ marginTop: 10, fontWeight: 700, color: sendMsg.ok ? GREEN : "#b91c1c" }}>{sendMsg.text}</div>
         )}
       </div>
 
@@ -171,11 +224,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
               {periods.map((p) => (
                 <tr key={p.period} onClick={() => setOpen(p)} style={{ cursor: "pointer" }}>
                   <td style={{ ...tdL, fontWeight: 700 }}>{p.label}</td>
-                  <td style={tdL}>
-                    {p.sentAt ? <>{fmtDate(p.sentAt)}{p.sentBy ? <span className="muted"> · {p.sentBy}</span> : null}</>
-                      : p.staged ? <Pill tone={TONE_AMBER}>NOT SENT</Pill>
-                      : <span className="muted">Run recorded — no send on file</span>}
-                  </td>
+                  <td style={tdL}>{statusCell(p)}</td>
                   <td style={td}>{p.invoiceCount ?? p.invoices?.length ?? "—"}</td>
                   <td style={{ ...td, fontWeight: 700 }}>{money(p.total)}</td>
                 </tr>
@@ -204,8 +253,21 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
             <div className="pills" style={{ padding: "12px 18px 0" }}>
               <StatPill label="Total" value={money(open.total)} total />
               <StatPill label="Invoices" value={String(open.invoiceCount ?? open.invoices?.length ?? "—")} />
-              <StatPill label="Sent to AvidXchange" value={open.sentAt ? fmtDate(open.sentAt) : "Not sent"} sub={open.sentBy ?? undefined} />
+              <StatPill label="Sent to AvidXchange" value={open.sentAt ? fmtDate(open.sentAt) : open.status === "finalized" ? "No record" : "Not sent"}
+                sub={open.batch ? `in the ${open.batch} batch` : open.sentBy ?? undefined} />
             </div>
+            {open.status === "not-sent" && (
+              <div style={{ margin: "12px 18px 0", padding: "10px 12px", borderRadius: 8, background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <Pill tone={TONE_AMBER}>NOT SENT</Pill>
+                <span style={{ fontSize: 13.5, flex: 1 }}>This month hasn&rsquo;t gone to AvidXchange.</span>
+                {sendBtn(open)}
+              </div>
+            )}
+            {open.status === "finalized" && (
+              <div className="small" style={{ margin: "12px 18px 0", color: "var(--muted)" }}>
+                Finalized, but the portal has no record of these invoices reaching AvidXchange — check AvidXchange for this month.
+              </div>
+            )}
             <div style={{ padding: "12px 0 6px" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead><tr><th style={thL}>Property</th><th style={th}>Allocated</th><th style={th}>Invoice</th></tr></thead>
