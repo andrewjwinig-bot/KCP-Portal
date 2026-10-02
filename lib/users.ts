@@ -339,6 +339,11 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   // The quarter's sent-log (dates only) — Harry's retail reminder reads it too.
   ["/api/commissions/avidbill-sent", ["/commissions", "/commissions/retail"]],
   ["/api/commissions", "/commissions"],
+  // The Allocated Invoicer's history + archived invoices (property-level
+  // billing). Only these two — /api/allocation itself also serves the
+  // Payroll Invoicer.
+  ["/api/allocation/history", "/allocated-invoicer"],
+  ["/api/allocation/invoices", "/allocated-invoicer"],
   // Budgets API maps to the Budgets page specifically (Nancy is limited to it);
   // listed before the broad /api/financials → /financials mapping.
   ["/api/financials/budgets", "/financials/budgets"],
