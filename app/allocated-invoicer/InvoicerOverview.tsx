@@ -48,6 +48,7 @@ type SendPreview = {
   invoiceCount: number;
   months: { statementMonth: string; label: string; total: number; supplemental?: boolean }[];
   nothingToSend: boolean;
+  label: string;
 };
 
 const money = (n: number | null | undefined) => n == null ? "—" : "$" + (Math.round(n * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -335,7 +336,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
             style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 640, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
               <div style={secLabel}>Send to AvidXchange</div>
-              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>Allocated Expenses · {confirm.p.label}</div>
+              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>Allocated Expenses · {confirm.preview?.label || confirm.p.label}</div>
             </div>
             {confirm.error ? (
               <div className="small" style={{ padding: "16px 18px", color: "#b91c1c", fontWeight: 700 }}>{confirm.error}</div>
@@ -350,9 +351,9 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                   <StatPill label="Invoices" value={String(confirm.preview.invoiceCount)} sub="one email each" />
                   <StatPill label="Buildings" value={String(confirm.preview.byProperty.length)} />
                 </div>
-                {confirm.preview.months.length > 1 && (
+                {(confirm.preview.months.length > 1 || confirm.preview.months.some((m) => m.supplemental)) && (
                   <div className="small muted" style={{ padding: "10px 18px 0" }}>
-                    Covers {confirm.preview.months.map((m) => `${m.label} ${money(m.total)}`).join(" · ")}
+                    {confirm.preview.months.map((m) => `${m.label} ${money(m.total)}`).join(" · ")} — months already billed aren&rsquo;t billed again; only charges posted to them since are.
                   </div>
                 )}
                 <div style={{ padding: "12px 0 4px" }}>

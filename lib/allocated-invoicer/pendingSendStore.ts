@@ -45,6 +45,11 @@ export type PendingSend = {
    *  it. Deliberately NOT `sentAt`: a finalize is not a delivery, and recording
    *  one as a send is how a month reads "sent" with no email behind it. */
   finalizedAt?: string | null;
+  /** What the send actually bills, as it reads: the GL's NEW month(s) — a
+   *  full-year GL run in August bills "July 2026", not "Jan – Jul" — plus any
+   *  late charges to finalized months. `billedMonths` are the fresh months. */
+  billedLabel?: string;
+  billedMonths?: string[];
 };
 
 const keyOf = (source: PendingSource, period: string) => `${source}:${period}`;
@@ -73,12 +78,12 @@ export async function savePendingSend(rec: PendingSend): Promise<PendingSend> {
 }
 
 /** Mark a pending send as sent (keeps the record for the audit trail). */
-export async function markPendingSent(source: PendingSource, period: string, by?: string | null): Promise<void> {
+export async function markPendingSent(source: PendingSource, period: string, by?: string | null, billed?: { billedLabel: string; billedMonths: string[] }): Promise<void> {
   const cur = (await getJSON(PREFIX, ID)) as { items?: Record<string, PendingSend> } | null;
   const items = { ...(cur?.items ?? {}) };
   const k = keyOf(source, period);
   if (items[k]) {
-    items[k] = { ...items[k], sentAt: new Date().toISOString(), sentBy: by ?? null };
+    items[k] = { ...items[k], ...(billed ?? {}), sentAt: new Date().toISOString(), sentBy: by ?? null };
     await storeJSON(PREFIX, ID, { items });
   }
 }
