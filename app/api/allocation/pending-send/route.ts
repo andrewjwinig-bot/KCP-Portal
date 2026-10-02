@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { listPendingSends, getPendingSend } from "@/lib/allocated-invoicer/pendingSendStore";
-import { sendAllocation } from "@/lib/allocated-invoicer/autoProcess";
+import { sendAllocation, previewAllocationSend } from "@/lib/allocated-invoicer/autoProcess";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, USERS, type UserId } from "@/lib/users";
 
@@ -26,8 +26,16 @@ function slim(p: Awaited<ReturnType<typeof getPendingSend>>) {
 
 // GET [?period=YYYY-MM] — the staged "allocated" pending send awaiting review.
 // With ?period, that one period; otherwise every un-sent allocated pending send.
+//   ?period=…&preview=1 — a dry run of the send (what each building will be
+//   billed), for the confirm: the same computation, no mail and no write.
 export async function GET(req: Request) {
-  const period = new URL(req.url).searchParams.get("period");
+  const url = new URL(req.url);
+  const period = url.searchParams.get("period");
+  if (period && url.searchParams.get("preview")) {
+    const r = await previewAllocationSend(period).catch((e) => ({ error: e instanceof Error ? e.message : "Preview failed" }));
+    if ("error" in r) return NextResponse.json({ error: sendError(r.error) === "Failed to send the allocated invoices." ? r.error : sendError(r.error) }, { status: r.error === "not-prepared" ? 404 : 409 });
+    return NextResponse.json({ preview: r });
+  }
   if (period) {
     return NextResponse.json({ pending: slim(await getPendingSend("allocated", period)) });
   }

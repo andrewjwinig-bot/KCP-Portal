@@ -41,6 +41,15 @@ type HistoryPeriod = {
   sendable?: boolean;
 };
 
+type SendPreview = {
+  period: string;
+  byProperty: { code: string; name: string; amount: number }[];
+  total: number;
+  invoiceCount: number;
+  months: { statementMonth: string; label: string; total: number; supplemental?: boolean }[];
+  nothingToSend: boolean;
+};
+
 const money = (n: number | null | undefined) => n == null ? "—" : "$" + (Math.round(n * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
 const GREEN = "#15803d";
@@ -70,16 +79,26 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
     .catch(() => { setPeriods([]); return [] as HistoryPeriod[]; });
   useEffect(() => { loadHistory(); }, []);
 
-  // The Send button: the same send the import runs (one PDF per email to
-  // AvidXchange, the team summary, carryover finalized only after delivery).
+  // The Send button opens a CONFIRM that previews the send — a dry run of the
+  // very computation the send makes (`?preview=1`), so the buildings and amounts
+  // read before sending are the ones that go. A send is irreversible: Avid
+  // starts paying invoices once they land.
+  const [confirm, setConfirm] = useState<{ p: HistoryPeriod; preview: SendPreview | null; error: string | null } | null>(null);
+  function askSend(p: HistoryPeriod) {
+    setConfirm({ p, preview: null, error: null });
+    fetch(`/api/allocation/pending-send?period=${encodeURIComponent(p.period)}&preview=1`, { cache: "no-store" })
+      .then(async (r) => { const j = await r.json().catch(() => ({})); return r.ok ? { preview: j.preview as SendPreview, error: null } : { preview: null, error: j.error || `Couldn't prepare the send (${r.status}).` }; })
+      .catch((e) => ({ preview: null, error: e instanceof Error ? e.message : "Couldn't prepare the send." }))
+      .then((res) => setConfirm((c) => (c && c.p.period === p.period ? { ...c, ...res } : c)));
+  }
   async function send(p: HistoryPeriod) {
-    if (!window.confirm(`Send ${p.label}${p.total != null ? ` (${money(p.total)}` + (p.invoiceCount ? `, ${p.invoiceCount} invoice${p.invoiceCount === 1 ? "" : "s"}` : "") + ")" : ""} to AvidXchange now?\n\nEach invoice goes to kormancommercial@avidbill.com as its own email.`)) return;
     setSending(p.period); setSendMsg(null);
     try {
       const r = await fetch("/api/allocation/pending-send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ period: p.period }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) setSendMsg({ ok: false, text: j.error || `Send failed (${r.status}).` });
       else setSendMsg({ ok: true, text: `${p.label} sent to AvidXchange.` });
+      setConfirm(null);
       const list = await loadHistory();
       setOpen((o) => (o ? list.find((x) => x.period === o.period) ?? null : o));
       onSent?.();
@@ -89,7 +108,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
   }
   const sendBtn = (p: HistoryPeriod, primary = true) => (
     <button type="button" className={`btn sm${primary ? " primary" : ""}`} disabled={!!sending}
-      onClick={(e) => { e.stopPropagation(); send(p); }} style={{ whiteSpace: "nowrap" }}>
+      onClick={(e) => { e.stopPropagation(); askSend(p); }} style={{ whiteSpace: "nowrap" }}>
       {sending === p.period ? "Sending…" : "Send to AvidXchange"}
     </button>
   );
@@ -106,10 +125,10 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
   };
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !confirm) setOpen(null); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  }, [open, confirm]);
 
   // The hero names a MONTH ("August 2026 has been sent"), not a range row.
   const lastSent = periods?.find((p) => p.sentAt && !p.period.includes("_to_")) ?? periods?.find((p) => p.sentAt) ?? null;
@@ -302,6 +321,67 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                 )}
               </div>
             )}
+          </div>
+        </div>,
+        document.body,
+      )}
+      {confirm && typeof document !== "undefined" && createPortal(
+        <div onClick={() => !sending && setConfirm(null)} style={{ position: "fixed", inset: 0, zIndex: 130, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Send ${confirm.p.label} to AvidXchange`}
+            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 640, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+            <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
+              <div style={secLabel}>Send to AvidXchange</div>
+              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>Allocated Expenses · {confirm.p.label}</div>
+            </div>
+            {confirm.error ? (
+              <div className="small" style={{ padding: "16px 18px", color: "#b91c1c", fontWeight: 700 }}>{confirm.error}</div>
+            ) : !confirm.preview ? (
+              <div className="muted small" style={{ padding: "16px 18px" }}>Working out what will be billed…</div>
+            ) : confirm.preview.nothingToSend ? (
+              <div className="small" style={{ padding: "16px 18px" }}>Nothing new to bill — every month in this period is already finalized. Check AvidXchange for these invoices.</div>
+            ) : (
+              <>
+                <div className="pills" style={{ padding: "12px 18px 0" }}>
+                  <StatPill label="Total to bill" value={money(confirm.preview.total)} total />
+                  <StatPill label="Invoices" value={String(confirm.preview.invoiceCount)} sub="one email each" />
+                  <StatPill label="Buildings" value={String(confirm.preview.byProperty.length)} />
+                </div>
+                {confirm.preview.months.length > 1 && (
+                  <div className="small muted" style={{ padding: "10px 18px 0" }}>
+                    Covers {confirm.preview.months.map((m) => `${m.label} ${money(m.total)}`).join(" · ")}
+                  </div>
+                )}
+                <div style={{ padding: "12px 0 4px" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead><tr><th style={thL}>Property</th><th style={th}>Amount</th></tr></thead>
+                    <tbody>
+                      {confirm.preview.byProperty.map((b) => (
+                        <tr key={b.code}>
+                          <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{b.code}</code>{b.name || propName(b.code)}</td>
+                          <td style={td}>{money(b.amount)}</td>
+                        </tr>
+                      ))}
+                      <tr style={{ fontWeight: 800 }}>
+                        <td style={{ ...tdL, borderTop: "2px solid var(--border)" }}>Total</td>
+                        <td style={{ ...td, borderTop: "2px solid var(--border)" }}>{money(confirm.preview.total)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="small" style={{ padding: "6px 18px 0", color: "var(--muted)", lineHeight: 1.5 }}>
+                  Each invoice PDF goes to <b style={{ color: "var(--text)" }}>kormancommercial@avidbill.com</b> as its own email; Marie, Drew and Harry get one summary.
+                  Amounts under $100 per account stay held and carry forward. Sending finalizes the month — it can&rsquo;t be undone.
+                </div>
+              </>
+            )}
+            <div style={{ padding: "14px 18px", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button type="button" className="btn sm" disabled={!!sending} onClick={() => setConfirm(null)}>Cancel</button>
+              {confirm.preview && !confirm.preview.nothingToSend && (
+                <button type="button" className="btn sm primary" disabled={!!sending} onClick={() => send(confirm.p)}>
+                  {sending ? "Sending…" : `Send ${confirm.preview.invoiceCount} invoice${confirm.preview.invoiceCount === 1 ? "" : "s"} · ${money(confirm.preview.total)}`}
+                </button>
+              )}
+            </div>
           </div>
         </div>,
         document.body,

@@ -553,6 +553,61 @@ export type SendResult = {
   sentAt?: string;
 };
 
+/** The GL a send recomputes from: a posting report's serialized GL, else the
+ *  2000 G&A GL currently imported on Operating Statements (when it is this
+ *  period's), else the staged Excel snapshot. Shared by the send and its
+ *  preview, so the confirm shows exactly what the send will compute. */
+async function loadSendGl(period: string, pending: Awaited<ReturnType<typeof getPendingSend>>): Promise<GLParseResult | null> {
+  let gl: GLParseResult | null = null;
+  if (pending?.glJson) {
+    try { gl = deserializeGl(pending.glJson); } catch { /* fall through */ }
+  }
+  if (gl) return gl;
+  let buf: Buffer | null = null;
+  try {
+    const stash = await getPendingGl();
+    if (stash?.fileBase64) {
+      const sbuf = Buffer.from(stash.fileBase64, "base64");
+      const sgl = parseGLExcel(sbuf.buffer.slice(sbuf.byteOffset, sbuf.byteOffset + sbuf.byteLength));
+      if (sgl.statementMonth === period) buf = sbuf;
+    }
+  } catch { /* fall back to the staged snapshot */ }
+  if (!buf && pending?.fileBase64) buf = Buffer.from(pending.fileBase64, "base64");
+  if (!buf) return null;
+  return parseGLExcel(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+}
+
+export type SendPreview = {
+  period: string;
+  /** What the send would bill, by building — the same computation as the send. */
+  byProperty: { code: string; name: string; amount: number }[];
+  total: number;
+  invoiceCount: number;
+  /** The statement months it covers (plus "catch-up" for late charges). */
+  months: { statementMonth: string; label: string; total: number; supplemental?: boolean }[];
+  /** Nothing new to bill — every month already finalized. */
+  nothingToSend: boolean;
+};
+
+/** Dry run of `sendAllocation`: no mail, no ledger write, no record. */
+export async function previewAllocationSend(period: string): Promise<SendPreview | { error: string }> {
+  const pending = await getPendingSend("allocated", period);
+  if (pending?.sentAt) return { error: "already-sent" };
+  const gl = await loadSendGl(period, pending);
+  if (!gl) return { error: "not-prepared" };
+  const res = computeMonths(gl, await getAllocLedger());
+  if ("error" in res) return { error: res.error };
+  const batches = [...res.months, ...(res.catchup ? [res.catchup] : [])];
+  return {
+    period,
+    byProperty: res.byProperty.filter((b) => Math.abs(b.amount) > 0.005).sort((a, b) => b.amount - a.amount),
+    total: res.total,
+    invoiceCount: res.invoiceCount,
+    months: batches.map((m) => ({ statementMonth: m.statementMonth, label: m.supplemental ? `Catch-up (${monthLabel(m.statementMonth)})` : monthLabel(m.statementMonth), total: m.total, supplemental: !!m.supplemental })),
+    nothingToSend: res.months.length === 0 && !res.catchup,
+  };
+}
+
 /**
  * Send a prepared allocation to AvidXchange. Reloads the staged pending send,
  * recomputes every month from the stashed GL against the CURRENT ledger, builds
@@ -567,28 +622,8 @@ export async function sendAllocation(period: string, by?: string | null): Promis
       return { ok: false, reason: "already-sent", statementMonth: period, sentAt: pending.sentAt, ...pendingBack(pending) };
     }
 
-    // Reconstruct the GL to recompute the exact invoices. A posting-report send
-    // carries a serialized GL (glJson). Otherwise the source of truth is the 2000
-    // G&A GL currently imported on Operating Statements (so the send can't drift
-    // from the on-screen review), falling back to the staged Excel snapshot.
-    let gl: GLParseResult | null = null;
-    if (pending?.glJson) {
-      try { gl = deserializeGl(pending.glJson); } catch { /* fall through */ }
-    }
-    if (!gl) {
-      let buf: Buffer | null = null;
-      try {
-        const stash = await getPendingGl();
-        if (stash?.fileBase64) {
-          const sbuf = Buffer.from(stash.fileBase64, "base64");
-          const sgl = parseGLExcel(sbuf.buffer.slice(sbuf.byteOffset, sbuf.byteOffset + sbuf.byteLength));
-          if (sgl.statementMonth === period) buf = sbuf;
-        }
-      } catch { /* fall back to the staged snapshot */ }
-      if (!buf && pending?.fileBase64) buf = Buffer.from(pending.fileBase64, "base64");
-      if (!buf) return { ok: false, reason: "not-prepared" };
-      gl = parseGLExcel(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
-    }
+    const gl = await loadSendGl(period, pending);
+    if (!gl) return { ok: false, reason: "not-prepared" };
 
     let ledger = await getAllocLedger();
     const res = computeMonths(gl, ledger);
