@@ -58,6 +58,8 @@ import {
   listPendingSends,
 } from "./pendingSendStore";
 import { saveInvoiceArchive } from "./invoiceArchive";
+import { billedOf, shortMonth } from "./billedLabel";
+export { billedOf };
 import { getPendingGl } from "./pendingGlStore";
 import { deliverInvoicesToAvid, type AvidInvoicePdf } from "@/lib/invoicing/avidDelivery";
 
@@ -272,6 +274,7 @@ function monthLabel(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
   return new Date(y, m - 1, 1).toLocaleString("en-US", { month: "long", year: "numeric" });
 }
+
 
 /** Build the supplemental catch-up allocation from accumulated per-account deltas,
  *  billed against the held balance after the fresh months. Null when empty. */
@@ -497,7 +500,8 @@ async function prepareStaged(gl: GLParseResult, stash: { fileBase64?: string; gl
   // (every month already finalized) → a content-stable key so it doesn't collide
   // with the already-sent month.
   const period = res.months.length > 0 ? glPeriod : catchupKeyFor(res.catchup!);
-  const label = res.months.length > 0 ? (gl.periodText || glPeriod) : (res.catchup!.gl.periodText || period);
+  const billed = billedOf(res);
+  const label = billed.billedLabel || (res.months.length > 0 ? (gl.periodText || glPeriod) : (res.catchup!.gl.periodText || period));
 
   const existing = await getPendingSend("allocated", period);
   if (existing?.sentAt) return { ok: false, reason: "already-sent", statementMonth: period, alreadySent: true };
@@ -507,6 +511,7 @@ async function prepareStaged(gl: GLParseResult, stash: { fileBase64?: string; gl
     period,
     label,
     summary: { byProperty: res.byProperty, total: res.total, invoiceCount: res.invoiceCount, tieOut: reconcileAllocation(gl) },
+    ...billed,
     ...stash,
     preparedAt: new Date().toISOString(),
     preparedBy: by ?? null,
@@ -587,6 +592,8 @@ export type SendPreview = {
   months: { statementMonth: string; label: string; total: number; supplemental?: boolean }[];
   /** Nothing new to bill — every month already finalized. */
   nothingToSend: boolean;
+  /** What it bills, as it reads — "July 2026 + late charges (Jun)". */
+  label: string;
 };
 
 /** Dry run of `sendAllocation`: no mail, no ledger write, no send record. The
@@ -610,8 +617,9 @@ export async function previewAllocationSend(period: string): Promise<SendPreview
     byProperty: res.byProperty.filter((b) => Math.abs(b.amount) > 0.005).sort((a, b) => b.amount - a.amount),
     total: res.total,
     invoiceCount: res.invoiceCount,
-    months: batches.map((m) => ({ statementMonth: m.statementMonth, label: m.supplemental ? `Catch-up (${monthLabel(m.statementMonth)})` : monthLabel(m.statementMonth), total: m.total, supplemental: !!m.supplemental })),
+    months: batches.map((m) => ({ statementMonth: m.statementMonth, label: m.supplemental ? `Late charges (${[...new Set(m.sourceMonths ?? [])].sort().map(shortMonth).join(", ")})` : monthLabel(m.statementMonth), total: m.total, supplemental: !!m.supplemental })),
     nothingToSend,
+    label: billedOf(res).billedLabel,
   };
 }
 
@@ -687,6 +695,7 @@ export async function sendAllocation(period: string, by?: string | null): Promis
           source: "allocated",
           label: "Allocated Expenses",
           period,
+          periodLabel: billedOf(res).billedLabel || undefined,
           invoices,
           byProperty: res.byProperty,
           total: res.total,
@@ -737,7 +746,7 @@ export async function sendAllocation(period: string, by?: string | null): Promis
       // legacy-backfilled, and catch-up), so a later re-import bills only new deltas.
       try { led = applyRecognized(led, res.recognizedUpdates, nowISO()); } catch { /* best-effort */ }
       try { await saveAllocLedger(led); } catch { /* best-effort */ }
-      try { await markPendingSent("allocated", period, by); } catch { /* best-effort */ }
+      try { await markPendingSent("allocated", period, by, billedOf(res)); } catch { /* best-effort */ }
       // Keep the PDFs exactly as sent — a finalized month can't be regenerated.
       try {
         await saveInvoiceArchive({

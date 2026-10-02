@@ -50,7 +50,11 @@ export async function deliverInvoicesToAvid(opts: {
   source: string;
   /** "Allocated Expenses" | "Credit Card Expenses" | "Payroll". */
   label: string;
+  /** Dedup key — also what the AP send log records. */
   period: string;
+  /** How the period READS in the emails (e.g. "July 2026" for a full-year GL
+   *  keyed "2026-01_to_2026-07"). Defaults to `period`. */
+  periodLabel?: string;
   invoices: AvidInvoicePdf[];
   byProperty: { code: string; name: string; amount: number }[];
   total: number;
@@ -65,6 +69,7 @@ export async function deliverInvoicesToAvid(opts: {
   by?: string | null;
 }): Promise<DeliverResult> {
   const invoiceCount = opts.invoices.length;
+  const shown = opts.periodLabel || opts.period;
   if (!isMailConfigured()) {
     return { avidSent: 0, alreadySent: 0, invoiceCount, teamNotified: false, emailed: false, mailConfigured: false, allDelivered: false };
   }
@@ -79,8 +84,8 @@ export async function deliverInvoicesToAvid(opts: {
     const ok = await sendMail({
       to: AVID_TO,
       from: REPORT_FROM,
-      subject: `${opts.label} — ${inv.propertyLabel} — ${opts.period}`,
-      textBody: `Attached is the ${opts.period} ${opts.label.toLowerCase()} invoice for ${inv.propertyLabel}.\n\n— KCP Portal`,
+      subject: `${opts.label} — ${inv.propertyLabel} — ${shown}`,
+      textBody: `Attached is the ${shown} ${opts.label.toLowerCase()} invoice for ${inv.propertyLabel}.\n\n— KCP Portal`,
       attachments: [{ name: inv.fileName, content: inv.pdf, contentType: PDF }],
     });
     if (ok) {
@@ -102,7 +107,7 @@ export async function deliverInvoicesToAvid(opts: {
     ? bp.map((b) => rowLine(`${b.code} — ${b.name}`, money(b.amount))).join("\n") + `\n  ${"TOTAL".padEnd(nameW)}   ${money(opts.total).padStart(amtW)}`
     : "  (no property detail)";
   const teamAttachments = [...(opts.references ?? [])];
-  if (opts.archiveZip) teamAttachments.push({ name: `${opts.period} - ${opts.label} Invoices.zip`, content: opts.archiveZip, contentType: "application/zip" });
+  if (opts.archiveZip) teamAttachments.push({ name: `${shown} - ${opts.label} Invoices.zip`, content: opts.archiveZip, contentType: "application/zip" });
   const cc = opts.teamCc.filter((x) => x && x !== CONTROLLER).join(", ");
 
   // Send the summary once all invoices are out and it hasn't gone yet, OR when
@@ -115,10 +120,10 @@ export async function deliverInvoicesToAvid(opts: {
       to: CONTROLLER,
       ...(cc ? { cc } : {}),
       from: REPORT_FROM,
-      subject: `${opts.label} sent to AvidXchange — ${opts.period}`,
+      subject: `${opts.label} sent to AvidXchange — ${shown}`,
       textBody:
         `${Object.keys(sent.invoices).length}${Object.keys(sent.invoices).length === invoiceCount ? "" : ` of ${invoiceCount}`} ${opts.label.toLowerCase()} invoice${invoiceCount === 1 ? "" : "s"} ` +
-        `${opts.by ? `released by ${opts.by} ` : ""}to AvidXchange for ${opts.period} — sent as one email per invoice (Avid can't take a zip).\n\n` +
+        `${opts.by ? `released by ${opts.by} ` : ""}to AvidXchange for ${shown} — sent as one email per invoice (Avid can't take a zip).\n\n` +
         `Allocation by building:\n${summaryBody}\n\n` +
         `${opts.privacyNote ? "These figures are property-level only — no employee payroll detail is included.\n\n" : ""}` +
         `— KCP Portal`,
