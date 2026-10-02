@@ -1,5 +1,19 @@
-import * as XLSX from "xlsx";
+import {
+  newWorkbook, headerBand, footNote, freezeAbove, repeatHeader,
+  liveSum, totalEmphasis, COLOR, FMT, FONT_NAME, PRINT_WIDE, KORMAN_TEXT,
+} from "@/lib/excel/theme";
 import { PROPERTY_DEFS } from "../properties/data";
+
+// TWO sheets, and only ONE of them is a document.
+//
+// "Allocations" is the grid Nancy and the controller READ and edit — grouped by
+// Business Parks / Shopping Centers, percentages down each property column.
+// That one carries the house look.
+//
+// "Upload Template" does NOT. It is parsed straight back by
+// `parseAllocationWorkbook`, which expects its header on row 1 and its columns
+// where they are. A letterhead would shift every row and break the re-import.
+// It stays a bare grid deliberately.
 
 export type AllocExportEmployee = {
   name: string;
@@ -18,11 +32,7 @@ function propName(id: string): string {
   return PROPERTY_DEFS.find((p) => p.id === id)?.name ?? id;
 }
 
-function pctCell(v: number): XLSX.CellObject {
-  return { v, t: "n", z: "0.00%" };
-}
-
-export function buildAllocationTemplateXlsx(employees: AllocExportEmployee[]): Blob {
+export async function buildAllocationTemplateXlsx(employees: AllocExportEmployee[]): Promise<Blob> {
   const usedKeys = Array.from(
     new Set(employees.flatMap((e) => Object.keys(e.allocations ?? {})))
   );
@@ -50,95 +60,140 @@ export function buildAllocationTemplateXlsx(employees: AllocExportEmployee[]): B
 
   const orderedKeys = grouped.flatMap((g) => g.keys);
   const FIXED = 3; // Emp #, Employee Name, REC/NR
+  const nCols = FIXED + orderedKeys.length + 1;
 
-  // ── Row 0: group span headers ──────────────────────────────────────────────
-  const row0: (string | XLSX.CellObject)[] = ["", "", ""];
-  for (const g of grouped) {
-    row0.push(g.label);
-    for (let i = 1; i < g.keys.length; i++) row0.push("");
+  const wb = newWorkbook();
+  const ws = wb.addWorksheet("Allocations", { pageSetup: { ...PRINT_WIDE } });
+  ws.columns = [
+    { width: 8 },  // Emp #
+    { width: 26 }, // Employee Name
+    { width: 7 },  // REC/NR
+    ...orderedKeys.map((k) => ({ width: Math.max(14, Math.min(24, propName(k).length + 2)) })),
+    { width: 9 },  // Total %
+  ];
+
+  // A one-line letterhead rather than the full titleBlock: this sheet is very
+  // wide and already spends two rows on its own group/column headers, so a
+  // three-band block would push the grid off the first screen.
+  const brand = ws.getCell(1, 1);
+  brand.value = `${KORMAN_TEXT}   ·   Payroll Allocation by Property`;
+  brand.font = { name: FONT_NAME, size: 10, bold: true, color: { argb: COLOR.white } };
+  for (let c = 1; c <= nCols; c++) {
+    ws.getCell(1, c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.brandDark } };
   }
-  row0.push(""); // above Total % column
+  ws.getRow(1).height = 20;
 
-  // ── Row 1: property column headers (code — name) ───────────────────────────
-  const row1: string[] = ["Emp #", "Employee Name", "REC/NR"];
-  for (const key of orderedKeys) row1.push(`${key} — ${propName(key)}`);
-  row1.push("Total %");
+  // ── Row 2: group span headers ─────────────────────────────────────────────
+  const GROUP_ROW = 2, HEAD_ROW = 3;
+  let gc = FIXED + 1;
+  for (const g of grouped) {
+    const cell = ws.getCell(GROUP_ROW, gc);
+    cell.value = g.label;
+    cell.font = { name: FONT_NAME, size: 10, bold: true, color: { argb: COLOR.brand } };
+    cell.alignment = { horizontal: "center" };
+    for (let c = gc; c < gc + g.keys.length; c++) {
+      ws.getCell(GROUP_ROW, c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.brandTint } };
+    }
+    if (g.keys.length > 1) ws.mergeCells(GROUP_ROW, gc, GROUP_ROW, gc + g.keys.length - 1);
+    gc += g.keys.length;
+  }
 
-  // ── Employee rows ──────────────────────────────────────────────────────────
-  const dataRows = employees.map((e) => {
-    const row: (string | XLSX.CellObject)[] = [
+  // ── Row 3: property column headers (code — name) ──────────────────────────
+  headerBand(ws, HEAD_ROW, [
+    "Emp #", "Employee Name", "REC/NR",
+    ...orderedKeys.map((k) => `${k} — ${propName(k)}`),
+    "Total %",
+  ]);
+
+  // ── Employee rows ─────────────────────────────────────────────────────────
+  const firstBody = HEAD_ROW + 1;
+  employees.forEach((e, i) => {
+    const r = firstBody + i;
+    const row = ws.getRow(r);
+    const text = (c: number, v: string) => {
+      row.getCell(c).value = v;
+      row.getCell(c).font = { name: FONT_NAME, size: 10, color: { argb: COLOR.text } };
+    };
+    text(1, e.employeeNumber ?? "");
+    text(2, e.name);
+    text(3, e.recoverable ? "REC" : "NR");
+
+    const fractions: number[] = [];
+    orderedKeys.forEach((key, k) => {
+      const v = e.allocations[key] ?? 0;
+      fractions.push(v);
+      const cell = row.getCell(FIXED + 1 + k);
+      cell.value = v > 0 ? v : null;
+      cell.numFmt = FMT.percent2;
+      cell.font = { name: FONT_NAME, size: 10, color: { argb: COLOR.text } };
+      cell.alignment = { horizontal: "right" };
+    });
+
+    // Total % = SUM across that row's property columns, so an edited percentage
+    // flows through. This is the column the dashboard's allocation-gap warning
+    // reads against — a person's row is meant to reach 100%.
+    const rowTotal = fractions.reduce((s, v) => s + v, 0);
+    const tc = row.getCell(nCols);
+    const firstL = ws.getColumn(FIXED + 1).letter, lastL = ws.getColumn(FIXED + orderedKeys.length).letter;
+    tc.value = rowTotal > 0 ? liveSum(`${firstL}${r}:${lastL}${r}`, rowTotal, fractions) : null;
+    tc.numFmt = FMT.percent2;
+    totalEmphasis(tc);
+
+    if (i % 2 === 1) for (let c = 1; c <= nCols; c++) {
+      row.getCell(c).fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLOR.zebra } };
+    }
+  });
+
+  // ── Totals row ────────────────────────────────────────────────────────────
+  const lastBody = firstBody + employees.length - 1;
+  const totalsRow = ws.getRow(lastBody + 1);
+  totalsRow.getCell(2).value = "TOTAL";
+  for (let c = 1; c <= nCols; c++) totalEmphasis(totalsRow.getCell(c), { grand: true });
+  if (employees.length > 0) orderedKeys.forEach((key, k) => {
+    const col = FIXED + 1 + k;
+    const L = ws.getColumn(col).letter;
+    const sources = employees.map((e) => e.allocations[key] ?? 0);
+    const sum = sources.reduce((s, v) => s + v, 0);
+    const cell = totalsRow.getCell(col);
+    cell.value = sum > 0 ? liveSum(`${L}${firstBody}:${L}${lastBody}`, sum, sources) : null;
+    cell.numFmt = FMT.percent2;
+  });
+
+  // The three identifying columns and the two header rows stay put while a wide
+  // grid scrolls sideways.
+  freezeAbove(ws, HEAD_ROW, FIXED);
+  repeatHeader(ws, GROUP_ROW, HEAD_ROW);
+  footNote(
+    ws, lastBody + 3,
+    "Each employee's row should total 100%. A column total is the share of all payroll carried by that property, " +
+    "not a percentage of anything — it is shown so a keying error stands out.",
+    nCols, 30,
+  );
+
+  // ── Sheet 2: upload-ready template (matches parseAllocationWorkbook format) ─
+  // DELIBERATELY UNSTYLED. `parseAllocationWorkbook` reads this back with its
+  // header on row 1; a letterhead here would break the re-import.
+  const uploadKeys = [...usedKeys].sort();
+  const ws2 = wb.addWorksheet("Upload Template");
+  ws2.columns = [
+    { width: 12 }, { width: 30 }, { width: 12 },
+    ...uploadKeys.map(() => ({ width: 10 })),
+  ];
+  ws2.addRow(["EmployeeID", "EmployeeName", "Recoverable", ...uploadKeys]);
+  for (const e of employees) {
+    ws2.addRow([
       e.employeeNumber ?? "",
       e.name,
       e.recoverable ? "REC" : "NR",
-    ];
-    let rowTotal = 0;
-    for (const key of orderedKeys) {
-      const v = e.allocations[key] ?? 0;
-      row.push(v > 0 ? pctCell(v) : "");
-      rowTotal += v;
-    }
-    row.push(rowTotal > 0 ? pctCell(rowTotal) : "");
-    return row;
-  });
-
-  // ── Totals row ─────────────────────────────────────────────────────────────
-  const totalsRow: (string | XLSX.CellObject)[] = ["", "TOTAL", ""];
-  for (const key of orderedKeys) {
-    const sum = employees.reduce((s, e) => s + (e.allocations[key] ?? 0), 0);
-    totalsRow.push(sum > 0 ? pctCell(sum) : "");
+      ...uploadKeys.map((k) => {
+        const v = e.allocations[k] ?? 0;
+        return v > 0 ? Math.round(v * 10000) / 100 : "";
+      }),
+    ]);
   }
-  totalsRow.push("");
+  ws2.views = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
 
-  const aoa = [row0, row1, ...dataRows, totalsRow];
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-
-  // Merge group header cells across their property columns
-  const merges: XLSX.Range[] = [];
-  let mc = FIXED;
-  for (const g of grouped) {
-    if (g.keys.length > 1) {
-      merges.push({ s: { r: 0, c: mc }, e: { r: 0, c: mc + g.keys.length - 1 } });
-    }
-    mc += g.keys.length;
-  }
-  ws["!merges"] = merges;
-
-  // Column widths
-  ws["!cols"] = [
-    { wch: 8 },  // Emp #
-    { wch: 26 }, // Employee Name
-    { wch: 7 },  // REC/NR
-    ...orderedKeys.map((k) => ({ wch: Math.max(14, Math.min(24, propName(k).length + 2)) })),
-    { wch: 9 },  // Total %
-  ];
-
-  // Freeze first 2 header rows and first 3 fixed columns
-  ws["!sheetViews"] = [{ state: "frozen", xSplit: FIXED, ySplit: 2 }];
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Allocations");
-
-  // ── Sheet 2: upload-ready template (matches parseAllocationWorkbook format) ─
-  const uploadKeys = [...usedKeys].sort();
-  const uploadHeader = ["EmployeeID", "EmployeeName", "Recoverable", ...uploadKeys];
-  const uploadRows = employees.map((e) => [
-    e.employeeNumber ?? "",
-    e.name,
-    e.recoverable ? "REC" : "NR",
-    ...uploadKeys.map((k) => {
-      const v = e.allocations[k] ?? 0;
-      return v > 0 ? Math.round(v * 10000) / 100 : "";
-    }),
-  ]);
-  const ws2 = XLSX.utils.aoa_to_sheet([uploadHeader, ...uploadRows]);
-  ws2["!cols"] = [
-    { wch: 12 }, { wch: 30 }, { wch: 12 },
-    ...uploadKeys.map(() => ({ wch: 10 })),
-  ];
-  ws2["!sheetViews"] = [{ state: "frozen", xSplit: 0, ySplit: 1 }];
-  XLSX.utils.book_append_sheet(wb, ws2, "Upload Template");
-
-  const buf = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
