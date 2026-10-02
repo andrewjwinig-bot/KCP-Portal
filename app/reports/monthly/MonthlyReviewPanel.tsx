@@ -7,7 +7,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { StatPill } from "@/app/components/Pill";
+import { StatPill, Pill, TONE_AMBER } from "@/app/components/Pill";
+import { HoverCard } from "@/app/components/HoverCard";
 import LoadingState from "@/app/components/LoadingState";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -23,7 +24,7 @@ type GroupMetrics = {
   noiActual: number | null; noiBudget: number | null;
   openRequests: number; newLeases: number; vacated: number;
 };
-type LeaseChange = { propertyCode: string; group: string; unitRef: string; tenant: string; sqft: number };
+type LeaseChange = { propertyCode: string; group: string; unitRef: string; tenant: string; sqft: number; leaseTo?: string | null; goneAsOf?: string };
 type Expiration = { propertyCode: string; group: string; unitRef: string; tenant: string; sqft: number; leaseTo: string; days: number };
 type Report = {
   year: number; month: number; monthLabel: string; generatedAt: string; rentRollMonth: string | null;
@@ -248,7 +249,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
           )}
 
           {/* ── Vacating & Expiring — one detailed section: recently vacated /
-               expired (last 60 days) + vacating / expiring (next 90 days) ── */}
+               past term (last 60 days) + expiring (next 60 days) ── */}
           <LeaseMovement report={report} reconYear={report.year} />
 
           {/* ── Upcoming & seasonal ── */}
@@ -309,7 +310,13 @@ function leaseToParts(s: string | null): { y: number; m: number } | null {
 }
 
 
-// Small grey status pill for the recently-vacated / expired rows (matches the
+/** "2026-10" → "October 2026". */
+function monthLabelOf(key: string | null): string | null {
+  const m = key?.match(/^(\d{4})-(\d{2})$/);
+  return m ? `${["January","February","March","April","May","June","July","August","September","October","November","December"][Number(m[2]) - 1]} ${m[1]}` : null;
+}
+
+// Small grey status pill for the recently-vacated rows (matches the
 // dashboard's VACATED chip).
 function GonePill({ text }: { text: string }) {
   return <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(100,116,139,0.14)", color: "#475569", border: "1px solid rgba(100,116,139,0.4)", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{text}</span>;
@@ -325,12 +332,17 @@ function baseYear2(raw: number | string | null | undefined): string {
   return s.toUpperCase();
 }
 
-// The consolidated leasing-movement section: recently vacated / expired (last
-// 60 days) and vacating / expiring (next 90 days), each row deep-linking to the
-// interim move-out statement — replaces the old separate Vacated + Expiring
-// mini-lists.
+// The consolidated leasing-movement section: recently vacated (last 60 days),
+// past term, and expiring (next 60 days), each row deep-linking to the interim
+// move-out statement.
+//
+// VACATED is the rent roll's word (`confirmedMoveouts`, the same rule as the
+// dashboard's close-outs) and is the only row offered a close-out. A lease
+// whose date has PASSED but whose tenant is still on the roll is PAST TERM — a
+// renewal not yet keyed, or a holdover — never a move-out (owner: "we cant
+// move tenants out who renew"). It used to read EXPIRED with "Close out →".
 function LeaseMovement({ report, reconYear }: { report: Report; reconYear: number }) {
-  type Row = { propertyCode: string; unitRef: string; tenant: string; sqft: number; leaseTo: string | null; days: number | null; status: "expiring" | "expired" | "vacated" };
+  type Row = { propertyCode: string; unitRef: string; tenant: string; sqft: number; leaseTo: string | null; days: number | null; status: "expiring" | "past-term" | "vacated"; goneAsOf?: string };
 
   // Base year and held security deposit come from the same per-unit sources the
   // dashboard uses, keyed by unitRef.
@@ -353,8 +365,8 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
     .filter((e) => e.days >= 0)
     .map((e) => ({ propertyCode: e.propertyCode, unitRef: e.unitRef, tenant: e.tenant, sqft: e.sqft, leaseTo: e.leaseTo, days: e.days, status: "expiring" }));
   const recent: Row[] = [
-    ...report.vacated.map((v) => ({ propertyCode: v.propertyCode, unitRef: v.unitRef, tenant: v.tenant, sqft: v.sqft, leaseTo: null as string | null, days: null as number | null, status: "vacated" as const })),
-    ...report.expirations.filter((e) => e.days < 0).map((e) => ({ propertyCode: e.propertyCode, unitRef: e.unitRef, tenant: e.tenant, sqft: e.sqft, leaseTo: e.leaseTo, days: e.days, status: "expired" as const })),
+    ...report.vacated.map((v) => ({ propertyCode: v.propertyCode, unitRef: v.unitRef, tenant: v.tenant, sqft: v.sqft, leaseTo: v.leaseTo ?? null, days: null as number | null, status: "vacated" as const, goneAsOf: v.goneAsOf })),
+    ...report.expirations.filter((e) => e.days < 0).map((e) => ({ propertyCode: e.propertyCode, unitRef: e.unitRef, tenant: e.tenant, sqft: e.sqft, leaseTo: e.leaseTo, days: e.days, status: "past-term" as const })),
   ].sort((a, b) => a.tenant.localeCompare(b.tenant));
 
   const stmtHref = (r: Row) => {
@@ -365,9 +377,10 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
   };
 
   // Row tint conveys urgency in place of a status column: soonest-expiring red,
-  // then orange, then yellow; recently vacated / expired get the grey fill.
+  // then orange, then yellow; recently vacated grey; past term a light amber.
   const rowBg = (r: Row): string | undefined => {
-    if (r.status === "vacated" || r.status === "expired") return "rgba(100,116,139,0.08)";
+    if (r.status === "vacated") return "rgba(100,116,139,0.08)";
+    if (r.status === "past-term") return "rgba(217,119,6,0.06)";
     const d = r.days ?? 999;
     return d <= 30 ? "rgba(220,38,38,0.08)" : d <= 60 ? "rgba(234,88,12,0.07)" : "rgba(234,179,8,0.11)";
   };
@@ -376,13 +389,21 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
     depositOwed[unitRef] ? "$" + Math.round(depositOwed[unitRef]).toLocaleString("en-US") : <span className="muted">—</span>;
 
   const renderRows = (rows: Row[]) => rows.map((r, i) => {
-    const gone = r.status === "vacated" || r.status === "expired";
+    const gone = r.status === "vacated";
+    const rollLabel = monthLabelOf(report.rentRollMonth);
     return (
       <tr key={`${r.status}-${r.unitRef}-${i}`} style={{ background: rowBg(r) }}>
         <td style={{ fontWeight: 600 }}>
           {r.tenant}
           {r.status === "vacated" && <GonePill text="VACATED" />}
-          {r.status === "expired" && <GonePill text="EXPIRED" />}
+          {r.status === "past-term" && (
+            <HoverCard title={`${r.tenant} · past term`} width={300} rows={[
+              { label: "Lease ended", value: r.leaseTo ?? "—" },
+              { label: "On the rent roll", value: rollLabel ? `Yes — ${rollLabel}` : "Yes" },
+            ]} footer={{ label: "Renewed or holding over until the renewal is keyed — not a move-out. It becomes one only if a later rent roll no longer shows them.", value: "" }}>
+              <span style={{ marginLeft: 8 }}><Pill tone={TONE_AMBER}>PAST TERM</Pill></span>
+            </HoverCard>
+          )}
         </td>
         <td className="muted small">{r.propertyCode}</td>
         <td><code style={{ fontSize: 11 }}>{r.unitRef}</code></td>

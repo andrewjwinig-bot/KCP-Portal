@@ -117,12 +117,12 @@ export interface TaskDef {
   link?: string;
   instructions?: TaskInstructions;
   /** Whose task it is — Drew's unless said otherwise. Harry processes the
-   *  credit-card statement, payroll and the commissions (owner), so those are
-   *  his: his dashboard and tracker show only his, Drew's only Drew's. */
+   *  credit-card statement, payroll and the SC commissions; the BP commissions
+   *  are Nancy's (owner). Each dashboard and tracker view shows only its own. */
   owner?: TaskOwner;
 }
 
-export type TaskOwner = "drew" | "harry";
+export type TaskOwner = "drew" | "harry" | "nancy";
 export const ownerOf = (t: { owner?: TaskOwner }): TaskOwner => t.owner ?? "drew";
 
 export const TASK_DEFS: TaskDef[] = [
@@ -605,11 +605,23 @@ export const TASK_DEFS: TaskDef[] = [
     id: "q-bp",
     label: "BP Commissions",
     category: "quarterly",
+    owner: "nancy",
+    dueDay: 31,
+    endOfMonth: true,
+    months: [1, 4, 7, 10],
+    notes: "Q4 (Jan) · Q1 (Apr) · Q2 (Jul) · Q3 (Oct)",
+    link: "/commissions",
+  },
+  {
+    id: "q-sc",
+    label: "SC Commissions",
+    category: "quarterly",
     owner: "harry",
     dueDay: 31,
     endOfMonth: true,
     months: [1, 4, 7, 10],
     notes: "Q4 (Jan) · Q1 (Apr) · Q2 (Jul) · Q3 (Oct)",
+    link: "/commissions/retail",
   },
   {
     id: "q-lhscwawa",
