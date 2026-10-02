@@ -217,7 +217,9 @@ export async function buildMonthlyReport(year: number, month: number, now: Date)
         if (!mapping) return null;
         const glSum = summaryForPeriod(stored.monthly, period);
         const budget = await resolvePropertyBudget(m.propertyCode, year, budgetWorkbooks);
-        const budgetLookup = budget ? makeBudgetLookup(budget, period) : undefined;
+        // Same-year budget only — the statement page hides another year's
+        // (the nearest-year fallback), so NOI vs budget here must too.
+        const budgetLookup = budget && !budget.fallback ? makeBudgetLookup(budget, period) : undefined;
         const st = computeStatement({ mapping, propertyName: mapping.entityName, year, period, gl: glSum, budgetLookup });
         const noi = st.rollups.netOperatingIncome;
         return { gk: groupOf(m.propertyCode), ytdActual: noi.ytdActual, ytdBudget: noi.ytdBudget as number | null };

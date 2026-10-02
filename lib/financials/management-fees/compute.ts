@@ -18,6 +18,7 @@ import { loadFullYearStatement } from "@/lib/financials/operating-statements/ful
 import { leaseChangesByMonth, type LeaseChange } from "./leaseChanges";
 import { intercompanyTieOut, suggestedEntry, likRevenueByGroup, groupTieOuts, buildingFlags, type IntercompanyTieOut, type SuggestedEntry, type GroupTie, type BuildingFlag } from "./intercompany";
 import { listBudgets } from "@/lib/financials/budgets/storage";
+import { pickBudgetYear, preferredWorkbooks } from "@/lib/financials/budgets/inForce";
 import { assembledGl, assembledTransactions } from "@/lib/financials/operating-statements/statementStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { groupOf, REPORT_GROUP_ORDER, REPORT_GROUP_LABELS, type ReportGroupKey } from "@/lib/reports/monthly";
@@ -123,13 +124,18 @@ const NILLC_CODES = ["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"] as 
  *  is NOT a like-for-like comparison to the fee bottom-up.) Falls back to the
  *  nearest budget year. */
 async function likManagementPlan(year: number, workbooks: Awaited<ReturnType<typeof listBudgets>>): Promise<{ months: number[]; total: number; budgetYear: number; fallback: boolean } | null> {
+  // The SAME workbook every other budget reader uses: the preferred one per
+  // year (published, then final, then newest) and the year in force for
+  // `year` (`pickBudgetYear`) — it used to take the last workbook listed and,
+  // with no exact year, the NEWEST year on file, so the tie-out could set a
+  // 2027 plan or a staff workbook against the buildings' 2026 budgets.
   const byYear = new Map<number, Awaited<ReturnType<typeof listBudgets>>[number]["properties"][number]>();
-  for (const wb of workbooks) {
+  for (const wb of preferredWorkbooks(workbooks)) {
     const prop = wb.properties.find((p) => String(p.propertyCode) === "2010");
-    if (prop) byYear.set(wb.year, prop);
+    if (prop && !byYear.has(wb.year)) byYear.set(wb.year, prop);
   }
   if (!byYear.size) return null;
-  const yr = byYear.has(year) ? year : [...byYear.keys()].sort((a, b) => b - a)[0];
+  const yr = pickBudgetYear([...byYear.keys()], year)!;
   const prop = byYear.get(yr)!;
   // Sum the 2010 entity's 4510 fee-revenue line(s), month by month. Iterate only
   // top-level lines (never their subLines) so a parent + children can't double-
