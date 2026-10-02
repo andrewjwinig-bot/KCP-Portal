@@ -874,7 +874,7 @@ export default function ExpensesPage() {
         statementMonth: statementMonth || "",
         periodText: statementPeriodText || "",
         periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
-        invoiceId: makeInvoiceId(g.propId),
+        invoiceId: makeInvoiceId(g.propId, statementMonth),
         priorBalance: g.prior,
       });
 
@@ -921,7 +921,7 @@ export default function ExpensesPage() {
         invoiceDate: invoiceDate || "",
         periodText: statementPeriodText || "",
         periodCompact: periodCompactStr,
-        invoiceId: makeInvoiceId("REIMB"),
+        invoiceId: makeInvoiceId("REIMB", statementMonth),
         lines: reimb.lines,
         total: reimb.total,
       });
@@ -1124,7 +1124,7 @@ export default function ExpensesPage() {
       statementMonth: statementMonth || "",
       periodText: statementPeriodText || "",
       periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
-      invoiceId: makeInvoiceId(g.propId),
+      invoiceId: makeInvoiceId(g.propId, statementMonth),
       priorBalance: g.prior,
     });
 

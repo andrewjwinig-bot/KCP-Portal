@@ -191,10 +191,18 @@ function buildLinesForCategory(
 
 // ─── ID generator ────────────────────────────────────────────────────────────
 
-export function makeInvoiceId(prefix: string) {
-  const n = Math.floor(10 + Math.random() * 90);
+// The invoice # AvidXchange sees (owner: "credit card should start CCXXXX …
+// so we can easily see which invoices to the same vendors are for which
+// process"): CC + property + MMYY of the statement — Brookwood, August 2026 →
+// CC23000826; a cardholder reimbursement → CCREIMB0826. Same prefix family as
+// payroll's PR…, allocated's AE… / TU…. Deterministic, so a resend carries
+// the same number. It used to be the property + a RANDOM two digits.
+export function makeInvoiceId(prefix: string, statementMonth?: string | null) {
   const clean = String(prefix || "INV").replace(/[^A-Z0-9]/gi, "").toUpperCase();
-  return `${clean}${n}`;
+  const months = String(statementMonth ?? "").match(/\d{4}-\d{2}/g);
+  const last = months?.[months.length - 1];
+  const mmyy = last ? `${last.slice(5, 7)}${last.slice(2, 4)}` : "";
+  return `CC${clean}${mmyy}`;
 }
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
@@ -211,7 +219,7 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
   const pageH  = doc.internal.pageSize.getHeight();  // 792
   const contentW = pageW - margin * 2;               // 532
 
-  const invoiceId = args.invoiceId || makeInvoiceId(args.propertyCode);
+  const invoiceId = args.invoiceId || makeInvoiceId(args.propertyCode, args.statementMonth);
 
   // 2010 (LIK Management) credit-card statement is for tracking only — show a
   // bold "DO NOT PROCESS" banner at the top of every page so AP doesn't pay it.
@@ -595,7 +603,7 @@ export function buildReimbursementInvoicePdf(args: BuildReimbursementPdfArgs): B
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const contentW = pageW - margin * 2;
-  const invoiceId = args.invoiceId || makeInvoiceId("REIMB");
+  const invoiceId = args.invoiceId || makeInvoiceId("REIMB", args.statementMonth);
 
   // Header
   doc.setFont("helvetica", "bold"); doc.setFontSize(28); doc.setTextColor(TEAL.r, TEAL.g, TEAL.b);
