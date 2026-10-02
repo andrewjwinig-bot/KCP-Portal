@@ -30,6 +30,10 @@ export type BuildAllocInvoicePdfArgs = {
    */
   carriedForward?: Record<string, { amount: number; accountName: string }>;
   grandTotal: number;
+  /** A copy REBUILT from the GL after the fact (`reconstructMonth`), not the
+   *  invoice as it went to AvidXchange — stamped on every page so it can never
+   *  be mistaken for, or re-submitted as, the original. */
+  reconstructed?: boolean;
 };
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
@@ -348,6 +352,19 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
   doc.text("TOTAL",                                      margin + contentW - 210, pageH - 68);
   doc.text(toMoney(args.grandTotal).replace("$", "$ "), margin + contentW - 10,  pageH - 68, { align: "right" });
   doc.setTextColor(0, 0, 0);
+
+  if (args.reconstructed) {
+    for (let pg = 1; pg <= doc.getNumberOfPages(); pg++) {
+      doc.setPage(pg);
+      doc.setFillColor(254, 243, 199);
+      doc.rect(0, 0, pageW, 22, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(146, 64, 14);
+      doc.text("RECONSTRUCTED FROM THE GL — A COPY FOR REFERENCE, NOT THE ORIGINAL INVOICE AS SENT TO AVIDXCHANGE", pageW / 2, 14, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+    }
+  }
 
   return doc.output("blob") as Blob;
 }

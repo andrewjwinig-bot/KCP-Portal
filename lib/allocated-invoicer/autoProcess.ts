@@ -34,6 +34,7 @@ import {
   isYearEndMonth,
   baseAccountCode,
   finalizeMonth,
+  emptyLedger,
   recognizedFor,
   isMonthBaselined,
   applyRecognized,
@@ -57,7 +58,9 @@ import {
   markPendingFinalized,
   listPendingSends,
 } from "./pendingSendStore";
-import { saveInvoiceArchive } from "./invoiceArchive";
+import { saveInvoiceArchive, getInvoiceArchive, type RebuildCheck } from "./invoiceArchive";
+import { listAllocationRuns } from "./runStore";
+import { periodKey } from "@/lib/invoicing/unsent";
 import { billedOf, shortMonth } from "./billedLabel";
 export { billedOf };
 import { getPendingGl } from "./pendingGlStore";
@@ -402,7 +405,7 @@ export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger): Month
 // Build one month's per-property invoice PDFs as individual buffers (one per
 // billing property). `prefix` names a per-month folder for a range batch (used
 // only for the team's zip archive; each PDF is sent to Avid on its own email).
-async function buildMonthInvoices(c: ComputedAllocation, prefix: string): Promise<(AvidInvoicePdf & { zipPath: string })[]> {
+async function buildMonthInvoices(c: ComputedAllocation, prefix: string, opts: { reconstructed?: boolean } = {}): Promise<(AvidInvoicePdf & { zipPath: string })[]> {
   const { gl, statementMonth, decByProp } = c;
   const invDate = gl.periodEndDate || new Date().toISOString().slice(0, 10);
   const out: (AvidInvoicePdf & { zipPath: string })[] = [];
@@ -423,7 +426,7 @@ async function buildMonthInvoices(c: ComputedAllocation, prefix: string): Promis
         propertyId: id, propertyName: propName(id),
         periodText: gl.periodText, periodEndDate: gl.periodEndDate, statementMonth,
         invoiceDate: invDate, invoiceId: makeAllocInvoiceId(id, statementMonth, !!c.supplemental),
-        lineItems, carriedForward, grandTotal,
+        lineItems, carriedForward, grandTotal, reconstructed: opts.reconstructed,
       });
       const suppTag = c.supplemental ? " - SUPPLEMENTAL" : "";
       const fileName = `${statementMonth}${suppTag} - ${id} - ${propName(id)}.pdf`;
@@ -820,4 +823,72 @@ export async function autoSendStagedAllocations(by?: string | null): Promise<Aut
   const out: AutoSendResult[] = [];
   for (const p of staged) out.push(await autoSendAllocation(p.period, by));
   return out;
+}
+
+// ── Rebuilding a month sent before the archive (owner: "something better than
+// nothing") ──────────────────────────────────────────────────────────────────
+// A sent month's PDFs can't be regenerated from the live ledger (sending
+// consumed its held balances). But December bills every held balance, so each
+// year starts from an EMPTY carryover — replaying the full-year GL from
+// January, month by month through the same allocation and $100 hold rule,
+// rebuilds what each month billed. It is a reconstruction, not the original:
+//   • a charge posted late now sits in its own month, where the original
+//     billed it later as a catch-up;
+//   • the original invoice numbers were random and cannot be recovered;
+//   • anything done by hand in the old flow is not reproduced.
+// So the PDFs are stamped, the archive is flagged `reconstructed`, and every
+// building is checked against the figure the original run recorded.
+
+/** Replay a year's months, Jan → `month`, from an EMPTY carryover — the same
+ *  per-month compute and finalize a send runs — and return `month`'s
+ *  allocation. Pure (pinned by reconstruct.test.ts). */
+export function replayThrough(parts: GLParseResult[], month: string): ComputedAllocation | { error: string } {
+  let ledger = emptyLedger();
+  let target: ComputedAllocation | null = null;
+  for (const part of [...parts].sort((a, b) => a.statementMonth.localeCompare(b.statementMonth))) {
+    if (part.statementMonth > month) break;
+    const c = computeOneMonth(part, ledger);
+    if ("error" in c) return { error: c.error };
+    ledger = finalizeMonth(ledger, part.statementMonth, c.expenses, "replay").ledger;
+    if (part.statementMonth === month) target = c;
+  }
+  return target ?? { error: `No ${month} activity to rebuild from.` };
+}
+
+export type RebuildResult = { ok: true; month: string; invoiceCount: number; checks: RebuildCheck[] } | { ok: false; error: string };
+
+export async function reconstructMonth(month: string, by?: string | null): Promise<RebuildResult> {
+  if (!/^\d{4}-\d{2}$/.test(month)) return { ok: false, error: "A month (YYYY-MM) is required." };
+  const existing = await getInvoiceArchive(month);
+  if (existing && !existing.reconstructed) return { ok: false, error: "This month's original invoices are on file — nothing to rebuild." };
+  const stash = await getPendingGl();
+  if (!stash?.fileBase64) return { ok: false, error: "No 2000 G&A GL is imported. Import the full-year GL on Operating Statements first." };
+  const buf = Buffer.from(stash.fileBase64, "base64");
+  const gl = parseGLExcel(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+  const parts = splitIntoMonths(gl).filter((p) => p.statementMonth.slice(0, 4) === month.slice(0, 4) && p.statementMonth <= month);
+  if (!parts.some((p) => p.statementMonth === month)) return { ok: false, error: `The imported GL has no ${month} activity to rebuild from.` };
+  if (parts[0].statementMonth !== `${month.slice(0, 4)}-01`) {
+    return { ok: false, error: "The imported GL doesn't start in January, so the carry-forward can't be replayed. Import the full-year GL." };
+  }
+  const target = replayThrough(parts, month);
+  if ("error" in target) return { ok: false, error: target.error };
+  const nowISO = new Date().toISOString();
+  const invoices = await buildMonthInvoices(target, "", { reconstructed: true });
+
+  // The original's own record of what it billed, per building.
+  const runs = (await listAllocationRuns().catch(() => [])).filter((r) => periodKey(r.statementMonth || r.periodText) === month && r.byProperty?.length && !/catch-up/i.test(r.ranBy ?? ""));
+  const original = runs[0]?.byProperty ?? null; // newest first
+  const codes = new Set([...target.byProperty.map((b) => b.code), ...(original ?? []).map((b) => b.code)]);
+  const checks: RebuildCheck[] = [...codes].map((code) => {
+    const rb = target!.byProperty.find((b) => b.code === code);
+    const og = original?.find((b) => b.code === code);
+    return { code, name: rb?.name ?? og?.name ?? propName(code), rebuilt: round2(rb?.amount ?? 0), original: original ? round2(og?.amount ?? 0) : null };
+  }).filter((c) => Math.abs(c.rebuilt) > 0.005 || (c.original ?? 0) !== 0).sort((a, b) => b.rebuilt - a.rebuilt);
+
+  await saveInvoiceArchive({
+    period: month, sentAt: existing?.sentAt ?? "", sentBy: existing?.sentBy ?? null,
+    invoices: invoices.map((i) => ({ fileName: i.fileName, propertyLabel: i.propertyLabel, pdfBase64: i.pdf.toString("base64") })),
+    reconstructed: true, reconstructedAt: nowISO, reconstructedBy: by ?? null, checks,
+  });
+  return { ok: true, month, invoiceCount: invoices.length, checks };
 }

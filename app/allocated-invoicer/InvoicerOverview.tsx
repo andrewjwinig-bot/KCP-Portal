@@ -24,7 +24,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL } from "@/app/components/Pill";
+import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL, TONE_GREEN } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { HoverCard } from "@/app/components/HoverCard";
 import type { PropertyCarry } from "@/lib/allocated-invoicer/carryover";
@@ -39,6 +39,10 @@ type HistoryPeriod = {
   status: "sent" | "sent-in-batch" | "finalized" | "not-sent" | "run-only";
   batch?: string | null;
   sendable?: boolean;
+  reconstructed?: boolean;
+  reconstructedAt?: string | null;
+  checks?: { code: string; name: string; rebuilt: number; original: number | null }[] | null;
+  rebuildable?: boolean;
 };
 
 type SendPreview = {
@@ -51,6 +55,8 @@ type SendPreview = {
   label: string;
 };
 
+/** A row's month (`YYYY-MM`) — a full-year send is keyed by its range. */
+const monthOfRow = (p: { period: string }) => { const r = p.period.match(/(\d{4}-\d{2})$/); return r ? r[1] : p.period; };
 const money = (n: number | null | undefined) => n == null ? "—" : "$" + (Math.round(n * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
 const GREEN = "#15803d";
@@ -111,6 +117,29 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
       setSendMsg({ ok: false, text: e instanceof Error ? e.message : "Send failed." });
     } finally { setSending(null); }
   }
+  // REBUILD the PDFs of months sent before the archive existed (owner:
+  // "something better than nothing"): replayed from the imported full-year GL,
+  // stamped as reconstructed, and checked building by building against what
+  // the original run recorded. Non-destructive — never replaces originals.
+  const [rebuilding, setRebuilding] = useState(false);
+  const [rebuildMsg, setRebuildMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  async function rebuild(months: string[]) {
+    setRebuilding(true); setRebuildMsg(null);
+    try {
+      const r = await fetch("/api/allocation/invoices/rebuild", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ months }) });
+      const j = await r.json().catch(() => ({}));
+      const results: { ok: boolean; month?: string; error?: string }[] = j.results ?? [];
+      const failed = results.filter((x) => !x.ok);
+      setRebuildMsg(!r.ok ? { ok: false, text: j.error || `Rebuild failed (${r.status}).` }
+        : failed.length ? { ok: false, text: `Rebuilt ${results.length - failed.length} of ${results.length}. ${failed[0].error ?? ""}` }
+        : { ok: true, text: `Rebuilt ${results.length} month${results.length === 1 ? "" : "s"} from the GL.` });
+      const list = await loadHistory();
+      setOpen((o) => (o ? list.find((x) => monthOfRow(x) === monthOfRow(o)) ?? null : o));
+    } catch (e) {
+      setRebuildMsg({ ok: false, text: e instanceof Error ? e.message : "Rebuild failed." });
+    } finally { setRebuilding(false); }
+  }
+  const missing = (periods ?? []).filter((p) => p.rebuildable && !p.invoices);
   const sendBtn = (p: HistoryPeriod, primary = true) => (
     <button type="button" className={`btn sm${primary ? " primary" : ""}`} disabled={!!sending}
       onClick={(e) => { e.stopPropagation(); askSend(p); }} style={{ whiteSpace: "nowrap" }}>
@@ -239,8 +268,15 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
         <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 16, fontWeight: 800 }}>Monthly History</span>
           <span className="muted small" style={{ flex: 1 }}>Click a month for its split by building and the invoices as sent.</span>
+          {missing.length > 0 && (
+            <button type="button" className="btn sm" disabled={rebuilding} onClick={() => rebuild(missing.map(monthOfRow).sort())}
+              style={{ fontWeight: 700, whiteSpace: "nowrap" }}>
+              {rebuilding ? "Rebuilding…" : `Rebuild missing invoices (${missing.length})`}
+            </button>
+          )}
           {toolbar}
         </div>
+        {rebuildMsg && <div className="small" style={{ padding: "0 14px 10px", fontWeight: 700, color: rebuildMsg.ok ? GREEN : "#b91c1c" }}>{rebuildMsg.text}</div>}
         {periods && periods.length > 0 ? (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={thL}>Month</th><th style={thL}>Sent to AvidXchange</th><th style={th}>Invoices</th><th style={th}>Total</th></tr></thead>
@@ -249,7 +285,12 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                 <tr key={p.period} onClick={() => setOpen(p)} style={{ cursor: "pointer" }}>
                   <td style={{ ...tdL, fontWeight: 700 }}>{p.label}</td>
                   <td style={tdL}>{statusCell(p)}</td>
-                  <td style={td}>{p.invoiceCount ?? p.invoices?.length ?? "—"}</td>
+                  <td style={td}>
+                    {p.reconstructed && <HoverCard title="Rebuilt from the GL" rows={[]} width={280}
+                      body={<div style={{ fontSize: 12.5, lineHeight: 1.45 }}>The exact invoices sent for this month aren&rsquo;t on file. These PDFs were rebuilt from the GL{p.reconstructedAt ? ` on ${fmtDate(p.reconstructedAt)}` : ""} for reference.</div>}>
+                      <span style={{ marginRight: 6 }}><Pill tone={TONE_AMBER}>REBUILT</Pill></span></HoverCard>}
+                    {p.invoiceCount ?? p.invoices?.length ?? "—"}
+                  </td>
                   <td style={{ ...td, fontWeight: 700 }}>{money(p.total)}</td>
                 </tr>
               ))}
@@ -294,16 +335,27 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
             )}
             <div style={{ padding: "12px 0 6px" }}>
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead><tr><th style={thL}>Property</th><th style={th}>Allocated</th><th style={th}>Invoice</th></tr></thead>
+                <thead><tr><th style={thL}>Property</th><th style={th}>{open.reconstructed ? "Rebuilt" : "Allocated"}</th>{open.reconstructed && <th style={th}>Original run</th>}<th style={th}>Invoice</th></tr></thead>
                 <tbody>
-                  {(open.byProperty.length ? open.byProperty : (open.invoices ?? []).map((i) => ({ code: i.propertyLabel.split(" ")[0], name: i.propertyLabel.split(" — ")[1] ?? "", amount: NaN })))
-                    .map((b, i) => {
+                  {(open.reconstructed && open.checks?.length ? open.checks.map((c) => ({ code: c.code, name: c.name, amount: c.rebuilt, original: c.original }))
+                    : open.byProperty.length ? open.byProperty : (open.invoices ?? []).map((i) => ({ code: i.propertyLabel.split(" ")[0], name: i.propertyLabel.split(" — ")[1] ?? "", amount: NaN })))
+                    .map((b: { code: string; name: string; amount: number; original?: number | null }, i) => {
                       const inv = open.invoices?.find((x) => x.propertyLabel.startsWith(`${b.code} `)) ?? null;
                       const url = inv ? `/api/allocation/invoices?period=${encodeURIComponent(open.period)}&file=${encodeURIComponent(inv.fileName)}` : null;
                       return (
                         <tr key={`${b.code}-${i}`}>
                           <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{b.code}</code>{b.name || propName(b.code)}</td>
                           <td style={td}>{Number.isFinite(b.amount) ? money(b.amount) : "—"}</td>
+                          {open.reconstructed && (
+                            <td style={{ ...td, whiteSpace: "nowrap" }}>
+                              {b.original == null ? <span className="muted">No record</span>
+                                : Math.abs(b.original - b.amount) < 0.01 ? <Pill tone={TONE_GREEN}>MATCHES</Pill>
+                                : <HoverCard title="Differs from the original run" rows={[{ label: "Rebuilt", value: money(b.amount) }, { label: "Original run", value: money(b.original) }]}
+                                    footer={{ label: "Difference", value: money(b.amount - b.original) }}>
+                                    <Pill tone={TONE_AMBER}>{money(b.original)}</Pill>
+                                  </HoverCard>}
+                            </td>
+                          )}
                           <td style={{ ...td, whiteSpace: "nowrap" }}>
                             {url ? <>
                               <a href={url} target="_blank" rel="noreferrer" style={{ color: "#0b4a7d", fontWeight: 700 }}>View</a>
@@ -317,12 +369,21 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                 </tbody>
               </table>
             </div>
+            {open.reconstructed && (
+              <div className="small" style={{ margin: "4px 18px 16px", padding: "10px 12px", borderRadius: 8, background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)", lineHeight: 1.5 }}>
+                <Pill tone={TONE_AMBER}>REBUILT FROM THE GL</Pill>{" "}
+                The exact invoices sent to AvidXchange for this month aren&rsquo;t on file. These were rebuilt{open.reconstructedAt ? ` on ${fmtDate(open.reconstructedAt)}` : ""} by replaying the GL from January
+                and are stamped as copies. A building that doesn&rsquo;t match the original run usually took a late posting since it was sent; the original invoice numbers can&rsquo;t be recovered.
+              </div>
+            )}
             {!open.invoices && (
               <div className="small" style={{ padding: "4px 18px 16px", color: "var(--muted)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <Pill tone={TONE_NEUTRAL}>No archived PDFs</Pill>
-                <span>This month went out before invoices were archived — every month from now on keeps its PDFs here.</span>
-                {loadableMonth && periodKey(loadableMonth) === periodKey(open.period) && (
-                  <button type="button" className="btn sm" onClick={() => { setOpen(null); onLoadGl(); }}>Regenerate from the imported GL →</button>
+                <Pill tone={TONE_NEUTRAL}>No PDFs on file</Pill>
+                <span style={{ flex: 1, minWidth: 220 }}>This month went out before invoices were saved — every month from now on keeps its PDFs here.{open.rebuildable ? " They can be rebuilt from the imported GL, marked as copies." : ""}</span>
+                {open.rebuildable && (
+                  <button type="button" className="btn sm primary" disabled={rebuilding} onClick={() => rebuild([monthOfRow(open)])}>
+                    {rebuilding ? "Rebuilding…" : "Rebuild from the GL"}
+                  </button>
                 )}
               </div>
             )}

@@ -14,7 +14,18 @@ const PREFIX = "alloc-invoice-archive";
 const idFor = (period: string) => period.replace(/[^0-9A-Za-z_-]+/g, "-");
 
 export type ArchivedInvoice = { fileName: string; propertyLabel: string; pdfBase64: string };
-export type InvoiceArchive = { period: string; sentAt: string; sentBy?: string | null; invoices: ArchivedInvoice[] };
+/** A rebuilt building checked against what the original run recorded for it. */
+export type RebuildCheck = { code: string; name: string; rebuilt: number; original: number | null };
+export type InvoiceArchive = {
+  period: string; sentAt: string; sentBy?: string | null; invoices: ArchivedInvoice[];
+  /** NOT the PDFs as sent: rebuilt from the GL for a month that went out before
+   *  the archive existed (`reconstructMonth`). Never overwrites a real archive. */
+  reconstructed?: boolean;
+  reconstructedAt?: string;
+  reconstructedBy?: string | null;
+  /** Each building's rebuilt total beside the original run's figure. */
+  checks?: RebuildCheck[];
+};
 
 export async function saveInvoiceArchive(a: InvoiceArchive): Promise<void> {
   await storeJSON(PREFIX, idFor(a.period), a);
