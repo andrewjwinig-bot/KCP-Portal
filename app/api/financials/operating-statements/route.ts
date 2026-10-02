@@ -541,7 +541,7 @@ export async function POST(req: Request) {
       }
     } catch { /* best-effort — the statement upload still succeeds */ }
 
-    // Mark the GL import reminder satisfied (and the 2000 G&A GL reminder when
+    // Mark the GL import reminder satisfied (2000 is one of the GLs it counts —
     // it's the G&A entity) for the weekly digest / dashboard.
     const importedBy = typeof uploadedByRaw === "string" ? uploadedByRaw : null;
     try { await recordImport("imp-gl", { at: ts, by: importedBy }); } catch { /* best-effort */ }
@@ -554,7 +554,6 @@ export async function POST(req: Request) {
     const isGandA = rawCode === "2000" || primary.propertyCode === "2000" || key === "2000" || hasAllocAccounts;
     let allocated: Awaited<ReturnType<typeof prepareAllocation>> | null = null;
     if (isGandA) {
-      try { await recordImport("imp-alloc-gl", { at: ts, by: importedBy }); } catch { /* best-effort */ }
       try {
         await savePendingGl({
           fileBase64: buf.toString("base64"),

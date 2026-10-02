@@ -72,8 +72,9 @@ export const IMPORT_REMINDERS: ImportReminder[] = [
     link: "/financials/operating-statements", feeds: "Operating Statements & Cash Analysis", periodIs: "prior-month", dueFromDay: 20 },
   { id: "imp-ap", label: "AP Selection Report", cadence: "weekly", when: "Every Wednesday",
     link: "/financials/cash-analysis", feeds: "Import Paid Bills to Cash Sheet", dueFromWeekday: 3 },
-  { id: "imp-alloc-gl", label: "2000 G&A GL", cadence: "monthly", when: "By the 20th",
-    link: "/allocated-invoicer", feeds: "Allocated Expense invoices", periodIs: "prior-month", dueFromDay: 20 },
+  // No separate "2000 G&A GL" row (owner): 2000 is one of the GLs the General
+  // Ledger row already counts, and importing it there sends the Allocated
+  // Expenses to AvidXchange on its own.
   { id: "imp-cc", label: "Credit Card Statement", cadence: "monthly", when: "At monthly close",
     link: "/expenses", feeds: "Credit Card Expense Coder", periodIs: "prior-month", owner: "harry" },
   // Each pay period's payroll report, into the Payroll Invoicer — recorded

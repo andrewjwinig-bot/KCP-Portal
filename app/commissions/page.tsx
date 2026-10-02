@@ -12,14 +12,15 @@ import {
   buildingFromUnitRef,
   buildJournalEntryRows,
   computeIncentive,
-  incentiveRate,
+  incentiveTier,
+  formatTerm,
   type JEFund,
   parseQuarterLabel,
   quarterShortCode,
   recentQuarterLabels,
-  renewalEndISO,
+  renewalEndISOMonths,
   suiteFromUnitRef,
-  termYearsBetween,
+  termMonthsBetween,
   toDisplayDate,
   toIsoDate,
 } from "../../lib/commissions";
@@ -52,7 +53,9 @@ type FormState = {
   sqft: string;             // string for input handling
   leaseFrom: string;
   leaseTo: string;
-  termYears: string;
+  /** The term in MONTHS (owner: "like 6 months, or 38 months") — stored on
+   *  the entry as `termYears` = months ÷ 12, so nothing downstream changes. */
+  termMonths: string;
   incentiveAmount: string;
   comments: string;
   unitRef?: string;
@@ -62,7 +65,7 @@ function emptyForm(defaultQuarter: string): FormState {
   return {
     id: null, quarter: defaultQuarter, tenant: "",
     building: "", suite: "", sqft: "",
-    leaseFrom: "", leaseTo: "", termYears: "", incentiveAmount: "",
+    leaseFrom: "", leaseTo: "", termMonths: "", incentiveAmount: "",
     comments: "", unitRef: undefined,
   };
 }
@@ -143,7 +146,7 @@ export default function CommissionsPage() {
         ...prev,
         id: prev.id,
         tenant: "", building: "", suite: "", sqft: "",
-        leaseFrom: "", leaseTo: "", termYears: "", incentiveAmount: "",
+        leaseFrom: "", leaseTo: "", termMonths: "", incentiveAmount: "",
         unitRef: undefined,
       }));
       return;
@@ -166,20 +169,20 @@ export default function CommissionsPage() {
       sqft: String(u.sqft ?? ""),
       leaseFrom: renewalStart,
       leaseTo: "",
-      termYears: "",
+      termMonths: "",
       incentiveAmount: "",
       unitRef: u.unitRef,
     }));
   }
 
-  /** Quick renewal picker — set Lease To to an N-year term from Lease From
-   *  (then term + incentive recompute from the dates). Falls back to just
-   *  recording the term when Lease From isn't set yet. */
-  function applyRenewalTerm(years: number) {
-    const to = renewalEndISO(toIsoDate(form.leaseFrom), years);
+  /** Set the term in MONTHS — Lease To follows from Lease From (then term +
+   *  incentive recompute from the dates). Without a Lease From it just records
+   *  the term. */
+  function applyTermMonths(months: number) {
+    const to = months > 0 ? renewalEndISOMonths(toIsoDate(form.leaseFrom), months) : "";
     if (!to) {
-      const incentive = computeIncentive(years, Number(form.sqft) || 0);
-      setForm((prev) => ({ ...prev, termYears: String(years), incentiveAmount: incentive != null ? incentive.toFixed(2) : "" }));
+      const incentive = months > 0 ? computeIncentive(months / 12, Number(form.sqft) || 0) : null;
+      setForm((prev) => ({ ...prev, termMonths: months > 0 ? String(months) : "", incentiveAmount: incentive != null ? incentive.toFixed(2) : "" }));
       return;
     }
     recomputeFromDates({ leaseTo: to });
@@ -189,11 +192,11 @@ export default function CommissionsPage() {
   function recomputeFromDates(next: Partial<FormState>) {
     setForm((prev) => {
       const merged = { ...prev, ...next };
-      const term = termYearsBetween(merged.leaseFrom, merged.leaseTo);
-      const incentive = computeIncentive(term, Number(merged.sqft) || 0);
+      const months = termMonthsBetween(merged.leaseFrom, merged.leaseTo) || Number(merged.termMonths) || 0;
+      const incentive = months ? computeIncentive(months / 12, Number(merged.sqft) || 0) : null;
       return {
         ...merged,
-        termYears: term ? String(term) : "",
+        termMonths: months ? String(months) : "",
         incentiveAmount: incentive != null ? incentive.toFixed(2) : "",
       };
     });
@@ -220,7 +223,7 @@ export default function CommissionsPage() {
   function submit() {
     if (!form.tenant.trim()) { setError("Tenant is required"); return; }
     const sqft = Number(form.sqft) || 0;
-    const termYears = Number(form.termYears) || 0;
+    const termYears = Math.round(((Number(form.termMonths) || 0) / 12) * 10000) / 10000;
     const incentiveAmount = Number(form.incentiveAmount) || 0;
     const entry: CommissionEntry = {
       id: form.id ?? crypto.randomUUID(),
@@ -250,7 +253,7 @@ export default function CommissionsPage() {
       id: e.id, quarter: e.quarter, tenant: e.tenant, building: e.building,
       suite: e.suite, sqft: String(e.sqft),
       leaseFrom: e.leaseFrom, leaseTo: e.leaseTo,
-      termYears: String(e.termYears),
+      termMonths: e.termYears ? String(Math.round(e.termYears * 12)) : "",
       incentiveAmount: String(e.incentiveAmount),
       comments: e.comments, unitRef: e.unitRef,
     });
@@ -357,7 +360,9 @@ export default function CommissionsPage() {
   const grandTotalGross = grandTotal * MARKUP;
 
   // Standard rates table for reference card
-  const rate = incentiveRate(Number(form.termYears) || 0);
+  const termMonthsNum = Number(form.termMonths) || 0;
+  const tier = incentiveTier(termMonthsNum / 12);
+  const rate = tier?.ratePerSqft ?? null;
   const isCalculatedExact = rate != null;
   const isExistingTenant = !!form.unitRef;
 
@@ -511,29 +516,30 @@ export default function CommissionsPage() {
             />
           </div>
 
-          {/* Renewal term — pick 1–5 yrs to auto-set Lease To from Lease From. */}
+          {/* Term in MONTHS (owner: "like 6 months, or 38 months") — typed, or a
+              quick pick. Sets Lease To from Lease From; Lease To below can still
+              be picked by hand, and the term follows it. */}
           <div>
-            <label style={labelStyle}>Term (renewal)</label>
-            <select
-              value={[1, 2, 3, 4, 5].includes(Number(form.termYears)) ? String(Number(form.termYears)) : (form.termYears ? "custom" : "")}
-              onChange={(e) => { const v = e.target.value; if (v && v !== "custom") applyRenewalTerm(Number(v)); }}
+            <label style={labelStyle}>Term (months)</label>
+            <input
+              type="number" min={0} step={1} inputMode="numeric"
+              value={form.termMonths}
+              onChange={(e) => applyTermMonths(Math.max(0, Math.round(Number(e.target.value) || 0)))}
+              placeholder="e.g. 38"
               style={inputStyle}
-            >
-              <option value="">Select term…</option>
-              <option value="1">1 year</option>
-              <option value="2">2 years</option>
-              <option value="3">3 years</option>
-              <option value="4">4 years</option>
-              <option value="5">5 years</option>
-              {form.termYears && ![1, 2, 3, 4, 5].includes(Number(form.termYears)) && (
-                <option value="custom">{form.termYears} yrs (from dates)</option>
-              )}
-            </select>
-            <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>Sets Lease To from Lease From — override below if needed.</div>
+            />
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+              {[6, 12, 24, 36, 48, 60].map((m) => (
+                <button key={m} type="button" className="btn sm" onClick={() => applyTermMonths(m)}
+                  style={{ padding: "2px 8px", fontSize: 11, fontWeight: 700, ...(termMonthsNum === m ? { background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" } : {}) }}>
+                  {formatTerm(m / 12)}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Lease To — shared Calendar popover (card variant); auto-set by the
-              renewal term, editable to override. */}
+              term, or pick it here and the term follows. */}
           <div>
             <label style={labelStyle}>Lease To</label>
             <Calendar
@@ -558,13 +564,16 @@ export default function CommissionsPage() {
               />
               {isCalculatedExact ? (
                 <span style={{ fontSize: 14, color: "var(--text)" }}>
+                  {Math.abs(tier!.years * 12 - termMonthsNum) > 0.5 && (
+                    <span className="muted small" style={{ marginRight: 8 }}>{formatTerm(termMonthsNum / 12)} earns the {formatTerm(tier!.years)} rate</span>
+                  )}
                   <span style={{ color: "var(--muted)", marginRight: 8 }}>=</span>
                   <span style={{ fontWeight: 600 }}>${rate!.toFixed(2)}</span>
                   <span style={{ color: "var(--muted)", margin: "0 6px" }}>×</span>
                   <span style={{ fontWeight: 600 }}>{Number(form.sqft || 0).toLocaleString()} sf</span>
                 </span>
               ) : (
-                <span className="muted small">Non-standard term — no standard rate applies</span>
+                <span className="muted small">{termMonthsNum ? "Under 6 months — no incentive applies" : "Enter the term to calculate"}</span>
               )}
             </div>
           </div>
@@ -719,7 +728,7 @@ export default function CommissionsPage() {
                           <td style={{ padding: "10px 12px" }}>{e.building}</td>
                           <td style={{ padding: "10px 12px" }}>{e.suite}</td>
                           <td style={{ padding: "10px 12px", textAlign: "right" }}>{e.sqft.toLocaleString()}</td>
-                          <td style={{ padding: "10px 12px" }}>{e.termYears} yr</td>
+                          <td style={{ padding: "10px 12px" }}>{formatTerm(e.termYears)}</td>
                           <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{toDisplayDate(e.leaseFrom)} – {toDisplayDate(e.leaseTo)}</td>
                           <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>{toMoney(e.incentiveAmount)}</td>
                           <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>

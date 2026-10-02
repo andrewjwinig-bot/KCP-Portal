@@ -66,6 +66,16 @@ export function Calendar({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
 
+  // Follow the value when it changes from OUTSIDE (a term picker setting Lease
+  // To five years out): the grid opened on the month it was first mounted
+  // with, so the date just set was years away and looked uneditable.
+  useEffect(() => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [y, mo] = value.split("-").map(Number);
+      setViewMonth((v) => (v.getFullYear() === y && v.getMonth() === mo - 1 ? v : new Date(y, mo - 1, 1)));
+    }
+  }, [value]);
+
   const wrapRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!open) return;
