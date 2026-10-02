@@ -89,7 +89,11 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
     fetch(`/api/allocation/pending-send?period=${encodeURIComponent(p.period)}&preview=1`, { cache: "no-store" })
       .then(async (r) => { const j = await r.json().catch(() => ({})); return r.ok ? { preview: j.preview as SendPreview, error: null } : { preview: null, error: j.error || `Couldn't prepare the send (${r.status}).` }; })
       .catch((e) => ({ preview: null, error: e instanceof Error ? e.message : "Couldn't prepare the send." }))
-      .then((res) => setConfirm((c) => (c && c.p.period === p.period ? { ...c, ...res } : c)));
+      .then((res) => {
+        setConfirm((c) => (c && c.p.period === p.period ? { ...c, ...res } : c));
+        // Nothing left to bill — the server just closed it; refresh the rows.
+        if (res.preview?.nothingToSend) loadHistory();
+      });
   }
   async function send(p: HistoryPeriod) {
     setSending(p.period); setSendMsg(null);
@@ -338,7 +342,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
             ) : !confirm.preview ? (
               <div className="muted small" style={{ padding: "16px 18px" }}>Working out what will be billed…</div>
             ) : confirm.preview.nothingToSend ? (
-              <div className="small" style={{ padding: "16px 18px" }}>Nothing new to bill — every month in this period is already finalized. Check AvidXchange for these invoices.</div>
+              <div className="small" style={{ padding: "16px 18px" }}>Nothing left to bill — every charge in this period was already allocated when its month was finalized, so there is nothing to send. It now reads &ldquo;Finalized · no send record&rdquo; in the history; check AvidXchange for those months&rsquo; invoices.</div>
             ) : (
               <>
                 <div className="pills" style={{ padding: "12px 18px 0" }}>

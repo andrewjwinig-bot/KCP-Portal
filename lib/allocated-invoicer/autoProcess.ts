@@ -589,7 +589,8 @@ export type SendPreview = {
   nothingToSend: boolean;
 };
 
-/** Dry run of `sendAllocation`: no mail, no ledger write, no record. */
+/** Dry run of `sendAllocation`: no mail, no ledger write, no send record. The
+ *  one write: a staged send with nothing left to bill is marked finalized. */
 export async function previewAllocationSend(period: string): Promise<SendPreview | { error: string }> {
   const pending = await getPendingSend("allocated", period);
   if (pending?.sentAt) return { error: "already-sent" };
@@ -598,13 +599,19 @@ export async function previewAllocationSend(period: string): Promise<SendPreview
   const res = computeMonths(gl, await getAllocLedger());
   if ("error" in res) return { error: res.error };
   const batches = [...res.months, ...(res.catchup ? [res.catchup] : [])];
+  const nothingToSend = res.months.length === 0 && !res.catchup;
+  // Nothing left to bill means the staged send is closed — record it as
+  // FINALIZED (never sent) so the history stops offering a Send for it.
+  if (nothingToSend && pending && !pending.finalizedAt) {
+    try { await markPendingFinalized("allocated", period); } catch { /* best-effort */ }
+  }
   return {
     period,
     byProperty: res.byProperty.filter((b) => Math.abs(b.amount) > 0.005).sort((a, b) => b.amount - a.amount),
     total: res.total,
     invoiceCount: res.invoiceCount,
     months: batches.map((m) => ({ statementMonth: m.statementMonth, label: m.supplemental ? `Catch-up (${monthLabel(m.statementMonth)})` : monthLabel(m.statementMonth), total: m.total, supplemental: !!m.supplemental })),
-    nothingToSend: res.months.length === 0 && !res.catchup,
+    nothingToSend,
   };
 }
 

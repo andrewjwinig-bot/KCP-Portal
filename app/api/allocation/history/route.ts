@@ -5,6 +5,7 @@ import { listAvidSends } from "@/lib/invoicing/avidSendLog";
 import { getInvoiceArchive } from "@/lib/allocated-invoicer/invoiceArchive";
 import { periodKey } from "@/lib/invoicing/unsent";
 import { getAllocLedger } from "@/lib/allocated-invoicer/carryoverStore";
+import { previewAllocationSend } from "@/lib/allocated-invoicer/autoProcess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -113,6 +114,14 @@ export async function GET() {
     else if (h.staged) { h.status = "not-sent"; h.sendable = true; }
     else h.status = "run-only";
   }
+  // "Not sent" is judged by the SEND's own computation, not by the month list:
+  // a range whose GL has no charges in some month never commits that month, so
+  // counting months called Jan–Jul "not sent" while the send itself found
+  // nothing left to bill. The preview also records it finalized.
+  await Promise.all([...by.values()].filter((h) => h.status === "not-sent").map(async (h) => {
+    const pv = await previewAllocationSend(h.period).catch(() => null);
+    if (pv && !("error" in pv) && pv.nothingToSend) { h.status = "finalized"; h.staged = false; h.sendable = false; }
+  }));
   // A range sorts at its LAST month, just above that month's own row.
   const sortKey = (p: string) => { const k = periodKey(p); const r = k.match(/_to_(\d{4}-\d{2})$/); return r ? `${r[1]}~` : k; };
   const list = [...by.values()].sort((a, b) => sortKey(b.period).localeCompare(sortKey(a.period)));
