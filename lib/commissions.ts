@@ -31,6 +31,21 @@ export const INCENTIVE_TIERS: { years: number; ratePerSqft: number }[] = [
   { years: 0.5, ratePerSqft: 0.075 },
 ];
 
+/** The tier a term earns: an exact standard term, else the HIGHEST tier it
+ *  has reached (38 months → the 3-year rate) — the rule the budget's
+ *  `internalCommission` already pays by. Under six months earns none. */
+export function incentiveTier(termYears: number): { years: number; ratePerSqft: number } | null {
+  if (!(termYears > 0)) return null;
+  return [...INCENTIVE_TIERS].sort((a, b) => b.years - a.years).find((t) => termYears + 1e-6 >= t.years) ?? null;
+}
+
+/** A term as Nancy keys it: whole years read "3 yr", anything else in months ("38 mo"). */
+export function formatTerm(termYears: number): string {
+  const m = Math.round((termYears || 0) * 12);
+  if (!m) return "—";
+  return m % 12 === 0 ? `${m / 12} yr` : `${m} mo`;
+}
+
 /** Exact-match lookup mirroring the spreadsheet XLOOKUP formula.
  *  Returns null when the term isn't a standard value. */
 export function incentiveRate(termYears: number): number | null {
@@ -41,11 +56,12 @@ export function incentiveRate(termYears: number): number | null {
   return null;
 }
 
-/** Computes incentive amount = rate × sqft. Returns null if term isn't standard. */
+/** Incentive = the term's tier rate × sqft (a term between the standard ones
+ *  takes the highest tier reached — `incentiveTier`). Null under six months. */
 export function computeIncentive(termYears: number, sqft: number): number | null {
-  const rate = incentiveRate(termYears);
-  if (rate == null) return null;
-  return Math.round(rate * sqft * 100) / 100;
+  const tier = incentiveTier(termYears);
+  if (!tier) return null;
+  return Math.round(tier.ratePerSqft * sqft * 100) / 100;
 }
 
 /** Harry's retail leasing commission — a flat $1 per square foot leased. */
@@ -72,7 +88,7 @@ export function internalCommission(group: "SC" | "BP" | string | null | undefine
   if (!(sqft > 0)) return 0;
   if (group === "SC") return retailCommission(sqft);
   if (!termYears || !(termYears > 0)) return 0;
-  const tier = [...INCENTIVE_TIERS].sort((a, b) => b.years - a.years).find((t) => termYears + 1e-6 >= t.years);
+  const tier = incentiveTier(termYears);
   return tier ? Math.round(tier.ratePerSqft * sqft * 100) / 100 : 0;
 }
 
@@ -90,13 +106,30 @@ export function termYearsBetween(from: string, to: string): number {
  *  before the N-year anniversary — e.g. 6/1/2027 + 5yr → 5/31/2032. Returns ISO
  *  yyyy-mm-dd, or "" when the start can't be parsed. */
 export function renewalEndISO(from: string, years: number): string {
+  return renewalEndISOMonths(from, Math.round(years * 12));
+}
+
+/** Lease end for an N-MONTH term (6/1/2027 + 38 mo → 7/31/2030). */
+export function renewalEndISOMonths(from: string, months: number): string {
   const f = parseDateLoose(from);
-  if (!f || !years) return "";
-  const end = new Date(f.getFullYear() + years, f.getMonth(), f.getDate());
+  if (!f || !months) return "";
+  const end = new Date(f.getFullYear(), f.getMonth() + months, f.getDate());
   end.setDate(end.getDate() - 1);
   const mo = String(end.getMonth() + 1).padStart(2, "0");
   const dy = String(end.getDate()).padStart(2, "0");
   return `${end.getFullYear()}-${mo}-${dy}`;
+}
+
+/** Whole months between two dates, the end day included (6/1/27–7/31/30 → 38). */
+export function termMonthsBetween(from: string, to: string): number {
+  const f = parseDateLoose(from);
+  const t = parseDateLoose(to);
+  if (!f || !t || t < f) return 0;
+  const e = new Date(t.getFullYear(), t.getMonth(), t.getDate() + 1);
+  const whole = (e.getFullYear() - f.getFullYear()) * 12 + (e.getMonth() - f.getMonth());
+  const anchor = new Date(f.getFullYear(), f.getMonth() + whole, f.getDate());
+  const days = (e.getTime() - anchor.getTime()) / 86400000;
+  return Math.max(0, whole + Math.round(days / 30.44));
 }
 
 function parseDateLoose(s: string): Date | null {

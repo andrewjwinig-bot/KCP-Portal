@@ -5,7 +5,7 @@
 
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
-import { toDisplayDate, parseQuarterLabel, type CommissionEntry } from "@/lib/commissions";
+import { toDisplayDate, parseQuarterLabel, formatTerm, type CommissionEntry } from "@/lib/commissions";
 
 const COMMISSIONS_MARKUP = 1.2;
 
@@ -157,7 +157,7 @@ export async function buildCommissionMemoPdf(opts: {
         fit(e.tenant, cols[2].w - 4, 9),
         toDisplayDate(e.leaseFrom),
         toDisplayDate(e.leaseTo),
-        String(e.termYears),
+        formatTerm(e.termYears),
         money(s),
         money(s * COMMISSIONS_MARKUP),
       ], idx % 2 === 1 ? shade : undefined);
