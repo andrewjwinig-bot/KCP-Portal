@@ -6,6 +6,7 @@ import { getInvoiceArchive } from "@/lib/allocated-invoicer/invoiceArchive";
 import { periodKey } from "@/lib/invoicing/unsent";
 import { getAllocLedger } from "@/lib/allocated-invoicer/carryoverStore";
 import { previewAllocationSend } from "@/lib/allocated-invoicer/autoProcess";
+import { getPendingGlMeta } from "@/lib/allocated-invoicer/pendingGlStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,14 @@ export type HistoryPeriod = {
   batch?: string | null;
   /** A staged send the Send button can deliver now. */
   sendable?: boolean;
+  /** The PDFs shown are REBUILT from the GL, not the originals as sent. */
+  reconstructed?: boolean;
+  reconstructedAt?: string | null;
+  /** Each building rebuilt vs what the original run recorded. */
+  checks?: { code: string; name: string; rebuilt: number; original: number | null }[] | null;
+  /** No PDFs on file, and the imported full-year GL covers the month — it can
+   *  be rebuilt (`reconstructMonth`). */
+  rebuildable?: boolean;
 };
 
 // GET — the Allocated Expense Invoicer's Monthly History: one row per MONTH,
@@ -120,10 +129,19 @@ export async function GET() {
       else if (pv.label) h.label = pv.label;
     }
   }));
-  const list = [...by.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([, h]) => h);
-  await Promise.all(list.slice(0, 36).map(async (h) => {
-    const a = await getInvoiceArchive(h.period).catch(() => null);
-    if (a) h.invoices = a.invoices.map((i) => ({ fileName: i.fileName, propertyLabel: i.propertyLabel }));
+  const entries = [...by.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  const gl = await getPendingGlMeta().catch(() => null);
+  const glThrough = gl ? `${gl.year}-${String(gl.month).padStart(2, "0")}` : null;
+  await Promise.all(entries.slice(0, 36).map(async ([k, h]) => {
+    // The originals live under the send's own key; a rebuilt month under the month.
+    const a = (await getInvoiceArchive(h.period).catch(() => null)) ?? (h.period !== k ? await getInvoiceArchive(k).catch(() => null) : null);
+    if (a) {
+      h.invoices = a.invoices.map((i) => ({ fileName: i.fileName, propertyLabel: i.propertyLabel }));
+      if (a.reconstructed) { h.reconstructed = true; h.reconstructedAt = a.reconstructedAt ?? null; h.checks = a.checks ?? null; h.period = a.period; }
+    }
+    const billed = h.status === "sent" || h.status === "sent-in-batch" || h.status === "finalized" || h.status === "run-only";
+    if ((!a || a.reconstructed) && billed && gl && glThrough && /^\d{4}-\d{2}$/.test(k) && k.slice(0, 4) === String(gl.year) && k <= glThrough) h.rebuildable = true;
   }));
+  const list = entries.map(([, h]) => h);
   return NextResponse.json({ periods: list });
 }
