@@ -112,7 +112,7 @@ export function decisionLabel(call: LeasingCall): string | null {
  *  closes it mid-edit). */
 export function DecisionPill({ call, owner, onOpen }: {
   call: LeasingCall;
-  owner: { id: string; label: string };
+  owner: { id: string; label: string; group?: string };
   onOpen: () => void;
 }) {
   const label = decisionLabel(call);
@@ -142,7 +142,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
   /** A save that failed — shown here, where the decision is being made, not
    *  only under the table behind this window. */
   error?: string | null;
-  owner: { id: string; label: string };
+  owner: { id: string; label: string; group?: string };
   budgetYear: number;
   fromSchedule: boolean;
   onSave: (p: SavePayload) => unknown;
@@ -293,10 +293,12 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
             // The internal broker's own commission on the deal — Harry $1/SF at
             // the centres, Nancy's term-based $/SF at the parks — budgeted on
             // Commissions-Internal Broker (6620-8501).
-            const group = owner.id === "harry" ? "SC" : "BP";
+            // The PROPERTY's plan, not the owner's: Harry calls the centres
+            // ($1/SF) and Korman Homes (no commission plan).
+            const group = owner.group ?? (owner.id === "harry" ? "SC" : "BP");
             const internal = internalCommission(group, sqft, term !== "" ? Number(term) : undefined);
             return field("Internal comm.", <span style={{ fontWeight: 700 }}>{internal > 0 ? money0(internal) : "—"}</span>,
-              group === "SC" ? "$1.00/SF · to 6620-8501" : internal > 0 ? "by term · to 6620-8501" : "set a term");
+              group === "SC" ? "$1.00/SF · to 6620-8501" : group === "BP" ? (internal > 0 ? "by term · to 6620-8501" : "set a term") : "none for this property");
           })()}
           {error && <div role="alert" style={{ marginTop: 10, color: "#b91c1c", fontSize: 13, fontWeight: 700 }}>Not saved — {error}</div>}
           <div style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: tone.bg, border: `1px solid ${tone.border}`, fontSize: 13 }}>

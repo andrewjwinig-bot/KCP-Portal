@@ -5,7 +5,8 @@
 // routes. Drew and admin also get the link to send from here.
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { isReviewGroup, type ReviewGroup } from "@/lib/financials/budgets/reviewGroups";
 import { useUser } from "@/app/components/UserProvider";
 import { RentReviewView, type ReviewApi } from "./RentReviewView";
 
@@ -22,11 +23,13 @@ async function jsonError(r: Response | null, fallback: string): Promise<string |
 function RentReview() {
   const params = useSearchParams();
   const { user } = useUser();
-  const group = params.get("group") === "BP" ? "BP" : params.get("group") === "SC" ? "SC" : user.id === "nancy" ? "BP" : "SC";
+  const router = useRouter();
+  const asked = params.get("group");
+  const [group, setGroup] = useState<ReviewGroup>(isReviewGroup(asked) ? asked : user.id === "nancy" ? "BP" : "SC");
   const year = Number(params.get("year")) || new Date().getFullYear() + 1;
 
   const api = useMemo<ReviewApi>(() => ({
-    overview: () => fetch(`/api/financials/budgets/rent-review?year=${year}&group=${group}`, { cache: "no-store" }).then((r) => r.json()),
+    overview: (g) => fetch(`/api/financials/budgets/rent-review?year=${year}&group=${g ?? group}`, { cache: "no-store" }).then((r) => r.json()),
     draft: (key) => fetch(`/api/financials/budgets/draft?key=${encodeURIComponent(key)}&year=${year}&growth=3`, { cache: "no-store" })
       .then((r) => r.json()).then((j) => (j.missingBasis || j.error ? null : j)),
     save: async (propertyCode, payload) => jsonError(await fetch("/api/financials/budgets/leasing-assumptions", {
@@ -37,13 +40,16 @@ function RentReview() {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ year, propertyCode, confirmed }),
     }).catch(() => null), "Couldn't save the sign-off."),
-  }), [year, group]);
+  }), [year]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const staff = user.id === "drew" || user.id === "admin";
   return (
     <main style={{ maxWidth: "none", width: "100%", display: "flex", flexDirection: "column", gap: 14 }}>
-      {staff && <SendLink group={group} year={year} />}
-      <RentReviewView api={api} />
+      {/* Harry's one link opens both his tabs, so Korman Homes sends the same
+          link as the shopping centres. */}
+      {staff && <SendLink group={group === "BP" ? "BP" : "SC"} year={year} />}
+      <RentReviewView api={api} initialGroup={group}
+        onGroupChange={(g) => { setGroup(g); router.replace(`/financials/budgets/review?group=${g}&year=${year}`, { scroll: false }); }} />
     </main>
   );
 }
@@ -88,7 +94,7 @@ function SendLink({ group, year }: { group: "SC" | "BP"; year: number }) {
         Link to send {person}
       </div>
       <div className="muted small">
-        Opens this review <b>without signing in</b> and <b>without the portal sidebar</b> — only {person}&rsquo;s leasing decisions and sign-off. Copy it into an email.
+        Opens this review <b>without signing in</b> and <b>without the portal sidebar</b> — only {person}&rsquo;s leasing decisions and sign-off{group === "SC" ? " (Shopping Centers and Korman Homes, as two tabs)" : ""}. Copy it into an email.
       </div>
       {link === undefined ? <div className="muted small">Getting the link…</div>
         : link === null ? (

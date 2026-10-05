@@ -79,6 +79,7 @@ export function retailCommission(sqft: number): number {
  * aside on Commissions-Internal Broker (6620-8501) for a renewal, a lease-up
  * or a hold the leasing owner keys. The same rules the Commissions pages pay:
  *   • shopping centres (Harry): a flat $1 per SF — `retailCommission`;
+ *   • anything else (Korman Homes): none — no commission plan covers it.
  *   • business parks (Nancy): the per-SF incentive by TERM — `INCENTIVE_TIERS`.
  *     A budgeted term between the standard ones (7, 10 years) takes the
  *     highest tier it has reached; no term keyed, no commission (the rate
@@ -87,6 +88,10 @@ export function retailCommission(sqft: number): number {
 export function internalCommission(group: "SC" | "BP" | string | null | undefined, sqft: number, termYears: number | null | undefined): number {
   if (!(sqft > 0)) return 0;
   if (group === "SC") return retailCommission(sqft);
+  // Only the parks pay Nancy's term tiers. Anything else — Korman Homes'
+  // houses, which Harry leases but no commission plan covers — budgets none;
+  // it used to fall through to the parks' tiers.
+  if (group !== "BP") return 0;
   if (!termYears || !(termYears > 0)) return 0;
   const tier = incentiveTier(termYears);
   return tier ? Math.round(tier.ratePerSqft * sqft * 100) / 100 : 0;

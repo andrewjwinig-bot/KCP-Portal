@@ -1,5 +1,6 @@
 "use client";
 
+import { reviewGroupOf } from "@/lib/financials/budgets/reviewGroups";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_RED, type PillTone } from "../../../components/Pill";
 import { BudgetStatementTable, growthOnNothing } from "./BudgetStatementTable";
@@ -550,7 +551,7 @@ function ReviewStatus({ year, propertyCode, calls, refreshTick }: { year: number
   }, [year, propertyCode, refreshTick]);
   if (review === undefined) return null;
   const latest = calls.reduce((m, c) => ((c.assumption?.updatedAt ?? "") > m ? c.assumption!.updatedAt! : m), "");
-  const group = PROPERTY_DEFS.find((d) => d.id === propertyCode.toUpperCase())?.allocGroup === "BP" ? "BP" : "SC";
+  const group = reviewGroupOf(propertyCode) ?? "SC";
   const href = `/financials/budgets/review?group=${group}&year=${year}`;
   const changed = !!review && latest > review.at;
   return (

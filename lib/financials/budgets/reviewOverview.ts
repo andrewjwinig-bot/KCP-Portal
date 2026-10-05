@@ -12,11 +12,23 @@ import { getLeasingAssumptions } from "./leasingAssumptions";
 import { projectLeaseRevenue } from "./leaseRevenue";
 import { getRentReviews, type RentReview } from "./rentReviewStore";
 
-export type ReviewGroup = "SC" | "BP";
-export const REVIEW_GROUP: Record<ReviewGroup, { title: string; category: string; owner: string }> = {
-  SC: { title: "Shopping centers", category: "Shopping Centers", owner: "harry" },
-  BP: { title: "Business parks", category: "Office", owner: "nancy" },
-};
+import { REVIEW_GROUP, groupCodes, type ReviewGroup } from "./reviewGroups";
+export { REVIEW_GROUP, type ReviewGroup } from "./reviewGroups";
+import { groupsOwnedBy } from "./reviewGroups";
+
+/** Every group a signed link opens: all the groups its PERSON makes the calls
+ *  for — Harry's link opens the shopping centres AND Korman Homes, so a link
+ *  sent before Korman Homes was his gains the tab with no re-send. */
+export function linkGroups(link: { user: string; group: ReviewGroup }): ReviewGroup[] {
+  const owned = groupsOwnedBy(link.user);
+  return owned.includes(link.group) ? owned : [link.group];
+}
+
+/** Every property a link may touch, across its groups. */
+export async function linkProperties(link: { user: string; group: ReviewGroup }) {
+  return (await Promise.all(linkGroups(link).map((g) => reviewProperties(g)))).flat();
+}
+
 
 export type ReviewProperty = {
   key: string;
@@ -32,7 +44,7 @@ export type ReviewProperty = {
 
 /** The group's properties, in code order — only those with a statement. */
 export async function reviewProperties(group: ReviewGroup): Promise<{ key: string; code: string; name: string }[]> {
-  const codes = new Set(PROPERTY_DEFS.filter((d) => d.allocGroup === group).map((d) => d.id));
+  const codes = groupCodes(group);
   const statements = await availableStatements();
   return statements
     .filter((s) => codes.has(s.propertyCode))
@@ -43,7 +55,8 @@ export async function reviewProperties(group: ReviewGroup): Promise<{ key: strin
 export async function reviewOverview(group: ReviewGroup, year: number): Promise<ReviewProperty[]> {
   const [props, schedule, reviews] = await Promise.all([
     reviewProperties(group),
-    getInPlaceRevenue(year, REVIEW_GROUP[group].category).catch(() => null),
+    // Korman Homes has no rent-schedule import — its rent is the rent roll's.
+    REVIEW_GROUP[group].category ? getInPlaceRevenue(year, REVIEW_GROUP[group].category!).catch(() => null) : Promise.resolve(null),
     getRentReviews(year).catch(() => ({})),
   ]);
   return Promise.all(props.map(async (p) => {

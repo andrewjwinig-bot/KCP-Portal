@@ -197,8 +197,9 @@ export const USERS: Record<UserId, UserDef> = {
     dashboardScope: { codes: SC_INDIVIDUAL },
     // Security deposits scoped to shopping centers + residential.
     depositsScope: { codes: SC_AND_RESIDENTIAL },
-    // Budgets scoped to the shopping centres, as Nancy's are to the parks.
-    budgetScope: { codes: SC_INDIVIDUAL },
+    // Budgets scoped to the shopping centres and Korman Homes — he makes the
+    // leasing calls for both (Nancy's are scoped to the parks).
+    budgetScope: { codes: SC_AND_RESIDENTIAL },
   },
   // Shared SERVICE persona, kept as a fallback during rollout. Greg/Charles/Jay
   // are the individual clones (below) — once they've each enrolled 2FA, this

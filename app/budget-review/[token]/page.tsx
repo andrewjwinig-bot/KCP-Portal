@@ -24,7 +24,7 @@ export default function BudgetReviewLinkPage() {
   const token = Array.isArray(params?.token) ? params.token[0] : params?.token ?? "";
   const base = `/api/budget-review/${encodeURIComponent(token)}`;
   const api = useMemo<ReviewApi>(() => ({
-    overview: () => fetch(base, { cache: "no-store" }).then((r) => r.json()),
+    overview: (group) => fetch(group ? `${base}?group=${group}` : base, { cache: "no-store" }).then((r) => r.json()),
     draft: (key) => fetch(`${base}/draft?key=${encodeURIComponent(key)}`, { cache: "no-store" })
       .then((r) => r.json()).then((j) => (j.missingBasis || j.error ? null : j)),
     save: async (propertyCode, payload) => jsonError(await fetch(`${base}/leasing`, {

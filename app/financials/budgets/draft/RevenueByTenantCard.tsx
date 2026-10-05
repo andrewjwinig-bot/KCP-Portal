@@ -82,7 +82,7 @@ export function tenantTip(r: TenantRevenueRow, _est: ReimbursementEstimate | und
  *  vacant — made from the row's pill. */
 export type LeasingProps = {
   calls: LeasingCall[];
-  owner: { id: string; label: string };
+  owner: { id: string; label: string; group?: string };
   dealCapital: { ti: number; lc: number };
   onSave: (p: SavePayload) => unknown;
   error?: string | null;

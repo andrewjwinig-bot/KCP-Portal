@@ -1,5 +1,6 @@
 "use client";
 
+import { TabButton } from "@/app/components/TabButton";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { groupByPropertyType } from "@/lib/properties/typeGroups";
@@ -735,26 +736,6 @@ function FilterTile({
   );
 }
 
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: "8px 14px",
-        background: "transparent",
-        border: "none",
-        borderBottom: active ? "2px solid #0b4a7d" : "2px solid transparent",
-        color: active ? "var(--text)" : "var(--muted)",
-        fontWeight: active ? 700 : 500,
-        fontSize: 14,
-        cursor: "pointer",
-        marginBottom: -1,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
 
 // Backfill UI was removed; the /api/maintenance/backfill endpoint stays
 // in place (reachable via authenticated curl) for any rainy-day one-shot

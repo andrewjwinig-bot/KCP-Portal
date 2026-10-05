@@ -30,6 +30,7 @@ import { getLineOverrides } from "./lineOverrideStore";
 import { getInPlaceRevenue } from "./inPlaceStore";
 import { lineKey, mergeMonths, type LineOverrides } from "./lineOverrides";
 import { ownerFor } from "./contributors";
+import { reviewGroupOf } from "./reviewGroups";
 import { bucketsFor } from "./lineBuckets";
 import { itemizedLines, type ResolvedBucket } from "./lineItems";
 import { payrollBlocks, poolAnnual, allocatePool, type PoolBlock, type PoolEntries } from "./payrollPools";
@@ -179,7 +180,7 @@ export type BudgetDraft = {
     /** The TI and leasing commissions the deals carry, for the year. */
     dealCapital: { ti: number; lc: number };
     /** Who owns these calls — Harry (shopping centres) or Nancy (office parks). */
-    owner: { id: string; label: string };
+    owner: { id: string; label: string; group?: "SC" | "BP" | "KH" };
   };
   /** Per-tenant CAM/INS/RET recoveries — Step 3. Its monthly totals ARE the
    *  recovery income lines (source "cam-estimate"). */
@@ -1092,7 +1093,9 @@ export async function buildBudgetDraft(key: string, budgetYear: number, growthPc
       owner: (() => {
         const def = PROPERTY_DEFS.find((d) => d.id === String(meta.propertyCode).toUpperCase());
         const id = ownerFor("renewal", def?.allocGroup);
-        return { id, label: id.charAt(0).toUpperCase() + id.slice(1) };
+        // The property's commission plan (SC $1/SF, BP by term, KH none) —
+        // the OWNER no longer says it, since Harry makes both SC and KH calls.
+        return { id, label: id.charAt(0).toUpperCase() + id.slice(1), group: reviewGroupOf(String(meta.propertyCode)) ?? undefined };
       })(),
     } : undefined,
     reimbursementEstimate,
