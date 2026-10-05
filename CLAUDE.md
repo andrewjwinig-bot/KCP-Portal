@@ -1106,7 +1106,7 @@ time — and the team does not have time to open the GL over $80.
     condo is PIIICO (02-001-002-016 — its statement key; it was first seeded
     under a made-up 3610A that no budget reads). **8200 is the Four Seasons parcel only —
     McDonald's pays its own bill on 882047229.** 9840 (3044 Joshua Rd) is
-    65-00-06280-00-9 — the Tax Tracker lists 9860's number for it.
+    65-00-06280-00-9 (the Tax Tracker listed 9860's number for it; corrected 10/5/26).
   - **A parcel NOT in CAM** (`recoverable: false`) is taken out of the RET
     recovery pool in draft.ts (`nonRecoverable`, budget AND this year's
     basis) — ALWAYS, even after the taxes are typed over. **4500 Gray's Ferry:
@@ -1257,7 +1257,7 @@ time — and the team does not have time to open the GL over $80.
   endpoint, so everything flows into the budget as it is made. It is NOT in
   the sidebar (owner's call) — it is reached by the link sent to Harry /
   Nancy and from the sign-off pill on the draft's revenue table.
-- **HARRY ALSO MAKES KORMAN HOMES' LEASING CALLS** (owner: "let harry make leasing assumptions for Korman Homes budgets as well … two tabs — one for shopping centers and one for Korman Homes"). The review's groups are `SC` · `KH` · `BP` (`reviewGroups.ts` — `REVIEW_GROUP`, `reviewGroupOf`: a residential property is `KH`; client-safe, ONE definition for pages, routes and links). The review page shows the viewer's groups as TABS (`TabButton`, now shared by Maintenance / Reservations too): Harry → Shopping Centers + Korman Homes, Nancy → Business Parks, Drew / Alison / admin → all three. **A signed link opens every group its PERSON owns** (`linkGroups` / `linkProperties` in `reviewOverview.ts`), so Harry's existing link gained the Korman Homes tab with no re-send, and the public routes refuse anything outside those groups. Korman Homes has no rent-schedule import — its rent is the rent roll's. Harry's `budgetScope` is `SC_AND_RESIDENTIAL`. **The internal broker's commission follows the PROPERTY, not the owner** (`owner.group` on the draft's leasing owner): SC $1/SF, BP Nancy's tiers, Korman Homes NONE — `internalCommission` returns 0 for any group but SC / BP (a residential lease used to fall through to Nancy's tiers in the budget while the dialog showed Harry's $1/SF).
+- **HARRY ALSO MAKES KORMAN HOMES' LEASING CALLS** (owner: "let harry make leasing assumptions for Korman Homes budgets as well … two tabs — one for shopping centers and one for Korman Homes"). The review's groups are `SC` · `KH` · `BP` (`reviewGroups.ts` — `REVIEW_GROUP`, `reviewGroupOf`: a residential property is `KH`; client-safe, ONE definition for pages, routes and links). The review page shows the viewer's groups as TABS (`TabButton`, now shared by Maintenance / Reservations too): Harry → Shopping Centers + Korman Homes, Nancy → Business Parks, Drew / Alison / admin → all three. **A signed link opens every group its PERSON owns** (`linkGroups` / `linkProperties` in `reviewOverview.ts`), so Harry's existing link gained the Korman Homes tab with no re-send, and the public routes refuse anything outside those groups. Korman Homes has no rent-schedule import — its rent is the rent roll's. Harry's `budgetScope` is `SC_AND_RESIDENTIAL`. **Korman Homes is leased BY THE MONTH** (owner: "dont base it on rent sf yr just do rent per month … no ti, no lc"): `leasedPerMonth(unitRef)` (`LeasingDecision.tsx`) makes a KH call key **Rent $/mo** (saved as `monthlyRent`, never `rentPsf`), hides TI and Outside LC (saved empty), and labels the call "Lease-up Nov · $1,250/mo" / "Renew $1,250/mo". **The internal broker's commission follows the PROPERTY, not the owner** (`owner.group` on the draft's leasing owner): SC $1/SF, BP Nancy's tiers, Korman Homes NONE — `internalCommission` returns 0 for any group but SC / BP (a residential lease used to fall through to Nancy's tiers in the budget while the dialog showed Harry's $1/SF).
 - **THE LINK HARRY / NANCY ARE SENT OPENS WITHOUT SIGNING IN**
   (`/budget-review/[token]`, a landing page with the KORMAN band and NO portal
   chrome — excluded in `middleware.ts` and `AppShell` like `/investor/`). The
@@ -2102,6 +2102,7 @@ writes the portal's data back into it (`lib/insurance/sov.ts`).
   the totals row), the Vacant Land tab all untouched, and a formula cell is
   never overwritten. Do NOT theme it. It loads through `newWorkbook()` only for
   `fullCalcOnLoad`, so the formulas recompute over the new areas.
+- **Each parcel's ACREAGE shows beside it on the property page** (`PARCEL_ACRES` in `app/tracker/tax-data.ts`, keyed by parcel number): from the public record — Philadelphia OPA `total_area` ÷ 43,560, the Bucks parcel layer's `DEED_AREA`, Montgomery's parcel layer `LAND_ACRES` (pulled 10/5/26). Kor Center A/B/C show the whole shared parcel. Bellmawr (NJ) is not on file.
 - **Property info is the source; the form is the output.** The descriptive
   columns come from each property's **Building Facts** (`lib/properties/facts.ts`)
   — ONE list, no separate "insurance" group (owner's call). They are SEEDED

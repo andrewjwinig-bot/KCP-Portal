@@ -310,7 +310,7 @@ export const PARCEL_INFO: Record<string, TaxParcel[]> = {
   "8200 Trust #4":                   [{ method: "Direct",       number: "882047230", label: "Four Seasons",    link: "https://property.phila.gov/?p=882047230" },
                                       { method: "Direct",       number: "882047229", label: "McDonald's",      link: "https://property.phila.gov/?p=882047229" }],
   "9200 Eastwick JV XI":             [{ method: "Direct",       number: "885819980", label: "Land", link: "https://property.phila.gov/?p=885819980" }],
-  "9840 3044 Joshua Rd":             [{ method: "Check",        number: "54-00-06484-00-5"  }],
+  "9840 3044 Joshua Rd":             [{ method: "Check",        number: "65-00-06280-00-9", label: "House", link: "https://propertyrecords.montcopa.org/PT/Datalets/Datalet.aspx?mode=&UseSearch=no&pin=650006280009&jur=046&taxyr=2026" }],
   "9860 KH Fort Washington":         [{ method: "Check",        number: "54-00-06484-00-5", label: "House", link: "https://propertyrecords.montcopa.org/PT/Datalets/Datalet.aspx?mode=&UseSearch=no&pin=540006484005&jur=046&taxyr=2026" }],
   "9800 Bellaire Ave":               [{ method: "Check",        number: "54-00-01999-00-8"  }],
   "3610 Building 1":            [{ number: "02-001-002-004-001", label: "Building 1", link: "https://dataportal-bucksgis.opendata.arcgis.com/datasets/3a4d9c4305874312a2a74da7bd55a22d_0/explore?location=40.123865%2C-74.979211%2C17" }],
@@ -331,6 +331,26 @@ export const PARCEL_INFO: Record<string, TaxParcel[]> = {
 
   "PIIICO Condo":                    [{                         number: "02001002-016"      }],
   "0800 Bellmawr":                   [{                         number: "Block 173.01 Lot 1"}],
+};
+
+/** Land area of each parcel in ACRES, from the public record (pulled 10/5/26):
+ *  Philadelphia OPA `total_area` (sq ft ÷ 43,560), the Bucks parcel layer's
+ *  `DEED_AREA`, Montgomery's parcel layer `LAND_ACRES`. Keyed by parcel number
+ *  so the long PARCEL_INFO rows stay as they are. A shared parcel (Kor Center
+ *  A/B/C) carries the whole parcel's area. Bellmawr (NJ) is not on file. */
+export const PARCEL_ACRES: Record<string, number> = {
+  // Philadelphia
+  "882077811": 1.60, "882057700": 0.59, "882051606": 9.79, "874545940": 0.52,
+  "885969440": 0.03, "882830600": 0.05, "882078060": 7.97, "882832400": 0.78,
+  "882138000": 1.99, "882047230": 0.86, "882047229": 1.04, "885819980": 0.82,
+  // Bucks
+  "02-001-002-004-001": 1.00, "02-001-002-004-002": 1.14, "02-001-002-004-004": 1.14,
+  "02-001-002-002": 4.84, "02-001-001": 5.57, "02-001-001-001": 2.61, "02-001-002": 5.92,
+  "02-001-002-005": 4.24, "02-001-002-013": 2.09, "30-011-077": 18.88, "30-011-077-002": 1.85,
+  "02001002-016": 0.82,
+  // Montgomery
+  "65-00-06280-00-9": 0.23, "54-00-06484-00-5": 0.11, "54-00-01999-00-8": 0.23,
+  "01-00-04904-00-9": 0.05, "01-00-04903-00-1": 0.05,
 };
 
 // ─── SHARED HELPERS ──────────────────────────────────────────────────────────

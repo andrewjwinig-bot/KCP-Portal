@@ -14,7 +14,7 @@ import { useUser } from "../components/UserProvider";
 import { canManageK1, isPathAllowed } from "../../lib/users";
 import { PartnershipTaxDocs } from "../components/PartnershipTaxDocs";
 import {
-  TAX_TASKS, PARCEL_INFO,
+  TAX_TASKS, PARCEL_INFO, PARCEL_ACRES,
   baseEntityName, filingLabel, isTaskEffectivelyDone,
   type TaxTask, type TaxParcel, TAX_CATEGORIES, type K1Investor,
 } from "../tracker/tax-data";
@@ -822,6 +822,11 @@ export function PropertyDetailBody({
                         }
                         {p.label && <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{p.label}</span>}
                       </div>
+                      {PARCEL_ACRES[p.number] != null && (
+                        <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                          {PARCEL_ACRES[p.number].toFixed(2)} ac
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>

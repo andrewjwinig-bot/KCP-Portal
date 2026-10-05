@@ -17,6 +17,15 @@ import { createPortal } from "react-dom";
 import { Pill, TONE_AMBER, contributorTone } from "@/app/components/Pill";
 import type { LeaseAssumption } from "@/lib/financials/budgets/leasingAssumptions";
 import { internalCommission, termYearsMonths } from "@/lib/commissions";
+import { reviewGroupOf } from "@/lib/financials/budgets/reviewGroups";
+
+/** Korman Homes (residential) is leased by the MONTH (owner: "dont base it on
+ *  rent sf yr just do rent per month … no ti, no lc"): its calls key rent in
+ *  $/mo and carry no TI or outside LC. Read off the unit's property code. */
+export function leasedPerMonth(unitRef: string): boolean {
+  return reviewGroupOf(String(unitRef ?? "").split("-")[0]) === "KH";
+}
+const moneyMo = (n: number) => `$${Math.round(n).toLocaleString("en-US")}/mo`;
 
 export type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; rentPsf?: number; tiPsf?: number; lcPct?: number; startMonth?: number; termYears?: number };
 
@@ -94,6 +103,17 @@ export function decisionLabel(call: LeasingCall): string | null {
   if (!a) return null;
   if (call.mode === "vacant" && a.kind === "hold") return "Leave vacant";
   if (a.kind === "stop") return `Backed out from ${MONTHS[(a.startMonth ?? 1) - 1]}`;
+  if (leasedPerMonth(call.unitRef)) {
+    const mo = a.monthlyRent ?? (a.rentPsf != null && call.sqft > 0 ? (a.rentPsf * call.sqft) / 12 : null);
+    const at = mo ?? (call.currentRent || null);
+    switch (a.kind) {
+      case "hold":
+      case "renew": return at != null ? `Renew ${moneyMo(at)}` : "Renew";
+      case "vacate": return "Vacate";
+      case "leaseup": return `Lease-up ${MONTHS[(a.startMonth ?? 1) - 1]}${mo != null ? ` · ${moneyMo(mo)}` : ""}`;
+      default: return null;
+    }
+  }
   const psf = a.rentPsf ?? (a.monthlyRent != null && call.sqft > 0 ? round2((a.monthlyRent * 12) / call.sqft) : null);
   // A renewal with no rent keyed — or an old "hold" — renews at today's rent.
   const today = call.sqft > 0 && call.currentRent ? round2((call.currentRent * 12) / call.sqft) : null;
@@ -158,9 +178,12 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
   const savedPsf = assumption?.rentPsf ?? (assumption?.monthlyRent != null && sqft > 0 ? round2((assumption.monthlyRent * 12) / sqft) : null);
   const f2 = (n: number | null | undefined) => (n != null ? n.toFixed(2) : "");
   const [kind, setKind] = useState<string>(saved ?? "");
-  const [rent, setRent] = useState<string>(f2(savedPsf ?? curPsf));
-  const [ti, setTi] = useState<string>(f2(assumption?.tiPsf));
-  const [lc, setLc] = useState<string>(assumption?.lcPct != null ? String(assumption.lcPct) : "");
+  const perMonth = leasedPerMonth(unitRef);
+  const savedMo = assumption?.monthlyRent ?? (assumption?.rentPsf != null && sqft > 0 ? (assumption.rentPsf * sqft) / 12 : null);
+  const curMo = currentRent > 0 ? currentRent : null;
+  const [rent, setRent] = useState<string>(perMonth ? f2(savedMo ?? curMo) : f2(savedPsf ?? curPsf));
+  const [ti, setTi] = useState<string>(perMonth ? "" : f2(assumption?.tiPsf));
+  const [lc, setLc] = useState<string>(perMonth || assumption?.lcPct == null ? "" : String(assumption.lcPct));
   const [month, setMonth] = useState<number>(assumption?.startMonth ?? 1);
   const [term, setTerm] = useState<string>(assumption?.termYears != null ? String(assumption.termYears) : "");
   const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -176,6 +199,18 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
     const tiV = over.ti ?? ti, lcV = over.lc ?? lc;
     if (k === "") return;
     const apiKind = k === "none" ? "hold" : k === "keep" ? null : k;
+    if (perMonth) {
+      // Korman Homes: rent is the month's figure as keyed; no TI, no LC. A
+      // renewal left at today's rent carries none, so it holds today's exactly.
+      const rentMo = r !== "" ? Math.round(Number(r)) : null;
+      const sameMo = rentMo != null && curMo != null && Math.abs(rentMo - curMo) < 0.5;
+      onSave({
+        unitRef, kind: apiKind,
+        monthlyRent: (k === "renew" && !sameMo) || k === "leaseup" ? rentMo ?? undefined : undefined,
+        startMonth: mo, termYears: t !== "" ? Number(t) : undefined,
+      });
+      return;
+    }
     const psf = r !== "" ? Number(r) : null;
     // A renewal left at today's $/SF holds today's rent exactly, rather than a
     // figure rounded back through $/SF.
@@ -197,7 +232,8 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
   const holdover = !!end && end.getTime() < Date.now();
   const deal = kind === "renew" || kind === "leaseup";
   const costs = deal || (kind === "hold" && mode === "inplace");
-  const newMonthly = deal && rent !== "" && sqft > 0 ? (Number(rent) * sqft) / 12 : currentRent;
+  const newMonthly = perMonth ? (deal && rent !== "" ? Number(rent) : currentRent)
+    : deal && rent !== "" && sqft > 0 ? (Number(rent) * sqft) / 12 : currentRent;
   const commission = lc !== "" && term !== "" ? (Number(lc) / 100) * newMonthly * 12 * Number(term) : 0;
   const tiTotal = ti !== "" && sqft > 0 ? Number(ti) * sqft : 0;
   const effect = kind === "" && mode === "vacant" ? "Vacant until decided"
@@ -276,9 +312,11 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
               {MONTHS.map((mo, i) => <option key={mo} value={i + 1}>{mo} {budgetYear}</option>)}
             </select>
           ))}
-          {deal && field("Rent $/SF/yr", num(rent, setRent, "r", "Rent, annual $ per SF"),
+          {deal && perMonth && field("Rent $/mo", num(rent, setRent, "r", "Rent per month"),
+            curMo != null && kind === "renew" ? `today ${moneyMo(curMo)}` : undefined)}
+          {deal && !perMonth && field("Rent $/SF/yr", num(rent, setRent, "r", "Rent, annual $ per SF"),
             rent !== "" && sqft > 0 ? `= ${money0((Number(rent) * sqft) / 12)}/mo` : undefined)}
-          {costs && !deal && curPsf != null && field("Rent $/SF/yr", <span style={{ fontWeight: 700 }}>${curPsf.toFixed(2)}</span>, "today's rent")}
+          {costs && !deal && !perMonth && curPsf != null && field("Rent $/SF/yr", <span style={{ fontWeight: 700 }}>${curPsf.toFixed(2)}</span>, "today's rent")}
           {costs && (() => {
             // Years AND months, so a renewal's term matches the lease to the
             // month — 4 yr 5 mo, not rounded to 4 or 5 (owner). Saved as
@@ -307,8 +345,8 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
               </span>
             ), totalMo ? termYearsMonths(Number(term)) : undefined);
           })()}
-          {costs && field("TI $/SF", num(ti, setTi, "ti", "Tenant improvements, $ per SF"), tiTotal > 0 ? `= ${money0(tiTotal)}` : undefined)}
-          {costs && field("Outside LC %", num(lc, setLc, "lc", "Leasing commission, percent of the rent over the term", true),
+          {costs && !perMonth && field("TI $/SF", num(ti, setTi, "ti", "Tenant improvements, $ per SF"), tiTotal > 0 ? `= ${money0(tiTotal)}` : undefined)}
+          {costs && !perMonth && field("Outside LC %", num(lc, setLc, "lc", "Leasing commission, percent of the rent over the term", true),
             lc !== "" && Number(lc) > 0 ? (term === "" ? "set a term" : commission > 0 ? `= ${money0(commission)}` : "set a rent") : undefined)}
           {costs && (() => {
             // The internal broker's own commission on the deal — Harry $1/SF at
