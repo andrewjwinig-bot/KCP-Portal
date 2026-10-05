@@ -1,9 +1,9 @@
 "use client";
 
 // Alison's quarter-end commission review, opened from the link she is emailed
-// — no sign-in and no portal chrome. Every invoice awaiting her is ticked;
-// she can open any PDF, untick one to hold it back, and send the rest to
-// AvidXchange in one click. Everything goes through
+// — no sign-in and no portal chrome. She approves the quarter's TOTAL, not
+// each invoice (owner): the total leads, the invoices are listed beneath for
+// reference with their PDFs, and one button sends them all to AvidXchange. Everything goes through
 // `/api/commissions-review/[token]`, which checks the signed link on each call.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -31,8 +31,6 @@ export default function CommissionReviewPage() {
   const base = `/api/commissions-review/${encodeURIComponent(token)}`;
   const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Held back = UNticked; everything awaiting is ticked by default.
-  const [held, setHeld] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<string | null>(null);
@@ -46,7 +44,7 @@ export default function CommissionReviewPage() {
   useEffect(load, [load]);
 
   const awaiting = useMemo(() => (review?.invoices ?? []).filter((i) => i.status === "awaiting"), [review]);
-  const picked = awaiting.filter((i) => !held.has(i.id));
+  const picked = awaiting;
   const pickedTotal = picked.reduce((s, i) => s + i.amount, 0);
   const total = (review?.invoices ?? []).reduce((s, i) => s + i.amount, 0);
 
@@ -63,7 +61,7 @@ export default function CommissionReviewPage() {
       setDone(j.ok
         ? `${picked.length} invoice${picked.length === 1 ? "" : "s"} · ${money(pickedTotal)} sent to AvidXchange.`
         : `Approved — but not every invoice reached AvidXchange yet (${j.reason ?? "send incomplete"}). It finishes on its own tomorrow morning.`);
-      setConfirming(false); setHeld(new Set());
+      setConfirming(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't send");
     } finally {
@@ -95,9 +93,8 @@ export default function CommissionReviewPage() {
               </div>
               <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{review.quarterLabel}</div>
               <div className="pills" style={{ marginTop: 14 }}>
-                <StatPill label="Invoices" value={String(review.invoices.length)} />
-                <StatPill label="Total billed" value={money(total)} />
-                <StatPill label="To review" value={String(review.awaiting)} />
+                <StatPill label={awaiting.length ? "To approve" : "Total billed"} value={money(awaiting.length ? pickedTotal : total)} total />
+                <StatPill label="Invoices" value={String(awaiting.length || review.invoices.length)} />
               </div>
             </div>
 
@@ -110,7 +107,6 @@ export default function CommissionReviewPage() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
-                      <th style={{ ...thL, width: 36 }}></th>
                       <th style={thL}>Invoice</th>
                       <th style={thL}>Tenant</th>
                       <th style={thL}>Building · Suite</th>
@@ -121,17 +117,7 @@ export default function CommissionReviewPage() {
                   </thead>
                   <tbody>
                     {review.invoices.map((i) => (
-                      <tr key={i.id} style={{ opacity: i.status === "awaiting" && held.has(i.id) ? 0.5 : 1 }}>
-                        <td style={tdL}>
-                          {i.status === "awaiting" && (
-                            <input
-                              type="checkbox"
-                              checked={!held.has(i.id)}
-                              aria-label={`Send ${i.invoiceNumber}`}
-                              onChange={() => setHeld((h) => { const n = new Set(h); if (n.has(i.id)) n.delete(i.id); else n.add(i.id); return n; })}
-                            />
-                          )}
-                        </td>
+                      <tr key={i.id}>
                         <td style={tdL}><code>{i.invoiceNumber}</code></td>
                         <td style={{ ...tdL, fontWeight: 600 }}>{i.tenant || "—"}</td>
                         <td style={tdL}>{i.building || "—"} · {i.suite || "—"}{i.kind === "retail" ? " · Retail" : ""}</td>
@@ -155,9 +141,9 @@ export default function CommissionReviewPage() {
               )}
               {awaiting.length > 0 && !confirming && (
                 <>
-                  <span className="muted small">Untick any invoice to hold it back. Nothing goes to AvidXchange until you send.</span>
-                  <button className="btn primary large" style={{ marginLeft: "auto" }} disabled={picked.length === 0} onClick={() => setConfirming(true)}>
-                    Send {picked.length} to AvidXchange · {money(pickedTotal)}
+                  <span className="muted small">Nothing goes to AvidXchange until you approve.</span>
+                  <button className="btn primary large" style={{ marginLeft: "auto" }} onClick={() => setConfirming(true)}>
+                    Approve {money(pickedTotal)} &amp; send to AvidXchange
                   </button>
                 </>
               )}
