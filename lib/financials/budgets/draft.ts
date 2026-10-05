@@ -394,6 +394,8 @@ const ACCOUNT_NAME_FALLBACK: Record<string, string> = {
 /** Capital accounts the owner never budgets — dropped from the split while
  *  they are empty (budget and this year both $0), so no money is hidden. */
 const HIDE_WHEN_EMPTY = new Set(["1410-0000", "1470-0000"]); // Land, Appliances
+/** Lines that open into their GL accounts even with only one. */
+const ALWAYS_SPLIT = /^general\s*(?:&|and)\s*administrative$/i;
 
 function withSubLines(
   line: BudgetDraftLine, accounts: ReprojLine["accounts"], names0: Record<string, string>, factor: number | null, role: SectionRole,
@@ -403,7 +405,11 @@ function withSubLines(
   if (bucketsFor(role, line.label)) return line;
   const names = { ...ACCOUNT_NAME_FALLBACK, ...Object.fromEntries(Object.entries(names0).filter(([, v]) => !!v)) };
   const accts = (accounts ?? []).filter((a) => !(HIDE_WHEN_EMPTY.has(a.account) && a.blended.every((v) => Math.abs(v || 0) < 0.5)));
-  if (accts.length < 2) return line;
+  // General & Administrative always opens into its accounts, even when only
+  // one posts (owner: it was collapsible at some Korman Homes properties and
+  // not others — the difference was only how many accounts each had used).
+  // Every other line splits only when there is more than one account.
+  if (accts.length < (ALWAYS_SPLIT.test(line.label.trim()) ? 1 : 2)) return line;
   const computed = line.source === "reproj-growth" || line.source === "reproj-flat";
   if (computed) {
     const subLines: BudgetSubLine[] = accts.map((a) => {
