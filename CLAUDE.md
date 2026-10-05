@@ -2102,7 +2102,7 @@ writes the portal's data back into it (`lib/insurance/sov.ts`).
   the totals row), the Vacant Land tab all untouched, and a formula cell is
   never overwritten. Do NOT theme it. It loads through `newWorkbook()` only for
   `fullCalcOnLoad`, so the formulas recompute over the new areas.
-- **Each parcel's ACREAGE shows beside it on the property page** (`PARCEL_ACRES` in `app/tracker/tax-data.ts`, keyed by parcel number): from the public record — Philadelphia OPA `total_area` ÷ 43,560, the Bucks parcel layer's `DEED_AREA`, Montgomery's parcel layer `LAND_ACRES` (pulled 10/5/26). Kor Center A/B/C show the whole shared parcel. Bellmawr (NJ) is not on file.
+- **Each parcel's ACREAGE shows beside it on the property page** (`PARCEL_ACRES` in `app/tracker/tax-data.ts`, keyed by parcel number): from the public record — Philadelphia OPA `total_area` ÷ 43,560, the Bucks parcel layer's `DEED_AREA`, Montgomery's parcel layer `LAND_ACRES` (pulled 10/5/26). Kor Center A/B/C show the whole shared parcel. Bellmawr's Block 173.01 Lot 1 is 5.6 ac per NJ's parcel composite (`CALC_ACRE`); `data.ts` says 13 acres and the owner thought ~14 — if 0800 holds more lots, add them to `PARCEL_INFO`.
 - **Property info is the source; the form is the output.** The descriptive
   columns come from each property's **Building Facts** (`lib/properties/facts.ts`)
   — ONE list, no separate "insurance" group (owner's call). They are SEEDED
