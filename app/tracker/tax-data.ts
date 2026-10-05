@@ -337,7 +337,8 @@ export const PARCEL_INFO: Record<string, TaxParcel[]> = {
  *  Philadelphia OPA `total_area` (sq ft ÷ 43,560), the Bucks parcel layer's
  *  `DEED_AREA`, Montgomery's parcel layer `LAND_ACRES`. Keyed by parcel number
  *  so the long PARCEL_INFO rows stay as they are. A shared parcel (Kor Center
- *  A/B/C) carries the whole parcel's area. Bellmawr (NJ) is not on file. */
+ *  A/B/C) carries the whole parcel's area. Bellmawr from NJ's statewide parcel
+ *  composite (`CALC_ACRE`). */
 export const PARCEL_ACRES: Record<string, number> = {
   // Philadelphia
   "882077811": 1.60, "882057700": 0.59, "882051606": 9.79, "874545940": 0.52,
@@ -351,6 +352,8 @@ export const PARCEL_ACRES: Record<string, number> = {
   // Montgomery
   "65-00-06280-00-9": 0.23, "54-00-06484-00-5": 0.11, "54-00-01999-00-8": 0.23,
   "01-00-04904-00-9": 0.05, "01-00-04903-00-1": 0.05,
+  // Bellmawr, NJ — the state's parcel composite (CALC_ACRE): Heller Rd, vacant land
+  "Block 173.01 Lot 1": 5.6,
 };
 
 // ─── SHARED HELPERS ──────────────────────────────────────────────────────────
