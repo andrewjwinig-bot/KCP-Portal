@@ -1,5 +1,6 @@
 "use client";
 
+import { TabButton } from "@/app/components/TabButton";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -745,19 +746,6 @@ const selectStyle: React.CSSProperties = {
   fontFamily: "inherit", fontSize: 13, outline: "none",
 };
 
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick} style={{
-      padding: "8px 14px", background: "transparent", border: "none",
-      borderBottom: active ? "2px solid #0b4a7d" : "2px solid transparent",
-      color: active ? "var(--text)" : "var(--muted)",
-      fontWeight: active ? 700 : 500, fontSize: 14,
-      cursor: "pointer", marginBottom: -1,
-    }}>
-      {children}
-    </button>
-  );
-}
 
 function MetaCell({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveReviewToken } from "@/lib/financials/budgets/reviewLink";
-import { reviewProperties } from "@/lib/financials/budgets/reviewOverview";
+import { linkProperties } from "@/lib/financials/budgets/reviewOverview";
 import { buildBudgetDraft } from "@/lib/financials/budgets/draft";
 
 export const runtime = "nodejs";
@@ -18,7 +18,7 @@ export async function GET(req: Request, { params }: { params: { token: string } 
   const link = await resolveReviewToken(token);
   if (!link) return NextResponse.json({ error: "This link is no longer valid." }, { status: 404 });
   const key = new URL(req.url).searchParams.get("key") ?? "";
-  if (!(await reviewProperties(link.group)).some((p) => p.key === key)) {
+  if (!(await linkProperties(link)).some((p) => p.key === key)) {
     return NextResponse.json({ error: "Not part of this review." }, { status: 403 });
   }
   const draft = await buildBudgetDraft(key, link.year, 3);

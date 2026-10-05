@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getRentReviews, setRentReview } from "@/lib/financials/budgets/rentReviewStore";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
-import { canEdit } from "@/lib/financials/budgets/contributors";
+import { canEdit, isBudgetAuthor } from "@/lib/financials/budgets/contributors";
+import { REVIEW_GROUPS, groupsOwnedBy, isReviewGroup } from "@/lib/financials/budgets/reviewGroups";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { USERS, type UserId } from "@/lib/users";
 import { reviewOverview, REVIEW_GROUP } from "@/lib/financials/budgets/reviewOverview";
@@ -11,18 +12,24 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const maxDuration = 60;
 
-// GET ?year=            → { reviews: { [propertyCode]: { by, at } } }
-// GET ?year=&group=SC|BP → also the review page's list for that group
+// GET ?year=               → { reviews: { [propertyCode]: { by, at } } }
+// GET ?year=&group=SC|KH|BP → also the review page's list for that group, and
+// the groups the viewer works as tabs — Harry: Shopping Centers + Korman
+// Homes; Nancy: Business Parks; Drew / Alison / admin: all three.
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const year = Number(url.searchParams.get("year"));
   if (!year) return NextResponse.json({ error: "year required" }, { status: 400 });
   const group = url.searchParams.get("group");
-  if (group === "SC" || group === "BP") {
+  if (isReviewGroup(group)) {
     const g = REVIEW_GROUP[group];
+    const viewer = await budgetUser().catch(() => null);
+    const own = viewer ? groupsOwnedBy(viewer) : [];
+    const tabs = viewer && isBudgetAuthor(viewer) ? REVIEW_GROUPS : own.includes(group) ? own : [group];
     return NextResponse.json({
       reviews: await getRentReviews(year),
       group, title: g.title, year,
+      groups: tabs.map((id) => ({ id, title: REVIEW_GROUP[id].tab })),
       person: { id: g.owner, label: USERS[g.owner as UserId]?.label ?? g.owner.toUpperCase() },
       properties: await reviewOverview(group, year),
     });

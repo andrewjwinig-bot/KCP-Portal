@@ -11,4 +11,8 @@ describe("internalCommission", () => {
     expect(internalCommission("BP", 1000, 10)).toBe(360);   // past 5 years: the 5-year rate
     expect(internalCommission("BP", 1000, undefined)).toBe(0);
   });
+  it("Korman Homes (no allocation group) budgets no internal commission", () => {
+    expect(internalCommission(undefined, 1600, 1)).toBe(0);
+    expect(internalCommission("KH", 1600, 1)).toBe(0);
+  });
 });

@@ -13,6 +13,8 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, contributorTone } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import LoadingState from "@/app/components/LoadingState";
+import { TabButton } from "@/app/components/TabButton";
+import type { ReviewGroup } from "@/lib/financials/budgets/reviewGroups";
 import type { BudgetDraft } from "@/lib/financials/budgets/draft";
 import { RevenueByTenantCard } from "../draft/RevenueByTenantCard";
 import type { LeasingCall, SavePayload } from "../draft/LeasingDecision";
@@ -23,13 +25,16 @@ export type ReviewPropertyRow = {
   review: { by: string; at: string } | null;
 };
 export type ReviewOverviewData = {
-  group: "SC" | "BP"; title: string; year: number;
+  group: ReviewGroup; title: string; year: number;
+  /** The groups this viewer / link works, as tabs (Harry: Shopping Centers +
+   *  Korman Homes). One group shows no tab row. */
+  groups?: { id: ReviewGroup; title: string }[];
   person: { id: string; label: string };
   properties: ReviewPropertyRow[];
 };
 /** Where the page reads and writes. Each returns an error message, or null. */
 export type ReviewApi = {
-  overview: () => Promise<ReviewOverviewData | { error: string }>;
+  overview: (group?: ReviewGroup) => Promise<ReviewOverviewData | { error: string }>;
   draft: (key: string) => Promise<BudgetDraft | null>;
   save: (propertyCode: string, payload: SavePayload) => Promise<string | null>;
   confirm: (propertyCode: string, confirmed: boolean) => Promise<string | null>;
@@ -46,23 +51,39 @@ function leasingCalls(leasing: NonNullable<BudgetDraft["leasing"]>): LeasingCall
   ];
 }
 
-export function RentReviewView({ api, headerExtra }: { api: ReviewApi; headerExtra?: React.ReactNode }) {
+export function RentReviewView({ api, headerExtra, initialGroup, onGroupChange }: {
+  api: ReviewApi; headerExtra?: React.ReactNode;
+  initialGroup?: ReviewGroup;
+  /** Told when the viewer switches tab (the signed-in page keeps the URL and
+   *  its "link to send" in step). */
+  onGroupChange?: (group: ReviewGroup) => void;
+}) {
   const [data, setData] = useState<ReviewOverviewData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [group, setGroup] = useState<ReviewGroup | undefined>(initialGroup);
 
   const refresh = useCallback(() => {
-    api.overview().then((j) => {
+    api.overview(group).then((j) => {
       if ("error" in j) { setError(j.error); return; }
       setData(j);
     }).catch(() => setError("Couldn't load the review."));
-  }, [api]);
+  }, [api, group]);
   useEffect(() => { refresh(); }, [refresh]);
+  const switchTo = (g: ReviewGroup) => {
+    if (g === (data?.group ?? group)) return;
+    setOpen(null); setData(null); setGroup(g); onGroupChange?.(g);
+  };
+  const tabs = data?.groups && data.groups.length > 1 ? (
+    <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)" }}>
+      {data.groups.map((t) => <TabButton key={t.id} active={t.id === data.group} onClick={() => switchTo(t.id)}>{t.title}</TabButton>)}
+    </div>
+  ) : null;
 
   if (error && !data) return <div className="card" style={{ color: "#b91c1c", fontWeight: 700 }}>{error}</div>;
   if (!data) return <LoadingState status="Loading the rent rolls…" context="Every property's leasing calls and sign-off" columns={3} rows={5} />;
 
-  const owner = { id: data.person.id, label: data.person.label.charAt(0) + data.person.label.slice(1).toLowerCase() };
+  const owner = { id: data.person.id, label: data.person.label.charAt(0) + data.person.label.slice(1).toLowerCase(), group: data.group };
   const tone = contributorTone(owner.id);
   const list = data.properties;
   const current = (p: ReviewPropertyRow) => !!p.review && !(p.latest && p.latest > p.review.at);
@@ -91,6 +112,8 @@ export function RentReviewView({ api, headerExtra }: { api: ReviewApi; headerExt
         </div>
         {headerExtra}
       </div>
+
+      {tabs}
 
       <div className="pills">
         <StatPill label="Properties confirmed" value={`${confirmed} / ${list.length}`} accent={list.length && confirmed === list.length ? "#15803d" : "#b45309"} />
@@ -151,7 +174,7 @@ export function RentReviewView({ api, headerExtra }: { api: ReviewApi; headerExt
 }
 
 function PropertyReview({ api, row, year, owner, confirmed, changed, onChanged, onConfirm }: {
-  api: ReviewApi; row: ReviewPropertyRow; year: number; owner: { id: string; label: string };
+  api: ReviewApi; row: ReviewPropertyRow; year: number; owner: { id: string; label: string; group?: string };
   confirmed: boolean; changed: boolean;
   onChanged: () => void;
   onConfirm: (confirmed: boolean) => void;

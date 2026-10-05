@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { resolveReviewToken } from "@/lib/financials/budgets/reviewLink";
-import { reviewProperties } from "@/lib/financials/budgets/reviewOverview";
+import { linkProperties } from "@/lib/financials/budgets/reviewOverview";
 import { setLeasingAssumption, leasingDecisionFromBody } from "@/lib/financials/budgets/leasingAssumptions";
 import { USERS, type UserId } from "@/lib/users";
 
@@ -18,7 +18,7 @@ export async function POST(req: Request, { params }: { params: { token: string }
   try {
     const b = await req.json();
     const code = String(b?.propertyCode ?? "").trim().toUpperCase();
-    if (!(await reviewProperties(link.group)).some((p) => p.code === code)) {
+    if (!(await linkProperties(link)).some((p) => p.code === code)) {
       return NextResponse.json({ error: "Not part of this review." }, { status: 403 });
     }
     const parsed = leasingDecisionFromBody(b, USERS[link.user as UserId]?.label ?? link.user.toUpperCase());

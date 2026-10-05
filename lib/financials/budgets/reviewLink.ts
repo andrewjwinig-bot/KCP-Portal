@@ -17,7 +17,8 @@ const enc = new TextEncoder();
 /** Domain separator. Changing it invalidates every issued review link. */
 const DOMAIN = "kcp.budget.review.v1:";
 
-export type ReviewGroup = "SC" | "BP";
+import { isReviewGroup, type ReviewGroup } from "./reviewGroups";
+export type { ReviewGroup } from "./reviewGroups";
 export type ReviewPayload = { v: 1; id: string; u: string; g: ReviewGroup; y: number };
 
 export type ReviewLink = {
@@ -79,7 +80,7 @@ export async function verifyReviewToken(token: string | undefined, secret: strin
   if (!timingSafeEqual(expected, given)) return null;
   try {
     const p = JSON.parse(new TextDecoder().decode(b64urlDecode(body))) as ReviewPayload;
-    if (p.v !== 1 || !p.id || !p.u || (p.g !== "SC" && p.g !== "BP") || !p.y) return null;
+    if (p.v !== 1 || !p.id || !p.u || !isReviewGroup(p.g) || !p.y) return null;
     return p;
   } catch { return null; }
 }
