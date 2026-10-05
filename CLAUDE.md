@@ -1711,7 +1711,10 @@ time — and the team does not have time to open the GL over $80.
   opens (▸) into one row per account, each grown on its own months; the line
   is their SUM and is typed THROUGH them (override key `section::label#account`).
   A line whose figure comes from elsewhere (leases, Budget Inputs, recoveries)
-  shows its split read-only. The grid's pills sit on the line's own row
+  shows its split read-only. **General & Administrative ALWAYS opens** (`ALWAYS_SPLIT` in
+  `draft.ts`), even with a single account — it was collapsible at some Korman
+  Homes properties and not others only because of how many accounts each had
+  posted to (owner). The grid's pills sit on the line's own row
   ("+3%", "Flat") so every row is one row tall.
 - **The line-history popup LEADS WITH A MONTHLY TABLE** (`HistoryMonthly`):
   Jan–Dec + Total, rows {year} Budget (this draft), {year−1} Reproj. (actual
