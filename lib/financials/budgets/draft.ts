@@ -12,7 +12,7 @@
 import { assessedTaxInput } from "./assessedTaxes";
 import "server-only";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
-import type { ReprojLine } from "@/lib/financials/reprojections/compute";
+import type { ReprojLine, Reprojection } from "@/lib/financials/reprojections/compute";
 import { listLoans } from "@/lib/debt/storage";
 import { budgetDebt, loansForStatement, FUND_SHELL, fundDebtShares, shareOfDebt, addDebt, type BudgetLoan } from "./debtBudget";
 import { EXPENSE_ROLES, type SectionRole } from "@/lib/financials/operating-statements/types";
@@ -630,11 +630,52 @@ async function managementFeeRollup(budgetYear: number, growthPct: number): Promi
   return out.sort((a, b) => b.total - a.total);
 }
 
+/** A Korman Homes (residential) property or the PHOMES roll-up. */
+function isKormanHomes(code: string, key: string): boolean {
+  if (String(key).toUpperCase() === "PHOMES") return true;
+  return PROPERTY_DEFS.find((d) => d.id.toUpperCase() === String(code ?? "").toUpperCase())?.type === "Residential";
+}
+
+/** Korman Homes' reimbursements as ONE blanket line (owner: "for korman homes
+ *  the only reimbursement should be MISC … let user just have it as a blanket
+ *  line for any" — tenants reimburse odd items such as landscaping). The
+ *  mapping carries the commercial set (Electric, Common Area, RET, Insurance,
+ *  Condo Assn), none of which a house bills; their accounts fold into
+ *  "Miscellaneous Reimbursements", carried flat from this year and typed
+ *  straight onto the line. It matches no recovery category (`basisForLine`),
+ *  so the CAM engine never writes over it. The line keeps ONE account — the
+ *  one that carried the most — so publishing has a GL to put it on. */
+export const BLANKET_REIMBURSEMENT = "Miscellaneous Reimbursements";
+function blanketReimbursements(r: Reprojection): Reprojection {
+  return {
+    ...r,
+    sections: r.sections.map((sec) => {
+      if (sec.role !== "reimbursement" || sec.lines.length === 0) return sec;
+      const add = (xs: number[][]) => Array.from({ length: 12 }, (_, i) => xs.reduce((a, x) => a + (x[i] ?? 0), 0));
+      const actual = add(sec.lines.map((l) => l.actual));
+      const budget = add(sec.lines.map((l) => l.budget));
+      const blended = add(sec.lines.map((l) => l.blended));
+      const accts = sec.lines.flatMap((l) => l.accounts ?? []);
+      const top = [...accts].sort((a, b) => Math.abs(sum(b.blended)) - Math.abs(sum(a.blended)))[0];
+      const line: ReprojLine = {
+        label: BLANKET_REIMBURSEMENT,
+        mask: sec.lines.map((l) => l.mask).filter(Boolean).join(","),
+        actual, budget, blended,
+        reprojTotal: sum(blended), budgetTotal: sum(budget),
+        variance: sum(budget) ? sum(blended) - sum(budget) : null,
+        accounts: top ? [{ account: top.account, actual, budget, blended }] : [],
+      };
+      return { ...sec, lines: [line] };
+    }),
+  };
+}
+
 export async function buildBudgetDraft(key: string, budgetYear: number, growthPct: number): Promise<BudgetDraft | null> {
   const basisYear = budgetYear - 1;
   const loaded = await loadReprojection(key, basisYear);
   if (!loaded) return null;
-  const { reprojection: r, meta } = loaded;
+  const { meta } = loaded;
+  const r = isKormanHomes(meta.propertyCode, key) ? blanketReimbursements(loaded.reprojection) : loaded.reprojection;
 
   const factor = 1 + (growthPct || 0) / 100;
   const revMonths = new Array(12).fill(0);
