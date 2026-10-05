@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pill, TONE_AMBER, contributorTone } from "@/app/components/Pill";
 import type { LeaseAssumption } from "@/lib/financials/budgets/leasingAssumptions";
-import { internalCommission } from "@/lib/commissions";
+import { internalCommission, termYearsMonths } from "@/lib/commissions";
 
 export type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; rentPsf?: number; tiPsf?: number; lcPct?: number; startMonth?: number; termYears?: number };
 
@@ -279,13 +279,34 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
           {deal && field("Rent $/SF/yr", num(rent, setRent, "r", "Rent, annual $ per SF"),
             rent !== "" && sqft > 0 ? `= ${money0((Number(rent) * sqft) / 12)}/mo` : undefined)}
           {costs && !deal && curPsf != null && field("Rent $/SF/yr", <span style={{ fontWeight: 700 }}>${curPsf.toFixed(2)}</span>, "today's rent")}
-          {costs && field("Term", (
-            <select value={term} className="select-sm" aria-label="Lease term"
-              onChange={(e) => { setTerm(e.target.value); push({ t: e.target.value }); }}>
-              <option value="">Choose…</option>
-              {[1, 2, 3, 5, 7, 10, 15].map((y) => <option key={y} value={y}>{y} yr{y === 1 ? "" : "s"}</option>)}
-            </select>
-          ))}
+          {costs && (() => {
+            // Years AND months, so a renewal's term matches the lease to the
+            // month — 4 yr 5 mo, not rounded to 4 or 5 (owner). Saved as
+            // termYears = months ÷ 12, so the LC and the internal commission
+            // read it unchanged.
+            const totalMo = term !== "" ? Math.round(Number(term) * 12) : null;
+            const yrs = totalMo != null ? Math.floor(totalMo / 12) : "";
+            const mos = totalMo != null ? totalMo % 12 : "";
+            const setParts = (y: number | "", m: number | "") => {
+              const mo = (y === "" ? 0 : y) * 12 + (m === "" ? 0 : m);
+              const t = y === "" && m === "" ? "" : mo > 0 ? String(mo / 12) : "";
+              setTerm(t); push({ t });
+            };
+            return field("Term", (
+              <span style={{ display: "inline-flex", gap: 4 }}>
+                <select value={yrs} className="select-sm" aria-label="Lease term, years"
+                  onChange={(e) => setParts(e.target.value === "" ? "" : Number(e.target.value), mos === "" ? 0 : mos)}>
+                  <option value="">yrs</option>
+                  {Array.from({ length: 16 }, (_, y) => <option key={y} value={y}>{y} yr</option>)}
+                </select>
+                <select value={mos} className="select-sm" aria-label="Lease term, months"
+                  onChange={(e) => setParts(yrs === "" ? 0 : yrs, e.target.value === "" ? "" : Number(e.target.value))}>
+                  <option value="">mo</option>
+                  {Array.from({ length: 12 }, (_, m) => <option key={m} value={m}>{m} mo</option>)}
+                </select>
+              </span>
+            ), totalMo ? termYearsMonths(Number(term)) : undefined);
+          })()}
           {costs && field("TI $/SF", num(ti, setTi, "ti", "Tenant improvements, $ per SF"), tiTotal > 0 ? `= ${money0(tiTotal)}` : undefined)}
           {costs && field("Outside LC %", num(lc, setLc, "lc", "Leasing commission, percent of the rent over the term", true),
             lc !== "" && Number(lc) > 0 ? (term === "" ? "set a term" : commission > 0 ? `= ${money0(commission)}` : "set a rent") : undefined)}

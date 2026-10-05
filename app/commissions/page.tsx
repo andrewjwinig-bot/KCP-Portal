@@ -26,7 +26,8 @@ import {
 } from "../../lib/commissions";
 import { Calendar } from "@/app/components/Calendar";
 import { downloadCommissionInvoice, downloadCommissionInvoicesZip } from "@/lib/commissions/downloadInvoices";
-import { formatSentDate, CommissionSectionHeading } from "./SendToAvidBillButton";
+import { Pill, TONE_AMBER, TONE_BLUE } from "@/app/components/Pill";
+import { formatSentDate, CommissionSectionHeading, SendToAvidBillButton } from "./SendToAvidBillButton";
 
 // Office property codes — Business Parks Division commissions.
 const OFFICE_CODES = new Set(
@@ -92,10 +93,12 @@ export default function CommissionsPage() {
   // on MM/DD/YY" badge that replaces the per-row action area once a
   // quarter has been billed.
   const [avidSent, setAvidSent] = useState<Record<string, { sentAt: string; count: number; total: number }>>({});
+  // Alison's review per quarter (requested / approved) — the pending pill.
+  const [review, setReview] = useState<Record<string, { requestedAt: string | null; approvedAt: string | null; approvedBy: string | null }>>({});
   const refreshAvidSent = useCallback(() => {
     fetch("/api/commissions/avidbill-sent")
       .then((r) => r.json())
-      .then((d) => setAvidSent((d?.log && typeof d.log === "object") ? d.log : {}))
+      .then((d) => { setAvidSent((d?.log && typeof d.log === "object") ? d.log : {}); setReview(d?.review ?? {}); })
       .catch(() => { /* best-effort */ });
   }, []);
 
@@ -110,6 +113,7 @@ export default function CommissionsPage() {
         setRentroll(rr.rentroll ?? null);
         setEntries(Array.isArray(ce.entries) ? ce.entries : []);
         setAvidSent((av?.log && typeof av.log === "object") ? av.log : {});
+        setReview(av?.review ?? {});
       })
       .finally(() => setLoading(false));
   }, []);
@@ -439,10 +443,21 @@ export default function CommissionsPage() {
           gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 2.4fr) minmax(0, 0.95fr) minmax(0, 0.75fr) minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1.05fr) minmax(0, 0.9fr)",
           gap: 12,
         }}>
-          {/* Period — fixed to the current quarter */}
+          {/* Period — the current quarter by default; an earlier one can be
+              picked so a deal closed in Q3 but keyed in Q4 is billed with Q3.
+              A quarter already sent to AvidXchange still takes an entry: it
+              goes to Alison for review the next morning on its own. */}
           <div>
             <label style={labelStyle}>Period</label>
-            <input type="text" value={form.quarter} readOnly tabIndex={-1} style={lockedStyle} />
+            <select
+              value={form.quarter}
+              onChange={(e) => setForm((f) => ({ ...f, quarter: e.target.value }))}
+              style={inputStyle}
+            >
+              {[...new Set([form.quarter, ...quarterOpts.slice(0, 4)])].map((q) => (
+                <option key={q} value={q}>{q}{q === quarterOpts[0] ? " (current)" : ""}</option>
+              ))}
+            </select>
           </div>
 
           {/* Tenant — pick existing OR new */}
@@ -661,6 +676,13 @@ export default function CommissionsPage() {
                           SENT TO AVIDXCHANGE · {sentDateLabel}
                         </span>
                       )}
+                      {!sentRecord && review[quarter]?.requestedAt && (
+                        <Pill tone={review[quarter].approvedAt ? TONE_BLUE : TONE_AMBER}>
+                          {review[quarter].approvedAt
+                            ? `APPROVED BY ${(review[quarter].approvedBy ?? "").toUpperCase()} · ${formatSentDate(review[quarter].approvedAt!)}`
+                            : `WITH ALISON FOR REVIEW · ${formatSentDate(review[quarter].requestedAt!)}`}
+                        </Pill>
+                      )}
                     </span>
                     <span className="muted small">
                       {list.length} · Incentive {toMoney(total)} · Gross {toMoney(totalGross)}
@@ -696,11 +718,11 @@ export default function CommissionsPage() {
                     >
                       Download Invoices (Zip)
                     </button>
-                    {/* "Send to AvidXchange" button intentionally
-                        removed — the Vercel cron at 09:00 UTC on
-                        Jan 1 / Apr 1 / Jul 1 / Oct 1 handles
-                        sending automatically. Manual trigger lives
-                        only in the API + the cron retry path. */}
+                    {/* Commissions reach Avid only once Alison approves them
+                        from the link she is emailed — the morning cron emails
+                        her when the quarter closes. This sends her the quarter
+                        now (early, or as a reminder). */}
+                    {!sentRecord && <SendToAvidBillButton quarterLabel={quarter} onSent={refreshAvidSent} />}
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>

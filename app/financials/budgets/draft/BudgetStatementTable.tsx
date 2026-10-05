@@ -28,6 +28,7 @@
 // break the tie to the tenants and their methodology. Nor is rent, or the TI
 // and commissions the deals carry — those are Step 1's leases and decisions.
 
+import { termYearsMonths } from "@/lib/commissions";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, type PillTone } from "@/app/components/Pill";
 import { SourceBadge } from "./SourceBadge";
@@ -578,8 +579,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const KIND: Record<string, string> = { renew: "Renewal", hold: "Renewal", leaseup: "Lease-up" };
   const dealBasis = (d: NonNullable<typeof draft.deals>[number], f: DealField) =>
     f === "ti" ? `${d.tiPsf != null ? `$${d.tiPsf.toFixed(2)}/SF × ` : ""}${d.sqft.toLocaleString("en-US")} SF`
-    : f === "lc" ? `${d.lcPct ?? 0}% × ${money0(d.annualRent)}/yr × ${d.termYears ?? 0} yr`
-    : `${d.sqft.toLocaleString("en-US")} SF${d.termYears ? ` · ${d.termYears}-yr term` : ""}`;
+    : f === "lc" ? `${d.lcPct ?? 0}% × ${money0(d.annualRent)}/yr × ${termYearsMonths(d.termYears) || "0 yr"}`
+    : `${d.sqft.toLocaleString("en-US")} SF${d.termYears ? ` · ${termYearsMonths(d.termYears)} term` : ""}`;
   const dealTip = (f: DealField, m: number | null) => {
     const list = (draft.deals ?? []).filter((d) => d[f] > 0 && (m == null || d.month === m + 1)).sort((a, b) => b[f] - a[f]);
     if (!list.length) return null;

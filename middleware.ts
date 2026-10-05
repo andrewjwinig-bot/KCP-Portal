@@ -19,7 +19,7 @@ export const config = {
   // internal /api/tenants/past archive, so both answered with no login.
   // Pinned by middleware.test.ts.
   matcher: [
-    "/((?!_next/static|_next/image|_next/data|favicon.ico|images|login|submit|service|reserve|centers|statement/|portal/|investor/|budget-review/|api/budget-review/|api/statement/|api/portal/|api/investor/|api/site/login|api/site/logout|api/maintenance/inbound|api/maintenance/submit|api/tenants/lookup|api/tenants/companies|api/reservations/submit|api/reservations/tenants|api/leasing-inquiry|api/center-image|api/commissions/avidbill-quarter|api/cron/weekly-tasks|api/cron/moveout-closeouts|api/cron/allocated-send).*)",
+    "/((?!_next/static|_next/image|_next/data|favicon.ico|images|login|submit|service|reserve|centers|statement/|portal/|investor/|budget-review/|api/budget-review/|commissions-review/|api/commissions-review/|api/statement/|api/portal/|api/investor/|api/site/login|api/site/logout|api/maintenance/inbound|api/maintenance/submit|api/tenants/lookup|api/tenants/companies|api/reservations/submit|api/reservations/tenants|api/leasing-inquiry|api/center-image|api/commissions/avidbill-quarter|api/cron/weekly-tasks|api/cron/moveout-closeouts|api/cron/allocated-send).*)",
   ],
 };
 
