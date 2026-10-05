@@ -1981,6 +1981,12 @@ time — and the team does not have time to open the GL over $80.
   only (`EXPENSE_ROLES`); capital and debt sit below NOI. It used to count
   capital as an operating expense, understating NOI by the year's TI and
   improvements — and the grid then took capital off a second time for cash flow.
+- **THE PROJECTED BANK BALANCE IS HIDDEN FOR NOW** (owner: "hide current
+  bank balance … until we get that straightened out more clearly"):
+  `BANK_BALANCE_SHOWN = false` in `BudgetStatementTable.tsx` turns off the
+  balance row, the opening and its note everywhere; Distributions still show
+  and are keyed as before. Flip it back once the opening balance is right.
+  What follows describes it when shown.
 - **THE PROJECTED BANK BALANCE SITS AT THE TOP, WITH OCCUPANCY %; THE
   DISTRIBUTIONS STAY AT THE BOTTOM** (owner): the grid's first card reads the
   property at a glance (Occupancy %, then the balance — Budget = Dec 31, Now =

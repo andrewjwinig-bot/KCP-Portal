@@ -86,6 +86,10 @@ type EditAt = { row: string; m: number } | null;
 /** A "+3%" / "Flat" / "Tax +3%" pill on a line that is $0 every month says
  *  nothing — 3% of nothing is nothing — so it is left off. Pills that name
  *  WHERE a figure comes from (Leases, Recoveries, Payroll…) stay. */
+
+/** The Projected Bank Balance is hidden until its opening balance is
+ *  straightened out (owner). Distributions are unaffected. */
+const BANK_BALANCE_SHOWN = false;
 export const growthOnNothing = (source: string, months: number[]) =>
   (source === "reproj-growth" || source === "reproj-flat" || source === "ret-default") && months.every((v) => Math.abs(v || 0) < 0.5);
 
@@ -926,7 +930,11 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   // bank balance: a sum of separate accounts is not a balance anyone holds.
   // Nor does a building inside a fund that banks through ONE account (JV III,
   // NI LLC): the balance is the fund's, on its roll-up (owner).
-  const noBank = (!!draft.consolidated && !draft.consolidated.sharedBank) || !!draft.bankAtFund;
+  // HIDDEN FOR NOW (owner: "hide current bank balance … until we get that
+  // straightened out more clearly"): the Projected Bank Balance row, the
+  // opening and its note are off everywhere; Distributions stay. Flip
+  // `BANK_BALANCE_SHOWN` back on once the opening balance is sorted out.
+  const noBank = !BANK_BALANCE_SHOWN || (!!draft.consolidated && !draft.consolidated.sharedBank) || !!draft.bankAtFund;
   if (cash && !noBank) {
     const end = cash.balance[11];
     const balTip = (m: number) => ({
@@ -961,8 +969,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
               <tr>
                 <th />
                 {MONTHS.map((m) => <th key={m} style={headR}>{m}</th>)}
-                <th style={headR}><HoverCard title="Budget column" width={280} help={false} rows={[{ label: "Occupancy %", value: "the year's average" }, ...(cash ? [{ label: "Bank balance", value: `Dec 31, ${draft.budgetYear}` }] : [])]}><span>Budget</span></HoverCard></th>
-                <th style={headR}><HoverCard title="Now column" width={300} help={false} rows={[{ label: "Occupancy %", value: "today's rent roll" }, ...(cash ? [{ label: "Bank balance", value: `the opening, Dec 31, ${draft.basisYear}` }] : [])]}><span>Now</span></HoverCard></th>
+                <th style={headR}><HoverCard title="Budget column" width={280} help={false} rows={[{ label: "Occupancy %", value: "the year's average" }, ...(cash && !noBank ? [{ label: "Bank balance", value: `Dec 31, ${draft.budgetYear}` }] : [])]}><span>Budget</span></HoverCard></th>
+                <th style={headR}><HoverCard title="Now column" width={300} help={false} rows={[{ label: "Occupancy %", value: "today's rent roll" }, ...(cash && !noBank ? [{ label: "Bank balance", value: `the opening, Dec 31, ${draft.basisYear}` }] : [])]}><span>Now</span></HoverCard></th>
                 <th style={headR}>Change</th>
               </tr>
             </thead>
