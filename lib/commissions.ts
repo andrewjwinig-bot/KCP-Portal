@@ -46,6 +46,15 @@ export function formatTerm(termYears: number): string {
   return m % 12 === 0 ? `${m / 12} yr` : `${m} mo`;
 }
 
+/** "4 yr 5 mo" / "5 yr" / "8 mo" — a term as the lease states it, for the
+ *  budget's leasing calls, where a renewal runs to the month. "" for none. */
+export function termYearsMonths(termYears: number | null | undefined): string {
+  const m = Math.round((termYears || 0) * 12);
+  if (!m) return "";
+  const y = Math.floor(m / 12), r = m % 12;
+  return [y ? `${y} yr` : "", r ? `${r} mo` : ""].filter(Boolean).join(" ");
+}
+
 /** Exact-match lookup mirroring the spreadsheet XLOOKUP formula.
  *  Returns null when the term isn't a standard value. */
 export function incentiveRate(termYears: number): number | null {
@@ -215,6 +224,15 @@ export function parseQuarterLabel(label: string): { quarter: 1 | 2 | 3 | 4; year
   const lastMonth = q * 3 - 1; // 0-indexed: q1→2, q2→5, q3→8, q4→11
   const periodEnd = new Date(year, lastMonth + 1, 0); // day 0 of next month = last day
   return { quarter: q as 1 | 2 | 3 | 4, year, periodEnd };
+}
+
+/** The label the commissions pages save ("Q3 26"), from either shape
+ *  ("Q3 26" / "3rd Quarter 2026"). Every send / review log is keyed by it and
+ *  entries are matched through it: the cron used to ask for "3rd Quarter 2026"
+ *  and compare it to entries saved as "Q3 26" — exactly, so it found none. */
+export function canonicalQuarter(label: string): string {
+  const p = parseQuarterLabel(label ?? "");
+  return p ? `Q${p.quarter} ${String(p.year).slice(-2)}` : (label ?? "");
 }
 
 /** Short quarter code like "Q126" for "Q1 2026". */

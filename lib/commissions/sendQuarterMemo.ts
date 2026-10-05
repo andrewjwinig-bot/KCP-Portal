@@ -4,7 +4,8 @@
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
-import { parseQuarterLabel, quarterShortCode, type CommissionEntry } from "@/lib/commissions";
+import { canonicalQuarter, parseQuarterLabel, quarterShortCode, type CommissionEntry } from "@/lib/commissions";
+import { sentRecordFor } from "./sendQuarterToAvidBill";
 import { buildCommissionMemoPdf } from "@/lib/commissions/memoPdf";
 import { buildJournalEntryXlsx, JE_FUNDS } from "@/lib/commissions/journalEntryExcel";
 import { isMailConfigured, sendMail, type MailAttachment } from "@/lib/mail";
@@ -57,13 +58,15 @@ function emailBody(code: string, funds: string[], count: number, subtotal: numbe
  *  log guards reruns unless `force`). `dryRun` builds attachments but doesn't
  *  send or record. */
 export async function sendQuarterMemoToKorman(opts: { quarterLabel: string; dryRun?: boolean; force?: boolean }): Promise<MemoSendResult> {
-  const { quarterLabel, dryRun = false, force = false } = opts;
+  const { dryRun = false, force = false } = opts;
+  const quarterLabel = canonicalQuarter(opts.quarterLabel);
   const parsed = parseQuarterLabel(quarterLabel);
   if (!parsed) return { ok: false, quarterLabel, funds: [], attachments: 0, reason: "Unparseable quarter" };
 
   const sentLog: SentLog = (await getJSON(PREFIX, SENT_ID)) ?? {};
-  if (!force && sentLog[quarterLabel]) {
-    return { ok: true, quarterLabel, funds: sentLog[quarterLabel].funds, attachments: sentLog[quarterLabel].attachments, alreadySent: true };
+  const prior = sentRecordFor(sentLog, quarterLabel);
+  if (!force && prior) {
+    return { ok: true, quarterLabel, funds: prior.funds, attachments: prior.attachments, alreadySent: true };
   }
 
   const office: CommissionEntry[] = (await getJSON(PREFIX, OFFICE_ID)) ?? [];

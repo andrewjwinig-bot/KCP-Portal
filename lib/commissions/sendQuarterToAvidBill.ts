@@ -16,7 +16,7 @@ import { deliverInvoicesToAvid } from "@/lib/invoicing/avidDelivery";
 import { getAvidSent } from "@/lib/invoicing/avidSentStore";
 import { renderCommissionInvoicePdf, invoiceNumberFor } from "@/lib/pdf/renderCommissionInvoicePdf";
 import type { CommissionEntry } from "@/lib/commissions";
-import { parseQuarterLabel, quarterShortCode } from "@/lib/commissions";
+import { canonicalQuarter, parseQuarterLabel, quarterShortCode } from "@/lib/commissions";
 
 const TEAM_CC = ["dwinig@kormancommercial.com", "hfeldman@kormancommercial.com"]; // Drew, Harry
 const COMMISSIONS_PREFIX = "commissions";
@@ -44,25 +44,62 @@ function safeName(s: string): string {
 
 /** The invoice number leads, so two commissions on the same suite and tenant
  *  can never share a filename — the per-invoice "already sent" ledger keys on it. */
-function invoiceFileName(entry: CommissionEntry): string {
+export function invoiceFileName(entry: CommissionEntry): string {
   return `${invoiceNumberFor(entry.id)} - ${safeName(entry.building) || "—"} - ${safeName(entry.suite) || "—"} - ${safeName(entry.tenant) || "—"}.pdf`;
 }
 
-/** Returns the most recently completed quarter as of the supplied
- *  date. Jan-Mar → Q4 of prior year, Apr-Jun → Q1 of this year, etc. */
+/** The most recently completed quarter as of the supplied date, in the label
+ *  the pages save ("Q3 26"). Jan-Mar → Q4 of prior year, Apr-Jun → Q1, etc. */
 export function priorQuarterLabel(reference: Date = new Date()): string {
   const m = reference.getMonth(); // 0-indexed
   const y = reference.getFullYear();
-  let q: number;
-  let year: number;
-  if (m <= 2)       { q = 4; year = y - 1; }
-  else if (m <= 5)  { q = 1; year = y; }
-  else if (m <= 8)  { q = 2; year = y; }
-  else              { q = 3; year = y; }
-  // Match the long label staff use elsewhere — parseQuarterLabel
-  // accepts both shapes but the page UI saves it long.
-  const suffix = ["th", "st", "nd", "rd"][q] ?? "th";
-  return `${q}${suffix} Quarter ${year}`;
+  const [q, year] = m <= 2 ? [4, y - 1] : m <= 5 ? [1, y] : m <= 8 ? [2, y] : [3, y];
+  return `Q${q} ${String(year).slice(-2)}`;
+}
+
+/** The send-log record for a quarter, under either label shape (records
+ *  written before labels were canonical are keyed "3rd Quarter 2026"). */
+export function sentRecordFor<T>(log: Record<string, T>, quarterLabel: string): T | undefined {
+  const want = canonicalQuarter(quarterLabel);
+  const key = Object.keys(log).find((k) => canonicalQuarter(k) === want);
+  return key ? log[key] : undefined;
+}
+
+export type QuarterInvoiceRow = { entry: CommissionEntry; amount: number; kind: "office" | "retail" };
+
+/** Every commission logged in the quarter (office + retail), with the amount
+ *  it is billed at — the ONE list the Avid send and Alison's review read. */
+export async function quarterInvoiceRows(quarterLabel: string): Promise<QuarterInvoiceRow[]> {
+  const [office, retail] = await Promise.all([
+    loadEntries(COMMISSIONS_PREFIX, OFFICE_ID),
+    loadEntries(COMMISSIONS_PREFIX, RETAIL_ID),
+  ]);
+  return [
+    ...office.filter((e) => canonicalQuarter(e.quarter) === canonicalQuarter(quarterLabel)).map((entry) => ({ entry, amount: billableAmount(entry, "office"), kind: "office" as const })),
+    ...retail.filter((e) => canonicalQuarter(e.quarter) === canonicalQuarter(quarterLabel)).map((entry) => ({ entry, amount: billableAmount(entry, "retail"), kind: "retail" as const })),
+  ];
+}
+
+/** The invoice PDF for one row — the same bytes Avid receives. */
+export async function renderQuarterInvoice(row: QuarterInvoiceRow): Promise<Uint8Array> {
+  return renderCommissionInvoicePdf({ entry: row.entry, amount: row.amount, invoiceNumber: invoiceNumberFor(row.entry.id) });
+}
+
+/** A quarter that went out the OLD way (one email, no per-invoice ledger) —
+ *  never sent again, nor put up for review, without a person's `force`. */
+export async function sentTheOldWay(quarterLabel: string): Promise<boolean> {
+  const parsed = parseQuarterLabel(quarterLabel);
+  if (!parsed) return false;
+  const [sentLog, ledger] = await Promise.all([loadSentLog(), getAvidSent("commissions", quarterShortCode(parsed.quarter, parsed.year))]);
+  return !!sentRecordFor(sentLog, quarterLabel) && Object.keys(ledger.invoices).length === 0;
+}
+
+/** Which of the quarter's invoices have already reached AvidXchange, by entry id. */
+export async function deliveredEntryIds(quarterLabel: string, rows: QuarterInvoiceRow[]): Promise<Set<string>> {
+  const parsed = parseQuarterLabel(quarterLabel);
+  if (!parsed) return new Set();
+  const ledger = await getAvidSent("commissions", quarterShortCode(parsed.quarter, parsed.year));
+  return new Set(rows.filter((r) => ledger.invoices[invoiceFileName(r.entry)]).map((r) => r.entry.id));
 }
 
 async function loadEntries(prefix: string, id: string): Promise<CommissionEntry[]> {
@@ -91,8 +128,11 @@ export async function sendQuarterToAvidBill(opts: {
   force?: boolean;
   /** Who released it, for the AP Outbox — "Automatic" from the daily cron. */
   by?: string | null;
+  /** Send ONLY these entries — the ones Alison approved. Omitted = all. */
+  onlyIds?: string[];
 }): Promise<SendResult> {
-  const { quarterLabel, dryRun = false, force = false, by = null } = opts;
+  const { dryRun = false, force = false, by = null, onlyIds } = opts;
+  const quarterLabel = canonicalQuarter(opts.quarterLabel);
   const parsed = parseQuarterLabel(quarterLabel);
   if (!parsed) {
     return { ok: false, quarterLabel, count: 0, total: 0, reason: "Unparseable quarter" };
@@ -103,21 +143,17 @@ export async function sendQuarterToAvidBill(opts: {
   // Sent before invoices went one per email: there is no per-invoice record,
   // so nothing can tell which invoices Avid actually took. Never re-send it
   // on its own — that is a person's call (`force`), after checking with AP.
-  if (!force && sentLog[quarterLabel] && Object.keys(ledger.invoices).length === 0) {
+  const prior = sentRecordFor(sentLog, quarterLabel);
+  if (!force && prior && Object.keys(ledger.invoices).length === 0) {
     return {
-      ok: true, quarterLabel, count: sentLog[quarterLabel].count, total: sentLog[quarterLabel].total,
+      ok: true, quarterLabel, count: prior.count, total: prior.total,
       alreadySent: true,
     };
   }
 
-  const [office, retail] = await Promise.all([
-    loadEntries(COMMISSIONS_PREFIX, OFFICE_ID),
-    loadEntries(COMMISSIONS_PREFIX, RETAIL_ID),
-  ]);
-  const rows: { entry: CommissionEntry; amount: number; kind: "office" | "retail" }[] = [
-    ...office.filter((e) => e.quarter === quarterLabel).map((entry) => ({ entry, amount: billableAmount(entry, "office"), kind: "office" as const })),
-    ...retail.filter((e) => e.quarter === quarterLabel).map((entry) => ({ entry, amount: billableAmount(entry, "retail"), kind: "retail" as const })),
-  ];
+  const all = await quarterInvoiceRows(quarterLabel);
+  const only = onlyIds ? new Set(onlyIds) : null;
+  const rows = only ? all.filter((r) => only.has(r.entry.id)) : all;
 
   if (rows.length === 0) {
     return { ok: true, quarterLabel, count: 0, total: 0, reason: "No commissions logged for that quarter" };
@@ -138,12 +174,9 @@ export async function sendQuarterToAvidBill(opts: {
   }
 
   // Render all PDFs in parallel — pure CPU, no I/O.
-  const invoices = await Promise.all(rows.map(async ({ entry, amount }) => {
-    const bytes = await renderCommissionInvoicePdf({
-      entry,
-      amount,
-      invoiceNumber: invoiceNumberFor(entry.id),
-    });
+  const invoices = await Promise.all(rows.map(async (row) => {
+    const { entry } = row;
+    const bytes = await renderQuarterInvoice(row);
     return {
       propertyLabel: `${entry.building || "—"} Suite ${entry.suite || "—"} — ${entry.tenant || "—"}`,
       fileName: invoiceFileName(entry),
@@ -175,7 +208,11 @@ export async function sendQuarterToAvidBill(opts: {
     };
   }
 
-  sentLog[quarterLabel] = { sentAt: new Date().toISOString(), count: rows.length, total };
+  // The quarter reads "sent" only once EVERY invoice in it is out — a partial,
+  // approved-only send leaves the rest showing as awaiting review.
+  const delivered = await deliveredEntryIds(quarterLabel, all);
+  if (all.some((r) => !delivered.has(r.entry.id))) return { ok: true, quarterLabel, count: rows.length, total };
+  sentLog[quarterLabel] = { sentAt: new Date().toISOString(), count: all.length, total: all.reduce((s, r) => s + r.amount, 0) };
   await storeJSON(COMMISSIONS_PREFIX, SENT_LOG_ID, sentLog);
 
   return { ok: true, quarterLabel, count: rows.length, total };

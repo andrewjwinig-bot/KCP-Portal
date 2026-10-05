@@ -63,13 +63,11 @@ function toMoney(n: number): string {
   return (Number(n) || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
-/** "Send to AvidBill" trigger button for a single quarter. Two-step
- *  flow: clicking the button POSTs `dryRun: true` first and shows a
- *  preview ("This will send N invoices totaling $X to
- *  kormancommercial@avidbill.com. Continue?"); confirm fires the real
- *  POST and renders the result. Idempotent on the server — a quarter
- *  that's already been sent reports `alreadySent: true` instead of
- *  re-billing.
+/** "Send for Review" button for a single quarter. Commissions reach
+ *  AvidXchange only once Alison approves them from the link she is emailed
+ *  (the cron emails her at quarter-end on its own); this sends her the
+ *  quarter NOW — early, or as a reminder. Two-step: a `dryRun` preview, then
+ *  the real POST.
  *
  *  Shared by /commissions (office) and /commissions/retail since
  *  both pages drive the same AvidBill batch. */
@@ -81,6 +79,7 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
     reason?: string;
     alreadySent?: boolean;
     dryRun?: boolean;
+    reviewer?: string;
   };
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -129,9 +128,9 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
         className="btn large"
         onClick={openPreview}
         disabled={busy}
-        title="Email all commission invoices for this quarter to kormancommercial@avidbill.com"
+        title="Email this quarter's invoices to Alison to review and send to AvidXchange"
       >
-        {busy && !confirming ? "Preparing…" : "Send to AvidXchange"}
+        {busy && !confirming ? "Preparing…" : "Send for Review"}
       </button>
 
       {confirming && preview && (
@@ -154,7 +153,7 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
             }}
           >
             <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Send Commission Invoices
+              Send for Review
             </div>
             {preview.ok && preview.count > 0 ? (
               <>
@@ -162,12 +161,7 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
                   {preview.count} invoice{preview.count === 1 ? "" : "s"} · {toMoney(preview.total)}
                 </div>
                 <div className="muted small">
-                  Will email <b>kormancommercial@avidbill.com</b> one invoice per email for <b>{quarterLabel}</b> (any already sent are skipped). This also goes out automatically each morning once the quarter closes.
-                  {preview.alreadySent && (
-                    <div style={{ marginTop: 6, color: "#b45309" }}>
-                      ⚠ Already sent for this quarter — clicking Send will be ignored unless we force it.
-                    </div>
-                  )}
+                  Emails <b>{preview.reviewer ?? "Alison"}</b> the <b>{quarterLabel}</b> invoices awaiting review, with a link to send them to AvidXchange. Nothing goes to Avid until she does. (This also happens on its own the morning after the quarter closes.)
                 </div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <button className="btn" onClick={() => setConfirming(false)} disabled={busy}>Cancel</button>
@@ -179,7 +173,7 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
             ) : (
               <>
                 <div style={{ fontSize: 15 }}>
-                  Nothing to send — {preview.reason ?? "no commissions for this quarter"}.
+                  Nothing to review — {preview.alreadySent ? "this quarter was already sent to AvidXchange" : preview.reason ?? "no commissions for this quarter"}.
                 </div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <button className="btn" onClick={() => setConfirming(false)}>Close</button>
@@ -214,7 +208,7 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
             </div>
             {result.ok ? (
               <div style={{ fontSize: 16, fontWeight: 700, color: "#15803d" }}>
-                ✓ Sent {result.count} invoice{result.count === 1 ? "" : "s"} · {toMoney(result.total)}
+                ✓ Sent {result.count} invoice{result.count === 1 ? "" : "s"} · {toMoney(result.total)} to {result.reviewer ?? "Alison"} for review
               </div>
             ) : (
               <div style={{ fontSize: 16, fontWeight: 700, color: "#b91c1c" }}>
