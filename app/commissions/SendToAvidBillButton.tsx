@@ -159,9 +159,20 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
                 <div style={{ fontSize: 16, fontWeight: 700 }}>
                   {preview.count} invoice{preview.count === 1 ? "" : "s"} · {toMoney(preview.total)}
                 </div>
-                <div className="muted small">
-                  Sends the <b>{quarterLabel}</b> invoices not yet at AvidXchange to <b>kormancommercial@avidbill.com</b>, each as its own email. Then the memo + GL import go to Marie and the memo goes to Alison for her records. (This also happens on its own the morning after the quarter closes.)
-                </div>
+                {/* Who gets what — one line each (owner: "just bullet who gets what"). */}
+                <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 6, fontSize: 13 }}>
+                  <li><b>AvidXchange</b> — {preview.count} invoice{preview.count === 1 ? "" : "s"}, each its own email</li>
+                  {kind === "retail" ? (
+                    <>
+                      <li><b>Marie</b> — the GL import for each commission; the memo + control sheet when the quarter closes</li>
+                      <li><b>Harry</b> — each commission before the 20% markup, for payroll</li>
+                    </>
+                  ) : (
+                    <li><b>Marie</b> — the memo + control sheet and the GL import</li>
+                  )}
+                  <li><b>Alison</b> — the memo, for her records</li>
+                </ul>
+                <div className="muted small">Happens on its own the morning after the quarter closes.</div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <button className="btn" onClick={() => setConfirming(false)} disabled={busy}>Cancel</button>
                   <button className="btn primary" onClick={sendForReal} disabled={busy || preview.alreadySent}>
