@@ -475,9 +475,18 @@ export function withLineOverride(sec: BudgetDraftSection, l: BudgetDraftLine, do
 }
 
 /** One line with its typed months laid over. */
-function typedLine(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrides): BudgetDraftLine {
+export function typedLine(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrides): BudgetDraftLine {
   const inputKind = expenseInputKindOf(sec.role, l.label) ?? undefined;
-  if (inputKind) return { ...l, inputKind };
+  if (inputKind) {
+    // A keyed line's figure is its share of the kind (Budget Inputs). Where
+    // the kind sits on more than one line (9860's two Insurance lines), a
+    // figure typed on ONE of them is stored as that line's own months and
+    // wins over its share — saving the kind would re-split it.
+    const ov = doc[lineKey(sec.name, l.label)];
+    if (!ov?.months?.some((v) => v != null)) return { ...l, inputKind };
+    const { months, typed } = mergeMonths(l.months, ov);
+    return { ...l, inputKind, months, total: r0(sum(months)), typed };
+  }
   // A recovery line IS the Step 3 estimate — each tenant's share under
   // their own CAM methodology. A typed month would break that tie, so a
   // recovery line never takes one (and any stored before the lock is
