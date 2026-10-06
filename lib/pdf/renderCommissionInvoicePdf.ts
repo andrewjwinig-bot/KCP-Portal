@@ -176,9 +176,10 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
   const r2HeaderY = gridRow1Y + barH + 18;
   fillRect(page, rightX, r2HeaderY, rightW, barH, teal);
   drawText(page, "VENDOR",    rightX + 8,          r2HeaderY + 4, bold, 9, white);
-  drawText(page, "CATEGORY",  rightX + halfRW + 8, r2HeaderY + 4, bold, 9, white);
-  drawText(page, VENDOR,                rightX + 8,          r2HeaderY + barH + 5, bold, 10, black);
-  drawText(page, "LEASING COMMISSION",  rightX + halfRW + 8, r2HeaderY + barH + 5, bold, 10, black);
+  drawText(page, "ACCOUNT",   rightX + halfRW + 8, r2HeaderY + 4, bold, 9, white);
+  // Vendor and account up top, large — what the bookkeeper codes from (owner).
+  drawText(page, VENDOR,                rightX + 8,          r2HeaderY + barH + 4, bold, 13, black);
+  drawText(page, ACC_CODE,              rightX + halfRW + 8, r2HeaderY + barH + 4, bold, 13, black);
 
   // ── 5. Description / Property / Terms bar ─────────────────────────────
   const dpBarY  = 215;
