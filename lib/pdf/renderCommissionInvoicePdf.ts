@@ -181,14 +181,16 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
 
   // ── 5. Description / Property / Terms bar ─────────────────────────────
   const dpBarY  = 215;
-  const dpColW1 = 230;
-  const dpColW2 = 160;
-  const dpColW3 = contentW - dpColW1 - dpColW2;
+  const dpColW1 = 215;
+  const dpColW2 = 145;
+  const dpColW4 = 62;   // SUITE, between PROPERTY and TERMS (owner)
+  const dpColW3 = contentW - dpColW1 - dpColW2 - dpColW4;
 
   fillRect(page, margin, dpBarY, contentW, barH, teal);
   drawText(page, "DESCRIPTION", margin + 8,                     dpBarY + 4, bold, 9, white);
   drawText(page, "PROPERTY",    margin + dpColW1 + 8,           dpBarY + 4, bold, 9, white);
-  drawText(page, "TERMS",       margin + dpColW1 + dpColW2 + 8, dpBarY + 4, bold, 9, white);
+  drawText(page, "SUITE",       margin + dpColW1 + dpColW2 + 8, dpBarY + 4, bold, 9, white);
+  drawText(page, "TERMS",       margin + dpColW1 + dpColW2 + dpColW4 + 8, dpBarY + 4, bold, 9, white);
 
   const meta = lookupBuildingMeta(entry.building);
   const propertyText = meta
@@ -196,9 +198,13 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
     : entry.building || "";
 
   const dpRowY = dpBarY + barH + 8;
-  drawText(page, `Leasing commission — ${entry.tenant || ""}`, margin + 8,                     dpRowY, regular, 10, black);
+  // A long tenant name shrinks rather than running into PROPERTY.
+  const descText = `Leasing commission — ${entry.tenant || ""}`;
+  const descSize = Math.max(7, Math.min(10, 10 * (dpColW1 - 14) / Math.max(1, regular.widthOfTextAtSize(descText, 10))));
+  drawText(page, descText,                                     margin + 8,                     dpRowY, regular, descSize, black);
   drawText(page, propertyText,                                 margin + dpColW1 + 8,           dpRowY, regular, 10, dark);
-  drawText(page, "Due upon receipt",                           margin + dpColW1 + dpColW2 + 8, dpRowY, regular, 10, dark);
+  drawText(page, entry.suite || "—",                           margin + dpColW1 + dpColW2 + 8, dpRowY, regular, 10, dark);
+  drawText(page, "Due upon receipt",                           margin + dpColW1 + dpColW2 + dpColW4 + 8, dpRowY, regular, 10, dark);
 
   // ── 6. Line-items table ──────────────────────────────────────────────
   const tblY    = dpRowY + 26;
