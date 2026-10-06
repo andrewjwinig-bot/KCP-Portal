@@ -1023,3 +1023,10 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 /* A line WITH a note: always shown, solid brand, and never dimmed by the row
    hover (which would make it read like the empty "add a note" mark). */
 .budget-note.has, tr:hover .budget-note.has { opacity: 1; color: var(--brand); }
+
+/* An indeterminate progress sweep for a send in flight (the commissions send
+   modal). Brand on a quiet track; motion off for reduced-motion users. */
+.send-progress { position: relative; height: 4px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.send-progress > span { position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 999px; background: var(--brand); animation: send-progress-sweep 1.3s ease-in-out infinite; }
+@keyframes send-progress-sweep { 0% { left: -35%; } 100% { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .send-progress > span { animation: none; left: 0; width: 100%; opacity: 0.5; } }
