@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { StatPill } from "@/app/components/Pill";
+import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 
 const SEC_LABEL: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" };
@@ -85,7 +85,11 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
     dryRun?: boolean;
     reviewer?: string;
     invoices?: { invoiceNumber: string; tenant: string; building: string; suite: string; commission: number; amount: number }[];
+    // The send's answer: what each recipient got.
+    memos?: Record<string, { marie?: Step | null; alison?: Step | null }>;
+    retail?: { total: number; avid: number; marie: number; harry: number };
   };
+  type Step = { ok?: boolean; alreadySent?: boolean; reason?: string };
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -133,8 +137,9 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
     try {
       const r = await post(false);
       setResult(r);
-      setConfirming(false);
       if (r?.ok && r?.count > 0) onSent?.();
+    } catch {
+      setResult({ ok: false, count: 0, total: 0, reason: "The send did not answer — check the AP Outbox before sending again; nothing goes twice." });
     } finally {
       setBusy(false);
     }
@@ -155,7 +160,7 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
         // The same confirm as the Allocated Expenses send (InvoicerOverview):
         // brand-topped card, KPI tiles, the invoices that will go, and who
         // receives what.
-        <div onClick={() => !busy && setConfirming(false)} style={{ position: "fixed", inset: 0, zIndex: 130, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
+        <div onClick={() => { if (!busy) { setConfirming(false); setResult(null); } }} style={{ position: "fixed", inset: 0, zIndex: 130, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Send ${quarterLabel} commissions to AvidXchange`}
             style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 680, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
@@ -164,7 +169,15 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
                 {kind === "retail" ? "Retail Leasing Commissions" : "Leasing Commissions"} · {quarterLabel}
               </div>
             </div>
-            {preview.ok && preview.count > 0 ? (
+            {result ? (
+              <SendResult result={result} preview={preview} kind={kind} />
+            ) : busy ? (
+              <div style={{ padding: "22px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>Sending {preview.count} invoice{preview.count === 1 ? "" : "s"} to AvidXchange…</div>
+                <div className="send-progress" aria-hidden><span /></div>
+                <div className="small muted">One email per invoice, then the memos. This can take a minute — keep this open.</div>
+              </div>
+            ) : preview.ok && preview.count > 0 ? (
               <>
                 <div className="pills" style={{ padding: "12px 18px 0" }}>
                   <StatPill label="Total to bill" value={toMoney(preview.total)} total />
@@ -217,8 +230,11 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
               </div>
             )}
             <div style={{ padding: "14px 18px", display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button type="button" className="btn sm" disabled={busy} onClick={() => setConfirming(false)}>{preview.ok && preview.count > 0 ? "Cancel" : "Close"}</button>
-              {preview.ok && preview.count > 0 && (
+              <button type="button" className={result ? "btn sm primary" : "btn sm"} disabled={busy}
+                onClick={() => { setConfirming(false); setResult(null); }}>
+                {result ? "Done" : preview.ok && preview.count > 0 ? "Cancel" : "Close"}
+              </button>
+              {!result && !busy && preview.ok && preview.count > 0 && (
                 <button type="button" className="btn sm primary" disabled={busy || preview.alreadySent} onClick={sendForReal}>
                   {busy ? "Sending…" : `Send ${preview.count} invoice${preview.count === 1 ? "" : "s"} · ${toMoney(preview.total)}`}
                 </button>
@@ -229,43 +245,90 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
         document.body,
       )}
 
-      {result && (
-        <div
-          onClick={() => setResult(null)}
-          style={{
-            position: "fixed", inset: 0, zIndex: 100,
-            background: "rgba(15,23,42,0.55)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "var(--card)", borderRadius: 12,
-              maxWidth: 460, width: "100%", padding: 22,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-              display: "flex", flexDirection: "column", gap: 14,
-            }}
-          >
-            <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Result
-            </div>
-            {result.ok ? (
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#15803d" }}>
-                ✓ Sent {result.count} invoice{result.count === 1 ? "" : "s"} · {toMoney(result.total)} to AvidXchange
-              </div>
-            ) : (
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#b91c1c" }}>
-                ✗ {result.reason ?? "Send failed"}
-              </div>
-            )}
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button className="btn" onClick={() => setResult(null)}>Close</button>
-            </div>
-          </div>
+    </>
+  );
+}
+
+type ResultStep = { ok?: boolean; alreadySent?: boolean; reason?: string } | null | undefined;
+
+/** What the send did, recipient by recipient (owner: "some sort of
+ *  confirmation that the emails all sent"). Read straight off the send's own
+ *  answer — a step that did not go says so in red, and one that waits on the
+ *  rest of the quarter says that, rather than a blanket "done". */
+function SendResult({ result, preview, kind }: {
+  result: { ok: boolean; count: number; total: number; reason?: string; memos?: Record<string, { marie?: ResultStep; alison?: ResultStep }>; retail?: { total: number; avid: number; marie: number; harry: number } };
+  preview: { invoices?: { invoiceNumber: string; tenant: string; amount: number }[] };
+  kind?: "office" | "retail";
+}) {
+  const k = kind ?? "office";
+  const memo = result.memos?.[k];
+  const step = (s: ResultStep, what: string): [React.ReactNode, string] =>
+    s == null
+      ? [<Pill key="w" tone={TONE_AMBER}>WAITING</Pill>, `${what} — goes once every invoice in the quarter is at AvidXchange`]
+      : s.alreadySent
+        ? [<Pill key="a" tone={TONE_NEUTRAL}>ALREADY SENT</Pill>, what]
+        : s.ok
+          ? [<Pill key="s" tone={TONE_GREEN}>SENT</Pill>, what]
+          : [<Pill key="f" tone={TONE_RED}>NOT SENT</Pill>, `${what} — ${s.reason ?? "the email failed"}`];
+  const count = (n: number, of: number, what: string): [React.ReactNode, string] =>
+    n === of
+      ? [<Pill key="s" tone={TONE_GREEN}>SENT</Pill>, what]
+      : [<Pill key="p" tone={TONE_RED}>{n} OF {of}</Pill>, `${what} — send again to finish`];
+  const rows: [string, React.ReactNode, string][] = [];
+  if (result.retail) {
+    const r = result.retail;
+    rows.push(["AvidXchange", ...count(r.avid, r.total, `${r.total} invoice${r.total === 1 ? "" : "s"}, each its own email`)]);
+    rows.push(["Marie", ...count(r.marie, r.total, "The GL import for each commission")]);
+    rows.push(["Marie", ...step(memo?.marie, "The memo + control sheet")]);
+    rows.push(["Harry", ...count(r.harry, r.total, "Each commission before the 20% markup, for payroll")]);
+  } else {
+    rows.push(["AvidXchange", ...(result.ok
+      ? [<Pill key="s" tone={TONE_GREEN}>SENT</Pill>, `${result.count} invoice${result.count === 1 ? "" : "s"}, each its own email`] as [React.ReactNode, string]
+      : [<Pill key="f" tone={TONE_RED}>NOT SENT</Pill>, result.reason ?? "The send failed"] as [React.ReactNode, string])]);
+    rows.push(["Marie", ...step(result.ok ? memo?.marie : null, "The memo + control sheet, and the GL import")]);
+  }
+  rows.push(["Alison", ...step(result.ok ? memo?.alison : null, "The memo, for her records")]);
+
+  return (
+    <>
+      <div style={{ padding: "14px 18px 0", fontSize: 16, fontWeight: 800, color: result.ok ? "#15803d" : "#b91c1c" }}>
+        {result.ok
+          ? `✓ ${result.count} invoice${result.count === 1 ? "" : "s"} · ${toMoney(result.total)} sent to AvidXchange`
+          : `✗ ${result.reason ?? "Not everything went"}`}
+      </div>
+      <div style={{ padding: "10px 18px 0" }}>
+        <div style={SEC_LABEL}>Who got what</div>
+        <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 4 }}>
+          <tbody>
+            {rows.map(([who, pill, what], i) => (
+              <tr key={i}>
+                <td style={{ ...tdL, fontWeight: 700, width: 120, whiteSpace: "nowrap" }}>{who}</td>
+                <td style={{ ...tdL, width: 110 }}>{pill}</td>
+                <td style={tdL}>{what}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {result.ok && preview.invoices && preview.invoices.length > 0 && (
+        <div style={{ padding: "12px 0 4px", maxHeight: 240, overflowY: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr><th style={thL}>Invoice #</th><th style={thL}>Tenant</th><th style={th}>Billed</th></tr></thead>
+            <tbody>
+              {preview.invoices.map((i) => (
+                <tr key={i.invoiceNumber + i.tenant}>
+                  <td style={tdL}><span style={{ color: "#15803d", fontWeight: 800, marginRight: 6 }}>✓</span><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)" }}>{i.invoiceNumber}</code></td>
+                  <td style={tdL}>{i.tenant || "—"}</td>
+                  <td style={td}>{toMoney(i.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
+      <div className="small" style={{ padding: "8px 18px 0", color: "var(--muted)" }}>
+        Every send is in the AP Outbox. {result.ok ? "" : "Sending again finishes only what didn't go — nothing goes twice."}
+      </div>
     </>
   );
 }

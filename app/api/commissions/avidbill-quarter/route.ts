@@ -6,6 +6,8 @@ import { authorizeRequest, USERS, type UserId } from "@/lib/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// One email per invoice, then the memos — a quarter takes a while.
+export const maxDuration = 300;
 
 /**
  * Quarter-end commissions → kormancommercial@avidbill.com, one PDF per
@@ -93,9 +95,14 @@ export async function POST(req: Request) {
   const res = await runQuarterEnd(quarterLabel, by, kind);
   if (!("memos" in res)) return NextResponse.json({ ok: true, quarterLabel, count: 0, total: 0, alreadySent: true });
   if (res.avidBill && !res.avidBill.ok) return NextResponse.json({ ...res.avidBill, memos: res.memos });
-  const failed = Object.values(res.retailSends ?? {}).filter((r) => !(r as { avid?: boolean }).avid).length;
+  const sends = Object.values(res.retailSends ?? {}) as { avid?: boolean; marie?: boolean; harry?: boolean }[];
+  const failed = sends.filter((r) => !r.avid).length;
+  // What each recipient got, for the result modal — retail per commission.
+  const retail = sends.length
+    ? { total: sends.length, avid: sends.filter((r) => r.avid).length, marie: sends.filter((r) => r.marie).length, harry: sends.filter((r) => r.harry).length }
+    : undefined;
   return NextResponse.json({
-    ok: failed === 0, quarterLabel, count: preview.count, total: preview.total, memos: res.memos,
+    ok: failed === 0, quarterLabel, count: preview.count, total: preview.total, memos: res.memos, retail,
     ...(failed ? { reason: `${failed} retail invoice${failed === 1 ? "" : "s"} did not reach AvidXchange — send again to finish` } : {}),
   });
 }
