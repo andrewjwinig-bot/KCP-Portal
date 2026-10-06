@@ -101,6 +101,9 @@ export type BudgetDraftLine = {
   source: DraftSource;
   /** Months typed straight into the grid (true = that month is typed). */
   typed?: boolean[];
+  /** The whole line was typed over (`#@line` in the typed-month store): its
+   *  typed months stand whatever its buckets / items / accounts add to. */
+  lineOverride?: boolean;
   /** The GL accounts the line is built from — its SUB-LINES — when there is
    *  more than one. `typeable` sub-lines are budgeted one by one (the line is
    *  their sum); otherwise they show how a keyed/derived line splits. */
@@ -442,13 +445,33 @@ function applyTyped(sections: BudgetDraftSection[], doc: LineOverrides, itemized
       const l = base ? { ...l0, months: base.months, total: base.total, typed: base.typed, subLines: undefined } : l0;
       // An ITEMIZED line is the sum of its items, whatever else produced it.
       const items = itemized?.get(lineKey(sec.name, l0.label));
-      if (items) return fromItems({ ...l0, subLines: undefined }, items, expenseInputKindOf(sec.role, l0.label) ?? undefined);
-      return withBuckets(sec, typedLine(sec, l, doc), doc);
+      const built = items
+        ? fromItems({ ...l0, subLines: undefined }, items, expenseInputKindOf(sec.role, l0.label) ?? undefined)
+        : withBuckets(sec, typedLine(sec, l, doc), doc);
+      return withLineOverride(sec, built, doc);
     });
     const subtotal = new Array(12).fill(0);
     for (const l of sec.lines) addInto(subtotal, l.months);
     sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
   }
+}
+
+/** The key a WHOLE-LINE override is stored under. */
+export const LINE_OVERRIDE = "@line";
+
+/** A line typed over AS A WHOLE — the easy override (owner: "needs to be
+ *  easier to override and enter data"). A line built from buckets, items or
+ *  GL accounts was only typeable through them (open ▸, find the right row);
+ *  typing the line itself now replaces that month outright, whatever its
+ *  parts add to. The parts stay below for reference; ↺ hands the line back
+ *  to them. Only lines WITH parts take it — a plain line is typed directly. */
+export function withLineOverride(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrides): BudgetDraftLine {
+  if (!l.subLines?.length) return l;
+  if (l.source === "cam-estimate" || l.source === "leases" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans") return l;
+  const ov = doc[`${lineKey(sec.name, l.label)}#${LINE_OVERRIDE}`];
+  if (!ov?.months?.some((v) => v != null)) return l;
+  const { months, typed } = mergeMonths(l.months, ov);
+  return { ...l, months, total: r0(sum(months)), typed, lineOverride: true };
 }
 
 /** One line with its typed months laid over. */

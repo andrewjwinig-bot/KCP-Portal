@@ -104,7 +104,9 @@ function descriptive(s: BudgetSubLine): BudgetLine {
 function convertLine(sectionName: string, l: BudgetDraftLine, ctx: Ctx, claimed: Set<string>): BudgetLine {
   const note = ctx.notes?.[`${sectionName}::${l.label}`]?.text ?? null;
   const fee = l.feePct != null ? { feePercent: l.feePct } : {};
-  const subs = accountSubs(l);
+  // A line typed over as a whole publishes as that figure — its parts no
+  // longer add to it, so they go neither as accounts nor as description.
+  const subs = l.lineOverride ? null : accountSubs(l);
   if (subs) {
     for (const s of subs) claimed.add(s.account);
     return base(l.label, l.months, null, {
@@ -117,7 +119,7 @@ function convertLine(sectionName: string, l: BudgetDraftLine, ctx: Ctx, claimed:
   else if (Math.abs(l.total) >= 0.5) ctx.unmapped.push({ propertyCode: ctx.propertyCode, section: sectionName, label: l.label, total: r0(l.total) });
   return base(l.label, l.months, gl, {
     notes: note, ...fee,
-    subLines: l.subLines?.length ? l.subLines.map(descriptive) : undefined,
+    subLines: !l.lineOverride && l.subLines?.length ? l.subLines.map(descriptive) : undefined,
   });
 }
 
