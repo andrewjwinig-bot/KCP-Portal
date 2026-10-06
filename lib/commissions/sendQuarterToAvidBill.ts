@@ -37,6 +37,7 @@ type SendResult = {
   alreadySent?: boolean;
   dryRun?: boolean;
   reason?: string;
+  invoices?: { invoiceNumber: string; tenant: string; building: string; suite: string; commission: number; amount: number }[];
 };
 
 function safeName(s: string): string {
@@ -187,7 +188,15 @@ export async function sendQuarterToAvidBill(opts: {
   const total = rows.reduce((s, r) => s + r.amount, 0);
   if (dryRun) {
     // The preview is what WILL go: the invoices not yet sent.
-    return { ok: true, quarterLabel, count: pending.length, total: pending.reduce((s, r) => s + r.amount, 0), dryRun: true };
+    return {
+      ok: true, quarterLabel, count: pending.length, total: pending.reduce((s, r) => s + r.amount, 0), dryRun: true,
+      // Each invoice the confirm lists — what Avid will receive.
+      invoices: pending.map((r) => ({
+        invoiceNumber: commissionInvoiceNumber(r.entry), tenant: r.entry.tenant ?? "",
+        building: r.entry.building ?? "", suite: r.entry.suite ?? "",
+        commission: Number(r.entry.incentiveAmount) || 0, amount: r.amount,
+      })),
+    };
   }
   if (!isMailConfigured()) {
     return { ok: false, quarterLabel, count: rows.length, total, reason: "Mail not configured" };

@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
+import { StatPill } from "@/app/components/Pill";
+import { th, thL, td, tdL } from "@/app/components/tableStyles";
+
+const SEC_LABEL: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" };
 
 /** Section header used to separate Pending vs. Paid commission
  *  quarters on /commissions and /commissions/retail. Tone-tagged so
@@ -79,6 +84,7 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
     alreadySent?: boolean;
     dryRun?: boolean;
     reviewer?: string;
+    invoices?: { invoiceNumber: string; tenant: string; building: string; suite: string; commission: number; amount: number }[];
   };
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -86,6 +92,19 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
   const [result, setResult] = useState<Preview | null>(null);
 
   const ENDPOINT = "/api/commissions/avidbill-quarter";
+
+  const commissionTotal = (preview?.invoices ?? []).reduce((s, i) => s + i.commission, 0);
+  const n = preview?.count ?? 0;
+  const recipients: [string, string][] = [
+    ["AvidXchange", `${n} invoice${n === 1 ? "" : "s"}, each its own email, billed at the commission + 20%`],
+    ...(kind === "retail"
+      ? [
+          ["Marie", "The GL import for each commission; the memo + control sheet when the quarter closes"],
+          ["Harry", "Each commission before the 20% markup, for payroll"],
+        ] as [string, string][]
+      : [["Marie", "The memo + control sheet, and the GL import"]] as [string, string][]),
+    ["Alison", "The memo, for her records"],
+  ];
 
   const post = async (dryRun: boolean): Promise<Preview> => {
     const res = await fetch(ENDPOINT, {
@@ -132,55 +151,82 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
         {busy && !confirming ? "Preparing…" : "Send to AvidXchange"}
       </button>
 
-      {confirming && preview && (
-        <div
-          onClick={() => setConfirming(false)}
-          style={{
-            position: "fixed", inset: 0, zIndex: 100,
-            background: "rgba(15,23,42,0.55)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            padding: 20,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "var(--card)", borderRadius: 12,
-              maxWidth: 460, width: "100%", padding: 22,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-              display: "flex", flexDirection: "column", gap: 14,
-            }}
-          >
-            <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Send to AvidXchange
+      {confirming && preview && typeof document !== "undefined" && createPortal(
+        // The same confirm as the Allocated Expenses send (InvoicerOverview):
+        // brand-topped card, KPI tiles, the invoices that will go, and who
+        // receives what.
+        <div onClick={() => !busy && setConfirming(false)} style={{ position: "fixed", inset: 0, zIndex: 130, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
+          <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Send ${quarterLabel} commissions to AvidXchange`}
+            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 680, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+            <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
+              <div style={SEC_LABEL}>Send to AvidXchange</div>
+              <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>
+                {kind === "retail" ? "Retail Leasing Commissions" : "Leasing Commissions"} · {quarterLabel}
+              </div>
             </div>
             {preview.ok && preview.count > 0 ? (
               <>
-                <div style={{ fontSize: 16, fontWeight: 700 }}>
-                  {preview.count} invoice{preview.count === 1 ? "" : "s"} · {toMoney(preview.total)}
+                <div className="pills" style={{ padding: "12px 18px 0" }}>
+                  <StatPill label="Total to bill" value={toMoney(preview.total)} total />
+                  <StatPill label="Invoices" value={String(preview.count)} sub="one email each" />
+                  <StatPill label="Commission" value={toMoney(commissionTotal)} sub="before the 20% markup" />
                 </div>
-                <div className="muted small">
-                  Sends the <b>{quarterLabel}</b> invoices not yet at AvidXchange to <b>kormancommercial@avidbill.com</b>, each as its own email. Then the memo + GL import go to Marie and the memo goes to Alison for her records. (This also happens on its own the morning after the quarter closes.)
+                {preview.invoices && preview.invoices.length > 0 && (
+                  <div style={{ padding: "12px 0 4px", maxHeight: 300, overflowY: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead><tr><th style={thL}>Invoice #</th><th style={thL}>Tenant</th><th style={th}>Commission</th><th style={th}>Billed</th></tr></thead>
+                      <tbody>
+                        {preview.invoices.map((i) => (
+                          <tr key={i.invoiceNumber + i.tenant}>
+                            <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)" }}>{i.invoiceNumber}</code></td>
+                            <td style={tdL}>{i.tenant || "—"}</td>
+                            <td style={td}>{toMoney(i.commission)}</td>
+                            <td style={{ ...td, fontWeight: 700 }}>{toMoney(i.amount)}</td>
+                          </tr>
+                        ))}
+                        <tr style={{ fontWeight: 800 }}>
+                          <td style={{ ...tdL, borderTop: "2px solid var(--border)" }} colSpan={2}>Total</td>
+                          <td style={{ ...td, borderTop: "2px solid var(--border)" }}>{toMoney(commissionTotal)}</td>
+                          <td style={{ ...td, borderTop: "2px solid var(--border)" }}>{toMoney(preview.total)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {/* Who gets what (owner: "just bullet who gets what"). */}
+                <div style={{ padding: "10px 18px 0" }}>
+                  <div style={SEC_LABEL}>Who gets what</div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 4 }}>
+                    <tbody>
+                      {recipients.map(([who, what]) => (
+                        <tr key={who}>
+                          <td style={{ ...tdL, fontWeight: 700, width: 120, whiteSpace: "nowrap" }}>{who}</td>
+                          <td style={tdL}>{what}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button className="btn" onClick={() => setConfirming(false)} disabled={busy}>Cancel</button>
-                  <button className="btn primary" onClick={sendForReal} disabled={busy || preview.alreadySent}>
-                    {busy ? "Sending…" : `Send ${preview.count} invoice${preview.count === 1 ? "" : "s"}`}
-                  </button>
+                <div className="small" style={{ padding: "8px 18px 0", color: "var(--muted)", lineHeight: 1.5 }}>
+                  This also happens on its own the morning after the quarter closes. Nothing already at AvidXchange is sent twice.
                 </div>
               </>
             ) : (
-              <>
-                <div style={{ fontSize: 15 }}>
-                  Nothing to send — {preview.alreadySent ? "this quarter was already sent to AvidXchange" : preview.reason ?? "no commissions for this quarter"}.
-                </div>
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                  <button className="btn" onClick={() => setConfirming(false)}>Close</button>
-                </div>
-              </>
+              <div className="small" style={{ padding: "16px 18px" }}>
+                Nothing to send — {preview.alreadySent ? "this quarter was already sent to AvidXchange" : preview.reason ?? "no commissions for this quarter"}.
+              </div>
             )}
+            <div style={{ padding: "14px 18px", display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button type="button" className="btn sm" disabled={busy} onClick={() => setConfirming(false)}>{preview.ok && preview.count > 0 ? "Cancel" : "Close"}</button>
+              {preview.ok && preview.count > 0 && (
+                <button type="button" className="btn sm primary" disabled={busy || preview.alreadySent} onClick={sendForReal}>
+                  {busy ? "Sending…" : `Send ${preview.count} invoice${preview.count === 1 ? "" : "s"} · ${toMoney(preview.total)}`}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {result && (
