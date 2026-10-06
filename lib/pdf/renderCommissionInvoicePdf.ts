@@ -199,7 +199,7 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
 
   const dpRowY = dpBarY + barH + 8;
   // A long tenant name shrinks rather than running into PROPERTY.
-  const descText = `Leasing commission — ${entry.tenant || ""}`;
+  const descText = "Internal Commission";
   const descSize = Math.max(7, Math.min(10, 10 * (dpColW1 - 14) / Math.max(1, regular.widthOfTextAtSize(descText, 10))));
   drawText(page, descText,                                     margin + 8,                     dpRowY, regular, descSize, black);
   drawText(page, propertyText,                                 margin + dpColW1 + 8,           dpRowY, regular, 10, dark);
@@ -221,11 +221,6 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
     margin + colDate + colDesc + colAcc, tblY + 4, bold, 9, white,
     { maxWidth: colAmt - 8, align: "right" });
 
-  // Stack the description lines: tenant·building/suite headline, then
-  // lease window, then comments.
-  const headline = entry.suite
-    ? `${entry.tenant || ""} — ${entry.building}${entry.suite ? " · Suite " + entry.suite : ""}`
-    : `${entry.tenant || ""} — ${entry.building || ""}`;
   const leaseLine = (entry.leaseFrom || entry.leaseTo)
     ? `Lease: ${toDisplayDate(entry.leaseFrom)} – ${toDisplayDate(entry.leaseTo)}${entry.termYears ? ` (${entry.termYears} yr)` : ""}`
     : "";
@@ -234,17 +229,15 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
   let rowY = tblY + barH + 8;
   // First line: date + headline + acc + amount.
   drawText(page, invoiceDate,                  margin + 8,                          rowY, regular, 9, dark);
-  drawText(page, headline,                     margin + colDate + 8,                rowY, bold,    10, black);
+  // The line names only the lease — the tenant / building / suite headline
+  // was dropped (owner); the invoice # and the Suite column carry them.
+  if (leaseLine) drawText(page, leaseLine,     margin + colDate + 8,                rowY, regular, 10, dark);
   drawText(page, ACC_CODE,                     margin + colDate + colDesc + 8,      rowY, regular, 10, dark);
   drawText(page, moneyStr(amount),
     margin + colDate + colDesc + colAcc, rowY, bold, 10, black,
     { maxWidth: colAmt - 8, align: "right" });
   rowY += 16;
 
-  if (leaseLine) {
-    drawText(page, leaseLine, margin + colDate + 8, rowY, regular, 10, dark);
-    rowY += 14;
-  }
   for (const cl of commentLines) {
     drawText(page, cl, margin + colDate + 8, rowY, regular, 10, dark);
     rowY += 14;
