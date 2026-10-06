@@ -795,6 +795,12 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
         const locked = l.source === "cam-estimate" || l.source === "leases" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans";
                 const mayType = !!onEdit && (!canType || canType(sec.name, l.label));
                 const typeable = mayType && !locked && !viaSubs;
+                // A line built from parts (buckets, items, accounts) can ALSO be
+                // typed as a whole — the easy override (owner): type the month
+                // or the Budget cell on the line itself and it stands, whatever
+                // the parts add to. ↺ hands it back to them.
+                const overridable = mayType && !locked && viaSubs;
+                const ovAcct = "@line";
                 const keyed = !!l.inputKind;
                 const entered = keyed && l.source === "entered";
                 const isOpen = isOpenKey(key);
@@ -805,12 +811,12 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                       // NO growth pills (owner): "+3%", "Flat", "Tax +3%" only restated
                       // the Change column beside them. The icon names any OTHER source.
                       onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
-                      typed={viaSubs ? undefined : entered ? new Array(12).fill(true) : l.typed}
-                      onAccept={typeable && keyed && !entered ? () => onEdit!(sec, l, "accept", null) : undefined}
-                      note={onNote ? { note: notes?.[key], auto: basisComment(l), onOpen: () => onNote(sec, l.label) } : undefined}
-                      rowKey={typeable ? key : undefined} edit={edit} setEdit={typeable ? setEdit : undefined}
-                      onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : undefined}
-                      onReset={typeable ? () => onEdit!(sec, l, "all", null) : undefined}
+                      typed={viaSubs ? (l.lineOverride ? l.typed : undefined) : entered ? new Array(12).fill(true) : l.typed}
+                      onAccept={typeable && keyed && !entered && !subs.length ? () => onEdit!(sec, l, "accept", null) : undefined}
+                      note={onNote ? { note: notes?.[key], auto: l.lineOverride ? "Typed over as a whole — the rows under it no longer add to it (↺ to hand it back)" : basisComment(l), onOpen: () => onNote(sec, l.label) } : undefined}
+                      rowKey={typeable || overridable ? key : undefined} edit={edit} setEdit={typeable || overridable ? setEdit : undefined}
+                      onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : overridable ? (m, v) => onEdit!(sec, l, m, v, ovAcct) : undefined}
+                      onReset={typeable && (!subs.length || l.lineOverride) ? () => onEdit!(sec, l, "all", null) : overridable && l.lineOverride ? () => onEdit!(sec, l, "all", null, ovAcct) : undefined}
                       {...(() => {
                         const cat = l.source === "cam-estimate" && recTenants.length ? recoveryCategory(l.label, l.mask, estKind) : null;
                         // A roll-up line: its split by property (a recovery line keeps

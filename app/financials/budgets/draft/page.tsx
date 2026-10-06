@@ -194,6 +194,12 @@ export default function BudgetDraftPage() {
   async function editLine(sec: BudgetDraftSection, line: BudgetDraftSection["lines"][number], month: number | "all" | "accept", value: number | null, account?: string, scopeCode?: string) {
     if (!draft) return;
     setEditError(null);
+    // A line built from PARTS (buckets, itemized policies, GL accounts) typed
+    // on the line itself is a WHOLE-LINE override (`#@line`), which wins
+    // whatever its parts add to. It used to go to Budget Inputs for insurance
+    // / maintenance — which an ITEMIZED line ignores, so a typed figure (a
+    // $0 Property Insurance at 9860) reverted to the items on reload.
+    if (!account && line.subLines?.length && month !== "accept") account = "@line";
     // A BUCKETED line (maintenance, insurance, cleaning): its base bucket IS
     // the line's own figure, so it saves exactly as the line did — to Budget
     // Inputs for insurance / building maintenance, else as the line's typed
@@ -245,7 +251,9 @@ export default function BudgetDraftPage() {
       return;
     }
     if (month === "accept") return;
-    if (typeof month === "number" && value != null && account) {
+    // "@line" = the whole line typed over (its parts left as they are).
+    const wholeLine = account === "@line";
+    if (typeof month === "number" && value != null && account && !wholeLine) {
       // A sub-line: set its month, and the line (their sum) moves with it.
       setDraft((d) => d && ({
         ...d,
@@ -492,7 +500,8 @@ export default function BudgetDraftPage() {
         // re-projects after every save, so the snapshot taken on click would go stale.
         const hSec = draft?.sections.find((x) => x.name === histLine.section);
         const hLine = hSec?.lines.find((x) => x.label === histLine.label);
-        const hLocked = !hLine || hLine.source === "cam-estimate" || hLine.source === "leases" || hLine.source === "pool" || hLine.source === "fee" || hLine.source === "fee-rollup" || hLine.source === "loans" || !!hLine.subLines?.some((x) => x.typeable);
+        // A line with parts is typed here as a whole-line override (editLine).
+        const hLocked = !hLine || hLine.source === "cam-estimate" || hLine.source === "leases" || hLine.source === "pool" || hLine.source === "fee" || hLine.source === "fee-rollup" || hLine.source === "loans" || hLine.source === "vacancy";
         const hCanType = !!draft?.lineEditScope && !hLocked && scopeAllowsLine(draft.lineEditScope ?? null, histLine.section, histLine.label);
         return (
         <LineHistoryModal
@@ -505,7 +514,7 @@ export default function BudgetDraftPage() {
           forecast={histLine.forecast ?? null}
           budget={histLine.budget ?? null}
           budgetMonths={hLine?.months ?? histLine.months ?? null}
-          budgetTyped={hLine?.inputKind && hLine.source === "entered" ? new Array(12).fill(true) : hLine?.typed}
+          budgetTyped={hLine?.inputKind && hLine.source === "entered" && !hLine.lineOverride ? new Array(12).fill(true) : hLine?.typed}
           badge={hLine && !growthOnNothing(hLine.source, hLine.months) ? sourceBadge(hLine.source, GROWTH, hLine.feePct) : null}
           onEdit={hCanType && hSec && hLine ? (m, v) => editLine(hSec, hLine, m, v) : undefined}
           extra={histLine.poolKeys?.length && draft ? (

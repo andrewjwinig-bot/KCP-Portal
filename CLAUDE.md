@@ -1538,6 +1538,7 @@ time — and the team does not have time to open the GL over $80.
   the grid names the lines. Not the reprojection column (last year's actuals),
   not subtotals / NOI / cash flow (which can go negative), and not Debt
   Service (loan proceeds are a credit).
+- **A LINE BUILT FROM PARTS CAN BE TYPED OVER AS A WHOLE** (owner: "needs to be easier to override and enter data"; `withLineOverride` / `LINE_OVERRIDE` in `draft.ts`, key `section::label#@line` in the typed-month store). A bucketed, itemized or account-split line used to be typeable ONLY through its rows (open ▸, find the right one), and typing the line itself on an ITEMIZED keyed line (9860's insurance) went to Budget Inputs — which an itemized line ignores, so a typed $0 reverted to the items on reload. Now any edit on the line itself (grid month, Budget cell, or the line-history popup) is a whole-line override that wins whatever its parts add to (`editLine` routes it as `account: "@line"`); the note says so, ↺ hands the line back to its parts, and Publish sends the overridden figure without the stale breakdown. Typing a bucket or item still works as before. Pinned by `lineOverride.test.ts`.
 - **INPUT CELLS ARE LIGHT BLUE** (Excel's input-cell convention, as the old
   draft workbooks did): every cell the VIEWER can type — grid months, the
   Budget column, the line-history 2027 Budget row — carries `--input-cell`;
