@@ -224,6 +224,15 @@ export default function CommissionsPage() {
     }
   }
 
+  /** Relabel every entry on a quarter's card to another quarter — for a batch
+   *  entered under the wrong period. Invoice numbers and dates follow it. */
+  function moveQuarter(from: string, list: CommissionEntry[], to: string) {
+    if (!to || to === from) return;
+    if (!window.confirm(`Move all ${list.length} commission${list.length === 1 ? "" : "s"} from ${from} to ${to}?`)) return;
+    const ids = new Set(list.map((e) => e.id));
+    persist(entries.map((e) => (ids.has(e.id) ? { ...e, quarter: to } : e)));
+  }
+
   function submit() {
     if (!form.tenant.trim()) { setError("Tenant is required"); return; }
     const sqft = Number(form.sqft) || 0;
@@ -684,8 +693,19 @@ export default function CommissionsPage() {
                         </Pill>
                       )}
                     </span>
-                    <span className="muted small">
+                    <span className="muted small" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       {list.length} · Incentive {toMoney(total)} · Gross {toMoney(totalGross)}
+                      {/* Entered under the wrong quarter? Move the whole card
+                          (owner: Q4 entries that belonged to Q3). */}
+                      {!sentRecord && (
+                        <select className="select-sm" value="" disabled={saving}
+                          onChange={(ev) => moveQuarter(quarter, list, ev.target.value)}>
+                          <option value="">Move to…</option>
+                          {quarterOpts.slice(0, 4).filter((q) => q !== quarter).map((q) => (
+                            <option key={q} value={q}>{q}</option>
+                          ))}
+                        </select>
+                      )}
                     </span>
                   </div>
 
