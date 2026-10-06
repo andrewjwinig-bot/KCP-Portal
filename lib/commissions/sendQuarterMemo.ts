@@ -6,7 +6,7 @@ import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
 import { canonicalQuarter, parseQuarterLabel, quarterShortCode, type CommissionEntry } from "@/lib/commissions";
 import { sentRecordFor } from "./sendQuarterToAvidBill";
-import { buildCommissionMemoPdf } from "@/lib/commissions/memoPdf";
+import { buildCommissionMemoPdf, FUND_PROPERTY_CODE } from "@/lib/commissions/memoPdf";
 import { buildJournalEntryXlsx, JE_FUNDS } from "@/lib/commissions/journalEntryExcel";
 import { isMailConfigured, sendMail, type MailAttachment } from "@/lib/mail";
 
@@ -84,7 +84,7 @@ export async function sendQuarterMemoToKorman(opts: { quarterLabel: string; dryR
     const xlsx = buildJournalEntryXlsx({ entries: inQuarter, fund, parsed, batchNumber: await nextBatchNumber(), uniqueId: 1_000_000 + (Date.now() % 9_000_000) });
     if (!pdfBytes && !xlsx) continue; // no entries for this fund this quarter
     funds.push(fund);
-    if (pdfBytes) attachments.push({ name: `Commissions ${code} - ${fund} - Nancy L Fox.pdf`, content: pdfBytes, contentType: "application/pdf" });
+    if (pdfBytes) attachments.push({ name: `Commissions ${code} - ${FUND_PROPERTY_CODE[fund]} - Nancy L Fox.pdf`, content: pdfBytes, contentType: "application/pdf" });
     if (xlsx) attachments.push({ name: xlsx.filename, content: xlsx.buffer, contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   }
   if (attachments.length === 0) return { ok: false, quarterLabel, funds: [], attachments: 0, reason: "Nothing to attach" };

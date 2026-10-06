@@ -3,7 +3,7 @@
 import LoadingState from "@/app/components/LoadingState";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
-import { buildCommissionMemoPdf } from "@/lib/commissions/memoPdf";
+import { buildCommissionMemoPdf, FUND_PROPERTY_CODE } from "@/lib/commissions/memoPdf";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS, type FundGroup } from "../../lib/properties/data";
 import {
@@ -322,7 +322,7 @@ export default function CommissionsPage() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `Commissions ${quarterShortCode(parsed.quarter, parsed.year)} - ${fund} - Nancy L Fox.pdf`;
+        a.download = `Commissions ${quarterShortCode(parsed.quarter, parsed.year)} - ${FUND_PROPERTY_CODE[fund]} - Nancy L Fox.pdf`;
         a.click();
         URL.revokeObjectURL(url);
         downloaded++;

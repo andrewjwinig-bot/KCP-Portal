@@ -7,6 +7,9 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { toDisplayDate, parseQuarterLabel, formatTerm, type CommissionEntry } from "@/lib/commissions";
 
+/** The memo names the fund by its PROPERTY code, as the books do (owner). */
+export const FUND_PROPERTY_CODE: Record<"JV III" | "NI LLC", string> = { "JV III": "FJVIII", "NI LLC": "FNIPLX" };
+
 const COMMISSIONS_MARKUP = 1.2;
 
 export async function buildCommissionMemoPdf(opts: {
@@ -91,7 +94,7 @@ export async function buildCommissionMemoPdf(opts: {
     ["FROM", "Alison Korman"],
     ["DATE", periodEndStr],
     ["PERIOD", `Q${Math.floor(periodEnd.getMonth() / 3) + 1} ${periodEnd.getFullYear()}`],
-    ["FUND", fund],
+    ["PROPERTY", FUND_PROPERTY_CODE[fund]],
     ["SUBJECT", "Incentive Compensation — Nancy L. Fox"],
   ];
   const memoH = memoRows.length * 16 + 12;
@@ -171,7 +174,7 @@ export async function buildCommissionMemoPdf(opts: {
     y -= 26;
   }
 
-  section(fund, fundEntries);
+  section(FUND_PROPERTY_CODE[fund], fundEntries);
 
   // ── Grand total bar ──
   page.drawRectangle({ x: margin, y: y - 7, width: contentW, height: 22, color: navy });

@@ -9,11 +9,13 @@
 // staff captured.
 
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "pdf-lib";
-import type { CommissionEntry } from "@/lib/commissions";
+import { parseQuarterLabel, type CommissionEntry } from "@/lib/commissions";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const ACC_CODE = "1940-8501";
-const VENDOR   = "LIKM4";
+/** AvidXchange's vendor code for LIK Management — on every commission invoice. */
+export const COMMISSION_VENDOR_CODE = "LIKM4";
+const VENDOR   = COMMISSION_VENDOR_CODE;
 
 function moneyStr(n: number) {
   return Number(n ?? 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
@@ -93,13 +95,14 @@ export type CommissionInvoiceInput = {
    *  deterministically from the commission id so re-downloads
    *  generate the same number. */
   invoiceNumber: string;
-  /** Optional override for the invoice date; defaults to today. */
+  /** Optional override for the invoice date; defaults to the last day of
+   *  the commission's quarter (today if the quarter can't be read). */
   invoiceDate?: string;
 };
 
 export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput): Promise<Uint8Array> {
   const { entry, amount, invoiceNumber } = input;
-  const invoiceDate = input.invoiceDate ?? todayLabel();
+  const invoiceDate = input.invoiceDate ?? commissionInvoiceDate(entry) ?? todayLabel();
 
   const pdfDoc  = await PDFDocument.create();
   const page    = pdfDoc.addPage([612, 792]); // US Letter
@@ -165,7 +168,9 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
   fillRect(page, rightX, gridRow1Y, rightW, barH, teal);
   drawText(page, "INVOICE #", rightX + 8,           gridRow1Y + 4, bold, 9, white);
   drawText(page, "DATE",      rightX + halfRW + 8,  gridRow1Y + 4, bold, 9, white);
-  drawText(page, invoiceNumber, rightX + 8,           gridRow1Y + barH + 5, bold, 10, black);
+  // "Q3-26 Int Com - 5-113" is wider than the old 8 digits: shrink to fit its half.
+  const numSize = Math.max(6.5, Math.min(10, 10 * (halfRW - 14) / Math.max(1, bold.widthOfTextAtSize(invoiceNumber, 10))));
+  drawText(page, invoiceNumber, rightX + 8,           gridRow1Y + barH + 5, bold, numSize, black);
   drawText(page, invoiceDate,   rightX + halfRW + 8,  gridRow1Y + barH + 5, bold, 10, black);
 
   const r2HeaderY = gridRow1Y + barH + 18;
@@ -272,4 +277,38 @@ export function invoiceNumberFor(id: string): string {
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   // Clip to 8 digits, ensure no leading zero.
   return String(10000000 + (h % 90000000));
+}
+
+/** The building as the invoice number names it: "Building 5" (4050) → "5",
+ *  "Kor Center A" → "KCA"; anything else (a shopping centre) keeps its
+ *  property code. Free text that is not a code is used as keyed. */
+export function commissionBuildingLabel(building: string): string {
+  const raw = (building ?? "").trim();
+  const def = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === raw.toUpperCase());
+  if (!def) return raw.replace(/^building\s+/i, "");
+  const bldg = /^Building\s+(\w+)$/i.exec(def.name);
+  if (bldg) return bldg[1];
+  const kor = /^Kor Center\s+(\w)$/i.exec(def.name);
+  if (kor) return `KC${kor[1].toUpperCase()}`;
+  return def.id;
+}
+
+/** The commission's invoice number — the quarter, its year, the building and
+ *  the suite (owner): "Q3-26 Int Com - 5-113" for Building 5 Suite 113 in Q3
+ *  2026. Deterministic, so a resend carries the same number and Avid's
+ *  duplicate check can catch it. */
+export function commissionInvoiceNumber(entry: Pick<CommissionEntry, "quarter" | "building" | "suite">): string {
+  const p = parseQuarterLabel(entry.quarter ?? "");
+  const period = p ? `Q${p.quarter}-${String(p.year).slice(-2)}` : (entry.quarter ?? "").trim();
+  const suite = (entry.suite ?? "").trim().replace(/^0+(?=\w)/, "");
+  const where = [commissionBuildingLabel(entry.building), suite].filter(Boolean).join("-");
+  return `${period} Int Com - ${where || "—"}`;
+}
+
+/** The invoice date: the last day of the commission's quarter (M/D/YYYY). */
+export function commissionInvoiceDate(entry: Pick<CommissionEntry, "quarter">): string | null {
+  const p = parseQuarterLabel(entry.quarter ?? "");
+  if (!p) return null;
+  const d = p.periodEnd;
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
 }

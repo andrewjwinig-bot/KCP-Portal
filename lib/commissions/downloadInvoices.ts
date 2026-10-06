@@ -4,17 +4,13 @@
 // consistent across both pages.
 
 import JSZip from "jszip";
-import { renderCommissionInvoicePdf, invoiceNumberFor } from "@/lib/pdf/renderCommissionInvoicePdf";
+import { renderCommissionInvoicePdf, commissionInvoiceNumber } from "@/lib/pdf/renderCommissionInvoicePdf";
 import type { CommissionEntry } from "@/lib/commissions";
 
 function invoiceFileName(entry: CommissionEntry): string {
   const safe = (s: string) => (s ?? "").toString().replace(/[^a-z0-9\-_. ]/gi, "_").trim();
-  const parts = [
-    safe(entry.building) || "—",
-    safe(entry.suite) || "—",
-    safe(entry.tenant) || "—",
-  ];
-  return `Invoice - ${parts.join(" - ")}.pdf`;
+  // Same name the AvidXchange email carries: "Q3-26 Int Com - 5-113 - Tenant.pdf".
+  return `${safe(commissionInvoiceNumber(entry))} - ${safe(entry.tenant) || "—"}.pdf`;
 }
 
 /** Generate a single commission invoice PDF and trigger a download. */
@@ -22,7 +18,7 @@ export async function downloadCommissionInvoice(entry: CommissionEntry, amount: 
   const bytes = await renderCommissionInvoicePdf({
     entry,
     amount,
-    invoiceNumber: invoiceNumberFor(entry.id),
+    invoiceNumber: commissionInvoiceNumber(entry),
   });
   triggerDownload(toBlob(bytes, "application/pdf"), invoiceFileName(entry));
 }
@@ -41,7 +37,7 @@ export async function downloadCommissionInvoicesZip(
     const bytes = await renderCommissionInvoicePdf({
       entry,
       amount,
-      invoiceNumber: invoiceNumberFor(entry.id),
+      invoiceNumber: commissionInvoiceNumber(entry),
     });
     zip.file(invoiceFileName(entry), bytes);
   }));

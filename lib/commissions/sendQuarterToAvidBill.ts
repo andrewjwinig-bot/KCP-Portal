@@ -14,7 +14,7 @@ import { getJSON, storeJSON } from "@/lib/storage";
 import { isMailConfigured } from "@/lib/mail";
 import { deliverInvoicesToAvid } from "@/lib/invoicing/avidDelivery";
 import { getAvidSent } from "@/lib/invoicing/avidSentStore";
-import { renderCommissionInvoicePdf, invoiceNumberFor } from "@/lib/pdf/renderCommissionInvoicePdf";
+import { renderCommissionInvoicePdf, invoiceNumberFor, commissionInvoiceNumber, COMMISSION_VENDOR_CODE } from "@/lib/pdf/renderCommissionInvoicePdf";
 import type { CommissionEntry } from "@/lib/commissions";
 import { canonicalQuarter, parseQuarterLabel, quarterShortCode } from "@/lib/commissions";
 
@@ -42,10 +42,22 @@ function safeName(s: string): string {
   return (s ?? "").toString().replace(/[^a-z0-9\-_. ]/gi, "_").trim();
 }
 
-/** The invoice number leads, so two commissions on the same suite and tenant
- *  can never share a filename — the per-invoice "already sent" ledger keys on it. */
+/** The invoice number ("Q3-26 Int Com - 5-113") leads, then the tenant — the
+ *  per-invoice "already sent" ledger keys on it. */
 export function invoiceFileName(entry: CommissionEntry): string {
+  return `${safeName(commissionInvoiceNumber(entry))} - ${safeName(entry.tenant) || "—"}.pdf`;
+}
+
+/** The filename invoices carried before the "Q3-26 Int Com" numbers (a hashed
+ *  8-digit number). The ledger of a quarter sent then is keyed by it, so an
+ *  invoice already delivered under it is never sent a second time. */
+export function legacyInvoiceFileName(entry: CommissionEntry): string {
   return `${invoiceNumberFor(entry.id)} - ${safeName(entry.building) || "—"} - ${safeName(entry.suite) || "—"} - ${safeName(entry.tenant) || "—"}.pdf`;
+}
+
+/** Whether a quarter's ledger already holds this invoice, under either name. */
+export function inLedger(invoices: Record<string, string>, entry: CommissionEntry): boolean {
+  return !!(invoices[invoiceFileName(entry)] || invoices[legacyInvoiceFileName(entry)]);
 }
 
 /** The most recently completed quarter as of the supplied date, in the label
@@ -82,7 +94,7 @@ export async function quarterInvoiceRows(quarterLabel: string): Promise<QuarterI
 
 /** The invoice PDF for one row — the same bytes Avid receives. */
 export async function renderQuarterInvoice(row: QuarterInvoiceRow): Promise<Uint8Array> {
-  return renderCommissionInvoicePdf({ entry: row.entry, amount: row.amount, invoiceNumber: invoiceNumberFor(row.entry.id) });
+  return renderCommissionInvoicePdf({ entry: row.entry, amount: row.amount, invoiceNumber: commissionInvoiceNumber(row.entry) });
 }
 
 /** A quarter that went out the OLD way (one email, no per-invoice ledger) —
@@ -99,7 +111,7 @@ export async function deliveredEntryIds(quarterLabel: string, rows: QuarterInvoi
   const parsed = parseQuarterLabel(quarterLabel);
   if (!parsed) return new Set();
   const ledger = await getAvidSent("commissions", quarterShortCode(parsed.quarter, parsed.year));
-  return new Set(rows.filter((r) => ledger.invoices[invoiceFileName(r.entry)]).map((r) => r.entry.id));
+  return new Set(rows.filter((r) => inLedger(ledger.invoices, r.entry)).map((r) => r.entry.id));
 }
 
 async function loadEntries(prefix: string, id: string): Promise<CommissionEntry[]> {
@@ -159,7 +171,7 @@ export async function sendQuarterToAvidBill(opts: {
     return { ok: true, quarterLabel, count: 0, total: 0, reason: "No commissions logged for that quarter" };
   }
 
-  const pending = rows.filter((r) => !ledger.invoices[invoiceFileName(r.entry)]);
+  const pending = rows.filter((r) => !inLedger(ledger.invoices, r.entry));
   if (pending.length === 0 && ledger.teamSummaryAt) {
     return { ok: true, quarterLabel, count: rows.length, total: rows.reduce((s, r) => s + r.amount, 0), alreadySent: true };
   }
@@ -178,7 +190,7 @@ export async function sendQuarterToAvidBill(opts: {
     const { entry } = row;
     const bytes = await renderQuarterInvoice(row);
     return {
-      propertyLabel: `${entry.building || "—"} Suite ${entry.suite || "—"} — ${entry.tenant || "—"}`,
+      propertyLabel: `${commissionInvoiceNumber(entry)} — ${entry.tenant || "—"} · Vendor ${COMMISSION_VENDOR_CODE}`,
       fileName: invoiceFileName(entry),
       pdf: Buffer.from(bytes),
     };
