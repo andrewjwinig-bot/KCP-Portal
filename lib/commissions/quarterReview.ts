@@ -1,27 +1,27 @@
-// Alison reviews each quarter's commission invoices BEFORE they go to
-// AvidXchange (owner: "send the commissions to akorman … to review before
-// sending to avid. give her a … link to send the invoices easily").
+// Quarter-end commissions. The invoices go to AvidXchange AUTOMATICALLY, one
+// per email — no approval step (owner, reversing the earlier review gate:
+// "send the individual invoices to avid automatically without requiring
+// alison to approve. send alison the pdf memo for her records"). Alison gets
+// the memo afterwards as a record; Marie gets the memo + GL import.
 //
-// At quarter-end the daily cron emails her every invoice awaiting review — the
-// PDFs attached, the list in the body — with a signed link that opens them and
-// sends them on in one click. Nothing reaches Avid until she approves it, and
-// an approval covers exactly the invoices she was shown: a commission logged
-// after she looked is put in front of her the next morning, never sent unseen.
-// Once approved, the cron finishes any send that failed part-way, and Marie's
-// memo + GL import goes out (it waits for the approval too, so payroll and the
-// GL get the figures that were billed).
+// The review link (/commissions-review/[token]) and its approve path are kept
+// so a link already emailed still opens — every invoice on it now reads SENT.
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
 import { isMailConfigured, sendMail, type MailAttachment } from "@/lib/mail";
 import { portalOrigin } from "@/lib/linkOrigin";
 import { commissionInvoiceNumber } from "@/lib/pdf/renderCommissionInvoicePdf";
-import { canonicalQuarter } from "@/lib/commissions";
+import { canonicalQuarter, parseQuarterLabel, quarterShortCode, type CommissionEntry } from "@/lib/commissions";
+import { buildCommissionMemoPdf, FUND_PROPERTY_CODE } from "./memoPdf";
+import { buildRetailMemoPdf, RETAIL_PAYEE } from "./retailMemoPdf";
+import { JE_FUNDS } from "./journalEntryExcel";
 import {
   deliveredEntryIds, invoiceFileName, quarterInvoiceRows, renderQuarterInvoice,
   sendQuarterToAvidBill, sentTheOldWay, type QuarterInvoiceRow,
 } from "./sendQuarterToAvidBill";
 import { sendQuarterMemoToKorman } from "./sendQuarterMemo";
+import { sendRetailEntry } from "./sendRetailEntry";
 import { commissionReviewSecret, signCommissionReviewToken } from "./reviewLink";
 
 const PREFIX = "commissions";
@@ -36,6 +36,9 @@ export const REVIEWER_NAME = "Alison Korman";
 type ReviewRecord = {
   requests: { at: string; to: string; ids: string[] }[];
   approvals: { at: string; by: string; ids: string[] }[];
+  /** When the memo went to Alison for her records (office / retail). */
+  memoSentAt?: string;
+  retailMemoSentAt?: string;
 };
 type ReviewLog = Record<string, ReviewRecord>;
 
@@ -182,12 +185,95 @@ async function sendApproved(quarterLabel: string, by: string | null) {
   return { avidBill, kormanMemo };
 }
 
-/** The daily quarter-end run: finish approved sends, then ask for review of
- *  anything new. Nothing unapproved ever goes to Avid from here. */
-export async function runQuarterEnd(quarterLabel: string) {
+/** The memo PDFs, for Alison's records — the same memo Marie gets, without
+ *  the GL import: the office memo (one per fund) or the Shopping Centers memo.
+ *  Sent once per quarter per kind, AFTER the invoices are out: it is a record,
+ *  never a step before Avid (owner). */
+export async function sendMemoToAlison(quarterLabel: string, kind: "office" | "retail" = "office"): Promise<{ ok: boolean; alreadySent?: boolean; reason?: string }> {
   quarterLabel = canonicalQuarter(quarterLabel);
-  if (await sentTheOldWay(quarterLabel)) return { quarterLabel, legacy: true };
-  const sent = await sendApproved(quarterLabel, null);
-  const review = await requestQuarterReview(quarterLabel);
-  return { quarterLabel, ...sent, review };
+  const log = await loadLog();
+  const rec = recordOf(log, quarterLabel);
+  const stamp = kind === "office" ? "memoSentAt" : "retailMemoSentAt";
+  if (rec[stamp]) return { ok: true, alreadySent: true };
+  const parsed = parseQuarterLabel(quarterLabel);
+  if (!parsed) return { ok: false, reason: "Unparseable quarter" };
+  const list: CommissionEntry[] = (await getJSON(PREFIX, kind === "office" ? "entries" : "entries-retail")) ?? [];
+  const inQuarter = list.filter((e) => canonicalQuarter(e.quarter) === quarterLabel);
+  if (inQuarter.length === 0) return { ok: false, reason: `No ${kind} commissions for quarter` };
+  if (!isMailConfigured()) return { ok: false, reason: "Mail not configured" };
+  const code = quarterShortCode(parsed.quarter, parsed.year);
+  const attachments: MailAttachment[] = [];
+  if (kind === "office") {
+    for (const fund of JE_FUNDS) {
+      const pdf = await buildCommissionMemoPdf({ quarter: quarterLabel, entries: inQuarter, parsed, fund });
+      if (pdf) attachments.push({ name: `Commissions ${code} - ${FUND_PROPERTY_CODE[fund]} - Nancy L Fox.pdf`, content: pdf, contentType: "application/pdf" });
+    }
+  } else {
+    const pdf = await buildRetailMemoPdf({ entries: inQuarter, parsed });
+    attachments.push({ name: `Retail Commissions ${code} - ${RETAIL_PAYEE}.pdf`, content: pdf, contentType: "application/pdf" });
+  }
+  if (attachments.length === 0) return { ok: false, reason: "Nothing to attach" };
+  const subtotal = inQuarter.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
+  const what = kind === "office" ? "Leasing Commissions" : "Retail Leasing Commissions";
+  const ok = await sendMail({
+    to: reviewerEmail(),
+    subject: `${what} ${quarterLabel} — memo for your records (${money(subtotal)})`,
+    textBody: [
+      `Hello Alison,`,
+      ``,
+      `For your records: the ${quarterLabel} ${kind === "office" ? "incentive compensation" : "Shopping Centers leasing commission"} memo${attachments.length === 1 ? " is" : "s are"} attached — ${inQuarter.length} commission${inQuarter.length === 1 ? "" : "s"}, ${money(subtotal)} before the 20% markup.`,
+      `Each invoice has been sent to AvidXchange on its own; nothing is needed from you.`,
+      ``,
+      `— KCP Portal`,
+    ].join("\n"),
+    attachments,
+  });
+  if (!ok) return { ok: false, reason: "Send failed" };
+  rec[stamp] = new Date().toISOString();
+  log[quarterLabel] = rec;
+  await storeJSON(PREFIX, REVIEW_ID, log);
+  return { ok: true };
+}
+
+/** The quarter-end run (daily cron, and each page's "Send to AvidXchange"):
+ *  every invoice not yet at Avid goes, one per email, with NO approval step
+ *  (owner: "send the individual invoices to avid automatically without
+ *  requiring alison to approve"). Then, per kind (office = Nancy's, retail =
+ *  Harry's), the memo to Marie and the memo to Alison for her records. Each
+ *  step is idempotent — nothing goes twice, and a commission logged late
+ *  goes on the next run. `kind` limits it to one page's commissions. */
+export async function runQuarterEnd(quarterLabel: string, by: string | null = null, kind?: "office" | "retail") {
+  quarterLabel = canonicalQuarter(quarterLabel);
+  if (await sentTheOldWay(quarterLabel)) return { quarterLabel, legacy: true as const };
+  const kinds = (kind ? [kind] : ["office", "retail"]) as ("office" | "retail")[];
+  // Office: the quarter's invoices together. Retail: each commission through
+  // its own send (Avid → Marie's GL import → Harry's payroll email), which
+  // normally ran when Harry saved it — this finishes any that did not.
+  const avidBill = kinds.includes("office")
+    ? await sendQuarterToAvidBill({ quarterLabel, by: by ?? "Automatic", kind: "office" })
+    : null;
+  const retailSends: Record<string, unknown> = {};
+  if (kinds.includes("retail")) {
+    const before = await quarterInvoiceRows(quarterLabel);
+    for (const r of before.filter((x) => x.kind === "retail")) {
+      retailSends[r.entry.id] = await sendRetailEntry(r.entry.id, by ?? "Automatic").catch((e) => ({ ok: false, reason: e instanceof Error ? e.message : "error" }));
+    }
+  }
+  const rows = await quarterInvoiceRows(quarterLabel);
+  const delivered = await deliveredEntryIds(quarterLabel, rows);
+  const memos: Record<string, unknown> = {};
+  for (const k of kinds) {
+    const ofKind = rows.filter((r) => r.kind === k);
+    // Memos follow the invoices: only once every one of this kind is at Avid.
+    if (ofKind.length === 0 || ofKind.some((r) => !delivered.has(r.entry.id))) continue;
+    memos[k] = {
+      // Marie: the office memo + GL import; for retail (whose GL import she
+      // gets per commission as it goes) the memo + control sheet, to check
+      // the invoices against Avid.
+      marie: await sendQuarterMemoToKorman({ quarterLabel, kind: k }).catch((e) => ({ ok: false, reason: e instanceof Error ? e.message : "error" })),
+      alison: await sendMemoToAlison(quarterLabel, k).catch((e) => ({ ok: false, reason: e instanceof Error ? e.message : "error" })),
+    };
+  }
+  const retailCount = Object.keys(retailSends).length;
+  return { quarterLabel, avidBill, retailSends: retailCount ? retailSends : undefined, memos };
 }

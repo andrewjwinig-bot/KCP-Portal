@@ -5,6 +5,7 @@
 
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { addControlSheet } from "./controlSheet";
 import { toDisplayDate, parseQuarterLabel, formatTerm, type CommissionEntry } from "@/lib/commissions";
 
 /** The memo names the fund by its PROPERTY code, as the books do (owner). */
@@ -195,6 +196,9 @@ export async function buildCommissionMemoPdf(opts: {
   const note = "Please charge commissions to 1940-8501 and deposit into LIK Clearing x1622";
   page.drawRectangle({ x: margin, y: y - 9, width: contentW, height: 24, color: shade });
   txtC(note, pageW / 2, y, { b: true, size: 9.5, color: navy });
+
+  // Page 2: the control sheet — every invoice as Avid received it.
+  addControlSheet(pdf, { font, bold }, { title: `${FUND_PROPERTY_CODE[fund]} — Q${parsed.quarter} ${parsed.year}`, entries: fundEntries });
 
   return pdf.save();
 }
