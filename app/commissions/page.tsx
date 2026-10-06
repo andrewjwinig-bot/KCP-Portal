@@ -93,12 +93,16 @@ export default function CommissionsPage() {
   // on MM/DD/YY" badge that replaces the per-row action area once a
   // quarter has been billed.
   const [avidSent, setAvidSent] = useState<Record<string, { sentAt: string; count: number; total: number }>>({});
+  // What went to Avid, as sent — the record of past quarters (owner: "store
+  // historical records once they're sent to avid … reference prior quarters").
+  // A sent commission stays listed (read-only) even if its live entry is gone.
+  const [sentHistory, setSentHistory] = useState<Record<string, { entry: CommissionEntry; amount: number; invoiceNumber: string; sentAt: string }[]>>({});
   // Alison's review per quarter (requested / approved) — the pending pill.
   const [review, setReview] = useState<Record<string, { requestedAt: string | null; approvedAt: string | null; approvedBy: string | null }>>({});
   const refreshAvidSent = useCallback(() => {
     fetch("/api/commissions/avidbill-sent")
       .then((r) => r.json())
-      .then((d) => { setAvidSent((d?.log && typeof d.log === "object") ? d.log : {}); setReview(d?.review ?? {}); })
+      .then((d) => { setAvidSent({ ...((d?.log && typeof d.log === "object") ? d.log : {}), ...(d?.sentByKind?.office ?? {}) }); setSentHistory(d?.history?.office ?? {}); setReview(d?.review ?? {}); })
       .catch(() => { /* best-effort */ });
   }, []);
 
@@ -112,7 +116,8 @@ export default function CommissionsPage() {
       .then(([rr, ce, av]) => {
         setRentroll(rr.rentroll ?? null);
         setEntries(Array.isArray(ce.entries) ? ce.entries : []);
-        setAvidSent((av?.log && typeof av.log === "object") ? av.log : {});
+        setAvidSent({ ...((av?.log && typeof av.log === "object") ? av.log : {}), ...(av?.sentByKind?.office ?? {}) });
+        setSentHistory(av?.history?.office ?? {});
         setReview(av?.review ?? {});
       })
       .finally(() => setLoading(false));
@@ -363,9 +368,24 @@ export default function CommissionsPage() {
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(e);
     }
+    // A sent commission whose live entry was deleted is still on record.
+    const live = new Set(entries.map((e) => e.id));
+    for (const [q, sent] of Object.entries(sentHistory)) {
+      for (const h of sent) {
+        if (live.has(h.entry.id)) continue;
+        if (!map.has(q)) map.set(q, []);
+        map.get(q)!.push({ ...h.entry, quarter: q });
+      }
+    }
     for (const arr of map.values()) arr.sort((a, b) => b.createdAt - a.createdAt);
     return [...map.entries()].sort((a, b) => quarterSort(b[0]) - quarterSort(a[0]));
-  }, [entries]);
+  }, [entries, sentHistory]);
+  /** When each commission went to Avid — a sent one is a record, not editable. */
+  const sentAtById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const sent of Object.values(sentHistory)) for (const h of sent) m.set(h.entry.id, h.sentAt);
+    return m;
+  }, [sentHistory]);
 
   // Incentive paid to Nancy, then grossed up 20% for property billing.
   const MARKUP = 1.2;
@@ -455,7 +475,7 @@ export default function CommissionsPage() {
           {/* Period — the current quarter by default; an earlier one can be
               picked so a deal closed in Q3 but keyed in Q4 is billed with Q3.
               A quarter already sent to AvidXchange still takes an entry: it
-              goes to Alison for review the next morning on its own. */}
+              goes to AvidXchange the next morning on its own. */}
           <div>
             <label style={labelStyle}>Period</label>
             <select
@@ -685,13 +705,6 @@ export default function CommissionsPage() {
                           SENT TO AVIDXCHANGE · {sentDateLabel}
                         </span>
                       )}
-                      {!sentRecord && review[quarter]?.requestedAt && (
-                        <Pill tone={review[quarter].approvedAt ? TONE_BLUE : TONE_AMBER}>
-                          {review[quarter].approvedAt
-                            ? `APPROVED BY ${(review[quarter].approvedBy ?? "").toUpperCase()} · ${formatSentDate(review[quarter].approvedAt!)}`
-                            : `WITH ALISON FOR REVIEW · ${formatSentDate(review[quarter].requestedAt!)}`}
-                        </Pill>
-                      )}
                     </span>
                     <span className="muted small" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       {list.length} · Incentive {toMoney(total)} · Gross {toMoney(totalGross)}
@@ -742,7 +755,7 @@ export default function CommissionsPage() {
                         from the link she is emailed — the morning cron emails
                         her when the quarter closes. This sends her the quarter
                         now (early, or as a reminder). */}
-                    {!sentRecord && <SendToAvidBillButton quarterLabel={quarter} onSent={refreshAvidSent} />}
+                    {!sentRecord && <SendToAvidBillButton quarterLabel={quarter} kind="office" onSent={refreshAvidSent} />}
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
@@ -783,6 +796,9 @@ export default function CommissionsPage() {
                               style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}
                               title="Download AvidBill invoice for this commission"
                             >Invoice</button>
+                            {sentAtById.has(e.id) ? (
+                              <span className="muted small" title="Sent to AvidXchange — kept as sent">Sent {formatSentDate(sentAtById.get(e.id)!)}</span>
+                            ) : (<>
                             <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}>Edit</button>
                             <button
                               onClick={() => deleteEntry(e.id)}
@@ -799,6 +815,7 @@ export default function CommissionsPage() {
                                 display: "inline-flex", alignItems: "center", justifyContent: "center",
                               }}
                             >×</button>
+                            </>)}
                           </td>
                         </tr>
                       ))}

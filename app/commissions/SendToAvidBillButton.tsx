@@ -63,15 +63,14 @@ function toMoney(n: number): string {
   return (Number(n) || 0).toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
-/** "Send for Review" button for a single quarter. Commissions reach
- *  AvidXchange only once Alison approves them from the link she is emailed
- *  (the cron emails her at quarter-end on its own); this sends her the
- *  quarter NOW — early, or as a reminder. Two-step: a `dryRun` preview, then
- *  the real POST.
+/** "Send to AvidXchange" button for a single quarter. The morning cron sends
+ *  a closed quarter on its own; this sends it NOW — one invoice per email, no
+ *  approval step — then the memo + GL import to Marie and the memo to Alison
+ *  for her records. Two-step: a `dryRun` preview, then the real POST.
  *
  *  Shared by /commissions (office) and /commissions/retail since
  *  both pages drive the same AvidBill batch. */
-export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: string; onSent?: () => void }) {
+export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLabel: string; kind?: "office" | "retail"; onSent?: () => void }) {
   type Preview = {
     ok: boolean;
     count: number;
@@ -92,7 +91,7 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
     const res = await fetch(ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ quarterLabel, dryRun }),
+      body: JSON.stringify({ quarterLabel, dryRun, kind }),
     });
     return res.json();
   };
@@ -128,9 +127,9 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
         className="btn large"
         onClick={openPreview}
         disabled={busy}
-        title="Email this quarter's invoices to Alison to review and send to AvidXchange"
+        title="Send this quarter's invoices to AvidXchange, one per email"
       >
-        {busy && !confirming ? "Preparing…" : "Send for Review"}
+        {busy && !confirming ? "Preparing…" : "Send to AvidXchange"}
       </button>
 
       {confirming && preview && (
@@ -153,7 +152,7 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
             }}
           >
             <div className="muted small" style={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Send for Review
+              Send to AvidXchange
             </div>
             {preview.ok && preview.count > 0 ? (
               <>
@@ -161,19 +160,19 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
                   {preview.count} invoice{preview.count === 1 ? "" : "s"} · {toMoney(preview.total)}
                 </div>
                 <div className="muted small">
-                  Emails <b>{preview.reviewer ?? "Alison"}</b> the <b>{quarterLabel}</b> invoices awaiting review, with a link to send them to AvidXchange. Nothing goes to Avid until she does. (This also happens on its own the morning after the quarter closes.)
+                  Sends the <b>{quarterLabel}</b> invoices not yet at AvidXchange to <b>kormancommercial@avidbill.com</b>, each as its own email. Then the memo + GL import go to Marie and the memo goes to Alison for her records. (This also happens on its own the morning after the quarter closes.)
                 </div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <button className="btn" onClick={() => setConfirming(false)} disabled={busy}>Cancel</button>
                   <button className="btn primary" onClick={sendForReal} disabled={busy || preview.alreadySent}>
-                    {busy ? "Sending…" : "Send"}
+                    {busy ? "Sending…" : `Send ${preview.count} invoice${preview.count === 1 ? "" : "s"}`}
                   </button>
                 </div>
               </>
             ) : (
               <>
                 <div style={{ fontSize: 15 }}>
-                  Nothing to review — {preview.alreadySent ? "this quarter was already sent to AvidXchange" : preview.reason ?? "no commissions for this quarter"}.
+                  Nothing to send — {preview.alreadySent ? "this quarter was already sent to AvidXchange" : preview.reason ?? "no commissions for this quarter"}.
                 </div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                   <button className="btn" onClick={() => setConfirming(false)}>Close</button>
@@ -208,7 +207,7 @@ export function SendToAvidBillButton({ quarterLabel, onSent }: { quarterLabel: s
             </div>
             {result.ok ? (
               <div style={{ fontSize: 16, fontWeight: 700, color: "#15803d" }}>
-                ✓ Sent {result.count} invoice{result.count === 1 ? "" : "s"} · {toMoney(result.total)} to {result.reviewer ?? "Alison"} for review
+                ✓ Sent {result.count} invoice{result.count === 1 ? "" : "s"} · {toMoney(result.total)} to AvidXchange
               </div>
             ) : (
               <div style={{ fontSize: 16, fontWeight: 700, color: "#b91c1c" }}>

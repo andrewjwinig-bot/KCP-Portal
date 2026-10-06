@@ -2,7 +2,6 @@
 
 import LoadingState from "@/app/components/LoadingState";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { RentRollData } from "../../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
 import {
@@ -20,10 +19,13 @@ import {
 } from "../../../lib/commissions";
 import { Calendar } from "@/app/components/Calendar";
 import { downloadCommissionInvoice, downloadCommissionInvoicesZip } from "@/lib/commissions/downloadInvoices";
-import { formatSentDate, CommissionSectionHeading } from "../SendToAvidBillButton";
+import { buildRetailMemoPdf, RETAIL_PAYEE } from "@/lib/commissions/retailMemoPdf";
+import { formatSentDate, CommissionSectionHeading, SendToAvidBillButton } from "../SendToAvidBillButton";
 
-// The person these commissions are paid to — appears on the memo.
-const PAYEE = "Harry I. Feldman";
+/** Billed to AvidXchange at commission × 1.2, as the office commissions are. */
+const MARKUP = 1.2;
+
+const PAYEE = RETAIL_PAYEE;
 
 // Retail property codes — Shopping Centers Division.
 const RETAIL_CODES = new Set(
@@ -82,10 +84,14 @@ export default function RetailCommissionsPage() {
   // Avid send-log keyed by quarter — shared across office + retail
   // since both stores feed the same email batch.
   const [avidSent, setAvidSent] = useState<Record<string, { sentAt: string; count: number; total: number }>>({});
+  // What went to Avid, as sent — the record of past quarters (owner: "store
+  // historical records once they're sent to avid … reference prior quarters").
+  // A sent commission stays listed (read-only) even if its live entry is gone.
+  const [sentHistory, setSentHistory] = useState<Record<string, { entry: CommissionEntry; amount: number; invoiceNumber: string; sentAt: string }[]>>({});
   const refreshAvidSent = useCallback(() => {
     fetch("/api/commissions/avidbill-sent")
       .then((r) => r.json())
-      .then((d) => setAvidSent((d?.log && typeof d.log === "object") ? d.log : {}))
+      .then((d) => { setAvidSent({ ...((d?.log && typeof d.log === "object") ? d.log : {}), ...(d?.sentByKind?.retail ?? {}) }); setSentHistory(d?.history?.retail ?? {}); })
       .catch(() => { /* best-effort */ });
   }, []);
 
@@ -98,7 +104,8 @@ export default function RetailCommissionsPage() {
       .then(([rr, ce, av]) => {
         setRentroll(rr.rentroll ?? null);
         setEntries(Array.isArray(ce.entries) ? ce.entries : []);
-        setAvidSent((av?.log && typeof av.log === "object") ? av.log : {});
+        setAvidSent({ ...((av?.log && typeof av.log === "object") ? av.log : {}), ...(av?.sentByKind?.retail ?? {}) });
+        setSentHistory(av?.history?.retail ?? {});
       })
       .finally(() => setLoading(false));
   }, []);
@@ -171,7 +178,7 @@ export default function RetailCommissionsPage() {
 
   const commission = retailCommission(Number(form.sqft) || 0);
 
-  async function persist(next: CommissionEntry[]) {
+  async function persist(next: CommissionEntry[]): Promise<boolean> {
     setSaving(true);
     setEntries(next);
     try {
@@ -182,14 +189,41 @@ export default function RetailCommissionsPage() {
       });
       if (!res.ok) throw new Error("Save failed");
       setError(null);
+      return true;
     } catch (e: any) {
       setError(e?.message ?? "Save failed");
+      return false;
     } finally {
       setSaving(false);
     }
   }
 
-  function submit() {
+  /** Harry's commissions go to AvidXchange as he saves them (owner): the
+   *  invoice (× 1.2), the GL import to Marie, and his payroll figure to him. */
+  const [sendNote, setSendNote] = useState<{ ok: boolean; text: string } | null>(null);
+  async function sendEntryToAvid(entry: CommissionEntry) {
+    setSaving(true);
+    setSendNote(null);
+    try {
+      const r = await fetch("/api/commissions/retail/send", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: entry.id }),
+      });
+      const j = await r.json().catch(() => ({}));
+      setSendNote(j?.avid
+        ? { ok: !!j.ok, text: j.ok
+            ? `✓ ${entry.tenant} sent to AvidXchange as ${j.invoiceNumber} — GL import to Marie, ${toMoney(j.amount ?? 0)} to you for payroll.`
+            : `${entry.tenant} reached AvidXchange as ${j.invoiceNumber}, but ${j.reason ?? "a follow-up email did not go"}.` }
+        : { ok: false, text: `${entry.tenant} was saved but NOT sent to AvidXchange: ${j?.reason ?? "send failed"}. Use Send to AvidXchange on the quarter to retry.` });
+      refreshAvidSent();
+    } catch {
+      setSendNote({ ok: false, text: `${entry.tenant} was saved but NOT sent to AvidXchange. Use Send to AvidXchange on the quarter to retry.` });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submit() {
     if (!form.tenant.trim()) { setError("Tenant is required"); return; }
     const entry: CommissionEntry = {
       id: form.id ?? crypto.randomUUID(),
@@ -210,9 +244,11 @@ export default function RetailCommissionsPage() {
     const next = form.id
       ? entries.map((e) => (e.id === form.id ? { ...entry, createdAt: e.createdAt } : e))
       : [entry, ...entries];
-    persist(next);
+    const isNew = !form.id;
     setForm(emptyForm(form.quarter));
     setTenantSelection("");
+    const saved = await persist(next);
+    if (saved && isNew) await sendEntryToAvid(entry);
   }
 
   function editEntry(e: CommissionEntry) {
@@ -224,6 +260,15 @@ export default function RetailCommissionsPage() {
     });
     setTenantSelection(e.unitRef ?? (e.tenant ? NEW_TENANT_VALUE : ""));
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /** Relabel every entry on a quarter's card to another quarter — for a batch
+   *  entered under the wrong period. Invoice numbers and dates follow it. */
+  function moveQuarter(from: string, list: CommissionEntry[], to: string) {
+    if (!to || to === from) return;
+    if (!window.confirm(`Move all ${list.length} commission${list.length === 1 ? "" : "s"} from ${from} to ${to}?`)) return;
+    const ids = new Set(list.map((e) => e.id));
+    persist(entries.map((e) => (ids.has(e.id) ? { ...e, quarter: to } : e)));
   }
 
   function deleteEntry(id: string) {
@@ -259,9 +304,24 @@ export default function RetailCommissionsPage() {
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(e);
     }
+    // A sent commission whose live entry was deleted is still on record.
+    const live = new Set(entries.map((e) => e.id));
+    for (const [q, sent] of Object.entries(sentHistory)) {
+      for (const h of sent) {
+        if (live.has(h.entry.id)) continue;
+        if (!map.has(q)) map.set(q, []);
+        map.get(q)!.push({ ...h.entry, quarter: q });
+      }
+    }
     for (const arr of map.values()) arr.sort((a, b) => b.createdAt - a.createdAt);
     return [...map.entries()].sort((a, b) => quarterSort(b[0]) - quarterSort(a[0]));
-  }, [entries]);
+  }, [entries, sentHistory]);
+  /** When each commission went to Avid — a sent one is a record, not editable. */
+  const sentAtById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const sent of Object.values(sentHistory)) for (const h of sent) m.set(h.entry.id, h.sentAt);
+    return m;
+  }, [sentHistory]);
 
   const grandTotal = entries.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
   const isExistingTenant = !!form.unitRef;
@@ -308,10 +368,20 @@ export default function RetailCommissionsPage() {
           gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 2.2fr) minmax(0, 0.9fr) minmax(0, 0.7fr) minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr)",
           gap: 12,
         }}>
-          {/* Period — fixed to the current quarter */}
+          {/* Period — the current quarter by default; an earlier one can be
+              picked so a deal closed in Q3 but keyed in Q4 is billed with Q3
+              (same as the office page). */}
           <div>
             <label style={labelStyle}>Period</label>
-            <input type="text" value={form.quarter} readOnly tabIndex={-1} style={lockedStyle} />
+            <select
+              value={form.quarter}
+              onChange={(e) => setForm((f) => ({ ...f, quarter: e.target.value }))}
+              style={inputStyle}
+            >
+              {[...new Set([form.quarter, ...quarterOpts.slice(0, 4)])].map((q) => (
+                <option key={q} value={q}>{q}{q === quarterOpts[0] ? " (current)" : ""}</option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -407,9 +477,12 @@ export default function RetailCommissionsPage() {
             </button>
           )}
           <button className="btn primary" onClick={submit} disabled={saving || !form.tenant.trim()}>
-            {form.id ? "Save Changes" : "Add Entry"}
+            {form.id ? "Save Changes" : saving ? "Sending…" : "Send to Avid"}
           </button>
         </div>
+        {sendNote && (
+          <div style={{ marginTop: 10, fontSize: 13, fontWeight: 600, color: sendNote.ok ? "#15803d" : "#b45309" }}>{sendNote.text}</div>
+        )}
       </div>
 
       {/* ── Pending commissions ── */}
@@ -417,7 +490,7 @@ export default function RetailCommissionsPage() {
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
           <b style={{ fontSize: 17 }}>Pending Commissions</b>
           <span className="muted small">
-            {entries.length} {entries.length === 1 ? "Entry" : "Entries"} · {toMoney(grandTotal)}
+            {entries.length} {entries.length === 1 ? "Entry" : "Entries"} · Commission {toMoney(grandTotal)} · Gross (20%) {toMoney(grandTotal * MARKUP)}
           </span>
         </div>
 
@@ -456,25 +529,35 @@ export default function RetailCommissionsPage() {
                         </span>
                       )}
                     </span>
-                    <span className="muted small">{list.length} · {toMoney(total)}</span>
+                    <span className="muted small" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {list.length} · Commission {toMoney(total)} · Gross {toMoney(total * MARKUP)}
+                      {!sentRecord && (
+                        <select className="select-sm" value="" disabled={saving}
+                          onChange={(ev) => moveQuarter(quarter, list, ev.target.value)}>
+                          <option value="">Move to…</option>
+                          {quarterOpts.slice(0, 4).filter((q) => q !== quarter).map((q) => (
+                            <option key={q} value={q}>{q}</option>
+                          ))}
+                        </select>
+                      )}
+                    </span>
                   </div>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "14px 14px 16px", borderBottom: "1px solid var(--border)" }}>
                     <button className="btn primary large" onClick={() => downloadMemoPdf(quarter, list)}>
                       Download PDF Memo
                     </button>
-                    {/* Retail commissions are already the $1-per-SF
-                        figure stored on `incentiveAmount`, so the
-                        per-row billable equals the stored value with
-                        no markup. */}
+                    {/* Each invoice bills the commission × 1.2 (the 20%
+                        markup), as the office invoices do. */}
                     <button
                       className="btn large"
                       onClick={() => downloadCommissionInvoicesZip(quarter, list.map((e) => ({
                         entry: e,
-                        amount: Number(e.incentiveAmount) || 0,
+                        amount: (Number(e.incentiveAmount) || 0) * MARKUP,
                       })))}
                     >
                       Download Invoices (Zip)
                     </button>
+                    {!sentRecord && <SendToAvidBillButton quarterLabel={quarter} kind="retail" onSent={refreshAvidSent} />}
                   </div>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
@@ -487,6 +570,7 @@ export default function RetailCommissionsPage() {
                         <th style={{ padding: "8px 12px", fontWeight: 700 }}>TERM</th>
                         <th style={{ padding: "8px 12px", fontWeight: 700 }}>LEASE</th>
                         <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>COMMISSION</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>TOTAL</th>
                         <th style={{ padding: "8px 12px", fontWeight: 700 }}></th>
                       </tr>
                     </thead>
@@ -503,16 +587,22 @@ export default function RetailCommissionsPage() {
                           <td style={{ padding: "10px 12px", textAlign: "right" }}>${(e.rate ?? 0).toFixed(2)}</td>
                           <td style={{ padding: "10px 12px" }}>{e.termYears} yr</td>
                           <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{toDisplayDate(e.leaseFrom)} – {toDisplayDate(e.leaseTo)}</td>
-                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>
+                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>
                             {toMoney(e.incentiveAmount)}
+                          </td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>
+                            {toMoney((Number(e.incentiveAmount) || 0) * MARKUP)}
                           </td>
                           <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
                             <button
                               className="btn"
-                              onClick={() => downloadCommissionInvoice(e, Number(e.incentiveAmount) || 0)}
+                              onClick={() => downloadCommissionInvoice(e, (Number(e.incentiveAmount) || 0) * MARKUP)}
                               style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}
                               title="Download AvidBill invoice for this commission"
                             >Invoice</button>
+                            {sentAtById.has(e.id) ? (
+                              <span className="muted small" title="Sent to AvidXchange — kept as sent">Sent {formatSentDate(sentAtById.get(e.id)!)}</span>
+                            ) : (<>
                             <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}>Edit</button>
                             <button onClick={() => deleteEntry(e.id)} title="Delete row" aria-label="Delete row"
                               style={{
@@ -521,6 +611,7 @@ export default function RetailCommissionsPage() {
                                 color: "#b42318", cursor: "pointer", fontSize: 14, lineHeight: 1, fontWeight: 700,
                                 display: "inline-flex", alignItems: "center", justifyContent: "center",
                               }}>×</button>
+                            </>)}
                           </td>
                         </tr>
                       ))}
@@ -563,149 +654,4 @@ export default function RetailCommissionsPage() {
       </div>
     </main>
   );
-}
-
-// ─── PDF memo generator ─────────────────────────────────────────────────
-
-async function buildRetailMemoPdf(opts: {
-  entries: CommissionEntry[];
-  parsed: NonNullable<ReturnType<typeof parseQuarterLabel>>;
-}): Promise<Uint8Array> {
-  const { parsed } = opts;
-  const periodEnd = parsed.periodEnd;
-  const periodEndStr = `${periodEnd.getMonth() + 1}/${periodEnd.getDate()}/${periodEnd.getFullYear()}`;
-  const entries = [...opts.entries].sort((a, b) => {
-    const bd = a.building.localeCompare(b.building);
-    return bd !== 0 ? bd : a.suite.localeCompare(b.suite);
-  });
-  const total = entries.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
-
-  const pdf = await PDFDocument.create();
-  const page = pdf.addPage([612, 792]);
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-
-  const navy  = rgb(11 / 255, 74 / 255, 125 / 255);
-  const white = rgb(1, 1, 1);
-  const ink   = rgb(0.10, 0.12, 0.15);
-  const gray  = rgb(0.42, 0.46, 0.52);
-  const shade = rgb(0.945, 0.955, 0.965);
-  const rule  = rgb(0.80, 0.82, 0.86);
-
-  const margin = 50;
-  const pageW = 612;
-  const right = pageW - margin;
-  const contentW = pageW - margin * 2;
-  let y = 736;
-
-  const txt = (s: string, x: number, yy: number, o: { size?: number; b?: boolean; color?: ReturnType<typeof rgb> } = {}) =>
-    page.drawText(s, { x, y: yy, font: o.b ? bold : font, size: o.size ?? 10, color: o.color ?? ink });
-  const txtR = (s: string, xr: number, yy: number, o: { size?: number; b?: boolean; color?: ReturnType<typeof rgb> } = {}) => {
-    const f = o.b ? bold : font, sz = o.size ?? 10;
-    page.drawText(s, { x: xr - f.widthOfTextAtSize(s, sz), y: yy, font: f, size: sz, color: o.color ?? ink });
-  };
-  const txtC = (s: string, cx: number, yy: number, o: { size?: number; b?: boolean; color?: ReturnType<typeof rgb> } = {}) => {
-    const f = o.b ? bold : font, sz = o.size ?? 10;
-    page.drawText(s, { x: cx - f.widthOfTextAtSize(s, sz) / 2, y: yy, font: f, size: sz, color: o.color ?? ink });
-  };
-  const money = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const fit = (s: string, w: number, sz: number) => {
-    if (font.widthOfTextAtSize(s, sz) <= w) return s;
-    let t = s;
-    while (t.length > 1 && font.widthOfTextAtSize(t + "…", sz) > w) t = t.slice(0, -1);
-    return t + "…";
-  };
-
-  // Letterhead
-  txt("KORMAN", margin, y, { b: true, size: 26, color: navy });
-  txt("C O M M E R C I A L   P R O P E R T I E S", margin + 1, y - 13, { b: true, size: 7, color: gray });
-  txtR("LEASING COMMISSION", right, y + 4, { b: true, size: 17, color: navy });
-  txtR("Request for Payment", right, y - 12, { size: 9, color: gray });
-  y -= 27;
-  page.drawRectangle({ x: margin, y, width: contentW, height: 2, color: navy });
-  y -= 26;
-
-  // Memo block
-  const memoRows: [string, string][] = [
-    ["TO", "Payroll"],
-    ["FROM", "Alison Korman"],
-    ["DATE", periodEndStr],
-    ["PERIOD", `Q${Math.floor(periodEnd.getMonth() / 3) + 1} ${periodEnd.getFullYear()}`],
-    ["SUBJECT", `Leasing Commission — ${PAYEE}`],
-  ];
-  const memoH = memoRows.length * 16 + 12;
-  page.drawRectangle({ x: margin, y: y - memoH + 12, width: contentW, height: memoH, color: shade });
-  let my = y;
-  for (const [k, v] of memoRows) {
-    txt(k, margin + 12, my, { b: true, size: 8, color: navy });
-    txt(v, margin + 92, my, { size: 10 });
-    my -= 16;
-  }
-  y -= memoH + 14;
-
-  txt(`Please pay ${PAYEE} $${money(total)} in leasing commission for the following retail leases:`, margin, y, { size: 10.5 });
-  y -= 28;
-
-  // Table
-  const cols = [
-    { label: "Building",   x: 50,  w: 50, align: "l" as const },
-    { label: "Suite",      x: 100, w: 38, align: "l" as const },
-    { label: "Tenant",     x: 138, w: 136, align: "l" as const },
-    { label: "Lease From", x: 274, w: 60, align: "l" as const },
-    { label: "Lease To",   x: 334, w: 60, align: "l" as const },
-    { label: "Term",       x: 394, w: 32, align: "r" as const },
-    { label: "Rate $/SF",  x: 426, w: 50, align: "r" as const },
-    { label: "Commission", x: 476, w: 86, align: "r" as const },
-  ];
-
-  // Section bar
-  page.drawRectangle({ x: margin, y: y - 6, width: contentW, height: 18, color: navy });
-  txt("SHOPPING CENTERS", margin + 8, y, { b: true, size: 10, color: white });
-  y -= 24;
-  // Header
-  cols.forEach((c) => {
-    if (c.align === "r") txtR(c.label, c.x + c.w, y, { b: true, size: 8, color: gray });
-    else txt(c.label, c.x, y, { b: true, size: 8, color: gray });
-  });
-  y -= 5;
-  page.drawLine({ start: { x: margin, y }, end: { x: right, y }, thickness: 0.75, color: rule });
-  y -= 14;
-  // Rows
-  entries.forEach((e, idx) => {
-    if (idx % 2 === 1) page.drawRectangle({ x: margin, y: y - 4, width: contentW, height: 15, color: shade });
-    const vals = [
-      e.building,
-      e.suite,
-      fit(e.tenant, cols[2].w - 4, 9),
-      toDisplayDate(e.leaseFrom),
-      toDisplayDate(e.leaseTo),
-      String(e.termYears),
-      `$${(e.rate ?? 0).toFixed(2)}`,
-      money(Number(e.incentiveAmount) || 0),
-    ];
-    cols.forEach((c, i) => {
-      if (!vals[i]) return;
-      if (c.align === "r") txtR(vals[i], c.x + c.w, y, { size: 9 });
-      else txt(vals[i], c.x, y, { size: 9 });
-    });
-    y -= 16;
-  });
-  // Grand total
-  page.drawRectangle({ x: margin, y: y - 7, width: contentW, height: 22, color: navy });
-  txtR("TOTAL", cols[7].x - 12, y, { b: true, size: 11, color: white });
-  txtR(money(total), cols[7].x + cols[7].w, y, { b: true, size: 11, color: white });
-  y -= 34;
-
-  // Footnote
-  txt("*  Commission is $1.00 per square foot leased (square feet × $1).", margin, y, { size: 8.5, color: gray });
-  y -= 14;
-  void RETAIL_COMMISSION_PER_SQFT;
-
-  // Footer
-  y -= 16;
-  const note = "Leasing commission — Shopping Centers Division.";
-  page.drawRectangle({ x: margin, y: y - 9, width: contentW, height: 24, color: shade });
-  txtC(note, pageW / 2, y, { b: true, size: 9.5, color: navy });
-
-  return pdf.save();
 }

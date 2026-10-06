@@ -14,6 +14,7 @@ import { getJSON, storeJSON } from "@/lib/storage";
 import { isMailConfigured } from "@/lib/mail";
 import { deliverInvoicesToAvid } from "@/lib/invoicing/avidDelivery";
 import { getAvidSent } from "@/lib/invoicing/avidSentStore";
+import { recordSentInvoices } from "./history";
 import { renderCommissionInvoicePdf, invoiceNumberFor, commissionInvoiceNumber, COMMISSION_VENDOR_CODE } from "@/lib/pdf/renderCommissionInvoicePdf";
 import type { CommissionEntry } from "@/lib/commissions";
 import { canonicalQuarter, parseQuarterLabel, quarterShortCode } from "@/lib/commissions";
@@ -24,7 +25,7 @@ const OFFICE_ID = "entries";
 const RETAIL_ID = "entries-retail";
 const SENT_LOG_ID = "avidbill-sent";
 
-const OFFICE_MARKUP = 1.2;
+const COMMISSION_MARKUP = 1.2;
 
 type SentLog = Record<string, { sentAt: string; count: number; total: number }>;
 
@@ -126,7 +127,10 @@ async function loadSentLog(): Promise<SentLog> {
 
 function billableAmount(entry: CommissionEntry, kind: "office" | "retail"): number {
   const base = Number(entry.incentiveAmount) || 0;
-  return kind === "office" ? base * OFFICE_MARKUP : base;
+  // Both office and retail bill the commission × 1.2 (owner: "add the 20%
+  // markup there as well"); retail used to bill the bare commission.
+  void kind;
+  return base * COMMISSION_MARKUP;
 }
 
 /** Send the quarter's commission invoices to AvidXchange — only the ones that
@@ -142,8 +146,10 @@ export async function sendQuarterToAvidBill(opts: {
   by?: string | null;
   /** Send ONLY these entries — the ones Alison approved. Omitted = all. */
   onlyIds?: string[];
+  /** Only the office (Nancy's) or retail (Harry's) commissions. Omitted = both. */
+  kind?: "office" | "retail";
 }): Promise<SendResult> {
-  const { dryRun = false, force = false, by = null, onlyIds } = opts;
+  const { dryRun = false, force = false, by = null, onlyIds, kind } = opts;
   const quarterLabel = canonicalQuarter(opts.quarterLabel);
   const parsed = parseQuarterLabel(quarterLabel);
   if (!parsed) {
@@ -165,7 +171,7 @@ export async function sendQuarterToAvidBill(opts: {
 
   const all = await quarterInvoiceRows(quarterLabel);
   const only = onlyIds ? new Set(onlyIds) : null;
-  const rows = only ? all.filter((r) => only.has(r.entry.id)) : all;
+  const rows = all.filter((r) => (!only || only.has(r.entry.id)) && (!kind || r.kind === kind));
 
   if (rows.length === 0) {
     return { ok: true, quarterLabel, count: 0, total: 0, reason: "No commissions logged for that quarter" };
@@ -173,6 +179,8 @@ export async function sendQuarterToAvidBill(opts: {
 
   const pending = rows.filter((r) => !inLedger(ledger.invoices, r.entry));
   if (pending.length === 0 && ledger.teamSummaryAt) {
+    // Already out — make sure the history holds it (quarters sent before it existed).
+    if (!dryRun) await recordSentInvoices(quarterLabel, rows).catch(() => {});
     return { ok: true, quarterLabel, count: rows.length, total: rows.reduce((s, r) => s + r.amount, 0), alreadySent: true };
   }
 
@@ -213,11 +221,19 @@ export async function sendQuarterToAvidBill(opts: {
   });
 
   if (!res.allDelivered) {
+    const nowDelivered = await deliveredEntryIds(quarterLabel, rows);
+    await recordSentInvoices(quarterLabel, rows.filter((r) => nowDelivered.has(r.entry.id))).catch(() => {});
     const out = res.avidSent + res.alreadySent;
     return {
       ok: false, quarterLabel, count: out, total,
       reason: `${out} of ${rows.length} invoices reached AvidXchange${res.teamNotified ? "" : " and the team summary did not go"} — send again to finish; nothing already sent goes twice`,
     };
+  }
+
+  // The record of what was sent, for looking back at past quarters.
+  {
+    const nowDelivered = await deliveredEntryIds(quarterLabel, rows);
+    await recordSentInvoices(quarterLabel, rows.filter((r) => nowDelivered.has(r.entry.id))).catch(() => {});
   }
 
   // The quarter reads "sent" only once EVERY invoice in it is out — a partial,

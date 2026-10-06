@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { priorQuarterLabel, sendQuarterToAvidBill } from "@/lib/commissions/sendQuarterToAvidBill";
-import { quarterReview, requestQuarterReview, reviewerEmail, runQuarterEnd } from "@/lib/commissions/quarterReview";
+import { runQuarterEnd } from "@/lib/commissions/quarterReview";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { authorizeRequest, USERS, type UserId } from "@/lib/users";
 
@@ -8,19 +8,17 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * Quarter-end commissions: Alison reviews, then they go to
- * kormancommercial@avidbill.com — one PDF per commission, each its OWN email.
+ * Quarter-end commissions → kormancommercial@avidbill.com, one PDF per
+ * commission, each its OWN email. No approval step.
  *
  * GET form: Vercel cron EVERY MORNING (vercel.json) for the most recently
- *   completed quarter. Emails Alison any invoice awaiting her review (with a
- *   signed link to send them), and finishes sending whatever she approved.
- *   Nothing unapproved goes to Avid. Auth via `Authorization: Bearer
- *   <CRON_SECRET>` header that Vercel sets on scheduled invocations.
+ *   completed quarter — sends whatever is not yet at Avid, then the memo + GL
+ *   import to Marie and the memo to Alison for her records.
  *
- * POST form: the page's "Send for Review" button. Body shape
+ * POST form: the page's "Send to AvidXchange" button. Body shape
  *   { quarterLabel?: string, dryRun?: boolean, force?: boolean }
- *   Emails Alison the quarter now (dryRun previews it). `force` is the old
- *   direct re-send of a quarter sent the old way.
+ *   Does the same for that quarter now (dryRun previews it). `force` is the
+ *   old direct re-send of a quarter sent the old way.
  *
  * Auth gate accepts either:
  *  - `Authorization: Bearer <CRON_SECRET>` (Vercel cron), OR
@@ -70,35 +68,34 @@ async function senderLabel(req: Request): Promise<string | null> {
 
 export async function GET(req: Request) {
   if (!(await authorized(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  // Nothing goes to Avid without Alison's approval: this finishes any approved
-  // send, then emails her whatever is newly awaiting review. Marie's memo + GL
-  // import follows the approval (see quarterReview.ts).
+  // Every invoice not yet at Avid goes — no approval step — then Marie's memo
+  // + GL import and Alison's memo for her records (see quarterReview.ts).
   return NextResponse.json(await runQuarterEnd(priorQuarterLabel()));
 }
 
 export async function POST(req: Request) {
   if (!(await authorized(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  let body: { quarterLabel?: string; dryRun?: boolean; force?: boolean } = {};
+  let body: { quarterLabel?: string; dryRun?: boolean; force?: boolean; kind?: "office" | "retail" } = {};
   try { body = await req.json(); } catch { /* empty body ok */ }
   const quarterLabel = body.quarterLabel ?? priorQuarterLabel();
+  const by = await senderLabel(req);
+  // Each page sends its own: office (Nancy's) or retail (Harry's).
+  const kind = body.kind === "office" || body.kind === "retail" ? body.kind : undefined;
   // `force`: re-send a quarter that went out the OLD way, after checking with
   // AP — a person's call, kept as it was.
   if (body.force) {
-    const avidBill = await sendQuarterToAvidBill({ quarterLabel, dryRun: !!body.dryRun, force: true, by: await senderLabel(req) });
-    return NextResponse.json(avidBill);
+    return NextResponse.json(await sendQuarterToAvidBill({ quarterLabel, dryRun: !!body.dryRun, force: true, by, kind }));
   }
-  // The page's button sends the quarter to ALISON for review — early, or
-  // again as a reminder. It never sends to Avid itself.
-  const review = await quarterReview(quarterLabel);
-  const awaiting = review.invoices.filter((i) => i.status === "awaiting");
-  const total = awaiting.reduce((s, i) => s + i.amount, 0);
-  if (review.legacy) return NextResponse.json({ ok: true, quarterLabel, count: 0, total: 0, alreadySent: true });
-  if (body.dryRun || awaiting.length === 0) {
-    return NextResponse.json({
-      ok: true, quarterLabel, count: awaiting.length, total, dryRun: true, reviewer: reviewerEmail(),
-      ...(awaiting.length === 0 ? { reason: review.invoices.length ? "every invoice is already approved or sent" : "no commissions logged for that quarter" } : {}),
-    });
-  }
-  const res = await requestQuarterReview(quarterLabel, { force: true });
-  return NextResponse.json({ ok: res.ok, quarterLabel, count: res.emailed, total, reviewer: reviewerEmail(), reason: res.reason });
+  // The preview: what WILL go (the invoices not yet at Avid).
+  if (body.dryRun) return NextResponse.json(await sendQuarterToAvidBill({ quarterLabel, dryRun: true, by, kind }));
+  // What goes now, for the result line.
+  const preview = await sendQuarterToAvidBill({ quarterLabel, dryRun: true, by, kind });
+  const res = await runQuarterEnd(quarterLabel, by, kind);
+  if (!("memos" in res)) return NextResponse.json({ ok: true, quarterLabel, count: 0, total: 0, alreadySent: true });
+  if (res.avidBill && !res.avidBill.ok) return NextResponse.json({ ...res.avidBill, memos: res.memos });
+  const failed = Object.values(res.retailSends ?? {}).filter((r) => !(r as { avid?: boolean }).avid).length;
+  return NextResponse.json({
+    ok: failed === 0, quarterLabel, count: preview.count, total: preview.total, memos: res.memos,
+    ...(failed ? { reason: `${failed} retail invoice${failed === 1 ? "" : "s"} did not reach AvidXchange — send again to finish` } : {}),
+  });
 }
