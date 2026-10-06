@@ -153,13 +153,11 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
   fillRect(page, margin, billBarY, leftW, barH, teal);
   drawText(page, "BILL TO", margin + 8, billBarY + 4, bold, 9, white);
 
-  // The AvidBill processing pipeline routes invoices to LIKM4 — the
-  // management entity the commission expense lands in. Drop a clean
-  // bill-to block so it reads consistently across batches.
-  drawText(page, "LIKM4",                            margin + 8, billBarY + barH + 10, bold,    10, black);
-  drawText(page, "Korman Commercial Properties",     margin + 8, billBarY + barH + 24, regular, 10, dark);
-  drawText(page, "8 Neshaminy Interplex; Suite 400", margin + 8, billBarY + barH + 38, regular, 10, dark);
-  drawText(page, "Trevose, PA  19053",               margin + 8, billBarY + barH + 52, regular, 10, dark);
+  // The vendor code (LIKM4) sits in the VENDOR box on the right, so the
+  // bill-to block is just who is billed (owner: no LIKM4 twice).
+  drawText(page, "Korman Commercial Properties",     margin + 8, billBarY + barH + 10, bold,    10, black);
+  drawText(page, "8 Neshaminy Interplex; Suite 400", margin + 8, billBarY + barH + 24, regular, 10, dark);
+  drawText(page, "Trevose, PA  19053",               margin + 8, billBarY + barH + 38, regular, 10, dark);
 
   // ── 4. Info grid (right side) ─────────────────────────────────────────
   const gridRow1Y = 102;
