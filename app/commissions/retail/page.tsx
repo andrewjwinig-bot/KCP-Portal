@@ -340,6 +340,150 @@ export default function RetailCommissionsPage() {
     textTransform: "uppercase", marginBottom: 4, display: "block",
   };
 
+  /** The quarter cards, split: "pending" = not yet at AvidXchange, "paid" = sent. */
+  function renderSections(mode: "pending" | "paid") {
+          // Split into Pending vs Paid sections — same layout shape
+          // as /commissions (office) so staff get a consistent
+          // visual treatment across both pages.
+          const pendingQuarters = entriesByQuarter.filter(([q]) => !avidSent[q]);
+          const paidQuarters    = entriesByQuarter.filter(([q]) =>  avidSent[q]);
+          const renderQuarterCard = ([quarter, list]: [string, CommissionEntry[]]) => {
+              const total = list.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
+              const sentRecord = avidSent[quarter];
+              const sentDateLabel = sentRecord ? formatSentDate(sentRecord.sentAt) : null;
+              return (
+                <div key={quarter} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", opacity: sentRecord ? 0.85 : 1 }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "10px 14px",
+                    background: sentRecord ? "rgba(22,163,74,0.07)" : "rgba(11,74,125,0.05)",
+                    borderBottom: "1px solid var(--border)", gap: 12, flexWrap: "wrap",
+                  }}>
+                    <span style={{ fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}>
+                      {quarter}
+                      {sentRecord && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
+                          padding: "2px 8px", borderRadius: 999,
+                          background: "rgba(22,163,74,0.18)", color: "#15803d",
+                          border: "1px solid rgba(22,163,74,0.35)",
+                        }}>
+                          SENT TO AVIDXCHANGE · {sentDateLabel}
+                        </span>
+                      )}
+                    </span>
+                    <span className="muted small" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {list.length} · Commission {toMoney(total)} · Gross {toMoney(total * MARKUP)}
+                      {!sentRecord && (
+                        <select className="select-sm" value="" disabled={saving}
+                          onChange={(ev) => moveQuarter(quarter, list, ev.target.value)}>
+                          <option value="">Move to…</option>
+                          {quarterOpts.slice(0, 4).filter((q) => q !== quarter).map((q) => (
+                            <option key={q} value={q}>{q}</option>
+                          ))}
+                        </select>
+                      )}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "14px 14px 16px", borderBottom: "1px solid var(--border)" }}>
+                    <button className="btn primary large" onClick={() => downloadMemoPdf(quarter, list)}>
+                      Download PDF Memo
+                    </button>
+                    {/* Each invoice bills the commission × 1.2 (the 20%
+                        markup), as the office invoices do. */}
+                    <button
+                      className="btn large"
+                      onClick={() => downloadCommissionInvoicesZip(quarter, list.map((e) => ({
+                        entry: e,
+                        amount: (Number(e.incentiveAmount) || 0) * MARKUP,
+                      })))}
+                    >
+                      Download Invoices (Zip)
+                    </button>
+                    {!sentRecord && <SendToAvidBillButton quarterLabel={quarter} kind="retail" onSent={refreshAvidSent} />}
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>TENANT</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>BUILDING</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>SUITE</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>SQ FT</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>RATE</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>TERM</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>LEASE</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>COMMISSION</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>TOTAL</th>
+                        <th style={{ padding: "8px 12px", fontWeight: 700 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {list.map((e) => (
+                        <tr key={e.id} style={{ borderTop: "1px solid var(--border)" }}>
+                          <td style={{ padding: "10px 12px", fontWeight: 600 }}>
+                            {e.tenant}
+                            {e.comments && <div className="muted small" style={{ marginTop: 2, whiteSpace: "pre-wrap" }}>{e.comments}</div>}
+                          </td>
+                          <td style={{ padding: "10px 12px" }}>{e.building}</td>
+                          <td style={{ padding: "10px 12px" }}>{e.suite}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right" }}>{e.sqft.toLocaleString()}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right" }}>${(e.rate ?? 0).toFixed(2)}</td>
+                          <td style={{ padding: "10px 12px" }}>{e.termYears} yr</td>
+                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{toDisplayDate(e.leaseFrom)} – {toDisplayDate(e.leaseTo)}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>
+                            {toMoney(e.incentiveAmount)}
+                          </td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>
+                            {toMoney((Number(e.incentiveAmount) || 0) * MARKUP)}
+                          </td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
+                            <button
+                              className="btn"
+                              onClick={() => downloadCommissionInvoice(e, (Number(e.incentiveAmount) || 0) * MARKUP)}
+                              style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}
+                              title="Download AvidBill invoice for this commission"
+                            >Invoice</button>
+                            {sentAtById.has(e.id) ? (
+                              <span className="muted small" title="Sent to AvidXchange — kept as sent">Sent {formatSentDate(sentAtById.get(e.id)!)}</span>
+                            ) : (<>
+                            <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}>Edit</button>
+                            <button onClick={() => deleteEntry(e.id)} title="Delete row" aria-label="Delete row"
+                              style={{
+                                width: 20, height: 20, padding: 0, borderRadius: 4,
+                                border: "1px solid rgba(180,35,24,0.45)", background: "rgba(180,35,24,0.08)",
+                                color: "#b42318", cursor: "pointer", fontSize: 14, lineHeight: 1, fontWeight: 700,
+                                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                              }}>×</button>
+                            </>)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+          };
+          // Pending is only what has NOT gone to AvidXchange (owner); a sent
+          // quarter is a record and sits in its own Processed card below.
+          if (mode === "pending") {
+            return pendingQuarters.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {pendingQuarters.map(renderQuarterCard)}
+              </div>
+            ) : (
+              <div className="muted small">Nothing pending — every quarter logged has gone to AvidXchange.</div>
+            );
+          }
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {paidQuarters.map(renderQuarterCard)}
+            </div>
+          );
+  }
+  const processedCount = entriesByQuarter.filter(([q]) => avidSent[q]).length;
+  const pendingEntries = entries.filter((e) => !avidSent[e.quarter]);
+  const pendingTotal = pendingEntries.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
+
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
@@ -490,7 +634,7 @@ export default function RetailCommissionsPage() {
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
           <b style={{ fontSize: 17 }}>Pending Commissions</b>
           <span className="muted small">
-            {entries.length} {entries.length === 1 ? "Entry" : "Entries"} · Commission {toMoney(grandTotal)} · Gross (20%) {toMoney(grandTotal * MARKUP)}
+            {pendingEntries.length} {pendingEntries.length === 1 ? "Entry" : "Entries"} · Commission {toMoney(pendingTotal)} · Gross (20%) {toMoney(pendingTotal * MARKUP)}
           </span>
         </div>
 
@@ -498,160 +642,19 @@ export default function RetailCommissionsPage() {
           <LoadingState card={false} status="Loading retail commissions…" rows={4} />
         ) : entries.length === 0 ? (
           <div className="muted small">No commission entries yet. Add one above.</div>
-        ) : (() => {
-          // Split into Pending vs Paid sections — same layout shape
-          // as /commissions (office) so staff get a consistent
-          // visual treatment across both pages.
-          const pendingQuarters = entriesByQuarter.filter(([q]) => !avidSent[q]);
-          const paidQuarters    = entriesByQuarter.filter(([q]) =>  avidSent[q]);
-          const renderQuarterCard = ([quarter, list]: [string, CommissionEntry[]]) => {
-              const total = list.reduce((s, e) => s + (Number(e.incentiveAmount) || 0), 0);
-              const sentRecord = avidSent[quarter];
-              const sentDateLabel = sentRecord ? formatSentDate(sentRecord.sentAt) : null;
-              return (
-                <div key={quarter} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", opacity: sentRecord ? 0.85 : 1 }}>
-                  <div style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "10px 14px",
-                    background: sentRecord ? "rgba(22,163,74,0.07)" : "rgba(11,74,125,0.05)",
-                    borderBottom: "1px solid var(--border)", gap: 12, flexWrap: "wrap",
-                  }}>
-                    <span style={{ fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}>
-                      {quarter}
-                      {sentRecord && (
-                        <span style={{
-                          fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
-                          padding: "2px 8px", borderRadius: 999,
-                          background: "rgba(22,163,74,0.18)", color: "#15803d",
-                          border: "1px solid rgba(22,163,74,0.35)",
-                        }}>
-                          SENT TO AVIDXCHANGE · {sentDateLabel}
-                        </span>
-                      )}
-                    </span>
-                    <span className="muted small" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      {list.length} · Commission {toMoney(total)} · Gross {toMoney(total * MARKUP)}
-                      {!sentRecord && (
-                        <select className="select-sm" value="" disabled={saving}
-                          onChange={(ev) => moveQuarter(quarter, list, ev.target.value)}>
-                          <option value="">Move to…</option>
-                          {quarterOpts.slice(0, 4).filter((q) => q !== quarter).map((q) => (
-                            <option key={q} value={q}>{q}</option>
-                          ))}
-                        </select>
-                      )}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "14px 14px 16px", borderBottom: "1px solid var(--border)" }}>
-                    <button className="btn primary large" onClick={() => downloadMemoPdf(quarter, list)}>
-                      Download PDF Memo
-                    </button>
-                    {/* Each invoice bills the commission × 1.2 (the 20%
-                        markup), as the office invoices do. */}
-                    <button
-                      className="btn large"
-                      onClick={() => downloadCommissionInvoicesZip(quarter, list.map((e) => ({
-                        entry: e,
-                        amount: (Number(e.incentiveAmount) || 0) * MARKUP,
-                      })))}
-                    >
-                      Download Invoices (Zip)
-                    </button>
-                    {!sentRecord && <SendToAvidBillButton quarterLabel={quarter} kind="retail" onSent={refreshAvidSent} />}
-                  </div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
-                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>TENANT</th>
-                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>BUILDING</th>
-                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>SUITE</th>
-                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>SQ FT</th>
-                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>RATE</th>
-                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>TERM</th>
-                        <th style={{ padding: "8px 12px", fontWeight: 700 }}>LEASE</th>
-                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>COMMISSION</th>
-                        <th style={{ padding: "8px 12px", fontWeight: 700, textAlign: "right" }}>TOTAL</th>
-                        <th style={{ padding: "8px 12px", fontWeight: 700 }}></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {list.map((e) => (
-                        <tr key={e.id} style={{ borderTop: "1px solid var(--border)" }}>
-                          <td style={{ padding: "10px 12px", fontWeight: 600 }}>
-                            {e.tenant}
-                            {e.comments && <div className="muted small" style={{ marginTop: 2, whiteSpace: "pre-wrap" }}>{e.comments}</div>}
-                          </td>
-                          <td style={{ padding: "10px 12px" }}>{e.building}</td>
-                          <td style={{ padding: "10px 12px" }}>{e.suite}</td>
-                          <td style={{ padding: "10px 12px", textAlign: "right" }}>{e.sqft.toLocaleString()}</td>
-                          <td style={{ padding: "10px 12px", textAlign: "right" }}>${(e.rate ?? 0).toFixed(2)}</td>
-                          <td style={{ padding: "10px 12px" }}>{e.termYears} yr</td>
-                          <td style={{ padding: "10px 12px", whiteSpace: "nowrap" }}>{toDisplayDate(e.leaseFrom)} – {toDisplayDate(e.leaseTo)}</td>
-                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600 }}>
-                            {toMoney(e.incentiveAmount)}
-                          </td>
-                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "var(--brand)" }}>
-                            {toMoney((Number(e.incentiveAmount) || 0) * MARKUP)}
-                          </td>
-                          <td style={{ padding: "10px 12px", textAlign: "right", whiteSpace: "nowrap" }}>
-                            <button
-                              className="btn"
-                              onClick={() => downloadCommissionInvoice(e, (Number(e.incentiveAmount) || 0) * MARKUP)}
-                              style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}
-                              title="Download AvidBill invoice for this commission"
-                            >Invoice</button>
-                            {sentAtById.has(e.id) ? (
-                              <span className="muted small" title="Sent to AvidXchange — kept as sent">Sent {formatSentDate(sentAtById.get(e.id)!)}</span>
-                            ) : (<>
-                            <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}>Edit</button>
-                            <button onClick={() => deleteEntry(e.id)} title="Delete row" aria-label="Delete row"
-                              style={{
-                                width: 20, height: 20, padding: 0, borderRadius: 4,
-                                border: "1px solid rgba(180,35,24,0.45)", background: "rgba(180,35,24,0.08)",
-                                color: "#b42318", cursor: "pointer", fontSize: 14, lineHeight: 1, fontWeight: 700,
-                                display: "inline-flex", alignItems: "center", justifyContent: "center",
-                              }}>×</button>
-                            </>)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              );
-          };
-          return (
-            <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-              {pendingQuarters.length > 0 && (
-                <div>
-                  <CommissionSectionHeading
-                    label="Pending"
-                    count={pendingQuarters.length}
-                    tone="blue"
-                    subtitle="Not yet sent to AvidXchange"
-                  />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    {pendingQuarters.map(renderQuarterCard)}
-                  </div>
-                </div>
-              )}
-              {paidQuarters.length > 0 && (
-                <div>
-                  <CommissionSectionHeading
-                    label="Paid"
-                    count={paidQuarters.length}
-                    tone="green"
-                    subtitle="Sent to AvidXchange"
-                  />
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    {paidQuarters.map(renderQuarterCard)}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        ) : renderSections("pending")}
       </div>
+
+      {/* ── Processed: every quarter already at AvidXchange — the record ── */}
+      {!loading && processedCount > 0 && (
+        <div className="card">
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, flexWrap: "wrap", gap: 10 }}>
+            <b style={{ fontSize: 17 }}>Processed Commissions</b>
+            <span className="muted small">Sent to AvidXchange · {processedCount} {processedCount === 1 ? "quarter" : "quarters"}</span>
+          </div>
+          {renderSections("paid")}
+        </div>
+      )}
     </main>
   );
 }
