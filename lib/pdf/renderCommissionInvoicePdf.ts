@@ -262,7 +262,7 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
   // ── 8. Footer ──────────────────────────────────────────────────────────
   const footY = 740;
   drawText(page, `Payable to ${VENDOR}`,    margin, footY,      bold,    10, black);
-  drawText(page, "LIK Management Inc",      margin, footY + 14, regular, 10, dark);
+  drawText(page, "LIK Management Clearing", margin, footY + 14, regular, 10, dark);
 
   const bytes = await pdfDoc.save();
   return bytes;
