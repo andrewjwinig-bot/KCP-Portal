@@ -9,7 +9,7 @@ import { EstimatesByTenantCard } from "./EstimatesByTenantCard";
 import { STEP_LABEL, SUB_LABEL } from "./stepStyles";
 import { BudgetKpis } from "./BudgetKpis";
 import LoadingState from "@/app/components/LoadingState";
-import { scaleToTotal } from "@/lib/financials/budgets/lineOverrides";
+import { scaleToTotal, spreadEvenly } from "@/lib/financials/budgets/lineOverrides";
 import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
@@ -211,7 +211,12 @@ export default function BudgetDraftPage() {
     // Inputs store — the same figures Greg keys on his page — never into the
     // grid's typed months. A kind can sit on more than one line, so the save is
     // the KIND's months: every line carrying it, with this edit applied.
-    if (line.inputKind && (!account || baseBucket)) {
+    // A kind on MORE THAN ONE LINE (9860 carries two Insurance lines) is
+    // saved PER LINE, as that line's own typed months: saving the kind would
+    // re-split it across both lines by this year's shares, so a $0 typed on
+    // one came straight back as its share of the other's figure.
+    const sharedKind = !!line.inputKind && draft.sections.reduce((n, x) => n + x.lines.filter((l) => l.inputKind === line.inputKind).length, 0) > 1;
+    if (line.inputKind && (!account || baseBucket) && !(sharedKind && month !== "accept")) {
       const kind = line.inputKind;
       // The kind's figure is each line's BASE — a bucketed line's extras
       // (a Big Project, a Liability policy) are its own typed months.
@@ -280,6 +285,25 @@ export default function BudgetDraftPage() {
             });
             const months = l.months.map((_, i) => subLines.reduce((a, x) => a + x.months[i], 0));
             return { ...l, subLines, months, total: months.reduce((a, b) => a + b, 0) };
+          }),
+        }),
+      }));
+    } else if (month === "all" && value != null) {
+      // An annual typed on the line (or a part of it): spread evenly, as the
+      // server does, so the cell reads the figure at once.
+      const even = spreadEvenly;
+      setDraft((d) => d && ({
+        ...d,
+        sections: d.sections.map((s) => s.name !== sec.name ? s : {
+          ...s,
+          lines: s.lines.map((l) => {
+            if (l.label !== line.label) return l;
+            if (account && !wholeLine && l.subLines) {
+              const subLines = l.subLines.map((x) => x.account === account ? { ...x, months: even(value), total: Math.round(value), typed: new Array(12).fill(true) } : x);
+              const months = l.months.map((_, i) => subLines.reduce((a, x) => a + x.months[i], 0));
+              return { ...l, subLines, months, total: months.reduce((a, b) => a + b, 0) };
+            }
+            return { ...l, months: even(value), total: Math.round(value), typed: new Array(12).fill(true) };
           }),
         }),
       }));

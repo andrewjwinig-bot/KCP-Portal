@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withLineOverride } from "./draft";
+import { typedLine, withLineOverride } from "./draft";
 
 const sec = { name: "Residential Expenses", role: "residential-expense", lines: [] } as any;
 const line = (subs = true): any => ({
@@ -21,5 +21,21 @@ describe("whole-line override", () => {
     expect(withLineOverride(sec, line(), {} as any).lineOverride).toBeUndefined();
     const months = new Array(12).fill(500);
     expect(withLineOverride(sec, line(false), { "Residential Expenses::Insurance#@line": { months } } as any).total).toBe(1200);
+  });
+});
+
+describe("a keyed line that shares its kind", () => {
+  // 9860 carries two Insurance lines; a $0 typed on one must stand rather
+  // than come back as its share of the kind.
+  const exp = { name: "Residential Expenses", role: "residential-expense", lines: [] } as any;
+  const keyed = (): any => ({ label: "Insurance", mask: "6410-*", months: new Array(12).fill(749), total: 8988, basisTotal: 8988 });
+  it("takes the line's own typed months over its share", () => {
+    const out = typedLine(exp, keyed(), { "Residential Expenses::Insurance": { months: new Array(12).fill(0) } } as any);
+    expect(out.inputKind).toBe("insurance");
+    expect(out.total).toBe(0);
+    expect(out.typed?.every(Boolean)).toBe(true);
+  });
+  it("keeps its share when nothing is typed", () => {
+    expect(typedLine(exp, keyed(), {} as any).total).toBe(8988);
   });
 });
