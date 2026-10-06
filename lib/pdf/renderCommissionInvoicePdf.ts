@@ -187,7 +187,7 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
   const dpColW3 = contentW - dpColW1 - dpColW2 - dpColW4;
 
   fillRect(page, margin, dpBarY, contentW, barH, teal);
-  drawText(page, "DESCRIPTION", margin + 8,                     dpBarY + 4, bold, 9, white);
+  drawText(page, "INTERNAL COMMISSION", margin + 8,             dpBarY + 4, bold, 9, white);
   drawText(page, "PROPERTY",    margin + dpColW1 + 8,           dpBarY + 4, bold, 9, white);
   drawText(page, "SUITE",       margin + dpColW1 + dpColW2 + 8, dpBarY + 4, bold, 9, white);
   drawText(page, "TERMS",       margin + dpColW1 + dpColW2 + dpColW4 + 8, dpBarY + 4, bold, 9, white);
@@ -199,7 +199,7 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
 
   const dpRowY = dpBarY + barH + 8;
   // A long tenant name shrinks rather than running into PROPERTY.
-  const descText = "Internal Commission";
+  const descText = entry.tenant || "—"; // the tenant, under INTERNAL COMMISSION (owner)
   const descSize = Math.max(7, Math.min(10, 10 * (dpColW1 - 14) / Math.max(1, regular.widthOfTextAtSize(descText, 10))));
   drawText(page, descText,                                     margin + 8,                     dpRowY, regular, descSize, black);
   drawText(page, propertyText,                                 margin + dpColW1 + 8,           dpRowY, regular, 10, dark);
