@@ -7,6 +7,9 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { toDisplayDate, parseQuarterLabel, formatTerm, type CommissionEntry } from "@/lib/commissions";
 
+/** The memo names the fund by its PROPERTY code, as the books do (owner). */
+export const FUND_PROPERTY_CODE: Record<"JV III" | "NI LLC", string> = { "JV III": "FJVIII", "NI LLC": "FNIPLX" };
+
 const COMMISSIONS_MARKUP = 1.2;
 
 export async function buildCommissionMemoPdf(opts: {
@@ -91,15 +94,19 @@ export async function buildCommissionMemoPdf(opts: {
     ["FROM", "Alison Korman"],
     ["DATE", periodEndStr],
     ["PERIOD", `Q${Math.floor(periodEnd.getMonth() / 3) + 1} ${periodEnd.getFullYear()}`],
-    ["FUND", fund],
+    ["PROPERTY", FUND_PROPERTY_CODE[fund]],
+    ["VENDOR", "LIKM4"],
+    ["ACCOUNT", "1940-8501"],
     ["SUBJECT", "Incentive Compensation — Nancy L. Fox"],
   ];
+  // What the bookkeeper codes from — bold and larger, up top (owner).
+  const CODING = new Set(["PROPERTY", "VENDOR", "ACCOUNT"]);
   const memoH = memoRows.length * 16 + 12;
   page.drawRectangle({ x: margin, y: y - memoH + 12, width: contentW, height: memoH, color: shade });
   let my = y;
   for (const [k, v] of memoRows) {
     txt(k, margin + 12, my, { b: true, size: 8, color: navy });
-    txt(v, margin + 92, my, { size: 10 });
+    txt(v, margin + 92, my, CODING.has(k) ? { b: true, size: 11.5, color: navy } : { size: 10 });
     my -= 16;
   }
   y -= memoH + 14;
@@ -171,7 +178,7 @@ export async function buildCommissionMemoPdf(opts: {
     y -= 26;
   }
 
-  section(fund, fundEntries);
+  section(FUND_PROPERTY_CODE[fund], fundEntries);
 
   // ── Grand total bar ──
   page.drawRectangle({ x: margin, y: y - 7, width: contentW, height: 22, color: navy });

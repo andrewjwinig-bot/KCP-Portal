@@ -15,7 +15,7 @@ import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
 import { isMailConfigured, sendMail, type MailAttachment } from "@/lib/mail";
 import { portalOrigin } from "@/lib/linkOrigin";
-import { invoiceNumberFor } from "@/lib/pdf/renderCommissionInvoicePdf";
+import { commissionInvoiceNumber } from "@/lib/pdf/renderCommissionInvoicePdf";
 import { canonicalQuarter } from "@/lib/commissions";
 import {
   deliveredEntryIds, invoiceFileName, quarterInvoiceRows, renderQuarterInvoice,
@@ -72,7 +72,7 @@ export async function quarterReview(quarterLabel: string): Promise<QuarterReview
   const rec = recordOf(log, quarterLabel);
   const approved = new Set(rec.approvals.flatMap((a) => a.ids));
   const invoices: ReviewInvoice[] = rows.map((r) => ({
-    id: r.entry.id, invoiceNumber: invoiceNumberFor(r.entry.id), fileName: invoiceFileName(r.entry), kind: r.kind,
+    id: r.entry.id, invoiceNumber: commissionInvoiceNumber(r.entry), fileName: invoiceFileName(r.entry), kind: r.kind,
     building: r.entry.building ?? "", suite: r.entry.suite ?? "", tenant: r.entry.tenant ?? "", amount: r.amount,
     status: legacy || delivered.has(r.entry.id) ? "sent" : approved.has(r.entry.id) ? "approved" : "awaiting",
   }));
@@ -116,7 +116,7 @@ export async function requestQuarterReview(quarterLabel: string, opts: { force?:
   const total = awaiting.reduce((s, r) => s + r.amount, 0);
   const late = rec.requests.length > 0;
   const lines = awaiting.map((r) =>
-    `  ${invoiceNumberFor(r.entry.id)}  ${(r.entry.building || "—")} Suite ${r.entry.suite || "—"} — ${r.entry.tenant || "—"}  ${money(r.amount)}`);
+    `  ${commissionInvoiceNumber(r.entry)} — ${r.entry.tenant || "—"}  ${money(r.amount)}`);
   const to = reviewerEmail();
   const ok = await sendMail({
     to,
