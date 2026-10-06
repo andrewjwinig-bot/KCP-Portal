@@ -233,7 +233,7 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
   // was dropped (owner); the invoice # and the Suite column carry them.
   if (leaseLine) drawText(page, leaseLine,     margin + colDate + 8,                rowY, regular, 10, dark);
   drawText(page, ACC_CODE,                     margin + colDate + colDesc + 8,      rowY, regular, 10, dark);
-  drawText(page, moneyStr(amount),
+  drawText(page, `${moneyStr(amount)} *`,
     margin + colDate + colDesc + colAcc, rowY, bold, 10, black,
     { maxWidth: colAmt - 8, align: "right" });
   rowY += 16;
@@ -255,9 +255,15 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
   const totalY = rowY + 26;
   fillRect(page, margin + colDate + colDesc, totalY, colAcc + colAmt, barH, rgb(0.88, 0.93, 0.96));
   drawText(page, "TOTAL", margin + colDate + colDesc + 8, totalY + 4, bold, 10, teal);
-  drawText(page, moneyStr(amount),
+  drawText(page, `${moneyStr(amount)} *`,
     margin + colDate + colDesc + colAcc, totalY + 4, bold, 11, teal,
     { maxWidth: colAmt - 8, align: "right" });
+
+  // The amount is AFTER the 20% markup — say so, as the memo does (owner).
+  const commission = Number(entry.incentiveAmount) || 0;
+  drawText(page,
+    `* Total reflects the commission (${moneyStr(commission)}) grossed up 20% for property billing.`,
+    margin, totalY + barH + 12, regular, 8.5, dark);
 
   // ── 8. Footer ──────────────────────────────────────────────────────────
   const footY = 740;
