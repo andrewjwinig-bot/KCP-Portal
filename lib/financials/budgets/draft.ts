@@ -12,6 +12,7 @@
 import { assessedTaxInput } from "./assessedTaxes";
 import "server-only";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
+import { getFeeRollup, saveFeeRollup, upsertFeeRow } from "./feeRollupStore";
 import type { ReprojLine, Reprojection } from "@/lib/financials/reprojections/compute";
 import { listLoans } from "@/lib/debt/storage";
 import { budgetDebt, loansForStatement, FUND_SHELL, fundDebtShares, shareOfDebt, addDebt, type BudgetLoan } from "./debtBudget";
@@ -637,29 +638,45 @@ export type FeeRollupRow = { code: string; name: string; months: number[]; total
  *  whose draft consolidates buildings already counted. Four at a time; a
  *  building whose draft cannot be built is left out rather than failing 2010. */
 async function managementFeeRollup(budgetYear: number, growthPct: number): Promise<FeeRollupRow[]> {
-  const list = (await availableStatements()).filter((m) => groupOf(m.propertyCode) !== "lik" && glKeysFor(m.key).length === 1);
+  // Kept rows first (feeRollupStore.ts) — rebuilding every building's draft on
+  // each open of 2010 took minutes. Only a year with nothing kept builds them.
+  const kept = await getFeeRollup(budgetYear).catch(() => null);
+  if (kept) return kept;
+  const list = (await availableStatements()).filter((m) => paysFee(m.key, m.propertyCode));
   const out: FeeRollupRow[] = [];
   const queue = [...list];
   const worker = async () => {
     for (let m = queue.shift(); m; m = queue.shift()) {
-      const d = await buildBudgetDraft(m.key, budgetYear, growthPct).catch(() => null);
+      const d = await buildDraftCore(m.key, budgetYear, growthPct).catch(() => null);
       if (!d) continue;
-      const months = new Array(12).fill(0);
-      let feePct: number | undefined;
-      for (const sec of d.sections) {
-        if (sec.role === "revenue" || sec.role === "reimbursement") continue;
-        for (const l of sec.lines) {
-          if (!/management fee/i.test(l.label) || !l.mask.split(",").some((a) => a.trim().startsWith("6610"))) continue;
-          addInto(months, l.months);
-          feePct ??= l.feePct;
-        }
-      }
-      const total = r0(sum(months));
-      if (total) out.push({ code: d.propertyCode, name: d.propertyName, months: months.map(r0), total, feePct });
+      const row = feeRowOf(d);
+      if (row.total) out.push(row);
     }
   };
   await Promise.all([worker(), worker(), worker(), worker()]);
+  await saveFeeRollup(budgetYear, out).catch(() => {});
   return out.sort((a, b) => b.total - a.total);
+}
+
+/** A building that pays LIK a fee: not LIK itself, and not a fund (a fund's
+ *  draft consolidates buildings already counted). */
+function paysFee(key: string, propertyCode: string): boolean {
+  return groupOf(propertyCode) !== "lik" && glKeysFor(key).length === 1;
+}
+
+/** A draft's budgeted management fee (its 6610 expense lines). */
+function feeRowOf(d: BudgetDraft): FeeRollupRow {
+  const months = new Array(12).fill(0);
+  let feePct: number | undefined;
+  for (const sec of d.sections) {
+    if (sec.role === "revenue" || sec.role === "reimbursement") continue;
+    for (const l of sec.lines) {
+      if (!/management fee/i.test(l.label) || !l.mask.split(",").some((a) => a.trim().startsWith("6610"))) continue;
+      addInto(months, l.months);
+      feePct ??= l.feePct;
+    }
+  }
+  return { code: d.propertyCode, name: d.propertyName, months: months.map(r0), total: r0(sum(months)), feePct };
 }
 
 /** A Korman Homes (residential) property or the PHOMES roll-up. */
@@ -703,6 +720,13 @@ function blanketReimbursements(r: Reprojection): Reprojection {
 }
 
 export async function buildBudgetDraft(key: string, budgetYear: number, growthPct: number): Promise<BudgetDraft | null> {
+  const d = await buildDraftCore(key, budgetYear, growthPct);
+  // Keep this building's fee for 2010's roll-up, which reads the kept rows.
+  if (d && paysFee(key, d.propertyCode)) await upsertFeeRow(budgetYear, feeRowOf(d)).catch(() => {});
+  return d;
+}
+
+async function buildDraftCore(key: string, budgetYear: number, growthPct: number): Promise<BudgetDraft | null> {
   const basisYear = budgetYear - 1;
   const loaded = await loadReprojection(key, basisYear);
   if (!loaded) return null;
