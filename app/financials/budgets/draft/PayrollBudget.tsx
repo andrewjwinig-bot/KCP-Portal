@@ -81,6 +81,8 @@ export function PayrollBudget({ year }: { year: number }) {
   const [context, setContext] = useState<Record<string, BuildingContext>>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "failed">("idle");
+  // The allocation table reads as % (typed) or $ (gross × %, read-only).
+  const [allocView, setAllocView] = useState<"pct" | "dollar">("pct");
   // The health-benefits window: null closed, "" the whole list, else the employee opened from.
   const [healthFor, setHealthFor] = useState<string | null>(null);
   useEffect(() => {
@@ -300,7 +302,16 @@ export function PayrollBudget({ year }: { year: number }) {
 
       {/* 3 — ALLOCATION % */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <div style={STEP_LABEL}>Payroll allocation — % of each employee</div>
+        <div style={STEP_LABEL}>Payroll allocation — {allocView === "pct" ? "% of each employee" : "$ to each entity, per year"}</div>
+        <div style={{ display: "inline-flex" }} role="group" aria-label="Show the allocation as">
+          {(["pct", "dollar"] as const).map((v, i) => (
+            <button key={v} type="button" className="btn sm" onClick={() => setAllocView(v)}
+              style={{ borderRadius: i === 0 ? "999px 0 0 999px" : "0 999px 999px 0", marginLeft: i ? -1 : 0,
+                ...(allocView === v ? { background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" } : {}) }}>
+              {v === "pct" ? "%" : "$"}
+            </button>
+          ))}
+        </div>
         {off100.length > 0 && (
           <HoverCard title="Allocations that don't total 100%" rows={off100.map((e) => ({ label: e.name || "(unnamed)", value: pct(e.allocTotal, 1), color: "#b45309" }))}>
             <Pill tone={TONE_AMBER}>{off100.length} not 100%</Pill>
@@ -352,11 +363,15 @@ export function PayrollBudget({ year }: { year: number }) {
                 <tr key={e.id}>
                   <td style={{ ...tdL, fontWeight: 600 }}>{e.name || <span className="muted">—</span>}</td>
                   <td style={td}>{num0(employeeCost(e, r).gross)}</td>
-                  {ALLOC_COLUMNS.map((c) => (
+                  {allocView === "dollar" ? ALLOC_COLUMNS.map((c) => {
+                    const d = dollars[c.key as AllocKey] ?? 0;
+                    const tip = tipFor(c.key as AllocKey, c.label);
+                    return <td key={c.key} style={td}>{tip ? <HoverCard title={tip.title} rows={tip.rows} footer={tip.footer}>{num0(d)}</HoverCard> : num0(d)}</td>;
+                  }) : ALLOC_COLUMNS.map((c) => (
                     <PctCell key={c.key} value={e.alloc?.[c.key] ?? 0} decimals={0} tip={tipFor(c.key as AllocKey, c.label)}
                       onSave={(v) => setEmp(e.id, { alloc: { ...e.alloc, [c.key as AllocKey]: v } })} />
                   ))}
-                  <td style={{ ...td, fontWeight: 800, color: Math.abs(tot - 100) > 0.05 ? "#b45309" : undefined }}>{pct(tot, Number.isInteger(tot) ? 0 : 1)}</td>
+                  <td style={{ ...td, fontWeight: 800, color: Math.abs(tot - 100) > 0.05 ? "#b45309" : undefined }}>{allocView === "dollar" ? num0(Object.values(dollars).reduce((x, y) => x + y, 0)) : pct(tot, Number.isInteger(tot) ? 0 : 1)}</td>
                 </tr>
               );
             })}
