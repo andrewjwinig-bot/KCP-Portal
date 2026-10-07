@@ -1452,11 +1452,12 @@ time — and the team does not have time to open the GL over $80.
     answer agreed was that no single building ratio does — whether a person
     deserves it is a market / performance call, and any one raise is noise
     against a building's NOI. What the numbers CAN answer: (1) what it really
-    costs us, and (2) does it fit the year's plan. So the card is a POOL plus
-    a list of raises (% or $ of salary, or a one-time bonus):
-    - **Pool**: a % of SALARIES (a merit budget is quoted on base pay) or a $
-      figure, spent in PAY dollars (salary increases + bonuses); tiles show
-      raise budget / raises / left (or over) / cost / yr / net of recoveries (when any).
+    costs us, and (2) where it lands. So the card is a list of raises (% or $ of salary, or a one-time bonus):
+    - **No raise budget / pool control** (owner: "i dont know that we need
+      the blanket raise budget" — it only took X% of total salaries). The
+      tiles are Raises (pay $, and as a % of total salaries) / Cost / yr /
+      net of recoveries (when any). `raisePlan.pool` and `poolDollars` remain
+      in the data model, unused by the card.
     - **Net of recoveries — SHOWN ONLY WHEN SOMETHING IS RECOVERED** (owner:
       most salaries recover nothing, so the label implied recoveries that were
       not there): the tile and the where-it-lands column appear only when the
@@ -1464,7 +1465,7 @@ time — and the team does not have time to open the GL over $80.
       (fully loaded, annual). The raise table is one cost column (Cost / yr,
       hover: raise + taxes & 401(k) − back from tenants) plus an "Equals"
       column giving the raise in the OTHER unit ($ raise → % of salary, % →
-      $); dollar inputs show as $40,000. The pool is labelled "Raise budget". Maintenance Salaries (6030-8502) are recoverable,
+      $); dollar inputs show as $40,000. Maintenance Salaries (6030-8502) are recoverable,
       so each building's maintenance share of a raise is netted by its
       budgeted recovery rate (reimbursements ÷ reimbursable expenses, capped
       100% — close for NNN, rough for office base-year stops; the card says
