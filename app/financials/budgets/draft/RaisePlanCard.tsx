@@ -128,7 +128,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
         <StatPill label="Raises" value={money0(pay)} sub={`${plan.raises.length} raise${plan.raises.length === 1 ? "" : "s"} · pay dollars`} />
         <StatPill label={left < 0 ? "Over the pool" : "Left in the pool"} value={money0(Math.abs(left))} sub={pool > 0 ? `${((pay / pool) * 100).toFixed(0)}% used` : ""} />
         <StatPill label="Fully loaded cost" value={money0(cost)} sub={`${money0(cost - pay)} taxes & 401(k)`} />
-        <StatPill label="Net of recoveries" value={money0(cost - recovered)} sub={recovered >= 0.5 ? `${money0(recovered)} back from tenants` : "nothing recoverable"} total />
+        <StatPill label="Net cost / yr" value={money0(cost - recovered)} sub={recovered >= 0.5 ? `after ${money0(recovered)} back from tenants` : "none recoverable"} total />
       </div>
       {left < -0.5 && <div style={{ padding: "0 14px 10px" }}><Pill tone={TONE_AMBER}>{money0(-left)} over the pool</Pill></div>}
 
@@ -138,7 +138,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
           <thead><tr>
             <th style={thL}>Employee</th><th style={thL}>Raise</th><th style={th}>Amount</th>
             <th style={th}>Salary now</th><th style={th}>New salary</th><th style={th}>Pay</th>
-            <th style={th}>Fully loaded</th><th style={th}>Net of recoveries</th><th style={th} />
+            <th style={th}>Fully loaded</th><th style={th}>Net cost / yr</th><th style={th} />
           </tr></thead>
           <tbody>
             {plan.raises.map((t, i) => {
@@ -201,7 +201,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
               </tr>
               <tr>
                 <th style={thL}>Where it lands</th><th style={th}>Change / yr</th><th style={th}>Change / mo</th>
-                <th style={th}>Net of recoveries</th><th style={th}>NOI</th><th style={th}>Cash flow</th><th style={th}>Allocation</th>
+                <th style={th}>Net cost / yr</th><th style={th}>NOI</th><th style={th}>Cash flow</th><th style={th}>Allocation</th>
               </tr>
             </thead>
             <tbody>

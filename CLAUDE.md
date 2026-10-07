@@ -1456,8 +1456,10 @@ time — and the team does not have time to open the GL over $80.
     a list of raises (% or $ of salary, or a one-time bonus):
     - **Pool**: a % of SALARIES (a merit budget is quoted on base pay) or a $
       figure, spent in PAY dollars (salary increases + bonuses); tiles show
-      pool / raises / left (or over) / fully loaded cost / NET OF RECOVERIES.
-    - **Net of recoveries**: Maintenance Salaries (6030-8502) are recoverable,
+      pool / raises / left (or over) / fully loaded cost / NET COST / YR.
+    - **Net cost / yr** (it was labelled "Net of recoveries", which the owner
+      found misleading — most salaries recover nothing, so it read as if
+      there were recoveries; it is the ANNUAL cost after any): Maintenance Salaries (6030-8502) are recoverable,
       so each building's maintenance share of a raise is netted by its
       budgeted recovery rate (reimbursements ÷ reimbursable expenses, capped
       100% — close for NNN, rough for office base-year stops; the card says
