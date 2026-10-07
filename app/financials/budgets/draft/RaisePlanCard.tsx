@@ -5,7 +5,7 @@
 // the plan re-runs the budget's own math (`raisePlanImpact` — the same FICA /
 // Medicare / FUTA caps, 401(k) match, allocation % and fund basis) and shows:
 //
-//   • what the raises add in PAY dollars, and as a % of total salaries;
+//   • what the raises add in PAY dollars;
 //   • the fully loaded cost (pay + taxes + 401(k));
 //   • the NET cost after tenant recoveries — Maintenance Salaries (6030-8502)
 //     are recoverable, so part of a maintenance raise comes back through CAM
@@ -75,7 +75,6 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
 
   const pay = impact.employees.reduce((s, e) => s + e.pay, 0);
   const cost = impact.employees.reduce((s, e) => s + e.cost, 0);
-  const salaries = doc.employees.reduce((s, e) => s + (e.salary || 0), 0);
 
   const groups = useMemo(() => ["Shopping Centers", "NI LLC", "JV III", "Misc"]
     .map((g) => ({ g, rows: impact.rows.filter((r) => r.group === g).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)) }))
@@ -121,7 +120,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
       </div>
 
       <div className="pills" style={{ padding: "0 14px 12px" }}>
-        <StatPill label="Raises" value={money0(pay)} sub={`${plan.raises.length} raise${plan.raises.length === 1 ? "" : "s"}${salaries > 0 ? ` · ${((pay / salaries) * 100).toFixed(1)}% of ${money0(salaries)} salaries` : ""}`} />
+        <StatPill label="Raises" value={money0(pay)} sub={`${plan.raises.length} raise${plan.raises.length === 1 ? "" : "s"}`} />
         <StatPill label="Cost / yr" value={money0(cost)} sub={`incl. ${money0(cost - pay)} taxes & 401(k)`} total={!recoverable} />
         {recoverable && <StatPill label="Net of recoveries" value={money0(cost - recovered)} sub={`${money0(recovered)} back from tenants`} total />}
       </div>
