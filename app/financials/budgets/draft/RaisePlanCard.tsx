@@ -38,10 +38,12 @@ const band: React.CSSProperties = { background: "rgba(11,74,125,0.07)", fontWeig
 const topRule: React.CSSProperties = { borderTop: "2px solid var(--border)" };
 
 /** A number box that commits on blur / Enter — typing "3." never fights the parse. */
-function Amount({ value, onSave, width = 90, ariaLabel }: { value: number; onSave: (v: number) => void; width?: number; ariaLabel: string }) {
-  const [v, setV] = useState(String(value));
-  useEffect(() => setV(String(value)), [value]);
-  const commit = () => { const n = Number(v.replace(/[\s$,%]/g, "")); if (Number.isFinite(n) && n !== value) onSave(n); else setV(String(value)); };
+function Amount({ value, onSave, width = 90, ariaLabel, money }: { value: number; onSave: (v: number) => void; width?: number; ariaLabel: string; money?: boolean }) {
+  // A dollar figure reads as the page's other dollars ($40,000); a percent as typed.
+  const show = (n: number) => (money ? money0(n) : String(n));
+  const [v, setV] = useState(show(value));
+  useEffect(() => setV(show(value)), [value, money]);
+  const commit = () => { const n = Number(v.replace(/[\s$,%]/g, "")); if (Number.isFinite(n) && n !== value) onSave(n); else setV(show(value)); };
   return <input value={v} inputMode="decimal" aria-label={ariaLabel} style={{ width, textAlign: "right" }}
     onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); }} />;
 }
@@ -67,6 +69,9 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
   /** What the building really bears: the change less what tenants reimburse. */
   const net = (r: RaiseImpactRow) => r.delta - r.deltaMaintenance * (ctx(r.code)?.recoveryRate ?? 0);
   const recovered = impact.rows.reduce((s, r) => s + (r.delta - net(r)), 0);
+  // Most salaries recover nothing (only Maintenance Salaries 6030-8502 do), so
+  // "net of recoveries" is shown only when some of the plan actually comes back.
+  const recoverable = recovered >= 0.5;
 
   const pool = poolDollars(doc, plan.pool);
   const pay = impact.employees.reduce((s, e) => s + e.pay, 0);
@@ -114,31 +119,31 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
         <span style={{ fontWeight: 800, fontSize: 15 }}>Raise Plan</span>
         <Pill tone={TONE_NEUTRAL}>Not in the budget until applied</Pill>
         <span style={{ flex: 1 }} />
-        <span className="muted small">Pool</span>
-        <select className="select-sm" value={plan.pool.kind} aria-label="Pool basis"
+        <span className="muted small">Raise budget</span>
+        <select className="select-sm" value={plan.pool.kind} aria-label="Raise budget basis"
           onChange={(e) => onPlan({ ...plan, pool: e.target.value === "dollar" ? { kind: "dollar", amount: Math.round(pool) } : { kind: "pct", amount: salaries ? Math.round((pool / salaries) * 1000) / 10 : DEFAULT_POOL.amount } })}>
           <option value="pct">% of salaries</option><option value="dollar">$ amount</option>
         </select>
-        <Amount value={plan.pool.amount} ariaLabel="Pool amount" width={90} onSave={(v) => onPlan({ ...plan, pool: { ...plan.pool, amount: v } })} />
+        <Amount value={plan.pool.amount} ariaLabel="Raise budget" width={100} money={plan.pool.kind === "dollar"} onSave={(v) => onPlan({ ...plan, pool: { ...plan.pool, amount: v } })} />
         <button type="button" className="btn sm" onClick={() => setOpen(false)}>Close</button>
       </div>
 
       <div className="pills" style={{ padding: "0 14px 12px" }}>
-        <StatPill label="Raise pool" value={money0(pool)} sub={plan.pool.kind === "pct" ? `${plan.pool.amount}% of ${money0(salaries)} salaries` : "set amount"} />
+        <StatPill label="Raise budget" value={money0(pool)} sub={plan.pool.kind === "pct" ? `${plan.pool.amount}% of ${money0(salaries)} salaries` : "set amount"} />
         <StatPill label="Raises" value={money0(pay)} sub={`${plan.raises.length} raise${plan.raises.length === 1 ? "" : "s"} · pay dollars`} />
-        <StatPill label={left < 0 ? "Over the pool" : "Left in the pool"} value={money0(Math.abs(left))} sub={pool > 0 ? `${((pay / pool) * 100).toFixed(0)}% used` : ""} />
-        <StatPill label="Fully loaded cost" value={money0(cost)} sub={`${money0(cost - pay)} taxes & 401(k)`} />
-        <StatPill label="Net cost / yr" value={money0(cost - recovered)} sub={recovered >= 0.5 ? `after ${money0(recovered)} back from tenants` : "none recoverable"} total />
+        <StatPill label={left < 0 ? "Over budget" : "Left in budget"} value={money0(Math.abs(left))} sub={pool > 0 ? `${((pay / pool) * 100).toFixed(0)}% used` : ""} />
+        <StatPill label="Cost / yr" value={money0(cost)} sub={`incl. ${money0(cost - pay)} taxes & 401(k)`} total={!recoverable} />
+        {recoverable && <StatPill label="Net of recoveries" value={money0(cost - recovered)} sub={`${money0(recovered)} back from tenants`} total />}
       </div>
-      {left < -0.5 && <div style={{ padding: "0 14px 10px" }}><Pill tone={TONE_AMBER}>{money0(-left)} over the pool</Pill></div>}
+      {left < -0.5 && <div style={{ padding: "0 14px 10px" }}><Pill tone={TONE_AMBER}>{money0(-left)} over the raise budget</Pill></div>}
 
       {/* The raises */}
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr>
             <th style={thL}>Employee</th><th style={thL}>Raise</th><th style={th}>Amount</th>
-            <th style={th}>Salary now</th><th style={th}>New salary</th><th style={th}>Pay</th>
-            <th style={th}>Fully loaded</th><th style={th}>Net cost / yr</th><th style={th} />
+            <th style={th}>Equals</th><th style={th}>Salary now</th><th style={th}>New salary</th>
+            <th style={th}>Cost / yr</th><th style={th} />
           </tr></thead>
           <tbody>
             {plan.raises.map((t, i) => {
@@ -166,12 +171,20 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
                       {(Object.keys(KIND_LABEL) as RaiseTest["kind"][]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
                     </select>
                   </td>
-                  <td style={td}><Amount value={t.amount} ariaLabel={KIND_LABEL[t.kind]} width={80} onSave={(v) => setRaise(i, { amount: v })} /></td>
+                  <td style={td}><Amount value={t.amount} ariaLabel={KIND_LABEL[t.kind]} width={95} money={t.kind !== "pct"} onSave={(v) => setRaise(i, { amount: v })} /></td>
+                  {/* The raise in the OTHER unit: a $ raise as a % of salary, a % raise in dollars. */}
+                  <td style={{ ...td, color: "var(--muted)" }}>{!oe || !emp?.salary ? "–" : t.kind === "pct" ? money0(oe.pay) : `${((oe.pay / emp.salary) * 100).toFixed(1)}%`}</td>
                   <td style={td}>{emp ? money0(emp.salary) : "–"}</td>
                   <td style={td}>{oe && t.kind !== "bonus" ? money0(oe.after.salary) : <span className="muted">bonus</span>}</td>
-                  <td style={td}>{oe ? money0(oe.pay) : "–"}</td>
-                  <td style={td}>{oe ? money0(oe.cost) : "–"}</td>
-                  <td style={{ ...td, fontWeight: 700 }}>{oe ? money0(ownNet) : "–"}</td>
+                  <td style={{ ...td, fontWeight: 700 }}>
+                    {oe ? (
+                      <HoverCard title={`${emp?.name ?? ""} · cost / yr`} rows={[
+                        { label: t.kind === "bonus" ? "Bonus" : "Raise", value: money0(oe.pay) },
+                        { label: "Taxes & 401(k)", value: money0(oe.cost - oe.pay) },
+                        ...(oe.cost - ownNet >= 0.5 ? [{ label: "Back from tenants", value: `−${money0(oe.cost - ownNet)}`, color: "#15803d" }] : []),
+                      ]} footer={{ label: oe.cost - ownNet >= 0.5 ? "Net of recoveries" : "Cost / yr", value: money0(ownNet) }}>{money0(ownNet)}</HoverCard>
+                    ) : "–"}
+                  </td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
                     {oe && t.kind !== "bonus" && (
                       <button type="button" className="btn sm" title="Set the salary in the budget and take this off the plan"
@@ -195,13 +208,13 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={thL} colSpan={4} />
+                <th style={thL} colSpan={recoverable ? 4 : 3} />
                 <th style={{ ...th, textAlign: "center" }} colSpan={2}>Impact on</th>
                 <th style={th} />
               </tr>
               <tr>
                 <th style={thL}>Where it lands</th><th style={th}>Change / yr</th><th style={th}>Change / mo</th>
-                <th style={th}>Net cost / yr</th><th style={th}>NOI</th><th style={th}>Cash flow</th><th style={th}>Allocation</th>
+                {recoverable && <th style={th}>Net of recoveries</th>}<th style={th}>NOI</th><th style={th}>Cash flow</th><th style={th}>Allocation</th>
               </tr>
             </thead>
             <tbody>
@@ -215,7 +228,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
                     <td style={tdL}>{g === "Misc" ? "Other entities" : g}</td>
                     <td style={{ ...td, color: UP }}>{signed(sub)}</td>
                     <td style={{ ...td, color: UP }}>{signed(sub / 12)}</td>
-                    <td style={{ ...td, color: UP }}>{signed(subNet)}</td>
+                    {recoverable && <td style={{ ...td, color: UP }}>{signed(subNet)}</td>}
                     {n ? impactCell(n.cost, n.base, "NOI", `${g} NOI`) : <td style={td} />}
                     {c ? impactCell(c.cost, c.base, "cash flow after debt", `${g} cash flow after debt service`) : <td style={td} />}
                     <td style={td}>{cost ? `${((sub / cost) * 100).toFixed(1)}%` : "–"}</td>
@@ -231,16 +244,18 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
                         </td>
                         <td style={{ ...td, color: UP, fontWeight: 700 }}>{signed(r.delta)}</td>
                         <td style={{ ...td, color: UP }}>{signed(r.delta / 12)}</td>
-                        <td style={{ ...td, color: UP }}>
-                          {back >= 0.5 ? (
-                            <HoverCard title={`${label(r)} · recoveries`} rows={[
-                              { label: "Change", value: signed(r.delta) },
-                              { label: `Maint. Salaries ${GROUP_GL.maintenance}`, value: signed(r.deltaMaintenance) },
-                              { label: "Budgeted recovery rate", value: `${((k?.recoveryRate ?? 0) * 100).toFixed(0)}%` },
-                              { label: "Back from tenants", value: money0(back), color: "#15803d" },
-                            ]} footer={{ label: "Net cost", value: signed(net(r)), color: UP }}>{signed(net(r))}</HoverCard>
-                          ) : signed(net(r))}
-                        </td>
+                        {recoverable && (
+                          <td style={{ ...td, color: UP }}>
+                            {back >= 0.5 ? (
+                              <HoverCard title={`${label(r)} · recoveries`} rows={[
+                                { label: "Change", value: signed(r.delta) },
+                                { label: `Maint. Salaries ${GROUP_GL.maintenance}`, value: signed(r.deltaMaintenance) },
+                                { label: "Budgeted recovery rate", value: `${((k?.recoveryRate ?? 0) * 100).toFixed(0)}%` },
+                                { label: "Back from tenants", value: money0(back), color: "#15803d" },
+                              ]} footer={{ label: "Net cost", value: signed(net(r)), color: UP }}>{signed(net(r))}</HoverCard>
+                            ) : signed(net(r))}
+                          </td>
+                        )}
                         {impactCell(net(r), k?.noi ?? null, "NOI", `${label(r)} NOI`)}
                         {impactCell(net(r), k?.cashFlowAfterDebt ?? null, "cash flow after debt", `${label(r)} cash flow after debt service`)}
                         <td style={{ ...td, color: "var(--muted)" }}>{cost ? `${((r.delta / cost) * 100).toFixed(1)}%` : "–"}</td>
@@ -253,14 +268,14 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
                 <td style={{ ...tdL, ...topRule }}>Total</td>
                 <td style={{ ...td, ...topRule, color: UP }}>{signed(cost)}</td>
                 <td style={{ ...td, ...topRule, color: UP }}>{signed(cost / 12)}</td>
-                <td style={{ ...td, ...topRule, color: UP }}>{signed(cost - recovered)}</td>
+                {recoverable && <td style={{ ...td, ...topRule, color: UP }}>{signed(cost - recovered)}</td>}
                 <td style={{ ...td, ...topRule }} /><td style={{ ...td, ...topRule }} />
                 <td style={{ ...td, ...topRule }}>100%</td>
               </tr>
             </tbody>
           </table>
           <div className="muted small" style={{ padding: "8px 14px" }}>
-            Impact is the net cost ÷ each building&rsquo;s {ctxYears.length ? ctxYears.join(" / ") : doc.year} budgeted NOI and cash flow after debt service
+            Impact is the cost ÷ each building&rsquo;s {ctxYears.length ? ctxYears.join(" / ") : doc.year} budgeted NOI and cash flow after debt service
             {ctxYears.length && !ctxYears.includes(doc.year) ? ` (no ${doc.year} budget published yet)` : ""}; a fund band is over its buildings combined.
             Recoveries apply only to Maintenance Salaries ({GROUP_GL.maintenance}), at each building&rsquo;s budgeted recovery rate — close for a NNN centre, rough for an office building on base-year stops.
           </div>
