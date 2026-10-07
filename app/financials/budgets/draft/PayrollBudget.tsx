@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL, TONE_BLUE } from "@/app/components/Pill";
+import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { HoverCard } from "@/app/components/HoverCard";
 import LoadingState from "@/app/components/LoadingState";
@@ -130,16 +130,12 @@ export function PayrollBudget({ year }: { year: number }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div className="card" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 14px" }}>
-        <Pill tone={TONE_BLUE}>Drew &amp; Alison only</Pill>
-        <span className="small muted" style={{ flex: 1 }}>
-          Per-employee pay, benefits and allocation — the salaries the Shopping Centers, JV III and NI LLC budgets allocate, and the table the Payroll Invoicer will read.
-          {seeded && <> <b>Starting from {doc.seededFrom ?? "last year"}</b> — key each employee&rsquo;s {year} pay over it.</>}
-        </span>
-        <span className="small" style={{ color: saving === "failed" ? "#b91c1c" : "var(--muted)" }}>
-          {saving === "saving" ? "Saving…" : saving === "failed" ? "Couldn't save — check your connection" : saving === "saved" ? "Saved" : doc.updatedAt ? `Saved ${new Date(doc.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}${doc.updatedBy ? ` by ${doc.updatedBy}` : ""}` : ""}
-        </span>
-      </div>
+      {/* No header card (owner): only a first-year note or a failed save is worth a line. */}
+      {(seeded || saving === "failed") && (
+        <div className="small" style={{ color: saving === "failed" ? "#b91c1c" : "var(--muted)" }}>
+          {saving === "failed" ? "Couldn't save — check your connection" : <><b>Starting from {doc.seededFrom ?? "last year"}</b> — key each employee&rsquo;s {year} pay over it.</>}
+        </div>
+      )}
 
       <div className="pills">
         <StatPill label="Employees" value={String(doc.employees.length)} />
