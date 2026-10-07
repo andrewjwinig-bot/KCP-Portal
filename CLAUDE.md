@@ -2100,6 +2100,12 @@ only, nothing from the budget**.
   `SegToggle`) and given `labels` ("Sep 25"…), `totalLabel` ("T-12") and
   `plain` (no green actual shading — every month is an actual). Both pages
   render it; keep them on one component.
+- **REPROJECTIONS DRILL TO THE GL IN PLACE** (owner: "view the detail without
+  having to redirect to operating statements"): a POSTED month's cell opens
+  that month's GL transactions and the year column opens the year to date —
+  the operating statements' own `LineDetailModal`, via `ReprojTable`'s
+  `onDrill` (budget months have nothing to open). The T-12 passes no
+  `onDrill`: its columns span two years.
 - **A month no GL covers reads $0, and the page SAYS which** (`missingMonths`)
   in an amber banner — a short T-12 must never pass for a full one.
 - **Excel** is the Reprojections sheet writer with `meta.t12`

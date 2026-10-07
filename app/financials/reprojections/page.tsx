@@ -10,7 +10,8 @@ import LoadingState from "@/app/components/LoadingState";
 import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
-import { ReprojTable, HeaderSelect, SegToggle, MONTHS, ACTUAL_TINT, money, varColor, sum, type Mode, type ViewOpts, type Reprojection } from "./ReprojTable";
+import { ReprojTable, HeaderSelect, SegToggle, MONTHS, ACTUAL_TINT, money, varColor, sum, type Mode, type ViewOpts, type Reprojection, type OnDrill } from "./ReprojTable";
+import { LineDetailModal } from "../operating-statements/LineDetailModal";
 import { groupStatementOptions, groupByRentRoll } from "@/lib/financials/operating-statements/propertyGroups";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
@@ -34,6 +35,9 @@ export default function ReprojectionsPage() {
   // Bud / Var columns). "actuals" = a clean full-year-actuals statement: every
   // month's real GL figure in its own column + a Full Year total, no budget.
   const [mode, setMode] = useState<Mode>("reproject");
+  // A posted month (or the year to date) clicked open on its GL transactions —
+  // the operating statements' own drill-down, so nobody has to leave the page.
+  const [detail, setDetail] = useState<Parameters<OnDrill>[0] | null>(null);
 
   useEffect(() => {
     fetch("/api/financials/reprojections").then((r) => r.json()).then((j) => {
@@ -196,7 +200,11 @@ export default function ReprojectionsPage() {
 
       {loading && <LoadingState status="Loading full-year figures…" columns={4} rows={4} />}
       {!loading && !data && <div className="card"><div className="muted small">Select a property and year.</div></div>}
-      {!loading && data && <ReprojTable data={data} view={view} noteFor={noteFor} osHref={osHref} />}
+      {!loading && data && <ReprojTable data={data} view={view} noteFor={noteFor} osHref={osHref} onDrill={setDetail} />}
+      {detail && cur && (
+        <LineDetailModal viewKey={key} property={cur.propertyCode} year={year} period={detail.period} monthLabel={detail.monthLabel}
+          line={{ mask: detail.mask, label: detail.label, sign: detail.sign }} initialTab="gl" initialScope={detail.scope} onClose={() => setDetail(null)} />
+      )}
     </main>
   );
 }
