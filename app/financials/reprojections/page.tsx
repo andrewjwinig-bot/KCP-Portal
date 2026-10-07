@@ -10,7 +10,10 @@ import LoadingState from "@/app/components/LoadingState";
 import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
-import { ReprojTable, HeaderSelect, SegToggle, MONTHS, ACTUAL_TINT, money, varColor, sum, type Mode, type ViewOpts, type Reprojection, type OnDrill } from "./ReprojTable";
+import { ReprojTable, HeaderSelect, SegToggle, MONTHS, ACTUAL_TINT, money, varColor, sum, type Mode, type ViewOpts, type Reprojection, type OnDrill, type OnEdit } from "./ReprojTable";
+import { useUser } from "@/app/components/UserProvider";
+import { isBudgetAuthor } from "@/lib/financials/budgets/contributors";
+import type { UserId } from "@/lib/users";
 import { LineDetailModal } from "../operating-statements/LineDetailModal";
 import { groupStatementOptions, groupByRentRoll } from "@/lib/financials/operating-statements/propertyGroups";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -78,6 +81,36 @@ export default function ReprojectionsPage() {
     }
   }, [key, year]);
   useEffect(() => { load(); }, [load]);
+
+  // A PROJECTED month typed over (owner: 2010's $100K of LIK Management
+  // Clearing Sep–Dec that won't happen has to be backed out). The cell shows
+  // the figure at once; the totals follow when the reprojection reloads.
+  const { user } = useUser();
+  const canEdit = isBudgetAuthor(user.id as UserId);
+  const [editError, setEditError] = useState<string | null>(null);
+  const saveEdit: OnEdit = async ({ section, label, month, value }) => {
+    setEditError(null);
+    if (typeof month === "number" && value != null) {
+      setData((d) => d && ({ ...d, sections: d.sections.map((sec) => sec.name !== section ? sec : {
+        ...sec, lines: sec.lines.map((l) => {
+          if (l.label !== label) return l;
+          const blended = l.blended.slice(); blended[month] = value;
+          const overridden = (l.overridden ?? new Array(12).fill(false)).slice(); overridden[month] = true;
+          return { ...l, blended, overridden, reprojTotal: blended.reduce((a, b) => a + b, 0) };
+        }),
+      }) }));
+    }
+    const r = await fetch("/api/financials/reprojections/overrides", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key, year, section, label, month, value }),
+    }).catch(() => null);
+    if (!r || !r.ok) {
+      const j = r ? await r.json().catch(() => ({})) : {};
+      setEditError(j?.error ?? "Couldn't save that figure.");
+    }
+    const j = await fetch(`/api/financials/reprojections?key=${encodeURIComponent(key)}&year=${year}`).then((x) => x.json()).catch(() => null);
+    if (j?.reprojection) setData(j.reprojection);
+  };
 
   const cur = available.find((a) => a.key === key);
 
@@ -177,7 +210,7 @@ export default function ReprojectionsPage() {
               </>
             ) : (
               <>
-                Blends actuals {through > 0 ? <>(Jan–{MONTHS[through - 1]})</> : "(none yet)"} with budget{through < 12 ? <> ({MONTHS[Math.min(through, 11)]}–Dec)</> : ""} for the full year.
+                Blends actuals {through > 0 ? <>(Jan–{MONTHS[through - 1]})</> : "(none yet)"} with budget{through < 12 ? <> ({MONTHS[Math.min(through, 11)]}–Dec)</> : ""} for the full year.{canEdit && " Click a projected (blue) month to type over it."}
                 {budgetYear ? <> Budget: FY {budgetYear}{budgetFallback ? " (nearest)" : ""}.</> : <> No budget for this property.</>}
                 {!hasGl && <> No GL uploaded — projecting from budget.</>}
               </>
@@ -200,7 +233,8 @@ export default function ReprojectionsPage() {
 
       {loading && <LoadingState status="Loading full-year figures…" columns={4} rows={4} />}
       {!loading && !data && <div className="card"><div className="muted small">Select a property and year.</div></div>}
-      {!loading && data && <ReprojTable data={data} view={view} noteFor={noteFor} osHref={osHref} onDrill={setDetail} />}
+      {!loading && data && <ReprojTable data={data} view={view} noteFor={noteFor} osHref={osHref} onDrill={setDetail} onEdit={canEdit ? saveEdit : undefined} />}
+      {editError && <div style={{ color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>{editError}</div>}
       {detail && cur && (
         <LineDetailModal viewKey={key} property={cur.propertyCode} year={year} period={detail.period} monthLabel={detail.monthLabel}
           line={{ mask: detail.mask, label: detail.label, sign: detail.sign }} initialTab="gl" initialScope={detail.scope} onClose={() => setDetail(null)} />

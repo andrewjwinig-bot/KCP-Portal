@@ -75,3 +75,26 @@ describe("reprojection compute", () => {
     expect(allActual.sections[0].lines[0].reprojTotal).toBe(1200);
   });
 });
+
+describe("typed-over projected months", () => {
+  it("replaces a projected month, never a posted one, and keeps the accounts adding up", async () => {
+    const { reproject } = await import("./compute");
+    const mapping: any = { propertyCode: "2010", entityName: "LIK", sections: [
+      { name: "Revenue", role: "revenue", lines: [{ label: "LIK Management Clearing", mask: "4600-*" }] },
+    ] };
+    const months = (v: number) => new Array(12).fill(v);
+    const base = { mapping, propertyName: "LIK", year: 2026, glMonthly: { "4600-0000": months(-100) },
+      budgetLines: [{ glAccount: "4600-0000", months: months(25000) }], actualThroughMonth: 8 };
+    const plain = reproject(base);
+    const ov = new Array(12).fill(null); ov[8] = 0; ov[2] = 999; // Sep backed out; Mar is posted
+    const r = reproject({ ...base, overrides: { "Revenue::LIK Management Clearing": { months: ov, by: "Drew" } } });
+    const l = r.sections[0].lines[0];
+    expect(l.blended[8]).toBe(0);
+    expect(l.blended[2]).toBe(plain.sections[0].lines[0].blended[2]);
+    expect(l.overridden?.[8]).toBe(true);
+    expect(l.overridden?.[2]).toBe(false);
+    expect(l.reprojTotal).toBe(plain.sections[0].lines[0].reprojTotal - 25000);
+    expect(l.accounts![0].blended[8]).toBe(0);
+    expect(r.rollups.totalRevenues.reprojTotal).toBe(l.reprojTotal);
+  });
+});

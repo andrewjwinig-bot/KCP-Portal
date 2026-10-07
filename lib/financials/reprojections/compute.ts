@@ -51,6 +51,10 @@ export type ReprojLine = {
    *  line's SUB-LINES (Building Maintenance = 6220-8502 + 6220-8503). The
    *  line's series are exactly their sum. */
   accounts?: { account: string; actual: number[]; budget: number[]; blended: number[] }[];
+  /** Projected months a person typed over (`overrides`), true per month. */
+  overridden?: boolean[];
+  /** Who typed the override, and when. */
+  overrideBy?: string; overrideAt?: string;
 };
 
 export type ReprojTotals = {
@@ -102,6 +106,10 @@ export type ReprojectInput = {
   budgetLines: ReprojBudgetLine[];
   /** Months 1..actualThroughMonth use actuals; the rest use budget. */
   actualThroughMonth: number;
+  /** Projected months typed over, keyed `section::label` (owner: a $100K the
+   *  budget carries Sep–Dec that will not happen has to be backed out). Only
+   *  months AFTER the actuals take them — a posted month is the GL's. */
+  overrides?: Record<string, { months: (number | null)[]; by?: string; at?: string }>;
 };
 
 function totalsFor(actual: number[], budget: number[], blended: number[], fav: 1 | -1): ReprojTotals {
@@ -146,6 +154,12 @@ export function reproject(input: ReprojectInput): Reprojection {
         for (let i = 0; i < MONTHS; i++) budget[i] += bl.months[i] ?? 0;
       }
       const blended = blend(actual, budget, through);
+      const ov = input.overrides?.[`${section.name}::${l.label}`];
+      const overridden = blended.map((_, i) => i >= through && ov?.months?.[i] != null);
+      // A month's override replaces the line's projection; its accounts are
+      // scaled to it so the sub-lines still add to the line.
+      const scale = blended.map((v, i) => (overridden[i] ? (Math.abs(v) > 0.005 ? (ov!.months[i] as number) / v : null) : 1));
+      for (let i = 0; i < MONTHS; i++) if (overridden[i]) blended[i] = ov!.months[i] as number;
       // The same sums, kept per account, so a budget can be set sub-line by
       // sub-line (and exported per GL) rather than only as the line's total.
       const acctSet = [...new Set([...matched, ...bset])].sort();
@@ -159,7 +173,16 @@ export function reproject(input: ReprojectInput): Reprojection {
         }
         return { account, actual: a, budget: b, blended: blend(a, b, through) };
       });
-      return { label: l.label, mask: l.mask, ...totalsFor(actual, budget, blended, fav), accounts: accountsOut };
+      // Carry each overridden month onto the accounts: pro rata, or wholly
+      // onto the first account where the projection it replaces was zero.
+      for (let i = 0; i < MONTHS; i++) {
+        if (!overridden[i] || !accountsOut.length) continue;
+        const k = scale[i];
+        accountsOut.forEach((a, j) => { a.blended[i] = k == null ? (j === 0 ? blended[i] : 0) : a.blended[i] * k; });
+      }
+      const any = overridden.some(Boolean);
+      return { label: l.label, mask: l.mask, ...totalsFor(actual, budget, blended, fav), accounts: accountsOut,
+        ...(any ? { overridden, overrideBy: ov?.by, overrideAt: ov?.at } : {}) };
     });
     // Section subtotal = sum of its lines (per series), variance under its fav.
     const actual = sumSeries(lines.map((l) => l.actual));
