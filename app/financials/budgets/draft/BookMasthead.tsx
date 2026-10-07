@@ -9,7 +9,7 @@
 // sit UNDER it as tabs, led by the roll-up, which is how the workbook itself
 // is arranged.
 
-import { Pill, TONE_BLUE, TONE_NEUTRAL } from "@/app/components/Pill";
+import { Pill, TONE_NEUTRAL } from "@/app/components/Pill";
 import { budgetBooks, bookProperties, type BudgetBook } from "@/lib/financials/budgets/books";
 
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
@@ -84,15 +84,6 @@ export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onY
             ))}
           </div>
         </>
-      )}
-
-      {book.feeds && book.feeds.length > 0 && (
-        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <Pill tone={TONE_BLUE}>FEEDS OTHER BOOKS</Pill>
-          <span className="muted small">
-            The salaries set here are what {book.feeds.length} other {book.feeds.length === 1 ? "budget allocates" : "budgets allocate"} across their properties.
-          </span>
-        </div>
       )}
 
       {book.properties.length === 0 && !book.feeds && (
