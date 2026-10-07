@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SEED_2026, raiseImpact as _ri, raisePlanImpact, poolDollars, employeeCost, allocatePayroll, allocTotal, seedPayrollBudget, sanitizePayrollDoc, monthly10, fundShares } from "./payrollBudget";
+import { SEED_2026, raiseImpact as _ri, raisePlanImpact, poolDollars, employeeCost, allocatePayroll, allocTotal, seedPayrollBudget, sanitizePayrollDoc, monthly10, fundShares, employeesForBuilding } from "./payrollBudget";
 
 const doc = { ...SEED_2026, year: 2026 };
 const cost = (id: string) => employeeCost(doc.employees.find((e) => e.id === id)!, doc.rates);
@@ -148,5 +148,23 @@ describe("the raise plan — several raises, a pool, and the recoverable part", 
     ] } }, 2027)!;
     expect(clean.raisePlan).toEqual({ pool: { kind: "pct", amount: 4 }, raises: [{ employeeId: "gosik-jason", kind: "bonus", amount: 1000 }] });
     expect(allocatePayroll(clean).totals.gross).toBeCloseTo(allocatePayroll(doc).totals.gross, 2);
+  });
+});
+
+describe("a building's employees add to its allocation row", () => {
+  it("every fund building and misc entity ties", () => {
+    const doc = seedPayrollBudget(2027);
+    const a = allocatePayroll(doc);
+    for (const f of a.funds) for (const b of f.rows) {
+      const rows = employeesForBuilding(doc, b.code);
+      const s = (k: "office" | "maintenance" | "marketing") => rows.reduce((t, r) => t + r[k], 0);
+      expect(s("office")).toBeCloseTo(b.office, 2);
+      expect(s("maintenance")).toBeCloseTo(b.maintenance, 2);
+      expect(s("marketing")).toBeCloseTo(b.marketing, 2);
+    }
+    for (const m of a.misc) {
+      const rows = employeesForBuilding(doc, m.code ?? m.key);
+      expect(rows.reduce((t, r) => t + r.total, 0)).toBeCloseTo(m.annual, 2);
+    }
   });
 });
