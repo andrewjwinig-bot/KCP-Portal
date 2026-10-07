@@ -5,7 +5,7 @@
 // the plan re-runs the budget's own math (`raisePlanImpact` — the same FICA /
 // Medicare / FUTA caps, 401(k) match, allocation % and fund basis) and shows:
 //
-//   • the pool, what the raises spend of it (PAY dollars) and what is left;
+//   • what the raises add in PAY dollars, and as a % of total salaries;
 //   • the fully loaded cost (pay + taxes + 401(k));
 //   • the NET cost after tenant recoveries — Maintenance Salaries (6030-8502)
 //     are recoverable, so part of a maintenance raise comes back through CAM
@@ -19,12 +19,12 @@
 // what-if only — the budget carries salaries.
 
 import { useEffect, useMemo, useState } from "react";
-import { StatPill, Pill, TONE_NEUTRAL, TONE_AMBER } from "@/app/components/Pill";
+import { StatPill, Pill, TONE_NEUTRAL } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { HoverCard } from "@/app/components/HoverCard";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import {
-  ALLOC_COLUMNS, DEFAULT_POOL, GROUP_GL, poolDollars, raisePlanImpact,
+  ALLOC_COLUMNS, DEFAULT_POOL, GROUP_GL, raisePlanImpact,
   type PayrollBudgetDoc, type RaisePlan, type RaiseTest, type RaiseImpactRow,
 } from "@/lib/financials/budgets/payrollBudget";
 import type { BuildingContext } from "@/lib/financials/budgets/payrollContext";
@@ -73,10 +73,8 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
   // "net of recoveries" is shown only when some of the plan actually comes back.
   const recoverable = recovered >= 0.5;
 
-  const pool = poolDollars(doc, plan.pool);
   const pay = impact.employees.reduce((s, e) => s + e.pay, 0);
   const cost = impact.employees.reduce((s, e) => s + e.cost, 0);
-  const left = pool - pay;
   const salaries = doc.employees.reduce((s, e) => s + (e.salary || 0), 0);
 
   const groups = useMemo(() => ["Shopping Centers", "NI LLC", "JV III", "Misc"]
@@ -107,7 +105,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
     return (
       <div className="card" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", flexWrap: "wrap" }}>
         <span style={{ fontWeight: 800, fontSize: 15 }}>Raise Plan</span>
-        <span className="muted small" style={{ flex: 1 }}>Test the year&rsquo;s raises against a pool — what they really cost after tenant recoveries, and where it lands. Nothing reaches the budget until you apply it.</span>
+        <span className="muted small" style={{ flex: 1 }}>Test the year&rsquo;s raises — what they really cost after tenant recoveries, and where it lands. Nothing reaches the budget until you apply it.</span>
         <button type="button" className="btn sm" onClick={plan.raises.length ? () => setOpen(true) : addRaise}>{plan.raises.length ? `Open · ${plan.raises.length} raise${plan.raises.length === 1 ? "" : "s"} ▸` : "+ Plan a raise"}</button>
       </div>
     );
@@ -119,23 +117,14 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
         <span style={{ fontWeight: 800, fontSize: 15 }}>Raise Plan</span>
         <Pill tone={TONE_NEUTRAL}>Not in the budget until applied</Pill>
         <span style={{ flex: 1 }} />
-        <span className="muted small">Raise budget</span>
-        <select className="select-sm" value={plan.pool.kind} aria-label="Raise budget basis"
-          onChange={(e) => onPlan({ ...plan, pool: e.target.value === "dollar" ? { kind: "dollar", amount: Math.round(pool) } : { kind: "pct", amount: salaries ? Math.round((pool / salaries) * 1000) / 10 : DEFAULT_POOL.amount } })}>
-          <option value="pct">% of salaries</option><option value="dollar">$ amount</option>
-        </select>
-        <Amount value={plan.pool.amount} ariaLabel="Raise budget" width={100} money={plan.pool.kind === "dollar"} onSave={(v) => onPlan({ ...plan, pool: { ...plan.pool, amount: v } })} />
         <button type="button" className="btn sm" onClick={() => setOpen(false)}>Close</button>
       </div>
 
       <div className="pills" style={{ padding: "0 14px 12px" }}>
-        <StatPill label="Raise budget" value={money0(pool)} sub={plan.pool.kind === "pct" ? `${plan.pool.amount}% of ${money0(salaries)} salaries` : "set amount"} />
-        <StatPill label="Raises" value={money0(pay)} sub={`${plan.raises.length} raise${plan.raises.length === 1 ? "" : "s"} · pay dollars`} />
-        <StatPill label={left < 0 ? "Over budget" : "Left in budget"} value={money0(Math.abs(left))} sub={pool > 0 ? `${((pay / pool) * 100).toFixed(0)}% used` : ""} />
+        <StatPill label="Raises" value={money0(pay)} sub={`${plan.raises.length} raise${plan.raises.length === 1 ? "" : "s"}${salaries > 0 ? ` · ${((pay / salaries) * 100).toFixed(1)}% of ${money0(salaries)} salaries` : ""}`} />
         <StatPill label="Cost / yr" value={money0(cost)} sub={`incl. ${money0(cost - pay)} taxes & 401(k)`} total={!recoverable} />
         {recoverable && <StatPill label="Net of recoveries" value={money0(cost - recovered)} sub={`${money0(recovered)} back from tenants`} total />}
       </div>
-      {left < -0.5 && <div style={{ padding: "0 14px 10px" }}><Pill tone={TONE_AMBER}>{money0(-left)} over the raise budget</Pill></div>}
 
       {/* The raises */}
       <div style={{ overflowX: "auto" }}>
