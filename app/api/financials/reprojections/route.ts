@@ -5,6 +5,7 @@ import { resolvePropertyBudget } from "@/lib/financials/operating-statements/bud
 import { assembledGlConsolidated, listGls, mergeAccountNames, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
 import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { getReprojOverrides } from "@/lib/financials/reprojections/overrideStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,6 +63,7 @@ export async function GET(req: Request) {
     glMonthly: stored?.monthly ?? {},
     budgetLines,
     actualThroughMonth: stored?.maxPeriodInFile ?? 0,
+    overrides: await getReprojOverrides(key, year).catch(() => ({})),
   });
   // Label the unbudgeted accounts with their GL account name, falling back to
   // names captured on any other property's GL (account codes are shared).

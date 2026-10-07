@@ -5,8 +5,9 @@
 // document. `labels` names the twelve month columns (a T-12 runs Sep 25 … Aug
 // 26 rather than Jan … Dec) and `totalLabel` the year column.
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AccountListCard } from "@/app/components/AccountListCard";
+import { HoverCard } from "@/app/components/HoverCard";
 
 export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 export const BRAND = "#0b4a7d";
@@ -23,7 +24,7 @@ export type Mode = "reproject" | "actuals";
 export const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
 
 export type Totals = { actual: number[]; budget: number[]; blended: number[]; reprojTotal: number; budgetTotal: number; variance: number | null };
-type Line = { label: string; mask: string } & Totals;
+type Line = { label: string; mask: string; overridden?: boolean[]; overrideBy?: string; overrideAt?: string } & Totals;
 export type Section = { name: string; role: string; lines: Line[]; subtotal: Totals };
 export type Reprojection = {
   propertyCode: string; propertyName: string; year: number; actualThroughMonth: number;
@@ -103,9 +104,13 @@ export type NoteFor = (lineKey: string) => { note: string; ai: boolean } | null;
 /** Open a line's GL transactions — a month (`scope: "month"`, period 1–12) or
  *  the year to date (`scope: "ytd"`, period = the last posted month). The
  *  operating statements' own drill-down; the page owns the modal. */
+/** Type over a PROJECTED month (null hands it back to the budget; "all" + null
+ *  clears the line). The page saves it and reloads the reprojection. */
+export type OnEdit = (d: { section: string; label: string; month: number | "all"; value: number | null }) => void;
+
 export type OnDrill = (d: { mask: string; label: string; sign: 1 | -1; period: number; scope: "month" | "ytd"; monthLabel: string }) => void;
 
-export function ReprojTable({ data, view, noteFor, osHref, onDrill }: { data: Reprojection; view: ViewOpts; noteFor: NoteFor; osHref: string; onDrill?: OnDrill }) {
+export function ReprojTable({ data, view, noteFor, osHref, onDrill, onEdit }: { data: Reprojection; view: ViewOpts; noteFor: NoteFor; osHref: string; onDrill?: OnDrill; onEdit?: OnEdit }) {
   const r = data.rollups;
   const byRole = (roles: string[]) => data.sections.filter((s) => roles.includes(s.role));
   const revenueSecs = byRole(["revenue", "reimbursement"]);
@@ -119,21 +124,21 @@ export function ReprojTable({ data, view, noteFor, osHref, onDrill }: { data: Re
   return (
     <>
       <GroupHeader label="Revenues" />
-      {revenueSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} />)}
+      {revenueSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} onEdit={onEdit} />)}
       <SubtotalCard label="Total Revenues" t={r.totalRevenues} view={view} />
 
       <GroupHeader label="Operating Expenses" />
-      {expenseSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} />)}
+      {expenseSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} onEdit={onEdit} />)}
       <SubtotalCard label="Total Operating Expenses" t={r.totalOperatingExpenses} view={view} />
       <SubtotalCard label="Net Operating Income" t={r.netOperatingIncome} view={view} strong />
 
       {showCapital && <GroupHeader label="Capital Improvements" />}
-      {showCapital && capitalSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} hideSubtotal />)}
+      {showCapital && capitalSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} onEdit={onEdit} hideSubtotal />)}
       {showDebt ? (
         <>
           <SubtotalCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} view={view} strong />
           <GroupHeader label="Debt Service" />
-          {debtSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} />)}
+          {debtSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} onEdit={onEdit} />)}
           <SubtotalCard label="Total Debt Service" t={r.totalDebtService} view={view} />
           <SubtotalCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} view={view} strong />
         </>
@@ -171,7 +176,42 @@ function Colgroup({ through, mode, plain }: { through: number; mode: Mode; plain
 
 const td: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12.5 };
 
-function figureCells(t: Totals, view: ViewOpts, opts: { bold?: boolean; color?: string; drill?: (period: number, scope: "month" | "ytd") => void } = {}) {
+/** A projected month that can be typed over: the figure, until clicked. */
+function EditCell({ value, typed, onSave, style, tip }: { value: number; typed: boolean; onSave: (v: number | null) => void; style: React.CSSProperties; tip?: { title: string; rows: { label: string; value: string }[] } }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (editing) ref.current?.select(); }, [editing]);
+  const commit = () => {
+    setEditing(false);
+    const t = text.replace(/[\s$,]/g, "");
+    if (t === "") { if (typed) onSave(null); return; }
+    const n = Number(t.replace(/^\((.*)\)$/, "-$1"));
+    if (Number.isFinite(n) && Math.round(n) !== Math.round(value)) onSave(Math.round(n));
+  };
+  const cell: React.CSSProperties = { ...style, background: "var(--input-cell)", cursor: "text",
+    ...(typed ? { color: "var(--input-typed)", fontWeight: 800 } : {}) };
+  if (editing) {
+    return (
+      <td style={{ ...cell, padding: 2 }}>
+        <input ref={ref} value={text} inputMode="decimal" aria-label="Reprojected month"
+          style={{ width: "100%", textAlign: "right", fontSize: 12.5, padding: "2px 4px", minWidth: 0 }}
+          onChange={(e) => setText(e.target.value)} onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); if (e.key === "Escape") setEditing(false); }} />
+      </td>
+    );
+  }
+  const shown = money(value);
+  return (
+    <td style={cell} onClick={() => { setText(String(Math.round(value))); setEditing(true); }}>
+      {typed && tip ? <HoverCard title={tip.title} rows={tip.rows}>{shown}</HoverCard> : shown}
+    </td>
+  );
+}
+
+function figureCells(t: Totals, view: ViewOpts, opts: { bold?: boolean; color?: string; drill?: (period: number, scope: "month" | "ytd") => void;
+  /** Projected months typed over — the line's own, with its budget and who typed it. */
+  edit?: { onSave: (month: number, v: number | null) => void; overridden?: boolean[]; by?: string; label: string } } = {}) {
   const { psf, sqft, through, mode } = view;
   const actuals = mode === "actuals";
   // Actuals mode shows the real per-month figure and a Full Year = sum of
@@ -185,7 +225,16 @@ function figureCells(t: Totals, view: ViewOpts, opts: { bold?: boolean; color?: 
     ? { onClick: () => opts.drill!(through, "ytd"), className: "os-cell", title: "Click for the year-to-date GL transactions" } : {};
   return (
     <>
-      {cells.map((v, i) => (
+      {cells.map((v, i) => opts.edit && !actuals && !psf && i >= through ? (
+        <EditCell key={i} value={v} typed={!!opts.edit.overridden?.[i]}
+          onSave={(nv) => opts.edit!.onSave(i, nv)}
+          style={{ ...td, borderLeft: i === through && through > 0 ? ACTUAL_EDGE : undefined, color: v < 0 ? "#b91c1c" : "var(--muted)" }}
+          tip={{ title: `${opts.edit.label} · ${MONTHS[i]}`, rows: [
+            { label: "Budget", value: money(t.budget[i] ?? 0) },
+            { label: "Reprojected (typed)", value: money(v) },
+            ...(opts.edit.by ? [{ label: "Typed by", value: opts.edit.by }] : []),
+          ] }} />
+      ) : (
         <td key={i} {...click(i)} style={{
           ...td,
           fontWeight: opts.bold ? 800 : undefined,
@@ -219,7 +268,7 @@ function HeaderRow({ through, mode, labels, totalLabel }: { through: number; mod
   );
 }
 
-function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill }: { sec: Section; view: ViewOpts; noteFor: NoteFor; osHref: string; hideSubtotal?: boolean; onDrill?: OnDrill }) {
+function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit }: { sec: Section; view: ViewOpts; noteFor: NoteFor; osHref: string; hideSubtotal?: boolean; onDrill?: OnDrill; onEdit?: OnEdit }) {
   // Revenue is stored as a credit, so its GL rows read positive with sign −1 —
   // the operating statement's own rule.
   const sign: 1 | -1 = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
@@ -245,9 +294,18 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill }: { se
                       {n.ai ? "✨" : "📝"}
                     </a>
                   )}
+                  {onEdit && l.overridden?.some(Boolean) && (
+                    <button type="button" className="btn sm" aria-label="Clear typed months"
+                      title="Hand the typed months back to the budget"
+                      onClick={() => onEdit({ section: sec.name, label: l.label, month: "all", value: null })}
+                      style={{ marginLeft: 6, padding: "0 6px", fontSize: 11, lineHeight: "16px" }}>↺</button>
+                  )}
                   {view.showGL && <div className="muted" style={{ fontSize: 10.5, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
-                {figureCells(l, view, onDrill ? { drill: (period, scope) => onDrill({ mask: l.mask, label: l.label, sign, period, scope, monthLabel: MONTHS[period - 1] }) } : {})}
+                {figureCells(l, view, {
+                  ...(onDrill ? { drill: (period: number, scope: "month" | "ytd") => onDrill({ mask: l.mask, label: l.label, sign, period, scope, monthLabel: MONTHS[period - 1] }) } : {}),
+                  ...(onEdit ? { edit: { label: l.label, overridden: l.overridden, by: l.overrideBy, onSave: (month: number, value: number | null) => onEdit({ section: sec.name, label: l.label, month, value }) } } : {}),
+                })}
               </tr>
             );})}
             {!hideSubtotal && (

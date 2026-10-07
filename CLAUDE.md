@@ -2106,6 +2106,20 @@ only, nothing from the budget**.
   the operating statements' own `LineDetailModal`, via `ReprojTable`'s
   `onDrill` (budget months have nothing to open). The T-12 passes no
   `onDrill`: its columns span two years.
+- **A PROJECTED REPROJECTION MONTH CAN BE TYPED OVER** (owner: 2010 carried
+  ~$100K of LIK Management Clearing Sep–Dec from the budget that "i need to
+  override … to back it out"). Drew / Alison / admin (`isBudgetAuthor`, checked
+  by `POST /api/financials/reprojections/overrides`) click a projected month
+  (light blue, `EditCell` in `ReprojTable`) and type; blank hands it back to
+  the budget, ↺ on the line clears all its typed months. Stored per statement
+  key + year (`overrideStore.ts`, `reprojection-overrides`, the budget draft's
+  `applyEdit` shape) and applied in `reproject` (`overrides`) to months AFTER
+  the actuals only — a posted month is the GL's. The line's accounts are
+  scaled to the typed month so its sub-lines still add up. Because
+  `loadReprojection` reads it, the downloads AND the budget draft's
+  "26 Reproj" column (and the +3% growth off it) carry the override too.
+  Typed cells are bold blue with a hover naming the budget figure replaced and
+  who typed it. Pinned by `compute.test.ts`.
 - **A month no GL covers reads $0, and the page SAYS which** (`missingMonths`)
   in an amber banner — a short T-12 must never pass for a full one.
 - **Excel** is the Reprojections sheet writer with `meta.t12`

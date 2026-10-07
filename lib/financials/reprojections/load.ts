@@ -9,6 +9,7 @@ import { resolvePropertyBudget } from "@/lib/financials/operating-statements/bud
 import { assembledGlConsolidated, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
 import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { getReprojOverrides } from "./overrideStore";
 
 export async function loadReprojection(key: string, year: number): Promise<{ reprojection: Reprojection; meta: ReprojMeta; notes: Record<string, string> } | null> {
   const mapping = await getMapping(key);
@@ -25,6 +26,9 @@ export async function loadReprojection(key: string, year: number): Promise<{ rep
     glMonthly: stored?.monthly ?? {},
     budgetLines: (budget?.lines ?? []).map((l) => ({ glAccount: l.glAccount, months: l.months })),
     actualThroughMonth: stored?.maxPeriodInFile ?? 0,
+    // Typed-over projected months flow everywhere this loader feeds — the
+    // downloads and the budget draft's reprojection column included.
+    overrides: await getReprojOverrides(key, year).catch(() => ({})),
   });
   reprojection.accountNames = stored?.names ?? {};
   const { notes } = await getNotesBundle(key, year, stored?.maxPeriodInFile || 1);
