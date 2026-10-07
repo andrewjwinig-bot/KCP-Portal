@@ -16,7 +16,7 @@ import { STEP_LABEL } from "./stepStyles";
 import { RaisePlanCard } from "./RaisePlanCard";
 import type { BuildingContext } from "@/lib/financials/budgets/payrollContext";
 import {
-  ALLOC_COLUMNS, FRINGE, GROUP_GL, allocatePayroll, employeeCost, allocTotal, monthly10,
+  ALLOC_COLUMNS, FRINGE, GROUP_GL, allocatePayroll, employeeCost, allocTotal, monthly10, entityDollars, fundShares,
   type PayrollBudgetDoc, type PayrollEmployee, type FundKey, type AllocKey, type FringeKey, type Rates,
 } from "@/lib/financials/budgets/payrollBudget";
 
@@ -32,7 +32,9 @@ const FRINGE_LABEL: Record<FringeKey, string> = { life: "Life", dental: "Dental"
 /** A number you can type: shows formatted on light blue, a click opens it.
  *  Keeps the decimals as typed — UC, premiums and rates carry cents, and the
  *  grid's own editor rounds to whole dollars. */
-function Cell({ value, show, onSave, width = 90 }: { value: number; show: string; onSave: (v: number) => void; width?: number }) {
+type Tip = { title: string; rows: { label: string; value: string; color?: string }[]; footer?: { label: string; value: string } };
+
+function Cell({ value, show, onSave, width = 90, tip }: { value: number; show: string; onSave: (v: number) => void; width?: number; tip?: Tip }) {
   const [open, setOpen] = useState(false);
   const [v, setV] = useState("");
   const commit = () => {
@@ -47,14 +49,14 @@ function Cell({ value, show, onSave, width = 90 }: { value: number; show: string
         <input autoFocus value={v} inputMode="decimal" style={{ width: "100%", minWidth: 56, textAlign: "right" }}
           onFocus={(e) => e.currentTarget.select()} onChange={(e) => setV(e.target.value)} onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Tab") (e.currentTarget as HTMLInputElement).blur(); if (e.key === "Escape") { setV(String(value)); setOpen(false); } }} />
-      ) : show}
+      ) : tip ? <HoverCard title={tip.title} rows={tip.rows} footer={tip.footer}>{show}</HoverCard> : show}
     </td>
   );
 }
 
 /** A percentage cell — the same editor, shown as a percent. */
-function PctCell({ value, onSave, decimals = 1 }: { value: number; onSave: (v: number) => void; decimals?: number }) {
-  return <Cell value={value} show={pct(value, decimals)} onSave={onSave} width={64} />;
+function PctCell({ value, onSave, decimals = 1, tip }: { value: number; onSave: (v: number) => void; decimals?: number; tip?: Tip }) {
+  return <Cell value={value} show={pct(value, decimals)} onSave={onSave} width={64} tip={tip} />;
 }
 
 function TextCell({ value, onSave, placeholder }: { value: string; onSave: (v: string) => void; placeholder?: string }) {
@@ -324,12 +326,34 @@ export function PayrollBudget({ year }: { year: number }) {
           <tbody>
             {doc.employees.map((e) => {
               const tot = allocTotal(e);
+              const gross = employeeCost(e, r).gross;
+              const dollars = entityDollars(e, r);
+              // Hover a % for the dollars it sends there — and, for a fund,
+              // on to each building on the fund's basis for this employee's account.
+              const tipFor = (key: AllocKey, label: string): Tip | undefined => {
+                const d = dollars[key] ?? 0;
+                if (!(Math.abs(d) >= 0.5)) return undefined;
+                const rows = [
+                  { label: "Gross annual", value: money0(gross) },
+                  { label: "Allocation", value: pct(e.alloc?.[key] ?? 0, 1) },
+                ];
+                const fund = (["sc", "niLlc", "jv3"] as string[]).includes(key) ? doc.funds[key as FundKey] : null;
+                if (fund) {
+                  const shares = fundShares(fund, e.group === "maintenance" ? fund.basis.maintenance : fund.basis.office);
+                  for (const b of fund.buildings) {
+                    const v = d * (shares[b.code] ?? 0);
+                    if (Math.abs(v) >= 0.5) rows.push({ label: `  ${b.code}`, value: `${money0(v)} · ${money0(v / 12)}/mo` });
+                  }
+                }
+                return { title: `${e.name || "Employee"} · ${label}`, rows,
+                  footer: { label: "To " + label, value: `${money0(d)}/yr · ${money0(d / 12)}/mo` } };
+              };
               return (
                 <tr key={e.id}>
                   <td style={{ ...tdL, fontWeight: 600 }}>{e.name || <span className="muted">—</span>}</td>
                   <td style={td}>{num0(employeeCost(e, r).gross)}</td>
                   {ALLOC_COLUMNS.map((c) => (
-                    <PctCell key={c.key} value={e.alloc?.[c.key] ?? 0} decimals={0}
+                    <PctCell key={c.key} value={e.alloc?.[c.key] ?? 0} decimals={0} tip={tipFor(c.key as AllocKey, c.label)}
                       onSave={(v) => setEmp(e.id, { alloc: { ...e.alloc, [c.key as AllocKey]: v } })} />
                   ))}
                   <td style={{ ...td, fontWeight: 800, color: Math.abs(tot - 100) > 0.05 ? "#b45309" : undefined }}>{pct(tot, Number.isInteger(tot) ? 0 : 1)}</td>
