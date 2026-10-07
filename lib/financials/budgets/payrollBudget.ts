@@ -234,6 +234,44 @@ export function allocatePayroll(doc: PayrollBudgetDoc): PayrollAllocation {
   return { employees, totals, byEntity, funds, misc, marketing: { total: mkt, byFund }, allocated };
 }
 
+/** One employee's dollars landing on one building / entity. */
+export type BuildingEmployeeRow = {
+  id: string; name: string; group: PayGroup;
+  /** Salaries & Wages 6010-8501 (office) or Maintenance Salaries 6030-8502. */
+  office: number; maintenance: number; marketing: number; total: number;
+};
+
+/** Every employee's share of one building (a fund row's code) or one misc
+ *  entity (2010, 0800, 4900, "eastwick") — the same arithmetic as
+ *  `allocatePayroll`, per employee, so the rows add to that building's row. */
+export function employeesForBuilding(doc: PayrollBudgetDoc, code: string): BuildingEmployeeRow[] {
+  const r = doc.rates;
+  const fund = (["sc", "niLlc", "jv3"] as FundKey[]).find((f) => doc.funds[f].buildings.some((b) => b.code === code));
+  const MISC: Record<string, AllocKey[]> = {
+    "2010": ["likOperating", "likOther"], "0800": ["interstate", "middletown"],
+    "4900": ["owDirect", "owIndirect"], eastwick: ["eastwick"],
+  };
+  const splitTot = sum(Object.values(doc.marketingSplit));
+  const out: BuildingEmployeeRow[] = [];
+  for (const e of doc.employees) {
+    const d = entityDollars(e, r);
+    let office = 0, maintenance = 0, marketing = 0;
+    if (fund) {
+      const t = doc.funds[fund];
+      const own = d[fund] * (fundShares(t, e.group === "maintenance" ? t.basis.maintenance : t.basis.office)[code] || 0);
+      if (e.group === "maintenance") maintenance = own; else office = own;
+      const mShare = splitTot ? (doc.marketingSplit[fund] || 0) / splitTot : 0;
+      marketing = d.marketing * mShare * (fundShares(t, t.basis.marketing)[code] || 0);
+    } else if (MISC[code]) {
+      const v = sum(MISC[code].map((k) => d[k]));
+      if (e.group === "maintenance") maintenance = v; else office = v;
+    }
+    const total = office + maintenance + marketing;
+    if (Math.abs(total) >= 0.005) out.push({ id: e.id, name: e.name, group: e.group, office, maintenance, marketing, total });
+  }
+  return out.sort((a, b) => b.total - a.total);
+}
+
 // ─── The raise plan: what the year's raises cost, and where it lands ───────
 /** A raise as a % or $ of salary, or a one-time bonus in dollars. */
 export type RaiseTest = { employeeId: string; kind: "pct" | "dollar" | "bonus"; amount: number };

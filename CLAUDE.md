@@ -1433,7 +1433,7 @@ time — and the team does not have time to open the GL over $80.
   by employee"): % is typed, $ is gross × % per year, read-only; either way a
   cell hovers its dollars per year / month and, for a fund column (SC / NI
   LLC / JV III), the split on to each building on the fund's basis for that
-  employee's account (`tipFor`, off `entityDollars` / `fundShares`).
+  employee's account (`tipFor`, off `entityDollars` / `fundShares`). **Click a building code under Allocation by building** (or a Misc entity) for every employee's dollars landing there — by account (6010 / 6030 / marketing), annual, monthly and share (`employeesForBuilding`, the same arithmetic per employee, pinned to tie to the building's row).
   - An employee's GROUP is their account, shown as a **REC** checkbox (owner:
     -8502 is the recoverable account): ticked = Maintenance Salaries 6030-8502
     (Loiseau, Masciantonio, Gosik — their SC share is the 2026 workbook's

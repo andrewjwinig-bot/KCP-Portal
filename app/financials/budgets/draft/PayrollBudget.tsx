@@ -16,7 +16,7 @@ import { STEP_LABEL } from "./stepStyles";
 import { RaisePlanCard } from "./RaisePlanCard";
 import type { BuildingContext } from "@/lib/financials/budgets/payrollContext";
 import {
-  ALLOC_COLUMNS, FRINGE, GROUP_GL, allocatePayroll, employeeCost, allocTotal, monthly10, entityDollars, fundShares,
+  ALLOC_COLUMNS, FRINGE, GROUP_GL, allocatePayroll, employeeCost, allocTotal, monthly10, entityDollars, fundShares, employeesForBuilding,
   type PayrollBudgetDoc, type PayrollEmployee, type FundKey, type AllocKey, type FringeKey, type Rates,
 } from "@/lib/financials/budgets/payrollBudget";
 
@@ -26,6 +26,7 @@ const num2 = (n: number) => (Math.abs(n) < 0.005 ? "–" : n.toLocaleString("en-
 const pct = (n: number, d = 0) => (Math.abs(n) < 0.0005 ? "–" : `${n.toFixed(d)}%`);
 const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const INPUT_BG = "var(--input-cell)";
+const codeBtn: React.CSSProperties = { background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 700, color: "var(--brand)", cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: 3 };
 const totalRow: React.CSSProperties = { fontWeight: 800, borderTop: "2px solid var(--border)" };
 const FRINGE_LABEL: Record<FringeKey, string> = { life: "Life", dental: "Dental", ltd: "LTD", std: "STD", vision: "Vision" };
 
@@ -85,6 +86,8 @@ export function PayrollBudget({ year }: { year: number }) {
   const [allocView, setAllocView] = useState<"pct" | "dollar">("pct");
   // The health-benefits window: null closed, "" the whole list, else the employee opened from.
   const [healthFor, setHealthFor] = useState<string | null>(null);
+  /** A building / entity whose employees are open in the modal. */
+  const [buildingFor, setBuildingFor] = useState<{ code: string; label: string } | null>(null);
   useEffect(() => {
     if (healthFor === null) return;
     const onKey = (ev: KeyboardEvent) => { if (ev.key === "Escape" && !(ev.target instanceof HTMLInputElement)) setHealthFor(null); };
@@ -244,6 +247,68 @@ export function PayrollBudget({ year }: { year: number }) {
           }] }))}>+ Add employee</button>
         </div>
       </div>
+
+      {/* A BUILDING'S EMPLOYEES — click a code under Allocation by building
+          (or Misc) for every employee's dollars landing there, by account. */}
+      {buildingFor && typeof document !== "undefined" && (() => {
+        const rows = employeesForBuilding(doc, buildingFor.code);
+        const tot = (k: "office" | "maintenance" | "marketing" | "total") => rows.reduce((s, x) => s + x[k], 0);
+        const has = { office: tot("office") >= 0.5, maintenance: tot("maintenance") >= 0.5, marketing: tot("marketing") >= 0.5 };
+        const all = tot("total");
+        const isCode = /^[0-9A-Z]{4}$/.test(buildingFor.code);
+        return createPortal(
+          <div onClick={() => setBuildingFor(null)} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
+            <div onClick={(ev) => ev.stopPropagation()} role="dialog" aria-label="Employees allocated"
+              style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 900, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+              <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                <div>
+                  <div style={secLabel}>{year} Payroll budget · {buildingFor.label}</div>
+                  <div style={{ fontSize: 17, fontWeight: 800, marginTop: 2 }}>{isCode ? buildingFor.code : buildingFor.label} · {money0(all)} a year</div>
+                  <div className="muted small" style={{ marginTop: 2 }}>{rows.length} employee{rows.length === 1 ? "" : "s"} allocated here · {money0(monthly10(all))} a month</div>
+                </div>
+                <button type="button" className="btn sm" onClick={() => setBuildingFor(null)}>Close</button>
+              </div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>
+                    <th style={thL}>Employee</th>
+                    {has.office && <th style={th}>{GROUP_GL.office}</th>}
+                    {has.maintenance && <th style={th}>{GROUP_GL.maintenance}</th>}
+                    {has.marketing && <th style={th}>Marketing</th>}
+                    <th style={th}>Annual</th><th style={th}>Monthly</th><th style={th}>Share</th>
+                  </tr></thead>
+                  <tbody>
+                    {rows.length === 0 && <tr><td colSpan={7} style={{ ...tdL, color: "var(--muted)" }}>No employee is allocated here.</td></tr>}
+                    {rows.map((x) => (
+                      <tr key={x.id}>
+                        <td style={{ ...tdL, fontWeight: 600 }}>{x.name || <span className="muted">—</span>}</td>
+                        {has.office && <td style={td}>{num0(x.office)}</td>}
+                        {has.maintenance && <td style={td}>{num0(x.maintenance)}</td>}
+                        {has.marketing && <td style={td}>{num0(x.marketing)}</td>}
+                        <td style={{ ...td, fontWeight: 800 }}>{num0(x.total)}</td>
+                        <td style={{ ...td, color: "var(--muted)" }}>{num0(monthly10(x.total))}</td>
+                        <td style={{ ...td, color: "var(--muted)" }}>{all ? pct(x.total / all * 100, 1) : "–"}</td>
+                      </tr>
+                    ))}
+                    {rows.length > 0 && (
+                      <tr style={totalRow}>
+                        <td style={{ ...tdL, fontWeight: 800 }}>Total</td>
+                        {has.office && <td style={td}>{num0(tot("office"))}</td>}
+                        {has.maintenance && <td style={td}>{num0(tot("maintenance"))}</td>}
+                        {has.marketing && <td style={td}>{num0(tot("marketing"))}</td>}
+                        <td style={{ ...td, fontWeight: 900 }}>{num0(all)}</td>
+                        <td style={td}>{num0(monthly10(all))}</td>
+                        <td style={td}>100%</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        );
+      })()}
 
       {/* HEALTH BENEFITS — the detail behind the Medical column, opened from it
           (owner: it only feeds that column, so it does not need its own card). */}
@@ -419,7 +484,7 @@ export function PayrollBudget({ year }: { year: number }) {
               <tbody>
                 {fa.rows.map((b) => (
                   <tr key={b.code} style={{ opacity: b.total < 0.5 ? 0.55 : 1 }}>
-                    <td style={{ ...tdL, fontWeight: 700, color: "var(--brand)" }}>{b.code}</td>
+                    <td style={{ ...tdL, fontWeight: 700 }}><button type="button" onClick={() => setBuildingFor({ code: b.code, label: fa.label })} style={codeBtn} title="Employees allocated here">{b.code}</button></td>
                     <Cell value={b.sqft} show={num0(b.sqft)} onSave={(v) => setB(b.code, { sqft: v })} width={80} />
                     <td style={td}>{pct(b.prs * 100, 2)}</td>
                     <PctCell value={b.altPct} decimals={2} onSave={(v) => setB(b.code, { altPct: v })} />
@@ -455,7 +520,7 @@ export function PayrollBudget({ year }: { year: number }) {
               {a.misc.map((m) => (
                 <tr key={m.key}>
                   <td style={tdL}>
-                    {m.code && <b style={{ color: "var(--brand)", marginRight: 6 }}>{m.code}</b>}{m.label}
+                    <button type="button" onClick={() => setBuildingFor({ code: m.code ?? m.key, label: m.label })} style={{ ...codeBtn, fontWeight: m.code ? 700 : 400, color: m.code ? "var(--brand)" : "inherit" }} title="Employees allocated here">{m.code ? <><b style={{ marginRight: 6 }}>{m.code}</b><span style={{ color: "var(--text)", fontWeight: 400 }}>{m.label}</span></> : m.label}</button>
                     {m.parts.filter((p) => Math.abs(p.annual) >= 0.5).length > 1 && (
                       <div className="muted small">{m.parts.filter((p) => Math.abs(p.annual) >= 0.5).map((p) => `${p.label} ${money0(p.annual)}`).join(" · ")}</div>
                     )}
