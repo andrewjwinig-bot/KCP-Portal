@@ -100,7 +100,12 @@ function lineEmpty(t: Totals, mode: Mode): boolean {
 
 export type NoteFor = (lineKey: string) => { note: string; ai: boolean } | null;
 
-export function ReprojTable({ data, view, noteFor, osHref }: { data: Reprojection; view: ViewOpts; noteFor: NoteFor; osHref: string }) {
+/** Open a line's GL transactions — a month (`scope: "month"`, period 1–12) or
+ *  the year to date (`scope: "ytd"`, period = the last posted month). The
+ *  operating statements' own drill-down; the page owns the modal. */
+export type OnDrill = (d: { mask: string; label: string; sign: 1 | -1; period: number; scope: "month" | "ytd"; monthLabel: string }) => void;
+
+export function ReprojTable({ data, view, noteFor, osHref, onDrill }: { data: Reprojection; view: ViewOpts; noteFor: NoteFor; osHref: string; onDrill?: OnDrill }) {
   const r = data.rollups;
   const byRole = (roles: string[]) => data.sections.filter((s) => roles.includes(s.role));
   const revenueSecs = byRole(["revenue", "reimbursement"]);
@@ -114,21 +119,21 @@ export function ReprojTable({ data, view, noteFor, osHref }: { data: Reprojectio
   return (
     <>
       <GroupHeader label="Revenues" />
-      {revenueSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} />)}
+      {revenueSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} />)}
       <SubtotalCard label="Total Revenues" t={r.totalRevenues} view={view} />
 
       <GroupHeader label="Operating Expenses" />
-      {expenseSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} />)}
+      {expenseSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} />)}
       <SubtotalCard label="Total Operating Expenses" t={r.totalOperatingExpenses} view={view} />
       <SubtotalCard label="Net Operating Income" t={r.netOperatingIncome} view={view} strong />
 
       {showCapital && <GroupHeader label="Capital Improvements" />}
-      {showCapital && capitalSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} hideSubtotal />)}
+      {showCapital && capitalSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} hideSubtotal />)}
       {showDebt ? (
         <>
           <SubtotalCard label="Cash Flow Before Debt Service" t={r.cashFlowBeforeDebtService} view={view} strong />
           <GroupHeader label="Debt Service" />
-          {debtSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} />)}
+          {debtSecs.map((s) => <SectionCard key={s.name} sec={s} view={view} noteFor={noteFor} osHref={osHref} onDrill={onDrill} />)}
           <SubtotalCard label="Total Debt Service" t={r.totalDebtService} view={view} />
           <SubtotalCard label="Cash Flow After Debt Service" t={r.cashFlowAfterDebtService} view={view} strong />
         </>
@@ -166,24 +171,29 @@ function Colgroup({ through, mode, plain }: { through: number; mode: Mode; plain
 
 const td: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12.5 };
 
-function figureCells(t: Totals, view: ViewOpts, opts: { bold?: boolean; color?: string } = {}) {
+function figureCells(t: Totals, view: ViewOpts, opts: { bold?: boolean; color?: string; drill?: (period: number, scope: "month" | "ytd") => void } = {}) {
   const { psf, sqft, through, mode } = view;
   const actuals = mode === "actuals";
   // Actuals mode shows the real per-month figure and a Full Year = sum of
   // actuals; only imported months carry a value (later months read blank).
   const cells = actuals ? t.actual : t.blended;
   const totalVal = actuals ? sum(t.actual) : t.reprojTotal;
+  // Only a POSTED month has GL behind it; a budget month has nothing to open.
+  const click = (i: number) => (opts.drill && i < through && Math.abs(t.actual[i] ?? 0) >= 0.5
+    ? { onClick: () => opts.drill!(i + 1, "month"), className: "os-cell", title: "Click for GL transactions" } : {});
+  const totalClick = opts.drill && through > 0 && Math.abs(sum(t.actual.slice(0, through))) >= 0.5
+    ? { onClick: () => opts.drill!(through, "ytd"), className: "os-cell", title: "Click for the year-to-date GL transactions" } : {};
   return (
     <>
       {cells.map((v, i) => (
-        <td key={i} style={{
+        <td key={i} {...click(i)} style={{
           ...td,
           fontWeight: opts.bold ? 800 : undefined,
           borderLeft: i === through && through > 0 ? ACTUAL_EDGE : undefined,
           color: opts.color ?? (v < 0 ? "#b91c1c" : i < through ? "var(--text)" : "var(--muted)"),
         }}>{actuals && i >= through ? "" : money(v, psf, sqft)}</td>
       ))}
-      <td style={{ ...td, borderLeft: "1px solid var(--border)", fontSize: opts.bold ? 14 : 13, fontWeight: 900, color: opts.color ?? BRAND }}>{money(totalVal, psf, sqft)}</td>
+      <td {...totalClick} style={{ ...td, borderLeft: "1px solid var(--border)", fontSize: opts.bold ? 14 : 13, fontWeight: 900, color: opts.color ?? BRAND }}>{money(totalVal, psf, sqft)}</td>
       {!actuals && <td style={{ ...td, fontWeight: opts.bold ? 800 : undefined, color: opts.color ?? "var(--muted)" }}>{money(t.budgetTotal, psf, sqft)}</td>}
       {!actuals && (
         <td style={{ ...td, fontWeight: 800, color: opts.color ?? varColor(t.variance) }} title={fmtVarPct(t.variance, t.budgetTotal)}>
@@ -209,7 +219,10 @@ function HeaderRow({ through, mode, labels, totalLabel }: { through: number; mod
   );
 }
 
-function SectionCard({ sec, view, noteFor, osHref, hideSubtotal }: { sec: Section; view: ViewOpts; noteFor: NoteFor; osHref: string; hideSubtotal?: boolean }) {
+function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill }: { sec: Section; view: ViewOpts; noteFor: NoteFor; osHref: string; hideSubtotal?: boolean; onDrill?: OnDrill }) {
+  // Revenue is stored as a credit, so its GL rows read positive with sign −1 —
+  // the operating statement's own rule.
+  const sign: 1 | -1 = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
   const lines = view.hideEmpty ? sec.lines.filter((l) => !lineEmpty(l, view.mode)) : sec.lines;
   if (lines.length === 0 && view.hideEmpty) return null;
   return (
@@ -234,7 +247,7 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal }: { sec: Sectio
                   )}
                   {view.showGL && <div className="muted" style={{ fontSize: 10.5, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
-                {figureCells(l, view)}
+                {figureCells(l, view, onDrill ? { drill: (period, scope) => onDrill({ mask: l.mask, label: l.label, sign, period, scope, monthLabel: MONTHS[period - 1] }) } : {})}
               </tr>
             );})}
             {!hideSubtotal && (
