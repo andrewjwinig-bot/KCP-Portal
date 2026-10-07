@@ -91,7 +91,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
         <HoverCard title={title} rows={[
           { label: `Budgeted ${what}`, value: money0(base) },
           { label: "With the raises", value: money0(base - c) },
-        ]} footer={{ label: "Change", value: `${p.toFixed(2)}%`, color: UP }}>{Math.abs(p) < 0.005 ? "–" : `${p.toFixed(2)}%`}</HoverCard>
+        ]} footer={{ label: "Change", value: Math.abs(p) < 0.005 ? "0.00%" : `${p.toFixed(2)}%`, color: UP }}>{Math.abs(p) < 0.005 ? "0.00%" : `${p.toFixed(2)}%`}</HoverCard>
       </td>
     );
   };
