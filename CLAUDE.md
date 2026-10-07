@@ -1520,8 +1520,13 @@ time — and the team does not have time to open the GL over $80.
   not LIK itself and not a fund (a fund's draft consolidates buildings already
   counted) — and totals their 6610 lines. The two sides of the intercompany
   entry therefore tie in the budget by construction. Hover a month for the
-  buildings. It is slow by nature (every building's draft), so the draft route
-  has `maxDuration = 300`.
+  buildings. It was slow by nature (every building's draft, minutes per open —
+  owner: "taking a very very very very long time to load"), so the buildings'
+  fees are KEPT (`feeRollupStore.ts`, `budget-fee-rollup`, a row per building
+  per budget year): `buildBudgetDraft` writes the building's row each time
+  its draft is built (opened, or built by a book roll-up), and 2010 reads the
+  rows. Only a year with no rows builds every building, once. The draft route
+  keeps `maxDuration = 300` for that first build.
 - **Occupancy % opens Occupancy by Suite** (the Occupancy SF row was removed — owner; the SF lives in the hover and the modal) (`OccupancyBySuiteModal`, the
   Operating Budgets page's view): each suite's occupied SF by month, off the
   draft's own `tenantRevenue` (occupied = pays rent that month), dark green for
