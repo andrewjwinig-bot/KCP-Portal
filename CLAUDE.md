@@ -1455,7 +1455,8 @@ time — and the team does not have time to open the GL over $80.
     costs us, and (2) where it lands. So the card is a list of raises (% or $ of salary, or a one-time bonus):
     - **No raise budget / pool control** (owner: "i dont know that we need
       the blanket raise budget" — it only took X% of total salaries). The
-      tiles are Raises (pay $, and as a % of total salaries) / Cost / yr /
+      tiles are Raises (pay $ — no % of total salaries, owner: not a metric
+      they use; raises are decided employee by employee) / Cost / yr /
       net of recoveries (when any). `raisePlan.pool` and `poolDollars` remain
       in the data model, unused by the card.
     - **Net of recoveries — SHOWN ONLY WHEN SOMETHING IS RECOVERED** (owner:
