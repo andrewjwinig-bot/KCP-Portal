@@ -46,6 +46,9 @@ export const ALLOC_COLUMNS = [
   { key: "interstate", label: "Interstate", group: "" },
   { key: "middletown", label: "Middletown", group: "" },
   { key: "eastwick", label: "Eastwick", group: "" },
+  // Butler & Main (9000) — offered so a salary CAN be allocated there; no one
+  // is today (owner).
+  { key: "butlerMain", label: "Butler & Main", group: "" },
 ] as const;
 export type AllocKey = (typeof ALLOC_COLUMNS)[number]["key"];
 
@@ -228,6 +231,7 @@ export function allocatePayroll(doc: PayrollBudgetDoc): PayrollAllocation {
     { key: "4900", label: "The Office Works", code: "4900", annual: e.owDirect.total + e.owIndirect.total,
       parts: [{ label: "Direct", annual: e.owDirect.total }, { label: "Indirect", annual: e.owIndirect.total }] },
     { key: "eastwick", label: "Eastwick JV", code: null, annual: e.eastwick.total, parts: [] },
+    { key: "9000", label: "Butler & Main", code: "9000", annual: e.butlerMain.total, parts: [] },
   ];
 
   const allocated = sum(funds.map((f) => f.office + f.maintenance + f.marketing)) + sum(misc.map((m) => m.annual));
@@ -242,14 +246,14 @@ export type BuildingEmployeeRow = {
 };
 
 /** Every employee's share of one building (a fund row's code) or one misc
- *  entity (2010, 0800, 4900, "eastwick") — the same arithmetic as
+ *  entity (2010, 0800, 4900, 9000, "eastwick") — the same arithmetic as
  *  `allocatePayroll`, per employee, so the rows add to that building's row. */
 export function employeesForBuilding(doc: PayrollBudgetDoc, code: string): BuildingEmployeeRow[] {
   const r = doc.rates;
   const fund = (["sc", "niLlc", "jv3"] as FundKey[]).find((f) => doc.funds[f].buildings.some((b) => b.code === code));
   const MISC: Record<string, AllocKey[]> = {
     "2010": ["likOperating", "likOther"], "0800": ["interstate", "middletown"],
-    "4900": ["owDirect", "owIndirect"], eastwick: ["eastwick"],
+    "4900": ["owDirect", "owIndirect"], eastwick: ["eastwick"], "9000": ["butlerMain"],
   };
   const splitTot = sum(Object.values(doc.marketingSplit));
   const out: BuildingEmployeeRow[] = [];

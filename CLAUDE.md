@@ -1428,7 +1428,8 @@ time — and the team does not have time to open the GL over $80.
   medical column — a POPUP opened from that column, not its own card, since it
   only feeds it), **allocation %** (LIK Operating/Other, JV III, NI LLC, SC,
   Office Works Direct/Indirect, Marketing-All, Interstate, Middletown,
-  Eastwick — must total 100%) and **by building**. **The allocation table
+  Eastwick, Butler & Main — must total 100%; Butler & Main (9000) is offered
+  with nobody allocated to it yet, owner) and **by building**. **The allocation table
   toggles % · $** (owner: "i need to see the $ allocation to entity/property
   by employee"): % is typed, $ is gross × % per year, read-only; either way a
   cell hovers its dollars per year / month and, for a fund column (SC / NI
