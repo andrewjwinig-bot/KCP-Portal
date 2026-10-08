@@ -56,6 +56,7 @@ export async function loadOfficeRecon(property: string, year: number): Promise<L
       ...base,
       ...(uc.proRataPct != null ? { proRataPct: uc.proRataPct } : {}),
       ...(uc.grossUp != null ? { grossUp: uc.grossUp } : {}),
+      ...(uc.aggregateBaseYear != null ? { aggregateBaseYear: uc.aggregateBaseYear } : {}),
     };
   }
 

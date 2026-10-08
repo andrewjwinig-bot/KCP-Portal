@@ -13,7 +13,7 @@ import CamStatementHistory from "./CamStatementHistory";
 // expenses are grossed up to 95% occupancy. These flow into the CAM / RET
 // reconciliation via /api/cam-recon/office.
 
-type Effective = { proRataPct: number | null; grossUp: boolean };
+type Effective = { proRataPct: number | null; grossUp: boolean; aggregateBaseYear?: boolean };
 type Seed = { proRataPct: number | null; grossUp: boolean | null; baseYear: number | null };
 
 // Shared big-tile styling, matched to the retail card's tiles.
@@ -232,6 +232,28 @@ export default function OfficeCamConfigCard({
             {baseYear ?? seed?.baseYear ?? "—"}
           </span>
           <span style={tileSubStyle}>expense recovery</span>
+        </div>
+
+        {/* Base-year stop — line by line (the norm) or on the operating-expense
+            TOTAL, as some leases read (ISD Renal at 3620). */}
+        <div style={tileStyle}>
+          <span style={tileLabelStyle}>Base-Year Stop</span>
+          <select
+            value={config.aggregateBaseYear ? "total" : "line"}
+            onChange={(e) => update({ aggregateBaseYear: e.target.value === "total" })}
+            style={{
+              ...tileInputStyle(170),
+              fontSize: 16,
+              textAlign: "center",
+              textAlignLast: "center",
+              appearance: "auto",
+              cursor: "pointer",
+            }}
+          >
+            <option value="line">Line by line</option>
+            <option value="total">Total Op Ex</option>
+          </select>
+          <span style={tileSubStyle}>{config.aggregateBaseYear ? "total actual − total base" : "each line over its base"}</span>
         </div>
       </div>
 
