@@ -11,12 +11,19 @@ import { soleOwnerName } from "../../lib/properties/ownership";
 import { useUser } from "../components/UserProvider";
 import { loadTaxChecked } from "../tracker/tax-data";
 import { TypePill } from "./PropertyDetail";
+import { SHADOW_PROPERTIES, totalAcres, type ShadowProperty } from "../../lib/properties/shadowProperties";
+
+/** The managed properties plus the held-only shadow holdings — the shadows
+ *  appear HERE and nowhere else (they are not in PROPERTY_DEFS). */
+const LISTED: PropertyDef[] = [...PROPERTY_DEFS, ...SHADOW_PROPERTIES];
+const isShadow = (p: PropertyDef): p is ShadowProperty => (p as ShadowProperty).shadow === true;
 
 // ─── PROPERTY CARD ────────────────────────────────────────────────────────────
 
 function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => void; checked: Record<string, boolean> }) {
   const ts = TYPE_STYLE[prop.type];
   const isEntity = !!prop.entityKind;
+  const shadow = isShadow(prop);
   const typeAccent = isEntity ? "" : `, inset 0 5px 0 ${ts.text}`;
   // Ownership + Tax Filings used to render as collapsible footers on the
   // preview card. They live inside the detail page (also collapsible) now,
@@ -27,7 +34,7 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
       style={{
         display: "flex", flexDirection: "column",
         minHeight: 110,
-        border: isEntity ? "1.5px dashed #6d28d9" : "1px solid var(--border)",
+        border: isEntity ? "1.5px dashed #6d28d9" : shadow ? "1.5px dashed var(--border)" : "1px solid var(--border)",
         borderRadius: 14,
         background: isEntity ? "rgba(109,40,217,0.04)" : "var(--card)",
         boxShadow: `0 2px 8px rgba(2,6,23,0.05)${typeAccent}`,
@@ -66,7 +73,14 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
             padding: "2px 8px", borderRadius: 5,
             fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
           }}>{prop.id}</code>
-          {isEntity ? (
+          {shadow ? (
+            <span style={{
+              fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+              color: "#475569", background: "rgba(15,23,42,0.06)",
+              border: "1px solid rgba(15,23,42,0.15)",
+              padding: "2px 8px", borderRadius: 999, textTransform: "uppercase",
+            }}>Not managed</span>
+          ) : isEntity ? (
             <span style={{
               fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
               color: "#6d28d9", background: "rgba(109,40,217,0.08)",
@@ -101,7 +115,12 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
               : prop.city}
           </div>
         )}
-        {prop.notes && !prop.address && !prop.city && (
+        {shadow && (
+          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: "auto", paddingTop: 8 }}>
+            {totalAcres(prop).toFixed(2)} acres · {prop.regions.map((r) => r.label.split(" — ")[0]).join(", ")}
+          </div>
+        )}
+        {!shadow && prop.notes && !prop.address && !prop.city && (
           <div style={{ fontSize: 12, color: "var(--muted)", marginTop: "auto", paddingTop: 8 }}>{prop.notes}</div>
         )}
       </button>
@@ -127,12 +146,12 @@ export default function PropertiesPage() {
 
   const typeCounts = useMemo(() => {
     const counts: Record<PropType, number> = { Office: 0, Retail: 0, Residential: 0, Land: 0, Misc: 0 };
-    PROPERTY_DEFS.forEach(p => counts[p.type]++);
+    LISTED.forEach(p => counts[p.type]++);
     return counts;
   }, []);
 
   const filtered = useMemo(() =>
-    typeFilter === "all" ? PROPERTY_DEFS : PROPERTY_DEFS.filter(p => p.type === typeFilter),
+    typeFilter === "all" ? LISTED : LISTED.filter(p => p.type === typeFilter),
   [typeFilter]);
 
   const openProp = (prop: PropertyDef) => router.push(`/properties/${prop.id}`);
@@ -155,7 +174,7 @@ export default function PropertiesPage() {
       {/* ── Summary tiles ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
         {([
-          { key: "all",         label: "Total",       value: PROPERTY_DEFS.length, color: "var(--brand)",  activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)"  },
+          { key: "all",         label: "Total",       value: LISTED.length, color: "var(--brand)",  activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)"  },
           { key: "Office",      label: "Office",       value: typeCounts.Office,      color: "#0b4a7d",      activeBg: "rgba(11,74,125,0.09)",  activeBorder: "rgba(11,74,125,0.35)" },
           { key: "Retail",      label: "Retail",       value: typeCounts.Retail,      color: "#0d9488",      activeBg: "rgba(13,148,136,0.09)", activeBorder: "rgba(13,148,136,0.35)"},
           { key: "Residential", label: "Residential",  value: typeCounts.Residential, color: "#6d28d9",      activeBg: "rgba(109,40,217,0.09)", activeBorder: "rgba(109,40,217,0.35)"},

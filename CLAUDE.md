@@ -2136,6 +2136,22 @@ only, nothing from the budget**.
   (`buildT12Xlsx`): the trailing month headings, a live `=SUM` T-12 column,
   no Ann Bud / Var. Pinned by `t12/export.test.ts` reading the file back.
 
+# Shadow properties — held, not managed
+
+**`SHADOW_PROPERTIES` (`lib/properties/shadowProperties.ts`) holds land we OWN
+but do not MANAGE**, kept OUT of `PROPERTY_DEFS` on purpose (owner: "they dont
+need to appear in all our dropdowns … i just need one spot for it in the
+property info page"). Everything that lists properties reads `PROPERTY_DEFS`;
+only Property Info adds the shadows (its Land group, a dashed "Not managed"
+card), and `/properties/<id>` opens `ShadowLandDetail` — the parcel schedule
+banded by region, with acreage totals and the Statement of Values equity —
+instead of the managed-property detail. First entry: **The Korman Co Land**
+(`LAND`, the entity code the SoV and beneficiary map already use), keyed from
+The Korman Co's Schedule of Vacant Land: 164.62 acres across Philadelphia,
+Middletown (Bucks), Whitemarsh (Montgomery) and New Jersey. Pinned by
+`shadowProperties.test.ts` (the region totals tie to the schedule; no shadow id
+is in `PROPERTY_DEFS`). A new held-only holding goes here, never in `data.ts`.
+
 # Insurance Schedule of Values — sources of truth
 
 `/insurance`, in the Report Center under **Insurance** (Drew, Alison, admin).
