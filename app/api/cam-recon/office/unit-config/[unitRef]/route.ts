@@ -14,16 +14,17 @@ function unitRefOf(params: { unitRef: string }): string {
  *  ("4070-103" → "4070"). Returns the lease-level fields the unit card edits
  *  (pro-rata share + gross-up) so the card can show the seeded default
  *  beneath any stored override. */
-function seedFor(unitRef: string): { proRataPct: number | null; grossUp: boolean | null; baseYear: number | null } {
+type SeedCfg = { proRataPct: number | null; grossUp: boolean | null; baseYear: number | null; aggregateBaseYear: boolean };
+function seedFor(unitRef: string): SeedCfg {
   const property = unitRef.split("-")[0];
   const fixture = OFFICE_RECON_FIXTURES[property];
-  if (!fixture) return { proRataPct: null, grossUp: null, baseYear: null };
+  if (!fixture) return { proRataPct: null, grossUp: null, baseYear: null, aggregateBaseYear: false };
   const years = Object.keys(fixture.byYear).map(Number).sort((a, b) => b - a);
   for (const y of years) {
     const cfg = fixture.byYear[y]?.leaseConfig[unitRef];
-    if (cfg) return { proRataPct: cfg.proRataPct, grossUp: cfg.grossUp, baseYear: cfg.baseYear };
+    if (cfg) return { proRataPct: cfg.proRataPct, grossUp: cfg.grossUp, baseYear: cfg.baseYear, aggregateBaseYear: !!cfg.aggregateBaseYear };
   }
-  return { proRataPct: null, grossUp: null, baseYear: null };
+  return { proRataPct: null, grossUp: null, baseYear: null, aggregateBaseYear: false };
 }
 
 /** GET → { override, seed, effective } where effective merges the stored
@@ -40,11 +41,12 @@ export async function GET(
   const effective = {
     proRataPct: override.proRataPct ?? seed.proRataPct,
     grossUp: override.grossUp ?? seed.grossUp ?? false,
+    aggregateBaseYear: override.aggregateBaseYear ?? seed.aggregateBaseYear,
   };
   return NextResponse.json({ override, seed, effective });
 }
 
-/** PUT body: { proRataPct?, grossUp? } — null on a field clears that
+/** PUT body: { proRataPct?, grossUp?, aggregateBaseYear? } — null on a field clears that
  *  override (revert to the seed). */
 export async function PUT(
   req: NextRequest,
@@ -75,11 +77,16 @@ export async function PUT(
     patch.grossUp = body.grossUp === null ? null : body.grossUp === true || body.grossUp === "true";
   }
 
+  if ("aggregateBaseYear" in body) {
+    patch.aggregateBaseYear = body.aggregateBaseYear === null ? null : body.aggregateBaseYear === true || body.aggregateBaseYear === "true";
+  }
+
   const override = await saveUnitConfig(unitRef, patch);
   const seed = seedFor(unitRef);
   const effective = {
     proRataPct: override.proRataPct ?? seed.proRataPct,
     grossUp: override.grossUp ?? seed.grossUp ?? false,
+    aggregateBaseYear: override.aggregateBaseYear ?? seed.aggregateBaseYear,
   };
   return NextResponse.json({ override, seed, effective });
 }

@@ -6,7 +6,12 @@
 
 import { createMapStore } from "@/lib/collectionStore";
 
-export type OfficeUnitConfig = { proRataPct?: number; grossUp?: boolean };
+export type OfficeUnitConfig = {
+  proRataPct?: number;
+  grossUp?: boolean;
+  /** Base-year stop on the operating-expense TOTAL rather than line by line. */
+  aggregateBaseYear?: boolean;
+};
 type Store = Record<string, OfficeUnitConfig>;
 
 // One blob per unit (was a single all-units map, read-modify-written on every

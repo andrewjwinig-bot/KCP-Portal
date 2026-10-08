@@ -23,7 +23,9 @@ export const LEASE_CONFIG_3620_2025: Record<string, OfficeLeaseConfig> = {
   "3620-102": { baseYear: 2022, grossUp: true,  proRataPct: 2.57,  opexEscrow: 492,   retEscrow: 180 },
   "3620-104": { baseYear: 2011, grossUp: false, proRataPct: 5.20,  opexEscrow: 3360,  retEscrow: 0 },
   "3620-108": { baseYear: 2024, grossUp: true,  proRataPct: 2.10,  opexEscrow: 900,   retEscrow: 0 },
-  "3620-110": { baseYear: 2017, grossUp: true,  proRataPct: 20.51, opexEscrow: 10800, retEscrow: 1800 },
+  // ISD Renal: the base-year stop is applied to TOTAL operating expenses, not
+  // line by line (tenant, 10/2026).
+  "3620-110": { baseYear: 2017, grossUp: true,  proRataPct: 20.51, opexEscrow: 10800, retEscrow: 1800, aggregateBaseYear: true },
   "3620-205": { baseYear: 2019, grossUp: true,  proRataPct: 1.83,  opexEscrow: -689,  retEscrow: 180 },
   "3620-208": { baseYear: 2021, grossUp: true,  proRataPct: 5.56,  opexEscrow: 1800,  retEscrow: 360 },
   "3620-209": { baseYear: 2024, grossUp: true,  proRataPct: 1.20,  opexEscrow: 504,   retEscrow: 0 },

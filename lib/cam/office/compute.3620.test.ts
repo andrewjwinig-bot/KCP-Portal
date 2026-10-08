@@ -16,7 +16,7 @@ describe("3620 reconciliation — connected from app data (JV III)", () => {
 
   const expectedOpex: Record<string, number> = {
     "3620-100": -270.80, "3620-102": -141.61, "3620-104": -2681.17, "3620-108": -642.55,
-    "3620-110": -7699.87, "3620-205": 947.10, "3620-208": -1056.23, "3620-209": -356.88,
+    "3620-110": -10800.00, "3620-205": 947.10, "3620-208": -1056.23, "3620-209": -356.88,
     "3620-210": -201.40, "3620-307": 147.57, "3620-312": -660.16,
   };
   const expectedRet: Record<string, number> = {
@@ -41,8 +41,18 @@ describe("3620 reconciliation — connected from app data (JV III)", () => {
     expect(byUnit["3620-100"].opexLines.some((l) => l.glAccount.startsWith("6990"))).toBe(true);
   });
 
-  it("building totals tie to Building row 40 (±$10)", () => {
-    expect(near(result.totals.opexBalance, -12615.99, 10)).toBe(true);
+  // ISD Renal (110) reconciles on the operating-expense TOTAL, not line by
+  // line (tenant, 10/2026): 2025 total $228,251 is under its 2017 base
+  // $243,871, so nothing is due and its $10,800 escrow comes back. The
+  // workbook (line by line) had $3,100 due / −$7,699.87; the building total
+  // moves by the same $3,100.
+  it("ISD Renal (110) is stopped on the expense TOTAL", () => {
+    expect(byUnit["3620-110"].aggregateBaseYear).toBe(true);
+    expect(byUnit["3620-110"].opexAmountDue).toBe(0);
+  });
+
+  it("building totals tie to Building row 40, less ISD's $3,100 (±$10)", () => {
+    expect(near(result.totals.opexBalance, -12615.99 - 3100.09, 10)).toBe(true);
     expect(near(result.totals.retBalance, 9768.13, 10)).toBe(true);
   });
 });
