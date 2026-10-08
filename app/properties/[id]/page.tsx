@@ -9,12 +9,17 @@ import { loadTaxChecked } from "../../tracker/tax-data";
 import { PropertyDetailBody, TypePill } from "../PropertyDetail";
 import PublicWebsiteCard from "./PublicWebsiteCard";
 import CenterHeroBanner from "./CenterHeroBanner";
+import ShadowLandDetail from "./ShadowLandDetail";
+import { shadowProperty } from "../../../lib/properties/shadowProperties";
 
 export default function PropertyDetailPage() {
   const params = useParams<{ id: string }>();
   const rawId = params?.id ?? "";
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
-  const prop = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === id.toUpperCase());
+  // A shadow holding (held, not managed) is not in PROPERTY_DEFS — see
+  // lib/properties/shadowProperties.ts — and opens its own schedule.
+  const shadow = shadowProperty(id);
+  const prop = PROPERTY_DEFS.find((p) => p.id.toUpperCase() === id.toUpperCase()) ?? shadow;
   const center = prop ? centerByCode(prop.id) : undefined;
 
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -79,6 +84,7 @@ export default function PropertyDetailPage() {
             fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
           }}>{prop.id}</code>
           <TypePill type={prop.type} />
+          {shadow && <span className="muted small" style={{ fontWeight: 600 }}>Not managed · {shadow.ownerEntity}</span>}
           {center && (
             <a
               href={`/centers/${center.slug}`}
@@ -98,7 +104,7 @@ export default function PropertyDetailPage() {
 
       {center && <CenterHeroBanner code={prop.id} fallbackHero={center.assets.hero} />}
 
-      <PropertyDetailBody prop={prop} checked={checked} />
+      {shadow ? <ShadowLandDetail prop={shadow} /> : <PropertyDetailBody prop={prop} checked={checked} />}
 
       {center && <PublicWebsiteCard code={prop.id} />}
     </main>
