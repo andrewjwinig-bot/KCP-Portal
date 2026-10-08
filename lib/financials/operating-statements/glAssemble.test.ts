@@ -1,0 +1,168 @@
+import { describe, it, expect } from "vitest";
+import { reconcileGl } from "./glParser";
+import { assembleGls, reconcileGlFiles, coverageStart, mergeTransactions, postedThrough, type AssembleInput, type TxnVersion } from "./glAssemble";
+
+// Build a GL fixture: monthly nets for one account "X" at the given months.
+function gl(uploadedAt: string, maxPeriod: number, monthsX: Record<number, number>, beginningX?: number): AssembleInput {
+  const nets = new Array(12).fill(0);
+  for (const [m, v] of Object.entries(monthsX)) nets[Number(m) - 1] = v;
+  return {
+    uploadedAt,
+    maxPeriodInFile: maxPeriod,
+    monthly: { X: nets },
+    beginning: beginningX != null ? { X: beginningX } : undefined,
+    ytdTotal: { X: beginningX != null ? beginningX + Object.values(monthsX).reduce((a, b) => a + b, 0) : 0 },
+  };
+}
+
+describe("glAssemble", () => {
+  it("infers coverage start from the first month with activity", () => {
+    expect(coverageStart(gl("t", 2, { 1: 10, 2: 20 }))).toBe(1); // YTD-Feb
+    expect(coverageStart(gl("t", 2, { 2: 20 }))).toBe(2);        // Feb-only
+    expect(coverageStart(gl("t", 3, { 3: 5 }))).toBe(3);         // Mar-only
+  });
+
+  it("month-by-month uploads keep every month (Feb upload doesn't erase Jan)", () => {
+    const jan = gl("2026-02-01T00:00:00Z", 1, { 1: 100 }, 1000);
+    const feb = gl("2026-03-01T00:00:00Z", 2, { 2: 200 }, 1100); // Feb-only, newer
+    const m = assembleGls([jan, feb])!;
+    expect(m.monthly.X[0]).toBe(100); // January preserved
+    expect(m.monthly.X[1]).toBe(200); // February present
+    expect(m.maxPeriodInFile).toBe(2);
+    // Beginning comes from the earliest-covering file (the year opening).
+    expect(m.beginning?.X).toBe(1000);
+  });
+
+  it("a cumulative YTD upload supplies all its months", () => {
+    const ytd = gl("2026-03-01T00:00:00Z", 2, { 1: 100, 2: 200 }, 1000);
+    const m = assembleGls([ytd])!;
+    expect(m.monthly.X).toEqual([100, 200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(m.maxPeriodInFile).toBe(2);
+  });
+
+  it("newer upload wins for an overlapping month", () => {
+    const v1 = gl("2026-03-01T00:00:00Z", 1, { 1: 100 }, 1000);
+    const v2 = gl("2026-03-02T00:00:00Z", 1, { 1: 150 }, 1000); // correction, newer
+    expect(assembleGls([v1, v2])!.monthly.X[0]).toBe(150);
+  });
+
+  it("reports the last ACTIVE month, not the report-range end", () => {
+    // A GL run for the whole year (range end Dec / maxPeriod 12) but only
+    // Jan–Feb posted → actuals through Feb, so the reprojection budgets Mar–Dec.
+    const fullYear = gl("2026-03-01T00:00:00Z", 12, { 1: 100, 2: 200 }, 1000);
+    expect(assembleGls([fullYear])!.maxPeriodInFile).toBe(2);
+  });
+
+  it("ignores a stray later-month entry (e.g. a year-end balance-sheet line)", () => {
+    // Jan–Feb posted, plus a stray December value (range run for the full year).
+    // Actuals-through should be Feb (the contiguous run), not December.
+    const g = gl("2026-03-01T00:00:00Z", 12, { 1: 100, 2: 200, 12: 5000 });
+    expect(assembleGls([g])!.maxPeriodInFile).toBe(2);
+  });
+
+  it("returns null for no GLs", () => {
+    expect(assembleGls([])).toBeNull();
+  });
+});
+
+// Build a transactions fixture: account "X" with one transaction per given
+// month (amount = month for identification), reusing the same monthly nets so
+// coverage is inferred the same way as the statement.
+type Txn = { month: number; amount: number };
+function txnVer(uploadedAt: string, maxPeriod: number, months: number[]): TxnVersion<Txn> {
+  const nets = new Array(12).fill(0);
+  for (const m of months) nets[m - 1] = m;
+  return {
+    uploadedAt,
+    maxPeriodInFile: maxPeriod,
+    monthly: { X: nets },
+    transactions: { X: months.map((m) => ({ month: m, amount: m })) },
+  };
+}
+
+describe("mergeTransactions", () => {
+  it("keeps every month across month-by-month uploads (the drill-down bug)", () => {
+    const jan = txnVer("2026-02-01T00:00:00Z", 1, [1]);
+    const feb = txnVer("2026-03-01T00:00:00Z", 2, [2]); // Feb-only, newer
+    const merged = mergeTransactions([jan, feb]);
+    expect(merged.X.map((t) => t.month).sort()).toEqual([1, 2]); // Jan NOT erased
+  });
+
+  it("a cumulative YTD upload supplies all its months", () => {
+    const ytd = txnVer("2026-03-01T00:00:00Z", 3, [1, 2, 3]);
+    expect(mergeTransactions([ytd]).X.map((t) => t.month).sort()).toEqual([1, 2, 3]);
+  });
+
+  it("a newer upload supersedes an overlapping month (no duplicates)", () => {
+    const v1 = txnVer("2026-03-01T00:00:00Z", 1, [1]);
+    const v2 = txnVer("2026-03-02T00:00:00Z", 1, [1]); // correction for January
+    const merged = mergeTransactions([v1, v2]);
+    expect(merged.X.filter((t) => t.month === 1).length).toBe(1); // not doubled
+  });
+
+  it("returns an empty map for no uploads", () => {
+    expect(mergeTransactions<Txn>([])).toEqual({});
+  });
+});
+
+describe("postedThrough — a quiet month is not a missing one", () => {
+  // 0900's August GL: the file covers Jan–Aug and says so in its report range,
+  // but the property only transacted in January. It read "imported through
+  // January" and showed as seven months behind on a page it was current on.
+  const dormant: AssembleInput = {
+    uploadedAt: "2026-09-22T00:00:00.000Z",
+    maxPeriodInFile: 8,
+    monthly: { "4230-0000": [1200, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] },
+  };
+
+  it("assembly still reports the last ACTIVE month, which the arithmetic needs", () => {
+    expect(assembleGls([dormant])!.maxPeriodInFile).toBe(1);
+  });
+
+  it("but the RANGE is what says how far it is posted", () => {
+    const asm = assembleGls([dormant])!;
+    expect(asm.coverageEnd).toBe(8);
+    expect(postedThrough(asm)).toBe(8);
+  });
+
+  it("falls back to the active month when no range was read", () => {
+    // An older stored GL predating coverageEnd must not read as month
+    // `undefined` — better the old answer than no answer.
+    expect(postedThrough({ maxPeriodInFile: 5 })).toBe(5);
+  });
+
+  it("a busy property is unaffected — the two agree", () => {
+    const busy = { ...dormant, monthly: { "4230-0000": [1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0] } };
+    const asm = assembleGls([busy])!;
+    expect(asm.maxPeriodInFile).toBe(8);
+    expect(postedThrough(asm)).toBe(8);
+  });
+});
+
+describe("reconcileGlFiles — the GL TIES pill", () => {
+  // A P&L account: Jan–Jul upload opens at 0 and closes at its YTD; an
+  // August-only export opens at 0 AGAIN (Skyline's basis for a mid-year range)
+  // and closes at August's net. Each file ties; the stitched composite cannot.
+  const julYtd = gl("2026-08-05T00:00:00Z", 7, { 1: 100, 2: 100, 3: 100, 4: 100, 5: 100, 6: 100, 7: 100 }, 0);
+  const augOnly = gl("2026-09-05T00:00:00Z", 8, { 8: 120 }, 0);
+
+  it("does not report a mismatch that only exists in the stitched ledger", () => {
+    const composite = assembleGls([julYtd, augOnly])!;
+    expect(reconcileGl(composite).mismatches.length).toBe(1); // the false alarm
+    const r = reconcileGlFiles([julYtd, augOnly]);
+    expect(r.checked).toBe(2);
+    expect(r.mismatches).toEqual([]);
+  });
+
+  it("still catches a file that does not tie with itself", () => {
+    const broken = { ...augOnly, ytdTotal: { X: 999 } };
+    expect(reconcileGlFiles([julYtd, broken]).mismatches.length).toBe(1);
+  });
+
+  it("ignores an upload a later re-upload fully replaced", () => {
+    const bad = { ...gl("2026-08-01T00:00:00Z", 7, { 1: 100, 7: 100 }, 0), ytdTotal: { X: 5 } };
+    const fixed = gl("2026-08-02T00:00:00Z", 7, { 1: 100, 7: 100 }, 0);
+    expect(reconcileGlFiles([bad, fixed]).mismatches).toEqual([]);
+  });
+});
+

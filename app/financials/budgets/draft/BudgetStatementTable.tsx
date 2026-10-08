@@ -1,0 +1,1104 @@
+"use client";
+
+// The draft budget, laid out as a FULL-YEAR OPERATING STATEMENT.
+//
+// A budget is read the way the statement it will be measured against is read:
+// the same Revenues / Operating Expenses / NOI / Capital / Debt Service ladder,
+// a column for every month, then the year. So this deliberately copies the
+// operating statement's Full-Year grid (`FullYearTable` in
+// app/financials/operating-statements/page.tsx) — the same header metrics,
+// section bands, subtotal and rollup rows — rather than a card per section
+// showing one annual figure, which hid the monthly shape the budget is made of
+// (a tax bill in May and November, a premium in March, snow in winter).
+//
+// Beside the year: this year's forecast (what it is grown from) and the change,
+// so every line is read against where it is coming from. Each line carries the
+// small pill saying WHERE its months came from — leases, a figure someone
+// entered, the recovery estimate, or the default — and clicking its NAME opens
+// the line's trailing years.
+//
+// Every month is TYPEABLE (for Drew / admin): click a cell, type, Tab to the
+// next month. A typed month replaces only that month and is tinted so it reads
+// as a decision rather than a computation; clearing it hands the month back to
+// the computed figure. Typing into the Budget column spreads an annual evenly.
+// The three Budget Inputs lines (taxes, insurance, building maintenance) are
+// NOT typeable here — their owners key them on /budget-inputs, and two places
+// to set one figure is how they would disagree. Nor are the CAM / INS / RET
+// recovery lines: they are Step 3's tenant totals, and a typed month would
+// break the tie to the tenants and their methodology. Nor is rent, or the TI
+// and commissions the deals carry — those are Step 1's leases and decisions.
+
+import { termYearsMonths } from "@/lib/commissions";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, type PillTone } from "@/app/components/Pill";
+import { SourceBadge } from "./SourceBadge";
+import { SourceIcon, SourceIconButton } from "./SourceIcon";
+import { DebtIcon } from "./DebtDetail";
+import { DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL } from "@/lib/financials/budgets/cashForecast";
+import type { BudgetDraft, BudgetDraftSection } from "@/lib/financials/budgets/draft";
+import type { SectionRole } from "@/lib/financials/operating-statements/types";
+import { NoteMark, type LineNote } from "./LineNote";
+import { HoverCard, type TipRow } from "@/app/components/HoverCard";
+import { negativeLines } from "@/lib/financials/budgets/negativeLines";
+import { recoveryCategory, recoveryMakeup, tenantLabel, SPEC_TENANT, CATEGORY_LABEL, type RecoveryCategory } from "@/lib/financials/budgets/recoveryMakeup";
+import { RecoveryMakeupModal } from "./RecoveryMakeupModal";
+import { OccupancyBySuiteModal } from "./OccupancyBySuiteModal";
+import { RATE_ACCOUNT, type VacancyUtilities } from "@/lib/financials/budgets/vacancyUtilities";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const COLOR_BRAND = "#0b4a7d";
+// THE TABLE LOOKS LIKE THE OPERATING BUDGETS PAGE (app/financials/budgets/
+// page.tsx — `BudgetTableColgroup`, `BudgetLineRow`, `SubtotalCard`,
+// `GroupHeader`): a card per section under a brand group heading, the global
+// table cells, every other month column tinted, fixed percentage columns so
+// each card's months line up with the next, and the cross-section totals in
+// their own brand-bordered cards. The draft is the budget before it is
+// published there, so the two must read as the same document.
+const MONTH_TINT = "rgba(15,23,42,0.035)";
+// Line as snug as the labels allow (they ellipsize, full name on hover), so the
+// grid fits without a horizontal scroll: at the 1,090px floor a month is still
+// the ~57px a six-figure month needs.
+const COL_PCT = { line: 15, month: 5.5, budget: 7.6, reproj: 6.8, change: 4.6 };
+function Colgroup() {
+  return (
+    <colgroup>
+      <col style={{ width: `${COL_PCT.line}%` }} />
+      {MONTHS.map((m, i) => <col key={m} style={{ width: `${COL_PCT.month}%`, ...(i % 2 === 0 ? { background: MONTH_TINT } : {}) }} />)}
+      <col style={{ width: `${COL_PCT.budget}%` }} />
+      <col style={{ width: `${COL_PCT.reproj}%` }} />
+      <col style={{ width: `${COL_PCT.change}%` }} />
+    </colgroup>
+  );
+}
+const TABLE: React.CSSProperties = { tableLayout: "fixed", width: "100%", minWidth: 1090 };
+const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12, whiteSpace: "nowrap", verticalAlign: "middle", paddingLeft: 6, paddingRight: 6 };
+const lab: React.CSSProperties = { textAlign: "left", verticalAlign: "middle", fontSize: 14 };
+const headR: React.CSSProperties = { textAlign: "right", whiteSpace: "nowrap" };
+
+const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
+const sum = (a: number[]) => a.reduce((s, n) => s + (n || 0), 0);
+const addInto = (acc: number[], xs: number[]) => { for (let i = 0; i < 12; i++) acc[i] += xs[i] || 0; };
+
+type Variant = "line" | "sub" | "subtotal" | "rollup" | "rollupStrong";
+type Line = BudgetDraftSection["lines"][number];
+/** Which cell is open for typing: a line key and a month (12 = the Budget column). */
+type EditAt = { row: string; m: number } | null;
+/** A "+3%" / "Flat" / "Tax +3%" pill on a line that is $0 every month says
+ *  nothing — 3% of nothing is nothing — so it is left off. Pills that name
+ *  WHERE a figure comes from (Leases, Recoveries, Payroll…) stay. */
+
+/** The Projected Bank Balance is hidden until its opening balance is
+ *  straightened out (owner). Distributions are unaffected. */
+const BANK_BALANCE_SHOWN = false;
+export const growthOnNothing = (source: string, months: number[]) =>
+  (source === "reproj-growth" || source === "reproj-flat" || source === "ret-default") && months.every((v) => Math.abs(v || 0) < 0.5);
+
+/** Nor on a line someone has typed over — a month cleared to zero included:
+ *  "+3%" claims the figure was grown, and a typed month was not. The
+ *  line-history popup already drops its pill the same way. */
+export const growthOverTyped = (source: string, typed?: boolean[]) =>
+  (source === "reproj-growth" || source === "reproj-flat" || source === "ret-default") && !!typed?.some(Boolean);
+
+/** A negative figure on a revenue or expense line — almost always a miscoded
+ *  credit or a typo, never a budget. Filled amber (the warn tone) to be fixed. */
+const NEGATIVE_BG = "rgba(217,119,6,0.18)";
+const NEGATIVE_FG = "#b45309";
+/** Light blue = a cell you can type; bold blue text = a figure someone typed. */
+const INPUT_BG = "var(--input-cell)";
+const TYPED_FG = "var(--input-typed)";
+
+/** The sources whose marker is a short TEXT pill ("+3%", "Flat", "Tax +3%") —
+ *  the method in a word. Everything else is an icon. */
+
+/** A GL sub-line reads by its account NAME, as buckets and items do — the
+ *  code only where two accounts on the line share a name (or there is none),
+ *  since a code is how the ledger tells them apart, not how anyone reads a
+ *  budget. */
+function subName(y: { account: string; name?: string | null }, siblings: { name?: string | null; label?: string | null }[]): string {
+  if (!y.name) return y.account;
+  const clash = siblings.filter((o) => !o.label && o.name === y.name).length > 1;
+  return clash ? `${y.name} (${y.account})` : y.name;
+}
+
+/** Display only — "Reimbursements" / "Reimbursable" read as "Reimb." and
+ *  "Maintenance" as "Maint." so the line column stays narrow. Keys, saves and
+ *  notes keep the full label. */
+const abbrev = (s: string) => s.replace(/\breimburs(?:ements?|able)\b/gi, "Reimb.").replace(/\bmaintenance\b/gi, "Maint.");
+
+/** "$1,200", "1200", "(1,200)", "-1200" → a number; blank → null. */
+function parseTyped(s: string): number | null | undefined {
+  const t = s.trim();
+  if (!t) return null;
+  const neg = /^\(.*\)$/.test(t) || t.startsWith("-");
+  const n = Number(t.replace(/[\s$,()]/g, "").replace(/^-/, ""));
+  if (!Number.isFinite(n)) return undefined;
+  return neg ? -n : n;
+}
+
+export function CellInput({ initial, onDone }: { initial: number; onDone: (v: number | null | undefined, move: 0 | 1 | -1) => void }) {
+  const [v, setV] = useState(String(Math.round(initial)));
+  // Tab/Enter finish the cell and unmount it; a blur on the way out must not
+  // commit it a second time.
+  const done = useRef(false);
+  const finish = (val: number | null | undefined, move: 0 | 1 | -1) => {
+    if (done.current) return;
+    done.current = true;
+    onDone(val, move);
+  };
+  return (
+    <input autoFocus value={v} inputMode="decimal"
+      onFocus={(e) => e.currentTarget.select()}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => finish(parseTyped(v), 0)}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") { e.preventDefault(); finish(undefined, 0); }
+        else if (e.key === "Enter") { e.preventDefault(); finish(parseTyped(v), 0); }
+        else if (e.key === "Tab") { e.preventDefault(); finish(parseTyped(v), e.shiftKey ? -1 : 1); }
+      }}
+      style={{ width: "100%", minWidth: 64, textAlign: "right" }} />
+  );
+}
+
+/** The $/SF rate on non-reimbursable utilities: an ⓘ with the working, typed in place. */
+function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boolean; onSave: (cents: number | null) => void }) {
+  const [open, setOpen] = useState(false);
+  const tip = {
+    title: "Utilities on Vacant Space — Rate",
+    // The working, not just the answer: this year's line ÷ today's vacant SF
+    // is the default, so both figures are shown and the rate can be checked.
+    rows: [
+      ...(v.fixedDefault
+        ? [{ label: `Default rate (${v.groupLabel ?? "shared"})`, value: `$${(v.defaultRate ?? 0).toFixed(2)}/SF/yr — minimal use on vacant space` },
+           { label: "This year's Utilities (for reference)", value: money0(v.basisAnnual), color: "var(--muted)" }]
+        : [{ label: "This year's Utilities (full-year Reprojection)", value: money0(v.basisAnnual) },
+           { label: "÷ Vacant SF on today's Rent Roll", value: Math.round(v.sfToday).toLocaleString("en-US") },
+           ...(v.defaultRate != null ? [{ label: "= Default rate", value: `$${v.defaultRate.toFixed(2)}/SF/yr` }] : [{ label: "Default rate", value: "none — no vacancy today" }])]),
+      { label: v.rateTyped ? (v.scope ? `Rate in use — typed (shared by all ${v.groupLabel ?? "properties in the group"})` : "Rate in use — typed") : "Rate in use — the default", value: `$${v.rate.toFixed(2)}/SF/yr`, color: "var(--brand)" },
+      { label: "Vacant SF over the Budget year (avg)", value: Math.round(v.sf.reduce((a, n) => a + n, 0) / 12).toLocaleString("en-US") },
+    ],
+    footer: { label: v.scope ? `One rate for all ${v.groupLabel ?? "the group"}` : "Each month", value: "vacant SF × rate ÷ 12" },
+  };
+  if (open) {
+    return (
+      <span style={{ width: 90, display: "inline-block" }}>
+        <input autoFocus defaultValue={v.rate.toFixed(2)} inputMode="decimal" aria-label="Utilities $/SF on vacant space"
+          style={{ width: "100%", textAlign: "right" }}
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={(e) => { setOpen(false); const n = parseTyped(e.currentTarget.value); if (n === null) { if (v.rateTyped) onSave(null); } else if (n !== undefined && Math.abs(n - v.rate) >= 0.005) onSave(Math.round(n * 100)); }}
+          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); else if (e.key === "Escape") setOpen(false); }} />
+      </span>
+    );
+  }
+  // An ⓘ like every other source marker; the rate is in its hover, and a
+  // click types a new one.
+  return (
+    <HoverCard title={tip.title} rows={canEdit ? [...tip.rows, { label: tip.footer.label, value: tip.footer.value }] : tip.rows} footer={canEdit ? { label: "Click to change the rate", value: `$${v.rate.toFixed(2)}/SF` } : tip.footer} width={360} help={false}>
+      <SourceIconButton kind="info" label={canEdit ? "Edit the utilities rate" : "Utilities rate"} onClick={canEdit ? () => setOpen(true) : undefined} />
+    </HoverCard>
+  );
+}
+
+/** Where a line worked out elsewhere on the page sends you. */
+const SOURCE_WHERE: Record<string, string> = {
+  "#revenue-by-tenant": "Revenue by Tenant — each tenant's recoveries, below",
+  "#step-rent": "Revenues — the Rent Schedule and leasing calls, below",
+};
+
+function Row({ icon, extra, label, months, total, basis, variant = "line", badge, onLabel, favorableUp, typed, rowKey, edit, setEdit, onCommit, onReset, toggle, onAccept, note, depth = 1, priorYear, labelNote, cellHover, totalHover, cellMark, onCellClick, flagNegative }: {
+  /** The line's source marker — an ⓘ (the working, on hover) or a ↗ (worked
+   *  out elsewhere). Replaces a text pill, which crowded the line name out. */
+  icon?: React.ReactNode;
+  /** Rendered after the pill — the vacant-SF rate editor on utilities. */
+  extra?: React.ReactNode;
+  label: string; months: number[]; total: number; basis: number | null; variant?: Variant;
+  badge?: { tone: PillTone; text: string }; onLabel?: () => void;
+  /** Revenue-like: up is good. Expense-like: down is good. */
+  favorableUp: boolean;
+  typed?: boolean[];
+  /** Set when the row's months can be typed. */
+  rowKey?: string; edit?: EditAt; setEdit?: (e: EditAt) => void;
+  onCommit?: (m: number | "all", v: number | null) => void;
+  onReset?: () => void;
+  /** A line with sub-lines carries a disclosure to open them. */
+  toggle?: { open: boolean; onToggle: () => void };
+  /** A keyed input (taxes, insurance, building maintenance) not yet entered:
+   *  keep the figure as shown and mark it entered, in one click. */
+  onAccept?: () => void;
+  /** The line's note mark — present on every budget line. */
+  note?: { note?: LineNote; auto?: string; onOpen: () => void };
+  /** A sub-line's depth: 1 = a bucket or GL account, 2 = an item under it. */
+  depth?: number;
+  /** Set when `basis` is LAST YEAR'S BUDGET rather than the reprojection —
+   *  an item has no actuals to reproject. Rendered in italics, with a hover. */
+  priorYear?: number;
+  /** The budget workbook's own note on the row. */
+  labelNote?: string;
+  /** A month cell's breakdown, shown on hover (a recovery line's tenants). */
+  cellHover?: (m: number) => { title: string; rows: TipRow[]; footer?: TipRow } | null;
+  /** The Budget (year) cell's hover, where the line has one. */
+  totalHover?: () => { title: string; rows: TipRow[]; footer?: TipRow } | null;
+  /** A small tag under a month's figure (a recovery line's May: "at recon"). */
+  cellMark?: (m: number) => string | null;
+  /** Clicking a month cell (a recovery line opens its full tenant list). */
+  onCellClick?: (m: number) => void;
+  /** A revenue / expense line should never go negative: such a cell is
+   *  filled amber so it gets fixed. */
+  flagNegative?: boolean;
+}) {
+  const sub = variant === "sub";
+  const subtotal = variant === "subtotal";
+  const rowStyle: React.CSSProperties | undefined =
+    subtotal ? { background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }
+    : sub ? { background: "rgba(11,74,125,0.035)" }
+    : undefined;
+  const editable = !!rowKey && !!setEdit && !!onCommit;
+  const cell = (v: number, key: string | number, extra?: React.CSSProperties, m?: number) => {
+    const open = editable && m != null && edit?.row === rowKey && edit?.m === m;
+    const isTyped = m != null && m < 12 && !!typed?.[m];
+    const style: React.CSSProperties = {
+      ...num, ...(subtotal ? { fontWeight: 800, fontSize: 13.5, color: COLOR_BRAND } : {}), ...extra,
+      ...(editable && m != null ? { cursor: "text", background: INPUT_BG } : {}),
+      ...(isTyped ? { color: TYPED_FG, fontWeight: 800 } : {}),
+      ...(flagNegative && key !== "b" && v < -0.5 ? { background: NEGATIVE_BG, color: NEGATIVE_FG, fontWeight: 800 } : {}),
+      ...(open ? { padding: "2px 4px" } : {}),
+    };
+    const tip = open || m == null ? null : m < 12 ? (cellHover ? cellHover(m) : null) : m === 12 && totalHover ? totalHover() : null;
+    const clickable = !editable && !!onCellClick && m != null && m < 12;
+    const mark = m != null && m < 12 && cellMark ? cellMark(m) : null;
+    const shown = Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span>
+      : mark ? <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.15 }}>
+          {money0(v)}<span style={{ fontSize: 9.5, fontWeight: 700, color: "#b45309", textTransform: "uppercase", letterSpacing: "0.04em" }}>{mark}</span>
+        </span>
+      : money0(v);
+    return (
+      <td key={key} style={{ ...style, ...(clickable ? { cursor: "pointer" } : {}) }} className={(editable || clickable) && m != null ? "os-cell" : undefined}
+        onClick={editable && m != null && !open ? () => setEdit!({ row: rowKey!, m }) : clickable ? () => onCellClick!(m!) : undefined}>
+        {open ? (
+          <CellInput initial={v} onDone={(val, move) => {
+            // Only a CHANGE is a decision: tabbing across a month leaves it
+            // computed, and blanking a month that was never typed does nothing.
+            const changed = val === null ? isTyped : val !== undefined && Math.round(val) !== Math.round(v);
+            if (changed) onCommit!(m === 12 ? "all" : m!, val as number | null);
+            const next = m! + move;
+            setEdit!(move !== 0 && next >= 0 && next <= 11 ? { row: rowKey!, m: next } : null);
+          }} />
+        ) : tip ? (
+          <HoverCard title={tip.title} rows={tip.rows} footer={tip.footer} width={300} help={false}>{shown}</HoverCard>
+        ) : shown}
+      </td>
+    );
+  };
+  const change = basis == null ? null : total - basis;
+  const pct = change == null || Math.abs(basis ?? 0) < 0.5 ? null : (change / Math.abs(basis!)) * 100;
+  const good = change == null || Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
+  return (
+    <tr style={rowStyle}>
+      <td style={{ ...lab, ...(subtotal ? { fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 } : {}), ...(sub ? { borderLeft: `3px solid ${COLOR_BRAND}`, paddingLeft: depth > 1 ? 46 : 26, fontSize: depth > 1 ? 11.5 : 12, ...(depth > 1 ? { color: "var(--muted)" } : {}) } : {}), whiteSpace: "nowrap", overflow: "hidden" }}>
+        {/* The name and its source pill on ONE line, so every row is one row tall. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {toggle && (
+          <button type="button" onClick={toggle.onToggle} aria-expanded={toggle.open} aria-label={toggle.open ? "Hide sub-lines" : "Show sub-lines"}
+            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, width: 14, flex: "0 0 14px", color: "var(--muted)", fontSize: 11, lineHeight: 1 }}>
+            {toggle.open ? "▾" : "▸"}
+          </button>
+        )}
+        {!toggle && (variant === "line" || (sub && depth === 1)) && <span style={{ flex: "0 0 14px" }} />}
+        {onLabel ? (
+          <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
+            className="os-line-name" style={{ cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{abbrev(label)}</span>
+        ) : labelNote ? (
+          <HoverCard title={label} width={280} rows={[]} footer={{ label: "Budget note", value: labelNote }}>
+            <span style={{ borderBottom: "1px dotted var(--muted)", cursor: "default", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, display: "inline-block", maxWidth: "100%", verticalAlign: "bottom" }}>{abbrev(label)}</span>
+          </HoverCard>
+        ) : <span title={label} style={{ overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{abbrev(label)}</span>}
+        {note && <span style={{ flex: "0 0 auto", display: "inline-flex" }}><NoteMark label={label} note={note.note} auto={note.auto} onOpen={note.onOpen} /></span>}
+        {(extra || icon) && <span style={{ marginLeft: badge || onAccept ? undefined : "auto", flex: "0 0 auto", display: "inline-flex", gap: 2 }}>{icon}{extra}</span>}
+        {(badge || onAccept || (onReset && typed?.some(Boolean))) && (
+          <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto", flex: "0 0 auto" }}>
+            {onAccept && (
+              <button type="button" onClick={onAccept} className="btn" aria-label={`Accept ${label} as shown`}
+                style={{ fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>Accept</button>
+            )}
+            {badge && <Pill tone={badge.tone}>{badge.text}</Pill>}
+            {onReset && typed?.some(Boolean) && (
+              <button type="button" onClick={onReset} title="Reset typed months" aria-label="Reset typed months"
+                style={{ border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>↺</button>
+            )}
+          </span>
+        )}
+        </div>
+      </td>
+      {months.map((m, i) => cell(m, i, undefined, i))}
+      {cell(total, "t", subtotal ? { fontSize: 14, fontWeight: 800 } : { fontSize: 14, fontWeight: 600 }, editable || totalHover ? 12 : undefined)}
+      {basis == null ? <td style={num} /> : priorYear ? (
+        <td style={{ ...num, color: "var(--muted)", fontStyle: "italic" }}>
+          <HoverCard title={`${priorYear} budget`} width={260} rows={[]} footer={{ label: "Items have no reprojection", value: money0(basis) }}>
+            <span>{Math.abs(basis) < 0.5 ? "–" : money0(basis)}</span>
+          </HoverCard>
+        </td>
+      ) : cell(basis, "b", { color: "var(--muted)" })}
+      <td style={{ ...num, ...(subtotal ? { fontWeight: 800 } : {}), color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
+        {pct == null ? (change == null || Math.abs(change) < 0.5 ? "–" : money0(change)) : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
+      </td>
+    </tr>
+  );
+}
+
+/** A small italic metric row — occupancy, the recovery ratio — that reads
+ *  the statement rather than adding to it. Pre-formatted strings; "" = blank. */
+function StatRow({ label, months, total, basis, change, changeGood, onLabel, totalStyle, monthTip }: {
+  label: string; months: string[]; total: React.ReactNode; basis: string; change: string; changeGood?: boolean | null;
+  /** Colours the total (the recovery ratio's amber flag). */
+  totalStyle?: React.CSSProperties;
+  /** A month's tenant breakdown on hover — the same card the recovery cells use. */
+  monthTip?: (m: number) => { title: string; rows: TipRow[]; footer?: TipRow } | null;
+  /** Makes the label a link (Occupancy SF opens the suite-by-suite view). */
+  onLabel?: () => void;
+}) {
+  return (
+    <tr>
+      <td title={label} style={{ ...lab, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        {onLabel ? (
+          <span role="button" tabIndex={0} onClick={onLabel} onKeyDown={(e) => { if (e.key === "Enter") onLabel(); }}
+            className="os-line-name" style={{ cursor: "pointer" }}>{label}</span>
+        ) : label}
+      </td>
+      {months.map((m, i) => {
+        const tip = m && monthTip ? monthTip(i) : null;
+        return (
+          <td key={i} style={{ ...num, fontSize: 13 }}>
+            {tip ? <HoverCard title={tip.title} rows={tip.rows} footer={tip.footer} width={300}><span>{m}</span></HoverCard> : m}
+          </td>
+        );
+      })}
+      <td style={{ ...num, fontSize: 13, fontWeight: 700, ...totalStyle }}>{total}</td>
+      <td style={{ ...num, color: "var(--muted)" }}>{basis}</td>
+      <td style={{ ...num, color: changeGood == null ? "var(--muted)" : changeGood ? "#15803d" : "#b91c1c" }}>{change}</td>
+    </tr>
+  );
+}
+
+/** A brand group heading between the section cards — the Operating Budgets
+ *  page's `GroupHeader`. */
+function GroupHeader({ label }: { label: string }) {
+  return (
+    <div style={{ marginTop: 4, paddingBottom: 6, borderBottom: `2px solid ${COLOR_BRAND}`, fontSize: 18, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: COLOR_BRAND }}>
+      {label}
+    </div>
+  );
+}
+
+/** A cross-section total (Total Revenues, NOI, cash flow) in its own card —
+ *  the Operating Budgets page's `SubtotalCard`, plus this page's reprojection
+ *  and change columns. */
+function RollupCard({ label, months, total, basis, favorableUp, tip }: {
+  label: string; months: number[]; total: number; basis: number; favorableUp: boolean;
+  /** A book's roll-up: each cell hovers its split by property (m = null for the year). */
+  tip?: (m: number | null) => { title: string; rows: TipRow[]; footer?: TipRow } | null;
+}) {
+  const hov = (m: number | null, node: React.ReactNode) => {
+    const t = tip?.(m);
+    return t ? <HoverCard title={t.title} rows={t.rows} footer={t.footer} width={300}><span>{node}</span></HoverCard> : node;
+  };
+  const change = total - basis;
+  const pct = Math.abs(basis) < 0.5 ? null : (change / Math.abs(basis)) * 100;
+  const good = Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
+  const cell: React.CSSProperties = { ...num, fontSize: 13, fontWeight: 800, borderBottom: "none" };
+  return (
+    <div className="card" style={{ padding: 0, borderColor: COLOR_BRAND, background: "rgba(11,74,125,0.04)" }}>
+      <div className="tableWrap" style={{ marginTop: 0 }}>
+        <table style={TABLE}>
+          <Colgroup />
+          <tbody>
+            <tr>
+              <td style={{ ...lab, fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND, borderBottom: "none" }}>{label}</td>
+              {months.map((m, i) => <td key={i} style={{ ...cell, color: m < 0 ? "#b91c1c" : undefined }}>{hov(i, money0(m))}</td>)}
+              <td style={{ ...cell, fontSize: 14, fontWeight: 900, color: total < 0 ? "#b91c1c" : COLOR_BRAND }}>{hov(null, money0(total))}</td>
+              <td style={{ ...cell, fontWeight: 600, fontSize: 12, color: "var(--muted)" }}>{money0(basis)}</td>
+              <td style={{ ...cell, fontSize: 12, color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
+                {pct == null ? "–" : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, onNote, canType, onOpenPayroll }: {
+  draft: BudgetDraft;
+  /** Opens the 2010 LIK Payroll budget — only for a viewer who may see it. */
+  onOpenPayroll?: () => void;
+  /** Which lines this viewer may type (Greg: the expense lines). Absent = all. */
+  canType?: (section: string, label: string) => boolean;
+  /** Notes on the lines, keyed `section::label`. */
+  notes?: Record<string, LineNote>;
+  /** Opens the note dialog for a line. */
+  onNote?: (sec: BudgetDraftSection, label: string) => void;
+  badgeFor: (source: Line["source"], feePct?: number) => { tone: PillTone; text: string } | null;
+  onLine: (sec: BudgetDraftSection, line: Line) => void;
+  /** Present when the viewer may type months; month "all" = an annual spread
+   *  evenly; `account` types one sub-line (a GL account) of the line. */
+  onEdit?: (sec: BudgetDraftSection, line: Line, month: number | "all" | "accept", value: number | null, account?: string, propertyCode?: string) => void;
+}) {
+  const [edit, setEdit] = useState<EditAt>(null);
+  // The draft's own comment on a GROWN line — where the "+3%" pill used to
+  // say it. Only while it is still true: nothing typed and something to grow.
+  const yy = (y: number) => String(y);
+  const basisComment = (l: Line): string | undefined => {
+    if (l.inputSource || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed)) return undefined;
+    if (l.source === "reproj-growth") return `+3% over the ${yy(draft.basisYear)} reprojection`;
+    if (l.source === "ret-default") return `${yy(draft.basisYear)} taxes +3%`;
+    if (l.source === "reproj-flat") return `Carried flat from the ${yy(draft.basisYear)} reprojection`;
+    return undefined;
+  };
+  // A seeded item / bucket: +3% over last year's BUDGET (items have no
+  // reprojection), or $0 for a Big Project decided each year.
+  const seededComment = (y: { total: number }, ref: number, untyped: boolean): string | undefined => {
+    if (!untyped) return undefined;
+    if (Math.abs(ref) < 0.5) return undefined;
+    return Math.abs(y.total - ref * 1.03) <= Math.max(12, Math.abs(y.total) * 0.002) ? `+3% over the ${yy(draft.basisYear)} budget` : undefined;
+  };
+  // Where a line's figure comes from, as ONE small icon — never a text pill.
+  const sourceIcon = (l: Line): React.ReactNode => {
+    if (l.inputSource) return <SourceBadge source={l.inputSource} label={l.label} />;
+    const jump = l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : null;
+    if (jump) return <SourceIcon kind="link" href={jump} label={`Go to where ${l.label} is worked out`} title={l.source === "leases" ? "From the Leases" : "From Recoveries"}
+      rows={[{ label: "Worked out in", value: SOURCE_WHERE[jump] }]} footer={{ label: "Click to jump there", value: "↓" }} />;
+    if (l.source === "pool") {
+      // The payroll budget is Drew's and Alison's alone: they get a link, and
+      // the route strips `pool` for everyone else, who are told the source.
+      return l.pool && onOpenPayroll
+        ? <SourceIcon kind="link" onClick={onOpenPayroll} label="Open the Payroll Budget" title="From the Payroll Budget"
+            rows={[{ label: "Worked out in", value: "2010 LIK Payroll Budget — each employee's pay, allocated by building" }]} footer={{ label: "Click to open it", value: "↗" }} />
+        : <SourceIcon title="Source: Payroll Budget" rows={[{ label: "This property's share of", value: "the 2010 LIK Payroll Budget" }]} label="Source: Payroll Budget" />;
+    }
+    if (l.source === "fee") return <SourceIcon title={`Management Fee · ${l.feePct ?? "–"}% of Revenue`} label="How the Management Fee is figured"
+      rows={[{ label: "Rate (last year's Budget formula)", value: `${l.feePct ?? "–"}%` }, { label: "× This Budget's Total Revenue", value: "month by month" }]}
+      footer={{ label: "Year", value: money0(l.total), color: COLOR_BRAND }} />;
+    if (l.source === "fee-rollup") return <SourceIcon title="Sum of the Buildings' Management Fees" label="How 2010's Management Fee revenue is figured"
+      rows={[{ label: "Each fee-paying building's", value: "6610 Management Fee" }]} footer={{ label: "Hover a month", value: "for the buildings" }} />;
+    if (l.source === "loans" && draft.debt?.loans.length) return <DebtIcon debt={draft.debt} year={draft.budgetYear} part={/amorti[sz]ation|principal/i.test(l.label) ? "principal" : "interest"} />;
+    return null;
+  };
+  const [toggled, setToggled] = useState<Set<string>>(new Set());
+  // A bucket's ITEMS (Sprinkler Inspection, Backflow…) fold under it, closed
+  // by default: the bucket's total is what reads down the page, the items are
+  // there when you want them.
+  const [openBuckets, setOpenBuckets] = useState<Set<string>>(new Set());
+  const [occOpen, setOccOpen] = useState(false);
+  const [openingEdit, setOpeningEdit] = useState(false);
+  // Distributions ticked on for a property that has none yet (see below).
+  const [distOn, setDistOn] = useState(false);
+  useEffect(() => { setDistOn(false); }, [draft.propertyCode]);
+  const [makeupAt, setMakeupAt] = useState<{ cat: RecoveryCategory; m: number } | null>(null);
+  const estKind = draft.reimbursementEstimate?.kind;
+  const recTenants = draft.tenantRevenue ?? [];
+  // A BOOK'S ROLL-UP reads BY BUILDING, never by tenant (owner: "this is the
+  // rollup so the detail is more building level not tenant level"). Every
+  // hover that names tenants on a property tab names buildings here, in the
+  // book's own property order. A suite's building is its unit ref's prefix.
+  const rollupProps = draft.consolidated?.properties;
+  const bldgOf = (unitRef: string) => unitRef.split("-")[0].toUpperCase();
+  const bldgLabel = (code: string) => {
+    const p = rollupProps?.find((x) => x.code.toUpperCase() === code);
+    return p ? `${p.code} ${p.name}` : code;
+  };
+  /** EVERY CELL OF A ROLL-UP HOVERS ITS SPLIT BY PROPERTY (owner): each line's
+   *  `byProperty`, signed and summed for a subtotal or a cross-section total. */
+  type Signed = { sec: BudgetDraftSection; sign: 1 | -1 };
+  type Split = Map<string, { months: number[]; basis: number }>;
+  const splitOf = (parts: Signed[]): Split => {
+    const out: Split = new Map();
+    for (const { sec, sign } of parts) for (const l of sec.lines) for (const p of l.byProperty ?? []) {
+      const acc = out.get(p.code) ?? { months: new Array(12).fill(0), basis: 0 };
+      p.months.forEach((v, i) => { acc.months[i] += sign * (v || 0); });
+      acc.basis += sign * (p.basisTotal || 0);
+      out.set(p.code, acc);
+    }
+    return out;
+  };
+  // THE YEAR'S HOVER POINTS AT THE OUTLIER (owner: "use the roll up as a
+  // glance to then look for things … to drill down on"): a property whose
+  // budget sits well off its own reprojection is tinted amber and says by how
+  // much. Both floors, like every other flag here — dollars AND percent.
+  const OFF_DOLLARS = 2500, OFF_PCT = 10;
+  const offBy = (v: number, basis: number) => {
+    const d = v - basis;
+    if (Math.abs(d) < OFF_DOLLARS) return null;
+    if (Math.abs(basis) >= 0.5 && Math.abs(d) / Math.abs(basis) * 100 < OFF_PCT) return null;
+    return Math.abs(basis) >= 0.5 ? `${d >= 0 ? "+" : "−"}${Math.abs((d / Math.abs(basis)) * 100).toFixed(0)}%` : "new";
+  };
+  const splitTip = (title: string, split: Split) => (m: number | null) => {
+    if (!rollupProps) return null;
+    const val = (ms: number[]) => (m == null ? ms.reduce((a, v) => a + v, 0) : ms[m] || 0);
+    const yy = String(draft.basisYear).slice(2);
+    let flagged = 0;
+    const rows: TipRow[] = rollupProps
+      .map((p) => ({ p, x: split.get(p.code) }))
+      .filter((r) => r.x && (Math.abs(val(r.x.months)) >= 0.5 || (m == null && Math.abs(r.x.basis) >= 0.5)))
+      .map(({ p, x }) => {
+        const v = val(x!.months);
+        const off = m == null ? offBy(v, x!.basis) : null;
+        if (off) flagged++;
+        return {
+          label: `${p.code} ${p.name}${off ? ` · ${off} vs ${yy} Reproj` : ""}`,
+          value: money0(v),
+          ...(off ? { color: "#b45309" } : v < 0 ? { color: "#b91c1c" } : {}),
+        };
+      });
+    if (!rows.length) return null;
+    const total = [...split.values()].reduce((a, x) => a + val(x.months), 0);
+    return {
+      title: `${title} · ${m == null ? draft.budgetYear : MONTHS[m]}`, rows,
+      footer: { label: flagged ? `Total · ${flagged} to look at` : "Total", value: money0(total), color: flagged ? "#b45309" : COLOR_BRAND },
+    };
+  };
+  const lineSplit = (l: Line) => splitOf([{ sec: { lines: [l] } as unknown as BudgetDraftSection, sign: 1 }]);
+  /** Sum `amt` per building, as hover rows (zero buildings dropped). */
+  const byBuilding = <T extends { unitRef: string }>(list: T[], amt: (t: T) => number): TipRow[] => {
+    const sums = new Map<string, number>();
+    for (const t of list) sums.set(bldgOf(t.unitRef), (sums.get(bldgOf(t.unitRef)) ?? 0) + amt(t));
+    const order = (rollupProps ?? []).map((x) => x.code.toUpperCase());
+    return [...sums].filter(([, v]) => Math.abs(v) >= 0.5)
+      .sort((a, b) => (order.indexOf(a[0]) >>> 0) - (order.indexOf(b[0]) >>> 0))
+      .map(([code, v]) => ({ label: bldgLabel(code), value: money0(v) }));
+  };
+  // A recovery line's month: which tenants make it up, and what share of its
+  // pool that recovers. Top eight on hover; click for all of them.
+  // 2010's fee revenue: which buildings' fees make up the month.
+  const feeRollupHover = (m: number) => {
+    const rows = (draft.feeRollup ?? []).map((b) => ({ b, v: b.months[m] || 0 })).filter((x) => Math.abs(x.v) >= 0.5).sort((a, b) => b.v - a.v);
+    if (!rows.length) return null;
+    const top = rows.slice(0, 10), rest = rows.slice(10);
+    const tip: TipRow[] = top.map(({ b, v }) => ({ label: `${b.code} ${b.name}${b.feePct != null ? ` · ${b.feePct}%` : ""}`, value: money0(v) }));
+    if (rest.length) tip.push({ label: `${rest.length} other building${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, x) => a + x.v, 0)), color: "var(--muted)" });
+    return { title: `Buildings' management fees · ${MONTHS[m]}`, rows: tip, footer: { label: "Total fee revenue", value: money0(rows.reduce((a, x) => a + x.v, 0)), color: COLOR_BRAND } };
+  };
+  // A capital / commission line built from the leasing calls: which deals
+  // make up the month (or the year), and how each was figured.
+  type DealField = "ti" | "lc" | "commission";
+  const DEAL_TITLE: Record<DealField, string> = { ti: "Tenant improvements", lc: "Outside leasing commissions", commission: "Internal broker's commission" };
+  const KIND: Record<string, string> = { renew: "Renewal", hold: "Renewal", leaseup: "Lease-up" };
+  const dealBasis = (d: NonNullable<typeof draft.deals>[number], f: DealField) =>
+    f === "ti" ? `${d.tiPsf != null ? `$${d.tiPsf.toFixed(2)}/SF × ` : ""}${d.sqft.toLocaleString("en-US")} SF`
+    : f === "lc" ? `${d.lcPct ?? 0}% × ${money0(d.annualRent)}/yr × ${termYearsMonths(d.termYears) || "0 yr"}`
+    : `${d.sqft.toLocaleString("en-US")} SF${d.termYears ? ` · ${termYearsMonths(d.termYears)} term` : ""}`;
+  const dealTip = (f: DealField, m: number | null) => {
+    const list = (draft.deals ?? []).filter((d) => d[f] > 0 && (m == null || d.month === m + 1)).sort((a, b) => b[f] - a[f]);
+    if (!list.length) return null;
+    const rows: TipRow[] = list.slice(0, 10).flatMap((d) => [
+      { label: `${d.tenant || "Lease-up"} · ${d.unitRef}`, value: money0(d[f]) },
+      { label: `  ${KIND[d.kind] ?? d.kind}${m == null ? ` · ${MONTHS[d.month - 1]}` : ""} · ${dealBasis(d, f)}`, value: "", color: "var(--muted)" },
+    ]);
+    if (list.length > 10) rows.push({ label: `${list.length - 10} more deal${list.length - 10 === 1 ? "" : "s"}`, value: money0(list.slice(10).reduce((a, d) => a + d[f], 0)), color: "var(--muted)" });
+    return { title: `${DEAL_TITLE[f]} · ${m == null ? draft.budgetYear : MONTHS[m]}`, rows, footer: { label: `${list.length} deal${list.length === 1 ? "" : "s"}`, value: money0(list.reduce((a, d) => a + d[f], 0)), color: COLOR_BRAND } };
+  };
+  const dealField = (label: string, mask: string, account?: string): DealField | null =>
+    account === "6620-8501" ? "commission"
+    : /tenant improvement|^1440/i.test(label) || /^1440/.test(mask) ? "ti"
+    : /lease cost|leasing commission/i.test(label) || /1940-8501/.test(mask) ? "lc" : null;
+
+  // At-recon collections booked in May, per recovery category.
+  const RECON_MONTH = 4;
+  const atReconTotal = (cat: RecoveryCategory, m: number) =>
+    m === RECON_MONTH ? recTenants.reduce((a, t) => a + (t.atRecon?.[cat] ?? 0), 0) : 0;
+
+  // A recovery line's ANNUAL cell: the tenants' years and the year's ratio —
+  // where the ratio means something (recoveryMakeup.ts).
+  const recoveryYearHover = (cat: RecoveryCategory) => () => {
+    const mk = recoveryMakeup(cat, 0, recTenants, draft.sections, estKind);
+    const list = recTenants
+      .map((t) => ({ name: tenantLabel(t), year: (t[cat] ?? []).reduce((a, v) => a + (v || 0), 0) }))
+      .filter((x) => Math.abs(x.year) >= 0.5)
+      .sort((a, b) => b.year - a.year);
+    if (!list.length) return null;
+    const rows: TipRow[] = rollupProps
+      ? byBuilding(recTenants, (t) => (t[cat] ?? []).reduce((a, v) => a + (v || 0), 0))
+      : list.slice(0, 8).map((x) => ({ label: x.name, value: money0(x.year) }));
+    const rest = rollupProps ? [] : list.slice(8);
+    if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, x) => a + x.year, 0)), color: "var(--muted)" });
+    rows.push({ label: `${CATEGORY_LABEL[cat]} pool`, value: money0(mk.poolYear), color: "var(--muted)" });
+    return {
+      title: `${CATEGORY_LABEL[cat]} recoveries · year`,
+      rows,
+      footer: { label: "Annual Recovery Ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND },
+    };
+  };
+
+  // RENT and OCCUPANCY hovers — the same quick card the recovery cells carry:
+  // who makes up the month, by tenant NAME (never a suite number), largest
+  // first, a lease assumption marked, and the month's moves.
+  const nameOf = tenantLabel;
+  // "· assumed" marks a named tenant's assumed months; a SPEC Tenant is
+  // an assumption by definition, so it carries no suffix.
+  const assumedTag = (t: { tenant: string }, on: boolean) => (on && tenantLabel(t) !== SPEC_TENANT ? " · assumed" : "");
+  const occSuites = recTenants.filter((t) => !t.recoveryOnly && t.sqft > 0);
+  const occTotalSf = occSuites.reduce((a, t) => a + t.sqft, 0);
+  const pays = (t: { rent: number[] }, m: number) => (t.rent[m] || 0) > 0.5;
+  const sfFmt = (n: number) => Math.round(n).toLocaleString("en-US");
+  const moves = (m: number): TipRow[] => {
+    if (m === 0) return [];
+    const inn = occSuites.filter((t) => pays(t, m) && !pays(t, m - 1));
+    const out = occSuites.filter((t) => !pays(t, m) && pays(t, m - 1));
+    return [
+      ...inn.map((t) => ({ label: `Starts · ${nameOf(t)}`, value: `+${sfFmt(t.sqft)} SF`, color: "#15803d" })),
+      ...out.map((t) => ({ label: `Ends · ${nameOf(t)}`, value: `−${sfFmt(t.sqft)} SF`, color: "#b91c1c" })),
+    ];
+  };
+  const rentHover = (m: number | null) => {
+    const amt = (t: (typeof recTenants)[number]) => (m == null ? t.rent.reduce((a, v) => a + (v || 0), 0) : t.rent[m] || 0);
+    const list = recTenants.filter((t) => Math.abs(amt(t)) >= 0.5).sort((a, b) => amt(b) - amt(a));
+    if (!list.length) return null;
+    if (rollupProps) {
+      return { title: `Rental income · ${m == null ? "year" : MONTHS[m]}`, rows: byBuilding(list, amt), footer: { label: "Total", value: money0(list.reduce((a, t) => a + amt(t), 0)), color: COLOR_BRAND } };
+    }
+    const assumedIn = (t: (typeof recTenants)[number]) => (m == null ? t.assumed.some(Boolean) : !!t.assumed[m]);
+    const rows: TipRow[] = list.slice(0, 8).map((t) => ({ label: `${nameOf(t)}${assumedTag(t, assumedIn(t))}`, value: money0(amt(t)), ...(assumedIn(t) ? { color: "#65a30d" } : {}) }));
+    const rest = list.slice(8);
+    if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, t) => a + amt(t), 0)), color: "var(--muted)" });
+    const total = list.reduce((a, t) => a + amt(t), 0);
+    return { title: `Rental income · ${m == null ? "year" : MONTHS[m]}`, rows, footer: { label: "Total", value: money0(total), color: COLOR_BRAND } };
+  };
+  const occupancyHover = (m: number) => {
+    if (rollupProps) {
+      // Each building's occupancy that month, and its SF moves since last month.
+      const codes = (rollupProps ?? []).map((x) => x.code.toUpperCase());
+      let occAll = 0;
+      const rows: TipRow[] = [];
+      for (const code of codes) {
+        const suites = occSuites.filter((t) => bldgOf(t.unitRef) === code);
+        const tot = suites.reduce((a, t) => a + t.sqft, 0);
+        if (!(tot > 0)) continue;
+        const o = suites.filter((t) => pays(t, m)).reduce((a, t) => a + t.sqft, 0);
+        occAll += o;
+        const net = m === 0 ? 0 : o - suites.filter((t) => pays(t, m - 1)).reduce((a, t) => a + t.sqft, 0);
+        rows.push({
+          label: `${bldgLabel(code)}${net ? ` · ${net > 0 ? "+" : "−"}${sfFmt(Math.abs(net))} SF` : ""}`,
+          value: `${((o / tot) * 100).toFixed(1)}%`,
+          ...(net > 0 ? { color: "#15803d" } : net < 0 ? { color: "#b91c1c" } : {}),
+        });
+      }
+      return { title: `Occupancy · ${MONTHS[m]}`, rows, footer: { label: `${sfFmt(occAll)} of ${sfFmt(occTotalSf)} SF`, value: occTotalSf > 0 ? `${((occAll / occTotalSf) * 100).toFixed(1)}%` : "–", color: COLOR_BRAND } };
+    }
+    const occ = occSuites.filter((t) => pays(t, m)).sort((a, b) => b.sqft - a.sqft);
+    const vacant = occSuites.filter((t) => !pays(t, m));
+    const occSf = occ.reduce((a, t) => a + t.sqft, 0);
+    const rows: TipRow[] = occ.slice(0, 8).map((t) => ({ label: `${nameOf(t)}${assumedTag(t, !!t.assumed[m])}`, value: `${sfFmt(t.sqft)} SF`, ...(t.assumed[m] ? { color: "#65a30d" } : {}) }));
+    const rest = occ.slice(8);
+    if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: `${sfFmt(rest.reduce((a, t) => a + t.sqft, 0))} SF`, color: "var(--muted)" });
+    if (vacant.length) rows.push({ label: `Vacant · ${vacant.length} space${vacant.length === 1 ? "" : "s"}`, value: `${sfFmt(occTotalSf - occSf)} SF`, color: "#b45309" });
+    rows.push(...moves(m));
+    return { title: `Occupancy · ${MONTHS[m]}`, rows, footer: { label: `${sfFmt(occSf)} of ${sfFmt(occTotalSf)} SF`, value: occTotalSf > 0 ? `${((occSf / occTotalSf) * 100).toFixed(1)}%` : "–", color: COLOR_BRAND } };
+  };
+
+  const recoveryHover = (cat: RecoveryCategory) => (m: number) => {
+    const mk = recoveryMakeup(cat, m, recTenants, draft.sections, estKind);
+    if (!mk.tenants.length) return null;
+    if (rollupProps) {
+      const rows = byBuilding(recTenants, (t) => t[cat]?.[m] || 0);
+      const inMay = atReconTotal(cat, m);
+      if (inMay) rows.push({ label: "Includes at-recon collections (the year's true-up, due by 4/30)", value: money0(inMay), color: "#b45309" });
+      return { title: `${CATEGORY_LABEL[cat]} recoveries · ${MONTHS[m]}`, rows, footer: { label: "Annual Recovery Ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND } };
+    }
+    const top = mk.tenants.slice(0, 8);
+    const rest = mk.tenants.slice(8);
+    // A tenant whose charge is collected only at reconciliation lands its year
+    // here, in May (reconOnly.ts) — say so on its row and in the total.
+    const atRecon = (unitRef: string) => m === RECON_MONTH ? recTenants.find((t) => t.unitRef === unitRef)?.atRecon?.[cat] ?? 0 : 0;
+    const rows: TipRow[] = top.map((t) => ({ label: `${t.tenant}${atRecon(t.unitRef) ? " · at recon" : ""}`, value: money0(t.amount), ...(atRecon(t.unitRef) ? { color: "#b45309" } : {}) }));
+    if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"} · click for all`, value: money0(rest.reduce((a, t) => a + t.amount, 0)), color: "var(--muted)" });
+    const inMay = atReconTotal(cat, m);
+    if (inMay) rows.push({ label: "Includes at-recon collections (the year's true-up, due by 4/30)", value: money0(inMay), color: "#b45309" });
+    // The YEAR's ratio only — a month's flat estimate against that month's
+    // lumpy expense is timing, not a ratio (recoveryMakeup.ts).
+    return {
+      title: `${CATEGORY_LABEL[cat]} recoveries · ${MONTHS[m]}`,
+      rows,
+      footer: { label: "Annual Recovery Ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND },
+    };
+  };
+  // EVERYTHING starts collapsed (the owner's call): the statement reads at the
+  // level it is presented, and a line opens to its buckets, a bucket to its
+  // items, only when asked. `toggled` holds the lines opened.
+  const isOpenKey = (k: string) => toggled.has(k);
+  const byRole = (roles: SectionRole[]) => draft.sections.filter((s) => roles.includes(s.role));
+  const revenue = byRole(["revenue", "reimbursement"]);
+  const expense = byRole(["reimbursable-expense", "non-reimbursable-expense", "residential-expense"]);
+  const capital = byRole(["capital"]);
+  // A property with NO DEBT shows no Debt Service group at all — the table
+  // ends in "Cash Flow" instead of "before / after debt service" over a
+  // section of zeros. Only while it is empty (budget AND reprojection $0), so
+  // a loan paid off this year still shows the year it stopped.
+  const hasFigures = (sec: BudgetDraftSection) => sec.lines.some((l) => Math.abs(l.total) >= 0.5 || Math.abs(l.basisTotal ?? 0) >= 0.5);
+  const debt = byRole(["debt-service"]).filter(hasFigures);
+
+  const basisOf = (secs: BudgetDraftSection[]) => secs.reduce((s, sec) => s + sum(sec.lines.map((l) => l.basisTotal)), 0);
+  const monthsOf = (secs: BudgetDraftSection[]) => { const m = new Array(12).fill(0); for (const s of secs) addInto(m, s.subtotal); return m; };
+  const r = draft.rollups;
+  const capM = monthsOf(capital), debtM = monthsOf(debt);
+  const cfbM = r.netOperatingIncome.months.map((v, i) => v - capM[i]);
+  const cfaM = cfbM.map((v, i) => v - debtM[i]);
+  const noiBasis = basisOf(revenue) - basisOf(expense);
+  const signed = (secs: BudgetDraftSection[], sign: 1 | -1): Signed[] => secs.map((sec) => ({ sec, sign }));
+
+  // One card per statement section: a header strip, the column heads, its
+  // lines, its subtotal — and, on the reimbursements, the recovery ratio.
+  const pctS = (v: number | null, dp = 1) => (v == null ? "" : `${v.toFixed(dp)}%`);
+  const pts = (a: number | null, b: number | null) => (a == null || b == null ? "" : `${a - b >= 0 ? "+" : "−"}${Math.abs(a - b).toFixed(1)} pts`);
+  const head = (
+    <thead>
+      <tr>
+        <th>Line</th>
+        {MONTHS.map((m) => <th key={m} style={headR}>{m}</th>)}
+        <th style={{ ...headR, color: COLOR_BRAND }}>Budget</th>
+        <th style={headR}>{String(draft.basisYear).slice(2)} Reproj</th>
+        <th style={headR}>Change</th>
+      </tr>
+    </thead>
+  );
+
+
+  const section = (sec: BudgetDraftSection, favorableUp: boolean, subtotal = true) => {
+    const secSubs = sec.lines.filter((l) => l.subLines?.length).map((l) => `${sec.name}::${l.label}`);
+    const secOpen = secSubs.length > 0 && secSubs.every(isOpenKey);
+    const setSec = (o: boolean) => setToggled((t) => { const n = new Set(t); for (const k of secSubs) { if (o) n.add(k); else n.delete(k); } return n; });
+    return (
+      <div key={sec.name} className="card" style={{ padding: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{abbrev(sec.name)}</span>
+          {secSubs.length > 0 && (
+            <button type="button" onClick={() => setSec(!secOpen)}
+              style={{ border: "none", background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: 0, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              {secOpen ? "▾ Hide sub-lines" : "▸ Show sub-lines"}
+            </button>
+          )}
+        </div>
+        <div className="tableWrap" style={{ marginTop: 0 }}>
+          <table style={TABLE}>
+            <Colgroup />
+            {head}
+            <tbody>
+              {sec.lines.map((l) => {
+                const key = `${sec.name}::${l.label}`;
+                const subs = l.subLines ?? [];
+                const viaSubs = subs.some((x) => x.typeable);
+                // A line budgeted through its sub-lines is their SUM — typed there, not here.
+                // A recovery line IS Step 3 — each tenant's share under their CAM
+                // methodology — so it is changed there, never typed over here.
+                // Rent (and the deals' TI / commissions) likewise IS Step 1.
+                // Taxes, insurance and building maintenance ARE typeable here — they
+                // save to the Budget Inputs store (the same figures Greg keys on his
+                // page), so the grid and his page cannot disagree.
+                // A payroll share is set by the book's total above the grid.
+        const locked = l.source === "cam-estimate" || l.source === "leases" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans";
+                const mayType = !!onEdit && (!canType || canType(sec.name, l.label));
+                const typeable = mayType && !locked && !viaSubs;
+                // A line built from parts (buckets, items, accounts) can ALSO be
+                // typed as a whole — the easy override (owner): type the month
+                // or the Budget cell on the line itself and it stands, whatever
+                // the parts add to. ↺ hands it back to them.
+                const overridable = mayType && !locked && viaSubs;
+                const ovAcct = "@line";
+                const keyed = !!l.inputKind;
+                const entered = keyed && l.source === "entered";
+                const isOpen = isOpenKey(key);
+                return (
+                  <Fragment key={l.label + l.mask}>
+                    <Row label={l.label} months={l.months} total={l.total} basis={l.basisTotal} flagNegative={sec.role !== "debt-service"}
+                      icon={draft.consolidated ? undefined : sourceIcon(l)}
+                      // NO growth pills (owner): "+3%", "Flat", "Tax +3%" only restated
+                      // the Change column beside them. The icon names any OTHER source.
+                      onLabel={() => onLine(sec, l)} favorableUp={favorableUp}
+                      typed={viaSubs ? (l.lineOverride ? l.typed : undefined) : entered ? new Array(12).fill(true) : l.typed}
+                      onAccept={typeable && keyed && !entered && !subs.length ? () => onEdit!(sec, l, "accept", null) : undefined}
+                      note={onNote ? { note: notes?.[key], auto: l.lineOverride ? "Typed over as a whole — the rows under it no longer add to it (↺ to hand it back)" : basisComment(l), onOpen: () => onNote(sec, l.label) } : undefined}
+                      rowKey={typeable || overridable ? key : undefined} edit={edit} setEdit={typeable || overridable ? setEdit : undefined}
+                      onCommit={typeable ? (m, v) => onEdit!(sec, l, m, v) : overridable ? (m, v) => onEdit!(sec, l, m, v, ovAcct) : undefined}
+                      onReset={typeable && (!subs.length || l.lineOverride) ? () => onEdit!(sec, l, "all", null) : overridable && l.lineOverride ? () => onEdit!(sec, l, "all", null, ovAcct) : undefined}
+                      {...(() => {
+                        const cat = l.source === "cam-estimate" && recTenants.length ? recoveryCategory(l.label, l.mask, estKind) : null;
+                        // A roll-up line: its split by property (a recovery line keeps
+                        // its own building hover, which adds the year's ratio).
+                        if (rollupProps && !cat && l.byProperty?.length) {
+                          const t = splitTip(l.label, lineSplit(l));
+                          return { cellHover: (m: number) => t(m), totalHover: () => t(null) };
+                        }
+                        if (l.source === "fee-rollup" && draft.feeRollup?.length) return { cellHover: feeRollupHover };
+                        const df = l.source === "leases" && draft.deals?.length ? dealField(l.label, l.mask) : null;
+                        if (df) return { cellHover: (m: number) => dealTip(df, m), totalHover: () => dealTip(df, null) };
+                        if (l.source === "vacancy" && l.vacancy) {
+                          const v = l.vacancy;
+                          return {
+                            cellHover: (m: number) => ({
+                              title: `Vacant space · ${MONTHS[m]}`,
+                              rows: [{ label: "Vacant SF", value: Math.round(v.sf[m]).toLocaleString("en-US") }, { label: "Rate", value: `$${v.rate.toFixed(2)}/SF/yr` }],
+                              footer: { label: "SF × rate ÷ 12", value: money0(l.months[m]), color: COLOR_BRAND },
+                            }),
+                            extra: <VacancyRate v={v} canEdit={mayType && !draft.consolidated}
+                              onSave={(cents) => onEdit!(sec, l, cents == null ? "all" : 0, cents, RATE_ACCOUNT, v.scope)} />,
+                          };
+                        }
+                        if (l.source === "leases" && draft.rentLineLabel && l.label === draft.rentLineLabel && recTenants.length) {
+                          return { cellHover: (m: number) => rentHover(m), totalHover: () => rentHover(null) };
+                        }
+                        return cat ? { cellHover: recoveryHover(cat), totalHover: recoveryYearHover(cat), onCellClick: rollupProps ? undefined : (m: number) => setMakeupAt({ cat, m }), cellMark: (m: number) => (atReconTotal(cat, m) ? "at recon" : null) } : {};
+                      })()}
+                      toggle={subs.length ? { open: isOpen, onToggle: () => setToggled((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; }) } : undefined} />
+                    {isOpen && subs.flatMap((x) => {
+                      // A SEEDED bucket (Contractual, Recurring…) and its
+                      // items: each reads against last year's budget, and a
+                      // bucket with items is their sum — typed through them.
+                      const seeded = x.bucket === "seeded";
+                      const rowFor = (y: typeof x, depth: number, toggle?: { open: boolean; onToggle: () => void }) => {
+                        const typeableY = mayType && y.typeable;
+                        const k = `${key}#${y.account}`;
+                        const noteLabel = `${l.label}#${y.account}`;
+                        const ref = seeded ? (y.prior ?? 0) : y.bucket === "extra" ? 0 : (y.basisTotal ?? 0);
+                        const untyped = !y.typed?.some(Boolean) && !(y.bucket === "base" && entered);
+                        // Insurance renews in November: Jan–Oct carry last
+                        // year's Nov/Dec rate and only Nov–Dec take the 3%.
+                        const renewal = seeded && l.inputKind === "insurance" && untyped && Math.abs(ref) >= 0.5;
+                        return (
+                          <Row key={k} variant="sub" depth={depth} toggle={toggle} flagNegative={sec.role !== "debt-service"} label={y.label ?? subName(y, subs)}
+                            months={y.months} total={y.total}
+                            basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
+                            labelNote={y.note}
+                            // "+3% Nov" was a pill; the Change column reads the
+                            // ~0.5% and this ⓘ says why it is not 3%.
+                            icon={draft.consolidated || !renewal ? undefined : <SourceIcon title="Insurance renews in November" label="How this policy is budgeted"
+                              rows={[{ label: "Jan–Oct", value: `last year's Nov/Dec rate (already bound)` }, { label: "Nov–Dec", value: "+3% for the next renewal" }]}
+                              footer={{ label: "Year", value: money0(y.total), color: COLOR_BRAND }} />}
+                            favorableUp={favorableUp}
+                            typed={y.bucket === "base" && entered ? new Array(12).fill(true) : y.typed}
+                            onAccept={typeableY && y.bucket === "base" && keyed && !entered ? () => onEdit!(sec, l, "accept", null, y.account) : undefined}
+                            rowKey={typeableY ? k : undefined} edit={edit} setEdit={typeableY ? setEdit : undefined}
+                            onCommit={typeableY ? (m, v) => onEdit!(sec, l, m, v, y.account) : undefined}
+                            onReset={typeableY ? () => onEdit!(sec, l, "all", null, y.account) : undefined}
+                            note={onNote && seeded ? { note: notes?.[`${sec.name}::${noteLabel}`], auto: seededComment(y, ref, untyped), onOpen: () => onNote(sec, noteLabel) } : undefined}
+                            {...(y.account === "6620-8501" && draft.deals?.length ? { cellHover: (m: number) => dealTip("commission", m), totalHover: () => dealTip("commission", null) } : {})} />
+                        );
+                      };
+                      const bKey = `${key}#${x.account}`;
+                      const hasItems = !!x.items?.length;
+                      const bOpen = openBuckets.has(bKey);
+                      const toggleB = hasItems ? { open: bOpen, onToggle: () => setOpenBuckets((o) => { const n = new Set(o); if (n.has(bKey)) n.delete(bKey); else n.add(bKey); return n; }) } : undefined;
+                      return [rowFor(x, 1, toggleB), ...(hasItems && bOpen ? x.items!.map((it) => rowFor(it, 2)) : [])];
+                    })}
+                  </Fragment>
+                );
+              })}
+              {subtotal && <Row label={`Total ${sec.name}`} months={sec.subtotal} total={sec.total} basis={sum(sec.lines.map((l) => l.basisTotal))} variant="subtotal" favorableUp={favorableUp}
+                {...(rollupProps ? (() => { const t = splitTip(`Total ${sec.name}`, splitOf([{ sec, sign: 1 }])); return { cellHover: (m: number) => t(m), totalHover: () => t(null) }; })() : {})} />}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  const body: React.ReactNode[] = [];
+
+  // A negative on a revenue or expense line is a thing to fix, so the grid
+  // says where before anyone has to spot the amber cell.
+  const negatives = negativeLines(draft);
+  if (negatives.length) {
+    body.push(
+      <div key="neg" className="card" style={{ padding: "9px 14px", borderLeft: `4px solid ${NEGATIVE_FG}`, background: "rgba(217,119,6,0.06)", fontSize: 13 }}>
+        <b style={{ color: NEGATIVE_FG }}>{negatives.length} line{negatives.length === 1 ? "" : "s"} go{negatives.length === 1 ? "es" : ""} negative</b>
+        <span className="muted"> — a revenue or expense should not: </span>
+        {negatives.slice(0, 8).map((n) => n.label).join(" · ")}{negatives.length > 8 ? ` · +${negatives.length - 8} more` : ""}
+        <span className="muted">. The cells are filled amber.</span>
+      </div>,
+    );
+  }
+
+  // THE TOP CARD — the property at a glance before the lines: OCCUPANCY, month
+  // by month, off the same suites as Revenue by tenant (a suite is occupied in
+  // a month it pays rent), and the PROJECTED BANK BALANCE (`cashForecast.ts`),
+  // where the year leaves the bank once cash flow and distributions land. The
+  // Distributions themselves stay at the bottom, below cash flow, where they
+  // are keyed (owner).
+  const cash = draft.cash;
+  const topRows: React.ReactNode[] = [];
+  const suites = (draft.tenantRevenue ?? []).filter((t) => !t.recoveryOnly && t.sqft > 0);
+  const totalSf = suites.reduce((a, t) => a + t.sqft, 0);
+  if (totalSf > 0) {
+    const occSf = MONTHS.map((_, i) => suites.reduce((a, t) => a + ((t.rent[i] || 0) > 0.5 ? t.sqft : 0), 0));
+    const avgSf = sum(occSf) / 12;
+    const todaySf = suites.reduce((a, t) => a + (t.status === "vacant" || t.status === "lease-up" ? 0 : t.sqft), 0);
+    const p = (sf: number) => (sf / totalSf) * 100;
+    const up = Math.abs(avgSf - todaySf) < 0.5 ? null : avgSf > todaySf;
+    topRows.push(<StatRow key="occ" label="Occupancy %" onLabel={() => setOccOpen(true)} monthTip={occupancyHover} months={occSf.map((v) => pctS(p(v)))} total={pctS(p(avgSf))} basis={pctS(p(todaySf))} change={pts(p(avgSf), p(todaySf))} changeGood={up} />);
+  }
+  // A roll-up of separately banked properties (the shopping centres) has no
+  // bank balance: a sum of separate accounts is not a balance anyone holds.
+  // Nor does a building inside a fund that banks through ONE account (JV III,
+  // NI LLC): the balance is the fund's, on its roll-up (owner).
+  // HIDDEN FOR NOW (owner: "hide current bank balance … until we get that
+  // straightened out more clearly"): the Projected Bank Balance row, the
+  // opening and its note are off everywhere; Distributions stay. Flip
+  // `BANK_BALANCE_SHOWN` back on once the opening balance is sorted out.
+  const noBank = !BANK_BALANCE_SHOWN || (!!draft.consolidated && !draft.consolidated.sharedBank) || !!draft.bankAtFund;
+  if (cash && !noBank) {
+    const end = cash.balance[11];
+    const balTip = (m: number) => ({
+      title: `Projected Bank Balance · ${MONTHS[m]}`,
+      rows: [
+        { label: m === 0 ? "Opening balance" : `${MONTHS[m - 1]} balance`, value: money0(m === 0 ? cash.opening : cash.balance[m - 1]) },
+        { label: debt.length ? "+ Cash Flow After Debt Service" : "+ Cash Flow", value: money0(cfaM[m]) },
+        { label: "− Distributions", value: money0(cash.distributions.months[m] || 0) },
+      ],
+      footer: { label: "Balance", value: money0(cash.balance[m]), color: COLOR_BRAND },
+    });
+    topRows.push(
+      <tr key="bank" style={{ borderTop: topRows.length ? "1px solid var(--border)" : undefined }}>
+        <td style={{ ...lab, fontWeight: 800, color: COLOR_BRAND, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Projected Bank Balance</td>
+        {cash.balance.map((v, i) => {
+          const t = balTip(i);
+          return <td key={i} style={{ ...num, fontSize: 13, fontWeight: 700, color: v < 0 ? "#b91c1c" : COLOR_BRAND }}><HoverCard title={t.title} rows={t.rows} footer={t.footer} width={300}><span>{money0(v)}</span></HoverCard></td>;
+        })}
+        <td style={{ ...num, fontSize: 13, fontWeight: 800, color: end < 0 ? "#b91c1c" : COLOR_BRAND }}>{money0(end)}</td>
+        <td style={{ ...num, color: "var(--muted)" }}>{money0(cash.opening)}</td>
+        <td style={{ ...num, color: end >= cash.opening ? "#15803d" : "#b91c1c" }}>{`${end >= cash.opening ? "+" : "−"}${money0(Math.abs(end - cash.opening))}`}</td>
+      </tr>,
+    );
+  }
+  if (topRows.length) {
+    body.push(
+      <div key="top" className="card" style={{ padding: 0 }}>
+        <div className="tableWrap" style={{ marginTop: 0 }}>
+          <table style={TABLE}>
+            <Colgroup />
+            <thead>
+              <tr>
+                <th />
+                {MONTHS.map((m) => <th key={m} style={headR}>{m}</th>)}
+                <th style={headR}><HoverCard title="Budget column" width={280} help={false} rows={[{ label: "Occupancy %", value: "the year's average" }, ...(cash && !noBank ? [{ label: "Bank balance", value: `Dec 31, ${draft.budgetYear}` }] : [])]}><span>Budget</span></HoverCard></th>
+                <th style={headR}><HoverCard title="Now column" width={300} help={false} rows={[{ label: "Occupancy %", value: "today's rent roll" }, ...(cash && !noBank ? [{ label: "Bank balance", value: `the opening, Dec 31, ${draft.basisYear}` }] : [])]}><span>Now</span></HoverCard></th>
+                <th style={headR}>Change</th>
+              </tr>
+            </thead>
+            <tbody>{topRows}</tbody>
+          </table>
+        </div>
+      </div>,
+    );
+  }
+
+  body.push(<GroupHeader key="g-rev" label="Revenues" />);
+  revenue.forEach((x) => body.push(section(x, true)));
+  body.push(<RollupCard key="tr" label="Total Revenues" months={r.totalRevenues.months} total={r.totalRevenues.total} basis={basisOf(revenue)} favorableUp tip={rollupProps ? splitTip("Total Revenues", splitOf(signed(revenue, 1))) : undefined} />);
+  body.push(<GroupHeader key="g-opex" label="Operating Expenses" />);
+  expense.forEach((x) => body.push(section(x, false)));
+  body.push(<RollupCard key="te" label="Total Operating Expenses" months={r.totalOperatingExpenses.months} total={r.totalOperatingExpenses.total} basis={basisOf(expense)} favorableUp={false} tip={rollupProps ? splitTip("Total Operating Expenses", splitOf(signed(expense, 1))) : undefined} />);
+  body.push(<RollupCard key="noi" label="Net Operating Income" months={r.netOperatingIncome.months} total={r.netOperatingIncome.total} basis={noiBasis} favorableUp tip={rollupProps ? splitTip("Net Operating Income", splitOf([...signed(revenue, 1), ...signed(expense, -1)])) : undefined} />);
+  if (capital.length) {
+    body.push(<GroupHeader key="g-cap" label="Capital Improvements" />);
+    capital.forEach((x) => body.push(section(x, false, false)));
+  }
+  if (debt.length) {
+    body.push(<RollupCard key="cfb" label="Cash Flow Before Debt Service" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} favorableUp tip={rollupProps ? splitTip("Cash Flow Before Debt Service", splitOf([...signed(revenue, 1), ...signed(expense, -1), ...signed(capital, -1)])) : undefined} />);
+    body.push(<GroupHeader key="g-debt" label="Debt Service" />);
+    debt.forEach((x) => body.push(section(x, false)));
+    body.push(<RollupCard key="cfa" label="Cash Flow After Debt Service" months={cfaM} total={sum(cfaM)} basis={noiBasis - basisOf(capital) - basisOf(debt)} favorableUp tip={rollupProps ? splitTip("Cash Flow After Debt Service", splitOf([...signed(revenue, 1), ...signed(expense, -1), ...signed(capital, -1), ...signed(debt, -1)])) : undefined} />);
+  } else {
+    body.push(<RollupCard key="cf" label="Cash Flow" months={cfbM} total={sum(cfbM)} basis={noiBasis - basisOf(capital)} favorableUp tip={rollupProps ? splitTip("Cash Flow", splitOf([...signed(revenue, 1), ...signed(expense, -1), ...signed(capital, -1)])) : undefined} />);
+  }
+
+  // DISTRIBUTIONS (`cashForecast.ts`) — its own card at the bottom, where the
+  // partners' payments are keyed; the bank balance they feed sits at the top.
+  if (cash) {
+    const distSec = { name: DISTRIBUTIONS_SECTION, role: "debt-service", lines: [], subtotal: [], total: 0 } as unknown as BudgetDraftSection;
+    const distLine = (label: string) => ({ label, mask: "", months: cash.distributions.months, total: cash.distributions.total, basisTotal: 0, source: "entered" }) as Line;
+    const mayDist = !!onEdit && !draft.consolidated && (!canType || canType(DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL));
+    const distKey = `${DISTRIBUTIONS_SECTION}::${DISTRIBUTIONS_LABEL}`;
+    const basisDist = sum(cash.distributions.basisYearActual);
+    const mon = (m: number) => MONTHS[Math.max(0, m - 1)];
+    const glNote = cash.gl
+      ? `cash on the GL at ${mon(cash.gl.month)} ${cash.gl.year}${cash.gl.month < 12 && cash.projectedYearEnd != null ? `, rolled to Dec 31 on the ${draft.basisYear} reprojection` : ""}`
+      : "no GL opening balances on file";
+    const openingTip = cash.byProperty?.length
+      ? { title: "Opening balance by property", rows: cash.byProperty.map((p) => ({ label: `${p.code} ${p.name}`, value: money0(p.opening) })), footer: { label: "Total", value: money0(cash.opening), color: COLOR_BRAND } }
+      : cash.gl?.accounts.length
+        ? { title: `Cash on the GL · ${mon(cash.gl.month)} ${cash.gl.year}`, rows: cash.gl.accounts.map((a) => ({ label: `${a.code}${a.name ? ` · ${a.name}` : ""}`, value: money0(a.balance) })),
+            footer: { label: cash.projectedYearEnd != null && cash.gl.month < 12 ? "Rolled to Dec 31" : "Total", value: money0(cash.projectedYearEnd ?? cash.gl.balance), color: COLOR_BRAND } }
+        : null;
+    const openingShown = <b style={{ color: cash.openingTyped ? TYPED_FG : undefined }}>{money0(cash.opening)}</b>;
+    // NOT EVERY PROPERTY DISTRIBUTES (owner): with nothing budgeted, typed or
+    // paid this year the row is hidden behind a "Distributions" checkbox —
+    // tick it to key some. Once a figure exists it always shows (it is money
+    // in the bank balance; clear it with ↺ to hide the row again).
+    const hasDist = Math.abs(cash.distributions.total) >= 0.5 || Math.abs(basisDist) >= 0.5 || !!cash.distributions.typed?.some(Boolean);
+    const showDist = hasDist || distOn;
+    body.push(
+      <div key="cash" className="card" style={{ padding: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", flexWrap: "wrap" }}>
+          {hasDist || !mayDist
+            ? <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Distributions{!hasDist ? <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> · none this year</span> : null}</span>
+            : <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>
+                <input type="checkbox" checked={distOn} onChange={(e) => setDistOn(e.target.checked)} />
+                Distributions{!distOn ? <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> · none this year</span> : null}
+              </label>}
+          {!noBank && <span className="small muted" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            Opening {openingTip ? <HoverCard title={openingTip.title} rows={openingTip.rows} footer={openingTip.footer} width={320} help={false}>{openingShown}</HoverCard> : openingShown}
+            <span>· {cash.openingTyped ? "typed" : glNote}</span>
+            {mayDist && (openingEdit
+              ? <span style={{ width: 110 }}><CellInput initial={cash.opening} onDone={(v) => { setOpeningEdit(false); if (v !== undefined && (v === null ? cash.openingTyped : Math.round(v) !== Math.round(cash.opening))) onEdit!(distSec, distLine(OPENING_LABEL), 0, v); }} /></span>
+              : <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} onClick={() => setOpeningEdit(true)}>Edit</button>)}
+            {mayDist && cash.openingTyped && !openingEdit && <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} title="Back to the GL" onClick={() => onEdit!(distSec, distLine(OPENING_LABEL), 0, null)}>↺</button>}
+          </span>}
+        </div>
+        {showDist && <div className="tableWrap" style={{ marginTop: 0 }}>
+          <table style={TABLE}>
+            <Colgroup />
+            <thead>
+              <tr>
+                <th>Line</th>
+                {MONTHS.map((m) => <th key={m} style={headR}>{m}</th>)}
+                <th style={{ ...headR, color: COLOR_BRAND }}>Budget</th>
+                <th style={headR}>{String(draft.basisYear).slice(2)} Actual</th>
+                <th style={headR}>Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              <Row label={DISTRIBUTIONS_LABEL} months={cash.distributions.months} total={cash.distributions.total} basis={basisDist || null}
+                favorableUp={false}
+                badge={cash.distributions.source === "plan" && !draft.consolidated ? { tone: TONE_BLUE, text: "Apr / Oct plan" } : undefined}
+                typed={cash.distributions.typed}
+                rowKey={mayDist ? distKey : undefined} edit={edit} setEdit={mayDist ? setEdit : undefined}
+                onCommit={mayDist ? (m, v) => onEdit!(distSec, distLine(DISTRIBUTIONS_LABEL), m, v) : undefined}
+                onReset={mayDist && cash.distributions.typed ? () => onEdit!(distSec, distLine(DISTRIBUTIONS_LABEL), "all", null) : undefined} />
+            </tbody>
+          </table>
+        </div>}
+        {showDist && !noBank && <div className="muted small" style={{ padding: "6px 14px 10px" }}>
+          The opening balance feeds the Projected Bank Balance at the top: each month = last month&rsquo;s + {debt.length ? "Cash Flow After Debt Service" : "Cash Flow"} − Distributions.{basisDist ? ` The ${draft.basisYear} column is what the GL shows paid so far.` : ""} Security deposits are left out — that cash is owed back to tenants.
+        </div>}
+      </div>,
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {body}
+      {occOpen && <OccupancyBySuiteModal suites={recTenants.filter((t) => !t.recoveryOnly && t.sqft > 0)} year={draft.budgetYear} buildings={rollupProps} onClose={() => setOccOpen(false)} />}
+      {makeupAt && <RecoveryMakeupModal makeup={recoveryMakeup(makeupAt.cat, makeupAt.m, recTenants, draft.sections, estKind)} month={MONTHS[makeupAt.m]} year={draft.budgetYear} onClose={() => setMakeupAt(null)} />}
+      {/* The key, on demand — a paragraph under the grid is what nobody
+          reads (owner). One quiet ⓘ; the icons on each line explain themselves. */}
+      <div className="muted small" style={{ padding: "2px 4px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <HoverCard title="Reading the grid" width={360} help={false} rows={[
+          { label: "Change", value: "against this year's reprojection" },
+          { label: "ⓘ", value: "hover for how the line is figured" },
+          { label: "↗", value: "worked out elsewhere — click to go" },
+          { label: `${String(draft.basisYear).slice(2)} Reproj`, value: "actuals to date + budget for the rest" },
+          ...(onEdit ? [{ label: "Light blue / bold blue", value: "you can type it / typed" }, { label: "Budget column", value: "type an annual to spread it" }] : []),
+        ]} footer={{ label: "Click a line's name", value: "for its history" }}>
+          <SourceIconButton kind="info" label="How to read the grid" />
+        </HoverCard>
+        <span>How to read the grid</span>
+      </div>
+    </div>
+  );
+}
