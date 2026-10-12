@@ -698,6 +698,25 @@ export default function ExpensesPage() {
     [effectiveExpandedCoded],
   );
 
+  // What a property's INVOICE lists: this month's charges AND the held charges
+  // rolling into it, each under its own category, so every dollar carries an
+  // account code. A bare "Prior balance carried forward" line had none, and
+  // the bookkeeper could not tell where to code it (owner: 3610's $92.74).
+  // Only a residual the held detail cannot explain (never expected) is left
+  // as a prior-balance line, so the invoice total still equals what is billed.
+  const effectiveByProp = useMemo(
+    () => new Map(effectiveInvoiceGroups.map((g) => [g.propId, g])),
+    [effectiveInvoiceGroups],
+  );
+  function invoiceLinesFor(g: InvoiceGroup & { prior?: number }) {
+    const eff = effectiveByProp.get(g.propId);
+    const prior = Number(g.prior || 0);
+    if (!eff || prior <= 0) return { categoryGroups: g.categoryGroups, priorBalance: prior };
+    const heldSum = (carryover[g.propId]?.heldTx ?? []).reduce((a, t) => a + (Number(t.amount) || 0), 0);
+    const residual = Math.round((prior - heldSum) * 100) / 100;
+    return { categoryGroups: eff.categoryGroups, priorBalance: Math.abs(residual) >= 0.01 ? residual : 0 };
+  }
+
   const chartDataByProperty = useMemo<PieSlice[]>(() => {
     const pos = tx.filter((t) => Number(t.amount) > 0);
     const coded = pos.filter(isRowCoded);
@@ -871,13 +890,13 @@ export default function ExpensesPage() {
       const invoiceBlob = buildInvoicePdf({
         propertyName: propName(g.propId),
         propertyCode: g.propId,
-        categoryGroups: g.categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
+        categoryGroups: invoiceLinesFor(g).categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
         invoiceDate: invoiceDate || "",
         statementMonth: statementMonth || "",
         periodText: statementPeriodText || "",
         periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
         invoiceId: makeInvoiceId(g.propId, statementMonth),
-        priorBalance: g.prior,
+        priorBalance: invoiceLinesFor(g).priorBalance,
       });
 
       // Collect unique attachments for transactions in this property group
@@ -1121,13 +1140,13 @@ export default function ExpensesPage() {
     const invoiceBlob = buildInvoicePdf({
       propertyName: propName(g.propId),
       propertyCode: g.propId,
-      categoryGroups: g.categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
+      categoryGroups: invoiceLinesFor(g).categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
       invoiceDate: invoiceDate || "",
       statementMonth: statementMonth || "",
       periodText: statementPeriodText || "",
       periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
       invoiceId: makeInvoiceId(g.propId, statementMonth),
-      priorBalance: g.prior,
+      priorBalance: invoiceLinesFor(g).priorBalance,
     });
 
     const seenTxIds = new Set<string>();
