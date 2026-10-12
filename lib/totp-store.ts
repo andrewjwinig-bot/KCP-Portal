@@ -81,9 +81,15 @@ export async function getSecret(userId: string): Promise<string | null> {
   return rec ? decrypt(rec.secretEnc) : null;
 }
 
+/** Users who never get a second factor, whatever is stored for them — not
+ *  asked for a code at login and never funneled into setup. Jay (owner,
+ *  10/2026: "remove the 2 factor authentication for Jay"). */
+export const TWO_FACTOR_EXEMPT: readonly string[] = ["jay"];
+export const twoFactorExempt = (userId: string): boolean => TWO_FACTOR_EXEMPT.includes(userId);
+
 /** True when the user has an ENABLED secret and 2FA isn't globally disabled. */
 export async function totpRequired(userId: string): Promise<boolean> {
-  if (twoFactorDisabled()) return false;
+  if (twoFactorDisabled() || twoFactorExempt(userId)) return false;
   const rec = await get(userId);
   return !!rec?.enabled;
 }
@@ -116,7 +122,7 @@ export async function setRequiredUsers(users: string[]): Promise<void> {
 /** A user who must enroll before using the app: required, not globally
  *  disabled, and not yet enrolled. */
 export async function mustEnroll(userId: string): Promise<boolean> {
-  if (twoFactorDisabled()) return false;
+  if (twoFactorDisabled() || twoFactorExempt(userId)) return false;
   const required = await getRequiredUsers();
   if (!required.includes(userId)) return false;
   return !(await totpEnabled(userId));
