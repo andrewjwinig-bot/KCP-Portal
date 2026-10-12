@@ -223,16 +223,21 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
   const invoiceId = args.invoiceId || makeInvoiceId(args.propertyCode, args.statementMonth);
 
   // 2010 (LIK Management) credit-card statement is for tracking only — show a
-  // bold "DO NOT PROCESS" banner at the top of every page so AP doesn't pay it.
+  // bold "DO NOT PROCESS" banner on every page so AP doesn't pay it. It sits at
+  // the BOTTOM, under the TOTAL box and inside the page margins (owner: at the
+  // top edge it was full-bleed and got cut off when printed). The TOTAL box
+  // ends at pageH − 55 and detail rows stop at pageH − 110, so nothing overlaps.
   const showDoNotProcess = args.propertyCode === "2010";
   function drawDoNotProcessBanner() {
     if (!showDoNotProcess) return;
+    const bannerH = 24;
+    const bannerY = pageH - 48;
     doc.setFillColor(220, 38, 38);
-    doc.rect(0, 0, pageW, 26, "F");
+    doc.rect(margin, bannerY, contentW, bannerH, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
-    doc.text("DO NOT PROCESS", pageW / 2, 17, { align: "center" });
+    doc.text("DO NOT PROCESS", pageW / 2, bannerY + 16.5, { align: "center" });
     doc.setTextColor(0, 0, 0);
   }
 
