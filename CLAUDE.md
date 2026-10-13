@@ -2141,10 +2141,11 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   ownership has it the moment the balances land. The Monday 4pm ET cron
   (`/api/cron/cash-position`, `0 20 * * 1`) is the fallback: fresh → send;
   not → it does NOT send last week's figures, it reminds Drew (once a week).
-  Recipients are kept in the app (`ownership-email`), edited on the page's
-  "Monday Email to Ownership" card (Drew / admin — `canEditCashSheet`; no
-  recipients → nothing is ever sent); "Send now" sits behind an inline confirm
-  naming every recipient. Each send is Bcc'd to Drew (`CASH_POSITION_COPY_TO`).
+  Recipients are kept in the app (`ownership-email`) — Drew and Alison by
+  seed. The page's "Monday Email to Ownership" card was REMOVED (owner:
+  "delete this"); the email itself still goes. To change who gets it, edit
+  `SEEDED_RECIPIENTS` (or POST `/api/financials/bank-balances/email`, which
+  remains, as does its `{send:true}`). Each send is Bcc'd to Drew (`CASH_POSITION_COPY_TO`).
 - **The weekly import reminder is "Bank Balances", Mondays** (`imp-bank`,
   ticked by the import) — it REPLACED the AP Selection Report (owner: "swap my
   task"). The AP upload route still works; it just no longer has a reminder.

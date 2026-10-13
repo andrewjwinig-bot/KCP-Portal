@@ -325,8 +325,6 @@ export default function BankBalancesView() {
         </div>
       )}
 
-      {data && <OwnershipEmailCard canEdit={data.canEdit} />}
-
       {data && data.unmatched.length > 0 && (
         <div className="card">
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -348,81 +346,5 @@ export default function BankBalancesView() {
         </div>
       )}
     </main>
-  );
-}
-
-// ── The Monday email to ownership ───────────────────────────────────────────
-type EmailDoc = { recipients: string[]; lastSentAt?: string | null; lastSentTo?: string[]; lastSentBy?: string | null };
-
-function OwnershipEmailCard({ canEdit }: { canEdit: boolean }) {
-  const [doc, setDoc] = useState<EmailDoc | null>(null);
-  const [adding, setAdding] = useState("");
-  const [confirming, setConfirming] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => { fetch("/api/financials/bank-balances/email", { cache: "no-store" }).then((r) => r.json()).then(setDoc).catch(() => {}); }, []);
-  const post = async (body: object) => {
-    setBusy(true); setMsg(null);
-    try {
-      const r = await fetch("/api/financials/bank-balances/email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const j = await r.json();
-      if (j.recipients) setDoc(j); else if (j.doc) setDoc(j.doc);
-      return { ok: r.ok, j };
-    } finally { setBusy(false); }
-  };
-  const save = (recipients: string[]) => post({ recipients });
-  if (!doc) return null;
-  const add = async () => {
-    const e = adding.trim();
-    if (!e) return;
-    const { j } = await save([...doc.recipients, e]);
-    if (!(j.recipients ?? []).includes(e.toLowerCase())) setMsg({ ok: false, text: `"${e}" isn't an email address` });
-    else setAdding("");
-  };
-  const sendNow = async () => {
-    const { ok, j } = await post({ send: true });
-    setConfirming(false);
-    setMsg(ok ? { ok: true, text: `Sent to ${(j.to ?? []).join(", ")}` } : { ok: false, text: `Not sent — ${j.reason ?? j.error ?? "error"}` });
-  };
-  return (
-    <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: 15 }}>Monday Email to Ownership</div>
-          <div className="muted small">The cash position PDF goes out once a week, as soon as all three banks are imported.</div>
-        </div>
-        {doc.lastSentAt && (
-          <span className="small muted">Last sent <b style={{ color: "var(--text)" }}>{formatImportedAt(doc.lastSentAt)}</b>{doc.lastSentBy ? ` by ${doc.lastSentBy}` : ""}</span>
-        )}
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
-        {doc.recipients.length === 0 && <span className="small" style={{ color: "#b45309", fontWeight: 600 }}>No recipients yet — nothing will be sent.</span>}
-        {doc.recipients.map((e) => (
-          <span key={e} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--border)", fontSize: 13, fontWeight: 600 }}>
-            {e}
-            {canEdit && <button type="button" title="Remove" onClick={() => save(doc.recipients.filter((x) => x !== e))}
-              style={{ border: "none", background: "none", cursor: "pointer", color: "var(--muted)", padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>}
-          </span>
-        ))}
-        {canEdit && (
-          <>
-            <input type="email" placeholder="Add an email" value={adding} onChange={(e) => setAdding(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") add(); }} style={{ width: 220 }} />
-            <button className="btn" type="button" disabled={busy || !adding.trim()} onClick={add}>Add</button>
-            {doc.recipients.length > 0 && !confirming && (
-              <button className="btn" type="button" disabled={busy} onClick={() => setConfirming(true)} style={{ marginLeft: "auto" }}>Send now</button>
-            )}
-          </>
-        )}
-      </div>
-      {confirming && (
-        <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "rgba(11,74,125,0.06)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <span className="small">Send this week&apos;s cash position PDF to <b>{doc.recipients.join(", ")}</b>?</span>
-          <button className="btn" type="button" disabled={busy} onClick={sendNow}>{busy ? "Sending…" : `Send to ${doc.recipients.length}`}</button>
-          <button className="btn" type="button" disabled={busy} onClick={() => setConfirming(false)}>Cancel</button>
-        </div>
-      )}
-      {msg && <div className="small" style={{ marginTop: 8, fontWeight: 600, color: msg.ok ? "#15803d" : "#b91c1c" }}>{msg.text}</div>}
-    </div>
   );
 }
