@@ -2123,6 +2123,19 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   (`summarizeLoan`; 3600 → JV III, 4000 → NI LLC), hover = lender, rate,
   maturity and the next payment incl. escrow. Context only — NOT netted out of
   available cash.
+- **Downloads** (`export.ts`, `GET /api/financials/bank-balances/export?format=pdf|xlsx`,
+  the page's `DownloadMenu`) are built from the SAME `buildBalanceView` the page
+  renders. Excel is on the shared theme: each line's Net available is a live
+  `=C−D`, each group a `SUM` of its lines, the grand total ADDS THE SUBTOTALS
+  (`liveAdd`), plus an Accounts sheet; the PDF is one page in the cash sheet's
+  look (brand band, tinted group bars, KPI tiles). Both carry `BASIS_NOTE`.
+  Pinned by `export.test.ts` reading the workbook back.
+- **Every server PDF read goes through `pdfText` (`lib/pdf/pdfText.ts`)** — never
+  `new PDFParse` in a route. pdfjs needs a `DOMMatrix` at load and on Node takes
+  it from the native `@napi-rs/canvas`, which Vercel does not package: imports
+  died "DOMMatrix is not defined" in production while working locally. Text
+  extraction renders nothing, so `pdfText` installs a minimal stand-in when none
+  exists. Pinned by `pdfText.test.ts` (DOMMatrix deleted, text still read).
 - **`experimental.serverComponentsExternalPackages: ["pdf-parse"]`** in
   `next.config.mjs` is what makes every server PDF read work on Next 14 — the
   top-level `serverExternalPackages` is Next 15's key and is ignored, which

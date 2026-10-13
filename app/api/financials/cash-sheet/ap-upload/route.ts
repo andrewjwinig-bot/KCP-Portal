@@ -9,6 +9,7 @@ import { recordImport } from "@/lib/tracker/importEvents";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { cookies } from "next/headers";
 import { logAudit, auditIp } from "@/lib/audit";
+import { pdfText } from "@/lib/pdf/pdfText";
 
 export const runtime = "nodejs";
 
@@ -49,8 +50,7 @@ export async function POST(req: Request) {
       if (file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf") {
         // Skyline can export the report as a PDF; extract its text and parse the
         // same "Property/Company <CODE> Total" lines.
-        const { PDFParse } = await import("pdf-parse");
-        const { text } = await new PDFParse({ data: buf }).getText();
+        const text = await pdfText(buf);
         rows = apTextToRows(text);
       } else {
         const wb = XLSX.read(buf, { type: "buffer" });

@@ -13,6 +13,7 @@ import { HoverCard } from "@/app/components/HoverCard";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import { formatImportedAt } from "@/app/components/LastImported";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
 
 type Account = { id: string; bank: string; last4: string; name: string; link: string | null; balance: number | null; available: number | null; asOf: string | null };
 type Row = {
@@ -117,6 +118,13 @@ export default function BankBalancesView() {
             <div style={{ fontWeight: 800, fontSize: 15 }}>Bank Balances</div>
             <div className="muted small">Save each bank&apos;s accounts page as a PDF — Chase, Liberty and M&amp;T — and drop them here. Each import updates only that bank&apos;s accounts.</div>
           </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {data && data.byBank.length > 0 && (
+            <DownloadMenu variant="default" items={[
+              { label: "PDF", description: "The cash position to send ownership", href: "/api/financials/bank-balances/export?format=pdf" },
+              { label: "Excel (.xlsx)", description: "Live totals, plus every account behind them", href: "/api/financials/bank-balances/export?format=xlsx" },
+            ]} />
+          )}
           {data?.canEdit && (
             <>
               <button className="btn" disabled={busy} onClick={() => fileRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
@@ -126,6 +134,7 @@ export default function BankBalancesView() {
                 onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; importFiles(f); }} />
             </>
           )}
+          </div>
         </div>
         {(data?.byBank ?? []).length > 0 && (
           <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 10 }}>
