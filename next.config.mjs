@@ -41,6 +41,10 @@ const nextConfig = {
   // of the bundle so the Cash Sheet AP PDF parser loads them at runtime.
   serverExternalPackages: ["pdf-parse"],
   experimental: {
+    // Next 14 reads THIS key — the top-level `serverExternalPackages` above is
+    // Next 15's name and is ignored here, which left pdf-parse bundled and
+    // failing ("Object.defineProperty called on non-object") on every PDF.
+    serverComponentsExternalPackages: ["pdf-parse"],
     serverActions: { bodySizeLimit: "20mb" },
     // The insurance SOV routes read the broker's form shipped in data/.
     outputFileTracingIncludes: {

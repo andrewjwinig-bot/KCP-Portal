@@ -2094,6 +2094,41 @@ time — and the team does not have time to open the GL over $80.
   - `+ Create Live Budget` (`build.ts`) is the older parallel builder; retire
     it once 2027 is published from the draft.
 
+# Cash Analysis — bank balances (the page's view)
+
+**Cash Analysis is a BANK-BALANCE view now** (owner: "pivot from our more
+complex cash sheet thats harder for management to follow … current balance and
+then another column for reserves to show net available cash"). The GL
+cash-flow view is still in `app/financials/cash-analysis/page.tsx`, HIDDEN
+behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
+
+- **Import**: each bank's accounts page saved as a PDF — Chase ("Accounts –
+  chase.com": Present balance), Liberty ("Account Summary": Current Balance),
+  M&T Treasury Center ("Previous Day Deposit Accounts": Closing Ledger, dated).
+  `lib/financials/bank-balances/parse.ts`, pure and tested on the exports'
+  shapes; the LEDGER figure is the balance, available is kept for the hover. An
+  import updates only the accounts it carries (`store.ts`, `latest` + a dated
+  `snap-YYYY-MM-DD`); an older export never replaces a newer balance.
+- **Accounts → lines** come from the Bank Rec Tracker's registry
+  (`UNIQUE_BANK_ACCOUNTS`) plus `EXTRA_ACCOUNTS` (M&T's Eastwick x4031, which
+  the tracker does not reconcile) — `entities.ts`. Funds are ONE line (JV III
+  x5631 → `PJV3`, NI LLC x2190 → `PNIPLX`). An imported account matching
+  nothing is listed NOT MAPPED and kept out of the totals, never dropped.
+- **Reserves** are the Cash Sheet's own (budget Big Projects, this month + the
+  next two, or the figure typed over it — saved through the same
+  `/api/financials/cash-sheet` `reserves` edit, keyed by the line's key), so the
+  two views cannot disagree. **Security deposits (x7216, x7448) are tenants'
+  money**: their own group, reserved in full, never in Net available.
+- **Debt** is each line's outstanding principal today from the Debt Tracker
+  (`summarizeLoan`; 3600 → JV III, 4000 → NI LLC), hover = lender, rate,
+  maturity and the next payment incl. escrow. Context only — NOT netted out of
+  available cash.
+- **`experimental.serverComponentsExternalPackages: ["pdf-parse"]`** in
+  `next.config.mjs` is what makes every server PDF read work on Next 14 — the
+  top-level `serverExternalPackages` is Next 15's key and is ignored, which
+  left pdf-parse bundled and failing ("Object.defineProperty called on
+  non-object"), the AP Selection PDF import included.
+
 # T-12 — trailing twelve months of actuals
 
 `/financials/t12`, reached from the Report Center (Financial), NOT the
