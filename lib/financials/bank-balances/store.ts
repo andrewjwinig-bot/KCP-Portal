@@ -4,7 +4,8 @@
 // dated snapshot (`snap-YYYY-MM-DD`) so a week's balances can be read back.
 
 import "server-only";
-import { getJSON, storeJSON } from "@/lib/storage";
+import { getJSON, listJSON, storeJSON } from "@/lib/storage";
+import type { Snapshot } from "./weekOverWeek";
 import type { BankName, ParsedStatement } from "./parse";
 import { accountId } from "./entities";
 
@@ -58,4 +59,10 @@ export async function saveImport(statements: ParsedStatement[], by: string | nul
     await storeJSON(PREFIX, `snap-${date}`, { date, accounts: { ...prev, ...accts } });
   }
   return { accounts: n, asOf: Object.keys(snaps).sort() };
+}
+
+/** Every dated snapshot (one per import date). */
+export async function loadSnapshots(): Promise<Snapshot[]> {
+  const all = (await listJSON(PREFIX).catch(() => [])) as (Snapshot & { date?: string })[];
+  return all.filter((d) => d && typeof d.date === "string" && d.accounts);
 }

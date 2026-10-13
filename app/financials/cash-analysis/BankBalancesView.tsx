@@ -15,10 +15,11 @@ import { formatImportedAt } from "@/app/components/LastImported";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 
-type Account = { id: string; bank: string; last4: string; name: string; link: string | null; balance: number | null; available: number | null; asOf: string | null };
+type Account = { id: string; bank: string; last4: string; name: string; link: string | null; balance: number | null; available: number | null; asOf: string | null; prior: { balance: number; asOf: string } | null };
 type Row = {
   key: string; name: string; group: string; restricted: boolean; accounts: Account[];
   balance: number | null; reserves: number; reservesAuto: number; reservesOverridden: boolean; netAvailable: number | null;
+  change: number | null; priorBalance: number | null; priorAsOf: string | null;
   debt: number | null;
   loans: { lender: string; balance: number; ratePct: number; maturity: string; status: string; nextDate: string | null; nextOutlay: number | null }[];
 };
@@ -38,6 +39,35 @@ const money0 = (n: number | null) => {
 const money2 = (n: number | null) => (n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD" }));
 const dateLabel = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
 const sum = (rs: Row[], f: (r: Row) => number | null) => rs.reduce((s, r) => s + (f(r) ?? 0), 0);
+const shortDate = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—");
+
+/** Week over week: green up, red down, an arrow so it reads in black and white too. */
+function ChangeCell({ change, prior, priorAsOf, now, bold }: { change: number | null; prior: number | null; priorAsOf: string | null; now: number | null; bold?: boolean }) {
+  if (change == null) return <span className="muted">—</span>;
+  const rounded = Math.round(change);
+  const color = rounded > 0 ? "#15803d" : rounded < 0 ? "#b91c1c" : "var(--muted)";
+  const arrow = rounded > 0 ? "▲ " : rounded < 0 ? "▼ " : "";
+  const pct = prior ? (change / Math.abs(prior)) * 100 : null;
+  return (
+    <HoverCard title="Week over week"
+      rows={[
+        { label: `Balance ${shortDate(priorAsOf)}`, value: money0(prior) },
+        { label: "Balance now", value: money0(now) },
+      ]}
+      footer={{ label: pct != null ? `Change (${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)` : "Change", value: money0(change), color }}>
+      <span style={{ color, fontWeight: bold ? 800 : 600 }}>{arrow}{money0(Math.abs(change))}</span>
+    </HoverCard>
+  );
+}
+/** The rows that can be compared, and their figures. */
+function changeOf(rs: Row[]) {
+  const c = rs.filter((r) => r.change != null);
+  if (!c.length) return { change: null, prior: null, now: null, priorAsOf: null };
+  return {
+    change: sum(c, (r) => r.change), prior: sum(c, (r) => r.priorBalance), now: sum(c, (r) => r.balance),
+    priorAsOf: c.map((r) => r.priorAsOf).filter(Boolean).sort()[0] ?? null,
+  };
+}
 
 const band: React.CSSProperties = { background: "rgba(15,23,42,0.04)", fontWeight: 800, borderTop: "2px solid var(--border)", cursor: "pointer" };
 const netCol: React.CSSProperties = { ...td, fontWeight: 800, background: "rgba(11,74,125,0.06)" };
@@ -99,6 +129,7 @@ export default function BankBalancesView() {
   const restricted = sum(rows.filter((r) => r.restricted), (r) => r.balance);
   const reserves = sum(operating, (r) => (r.balance == null ? 0 : r.reserves));
   const net = sum(operating, (r) => r.netAvailable);
+  const wow = changeOf(rows);
   const debt = sum(rows, (r) => r.debt) + (data?.unplacedDebt ?? 0);
   const asOf = (data?.byBank ?? []).map((b) => b.asOf).filter(Boolean).sort().pop() ?? null;
   const missing = rows.filter((r) => r.balance == null);
@@ -151,7 +182,8 @@ export default function BankBalancesView() {
 
       {data && (
         <div className="pills">
-          <StatPill label="Cash in bank" value={money0(totalCash)} />
+          <StatPill label="Cash in bank" value={money0(totalCash)}
+            sub={wow.change != null ? `${wow.change >= 0 ? "▲" : "▼"} ${money0(Math.abs(wow.change))} since ${shortDate(wow.priorAsOf)}` : undefined} />
           <StatPill label="Security deposits" value={money0(restricted)} sub="Tenants' money" />
           <StatPill label="Reserves" value={money0(reserves)} sub="Big Projects, next 3 months" />
           <StatPill label="Net available" value={money0(net)} total />
@@ -170,8 +202,8 @@ export default function BankBalancesView() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr>
               <th style={thL}>Property / Entity</th>
-              <th style={thL}>Accounts</th>
               <th style={th}>Current balance</th>
+              <th style={th}>Wk / Wk Change</th>
               <th style={th}>Reserves</th>
               <th style={th}>Net available</th>
               <th style={th}>Debt</th>
@@ -183,10 +215,11 @@ export default function BankBalancesView() {
                 return (
                   <Fragment key={g}>
                     <tr style={band} onClick={() => toggle(collapsed, g, setCollapsed)}>
-                      <td style={{ ...tdL, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 13 }} colSpan={2}>
+                      <td style={{ ...tdL, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 13 }}>
                         <span style={{ display: "inline-block", width: 14, color: "var(--muted)" }}>{isOpen ? "▾" : "▸"}</span>{g}
                       </td>
                       <td style={{ ...td, fontWeight: 800 }}>{money0(sum(gr, (r) => r.balance))}</td>
+                      <td style={td}>{(() => { const g = changeOf(gr); return <ChangeCell change={g.change} prior={g.prior} now={g.now} priorAsOf={g.priorAsOf} bold />; })()}</td>
                       <td style={{ ...td, fontWeight: 800 }}>{money0(sum(gr, (r) => (r.balance == null ? 0 : r.reserves)))}</td>
                       <td style={{ ...td, fontWeight: 800 }}>{restrictedGroup ? "—" : money0(sum(gr, (r) => r.netAvailable))}</td>
                       <td style={{ ...td, fontWeight: 800, color: "var(--muted)" }}>{gr.some((r) => r.debt != null) ? money0(sum(gr, (r) => r.debt)) : "—"}</td>
@@ -198,9 +231,7 @@ export default function BankBalancesView() {
                           <tr style={{ borderTop: "1px solid var(--border)", opacity: r.balance == null ? 0.55 : 1 }}>
                             <td style={{ ...tdL, fontWeight: 600, cursor: "pointer" }} onClick={() => toggle(open, r.key, setOpen)}>
                               <span style={{ display: "inline-block", width: 14, color: "var(--muted)" }}>{expanded ? "▾" : "▸"}</span>{r.name}
-                            </td>
-                            <td style={tdL}>
-                              <span style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }}>
+                              <span style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 3, paddingLeft: 14 }} onClick={(e) => e.stopPropagation()}>
                                 {r.accounts.map((a) => (
                                   <a key={a.id} href={a.link ?? undefined} target="_blank" rel="noreferrer"
                                     style={{ fontSize: 11, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>
@@ -210,6 +241,7 @@ export default function BankBalancesView() {
                               </span>
                             </td>
                             <td style={td}>{money0(r.balance)}</td>
+                            <td style={td}><ChangeCell change={r.change} prior={r.priorBalance} now={r.balance} priorAsOf={r.priorAsOf} /></td>
                             <td style={td}>
                               {r.restricted ? (
                                 <HoverCard title="Held in full" rows={[{ label: "Tenant security deposits", value: money0(r.balance) }]} footer={{ label: "Not available to operations", value: "" }}>
@@ -246,8 +278,9 @@ export default function BankBalancesView() {
                           </tr>
                           {expanded && r.accounts.map((a) => (
                             <tr key={a.id} style={{ background: "rgba(15,23,42,0.02)" }}>
-                              <td style={{ ...tdL, paddingLeft: 40 }} className="small">{a.name}</td>
-                              <td style={tdL} className="small">{BANK_LABEL[a.bank] ?? a.bank} {a.last4} · as of {dateLabel(a.asOf)}</td>
+                              <td style={{ ...tdL, paddingLeft: 40 }} className="small">
+                                {a.name}<span className="muted"> · {BANK_LABEL[a.bank] ?? a.bank} {a.last4} · as of {dateLabel(a.asOf)}</span>
+                              </td>
                               <td style={{ ...td, fontSize: 13 }}>
                                 {a.balance != null && a.available != null && Math.abs(a.available - a.balance) >= 0.01 ? (
                                   <HoverCard title={`${BANK_LABEL[a.bank] ?? a.bank} ${a.last4}`}
@@ -256,6 +289,9 @@ export default function BankBalancesView() {
                                     <span>{money2(a.balance)}</span>
                                   </HoverCard>
                                 ) : money2(a.balance)}
+                              </td>
+                              <td style={{ ...td, fontSize: 13 }}>
+                                <ChangeCell change={a.balance != null && a.prior ? a.balance - a.prior.balance : null} prior={a.prior?.balance ?? null} now={a.balance} priorAsOf={a.prior?.asOf ?? null} />
                               </td>
                               <td style={td} /><td style={td} /><td style={td} />
                             </tr>
@@ -267,8 +303,9 @@ export default function BankBalancesView() {
                 );
               })}
               <tr style={{ borderTop: "2px solid var(--border)" }}>
-                <td style={{ ...tdL, fontWeight: 900 }} colSpan={2}>Total</td>
+                <td style={{ ...tdL, fontWeight: 900 }}>Total</td>
                 <td style={{ ...td, fontWeight: 900 }}>{money0(totalCash)}</td>
+                <td style={td}><ChangeCell change={wow.change} prior={wow.prior} now={wow.now} priorAsOf={wow.priorAsOf} bold /></td>
                 <td style={{ ...td, fontWeight: 900 }}>{money0(reserves + restricted)}</td>
                 <td style={{ ...netCol, fontWeight: 900 }}>{money0(net)}</td>
                 <td style={{ ...td, fontWeight: 900, color: "var(--muted)" }}>{money0(debt)}</td>
