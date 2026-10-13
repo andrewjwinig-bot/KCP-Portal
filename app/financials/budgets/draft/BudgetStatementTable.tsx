@@ -940,9 +940,15 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const noBank = !BANK_BALANCE_SHOWN || (!!draft.consolidated && !draft.consolidated.sharedBank) || !!draft.bankAtFund;
   if (cash && !noBank) {
     const end = cash.balance[11];
-    // A seven-figure balance does not fit a month column, so the row reads
-    // $3.06M (owner); the hover keeps the dollar figure.
-    const bal = (n: number) => Math.abs(n) >= 1_000_000 ? `${n < 0 ? "−" : ""}$${(Math.abs(n) / 1_000_000).toFixed(2)}M` : money0(n);
+    // A big balance does not fit a month column, so the row reads $3.06M from
+    // a million and $974K (to the nearest thousand) from $100K (owner); the
+    // hover keeps the dollar figure.
+    const bal = (n: number) => {
+      const a = Math.abs(n), sign = n < 0 ? "−" : "";
+      if (a >= 999_500) return `${sign}$${(a / 1_000_000).toFixed(2)}M`;
+      if (a >= 100_000) return `${sign}$${Math.round(a / 1_000)}K`;
+      return money0(n);
+    };
     const balTip = (m: number) => ({
       title: `Projected Bank Balance · ${MONTHS[m]}`,
       rows: [
