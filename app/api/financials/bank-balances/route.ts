@@ -7,6 +7,8 @@ import { saveImport } from "@/lib/financials/bank-balances/store";
 import { buildBalanceView } from "@/lib/financials/bank-balances/view";
 import { logAudit, auditIp } from "@/lib/audit";
 import { pdfText } from "@/lib/pdf/pdfText";
+import { recordImport } from "@/lib/tracker/importEvents";
+import { maybeSendCashPosition } from "@/lib/financials/bank-balances/ownershipEmail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,7 +56,10 @@ export async function POST(req: Request) {
     const by = user ? USERS[user]?.label ?? user : null;
     const saved = await saveImport(parsed, by);
     await logAudit({ event: "bank-balances.import", user: user ?? "?", ip: auditIp(req), detail: results.map((r) => `${r.bank ?? r.file}: ${r.accounts}`).join(" · ") }).catch(() => {});
-    return NextResponse.json({ ok: true, results, ...saved });
+    try { await recordImport("imp-bank", { at: new Date().toISOString(), by }); } catch { /* best-effort */ }
+    // Every bank in for the week → the Monday cash position goes to ownership.
+    const email = await maybeSendCashPosition(by).catch((e) => ({ sent: false, reason: e?.message ?? "Email failed" }));
+    return NextResponse.json({ ok: true, results, ...saved, email });
   } catch (err: any) {
     console.error("[POST /api/financials/bank-balances]", err?.stack ?? err);
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });

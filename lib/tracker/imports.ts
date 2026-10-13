@@ -70,8 +70,11 @@ export const IMPORT_REMINDERS: ImportReminder[] = [
     link: "/rentroll", feeds: "Rent Roll, CAM recon, deposits, commissions" },
   { id: "imp-gl", label: "General Ledger", cadence: "monthly", when: "By the 20th",
     link: "/financials/operating-statements", feeds: "Operating Statements & Cash Analysis", periodIs: "prior-month", dueFromDay: 20 },
-  { id: "imp-ap", label: "AP Selection Report", cadence: "weekly", when: "Every Wednesday",
-    link: "/financials/cash-analysis", feeds: "Import Paid Bills to Cash Sheet", dueFromWeekday: 3 },
+  // Bank balances replaced the AP Selection Report (owner: "swap my task to
+  // import the cash balances vs the ap selection reports"): Cash Analysis reads
+  // the banks now, and the week's import sends ownership the cash position.
+  { id: "imp-bank", label: "Bank Balances", cadence: "weekly", when: "Every Monday",
+    link: "/financials/cash-analysis", feeds: "Cash Analysis + the Monday cash position email", dueFromWeekday: 1 },
   // No separate "2000 G&A GL" row (owner): 2000 is one of the GLs the General
   // Ledger row already counts, and importing it there sends the Allocated
   // Expenses to AvidXchange on its own.
