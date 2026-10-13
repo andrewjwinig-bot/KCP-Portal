@@ -2133,6 +2133,23 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   bank tile says the total move. Excel adds Last Week + a live `=C−D` change;
   the PDF a signed, coloured column. The account chips sit UNDER each name
   (no Accounts column) so the six columns fit a laptop screen.
+- **THE CASH POSITION PDF GOES TO OWNERSHIP EVERY MONDAY**
+  (`ownershipEmail.ts`; owner: "email the cash position pdf to ownership every
+  monday"). It goes ONCE A WEEK and only on fresh numbers: the import that
+  brings the LAST bank in for the week (`freshThisWeek` — every bank imported
+  since Monday, Eastern) sends it at once (`maybeSendCashPosition`), so
+  ownership has it the moment the balances land. The Monday 4pm ET cron
+  (`/api/cron/cash-position`, `0 20 * * 1`) is the fallback: fresh → send;
+  not → it does NOT send last week's figures, it reminds Drew (once a week).
+  Recipients are kept in the app (`ownership-email`), edited on the page's
+  "Monday Email to Ownership" card (Drew / admin — `canEditCashSheet`; no
+  recipients → nothing is ever sent); "Send now" sits behind an inline confirm
+  naming every recipient. Each send is Bcc'd to Drew (`CASH_POSITION_COPY_TO`).
+- **The weekly import reminder is "Bank Balances", Mondays** (`imp-bank`,
+  ticked by the import) — it REPLACED the AP Selection Report (owner: "swap my
+  task"). The AP upload route still works; it just no longer has a reminder.
+- **A line with ONE account has no ▸ and does not expand** (owner: "keep it
+  clean simple and bold and clear") — the line IS the account.
 - **Downloads** (`export.ts`, `GET /api/financials/bank-balances/export?format=pdf|xlsx`,
   the page's `DownloadMenu`) are built from the SAME `buildBalanceView` the page
   renders. Excel is on the shared theme: each line's Net available is a live

@@ -87,12 +87,13 @@ describe("the order the card reads in", () => {
   });
 });
 
-describe("the AP reminder itself", () => {
-  it("is wired to Wednesday and says so", () => {
-    const ap = IMPORT_REMINDERS.find((r) => r.id === "imp-ap")!;
-    expect(ap.dueFromWeekday).toBe(3);
-    expect(ap.when).toBe("Every Wednesday");
-    expect(ap.feeds).toBe("Import Paid Bills to Cash Sheet");
+describe("the weekly bank-balance reminder", () => {
+  it("replaced the AP Selection Report and is due Mondays", () => {
+    expect(IMPORT_REMINDERS.find((r) => r.id === "imp-ap")).toBeUndefined();
+    const bank = IMPORT_REMINDERS.find((r) => r.id === "imp-bank")!;
+    expect(bank.dueFromWeekday).toBe(1);
+    expect(bank.when).toBe("Every Monday");
+    expect(bank.link).toBe("/financials/cash-analysis");
   });
 });
 
@@ -142,7 +143,7 @@ describe("coverage beats the timestamp", () => {
   });
 
   it("sorts a partially-imported GL above a finished weekly", () => {
-    const ap = IMPORT_REMINDERS.find((r) => r.id === "imp-ap")!;
+    const ap = IMPORT_REMINDERS.find((r) => r.id === "imp-bank")!;
     const order = sortByUrgency([ap, gl], () => importedToday, sep21,
       (r) => (r.id === "imp-gl" ? { done: 9, total: 13, behind: [] } : null));
     expect(order[0].id).toBe("imp-gl");
