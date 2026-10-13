@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJSON, storeJSON } from "@/lib/storage";
 import type { CommissionEntry } from "@/lib/commissions";
+import { applyCommissionCorrections } from "@/lib/commissions/corrections";
 
 const PREFIX = "commissions";
 const ID     = "entries";
@@ -9,6 +10,7 @@ export const runtime = "nodejs";
 
 export async function GET() {
   try {
+    await applyCommissionCorrections().catch(() => {});
     const data = (await getJSON(PREFIX, ID)) as CommissionEntry[] | null;
     return NextResponse.json({ entries: Array.isArray(data) ? data : [] });
   } catch {

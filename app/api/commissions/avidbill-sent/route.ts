@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { applyCommissionCorrections } from "@/lib/commissions/corrections";
 import { getJSON } from "@/lib/storage";
 import { canonicalQuarter, type CommissionEntry } from "@/lib/commissions";
 import { loadCommissionHistory, updateSentInvoice, type HistoryInvoice } from "@/lib/commissions/history";
@@ -17,6 +18,7 @@ const SENT_LOG_ID = "avidbill-sent";
  *  sendQuarterToAvidBill on successful sends. */
 export async function GET() {
   try {
+    await applyCommissionCorrections().catch(() => {});
     const raw = await getJSON(PREFIX, SENT_LOG_ID);
     const stored = (raw && typeof raw === "object") ? raw as Record<string, unknown> : {};
     // Keyed by the label the pages save ("Q3 26") as well as as stored — a
