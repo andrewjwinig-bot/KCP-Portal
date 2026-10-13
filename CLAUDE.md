@@ -2009,12 +2009,21 @@ time — and the team does not have time to open the GL over $80.
   only (`EXPENSE_ROLES`); capital and debt sit below NOI. It used to count
   capital as an operating expense, understating NOI by the year's TI and
   improvements — and the grid then took capital off a second time for cash flow.
-- **THE PROJECTED BANK BALANCE IS HIDDEN FOR NOW** (owner: "hide current
-  bank balance … until we get that straightened out more clearly"):
-  `BANK_BALANCE_SHOWN = false` in `BudgetStatementTable.tsx` turns off the
-  balance row, the opening and its note everywhere; Distributions still show
-  and are keyed as before. Flip it back once the opening balance is right.
-  What follows describes it when shown.
+- **THE PROJECTED BANK BALANCE OPENS ON THE IMPORTED BANK BALANCE** (owner:
+  "unhide the live bank balances on the budgets … using current balance plus
+  reprojections"; `BANK_BALANCE_SHOWN = true`). The opening is the property's
+  Cash Analysis line (`bankCashFor` / `cashByLine` in
+  `lib/financials/bank-balances/lineCash*.ts` — security deposits never
+  counted, the oldest account's as-of dates the figure), rolled to Dec 31 by
+  `rollFromDate`: the rest of the as-of month by days left, then each later
+  month, on the reprojection's cash flow less planned distributions (a
+  distribution planned in the as-of month is still to come unless the GL shows
+  it paid). A FUND (JV III, NI LLC) opens on ITS one account: each building
+  carries `bankRoll` (its roll from the fund's as-of), and `withFundBank` in
+  `consolidate.ts` sets the roll-up's opening to the fund's balance plus the
+  rolls. With no bank imported for the line it falls back to the GL's cash
+  rolled forward, as before; a typed opening still wins. The hover lists the
+  accounts and the roll.
 - **THE PROJECTED BANK BALANCE SITS AT THE TOP, WITH OCCUPANCY %; THE
   DISTRIBUTIONS STAY AT THE BOTTOM** (owner): the grid's first card reads the
   property at a glance (Occupancy %, then the balance — Budget = Dec 31, Now =
@@ -2024,7 +2033,7 @@ time — and the team does not have time to open the GL over $80.
   typeable **Distributions** row (typed months save as `Cash::Distributions`
   in the typed-month store; Drew / admin only — Greg's scope excludes it), then
   **Projected Bank Balance** = last month's + cash flow − distributions. The
-  opening is the GL's operating cash (every `isCashAccount` except security
+  opening is the imported bank balance (above); without one, the GL's operating cash (every `isCashAccount` except security
   deposits — that is tenants' money) at its last posted month, ROLLED TO DEC 31
   on the reprojection's cash flow less the plan's remaining distributions;
   typeable over (`Cash::Opening Balance`, month 0). Null openings on the GL →

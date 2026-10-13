@@ -50,7 +50,9 @@ import { getEstimateOverrides } from "./estimateOverrideStore";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { isVacancyUtilitiesLine, resolveRate, monthsAt, sharedRateFor, type VacancyUtilities } from "./vacancyUtilities";
 import { assembledGlConsolidated } from "@/lib/financials/operating-statements/statementStore";
-import { cashOnGl, distributionsOnGl, plannedDistributions, projectBalance, rollForward, DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL, type DraftCash } from "./cashForecast";
+import { bankCashFor } from "@/lib/financials/bank-balances/lineCashStore";
+import { fundLineOf } from "@/lib/financials/bank-balances/lineCash";
+import { cashOnGl, distributionsOnGl, plannedDistributions, projectBalance, rollForward, rollFromDate, DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL, type DraftCash } from "./cashForecast";
 
 /** The revenue line the lease projection replaces — base/rental income. */
 const RENTAL_LINE_RE = /rental|rent income|base rent|minimum rent/i;
@@ -1149,20 +1151,34 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
     const gl = await assembledGlConsolidated(key, basisYear).catch(() => null);
     const onGl = cashOnGl(gl);
     const plan = plannedDistributions(meta.propertyCode);
-    const projectedYearEnd = onGl ? rollForward(onGl.balance, onGl.month, basisFlow, plan) : null;
+    const glYearEnd = onGl ? rollForward(onGl.balance, onGl.month, basisFlow, plan) : null;
     const dist = mergeMonths(plan, typedDoc[lineKey(DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL)]);
     const anyTyped = dist.typed.some(Boolean);
     const openTyped = typedDoc[lineKey(DISTRIBUTIONS_SECTION, OPENING_LABEL)]?.months?.[0];
+    // THE BANK FIRST (owner: "using current balance plus reprojections"): the
+    // imported balance on the Cash Analysis line, rolled to Dec 31 on the
+    // reprojection. A building in a fund carries the roll only — the fund's
+    // roll-up adds it to the FUND's account.
+    const onGlDist = distributionsOnGl(gl);
+    const ownBank = await bankCashFor(meta.propertyCode).catch(() => null);
+    const fundKey = ownBank ? null : fundLineOf(meta.propertyCode);
+    const fundBank = fundKey ? await bankCashFor(fundKey).catch(() => null) : null;
+    const rollAsOf = ownBank?.asOf ?? fundBank?.asOf ?? null;
+    const rolled = rollAsOf ? rollFromDate(ownBank?.balance ?? 0, rollAsOf, basisYear, basisFlow, plan, onGlDist) : null;
+    const bankYearEnd = ownBank && rolled ? rolled.yearEnd : null;
+    const projectedYearEnd = bankYearEnd ?? glYearEnd;
     const opening = openTyped != null ? r0(openTyped) : projectedYearEnd ?? 0;
     return {
       gl: onGl ? { balance: onGl.balance, year: basisYear, month: onGl.month, accounts: onGl.accounts } : null,
+      bank: ownBank && rolled ? { balance: r0(ownBank.balance), asOf: ownBank.asOf, accounts: ownBank.accounts.map((x) => ({ bank: x.bank, last4: x.last4, name: x.name, balance: r0(x.balance) })) } : null,
+      bankRoll: rolled && rollAsOf ? { asOf: rollAsOf, remainder: rolled.remainder } : null,
       projectedYearEnd,
       opening,
       openingTyped: openTyped != null,
       distributions: {
         months: dist.months, total: r0(sum(dist.months)), typed: anyTyped ? dist.typed : undefined,
         source: anyTyped ? "entered" : sum(plan) ? "plan" : "none",
-        basisYearActual: distributionsOnGl(gl),
+        basisYearActual: onGlDist,
       },
       balance: projectBalance(opening, cashFlow, dist.months),
     };

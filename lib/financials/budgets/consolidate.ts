@@ -31,7 +31,7 @@ function mergeSubs(into: BudgetSubLine[], from: BudgetSubLine[] | undefined): Bu
   return into;
 }
 
-export function consolidateDrafts(name: string, drafts: BudgetDraft[], opts?: { sharedBank?: boolean }): BudgetDraft | null {
+export function consolidateDrafts(name: string, drafts: BudgetDraft[], opts?: { sharedBank?: boolean; fundBank?: FundBank | null }): BudgetDraft | null {
   if (!drafts.length) return null;
   const first = drafts[0];
   const sections: BudgetDraftSection[] = [];
@@ -91,7 +91,31 @@ export function consolidateDrafts(name: string, drafts: BudgetDraft[], opts?: { 
     // THE RECOVERY CHECK for every property in the book, on one screen.
     recoveryChecks: drafts.map((d) => ({ code: d.propertyCode, name: d.propertyName, checks: recoveryCheck(d.reimbursementEstimate) }))
       .filter((x) => x.checks.length),
-    cash: consolidateCash(drafts),
+    cash: withFundBank(consolidateCash(drafts), drafts, opts?.sharedBank ? opts?.fundBank : null),
+  };
+}
+
+/** A fund's one bank account, as imported (`bankCashFor`). */
+export type FundBank = { balance: number; asOf: string; accounts: { bank: string; last4: string; name: string; balance: number }[] };
+
+/** A fund that banks through ONE account opens on THAT account: its imported
+ *  balance plus every building's reprojected cash flow from the as-of day to
+ *  Dec 31 (`bankRoll`) — never the sum of the buildings' GL cash. The month
+ *  balances keep their movement and move with the opening. */
+export function withFundBank(cash: BudgetDraft["cash"], drafts: BudgetDraft[], bank: FundBank | null | undefined): BudgetDraft["cash"] {
+  if (!cash || !bank) return cash;
+  const rolls = drafts.map((d) => d.cash?.bankRoll).filter((x): x is { asOf: string; remainder: number } => !!x && x.asOf === bank.asOf);
+  if (!rolls.length) return cash;
+  const opening = r0(bank.balance + rolls.reduce((a, x) => a + x.remainder, 0));
+  const shift = opening - cash.opening;
+  return {
+    ...cash,
+    bank: { balance: r0(bank.balance), asOf: bank.asOf, accounts: bank.accounts.map((a) => ({ ...a, balance: r0(a.balance) })) },
+    projectedYearEnd: opening,
+    opening,
+    openingTyped: false,
+    balance: cash.balance.map((v) => r0(v + shift)),
+    byProperty: undefined,
   };
 }
 
