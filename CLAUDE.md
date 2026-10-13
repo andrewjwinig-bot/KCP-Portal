@@ -2021,7 +2021,9 @@ time — and the team does not have time to open the GL over $80.
   it paid). A FUND (JV III, NI LLC) opens on ITS one account: each building
   carries `bankRoll` (its roll from the fund's as-of), and `withFundBank` in
   `consolidate.ts` sets the roll-up's opening to the fund's balance plus the
-  rolls. With no bank imported for the line it falls back to the GL's cash
+  rolls. A balance of $1M or more reads `$3.06M` in the grid (owner — seven
+  figures overlap a month column); the hover keeps the dollars.
+  With no bank imported for the line it falls back to the GL's cash
   rolled forward, as before; a typed opening still wins. The hover lists the
   accounts and the roll.
 - **THE PROJECTED BANK BALANCE SITS AT THE TOP, WITH OCCUPANCY %; THE

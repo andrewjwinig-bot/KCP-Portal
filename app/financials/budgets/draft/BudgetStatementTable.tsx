@@ -940,6 +940,9 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const noBank = !BANK_BALANCE_SHOWN || (!!draft.consolidated && !draft.consolidated.sharedBank) || !!draft.bankAtFund;
   if (cash && !noBank) {
     const end = cash.balance[11];
+    // A seven-figure balance does not fit a month column, so the row reads
+    // $3.06M (owner); the hover keeps the dollar figure.
+    const bal = (n: number) => Math.abs(n) >= 1_000_000 ? `${n < 0 ? "−" : ""}$${(Math.abs(n) / 1_000_000).toFixed(2)}M` : money0(n);
     const balTip = (m: number) => ({
       title: `Projected Bank Balance · ${MONTHS[m]}`,
       rows: [
@@ -954,11 +957,11 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
         <td style={{ ...lab, fontWeight: 800, color: COLOR_BRAND, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Projected Bank Balance</td>
         {cash.balance.map((v, i) => {
           const t = balTip(i);
-          return <td key={i} style={{ ...num, fontSize: 13, fontWeight: 700, color: v < 0 ? "#b91c1c" : COLOR_BRAND }}><HoverCard title={t.title} rows={t.rows} footer={t.footer} width={300}><span>{money0(v)}</span></HoverCard></td>;
+          return <td key={i} style={{ ...num, fontSize: 13, fontWeight: 700, color: v < 0 ? "#b91c1c" : COLOR_BRAND }}><HoverCard title={t.title} rows={t.rows} footer={t.footer} width={300}><span>{bal(v)}</span></HoverCard></td>;
         })}
-        <td style={{ ...num, fontSize: 13, fontWeight: 800, color: end < 0 ? "#b91c1c" : COLOR_BRAND }}>{money0(end)}</td>
-        <td style={{ ...num, color: "var(--muted)" }}>{money0(cash.opening)}</td>
-        <td style={{ ...num, color: end >= cash.opening ? "#15803d" : "#b91c1c" }}>{`${end >= cash.opening ? "+" : "−"}${money0(Math.abs(end - cash.opening))}`}</td>
+        <td style={{ ...num, fontSize: 13, fontWeight: 800, color: end < 0 ? "#b91c1c" : COLOR_BRAND }}>{bal(end)}</td>
+        <td style={{ ...num, color: "var(--muted)" }}>{bal(cash.opening)}</td>
+        <td style={{ ...num, color: end >= cash.opening ? "#15803d" : "#b91c1c" }}>{`${end >= cash.opening ? "+" : "−"}${bal(Math.abs(end - cash.opening))}`}</td>
       </tr>,
     );
   }
