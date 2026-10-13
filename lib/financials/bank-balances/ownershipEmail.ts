@@ -22,8 +22,14 @@ const MAX_RECIPIENTS = 20;
 const COPY_TO = (process.env.CASH_POSITION_COPY_TO ?? "dwinig@kormancommercial.com").trim();
 const REMIND_TO = "dwinig@kormancommercial.com";
 
+/** On the list from the start (owner: "add drew and alison to the monday
+ * email"). A seed someone removes stays removed (`removedSeeds`). */
+export const SEEDED_RECIPIENTS = ["dwinig@kormancommercial.com", "akorman@kormancommercial.com"];
+
 export type OwnershipEmailDoc = {
   recipients: string[];
+  /** Seeded recipients someone took off the list — never re-added. */
+  removedSeeds?: string[];
   /** Monday (YYYY-MM-DD, Eastern) of the week last sent. */
   lastSentWeek?: string | null;
   lastSentAt?: string | null;
@@ -44,11 +50,18 @@ export function cleanRecipients(list: unknown): string[] {
 
 export async function loadEmailDoc(): Promise<OwnershipEmailDoc> {
   const d = (await getJSON(PREFIX, ID)) as OwnershipEmailDoc | null;
-  return { recipients: [], ...(d ?? {}) };
+  return withSeeds({ recipients: [], ...(d ?? {}) });
+}
+/** The stored list plus every seed not deliberately removed. */
+export function withSeeds(doc: OwnershipEmailDoc): OwnershipEmailDoc {
+  const removed = new Set(doc.removedSeeds ?? []);
+  const missing = SEEDED_RECIPIENTS.filter((e) => !removed.has(e) && !doc.recipients.includes(e));
+  return { ...doc, recipients: cleanRecipients([...missing, ...doc.recipients]) };
 }
 export async function saveRecipients(list: unknown): Promise<OwnershipEmailDoc> {
   const doc = await loadEmailDoc();
   doc.recipients = cleanRecipients(list);
+  doc.removedSeeds = SEEDED_RECIPIENTS.filter((e) => !doc.recipients.includes(e));
   await storeJSON(PREFIX, ID, doc);
   return doc;
 }
@@ -121,7 +134,8 @@ export async function sendCashPosition(opts: { by: string | null; force?: boolea
   const { subject, textBody, file } = composeCashPosition(view, now);
   const ok = await sendMail({
     to: doc.recipients.join(", "), from: VERIFIED_FROM, subject, textBody,
-    ...(COPY_TO ? { bcc: COPY_TO } : {}),
+    // No blind copy to someone already on the To line.
+    ...(COPY_TO && !doc.recipients.includes(COPY_TO.toLowerCase()) ? { bcc: COPY_TO } : {}),
     attachments: [{ name: file, content: new Uint8Array(buildBalancePdf(view)), contentType: "application/pdf" }],
   });
   if (!ok) return { sent: false, reason: "The email did not go" };

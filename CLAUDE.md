@@ -2117,7 +2117,7 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
 - **Reserves** are the Cash Sheet's own (budget Big Projects, this month + the
   next two, or the figure typed over it — saved through the same
   `/api/financials/cash-sheet` `reserves` edit, keyed by the line's key), so the
-  two views cannot disagree. **Security deposits (x7216, x7448) are tenants'
+  two views cannot disagree. **Security deposits (x7216, x7448, and Liberty x8276 — LIK Management (SD) MM, owner) are tenants'
   money**: their own group, reserved in full, never in Net available.
 - **Debt** is each line's outstanding principal today from the Debt Tracker
   (`summarizeLoan`; 3600 → JV III, 4000 → NI LLC), hover = lender, rate,
@@ -2148,6 +2148,9 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
 - **The weekly import reminder is "Bank Balances", Mondays** (`imp-bank`,
   ticked by the import) — it REPLACED the AP Selection Report (owner: "swap my
   task"). The AP upload route still works; it just no longer has a reminder.
+- **Chase x6088 (9500 LH LLC) is its own line under Land & Other** (owner: not an operating account), though the registry files it under 9510.
+- **The Monday email starts with Drew and Alison on it** (`SEEDED_RECIPIENTS`; a seed someone removes stays removed — `removedSeeds`), and Drew gets no Bcc when he is already on the To line.
+- **The table uses the Rent Roll's type**: 13px cells, the line name at 600, account numbers as 12px `<code>` in muted text, a 700-weight Total under a 2px rule.
 - **A line with ONE account has no ▸ and does not expand** (owner: "keep it
   clean simple and bold and clear") — the line IS the account.
 - **Downloads** (`export.ts`, `GET /api/financials/bank-balances/export?format=pdf|xlsx`,

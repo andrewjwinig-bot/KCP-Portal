@@ -36,13 +36,17 @@ export type BalanceEntity = {
 const SD_NAME: Record<string, string> = {
   x7216: "Security Deposits — All but NI LLC",
   x7448: "Security Deposits — NI LLC",
+  // Liberty's LIK Management (SD) money market — security deposits, not LIK's cash (owner).
+  x8276: "Security Deposits — LIK Money Market",
 };
 
-/** Accounts with no property code in the registry. */
+/** Accounts with no property code in the registry, or that are not their property's operating account. */
 const UNCODED: Record<string, BalanceEntity> = {
   x5623: { key: "HKCO", name: "Hyman Korman Co (Parent)", group: "Land & Other", reserveCodes: [] },
   x6127: { key: "KFNOCK", name: "KF Nockamixon / LKF Nock", group: "Land & Other", reserveCodes: [] },
   x6063: { key: "TKD", name: "TKD-Neshaminy LLC", group: "Land & Other", reserveCodes: [] },
+  // Registered under 9510, but 9500 LH LLC is not the centre's operating account (owner).
+  x6088: { key: "9500LH", name: "9500 LH LLC", group: "Land & Other", reserveCodes: [] },
 };
 
 function groupOf(code: string): BalanceGroup {

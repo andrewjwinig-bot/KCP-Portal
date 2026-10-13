@@ -12,7 +12,7 @@ import { StatPill, Pill, TONE_AMBER } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import { formatImportedAt } from "@/app/components/LastImported";
-import { th, thL, td, tdL } from "@/app/components/tableStyles";
+import { th, thL, td as tdBase, tdL as tdLBase } from "@/app/components/tableStyles";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 
 type Account = { id: string; bank: string; last4: string; name: string; link: string | null; balance: number | null; available: number | null; asOf: string | null; prior: { balance: number; asOf: string } | null };
@@ -55,7 +55,7 @@ function ChangeCell({ change, prior, priorAsOf, now, bold }: { change: number | 
         { label: "Balance now", value: money0(now) },
       ]}
       footer={{ label: pct != null ? `Change (${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)` : "Change", value: money0(change), color }}>
-      <span style={{ color, fontWeight: bold ? 800 : 600 }}>{arrow}{money0(Math.abs(change))}</span>
+      <span style={{ color, fontWeight: bold ? 700 : 600 }}>{arrow}{money0(Math.abs(change))}</span>
     </HoverCard>
   );
 }
@@ -69,9 +69,15 @@ function changeOf(rs: Row[]) {
   };
 }
 
-const band: React.CSSProperties = { background: "rgba(15,23,42,0.04)", fontWeight: 800, borderTop: "2px solid var(--border)", cursor: "pointer" };
-const netCol: React.CSSProperties = { ...td, fontWeight: 800, background: "rgba(11,74,125,0.06)" };
-const reserveInput: React.CSSProperties = { width: 110, textAlign: "right", fontVariantNumeric: "tabular-nums", backgroundColor: "var(--input-cell)" };
+// The Rent Roll's table type (owner: "more like the rent roll … font size and
+// styles"): 13px cells, the name at 600, account numbers as 12px <code> the way
+// a unit ref reads, muted 12px secondary text, totals at 700 under a 2px rule.
+const td: React.CSSProperties = { ...tdBase, fontSize: 13 };
+const tdL: React.CSSProperties = { ...tdLBase, fontSize: 13 };
+const band: React.CSSProperties = { background: "rgba(15,23,42,0.04)", borderTop: "1px solid var(--border)", cursor: "pointer" };
+const bandCell: React.CSSProperties = { ...td, fontWeight: 700 };
+const netCol: React.CSSProperties = { ...td, fontWeight: 600, background: "rgba(11,74,125,0.06)" };
+const reserveInput: React.CSSProperties = { width: 110, fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums", backgroundColor: "var(--input-cell)" };
 
 export default function BankBalancesView() {
   const [data, setData] = useState<View | null>(null);
@@ -216,14 +222,15 @@ export default function BankBalancesView() {
                 return (
                   <Fragment key={g}>
                     <tr style={band} onClick={() => toggle(collapsed, g, setCollapsed)}>
-                      <td style={{ ...tdL, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 13 }}>
-                        <span style={{ display: "inline-block", width: 14, color: "var(--muted)" }}>{isOpen ? "▾" : "▸"}</span>{g}
+                      <td style={{ ...tdL, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                        <span style={{ display: "inline-block", width: 14 }}>{isOpen ? "▾" : "▸"}</span>{g}
+                        <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, marginLeft: 8 }}>{gr.length} {gr.length === 1 ? "line" : "lines"}</span>
                       </td>
-                      <td style={{ ...td, fontWeight: 800 }}>{money0(sum(gr, (r) => r.balance))}</td>
+                      <td style={bandCell}>{money0(sum(gr, (r) => r.balance))}</td>
                       <td style={td}>{(() => { const g = changeOf(gr); return <ChangeCell change={g.change} prior={g.prior} now={g.now} priorAsOf={g.priorAsOf} bold />; })()}</td>
-                      <td style={{ ...td, fontWeight: 800 }}>{money0(sum(gr, (r) => (r.balance == null ? 0 : r.reserves)))}</td>
-                      <td style={{ ...td, fontWeight: 800 }}>{restrictedGroup ? "—" : money0(sum(gr, (r) => r.netAvailable))}</td>
-                      <td style={{ ...td, fontWeight: 800, color: "var(--muted)" }}>{gr.some((r) => r.debt != null) ? money0(sum(gr, (r) => r.debt)) : "—"}</td>
+                      <td style={bandCell}>{money0(sum(gr, (r) => (r.balance == null ? 0 : r.reserves)))}</td>
+                      <td style={bandCell}>{restrictedGroup ? "—" : money0(sum(gr, (r) => r.netAvailable))}</td>
+                      <td style={{ ...bandCell, color: "var(--muted)" }}>{gr.some((r) => r.debt != null) ? money0(sum(gr, (r) => r.debt)) : "—"}</td>
                     </tr>
                     {isOpen && gr.map((r) => {
                       // One account: nothing to open — the line IS the account.
@@ -232,13 +239,13 @@ export default function BankBalancesView() {
                       return (
                         <Fragment key={r.key}>
                           <tr style={{ borderTop: "1px solid var(--border)", opacity: r.balance == null ? 0.55 : 1 }}>
-                            <td style={{ ...tdL, fontWeight: 700, cursor: multi ? "pointer" : undefined }} onClick={multi ? () => toggle(open, r.key, setOpen) : undefined}>
+                            <td style={{ ...tdL, fontWeight: 600, cursor: multi ? "pointer" : undefined }} onClick={multi ? () => toggle(open, r.key, setOpen) : undefined}>
                               <span style={{ display: "inline-block", width: 14, color: "var(--muted)" }}>{multi ? (expanded ? "▾" : "▸") : ""}</span>{r.name}
-                              <span style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 3, paddingLeft: 14 }} onClick={(e) => e.stopPropagation()}>
+                              <span style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 2, paddingLeft: 14, fontWeight: 400 }} onClick={(e) => e.stopPropagation()}>
                                 {r.accounts.map((a) => (
                                   <a key={a.id} href={a.link ?? undefined} target="_blank" rel="noreferrer"
-                                    style={{ fontSize: 11, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>
-                                    {BANK_LABEL[a.bank] ?? a.bank} {a.last4}{a.link ? <span aria-hidden style={{ fontSize: 9, opacity: 0.7 }}> ↗</span> : null}
+                                    style={{ fontSize: 12, color: "var(--muted)", textDecoration: "none" }}>
+                                    {BANK_LABEL[a.bank] ?? a.bank} <code style={{ fontSize: 12 }}>{a.last4}</code>{a.link ? <span aria-hidden style={{ fontSize: 10, opacity: 0.7 }}> ↗</span> : null}
                                   </a>
                                 ))}
                               </span>
@@ -261,7 +268,7 @@ export default function BankBalancesView() {
                                     onChange={(e) => setDraft((d) => ({ ...d, [r.key]: e.target.value }))}
                                     onBlur={(e) => saveReserve(r, e.target.value)}
                                     onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                                    style={{ ...reserveInput, fontWeight: r.reservesOverridden ? 800 : 400, color: r.reservesOverridden ? "var(--input-typed)" : undefined }} />
+                                    style={{ ...reserveInput, fontWeight: r.reservesOverridden ? 700 : 400, color: r.reservesOverridden ? "var(--input-typed)" : undefined }} />
                                 </HoverCard>
                               ) : money0(r.reserves)}
                             </td>
@@ -281,10 +288,10 @@ export default function BankBalancesView() {
                           </tr>
                           {expanded && r.accounts.map((a) => (
                             <tr key={a.id} style={{ background: "rgba(15,23,42,0.02)" }}>
-                              <td style={{ ...tdL, paddingLeft: 40 }} className="small">
-                                {a.name}<span className="muted"> · {BANK_LABEL[a.bank] ?? a.bank} {a.last4} · as of {dateLabel(a.asOf)}</span>
+                              <td style={{ ...tdL, paddingLeft: 40, fontSize: 12 }}>
+                                {a.name}<span className="muted"> · {BANK_LABEL[a.bank] ?? a.bank} <code style={{ fontSize: 12 }}>{a.last4}</code> · as of {dateLabel(a.asOf)}</span>
                               </td>
-                              <td style={{ ...td, fontSize: 13 }}>
+                              <td style={{ ...td, fontSize: 12 }}>
                                 {a.balance != null && a.available != null && Math.abs(a.available - a.balance) >= 0.01 ? (
                                   <HoverCard title={`${BANK_LABEL[a.bank] ?? a.bank} ${a.last4}`}
                                     rows={[{ label: "Balance", value: money2(a.balance) }, { label: "Available", value: money2(a.available) }]}
@@ -293,7 +300,7 @@ export default function BankBalancesView() {
                                   </HoverCard>
                                 ) : money2(a.balance)}
                               </td>
-                              <td style={{ ...td, fontSize: 13 }}>
+                              <td style={{ ...td, fontSize: 12 }}>
                                 <ChangeCell change={a.balance != null && a.prior ? a.balance - a.prior.balance : null} prior={a.prior?.balance ?? null} now={a.balance} priorAsOf={a.prior?.asOf ?? null} />
                               </td>
                               <td style={td} /><td style={td} /><td style={td} />
@@ -305,13 +312,13 @@ export default function BankBalancesView() {
                   </Fragment>
                 );
               })}
-              <tr style={{ borderTop: "2px solid var(--border)" }}>
-                <td style={{ ...tdL, fontWeight: 900 }}>Total</td>
-                <td style={{ ...td, fontWeight: 900 }}>{money0(totalCash)}</td>
+              <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 700 }}>
+                <td style={{ ...tdL, fontSize: 12, color: "var(--muted)" }}>Total</td>
+                <td style={{ ...td, fontWeight: 700 }}>{money0(totalCash)}</td>
                 <td style={td}><ChangeCell change={wow.change} prior={wow.prior} now={wow.now} priorAsOf={wow.priorAsOf} bold /></td>
-                <td style={{ ...td, fontWeight: 900 }}>{money0(reserves + restricted)}</td>
-                <td style={{ ...netCol, fontWeight: 900 }}>{money0(net)}</td>
-                <td style={{ ...td, fontWeight: 900, color: "var(--muted)" }}>{money0(debt)}</td>
+                <td style={{ ...td, fontWeight: 700 }}>{money0(reserves + restricted)}</td>
+                <td style={{ ...netCol, fontWeight: 700 }}>{money0(net)}</td>
+                <td style={{ ...td, fontWeight: 700, color: "var(--muted)" }}>{money0(debt)}</td>
               </tr>
             </tbody>
           </table>

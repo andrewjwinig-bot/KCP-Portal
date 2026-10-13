@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/storage", () => ({ getJSON: vi.fn(), storeJSON: vi.fn(), listJSON: vi.fn() }));
-import { cleanRecipients, freshThisWeek, weekOf } from "./ownershipEmail";
+import { cleanRecipients, freshThisWeek, weekOf, withSeeds, SEEDED_RECIPIENTS } from "./ownershipEmail";
 
 describe("Monday cash position email", () => {
   it("weeks start Monday, Eastern", () => {
@@ -19,5 +19,10 @@ describe("Monday cash position email", () => {
   });
   it("keeps only real addresses, once", () => {
     expect(cleanRecipients(["A@x.com", "a@x.com", "nope", " b@y.org "])).toEqual(["a@x.com", "b@y.org"]);
+  });
+  it("Drew and Alison are on the list unless someone removed them", () => {
+    expect(withSeeds({ recipients: [] }).recipients).toEqual(SEEDED_RECIPIENTS);
+    expect(withSeeds({ recipients: ["owner@x.com"] }).recipients).toEqual([...SEEDED_RECIPIENTS, "owner@x.com"]);
+    expect(withSeeds({ recipients: [], removedSeeds: ["akorman@kormancommercial.com"] }).recipients).toEqual(["dwinig@kormancommercial.com"]);
   });
 });
