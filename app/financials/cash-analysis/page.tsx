@@ -20,6 +20,7 @@ import { exportCashSheetXlsx, exportCashSheetPdf, type CashSheetExportInput, typ
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { AccountListCard } from "@/app/components/AccountListCard";
 import { useImport } from "@/app/components/import/ImportProvider";
+import BankBalancesView from "./BankBalancesView";
 
 type Bucket = { code: number; label: string };
 type Breakdown = { key: string; name: string; startingCash: number | null; netChange: number; endingCash: number | null; byBucket: Record<string, number> };
@@ -99,7 +100,16 @@ function BankLinks({ accounts }: { accounts: BankAccount[] }) {
   );
 }
 
-export default function CashSheetPage() {
+// The GL cash-flow view below is HIDDEN (owner: "pivot from our more complex
+// cash sheet thats harder for management to follow"): the page is the bank-
+// balance view. Kept intact — flip GL_VIEW_SHOWN to bring it back.
+const GL_VIEW_SHOWN = false;
+
+export default function CashAnalysisPage() {
+  return GL_VIEW_SHOWN ? <CashSheetPage /> : <BankBalancesView />;
+}
+
+function CashSheetPage() {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [period, setPeriod] = useState(now.getMonth() + 1);
