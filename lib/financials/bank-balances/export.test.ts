@@ -6,15 +6,15 @@ import type { BalanceView, ViewRow } from "./view";
 
 const row = (o: Partial<ViewRow>): ViewRow => ({
   key: "K", name: "Line", group: "Shopping Centers", restricted: false, accounts: [], balance: 0,
-  reserves: 0, reservesAuto: 0, reservesOverridden: false, netAvailable: 0, change: null, priorBalance: null, priorAsOf: null, debt: null, loans: [], ...o,
+  reserves: 0, reservesAuto: 0, reservesOverridden: false, netAvailable: 0, change: null, priorBalance: null, priorAsOf: null, debt: null, debtService: null, loans: [], ...o,
 });
 const acct = (last4: string, balance: number) => ({ id: `JPM-Chase|${last4}`, bank: "JPM-Chase", last4, name: last4, link: null, balance, available: balance, asOf: "2026-10-13", prior: null });
 
 const VIEW: BalanceView = {
-  ym: "2026-10", groups: ["Shopping Centers", "Tenant Security Deposits"], unmatched: [], unplacedDebt: 0,
+  ym: "2026-10", groups: ["Shopping Centers", "Tenant Security Deposits"], unmatched: [], unplacedDebt: 0, unplacedDebtService: 0,
   byBank: [{ bank: "JPM-Chase", asOf: "2026-10-13", importedAt: "2026-10-13T16:00:00Z", importedBy: "Drew", accounts: 3 }],
   rows: [
-    row({ key: "2300", name: "Brookwood", accounts: [acct("x5615", 1000)], balance: 1000, reserves: 100, netAvailable: 900, debt: 5000, change: 250, priorBalance: 750, priorAsOf: "2026-10-06" }),
+    row({ key: "2300", name: "Brookwood", accounts: [acct("x5615", 1000)], balance: 1000, reserves: 100, netAvailable: 900, debt: 5000, debtService: 40, change: 250, priorBalance: 750, priorAsOf: "2026-10-06" }),
     row({ key: "4500", name: "Gray's Ferry", accounts: [acct("x0598", 500)], balance: 500, reserves: 0, netAvailable: 500 }),
     row({ key: "SD-x7216", name: "Security Deposits", group: "Tenant Security Deposits", restricted: true, accounts: [acct("x7216", 300)], balance: 300, reserves: 300, netAvailable: 0 }),
   ],

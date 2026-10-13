@@ -2119,10 +2119,12 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   `/api/financials/cash-sheet` `reserves` edit, keyed by the line's key), so the
   two views cannot disagree. **Security deposits (x7216, x7448, and Liberty x8276 — LIK Management (SD) MM, owner) are tenants'
   money**: their own group, reserved in full, never in Net available.
-- **Debt** is each line's outstanding principal today from the Debt Tracker
-  (`summarizeLoan`; 3600 → JV III, 4000 → NI LLC), hover = lender, rate,
-  maturity and the next payment incl. escrow. Context only — NOT netted out of
-  available cash.
+- **Debt is shown MONTHLY** (owner: "debt outstanding should be monthly view
+  not total"): the column, tile, PDF, Excel and email carry each line's
+  `debtService` — every loan's next payment incl. escrow (`monthlyOutlay`) —
+  and the principal outstanding (`debt`, `summarizeLoan`) moves to the hover
+  and the tile's sub-line. 3600 → JV III, 4000 → NI LLC. Context only — NOT
+  netted out of available cash.
 - **Week over week** (owner: "show if the accounts gone up or down"): each
   account against its NEWEST dated snapshot at least `MIN_GAP_DAYS` (5) before
   its current as-of (`priorFor`, `weekOverWeek.ts`) — so a second import the
