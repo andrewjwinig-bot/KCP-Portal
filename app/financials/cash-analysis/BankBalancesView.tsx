@@ -21,10 +21,11 @@ type Row = {
   balance: number | null; reserves: number; reservesAuto: number; reservesOverridden: boolean; netAvailable: number | null;
   change: number | null; priorBalance: number | null; priorAsOf: string | null;
   debt: number | null;
+  debtService: number | null;
   loans: { lender: string; balance: number; ratePct: number; maturity: string; status: string; nextDate: string | null; nextOutlay: number | null }[];
 };
 type View = {
-  ym: string; rows: Row[]; groups: string[]; canEdit: boolean; unplacedDebt: number;
+  ym: string; rows: Row[]; groups: string[]; canEdit: boolean; unplacedDebt: number; unplacedDebtService: number;
   unmatched: { bank: string; last4: string; name: string; balance: number }[];
   byBank: { bank: string; asOf: string | null; importedAt: string | null; importedBy: string | null; accounts: number }[];
 };
@@ -138,6 +139,7 @@ export default function BankBalancesView() {
   const net = sum(operating, (r) => r.netAvailable);
   const wow = changeOf(rows);
   const debt = sum(rows, (r) => r.debt) + (data?.unplacedDebt ?? 0);
+  const debtService = sum(rows, (r) => r.debtService) + (data?.unplacedDebtService ?? 0);
   const asOf = (data?.byBank ?? []).map((b) => b.asOf).filter(Boolean).sort().pop() ?? null;
   const missing = rows.filter((r) => r.balance == null);
   const toggle = (set: Set<string>, k: string, f: (s: Set<string>) => void) => { const n = new Set(set); n.has(k) ? n.delete(k) : n.add(k); f(n); };
@@ -194,7 +196,7 @@ export default function BankBalancesView() {
           <StatPill label="Security deposits" value={money0(restricted)} sub="Tenants' money" />
           <StatPill label="Reserves" value={money0(reserves)} sub="Big Projects, next 3 months" />
           <StatPill label="Net available" value={money0(net)} total />
-          <StatPill label="Debt outstanding" value={money0(debt)} sub="Debt Tracker · not netted" />
+          <StatPill label="Debt service / mo" value={money0(debtService)} sub={`${money0(debt)} principal · not netted`} />
         </div>
       )}
 
@@ -213,7 +215,7 @@ export default function BankBalancesView() {
               <th style={th}>Wk / Wk Change</th>
               <th style={th}>Reserves</th>
               <th style={th}>Net available</th>
-              <th style={th}>Debt</th>
+              <th style={th}>Debt Service / Mo</th>
             </tr></thead>
             <tbody>
               {groups.map(({ g, rows: gr }) => {
@@ -230,7 +232,7 @@ export default function BankBalancesView() {
                       <td style={td}>{(() => { const g = changeOf(gr); return <ChangeCell change={g.change} prior={g.prior} now={g.now} priorAsOf={g.priorAsOf} bold />; })()}</td>
                       <td style={bandCell}>{money0(sum(gr, (r) => (r.balance == null ? 0 : r.reserves)))}</td>
                       <td style={bandCell}>{restrictedGroup ? "—" : money0(sum(gr, (r) => r.netAvailable))}</td>
-                      <td style={{ ...bandCell, color: "var(--muted)" }}>{gr.some((r) => r.debt != null) ? money0(sum(gr, (r) => r.debt)) : "—"}</td>
+                      <td style={{ ...bandCell, color: "var(--muted)" }}>{gr.some((r) => r.debtService != null) ? money0(sum(gr, (r) => r.debtService)) : "—"}</td>
                     </tr>
                     {isOpen && gr.map((r) => {
                       // One account: nothing to open — the line IS the account.
@@ -277,11 +279,12 @@ export default function BankBalancesView() {
                               {r.debt == null ? "—" : (
                                 <HoverCard title={`${r.name} — debt`} width={320}
                                   rows={r.loans.flatMap((l) => [
-                                    { label: `${l.lender} · ${l.ratePct}% · matures ${dateLabel(l.maturity)}`, value: money0(l.balance) },
-                                    ...(l.nextDate && l.nextOutlay != null ? [{ label: `  Next payment ${dateLabel(l.nextDate)} (incl. escrow)`, value: money0(l.nextOutlay) }] : []),
+                                    { label: `${l.lender} · ${l.ratePct}% · matures ${dateLabel(l.maturity)}`, value: l.nextOutlay != null ? `${money0(l.nextOutlay)} / mo` : "—" },
+                                    ...(l.nextDate ? [{ label: `  Next payment ${dateLabel(l.nextDate)} (incl. escrow)`, value: "" }] : []),
+                                    { label: "  Principal outstanding", value: money0(l.balance) },
                                   ])}
-                                  footer={{ label: "Principal outstanding today", value: money0(r.debt) }}>
-                                  <span>{money0(r.debt)}</span>
+                                  footer={{ label: "Monthly debt service", value: money0(r.debtService) }}>
+                                  <span>{money0(r.debtService)}</span>
                                 </HoverCard>
                               )}
                             </td>
@@ -318,7 +321,7 @@ export default function BankBalancesView() {
                 <td style={td}><ChangeCell change={wow.change} prior={wow.prior} now={wow.now} priorAsOf={wow.priorAsOf} bold /></td>
                 <td style={{ ...td, fontWeight: 700 }}>{money0(reserves + restricted)}</td>
                 <td style={{ ...netCol, fontWeight: 700 }}>{money0(net)}</td>
-                <td style={{ ...td, fontWeight: 700, color: "var(--muted)" }}>{money0(debt)}</td>
+                <td style={{ ...td, fontWeight: 700, color: "var(--muted)" }}>{money0(debtService)}</td>
               </tr>
             </tbody>
           </table>

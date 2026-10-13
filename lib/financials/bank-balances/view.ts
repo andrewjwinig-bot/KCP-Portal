@@ -40,6 +40,9 @@ export type ViewRow = {
   /** Outstanding loan principal today (Debt Tracker) — context, never netted
    *  out of available cash. Null when the line carries no loan. */
   debt: number | null;
+  /** The month's debt service — each loan's next payment incl. escrow (owner:
+   *  "debt … should be monthly view not total"). What the column shows. */
+  debtService: number | null;
   loans: { lender: string; balance: number; ratePct: number; maturity: string; status: string; nextDate: string | null; nextOutlay: number | null }[];
 };
 export type BalanceView = {
@@ -50,6 +53,8 @@ export type BalanceView = {
   unmatched: StoredBalance[];
   /** Loan principal whose property has no line here. */
   unplacedDebt: number;
+  /** Monthly debt service of those loans. */
+  unplacedDebtService: number;
   byBank: { bank: string; asOf: string | null; importedAt: string | null; importedBy: string | null; accounts: number }[];
 };
 
@@ -81,7 +86,7 @@ export async function buildBalanceView(now = new Date()): Promise<BalanceView> {
         key: e.key, name: e.name, group: e.group, restricted: !!e.restricted, accounts: [], balance: null,
         reserves: e.restricted ? 0 : ov != null ? ov : auto, reservesAuto: auto, reservesOverridden: !e.restricted && ov != null, netAvailable: null,
         change: null, priorBalance: null, priorAsOf: null,
-        debt: null, loans: [],
+        debt: null, debtService: null, loans: [],
       };
       rows.set(e.key, row);
     }
@@ -102,17 +107,19 @@ export async function buildBalanceView(now = new Date()): Promise<BalanceView> {
 
   // Debt: every loan lands on the line holding its cash.
   let unplacedDebt = 0;
+  let unplacedDebtService = 0;
   for (const loan of loans) {
     if (!loan.property) continue;
     const sm = summarizeLoan(loan);
     const balance = Math.round(sm.projectedBalance * 100) / 100;
     const row = rows.get(LOAN_TO_ROW[loan.property] ?? loan.property);
-    if (!row) { unplacedDebt += balance; continue; }
+    const nextOutlay = sm.nextPayment ? Math.round(monthlyOutlay(loan, sm.nextPayment.payment, sm.nextPayment.date) * 100) / 100 : null;
+    if (!row) { unplacedDebt += balance; unplacedDebtService += nextOutlay ?? 0; continue; }
     row.debt = Math.round(((row.debt ?? 0) + balance) * 100) / 100;
+    if (nextOutlay != null) row.debtService = Math.round(((row.debtService ?? 0) + nextOutlay) * 100) / 100;
     row.loans.push({
       lender: loan.lender, balance, ratePct: loan.annualRatePct, maturity: loan.maturityDate, status: sm.status,
-      nextDate: sm.nextPayment?.date ?? null,
-      nextOutlay: sm.nextPayment ? Math.round(monthlyOutlay(loan, sm.nextPayment.payment, sm.nextPayment.date) * 100) / 100 : null,
+      nextDate: sm.nextPayment?.date ?? null, nextOutlay,
     });
   }
 
@@ -131,6 +138,7 @@ export async function buildBalanceView(now = new Date()): Promise<BalanceView> {
     rows: [...rows.values()].sort((a, b) => order(a.group) - order(b.group) || a.key.localeCompare(b.key)),
     groups: [...BALANCE_GROUPS],
     unplacedDebt,
+    unplacedDebtService,
     unmatched: Object.entries(doc.accounts).filter(([id]) => !known.has(id)).map(([, b]) => b),
     byBank: [...byBankMap.values()].sort((a, b) => a.bank.localeCompare(b.bank)),
   };

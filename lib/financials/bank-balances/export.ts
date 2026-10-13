@@ -17,8 +17,8 @@ const BANK: Record<string, string> = { "JPM-Chase": "Chase", "Liberty Bank": "Li
 export const BASIS_NOTE =
   "Bank balances are each bank's ledger figure on the date shown (Chase Present balance, Liberty Current Balance, M&T Closing Ledger). " +
   "Reserves are the budgeted Big Projects for this month and the next two, or the figure entered over them. Tenant security deposits are " +
-  "tenants' money and are held back in full. Debt is the principal outstanding today per the Debt Tracker, shown for context and not " +
-  "deducted from net available cash. Week over week compares each account with its balance from the import at least five days earlier; " +
+  "tenants' money and are held back in full. Debt service is each loan's next monthly payment including escrow, per the Debt Tracker, shown for " +
+  "context and not deducted from net available cash. Week over week compares each account with its balance from the import at least five days earlier; " +
   "a line is compared only when every one of its accounts has that figure. Unaudited.";
 
 export function asOfOf(v: BalanceView): string | null {
@@ -51,7 +51,7 @@ export async function buildBalanceXlsx(v: BalanceView): Promise<Buffer> {
   });
   r++;
   const head = r;
-  headerBand(ws, r++, ["Property / Entity", "Accounts", "Current Balance", "Last Week", "Wk / Wk Change", "Reserves", "Net Available", "Debt"]);
+  headerBand(ws, r++, ["Property / Entity", "Accounts", "Current Balance", "Last Week", "Wk / Wk Change", "Reserves", "Net Available", "Debt Service / Mo"]);
   freezeAbove(ws, r);
   repeatHeader(ws, head);
 
@@ -73,7 +73,7 @@ export async function buildBalanceXlsx(v: BalanceView): Promise<Buffer> {
       }
       ws.getCell(r, 6).value = res;
       ws.getCell(r, 7).value = row.balance == null ? null : liveFormula(`C${r}-F${r}`, bal - res, bal - res);
-      ws.getCell(r, 8).value = row.debt;
+      ws.getCell(r, 8).value = row.debtService;
       for (let c = 1; c <= W; c++) ws.getCell(r, c).font = { name: FONT_NAME, size: 10, color: { argb: c === 8 || c === 4 ? COLOR.muted : COLOR.text } };
       ws.getCell(r, 2).font = { name: FONT_NAME, size: 9, color: { argb: COLOR.muted } };
       r++;
@@ -93,7 +93,7 @@ export async function buildBalanceXlsx(v: BalanceView): Promise<Buffer> {
     col("E", rows.map((x) => (compared(x) ? num(x.change) : 0)));
     col("F", rows.map((x) => (x.balance == null ? 0 : x.reserves)));
     col("G", rows.map((x) => (x.balance == null ? 0 : num(x.balance) - x.reserves)));
-    col("H", rows.map((x) => num(x.debt)));
+    col("H", rows.map((x) => num(x.debtService)));
     totalEmphasis(ws.getCell(r, 1));
     r += 2;
   }
@@ -157,7 +157,7 @@ export function buildBalancePdf(v: BalanceView): Buffer {
   const pageH = doc.internal.pageSize.getHeight();
   const m = 36;
   const nameW = 186;
-  const heads = ["Current Balance", "Wk / Wk Change", "Reserves", "Net Available", "Debt"];
+  const heads = ["Current Balance", "Wk / Wk Change", "Reserves", "Net Available", "Debt Svc / Mo"];
   const numW = (pageW - m * 2 - nameW) / heads.length;
   const colX = (i: number) => m + nameW + (i + 1) * numW - 4;
   const asOf = asOfOf(v);
@@ -180,8 +180,8 @@ export function buildBalancePdf(v: BalanceView): Buffer {
   const deposits = v.rows.filter((r) => r.restricted).reduce((s, r) => s + num(r.balance), 0);
   const reserves = ops.reduce((s, r) => s + (r.balance == null ? 0 : r.reserves), 0);
   const net = ops.reduce((s, r) => s + num(r.netAvailable), 0);
-  const debt = v.rows.reduce((s, r) => s + num(r.debt), 0) + (v.unplacedDebt ?? 0);
-  const tiles: [string, number][] = [["Cash in Bank", totalCash], ["Security Deposits", deposits], ["Reserves", reserves], ["Net Available", net], ["Debt Outstanding", debt]];
+  const debt = v.rows.reduce((s, r) => s + num(r.debtService), 0) + (v.unplacedDebtService ?? 0);
+  const tiles: [string, number][] = [["Cash in Bank", totalCash], ["Security Deposits", deposits], ["Reserves", reserves], ["Net Available", net], ["Debt Service / Mo", debt]];
   const tw = (pageW - m * 2 - 4 * 6) / 5;
   tiles.forEach(([label, val], i) => {
     const x = m + i * (tw + 6);
@@ -228,14 +228,14 @@ export function buildBalancePdf(v: BalanceView): Buffer {
       changeSum(rows),
       rows.reduce((s, r) => s + (r.balance == null ? 0 : r.reserves), 0),
       restricted ? null : rows.reduce((s, r) => s + num(r.netAvailable), 0),
-      rows.some((r) => r.debt != null) ? rows.reduce((s, r) => s + num(r.debt), 0) : null,
+      rows.some((r) => r.debtService != null) ? rows.reduce((s, r) => s + num(r.debtService), 0) : null,
     ], true);
     y += 14;
     for (const r of rows) {
       ensure(13);
       doc.setFont("helvetica", "normal"); doc.setFontSize(8);
       doc.text(r.name.length > 38 ? r.name.slice(0, 37) + "…" : r.name, m + 10, y + 9.5);
-      nums([r.balance, r.change, r.balance == null ? null : r.reserves, r.restricted ? null : r.netAvailable, r.debt], false);
+      nums([r.balance, r.change, r.balance == null ? null : r.reserves, r.restricted ? null : r.netAvailable, r.debtService], false);
       doc.setDrawColor(230); doc.setLineWidth(0.4); doc.line(m, y + 13, pageW - m, y + 13);
       y += 13;
     }

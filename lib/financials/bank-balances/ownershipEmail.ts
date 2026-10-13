@@ -95,6 +95,7 @@ export function composeCashPosition(view: BalanceView, now = new Date()) {
   const reserves = ops.reduce((s, r) => s + (r.balance == null ? 0 : r.reserves), 0);
   const net = ops.reduce((s, r) => s + num(r.netAvailable), 0);
   const debt = rows.reduce((s, r) => s + num(r.debt), 0) + (view.unplacedDebt ?? 0);
+  const debtService = rows.reduce((s, r) => s + num(r.debtService), 0) + (view.unplacedDebtService ?? 0);
   const compared = rows.filter((r) => r.change != null);
   const change = compared.length ? compared.reduce((s, r) => s + num(r.change), 0) : null;
   const priorAsOf = compared.map((r) => r.priorAsOf).filter((d): d is string => !!d).sort()[0] ?? null;
@@ -109,7 +110,7 @@ export function composeCashPosition(view: BalanceView, now = new Date()) {
     `Security deposits     ${money0(deposits)}  (tenants' money, held in full)`,
     `Reserves              ${money0(reserves)}`,
     `Net available         ${money0(net)}`,
-    `Debt outstanding      ${money0(debt)}  (not deducted)`,
+    `Debt service / month  ${money0(debtService)}  (${money0(debt)} principal; not deducted)`,
     "",
     view.byBank.map((b) => `${b.bank.replace("JPM-", "")} as of ${b.asOf ? longDate(b.asOf) : "—"}`).join(" · "),
     "",
