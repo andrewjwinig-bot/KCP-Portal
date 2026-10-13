@@ -87,9 +87,10 @@ type EditAt = { row: string; m: number } | null;
  *  nothing — 3% of nothing is nothing — so it is left off. Pills that name
  *  WHERE a figure comes from (Leases, Recoveries, Payroll…) stay. */
 
-/** The Projected Bank Balance is hidden until its opening balance is
- *  straightened out (owner). Distributions are unaffected. */
-const BANK_BALANCE_SHOWN = false;
+/** The Projected Bank Balance opens on the IMPORTED bank balance (Cash
+ *  Analysis) rolled to Dec 31 on the reprojection (owner: "unhide the live
+ *  bank balances … using current balance plus reprojections"). */
+const BANK_BALANCE_SHOWN = true;
 export const growthOnNothing = (source: string, months: number[]) =>
   (source === "reproj-growth" || source === "reproj-flat" || source === "ret-default") && months.every((v) => Math.abs(v || 0) < 0.5);
 
@@ -936,10 +937,6 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   // bank balance: a sum of separate accounts is not a balance anyone holds.
   // Nor does a building inside a fund that banks through ONE account (JV III,
   // NI LLC): the balance is the fund's, on its roll-up (owner).
-  // HIDDEN FOR NOW (owner: "hide current bank balance … until we get that
-  // straightened out more clearly"): the Projected Bank Balance row, the
-  // opening and its note are off everywhere; Distributions stay. Flip
-  // `BANK_BALANCE_SHOWN` back on once the opening balance is sorted out.
   const noBank = !BANK_BALANCE_SHOWN || (!!draft.consolidated && !draft.consolidated.sharedBank) || !!draft.bankAtFund;
   if (cash && !noBank) {
     const end = cash.balance[11];
@@ -1016,10 +1013,20 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const distKey = `${DISTRIBUTIONS_SECTION}::${DISTRIBUTIONS_LABEL}`;
     const basisDist = sum(cash.distributions.basisYearActual);
     const mon = (m: number) => MONTHS[Math.max(0, m - 1)];
-    const glNote = cash.gl
+    const shortDay = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    const glNote = cash.bank
+      ? `bank balance ${shortDay(cash.bank.asOf)}, rolled to Dec 31 on the ${draft.basisYear} reprojection`
+      : cash.gl
       ? `cash on the GL at ${mon(cash.gl.month)} ${cash.gl.year}${cash.gl.month < 12 && cash.projectedYearEnd != null ? `, rolled to Dec 31 on the ${draft.basisYear} reprojection` : ""}`
       : "no GL opening balances on file";
-    const openingTip = cash.byProperty?.length
+    const openingTip = cash.bank
+      ? { title: `Bank balance · ${shortDay(cash.bank.asOf)}`,
+          rows: [
+            ...cash.bank.accounts.map((a) => ({ label: `${a.bank.replace("JPM-", "")} ${a.last4}${a.name ? ` · ${a.name}` : ""}`, value: money0(a.balance) })),
+            { label: `+ ${draft.basisYear} reprojected cash flow to Dec 31, less distributions`, value: money0((cash.projectedYearEnd ?? cash.opening) - cash.bank.balance) },
+          ],
+          footer: { label: "Rolled to Dec 31", value: money0(cash.projectedYearEnd ?? cash.opening), color: COLOR_BRAND } }
+      : cash.byProperty?.length
       ? { title: "Opening balance by property", rows: cash.byProperty.map((p) => ({ label: `${p.code} ${p.name}`, value: money0(p.opening) })), footer: { label: "Total", value: money0(cash.opening), color: COLOR_BRAND } }
       : cash.gl?.accounts.length
         ? { title: `Cash on the GL · ${mon(cash.gl.month)} ${cash.gl.year}`, rows: cash.gl.accounts.map((a) => ({ label: `${a.code}${a.name ? ` · ${a.name}` : ""}`, value: money0(a.balance) })),
@@ -1047,7 +1054,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
             {mayDist && (openingEdit
               ? <span style={{ width: 110 }}><CellInput initial={cash.opening} onDone={(v) => { setOpeningEdit(false); if (v !== undefined && (v === null ? cash.openingTyped : Math.round(v) !== Math.round(cash.opening))) onEdit!(distSec, distLine(OPENING_LABEL), 0, v); }} /></span>
               : <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} onClick={() => setOpeningEdit(true)}>Edit</button>)}
-            {mayDist && cash.openingTyped && !openingEdit && <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} title="Back to the GL" onClick={() => onEdit!(distSec, distLine(OPENING_LABEL), 0, null)}>↺</button>}
+            {mayDist && cash.openingTyped && !openingEdit && <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} title={cash.bank ? "Back to the bank balance" : "Back to the GL"} onClick={() => onEdit!(distSec, distLine(OPENING_LABEL), 0, null)}>↺</button>}
           </span>}
         </div>
         {showDist && <div className="tableWrap" style={{ marginTop: 0 }}>

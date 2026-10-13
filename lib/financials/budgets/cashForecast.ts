@@ -110,12 +110,35 @@ export function rollForward(balance: number, fromMonth: number, cashFlow: number
   return r0(b);
 }
 
+/** Rolls a BANK balance from the day it is as of to Dec 31 of the basis year:
+ *  the rest of its own month (by the days left), then each later month, on the
+ *  reprojection's cash flow less planned distributions. A distribution planned
+ *  in the as-of month counts as still to come unless the GL already shows one
+ *  that month. Null when the balance is not as of a day in the basis year. */
+export function rollFromDate(
+  balance: number, asOf: string, basisYear: number,
+  cashFlow: number[], distributions: number[], distributedOnGl: number[] = [],
+): { yearEnd: number; remainder: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(asOf);
+  if (!m || Number(m[1]) !== basisYear) return null;
+  const mi = Number(m[2]) - 1, day = Number(m[3]);
+  const dim = new Date(Date.UTC(basisYear, mi + 1, 0)).getUTCDate();
+  let rem = ((dim - day) / dim) * (cashFlow[mi] || 0) - (Math.abs(distributedOnGl[mi] || 0) >= 0.5 ? 0 : distributions[mi] || 0);
+  for (let i = mi + 1; i < 12; i++) rem += (cashFlow[i] || 0) - (distributions[i] || 0);
+  return { yearEnd: r0(balance + rem), remainder: r0(rem) };
+}
+
 export type DraftCash = {
   /** The GL's cash and the month it is through (1–12), when the GL has openings. */
   gl: { balance: number; year: number; month: number; accounts: { code: string; name: string; balance: number }[] } | null;
+  /** The imported bank balance this property's line holds, when one is imported. */
+  bank?: { balance: number; asOf: string; accounts: { bank: string; last4: string; name: string; balance: number }[] } | null;
+  /** The reprojection's cash flow from the bank as-of date to Dec 31 — also
+   *  carried by a building in a fund, so the fund's roll-up can roll ITS bank. */
+  bankRoll?: { asOf: string; remainder: number } | null;
   /** Rolled to Dec 31 of the basis year on the reprojection's cash flow. */
   projectedYearEnd: number | null;
-  /** The balance the budget opens on: typed, else the rolled-forward GL. */
+  /** The balance the budget opens on: typed, else the bank rolled forward, else the rolled-forward GL. */
   opening: number;
   openingTyped: boolean;
   distributions: { months: number[]; total: number; typed?: boolean[]; source: "plan" | "entered" | "none"; basisYearActual: number[] };

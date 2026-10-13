@@ -6,6 +6,8 @@ import { availableStatements } from "@/lib/financials/operating-statements/mappi
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { canEditLines, lineEditScope, canSeePayroll } from "@/lib/financials/budgets/contributors";
 import type { BudgetDraft as Draft } from "@/lib/financials/budgets/draft";
+import { bankCashFor } from "@/lib/financials/bank-balances/lineCashStore";
+import { fundLineOf } from "@/lib/financials/bank-balances/lineCash";
 
 /** Strip the payroll book's totals and shares off every line for a viewer who
  *  may not see payroll (`canSeePayroll`) — the line keeps only its own figure. */
@@ -38,7 +40,10 @@ export async function GET(req: Request) {
     const year = Number(url.searchParams.get("year")) || now.getFullYear() + 1;
     const growth = Number(url.searchParams.get("growth"));
     const drafts = await buildBookDrafts(book, year, Number.isFinite(growth) ? growth : 3);
-    const all = consolidateDrafts(`All ${book.name}`, drafts, { sharedBank: !!book.sharedBankAccount });
+    // A fund that banks through one account opens on that account's imported balance.
+    const fundKey = book.sharedBankAccount ? fundLineOf(book.properties[0] ?? "") : null;
+    const fundBank = fundKey ? await bankCashFor(fundKey).catch(() => null) : null;
+    const all = consolidateDrafts(`All ${book.name}`, drafts, { sharedBank: !!book.sharedBankAccount, fundBank });
     if (!all) return NextResponse.json({ missingBasis: true, key: `book:${bookId}`, year, basisYear: year - 1 }, { status: 200 });
     return NextResponse.json({ ...all, notes: {}, canEditLines: false, lineEditScope: null });
   }

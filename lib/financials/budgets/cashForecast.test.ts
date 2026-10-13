@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { plannedDistributions, cashOnGl, distributionsOnGl, projectBalance, rollForward, isOperatingCash } from "./cashForecast";
+import { plannedDistributions, cashOnGl, distributionsOnGl, projectBalance, rollForward, rollFromDate, isOperatingCash } from "./cashForecast";
 
 describe("planned distributions", () => {
   it("splits the annual plan between April and October", () => {
@@ -50,5 +50,26 @@ describe("projected balance", () => {
   it("rolls this year forward from the GL's last month", () => {
     const cf = new Array(12).fill(1_000);
     expect(rollForward(10_000, 8, cf, plannedDistributions("7010"))).toBe(10_000 + 4_000 - 100_000);
+  });
+});
+
+describe("the bank balance rolled to Dec 31", () => {
+  const flow = new Array(12).fill(10_000);
+  it("takes the rest of the as-of month by days left, then every later month", () => {
+    // Oct 16 of 31 → 15/31 of October's flow, plus Nov and Dec.
+    const r = rollFromDate(100_000, "2026-10-16", 2026, flow, new Array(12).fill(0))!;
+    expect(r.remainder).toBe(Math.round((15 / 31) * 10_000 + 20_000));
+    expect(r.yearEnd).toBe(100_000 + r.remainder);
+  });
+  it("counts the as-of month's distribution as still to come unless the GL shows it paid", () => {
+    const plan = plannedDistributions("4500");
+    const open = rollFromDate(1_000_000, "2026-10-01", 2026, flow, plan)!;
+    expect(open.remainder).toBe(Math.round((30 / 31) * 10_000) + 20_000 - 250_000);
+    const paid = new Array(12).fill(0); paid[9] = 250_000;
+    expect(rollFromDate(1_000_000, "2026-10-01", 2026, flow, plan, paid)!.remainder).toBe(Math.round((30 / 31) * 10_000) + 20_000);
+  });
+  it("refuses a balance not dated in the basis year", () => {
+    expect(rollFromDate(1, "2025-12-31", 2026, flow, flow)).toBeNull();
+    expect(rollFromDate(1, "", 2026, flow, flow)).toBeNull();
   });
 });

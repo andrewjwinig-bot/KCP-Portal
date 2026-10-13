@@ -57,3 +57,20 @@ describe("a fund's roll-up puts its loan back together", () => {
     expect(all.debt!.interest).toBe(12000);
   });
 });
+
+describe("a fund that banks through one account opens on that account", () => {
+  it("is the fund's bank plus every building's roll to Dec 31, months moving with it", async () => {
+    const { withFundBank } = await import("./consolidate");
+    const cash = (opening: number, remainder: number) => ({
+      gl: null, opening, openingTyped: false, projectedYearEnd: opening, bankRoll: { asOf: "2026-10-13", remainder },
+      distributions: { months: new Array(12).fill(0), total: 0, source: "none" as const, basisYearActual: new Array(12).fill(0) },
+      balance: new Array(12).fill(opening + 100),
+    });
+    const drafts = [{ cash: cash(50, 1_000) }, { cash: cash(70, 2_000) }] as any;
+    const summed = { ...cash(120, 0), balance: new Array(12).fill(320) };
+    const out = withFundBank(summed as any, drafts, { balance: 900_000, asOf: "2026-10-13", accounts: [] })!;
+    expect(out.opening).toBe(903_000);
+    expect(out.balance[0]).toBe(903_000 + 200);
+    expect(out.bank!.balance).toBe(900_000);
+  });
+});
