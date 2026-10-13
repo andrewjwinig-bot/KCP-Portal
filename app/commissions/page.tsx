@@ -258,9 +258,17 @@ export default function CommissionsPage() {
       unitRef: form.unitRef,
       createdAt: Date.now(),
     };
-    const next = form.id
+    // A commission already at AvidXchange keeps its quarter (its invoice
+    // number and date follow the quarter); its record is corrected too.
+    const wasSent = !!form.id && sentAtById.has(form.id);
+    if (wasSent) entry.quarter = sentQuarterById.get(form.id!) ?? entry.quarter;
+    const next = form.id && entries.some((e) => e.id === form.id)
       ? entries.map((e) => (e.id === form.id ? { ...entry, createdAt: e.createdAt } : e))
       : [entry, ...entries];
+    if (wasSent) void fetch("/api/commissions/avidbill-sent", {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entry }),
+    }).then(() => refreshAvidSent()).catch(() => { /* the live entry is saved either way */ });
     persist(next);
     setForm(emptyForm(form.quarter));
     setTenantSelection("");
@@ -384,6 +392,12 @@ export default function CommissionsPage() {
   const sentAtById = useMemo(() => {
     const m = new Map<string, string>();
     for (const sent of Object.values(sentHistory)) for (const h of sent) m.set(h.entry.id, h.sentAt);
+    return m;
+  }, [sentHistory]);
+  /** The quarter each sent commission went to Avid under. */
+  const sentQuarterById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const [q, sent] of Object.entries(sentHistory)) for (const h of sent) m.set(h.entry.id, q);
     return m;
   }, [sentHistory]);
 
@@ -537,9 +551,11 @@ export default function CommissionsPage() {
                               style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}
                               title="Download AvidBill invoice for this commission"
                             >Invoice</button>
-                            {sentAtById.has(e.id) ? (
+                            {sentAtById.has(e.id) ? (<>
+                              {/* A sent commission can be CORRECTED (owner) — Edit, never delete. */}
+                              <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }} title="Correct this commission — it stays as sent to AvidXchange">Edit</button>
                               <span className="muted small" title="Sent to AvidXchange — kept as sent">Sent {formatSentDate(sentAtById.get(e.id)!)}</span>
-                            ) : (<>
+                            </>) : (<>
                             <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}>Edit</button>
                             <button
                               onClick={() => deleteEntry(e.id)}
@@ -653,6 +669,8 @@ export default function CommissionsPage() {
             <select
               value={form.quarter}
               onChange={(e) => setForm((f) => ({ ...f, quarter: e.target.value }))}
+              disabled={!!form.id && sentAtById.has(form.id)}
+              title={form.id && sentAtById.has(form.id) ? "Already sent to AvidXchange under this quarter" : undefined}
               style={inputStyle}
             >
               {[...new Set([form.quarter, ...quarterOpts.slice(0, 4)])].map((q) => (
