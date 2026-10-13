@@ -46,6 +46,9 @@ const UNCODED: Record<string, BalanceEntity> = {
   x6127: { key: "KFNOCK", name: "KF Nockamixon / LKF Nock", group: "Land & Other", reserveCodes: [] },
   x6063: { key: "TKD", name: "TKD-Neshaminy LLC", group: "Land & Other", reserveCodes: [] },
   // Registered under 9510, but 9500 LH LLC is not the centre's operating account (owner).
+  // The clearing account is pass-through, not LIK's own cash — its own line,
+  // keyed to sort just under LIK Management (owner).
+  x1622: { key: "2010-CLR", name: "LIK Clearing", group: "Management", reserveCodes: [] },
   x6088: { key: "9500LH", name: "9500 LH LLC", group: "Land & Other", reserveCodes: [] },
 };
 
