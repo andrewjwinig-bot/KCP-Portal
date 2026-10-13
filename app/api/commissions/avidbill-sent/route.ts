@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getJSON } from "@/lib/storage";
 import { canonicalQuarter, type CommissionEntry } from "@/lib/commissions";
-import { loadCommissionHistory, type HistoryInvoice } from "@/lib/commissions/history";
+import { loadCommissionHistory, updateSentInvoice, type HistoryInvoice } from "@/lib/commissions/history";
+import { budgetUser } from "@/lib/financials/budgets/currentUser";
+import { USERS } from "@/lib/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,4 +61,18 @@ export async function GET() {
   } catch {
     return NextResponse.json({ log: {}, review: {}, sentByKind: { office: {}, retail: {} }, history: { office: {}, retail: {} } });
   }
+}
+
+/** PATCH body: { entry } — correct a commission already sent to AvidXchange
+ *  (its record keeps the quarter, invoice number and send date; nothing is
+ *  re-sent). Gated with the rest of /api/commissions. */
+export async function PATCH(req: NextRequest) {
+  let body: { entry?: CommissionEntry } = {};
+  try { body = await req.json(); } catch { /* ignore */ }
+  const entry = body.entry;
+  if (!entry || typeof entry.id !== "string" || !entry.id) return NextResponse.json({ error: "entry required" }, { status: 400 });
+  const who = await budgetUser();
+  const ok = await updateSentInvoice(entry, 1.2, who ? USERS[who]?.label ?? who : null);
+  if (!ok) return NextResponse.json({ error: "Not on record as sent" }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }
