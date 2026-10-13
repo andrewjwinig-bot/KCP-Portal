@@ -166,7 +166,7 @@ export async function renderCommissionInvoicePdf(input: CommissionInvoiceInput):
   fillRect(page, rightX, gridRow1Y, rightW, barH, teal);
   drawText(page, "INVOICE #", rightX + 8,           gridRow1Y + 4, bold, 9, white);
   drawText(page, "DATE",      rightX + halfRW + 8,  gridRow1Y + 4, bold, 9, white);
-  // "Q3-26 Int Com-5-113" is wider than the old 8 digits: shrink to fit its half.
+  // "Q3-26 ICom-5-113" is wider than the old 8 digits: shrink to fit its half.
   const numSize = Math.max(6.5, Math.min(10, 10 * (halfRW - 14) / Math.max(1, bold.widthOfTextAtSize(invoiceNumber, 10))));
   drawText(page, invoiceNumber, rightX + 8,           gridRow1Y + barH + 5, bold, numSize, black);
   drawText(page, invoiceDate,   rightX + halfRW + 8,  gridRow1Y + barH + 5, bold, 10, black);
@@ -298,22 +298,24 @@ export function commissionBuildingLabel(building: string): string {
 }
 
 /** The commission's invoice number — the quarter, its year, the building and
- *  the suite (owner): "Q3-26 Int Com-5-113" for Building 5 Suite 113 in Q3
- *  2026. No spaces round the dash: Skyline holds 20 characters (owner).
- *  Invoices sent before carried "Q3-26 Int Com - 5-113" (`spacedInvoiceNumber`). Deterministic, so a resend carries the same number and Avid's
+ *  the suite (owner): "Q3-26 ICom-5-113" for Building 5 Suite 113 in Q3
+ *  2026. "ICom", no spaces round the dash: Skyline holds 20 characters (owner).
+ *  Invoices sent before carried "Q3-26 Int Com - 5-113" / "Q3-26 Int Com-5-113"
+ *  (`priorInvoiceNumbers`). Deterministic, so a resend carries the same number and Avid's
  *  duplicate check can catch it. */
 export function commissionInvoiceNumber(entry: Pick<CommissionEntry, "quarter" | "building" | "suite">): string {
   const p = parseQuarterLabel(entry.quarter ?? "");
   const period = p ? `Q${p.quarter}-${String(p.year).slice(-2)}` : (entry.quarter ?? "").trim();
   const suite = (entry.suite ?? "").trim().replace(/^0+(?=\w)/, "");
   const where = [commissionBuildingLabel(entry.building), suite].filter(Boolean).join("-");
-  return `${period} Int Com-${where || "—"}`;
+  return `${period} ICom-${where || "—"}`;
 }
 
-/** The number as invoices carried it before the spaces came out (Skyline's
- *  20-character limit) — the "already sent" ledger still knows them by it. */
-export function spacedInvoiceNumber(entry: Pick<CommissionEntry, "quarter" | "building" | "suite">): string {
-  return commissionInvoiceNumber(entry).replace(" Int Com-", " Int Com - ");
+/** The numbers invoices carried before "ICom" (Skyline's 20-character
+ *  limit) — the "already sent" ledger still knows them by these. */
+export function priorInvoiceNumbers(entry: Pick<CommissionEntry, "quarter" | "building" | "suite">): string[] {
+  const n = commissionInvoiceNumber(entry);
+  return [n.replace(" ICom-", " Int Com - "), n.replace(" ICom-", " Int Com-")];
 }
 
 /** The invoice date: the last day of the commission's quarter (M/D/YYYY). */
