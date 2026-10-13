@@ -44,11 +44,15 @@ const nextConfig = {
     // Next 14 reads THIS key — the top-level `serverExternalPackages` above is
     // Next 15's name and is ignored here, which left pdf-parse bundled and
     // failing ("Object.defineProperty called on non-object") on every PDF.
-    serverComponentsExternalPackages: ["pdf-parse"],
+    serverComponentsExternalPackages: ["pdf-parse", "pdfjs-dist"],
     serverActions: { bodySizeLimit: "20mb" },
     // The insurance SOV routes read the broker's form shipped in data/.
     outputFileTracingIncludes: {
       "/api/insurance/**": ["./data/insurance/**"],
+      // pdfjs loads its worker by a run-time import the tracer cannot see
+      // (lib/pdf/pdfText.ts) — every route that reads an uploaded PDF.
+      "/api/financials/bank-balances/**": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
+      "/api/financials/cash-sheet/ap-upload/**": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
     },
   },
   async headers() {
