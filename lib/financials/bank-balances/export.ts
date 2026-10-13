@@ -18,7 +18,8 @@ export const BASIS_NOTE =
   "Bank balances are each bank's ledger figure on the date shown (Chase Present balance, Liberty Current Balance, M&T Closing Ledger). " +
   "Reserves are the budgeted Big Projects for this month and the next two, or the figure entered over them. Tenant security deposits are " +
   "tenants' money and are held back in full. Debt is the principal outstanding today per the Debt Tracker, shown for context and not " +
-  "deducted from net available cash. Unaudited.";
+  "deducted from net available cash. Week over week compares each account with its balance from the import at least five days earlier; " +
+  "a line is compared only when every one of its accounts has that figure. Unaudited.";
 
 export function asOfOf(v: BalanceView): string | null {
   return v.byBank.map((b) => b.asOf).filter((d): d is string => !!d).sort().pop() ?? null;
@@ -35,23 +36,29 @@ const num = (n: number | null) => (n == null ? 0 : n);
 export async function buildBalanceXlsx(v: BalanceView): Promise<Buffer> {
   const wb = newWorkbook();
   const ws = wb.addWorksheet("Cash Position", { pageSetup: PRINT_TALL, views: [{ showGridLines: false }] });
-  const W = 6;
-  ws.columns = [{ width: 38 }, { width: 30 }, { width: 17 }, { width: 15 }, { width: 17 }, { width: 17 }];
+  const W = 8;
+  // A name · B accounts · C balance · D last week · E change (=C−D) · F reserves · G net (=C−F) · H debt
+  ws.columns = [{ width: 36 }, { width: 28 }, { width: 16 }, { width: 16 }, { width: 15 }, { width: 14 }, { width: 16 }, { width: 16 }];
   const asOf = asOfOf(v);
+  const priorDates = v.rows.map((x) => x.priorAsOf).filter((d): d is string => !!d).sort();
   let r = titleBlock(ws, {
     entity: "Korman Commercial Properties", document: "Cash Position — Bank Balances",
     asOf: asOf ? `As of ${longDate(asOf)}` : null,
-    meta: v.byBank.map((b) => `${BANK[b.bank] ?? b.bank} as of ${longDate(b.asOf)}`).concat(`Prepared ${new Date().toLocaleDateString("en-US")}`),
+    meta: v.byBank.map((b) => `${BANK[b.bank] ?? b.bank} as of ${longDate(b.asOf)}`)
+      .concat(priorDates.length ? [`Week over week vs ${longDate(priorDates[0])}`] : [])
+      .concat(`Prepared ${new Date().toLocaleDateString("en-US")}`),
     width: W,
   });
   r++;
   const head = r;
-  headerBand(ws, r++, ["Property / Entity", "Accounts", "Current Balance", "Reserves", "Net Available", "Debt"]);
+  headerBand(ws, r++, ["Property / Entity", "Accounts", "Current Balance", "Last Week", "Wk / Wk Change", "Reserves", "Net Available", "Debt"]);
   freezeAbove(ws, r);
   repeatHeader(ws, head);
 
-  const subCells = { C: [] as string[], D: [] as string[], E: [] as string[], F: [] as string[] };
-  const subVals = { C: [] as number[], D: [] as number[], E: [] as number[], F: [] as number[] };
+  type L = "C" | "D" | "E" | "F" | "G" | "H";
+  const COLS: L[] = ["C", "D", "E", "F", "G", "H"];
+  const subCells = Object.fromEntries(COLS.map((c) => [c, [] as string[]])) as Record<L, string[]>;
+  const subVals = Object.fromEntries(COLS.map((c) => [c, [] as number[]])) as Record<L, number[]>;
   for (const { g, rows } of grouped(v)) {
     sectionBar(ws, r++, g, W, { strong: false });
     const first = r;
@@ -60,38 +67,45 @@ export async function buildBalanceXlsx(v: BalanceView): Promise<Buffer> {
       ws.getCell(r, 1).value = row.name;
       ws.getCell(r, 2).value = accountsLabel(row);
       ws.getCell(r, 3).value = row.balance;
-      ws.getCell(r, 4).value = res;
-      ws.getCell(r, 5).value = row.balance == null ? null : liveFormula(`C${r}-D${r}`, bal - res, bal - res);
-      ws.getCell(r, 6).value = row.debt;
-      for (let c = 1; c <= W; c++) ws.getCell(r, c).font = { name: FONT_NAME, size: 10, color: { argb: c === 6 ? COLOR.muted : COLOR.text } };
+      if (row.change != null && row.priorBalance != null) {
+        ws.getCell(r, 4).value = row.priorBalance;
+        ws.getCell(r, 5).value = liveFormula(`C${r}-D${r}`, row.change, bal - row.priorBalance);
+      }
+      ws.getCell(r, 6).value = res;
+      ws.getCell(r, 7).value = row.balance == null ? null : liveFormula(`C${r}-F${r}`, bal - res, bal - res);
+      ws.getCell(r, 8).value = row.debt;
+      for (let c = 1; c <= W; c++) ws.getCell(r, c).font = { name: FONT_NAME, size: 10, color: { argb: c === 8 || c === 4 ? COLOR.muted : COLOR.text } };
       ws.getCell(r, 2).font = { name: FONT_NAME, size: 9, color: { argb: COLOR.muted } };
       r++;
     }
     const last = r - 1;
     ws.getCell(r, 1).value = `Total ${g}`;
-    const col = (L: "C" | "D" | "E" | "F", vals: number[]) => {
-      const total = vals.reduce((s, x) => s + x, 0);
-      const cell = ws.getCell(`${L}${r}`);
-      cell.value = liveSum(`${L}${first}:${L}${last}`, total, vals);
+    const col = (Lc: L, vals: number[]) => {
+      const total = vals.reduce((t, x) => t + x, 0);
+      const cell = ws.getCell(`${Lc}${r}`);
+      cell.value = liveSum(`${Lc}${first}:${Lc}${last}`, total, vals);
       totalEmphasis(cell);
-      subCells[L].push(`${L}${r}`); subVals[L].push(total);
+      subCells[Lc].push(`${Lc}${r}`); subVals[Lc].push(total);
     };
+    const compared = (x: ViewRow) => x.change != null && x.priorBalance != null;
     col("C", rows.map((x) => num(x.balance)));
-    col("D", rows.map((x) => (x.balance == null ? 0 : x.reserves)));
-    col("E", rows.map((x) => (x.balance == null ? 0 : num(x.balance) - x.reserves)));
-    col("F", rows.map((x) => num(x.debt)));
+    col("D", rows.map((x) => (compared(x) ? num(x.priorBalance) : 0)));
+    col("E", rows.map((x) => (compared(x) ? num(x.change) : 0)));
+    col("F", rows.map((x) => (x.balance == null ? 0 : x.reserves)));
+    col("G", rows.map((x) => (x.balance == null ? 0 : num(x.balance) - x.reserves)));
+    col("H", rows.map((x) => num(x.debt)));
     totalEmphasis(ws.getCell(r, 1));
     r += 2;
   }
   ws.getCell(r, 1).value = "Total — All Properties";
   totalEmphasis(ws.getCell(r, 1), { grand: true });
-  for (const L of ["C", "D", "E", "F"] as const) {
-    const cell = ws.getCell(`${L}${r}`);
-    const total = subVals[L].reduce((s, x) => s + x, 0);
-    cell.value = liveAdd(subCells[L], total, subVals[L]);
+  for (const Lc of COLS) {
+    const cell = ws.getCell(`${Lc}${r}`);
+    const total = subVals[Lc].reduce((t, x) => t + x, 0);
+    cell.value = liveAdd(subCells[Lc], total, subVals[Lc]);
     totalEmphasis(cell, { grand: true });
   }
-  for (let rr = head + 1; rr <= r; rr++) for (const c of [3, 4, 5, 6]) ws.getCell(rr, c).numFmt = FMT.money;
+  for (let rr = head + 1; rr <= r; rr++) for (const c of [3, 4, 5, 6, 7, 8]) ws.getCell(rr, c).numFmt = FMT.money;
   r += 2;
   footNote(ws, r, BASIS_NOTE, W, 56);
 
@@ -142,8 +156,8 @@ export function buildBalancePdf(v: BalanceView): Buffer {
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const m = 36;
-  const nameW = 210;
-  const heads = ["Current Balance", "Reserves", "Net Available", "Debt"];
+  const nameW = 186;
+  const heads = ["Current Balance", "Wk / Wk Change", "Reserves", "Net Available", "Debt"];
   const numW = (pageW - m * 2 - nameW) / heads.length;
   const colX = (i: number) => m + nameW + (i + 1) * numW - 4;
   const asOf = asOfOf(v);
@@ -156,6 +170,8 @@ export function buildBalancePdf(v: BalanceView): Buffer {
   doc.setFontSize(15); doc.text("Cash Position — Bank Balances", m, y + 4); y += 16;
   doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(100);
   doc.text(`${asOf ? `As of ${longDate(asOf)}` : ""}   ·   ${v.byBank.map((b) => `${BANK[b.bank] ?? b.bank} ${longDate(b.asOf)}`).join("   ·   ")}`, m, y + 4);
+  const priorDates = v.rows.map((x) => x.priorAsOf).filter((d): d is string => !!d).sort();
+  if (priorDates.length) { y += 11; doc.text(`Week over week vs ${longDate(priorDates[0])}`, m, y + 4); }
   doc.setTextColor(0); y += 18;
 
   // KPI line.
@@ -184,14 +200,22 @@ export function buildBalancePdf(v: BalanceView): Buffer {
     doc.setTextColor(0); y += 16;
   };
   const ensure = (h: number) => { if (y + h > pageH - m - 40) { doc.addPage(); y = m; drawHead(); } };
-  const nums = (vals: (number | null)[], bold: boolean, mutedLast = true) => {
+  // Column 1 is the week-over-week change: signed, green up / red down.
+  const nums = (vals: (number | null)[], bold: boolean) => {
     doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(8);
     vals.forEach((val, i) => {
-      if (mutedLast && i === 3) doc.setTextColor(110);
-      doc.text(fmt0(val), colX(i), y + 9.5, { align: "right" });
+      let text = fmt0(val);
+      if (i === 1 && val != null) {
+        const n = Math.round(val);
+        if (n > 0) { doc.setTextColor(21, 128, 61); text = `+${fmt0(n)}`; }
+        else if (n < 0) doc.setTextColor(185, 28, 28);
+      }
+      if (i === 4) doc.setTextColor(110);
+      doc.text(text, colX(i), y + 9.5, { align: "right" });
       doc.setTextColor(0);
     });
   };
+  const changeSum = (rs: ViewRow[]) => (rs.some((x) => x.change != null) ? rs.reduce((t, x) => t + num(x.change), 0) : null);
 
   drawHead();
   for (const { g, rows } of grouped(v)) {
@@ -201,6 +225,7 @@ export function buildBalancePdf(v: BalanceView): Buffer {
     const restricted = rows.every((r) => r.restricted);
     nums([
       rows.reduce((s, r) => s + num(r.balance), 0),
+      changeSum(rows),
       rows.reduce((s, r) => s + (r.balance == null ? 0 : r.reserves), 0),
       restricted ? null : rows.reduce((s, r) => s + num(r.netAvailable), 0),
       rows.some((r) => r.debt != null) ? rows.reduce((s, r) => s + num(r.debt), 0) : null,
@@ -209,8 +234,8 @@ export function buildBalancePdf(v: BalanceView): Buffer {
     for (const r of rows) {
       ensure(13);
       doc.setFont("helvetica", "normal"); doc.setFontSize(8);
-      doc.text(r.name.length > 44 ? r.name.slice(0, 43) + "…" : r.name, m + 10, y + 9.5);
-      nums([r.balance, r.balance == null ? null : r.reserves, r.restricted ? null : r.netAvailable, r.debt], false);
+      doc.text(r.name.length > 38 ? r.name.slice(0, 37) + "…" : r.name, m + 10, y + 9.5);
+      nums([r.balance, r.change, r.balance == null ? null : r.reserves, r.restricted ? null : r.netAvailable, r.debt], false);
       doc.setDrawColor(230); doc.setLineWidth(0.4); doc.line(m, y + 13, pageW - m, y + 13);
       y += 13;
     }
@@ -219,7 +244,7 @@ export function buildBalancePdf(v: BalanceView): Buffer {
   doc.setDrawColor(11, 74, 125); doc.setLineWidth(1); doc.line(m, y + 2, pageW - m, y + 2);
   y += 5;
   doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Total — All Properties", m + 5, y + 9.5);
-  nums([totalCash, reserves + deposits, net, debt], true);
+  nums([totalCash, changeSum(v.rows), reserves + deposits, net, debt], true);
   y += 22;
 
   ensure(40);

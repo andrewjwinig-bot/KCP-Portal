@@ -2123,6 +2123,16 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   (`summarizeLoan`; 3600 → JV III, 4000 → NI LLC), hover = lender, rate,
   maturity and the next payment incl. escrow. Context only — NOT netted out of
   available cash.
+- **Week over week** (owner: "show if the accounts gone up or down"): each
+  account against its NEWEST dated snapshot at least `MIN_GAP_DAYS` (5) before
+  its current as-of (`priorFor`, `weekOverWeek.ts`) — so a second import the
+  same week is never the baseline. A line shows a change only when EVERY one
+  of its imported accounts has a baseline (`change` / `priorBalance` on the
+  row); with none it shows "—", never a guess. The column sits after Current
+  balance (▲ green / ▼ red, hover = last week → now and the %); the Cash in
+  bank tile says the total move. Excel adds Last Week + a live `=C−D` change;
+  the PDF a signed, coloured column. The account chips sit UNDER each name
+  (no Accounts column) so the six columns fit a laptop screen.
 - **Downloads** (`export.ts`, `GET /api/financials/bank-balances/export?format=pdf|xlsx`,
   the page's `DownloadMenu`) are built from the SAME `buildBalanceView` the page
   renders. Excel is on the shared theme: each line's Net available is a live

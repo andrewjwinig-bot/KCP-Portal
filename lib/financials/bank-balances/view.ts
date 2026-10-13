@@ -11,7 +11,8 @@ import { getMonth } from "@/lib/financials/cash-sheet/store";
 import { monthKey } from "@/lib/financials/cash-sheet/util";
 import { BANK_ACCOUNTS } from "@/lib/properties/data";
 import { BALANCE_ACCOUNTS, BALANCE_GROUPS, accountId, entityFor, type BalanceGroup } from "./entities";
-import { loadBalances, type StoredBalance } from "./store";
+import { loadBalances, loadSnapshots, type StoredBalance } from "./store";
+import { priorFor } from "./weekOverWeek";
 import { listLoans } from "@/lib/debt/storage";
 import { summarizeLoan, monthlyOutlay } from "@/lib/debt/amortization";
 
@@ -21,6 +22,8 @@ const LOAN_TO_ROW: Record<string, string> = { "3600": "PJV3", "4000": "PNIPLX" }
 export type ViewAccount = {
   id: string; bank: string; last4: string; name: string; link: string | null;
   balance: number | null; available: number | null; asOf: string | null;
+  /** About a week earlier (`priorFor`); null when no snapshot is that old. */
+  prior: { balance: number; asOf: string } | null;
 };
 export type ViewRow = {
   key: string; name: string; group: BalanceGroup; restricted: boolean;
@@ -29,6 +32,11 @@ export type ViewRow = {
   balance: number | null;
   reserves: number; reservesAuto: number; reservesOverridden: boolean;
   netAvailable: number | null;
+  /** Week over week: balance − last week's, only when EVERY imported account
+   *  of the line has a baseline (a half-compared line would mislead). */
+  change: number | null;
+  priorBalance: number | null;
+  priorAsOf: string | null;
   /** Outstanding loan principal today (Debt Tracker) — context, never netted
    *  out of available cash. Null when the line carries no loan. */
   debt: number | null;
@@ -56,7 +64,7 @@ function linkFor(last4: string): string | null {
 export async function buildBalanceView(now = new Date()): Promise<BalanceView> {
   const year = now.getFullYear(), month = now.getMonth() + 1;
   const ym = monthKey(year, month);
-  const [doc, reserveData, sheet, loans] = await Promise.all([loadBalances(), bigProjectsReserveFor(year, month), getMonth(ym), listLoans().catch(() => [])]);
+  const [doc, reserveData, sheet, loans, snapshots] = await Promise.all([loadBalances(), bigProjectsReserveFor(year, month), getMonth(ym), listLoans().catch(() => []), loadSnapshots()]);
 
   const rows = new Map<string, ViewRow>();
   const known = new Set<string>();
@@ -72,16 +80,22 @@ export async function buildBalanceView(now = new Date()): Promise<BalanceView> {
       row = {
         key: e.key, name: e.name, group: e.group, restricted: !!e.restricted, accounts: [], balance: null,
         reserves: e.restricted ? 0 : ov != null ? ov : auto, reservesAuto: auto, reservesOverridden: !e.restricted && ov != null, netAvailable: null,
+        change: null, priorBalance: null, priorAsOf: null,
         debt: null, loans: [],
       };
       rows.set(e.key, row);
     }
     if (row.accounts.some((x) => x.id === id)) continue;
-    row.accounts.push({ id, bank: a.bank, last4: a.last4, name: a.accountName, link: linkFor(a.last4), balance: b?.balance ?? null, available: b?.available ?? null, asOf: b?.asOf ?? null });
+    row.accounts.push({ id, bank: a.bank, last4: a.last4, name: a.accountName, link: linkFor(a.last4), balance: b?.balance ?? null, available: b?.available ?? null, asOf: b?.asOf ?? null, prior: b ? priorFor(id, b.asOf, snapshots) : null });
   }
   for (const r of rows.values()) {
     const got = r.accounts.filter((a) => a.balance != null);
     r.balance = got.length ? Math.round(got.reduce((s, a) => s + (a.balance ?? 0), 0) * 100) / 100 : null;
+    if (got.length && got.every((a) => a.prior)) {
+      r.priorBalance = Math.round(got.reduce((s, a) => s + a.prior!.balance, 0) * 100) / 100;
+      r.change = Math.round(((r.balance ?? 0) - r.priorBalance) * 100) / 100;
+      r.priorAsOf = got.map((a) => a.prior!.asOf).sort()[0];
+    }
     if (r.restricted) r.reserves = r.balance ?? 0;
     r.netAvailable = r.balance == null ? null : Math.round((r.balance - r.reserves) * 100) / 100;
   }
