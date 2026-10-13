@@ -13,7 +13,8 @@ describe("bank balance entities", () => {
     expect(by("x2190").key).toBe("PNIPLX");
     expect(by("x7448").restricted).toBe(true);
     expect(by("x7216").restricted).toBe(true);
-    expect(by("x8276").restricted).toBeFalsy(); // LIK's money market is not deposits
+    expect(by("x8276").restricted).toBe(true); // LIK Management (SD) money market — deposits (owner)
+    expect(by("x6088")).toMatchObject({ key: "9500LH", group: "Land & Other" }); // not 9510's operating account
     expect(by("x5303").key).toBe(by("x4031").key); // Eastwick at Chase and M&T
   });
 });
