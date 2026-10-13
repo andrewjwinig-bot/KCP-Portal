@@ -8,6 +8,13 @@
 // Extracting TEXT never renders anything, so a minimal stand-in is enough:
 // it is installed only when nothing better exists, and never replaces a real
 // DOMMatrix.
+//
+// The same packaging gap hits pdfjs's WORKER: on Node it runs a "fake worker"
+// by importing `pdfjs-dist/legacy/build/pdf.worker.mjs` at run time, a path the
+// tracer cannot see — "Setting up fake worker failed: Cannot find module
+// …/pdf.worker.mjs". pdfjs takes the worker from `globalThis.pdfjsWorker` when
+// it is already there, so we import it ourselves first: a literal import the
+// build follows (it is also listed in `outputFileTracingIncludes`).
 
 import "server-only";
 
@@ -31,8 +38,16 @@ function ensureDomMatrix() {
   if (typeof g.DOMMatrix === "undefined") g.DOMMatrix = MatrixStub;
 }
 
+async function ensureWorker() {
+  const g = globalThis as Record<string, unknown>;
+  if (g.pdfjsWorker) return;
+  // @ts-ignore — the worker module ships without type declarations.
+  g.pdfjsWorker = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+}
+
 export async function pdfText(data: Buffer | Uint8Array): Promise<string> {
   ensureDomMatrix();
+  await ensureWorker();
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data });
   try {
