@@ -44,7 +44,7 @@ function safeName(s: string): string {
   return (s ?? "").toString().replace(/[^a-z0-9\-_. ]/gi, "_").trim();
 }
 
-/** The invoice number ("Q3-26 ICom-5-113") leads, then the tenant — the
+/** The invoice number ("Q326ICom-5-113") leads, then the tenant — the
  *  per-invoice "already sent" ledger keys on it. */
 export function invoiceFileName(entry: CommissionEntry): string {
   return `${safeName(commissionInvoiceNumber(entry))} - ${safeName(entry.tenant) || "—"}.pdf`;
@@ -57,8 +57,8 @@ export function legacyInvoiceFileName(entry: CommissionEntry): string {
   return `${invoiceNumberFor(entry.id)} - ${safeName(entry.building) || "—"} - ${safeName(entry.suite) || "—"} - ${safeName(entry.tenant) || "—"}.pdf`;
 }
 
-/** The filenames before "ICom" ("Q3-26 Int Com - 5-113 - Tenant.pdf",
- *  "Q3-26 Int Com-5-113 - Tenant.pdf"). */
+/** The filenames invoices were sent under before the compact number
+ *  ("Q3-26 Int Com - 5-113 - Tenant.pdf" and the shorter steps after it). */
 export function priorInvoiceFileNames(entry: CommissionEntry): string[] {
   return priorInvoiceNumbers(entry).map((n) => `${safeName(n)} - ${safeName(entry.tenant) || "—"}.pdf`);
 }
