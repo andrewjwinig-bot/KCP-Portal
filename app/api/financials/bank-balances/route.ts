@@ -6,6 +6,7 @@ import { parseBankBalances, type ParsedStatement } from "@/lib/financials/bank-b
 import { saveImport } from "@/lib/financials/bank-balances/store";
 import { buildBalanceView } from "@/lib/financials/bank-balances/view";
 import { logAudit, auditIp } from "@/lib/audit";
+import { pdfText } from "@/lib/pdf/pdfText";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,12 +37,11 @@ export async function POST(req: Request) {
     const form = await req.formData();
     const files = form.getAll("files").filter((f): f is File => f instanceof File);
     if (!files.length) return NextResponse.json({ error: "No files uploaded." }, { status: 400 });
-    const { PDFParse } = await import("pdf-parse");
     const parsed: ParsedStatement[] = [];
     const results: { file: string; bank: string | null; accounts: number; total: number; error?: string }[] = [];
     for (const file of files) {
       try {
-        const { text } = await new PDFParse({ data: Buffer.from(await file.arrayBuffer()) }).getText();
+        const text = await pdfText(Buffer.from(await file.arrayBuffer()));
         const s = parseBankBalances(text);
         if (!s || !s.accounts.length) { results.push({ file: file.name, bank: s?.bank ?? null, accounts: 0, total: 0, error: "No account balances found — is this a Chase, Liberty or M&T balance export?" }); continue; }
         parsed.push(s);
