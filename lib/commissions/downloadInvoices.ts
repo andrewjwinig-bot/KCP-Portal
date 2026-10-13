@@ -9,7 +9,7 @@ import type { CommissionEntry } from "@/lib/commissions";
 
 function invoiceFileName(entry: CommissionEntry): string {
   const safe = (s: string) => (s ?? "").toString().replace(/[^a-z0-9\-_. ]/gi, "_").trim();
-  // Same name the AvidXchange email carries: "Q3-26 Int Com - 5-113 - Tenant.pdf".
+  // Same name the AvidXchange email carries: "Q3-26 Int Com-5-113 - Tenant.pdf".
   return `${safe(commissionInvoiceNumber(entry))} - ${safe(entry.tenant) || "—"}.pdf`;
 }
 

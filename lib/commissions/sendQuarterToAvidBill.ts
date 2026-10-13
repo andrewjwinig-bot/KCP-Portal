@@ -15,7 +15,7 @@ import { isMailConfigured } from "@/lib/mail";
 import { deliverInvoicesToAvid } from "@/lib/invoicing/avidDelivery";
 import { getAvidSent } from "@/lib/invoicing/avidSentStore";
 import { recordSentInvoices } from "./history";
-import { renderCommissionInvoicePdf, invoiceNumberFor, commissionInvoiceNumber, COMMISSION_VENDOR_CODE } from "@/lib/pdf/renderCommissionInvoicePdf";
+import { renderCommissionInvoicePdf, invoiceNumberFor, commissionInvoiceNumber, spacedInvoiceNumber, COMMISSION_VENDOR_CODE } from "@/lib/pdf/renderCommissionInvoicePdf";
 import type { CommissionEntry } from "@/lib/commissions";
 import { canonicalQuarter, parseQuarterLabel, quarterShortCode } from "@/lib/commissions";
 
@@ -44,7 +44,7 @@ function safeName(s: string): string {
   return (s ?? "").toString().replace(/[^a-z0-9\-_. ]/gi, "_").trim();
 }
 
-/** The invoice number ("Q3-26 Int Com - 5-113") leads, then the tenant — the
+/** The invoice number ("Q3-26 Int Com-5-113") leads, then the tenant — the
  *  per-invoice "already sent" ledger keys on it. */
 export function invoiceFileName(entry: CommissionEntry): string {
   return `${safeName(commissionInvoiceNumber(entry))} - ${safeName(entry.tenant) || "—"}.pdf`;
@@ -57,9 +57,16 @@ export function legacyInvoiceFileName(entry: CommissionEntry): string {
   return `${invoiceNumberFor(entry.id)} - ${safeName(entry.building) || "—"} - ${safeName(entry.suite) || "—"} - ${safeName(entry.tenant) || "—"}.pdf`;
 }
 
-/** Whether a quarter's ledger already holds this invoice, under either name. */
+/** The filename while the number still had spaces round its dash
+ *  ("Q3-26 Int Com - 5-113 - Tenant.pdf"). */
+export function spacedInvoiceFileName(entry: CommissionEntry): string {
+  return `${safeName(spacedInvoiceNumber(entry))} - ${safeName(entry.tenant) || "—"}.pdf`;
+}
+
+/** Whether a quarter's ledger already holds this invoice, under any name it
+ *  has been sent by. */
 export function inLedger(invoices: Record<string, string>, entry: CommissionEntry): boolean {
-  return !!(invoices[invoiceFileName(entry)] || invoices[legacyInvoiceFileName(entry)]);
+  return !!(invoices[invoiceFileName(entry)] || invoices[spacedInvoiceFileName(entry)] || invoices[legacyInvoiceFileName(entry)]);
 }
 
 /** The most recently completed quarter as of the supplied date, in the label
