@@ -37,6 +37,18 @@ export const DISTRIBUTIONS_SECTION = "Cash";
 export const DISTRIBUTIONS_LABEL = "Distributions";
 export const OPENING_LABEL = "Opening Balance";
 
+/** Properties whose distributions are NOT budgeted, though this year's plan
+ *  still rolls the bank balance to Dec 31 (owner, 10/2026: delete 4500's
+ *  budgeted distributions). The draft starts these at $0; a typed month
+ *  still stands. */
+export const NOT_BUDGETED_DISTRIBUTIONS = new Set(["4500"]);
+
+/** The budget year's starting distributions — the plan, less the properties
+ *  above. */
+export function budgetedDistributions(code: string): number[] {
+  return NOT_BUDGETED_DISTRIBUTIONS.has(String(code).toUpperCase()) ? new Array(12).fill(0) : plannedDistributions(code);
+}
+
 /** A property's planned distributions, month by month, in whole dollars. */
 export function plannedDistributions(code: string): number[] {
   const out = new Array(12).fill(0);

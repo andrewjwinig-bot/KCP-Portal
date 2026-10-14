@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { plannedDistributions, cashOnGl, distributionsOnGl, projectBalance, rollForward, rollFromDate, isOperatingCash } from "./cashForecast";
+import { budgetedDistributions, plannedDistributions, cashOnGl, distributionsOnGl, projectBalance, rollForward, rollFromDate, isOperatingCash } from "./cashForecast";
 
 describe("planned distributions", () => {
   it("splits the annual plan between April and October", () => {
@@ -71,5 +71,13 @@ describe("the bank balance rolled to Dec 31", () => {
   it("refuses a balance not dated in the basis year", () => {
     expect(rollFromDate(1, "2025-12-31", 2026, flow, flow)).toBeNull();
     expect(rollFromDate(1, "", 2026, flow, flow)).toBeNull();
+  });
+});
+
+describe("budgetedDistributions", () => {
+  it("drops 4500 from the budget year but keeps it in this year's roll", () => {
+    expect(budgetedDistributions("4500").every((v) => v === 0)).toBe(true);
+    expect(plannedDistributions("4500").reduce((a, b) => a + b, 0)).toBe(500_000);
+    expect(budgetedDistributions("7300")).toEqual(plannedDistributions("7300"));
   });
 });
