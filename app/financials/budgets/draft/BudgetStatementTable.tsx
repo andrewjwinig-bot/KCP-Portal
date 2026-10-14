@@ -136,7 +136,12 @@ function parseTyped(s: string): number | null | undefined {
   return neg ? -n : n;
 }
 
-export function CellInput({ initial, onDone }: { initial: number; onDone: (v: number | null | undefined, move: 0 | 1 | -1) => void }) {
+/** A grid cell being typed. DELETING the figure means $0 (owner: "i keep
+ *  deleting numbers … but they reappear") — it used to mean "back to the
+ *  computed figure", so the number came straight back. ↺ on the line is the
+ *  way back to computed. `blankIsZero={false}` keeps the old meaning for a
+ *  cell with no ↺ of its own (the opening bank balance). */
+export function CellInput({ initial, onDone, blankIsZero = true }: { initial: number; onDone: (v: number | null | undefined, move: 0 | 1 | -1) => void; blankIsZero?: boolean }) {
   const [v, setV] = useState(String(Math.round(initial)));
   // Tab/Enter finish the cell and unmount it; a blur on the way out must not
   // commit it a second time.
@@ -144,7 +149,7 @@ export function CellInput({ initial, onDone }: { initial: number; onDone: (v: nu
   const finish = (val: number | null | undefined, move: 0 | 1 | -1) => {
     if (done.current) return;
     done.current = true;
-    onDone(val, move);
+    onDone(val === null && blankIsZero ? 0 : val, move);
   };
   return (
     <input autoFocus value={v} inputMode="decimal"
@@ -277,7 +282,7 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
         {open ? (
           <CellInput initial={v} onDone={(val, move) => {
             // Only a CHANGE is a decision: tabbing across a month leaves it
-            // computed, and blanking a month that was never typed does nothing.
+            // computed. Deleting the figure is a typed $0 (CellInput).
             const changed = val === null ? isTyped : val !== undefined && Math.round(val) !== Math.round(v);
             if (changed) onCommit!(m === 12 ? "all" : m!, val as number | null);
             const next = m! + move;
@@ -1061,7 +1066,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
             Opening {openingTip ? <HoverCard title={openingTip.title} rows={openingTip.rows} footer={openingTip.footer} width={320} help={false}>{openingShown}</HoverCard> : openingShown}
             <span>· {cash.openingTyped ? "typed" : glNote}</span>
             {mayDist && (openingEdit
-              ? <span style={{ width: 110 }}><CellInput initial={cash.opening} onDone={(v) => { setOpeningEdit(false); if (v !== undefined && (v === null ? cash.openingTyped : Math.round(v) !== Math.round(cash.opening))) onEdit!(distSec, distLine(OPENING_LABEL), 0, v); }} /></span>
+              ? <span style={{ width: 110 }}><CellInput initial={cash.opening} blankIsZero={false} onDone={(v) => { setOpeningEdit(false); if (v !== undefined && (v === null ? cash.openingTyped : Math.round(v) !== Math.round(cash.opening))) onEdit!(distSec, distLine(OPENING_LABEL), 0, v); }} /></span>
               : <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} onClick={() => setOpeningEdit(true)}>Edit</button>)}
             {mayDist && cash.openingTyped && !openingEdit && <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} title={cash.bank ? "Back to the bank balance" : "Back to the GL"} onClick={() => onEdit!(distSec, distLine(OPENING_LABEL), 0, null)}>↺</button>}
           </span>}

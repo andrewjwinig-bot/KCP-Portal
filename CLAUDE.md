@@ -1208,8 +1208,11 @@ time — and the team does not have time to open the GL over $80.
 - **Months are TYPED straight into the grid** (Drew / admin — `canEditLines`,
   checked server-side). A typed month replaces ONLY that month
   (`lineOverrides.ts`, stored per year + property in `lineOverrideStore.ts`,
-  keyed `section::label`); `null` means "not typed", so blanking a cell hands it
-  back to the computed figure — zero is a figure someone can mean. Typing into
+  keyed `section::label`); `null` means "not typed". **DELETING a cell's
+  figure saves $0** (`CellInput`, owner: "i keep deleting numbers … but they
+  reappear" — blank used to hand the cell back to the computed figure, so the
+  number came straight back); ↺ on the line is the way back to computed. Zero
+  is a figure someone can mean. Typing into
   the Budget column spreads an annual evenly; Reset clears the line. Typed
   months are tinted. They are laid over the draft BEFORE the recovery pools are
   read (a typed CAM expense moves tenant recoveries) and again after (a typed
@@ -1451,8 +1454,10 @@ time — and the team does not have time to open the GL over $80.
   - Each (fund, account) takes its building share on the WORKBOOK'S basis:
     PRS (sq ft) or the keyed Alt PRS — SC 6010 + marketing Alt (9510 out),
     6030 PRS; NI LLC 6010 + marketing PRS, 6030 Alt (40C0 out); JV III Alt
-    30/35/35. Selectable per column. **Building sq ft is LOCKED** (owner) —
-    read-only in the grid, and `sanitizePayrollDoc` takes it from the seed. Marketing-All splits SC 46 / NI 34 / JV 20.
+    30/35/35. Selectable per column. **Building sq ft is LOCKED and comes from the RENT
+    ROLL** (owner) — read-only in the grid; the payroll route lays each
+    property's `totalSqft` over the doc (`withRollSqft`), the seed's figure
+    only where the roll has none. Marketing-All splits SC 46 / NI 34 / JV 20.
     Misc: 2010 = LIK Operating + Other; 0800 = Interstate + Middletown; 4900 =
     Office Works Direct + Indirect; Eastwick has no property code. Monthly
     rounds to $10 as the workbook does. Everything allocated must equal gross.
