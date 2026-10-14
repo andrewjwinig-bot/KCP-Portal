@@ -34,7 +34,7 @@ export async function GET() {
 /** POST (multipart `files`) — Chase / Liberty / M&T balance exports, as PDFs. */
 export async function POST(req: Request) {
   const user = await currentUser();
-  if (user && !canEditCashSheet(user)) return NextResponse.json({ error: "You have view-only access to Cash Analysis." }, { status: 403 });
+  if (user && !canEditCashSheet(user)) return NextResponse.json({ error: "You have view-only access to Bank Balances." }, { status: 403 });
   try {
     const form = await req.formData();
     const files = form.getAll("files").filter((f): f is File => f instanceof File);

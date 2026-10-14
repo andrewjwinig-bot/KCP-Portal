@@ -43,7 +43,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Bank Transfers":     "bank-transfers",
   // Budgets is its own key (Nancy sees only Budgets); the other financials
   // pages require the broader "financials-statements" key.
-  "Cash Analysis":      "financials-statements",
+  "Bank Balances":      "financials-statements",
   "Operating Statements": "financials-statements",
   "Management Fees":    "financials-statements",
   "Flags to Investigate": "financials-statements",
@@ -67,16 +67,15 @@ const NAV_ROLE_KEY: Record<string, string> = {
 // A sub-page is listed straight after its parent (it only shows while you are
 // in that parent — see `showFor`).
 const GROUP_CHILD_ORDER: Record<string, string[]> = {
-  // Cash Analysis is the bank balances now, so it leads Banking (owner).
-  banking: ["Cash Analysis", "Bank Transfers", "Debt Tracker", "Security Deposits", "Bank Recs", "Bank Acc Tracker"],
+  // Bank Balances leads Banking (owner).
+  banking: ["Bank Balances", "Bank Transfers", "Debt Tracker", "Security Deposits", "Bank Recs", "Bank Acc Tracker"],
   financials: [
     "Operating Statements", "Flags to Investigate",
     "Reprojections",
     "Budgets", "Budget Draft",
-    "Management Fees",
   ],
 };
-// Balance Sheet and the 1099 Register are not in the sidebar — they are
+// Balance Sheet, the 1099 Register and Management Fees are not in the sidebar — they are
 // occasional, and live in the Report Center (/reports) instead.
 
 // Visible cue: chevron + slightly tinted background distinguishes a
@@ -591,7 +590,7 @@ const NAV = [
     ),
   },
   {
-    label: "Cash Analysis",
+    label: "Bank Balances",
     href: "/financials/cash-analysis",
     external: false,
     indent: false,
@@ -649,20 +648,6 @@ const NAV = [
         <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
         <line x1="12" y1="9" x2="12" y2="13" />
         <line x1="12" y1="17" x2="12.01" y2="17" />
-      </svg>
-    ),
-  },
-  {
-    label: "Management Fees",
-    href: "/financials/management-fees",
-    external: false,
-    indent: false,
-    showFor: null as string | null,
-    groupId: "financials",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="12" y1="1" x2="12" y2="23" />
-        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
       </svg>
     ),
   },
