@@ -285,7 +285,11 @@ export type RaiseTest = { employeeId: string; kind: "pct" | "dollar" | "bonus"; 
  *  figure. It is spent in PAY dollars (salary increases + bonuses); the taxes
  *  and 401(k) on top are shown as the fully loaded cost beside it. */
 export type RaisePool = { kind: "pct" | "dollar"; amount: number };
-export type RaisePlan = { pool: RaisePool; raises: RaiseTest[] };
+/** A raise that was APPLIED — kept on the plan as the record of what each
+ *  employee was given (owner: "when i hit apply it just disappears without
+ *  tracing"). The salary before and after, and when. */
+export type AppliedRaise = RaiseTest & { name: string; salaryBefore: number; salaryAfter: number; at: string; by?: string };
+export type RaisePlan = { pool: RaisePool; raises: RaiseTest[]; applied?: AppliedRaise[] };
 export const DEFAULT_POOL: RaisePool = { kind: "pct", amount: 3 };
 
 export type RaiseImpactRow = {
@@ -500,6 +504,14 @@ export function sanitizePayrollDoc(raw: any, year: number): PayrollBudgetDoc | n
     raises: (Array.isArray(rp.raises) ? rp.raises : []).slice(0, 200)
       .filter((t: any) => ids.has(String(t?.employeeId)))
       .map((t: any) => ({ employeeId: String(t.employeeId), kind: t.kind === "dollar" || t.kind === "bonus" ? t.kind : "pct", amount: n(t.amount) })),
+    // The record of raises given — kept even if the employee later leaves the roster.
+    applied: (Array.isArray(rp.applied) ? rp.applied : []).slice(0, 500)
+      .filter((t: any) => t && typeof t.employeeId === "string")
+      .map((t: any) => ({
+        employeeId: String(t.employeeId), kind: t.kind === "dollar" || t.kind === "bonus" ? t.kind : "pct", amount: n(t.amount),
+        name: String(t.name ?? "").slice(0, 120), salaryBefore: n(t.salaryBefore), salaryAfter: n(t.salaryAfter),
+        at: typeof t.at === "string" ? t.at.slice(0, 40) : "", ...(typeof t.by === "string" ? { by: t.by.slice(0, 40) } : {}),
+      })),
   } : undefined;
   return {
     year, rates, employees, funds, raisePlan,

@@ -153,11 +153,29 @@ export function PayrollBudget({ year }: { year: number }) {
 
       <RaisePlanCard doc={doc} context={context}
         onPlan={(raisePlan) => update((d) => ({ ...d, raisePlan }))}
-        onApply={(index, id, salary) => update((d) => ({
-          ...d,
-          employees: d.employees.map((e) => (e.id === id ? { ...e, salary } : e)),
-          raisePlan: d.raisePlan ? { ...d.raisePlan, raises: d.raisePlan.raises.filter((_, i) => i !== index) } : d.raisePlan,
-        }))} />
+        onApply={(index, id, salary) => update((d) => {
+          const emp = d.employees.find((e) => e.id === id);
+          const t = d.raisePlan?.raises[index];
+          // Applying moves the raise to the plan's APPLIED record — who, what,
+          // the salary before and after, and when — rather than dropping it.
+          const by = typeof document !== "undefined" ? (document.cookie.match(/kcp_user=([^;]+)/)?.[1] ?? undefined) : undefined;
+          const rec = emp && t ? { ...t, name: emp.name, salaryBefore: emp.salary || 0, salaryAfter: salary, at: new Date().toISOString(), ...(by ? { by } : {}) } : null;
+          return {
+            ...d,
+            employees: d.employees.map((e) => (e.id === id ? { ...e, salary } : e)),
+            raisePlan: d.raisePlan ? { ...d.raisePlan, raises: d.raisePlan.raises.filter((_, i) => i !== index), applied: [...(d.raisePlan.applied ?? []), ...(rec ? [rec] : [])] } : d.raisePlan,
+          };
+        })}
+        onUndo={(index) => update((d) => {
+          const rec = d.raisePlan?.applied?.[index];
+          if (!rec || !d.raisePlan) return d;
+          const { name: _n, salaryBefore, salaryAfter: _a, at: _t, by: _b, ...raise } = rec;
+          return {
+            ...d,
+            employees: d.employees.map((e) => (e.id === rec.employeeId ? { ...e, salary: salaryBefore } : e)),
+            raisePlan: { ...d.raisePlan, raises: [...d.raisePlan.raises, raise], applied: d.raisePlan.applied!.filter((_, i) => i !== index) },
+          };
+        })} />
 
       {/* The statutory rates — typed once, used on every row. */}
       <div className="card" style={{ padding: "10px 14px" }}>
