@@ -1513,7 +1513,10 @@ time — and the team does not have time to open the GL over $80.
   from that month, and so no recoveries (they follow rent's months). Every
   in-place lease is listed as `leasing.contracted` and shows a quiet "Back
   out" action on row hover (`.row-quiet-action`); it is NEVER a call owed, so
-  it counts toward neither "To decide" nor the review's open calls.
+  it counts toward neither "To decide" nor the review's open calls. **A recon tenant on NO rent-roll suite
+  (a recovery-only row — North Inc 7010-12349) is offered as a lease in place
+  too** (`recoveryOnlyLeases` in `draft.ts`), so it can be backed out; it had no
+  call and so no Edit / Back out at all.
   **Rite Aid (7010-12311) is backed out from January as a SEED**
   (`SEEDED` in `leasingAssumptions.ts`, every budget year from 2027): the
   owner asked for it when the page's save was refusing "stop" — the route kept
