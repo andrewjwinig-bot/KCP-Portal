@@ -16,7 +16,10 @@ describe("bank balance entities", () => {
     expect(by("x8276").restricted).toBe(true); // LIK Management (SD) money market — deposits (owner)
     expect(by("x1622")).toMatchObject({ key: "2010-CLR", name: "LIK Clearing", group: "Management" });
     expect("2010-CLR".localeCompare("2010")).toBeGreaterThan(0); // sorts under LIK Management
-    expect(by("x6088")).toMatchObject({ key: "9500LH", group: "Land & Other" }); // not 9510's operating account
+    expect(by("x6088").key).toBe("9510"); // 9500 LH LLC reads on 9510 (owner)
+    expect(by("x8276")).toMatchObject({ key: "SD-x7216", name: "Security Deposits — All but NI LLC" });
+    expect(by("x6127").key).toBe("2070");
+    expect(by("x6119")).toMatchObject({ key: "2070", name: "Kosano Associates LP (Nockamixon)" });
     expect(by("x5303").key).toBe(by("x4031").key); // Eastwick at Chase and M&T
   });
 });
