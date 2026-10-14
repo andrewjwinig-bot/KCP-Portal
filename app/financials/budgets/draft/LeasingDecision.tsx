@@ -27,7 +27,7 @@ export function leasedPerMonth(unitRef: string): boolean {
 }
 const moneyMo = (n: number) => `$${Math.round(n).toLocaleString("en-US")}/mo`;
 
-export type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; rentPsf?: number; tiPsf?: number; lcPct?: number; startMonth?: number; termYears?: number };
+export type SavePayload = { unitRef: string; kind: string | null; monthlyRent?: number; rentPsf?: number; tiPsf?: number; lcPct?: number; startMonth?: number; endMonth?: number; termYears?: number };
 
 /** One suite needing a call. */
 export type LeasingCall = {
@@ -53,13 +53,13 @@ const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTrans
 const INPLACE_CHOICES = [
   { value: "renew", label: "Renew — rent starts at today's $/SF" },
   { value: "vacate", label: "Vacate — leaves at term end" },
-  { value: "stop", label: "Stops paying — back out the rent" },
+  { value: "stop", label: "Back out the rent — for a month or the rest of the year" },
   { value: "rent", label: "Set the rent — type the monthly figure" },
 ];
 const CONTRACTED_CHOICES = [
   { value: "keep", label: "Keeps paying — lease in place" },
   { value: "rent", label: "Set the rent — type the monthly figure" },
-  { value: "stop", label: "Stops paying — back out the rent" },
+  { value: "stop", label: "Back out the rent — for a month or the rest of the year" },
 ];
 const VACANT_CHOICES = [
   { value: "none", label: "Leave vacant" },
@@ -76,13 +76,15 @@ const fmtDate = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}/${String(d.getF
 const mmyy = (d: Date) => `${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getFullYear()).slice(-2)}`;
 
 /** What the decision does to the budget year, in words. */
-function effectText(kind: string, end: Date | null, year: number, month: number): string {
+function effectText(kind: string, end: Date | null, year: number, month: number, through = 12): string {
   switch (kind) {
     case "": return "Today's rent until decided";
     case "hold": return "Today's rent";
     case "none": return "Vacant all year";
     case "keep": return "Rent as the lease schedules it";
-    case "stop": return `No rent — or recoveries — from ${MONTHS[month - 1]} ${year}`;
+    case "stop": return through >= 12 ? `No rent — or recoveries — from ${MONTHS[month - 1]} ${year}`
+      : through === month ? `No rent — or recoveries — in ${MONTHS[month - 1]} ${year}`
+      : `No rent — or recoveries — ${MONTHS[month - 1]}–${MONTHS[through - 1]} ${year}`;
     case "rent": return month > 1 ? `The rent keyed, from ${MONTHS[month - 1]} ${year}` : `The rent keyed, all of ${year}`;
     case "leaseup": return `Rent from ${MONTHS[month - 1]} ${year}`;
     case "renew": {
@@ -105,7 +107,10 @@ export function decisionLabel(call: LeasingCall): string | null {
   const a = call.assumption;
   if (!a) return null;
   if (call.mode === "vacant" && a.kind === "hold") return "Leave vacant";
-  if (a.kind === "stop") return `Backed out from ${MONTHS[(a.startMonth ?? 1) - 1]}`;
+  if (a.kind === "stop") {
+    const from = a.startMonth ?? 1, to = a.endMonth ?? 12;
+    return to >= 12 ? `Backed out from ${MONTHS[from - 1]}` : to === from ? `Backed out ${MONTHS[from - 1]} only` : `Backed out ${MONTHS[from - 1]}–${MONTHS[to - 1]}`;
+  }
   if (a.kind === "rent") {
     const mo = a.monthlyRent ?? (a.rentPsf != null && call.sqft > 0 ? (a.rentPsf * call.sqft) / 12 : null);
     return `Rent set${mo != null ? ` ${moneyMo(mo)}` : ""}${(a.startMonth ?? 1) > 1 ? ` from ${MONTHS[(a.startMonth ?? 1) - 1]}` : ""}`;
@@ -192,6 +197,9 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
   const [ti, setTi] = useState<string>(perMonth ? "" : f2(assumption?.tiPsf));
   const [lc, setLc] = useState<string>(perMonth || assumption?.lcPct == null ? "" : String(assumption.lcPct));
   const [month, setMonth] = useState<number>(assumption?.startMonth ?? 1);
+  // A back-out runs from `month` THROUGH this one — December by default, so a
+  // single month (Revere's January) is a back-out through the same month.
+  const [through, setThrough] = useState<number>(assumption?.kind === "stop" ? assumption.endMonth ?? 12 : 12);
   const [term, setTerm] = useState<string>(assumption?.termYears != null ? String(assumption.termYears) : "");
   // "Set the rent" is keyed as the MONTH's figure — a recon-only tenant (North
   // Inc) has no SF on the roll to price a $/SF against.
@@ -204,8 +212,13 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  function push(over: Partial<{ k: string; r: string; ti: string; lc: string; mo: number; t: string }> = {}) {
+  function push(over: Partial<{ k: string; r: string; ti: string; lc: string; mo: number; t: string; thr: number }> = {}) {
     const k = over.k ?? kind, r = over.r ?? rent, mo = over.mo ?? month, t = over.t ?? term;
+    if (k === "stop") {
+      const thr = Math.max(mo, over.thr ?? through);
+      onSave({ unitRef, kind: "stop", startMonth: mo, endMonth: thr < 12 ? thr : undefined });
+      return;
+    }
     const tiV = over.ti ?? ti, lcV = over.lc ?? lc;
     if (k === "") return;
     const apiKind = k === "none" ? "hold" : k === "keep" ? null : k;
@@ -254,7 +267,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
   const tiTotal = ti !== "" && sqft > 0 ? Number(ti) * sqft : 0;
   const effect = kind === "" && mode === "vacant" ? "Vacant until decided"
     : kind === "" && fromSchedule ? "No rent after the term until decided"
-    : effectText(kind, end, budgetYear, month);
+    : effectText(kind, end, budgetYear, month, Math.max(month, through));
 
   const num = (v: string, set: (x: string) => void, field: "r" | "ti" | "lc", aria: string, pct = false) => (
     <input value={v} inputMode="decimal" placeholder={pct ? "0" : "0.00"} aria-label={aria}
@@ -316,12 +329,18 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
               {(mode === "inplace" ? INPLACE_CHOICES : mode === "contracted" ? CONTRACTED_CHOICES : VACANT_CHOICES).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           ))}
-          {kind === "stop" && field("Rent stops from", (
-            <select value={month} className="select-sm" aria-label="Rent stops from"
-              onChange={(e) => { setMonth(Number(e.target.value)); push({ mo: Number(e.target.value) }); }}>
+          {kind === "stop" && field("Back out from", (
+            <select value={month} className="select-sm" aria-label="Back out from"
+              onChange={(e) => { const v = Number(e.target.value); setMonth(v); const thr = Math.max(v, through); setThrough(thr); push({ mo: v, thr }); }}>
               {MONTHS.map((mo, i) => <option key={mo} value={i + 1}>{mo} {budgetYear}</option>)}
             </select>
-          ), "no rent or recoveries from this month")}
+          ))}
+          {kind === "stop" && field("Through", (
+            <select value={Math.max(month, through)} className="select-sm" aria-label="Rent backed out through"
+              onChange={(e) => { const v = Number(e.target.value); setThrough(v); push({ thr: v }); }}>
+              {MONTHS.map((mo, i) => i + 1 >= month ? <option key={mo} value={i + 1}>{mo} {budgetYear}{i === 11 ? " — rest of the year" : ""}</option> : null)}
+            </select>
+          ), "no rent or recoveries in these months")}
           {kind === "rent" && field("Rent $/mo", num(setMo, setSetMo, "r", "Rent per month"),
             curMo != null ? `today ${moneyMo(curMo)}` : "no rent on the roll today")}
           {kind === "rent" && field("From", (

@@ -319,8 +319,10 @@ export async function estimateReimbursements(
     const a = aOf(ref);
     if (a?.kind !== "stop") return t;
     const from = Math.min(12, Math.max(1, a.startMonth ?? 1));
-    const months = t.months.map((on, i) => on && i < from - 1);
-    return { months, assumed: t.assumed.map((x, i) => x && months[i]), note: `Backed out from ${MONTH[from - 1]} — no rent or recoveries` };
+    const to = Math.min(12, Math.max(from, a.endMonth ?? 12));
+    const months = t.months.map((on, i) => on && (i < from - 1 || i >= to));
+    const span = to === 12 ? `from ${MONTH[from - 1]}` : from === to ? `in ${MONTH[from - 1]}` : `${MONTH[from - 1]}–${MONTH[to - 1]}`;
+    return { months, assumed: t.assumed.map((x, i) => x && months[i]), note: `Backed out ${span} — no rent or recoveries` };
   };
   const tenancyOf = (ref: string): { months: boolean[]; assumed: boolean[]; note?: string } => {
     const none = new Array(12).fill(false) as boolean[];
