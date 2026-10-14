@@ -166,10 +166,11 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 
 **The sidebar (`app/components/Sidebar.tsx`)**: within a group the order is
 `GROUP_CHILD_ORDER` — Financials: Operating Statements, Reprojections,
-Budgets, Management Fees (Balance Sheet and the 1099 Register are NOT in the
-sidebar — occasional reports, reached from the Report Center); Banking: Cash
-Analysis (the bank balances — owner moved it to the top of Banking), Bank
-Transfers, Debt Tracker, Security Deposits, Bank Recs. A SUB-PAGE (Flags to Investigate,
+Budgets (Balance Sheet, the 1099 Register and **Management Fees** are NOT in
+the sidebar — reference reports, reached from the Report Center; owner: "i
+dont really actively do anything with it just reference it"); Banking: **Bank
+Balances** (the page at `/financials/cash-analysis`, renamed from Cash
+Analysis — owner; the URL kept so bookmarks hold), Bank Transfers, Debt Tracker, Security Deposits, Bank Recs. A SUB-PAGE (Flags to Investigate,
 Budget Draft, Bank Acc Tracker, and Budget Inputs for anyone who has Budgets)
 shows only while you are in its parent (`showFor`) and is listed straight after
 it. Past Tenants is off the sidebar (the page does not work). **Reports** sits at
@@ -547,6 +548,12 @@ buildings may be managed by a third party" as an explanation for a gap.
   budgets vs 2010's 4510 plan) and was the only one that existed. A budget
   agreeing says nothing about whether the entries were made — keep both, labelled
   BUDGET and ACTUAL.
+- **Management Fees is a REFERENCE REPORT, off the sidebar** (Report Center →
+  Financial). Its **"Actual vs Budget — by month" chart is on ALISON'S
+  DASHBOARD** (`app/dashboard/MgmtFeesChartCard.tsx`) — the SAME `LineChart` /
+  `feeChartSeries` (`app/financials/management-fees/FeeChart.tsx`) the report
+  draws, with the intercompany tie-out as one line under it (the part of the
+  report someone acts on) and a "Full report →" link.
 - **The page's grid is a BUILDING PER ROW, months across** (grouped BP / SC /
   Other with a subtotal band each, then a Total row), ending in the full-year
   **reprojection**, the budget and the variance ($ and %). A month the building
@@ -2107,9 +2114,9 @@ time — and the team does not have time to open the GL over $80.
   - `+ Create Live Budget` (`build.ts`) is the older parallel builder; retire
     it once 2027 is published from the draft.
 
-# Cash Analysis — bank balances (the page's view)
+# Bank Balances (formerly Cash Analysis) — the page's view
 
-**Cash Analysis is a BANK-BALANCE view now** (owner: "pivot from our more
+**Bank Balances (`/financials/cash-analysis`, renamed from Cash Analysis) is a BANK-BALANCE view now** (owner: "pivot from our more
 complex cash sheet thats harder for management to follow … current balance and
 then another column for reserves to show net available cash"). The GL
 cash-flow view is still in `app/financials/cash-analysis/page.tsx`, HIDDEN

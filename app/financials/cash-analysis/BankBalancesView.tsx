@@ -1,6 +1,6 @@
 "use client";
 
-// Cash Analysis — the bank-balance view (owner: "pivot from our more complex
+// Bank Balances — the bank-balance view (owner: "pivot from our more complex
 // cash sheet … current balance and then another column for reserves to show
 // net available cash"). Import the three banks' balance exports (Chase,
 // Liberty, M&T PDFs); each line shows what its accounts hold, the reserve held
@@ -147,7 +147,7 @@ export default function BankBalancesView() {
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Cash Analysis</h1>
+        <h1 style={{ margin: 0 }}>Bank Balances</h1>
         {asOf && <span style={{ fontSize: 20, fontWeight: 700, color: "var(--muted)" }}>Bank balances as of {dateLabel(asOf)}</span>}
       </div>
 

@@ -6,7 +6,7 @@
 // ownership has it the moment the week's balances are in. The Monday-afternoon
 // cron is the fallback — if the week's balances still are not in, it does NOT
 // send last week's figures dressed as this week's; it reminds Drew instead.
-// Recipients are kept here, edited on the Cash Analysis page.
+// Recipients are kept here, edited on the Bank Balances page.
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
@@ -167,7 +167,7 @@ export async function cronCashPosition(now = new Date()): Promise<SendOutcome> {
     await sendMail({
       to: REMIND_TO, from: VERIFIED_FROM,
       subject: "Cash position not sent — import this week's bank balances",
-      textBody: `This week's cash position has not gone to ownership: ${stale.length ? stale.join(", ") : "some banks"} ${stale.length === 1 ? "has" : "have"} not been imported since Monday.\n\nImport the bank PDFs on Cash Analysis and it sends automatically.`,
+      textBody: `This week's cash position has not gone to ownership: ${stale.length ? stale.join(", ") : "some banks"} ${stale.length === 1 ? "has" : "have"} not been imported since Monday.\n\nImport the bank PDFs on Bank Balances and it sends automatically.`,
     });
     doc.lastRemindedWeek = week;
     await storeJSON(PREFIX, ID, doc);

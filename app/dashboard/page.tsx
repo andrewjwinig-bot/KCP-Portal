@@ -28,6 +28,7 @@ import PendingReservationsCard from "./PendingReservationsCard";
 import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
 import MonthlyReviewPanel from "../reports/monthly/MonthlyReviewPanel";
 import DebtSummaryCard from "./DebtSummaryCard";
+import MgmtFeesChartCard from "./MgmtFeesChartCard";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -723,6 +724,9 @@ function DashboardInner() {
 
         {/* ── Debt Summary (Alison) — full width, sits with the occupancy panel ── */}
         {isAlison && <DebtSummaryCard order={-1} />}
+
+        {/* ── Management Fees chart (Alison) — the report is reference, so its chart lives here ── */}
+        {isAlison && <MgmtFeesChartCard order={0} />}
 
         {/* ── Lease Expirations (Nancy / Harry / admin / Alison) — below occupancy ── */}
         {(user.id === "nancy" || user.id === "harry" || isAdmin || isAlison) && (
