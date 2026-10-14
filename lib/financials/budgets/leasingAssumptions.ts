@@ -2,14 +2,27 @@
 //
 // Turns the draft's "these leases expire / these spaces are vacant" flags into
 // editable renew / vacate / lease-up decisions that flow straight back into the
-// rental projection. Stored per (budget year, property) so a building's whole
-// set of assumptions lives in one document, keyed by unit.
+// rental projection.
+//
+// ONE DOCUMENT PER SUITE (`budget-leasing-units/<year>-<code>/<unit>`). It was
+// one document per property, rewritten whole on every save — read, change one
+// suite, write it all back — so any save working from an out-of-date copy
+// (another tab, Harry's review link, a cached read) wrote back a document
+// WITHOUT the decision just made. Drew keyed a lease-up at 9510-416, saw it
+// saved ("✓ Drew 2:20 PM"), refreshed, and it was gone. A save now writes only
+// its own suite, so it cannot erase another. The old per-property document is
+// still READ, under the suites' own documents, so nothing saved before is lost.
 
 import "server-only";
-import { getJSON, storeJSON } from "@/lib/storage";
+import { getJSON, listJSON, storeJSON } from "@/lib/storage";
 
 const PREFIX = "budget-leasing-assumptions";
 const idFor = (budgetYear: number, propertyCode: string) => `${budgetYear}-${propertyCode.toUpperCase()}`;
+const UNIT_PREFIX = (budgetYear: number, propertyCode: string) => `budget-leasing-units/${idFor(budgetYear, propertyCode)}`;
+/** A storage-safe id for a unit ref (kept inside the document as written). */
+const unitId = (unitRef: string) => unitRef.trim().toUpperCase().replace(/[^A-Z0-9\-_]/g, "_");
+/** One suite's call — `assumption: null` records that it was CLEARED. */
+type UnitDoc = { unitRef: string; assumption: LeaseAssumption | null; at: string };
 
 /** `hold` is a DECISION too — "no change" (hold the current lease, or leave a
  *  vacancy vacant). It used to be saved as nothing, so a space someone had
@@ -79,8 +92,26 @@ const SEEDED: { code: string; fromYear: number; a: LeaseAssumption }[] = [
 const seedFor = (budgetYear: number, code: string) =>
   SEEDED.filter((x) => x.code === String(code).toUpperCase() && budgetYear >= x.fromYear).map((x) => x.a);
 
+/** The property's calls: the old per-property document, with each suite's own
+ *  document laid over it (every save since the split writes only those). */
 async function loadDoc(budgetYear: number, propertyCode: string): Promise<Doc> {
-  return ((await getJSON(PREFIX, idFor(budgetYear, propertyCode))) as Doc | null) ?? { assumptions: {} };
+  const [legacy, units] = await Promise.all([
+    getJSON(PREFIX, idFor(budgetYear, propertyCode)) as Promise<Doc | null>,
+    listJSON(UNIT_PREFIX(budgetYear, propertyCode), { fresh: true }) as Promise<UnitDoc[]>,
+  ]);
+  const doc: Doc = { assumptions: { ...(legacy?.assumptions ?? {}) }, cleared: [...(legacy?.cleared ?? [])] };
+  const seeded = new Set(seedFor(budgetYear, propertyCode).map((a) => a.unitRef));
+  for (const u of units ?? []) {
+    if (!u?.unitRef) continue;
+    if (u.assumption) {
+      doc.assumptions[u.unitRef] = u.assumption;
+      doc.cleared = doc.cleared!.filter((x) => x !== u.unitRef);
+    } else {
+      delete doc.assumptions[u.unitRef];
+      if (seeded.has(u.unitRef)) doc.cleared = [...new Set([...doc.cleared!, u.unitRef])];
+    }
+  }
+  return doc;
 }
 
 /** All assumptions across the given property codes, keyed by unitRef. */
@@ -102,14 +133,11 @@ export async function setLeasingAssumption(
   propertyCode: string,
   a: (Omit<LeaseAssumption, "updatedAt" | "kind"> & { kind: LeaseAssumptionKind | null }),
 ): Promise<void> {
-  const doc = await loadDoc(budgetYear, propertyCode);
-  const seeded = seedFor(budgetYear, propertyCode).some((x) => x.unitRef === a.unitRef);
-  if (a.kind === null) {
-    delete doc.assumptions[a.unitRef];
-    if (seeded) doc.cleared = [...new Set([...(doc.cleared ?? []), a.unitRef])];
-  } else {
-    if (doc.cleared) doc.cleared = doc.cleared.filter((u) => u !== a.unitRef);
-    doc.assumptions[a.unitRef] = {
+  // Only this suite's document is written — never the property's whole set.
+  const at = new Date().toISOString();
+  let assumption: LeaseAssumption | null = null;
+  if (a.kind !== null) {
+    assumption = {
       unitRef: a.unitRef, kind: a.kind,
       // EVERY field the card keys is kept. rentPsf / tiPsf / lcPct were added
       // to the type and the route but not here, so a lease-up saved with no
@@ -117,10 +145,11 @@ export async function setLeasingAssumption(
       monthlyRent: a.monthlyRent, rentPsf: a.rentPsf, tiPsf: a.tiPsf, lcPct: a.lcPct,
       startMonth: a.startMonth, endMonth: a.kind === "stop" ? a.endMonth : undefined, termYears: a.termYears, notes: a.notes,
       updatedBy: a.updatedBy,
-      updatedAt: new Date().toISOString(),
+      updatedAt: at,
     };
   }
-  await storeJSON(PREFIX, idFor(budgetYear, propertyCode), doc);
+  const unitDoc: UnitDoc = { unitRef: a.unitRef, assumption, at };
+  await storeJSON(UNIT_PREFIX(budgetYear, propertyCode), unitId(a.unitRef), unitDoc);
 }
 
 

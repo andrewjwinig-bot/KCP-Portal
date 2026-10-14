@@ -1757,6 +1757,16 @@ time — and the team does not have time to open the GL over $80.
 - **Revenue by tenant reads like the Rent Roll**: TENANT first (600 weight,
   a vacancy in muted italics), then the SUITE as a bold brand-coloured code, then its SF (owner), a
   larger row font and rent-roll row height.
+- **EACH SUITE'S LEASING CALL IS ITS OWN DOCUMENT** (`budget-leasing-units/<year>-<code>/<unit>`,
+  `leasingAssumptions.ts`; owner: "i refreshed and it was gone … i am losing
+  edits"). It was one document per property, rewritten whole on every save,
+  so a save working from an out-of-date copy (another tab, Harry's review
+  link, a cached read) wrote back a document WITHOUT a call just made — Drew's
+  9510-416 lease-up read "✓ Drew 2:20 PM" and was gone on refresh. A save now
+  writes only its suite; the old per-property document is still read beneath
+  the suites' own (`loadDoc`), and `listJSON(…, { fresh: true })` reads them
+  past the CDN. The dialog says **Saving…** until a save lands, and the page
+  asks before a refresh drops one still in flight.
 - **Every leasing field the card keys is STORED** (`setLeasingAssumption`):
   `rentPsf`, `tiPsf`, `lcPct` were dropped on save for a while — a lease-up
   saved with no rent projected $0 and no TI/commission ever reached the budget.

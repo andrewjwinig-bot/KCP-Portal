@@ -205,6 +205,13 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
   // Inc) has no SF on the roll to price a $/SF against.
   const [setMo, setSetMo] = useState<string>(f2(assumption?.kind === "rent" ? savedMo : curMo));
   const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Saves in flight — the footer says "Saving…" until they land, so a change
+  // is never left looking saved when it is not.
+  const [saving, setSaving] = useState(0);
+  const save = (p: SavePayload) => {
+    setSaving((n) => n + 1);
+    Promise.resolve(onSave(p)).finally(() => setSaving((n) => Math.max(0, n - 1)));
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -216,7 +223,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
     const k = over.k ?? kind, r = over.r ?? rent, mo = over.mo ?? month, t = over.t ?? term;
     if (k === "stop") {
       const thr = Math.max(mo, over.thr ?? through);
-      onSave({ unitRef, kind: "stop", startMonth: mo, endMonth: thr < 12 ? thr : undefined });
+      save({ unitRef, kind: "stop", startMonth: mo, endMonth: thr < 12 ? thr : undefined });
       return;
     }
     const tiV = over.ti ?? ti, lcV = over.lc ?? lc;
@@ -225,7 +232,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
     if (k === "rent") {
       const v = over.r ?? setMo;
       if (v === "" || !(Number(v) > 0)) return; // nothing to save until a rent is typed
-      onSave({ unitRef, kind: "rent", monthlyRent: Math.round(Number(v)), startMonth: mo });
+      save({ unitRef, kind: "rent", monthlyRent: Math.round(Number(v)), startMonth: mo });
       return;
     }
     if (perMonth) {
@@ -233,7 +240,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
       // renewal left at today's rent carries none, so it holds today's exactly.
       const rentMo = r !== "" ? Math.round(Number(r)) : null;
       const sameMo = rentMo != null && curMo != null && Math.abs(rentMo - curMo) < 0.5;
-      onSave({
+      save({
         unitRef, kind: apiKind,
         monthlyRent: (k === "renew" && !sameMo) || k === "leaseup" ? rentMo ?? undefined : undefined,
         startMonth: mo, termYears: t !== "" ? Number(t) : undefined,
@@ -245,7 +252,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
     // figure rounded back through $/SF.
     const same = psf != null && curPsf != null && Math.abs(psf - curPsf) < 0.005;
     const monthlyRent = psf == null || same || !(sqft > 0) ? undefined : Math.round((psf * sqft) / 12);
-    onSave({
+    save({
       unitRef, kind: apiKind, monthlyRent,
       // Left at today's $/SF, a renewal carries no rent at all, and the
       // projection holds today's rent exactly rather than one rounded back
@@ -405,7 +412,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
           {error && <div role="alert" style={{ marginTop: 10, color: "#b91c1c", fontSize: 13, fontWeight: 700 }}>Not saved — {error}</div>}
           <div style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: tone.bg, border: `1px solid ${tone.border}`, fontSize: 13 }}>
             <b>In {budgetYear}:</b> {effect}
-            {assumption?.updatedAt && (
+            {saving > 0 ? <span className="muted"> · Saving…</span> : assumption?.updatedAt && (
               <span className="muted"> · ✓ {assumption.updatedBy ? `${assumption.updatedBy.charAt(0)}${assumption.updatedBy.slice(1).toLowerCase()}` : "Saved"} {new Date(assumption.updatedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
             )}
           </div>

@@ -338,8 +338,17 @@ export default function BudgetDraftPage() {
   // decisions on every save, so two in flight (a live-typed rent and a term
   // picked a moment later) could each write back a copy missing the other.
   const saveChain = useRef<Promise<unknown>>(Promise.resolve());
+  // A leasing call still saving when the page is refreshed or closed is lost —
+  // the browser asks first rather than dropping it silently.
+  const pendingSaves = useRef(0);
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => { if (pendingSaves.current > 0) { e.preventDefault(); e.returnValue = ""; } };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
   function saveAssumption(payload: SavePayload) {
-    saveChain.current = saveChain.current.then(() => saveAssumptionNow(payload)).catch(() => {});
+    pendingSaves.current++;
+    saveChain.current = saveChain.current.then(() => saveAssumptionNow(payload)).catch(() => {}).finally(() => { pendingSaves.current--; });
     return saveChain.current;
   }
   async function saveAssumptionNow(payload: SavePayload) {

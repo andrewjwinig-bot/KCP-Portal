@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const store = new Map<string, unknown>();
 vi.mock("@/lib/storage", () => ({
-  getJSON: async (_p: string, id: string) => store.get(id) ?? null,
-  storeJSON: async (_p: string, id: string, v: unknown) => { store.set(id, JSON.parse(JSON.stringify(v))); },
+  getJSON: async (p: string, id: string) => store.get(`${p}/${id}`) ?? null,
+  storeJSON: async (p: string, id: string, v: unknown) => { store.set(`${p}/${id}`, JSON.parse(JSON.stringify(v))); },
+  listJSON: async (p: string) => [...store.entries()].filter(([k]) => k.startsWith(`${p}/`)).map(([, v]) => v),
 }));
 
 import { getLeasingAssumptions, isLeaseKind, leasingDecisionFromBody, setLeasingAssumption } from "./leasingAssumptions";
@@ -24,6 +25,22 @@ describe("leasing decisions", () => {
     expect(back.ok && back.decision.endMonth).toBe(5);
     const renew = leasingDecisionFromBody({ unitRef: "7300-1", kind: "renew", endMonth: 3 }, "ANDREW");
     expect(renew.ok && renew.decision.endMonth).toBeUndefined();
+  });
+
+  it("a save writes ONLY its suite — it cannot erase another suite's call (9510-416 lost on refresh)", async () => {
+    // An old per-property document, as stored before the split.
+    store.set("budget-leasing-assumptions/2027-9510", { assumptions: { "9510-100": { unitRef: "9510-100", kind: "vacate" } } });
+    await setLeasingAssumption(2027, "9510", { unitRef: "9510-416", kind: "leaseup", startMonth: 8, rentPsf: 30, tiPsf: 50, updatedBy: "DREW" });
+    await setLeasingAssumption(2027, "9510", { unitRef: "9510-200", kind: "renew", updatedBy: "HARRY" });
+    const a = await getLeasingAssumptions(2027, ["9510"]);
+    expect(a["9510-416"]).toMatchObject({ kind: "leaseup", startMonth: 8, rentPsf: 30, tiPsf: 50, updatedBy: "DREW" });
+    expect(a["9510-200"]).toMatchObject({ kind: "renew" });
+    expect(a["9510-100"]).toMatchObject({ kind: "vacate" });  // the old document still reads
+    // Clearing one suite leaves the others.
+    await setLeasingAssumption(2027, "9510", { unitRef: "9510-100", kind: null });
+    const b = await getLeasingAssumptions(2027, ["9510"]);
+    expect(b["9510-100"]).toBeUndefined();
+    expect(b["9510-416"]).toBeDefined();
   });
 
   it("takes a SET rent (no TI / LC — not a deal), January by default, and refuses one with no rent", () => {

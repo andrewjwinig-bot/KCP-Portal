@@ -104,10 +104,12 @@ export async function storeJSON(prefix: string, id: string, data: object): Promi
  * routinely use this for queue-style pages (maintenance, periods, bank
  * recs); a single bad record shouldn't black out the entire page.
  */
-export async function listJSON(prefix: string): Promise<any[]> {
+export async function listJSON(prefix: string, opts?: { fresh?: boolean }): Promise<any[]> {
   if (USE_BLOB) {
     const { blobs } = await list({ prefix: `payroll/${prefix}/` });
-    const settled = await Promise.allSettled(blobs.map((b) => fetchBlobJson(b.url)));
+    // `fresh` reads each record past the CDN (see fetchBlobJson) — for records
+    // written moments ago, e.g. one leasing call per suite.
+    const settled = await Promise.allSettled(blobs.map((b) => fetchBlobJson(b.url, 3, !!opts?.fresh)));
     const out: any[] = [];
     for (let i = 0; i < settled.length; i++) {
       const r = settled[i];
