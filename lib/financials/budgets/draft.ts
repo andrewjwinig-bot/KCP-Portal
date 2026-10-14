@@ -52,7 +52,7 @@ import { isVacancyUtilitiesLine, resolveRate, monthsAt, sharedRateFor, type Vaca
 import { assembledGlConsolidated } from "@/lib/financials/operating-statements/statementStore";
 import { bankCashFor } from "@/lib/financials/bank-balances/lineCashStore";
 import { fundLineOf } from "@/lib/financials/bank-balances/lineCash";
-import { cashOnGl, distributionsOnGl, plannedDistributions, projectBalance, rollForward, rollFromDate, DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL, type DraftCash } from "./cashForecast";
+import { budgetedDistributions, cashOnGl, distributionsOnGl, plannedDistributions, projectBalance, rollForward, rollFromDate, DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL, OPENING_LABEL, type DraftCash } from "./cashForecast";
 
 /** The revenue line the lease projection replaces — base/rental income. */
 const RENTAL_LINE_RE = /rental|rent income|base rent|minimum rent/i;
@@ -1152,7 +1152,10 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
     const onGl = cashOnGl(gl);
     const plan = plannedDistributions(meta.propertyCode);
     const glYearEnd = onGl ? rollForward(onGl.balance, onGl.month, basisFlow, plan) : null;
-    const dist = mergeMonths(plan, typedDoc[lineKey(DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL)]);
+    // THIS year's plan rolls the balance to Dec 31; the BUDGET year starts
+    // from the budgeted plan (a property can be dropped from it).
+    const budgetPlan = budgetedDistributions(meta.propertyCode);
+    const dist = mergeMonths(budgetPlan, typedDoc[lineKey(DISTRIBUTIONS_SECTION, DISTRIBUTIONS_LABEL)]);
     const anyTyped = dist.typed.some(Boolean);
     const openTyped = typedDoc[lineKey(DISTRIBUTIONS_SECTION, OPENING_LABEL)]?.months?.[0];
     // THE BANK FIRST (owner: "using current balance plus reprojections"): the
@@ -1177,7 +1180,7 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
       openingTyped: openTyped != null,
       distributions: {
         months: dist.months, total: r0(sum(dist.months)), typed: anyTyped ? dist.typed : undefined,
-        source: anyTyped ? "entered" : sum(plan) ? "plan" : "none",
+        source: anyTyped ? "entered" : sum(budgetPlan) ? "plan" : "none",
         basisYearActual: onGlDist,
       },
       balance: projectBalance(opening, cashFlow, dist.months),

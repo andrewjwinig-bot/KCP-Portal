@@ -2057,7 +2057,9 @@ time — and the team does not have time to open the GL over $80.
   no balance claimed ("no GL opening balances on file"). **The owner's plan is
   seeded** (`DISTRIBUTION_PLAN`): Gray's Ferry (4500) $500K, Revere (7300)
   $300K, Parkwood (7010) $200K, Trust #4 (8200) $200K = $1.2M a year, paid
-  half in APRIL and half in OCTOBER; a typed month replaces the plan's. The
+  half in APRIL and half in OCTOBER; a typed month replaces the plan's. **4500's distributions are NOT BUDGETED** (owner, 10/2026 —
+  `NOT_BUDGETED_DISTRIBUTIONS` / `budgetedDistributions`): its draft starts at
+  $0, while this year's plan still rolls its bank balance to Dec 31. The
   prior-year column shows what the GL's distribution accounts (<4000, named
   "distribut…") paid this year. A book roll-up sums each property's
   distributions and balance (`consolidateCash`).
