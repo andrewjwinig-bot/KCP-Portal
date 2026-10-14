@@ -485,7 +485,7 @@ export function PayrollBudget({ year }: { year: number }) {
                 {fa.rows.map((b) => (
                   <tr key={b.code} style={{ opacity: b.total < 0.5 ? 0.55 : 1 }}>
                     <td style={{ ...tdL, fontWeight: 700 }}><button type="button" onClick={() => setBuildingFor({ code: b.code, label: fa.label })} style={codeBtn} title="Employees allocated here">{b.code}</button></td>
-                    <Cell value={b.sqft} show={num0(b.sqft)} onSave={(v) => setB(b.code, { sqft: v })} width={80} />
+                    <td style={td}>{num0(b.sqft)}</td>
                     <td style={td}>{pct(b.prs * 100, 2)}</td>
                     <PctCell value={b.altPct} decimals={2} onSave={(v) => setB(b.code, { altPct: v })} />
                     <td style={td}>{num0(b.office)}</td>
