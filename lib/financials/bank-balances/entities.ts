@@ -36,20 +36,18 @@ export type BalanceEntity = {
 const SD_NAME: Record<string, string> = {
   x7216: "Security Deposits — All but NI LLC",
   x7448: "Security Deposits — NI LLC",
-  // Liberty's LIK Management (SD) money market — security deposits, not LIK's cash (owner).
-  x8276: "Security Deposits — LIK Money Market",
+  // Liberty's LIK Management (SD) money market (x8276) is security deposits,
+  // not LIK's cash — it reads on the All but NI LLC line (SD_LINE, owner).
 };
 
 /** Accounts with no property code in the registry, or that are not their property's operating account. */
 const UNCODED: Record<string, BalanceEntity> = {
   x5623: { key: "HKCO", name: "Hyman Korman Co (Parent)", group: "Land & Other", reserveCodes: [] },
-  x6127: { key: "KFNOCK", name: "KF Nockamixon / LKF Nock", group: "Land & Other", reserveCodes: [] },
   x6063: { key: "TKD", name: "TKD-Neshaminy LLC", group: "Land & Other", reserveCodes: [] },
-  // Registered under 9510, but 9500 LH LLC is not the centre's operating account (owner).
   // The clearing account is pass-through, not LIK's own cash — its own line,
   // keyed to sort just under LIK Management (owner).
   x1622: { key: "2010-CLR", name: "LIK Clearing", group: "Management", reserveCodes: [] },
-  x6088: { key: "9500LH", name: "9500 LH LLC", group: "Land & Other", reserveCodes: [] },
+  // 9500 LH LLC (x6088) is registered under 9510 and reads on 9510's line (owner).
 };
 
 function groupOf(code: string): BalanceGroup {
@@ -63,10 +61,18 @@ function groupOf(code: string): BalanceGroup {
   return "Land & Other";
 }
 
+/** Accounts that read as ONE line with another (owner): each maps to the
+ *  line key it joins. */
+const SD_LINE: Record<string, string> = { x8276: "x7216" };
+
 export function entityFor(a: UniqueBankAccount): BalanceEntity {
-  if (SD_NAME[a.last4]) return { key: `SD-${a.last4}`, name: SD_NAME[a.last4], group: "Tenant Security Deposits", restricted: true, reserveCodes: [] };
+  // The LIK money market holds the same deposits as "All but NI LLC" — one line (owner).
+  const sd = SD_LINE[a.last4] ?? a.last4;
+  if (SD_NAME[sd]) return { key: `SD-${sd}`, name: SD_NAME[sd], group: "Tenant Security Deposits", restricted: true, reserveCodes: [] };
   if (UNCODED[a.last4]) return UNCODED[a.last4];
-  const code = a.propertyCode ?? "";
+  // KF Nockamixon / LKF Nock (x6127) banks with Kosano (2070) as one line (owner).
+  const code = a.last4 === "x6127" ? "2070" : a.propertyCode ?? "";
+  if (code === "2070") return { key: "2070", name: "Kosano Associates LP (Nockamixon)", group: groupOf("2070"), reserveCodes: ["2070"] };
   if (a.last4 === "x5631") return { key: "PJV3", name: "JV III", group: "Business Parks", reserveCodes: FUND_BUILDINGS.PJV3 };
   if (code === "4000") return { key: "PNIPLX", name: "NI LLC", group: "Business Parks", reserveCodes: FUND_BUILDINGS.PNIPLX };
   if (code === "3610A") return { key: "3610A", name: "JV III Condo", group: "Business Parks", reserveCodes: [] };
