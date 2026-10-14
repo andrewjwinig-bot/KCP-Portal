@@ -320,8 +320,11 @@ export function combineTenantRevenue(rentRows: RentRow[], est: ReimbursementEsti
       unitRef: r.unitRef, tenant: r.tenant, sqft: r.sqft, status: r.status,
       rent: r.months.slice(), cam: zero(), ins: zero(), ret: zero(), assumed: r.assumed.slice(),
       billing: r.billing,
+      // A rent set on a recovery-only recon tenant: still that tenant's row.
+      ...(r.rentOnly ? { recoveryOnly: true } : {}),
     };
     const ts = byUnit.get(canonRef(r.unitRef));
+    if (ts && !row.tenant) row.tenant = ts[0].name;
     if (ts) { fill(row, ts); byUnit.delete(canonRef(r.unitRef)); }
     return row;
   });
@@ -350,7 +353,7 @@ export function recoveryOnlyLeases(
     .filter((r) => r.recoveryOnly && r.tenant && !have.has(canonRef(r.unitRef)))
     .map((r) => {
       const a = assumptions[r.unitRef] ?? assumptions[r.unitRef.trim().toUpperCase()];
-      return { unitRef: r.unitRef, tenant: r.tenant, sqft: 0, monthlyRent: 0, assumption: a?.kind === "stop" ? (a as unknown as ContractedLease["assumption"]) : undefined };
+      return { unitRef: r.unitRef, tenant: r.tenant, sqft: 0, monthlyRent: 0, assumption: a?.kind === "stop" || a?.kind === "rent" ? (a as unknown as ContractedLease["assumption"]) : undefined };
     });
 }
 
