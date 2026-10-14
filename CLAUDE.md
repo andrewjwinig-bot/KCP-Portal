@@ -1451,7 +1451,8 @@ time — and the team does not have time to open the GL over $80.
   - Each (fund, account) takes its building share on the WORKBOOK'S basis:
     PRS (sq ft) or the keyed Alt PRS — SC 6010 + marketing Alt (9510 out),
     6030 PRS; NI LLC 6010 + marketing PRS, 6030 Alt (40C0 out); JV III Alt
-    30/35/35. Selectable per column. Marketing-All splits SC 46 / NI 34 / JV 20.
+    30/35/35. Selectable per column. **Building sq ft is LOCKED** (owner) —
+    read-only in the grid, and `sanitizePayrollDoc` takes it from the seed. Marketing-All splits SC 46 / NI 34 / JV 20.
     Misc: 2010 = LIK Operating + Other; 0800 = Interstate + Middletown; 4900 =
     Office Works Direct + Indirect; Eastwick has no property code. Monthly
     rounds to $10 as the workbook does. Everything allocated must equal gross.

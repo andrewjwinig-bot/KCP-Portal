@@ -481,7 +481,13 @@ export function sanitizePayrollDoc(raw: any, year: number): PayrollBudgetDoc | n
     const t = raw.funds?.[fk] ?? SEED_2026.funds[fk];
     const pick = (v: unknown): "prs" | "alt" => (v === "alt" ? "alt" : "prs");
     funds[fk] = {
-      buildings: (Array.isArray(t.buildings) ? t.buildings : SEED_2026.funds[fk].buildings).map((b: any) => ({ code: String(b.code).slice(0, 12), sqft: n(b.sqft), altPct: n(b.altPct) })),
+      // Square footage is LOCKED (owner): a building's sq ft is a fact, not a
+      // payroll input, so the seed's figure wins over anything saved.
+      buildings: (Array.isArray(t.buildings) ? t.buildings : SEED_2026.funds[fk].buildings).map((b: any) => {
+        const code = String(b.code).slice(0, 12);
+        const seeded = SEED_2026.funds[fk].buildings.find((x) => x.code === code);
+        return { code, sqft: seeded ? seeded.sqft : n(b.sqft), altPct: n(b.altPct) };
+      }),
       basis: { office: pick(t.basis?.office), maintenance: pick(t.basis?.maintenance), marketing: pick(t.basis?.marketing) },
     };
   }
