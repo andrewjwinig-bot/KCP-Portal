@@ -48,15 +48,18 @@ function Amount({ value, onSave, width = 90, ariaLabel, money }: { value: number
     onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); }} />;
 }
 
-export function RaisePlanCard({ doc, context, onPlan, onApply }: {
+export function RaisePlanCard({ doc, context, onPlan, onApply, onUndo }: {
   doc: PayrollBudgetDoc;
   context: Record<string, BuildingContext>;
   onPlan: (plan: RaisePlan) => void;
   /** Apply raise `index`: set the employee's salary and take it off the plan. */
   onApply: (index: number, employeeId: string, salary: number) => void;
+  /** Undo applied raise `index`: the salary goes back and the raise returns to the plan. */
+  onUndo: (index: number) => void;
 }) {
   const plan: RaisePlan = doc.raisePlan ?? { pool: DEFAULT_POOL, raises: [] };
-  const [open, setOpen] = useState(plan.raises.length > 0);
+  const applied = plan.applied ?? [];
+  const [open, setOpen] = useState(plan.raises.length > 0 || applied.length > 0);
   const setRaise = (i: number, patch: Partial<RaiseTest>) => onPlan({ ...plan, raises: plan.raises.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
   const addRaise = () => {
     const free = doc.employees.find((e) => !plan.raises.some((r) => r.employeeId === e.id)) ?? doc.employees[0];
@@ -105,7 +108,8 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
       <div className="card" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", flexWrap: "wrap" }}>
         <span style={{ fontWeight: 800, fontSize: 15 }}>Raise Plan</span>
         <span className="muted small" style={{ flex: 1 }}>Test the year&rsquo;s raises — what they really cost after tenant recoveries, and where it lands. Nothing reaches the budget until you apply it.</span>
-        <button type="button" className="btn sm" onClick={plan.raises.length ? () => setOpen(true) : addRaise}>{plan.raises.length ? `Open · ${plan.raises.length} raise${plan.raises.length === 1 ? "" : "s"} ▸` : "+ Plan a raise"}</button>
+        {applied.length > 0 && <span className="muted small">{applied.length} applied</span>}
+        <button type="button" className="btn sm" onClick={plan.raises.length || applied.length ? () => setOpen(true) : addRaise}>{plan.raises.length ? `Open · ${plan.raises.length} raise${plan.raises.length === 1 ? "" : "s"} ▸` : applied.length ? "Open ▸" : "+ Plan a raise"}</button>
       </div>
     );
   }
@@ -189,6 +193,42 @@ export function RaisePlanCard({ doc, context, onPlan, onApply }: {
           <button type="button" className="btn sm" onClick={addRaise}>+ Add raise</button>
         </div>
       </div>
+
+      {/* The record: every raise APPLIED — kept, so what each employee was
+          given stays traceable after it reaches the budget (owner). */}
+      {applied.length > 0 && (
+        <div style={{ overflowX: "auto", borderTop: "1px solid var(--border)" }}>
+          <div style={{ padding: "10px 14px 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+            Applied raises · {money0(applied.reduce((s, r) => s + (r.salaryAfter - r.salaryBefore), 0))} added to {doc.year} salaries
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>
+              <th style={thL}>Employee</th><th style={thL}>Raise</th><th style={th}>Salary before</th><th style={th}>Salary after</th>
+              <th style={th}>Change</th><th style={th}>%</th><th style={thL}>Applied</th><th style={th} />
+            </tr></thead>
+            <tbody>
+              {applied.map((r, i) => {
+                const d = r.salaryAfter - r.salaryBefore;
+                return (
+                  <tr key={`${r.employeeId}-${r.at}-${i}`}>
+                    <td style={{ ...tdL, fontWeight: 600 }}>{r.name}</td>
+                    <td style={tdL}>{r.kind === "pct" ? `${r.amount}%` : r.kind === "dollar" ? `${money0(r.amount)}` : "Bonus"}</td>
+                    <td style={td}>{money0(r.salaryBefore)}</td>
+                    <td style={{ ...td, fontWeight: 700 }}>{money0(r.salaryAfter)}</td>
+                    <td style={td}>{money0(d)}</td>
+                    <td style={td}>{r.salaryBefore > 0 ? `${((d / r.salaryBefore) * 100).toFixed(1)}%` : "–"}</td>
+                    <td style={{ ...tdL, color: "var(--muted)" }}>{r.at ? new Date(r.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "–"}{r.by ? ` · ${r.by.charAt(0).toUpperCase()}${r.by.slice(1).toLowerCase()}` : ""}</td>
+                    <td style={td}>
+                      <button type="button" className="btn sm" title="Put the salary back and return the raise to the plan"
+                        onClick={() => { if (window.confirm(`Undo ${r.name}'s raise? Their ${doc.year} salary goes back to ${money0(r.salaryBefore)}.`)) onUndo(i); }}>Undo</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Where it lands */}
       {impact.rows.length > 0 && (

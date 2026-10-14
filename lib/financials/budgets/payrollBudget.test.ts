@@ -146,8 +146,17 @@ describe("the raise plan — several raises, a pool, and the recoverable part", 
     const clean = sanitizePayrollDoc({ ...doc, raisePlan: { pool: { kind: "pct", amount: 4 }, raises: [
       { employeeId: "gosik-jason", kind: "bonus", amount: 1000 }, { employeeId: "nobody", kind: "pct", amount: 9 },
     ] } }, 2027)!;
-    expect(clean.raisePlan).toEqual({ pool: { kind: "pct", amount: 4 }, raises: [{ employeeId: "gosik-jason", kind: "bonus", amount: 1000 }] });
+    expect(clean.raisePlan).toEqual({ pool: { kind: "pct", amount: 4 }, raises: [{ employeeId: "gosik-jason", kind: "bonus", amount: 1000 }], applied: [] });
     expect(allocatePayroll(clean).totals.gross).toBeCloseTo(allocatePayroll(doc).totals.gross, 2);
+  });
+});
+
+describe("applied raises are kept as the record", () => {
+  it("survives a save, with the salary before and after", () => {
+    const doc = seedPayrollBudget(2027);
+    const rec = { employeeId: "gosik-jason", kind: "pct", amount: 3, name: "Jason Gosik", salaryBefore: 50000, salaryAfter: 51500, at: "2026-10-14T18:00:00.000Z", by: "drew" };
+    const clean = sanitizePayrollDoc({ ...doc, raisePlan: { pool: { kind: "pct", amount: 3 }, raises: [], applied: [rec] } }, 2027)!;
+    expect(clean.raisePlan!.applied).toEqual([rec]);
   });
 });
 

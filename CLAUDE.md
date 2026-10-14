@@ -1500,7 +1500,10 @@ time — and the team does not have time to open the GL over $80.
       It rides on the payroll GET (`context`), so it is behind `canSeePayroll`.
     - The plan is SAVED on the doc (`raisePlan`, kept by `sanitizePayrollDoc`)
       but is never in the budget's figures. **Apply** sets the salary and
-      takes the raise off the plan. A BONUS is wages for FICA / Medicare /
+      moves the raise to `raisePlan.applied` — the RECORD (owner: "it just
+      disappears without tracing"): employee, raise, salary before → after,
+      when and who, listed as **Applied raises** on the card, each with an
+      Undo that puts the salary back and returns the raise to the plan. A BONUS is wages for FICA / Medicare /
       FUTA but not the 401(k) match, and is never applied —
       `PayrollEmployee.bonus` exists only for the plan's math.
   - NEXT (not built): feed the property drafts' salary lines from it (it
