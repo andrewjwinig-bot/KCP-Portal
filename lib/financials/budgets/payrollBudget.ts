@@ -482,7 +482,8 @@ export function sanitizePayrollDoc(raw: any, year: number): PayrollBudgetDoc | n
     const pick = (v: unknown): "prs" | "alt" => (v === "alt" ? "alt" : "prs");
     funds[fk] = {
       // Square footage is LOCKED (owner): a building's sq ft is a fact, not a
-      // payroll input, so the seed's figure wins over anything saved.
+      // payroll input. The seed's figure wins over anything saved; the route
+      // then lays the RENT ROLL's over it (`withRollSqft`).
       buildings: (Array.isArray(t.buildings) ? t.buildings : SEED_2026.funds[fk].buildings).map((b: any) => {
         const code = String(b.code).slice(0, 12);
         const seeded = SEED_2026.funds[fk].buildings.find((x) => x.code === code);
@@ -505,4 +506,23 @@ export function sanitizePayrollDoc(raw: any, year: number): PayrollBudgetDoc | n
     marketingSplit: { sc: n(ms.sc), niLlc: n(ms.niLlc), jv3: n(ms.jv3) },
     seededFrom: typeof raw.seededFrom === "string" ? raw.seededFrom.slice(0, 120) : undefined,
   };
+}
+
+/**
+ * Each fund building's sq ft from the rent roll (owner: "pull sq ft from the
+ * rent roll") — the property's total rentable SF, keyed by property code. A
+ * building the roll doesn't carry (or carries at 0) keeps the seed's figure.
+ */
+export function withRollSqft(doc: PayrollBudgetDoc, sqftByCode: Record<string, number>): PayrollBudgetDoc {
+  const funds = { ...doc.funds };
+  for (const fk of Object.keys(funds) as FundKey[]) {
+    funds[fk] = {
+      ...funds[fk],
+      buildings: funds[fk].buildings.map((b) => {
+        const sf = Number(sqftByCode[b.code]);
+        return sf > 0 ? { ...b, sqft: Math.round(sf) } : b;
+      }),
+    };
+  }
+  return { ...doc, funds };
 }
