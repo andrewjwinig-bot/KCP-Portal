@@ -67,9 +67,9 @@ const NAV_ROLE_KEY: Record<string, string> = {
 // A sub-page is listed straight after its parent (it only shows while you are
 // in that parent — see `showFor`).
 const GROUP_CHILD_ORDER: Record<string, string[]> = {
-  banking: ["Bank Transfers", "Debt Tracker", "Security Deposits", "Bank Recs", "Bank Acc Tracker"],
+  // Cash Analysis is the bank balances now, so it leads Banking (owner).
+  banking: ["Cash Analysis", "Bank Transfers", "Debt Tracker", "Security Deposits", "Bank Recs", "Bank Acc Tracker"],
   financials: [
-    "Cash Analysis",
     "Operating Statements", "Flags to Investigate",
     "Reprojections",
     "Budgets", "Budget Draft",
@@ -596,7 +596,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
-    groupId: "financials",
+    groupId: "banking",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="5" width="20" height="14" rx="2" />

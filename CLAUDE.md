@@ -165,10 +165,11 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
 - When a section's purpose mirrors something on another page (a download menu, a hidden-accounts list, a KPI row, a tab+filter+table), copy that page's component/markup/spacing rather than approximating it inline.
 
 **The sidebar (`app/components/Sidebar.tsx`)**: within a group the order is
-`GROUP_CHILD_ORDER` — Financials: Cash Analysis, Operating Statements, Reprojections,
+`GROUP_CHILD_ORDER` — Financials: Operating Statements, Reprojections,
 Budgets, Management Fees (Balance Sheet and the 1099 Register are NOT in the
-sidebar — occasional reports, reached from the Report Center); Banking: Bank Transfers,
-Debt Tracker, Security Deposits, Bank Recs. A SUB-PAGE (Flags to Investigate,
+sidebar — occasional reports, reached from the Report Center); Banking: Cash
+Analysis (the bank balances — owner moved it to the top of Banking), Bank
+Transfers, Debt Tracker, Security Deposits, Bank Recs. A SUB-PAGE (Flags to Investigate,
 Budget Draft, Bank Acc Tracker, and Budget Inputs for anyone who has Budgets)
 shows only while you are in its parent (`showFor`) and is listed straight after
 it. Past Tenants is off the sidebar (the page does not work). **Reports** sits at
