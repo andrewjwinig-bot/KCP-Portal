@@ -337,6 +337,23 @@ export function combineTenantRevenue(rentRows: RentRow[], est: ReimbursementEsti
   return out;
 }
 
+/** Recon tenants on no rent-roll suite, as leases in place — so the table
+ *  offers them "Back out" (a back-out stops their recoveries; `tenancy` in
+ *  reimbursementEstimate reads the same assumption by unit ref). */
+export function recoveryOnlyLeases(
+  rows: TenantRevenueRow[] | undefined,
+  assumptions: Record<string, { kind: string } & Record<string, unknown>>,
+  already: ContractedLease[],
+): ContractedLease[] {
+  const have = new Set(already.map((c) => canonRef(c.unitRef)));
+  return (rows ?? [])
+    .filter((r) => r.recoveryOnly && r.tenant && !have.has(canonRef(r.unitRef)))
+    .map((r) => {
+      const a = assumptions[r.unitRef] ?? assumptions[r.unitRef.trim().toUpperCase()];
+      return { unitRef: r.unitRef, tenant: r.tenant, sqft: 0, monthlyRent: 0, assumption: a?.kind === "stop" ? (a as unknown as ContractedLease["assumption"]) : undefined };
+    });
+}
+
 export type RecoveryTie = {
   basis: "cam" | "ins" | "ret";
   /** The tenants' total, month by month. */
@@ -1188,6 +1205,7 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
   })();
 
 
+  const tenantRevenue = lease.hasData ? withStatementBilling(combineTenantRevenue(lease.rows ?? [], reimbursementEstimate), stmtBilling) : undefined;
   return {
     cash,
     propertyCode: meta.propertyCode,
@@ -1206,7 +1224,13 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
       projectedRentalTotal: lease.rentalTotal,
       expiring: lease.expiring,
       vacant: lease.vacant,
-      contracted: lease.contracted ?? [],
+      // A recon tenant matching NO rent-roll suite (its recon unit ref is not
+      // on the roll — North Inc at 7010) is a lease in place too: it pays
+      // recoveries, so it must be backable-out like any other.
+      contracted: [
+        ...(lease.contracted ?? []),
+        ...recoveryOnlyLeases(tenantRevenue, assumptions, lease.contracted ?? []),
+      ],
       assumptionsApplied: lease.assumptionsApplied,
       propertyCode: meta.propertyCode,
       fromSchedule: !!lease.fromSchedule,
@@ -1224,7 +1248,7 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
     feeRollup,
     recoveryTie,
     deals: lease.hasData ? lease.deals : undefined,
-    tenantRevenue: lease.hasData ? withStatementBilling(combineTenantRevenue(lease.rows ?? [], reimbursementEstimate), stmtBilling) : undefined,
+    tenantRevenue,
     rentLineLabel,
     debt: debt ? { loans: debt.loans, interest: r0(sum(debt.interest)), principal: r0(sum(debt.principal)), fundShare: debtShare } : undefined,
   };
