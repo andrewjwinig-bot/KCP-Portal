@@ -37,6 +37,10 @@ export type LeaseAssumption = {
   /** 1–12: the month the change takes effect — when the new/renewal rent starts,
    *  the vacate takes hold, or the lease-up space starts paying. */
   startMonth?: number;
+  /** A back-out ("stop") through this month only, 1–12 — a single month's
+   *  rent backed out (Revere's January) rather than the rest of the year.
+   *  Unset = through December. */
+  endMonth?: number;
   /** The assumed lease TERM in years — for a renewal, the new term; for a
    *  lease-up, the new lease's. It does not move this year's rent (the budget
    *  is one year); it records the deal, which later years and the leasing
@@ -111,7 +115,7 @@ export async function setLeasingAssumption(
       // to the type and the route but not here, so a lease-up saved with no
       // rent (it projected $0) and no TI or commission ever reached the budget.
       monthlyRent: a.monthlyRent, rentPsf: a.rentPsf, tiPsf: a.tiPsf, lcPct: a.lcPct,
-      startMonth: a.startMonth, termYears: a.termYears, notes: a.notes,
+      startMonth: a.startMonth, endMonth: a.kind === "stop" ? a.endMonth : undefined, termYears: a.termYears, notes: a.notes,
       updatedBy: a.updatedBy,
       updatedAt: new Date().toISOString(),
     };
@@ -152,6 +156,7 @@ export function leasingDecisionFromBody(
       unitRef, kind,
       monthlyRent: newRent ? num(b?.monthlyRent) : undefined,
       startMonth: kind === "leaseup" || kind === "stop" || kind === "rent" ? (startMonth ?? (kind === "rent" ? 1 : undefined)) : undefined,
+      endMonth: kind === "stop" && num(b?.endMonth) != null ? Math.min(12, Math.max(startMonth ?? 1, Number(b!.endMonth))) : undefined,
       termYears,
       rentPsf: newRent ? psf(b?.rentPsf) : undefined,
       tiPsf: deal ? psf(b?.tiPsf) : undefined,

@@ -1517,6 +1517,12 @@ time — and the team does not have time to open the GL over $80.
   (a recovery-only row — North Inc 7010-12349) is offered as a lease in place
   too** (`recoveryOnlyLeases` in `draft.ts`), so it can be backed out; it had no
   call and so no Edit / Back out at all.
+  **A back-out can be ONE MONTH, or a range** (`endMonth` on `stop`, owner:
+  "back out january revere rent"): the dialog's "Back out from" + "Through"
+  (December = the rest of the year, the default and the old behaviour). Rent
+  AND recoveries are out for those months only — `projectLeaseRevenue` and the
+  `tenancy` wrapper in `reimbursementEstimate` both read the window. Labelled
+  "Backed out Jan only".
   **A lease in place can also have its RENT SET** (`kind: "rent"`,
   `monthlyRent` + `startMonth`, default January; owner: "i need to override
   north inc rent … its a little challenging"): the row action reads **"Rent /

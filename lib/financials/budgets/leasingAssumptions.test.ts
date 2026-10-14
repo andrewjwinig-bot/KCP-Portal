@@ -17,6 +17,15 @@ describe("leasing decisions", () => {
     expect(p.ok && p.decision.kind === "stop" && p.decision.startMonth === 3).toBe(true);
   });
 
+  it("keeps a back-out's THROUGH month, never before its start, and only on a back-out", () => {
+    const one = leasingDecisionFromBody({ unitRef: "7300-1", kind: "stop", startMonth: 1, endMonth: 1 }, "ANDREW");
+    expect(one.ok && one.decision).toMatchObject({ startMonth: 1, endMonth: 1 });
+    const back = leasingDecisionFromBody({ unitRef: "7300-1", kind: "stop", startMonth: 5, endMonth: 2 }, "ANDREW");
+    expect(back.ok && back.decision.endMonth).toBe(5);
+    const renew = leasingDecisionFromBody({ unitRef: "7300-1", kind: "renew", endMonth: 3 }, "ANDREW");
+    expect(renew.ok && renew.decision.endMonth).toBeUndefined();
+  });
+
   it("takes a SET rent (no TI / LC — not a deal), January by default, and refuses one with no rent", () => {
     const p = leasingDecisionFromBody({ unitRef: "7010-12349", kind: "rent", monthlyRent: 2500, tiPsf: 10, lcPct: 5 }, "ANDREW");
     expect(p.ok && p.decision).toMatchObject({ kind: "rent", monthlyRent: 2500, startMonth: 1, tiPsf: undefined, lcPct: undefined });

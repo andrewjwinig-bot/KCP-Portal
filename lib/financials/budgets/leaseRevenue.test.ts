@@ -49,6 +49,13 @@ describe("projectLeaseRevenue", () => {
     expect(p.expiring).toEqual([]);
   });
 
+  it("backs out ONE month's rent when the back-out runs through the same month (Revere's January)", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([u("1100-1", { occupantName: "Revere", baseRent: 2000, leaseTo: "12/31/2031" })]));
+    const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "stop", startMonth: 1, endMonth: 1 } });
+    expect(p.rows[0].months).toEqual([0, ...new Array(11).fill(2000)]);
+    expect(p.rentalTotal).toBe(22000);
+  });
+
   it("SETS the rent of a lease in place from a month — and of a recon-only tenant with no suite", async () => {
     resolveCurrentRentroll.mockResolvedValue(roll([u("1100-1", { occupantName: "Stable", baseRent: 1000, leaseTo: "12/31/2031" })]));
     const p = await projectLeaseRevenue(["1100"], 2027, {

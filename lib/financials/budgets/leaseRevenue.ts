@@ -392,7 +392,8 @@ export async function projectLeaseRevenue(
     const was = Math.max(0, ...r.months);
     if (a?.kind === "stop") {
       const from = Math.min(12, Math.max(1, a.startMonth ?? 1));
-      for (let m = from - 1; m < 12; m++) { r.months[m] = 0; r.assumed[m] = false; }
+      const to = Math.min(12, Math.max(from, a.endMonth ?? 12));
+      for (let m = from - 1; m < to; m++) { r.months[m] = 0; r.assumed[m] = false; }
       assumptionsApplied++;
     }
     if (a?.kind === "rent") {
