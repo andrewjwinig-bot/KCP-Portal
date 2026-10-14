@@ -150,6 +150,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
     return (
       <tr key={key} style={{ background: strong ? "rgba(11,74,125,0.06)" : undefined }}>
         <td colSpan={2} style={{ ...cell, textAlign: "left" }}>{label}</td>
+        <td style={cell}>{totalSf > 0 ? totalSf.toLocaleString() : "–"}</td>
         {months.map((v, i) => <td key={i} style={cell}>{monthShown(v, totalSf)}</td>)}
         <td style={{ ...cell, fontWeight: strong ? 900 : 700, borderLeft: "1px solid var(--border)" }}>{money0(months.reduce((a, b) => a + b, 0))}</td>
         <td style={{ ...cell, fontWeight: strong ? 800 : 600 }}>{(() => { const x = perSf(months.reduce((a, b) => a + b, 0), totalSf); return x == null ? "–" : psf$(x); })()}</td>
@@ -204,6 +205,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
             <tr>
               <th style={{ ...th, textAlign: "left" }}>Tenant — {view === "gross" ? "rent + recoveries" : VIEW_LABEL[view].toLowerCase()}</th>
               <th style={{ ...th, textAlign: "left" }}>Suite</th>
+              <th style={th}>SF</th>
               {MONTHS.map((m) => <th key={m} style={th}>{m}</th>)}
               <th style={{ ...th, borderLeft: "1px solid var(--border)" }}>Total</th>
               <th style={th}>$/SF</th>
@@ -211,7 +213,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={16} className="muted small" style={{ ...td, textAlign: "left", padding: 14 }}>
+              <tr><td colSpan={17} className="muted small" style={{ ...td, textAlign: "left", padding: 14 }}>
                 {toDecide ? "Every leasing call is made." : sure === "assumed" ? "Nothing speculative — no renewals, holds or lease-ups assumed yet." : "Nothing contracted."}
               </td></tr>
             )}
@@ -253,6 +255,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                     </span>
                   </td>
                   <td style={{ ...td, textAlign: "left" }}><code style={SUITE}>{r.unitRef}</code></td>
+                  <td style={{ ...td, color: r.sqft > 0 ? undefined : "var(--muted)" }}>{r.sqft > 0 ? r.sqft.toLocaleString() : "–"}</td>
                   {months.map((v, i) => {
                     const has = Math.abs(v) > 0.5;
                     // The OTHER unit on hover — $/SF (annualized) in the $
@@ -297,7 +300,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
               const t = p === "rent" ? null : tie.find((x) => x.basis === p);
               if (!t || t.ties || sure !== "all") return null;
               return (
-                <tr key={`tie-${p}`}><td colSpan={16} style={{ ...td, textAlign: "left", paddingLeft: 22, color: "#b91c1c", fontWeight: 600 }}>
+                <tr key={`tie-${p}`}><td colSpan={17} style={{ ...td, textAlign: "left", paddingLeft: 22, color: "#b91c1c", fontWeight: 600 }}>
                   {t.lines.length === 0
                     ? `This statement has no ${PART_LABEL[p]} recovery line, so ${money0(t.estimateTotal)} of tenant recoveries is not in the budget. Add the line to the property's statement mapping.`
                     : `${PART_LABEL[p]}: the budget lines carry ${money0(t.linesTotal)} against ${money0(t.estimateTotal)} from the tenants — a difference of ${money0(t.linesTotal - t.estimateTotal)}.`}

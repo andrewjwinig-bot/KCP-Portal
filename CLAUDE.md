@@ -1517,6 +1517,17 @@ time — and the team does not have time to open the GL over $80.
   (a recovery-only row — North Inc 7010-12349) is offered as a lease in place
   too** (`recoveryOnlyLeases` in `draft.ts`), so it can be backed out; it had no
   call and so no Edit / Back out at all.
+  **A lease in place can also have its RENT SET** (`kind: "rent"`,
+  `monthlyRent` + `startMonth`, default January; owner: "i need to override
+  north inc rent … its a little challenging"): the row action reads **"Rent /
+  back out"** → "Set the rent — type the monthly figure", keyed as $/mo (a
+  recon-only tenant has no SF). Applied in `projectLeaseRevenue` beside the
+  back-out — earlier months keep the lease's rent. A rent set on a unit with NO
+  rent-roll suite (North Inc 7010-12349) becomes its own `rentOnly` row, merged
+  onto the recon tenant in `combineTenantRevenue`; `rentOnly` rows are skipped
+  as tenancy in `reimbursementEstimate`, so the rent never moves its
+  recoveries. Not a deal: no TI / LC / commission. Pinned by
+  `leaseRevenue.test.ts`.
   **Rite Aid (7010-12311) is backed out from January as a SEED**
   (`SEEDED` in `leasingAssumptions.ts`, every budget year from 2027): the
   owner asked for it when the page's save was refusing "stop" — the route kept
@@ -1738,7 +1749,7 @@ time — and the team does not have time to open the GL over $80.
   part. $/SF is never labelled "annualized" — a $/SF rent is annual by
   convention.
 - **Revenue by tenant reads like the Rent Roll**: TENANT first (600 weight,
-  a vacancy in muted italics), then the SUITE as a bold brand-coloured code, a
+  a vacancy in muted italics), then the SUITE as a bold brand-coloured code, then its SF (owner), a
   larger row font and rent-roll row height.
 - **Every leasing field the card keys is STORED** (`setLeasingAssumption`):
   `rentPsf`, `tiPsf`, `lcPct` were dropped on save for a while — a lease-up

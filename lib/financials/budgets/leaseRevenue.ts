@@ -64,6 +64,9 @@ export type RentRow = {
   assumed: boolean[];
   /** How the row came to be, for its label. */
   status: "contracted" | "expiring" | "holdover" | "vacant" | "lease-up";
+  /** A rent SET on a unit no rent-roll suite carries (a recovery-only recon
+   *  tenant) — rent only; its recoveries keep the recon's tenancy. */
+  rentOnly?: boolean;
   /** What the suite is billed a month TODAY for recoveries, off the rent
    *  roll's Operating Expense / Other Expense / Real Estate Tax columns —
    *  the current estimate the budget's figure is compared with. In
@@ -392,9 +395,32 @@ export async function projectLeaseRevenue(
       for (let m = from - 1; m < 12; m++) { r.months[m] = 0; r.assumed[m] = false; }
       assumptionsApplied++;
     }
-    if (r.status === "contracted") {
-      contracted.push({ unitRef: r.unitRef, tenant: r.tenant, sqft: r.sqft, monthlyRent: r0(was), assumption: a?.kind === "stop" ? a : undefined });
+    if (a?.kind === "rent") {
+      const from = Math.min(12, Math.max(1, a.startMonth ?? 1));
+      const rent = assumedMonthlyRent(a, r.sqft) ?? 0;
+      for (let m = from - 1; m < 12; m++) { r.months[m] = rent; r.assumed[m] = true; }
+      assumptionsApplied++;
     }
+    if (r.status === "contracted") {
+      contracted.push({ unitRef: r.unitRef, tenant: r.tenant, sqft: r.sqft, monthlyRent: r0(was), assumption: a?.kind === "stop" || a?.kind === "rent" ? a : undefined });
+    }
+  }
+  // A rent SET on a unit with no rent-roll suite — a recon tenant billed
+  // recoveries only (North Inc, 7010-12349) — becomes its own rent row. It is
+  // marked `rentOnly` so its recoveries keep the recon's tenancy rather than
+  // following these months.
+  const seen = new Set(rows.map((r) => r.unitRef.trim().toUpperCase()));
+  const ours = new Set(codes.map((c) => String(c).trim().toUpperCase()));
+  for (const a of Object.values(assumptions)) {
+    if (a?.kind !== "rent") continue;
+    const ref = String(a.unitRef ?? "").trim().toUpperCase();
+    if (!ref || seen.has(ref) || !ours.has(ref.split("-")[0])) continue;
+    const from = Math.min(12, Math.max(1, a.startMonth ?? 1));
+    const rent = assumedMonthlyRent(a, 0) ?? 0;
+    const months = Array.from({ length: 12 }, (_, m) => (m + 1 >= from ? rent : 0));
+    rows.push({ unitRef: a.unitRef, tenant: "", sqft: 0, months, assumed: months.map((v) => v > 0), status: "contracted", rentOnly: true });
+    seen.add(ref);
+    assumptionsApplied++;
   }
 
   expiring.sort((a, b) => (a.leaseTo ?? "").localeCompare(b.leaseTo ?? ""));

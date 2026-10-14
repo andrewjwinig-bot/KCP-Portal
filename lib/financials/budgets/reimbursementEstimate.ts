@@ -305,7 +305,9 @@ export async function estimateReimbursements(
     }
   }
   const rows = new Map<string, SuiteTenancy>();
-  for (const t of opts.tenancy ?? []) rows.set(canon(t.unitRef), t);
+  // A rent-only row (a rent SET on a recovery-only recon tenant) says nothing
+  // about when that tenant pays recoveries — leave it to the recon's tenancy.
+  for (const t of opts.tenancy ?? []) if (!(t as { rentOnly?: boolean }).rentOnly) rows.set(canon(t.unitRef), t);
   const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   /** The months a tenant already in place pays, which of them are assumed,
    *  and why the year is short. */

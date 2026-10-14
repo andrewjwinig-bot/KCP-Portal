@@ -54,9 +54,11 @@ const INPLACE_CHOICES = [
   { value: "renew", label: "Renew — rent starts at today's $/SF" },
   { value: "vacate", label: "Vacate — leaves at term end" },
   { value: "stop", label: "Stops paying — back out the rent" },
+  { value: "rent", label: "Set the rent — type the monthly figure" },
 ];
 const CONTRACTED_CHOICES = [
   { value: "keep", label: "Keeps paying — lease in place" },
+  { value: "rent", label: "Set the rent — type the monthly figure" },
   { value: "stop", label: "Stops paying — back out the rent" },
 ];
 const VACANT_CHOICES = [
@@ -81,6 +83,7 @@ function effectText(kind: string, end: Date | null, year: number, month: number)
     case "none": return "Vacant all year";
     case "keep": return "Rent as the lease schedules it";
     case "stop": return `No rent — or recoveries — from ${MONTHS[month - 1]} ${year}`;
+    case "rent": return month > 1 ? `The rent keyed, from ${MONTHS[month - 1]} ${year}` : `The rent keyed, all of ${year}`;
     case "leaseup": return `Rent from ${MONTHS[month - 1]} ${year}`;
     case "renew": {
       if (!end) return "New rent all year";
@@ -103,6 +106,10 @@ export function decisionLabel(call: LeasingCall): string | null {
   if (!a) return null;
   if (call.mode === "vacant" && a.kind === "hold") return "Leave vacant";
   if (a.kind === "stop") return `Backed out from ${MONTHS[(a.startMonth ?? 1) - 1]}`;
+  if (a.kind === "rent") {
+    const mo = a.monthlyRent ?? (a.rentPsf != null && call.sqft > 0 ? (a.rentPsf * call.sqft) / 12 : null);
+    return `Rent set${mo != null ? ` ${moneyMo(mo)}` : ""}${(a.startMonth ?? 1) > 1 ? ` from ${MONTHS[(a.startMonth ?? 1) - 1]}` : ""}`;
+  }
   if (leasedPerMonth(call.unitRef)) {
     const mo = a.monthlyRent ?? (a.rentPsf != null && call.sqft > 0 ? (a.rentPsf * call.sqft) / 12 : null);
     const at = mo ?? (call.currentRent || null);
@@ -143,8 +150,8 @@ export function DecisionPill({ call, owner, onOpen }: {
   if (label || call.mode === "contracted") {
     return (
       <button type="button" className="row-quiet-action" onClick={(e) => { e.stopPropagation(); onOpen(); }}
-        aria-label={label ? `Change decision: ${label}` : `Back out ${call.unitRef}'s rent`}>
-        {label ? "Edit call" : "Back out"}
+        aria-label={label ? `Change decision: ${label}` : `Set or back out ${call.unitRef}'s rent`}>
+        {label ? "Edit call" : "Rent / back out"}
       </button>
     );
   }
@@ -186,6 +193,9 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
   const [lc, setLc] = useState<string>(perMonth || assumption?.lcPct == null ? "" : String(assumption.lcPct));
   const [month, setMonth] = useState<number>(assumption?.startMonth ?? 1);
   const [term, setTerm] = useState<string>(assumption?.termYears != null ? String(assumption.termYears) : "");
+  // "Set the rent" is keyed as the MONTH's figure — a recon-only tenant (North
+  // Inc) has no SF on the roll to price a $/SF against.
+  const [setMo, setSetMo] = useState<string>(f2(assumption?.kind === "rent" ? savedMo : curMo));
   const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -199,6 +209,12 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
     const tiV = over.ti ?? ti, lcV = over.lc ?? lc;
     if (k === "") return;
     const apiKind = k === "none" ? "hold" : k === "keep" ? null : k;
+    if (k === "rent") {
+      const v = over.r ?? setMo;
+      if (v === "" || !(Number(v) > 0)) return; // nothing to save until a rent is typed
+      onSave({ unitRef, kind: "rent", monthlyRent: Math.round(Number(v)), startMonth: mo });
+      return;
+    }
     if (perMonth) {
       // Korman Homes: rent is the month's figure as keyed; no TI, no LC. A
       // renewal left at today's rent carries none, so it holds today's exactly.
@@ -306,6 +322,14 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
               {MONTHS.map((mo, i) => <option key={mo} value={i + 1}>{mo} {budgetYear}</option>)}
             </select>
           ), "no rent or recoveries from this month")}
+          {kind === "rent" && field("Rent $/mo", num(setMo, setSetMo, "r", "Rent per month"),
+            curMo != null ? `today ${moneyMo(curMo)}` : "no rent on the roll today")}
+          {kind === "rent" && field("From", (
+            <select value={month} className="select-sm" aria-label="Rent set from"
+              onChange={(e) => { setMonth(Number(e.target.value)); push({ mo: Number(e.target.value) }); }}>
+              {MONTHS.map((mo, i) => <option key={mo} value={i + 1}>{mo} {budgetYear}</option>)}
+            </select>
+          ), "earlier months keep the lease's rent")}
           {kind === "leaseup" && field("Starts paying", (
             <select value={month} className="select-sm" aria-label="Starts paying"
               onChange={(e) => { setMonth(Number(e.target.value)); push({ mo: Number(e.target.value) }); }}>

@@ -49,6 +49,22 @@ describe("projectLeaseRevenue", () => {
     expect(p.expiring).toEqual([]);
   });
 
+  it("SETS the rent of a lease in place from a month — and of a recon-only tenant with no suite", async () => {
+    resolveCurrentRentroll.mockResolvedValue(roll([u("1100-1", { occupantName: "Stable", baseRent: 1000, leaseTo: "12/31/2031" })]));
+    const p = await projectLeaseRevenue(["1100"], 2027, {
+      "1100-1": { unitRef: "1100-1", kind: "rent", monthlyRent: 1500, startMonth: 4 },
+      "1100-77": { unitRef: "1100-77", kind: "rent", monthlyRent: 2000 }, // North Inc: on the recon, not the roll
+      "7010-5": { unitRef: "7010-5", kind: "rent", monthlyRent: 999 },   // another property — ignored
+    });
+    expect(p.rows.find((r) => r.unitRef === "1100-1")!.months).toEqual([1000, 1000, 1000, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500]);
+    const north = p.rows.find((r) => r.unitRef === "1100-77")!;
+    expect(north).toMatchObject({ rentOnly: true, status: "contracted" });
+    expect(north.months.every((m) => m === 2000)).toBe(true);
+    expect(p.rows.some((r) => r.unitRef === "7010-5")).toBe(false);
+    expect(p.rentalTotal).toBe(3000 + 9 * 1500 + 12 * 2000);
+    expect(p.contracted[0].assumption?.kind).toBe("rent");
+  });
+
   it("budgets the INTERNAL broker's commission on each deal — $1/SF at a shopping centre", async () => {
     resolveCurrentRentroll.mockResolvedValue(roll([u("1100-1", { baseRent: 1000, sqft: 2500, leaseTo: "6/30/2027" })]));
     const p = await projectLeaseRevenue(["1100"], 2027, { "1100-1": { unitRef: "1100-1", kind: "renew", monthlyRent: 1200, termYears: 5 } });

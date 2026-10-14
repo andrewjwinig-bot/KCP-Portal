@@ -18,7 +18,10 @@ const idFor = (budgetYear: number, propertyCode: string) => `${budgetYear}-${pro
 // "stop" backs out a lease that is IN PLACE — a tenant who will not pay
 // (Rite Aid at 7010, in bankruptcy): no rent, and so no recoveries, from
 // `startMonth` on, whatever the lease or the schedule says.
-export const LEASE_KINDS = ["renew", "vacate", "leaseup", "hold", "stop"] as const;
+// "rent" SETS the rent of a lease in place from `startMonth` on — the figure
+// keyed, whatever the roll or the schedule says (North Inc at 7010, a recon
+// tenant on no rent-roll suite, has no rent row to type over otherwise).
+export const LEASE_KINDS = ["renew", "vacate", "leaseup", "hold", "stop", "rent"] as const;
 export type LeaseAssumptionKind = (typeof LEASE_KINDS)[number];
 /** The ONE list of decisions a save may carry. The budget page's route had
  *  its own copy, which "stop" never reached — a back-out was refused as
@@ -139,15 +142,16 @@ export function leasingDecisionFromBody(
   const psf = (v: unknown) => { const n = num(v); return n != null && n >= 0 ? n : undefined; };
   const startMonth = num(b?.startMonth) != null ? Math.min(12, Math.max(1, Number(b!.startMonth))) : undefined;
   const termYears = num(b?.termYears) != null && Number(b!.termYears) > 0 ? Math.min(30, Number(b!.termYears)) : undefined;
-  const newRent = kind === "renew" || kind === "leaseup";
-  const deal = newRent || kind === "hold";
+  const newRent = kind === "renew" || kind === "leaseup" || kind === "rent";
+  if (kind === "rent" && !(num(b?.monthlyRent)! > 0) && !(psf(b?.rentPsf)! > 0)) return { ok: false, error: "Enter the rent" };
+  const deal = kind === "renew" || kind === "leaseup" || kind === "hold";
   const lc = psf(b?.lcPct);
   return {
     ok: true,
     decision: {
       unitRef, kind,
       monthlyRent: newRent ? num(b?.monthlyRent) : undefined,
-      startMonth: kind === "leaseup" || kind === "stop" ? startMonth : undefined,
+      startMonth: kind === "leaseup" || kind === "stop" || kind === "rent" ? (startMonth ?? (kind === "rent" ? 1 : undefined)) : undefined,
       termYears,
       rentPsf: newRent ? psf(b?.rentPsf) : undefined,
       tiPsf: deal ? psf(b?.tiPsf) : undefined,

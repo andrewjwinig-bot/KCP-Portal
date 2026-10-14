@@ -17,6 +17,12 @@ describe("leasing decisions", () => {
     expect(p.ok && p.decision.kind === "stop" && p.decision.startMonth === 3).toBe(true);
   });
 
+  it("takes a SET rent (no TI / LC — not a deal), January by default, and refuses one with no rent", () => {
+    const p = leasingDecisionFromBody({ unitRef: "7010-12349", kind: "rent", monthlyRent: 2500, tiPsf: 10, lcPct: 5 }, "ANDREW");
+    expect(p.ok && p.decision).toMatchObject({ kind: "rent", monthlyRent: 2500, startMonth: 1, tiPsf: undefined, lcPct: undefined });
+    expect(leasingDecisionFromBody({ unitRef: "7010-12349", kind: "rent" }, "ANDREW").ok).toBe(false);
+  });
+
   it("backs Rite Aid out of 2027 from January with nothing saved", async () => {
     const a = await getLeasingAssumptions(2027, ["7010"]);
     expect(a["7010-12311"]).toMatchObject({ kind: "stop", startMonth: 1 });
