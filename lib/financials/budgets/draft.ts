@@ -689,6 +689,10 @@ export const LIK_BUSINESS_TAXES: { name: string; month: number; amount: number }
 export const LIK_OFFICE_SUITE = "4080-400";
 /** Its electric, a month — the 2026 workbook's input (rates fixed for three years). */
 export const LIK_OFFICE_ELECTRIC = 500;
+/** The 2026 workbook's May bump on the office's base rent ($13,724 in May
+ *  against $5,924 every other month) — kept, owner 10/2026, as its own
+ *  typeable row so it can be changed or zeroed. */
+export const LIK_OFFICE_MAY = { month: 5, amount: 7800, name: "May Rent Adjustment" };
 
 /** 2010's Office Rental for the budget year: suite 4080-400's rent, month by
  *  month, off Building 8's rent schedule (else the rent roll held flat) and
@@ -1086,11 +1090,14 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
         // the 2026 workbook's input — $500 a month, "rates set for three
         // years" — and a typeable row, so a new rate is one figure to change.
         const electric = new Array(12).fill(LIK_OFFICE_ELECTRIC) as number[];
-        const months = office.months.map((v, i) => v + electric[i]);
+        const may = new Array(12).fill(0) as number[];
+        may[LIK_OFFICE_MAY.month - 1] = LIK_OFFICE_MAY.amount;
+        const months = office.months.map((v, i) => v + electric[i] + may[i]);
         sec.lines[idx] = {
           ...l, months, total: r0(sum(months)), source: "office-lease", officeLease: office.lease,
           subLines: [
             { account: `Base Rent · ${office.lease.unitRef}`, months: office.months, total: r0(sum(office.months)), basisTotal: 0, typeable: false },
+            { account: LIK_OFFICE_MAY.name, months: may, total: r0(sum(may)), basisTotal: 0, typeable: true },
             { account: "Electric", months: electric, total: r0(sum(electric)), basisTotal: 0, typeable: true },
           ],
         };

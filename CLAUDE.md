@@ -1196,7 +1196,9 @@ time — and the team does not have time to open the GL over $80.
   revenue (`projectLeaseRevenue(["4080"]…)` with the BP rent schedule and any
   call on the suite), so the two sides of the rent cannot differ. Not grown;
   its ⓘ names the suite, SF and source. It opens into **Base Rent ·
-  4080-400** (locked) and **Electric** (typeable, `LIK_OFFICE_ELECTRIC` $500 a
+  4080-400** (locked), **May Rent Adjustment** (typeable, `LIK_OFFICE_MAY` —
+  the workbook's May bump, $13,724 vs $5,924: +$7,800 in May; owner said keep
+  it) and **Electric** (typeable, `LIK_OFFICE_ELECTRIC` $500 a
   month — the 2026 workbook's input, "rates set for three years"): both post
   to 8110, so the GL cannot split them.
 - **2010 IS BUDGETED OFF ITS GL** (owner: "this budget should be pretty
@@ -1208,10 +1210,10 @@ time — and the team does not have time to open the GL over $80.
   (`8330-*`)** had no line at all and is now one, and **Legal & Accounting**
   / **Bank Fees** take their whole families (`8310-*`, `8190-*`) — the
   workbook's own import posts legal to 8310-9800, which the old `8310-8501`
-  missed. NOTE the labels Skyline gave two lines do not match the workbook's:
-  "Auto/ Vehicle" (8980-9800) is the workbook's **G&A Clearing**, and the
-  auto lease + gas (8990-9800) sit in "Other G&A Expense" (8990-*). The owner
-  keeps those figures as they are.
+  missed. Two lines were RENAMED to the workbook's labels, by account (owner):
+  8980-9800, Skyline's "Auto/ Vehicle", is **G&A Clearing**, and 8990-*
+  (the auto lease + gas), Skyline's "Other G&A Expense", is **Auto/ Vehicle
+  Expenses** — old keys read through `lineRenames.ts`. Figures unchanged.
   **Business Taxes is the workbook's four filings** (`LIK_BUSINESS_TAXES`,
   source `schedule`; owner: "need to roll up into Business Taxes for 2010"):
   E-collect (Philadelphia BPT) $1,600 and N.J. Div of Revenue $500 in April,
@@ -1221,13 +1223,15 @@ time — and the team does not have time to open the GL over $80.
   **2010's Expenses run in the LIK workbook's order** (owner: "hard to line up
   and compare since they are out of order"): Salaries & Benefits, Office
   Rental, Bank Fees, Business Taxes, Legal & Accounting, Employee Training,
-  Insurance, Other G&A (the workbook's auto lease + gas), Auto/ Vehicle (its
-  G&A Clearing), Outside Consultants (Accounting / Consultants), then the
+  Insurance, Auto/ Vehicle Expenses, G&A Clearing, Outside Consultants (Accounting / Consultants), then the
   lines the workbook does not carry. Keep Salaries & Benefits (8000-*) ABOVE
-  Other G&A — a mask overlap on 8000-0000 goes to the first line.
+  Auto/ Vehicle Expenses (it carries 8000-0000 too) — a mask overlap on 8000-0000 goes to the first line.
   **2010's budget has NO Capital section** (owner: "delete Capital section
   from 2010 budget") — dropped from the draft only; the statement mapping
   keeps it, so anything posted there still shows on the statement.
+- **PAYROLL GOES ONLY WHERE IT IS ALLOCATED** (owner: "we do not allocate to
+  every property"): a property with no allocation gets no payroll line, by
+  design — never flag that as a gap.
 - **4900 THE OFFICE WORKS HAS ITS OWN BUDGET BOOK** (`office-works`, "4900
   Office Works", one property, no roll-up; owner: "4900 office works should
   carry payroll … we need a 4900 budget"). Its statement mapping used to file
