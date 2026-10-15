@@ -43,6 +43,8 @@ import { negativeLines } from "@/lib/financials/budgets/negativeLines";
 import { recoveryCategory, recoveryMakeup, tenantLabel, SPEC_TENANT, CATEGORY_LABEL, type RecoveryCategory } from "@/lib/financials/budgets/recoveryMakeup";
 import { RecoveryMakeupModal } from "./RecoveryMakeupModal";
 import { OccupancyBySuiteModal } from "./OccupancyBySuiteModal";
+import { PropertyBreakdownModal } from "./PropertyBreakdownModal";
+import { feeGroupOf } from "@/lib/financials/budgets/feeGroups";
 import { RATE_ACCOUNT, type VacancyUtilities } from "@/lib/financials/budgets/vacancyUtilities";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -504,6 +506,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const [distOn, setDistOn] = useState(false);
   useEffect(() => { setDistOn(false); }, [draft.propertyCode]);
   const [makeupAt, setMakeupAt] = useState<{ cat: RecoveryCategory; m: number } | null>(null);
+  // 2010's Management Fees: the book whose buildings are open (`feeGroups.ts`).
+  const [feeGroupOpen, setFeeGroupOpen] = useState<string | null>(null);
   const estKind = draft.reimbursementEstimate?.kind;
   const recTenants = draft.tenantRevenue ?? [];
   // A BOOK'S ROLL-UP reads BY BUILDING, never by tenant (owner: "this is the
@@ -874,7 +878,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                         return (
                           <Row key={k} variant="sub" depth={depth} toggle={toggle} flagNegative={sec.role !== "debt-service"} label={y.label ?? subName(y, subs)}
                             months={y.months} total={y.total}
-                            basis={seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
+                            // A book's share of 2010's fees has no reprojection of its own,
+                            // and opens its buildings (owner: "click into each").
+                            onLabel={y.feeGroup ? () => setFeeGroupOpen(y.feeGroup!) : undefined}
+                            basis={y.feeGroup ? null : seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
                             // "+3% Nov" was a pill; the Change column reads the
                             // ~0.5% and this ⓘ says why it is not 3%.
@@ -1110,6 +1117,11 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {body}
       {occOpen && <OccupancyBySuiteModal suites={recTenants.filter((t) => !t.recoveryOnly && t.sqft > 0)} year={draft.budgetYear} buildings={rollupProps} onClose={() => setOccOpen(false)} />}
+      {feeGroupOpen && (
+        <PropertyBreakdownModal label={`Management Fees · ${feeGroupOpen}`} section="Revenues" year={draft.budgetYear}
+          rows={(draft.feeRollup ?? []).filter((r) => feeGroupOf(r.code) === feeGroupOpen).map((r) => ({ code: r.code, name: r.name, total: r.total, months: r.months }))}
+          onClose={() => setFeeGroupOpen(null)} />
+      )}
       {makeupAt && <RecoveryMakeupModal makeup={recoveryMakeup(makeupAt.cat, makeupAt.m, recTenants, draft.sections, estKind)} month={MONTHS[makeupAt.m]} year={draft.budgetYear} onClose={() => setMakeupAt(null)} />}
       {/* The key, on demand — a paragraph under the grid is what nobody
           reads (owner). One quiet ⓘ; the icons on each line explain themselves. */}
