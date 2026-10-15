@@ -1225,6 +1225,9 @@ time — and the team does not have time to open the GL over $80.
   G&A Clearing), Outside Consultants (Accounting / Consultants), then the
   lines the workbook does not carry. Keep Salaries & Benefits (8000-*) ABOVE
   Other G&A — a mask overlap on 8000-0000 goes to the first line.
+  **2010's budget has NO Capital section** (owner: "delete Capital section
+  from 2010 budget") — dropped from the draft only; the statement mapping
+  keeps it, so anything posted there still shows on the statement.
 - **4900 THE OFFICE WORKS HAS ITS OWN BUDGET BOOK** (`office-works`, "4900
   Office Works", one property, no roll-up; owner: "4900 office works should
   carry payroll … we need a 4900 budget"). Its statement mapping used to file

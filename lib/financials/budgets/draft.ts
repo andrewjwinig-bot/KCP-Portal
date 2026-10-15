@@ -1328,6 +1328,13 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
     }
   }
 
+  // 2010 IS THE MANAGEMENT COMPANY — IT BUDGETS NO CAPITAL (owner: "delete
+  // Capital section from 2010 budget"). The statement mapping keeps the
+  // section, so anything that posts there still shows on the statement.
+  if (String(meta.propertyCode).toUpperCase() === LIK_MANAGEMENT) {
+    for (let i = sections.length - 1; i >= 0; i--) if (sections[i].role === "capital") sections.splice(i, 1);
+  }
+
   // NOI is revenue less OPERATING expenses. Capital sits BELOW it (the grid
   // takes it off NOI on the way to cash flow), and so does debt service —
   // counting capital here understated NOI by the year's TI and improvements

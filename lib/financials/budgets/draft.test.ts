@@ -325,3 +325,18 @@ describe("2010's Business Taxes are its four filings", () => {
     expect(l.total).toBe(2250);
   });
 });
+
+describe("2010 budgets no capital", () => {
+  it("drops the Capital section from 2010's draft", async () => {
+    const r = fakeReproj();
+    r.reprojection.propertyCode = "2010"; r.meta.propertyCode = "2010";
+    r.reprojection.sections = [
+      section("Expenses", "non-reimbursable-expense", [line("Bank Fees", "8190-*", 100)]),
+      section("Capital", "capital", [line("Capital Improvements", "1400-*", 500)]),
+    ] as any;
+    loadReprojection.mockResolvedValue(r);
+    projectLeaseRevenue.mockResolvedValue(noLeases);
+    const d = (await buildBudgetDraft("2010", 2027, 3))!;
+    expect(d.sections.map((s) => s.role)).toEqual(["non-reimbursable-expense"]);
+  });
+});
