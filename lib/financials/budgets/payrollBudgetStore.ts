@@ -4,7 +4,7 @@
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
-import { seedPayrollBudget, type PayrollBudgetDoc } from "./payrollBudget";
+import { seedPayrollBudget, withAutoAllowances, type PayrollBudgetDoc } from "./payrollBudget";
 
 const PREFIX = "budget-payroll";
 
@@ -12,9 +12,9 @@ const PREFIX = "budget-payroll";
  *  (or the 2026 workbook) and says so (`seeded`). */
 export async function getPayrollBudget(year: number): Promise<{ doc: PayrollBudgetDoc; seeded: boolean }> {
   const saved = (await getJSON(PREFIX, String(year)).catch(() => null)) as PayrollBudgetDoc | null;
-  if (saved?.employees) return { doc: saved, seeded: false };
+  if (saved?.employees) return { doc: withAutoAllowances(saved), seeded: false };
   const prior = (await getJSON(PREFIX, String(year - 1)).catch(() => null)) as PayrollBudgetDoc | null;
-  return { doc: seedPayrollBudget(year, prior?.employees ? prior : null), seeded: true };
+  return { doc: withAutoAllowances(seedPayrollBudget(year, prior?.employees ? prior : null)), seeded: true };
 }
 
 export async function savePayrollBudget(doc: PayrollBudgetDoc): Promise<void> {

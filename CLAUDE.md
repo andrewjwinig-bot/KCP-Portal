@@ -1525,6 +1525,15 @@ time — and the team does not have time to open the GL over $80.
   cell hovers its dollars per year / month and, for a fund column (SC / NI
   LLC / JV III), the split on to each building on the fund's basis for that
   employee's account (`tipFor`, off `entityDollars` / `fundShares`). **Click a building code under Allocation by building** (or a Misc entity) for every employee's dollars landing there — by account (6010 / 6030 / marketing), annual, monthly and share (`employeesForBuilding`, the same arithmetic per employee, pinned to tie to the building's row).
+  - **AUTO ALLOWANCES ARE PAYROLL** (`autoMonthly` on the employee, the
+    "Auto / mo" column; owner: "Drew gets $600/mo … it follows his payroll
+    allocation as its invoiced alongside payroll"). × 12 into gross, taxed
+    as wages (FICA / Medicare / FUTA), not in the 401(k) match, and allocated
+    exactly like the salary — so it lands on each property's SALARY lines
+    (2010's on Salaries & Benefits), never on an Auto line. 2010's Auto/
+    Vehicle Expenses (8990) is the company's own lease + gas only. Seeded by
+    `AUTO_ALLOWANCE_SEED` (Drew $600) onto any doc whose employee never had
+    the field (`withAutoAllowances`, in the store); a cleared one stays 0.
   - An employee's GROUP is their account, shown as a **REC** checkbox (owner:
     -8502 is the recoverable account): ticked = Maintenance Salaries 6030-8502
     (Loiseau, Masciantonio, Gosik — their SC share is the 2026 workbook's

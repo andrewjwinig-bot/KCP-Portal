@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SEED_2026, raiseImpact as _ri, raisePlanImpact, poolDollars, employeeCost, allocatePayroll, allocTotal, seedPayrollBudget, sanitizePayrollDoc, monthly10, fundShares, employeesForBuilding } from "./payrollBudget";
+import { SEED_2026, raiseImpact as _ri, raisePlanImpact, poolDollars, employeeCost, allocatePayroll, allocTotal, seedPayrollBudget, sanitizePayrollDoc, monthly10, fundShares, employeesForBuilding, withAutoAllowances } from "./payrollBudget";
 
 const doc = { ...SEED_2026, year: 2026 };
 const cost = (id: string) => employeeCost(doc.employees.find((e) => e.id === id)!, doc.rates);
@@ -175,5 +175,25 @@ describe("a building's employees add to its allocation row", () => {
       const rows = employeesForBuilding(doc, m.code ?? m.key);
       expect(rows.reduce((t, r) => t + r.total, 0)).toBeCloseTo(m.annual, 2);
     }
+  });
+});
+
+describe("auto allowances are paid with payroll", () => {
+  it("$600/mo is $7,200 of wages: taxed, not matched, and allocated like the salary", () => {
+    const base = seedPayrollBudget(2027);
+    const doc = withAutoAllowances(base);
+    const before = employeeCost(base.employees.find((e) => e.id === "winig-drew")!, base.rates);
+    const after = employeeCost(doc.employees.find((e) => e.id === "winig-drew")!, doc.rates);
+    expect(after.auto).toBe(7200);
+    expect(after.k401).toBe(before.k401);
+    expect(after.gross - before.gross).toBeCloseTo(7200 * (1 + 0.062 + 0.0145), 1);
+    const a = allocatePayroll(doc);
+    expect(a.totals.gross - allocatePayroll(base).totals.gross).toBeCloseTo(after.gross - before.gross, 1);
+  });
+  it("a cleared allowance stays cleared", () => {
+    const doc = seedPayrollBudget(2027);
+    doc.employees = doc.employees.map((e) => e.id === "winig-drew" ? { ...e, autoMonthly: 0 } : e);
+    const clean = sanitizePayrollDoc(doc, 2027)!;
+    expect(withAutoAllowances(clean).employees.find((e) => e.id === "winig-drew")!.autoMonthly).toBe(0);
   });
 });

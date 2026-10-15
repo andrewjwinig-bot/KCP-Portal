@@ -209,7 +209,13 @@ export function PayrollBudget({ year }: { year: number }) {
                 { label: "Unticked", value: `Salaries & Wages ${GROUP_GL.office}` },
               ]} footer={{ label: "-8502 is the recoverable (CAM) account", value: "" }}>REC</HoverCard>
             </th>
-            <th style={th}>Per pay</th><th style={th}>Annual salary</th><th style={th}>FICA</th><th style={th}>Medicare</th>
+            <th style={th}>Per pay</th><th style={th}>Annual salary</th><th style={th}>
+              <HoverCard title="Auto allowance" width={300} rows={[
+                { label: "Keyed", value: "$ per month" },
+                { label: "Taxed as", value: "wages — FICA, Medicare, FUTA" },
+                { label: "Not in", value: "the 401(k) match" },
+              ]} footer={{ label: "Follows the employee's allocation, onto the salary lines", value: "" }}>Auto / mo</HoverCard>
+            </th><th style={th}>FICA</th><th style={th}>Medicare</th>
             <th style={th}>UC</th><th style={th}>FUTA</th><th style={th}>Work. comp</th><th style={th}><button type="button" className="btn sm" onClick={() => setHealthFor("")}>Medical ▸</button></th>
             <th style={th}>401(k) %</th><th style={th}>401(k)</th><th style={th}>Gross annual</th><th style={th} />
           </tr></thead>
@@ -228,6 +234,7 @@ export function PayrollBudget({ year }: { year: number }) {
                       and keying the annual sets per pay (÷ pays). One figure stored. */}
                   <Cell value={c.perPay} show={num0(c.perPay)} onSave={(v) => setEmp(e.id, { salary: v * r.pays })} />
                   <Cell value={e.salary} show={num0(e.salary)} onSave={(v) => setEmp(e.id, { salary: v })} />
+                  <Cell value={e.autoMonthly || 0} show={e.autoMonthly ? num0(e.autoMonthly) : "—"} onSave={(v) => setEmp(e.id, { autoMonthly: v })} width={70} />
                   <td style={td}>{num0(c.fica)}</td>
                   <td style={td}>{num0(c.medi)}</td>
                   <Cell value={e.uc} show={num2(e.uc)} onSave={(v) => setEmp(e.id, { uc: v })} width={70} />
@@ -252,6 +259,7 @@ export function PayrollBudget({ year }: { year: number }) {
             <tr style={totalRow}>
               <td style={tdL} /><td style={{ ...tdL, fontWeight: 800 }}>Total</td><td style={tdL} />
               <td style={td}>{num0(a.totals.perPay)}</td><td style={td}>{num0(a.totals.salary)}</td>
+              <td style={td}>{a.totals.auto ? num0(a.totals.auto / 12) : "—"}</td>
               <td style={td}>{num0(a.totals.fica)}</td><td style={td}>{num0(a.totals.medi)}</td>
               <td style={td}>{num0(a.totals.uc)}</td><td style={td}>{num0(a.totals.futa)}</td>
               <td style={td}>{num0(a.totals.workComp)}</td><td style={td}>{num0(a.totals.medical)}</td>
