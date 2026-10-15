@@ -84,7 +84,10 @@ export type DraftSource = "reproj-growth" | "reproj-flat" | "leases" | "cam-esti
   /** LIK Management (2010)'s fee REVENUE: every building's budgeted fee. */
   | "fee-rollup"
   /** Non-reimbursable utilities: vacant SF × a $/SF rate (`vacancyUtilities.ts`). */
-  | "vacancy";
+  | "vacancy"
+  /** 2010's Office Rental: its own lease at Building 8 (suite 4080-400), off
+   *  the rent schedule — fixed, not grown. */
+  | "office-lease";
 
 export type BudgetDraftLine = {
   label: string;
@@ -122,6 +125,8 @@ export type BudgetDraftLine = {
   /** Set on a line (or the part of it) that is this property's share of a
    *  payroll total entered once for the book (`payrollPools.ts`). */
   pool?: { key: string; label: string; gl: string; sharePct: number; annual: number; entered: boolean; amount: number; payrollBudget?: boolean }[];
+  /** 2010's Office Rental: the lease it reads (source `office-lease`). */
+  officeLease?: { unitRef: string; tenant: string; sqft: number; fromSchedule: boolean };
 };
 
 export type BudgetSubLine = {
@@ -501,7 +506,7 @@ export const LINE_OVERRIDE = "@line";
  *  to them. Only lines WITH parts take it — a plain line is typed directly. */
 export function withLineOverride(sec: BudgetDraftSection, l: BudgetDraftLine, doc: LineOverrides): BudgetDraftLine {
   if (!l.subLines?.length) return l;
-  if (l.source === "cam-estimate" || l.source === "leases" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans") return l;
+  if (l.source === "cam-estimate" || l.source === "leases" || l.source === "office-lease" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans") return l;
   const ov = doc[`${lineKey(sec.name, l.label)}#${LINE_OVERRIDE}`];
   if (!ov?.months?.some((v) => v != null)) return l;
   const { months, typed } = mergeMonths(l.months, ov);
@@ -528,7 +533,7 @@ export function typedLine(sec: BudgetDraftSection, l: BudgetDraftLine, doc: Line
   if (l.source === "cam-estimate") return l;
   // Likewise rent, and the TI / commissions the deals carry: they are
   // Step 1 — the schedule and the leasing decisions — and change there.
-  if (l.source === "leases") return l;
+  if (l.source === "leases" || l.source === "office-lease") return l;
   // The management fee is a formula on revenue — typed revenue moves it.
   if (l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy") return l;
   // Debt service is the lender's schedule (Debt Tracker) — change the loan's
@@ -657,6 +662,24 @@ function applyPools(sections: BudgetDraftSection[], code: string, blocks: PoolBl
     for (const l of sec.lines) addInto(subtotal, l.months);
     sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
   }
+}
+
+/** LIK's own office: suite 4080-400 at Building 8. */
+export const LIK_OFFICE_SUITE = "4080-400";
+
+/** 2010's Office Rental for the budget year: suite 4080-400's rent, month by
+ *  month, off Building 8's rent schedule (else the rent roll held flat) and
+ *  any leasing call made on it — exactly what 4080's draft budgets. */
+async function likOfficeRent(budgetYear: number) {
+  const assumptions = await getLeasingAssumptions(budgetYear, ["4080"]).catch(() => ({}));
+  const sched = await getInPlaceRevenue(budgetYear, "Office").catch(() => null);
+  const p = await projectLeaseRevenue(["4080"], budgetYear, assumptions, sched?.charges ?? null);
+  const row = p.rows?.find((r) => r.unitRef.trim().toUpperCase() === LIK_OFFICE_SUITE);
+  if (!row || !row.months.some((v) => Math.abs(v) > 0.5)) return null;
+  return {
+    months: row.months.map(r0),
+    lease: { unitRef: row.unitRef, tenant: row.tenant, sqft: row.sqft, fromSchedule: !!p.fromSchedule },
+  };
 }
 
 /** Properties whose growth basis is the trailing twelve months of actuals. */
@@ -1022,6 +1045,27 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
   // LAST YEAR'S BUDGET OF RECORD, for the itemized lines (Building
   // Maintenance's contracts and recurring items, the insurance policies…):
   // the workbook for the basis year that carries this property.
+  // 2010'S OFFICE RENTAL IS ITS OWN LEASE — suite 4080-400 at Building 8 —
+  // off the same rent schedule Building 8's draft budgets as revenue (owner:
+  // "office rental is actually our office space in the rent roll 4080-400 so
+  // that should be locked from the rent escalation report for building 8.
+  // thats a fixed amount"). Not grown, not typeable: both sides of the rent
+  // read one schedule.
+  if (String(meta.propertyCode).toUpperCase() === LIK_MANAGEMENT) {
+    const office = await likOfficeRent(budgetYear).catch(() => null);
+    if (office) {
+      for (const sec of sections) {
+        const idx = sec.lines.findIndex((l) => /office\s*rent/i.test(l.label));
+        if (idx < 0 || !EXPENSE_ROLE_SET.has(sec.role)) continue;
+        const l = sec.lines[idx];
+        sec.lines[idx] = { ...l, months: office.months, total: r0(sum(office.months)), source: "office-lease", subLines: undefined, officeLease: office.lease };
+        const subtotal = new Array(12).fill(0);
+        for (const x of sec.lines) addInto(subtotal, x.months);
+        sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
+        break;
+      }
+    }
+  }
   // PAYROLL comes from the 2010 LIK PAYROLL BUDGET (payrollFlow.ts): every
   // employee's gross worked down to the building, landed on the property's
   // own salary accounts — 2010's on 8000-9900 Payroll & Benefits. Only with no

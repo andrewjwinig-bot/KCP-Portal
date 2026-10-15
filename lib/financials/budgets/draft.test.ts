@@ -284,3 +284,22 @@ describe("2010 grows off the last twelve months of actuals", () => {
     t12Result = null;
   });
 });
+
+describe("2010's Office Rental is its own lease at Building 8", () => {
+  it("reads suite 4080-400 off Building 8's rent, locked — not grown", async () => {
+    const r = fakeReproj();
+    r.reprojection.propertyCode = "2010"; r.meta.propertyCode = "2010";
+    r.reprojection.sections = [section("Expenses", "non-reimbursable-expense", [line("Office Rental", "8110-*", 6424)])] as any;
+    loadReprojection.mockResolvedValue(r);
+    const rent = [5924, 5924, 5924, 5924, 5924, 5924, 5924, 5924, 6102, 6102, 6102, 6102];
+    projectLeaseRevenue.mockImplementation(async (codes: string[]) => codes[0] === "4080"
+      ? { ...noLeases, hasData: true, rows: [{ unitRef: "4080-400", tenant: "LIK Management", sqft: 4000, months: rent, assumed: rent.map(() => false), status: "contracted" }] }
+      : noLeases);
+    const d = (await buildBudgetDraft("2010", 2027, 3))!;
+    const l = d.sections[0].lines[0];
+    expect(l.source).toBe("office-lease");
+    expect(l.months).toEqual(rent);
+    expect(l.officeLease).toMatchObject({ unitRef: "4080-400", sqft: 4000 });
+    projectLeaseRevenue.mockReset();
+  });
+});

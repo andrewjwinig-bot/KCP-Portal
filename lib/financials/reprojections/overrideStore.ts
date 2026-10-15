@@ -4,13 +4,14 @@
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
+import { withCurrentLineKeys } from "@/lib/financials/operating-statements/lineRenames";
 import { applyEdit, type LineOverrides } from "@/lib/financials/budgets/lineOverrides";
 
 const PREFIX = "reprojection-overrides";
 const idFor = (key: string, year: number) => `${year}-${key.toUpperCase()}`;
 
 export async function getReprojOverrides(key: string, year: number): Promise<LineOverrides> {
-  return ((await getJSON(PREFIX, idFor(key, year))) as LineOverrides | null) ?? {};
+  return withCurrentLineKeys(key, ((await getJSON(PREFIX, idFor(key, year))) as LineOverrides | null) ?? {});
 }
 
 export async function editReprojOverride(key: string, year: number, lineKey: string, month: number | "all", value: number | null, by: string): Promise<LineOverrides> {
