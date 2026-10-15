@@ -533,7 +533,10 @@ export function typedLine(sec: BudgetDraftSection, l: BudgetDraftLine, doc: Line
   if (l.source === "cam-estimate") return l;
   // Likewise rent, and the TI / commissions the deals carry: they are
   // Step 1 — the schedule and the leasing decisions — and change there.
-  if (l.source === "leases" || l.source === "office-lease") return l;
+  if (l.source === "leases") return l;
+  // 2010's Office Rental: the lease's base rent is locked; its Electric row
+  // is typed like any sub-line (below).
+  if (l.source === "office-lease" && !l.subLines?.some((s) => s.typeable)) return l;
   // The management fee is a formula on revenue — typed revenue moves it.
   if (l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy") return l;
   // Debt service is the lender's schedule (Debt Tracker) — change the loan's
@@ -666,6 +669,8 @@ function applyPools(sections: BudgetDraftSection[], code: string, blocks: PoolBl
 
 /** LIK's own office: suite 4080-400 at Building 8. */
 export const LIK_OFFICE_SUITE = "4080-400";
+/** Its electric, a month — the 2026 workbook's input (rates fixed for three years). */
+export const LIK_OFFICE_ELECTRIC = 500;
 
 /** 2010's Office Rental for the budget year: suite 4080-400's rent, month by
  *  month, off Building 8's rent schedule (else the rent roll held flat) and
@@ -1058,7 +1063,19 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
         const idx = sec.lines.findIndex((l) => /office\s*rent/i.test(l.label));
         if (idx < 0 || !EXPENSE_ROLE_SET.has(sec.role)) continue;
         const l = sec.lines[idx];
-        sec.lines[idx] = { ...l, months: office.months, total: r0(sum(office.months)), source: "office-lease", subLines: undefined, officeLease: office.lease };
+        // Office Rent is the lease's BASE RENT (locked) plus ELECTRIC, which
+        // the GL cannot tell apart from rent (both post to 8110). Electric is
+        // the 2026 workbook's input — $500 a month, "rates set for three
+        // years" — and a typeable row, so a new rate is one figure to change.
+        const electric = new Array(12).fill(LIK_OFFICE_ELECTRIC) as number[];
+        const months = office.months.map((v, i) => v + electric[i]);
+        sec.lines[idx] = {
+          ...l, months, total: r0(sum(months)), source: "office-lease", officeLease: office.lease,
+          subLines: [
+            { account: `Base Rent · ${office.lease.unitRef}`, months: office.months, total: r0(sum(office.months)), basisTotal: 0, typeable: false },
+            { account: "Electric", months: electric, total: r0(sum(electric)), basisTotal: 0, typeable: true },
+          ],
+        };
         const subtotal = new Array(12).fill(0);
         for (const x of sec.lines) addInto(subtotal, x.months);
         sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
