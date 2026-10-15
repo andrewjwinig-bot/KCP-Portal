@@ -458,6 +458,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     if (l.inputSource || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed)) return undefined;
     if (l.source === "reproj-growth") return draft.growthBasis?.kind === "t12" ? `+3% over the last 12 months' actuals (${draft.growthBasis.span})` : `+3% over the ${yy(draft.basisYear)} reprojection`;
     if (l.source === "ret-default") return `${yy(draft.basisYear)} taxes +3%`;
+    if (l.source === "schedule") return "Each filing in the month it is paid — type over any row";
     if (l.source === "reproj-flat") return draft.growthBasis?.kind === "t12" ? `Carried flat from the last 12 months' actuals (${draft.growthBasis.span})` : `Carried flat from the ${yy(draft.basisYear)} reprojection`;
     return undefined;
   };
@@ -881,7 +882,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                             // A book's share of 2010's fees has no reprojection of its own,
                             // and opens its buildings (owner: "click into each").
                             onLabel={y.feeGroup ? () => setFeeGroupOpen(y.feeGroup!) : undefined}
-                            basis={y.feeGroup ? null : seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
+                            basis={y.feeGroup || l.source === "schedule" ? null : seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
                             // "+3% Nov" was a pill; the Change column reads the
                             // ~0.5% and this ⓘ says why it is not 3%.
