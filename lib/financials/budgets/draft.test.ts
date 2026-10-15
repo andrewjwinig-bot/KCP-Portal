@@ -305,3 +305,23 @@ describe("2010's Office Rental is its own lease at Building 8", () => {
     projectLeaseRevenue.mockReset();
   });
 });
+
+describe("2010's Business Taxes are its four filings", () => {
+  it("E-collect + NJ Revenue in April, PA State in August, NJ Taxation in December — each typeable", async () => {
+    const r = fakeReproj();
+    r.reprojection.propertyCode = "2010"; r.meta.propertyCode = "2010";
+    r.reprojection.sections = [section("Expenses", "non-reimbursable-expense", [line("Business Taxes", "8210-*", 200)])] as any;
+    loadReprojection.mockResolvedValue(r);
+    projectLeaseRevenue.mockResolvedValue(noLeases);
+    const d = (await buildBudgetDraft("2010", 2027, 3))!;
+    const l = d.sections[0].lines[0];
+    expect(l.source).toBe("schedule");
+    expect(l.subLines?.map((x) => [x.account, x.total, x.typeable])).toEqual([
+      ["E-collect", 1600, true], ["N.J. Div of Revenue", 500, true], ["PA Dept of State", 50, true], ["NJ Div of Taxation", 100, true],
+    ]);
+    expect(l.months[3]).toBe(2100);
+    expect(l.months[7]).toBe(50);
+    expect(l.months[11]).toBe(100);
+    expect(l.total).toBe(2250);
+  });
+});

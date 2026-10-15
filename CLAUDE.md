@@ -1212,6 +1212,12 @@ time — and the team does not have time to open the GL over $80.
   "Auto/ Vehicle" (8980-9800) is the workbook's **G&A Clearing**, and the
   auto lease + gas (8990-9800) sit in "Other G&A Expense" (8990-*). The owner
   keeps those figures as they are.
+  **Business Taxes is the workbook's four filings** (`LIK_BUSINESS_TAXES`,
+  source `schedule`; owner: "need to roll up into Business Taxes for 2010"):
+  E-collect (Philadelphia BPT) $1,600 and N.J. Div of Revenue $500 in April,
+  PA Dept of State $50 in August, NJ Div of Taxation $100 in December — $2,250.
+  Each is a typeable row under the line (`section::label#<name>`); the rows
+  carry no reprojection column.
 - **4900 THE OFFICE WORKS HAS ITS OWN BUDGET BOOK** (`office-works`, "4900
   Office Works", one property, no roll-up; owner: "4900 office works should
   carry payroll … we need a 4900 budget"). Its statement mapping used to file

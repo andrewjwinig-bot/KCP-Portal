@@ -88,7 +88,10 @@ export type DraftSource = "reproj-growth" | "reproj-flat" | "leases" | "cam-esti
   | "vacancy"
   /** 2010's Office Rental: its own lease at Building 8 (suite 4080-400), off
    *  the rent schedule — fixed, not grown. */
-  | "office-lease";
+  | "office-lease"
+  /** A line budgeted as a fixed list of named payments (2010's Business
+   *  Taxes — `LIK_BUSINESS_TAXES`), each a typeable row. */
+  | "schedule";
 
 export type BudgetDraftLine = {
   label: string;
@@ -671,6 +674,17 @@ function applyPools(sections: BudgetDraftSection[], code: string, blocks: PoolBl
   }
 }
 
+/** 2010's BUSINESS TAXES, as the LIK budget workbook lists them (owner:
+ *  "need to roll up into Business Taxes for 2010"): each filing in the month
+ *  it is paid. E-collect is Philadelphia's BPT — current rates × the prior
+ *  year's revenue, paid in April. Each is a typeable row under the line. */
+export const LIK_BUSINESS_TAXES: { name: string; month: number; amount: number }[] = [
+  { name: "E-collect", month: 4, amount: 1600 },
+  { name: "N.J. Div of Revenue", month: 4, amount: 500 },
+  { name: "PA Dept of State", month: 8, amount: 50 },
+  { name: "NJ Div of Taxation", month: 12, amount: 100 },
+];
+
 /** LIK's own office: suite 4080-400 at Building 8. */
 export const LIK_OFFICE_SUITE = "4080-400";
 /** Its electric, a month — the 2026 workbook's input (rates fixed for three years). */
@@ -1085,6 +1099,25 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
         sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
         break;
       }
+    }
+  }
+  if (String(meta.propertyCode).toUpperCase() === LIK_MANAGEMENT) {
+    for (const sec of sections) {
+      if (!EXPENSE_ROLE_SET.has(sec.role)) continue;
+      const idx = sec.lines.findIndex((l) => /^business\s*taxes$/i.test(l.label.trim()));
+      if (idx < 0) continue;
+      const subLines: BudgetSubLine[] = LIK_BUSINESS_TAXES.map((t) => {
+        const months = new Array(12).fill(0) as number[];
+        months[t.month - 1] = t.amount;
+        return { account: t.name, months, total: t.amount, basisTotal: 0, typeable: true };
+      });
+      const months = new Array(12).fill(0) as number[];
+      for (const x of subLines) addInto(months, x.months);
+      sec.lines[idx] = { ...sec.lines[idx], months, total: r0(sum(months)), source: "schedule", subLines };
+      const subtotal = new Array(12).fill(0);
+      for (const x of sec.lines) addInto(subtotal, x.months);
+      sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
+      break;
     }
   }
   // PAYROLL comes from the 2010 LIK PAYROLL BUDGET (payrollFlow.ts): every

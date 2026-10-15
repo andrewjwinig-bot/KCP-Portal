@@ -57,6 +57,7 @@ function sourceBadge(source: DraftSource, growthPct: number, feePct?: number): {
     case "fee": return { tone: TONE_TEAL, text: `${feePct ?? "–"}%` };
     case "vacancy": return { tone: TONE_TEAL, text: "Vacant SF" };
     case "office-lease": return null;
+    case "schedule": return null;
   }
 }
 
