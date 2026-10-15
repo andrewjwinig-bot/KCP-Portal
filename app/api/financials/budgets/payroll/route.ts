@@ -5,7 +5,7 @@ import { getPayrollBudget, savePayrollBudget } from "@/lib/financials/budgets/pa
 import { sanitizePayrollDoc, withRollSqft } from "@/lib/financials/budgets/payrollBudget";
 import { rollSqft } from "@/lib/financials/budgets/payrollFlowLoad";
 import { allocatePayroll } from "@/lib/financials/budgets/payrollBudget";
-import { payrollFlowCheck, payrollTargets } from "@/lib/financials/budgets/payrollFlow";
+import { payrollFlowCheck, payrollTargetsOf } from "@/lib/financials/budgets/payrollFlow";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { EXPENSE_ROLES } from "@/lib/financials/operating-statements/types";
@@ -27,7 +27,7 @@ export const revalidate = 0;
 
 /** Where every allocation lands in the property budgets — the draft's own rule. */
 async function flowOf(doc: Parameters<typeof allocatePayroll>[0]) {
-  const targets = payrollTargets(allocatePayroll(doc));
+  const targets = payrollTargetsOf(doc);
   const codes = [...new Set(targets.map((t) => t.code).filter((c): c is string => !!c))];
   const maps = Object.fromEntries(await Promise.all(codes.map(async (c) => [c, await getMapping(c).catch(() => null)] as const)));
   const rows = payrollFlowCheck(targets, (c) => (maps[c] as any) ?? null, (c) => !!bookForProperty(c), accountMatchesMask, new Set<string>(EXPENSE_ROLES));

@@ -141,3 +141,18 @@ describe("the budget in force", () => {
     expect(order).toEqual(["published", "imported", "live-draft"]);
   });
 });
+
+describe("an Auto Allowance row publishes inside its salary account", () => {
+  it("folds into the account it is part of, so the statements find one budget per account", () => {
+    const d = draft("4500");
+    d.sections[1].lines.push(L("Salaries & Wages", "6010-*,6030-*", m(1100), { subLines: [
+      { account: "6010-8501", months: m(600), total: 7200, basisTotal: 0, typeable: false },
+      { account: "6030-8502", months: m(400), total: 4800, basisTotal: 0, typeable: false },
+      { account: "Auto Allowance", label: "Auto Allowance", partOf: "6010-8501", months: m(100), total: 1200, basisTotal: 0, typeable: false },
+    ] }));
+    const { property, unmapped } = draftToPropertyBudget(d, null);
+    const line = property.sections.flatMap((s: any) => s.lines).find((l: any) => l.label === "Salaries & Wages");
+    expect(line.subLines.map((s: any) => [s.glAccount, s.total])).toEqual([["6010-8501", 8400], ["6030-8502", 4800]]);
+    expect(unmapped.find((u) => u.label === "Salaries & Wages")).toBeUndefined();
+  });
+});

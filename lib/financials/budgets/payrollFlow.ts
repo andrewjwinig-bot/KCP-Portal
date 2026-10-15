@@ -23,7 +23,7 @@
 //
 // Pure: the draft and the payroll page's flow check both read it.
 
-import type { PayrollAllocation } from "./payrollBudget";
+import { allocatePayroll, type PayrollAllocation, type PayrollBudgetDoc } from "./payrollBudget";
 import type { PoolBlock, PoolEntries } from "./payrollPools";
 
 export type PayrollTarget = {
@@ -34,7 +34,15 @@ export type PayrollTarget = {
   /** The block the dollars belong to — "Salaries & Wages", "Maintenance Salaries"… */
   label: string;
   annual: number;
+  /** The employees' AUTO ALLOWANCES (with the taxes on them) inside this
+   *  account — shown as their own "Auto Allowance" row under the salary line
+   *  so the salary figure reads as pay (owner: "i dont want it to look like
+   *  we are pushing too much through as salaries"). Same GL: it is billed
+   *  and booked with payroll. */
+  auto?: boolean;
 };
+
+export const AUTO_ALLOWANCE_LABEL = "Auto Allowance";
 
 export const LIK_PAYROLL_GL = "8000-9900";
 const OFFICE_GL = "6010-8501";
@@ -79,6 +87,32 @@ export function payrollTargets(a: PayrollAllocation): PayrollTarget[] {
   return out;
 }
 
+/** Every dollar of the payroll budget by property and account, with the auto
+ *  allowances split out as their own targets (`auto: true`). The allowance's
+ *  share is the doc allocated with and without it — allocation is linear in
+ *  each employee's gross, so the two add back to the whole to the cent. */
+export function payrollTargetsOf(doc: PayrollBudgetDoc): PayrollTarget[] {
+  const full = payrollTargets(allocatePayroll(doc));
+  if (!doc.employees.some((e) => e.autoMonthly)) return full;
+  const base = payrollTargets(allocatePayroll({ ...doc, employees: doc.employees.map((e) => ({ ...e, autoMonthly: 0 })) }));
+  const key = (t: PayrollTarget) => `${t.code ?? ""}|${t.gl}`;
+  const baseBy = new Map<string, number>();
+  for (const t of base) baseBy.set(key(t), (baseBy.get(key(t)) ?? 0) + t.annual);
+  const auto = new Map<string, PayrollTarget>();
+  for (const t of full) {
+    const k = key(t);
+    const a = auto.get(k) ?? { code: t.code, name: t.name, gl: t.gl, label: AUTO_ALLOWANCE_LABEL, annual: 0, auto: true };
+    a.annual += t.annual;
+    auto.set(k, a);
+  }
+  const out = [...base];
+  for (const [k, a] of auto) {
+    const v = a.annual - (baseBy.get(k) ?? 0);
+    if (Math.abs(v) >= 0.5) out.push({ ...a, annual: v });
+  }
+  return out;
+}
+
 /** The targets as pool blocks the draft already knows how to lay onto a
  *  property's lines (`applyPools`): one block per GL + label, each property's
  *  share its dollars over the block's total, and the total "entered". */
@@ -101,7 +135,10 @@ export function payrollBudgetBlocks(targets: PayrollTarget[], year: number): { b
     blocks.push({ key, label: b.label, gl: b.gl, priorTotal: Math.round(total), shares, note: `From the ${year} Payroll Budget` });
     entries[key] = { annual: total };
   }
-  return { blocks: blocks.sort((x, y) => x.gl.localeCompare(y.gl) || x.label.localeCompare(y.label)), entries };
+  // An Auto Allowance block goes LAST: it is laid on as a row under the
+  // salary line its account's other blocks have already set.
+  const isAuto = (b: PoolBlock) => b.label === AUTO_ALLOWANCE_LABEL ? 1 : 0;
+  return { blocks: blocks.sort((x, y) => isAuto(x) - isAuto(y) || x.gl.localeCompare(y.gl) || x.label.localeCompare(y.label)), entries };
 }
 
 // ─── The check: does every allocation land on a budget line? ───────────────

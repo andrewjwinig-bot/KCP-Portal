@@ -15,8 +15,7 @@ import { loadReprojection } from "@/lib/financials/reprojections/load";
 import { loadT12 } from "@/lib/financials/t12/load";
 import { t12Window } from "@/lib/financials/t12/window";
 import { payrollDocForBudgets } from "./payrollFlowLoad";
-import { allocatePayroll } from "./payrollBudget";
-import { payrollBudgetBlocks, payrollTargets } from "./payrollFlow";
+import { AUTO_ALLOWANCE_LABEL, payrollBudgetBlocks, payrollTargetsOf } from "./payrollFlow";
 import { getFeeRollup, saveFeeRollup, upsertFeeRow } from "./feeRollupStore";
 import { feeGroups } from "./feeGroups";
 import type { ReprojLine, Reprojection } from "@/lib/financials/reprojections/compute";
@@ -158,6 +157,10 @@ export type BudgetSubLine = {
   /** 2010's Management Fees: the book this row sums (`feeGroups.ts`) — it
    *  has no reprojection of its own and opens its buildings. */
   feeGroup?: string;
+  /** A row that is PART of a GL account rather than an account of its own —
+   *  the payroll budget's Auto Allowance, inside the salary account it is
+   *  billed on. It publishes folded into that account. */
+  partOf?: string;
 };
 
 export type BudgetDraftSection = {
@@ -647,6 +650,25 @@ function applyPools(sections: BudgetDraftSection[], code: string, blocks: PoolBl
     if (!target) continue;
     const l0 = target.sec.lines[target.idx];
     const first = !claimed.has(l0.label + l0.mask);
+    // AUTO ALLOWANCE: its own row under the salary line, inside the same
+    // account (it is billed and booked with payroll), so the salary figure
+    // reads as pay. The salary blocks were laid first (`payrollBudgetBlocks`).
+    if (b.label === AUTO_ALLOWANCE_LABEL) {
+      const l0 = target.sec.lines[target.idx];
+      const autoRow: BudgetSubLine = { account: AUTO_ALLOWANCE_LABEL, label: AUTO_ALLOWANCE_LABEL, partOf: b.gl, months, total: r0(sum(months)), basisTotal: 0, typeable: false };
+      const subs = l0.subLines?.length
+        ? l0.subLines
+        : [{ account: b.gl, months: l0.months, total: l0.total, basisTotal: l0.basisTotal, typeable: false } as BudgetSubLine];
+      const existing = subs.find((x) => x.account === AUTO_ALLOWANCE_LABEL);
+      const subLines = existing
+        ? subs.map((x) => x !== existing ? x : { ...x, months: x.months.map((v, i) => v + months[i]), total: r0(x.total + sum(months)) })
+        : [...subs, autoRow];
+      const lm = l0.months.map((v, i) => v + months[i]);
+      const info = { key: b.key, label: b.label, gl: b.gl, sharePct: b.shares[code.toUpperCase()] ?? 0, annual, entered, amount: r0(sum(months)), payrollBudget: true };
+      target.sec.lines[target.idx] = { ...l0, subLines, months: lm.map(r0), total: r0(sum(lm)), source: "pool", pool: [...(l0.pool ?? []), info] };
+      claimed.set(l0.label + l0.mask, target.sec.lines[target.idx]);
+      continue;
+    }
     const info = { key: b.key, label: b.label, gl: b.gl, sharePct: b.shares[code.toUpperCase()] ?? 0, annual, entered, amount: r0(sum(months)), ...(b.key.startsWith("pb:") ? { payrollBudget: true } : {}) };
     let line: BudgetDraftLine;
     const sub = l0.subLines?.find((x) => x.account === b.gl);
@@ -1133,7 +1155,7 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
   // payroll budget to read does a book fall back to last year's blocks +3%.
   const payroll = await payrollDocForBudgets(budgetYear).catch(() => null);
   if (payroll?.doc?.employees?.length) {
-    const { blocks, entries } = payrollBudgetBlocks(payrollTargets(allocatePayroll(payroll.doc)), budgetYear);
+    const { blocks, entries } = payrollBudgetBlocks(payrollTargetsOf(payroll.doc), budgetYear);
     applyPools(sections, meta.propertyCode, blocks, entries);
   } else {
     const book = bookForProperty(meta.propertyCode);

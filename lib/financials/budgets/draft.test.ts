@@ -260,6 +260,25 @@ describe("2010's payroll comes from the LIK Payroll Budget", () => {
     expect(l.pool?.[0]).toMatchObject({ gl: "8000-9900", payrollBudget: true });
     payrollDoc = null;
   });
+  it("Drew's auto allowance is its own row under Salaries & Benefits, inside 8000-9900", async () => {
+    const { seedPayrollBudget, allocatePayroll, withAutoAllowances } = await import("./payrollBudget");
+    payrollDoc = withAutoAllowances(seedPayrollBudget(2027));
+    const lik = allocatePayroll(payrollDoc).misc.find((m) => m.code === "2010")!.annual;
+    const r = fakeReproj();
+    r.reprojection.propertyCode = "2010"; r.meta.propertyCode = "2010";
+    r.reprojection.sections = [section("Expenses", "non-reimbursable-expense", [line("Salaries & Benefits", "8000-*", 100)])] as any;
+    loadReprojection.mockResolvedValue(r);
+    projectLeaseRevenue.mockResolvedValue(noLeases);
+    const d = (await buildBudgetDraft("2010", 2027, 3))!;
+    const l = d.sections[0].lines[0];
+    expect(Math.abs(l.total - lik)).toBeLessThan(2);
+    const auto = l.subLines?.find((x) => x.account === "Auto Allowance");
+    expect(auto).toMatchObject({ partOf: "8000-9900", typeable: false });
+    // Drew is 25% LIK Operating: a quarter of $7,200 + its taxes.
+    expect(auto!.total).toBeCloseTo(0.25 * 7200 * 1.0765, -1);
+    expect(l.subLines!.reduce((s, x) => s + x.total, 0)).toBeCloseTo(l.total, -1);
+    payrollDoc = null;
+  });
 });
 
 describe("2010 grows off the last twelve months of actuals", () => {

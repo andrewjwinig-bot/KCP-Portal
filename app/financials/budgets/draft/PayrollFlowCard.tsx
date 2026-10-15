@@ -12,8 +12,8 @@ import { useMemo } from "react";
 import { Pill, TONE_AMBER, tiesTone } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
-import { allocatePayroll, type PayrollBudgetDoc } from "@/lib/financials/budgets/payrollBudget";
-import { payrollTargets } from "@/lib/financials/budgets/payrollFlow";
+import type { PayrollBudgetDoc } from "@/lib/financials/budgets/payrollBudget";
+import { payrollTargetsOf } from "@/lib/financials/budgets/payrollFlow";
 
 export type Landing = Record<string, { line: string | null; problem: "no-code" | "not-budgeted" | "no-line" | null }>;
 
@@ -26,10 +26,10 @@ const PROBLEM: Record<string, string> = {
 };
 
 export function PayrollFlowCard({ doc, landing }: { doc: PayrollBudgetDoc; landing: Landing | null }) {
-  const rows = useMemo(() => payrollTargets(allocatePayroll(doc)).map((t) => {
+  const rows = useMemo(() => payrollTargetsOf(doc).map((t) => {
     const l = landing?.[`${t.code ?? ""}|${t.gl}`];
-    return { ...t, line: l?.line ?? null, problem: l ? l.problem : landing ? "no-line" : null };
-  }), [doc, landing]);
+    return { ...t, line: l?.line ? (t.auto ? `${l.line} · Auto Allowance row` : l.line) : null, problem: l ? l.problem : landing ? "no-line" : null };
+  }).sort((x, y) => String(x.code ?? "~").localeCompare(String(y.code ?? "~")) || x.gl.localeCompare(y.gl) || Number(!!x.auto) - Number(!!y.auto)), [doc, landing]);
   if (!landing) return null;
   const total = rows.reduce((s, r) => s + r.annual, 0);
   const missed = rows.filter((r) => !r.line);
