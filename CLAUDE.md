@@ -1177,6 +1177,16 @@ time — and the team does not have time to open the GL over $80.
   months"), stored as `termYears` = months ÷ 12 and shown by
   `termYearsMonths` ("4 yr 5 mo"), so the LC % × rent × term reads it as is.
 
+- **4900 THE OFFICE WORKS HAS ITS OWN BUDGET BOOK** (`office-works`, "4900
+  Office Works", one property, no roll-up; owner: "4900 office works should
+  carry payroll … we need a 4900 budget"). Its statement mapping used to file
+  the secretarial EXPENSES (6030-8502 salaries, 6950–6680-8502 postage /
+  supplies / phone / copiers / internet, 6220-8502 start-up, 6*-8503) inside
+  the REIMBURSEMENTS section with the 48xx income, so no expense line took
+  6030-8502; they are now their own **Secretarial Services** section
+  (`reimbursable-expense`), as the 2026 Office Works workbook lays them out.
+  NOI is unchanged — the expenses were netted against the reimbursements
+  before; now they read as expenses.
 - **2010 GROWS OFF THE LAST TWELVE MONTHS OF ACTUALS, not the reprojection**
   (`T12_BASIS` / `t12Basis` in `draft.ts`; owner: "a lot of 2010 budget is
   just carrying over last years budget"). The reprojection is actual to date
@@ -1527,8 +1537,10 @@ time — and the team does not have time to open the GL over $80.
     Salaries & Wages 6010-8501, maintenance → Maintenance Salaries
     6030-8502; **2010's LIK Operating + Other → 8000-9900 "Payroll &
     Benefits"** (the 2026 LIK budget's account, inside the statement's LIK
-    Management Clearing line — 2010's mapping has no salary line); 0800 /
-    4900 / 9000 → 6010 / 6030. The draft reads the doc through
+    Management Clearing line — 2010's mapping has no salary line); **4900
+    The Office Works: OW Direct (the secretarial staff) → Secretarial
+    Salaries 6030-8502, OW Indirect (the supervisor) → Supervisory Salaries
+    6010-8501**, as its 2026 workbook budgets them; 0800 / 9000 → 6010 / 6030. The draft reads the doc through
     `payrollDocForBudgets` (rent-roll SF, `withRollSqft`) so a building's
     share is the page's to the dollar. It REPLACED `payrollPools.ts`'s
     last-year +3% blocks, which remain only as the fallback with no payroll
@@ -1541,7 +1553,7 @@ time — and the team does not have time to open the GL over $80.
     and account beside the budget line it lands on (`payrollFlowCheck` — the
     draft's rule, run on the statement mappings by the payroll GET's
     `landing`), amounts live off the doc. Anything reaching no budget —
-    Eastwick (no code), 0800 / 4900 / 9000 (no budget book) — is an amber
+    Eastwick (no code), 0800 / 9000 (no budget book) — is an amber
     pill and the header says how much: "$x REACHES NO BUDGET".
   - NEXT (not built): give Harry's Payroll Invoicer its 2027 allocation from
     it (employee × building %, recoverable = maintenance) effective 1/1/27.

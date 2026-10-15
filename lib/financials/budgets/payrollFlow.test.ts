@@ -35,4 +35,14 @@ describe("the payroll budget flows into the property budgets", () => {
     const months = allocatePool(lik, entries[lik.key].annual, "2010")!;
     expect(Math.abs(sum(months) - a.misc.find((m) => m.code === "2010")!.annual)).toBeLessThan(1);
   });
+
+  it("4900 Office Works: OW Direct → Secretarial Salaries 6030-8502, OW Indirect → Supervisory Salaries 6010-8501", () => {
+    const d = seedPayrollBudget(2027);
+    d.employees[0] = { ...d.employees[0], alloc: { owDirect: 50, owIndirect: 50 } };
+    const al = allocatePayroll(d);
+    const ow = payrollTargets(al).filter((t) => t.code === "4900");
+    expect(ow.find((t) => t.gl === "6030-8502")?.annual).toBeCloseTo(al.byEntity.owDirect.total, 2);
+    expect(ow.find((t) => t.gl === "6010-8501")?.annual).toBeCloseTo(al.byEntity.owIndirect.total, 2);
+    expect(ow.find((t) => t.gl === "6030-8502")?.label).toBe("Secretarial Salaries");
+  });
 });

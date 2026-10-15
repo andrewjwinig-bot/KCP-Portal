@@ -3734,7 +3734,13 @@
      {
       "label": "Internet",
       "mask": "4950-8502"
-     },
+     }
+    ]
+   },
+   {
+    "name": "Secretarial Services",
+    "role": "reimbursable-expense",
+    "lines": [
      {
       "label": "Secretarial Salaries",
       "mask": "6030-8502,8030-8502"
