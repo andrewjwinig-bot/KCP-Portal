@@ -1653,6 +1653,14 @@ time — and the team does not have time to open the GL over $80.
   its draft is built (opened, or built by a book roll-up), and 2010 reads the
   rows. Only a year with no rows builds every building, once. The draft route
   keeps `maxDuration = 300` for that first build.
+  **The line opens BY BOOK, as the LIK workbook lays its revenue out**
+  (`feeGroups.ts`; owner: "break down the LIK management revenue into JV III,
+  NI LLC, Shopping Centers, Residential … click into each"): JV III · NI LLC ·
+  Shopping Centers · Residential (shown even at $0) · Other (only when
+  something lands there, e.g. 4900). Each row is the sum of its buildings'
+  kept fee rows and opens them in `PropertyBreakdownModal` (the roll-up's own
+  donut + monthly bars + table). The rows carry no reprojection, and Publish
+  sends them as descriptive rows under 4510-0000, as the workbook does.
 - **Occupancy % opens Occupancy by Suite** (the Occupancy SF row was removed — owner; the SF lives in the hover and the modal) (`OccupancyBySuiteModal`, the
   Operating Budgets page's view): each suite's occupied SF by month, off the
   draft's own `tenantRevenue` (occupied = pays rent that month), dark green for

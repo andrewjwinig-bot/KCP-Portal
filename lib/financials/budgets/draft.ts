@@ -18,6 +18,7 @@ import { payrollDocForBudgets } from "./payrollFlowLoad";
 import { allocatePayroll } from "./payrollBudget";
 import { payrollBudgetBlocks, payrollTargets } from "./payrollFlow";
 import { getFeeRollup, saveFeeRollup, upsertFeeRow } from "./feeRollupStore";
+import { feeGroups } from "./feeGroups";
 import type { ReprojLine, Reprojection } from "@/lib/financials/reprojections/compute";
 import { listLoans } from "@/lib/debt/storage";
 import { budgetDebt, loansForStatement, FUND_SHELL, fundDebtShares, shareOfDebt, addDebt, type BudgetLoan } from "./debtBudget";
@@ -151,6 +152,9 @@ export type BudgetSubLine = {
   basisTotal: number;
   typed?: boolean[];
   typeable: boolean;
+  /** 2010's Management Fees: the book this row sums (`feeGroups.ts`) — it
+   *  has no reprojection of its own and opens its buildings. */
+  feeGroup?: string;
 };
 
 export type BudgetDraftSection = {
@@ -1278,7 +1282,12 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
       if (sec.role !== "revenue") continue;
       const idx = sec.lines.findIndex((l) => l.mask && accountMatchesMask(l.mask, "4510-0000"));
       if (idx < 0) continue;
-      sec.lines[idx] = { ...sec.lines[idx], months: months.map(r0), total: r0(sum(months)), source: "fee-rollup", subLines: undefined };
+      // Opened by BOOK, as the LIK workbook lays its revenue out — JV III,
+      // NI LLC, Shopping Centers, Residential — each opening its buildings.
+      const subLines: BudgetSubLine[] = feeGroups(feeRollup).map((g) => ({
+        account: g.group, months: g.months, total: g.total, basisTotal: 0, typeable: false, feeGroup: g.group,
+      }));
+      sec.lines[idx] = { ...sec.lines[idx], months: months.map(r0), total: r0(sum(months)), source: "fee-rollup", subLines };
       const subtotal = new Array(12).fill(0);
       for (const l of sec.lines) addInto(subtotal, l.months);
       sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
