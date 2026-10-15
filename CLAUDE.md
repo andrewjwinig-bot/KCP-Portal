@@ -564,10 +564,12 @@ buildings may be managed by a third party" as an explanation for a gap.
   shared theme) is the SAME layout — subtotals per group, a grand total over
   the SUBTOTALS, reprojection and variance as live formulas — pinned by
   `export.test.ts` reading the file back.
-- **`2010`'s statement line "Management Fees" has mask `4510-*,4230-8501`**,
-  bundling base rent into a line named for fees. As of 2026 nothing posts to
-  4230-8501 at 2010, so it is cosmetic — do NOT "fix" it expecting the numbers to
-  move. `2000` (Clearing) carries the identical mask.
+- **`2010`'s "Management Fees" is `4510-*` alone; Rent Reimbursement
+  (`4230-8501`, the properties billed for LIK's leasing space — $9,500 in
+  December in the 2026 budget) is its OWN line.** It used to ride inside
+  Management Fees, which was cosmetic until the budget replaced that line
+  with the buildings' fees (`fee-rollup`) and would have dropped it. `2000`
+  (Clearing) still carries the old combined mask.
 
 # Operating statements — which properties are run monthly
 
@@ -1192,8 +1194,24 @@ time — and the team does not have time to open the GL over $80.
   from the rent escalation report for building 8. thats a fixed amount"):
   the suite's months off the SAME projection Building 8's draft budgets as
   revenue (`projectLeaseRevenue(["4080"]…)` with the BP rent schedule and any
-  call on the suite), so the two sides of the rent cannot differ. Not grown,
-  not typeable; its ⓘ names the suite, SF and source.
+  call on the suite), so the two sides of the rent cannot differ. Not grown;
+  its ⓘ names the suite, SF and source. It opens into **Base Rent ·
+  4080-400** (locked) and **Electric** (typeable, `LIK_OFFICE_ELECTRIC` $500 a
+  month — the 2026 workbook's input, "rates set for three years"): both post
+  to 8110, so the GL cannot split them.
+- **2010 IS BUDGETED OFF ITS GL** (owner: "this budget should be pretty
+  simple and lets make it as accurate as possible based on GL numbers"): the
+  trailing twelve months carry the timing (BPT in April, the audit in July,
+  Eisner's $10,000 a month), the payroll and the office lease are locked, and
+  the 2026 workbook (`LIK_Mgmt_2026.xlsx`) is the reference only. So the job
+  is that every account 2010 posts reaches a line: **Employee Training
+  (`8330-*`)** had no line at all and is now one, and **Legal & Accounting**
+  / **Bank Fees** take their whole families (`8310-*`, `8190-*`) — the
+  workbook's own import posts legal to 8310-9800, which the old `8310-8501`
+  missed. NOTE the labels Skyline gave two lines do not match the workbook's:
+  "Auto/ Vehicle" (8980-9800) is the workbook's **G&A Clearing**, and the
+  auto lease + gas (8990-9800) sit in "Other G&A Expense" (8990-*). The owner
+  keeps those figures as they are.
 - **4900 THE OFFICE WORKS HAS ITS OWN BUDGET BOOK** (`office-works`, "4900
   Office Works", one property, no roll-up; owner: "4900 office works should
   carry payroll … we need a 4900 budget"). Its statement mapping used to file

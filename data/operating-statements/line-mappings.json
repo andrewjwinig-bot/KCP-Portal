@@ -1775,7 +1775,11 @@
     "lines": [
      {
       "label": "Management Fees",
-      "mask": "4510-*,4230-8501"
+      "mask": "4510-*"
+     },
+     {
+      "label": "Rent Reimbursement",
+      "mask": "4230-8501"
      },
      {
       "label": "Miscellaneous",
@@ -1805,7 +1809,7 @@
      },
      {
       "label": "Bank Fees",
-      "mask": "8190-8501"
+      "mask": "8190-*"
      },
      {
       "label": "Business Taxes",
@@ -1813,7 +1817,11 @@
      },
      {
       "label": "Legal & Accounting",
-      "mask": "8310-8501"
+      "mask": "8310-*"
+     },
+     {
+      "label": "Employee Training",
+      "mask": "8330-*"
      },
      {
       "label": "Outside Consultants",

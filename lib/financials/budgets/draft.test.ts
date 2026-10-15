@@ -298,7 +298,9 @@ describe("2010's Office Rental is its own lease at Building 8", () => {
     const d = (await buildBudgetDraft("2010", 2027, 3))!;
     const l = d.sections[0].lines[0];
     expect(l.source).toBe("office-lease");
-    expect(l.months).toEqual(rent);
+    expect(l.months).toEqual(rent.map((v) => v + 500));   // base rent + electric
+    expect(l.subLines?.map((x) => [x.account, x.typeable])).toEqual([["Base Rent · 4080-400", false], ["Electric", true]]);
+    expect(l.subLines?.[0].months).toEqual(rent);
     expect(l.officeLease).toMatchObject({ unitRef: "4080-400", sqft: 4000 });
     projectLeaseRevenue.mockReset();
   });
