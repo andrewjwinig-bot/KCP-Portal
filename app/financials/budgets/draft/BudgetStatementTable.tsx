@@ -481,6 +481,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
               ...l.pool.map((p) => ({ label: `${p.label} · ${p.gl}`, value: money0(p.amount) }))]} footer={{ label: "Click to open it", value: "↗" }} />
         : <SourceIcon title="Source: Payroll Budget" rows={[{ label: "This property's share of", value: "the 2010 LIK Payroll Budget" }]} label="Source: Payroll Budget" />;
     }
+    if (l.source === "office-lease" && l.officeLease) return <SourceIcon title="LIK's Office Lease at Building 8" label="How Office Rental is figured"
+      rows={[{ label: "Suite", value: `${l.officeLease.unitRef} · ${l.officeLease.sqft.toLocaleString()} SF` },
+        { label: "Rent from", value: l.officeLease.fromSchedule ? "Building 8's rent schedule" : "the rent roll, held flat" }]}
+      footer={{ label: "Year", value: money0(l.total), color: COLOR_BRAND }} />;
     if (l.source === "fee") return <SourceIcon title={`Management Fee · ${l.feePct ?? "–"}% of Revenue`} label="How the Management Fee is figured"
       rows={[{ label: "Rate (last year's Budget formula)", value: `${l.feePct ?? "–"}%` }, { label: "× This Budget's Total Revenue", value: "month by month" }]}
       footer={{ label: "Year", value: money0(l.total), color: COLOR_BRAND }} />;
@@ -799,7 +803,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                 // save to the Budget Inputs store (the same figures Greg keys on his
                 // page), so the grid and his page cannot disagree.
                 // A payroll share is set by the book's total above the grid.
-        const locked = l.source === "cam-estimate" || l.source === "leases" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans";
+        const locked = l.source === "cam-estimate" || l.source === "leases" || l.source === "office-lease" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans";
                 const mayType = !!onEdit && (!canType || canType(sec.name, l.label));
                 const typeable = mayType && !locked && !viaSubs;
                 // A line built from parts (buckets, items, accounts) can ALSO be

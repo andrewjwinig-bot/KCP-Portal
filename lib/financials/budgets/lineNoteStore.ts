@@ -6,6 +6,7 @@
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
+import { withCurrentLineKeys } from "@/lib/financials/operating-statements/lineRenames";
 
 export type LineNote = { text: string; by: string; at: string };
 export type LineNotes = Record<string, LineNote>;
@@ -14,7 +15,7 @@ const PREFIX = "budget-line-notes";
 const idFor = (budgetYear: number, propertyCode: string) => `${budgetYear}-${propertyCode.toUpperCase()}`;
 
 export async function getLineNotes(budgetYear: number, propertyCode: string): Promise<LineNotes> {
-  return ((await getJSON(PREFIX, idFor(budgetYear, propertyCode))) as LineNotes | null) ?? {};
+  return withCurrentLineKeys(propertyCode, ((await getJSON(PREFIX, idFor(budgetYear, propertyCode))) as LineNotes | null) ?? {});
 }
 
 /** Set a line's note; an empty text removes it. */

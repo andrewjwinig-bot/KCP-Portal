@@ -3,13 +3,14 @@
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
+import { withCurrentLineKeys } from "@/lib/financials/operating-statements/lineRenames";
 import { applyEdit, type LineOverrides } from "./lineOverrides";
 
 const PREFIX = "budget-line-overrides";
 const idFor = (budgetYear: number, propertyCode: string) => `${budgetYear}-${propertyCode.toUpperCase()}`;
 
 export async function getLineOverrides(budgetYear: number, propertyCode: string): Promise<LineOverrides> {
-  return ((await getJSON(PREFIX, idFor(budgetYear, propertyCode))) as LineOverrides | null) ?? {};
+  return withCurrentLineKeys(propertyCode, ((await getJSON(PREFIX, idFor(budgetYear, propertyCode))) as LineOverrides | null) ?? {});
 }
 
 export async function editLineOverride(

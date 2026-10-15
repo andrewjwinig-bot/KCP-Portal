@@ -1788,23 +1788,17 @@
     ]
    },
    {
-    "name": "Reimbursable Expenses",
-    "role": "reimbursable-expense",
+    "name": "Expenses",
+    "role": "non-reimbursable-expense",
     "lines": [
      {
-      "label": "LIK Management Clearing",
+      "label": "Salaries & Benefits",
       "mask": "8000-*"
      },
      {
       "label": "Building Management",
       "mask": "8220-*"
-     }
-    ]
-   },
-   {
-    "name": "Non-Reimbursable Expenses",
-    "role": "non-reimbursable-expense",
-    "lines": [
+     },
      {
       "label": "Office Rental",
       "mask": "8110-*"

@@ -56,6 +56,7 @@ function sourceBadge(source: DraftSource, growthPct: number, feePct?: number): {
     case "fee-rollup": return { tone: TONE_TEAL, text: "Buildings' fees" };
     case "fee": return { tone: TONE_TEAL, text: `${feePct ?? "–"}%` };
     case "vacancy": return { tone: TONE_TEAL, text: "Vacant SF" };
+    case "office-lease": return null;
   }
 }
 
@@ -460,7 +461,7 @@ export default function BudgetDraftPage() {
             onOpenPayroll={payrollOk ? () => { setBookId("lik-payroll"); window.scrollTo({ top: 0, behavior: "smooth" }); } : undefined}
             onLine={draft.consolidated
               ? (sec, l) => setBreakdown({ label: l.label, section: sec.name, rows: (l.byProperty ?? []).map((b) => ({ code: b.code, name: b.name, total: b.total, months: b.months })) })
-              : (sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.filter((p) => !p.payrollBudget).map((p) => p.key) })}
+              : (sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "office-lease" || l.source === "items" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.filter((p) => !p.payrollBudget).map((p) => p.key) })}
           />
 
 
@@ -534,7 +535,7 @@ export default function BudgetDraftPage() {
         const hSec = draft?.sections.find((x) => x.name === histLine.section);
         const hLine = hSec?.lines.find((x) => x.label === histLine.label);
         // A line with parts is typed here as a whole-line override (editLine).
-        const hLocked = !hLine || hLine.source === "cam-estimate" || hLine.source === "leases" || hLine.source === "pool" || hLine.source === "fee" || hLine.source === "fee-rollup" || hLine.source === "loans" || hLine.source === "vacancy";
+        const hLocked = !hLine || hLine.source === "cam-estimate" || hLine.source === "leases" || hLine.source === "office-lease" || hLine.source === "pool" || hLine.source === "fee" || hLine.source === "fee-rollup" || hLine.source === "loans" || hLine.source === "vacancy";
         const hCanType = !!draft?.lineEditScope && !hLocked && scopeAllowsLine(draft.lineEditScope ?? null, histLine.section, histLine.label);
         return (
         <LineHistoryModal

@@ -1177,6 +1177,23 @@ time — and the team does not have time to open the GL over $80.
   months"), stored as `termYears` = months ÷ 12 and shown by
   `termYearsMonths` ("4 yr 5 mo"), so the LC % × rent × term reads it as is.
 
+- **2010 IS THE MANAGEMENT COMPANY, NOT A PROPERTY — ONE "EXPENSES" SECTION**
+  (owner: "theres no reimbursable vs nonreimbursable expenses its just
+  expenses"). Its mapping's two expense sections are one, and LIK Management
+  Clearing (8000-*, where payroll posts — 8000-9900 Payroll & Benefits) is
+  **Salaries & Benefits**. Every store keyed `section::label` — typed
+  reprojection months (the Sep–Dec clearing back-out), typed budget months,
+  budget line notes, statement notes, dismissed flags — reads the OLD keys as
+  the new ones through `lineRenames.ts` (`withCurrentLineKeys`; a value saved
+  under the new key wins). A future rename of any mapping line goes in that
+  file, never as a bare edit to `line-mappings.json`.
+- **2010'S OFFICE RENTAL IS ITS OWN LEASE: suite 4080-400 at Building 8**
+  (`likOfficeRent`, source `office-lease`, locked; owner: "should be locked
+  from the rent escalation report for building 8. thats a fixed amount"):
+  the suite's months off the SAME projection Building 8's draft budgets as
+  revenue (`projectLeaseRevenue(["4080"]…)` with the BP rent schedule and any
+  call on the suite), so the two sides of the rent cannot differ. Not grown,
+  not typeable; its ⓘ names the suite, SF and source.
 - **4900 THE OFFICE WORKS HAS ITS OWN BUDGET BOOK** (`office-works`, "4900
   Office Works", one property, no roll-up; owner: "4900 office works should
   carry payroll … we need a 4900 budget"). Its statement mapping used to file

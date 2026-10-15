@@ -5,6 +5,7 @@
 // shows the latest version by default and can surface prior ones. We store the
 // per-account monthly nets so a single upload powers any reporting period.
 
+import { currentLineKey, withCurrentLineKeys } from "./lineRenames";
 import "server-only";
 import { storeJSON, listJSON, getJSON, deleteJSON } from "@/lib/storage";
 import type { GlTransaction } from "./glParser";
@@ -272,7 +273,7 @@ export async function getNotesBundle(key: string, year: number, period: number):
     sources[r.lineKey] = r.source ?? "ai";
     if (r.editedAt) meta[r.lineKey] = { editedAt: r.editedAt, editedBy: r.editedBy ?? "Unknown" };
   }
-  return { notes, sources, meta };
+  return { notes: withCurrentLineKeys(key, notes), sources: withCurrentLineKeys(key, sources), meta: withCurrentLineKeys(key, meta) };
 }
 
 export async function getNotes(key: string, year: number, period: number): Promise<Record<string, string>> {
@@ -365,7 +366,7 @@ async function recoverLegacyDismissals(key: string, year: number, period: number
 export async function getDismissedFlags(key: string, year: number, period: number): Promise<string[]> {
   await recoverLegacyDismissals(key, year, period);
   const recs = (await listJSON(dismissScope(key, year, period))) as DismissRecord[];
-  return recs.filter((r) => r?.lineKey).map((r) => r.lineKey);
+  return recs.filter((r) => r?.lineKey).map((r) => currentLineKey(key, r.lineKey));
 }
 
 export async function setFlagDismissed(key: string, year: number, period: number, lineKey: string, dismissed: boolean): Promise<string[]> {
