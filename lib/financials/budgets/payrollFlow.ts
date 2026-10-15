@@ -13,8 +13,12 @@
 //   - LIK Management (2010): everything allocated to LIK Operating + Other →
 //     8000-9900 "Payroll & Benefits", the account the 2026 LIK budget carries
 //     it on (inside the statement's LIK Management Clearing line);
-//   - Interstate (0800), Office Works (4900), Butler & Main (9000): office /
-//     maintenance → 6010-8501 / 6030-8502;
+//   - The Office Works (4900): OW DIRECT is the secretarial staff → Secretarial
+//     Salaries 6030-8502, OW INDIRECT the supervisor → Supervisory Salaries
+//     6010-8501 — as its 2026 workbook budgets them, whatever the employee's
+//     account elsewhere;
+//   - Interstate (0800), Butler & Main (9000): office / maintenance →
+//     6010-8501 / 6030-8502;
 //   - Eastwick: no property code, so nowhere to land — reported, not dropped.
 //
 // Pure: the draft and the payroll page's flow check both read it.
@@ -58,6 +62,12 @@ export function payrollTargets(a: PayrollAllocation): PayrollTarget[] {
     const keys = MISC_KEYS[m.key] ?? [];
     const office = keys.reduce((s, k) => s + (a.byEntity[k]?.office || 0), 0);
     const maint = keys.reduce((s, k) => s + (a.byEntity[k]?.maintenance || 0), 0);
+    if (m.code === "4900") {
+      const direct = a.byEntity.owDirect?.total || 0, indirect = a.byEntity.owIndirect?.total || 0;
+      if (direct) out.push({ code: "4900", name: m.label, gl: MAINT_GL, label: "Secretarial Salaries", annual: direct });
+      if (indirect) out.push({ code: "4900", name: m.label, gl: OFFICE_GL, label: "Supervisory Salaries", annual: indirect });
+      continue;
+    }
     if (m.code === "2010") {
       // LIK carries its payroll as one Payroll & Benefits figure.
       if (office + maint) out.push({ code: "2010", name: m.label, gl: LIK_PAYROLL_GL, label: "Payroll & Benefits", annual: office + maint });

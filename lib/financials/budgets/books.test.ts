@@ -4,7 +4,7 @@ import { budgetBooks, bookById, bookForProperty, bookProperties } from "./books"
 describe("the budget books", () => {
   it("has the seven books the business actually keeps", () => {
     expect(budgetBooks().map((b) => b.id)).toEqual([
-      "shopping-centers", "jv3", "ni-llc", "condo", "korman-homes", "lik", "lik-payroll",
+      "shopping-centers", "jv3", "ni-llc", "condo", "korman-homes", "lik", "office-works", "lik-payroll",
     ]);
   });
 
@@ -44,6 +44,7 @@ describe("the budget books", () => {
     expect(bookForProperty("3620")?.id).toBe("jv3");
     expect(bookForProperty("9840")?.id).toBe("korman-homes");
     expect(bookForProperty("2010")?.id).toBe("lik");
+    expect(bookForProperty("4900")?.id).toBe("office-works");
   });
 
   it("returns null for a property no book covers yet, rather than guessing", () => {

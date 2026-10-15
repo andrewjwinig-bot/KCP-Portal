@@ -15,7 +15,7 @@
 import { PROPERTY_DEFS, type PropertyDef } from "@/lib/properties/data";
 
 export type BudgetBookId =
-  | "shopping-centers" | "jv3" | "condo" | "ni-llc" | "lik" | "korman-homes" | "lik-payroll";
+  | "shopping-centers" | "jv3" | "condo" | "ni-llc" | "lik" | "office-works" | "korman-homes" | "lik-payroll";
 
 export type BudgetBook = {
   id: BudgetBookId;
@@ -87,6 +87,17 @@ export function budgetBooks(): BudgetBook[] {
       rollsUp: false,
     },
     {
+      // The Office Works (owner: "4900 office works should carry payroll …
+      // we need a 4900 budget") — the executive suites, whose secretarial
+      // staff (OW Direct) and supervisor (OW Indirect) the payroll budget
+      // allocates to it.
+      id: "office-works",
+      name: "4900 Office Works",
+      subtitle: "The Office Works — executive suites and secretarial services",
+      properties: codes((p) => p.id === "4900"),
+      rollsUp: false,
+    },
+    {
       id: "lik-payroll",
       name: "2010 LIK Payroll",
       subtitle: "Sets the salaries the other books allocate",
@@ -94,7 +105,7 @@ export function budgetBooks(): BudgetBook[] {
       rollsUp: false,
       // The salaries set here are what Shopping Centers spreads across the
       // centres by SF share — so this book is upstream of that one.
-      feeds: ["shopping-centers", "jv3", "ni-llc"],
+      feeds: ["shopping-centers", "jv3", "ni-llc", "lik", "office-works"],
     },
   ];
 }
