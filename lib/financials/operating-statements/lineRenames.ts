@@ -8,14 +8,18 @@
 // 2010 (LIK Management, owner 10/2026): "since its not a property theres no
 // reimbursable vs nonreimbursable expenses its just expenses", and LIK
 // Management Clearing (8000-*, where its payroll posts — 8000-9900 Payroll &
-// Benefits) is its salaries → "Salaries & Benefits".
+// Benefits) is its salaries → "Salaries & Benefits". Two lines take the LIK
+// workbook's names, by account: 8980-9800 "Auto/ Vehicle" is the workbook's
+// G&A Clearing, and 8990 "Other G&A Expense" its Auto/ Vehicle lease + gas.
 
 type Rename = (key: string) => string;
 
 const RENAMES: Record<string, Rename> = {
   "2010": (key) => key
     .replace(/^(?:Non-)?Reimbursable Expenses::/, "Expenses::")
-    .replace(/^Expenses::LIK Management Clearing(?=$|#)/, "Expenses::Salaries & Benefits"),
+    .replace(/^Expenses::LIK Management Clearing(?=$|#)/, "Expenses::Salaries & Benefits")
+    .replace(/^Expenses::Auto\/ Vehicle(?=$|#)/, "Expenses::G&A Clearing")
+    .replace(/^Expenses::Other G&A Expense(?=$|#)/, "Expenses::Auto/ Vehicle Expenses"),
 };
 
 /** A stored line key as the CURRENT mapping names it. */

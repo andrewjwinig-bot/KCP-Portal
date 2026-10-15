@@ -1824,11 +1824,11 @@
       "mask": "6510-*,8510-9800"
      },
      {
-      "label": "Other G&A Expense",
+      "label": "Auto/ Vehicle Expenses",
       "mask": "8000-0000,8890-9800,8910-9800,8990-*"
      },
      {
-      "label": "Auto/ Vehicle",
+      "label": "G&A Clearing",
       "mask": "8980-9800"
      },
      {
