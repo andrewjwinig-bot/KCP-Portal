@@ -14,6 +14,7 @@ import { HoverCard } from "@/app/components/HoverCard";
 import LoadingState from "@/app/components/LoadingState";
 import { STEP_LABEL } from "./stepStyles";
 import { RaisePlanCard } from "./RaisePlanCard";
+import { PayrollFlowCard, type Landing } from "./PayrollFlowCard";
 import type { BuildingContext } from "@/lib/financials/budgets/payrollContext";
 import {
   ALLOC_COLUMNS, FRINGE, GROUP_GL, allocatePayroll, employeeCost, allocTotal, monthly10, entityDollars, fundShares, employeesForBuilding,
@@ -80,6 +81,7 @@ export function PayrollBudget({ year }: { year: number }) {
   const [doc, setDoc] = useState<PayrollBudgetDoc | null>(null);
   const [seeded, setSeeded] = useState(false);
   const [context, setContext] = useState<Record<string, BuildingContext>>({});
+  const [landing, setLanding] = useState<Landing | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved" | "failed">("idle");
   // The allocation table reads as % (typed) or $ (gross × %, read-only).
@@ -99,7 +101,7 @@ export function PayrollBudget({ year }: { year: number }) {
     setDoc(null); setError(null);
     fetch(`/api/financials/budgets/payroll?year=${year}`, { cache: "no-store" })
       .then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j?.error ?? "Couldn't load the payroll budget."); return j; })
-      .then((j) => { setDoc(j.doc); setSeeded(!!j.seeded); setContext(j.context ?? {}); })
+      .then((j) => { setDoc(j.doc); setSeeded(!!j.seeded); setContext(j.context ?? {}); setLanding(j.landing ?? null); })
       .catch((e) => setError(e.message));
   }, [year]);
 
@@ -568,6 +570,8 @@ export function PayrollBudget({ year }: { year: number }) {
           </table>
         </div>
       </div>
+
+      <PayrollFlowCard doc={doc} landing={landing} />
     </div>
   );
 }

@@ -460,7 +460,7 @@ export default function BudgetDraftPage() {
             onOpenPayroll={payrollOk ? () => { setBookId("lik-payroll"); window.scrollTo({ top: 0, behavior: "smooth" }); } : undefined}
             onLine={draft.consolidated
               ? (sec, l) => setBreakdown({ label: l.label, section: sec.name, rows: (l.byProperty ?? []).map((b) => ({ code: b.code, name: b.name, total: b.total, months: b.months })) })
-              : (sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.map((p) => p.key) })}
+              : (sec, l) => setHistLine({ label: l.label, mask: l.mask, section: sec.name, sign: sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1, locked: !!l.inputKind || l.source === "cam-estimate" || l.source === "leases" || l.source === "items" || l.source === "pool" || l.source === "fee" || l.source === "fee-rollup" || l.source === "vacancy" || l.source === "loans", forecast: l.basisTotal, budget: l.total, months: l.months, poolKeys: l.pool?.filter((p) => !p.payrollBudget).map((p) => p.key) })}
           />
 
 
