@@ -1218,6 +1218,13 @@ time — and the team does not have time to open the GL over $80.
   PA Dept of State $50 in August, NJ Div of Taxation $100 in December — $2,250.
   Each is a typeable row under the line (`section::label#<name>`); the rows
   carry no reprojection column.
+  **2010's Expenses run in the LIK workbook's order** (owner: "hard to line up
+  and compare since they are out of order"): Salaries & Benefits, Office
+  Rental, Bank Fees, Business Taxes, Legal & Accounting, Employee Training,
+  Insurance, Other G&A (the workbook's auto lease + gas), Auto/ Vehicle (its
+  G&A Clearing), Outside Consultants (Accounting / Consultants), then the
+  lines the workbook does not carry. Keep Salaries & Benefits (8000-*) ABOVE
+  Other G&A — a mask overlap on 8000-0000 goes to the first line.
 - **4900 THE OFFICE WORKS HAS ITS OWN BUDGET BOOK** (`office-works`, "4900
   Office Works", one property, no roll-up; owner: "4900 office works should
   carry payroll … we need a 4900 budget"). Its statement mapping used to file

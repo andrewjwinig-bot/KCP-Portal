@@ -1800,10 +1800,6 @@
       "mask": "8000-*"
      },
      {
-      "label": "Building Management",
-      "mask": "8220-*"
-     },
-     {
       "label": "Office Rental",
       "mask": "8110-*"
      },
@@ -1824,8 +1820,24 @@
       "mask": "8330-*"
      },
      {
+      "label": "Insurance",
+      "mask": "6510-*,8510-9800"
+     },
+     {
+      "label": "Other G&A Expense",
+      "mask": "8000-0000,8890-9800,8910-9800,8990-*"
+     },
+     {
+      "label": "Auto/ Vehicle",
+      "mask": "8980-9800"
+     },
+     {
       "label": "Outside Consultants",
       "mask": "8030-9800,8320-9800"
+     },
+     {
+      "label": "Building Management",
+      "mask": "8220-*"
      },
      {
       "label": "Office Supplies",
@@ -1834,18 +1846,6 @@
      {
       "label": "Telephone",
       "mask": "8940-9800"
-     },
-     {
-      "label": "Auto/ Vehicle",
-      "mask": "8980-9800"
-     },
-     {
-      "label": "Other G&A Expense",
-      "mask": "8000-0000,8890-9800,8910-9800,8990-*"
-     },
-     {
-      "label": "Insurance",
-      "mask": "6510-*,8510-9800"
      },
      {
       "label": "Interest Expense",
