@@ -882,7 +882,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
                             // A book's share of 2010's fees has no reprojection of its own,
                             // and opens its buildings (owner: "click into each").
                             onLabel={y.feeGroup ? () => setFeeGroupOpen(y.feeGroup!) : undefined}
-                            basis={y.feeGroup || l.source === "schedule" ? null : seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
+                            basis={y.feeGroup || y.partOf || l.source === "schedule" ? null : seeded ? (y.prior ?? 0) : y.bucket === "extra" ? null : y.basisTotal} priorYear={seeded ? draft.basisYear : undefined}
                             labelNote={y.note}
                             // "+3% Nov" was a pill; the Change column reads the
                             // ~0.5% and this ⓘ says why it is not 3%.

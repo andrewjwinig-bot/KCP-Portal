@@ -46,3 +46,24 @@ describe("the payroll budget flows into the property budgets", () => {
     expect(ow.find((t) => t.gl === "6030-8502")?.label).toBe("Secretarial Salaries");
   });
 });
+
+describe("auto allowances land as their own row", () => {
+  it("splits each property's allowance out of its salary dollars, adding back to the whole", async () => {
+    const { withAutoAllowances } = await import("./payrollBudget");
+    const { payrollTargetsOf, AUTO_ALLOWANCE_LABEL } = await import("./payrollFlow");
+    const doc = withAutoAllowances(seedPayrollBudget(2027));
+    const t = payrollTargetsOf(doc);
+    const sum = (xs: number[]) => xs.reduce((s, v) => s + v, 0);
+    expect(sum(t.map((x) => x.annual))).toBeCloseTo(allocatePayroll(doc).allocated, 1);
+    const auto = t.filter((x) => x.auto);
+    expect(auto.every((x) => x.label === AUTO_ALLOWANCE_LABEL)).toBe(true);
+    // Drew's $7,200 + the FICA / Medicare on it, across where he is allocated.
+    expect(sum(auto.map((x) => x.annual))).toBeCloseTo(7200 * (1 + 0.062 + 0.0145), 0);
+    expect(auto.find((x) => x.code === "2010")?.gl).toBe(LIK_PAYROLL_GL);
+    // Blocks lay the allowance LAST, onto a line its salary block already set.
+    const { blocks } = payrollBudgetBlocks(t, 2027);
+    const firstAuto = blocks.findIndex((b) => b.label === AUTO_ALLOWANCE_LABEL);
+    expect(firstAuto).toBeGreaterThan(0);
+    expect(blocks.slice(firstAuto).every((b) => b.label === AUTO_ALLOWANCE_LABEL)).toBe(true);
+  });
+});

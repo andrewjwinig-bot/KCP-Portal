@@ -1530,7 +1530,17 @@ time — and the team does not have time to open the GL over $80.
     allocation as its invoiced alongside payroll"). × 12 into gross, taxed
     as wages (FICA / Medicare / FUTA), not in the 401(k) match, and allocated
     exactly like the salary — so it lands on each property's SALARY lines
-    (2010's on Salaries & Benefits), never on an Auto line. 2010's Auto/
+    (2010's on Salaries & Benefits), never on an Auto line, but as its OWN
+    **Auto Allowance** row under that line (owner: "i dont want it to look
+    like we are pushing too much through as salaries"): `payrollTargetsOf`
+    splits each property's allowance (with its taxes) out — the doc
+    allocated with and without it — `payrollBudgetBlocks` lays those blocks
+    LAST, and `applyPools` adds the row (`partOf: <gl>`, not typeable). It
+    stays in the SAME account because the Payroll Invoicer bills it with
+    payroll ("Other" column) and the properties book it there; Publish folds
+    the row back into its account (`foldParts`). Where Payroll Lands lists it
+    as its own row. A real reclass to an auto GL would need a property
+    account, the mapping and the invoicer changed together — not done. 2010's Auto/
     Vehicle Expenses (8990) is the company's own lease + gas only. Seeded by
     `AUTO_ALLOWANCE_SEED` (Drew $600) onto any doc whose employee never had
     the field (`withAutoAllowances`, in the store); a cleared one stays 0.

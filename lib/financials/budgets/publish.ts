@@ -66,9 +66,25 @@ type Ctx = {
   propertyCode: string;
 };
 
+/** A row that is PART of an account (the Auto Allowance inside a salary
+ *  account) publishes folded into that account — the statements find a
+ *  budget by account, and the allowance is booked with payroll. */
+function foldParts(subs: BudgetSubLine[]): BudgetSubLine[] {
+  const parts = subs.filter((s) => s.partOf);
+  if (!parts.length) return subs;
+  const out = subs.filter((s) => !s.partOf).map((s) => ({ ...s, months: [...s.months] }));
+  for (const p of parts) {
+    let host = out.find((s) => s.account === p.partOf);
+    if (!host) { host = { ...p, account: p.partOf!, partOf: undefined, label: undefined, months: new Array(12).fill(0), total: 0 }; out.push(host); }
+    host.months = host.months.map((v, i) => v + (p.months[i] || 0));
+    host.total = r0(sum(host.months));
+  }
+  return out;
+}
+
 /** The GL sub-lines of a line, when it IS its accounts (rule 1). */
 function accountSubs(l: BudgetDraftLine): BudgetSubLine[] | null {
-  const subs = l.subLines ?? [];
+  const subs = foldParts(l.subLines ?? []);
   if (subs.length < 2 || subs.some((s) => s.bucket || !ACCOUNT.test(s.account))) return null;
   // Only when they add up to the line — a split that did not would publish a
   // different figure from the one on the grid.
