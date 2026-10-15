@@ -1177,6 +1177,19 @@ time — and the team does not have time to open the GL over $80.
   months"), stored as `termYears` = months ÷ 12 and shown by
   `termYearsMonths` ("4 yr 5 mo"), so the LC % × rent × term reads it as is.
 
+- **2010 GROWS OFF THE LAST TWELVE MONTHS OF ACTUALS, not the reprojection**
+  (`T12_BASIS` / `t12Basis` in `draft.ts`; owner: "a lot of 2010 budget is
+  just carrying over last years budget"). The reprojection is actual to date
+  + this year's BUDGET for the rest, so every unposted month was last year's
+  budget +3%. 2010 instead takes the T-12 (`loadT12`, ending at the basis
+  year's last posted month) laid out by CALENDAR month — Jan–Aug from this
+  year, Sep–Dec from last fall — +3%; a month no GL covers keeps the
+  reprojection's figure. Lines, sub-lines (an account seen only last fall is
+  added) and the keyed inputs read it; the "26 Reproj" column, the bank
+  roll-forward and `basisTotal` stay the reprojection. The line comment says
+  "+3% over the last 12 months' actuals (Sep 25 – Aug 26)"
+  (`draft.growthBasis`). Pinned by `draft.test.ts`. Add a code to
+  `T12_BASIS` to put another property on it.
 - **The budget year is NEXT year by default** (2027 in 2026) — the page, Budget
   Inputs and both APIs. It is built from this year's forecast.
 - **The draft reads as a FULL-YEAR OPERATING STATEMENT**
@@ -1506,10 +1519,32 @@ time — and the team does not have time to open the GL over $80.
       Undo that puts the salary back and returns the raise to the plan. A BONUS is wages for FICA / Medicare /
       FUTA but not the 401(k) match, and is never applied —
       `PayrollEmployee.bonus` exists only for the plan's math.
-  - NEXT (not built): feed the property drafts' salary lines from it (it
-    replaces `payrollPools.ts`'s last-year +3% blocks), and give Harry's
-    Payroll Invoicer its 2027 allocation from it (employee × building %,
-    recoverable = maintenance) effective 1/1/27.
+  - **IT FEEDS EVERY PROPERTY'S DRAFT** (`payrollFlow.ts` →
+    `payrollTargets` / `payrollBudgetBlocks`, laid on by the draft's own
+    `applyPools`; owner: "2010 budget need work since theres no salary
+    allocation but we do allocate Drew Alison and Randy … that needs to
+    accurately flow through"). A fund building's office + marketing share →
+    Salaries & Wages 6010-8501, maintenance → Maintenance Salaries
+    6030-8502; **2010's LIK Operating + Other → 8000-9900 "Payroll &
+    Benefits"** (the 2026 LIK budget's account, inside the statement's LIK
+    Management Clearing line — 2010's mapping has no salary line); 0800 /
+    4900 / 9000 → 6010 / 6030. The draft reads the doc through
+    `payrollDocForBudgets` (rent-roll SF, `withRollSqft`) so a building's
+    share is the page's to the dollar. It REPLACED `payrollPools.ts`'s
+    last-year +3% blocks, which remain only as the fallback with no payroll
+    budget. Such a line is `pool` with `payrollBudget: true` — not typeable,
+    no book-total box. Pinned by `payrollFlow.test.ts` (every dollar
+    allocated lands) and `draft.test.ts`.
+  - **WHERE PAYROLL LANDS** (`PayrollFlowCard`, bottom of the payroll page;
+    owner: "worth doing a check that all payroll allocations flow correctly
+    to their respective properties budgets"): every allocation by property
+    and account beside the budget line it lands on (`payrollFlowCheck` — the
+    draft's rule, run on the statement mappings by the payroll GET's
+    `landing`), amounts live off the doc. Anything reaching no budget —
+    Eastwick (no code), 0800 / 4900 / 9000 (no budget book) — is an amber
+    pill and the header says how much: "$x REACHES NO BUDGET".
+  - NEXT (not built): give Harry's Payroll Invoicer its 2027 allocation from
+    it (employee × building %, recoverable = maintenance) effective 1/1/27.
 - **A LEASE IN PLACE CAN BE BACKED OUT** (`kind: "stop"` + `startMonth`,
   applied LAST in `projectLeaseRevenue` over every suite with a tenant). A
   tenant who will not pay — Rite Aid at 7010, in bankruptcy — earns no rent

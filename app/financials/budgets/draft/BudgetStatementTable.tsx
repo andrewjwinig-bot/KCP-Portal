@@ -454,9 +454,9 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const yy = (y: number) => String(y);
   const basisComment = (l: Line): string | undefined => {
     if (l.inputSource || growthOnNothing(l.source, l.months) || growthOverTyped(l.source, l.typed)) return undefined;
-    if (l.source === "reproj-growth") return `+3% over the ${yy(draft.basisYear)} reprojection`;
+    if (l.source === "reproj-growth") return draft.growthBasis?.kind === "t12" ? `+3% over the last 12 months' actuals (${draft.growthBasis.span})` : `+3% over the ${yy(draft.basisYear)} reprojection`;
     if (l.source === "ret-default") return `${yy(draft.basisYear)} taxes +3%`;
-    if (l.source === "reproj-flat") return `Carried flat from the ${yy(draft.basisYear)} reprojection`;
+    if (l.source === "reproj-flat") return draft.growthBasis?.kind === "t12" ? `Carried flat from the last 12 months' actuals (${draft.growthBasis.span})` : `Carried flat from the ${yy(draft.basisYear)} reprojection`;
     return undefined;
   };
   // A seeded item / bucket: +3% over last year's BUDGET (items have no
@@ -477,7 +477,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
       // the route strips `pool` for everyone else, who are told the source.
       return l.pool && onOpenPayroll
         ? <SourceIcon kind="link" onClick={onOpenPayroll} label="Open the Payroll Budget" title="From the Payroll Budget"
-            rows={[{ label: "Worked out in", value: "2010 LIK Payroll Budget — each employee's pay, allocated by building" }]} footer={{ label: "Click to open it", value: "↗" }} />
+            rows={[{ label: "Worked out in", value: "2010 LIK Payroll Budget — each employee's pay, allocated by building" },
+              ...l.pool.map((p) => ({ label: `${p.label} · ${p.gl}`, value: money0(p.amount) }))]} footer={{ label: "Click to open it", value: "↗" }} />
         : <SourceIcon title="Source: Payroll Budget" rows={[{ label: "This property's share of", value: "the 2010 LIK Payroll Budget" }]} label="Source: Payroll Budget" />;
     }
     if (l.source === "fee") return <SourceIcon title={`Management Fee · ${l.feePct ?? "–"}% of Revenue`} label="How the Management Fee is figured"

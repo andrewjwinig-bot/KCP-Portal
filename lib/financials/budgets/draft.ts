@@ -12,6 +12,11 @@
 import { assessedTaxInput } from "./assessedTaxes";
 import "server-only";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
+import { loadT12 } from "@/lib/financials/t12/load";
+import { t12Window } from "@/lib/financials/t12/window";
+import { payrollDocForBudgets } from "./payrollFlowLoad";
+import { allocatePayroll } from "./payrollBudget";
+import { payrollBudgetBlocks, payrollTargets } from "./payrollFlow";
 import { getFeeRollup, saveFeeRollup, upsertFeeRow } from "./feeRollupStore";
 import type { ReprojLine, Reprojection } from "@/lib/financials/reprojections/compute";
 import { listLoans } from "@/lib/debt/storage";
@@ -116,7 +121,7 @@ export type BudgetDraftLine = {
   inputKind?: ExpenseInputKind;
   /** Set on a line (or the part of it) that is this property's share of a
    *  payroll total entered once for the book (`payrollPools.ts`). */
-  pool?: { key: string; label: string; gl: string; sharePct: number; annual: number; entered: boolean; amount: number }[];
+  pool?: { key: string; label: string; gl: string; sharePct: number; annual: number; entered: boolean; amount: number; payrollBudget?: boolean }[];
 };
 
 export type BudgetSubLine = {
@@ -159,6 +164,9 @@ export type BudgetDraft = {
   budgetYear: number;
   /** The reprojection year the draft was grown from (budgetYear − 1). */
   basisYear: number;
+  /** Set when the lines grow off the TRAILING TWELVE MONTHS of actuals
+   *  rather than the reprojection (2010) — the window, e.g. "Sep 25 – Aug 26". */
+  growthBasis?: { kind: "t12"; span: string };
   /** Growth % applied to expenses (e.g. 3 = 3%). */
   growthPct: number;
   sections: BudgetDraftSection[];
@@ -440,7 +448,10 @@ function withSubLines(
   if (computed) {
     const subLines: BudgetSubLine[] = accts.map((a) => {
       const months = factor != null ? grow(a.blended, factor) : a.blended.map(r0);
-      return { account: a.account, name: names[a.account], months, total: r0(sum(months)), basisTotal: r0(sum(a.blended)), typeable: true };
+      // `reprojTotal` is carried where the growth basis is NOT the
+      // reprojection (2010's trailing twelve months) — the "26 Reproj" column
+      // still reads the reprojection.
+      return { account: a.account, name: names[a.account], months, total: r0(sum(months)), basisTotal: r0((a as { reprojTotal?: number }).reprojTotal ?? sum(a.blended)), typeable: true };
     });
     const months = new Array(12).fill(0);
     for (const s of subLines) addInto(months, s.months);
@@ -621,7 +632,7 @@ function applyPools(sections: BudgetDraftSection[], code: string, blocks: PoolBl
     if (!target) continue;
     const l0 = target.sec.lines[target.idx];
     const first = !claimed.has(l0.label + l0.mask);
-    const info = { key: b.key, label: b.label, gl: b.gl, sharePct: b.shares[code.toUpperCase()] ?? 0, annual, entered, amount: r0(sum(months)) };
+    const info = { key: b.key, label: b.label, gl: b.gl, sharePct: b.shares[code.toUpperCase()] ?? 0, annual, entered, amount: r0(sum(months)), ...(b.key.startsWith("pb:") ? { payrollBudget: true } : {}) };
     let line: BudgetDraftLine;
     const sub = l0.subLines?.find((x) => x.account === b.gl);
     if (sub) {
@@ -646,6 +657,35 @@ function applyPools(sections: BudgetDraftSection[], code: string, blocks: PoolBl
     for (const l of sec.lines) addInto(subtotal, l.months);
     sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
   }
+}
+
+/** Properties whose growth basis is the trailing twelve months of actuals. */
+export const T12_BASIS = new Set(["2010"]);
+
+/** The trailing twelve months ending at the basis year's last posted month,
+ *  laid out by CALENDAR month (Jan–Dec) — each budget month grows off the same
+ *  month of the trailing year. `null` where no GL covers that month. */
+async function t12Basis(key: string, basisYear: number, through: number) {
+  if (!(through >= 1)) return null;
+  const t = await loadT12(key, basisYear, Math.min(12, through));
+  if (!t) return null;
+  const win = t12Window(basisYear, Math.min(12, through));
+  const missing = new Set(t.missing);
+  const covered = new Array(12).fill(false) as boolean[];
+  const calOf = (vals: number[]) => {
+    const out: (number | null)[] = new Array(12).fill(null);
+    win.forEach((w, i) => { if (!missing.has(t.labels[i])) out[w.month - 1] = vals[i] || 0; });
+    return out;
+  };
+  win.forEach((w, i) => { if (!missing.has(t.labels[i])) covered[w.month - 1] = true; });
+  const lines = new Map<string, (number | null)[]>();
+  const accounts = new Map<string, Map<string, (number | null)[]>>();
+  for (const sec of t.reprojection.sections) for (const l of sec.lines) {
+    const k = `${sec.name}::${l.label}`;
+    lines.set(k, calOf(l.blended));
+    accounts.set(k, new Map((l.accounts ?? []).map((a) => [a.account, calOf(a.blended)])));
+  }
+  return { lines, accounts, covered, span: t.span };
 }
 
 /** Build a draft FY budget for one property/fund, growing the current-year
@@ -756,6 +796,38 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
   const r = isKormanHomes(meta.propertyCode, key) ? blanketReimbursements(loaded.reprojection) : loaded.reprojection;
 
   const factor = 1 + (growthPct || 0) / 100;
+  // THE GROWTH BASIS. Every property grows off this year's reprojection
+  // (actual to date + this year's budget for the rest) — except where that
+  // just carries last year's budget forward: 2010 grows off the LAST TWELVE
+  // MONTHS OF ACTUALS instead (owner: "a lot of 2010 budget is just carrying
+  // over last years budget"). Each budget month takes the same calendar month
+  // of the trailing year, so seasonality and real spend carry; a month no GL
+  // covers keeps the reprojection's figure.
+  const t12 = T12_BASIS.has(String(meta.propertyCode).toUpperCase())
+    ? await t12Basis(key, basisYear, r.actualThroughMonth).catch(() => null) : null;
+  const basisOf = (secName: string, l: ReprojLine): number[] => {
+    const b = t12?.lines.get(`${secName}::${l.label}`);
+    return b ? b.map((v, i) => (v == null ? l.blended[i] || 0 : v)) : l.blended;
+  };
+  const accountsOf = (secName: string, l: ReprojLine): ReprojLine["accounts"] => {
+    const tAccts = t12?.accounts.get(`${secName}::${l.label}`);
+    if (!t12 || !tAccts) return l.accounts;
+    const out = (l.accounts ?? []).map((a) => {
+      const b = tAccts.get(a.account);
+      // An account with no actuals in the trailing year is $0 in the months
+      // the trailing year covers.
+      const blended = b ? b.map((v, i) => (v == null ? a.blended[i] || 0 : v)) : a.blended.map((v, i) => (t12.covered[i] ? 0 : v));
+      return { ...a, blended, reprojTotal: sum(a.blended) } as NonNullable<ReprojLine["accounts"]>[number] & { reprojTotal: number };
+    });
+    // …and one that posted only in the trailing year's earlier months (last
+    // fall) still belongs on the line, or its sub-lines would not add up.
+    for (const [account, b] of tAccts) {
+      if (out.some((a) => a.account === account)) continue;
+      const blended = b.map((v) => v ?? 0);
+      out.push({ account, actual: blended, budget: new Array(12).fill(0), blended, reprojTotal: 0 });
+    }
+    return out;
+  };
   const revMonths = new Array(12).fill(0);
   const expMonths = new Array(12).fill(0);
 
@@ -782,7 +854,7 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
       const k = expenseInputKindOf(sec.role, l.label);
       if (!k) continue;
       const arr = kindLines.get(k) ?? [];
-      arr.push({ key: `${sec.name}::${l.label}`, basis: l.blended });
+      arr.push({ key: `${sec.name}::${l.label}`, basis: basisOf(sec.name, l) });
       kindLines.set(k, arr);
     }
   }
@@ -830,7 +902,8 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
       // Expenses/capital grow by the assumption; debt + other revenue/
       // reimbursement carry flat (CAM/RET reimbursements refined in Phase 3).
       const grown = isExpense;
-      const months = grown ? grow(l.blended, factor) : l.blended.map(r0);
+      const basis = basisOf(sec.name, l);
+      const months = grown ? grow(basis, factor) : basis.map(r0);
       return {
         label: l.label,
         mask: l.mask,
@@ -841,7 +914,7 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
       };
     });
     const lines = built.map((b, i) => ({
-      ...withSubLines(b, sec.lines[i].accounts, r.accountNames ?? {}, isExpense ? factor : null, sec.role),
+      ...withSubLines(b, accountsOf(sec.name, sec.lines[i]), r.accountNames ?? {}, isExpense ? factor : null, sec.role),
       glAccounts: (sec.lines[i].accounts ?? []).map((x) => x.account),
     }));
     const subtotal = new Array(12).fill(0);
@@ -949,11 +1022,20 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
   // LAST YEAR'S BUDGET OF RECORD, for the itemized lines (Building
   // Maintenance's contracts and recurring items, the insurance policies…):
   // the workbook for the basis year that carries this property.
-  // PAYROLL: each block entered once for the book and allocated across it.
-  const book = bookForProperty(meta.propertyCode);
-  if (book?.properties.length) {
-    const blocks = payrollBlocks(await priorBudgetProperties(book.properties, basisYear));
-    if (blocks.length) applyPools(sections, meta.propertyCode, blocks, await getPoolEntries(budgetYear, book.id).catch(() => ({})));
+  // PAYROLL comes from the 2010 LIK PAYROLL BUDGET (payrollFlow.ts): every
+  // employee's gross worked down to the building, landed on the property's
+  // own salary accounts — 2010's on 8000-9900 Payroll & Benefits. Only with no
+  // payroll budget to read does a book fall back to last year's blocks +3%.
+  const payroll = await payrollDocForBudgets(budgetYear).catch(() => null);
+  if (payroll?.doc?.employees?.length) {
+    const { blocks, entries } = payrollBudgetBlocks(payrollTargets(allocatePayroll(payroll.doc)), budgetYear);
+    applyPools(sections, meta.propertyCode, blocks, entries);
+  } else {
+    const book = bookForProperty(meta.propertyCode);
+    if (book?.properties.length) {
+      const blocks = payrollBlocks(await priorBudgetProperties(book.properties, basisYear));
+      if (blocks.length) applyPools(sections, meta.propertyCode, blocks, await getPoolEntries(budgetYear, book.id).catch(() => ({})));
+    }
   }
   const priorProperty = await priorBudgetProperty(meta.propertyCode, basisYear);
   const itemized = itemizedLines(priorProperty, sections, typedDoc);
@@ -1215,6 +1297,7 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
     propertyName: meta.propertyName,
     budgetYear,
     basisYear,
+    ...(t12 ? { growthBasis: { kind: "t12" as const, span: t12.span } } : {}),
     growthPct,
     sections,
     rollups: {

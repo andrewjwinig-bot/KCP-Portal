@@ -13,6 +13,11 @@ vi.mock("./lineOverrideStore", () => ({ getLineOverrides: async () => typedDoc }
 // No prior budget of record, so bucketed lines keep the base-bucket rule
 // (itemizing from last year's budget is tested in lineItems.test.ts).
 vi.mock("./storage", () => ({ listBudgets: async () => [] }));
+let t12Result: any = null;
+vi.mock("@/lib/financials/t12/load", () => ({ loadT12: async () => t12Result }));
+// No payroll budget unless a test sets one (payroll flow: payrollFlow.test.ts).
+let payrollDoc: any = null;
+vi.mock("./payrollFlowLoad", () => ({ payrollDocForBudgets: async () => (payrollDoc ? { doc: payrollDoc, seeded: false } : null) }));
 
 const noLeases = { rentalMonthly: new Array(12).fill(0), rentalTotal: 0, inPlaceUnits: 0, expiring: [], vacant: [], hasData: false };
 
@@ -232,5 +237,50 @@ describe("combineTenantRevenue", () => {
     const rows = combineTenantRevenue([rr("A-1", "Acme", 1000)], { tenants: [t("Z-9", 50)] } as any);
     expect(rows).toHaveLength(2);
     expect(rows[1]).toMatchObject({ unitRef: "Z-9", recoveryOnly: true });
+  });
+});
+
+describe("2010's payroll comes from the LIK Payroll Budget", () => {
+  it("LIK Management Clearing (8000-*) carries everyone allocated to LIK", async () => {
+    const { seedPayrollBudget, allocatePayroll } = await import("./payrollBudget");
+    payrollDoc = seedPayrollBudget(2027);
+    const lik = allocatePayroll(payrollDoc).misc.find((m) => m.code === "2010")!.annual;
+    const r = fakeReproj();
+    r.reprojection.propertyCode = "2010"; r.meta.propertyCode = "2010";
+    r.reprojection.sections = [
+      section("Revenues", "revenue", [line("Management Fees", "4510-*", 60000)]),
+      section("Reimbursable Expenses", "reimbursable-expense", [line("LIK Management Clearing", "8000-*", 100)]),
+    ] as any;
+    loadReprojection.mockResolvedValue(r);
+    projectLeaseRevenue.mockResolvedValue(noLeases);
+    const d = (await buildBudgetDraft("2010", 2027, 3))!;
+    const l = d.sections.find((s) => s.role === "reimbursable-expense")!.lines[0];
+    expect(l.source).toBe("pool");
+    expect(Math.abs(l.total - lik)).toBeLessThan(1);
+    expect(l.pool?.[0]).toMatchObject({ gl: "8000-9900", payrollBudget: true });
+    payrollDoc = null;
+  });
+});
+
+describe("2010 grows off the last twelve months of actuals", () => {
+  it("each budget month takes the same calendar month of the trailing year, +3%", async () => {
+    const r = fakeReproj();
+    r.reprojection.propertyCode = "2010"; r.meta.propertyCode = "2010"; r.reprojection.actualThroughMonth = 8;
+    r.reprojection.sections = [section("Non-Reimbursable Expenses", "non-reimbursable-expense", [line("Office Rental", "8110-*", 100)])] as any;
+    // The trailing year Sep 25 – Aug 26: last fall at 500, this year at 400.
+    const months = [500, 500, 500, 500, 400, 400, 400, 400, 400, 400, 400, 400];
+    t12Result = {
+      reprojection: { sections: [section("Non-Reimbursable Expenses", "non-reimbursable-expense", [{ ...line("Office Rental", "8110-*", 0), blended: months }])] },
+      labels: ["Sep 25", "Oct 25", "Nov 25", "Dec 25", "Jan 26", "Feb 26", "Mar 26", "Apr 26", "May 26", "Jun 26", "Jul 26", "Aug 26"],
+      missing: [], span: "Sep 25 – Aug 26",
+    };
+    loadReprojection.mockResolvedValue(r);
+    projectLeaseRevenue.mockResolvedValue(noLeases);
+    const d = (await buildBudgetDraft("2010", 2027, 3))!;
+    const l = d.sections[0].lines[0];
+    expect(l.months).toEqual([412, 412, 412, 412, 412, 412, 412, 412, 515, 515, 515, 515]);
+    expect(l.basisTotal).toBe(1200);       // the 26 Reproj column is still the reprojection
+    expect(d.growthBasis).toEqual({ kind: "t12", span: "Sep 25 – Aug 26" });
+    t12Result = null;
   });
 });
