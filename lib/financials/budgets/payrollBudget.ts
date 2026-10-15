@@ -76,6 +76,11 @@ export type PayrollEmployee = {
   medicalMonthly: number;
   /** 401(k) employer match, % of salary. */
   k401Pct: number;
+  /** A monthly AUTO ALLOWANCE, paid with payroll (owner: "Drew gets
+   *  $600/mo … it follows his payroll allocation as its invoiced alongside
+   *  payroll"). × 12 a year; taxable wages for FICA / Medicare / FUTA, not
+   *  for the 401(k) match (a % of salary). Lands where the employee does. */
+  autoMonthly?: number;
   /** % of this employee to each entity — sums to 100. */
   alloc: Partial<Record<AllocKey, number>>;
   /** A one-time bonus — wages for FICA / Medicare / FUTA, not for the 401(k)
@@ -121,7 +126,7 @@ const sum = (a: number[]) => a.reduce((s, v) => s + (v || 0), 0);
 
 // ─── Sheets 1 + 2: pay, taxes and benefits ─────────────────────────────────
 export type EmployeeCost = {
-  perPay: number; salary: number; bonus: number;
+  perPay: number; salary: number; bonus: number; auto: number;
   fica: number; medi: number; uc: number; futa: number; workComp: number;
   fringe: number; medicalAnnual: number; medical: number;
   k401: number; gross: number;
@@ -130,7 +135,8 @@ export type EmployeeCost = {
 export function employeeCost(e: PayrollEmployee, r: Rates): EmployeeCost {
   const salary = e.salary || 0;
   const bonus = e.bonus || 0;
-  const wages = salary + bonus;
+  const auto = (e.autoMonthly || 0) * 12;
+  const wages = salary + bonus + auto;
   const fica = Math.min(wages, r.ficaBase) * r.ficaPct / 100;
   const medi = Math.min(wages, r.mediBase) * r.mediPct / 100;
   const futa = e.futa ? Math.min(wages, r.futaBase) * r.futaPct / 100 : 0;
@@ -140,7 +146,7 @@ export function employeeCost(e: PayrollEmployee, r: Rates): EmployeeCost {
   const k401 = salary * (e.k401Pct || 0) / 100;
   const gross = wages + fica + medi + (e.uc || 0) + futa + (e.workComp || 0) + medical + k401;
   return {
-    perPay: r.pays ? salary / r.pays : 0, salary, bonus,
+    perPay: r.pays ? salary / r.pays : 0, salary, bonus, auto: r2(auto),
     fica: r2(fica), medi: r2(medi), uc: e.uc || 0, futa: r2(futa), workComp: e.workComp || 0,
     fringe: r2(fringe), medicalAnnual: r2(medicalAnnual), medical: r2(medical),
     k401: r2(k401), gross: r2(gross),
@@ -202,7 +208,7 @@ export function allocatePayroll(doc: PayrollBudgetDoc): PayrollAllocation {
     }
     return { ...cost, id: e.id, name: e.name, group: e.group, allocTotal: allocTotal(e) };
   });
-  const keys: (keyof EmployeeCost)[] = ["perPay", "salary", "bonus", "fica", "medi", "uc", "futa", "workComp", "fringe", "medicalAnnual", "medical", "k401", "gross"];
+  const keys: (keyof EmployeeCost)[] = ["perPay", "salary", "bonus", "auto", "fica", "medi", "uc", "futa", "workComp", "fringe", "medicalAnnual", "medical", "k401", "gross"];
   const totals = Object.fromEntries(keys.map((k) => [k, r2(sum(employees.map((x) => x[k] as number)))])) as EmployeeCost;
 
   const mkt = byEntity.marketing.total;
@@ -394,6 +400,17 @@ const E = (id: string, name: string, group: PayGroup, salary: number, uc: number
     // are what was budgeted, so the % is read back from them.
     k401Pct: salary ? Math.round((k401 / salary) * 1e6) / 1e4 : 0, alloc });
 
+/** Monthly auto allowances paid with payroll, by employee id (owner 10/2026:
+ *  Drew $600; "there may be one or two more"). Laid on any doc whose employee
+ *  has never had the field — a cleared one stays cleared (`withAutoAllowances`). */
+export const AUTO_ALLOWANCE_SEED: Record<string, number> = { "winig-drew": 600 };
+
+export function withAutoAllowances(doc: PayrollBudgetDoc): PayrollBudgetDoc {
+  if (!doc.employees.some((e) => e.autoMonthly === undefined && AUTO_ALLOWANCE_SEED[e.id])) return doc;
+  return { ...doc, employees: doc.employees.map((e) => e.autoMonthly === undefined && AUTO_ALLOWANCE_SEED[e.id]
+    ? { ...e, autoMonthly: AUTO_ALLOWANCE_SEED[e.id] } : e) };
+}
+
 /** The 2026 workbook, as the owner keyed it — the starting point for 2027. */
 export const SEED_2026: Omit<PayrollBudgetDoc, "year"> = {
   rates: DEFAULT_RATES,
@@ -476,6 +493,8 @@ export function sanitizePayrollDoc(raw: any, year: number): PayrollBudgetDoc | n
       salary: n(e?.salary), uc: n(e?.uc), futa: e?.futa !== false, workComp: n(e?.workComp),
       fringe: Object.fromEntries(FRINGE.map((k) => [k, n(e?.fringe?.[k])])) as Record<FringeKey, number>,
       medicalMonthly: n(e?.medicalMonthly), k401Pct: n(e?.k401Pct), alloc,
+      // Kept even at 0: a cleared allowance must not be re-seeded.
+      ...(e?.autoMonthly != null ? { autoMonthly: n(e?.autoMonthly) } : {}),
     };
   });
   const rates = { ...DEFAULT_RATES } as Rates;
