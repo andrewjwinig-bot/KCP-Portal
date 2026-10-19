@@ -2347,6 +2347,12 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
 - **The table uses the Rent Roll's type**: 13px cells, the line name at 600, account numbers as 12px `<code>` in muted text, a 700-weight Total under a 2px rule.
 - **A line with ONE account has no ▸ and does not expand** (owner: "keep it
   clean simple and bold and clear") — the line IS the account.
+- **The import runs through the SHARED import modal** (`useImport().startImport`,
+  one `uploadAll` request): the uploading animation, a row per bank (accounts,
+  total) and a completion report whose last tile says whether the Monday cash
+  position emailed — "Sent to n" or "Not sent · <reason>" (it waits for every
+  bank this week, once a week). It had its own inline "Importing…" button text
+  and a green line, so an import gave no animation and no confirmation (owner).
 - **Downloads** (`export.ts`, `GET /api/financials/bank-balances/export?format=pdf|xlsx`,
   the page's `DownloadMenu`) are built from the SAME `buildBalanceView` the page
   renders. Excel is on the shared theme: each line's Net available is a live
