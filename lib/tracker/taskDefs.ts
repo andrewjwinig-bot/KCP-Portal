@@ -109,6 +109,10 @@ export interface TaskDef {
   lastFriday?: boolean;
   everyWednesday?: boolean; // expands into one task per Wednesday in the month
   everyMonday?: boolean;    // expands into one task per Monday in the month
+  /** Left off the week's lists (dashboard, digest, Monday email, sidebar
+   *  count) until its own due day — Pay Avid Bills is paid on Wednesday, so
+   *  it has no business on Monday's list (owner). The calendar still shows it. */
+  showFromDueDay?: boolean;
   approxDay?: boolean;
   pinned?: boolean;         // always shown at top, no checkbox, not on calendar
   months?: number[];
@@ -496,6 +500,7 @@ export const TASK_DEFS: TaskDef[] = [
     category: "weekly",
     dueDay: 0,          // placeholder — overridden per-Wednesday at expansion time
     everyWednesday: true,
+    showFromDueDay: true,
     notes: "Export from Skyline and import to Avid.",
     instructions: {
       steps: [
@@ -867,7 +872,8 @@ export type TaskOccurrence = {
 };
 
 /** Concrete (non-pinned) task occurrences whose due date falls in [start, end]. */
-export function taskOccurrencesBetween(start: Date, end: Date): TaskOccurrence[] {
+export function taskOccurrencesBetween(start: Date, end: Date, now: Date = new Date()): TaskOccurrence[] {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const out: TaskOccurrence[] = [];
   const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
   const lastMonth = new Date(end.getFullYear(), end.getMonth(), 1);
@@ -879,6 +885,7 @@ export function taskOccurrencesBetween(start: Date, end: Date): TaskOccurrence[]
       const day = effDay(t, y, m);
       if (!day || day < 1) continue;
       const d = new Date(y, m, day);
+      if (t.showFromDueDay && d > today) continue;
       if (d >= start && d <= end) {
         out.push({ id: t.id, label: t.label, category: t.category, date: d, link: t.link, owner: ownerOf(t) });
       }
