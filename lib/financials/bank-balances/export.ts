@@ -17,7 +17,7 @@ const BANK: Record<string, string> = { "JPM-Chase": "Chase", "Liberty Bank": "Li
 export const BASIS_NOTE =
   "Bank balances are each bank's ledger figure on the date shown (Chase Present balance, Liberty Current Balance, M&T Closing Ledger). " +
   "Reserves are the budgeted Big Projects for this month and the next two, or the figure entered over them. Tenant security deposits are " +
-  "tenants' money and are held back in full. Debt service is each loan's next monthly payment including escrow, per the Debt Tracker, shown for " +
+  "tenants' money and are held back in full. The Leonard Korman Trust (Liberty x9245) is LIK money, hands off: not imported weekly, its balance is the last statement accrued at its rate (compounded daily, less the monthly charge) and it is held back in full. Debt service is each loan's next monthly payment including escrow, per the Debt Tracker, shown for " +
   "context and not deducted from net available cash. Week over week compares each account with its balance from the import at least five days earlier; " +
   "a line is compared only when every one of its accounts has that figure. Unaudited.";
 
