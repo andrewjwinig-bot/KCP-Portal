@@ -376,53 +376,6 @@ export const TASK_DEFS: TaskDef[] = [
     },
   },
   {
-    id: "m-cash",
-    label: "Cash Analysis Report",
-    category: "routine",
-    dueDay: 20,
-    link: "/financials/cash-analysis",
-    instructions: {
-      steps: [
-        {
-          title: "Update Reporting Period Parameter",
-          items: [
-            "Update the parameter to the current reporting time period",
-          ],
-        },
-        {
-          title: "Roll Forward Operating Cash",
-          items: [
-            "Move the ending Operating Cash from the previous report (column M) into Operating Cash for the current period (column C)",
-          ],
-        },
-        {
-          title: "Pull Operating Cash from Marie's Cash Report",
-          path: "Data → Accounting → 20XX Year End → Cash Reports - Monthly",
-          items: [
-            "Open Marie's Cash Report",
-            "Populate Operating Cash in column N using the Operating Cash value from column H",
-          ],
-        },
-        {
-          title: "Update Security Deposit Changes from Bank Statements",
-          path: "Data → Accounting → 20XX Year End → Bank Account Reconciliations",
-          items: [
-            "Add interest amounts in column 1",
-            "Add net Security Deposit amounts in column 8 — include both deposits and withdrawals",
-          ],
-        },
-        {
-          title: "Resolve Any Remaining Variances",
-          items: [
-            "Verify ending balances against the Bank Recs",
-            "Verify Marie's ending balances against the actual bank statements",
-          ],
-          note: "If there is an error in Marie's report, correct it and notify her.",
-        },
-      ],
-    },
-  },
-  {
     id: "m-opstmt",
     label: "Operating Statements",
     category: "routine",

@@ -233,7 +233,6 @@ export const DREW_TASKS: MarieTask[] = [
   { id: "drew-m-lhsc",        title: "LHSC Cushman Report",            frequency: "monthly", owner: "drew", instructions: "Activity Rec, Cash Journal, Check Register, Voucher Report, Bank Statement." },
   { id: "drew-m-post",        title: "Post PM and AP",                 frequency: "monthly", owner: "drew", instructions: "Post revenues + expenses, consolidate, and run prep/status reports in Skyline (~20th)." },
   { id: "drew-m-close",       title: "Close Prior Month",              frequency: "monthly", owner: "drew", instructions: "Close periods in Skyline, after Post PM and AP (~20th)." },
-  { id: "drew-m-cash",        title: "Cash Analysis Report",           frequency: "monthly", owner: "drew" },
   { id: "drew-m-opstmt",      title: "Operating Statements",           frequency: "monthly", owner: "drew", instructions: "Update and record variances." },
   { id: "drew-m-tenant",      title: "Tenant Group Setup",             frequency: "monthly", owner: "drew" },
   { id: "drew-m-mgmt-fees",   title: "Print Management Fees",          frequency: "monthly", owner: "drew", instructions: "Print from Skyline (last Friday of month)." },
