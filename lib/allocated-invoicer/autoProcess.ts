@@ -346,13 +346,25 @@ export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger): Month
   const catchupMonths = new Set<string>();
   const nowISO = new Date().toISOString();
 
+  // NEVER BILL A MONTH OLDER THAN THE NEWEST ONE ALREADY BILLED (owner,
+  // 10/19/26: a trailing-twelve GL, Oct 2025 – Sep 2026, re-billed Oct–Dec
+  // 2025 — months billed before the portal kept a record — and December's
+  // year-end sweep billed the held carryover with them; "once an expense has
+  // been allocated already it shouldnt double allocate it"). A month earlier
+  // than the latest committed one that the ledger never saw is history, not
+  // new: it is baselined (so later late charges still catch up) and skipped.
+  const latestCommitted = [...ledger.committedPeriods].sort().pop() ?? null;
+
   for (const part of parts) {
     const month = part.statementMonth;
     if (!/^\d{4}-\d{2}$/.test(month)) return { error: "no-statement-month" };
     const byProp = allocateMonth(part);
     recognizedUpdates.push(...recognizedUpdatesFor(byProp, month));
 
-    if (!working.committedPeriods.includes(month)) {
+    if (!working.committedPeriods.includes(month) && latestCommitted && month < latestCommitted) {
+      working = applyRecognized(working, recognizedUpdatesFor(byProp, month), nowISO);
+      skipped.push(month);
+    } else if (!working.committedPeriods.includes(month)) {
       // Fresh month → normal per-month invoice batch.
       const c = computeOneMonth(part, working);
       if ("error" in c) return { error: c.error };
@@ -810,6 +822,15 @@ export async function autoSendAllocation(period: string, by?: string | null): Pr
   if (!pending.fileBase64) return { period, sent: false, held: "staged from a posting report — review and send" };
   if (pending.summary?.tieOut && pending.summary.tieOut.ties === false) {
     return { period, sent: false, held: "allocation doesn't tie to the GL — review and send" };
+  }
+  // A send is ONE new month (plus late charges). More than one fresh month is
+  // not the routine import — hold it for a person (owner, 10/19/26).
+  {
+    const gl = await loadSendGl(period, pending);
+    const c = gl ? computeMonths(gl, await getAllocLedger()) : null;
+    if (c && !("error" in c) && c.months.length > 1) {
+      return { period, sent: false, held: `bills ${c.months.length} new months (${c.months.map((m) => m.statementMonth).join(", ")}) — review and send` };
+    }
   }
   const result = await sendAllocation(period, by ? `${by} (auto)` : "Auto-sent on GL import");
   return { period, sent: !!result.ok && !!result.emailed, result };
