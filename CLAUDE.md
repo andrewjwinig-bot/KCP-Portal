@@ -46,6 +46,13 @@ and Commissions batch sent to AvidXchange ("visible so i can see if they went
 out … just not on Drew to be the one to do it"). Drew's saved-status card is
 Allocated Expenses only; Harry's is Payroll + Credit Card.
 
+**Pay Avid Bills appears ON ITS WEDNESDAY, not on Monday** (`showFromDueDay`
+on the task; owner: "we dont pay until wednesday each week").
+`taskOccurrencesBetween(start, end, now)` leaves such a task off every week
+list — Tasks This Week, the daily digest, the Monday email, the sidebar count —
+until its due day, then keeps it through the week if not ticked. The Task
+Tracker's calendar still shows every Wednesday. Pinned by `taskDefs.test.ts`.
+
 # Known data gaps / accepted exceptions (do NOT re-flag as bugs)
 
 - **Payroll allocation — Harry Feldman sums to ~94.86%, not 100%.** This is intentional and accepted, NOT a keying error. His allocation workbook row (`data/allocation.xlsx`) is: ~85% across the shopping centers, 5% Interstate/Bellmawr (`0800`), 5% Eastwick (the `Eastwick` column → "Eastwick JV"), and **5% Middletown**. Middletown is a land parcel Korman owns but the portal does NOT track (no property code, no allocation column), so that ~5.14% has nowhere to land and his tracked total reads 94.86%. The dashboard allocation-gap warning will keep flagging him — that's expected. Leave it as-is unless the user decides to add Middletown as a tracked land property (they'd supply its GL code, and Nancy would add a `Middletown` column with the 5% to the workbook).
