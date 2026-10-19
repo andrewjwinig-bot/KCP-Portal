@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
+import { LK_TRUST } from "@/lib/financials/bank-balances/accrued";
 import { listFullGls } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
 import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
@@ -75,7 +76,8 @@ const INTEREST_ACCOUNTS: InterestAccount[] = [
   // The rate stays 3.15% NOMINAL. The statement quotes 3.20%, which is the APY
   // that nominal rate earns compounded daily — (1 + .0315/365)^365 − 1 = 3.2000%
   // — not a different rate. That period's interest implies 3.1544% nominal.
-  { code: "LK-TRUST", name: "Leonard Korman Trust", group: "Business Parks", bankCodes: ["LK-TRUST"], anchor: { year: 2026, month: 8, balance: 1_855_728.52 }, rate: 0.0315, monthlyFee: 2 },
+  // The anchor is shared with the Bank Balances view (`LK_TRUST`), so a re-anchor is one edit.
+  { code: "LK-TRUST", name: LK_TRUST.name, group: "Business Parks", bankCodes: ["LK-TRUST"], anchor: LK_TRUST.anchor, rate: LK_TRUST.rate, monthlyFee: LK_TRUST.monthlyFee },
   // Property money-market accounts — sit beneath their operating row.
   { code: "2300-MM", name: "Brookwood", group: "Shopping Centers", parent: "2300", bankCodes: ["2300"], bankLast4: "x6888", anchor: { year: 2026, month: 5, balance: 1_245_207.10 }, rate: 0.0315, mm: true },
   { code: "4500-MM", name: "Gray's Ferry", group: "Shopping Centers", parent: "4500", bankCodes: ["4500"], bankLast4: "x8086", anchor: { year: 2026, month: 6, balance: 839_877.68 }, rate: 0.03, mm: true },

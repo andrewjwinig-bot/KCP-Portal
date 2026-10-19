@@ -13,6 +13,7 @@ import { BANK_ACCOUNTS } from "@/lib/properties/data";
 import { BALANCE_ACCOUNTS, BALANCE_GROUPS, accountId, entityFor, type BalanceGroup } from "./entities";
 import { loadBalances, loadSnapshots, type StoredBalance } from "./store";
 import { priorFor } from "./weekOverWeek";
+import { ACCRUED_ACCOUNTS, accruedBalance } from "./accrued";
 import { listLoans } from "@/lib/debt/storage";
 import { summarizeLoan, monthlyOutlay } from "@/lib/debt/amortization";
 
@@ -44,6 +45,9 @@ export type ViewRow = {
    *  "debt … should be monthly view not total"). What the column shows. */
   debtService: number | null;
   loans: { lender: string; balance: number; ratePct: number; maturity: string; status: string; nextDate: string | null; nextOutlay: number | null }[];
+  /** Hands-off money (the Leonard Korman Trust): never imported — its balance
+   *  is accrued from a statement anchor — and held back in full. */
+  handsOff?: { accrued: boolean; anchor: { year: number; month: number; balance: number }; rate: number; monthlyFee: number };
 };
 export type BalanceView = {
   ym: string;
@@ -57,6 +61,8 @@ export type BalanceView = {
   unplacedDebtService: number;
   byBank: { bank: string; asOf: string | null; importedAt: string | null; importedBy: string | null; accounts: number }[];
 };
+
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 function linkFor(last4: string): string | null {
   for (const list of Object.values(BANK_ACCOUNTS)) {
@@ -93,6 +99,24 @@ export async function buildBalanceView(now = new Date()): Promise<BalanceView> {
     if (row.accounts.some((x) => x.id === id)) continue;
     row.accounts.push({ id, bank: a.bank, last4: a.last4, name: a.accountName, link: linkFor(a.last4), balance: b?.balance ?? null, available: b?.available ?? null, asOf: b?.asOf ?? null, prior: b ? priorFor(id, b.asOf, snapshots) : null });
   }
+  // Hands-off accounts nobody imports weekly: accrued from the anchor to today
+  // (a week ago for the change), unless an export happened to carry it.
+  const today = isoDay(now), weekAgo = isoDay(new Date(now.getTime() - 7 * 86_400_000));
+  for (const x of ACCRUED_ACCOUNTS) {
+    const id = accountId(x.bank, x.last4);
+    known.add(id);
+    const b = doc.accounts[id];
+    const balance = b?.balance ?? accruedBalance(x, today);
+    const asOf = b?.asOf ?? today;
+    rows.set(x.key, {
+      key: x.key, name: x.name, group: "Management", restricted: false,
+      accounts: [{ id, bank: x.bank, last4: x.last4, name: x.name, link: linkFor(x.last4), balance, available: b?.available ?? null, asOf,
+        prior: b ? priorFor(id, b.asOf, snapshots) : { balance: accruedBalance(x, weekAgo), asOf: weekAgo } }],
+      balance: null, reserves: 0, reservesAuto: 0, reservesOverridden: false, netAvailable: null,
+      change: null, priorBalance: null, priorAsOf: null, debt: null, debtService: null, loans: [],
+      handsOff: { accrued: !b, anchor: x.anchor, rate: x.rate, monthlyFee: x.monthlyFee },
+    });
+  }
   for (const r of rows.values()) {
     const got = r.accounts.filter((a) => a.balance != null);
     r.balance = got.length ? Math.round(got.reduce((s, a) => s + (a.balance ?? 0), 0) * 100) / 100 : null;
@@ -101,7 +125,7 @@ export async function buildBalanceView(now = new Date()): Promise<BalanceView> {
       r.change = Math.round(((r.balance ?? 0) - r.priorBalance) * 100) / 100;
       r.priorAsOf = got.map((a) => a.prior!.asOf).sort()[0];
     }
-    if (r.restricted) r.reserves = r.balance ?? 0;
+    if (r.restricted || r.handsOff) r.reserves = r.balance ?? 0;
     r.netAvailable = r.balance == null ? null : Math.round((r.balance - r.reserves) * 100) / 100;
   }
 

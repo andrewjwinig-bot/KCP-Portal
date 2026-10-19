@@ -25,6 +25,7 @@ type Row = {
   debt: number | null;
   debtService: number | null;
   loans: { lender: string; balance: number; ratePct: number; maturity: string; status: string; nextDate: string | null; nextOutlay: number | null }[];
+  handsOff?: { accrued: boolean; anchor: { year: number; month: number; balance: number }; rate: number; monthlyFee: number };
 };
 type View = {
   ym: string; rows: Row[]; groups: string[]; canEdit: boolean; unplacedDebt: number; unplacedDebtService: number;
@@ -39,6 +40,9 @@ const money0 = (n: number | null) => {
   const s = Math.abs(v).toLocaleString("en-US");
   return v < 0 ? `($${s})` : `$${s}`;
 };
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** Month ends passed since an anchor month's first day — the charges taken. */
+const monthsSince = (a: { year: number; month: number }) => { const d = new Date(); return Math.max(0, d.getFullYear() * 12 + d.getMonth() + 1 - (a.year * 12 + a.month)); };
 const money2 = (n: number | null) => (n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD" }));
 const dateLabel = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
 const sum = (rs: Row[], f: (r: Row) => number | null) => rs.reduce((s, r) => s + (f(r) ?? 0), 0);
@@ -175,6 +179,7 @@ export default function BankBalancesView() {
   const restricted = sum(rows.filter((r) => r.restricted), (r) => r.balance);
   const reserves = sum(operating, (r) => (r.balance == null ? 0 : r.reserves));
   const net = sum(operating, (r) => r.netAvailable);
+  const handsOff = sum(rows.filter((r) => r.handsOff), (r) => r.balance);
   const wow = changeOf(rows);
   const debt = sum(rows, (r) => r.debt) + (data?.unplacedDebt ?? 0);
   const debtService = sum(rows, (r) => r.debtService) + (data?.unplacedDebtService ?? 0);
@@ -232,7 +237,7 @@ export default function BankBalancesView() {
           <StatPill label="Cash in bank" value={money0(totalCash)}
             sub={wow.change != null ? `${wow.change >= 0 ? "▲" : "▼"} ${money0(Math.abs(wow.change))} since ${shortDate(wow.priorAsOf)}` : undefined} />
           <StatPill label="Security deposits" value={money0(restricted)} sub="Tenants' money" />
-          <StatPill label="Reserves" value={money0(reserves)} sub="Big Projects, next 3 months" />
+          <StatPill label="Reserves" value={money0(reserves)} sub={handsOff ? `Big Projects · incl. ${money0(handsOff)} hands off` : "Big Projects, next 3 months"} />
           <StatPill label="Net available" value={money0(net)} total />
           <StatPill label="Debt service / mo" value={money0(debtService)} sub={`${money0(debt)} principal · not netted`} />
         </div>
@@ -290,10 +295,26 @@ export default function BankBalancesView() {
                                 ))}
                               </span>
                             </td>
-                            <td style={td}>{money0(r.balance)}</td>
+                            <td style={td}>
+                              {r.handsOff?.accrued ? (
+                                <HoverCard title={`${r.name} — accrued`} width={320}
+                                  rows={[
+                                    { label: `Statement balance, ${MONTHS[r.handsOff.anchor.month - 1]} 1, ${r.handsOff.anchor.year}`, value: money2(r.handsOff.anchor.balance) },
+                                    { label: `Interest ${(r.handsOff.rate * 100).toFixed(2)}%, compounded daily`, value: money2((r.balance ?? 0) - r.handsOff.anchor.balance + r.handsOff.monthlyFee * monthsSince(r.handsOff.anchor)), color: "#15803d" },
+                                    ...(r.handsOff.monthlyFee ? [{ label: `Bank charge $${r.handsOff.monthlyFee} / mo`, value: money2(-r.handsOff.monthlyFee * monthsSince(r.handsOff.anchor)), color: "#b91c1c" }] : []),
+                                  ]}
+                                  footer={{ label: "Not imported — estimated today", value: money2(r.balance) }}>
+                                  <span style={{ fontStyle: "italic" }}>{money0(r.balance)}</span>
+                                </HoverCard>
+                              ) : money0(r.balance)}
+                            </td>
                             <td style={td}><ChangeCell change={r.change} prior={r.priorBalance} now={r.balance} priorAsOf={r.priorAsOf} /></td>
                             <td style={td}>
-                              {r.restricted ? (
+                              {r.handsOff ? (
+                                <HoverCard title="Hands off — held in full" rows={[{ label: r.name, value: money0(r.balance) }]} footer={{ label: "LIK money, not available to operations", value: "" }}>
+                                  <span>{money0(r.balance)}</span>
+                                </HoverCard>
+                              ) : r.restricted ? (
                                 <HoverCard title="Held in full" rows={[{ label: "Tenant security deposits", value: money0(r.balance) }]} footer={{ label: "Not available to operations", value: "" }}>
                                   <span>{money0(r.balance)}</span>
                                 </HoverCard>
