@@ -2338,6 +2338,7 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   "delete this"); the email itself still goes. To change who gets it, edit
   `SEEDED_RECIPIENTS` (or POST `/api/financials/bank-balances/email`, which
   remains, as does its `{send:true}`). Each send is Bcc'd to Drew (`CASH_POSITION_COPY_TO`).
+- **The monthly "Cash Analysis Report" task is GONE** (`m-cash` in `taskDefs.ts`, `drew-m-cash` in `marie-tasks.ts`; owner: "now i just import the weekly bank balances instead"). The weekly Bank Balances import below replaces it.
 - **The weekly import reminder is "Bank Balances", Mondays** (`imp-bank`,
   ticked by the import) — it REPLACED the AP Selection Report (owner: "swap my
   task"). The AP upload route still works; it just no longer has a reminder.
