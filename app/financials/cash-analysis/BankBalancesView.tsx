@@ -14,6 +14,8 @@ import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import { formatImportedAt } from "@/app/components/LastImported";
 import { th, thL, td as tdBase, tdL as tdLBase } from "@/app/components/tableStyles";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { useImport } from "@/app/components/import/ImportProvider";
+import { useUser } from "@/app/components/UserProvider";
 
 type Account = { id: string; bank: string; last4: string; name: string; link: string | null; balance: number | null; available: number | null; asOf: string | null; prior: { balance: number; asOf: string } | null };
 type Row = {
@@ -89,30 +91,66 @@ export default function BankBalancesView() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
+  const { startImport } = useImport();
+  const { user } = useUser();
 
   const load = useCallback(() => fetch("/api/financials/bank-balances", { cache: "no-store" })
     .then(async (r) => { const j = await r.json(); if (!r.ok) throw new Error(j?.error ?? "Could not load balances"); setData(j); })
     .catch((e) => setError(e.message)), []);
   useEffect(() => { load(); }, [load]);
 
+  // The SHARED import modal (`useImport`) — the uploading animation and the
+  // completion report every other import shows. One request for the batch:
+  // the cash-position email decides on the whole import.
   async function importFiles(files: File[]) {
     if (!files.length) return;
     setBusy(true); setError(null); setNotice(null);
+    type Result = { file: string; bank: string | null; accounts: number; total: number; error?: string };
     try {
-      const fd = new FormData();
-      for (const f of files) fd.append("files", f);
-      const res = await fetch("/api/financials/bank-balances", { method: "POST", body: fd });
-      const j = await res.json();
-      const failed = (j.results ?? []).filter((r: { error?: string }) => r.error);
-      if (!res.ok) throw new Error(j?.error ?? "Import failed");
-      const ok = (j.results ?? []).filter((r: { error?: string }) => !r.error)
-        .map((r: { bank: string; accounts: number; total: number }) => `${BANK_LABEL[r.bank] ?? r.bank} · ${r.accounts} accounts · ${money0(r.total)}`);
-      const mailed = j.email?.sent ? `  ·  Cash position emailed to ${j.email.to?.length ?? 0} recipient${j.email.to?.length === 1 ? "" : "s"}` : "";
-      setNotice(`Imported ${ok.join("  ·  ")}${mailed}`);
-      if (failed.length) setError(failed.map((r: { file: string; error: string }) => `${r.file}: ${r.error}`).join(" "));
+      await startImport({
+        kind: "bank-balances",
+        title: (n) => `Importing ${n} bank balance export${n === 1 ? "" : "s"}`,
+        subtitle: "Chase · Liberty · M&T accounts pages · PDF",
+        files,
+        by: user?.label,
+        uploadAll: async (all, { signal }) => {
+          const fd = new FormData();
+          for (const f of all) fd.append("files", f);
+          const res = await fetch("/api/financials/bank-balances", { method: "POST", body: fd, signal });
+          const j = await res.json().catch(() => ({}));
+          const results: Result[] = j.results ?? [];
+          if (!results.length && !res.ok) throw new Error(j?.error ?? "Import failed");
+          return {
+            raw: j,
+            files: all.map((f, i) => {
+              const r = results.find((x) => x.file === f.name) ?? results[i];
+              if (!r || r.error) return { status: "failed" as const, error: r?.error ?? j?.error ?? "Import failed" };
+              return {
+                status: "done" as const,
+                entity: BANK_LABEL[r.bank ?? ""] ?? r.bank ?? f.name,
+                detail: money0(r.total),
+                count: r.accounts,
+                countLabel: r.accounts === 1 ? "account" : "accounts",
+              };
+            }),
+          };
+        },
+        report: (rows, raw) => {
+          const j = (raw ?? {}) as { results?: Result[]; email?: { sent?: boolean; to?: string[]; reason?: string } };
+          const ok = (j.results ?? []).filter((r) => !r.error);
+          const stats = [
+            { value: String(ok.length), label: ok.length === 1 ? "bank" : "banks" },
+            { value: String(ok.reduce((t, r) => t + r.accounts, 0)), label: "accounts" },
+            { value: money0(ok.reduce((t, r) => t + r.total, 0)), label: "imported" },
+          ];
+          // Whether the Monday cash position went out on this import — and if
+          // not, why (it waits for every bank this week; once a week only).
+          if (j.email?.sent) stats.push({ value: `Sent to ${j.email.to?.length ?? 0}`, label: "cash position email" });
+          else if (j.email) stats.push({ value: "Not sent", label: `cash position email · ${j.email.reason ?? "not sent"}` });
+          return { stats };
+        },
+      });
       await load();
-    } catch (e: any) {
-      setError(e.message);
     } finally {
       setBusy(false);
     }
