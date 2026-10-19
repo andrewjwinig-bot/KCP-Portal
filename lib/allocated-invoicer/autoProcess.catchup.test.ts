@@ -88,3 +88,20 @@ describe("computeMonths — recognized delta + catch-up", () => {
     expect(res2.catchup).not.toBeNull(); // now a real delta is caught up
   });
 });
+
+describe("computeMonths — never bills a month older than the newest one billed", () => {
+  it("skips an uncommitted month before the latest committed one (10/19/26: Oct–Dec 2025 re-billed)", () => {
+    let led = emptyLedger();
+    for (const m of ["2026-07", "2026-08"]) {
+      led = commit(led, computeMonths(gl(m, [{ code: "8220", suffix: "9301", net: 1000 }]), led) as any);
+    }
+    const res = computeMonths(gl("2025-10", [{ code: "8220", suffix: "9301", net: 10000 }]), led);
+    if ("error" in res) throw new Error(res.error);
+    expect(res.months).toHaveLength(0);
+    expect(res.skipped).toContain("2025-10");
+    // A month AFTER the latest committed one still bills as new.
+    const sep = computeMonths(gl("2026-09", [{ code: "8220", suffix: "9301", net: 10000 }]), led);
+    if ("error" in sep) throw new Error(sep.error);
+    expect(sep.months.map((m) => m.statementMonth)).toEqual(["2026-09"]);
+  });
+});
