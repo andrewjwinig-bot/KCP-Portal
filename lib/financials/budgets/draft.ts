@@ -1357,11 +1357,22 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
     }
   }
 
-  // 2010 IS THE MANAGEMENT COMPANY — IT BUDGETS NO CAPITAL (owner: "delete
+  // 2010 IS THE MANAGEMENT COMPANY — IT BUDGETS NO CAPITAL OR DEBT (owner: "delete
   // Capital section from 2010 budget"). The statement mapping keeps the
   // section, so anything that posts there still shows on the statement.
   if (String(meta.propertyCode).toUpperCase() === LIK_MANAGEMENT) {
-    for (let i = sections.length - 1; i >= 0; i--) if (sections[i].role === "capital") sections.splice(i, 1);
+    // Nor any debt (owner: "there is no mortgage or interest expense"): the
+    // Debt Service section and the Expenses' Interest Expense line go too.
+    for (let i = sections.length - 1; i >= 0; i--) if (sections[i].role === "capital" || sections[i].role === "debt-service") sections.splice(i, 1);
+    for (const sec of sections) {
+      const before = sec.lines.length;
+      sec.lines = sec.lines.filter((l) => !/^\s*interest\s+expense\b/i.test(l.label));
+      if (sec.lines.length !== before) {
+        const subtotal = new Array(12).fill(0);
+        for (const l of sec.lines) addInto(subtotal, l.months);
+        sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
+      }
+    }
   }
 
   // NOI is revenue less OPERATING expenses. Capital sits BELOW it (the grid

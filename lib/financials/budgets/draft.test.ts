@@ -345,17 +345,20 @@ describe("2010's Business Taxes are its four filings", () => {
   });
 });
 
-describe("2010 budgets no capital", () => {
+describe("2010 budgets no capital and no debt", () => {
   it("drops the Capital section from 2010's draft", async () => {
     const r = fakeReproj();
     r.reprojection.propertyCode = "2010"; r.meta.propertyCode = "2010";
     r.reprojection.sections = [
       section("Expenses", "non-reimbursable-expense", [line("Bank Fees", "8190-*", 100)]),
       section("Capital", "capital", [line("Capital Improvements", "1400-*", 500)]),
+      section("Debt Service", "debt-service", [line("Interest", "9210-*", 300)]),
     ] as any;
+    (r.reprojection.sections[0] as any).lines.push(line("Interest Expense", "9210-0000", 40));
     loadReprojection.mockResolvedValue(r);
     projectLeaseRevenue.mockResolvedValue(noLeases);
     const d = (await buildBudgetDraft("2010", 2027, 3))!;
     expect(d.sections.map((s) => s.role)).toEqual(["non-reimbursable-expense"]);
+    expect(d.sections[0].lines.map((l) => l.label)).toEqual(["Bank Fees"]);
   });
 });
