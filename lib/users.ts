@@ -346,6 +346,7 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   ["/api/allocation/history", "/allocated-invoicer"],
   ["/api/allocation/invoices", "/allocated-invoicer"],
   ["/api/allocation/repair", "/allocated-invoicer"],
+  ["/api/allocation/september-check", "/allocated-invoicer"],
   ["/api/allocation/recover-held", "/allocated-invoicer"],
   // Budgets API maps to the Budgets page specifically (Nancy is limited to it);
   // listed before the broad /api/financials → /financials mapping.
