@@ -16,7 +16,6 @@ export const revalidate = 0;
 
 const FROM = "dwinig@kormancommercial.com";
 const APPROVER = { office: "nfox@kormancommercial.com", retail: "hfeldman@kormancommercial.com" } as const;
-const CC_USER = "andrewjwinig@gmail.com";
 const money0 = (n: number) => "$" + Math.abs(Math.round(Number(n) || 0)).toLocaleString("en-US");
 
 async function currentUserLabel(): Promise<string | undefined> {
@@ -114,7 +113,6 @@ export async function POST(req: Request) {
 
     emailed = await sendMail({
       to: APPROVER[c.kind],
-      cc: CC_USER,
       from: FROM,
       subject: `Move-out finalized — ${c.meta.name} (${c.meta.property} ${c.meta.unitRef}) — ${money0(balance)} ${owed ? "due" : "credit"}`,
       textBody: lines.join("\n"),

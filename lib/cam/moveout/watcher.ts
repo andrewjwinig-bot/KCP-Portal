@@ -28,7 +28,6 @@ const APPROVER: Record<"office" | "retail", { email: string; first: string }> = 
   office: { email: "nfox@kormancommercial.com", first: "Nancy" },
   retail: { email: "hfeldman@kormancommercial.com", first: "Harry" },
 };
-const CC_USER = "andrewjwinig@gmail.com";
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const money0 = (n: number) => "$" + Math.abs(Math.round(Number(n) || 0)).toLocaleString("en-US");
@@ -69,7 +68,6 @@ async function sendApproval(c: Ok, dep: CloseOutDeposit | null): Promise<boolean
 
   return sendMail({
     to: to.email,
-    cc: CC_USER,
     from: FROM,
     subject: `Approve final move-out statement — ${meta.name} (${meta.property} ${meta.unitRef})`,
     textBody: lines.join("\n"),
