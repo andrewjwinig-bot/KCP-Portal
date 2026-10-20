@@ -34,10 +34,10 @@ describe("statement of values — entity snapshot", () => {
 });
 
 describe("beneficiary ownership map", () => {
-  it("has 47 distinct beneficiaries and 378 stakes", () => {
-    expect(BENEFICIARY_STAKES.length).toBe(378);
-    // 47, not 48: the workbook's phantom "John Sohn" folds into Joan Sohn.
-    expect(beneficiaryNames().length).toBe(47);
+  it("has 46 distinct beneficiaries and 377 stakes (Brendan Isard redeemed at 7300, 10/2026)", () => {
+    expect(BENEFICIARY_STAKES.length).toBe(377);
+    // 46 (Brendan Isard, a 7300-only holder, redeemed 10/2026), not 47: the workbook's phantom "John Sohn" folds into Joan Sohn.
+    expect(beneficiaryNames().length).toBe(46);
   });
 
   it("every entity's beneficiary shares sum to ~100%", () => {
@@ -55,7 +55,7 @@ describe("beneficiary ownership map", () => {
     expect(names).not.toContain("john sohn");
     const revere = statementForBeneficiary("Joan Sohn").find((l) => l.entity === "7300");
     expect(revere).toBeTruthy();
-    expect(revere!.pct).toBeCloseTo(0.3748, 4);
+    expect(revere!.pct).toBeCloseTo(0.386911, 4); // after the 10/2026 redemption
   });
 
   it("sum of every beneficiary's value equals mapped entity equity (no leakage)", () => {

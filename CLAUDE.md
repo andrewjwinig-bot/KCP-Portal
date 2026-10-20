@@ -2674,6 +2674,7 @@ preferences.
   rounded "23.13%" — the schedule's 23.1333% is the real figure and the tier
   has to keep totalling 100%. One edit to `kormanCoInvestors` propagates to all
   seven rosters that compose it, which is the point of defining it once.
+- **A REDEEMED partner is REMOVED and the rest take the schedule's "after closing" interests** — 7300 Revere, 10/2026: Brendan K. Isard's 3.130% was redeemed; the other eight move to Schedule 1's figures (Sohn 38.6911%, Langsfeld / Honickman 19.3455%, Amy / Michael / Alexander 3.2311%, Carol / Lawrence 6.4623% — 100.0000%) in BOTH maps (`ownership.ts` and `beneficiaries.ts`, which for Revere name the same people). Removing his row (`k1-7300-bkisard`) leaves any K-1 already filed against it in storage, reachable through its link until revoked — the right outcome for his final-year K-1.
 - **A directly held property issues SCHEDULE Es, not K-1s** (`taxForm:
   "schedule-e"` on its `PROPERTY_OWNERSHIP` entry → `lib/investors/taxForm.ts`).
   0900 Lincoln BLS (land, no EIN, five co-owners keyed from the preparer's
