@@ -44,3 +44,12 @@ export async function recordAllocationRun(run: AllocationRun): Promise<Allocatio
   await storeJSON(PREFIX, ID, { runs: capped });
   return capped;
 }
+
+/** Drop runs from the log (the 10/19/26 repair: runs recorded for months whose
+ *  invoices were deleted in AvidXchange). Returns how many went. */
+export async function removeAllocationRuns(drop: (r: AllocationRun) => boolean): Promise<number> {
+  const runs = await listAllocationRuns();
+  const keep = runs.filter((r) => !drop(r));
+  if (keep.length !== runs.length) await storeJSON(PREFIX, ID, { runs: keep });
+  return runs.length - keep.length;
+}
