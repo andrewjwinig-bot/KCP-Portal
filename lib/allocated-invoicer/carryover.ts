@@ -75,6 +75,10 @@ export type CarryoverLedger = {
    *  baseline from the current GL (assume what's there was already billed) rather
    *  than re-billing the whole month. Optional for back-compat. */
   recognizedMonths?: string[];
+  /** Bill EVERY held balance on the next fresh month, as December does — set
+   *  once by the 10/20/26 recovery (owner: "pass it through with next month")
+   *  and cleared by that month's finalize. */
+  billAllOnNextSend?: boolean;
   updatedAt: string;
 };
 
@@ -225,7 +229,7 @@ export function finalizeMonth(
   expenses: MonthExpense[],
   nowISO: string,
 ): FinalizeResult {
-  const yearEnd = isYearEndMonth(statementMonth);
+  const yearEnd = isYearEndMonth(statementMonth) || !!ledger.billAllOnNextSend;
   const next: CarryoverLedger = {
     balances: cloneBalances(ledger.balances),
     committedPeriods: [...ledger.committedPeriods],
@@ -247,7 +251,7 @@ export function finalizeMonth(
     next.recognized![recognizedKey(pid, acct, statementMonth)] = thisMonth;
     const prior = priorForAccount(ledger, pid, acct);
     const accrued = round2(thisMonth + prior);
-    const billed = isAccountBilled(accrued, statementMonth);
+    const billed = yearEnd || isAccountBilled(accrued, statementMonth);
     decisions.push({ propertyId: pid, accountCode: acct, accountName: e.accountName, thisMonth, prior, accrued, billed });
 
     if (!next.balances[pid]) next.balances[pid] = { propertyId: pid, accounts: {}, updatedAt: nowISO };
