@@ -202,7 +202,7 @@ export function computeOneMonth(monthGl: GLParseResult, ledger: CarryoverLedger)
   }
 
   // 2) Carryover decoration.
-  const yearEnd = isYearEndMonth(statementMonth);
+  const yearEnd = isYearEndMonth(statementMonth) || !!ledger.billAllOnNextSend;
   const byProp = new Map<string, Map<string, { name: string; thisMonth: number; rows: AllocExportRow[] }>>();
   for (const r of rows) {
     const base = baseAccountCode(r.accountCode);

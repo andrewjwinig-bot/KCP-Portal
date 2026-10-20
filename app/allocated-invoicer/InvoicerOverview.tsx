@@ -30,6 +30,7 @@ import { HoverCard } from "@/app/components/HoverCard";
 import type { PropertyCarry } from "@/lib/allocated-invoicer/carryover";
 import { periodKey } from "@/lib/invoicing/unsent";
 import { RepairCard } from "./RepairCard";
+import { RecoverCard } from "./RecoverCard";
 
 type HistoryPeriod = {
   period: string; label: string; sentAt: string | null; sentBy: string | null;
@@ -183,6 +184,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
   return (
     <>
       <RepairCard onApplied={() => { loadHistory(); onSent?.(); }} />
+      <RecoverCard onApplied={() => { loadHistory(); onSent?.(); }} />
       {/* 1 — WAS IT SENT */}
       <div className="card" style={{ padding: "18px 20px", borderColor: lastSent ? "rgba(22,163,74,0.45)" : undefined, background: lastSent ? "rgba(22,163,74,0.06)" : undefined }}>
         {periods === null ? (

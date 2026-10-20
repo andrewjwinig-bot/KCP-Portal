@@ -20,6 +20,7 @@ export async function getAllocLedger(): Promise<CarryoverLedger> {
     // late-charge catch-up never ran (found 10/20/26).
     recognized: l.recognized ?? {},
     recognizedMonths: Array.isArray(l.recognizedMonths) ? l.recognizedMonths : [],
+    ...(l.billAllOnNextSend ? { billAllOnNextSend: true } : {}),
     updatedAt: l.updatedAt ?? "",
   };
 }
@@ -33,4 +34,9 @@ export async function backupAllocLedger(ledger: CarryoverLedger, tag: string): P
   const id = `${ID}-backup-${tag}`;
   await storeJSON(PREFIX, id, ledger);
   return id;
+}
+
+/** A backup taken by `backupAllocLedger`, read back as stored. */
+export async function getAllocLedgerBackup(id: string): Promise<CarryoverLedger | null> {
+  return ((await getJSON(PREFIX, id)) as CarryoverLedger | null) ?? null;
 }
