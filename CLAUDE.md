@@ -385,7 +385,7 @@ refuses anyone not confirmed gone** (409, fails closed), Drew's dashboard
 "recently vacated" reads `/api/rentroll/vacated`, and the rent-roll import's
 Vacated / New panel, Past Tenants and the Management Fees vacated/commenced
 notes judge within the PROPERTY by `sameTenant` and skip a property a partial
-import didn't carry. **A close-out reads the departed tenant's OWN row**
+import didn't carry. **The move-out emails (the approval request and "Move-out finalized") go to Nancy / Harry with NO personal cc** — the `andrewjwinig@gmail.com` cc was removed (owner). **A close-out reads the departed tenant's OWN row**
 (`departingUnit` in `lib/cam/moveout/compute.ts` — the last roll that showed
 them) and their own deposit (`pickDeposit`: suite + name first), never the
 suite's next tenant. A "Tenants Vacating" entry matches by NAME, so it can't
