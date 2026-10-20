@@ -182,7 +182,7 @@ function recognizedUpdatesFor(byProp: Map<string, Map<string, AllocEntry>>, stat
  * 9301/9302/9303 account across its properties (ALLOC_PCT), decorate with
  * carryover, and roll up the per-building billing totals. No side effects.
  */
-function computeOneMonth(monthGl: GLParseResult, ledger: CarryoverLedger): ComputedAllocation | { error: string } {
+export function computeOneMonth(monthGl: GLParseResult, ledger: CarryoverLedger): ComputedAllocation | { error: string } {
   const statementMonth = monthGl.statementMonth;
   if (!/^\d{4}-\d{2}$/.test(statementMonth)) return { error: "no-statement-month" };
   const propIds = Object.keys(ALLOC_PCT);
@@ -577,7 +577,7 @@ export type SendResult = {
  *  2000 G&A GL currently imported on Operating Statements (when it is this
  *  period's), else the staged Excel snapshot. Shared by the send and its
  *  preview, so the confirm shows exactly what the send will compute. */
-async function loadSendGl(period: string, pending: Awaited<ReturnType<typeof getPendingSend>>): Promise<GLParseResult | null> {
+export async function loadSendGl(period: string, pending: Awaited<ReturnType<typeof getPendingSend>>): Promise<GLParseResult | null> {
   let gl: GLParseResult | null = null;
   if (pending?.glJson) {
     try { gl = deserializeGl(pending.glJson); } catch { /* fall through */ }
