@@ -6,6 +6,8 @@
 
 import "server-only";
 import { monthlyStatements } from "./mappingStore";
+import { expectedPostedThrough, expectedPostedThroughFor } from "./postingSchedule";
+export { expectedPostedThrough, expectedPostedThroughFor };
 import { listFullGls, type StoredGl } from "./statementStore";
 import { assembleGls, postedThrough } from "./glAssemble";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -18,14 +20,9 @@ export type OutstandingGl = {
   latest: { year: number; period: number } | null;
 };
 
-/** The month a property's GL should be posted through by now (prior month). */
-export function expectedPostedThrough(now = new Date()): { year: number; period: number } {
-  return now.getMonth() === 0
-    ? { year: now.getFullYear() - 1, period: 12 }          // January → prior December
-    : { year: now.getFullYear(), period: now.getMonth() }; // else prior month (getMonth() is already 1-behind, 1-indexed)
-}
 
-/** Properties whose latest posted GL is behind the prior calendar month. */
+/** Properties whose latest posted GL is behind what they owe — the prior
+ *  calendar month, or the last quarter end for a quarterly (land) statement. */
 export async function outstandingGlUploads(now = new Date()): Promise<{
   expected: { year: number; period: number };
   behind: OutstandingGl[];
@@ -51,9 +48,10 @@ export async function outstandingGlUploads(now = new Date()): Promise<{
   const behind: OutstandingGl[] = [];
   for (const m of mappings) {
     const latest = latestByKey.get(m.key) ?? null;
+    const owed = expectedPostedThroughFor(m.propertyCode || m.key, now);
     const isBehind = !latest
-      || latest.year < expected.year
-      || (latest.year === expected.year && latest.period < expected.period);
+      || latest.year < owed.year
+      || (latest.year === owed.year && latest.period < owed.period);
     if (isBehind) {
       behind.push({
         key: m.key,

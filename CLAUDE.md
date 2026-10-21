@@ -595,6 +595,18 @@ and the assistant read it. `availableStatements()` still returns every mapping
 for the pages that need PHOMES (Cash Analysis, Budgets, Balance Sheet); the
 Skyline month-end consolidation runs in the Task Tracker still list PHOMES.
 
+**The LAND holdings are imported QUARTERLY** (owner, 10/2026: "i dont think we
+need to do the land properties every month but every quarter, since there is a
+lot less activity"): Interstate (0800), Lincoln (0900), Kosano (2070) and the
+two Nockamixon holding partnerships around it (2040, 2080) —
+`QUARTERLY_STATEMENTS` in `postingSchedule.ts` (client-safe). They stay in
+`monthlyStatements()` (picker, Reprojections, flags); only what is OWED changes:
+`expectedPostedThroughFor` gives them the last completed quarter end (October–
+December still owe September; January–March the prior December) — read by
+`outstandingGlUploads` (the dashboard's GL coverage, the weekly digest, the
+month-end task auto-tick), the Review's coverage and the statement page's
+"Time to post" banner. Pinned by `quarterlyLand.test.ts`.
+
 # Operating statements — the "?" is a signal, so keep it scarce
 
 The amber **"?"** next to a statement line means "this month looks off, go look".

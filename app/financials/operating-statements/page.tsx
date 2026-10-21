@@ -7,6 +7,7 @@
 // the portal budget); for now they read blank.
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { expectedPostedThroughFor } from "@/lib/financials/operating-statements/postingSchedule";
 import { useUser } from "@/app/components/UserProvider";
 import { useImport } from "@/app/components/import/ImportProvider";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
@@ -762,10 +763,8 @@ export default function OperatingStatementsPage() {
   // Prior-month posting reminder: a property's GL should be posted through the
   // prior calendar month. If this property's newest GL is behind that, nudge to
   // post + upload it, so an un-posted month is visible right on the page.
-  const nowP = new Date();
-  const expectedPost = nowP.getMonth() === 0
-    ? { year: nowP.getFullYear() - 1, period: 12 }             // January → prior Dec
-    : { year: nowP.getFullYear(), period: nowP.getMonth() };   // else prior month (getMonth() is already 1-behind, 1-indexed)
+  // A land holding is posted QUARTERLY, so it owes the last quarter end.
+  const expectedPost = expectedPostedThroughFor(cur?.propertyCode ?? key);
   const latestPost = cur?.latest ?? null;
   const behindPosting = !!cur && (
     !latestPost ||
