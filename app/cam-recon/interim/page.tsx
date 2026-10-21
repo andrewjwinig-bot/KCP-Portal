@@ -815,9 +815,6 @@ export default function InterimReconPage() {
   // tenant's final Skyline statement is imported right on its line.
   const depAmt = deposit && depositApplies && deposit.amount > 0 ? deposit.amount : 0;
   const finalNet = grandTotal - depAmt; // >0 owed by the tenant, <0 refund
-  const shortEscrow = openAr && openAr.escrowUnpaid >= 0.005
-    ? `Includes ${money(openAr.escrowUnpaid)} of estimates billed ${openAr.escrowMonths} and not paid (credited as billed in the reconciliation).`
-    : null;
   const lineRow = (label: React.ReactNode, value: React.ReactNode, sub?: React.ReactNode) => (
     <div style={{ padding: "9px 0", borderTop: "1px solid var(--border)" }}>
       {/* The reconciliation's BalanceRow type (13px / 500), so the Final Bill
@@ -867,7 +864,7 @@ export default function InterimReconPage() {
             : <span className="muted" style={{ fontWeight: 500 }}>not imported</span>,
           <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <span>
-              {openAr ? (shortEscrow ?? "From their final Skyline statement.") : <>Import the tenant&rsquo;s final Skyline statement (a moved-out tenant is <code>{meta.unitRef}-FO</code>).</>}
+              {openAr ? "From their final Skyline statement." : <>Import the tenant&rsquo;s final Skyline statement (a moved-out tenant is <code>{meta.unitRef}-FO</code>).</>}
               {openAr && openAr.charges?.length > 0 && (
                 <button className="btn-link" onClick={() => setShowCharges((v) => !v)}
                   style={{ marginLeft: 6, background: "none", border: "none", padding: 0, color: "#0b4a7d", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>
