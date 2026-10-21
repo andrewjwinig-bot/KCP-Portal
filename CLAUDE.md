@@ -598,7 +598,8 @@ Skyline month-end consolidation runs in the Task Tracker still list PHOMES.
 **The LAND holdings are imported QUARTERLY** (owner, 10/2026: "i dont think we
 need to do the land properties every month but every quarter, since there is a
 lot less activity"): Interstate (0800), Lincoln (0900), Kosano (2070) and the
-two Nockamixon holding partnerships around it (2040, 2080) —
+two Nockamixon holding partnerships around it (2040, 2080), and Eastwick
+JV I / JV XII (1500, 9200; owner: "move eastwick to quarterly") —
 `QUARTERLY_STATEMENTS` in `postingSchedule.ts` (client-safe). They stay in
 `monthlyStatements()` (picker, Reprojections, flags); only what is OWED changes:
 `expectedPostedThroughFor` gives them the last completed quarter end (October–

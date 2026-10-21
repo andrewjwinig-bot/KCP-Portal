@@ -16,4 +16,8 @@ describe("expectedPostedThroughFor", () => {
     expect(expectedPostedThroughFor("2080", at("2027-03-10"))).toEqual({ year: 2026, period: 12 });
     expect(expectedPostedThroughFor("0800", at("2027-04-10"))).toEqual({ year: 2027, period: 3 });
   });
+  it("Eastwick (1500, 9200) is quarterly too", () => {
+    expect(expectedPostedThroughFor("1500", at("2026-11-10"))).toEqual({ year: 2026, period: 9 });
+    expect(expectedPostedThroughFor("9200", at("2027-02-10"))).toEqual({ year: 2026, period: 12 });
+  });
 });
