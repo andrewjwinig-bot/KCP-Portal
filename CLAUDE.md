@@ -411,7 +411,12 @@ PDF's page 2 is the **Final Settlement** (`settlementPdf.ts`, shared with the
 interim page's download): the true-up, the open charges by category, total
 due, less the deposit, the boxed balance; the approval and "finalized" emails
 print the same block (`settlementText.ts`), the interim page's close-out card
-adds the open balance and total due, and the letter folds it in. Pinned by
+adds the open balance and total due, and the letter folds it in. The
+on-screen statement itself ends in a **Final Bill** block under Total Interim
+Balance (reconciliation, unpaid charges by type with the escrow note, total
+due, less the deposit, final balance) — the reconciliation above keeps escrow
+AS BILLED, which is why it still reads e.g. $3,600; with no monthly statement
+on file it says so instead. Pinned by
 `openAr.test.ts`.
 
 # Tenant monthly statements (open A/R) — sources of truth

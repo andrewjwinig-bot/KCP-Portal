@@ -682,6 +682,35 @@ export default function InterimReconPage() {
   }, [meta]);
   const finalizeDone = (finalizeMsg ?? "").startsWith("✓");
 
+  // THE FINAL BILL, on the statement itself (owner: "it is the tenants final
+  // bill - cam due and unpaid items as well"): the true-up above, every unpaid
+  // charge still on the account, the deposit applied, and what is left. The
+  // escrow line above stays as BILLED — unpaid months are collected here.
+  const finalBill = !!meta && !meta.manual && openAr && (
+    <div style={{ marginTop: 18, paddingTop: 12, borderTop: "2px solid var(--border)" }}>
+      <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Final Bill</div>
+      <BalanceRow label={`${retail ? "CAM / INS / RET" : "CAM / RET"} reconciliation (above)`} value={money(totalBalance)} />
+      <BalanceRow label={`Unpaid charges on account${openAr.asOf ? ` (as of ${new Date(openAr.asOf).toLocaleDateString("en-US")})` : ""}`} value={money(openAr.balance)} />
+      {openAr.byCategory.map((k) => (
+        <div key={k.category} className="muted" style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "1px 0 1px 16px" }}>
+          <span>{k.label}</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{money(k.amount)}</span>
+        </div>
+      ))}
+      {escrowNote(openAr) && <div className="muted small" style={{ fontStyle: "italic", margin: "4px 0 2px 16px" }}>{escrowNote(openAr)}</div>}
+      <BalanceRow label="Total due" value={money(grandTotal)} strong />
+      {deposit && depositAppliesNow && (
+        <BalanceRow label={`Less: security deposit${deposit.checkNumber ? ` (ck# ${deposit.checkNumber})` : ""}`} value={money(-deposit.amount)} />
+      )}
+      <FinalBalanceRow label={deposit && depositAppliesNow ? "Final Balance" : "Total Due"} value={deposit && depositAppliesNow ? grandTotal - deposit.amount : grandTotal} />
+    </div>
+  );
+
+  const noStatementNote = !!meta && !meta.manual && !openAr && (
+    <div className="muted small" style={{ marginTop: 12, padding: "8px 12px", borderRadius: 8, border: "1px dashed var(--border)" }}>
+      No monthly statement on file for {meta.name} ({meta.unitRef}), so unpaid charges aren&rsquo;t on this bill yet. Import their Skyline Statement on Monthly Statements and they appear here.
+    </div>
+  );
+
   const closeOutCard = (r || retail) && meta && (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
@@ -932,8 +961,9 @@ export default function InterimReconPage() {
           </div>
 
           <FinalBalanceRow label="Total Interim Balance" value={r.opexBalance + r.retBalance} />
+          {finalBill || noStatementNote}
           <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
-            A positive balance is owed by the tenant; a credit is refunded. This is an interim figure as of {MONTHS[r.asOfMonth - 1]} {meta.year} — the move-out close-out (with the security-deposit return) follows.
+            A positive balance is owed by the tenant; a credit is refunded. {finalBill ? <>The reconciliation credits escrow as billed; anything billed and not paid is in the unpaid charges. Unpaid charges are as of the last Skyline Statement import.</> : <>This is an interim figure as of {MONTHS[r.asOfMonth - 1]} {meta.year} — the move-out close-out (with the security-deposit return) follows.</>}
           </p>
         </div>
       )}
@@ -997,8 +1027,9 @@ export default function InterimReconPage() {
             </div>
           </div>
           <FinalBalanceRow label="Total Interim Balance" value={retail.camBalance + retail.insBalance + retail.retBalance} />
+          {finalBill || noStatementNote}
           <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
-            A positive balance is owed by the tenant; a credit is refunded. CAM pulls live YTD actuals from the GL; INS &amp; RET prorate the property pool to the occupied months. Interim figure as of {MONTHS[retail.asOfMonth - 1]} {meta.year} — the move-out close-out (with the security-deposit return) follows.
+            A positive balance is owed by the tenant; a credit is refunded. CAM pulls live YTD actuals from the GL; INS &amp; RET prorate the property pool to the occupied months. {finalBill ? <>Escrow is credited as billed; anything billed and not paid is in the unpaid charges, as of the last Skyline Statement import.</> : <>Interim figure as of {MONTHS[retail.asOfMonth - 1]} {meta.year} — the move-out close-out (with the security-deposit return) follows.</>}
           </p>
         </div>
       )}
