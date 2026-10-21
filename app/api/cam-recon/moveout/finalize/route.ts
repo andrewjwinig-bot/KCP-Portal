@@ -6,7 +6,8 @@ import { sendMail, isMailConfigured } from "@/lib/mail";
 import { getCloseOut, markApproved, upsertCloseOut, closeOutKey } from "@/lib/cam/moveout/queue";
 import { computeMoveoutStatement, moveoutBalance, moveoutOk } from "@/lib/cam/moveout/compute";
 import { buildMoveoutPdf, buildMoveoutGlCsv, moveoutGlRows, moveoutEffectiveDate, moveoutFileBase } from "@/lib/cam/moveout/artifacts";
-import { tenantDepositSettlement } from "@/lib/cam/moveout/deposit";
+import { moveoutSettlement } from "@/lib/cam/moveout/deposit";
+import { settlementLines } from "@/lib/cam/moveout/settlementText";
 import { recordMoveoutSend } from "@/lib/cam/moveout/sendLog";
 import { moveoutCandidates } from "@/lib/cam/moveout/candidates";
 
@@ -84,14 +85,17 @@ export async function POST(req: Request) {
 
   const by = await currentUserLabel();
   const balance = moveoutBalance(c);
-  const dep = await tenantDepositSettlement(unitRef, c.meta.name, balance);
+  const settlement = await moveoutSettlement(unitRef, c.meta.name, year, balance);
+  const dep = settlement.deposit;
   const effectiveDate = moveoutEffectiveDate(c);
-  const pdf = buildMoveoutPdf(c);
+  const pdf = buildMoveoutPdf(c, settlement);
   const glCsv = buildMoveoutGlCsv(c, effectiveDate);
   const glRows = moveoutGlRows(c, effectiveDate).filter((r) => r.amount !== 0);
   const base = moveoutFileBase(c);
   const cats = c.kind === "retail" ? "CAM/INS/RET" : "CAM/RET";
-  const owed = balance >= 0;
+  // The subject leads with what is left after the deposit, else the total due.
+  const bottom = dep?.net != null ? -dep.net : settlement.totalDue;
+  const owed = bottom >= 0;
 
   // Post-approval package → the approver (posts Skyline + releases the deposit), cc the user.
   let emailed = false;
@@ -99,14 +103,10 @@ export async function POST(req: Request) {
     const lines: string[] = [];
     lines.push(`${c.meta.name} (Suite ${c.result.suite}, ${c.meta.property} — ${c.meta.propertyName}) — final move-out ${cats} reconciliation ${by ? `approved by ${by}` : "approved"}.`);
     lines.push("");
-    lines.push(`Reconciliation: ${money0(balance)} ${owed ? "due from the tenant" : "credit to the tenant"}`);
-    if (dep && dep.net != null) {
-      lines.push(`Security deposit: ${money0(dep.amount)} on file`);
-      lines.push(`Net settlement: ${money0(dep.net)} ${dep.net >= 0 ? "to be refunded to the tenant" : "still due from the tenant"}`);
-    }
+    lines.push(...settlementLines(settlement, cats));
     lines.push("");
     lines.push(`Attached:`);
-    lines.push(`  • Final statement PDF (send to the tenant / keep on file)`);
+    lines.push(`  • Final statement PDF, with the final settlement on page 2 (send to the tenant / keep on file)`);
     lines.push(`  • Skyline GL adjustment (${glRows.length} row${glRows.length === 1 ? "" : "s"}, effective ${effectiveDate}) — import to post the true-up`);
     lines.push("");
     lines.push(`— KCP Portal`);
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
     emailed = await sendMail({
       to: APPROVER[c.kind],
       from: FROM,
-      subject: `Move-out finalized — ${c.meta.name} (${c.meta.property} ${c.meta.unitRef}) — ${money0(balance)} ${owed ? "due" : "credit"}`,
+      subject: `Move-out finalized — ${c.meta.name} (${c.meta.property} ${c.meta.unitRef}) — ${money0(bottom)} ${owed ? "due" : dep?.net != null ? "refund" : "credit"}`,
       textBody: lines.join("\n"),
       attachments: [
         { name: `${base}.pdf`, content: pdf, contentType: "application/pdf" },
@@ -129,7 +129,7 @@ export async function POST(req: Request) {
     property, unitRef, year, propertyName: c.meta.propertyName, suite: c.result.suite,
     name: c.meta.name, kind: c.kind, vacateMonth: c.meta.asOfMonth, leaseTo: c.meta.leaseTo,
     status: "ready", balance, occupiedMonths: c.result.occupiedMonths, unpostedMonths: 0,
-    maxPosted: c.meta.maxPosted, deposit: dep,
+    maxPosted: c.meta.maxPosted, deposit: dep, openAr: settlement.openAr, totalDue: settlement.totalDue,
   });
   await markApproved(key, by ?? null);
   await recordMoveoutSend({

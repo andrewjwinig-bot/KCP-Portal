@@ -14,6 +14,9 @@ import type { TenantReconResult } from "@/lib/cam/office/types";
 import type { RetailTenantResult } from "@/lib/cam/retail/types";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import AllowedLink from "@/app/components/AllowedLink";
+import { HoverCard } from "@/app/components/HoverCard";
+import { escrowNote, escrowClause, totalDue as totalDueOf, type MoveoutOpenAr } from "@/lib/cam/moveout/openAr";
+import { drawSettlement } from "@/lib/cam/moveout/settlementPdf";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 /** Percent to at most 2 decimals, trailing zeros dropped (2.2626… → "2.26", 5 → "5"). */
@@ -492,6 +495,33 @@ export default function InterimReconPage() {
     return () => { cancelled = true; };
   }, [meta?.unitRef, metaName]);
 
+  // The open balance still on the account — the close-out is the tenant's
+  // final bill, so it is netted with the true-up (owner). Off their newest
+  // monthly statement; null when none carries them.
+  const [openAr, setOpenAr] = useState<MoveoutOpenAr | null>(null);
+  const metaYear = meta?.year;
+  useEffect(() => {
+    const ref = meta?.unitRef;
+    if (!ref || meta?.manual) { setOpenAr(null); return; }
+    let cancelled = false;
+    const q = new URLSearchParams({ unitRef: ref, year: String(metaYear ?? "") });
+    if (metaName) q.set("tenant", metaName);
+    fetch(`/api/cam-recon/moveout/open-ar?${q}`)
+      .then((res) => res.json())
+      .then((j) => { if (!cancelled) setOpenAr((j.openAr ?? null) as MoveoutOpenAr | null); })
+      .catch(() => { if (!cancelled) setOpenAr(null); });
+    return () => { cancelled = true; };
+  }, [meta?.unitRef, meta?.manual, metaName, metaYear]);
+  const grandTotal = totalDueOf(totalBalance, openAr);
+  const depositAppliesNow = deposit != null && (deposit.status === "held" || deposit.status === "partial");
+  // The settlement page the downloads append — the SAME page the final PDF carries.
+  const settlementFor = useCallback(() => ({
+    reconBalance: totalBalance,
+    openAr,
+    totalDue: grandTotal,
+    deposit: deposit ? { amount: deposit.amount, status: deposit.status, net: depositAppliesNow ? deposit.amount - grandTotal : null } : null,
+  }), [totalBalance, openAr, grandTotal, deposit, depositAppliesNow]);
+
   const downloadPdf = useCallback(async () => {
     if (!r || !meta) return;
     const { jsPDF } = await import("jspdf");
@@ -507,8 +537,9 @@ export default function InterimReconPage() {
         ...(r.unpostedMonths > 0 ? [`${r.unpostedMonths} occupied month(s) are not yet posted to the GL — figures are through the latest posted month.`] : []),
       ],
     });
+    if (!meta.manual) { doc.addPage(); drawSettlement(doc, { kind: "office", name: r.name, suite: r.suite, property: meta.property, propertyName: meta.propertyName, asOfMonth: r.asOfMonth, year: meta.year }, settlementFor()); }
     doc.save(`${meta.property}_${meta.year}_Suite${r.suite}_${r.name.replace(/[^\w]+/g, "_")}_Interim_CAM_RET.pdf`);
-  }, [r, meta]);
+  }, [r, meta, settlementFor]);
 
   const downloadRetailPdf = useCallback(async () => {
     if (!retail || !meta) return;
@@ -523,8 +554,9 @@ export default function InterimReconPage() {
         ...(retail.unpostedMonths > 0 ? [`${retail.unpostedMonths} occupied month(s) are not yet posted to the GL — figures are through the latest posted month.`] : []),
       ],
     });
+    if (!meta.manual) { doc.addPage(); drawSettlement(doc, { kind: "retail", name: retail.name, suite: retail.suite, property: meta.property, propertyName: meta.propertyName, asOfMonth: retail.asOfMonth, year: meta.year }, settlementFor()); }
     doc.save(`${meta.property}_${meta.year}_Suite${retail.suite}_${retail.name.replace(/[^\w]+/g, "_")}_Interim_CAM_INS_RET.pdf`);
-  }, [retail, meta]);
+  }, [retail, meta, settlementFor]);
 
   const [sanity, setSanity] = useState<{ ok: boolean; findings: { severity?: string; note?: string }[] } | null>(null);
   const [sanityLoading, setSanityLoading] = useState(false);
@@ -564,8 +596,10 @@ export default function InterimReconPage() {
       year: meta.year, asOfMonth: meta.asOfMonth, occupiedMonths: meta.occupiedMonths, totalBalance, kind,
       securityDeposit: deposit ? deposit.amount : null,
       depositStatus: deposit ? deposit.status : null,
+      openBalance: openAr ? openAr.balance : null,
+      openBalanceNote: escrowClause(openAr),
     }));
-  }, [retail, r, meta, totalBalance, deposit]);
+  }, [retail, r, meta, totalBalance, deposit, openAr]);
   const letterButton = (
     <button className="btn" onClick={openLetter} title="Draft a move-out close-out letter with these figures"
       style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Draft letter</button>
@@ -615,7 +649,7 @@ export default function InterimReconPage() {
   // letter, netted into a single settlement. The third leg the user asked for. ──
   const owedByTenant = Math.round(totalBalance) >= 0;
   const depositApplies = deposit != null && (deposit.status === "held" || deposit.status === "partial");
-  const netToTenant = depositApplies ? deposit!.amount - totalBalance : null; // >0 refund, <0 still due
+  const netToTenant = depositApplies ? deposit!.amount - grandTotal : null; // >0 refund, <0 still due
   const depositStatusLabel: Record<DepositStatus, string> = { held: "On file", refunded: "Already refunded", forfeited: "Applied / forfeited", partial: "Partially refunded" };
 
   // ── Approve & finalize (the one-click auto-flow) ──────────────────────────
@@ -677,15 +711,34 @@ export default function InterimReconPage() {
           <span>1 · Final {retail ? "CAM/INS/RET" : "CAM/RET"} reconciliation {owedByTenant ? "due from tenant" : "credit to tenant"}</span>
           <b style={{ color: owedByTenant ? "#b91c1c" : "#15803d" }}>{money(Math.abs(totalBalance))}</b>
         </div>
+        {!meta.manual && (
+          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14 }}>
+              <span>2 · Open balance on account {openAr?.asOf ? <span className="muted" style={{ fontWeight: 600 }}>· as of {new Date(openAr.asOf).toLocaleDateString("en-US")}</span> : ""}</span>
+              {openAr
+                ? <HoverCard title="Open charges" rows={openAr.byCategory.map((k) => ({ label: k.label, value: money(k.amount) }))} footer={{ label: "Open balance", value: money(openAr.balance) }}>
+                    <b style={{ color: openAr.balance > 0 ? "#b91c1c" : "#15803d", cursor: "help" }}>{money(openAr.balance)}</b>
+                  </HoverCard>
+                : <span className="muted" style={{ fontStyle: "italic" }}>No monthly statement on file — check Skyline</span>}
+            </div>
+            {escrowNote(openAr) && <div className="muted small" style={{ marginTop: 3, fontStyle: "italic" }}>{escrowNote(openAr)}</div>}
+          </div>
+        )}
+        {openAr && (
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, fontWeight: 700, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
+            <span>Total due {grandTotal >= 0 ? "from tenant" : "to tenant"}</span>
+            <span style={{ color: grandTotal >= 0 ? "#b91c1c" : "#15803d" }}>{money(Math.abs(grandTotal))}</span>
+          </div>
+        )}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
-          <span>2 · Security deposit {deposit ? <span className="muted" style={{ fontWeight: 600 }}>· {depositStatusLabel[deposit.status]}{deposit.checkNumber ? ` · ck# ${deposit.checkNumber}` : ""}</span> : ""}</span>
+          <span>{meta.manual ? 2 : 3} · Security deposit {deposit ? <span className="muted" style={{ fontWeight: 600 }}>· {depositStatusLabel[deposit.status]}{deposit.checkNumber ? ` · ck# ${deposit.checkNumber}` : ""}</span> : ""}</span>
           {deposit
             ? <b>{money(deposit.amount)}</b>
             : <span className="muted" style={{ fontStyle: "italic" }}>None on record — <Link href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#0b4a7d" }}>add one</Link></span>}
         </div>
         {netToTenant != null && (
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 15, fontWeight: 800, borderTop: "2px solid var(--border)", paddingTop: 8, marginTop: 2 }}>
-            <span>3 · Net settlement — {netToTenant >= 0 ? "refund to tenant" : "still due from tenant"}</span>
+            <span>{meta.manual ? 3 : 4} · Net settlement — {netToTenant >= 0 ? "refund to tenant" : "still due from tenant"}</span>
             <span style={{ color: netToTenant >= 0 ? "#15803d" : "#b91c1c" }}>{money(Math.abs(netToTenant))}</span>
           </div>
         )}
@@ -693,7 +746,9 @@ export default function InterimReconPage() {
       <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
         {deposit
           ? (depositApplies
-              ? "The deposit is applied against the reconciliation balance to net the settlement. Draft the letter to send all three together; nothing is sent automatically."
+              ? (openAr
+                  ? "The deposit is applied against everything owed — the reconciliation and the open balance — to net the settlement. The statement PDF carries this as its Final Settlement page; nothing is sent automatically."
+                  : "The deposit is applied against the reconciliation balance to net the settlement. Draft the letter to send all three together; nothing is sent automatically.")
               : "This deposit is no longer on file, so it isn't netted here. Draft the letter for the reconciliation balance.")
           : "No security deposit is on record for this unit. Add it on the Deposits page to net it into the settlement and the letter."}
       </p>

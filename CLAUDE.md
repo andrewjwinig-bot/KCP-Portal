@@ -394,6 +394,26 @@ them) and their own deposit (`pickDeposit`: suite + name first), never the
 suite's next tenant. A "Tenants Vacating" entry matches by NAME, so it can't
 pass its chip to a suite's next tenant.
 
+**A MOVE-OUT CLOSE-OUT IS THE TENANT'S FINAL BILL, SO IT CARRIES THEIR OPEN
+BALANCE** (owner: "this is their final list of charges … indicate somewhere it
+includes the 2 unpaid months that have already been billed … but this should
+still include that amount"; SEOM 3640-300, 10/2026). `openAr.ts` reads the
+departing tenant's newest monthly statement (by suite AND name — a re-leased
+suite's newest is the next tenant's) and `moveoutSettlement` (`deposit.ts`)
+nets the deposit against the true-up PLUS that open balance (`totalDue`) — it
+used to net the true-up alone, so a tenant $31K behind read as owed a refund.
+**Escrow is credited AS BILLED, never as paid**: unpaid escrow is still in the
+open balance, so crediting only what was paid would bill those months twice.
+The settlement says so in words (`escrowNote` — "Includes $800.00 of estimated
+charges billed Aug – Sep 2026 and not yet paid…"). A posted move-out
+adjustment line is left out of the open balance (it IS the true-up). The final
+PDF's page 2 is the **Final Settlement** (`settlementPdf.ts`, shared with the
+interim page's download): the true-up, the open charges by category, total
+due, less the deposit, the boxed balance; the approval and "finalized" emails
+print the same block (`settlementText.ts`), the interim page's close-out card
+adds the open balance and total due, and the letter folds it in. Pinned by
+`openAr.test.ts`.
+
 # Tenant monthly statements (open A/R) — sources of truth
 
 The tenant portal's Statements tab carries TWO statements: the annual CAM/RET

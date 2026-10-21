@@ -9,6 +9,8 @@ import { drawRetailStatement } from "@/lib/cam/retail/statementPdf";
 import { drawTenantStatement } from "@/lib/cam/office/statementPdf";
 import { chargeRowsToCSV, type SkylineChargeRow } from "@/lib/cam/office/exports";
 import type { MoveoutOk } from "./compute";
+import type { MoveoutSettlement } from "./deposit";
+import { drawSettlement } from "./settlementPdf";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 type Ok = MoveoutOk;
@@ -23,8 +25,9 @@ export function moveoutFileBase(c: Ok): string {
 }
 
 /** The final move-out statement as a branded PDF (Buffer). Same drawing routine
- *  and footnotes as the interim worksheet's "Download PDF". */
-export function buildMoveoutPdf(c: Ok): Buffer {
+ *  and footnotes as the interim worksheet's "Download PDF", plus the FINAL
+ *  SETTLEMENT page when the settlement is given. */
+export function buildMoveoutPdf(c: Ok, settlement?: MoveoutSettlement): Buffer {
   const { meta } = c;
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const propLabel = `${meta.property} — ${meta.propertyName}`;
@@ -54,6 +57,10 @@ export function buildMoveoutPdf(c: Ok): Buffer {
         ...unpostedNote,
       ],
     });
+  }
+  if (settlement) {
+    doc.addPage();
+    drawSettlement(doc, { kind: c.kind, name: c.result.name, suite: c.result.suite, property: meta.property, propertyName: meta.propertyName, asOfMonth: meta.asOfMonth, year: meta.year }, settlement);
   }
   return Buffer.from(doc.output("arraybuffer"));
 }

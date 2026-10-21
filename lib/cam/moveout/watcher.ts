@@ -18,8 +18,9 @@ import type { SecurityDeposit } from "@/lib/deposits/deposits";
 import { moveoutCandidates } from "./candidates";
 import { computeMoveoutStatement, moveoutBalance, moveoutOk, type MoveoutOk } from "./compute";
 import { buildMoveoutPdf, moveoutFileBase } from "./artifacts";
-import { closeOutKey, upsertCloseOut, getCloseOut, pruneCloseOuts, type CloseOutDeposit } from "./queue";
-import { pickDeposit, depositSettlement } from "./deposit";
+import { closeOutKey, upsertCloseOut, getCloseOut, pruneCloseOuts } from "./queue";
+import { moveoutSettlement, type MoveoutSettlement } from "./deposit";
+import { settlementLines } from "./settlementText";
 
 const GL_FROM_YEAR = 2026; // interim recon sources actuals from the imported GL
 const PORTAL_BASE = portalOrigin();
@@ -30,33 +31,21 @@ const APPROVER: Record<"office" | "retail", { email: string; first: string }> = 
 };
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-const money0 = (n: number) => "$" + Math.abs(Math.round(Number(n) || 0)).toLocaleString("en-US");
 
 type Ok = MoveoutOk;
 
 /** The one approval email — routed by kind, cc the user, statement PDF attached. */
-async function sendApproval(c: Ok, dep: CloseOutDeposit | null): Promise<boolean> {
+async function sendApproval(c: Ok, settlement: MoveoutSettlement): Promise<boolean> {
   const { meta, result } = c;
   const to = APPROVER[c.kind];
   const cats = c.kind === "retail" ? "CAM/INS/RET" : "CAM/RET";
   const movedOut = meta.leaseTo ? `on ${meta.leaseTo}` : `in ${MONTHS[meta.asOfMonth - 1]} ${meta.year}`;
-  const balance = moveoutBalance(c);
-  const owed = balance >= 0;
-
   const lines: string[] = [];
   lines.push(`Hi ${to.first},`);
   lines.push("");
   lines.push(`${meta.name} (Suite ${result.suite}, ${meta.property} — ${meta.propertyName}) moved out ${movedOut}. Their final ${cats} reconciliation is ready — please review and approve it.`);
   lines.push("");
-  lines.push(`Final ${cats} reconciliation: ${money0(balance)} ${owed ? "due from the tenant" : "credit to the tenant"}`);
-  if (dep && dep.net != null) {
-    lines.push(`Security deposit on file: ${money0(dep.amount)}${dep.status === "partial" ? " (partially refunded)" : ""}`);
-    lines.push(`Net settlement: ${money0(dep.net)} ${dep.net >= 0 ? "to be refunded to the tenant" : "still due from the tenant"}`);
-  } else if (dep) {
-    lines.push(`Security deposit: ${money0(dep.amount)} — ${dep.status} (not netted into the settlement).`);
-  } else {
-    lines.push(`No security deposit is on record for this unit.`);
-  }
+  lines.push(...settlementLines(settlement, cats));
   lines.push("");
   const link = `${PORTAL_BASE}/cam-recon/interim?property=${encodeURIComponent(meta.property)}&unitRef=${encodeURIComponent(meta.unitRef)}&year=${meta.year}&asOf=${meta.asOfMonth}`;
   lines.push(`Review the attached statement and approve it here:`);
@@ -71,7 +60,7 @@ async function sendApproval(c: Ok, dep: CloseOutDeposit | null): Promise<boolean
     from: FROM,
     subject: `Approve final move-out statement — ${meta.name} (${meta.property} ${meta.unitRef})`,
     textBody: lines.join("\n"),
-    attachments: [{ name: `${moveoutFileBase(c)}.pdf`, content: buildMoveoutPdf(c), contentType: "application/pdf" }],
+    attachments: [{ name: `${moveoutFileBase(c)}.pdf`, content: buildMoveoutPdf(c, settlement), contentType: "application/pdf" }],
   });
 }
 
@@ -175,14 +164,16 @@ export async function runMoveoutWatch(opts?: { notify?: boolean; now?: Date }): 
     // this run, stage ready WITHOUT touching the deposit field (the upsert
     // preserves any prior settlement) and leave notifiedAt unset so the next
     // successful run sends the approval with the correct settlement.
-    const dep = depositsLoaded ? depositSettlement(pickDeposit(deposits, cand.unitRef, c.meta.name), balance) : null;
-    const entry = await upsertCloseOut(key, depositsLoaded ? { ...base, deposit: dep } : base);
+    const settlement = depositsLoaded ? await moveoutSettlement(cand.unitRef, c.meta.name, year, balance, deposits) : null;
+    const entry = await upsertCloseOut(key, settlement
+      ? { ...base, deposit: settlement.deposit, openAr: settlement.openAr, totalDue: settlement.totalDue }
+      : base);
 
     let didNotify = false;
-    if (!entry.notifiedAt && depositsLoaded) {
+    if (!entry.notifiedAt && settlement) {
       res.newlyReady++;
       if (notify) {
-        const sent = await sendApproval(c, dep).catch(() => false);
+        const sent = await sendApproval(c, settlement).catch(() => false);
         if (sent) {
           await upsertCloseOut(key, { property: cand.propertyCode, unitRef: cand.unitRef, year, notifiedAt: new Date().toISOString() });
           res.notified++;
