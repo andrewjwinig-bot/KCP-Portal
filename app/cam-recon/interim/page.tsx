@@ -95,9 +95,9 @@ function FinalBalanceRow({ label, value }: { label: string; value: number }) {
   );
 }
 
-function Column({ title, lines, base, actual, net, due, escrow, balance, proRataPct, occupiedMonths, asOfLabel, reconYear, monthly }: {
+function Column({ title, lines, base, actual, net, due, escrow, balance, proRataPct, occupiedMonths, asOfLabel, reconYear, monthly, showAcct }: {
   title: string; lines: ScheduleLine[]; base: number; actual: number; net: number; due: number; escrow: number; balance: number;
-  proRataPct: number; occupiedMonths: number; asOfLabel: string; reconYear: number; monthly: number;
+  proRataPct: number; occupiedMonths: number; asOfLabel: string; reconYear: number; monthly: number; showAcct?: boolean;
 }) {
   return (
     <div style={{ flex: 1, minWidth: 280 }}>
@@ -105,7 +105,7 @@ function Column({ title, lines, base, actual, net, due, escrow, balance, proRata
       <table style={{ width: "100%", fontSize: 12, marginBottom: 8 }}>
         <thead>
           <tr style={{ color: "var(--muted)", textAlign: "left" }}>
-            <th style={{ textAlign: "left", paddingRight: 6 }}>Acct</th>
+            {showAcct && <th style={{ textAlign: "left", paddingRight: 6 }}>Acct</th>}
             <th style={{ textAlign: "left", width: "100%" }}>Expense</th>
             <th style={numTd}>Base ×{occupiedMonths}/12</th>
             <th style={numTd}>{asOfLabel} Actual</th>
@@ -115,7 +115,7 @@ function Column({ title, lines, base, actual, net, due, escrow, balance, proRata
         <tbody>
           {lines.map((l) => (
             <tr key={l.glAccount}>
-              <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 11 }}>{l.glAccount.replace(/-95$/, "")}</code></td>
+              {showAcct && <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 11 }}>{l.glAccount.replace(/-95$/, "")}</code></td>}
               <td>{l.label}</td>
               <td style={numTd}>{money(l.baseCost)}</td>
               <td style={numTd}>{money(l.actual)}</td>
@@ -123,7 +123,7 @@ function Column({ title, lines, base, actual, net, due, escrow, balance, proRata
             </tr>
           ))}
           <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}>
-            <td /><td>Total</td>
+            {showAcct && <td />}<td>Total</td>
             <td style={numTd}>{money(base)}</td>
             <td style={numTd}>{money(actual)}</td>
             <td style={numTd}>{money(net)}</td>
@@ -557,6 +557,16 @@ export default function InterimReconPage() {
       </button>
     </div>
   );
+  // Account codes are off by default (owner: "hide or at least default to
+  // toggle off the account codes … to clean this up"); remembered per browser.
+  const [showAcct, setShowAcct] = useState(false);
+  useEffect(() => { try { setShowAcct(localStorage.getItem("kcp.interim.showAcct") === "1"); } catch { /* private mode */ } }, []);
+  const toggleAcct = (v: boolean) => { setShowAcct(v); try { localStorage.setItem("kcp.interim.showAcct", v ? "1" : "0"); } catch { /* private mode */ } };
+  const acctToggle = (
+    <label className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, cursor: "pointer" }}>
+      <input type="checkbox" checked={showAcct} onChange={(e) => toggleAcct(e.target.checked)} /> Account codes
+    </label>
+  );
   const grandTotal = totalDueOf(totalBalance, openAr);
   const depositAppliesNow = deposit != null && (deposit.status === "held" || deposit.status === "partial");
   // The settlement page the downloads append — the SAME page the final PDF carries.
@@ -976,6 +986,7 @@ export default function InterimReconPage() {
             <div style={{ fontSize: 18, fontWeight: 800 }}>{r.name} <code style={{ fontSize: 13 }}>{r.unitRef}</code></div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/RET · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
+              {acctToggle}
               {sanityButton}
               {letterButton}
               <button className="btn primary" onClick={downloadPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
@@ -1004,10 +1015,10 @@ export default function InterimReconPage() {
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
             <Column title="CAM / Operating Expenses" lines={r.opexLines} base={r.opexBaseTotal} actual={r.opexActualTotal} net={r.opexNetIncrease}
               due={r.opexAmountDue} escrow={r.opexEscrow} balance={r.opexBalance} proRataPct={r.proRataPct}
-              occupiedMonths={r.occupiedMonths} asOfLabel={asOfLabel} reconYear={meta.year} monthly={meta.opexMonth} />
+              occupiedMonths={r.occupiedMonths} asOfLabel={asOfLabel} reconYear={meta.year} monthly={meta.opexMonth} showAcct={showAcct} />
             <Column title="Real Estate Taxes" lines={[r.retLine]} base={r.retLine.baseCost} actual={r.retLine.actual} net={r.retLine.netIncrease}
               due={r.retAmountDue} escrow={r.retEscrow} balance={r.retBalance} proRataPct={r.proRataPct}
-              occupiedMonths={r.occupiedMonths} asOfLabel={asOfLabel} reconYear={meta.year} monthly={meta.reTaxMonth} />
+              occupiedMonths={r.occupiedMonths} asOfLabel={asOfLabel} reconYear={meta.year} monthly={meta.reTaxMonth} showAcct={showAcct} />
           </div>
 
           <FinalBalanceRow label="Total Interim Balance" value={r.opexBalance + r.retBalance} />
@@ -1024,6 +1035,7 @@ export default function InterimReconPage() {
             <div style={{ fontSize: 18, fontWeight: 800 }}>{retail.name} <code style={{ fontSize: 13 }}>{retail.unitRef}</code></div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/INS/RET · as of {MONTHS[retail.asOfMonth - 1]} {meta.year}</div>
+              {acctToggle}
               {sanityButton}
               {letterButton}
               <button className="btn primary" onClick={downloadRetailPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
@@ -1044,16 +1056,16 @@ export default function InterimReconPage() {
             <div style={{ flex: 2, minWidth: 320 }}>
               <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>CAM / Operating Expenses</div>
               <table style={{ width: "100%", fontSize: 12, marginBottom: 8 }}>
-                <thead><tr style={{ color: "var(--muted)", textAlign: "left" }}><th style={{ textAlign: "left", paddingRight: 6 }}>Acct</th><th style={{ textAlign: "left", width: "100%" }}>Expense</th><th style={numTd}>{MONTHS[retail.asOfMonth - 1].slice(0, 3)} YTD</th></tr></thead>
+                <thead><tr style={{ color: "var(--muted)", textAlign: "left" }}>{showAcct && <th style={{ textAlign: "left", paddingRight: 6 }}>Acct</th>}<th style={{ textAlign: "left", width: "100%" }}>Expense</th><th style={numTd}>{MONTHS[retail.asOfMonth - 1].slice(0, 3)} YTD</th></tr></thead>
                 <tbody>
                   {retail.camSchedule.map((l) => (
                     <tr key={l.glAccount + l.label} style={{ textDecoration: l.billed ? "none" : "line-through", opacity: l.billed ? 1 : 0.5 }}>
-                      <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 11 }}>{l.glAccount}</code></td>
+                      {showAcct && <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 11 }}>{l.glAccount}</code></td>}
                       <td>{l.label}</td>
                       <td style={numTd}>{money(l.amount)}</td>
                     </tr>
                   ))}
-                  <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}><td /><td>Total billed pool</td><td style={numTd}>{money(retail.camPoolEffective)}</td></tr>
+                  <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}>{showAcct && <td />}<td>Total billed pool</td><td style={numTd}>{money(retail.camPoolEffective)}</td></tr>
                 </tbody>
               </table>
               <BalanceRow label={`× Share (${pct2(retail.camPrs)}%)`} value={money(retail.camShare)} />
