@@ -7,6 +7,7 @@ import type { SecurityDeposit } from "@/lib/deposits/deposits";
 import type { CloseOutDeposit } from "./queue";
 import { sameTenant } from "@/lib/leasing/confirmedMoveouts";
 import { allRuns } from "@/lib/statements/store";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { pickOpenAr, totalDue, type MoveoutOpenAr } from "./openAr";
 
 /** The departing tenant's deposit. The SUITE alone is not enough: once a
@@ -53,8 +54,10 @@ export type MoveoutSettlement = {
 };
 
 export async function tenantOpenAr(unitRef: string, name: string | undefined, year: number): Promise<MoveoutOpenAr | null> {
-  const runs = await allRuns().catch(() => []);
-  return pickOpenAr(runs, unitRef, name, year);
+  const [runs, roll] = await Promise.all([allRuns().catch(() => []), resolveCurrentRentroll().catch(() => null)]);
+  // Who is in the suite NOW — a re-let suite's statement is never the departed tenant's.
+  const now = roll?.properties.flatMap((p) => p.units).find((u) => u.unitRef === unitRef && !u.isVacant);
+  return pickOpenAr(runs, unitRef, name, year, now?.occupantName ?? null);
 }
 
 /** `deposits` when the caller already holds them (the watcher loads them once

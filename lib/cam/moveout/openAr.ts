@@ -24,6 +24,11 @@ export type MoveoutOpenAr = {
   period: string;
   /** When that tenant's figures were imported — the balance is as of then. */
   asOf: string | null;
+  /** The tenant name as Skyline printed it on the statement. */
+  tenantName: string;
+  /** False when the statement was taken by SUITE because no statement carried
+   *  the rent roll's name (Skyline's legal name ≠ the roll's short name). */
+  nameMatched: boolean;
   /** Skyline's TOTAL AMOUNT DUE for the tenant. */
   balance: number;
   /** Open charges by category, statement order. */
@@ -66,6 +71,8 @@ export function openArSummary(st: TenantStatement, period: string, year: number)
   return {
     period,
     asOf: st.importedAt ?? null,
+    tenantName: st.tenantName,
+    nameMatched: true,
     balance: r2(st.reportedBalance - trueUp),
     byCategory: CATEGORY_ORDER.filter((k) => Math.abs(totals.get(k) ?? 0) >= 0.005)
       .map((k) => ({ category: k, label: CATEGORY_LABEL[k], amount: r2(totals.get(k)!) })),
@@ -74,22 +81,38 @@ export function openArSummary(st: TenantStatement, period: string, year: number)
   };
 }
 
-/** The departing tenant's newest statement — by NAME as well as suite, since a
- *  re-leased suite's newest statement is the next tenant's. `runs` newest
- *  first. */
+/** The departing tenant's newest statement. By NAME first, since a re-leased
+ *  suite's newest statement is the next tenant's. If no statement carries the
+ *  name — Skyline prints a legal name the rent roll shortens ("SEOM") — the
+ *  suite's newest statement is used, unless it is the CURRENT occupant's
+ *  (`currentOccupant`, off the newest rent roll), and it says so
+ *  (`nameMatched: false`). `runs` newest first. */
 export function pickOpenAr(
   runs: { period: string; statements: TenantStatement[] }[],
   unitRef: string,
   name: string | undefined,
   year: number,
+  currentOccupant?: string | null,
 ): MoveoutOpenAr | null {
-  const ref = unitRef.trim().toUpperCase();
-  const n = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const isTenant = (s: string) => !name || sameTenant(s, name)
-    || (n(name).length >= 4 && n(s).includes(n(name))) || (n(s).length >= 4 && n(name).includes(n(s)));
+  const n = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  // Skyline suffixes the charge type: -CU (current) and -FO (FORMER occupant —
+  // the only way a moved-out tenant appears, e.g. SEOM's "3640-300-FO"). The
+  // statement store keeps -FO on purpose, so a former and a current tenant of
+  // one suite stay two statements; the close-out reads past it here.
+  const refKey = (s: string) => n((s ?? "").replace(/-(CU|FO)$/i, ""));
+  const ref = refKey(unitRef);
+  const onSuite = (s: TenantStatement) => refKey(s.unitRef) === ref || refKey(s.skylineUnitRef) === ref;
+  const like = (a: string, b: string) => sameTenant(a, b)
+    || (n(b).length >= 4 && n(a).includes(n(b))) || (n(a).length >= 4 && n(b).includes(n(a)));
   for (const run of runs) {
-    const st = run.statements.find((s) => s.unitRef.toUpperCase() === ref && isTenant(s.tenantName));
+    const st = run.statements.find((s) => onSuite(s) && (!name || like(s.tenantName, name)));
     if (st) return openArSummary(st, run.period, year);
+  }
+  // No name match: the suite's own statement, never its current occupant's.
+  const successor = currentOccupant && !(name && like(currentOccupant, name)) ? currentOccupant : null;
+  for (const run of runs) {
+    const st = run.statements.find((s) => onSuite(s) && !(successor && like(s.tenantName, successor)));
+    if (st) return { ...openArSummary(st, run.period, year), nameMatched: false };
   }
   return null;
 }
