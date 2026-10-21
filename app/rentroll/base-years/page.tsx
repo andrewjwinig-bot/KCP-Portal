@@ -13,6 +13,7 @@ import {
 import { RETAIL_EXPENSE_HISTORY } from "@/lib/cam/retail/expenseHistory";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { pickBudgetYear, preferredWorkbooks } from "@/lib/financials/budgets/inForce";
+import { HoverCard } from "@/app/components/HoverCard";
 
 const RETAIL_NAME = new Map(PROPERTY_DEFS.map((p) => [p.id.toUpperCase(), p.name]));
 const RETAIL_HISTORY_CODES = Object.keys(RETAIL_EXPENSE_HISTORY).sort();
@@ -1122,9 +1123,12 @@ function BaseYearBreakdown({
                       borderRadius: 6,
                       background: "rgba(15,23,42,0.03)",
                     }}>
-                      <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={`${t.unitRef} · ${t.sqft.toLocaleString()} sf`}>
+                      <HoverCard title={t.name} help={false} rows={[
+                        { label: "Suite", value: t.unitRef },
+                        { label: "Square feet", value: `${t.sqft.toLocaleString()} sf` },
+                      ]} style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {t.name}
-                      </span>
+                      </HoverCard>
                       <span className="muted" style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
                         {t.prsPct.toFixed(2)}%
                       </span>
@@ -1212,19 +1216,28 @@ function RecoveryBar({
             if (pct <= 0) return null;
             const isOtherHovered = hoverYear !== null && hoverYear !== s.year;
             return (
-              <div
+              <HoverCard
                 key={s.year}
-                onMouseEnter={() => onHover(s.year)}
-                style={{
-                  width: `${pct}%`, background: s.color, height: "100%",
-                  cursor: "pointer",
-                  opacity: isOtherHovered ? 0.35 : 1,
-                  outline: hoverYear === s.year ? "2px solid rgba(15,23,42,0.55)" : "none",
-                  outlineOffset: -2,
-                  transition: "opacity 0.12s ease",
-                }}
-                title={`${s.year} — ${money(s.value)} (${pct.toFixed(1)}% of ${label} recovery)`}
-              />
+                title={String(s.year)}
+                rows={[
+                  { label: `${label} recovery`, value: money(s.value), color: s.color },
+                  { label: "Share of total", value: `${pct.toFixed(1)}%` },
+                ]}
+                help={false}
+                style={{ display: "block", width: `${pct}%`, height: "100%" }}
+              >
+                <div
+                  onMouseEnter={() => onHover(s.year)}
+                  style={{
+                    width: "100%", background: s.color, height: "100%",
+                    cursor: "pointer",
+                    opacity: isOtherHovered ? 0.35 : 1,
+                    outline: hoverYear === s.year ? "2px solid rgba(15,23,42,0.55)" : "none",
+                    outlineOffset: -2,
+                    transition: "opacity 0.12s ease",
+                  }}
+                />
+              </HoverCard>
             );
           })}
         </div>

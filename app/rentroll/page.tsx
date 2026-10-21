@@ -13,6 +13,7 @@ import { LastImported } from "../components/LastImported";
 import { blobSrc } from "../../lib/blobProxy";
 import { normName } from "../../lib/centers/registry";
 import { Pill, TONE_RED, TONE_TEAL } from "@/app/components/Pill";
+import { HoverCard } from "@/app/components/HoverCard";
 
 // Hand-off key: a successful rent-roll import stashes its success message here,
 // then hard-reloads the page; the mount effect reads it back to flash a
@@ -218,15 +219,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function AlertBadge({ label, color, bg, border, title }: { label: string; color: string; bg: string; border: string; title?: string }) {
+  const pill = <Pill tone={{ bg, fg: color, border }}>{label}</Pill>;
+  if (!title) return pill;
   return (
-    <span title={title} style={{
-      display: "inline-flex", alignItems: "center", padding: "2px 9px",
-      borderRadius: 999, fontSize: 11, fontWeight: 700,
-      color, background: bg, border: `1px solid ${border}`,
-      cursor: title ? "help" : undefined,
-    }}>
-      {label}
-    </span>
+    <HoverCard title={label} rows={[]} width={300}
+      body={<div style={{ fontSize: 12.5, lineHeight: 1.45 }}>{title}</div>}>
+      {pill}
+    </HoverCard>
   );
 }
 
@@ -764,15 +763,20 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
                 {Math.round(occupancyPct)}% OCC
               </span>
               {/* Mini horizontal occupancy bar */}
-              <div style={{
-                width: 110, height: 8, borderRadius: 999,
-                background: "rgba(15,23,42,0.08)", overflow: "hidden", flexShrink: 0,
-              }} title={`${sqftFmt(prop.occupiedSqft)} / ${sqftFmt(prop.totalSqft)} sf · ${sqftFmt(prop.vacantSqft)} vacant`}>
+              <HoverCard title="Occupancy" style={{ display: "inline-flex", flexShrink: 0 }} rows={[
+                { label: "Occupied", value: `${sqftFmt(prop.occupiedSqft)} sf`, color: occColor(occupancyPct) },
+                { label: "Vacant", value: `${sqftFmt(prop.vacantSqft)} sf` },
+              ]} footer={{ label: "Total", value: `${sqftFmt(prop.totalSqft)} sf` }}>
                 <div style={{
-                  width: `${occupancyPct}%`, height: "100%",
-                  background: occColor(occupancyPct),
-                }} />
-              </div>
+                  width: 110, height: 8, borderRadius: 999,
+                  background: "rgba(15,23,42,0.08)", overflow: "hidden", flexShrink: 0,
+                }}>
+                  <div style={{
+                    width: `${occupancyPct}%`, height: "100%",
+                    background: occColor(occupancyPct),
+                  }} />
+                </div>
+              </HoverCard>
               <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
                 {kSqft(prop.occupiedSqft)} / {kSqft(prop.totalSqft)} sf
               </span>

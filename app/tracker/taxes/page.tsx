@@ -7,6 +7,7 @@ import {
   baseEntityName, filingLabel, isTaskEffectivelyDone,
   type TaxTask,
 } from "../tax-data";
+import { Pill, TONE_GREEN, TONE_NEUTRAL, TONE_TEAL } from "@/app/components/Pill";
 
 // ─── INSTRUCTIONS MODAL ──────────────────────────────────────────────────────
 
@@ -479,25 +480,13 @@ export default function TaxTrackerPage() {
                             {filingLabel(task)}
                           </span>
                           {/* Investor count badge */}
-                          <span style={{
-                            fontSize: 11, fontWeight: 700,
-                            color: isDone ? "#16a34a" : "var(--muted)",
-                            background: isDone ? "rgba(22,163,74,0.08)" : "rgba(0,0,0,0.04)",
-                            border: `1px solid ${isDone ? "rgba(22,163,74,0.2)" : "var(--border)"}`,
-                            padding: "2px 8px", borderRadius: 999,
-                          }}>
+                          <Pill tone={isDone ? TONE_GREEN : TONE_NEUTRAL}>
                             {invDone}/{investors.length}
-                          </span>
+                          </Pill>
                           {/* Status badge */}
-                          <span style={{
-                            fontSize: 11, fontWeight: 800,
-                            color: status.color, background: status.bg,
-                            border: `1px solid ${status.border}`,
-                            padding: "3px 9px", borderRadius: 999,
-                            whiteSpace: "nowrap", flexShrink: 0,
-                          }}>
+                          <span style={{ flexShrink: 0 }}><Pill tone={{ bg: status.bg, fg: status.color, border: status.border }}>
                             {status.label}
-                          </span>
+                          </Pill></span>
                           {/* Chevron */}
                           <svg
                             width="13" height="13" viewBox="0 0 24 24" fill="none"
@@ -551,11 +540,7 @@ export default function TaxTrackerPage() {
                                 {inv.name}
                               </span>
                               {autoSent ? (
-                                <span title="Delivered through the investor portal" style={{
-                                  fontSize: 9.5, fontWeight: 800, letterSpacing: "0.04em", marginLeft: "auto",
-                                  color: "#0f766e", background: "rgba(15,118,110,0.09)",
-                                  border: "1px solid rgba(15,118,110,0.25)", borderRadius: 999, padding: "1px 7px",
-                                }}>SENT</span>
+                                <span title="Delivered through the investor portal" style={{ marginLeft: "auto" }}><Pill tone={TONE_TEAL}>SENT</Pill></span>
                               ) : invChecked ? (
                                 <span style={{ fontSize: 10, color: "#16a34a", fontWeight: 700, marginLeft: "auto" }}>✓</span>
                               ) : null}
@@ -656,15 +641,9 @@ export default function TaxTrackerPage() {
                           <div className="muted small" style={{ marginTop: 2 }}>{task.notes}</div>
                         )}
                       </div>
-                      <span style={{
-                        fontSize: 11, fontWeight: 800,
-                        color: status.color, background: status.bg,
-                        border: `1px solid ${status.border}`,
-                        padding: "3px 9px", borderRadius: 999,
-                        whiteSpace: "nowrap", flexShrink: 0,
-                      }}>
+                      <span style={{ flexShrink: 0 }}><Pill tone={{ bg: status.bg, fg: status.color, border: status.border }}>
                         {status.label}
-                      </span>
+                      </Pill></span>
                     </div>
                   );
                 })}

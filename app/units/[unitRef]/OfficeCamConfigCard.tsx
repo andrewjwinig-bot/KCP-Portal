@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
+import { HoverCard } from "@/app/components/HoverCard";
 import CamStatementHistory from "./CamStatementHistory";
 
 // Office CAM config — the CAMPRep lease-level inputs (pro-rata share +
@@ -192,10 +193,13 @@ export default function OfficeCamConfigCard({
           </div>
           {truePRS != null && (
             prsMismatch ? (
-              <span style={{ ...tileSubStyle, color: "#b45309", fontWeight: 700 }}
-                title={`Building true share is ${truePRS.toFixed(2)}% (${unitSqft.toLocaleString()} / ${buildingSqft.toLocaleString()} SF). The stipulated CAMPrep share differs.`}>
+              <HoverCard title="Stipulated share differs" rows={[
+                { label: "Suite SF", value: unitSqft.toLocaleString() },
+                { label: "Building SF", value: buildingSqft.toLocaleString() },
+              ]} footer={{ label: "True share", value: `${truePRS.toFixed(2)}%` }}
+                style={{ ...tileSubStyle, color: "#b45309", fontWeight: 700 }}>
                 ≠ true {truePRS.toFixed(2)}%
-              </span>
+              </HoverCard>
             ) : (
               <span style={tileSubStyle}>
                 {unitSqft.toLocaleString()} / {buildingSqft.toLocaleString()} SF

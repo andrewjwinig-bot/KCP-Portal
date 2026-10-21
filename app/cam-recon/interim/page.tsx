@@ -992,25 +992,25 @@ export default function InterimReconPage() {
       {pickerOpen && <div className="card">
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Building
-            <select value={property} onChange={(e) => { setProperty(e.target.value); setUnitRef(""); setData(null); setAsOf(""); }} className={SELECT_BRAND}>
+            <select value={property} onChange={(e) => { setProperty(e.target.value); setUnitRef(""); setData(null); setAsOf(""); }}>
               <option value="">Select…</option>
               {properties.map((p) => <option key={p.code} value={p.code}>{p.code} · {p.name}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Year
-            <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={SELECT_BRAND}>
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
               {[now.getFullYear(), now.getFullYear() - 1].map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Tenant
-            <select value={unitRef} onChange={(e) => { setUnitRef(e.target.value); const t = tenants.find((x) => x.unitRef === e.target.value); setAsOf(t?.expiresInYear ?? ""); setData(null); setError(null); }} className={SELECT_BRAND} style={{ minWidth: 240 }} disabled={!property}>
+            <select value={unitRef} onChange={(e) => { setUnitRef(e.target.value); const t = tenants.find((x) => x.unitRef === e.target.value); setAsOf(t?.expiresInYear ?? ""); setData(null); setError(null); }} style={{ minWidth: 240 }} disabled={!property}>
               <option value="">Select…</option>
               <option value="__MANUAL__">＋ Enter a tenant manually…</option>
               {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.unitRef} · {t.name}{t.expiresInYear ? ` (expires ${MONTHS[t.expiresInYear - 1].slice(0, 3)})` : ""}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>As of
-            <select value={asOf} onChange={(e) => setAsOf(e.target.value ? Number(e.target.value) : "")} className={SELECT_BRAND} disabled={!unitRef}>
+            <select value={asOf} onChange={(e) => setAsOf(e.target.value ? Number(e.target.value) : "")} disabled={!unitRef}>
               <option value="">{isManual ? "Vacate / year end" : tenant?.expiresInYear ? `Expiration (${MONTHS[tenant.expiresInYear - 1].slice(0, 3)})` : "Year end (Dec)"}</option>
               {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>

@@ -1260,13 +1260,9 @@ function DashboardInner() {
                       <td style={{ fontWeight: 600 }}>{task.entity}</td>
                       <td style={{ fontSize: 13 }}>{filingLabel(task)}</td>
                       <td>
-                        <span style={{
-                          display: "inline-block", padding: "2px 8px", borderRadius: 999,
-                          fontSize: 11, fontWeight: 600,
-                          background: cat.bg, color: cat.text, border: `1px solid ${cat.border}`,
-                        }}>
+                        <Pill tone={{ bg: cat.bg, fg: cat.text, border: cat.border }}>
                           {task.pillOverride ?? cat.pill}
-                        </span>
+                        </Pill>
                       </td>
                       <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{formatShortDate(due)}</td>
                       <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
