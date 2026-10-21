@@ -22,6 +22,26 @@ export async function POST(
   const deposit = await getDeposit(params.id);
   if (!deposit) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // An image already uploaded straight to Blob by the browser (any size — the
+  // deposits page's path): just attach it.
+  if ((req.headers.get("content-type") ?? "").includes("application/json")) {
+    const b = (await req.json().catch(() => null)) as { url?: string; name?: string; contentType?: string; size?: number } | null;
+    const url = String(b?.url ?? "");
+    if (!/^https:\/\/[a-z0-9.-]+\.blob\.vercel-storage\.com\/deposits\//i.test(url)) {
+      return NextResponse.json({ error: "Not an uploaded deposit file" }, { status: 400 });
+    }
+    if (deposit.checkImage && deposit.checkImage.url !== url) {
+      try { await del(deposit.checkImage.url); } catch { /* ignore */ }
+    }
+    const checkImage: DepositCheckImage = {
+      url, name: String(b?.name || "check"), contentType: String(b?.contentType || "application/octet-stream"),
+      size: Number(b?.size) || 0, uploadedAt: new Date().toISOString(),
+    };
+    const next = { ...deposit, checkImage, updatedAt: new Date().toISOString() };
+    await saveDeposit(next);
+    return NextResponse.json({ deposit: next }, { status: 201 });
+  }
+
   let form: FormData;
   try {
     form = await req.formData();
