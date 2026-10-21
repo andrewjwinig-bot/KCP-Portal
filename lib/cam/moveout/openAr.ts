@@ -33,6 +33,10 @@ export type MoveoutOpenAr = {
   balance: number;
   /** Open charges by category, statement order. */
   byCategory: { category: ChargeCategory; label: string; amount: number }[];
+  /** EVERY open charge, in Skyline's printed order (owner: "should we itemize
+   *  list of unpaid charges?") — the final bill lists them. `escrow` marks the
+   *  estimates billed and unpaid that the reconciliation credited as billed. */
+  charges: { dateISO: string | null; description: string; amount: number; category: ChargeCategory; escrow: boolean }[];
   /** CAM / INS / RET estimates billed in the close-out year and still open —
    *  credited as billed by the reconciliation, collected here. */
   escrowUnpaid: number;
@@ -58,8 +62,12 @@ export function openArSummary(st: TenantStatement, period: string, year: number)
   // The move-out true-up itself, once posted, is ALREADY the reconciliation
   // line — counting it in the open balance too would bill it twice.
   let trueUp = 0;
+  const lines: MoveoutOpenAr["charges"] = [];
   for (const c of st.charges ?? []) {
     if (/move[\s-]*out/i.test(c.description) && /adj/i.test(c.description)) { trueUp += c.amount; continue; }
+    const dd = c.dateISO?.match(/^(\d{4})-(\d{2})/);
+    lines.push({ dateISO: c.dateISO, description: c.description, amount: r2(c.amount), category: c.category,
+      escrow: ESCROW.includes(c.category) && c.reconYear == null && c.amount > 0 && !!dd && Number(dd[1]) === year });
     totals.set(c.category, (totals.get(c.category) ?? 0) + c.amount);
     const d = c.dateISO?.match(/^(\d{4})-(\d{2})/);
     // An estimate, not a year-end adjustment; owed, not a credit; this year.
@@ -76,6 +84,7 @@ export function openArSummary(st: TenantStatement, period: string, year: number)
     balance: r2(st.reportedBalance - trueUp),
     byCategory: CATEGORY_ORDER.filter((k) => Math.abs(totals.get(k) ?? 0) >= 0.005)
       .map((k) => ({ category: k, label: CATEGORY_LABEL[k], amount: r2(totals.get(k)!) })),
+    charges: lines,
     escrowUnpaid: r2(escrowUnpaid),
     escrowMonths: monthsLabel(escrowMonths, year),
   };

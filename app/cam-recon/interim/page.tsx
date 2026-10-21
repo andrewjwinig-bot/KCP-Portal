@@ -264,9 +264,11 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
   return (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-        <div style={{ fontSize: 18, fontWeight: 800 }}>{r.name} <code style={{ fontSize: 13 }}>{r.unitRef}</code></div>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>CAM / RET Reconciliation <span style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>· as of {MONTHS[r.asOfMonth - 1]} {meta.year}</span></div>
+          <div className="muted" style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{r.name} <code style={{ fontSize: 12 }}>{r.unitRef}</code></div>
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/RET · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
           <button className="btn primary" onClick={downloadPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
         </div>
       </div>
@@ -505,6 +507,7 @@ export default function InterimReconPage() {
   // user to enter security deposits right in there … rather than forcing me to
   // go into deposits page"). Saves through the Deposits API: an existing
   // record keeps every other field (the PUT replaces the whole record).
+  const [showCharges, setShowCharges] = useState(false);
   const [depEdit, setDepEdit] = useState(false);
   const [depAmtIn, setDepAmtIn] = useState("");
   const [depCkIn, setDepCkIn] = useState("");
@@ -797,8 +800,9 @@ export default function InterimReconPage() {
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ ...secLabel, color: "#0b4a7d" }}>Final Bill · {meta.name}</div>
-          <div style={{ fontSize: 30, fontWeight: 900, marginTop: 4, color: finalNet > 0.5 ? "#b91c1c" : finalNet < -0.5 ? "#15803d" : "var(--text)", fontVariantNumeric: "tabular-nums" }}>
+          <div style={{ fontSize: 22, fontWeight: 800 }}>Final Bill</div>
+          <div className="muted" style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{meta.name} <code style={{ fontSize: 12 }}>{meta.unitRef}</code></div>
+          <div style={{ fontSize: 30, fontWeight: 900, marginTop: 10, color: finalNet > 0.5 ? "#b91c1c" : finalNet < -0.5 ? "#15803d" : "var(--text)", fontVariantNumeric: "tabular-nums" }}>
             {money(Math.abs(finalNet))}
           </div>
           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>
@@ -838,6 +842,12 @@ export default function InterimReconPage() {
           <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <span>
               {openAr ? (shortEscrow ?? "From their final Skyline statement.") : <>Import the tenant&rsquo;s final Skyline statement (a moved-out tenant is <code>{meta.unitRef}-FO</code>).</>}
+              {openAr && openAr.charges?.length > 0 && (
+                <button className="btn-link" onClick={() => setShowCharges((v) => !v)}
+                  style={{ marginLeft: 6, background: "none", border: "none", padding: 0, color: "#0b4a7d", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>
+                  {showCharges ? "Hide charges" : `Show the ${openAr.charges.length} charges`}
+                </button>
+              )}
               {openAr?.nameMatched === false && <span style={{ color: "#b45309" }}> Filed under &ldquo;{openAr.tenantName}&rdquo; — check it is this tenant.</span>}
               {stmtMsg && <span style={{ fontWeight: 600, color: stmtMsg.ok ? "#15803d" : "#b91c1c" }}> {stmtMsg.text}</span>}
             </span>
@@ -847,6 +857,31 @@ export default function InterimReconPage() {
               {stmtBusy ? "Importing…" : openAr ? "Re-import" : "Import final statement"}
             </button>
           </span>,
+        )}
+
+        {openAr && showCharges && (
+          <table style={{ width: "100%", fontSize: 12.5, margin: "0 0 8px", borderCollapse: "collapse" }}>
+            <thead>
+              <tr className="muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                <th style={{ textAlign: "left", padding: "4px 0", width: 90 }}>Date</th>
+                <th style={{ textAlign: "left", padding: "4px 0" }}>Description</th>
+                <th style={{ textAlign: "right", padding: "4px 0" }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {openAr.charges.map((k, i) => (
+                <tr key={i} style={{ background: i % 2 ? "rgba(15,23,42,0.03)" : undefined }}>
+                  <td style={{ padding: "3px 0", fontVariantNumeric: "tabular-nums" }}>{k.dateISO ? new Date(`${k.dateISO}T12:00:00`).toLocaleDateString("en-US") : ""}</td>
+                  <td style={{ padding: "3px 0" }}>{k.description}{k.escrow && <span title="Billed estimate, not paid — the reconciliation credits it as billed" style={{ color: "#b45309", fontWeight: 700 }}> †</span>}</td>
+                  <td style={{ padding: "3px 0", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(k.amount)}</td>
+                </tr>
+              ))}
+              <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}>
+                <td /><td style={{ padding: "4px 0" }}>Total unpaid charges</td>
+                <td style={{ padding: "4px 0", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(openAr.balance)}</td>
+              </tr>
+            </tbody>
+          </table>
         )}
 
         {lineRow(
@@ -893,7 +928,7 @@ export default function InterimReconPage() {
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Interim CAM/RET — Move-out</h1>
+        <h1 style={{ margin: 0 }}>Move-Out Close-Out</h1>
         <Link href="/cam-recon" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>← Year-end Reconciliation</Link>
       </div>
 
@@ -1033,9 +1068,14 @@ export default function InterimReconPage() {
       {r && meta && !meta.manual && (
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>{r.name} <code style={{ fontSize: 13 }}>{r.unitRef}</code></div>
+            <div>
+              {/* A SUBSECTION of the Final Bill (owner: "final bill is the header …
+                  cam would be a subsection"): smaller, brand-coloured, and
+                  without the tenant name the Final Bill already carries. */}
+              <div style={{ fontSize: 17, fontWeight: 800, color: "#0b4a7d" }}>CAM / RET Reconciliation</div>
+              <div className="muted" style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>Detail behind the Final Bill&rsquo;s first line · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/RET · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
               {acctToggle}
               {sanityButton}
             </div>
@@ -1079,9 +1119,14 @@ export default function InterimReconPage() {
       {retail && meta && (
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>{retail.name} <code style={{ fontSize: 13 }}>{retail.unitRef}</code></div>
+            <div>
+              {/* A SUBSECTION of the Final Bill (owner: "final bill is the header …
+                  cam would be a subsection"): smaller, brand-coloured, and
+                  without the tenant name the Final Bill already carries. */}
+              <div style={{ fontSize: 17, fontWeight: 800, color: "#0b4a7d" }}>CAM / INS / RET Reconciliation</div>
+              <div className="muted" style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>Detail behind the Final Bill&rsquo;s first line · as of {MONTHS[retail.asOfMonth - 1]} {meta.year}</div>
+            </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/INS/RET · as of {MONTHS[retail.asOfMonth - 1]} {meta.year}</div>
               {acctToggle}
               {sanityButton}
             </div>

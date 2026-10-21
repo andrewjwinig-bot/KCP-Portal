@@ -441,7 +441,16 @@ lines — reconciliation (the statement below is its working), unpaid charges
 that line), security deposit — and the bottom line. It REPLACED the "Move-out
 close-out package" card and the Final Bill block inside the statement, which
 showed the same figures twice. The statement's own total now reads
-"Reconciliation Balance". **One way to pick a tenant**: the move-out candidate
+"Reconciliation Balance". **Header hierarchy** (owner: "final bill is the header …
+cam would be a subsection"): the page is "Move-Out Close-Out"; **Final Bill**
+(22px) is THE header, the tenant name + suite its subline; the reconciliation
+card is a SUBSECTION — "CAM / RET Reconciliation" at 17px in brand colour,
+"Detail behind the Final Bill's first line · as of …", no repeated tenant
+name. **Unpaid charges are ITEMIZED** (`openAr.charges`, Skyline's printed
+order, `escrow` marks the billed-and-unpaid estimates with †): "Show the n
+charges" on the card, and the PDF's settlement page lists every charge (date /
+description / amount, continuing onto further pages) under the summary.
+**One way to pick a tenant**: the move-out candidate
 list; Building / Year / Tenant / As of (and manual entry) open only behind
 "Other tenant / as of…" (or with no candidates, a manual worksheet, or an
 error). **A deposit with no amount keyed applies nothing** and says so
