@@ -24,7 +24,8 @@ import type { OwnerEmail } from "./useK1";
 import { useK1Registry } from "./useK1";
 import { PartnershipTaxDocs } from "@/app/components/PartnershipTaxDocs";
 import { useUser } from "../components/UserProvider";
-import { Pill, StatPill, TONE_GREEN, TONE_RED } from "../components/Pill";
+import { Pill, StatPill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "../components/Pill";
+import { Calendar } from "../components/Calendar";
 import { DownloadMenu } from "../components/DownloadMenu";
 import { th, td, thL, tdL } from "../components/tableStyles";
 import { InvestorContactCard } from "./InvestorContactCard";
@@ -161,12 +162,9 @@ const VENDOR_COL: React.CSSProperties = { display: "none" };
 /** The count chip a collapsible band carries ("3 STAKES", "24 INVESTORS").
  *  One definition, so the entity band and the multi-stake roll-up read as the
  *  same control rather than two that happen to look similar. */
-const BAND_COUNT_PILL: React.CSSProperties = {
-  fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em",
-  color: "#0b4a7d", background: "rgba(11,74,125,0.10)",
-  border: "1px solid rgba(11,74,125,0.28)", borderRadius: 999, padding: "1px 8px",
-  whiteSpace: "nowrap",
-};
+function BandCountPill({ children }: { children: React.ReactNode }) {
+  return <Pill tone={TONE_BLUE}>{children}</Pill>;
+}
 
 /** Name, trust name or vendor code — the three things a roster search hits. */
 function matchesOwner(o: PropertyOwner, q: string): boolean {
@@ -217,27 +215,16 @@ function buildOwnerGroups(owners: PropertyOwner[]): OwnerGroup[] {
  * The grey fallback matters: until the summary arrives the honest thing is to
  * say nothing about completeness, and the old teal said "done" by accident.
  */
-const K1_PILL: React.CSSProperties = {
-  fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
-  padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap", border: "1px solid",
-};
-const K1_TONE_PENDING = { bg: "rgba(15,23,42,0.05)", fg: "#64748b", bd: "rgba(15,23,42,0.15)" };
-
 /** Green ONLY when every one is in — the same rule wherever a K-1 count shows. */
 function k1Tone(uploaded: number, total: number) {
-  if (total > 0 && uploaded >= total) return { bg: "rgba(22,163,74,0.10)", fg: "#15803d", bd: "rgba(22,163,74,0.30)" };
-  if (uploaded === 0) return { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", bd: "rgba(220,38,38,0.30)" };
-  return { bg: "rgba(217,119,6,0.12)", fg: "#b45309", bd: "rgba(217,119,6,0.35)" };
+  if (total > 0 && uploaded >= total) return TONE_GREEN;
+  if (uploaded === 0) return TONE_RED;
+  return TONE_AMBER;
 }
 
 function K1Progress({ got, year }: { got?: { owners: number; uploaded: number }; year: number }) {
-  const base: React.CSSProperties = { ...K1_PILL, marginLeft: 8 };
   if (!got) {
-    return (
-      <span style={{ ...base, background: K1_TONE_PENDING.bg, color: K1_TONE_PENDING.fg, borderColor: K1_TONE_PENDING.bd }}>
-        K-1
-      </span>
-    );
+    return <span style={{ marginLeft: 8 }}><Pill tone={TONE_NEUTRAL}>K-1</Pill></span>;
   }
   const done = got.owners > 0 && got.uploaded >= got.owners;
   const none = got.uploaded === 0;
@@ -257,8 +244,8 @@ function K1Progress({ got, year }: { got?: { owners: number; uploaded: number };
           : `${left} still to collect${none ? " — none uploaded yet" : ""}.`,
       }}
     >
-      <span style={{ ...base, background: tone.bg, color: tone.fg, borderColor: tone.bd }}>
-        {done ? "K-1 \u2713" : `K-1 ${got.uploaded}/${got.owners}`}
+      <span style={{ marginLeft: 8 }}>
+        <Pill tone={tone}>{done ? "K-1 \u2713" : `K-1 ${got.uploaded}/${got.owners}`}</Pill>
       </span>
     </HoverCard>
   );
@@ -294,9 +281,7 @@ function K1InvestorCount({
   if (expected === 0) return <span style={{ color: "var(--muted)" }}>&mdash;</span>;
   if (collected === null) {
     return (
-      <span style={{ ...K1_PILL, background: K1_TONE_PENDING.bg, color: K1_TONE_PENDING.fg, borderColor: K1_TONE_PENDING.bd }}>
-        {expected}
-      </span>
+      <Pill tone={TONE_NEUTRAL}>{expected}</Pill>
     );
   }
   const done = collected >= expected;
@@ -315,9 +300,7 @@ function K1InvestorCount({
           : `Still to collect: ${missing.join(", ")}.`,
       }}
     >
-      <span style={{ ...K1_PILL, background: tone.bg, color: tone.fg, borderColor: tone.bd }}>
-        {done ? `${expected} \u2713` : `${collected}/${expected}`}
-      </span>
+      <Pill tone={tone}>{done ? `${expected} \u2713` : `${collected}/${expected}`}</Pill>
     </HoverCard>
   );
 }
@@ -344,9 +327,7 @@ function InvestorEmailCell({ resolved }: { resolved: OwnerEmail[] | null }) {
   const withEmail = resolved.filter((r) => r.email);
   if (withEmail.length === 0) {
     return (
-      <span style={{ ...K1_PILL, background: "rgba(220,38,38,0.10)", color: "#b91c1c", borderColor: "rgba(220,38,38,0.30)" }}>
-        NO EMAIL
-      </span>
+      <Pill tone={TONE_RED}>NO EMAIL</Pill>
     );
   }
   // One person, one link — so normally one address. Several means their
@@ -1086,7 +1067,7 @@ export default function InvestorInfoPage() {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ ...INVESTOR_NAME, textTransform: "uppercase", letterSpacing: "0.02em" }}>{ent.name}</span>
-                    <span style={BAND_COUNT_PILL}>{sec.owners.length} INVESTORS</span>
+                    <BandCountPill>{sec.owners.length} INVESTORS</BandCountPill>
                   </div>
                   <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
                     Their K-1 comes from {ent.name}
@@ -1217,7 +1198,7 @@ export default function InvestorInfoPage() {
                       <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                         <span aria-hidden style={{ color: "#0b4a7d", fontSize: 10, width: 10, display: "inline-block" }}>{gOpen ? "\u25BC" : "\u25B6"}</span>
                         <span style={INVESTOR_NAME}>{g.name}</span>
-                        <span style={BAND_COUNT_PILL}>{g.owners.length} STAKES</span>
+                        <BandCountPill>{g.owners.length} STAKES</BandCountPill>
                       </div>
                     </td>
 
@@ -1757,7 +1738,7 @@ export default function InvestorInfoPage() {
                               carry, so "Hyman Korman Co." reads as a company
                               with people behind it on either tab. */}
                           {entityInvestorCount > 0 && (
-                            <span style={{ ...BAND_COUNT_PILL, marginLeft: 8 }}>{entityInvestorCount} INVESTORS</span>
+                            <span style={{ marginLeft: 8 }}><BandCountPill>{entityInvestorCount} INVESTORS</BandCountPill></span>
                           )}
                         </td>
                         {canK1 && (
@@ -2297,7 +2278,7 @@ function TrusteeEditor({ row, onSave, onCancel, onDelete }: {
   });
   const [saving, setSaving] = useState(false);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((p) => ({ ...p, [k]: e.target.value }));
-  const inp: React.CSSProperties = { padding: "6px 9px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)", fontFamily: "inherit", fontSize: 12, width: "100%" };
+  const inp: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
   const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: 3 };
   const field = (label: string, k: keyof typeof f, wide = false) => (
     <div style={{ gridColumn: wide ? "1 / -1" : undefined }}>
@@ -2374,7 +2355,7 @@ function EntityEditor({ entity, hasOverride, onSave, onCancel, onReset }: {
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF((p) => ({ ...p, [k]: e.target.value }));
   const parse = (v: string): number | null => { const t = v.replace(/[$,\s]/g, ""); if (t === "") return null; const n = Number(t); return Number.isFinite(n) ? n : null; };
 
-  const inp: React.CSSProperties = { padding: "6px 9px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)", fontFamily: "inherit", fontSize: 12, width: "100%", textAlign: "right", fontVariantNumeric: "tabular-nums" };
+  const inp: React.CSSProperties = { width: "100%", boxSizing: "border-box", textAlign: "right", fontVariantNumeric: "tabular-nums" };
   const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: 3 };
   const moneyField = (label: string, k: keyof typeof f) => (
     <div><label style={lbl}>{label}</label><input inputMode="decimal" value={f[k]} onChange={set(k)} style={inp} /></div>
@@ -2453,15 +2434,9 @@ function ResidencyChip({ contact }: { contact: OwnerContact | undefined }) {
   if (r.category === "unknown") return null;
   const amber = r.nonresident;
   return (
-    <span
-      title={r.nonresident ? "Likely nonresident — may be subject to PA nonresident withholding (confirm with CPA)" : "PA resident"}
-      style={{
-        fontSize: 10, fontWeight: 700, letterSpacing: "0.04em", padding: "2px 8px", borderRadius: 999,
-        background: amber ? "rgba(217,119,6,0.10)" : "rgba(15,23,42,0.05)",
-        color: amber ? "#b45309" : "var(--muted)",
-        border: `1px solid ${amber ? "rgba(217,119,6,0.30)" : "var(--border)"}`,
-      }}
-    >{r.label}</span>
+    <span title={r.nonresident ? "Likely nonresident — may be subject to PA nonresident withholding (confirm with CPA)" : "PA resident"}>
+      <Pill tone={amber ? TONE_AMBER : TONE_NEUTRAL}>{r.label}</Pill>
+    </span>
   );
 }
 
@@ -2636,11 +2611,10 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
             </div>
             {editing ? (
               <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }} className="no-print">
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)" }}>
                   Est. as of
-                  <input type="date" value={asOfDraft} onChange={(e) => setAsOfDraft(e.target.value)}
-                    style={{ padding: "5px 8px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)", fontFamily: "inherit", fontSize: 12 }} />
-                </label>
+                  <Calendar variant="card" value={asOfDraft} onChange={setAsOfDraft} />
+                </span>
                 <button type="button" className="btn primary" disabled={saving} onClick={commit} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
                 <button type="button" className="btn" disabled={saving} onClick={() => setEditing(false)} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
               </div>
@@ -2699,7 +2673,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
                             value={draft[e.entity] ?? ""}
                             placeholder={money0(e.equityValue)}
                             onChange={(ev) => setDraft((p) => ({ ...p, [e.entity]: ev.target.value }))}
-                            style={{ width: 120, textAlign: "right", padding: "4px 8px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)", fontFamily: "inherit", fontSize: 12, fontVariantNumeric: "tabular-nums" }}
+                            style={{ width: 120, textAlign: "right", fontVariantNumeric: "tabular-nums" }}
                           />
                         ) : (
                           <span style={{ fontWeight: 700 }}>{money0(est)}<DeltaTag base={e.equityValue ?? 0} now={est} /></span>

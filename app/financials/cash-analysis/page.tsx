@@ -487,7 +487,7 @@ function CashSheetPage() {
               value={`${year}-${period}`}
               onChange={(e) => { const [y, m] = e.target.value.split("-").map(Number); setYear(y); setPeriod(m); }}
               title="View period"
-              style={{ borderRadius: 999, padding: "8px 12px", fontSize: 13, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}>
+              className="select-brand">
               {Array.from({ length: 18 }, (_, i) => { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); return { y: d.getFullYear(), m: d.getMonth() + 1 }; }).map(({ y, m }) => (
                 <option key={`${y}-${m}`} value={`${y}-${m}`}>{MONTHS[m - 1]} {y}</option>
               ))}
@@ -515,7 +515,7 @@ function CashSheetPage() {
                 value={bankFilter}
                 onChange={(e) => setBankFilter(e.target.value)}
                 title="Filter the accounts to one bank"
-                style={{ borderRadius: 999, padding: "7px 12px", fontSize: 12, fontWeight: 600, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}>
+                className="select-sm">
                 <option value="All">All banks</option>
                 {banksPresent.map((b) => <option key={b} value={b}>{b}</option>)}
               </select>

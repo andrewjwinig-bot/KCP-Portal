@@ -42,7 +42,7 @@ export default function AuditPage() {
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <h1>Audit Log</h1>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter (user, event, IP…)"
-          style={{ font: "inherit", fontSize: 14, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)", minWidth: 240 }} />
+          style={{ minWidth: 240 }} />
       </header>
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {err ? <div className="muted small" style={{ padding: 16 }}>{err}</div>

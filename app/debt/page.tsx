@@ -560,15 +560,7 @@ function LoanForm({
     setDraft((d) => ({ ...d, [key]: value }));
   }
 
-  const fieldStyle: React.CSSProperties = {
-    padding: "9px 11px",
-    borderRadius: 10,
-    border: "1px solid var(--border)",
-    background: "var(--card)",
-    color: "var(--text)",
-    fontSize: 14,
-    width: "100%",
-  };
+  const fieldStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
   const labelStyle: React.CSSProperties = { ...SECTION_LABEL, display: "block", marginBottom: 5 };
 
   function numField(key: keyof Loan, label: string, step = "0.01") {

@@ -150,6 +150,7 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
   `--select-chevron` / `--select-chevron-brand` token so the dark theme swaps
   its stroke. Controls inside a `td`/`th` are pulled back to dense padding, so
   the baseline can't blow a table row's height open.
+- **AUDITED 10/2026** (owner: "everything like that needs to match the master styling of the program"): every local `inputStyle` / `selectStyle` / `INPUT` constant across the admin pages was cut to LAYOUT ONLY (width, flex, alignment) so the `globals.css` baseline draws the control — several used the `background` shorthand and had no chevron; hand-built status chips became `Pill` with the shared tones (`priorityTone`, `maintenanceStatusTone`, `TONE_*`); native `<input type="date">` became `Calendar`; money-bearing `title=` hovers became `HoverCard`; one-off h1 sizes went. Left on purpose: dense in-table cell editors, invisible overlay selects, light-blue input cells, the hidden GL view, and the public token pages. A secondary filter beside a page's brand select is the DEFAULT select, not a second brand one. A scan that matches `<input[^>]*>` misses every control with an arrow handler (`=>`) — match braces.
 - **Roster table cells** → `th` / `td` / `thL` / `tdL` from
   `app/components/tableStyles.ts` (`thDetail` / `tdDetail` for a table nested
   inside an expanded row). Ten pages had each re-typed their own, at four

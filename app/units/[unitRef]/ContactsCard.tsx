@@ -3,17 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
+import { Pill, TONE_AMBER, TONE_BLUE, TONE_TEAL } from "@/app/components/Pill";
 import {
   emptyContact,
   newContactId,
   type SuiteContact,
 } from "@/lib/suites/contacts";
 
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "8px 10px", fontSize: 13, fontFamily: "inherit",
-  border: "1px solid var(--border)", borderRadius: 8,
-  background: "var(--card)", color: "var(--text)", outline: "none",
-};
+// The look comes from globals.css (the program-wide control pill).
+const inputStyle: React.CSSProperties = { width: "100%" };
 
 // ─── Suggestion derivation ──────────────────────────────────────────────────
 
@@ -214,13 +212,9 @@ export default function ContactsCard({
                       {[s.email, s.phone].filter(Boolean).join(" · ") || "—"}
                     </div>
                   </div>
-                  <span style={{
-                    flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
-                    padding: "2px 8px", borderRadius: 999, textTransform: "uppercase",
-                    background: s.source === "maintenance" ? "rgba(217,119,6,0.10)" : "rgba(13,148,136,0.10)",
-                    color: s.source === "maintenance" ? "#b45309" : "#0d9488",
-                    border: `1px solid ${s.source === "maintenance" ? "rgba(217,119,6,0.30)" : "rgba(13,148,136,0.30)"}`,
-                  }}>{s.source}</span>
+                  <span style={{ flexShrink: 0 }}>
+                    <Pill tone={s.source === "maintenance" ? TONE_AMBER : TONE_TEAL}>{s.source.toUpperCase()}</Pill>
+                  </span>
                   <button
                     type="button"
                     onClick={() => addFromSuggestion(s)}
@@ -246,11 +240,7 @@ export default function ContactsCard({
               borderRadius: 10, background: "rgba(15,23,42,0.015)",
             }}>
               {c.source === "tenant" && (
-                <span style={{
-                  alignSelf: "flex-start", fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
-                  textTransform: "uppercase", padding: "2px 8px", borderRadius: 999,
-                  background: "rgba(11,74,125,0.08)", color: "#0b4a7d", border: "1px solid rgba(11,74,125,0.25)",
-                }}>Added by tenant</span>
+                <span style={{ alignSelf: "flex-start" }}><Pill tone={TONE_BLUE}>ADDED BY TENANT</Pill></span>
               )}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <ContactField label="Name">
@@ -291,11 +281,7 @@ export default function ContactsCard({
                   />
                   <span style={{ fontWeight: 600, color: "var(--text)" }}>CAM/RET statement recipient</span>
                   {c.camRecipient && c.email && (
-                    <span style={{
-                      fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
-                      padding: "2px 8px", borderRadius: 999,
-                      background: "rgba(13,148,136,0.10)", color: "#0d9488", border: "1px solid rgba(13,148,136,0.30)",
-                    }}>Recipient</span>
+                    <Pill tone={TONE_TEAL}>RECIPIENT</Pill>
                   )}
                 </label>
                 <button type="button" onClick={() => removeContact(c.id)}

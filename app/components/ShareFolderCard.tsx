@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "8px 10px", fontSize: 13, fontFamily: "inherit",
-  border: "1px solid var(--border)", borderRadius: 8,
-  background: "var(--card)", color: "var(--text)", outline: "none",
-};
+const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (

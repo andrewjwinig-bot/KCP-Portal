@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { HoverCard } from "@/app/components/HoverCard";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 
@@ -171,9 +172,15 @@ export default function PortfolioOccupancyPanel({
               const bpct = b.total > 0 ? (b.occupied / b.total) * 100 : 0;
               const color = occColor(bpct);
               return (
-                <div
+                <HoverCard
                   key={b.key}
-                  title={`${b.fullName} — ${sqftFmt(b.occupied)} / ${sqftFmt(b.total)} sf · ${sqftFmt(b.vacant)} vacant`}
+                  title={b.fullName}
+                  rows={[
+                    { label: "Occupied", value: `${sqftFmt(b.occupied)} sf`, color },
+                    { label: "Vacant", value: `${sqftFmt(b.vacant)} sf` },
+                  ]}
+                  footer={{ label: "Total", value: `${sqftFmt(b.total)} sf` }}
+                  help={false}
                   style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 0 }}
                 >
                   <span style={{ fontSize: 13, fontWeight: 800, color }}>{bpct.toFixed(1)}%</span>
@@ -190,7 +197,7 @@ export default function PortfolioOccupancyPanel({
                   <span style={{ fontSize: 9, fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap" }}>
                     {kSqft(b.occupied)}/{kSqft(b.total)} sf
                   </span>
-                </div>
+                </HoverCard>
               );
             })}
           </div>

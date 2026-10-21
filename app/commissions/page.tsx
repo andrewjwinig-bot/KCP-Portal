@@ -26,7 +26,7 @@ import {
 } from "../../lib/commissions";
 import { Calendar } from "@/app/components/Calendar";
 import { downloadCommissionInvoice, downloadCommissionInvoicesZip } from "@/lib/commissions/downloadInvoices";
-import { Pill, TONE_AMBER, TONE_BLUE } from "@/app/components/Pill";
+import { Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN } from "@/app/components/Pill";
 import { formatSentDate, CommissionSectionHeading, SendToAvidBillButton } from "./SendToAvidBillButton";
 
 // Office property codes — Business Parks Division commissions.
@@ -414,14 +414,10 @@ export default function CommissionsPage() {
   const isExistingTenant = !!form.unitRef;
 
   // Same styling for all inputs
-  const inputStyle: React.CSSProperties = {
-    width: "100%", padding: "8px 10px",
-    border: "1px solid var(--border)", borderRadius: 6,
-    background: "var(--card)", color: "var(--text)",
-    fontSize: 13, fontFamily: "inherit", outline: "none",
-  };
+  const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
+  // A read-only field (an existing tenant's details) reads as locked.
   const lockedStyle: React.CSSProperties = {
-    ...inputStyle, background: "rgba(15,23,42,0.04)", color: "var(--muted)",
+    ...inputStyle, backgroundColor: "rgba(15,23,42,0.04)", color: "var(--muted)",
   };
   const labelStyle: React.CSSProperties = {
     fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.04em",
@@ -451,14 +447,7 @@ export default function CommissionsPage() {
                     <span style={{ fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}>
                       {quarter}
                       {sentRecord && (
-                        <span style={{
-                          fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
-                          padding: "2px 8px", borderRadius: 999,
-                          background: "rgba(22,163,74,0.18)", color: "#15803d",
-                          border: "1px solid rgba(22,163,74,0.35)",
-                        }}>
-                          SENT TO AVIDXCHANGE · {sentDateLabel}
-                        </span>
+                        <Pill tone={TONE_GREEN}>SENT TO AVIDXCHANGE · {sentDateLabel}</Pill>
                       )}
                     </span>
                     <span className="muted small" style={{ display: "flex", alignItems: "center", gap: 10 }}>

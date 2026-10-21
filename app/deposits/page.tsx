@@ -10,7 +10,7 @@ import {
   type DepositAccount,
   type SecurityDeposit,
 } from "@/lib/deposits/deposits";
-import { StatPill } from "@/app/components/Pill";
+import { Pill, StatPill, TONE_AMBER, TONE_GREEN } from "@/app/components/Pill";
 import { useUser } from "@/app/components/UserProvider";
 import DepositForm, { type UnitOption } from "./DepositForm";
 import AllowedLink from "@/app/components/AllowedLink";
@@ -51,24 +51,15 @@ function heldTotal(checks: SecurityDeposit[]): number {
 }
 
 const DupBadge = ({ title }: { title?: string }) => (
-  <span title={title ?? "Looks like a duplicate of another check for this tenant — open each to compare, then delete the extra."}
-    style={{
-      fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
-      padding: "2px 8px", borderRadius: 999, cursor: "help",
-      background: "rgba(217,119,6,0.12)", color: "#b45309", border: "1px solid rgba(217,119,6,0.35)",
-    }}>
-    ⚠ Possible duplicate
-  </span>
+  <span title={title ?? "Looks like a duplicate of another check for this tenant — open each to compare, then delete the extra."} style={{ cursor: "help" }}><Pill tone={TONE_AMBER}>
+    ⚠ POSSIBLE DUPLICATE
+  </Pill></span>
 );
 
 const RefundedBadge = ({ date }: { date: string }) => (
-  <span style={{
-    fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
-    padding: "2px 8px", borderRadius: 999,
-    background: "rgba(22,163,74,0.10)", color: "#15803d", border: "1px solid rgba(22,163,74,0.30)",
-  }}>
+  <Pill tone={TONE_GREEN}>
     Refunded{date ? ` · ${prettyDate(date)}` : ""}
-  </span>
+  </Pill>
 );
 
 export default function SecurityDepositsPage() {

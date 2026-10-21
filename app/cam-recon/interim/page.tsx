@@ -68,7 +68,9 @@ const emptyDraft: Draft = {
   camEscrowOverride: "", insEscrowOverride: "", retEscrowOverride: "",
 };
 
-const inputStyle: React.CSSProperties = { borderRadius: 6, padding: "8px 10px", fontSize: 13, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", width: "100%", boxSizing: "border-box" };
+// The look comes from globals.css (the program-wide control pill); only the
+// layout is set here. `needsStyle` still tints an essential empty field amber.
+const inputStyle: React.CSSProperties = { width: "100%" };
 
 /** "YYYY-MM-DD" → "M/D/YYYY" (the format the recon engine + rent roll use). */
 function isoToUS(iso: string): string {
@@ -277,7 +279,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
         <span>Base year</span>
         <select value={r.noBaseStop ? "" : String(r.baseYear)} disabled={r.noBaseStop}
           onChange={(e) => onBaseYear(e.target.value)}
-          style={{ width: 86, padding: "3px 7px", fontSize: 12, fontFamily: "inherit", cursor: "pointer", color: "var(--text)", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}>
+          className="select-sm" style={{ width: 86 }}>
           {r.noBaseStop && <option value="">NNN</option>}
           {baseYears.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
@@ -738,7 +740,7 @@ export default function InterimReconPage() {
         </div>
         <p className="muted small" style={{ marginTop: 0 }}>Draft — review and edit before sending. Figures are pulled from the statement.</p>
         <textarea value={letterText} onChange={(e) => setLetterText(e.target.value)}
-          style={{ width: "100%", minHeight: 300, fontSize: 13, lineHeight: 1.5, padding: 12, borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", fontFamily: "inherit", resize: "vertical" }} />
+          style={{ width: "100%", minHeight: 300, lineHeight: 1.5, resize: "vertical" }} />
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 10 }}>
           <button className="btn" onClick={() => { navigator.clipboard?.writeText(letterText).catch(() => {}); }} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Copy</button>
           <button className="btn primary" onClick={() => {
@@ -990,25 +992,25 @@ export default function InterimReconPage() {
       {pickerOpen && <div className="card">
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Building
-            <select value={property} onChange={(e) => { setProperty(e.target.value); setUnitRef(""); setData(null); setAsOf(""); }} className={SELECT_BRAND}>
+            <select value={property} onChange={(e) => { setProperty(e.target.value); setUnitRef(""); setData(null); setAsOf(""); }}>
               <option value="">Select…</option>
               {properties.map((p) => <option key={p.code} value={p.code}>{p.code} · {p.name}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Year
-            <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={SELECT_BRAND}>
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
               {[now.getFullYear(), now.getFullYear() - 1].map((y) => <option key={y} value={y}>{y}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Tenant
-            <select value={unitRef} onChange={(e) => { setUnitRef(e.target.value); const t = tenants.find((x) => x.unitRef === e.target.value); setAsOf(t?.expiresInYear ?? ""); setData(null); setError(null); }} className={SELECT_BRAND} style={{ minWidth: 240 }} disabled={!property}>
+            <select value={unitRef} onChange={(e) => { setUnitRef(e.target.value); const t = tenants.find((x) => x.unitRef === e.target.value); setAsOf(t?.expiresInYear ?? ""); setData(null); setError(null); }} style={{ minWidth: 240 }} disabled={!property}>
               <option value="">Select…</option>
               <option value="__MANUAL__">＋ Enter a tenant manually…</option>
               {tenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.unitRef} · {t.name}{t.expiresInYear ? ` (expires ${MONTHS[t.expiresInYear - 1].slice(0, 3)})` : ""}</option>)}
             </select>
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>As of
-            <select value={asOf} onChange={(e) => setAsOf(e.target.value ? Number(e.target.value) : "")} className={SELECT_BRAND} disabled={!unitRef}>
+            <select value={asOf} onChange={(e) => setAsOf(e.target.value ? Number(e.target.value) : "")} disabled={!unitRef}>
               <option value="">{isManual ? "Vacate / year end" : tenant?.expiresInYear ? `Expiration (${MONTHS[tenant.expiresInYear - 1].slice(0, 3)})` : "Year end (Dec)"}</option>
               {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
             </select>

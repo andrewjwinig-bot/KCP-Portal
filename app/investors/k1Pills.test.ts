@@ -34,7 +34,9 @@ describe("the K-1 pills are actually on the page", () => {
 
   it("green is defined in exactly one place", () => {
     // Two pills disagreeing about what green means is worse than either alone.
-    expect(page.match(/rgba\(22,163,74,0\.10\)/g) ?? []).toHaveLength(1);
+    // Green is the shared TONE_GREEN in Pill.tsx — the page re-types none.
+    expect(page.match(/rgba\(22,163,74,0\.10\)/g) ?? []).toHaveLength(0);
+    expect(page).toContain("TONE_GREEN");
   });
 });
 
@@ -46,7 +48,7 @@ describe("the K-1 pills are actually on the page", () => {
 // company on the other.
 describe("an entity reads the same on both tabs", () => {
   it("By Investor names the investor count on the entity's own row", () => {
-    expect(page).toContain("INVESTORS</span>");
+    expect(page).toContain("INVESTORS</BandCountPill>");
     expect(page).toContain("entityInvestorCount");
   });
 

@@ -502,7 +502,7 @@ function Toolbar({
             }}>{error}</div>
           )}
           <input
-            style={{ ...selectStyle, width: "100%" }}
+            style={{ width: "100%" }}
             value={draft}
             placeholder="Paste the SharePoint folder link (https://…)"
             onChange={(e) => setDraft(e.target.value)}
@@ -589,7 +589,7 @@ function Toolbar({
               placeholder="Search bank, account, description…"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
-              style={{ ...selectStyle, minWidth: 260 }}
+              style={{ minWidth: 260 }}
             />
             <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
               {loading ? "Loading…" : `${resultsCount} of ${totalCount}`}
@@ -735,7 +735,7 @@ function EditModal({
             <select
               value={bankName}
               onChange={(e) => setBankName(e.target.value)}
-              style={selectStyle}
+             
             >
               {BANK_OPTIONS.map((b) => (
                 <option key={b} value={b}>{b}</option>
@@ -770,7 +770,7 @@ function EditModal({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
-              style={selectStyle}
+             
             />
           </Field>
 
@@ -813,7 +813,7 @@ function EditModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              style={{ ...selectStyle, resize: "vertical" }}
+              style={{ resize: "vertical" }}
             />
           </Field>
         </div>
@@ -861,7 +861,7 @@ function AccountSelect({
   // until staff remaps it.
   const valueIsCanonical = !value || inBankLabels.has(value);
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={selectStyle}>
+    <select value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">— Select account —</option>
       {!valueIsCanonical && (
         <optgroup label="Current (legacy)">
@@ -880,16 +880,6 @@ function AccountSelect({
   );
 }
 
-const selectStyle: React.CSSProperties = {
-  padding: "8px 10px",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  background: "var(--card)",
-  color: "var(--text)",
-  fontFamily: "inherit",
-  fontSize: 13,
-  outline: "none",
-};
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

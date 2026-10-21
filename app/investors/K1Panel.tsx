@@ -247,7 +247,7 @@ export function K1EmailCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
           if (e.key === "Escape") { setDraft(owner.email ?? ""); setEditing(false); }
         }}
         placeholder="name@example.com"
-        style={{ width: "100%", maxWidth: 230, fontSize: 12.5, padding: "3px 6px" }}
+        style={{ width: "100%", maxWidth: 230 }}
       />
     );
   }
@@ -644,7 +644,7 @@ function InlineEmail({ value, busy, onSave }: { value: string | null; busy: bool
     return (
       <input autoFocus value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={commit}
         onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") { setDraft(value ?? ""); setEditing(false); } }}
-        placeholder="name@example.com" style={{ flex: 1, minWidth: 160, fontSize: 12.5, padding: "3px 6px" }} />
+        placeholder="name@example.com" style={{ flex: 1, minWidth: 160 }} />
     );
   }
   if (!value) {

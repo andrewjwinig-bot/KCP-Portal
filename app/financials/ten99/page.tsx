@@ -108,7 +108,7 @@ export default function Ten99Page() {
             Threshold
             <input type="number" min={0} step={100} value={threshold}
               onChange={(e) => setThreshold(Math.max(0, Number(e.target.value) || 0))}
-              style={{ width: 88, padding: "6px 8px", fontSize: 13, fontVariantNumeric: "tabular-nums" }} />
+              style={{ width: 88, fontVariantNumeric: "tabular-nums" }} />
           </label>
           <DownloadMenu
             items={[{

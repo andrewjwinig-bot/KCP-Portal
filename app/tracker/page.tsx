@@ -22,6 +22,7 @@ import {
   tasksForMonth, effDay, daysInMonth, firstDOW, dueName, ownerOf,
   type Category, type TaskDef, type TaskInstructions,
 } from "../../lib/tracker/taskDefs";
+import { Pill, TONE_BLUE } from "@/app/components/Pill";
 
 type OwnerFilter = "drew" | "harry" | "nancy" | "marie" | "both";
 
@@ -730,15 +731,9 @@ export default function TrackerPage() {
                       )}
                     </div>
 
-                    <span style={{
-                      fontSize: 11, fontWeight: 800,
-                      color: status.color, background: status.bg,
-                      border: `1px solid ${status.border}`,
-                      padding: "3px 9px", borderRadius: 999,
-                      whiteSpace: "nowrap", flexShrink: 0,
-                    }}>
+                    <span style={{ flexShrink: 0 }}><Pill tone={{ bg: status.bg, fg: status.color, border: status.border }}>
                       {status.label}
-                    </span>
+                    </Pill></span>
                   </div>
                 );
               })}
@@ -862,15 +857,9 @@ export default function TrackerPage() {
                         <div className="muted small" style={{ marginTop: 3 }}>{task.notes}</div>
                       )}
                     </div>
-                    <span style={{
-                      fontSize: 11, fontWeight: 800,
-                      color: status.color, background: status.bg,
-                      border: `1px solid ${status.border}`,
-                      padding: "3px 9px", borderRadius: 999,
-                      whiteSpace: "nowrap", flexShrink: 0,
-                    }}>
+                    <span style={{ flexShrink: 0 }}><Pill tone={{ bg: status.bg, fg: status.color, border: status.border }}>
                       {status.label}
-                    </span>
+                    </Pill></span>
                   </div>
                 );
               })}
@@ -903,12 +892,7 @@ export default function TrackerPage() {
               {ownerFilter === "both" ? "Marie's Recurring Tasks" : "Recurring Tasks"}
             </b>
             {ownerFilter === "both" && (
-              <span style={{
-                fontSize: 10, fontWeight: 800, letterSpacing: "0.05em",
-                color: "#0b4a7d", background: "rgba(11,74,125,0.08)",
-                border: "1px solid rgba(11,74,125,0.25)",
-                padding: "3px 9px", borderRadius: 999,
-              }}>MARIE</span>
+              <Pill tone={TONE_BLUE}>MARIE</Pill>
             )}
           </div>
           <p className="muted small" style={{ marginTop: 4 }}>

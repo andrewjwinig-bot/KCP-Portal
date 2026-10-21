@@ -320,7 +320,7 @@ function BaseYearResets({
           <select
             value={selectedUnitRef}
             onChange={(e) => setSelectedUnitRef(e.target.value)}
-            style={selectStyle}
+           
           >
             <option value="">— Pick a tenant —</option>
             {options.map((o) => (
@@ -347,7 +347,7 @@ function BaseYearResets({
             <select
               value={resetDate.slice(5, 7)}
               onChange={(e) => setResetDate(`${resetDate.slice(0, 4)}-${e.target.value}-01`)}
-              style={{ ...selectStyle, flex: 1, minWidth: 0 }}
+              style={{ flex: 1, minWidth: 0 }}
             >
               {MONTH_NAMES.map((mn, i) => (
                 <option key={mn} value={String(i + 1).padStart(2, "0")}>{mn}</option>
@@ -356,7 +356,7 @@ function BaseYearResets({
             <select
               value={resetDate.slice(0, 4)}
               onChange={(e) => setResetDate(`${e.target.value}-${resetDate.slice(5, 7)}-01`)}
-              style={{ ...selectStyle, width: 84, flexShrink: 0 }}
+              style={{ width: 84, flexShrink: 0 }}
             >
               {RESET_YEARS.map((y) => (
                 <option key={y} value={String(y)}>{y}</option>
@@ -371,7 +371,7 @@ function BaseYearResets({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. Lease renewal — Suite 200"
-            style={selectStyle}
+           
           />
         </label>
         <button
@@ -578,7 +578,7 @@ function SnowBaseExclusions({
       <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 2.2fr) minmax(84px, 0.6fr) minmax(230px, 1.3fr) minmax(190px, 2fr) auto", gap: 10, alignItems: "flex-end", marginTop: 14, opacity: canEdit ? 1 : 0.55 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={fieldLabel}>Tenant (office only)</span>
-          <select value={selectedUnitRef} onChange={(e) => setSelectedUnitRef(e.target.value)} style={selectStyle}>
+          <select value={selectedUnitRef} onChange={(e) => setSelectedUnitRef(e.target.value)}>
             <option value="">— Pick a tenant —</option>
             {options.map((o) => <option key={o.unitRef} value={o.unitRef}>{o.label}</option>)}
           </select>
@@ -592,17 +592,17 @@ function SnowBaseExclusions({
         <label style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
           <span style={fieldLabel}>Effective Month</span>
           <div style={{ display: "flex", gap: 6, minWidth: 0 }}>
-            <select value={String(effMonth)} onChange={(e) => setEffMonth(Number(e.target.value))} style={{ ...selectStyle, flex: 1, minWidth: 0 }}>
+            <select value={String(effMonth)} onChange={(e) => setEffMonth(Number(e.target.value))} style={{ flex: 1, minWidth: 0 }}>
               {MONTH_NAMES.map((mn, i) => <option key={mn} value={String(i + 1)}>{mn}</option>)}
             </select>
-            <select value={String(effYear)} onChange={(e) => setEffYear(Number(e.target.value))} style={{ ...selectStyle, width: 84, flexShrink: 0 }}>
+            <select value={String(effYear)} onChange={(e) => setEffYear(Number(e.target.value))} style={{ width: 84, flexShrink: 0 }}>
               {RESET_YEARS.map((y) => <option key={y} value={String(y)}>{y}</option>)}
             </select>
           </div>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={fieldLabel}>Notes (optional)</span>
-          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. High-snow recovery strategy" style={selectStyle} />
+          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. High-snow recovery strategy" />
         </label>
         <button type="button" onClick={save} disabled={saving || !selectedUnitRef} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>
           {saving ? "Saving…" : "Exclude snow"}
@@ -837,13 +837,3 @@ const fieldLabel: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)",
 };
 
-const selectStyle: React.CSSProperties = {
-  padding: "8px 10px",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  background: "var(--card)",
-  color: "var(--text)",
-  fontFamily: "inherit",
-  fontSize: 13,
-  outline: "none",
-};

@@ -6,6 +6,7 @@ import { useUser } from "@/app/components/UserProvider";
 import { isPathAllowed } from "@/lib/users";
 import { Pill, StatPill, TONE_AMBER, TONE_GREEN, type PillTone } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
+import { HoverCard } from "@/app/components/HoverCard";
 import type { BudgetWorkbook, OccupancyDetailRow } from "@/lib/financials/budgets/types";
 import { pickBudgetYear } from "@/lib/financials/budgets/inForce";
 
@@ -2044,15 +2045,7 @@ function RentModal({ detail, onClose }: {
                 // when we have it. Renewals show "Expires" (the
                 // workbook's date is when the current lease ends);
                 // new-lease assumptions show "Lease" (start → end).
-                const tooltipLines = [e.tenantName];
-                if (e.leaseFrom && e.leaseTo) {
-                  tooltipLines.push(`Lease: ${e.leaseFrom} – ${e.leaseTo}`);
-                } else if (e.leaseTo) {
-                  tooltipLines.push(`Expires: ${e.leaseTo}`);
-                } else if (e.leaseFrom) {
-                  tooltipLines.push(`Starts: ${e.leaseFrom}`);
-                }
-                const rowTooltip = tooltipLines.join("\n");
+                const leaseRows = leaseTipRows(e);
                 // Rent bump = a month with a strictly higher value
                 // than the previous month, and both values positive.
                 // A first-month start (0 → X) doesn't count as a bump
@@ -2061,9 +2054,9 @@ function RentModal({ detail, onClose }: {
                 const isBump = (j: number) => j > 0 && (e.months[j] ?? 0) > (e.months[j - 1] ?? 0) && (e.months[j - 1] ?? 0) > 0;
                 return (
                   <tr key={idx}>
-                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }} title={rowTooltip}>{e.unitRef}</td>
-                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }} title={rowTooltip}>
-                      {e.tenantName}
+                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }}>{e.unitRef}</td>
+                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }}>
+                      {leaseRows.length ? <HoverCard title={e.tenantName} rows={leaseRows} width={240}>{e.tenantName}</HoverCard> : e.tenantName}
                     </td>
                     {e.months.map((m, j) => {
                       const bump = isBump(j);
@@ -2086,20 +2079,27 @@ function RentModal({ detail, onClose }: {
                           // bolded cells.
                           boxShadow: bump ? "inset 0 -2px 0 rgba(15,23,42,0.55)" : undefined,
                         }}
-                        title={bump
-                          ? (() => {
-                              const prev = e.months[j - 1] ?? 0;
-                              const pct = prev > 0 ? ((m - prev) / prev) * 100 : 0;
-                              // Show one decimal when the bump is
-                              // sub-10%, otherwise whole-number — keeps
-                              // the tooltip readable for both the
-                              // common 3% escalator and the bigger
-                              // mid-lease step-ups.
-                              const pctLabel = pct >= 10 ? `${Math.round(pct)}%` : `${pct.toFixed(1)}%`;
-                              return `Rent bump: $${Math.round(prev).toLocaleString()} → $${Math.round(m).toLocaleString()} (+${pctLabel})`;
-                            })()
-                          : undefined}>
-                          {fmt(m)}
+                        >
+                          {bump
+                            ? (() => {
+                                const prev = e.months[j - 1] ?? 0;
+                                const pct = prev > 0 ? ((m - prev) / prev) * 100 : 0;
+                                // Show one decimal when the bump is
+                                // sub-10%, otherwise whole-number — keeps
+                                // the hover readable for both the
+                                // common 3% escalator and the bigger
+                                // mid-lease step-ups.
+                                const pctLabel = pct >= 10 ? `${Math.round(pct)}%` : `${pct.toFixed(1)}%`;
+                                return (
+                                  <HoverCard title="Rent bump" width={220} rows={[
+                                    { label: "Prior month", value: `$${Math.round(prev).toLocaleString()}` },
+                                    { label: "This month", value: `$${Math.round(m).toLocaleString()}` },
+                                  ]} footer={{ label: "Increase", value: `+${pctLabel}` }}>
+                                    {fmt(m)}
+                                  </HoverCard>
+                                );
+                              })()
+                            : fmt(m)}
                         </td>
                       );
                     })}
@@ -2256,16 +2256,12 @@ function OccupancyDetailModal({ detail, property, onClose }: {
               {rows.map(({ entry: e, monthlySqft }, idx) => {
                 const isVacant = e.category === "vacant";
                 const avg = Math.round(monthlySqft.reduce((s, v) => s + v, 0) / 12);
-                const tooltipLines = [e.tenantName];
-                if (e.leaseFrom && e.leaseTo) tooltipLines.push(`Lease: ${e.leaseFrom} – ${e.leaseTo}`);
-                else if (e.leaseTo) tooltipLines.push(`Expires: ${e.leaseTo}`);
-                else if (e.leaseFrom) tooltipLines.push(`Starts: ${e.leaseFrom}`);
-                const rowTooltip = tooltipLines.join("\n");
+                const leaseRows = leaseTipRows(e);
                 return (
                   <tr key={idx}>
-                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }} title={rowTooltip}>{e.unitRef}</td>
-                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }} title={rowTooltip}>
-                      {e.tenantName}
+                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }}>{e.unitRef}</td>
+                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }}>
+                      {leaseRows.length ? <HoverCard title={e.tenantName} rows={leaseRows} width={240}>{e.tenantName}</HoverCard> : e.tenantName}
                     </td>
                     <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12, color: "var(--muted)" }}>
                       {e.sqft ? e.sqft.toLocaleString() : "—"}
@@ -2307,6 +2303,16 @@ function OccupancyDetailModal({ detail, property, onClose }: {
       </div>
     </div>
   );
+}
+
+/** The lease window behind a rent / occupancy row, for its hover. Renewals
+ *  show "Expires" (the workbook's date is when the current lease ends); new
+ *  lease assumptions show the term. */
+function leaseTipRows(e: { leaseFrom?: string | null; leaseTo?: string | null }): { label: string; value: string }[] {
+  if (e.leaseFrom && e.leaseTo) return [{ label: "Lease", value: `${e.leaseFrom} – ${e.leaseTo}` }];
+  if (e.leaseTo) return [{ label: "Expires", value: e.leaseTo }];
+  if (e.leaseFrom) return [{ label: "Starts", value: e.leaseFrom }];
+  return [];
 }
 
 function LineNoteMarker({ text }: { text: string }) {
@@ -2515,10 +2521,13 @@ function BudgetLineRow({
               )}
             </span>
             {hasSubLines && (
+              <HoverCard title={`${line.subLines!.filter((s) => !s.isSubtotal).length} sub-lines`} width={260}
+                rows={sumTies ? [] : [
+                  { label: "Sub-lines", value: money(subTotal) },
+                  { label: "Line", value: money(line.total) },
+                ]}
+                footer={sumTies ? { label: "Ties to the line", value: money(line.total) } : { label: "Difference", value: money(subTotal - line.total), color: "#854d0e" }}>
               <span
-                title={sumTies
-                  ? `${line.subLines!.filter((s) => !s.isSubtotal).length} sub-lines (click to expand)`
-                  : `Δ ${money(subTotal - line.total)} between sub-lines and parent`}
                 style={{
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                   minWidth: 18, height: 18, padding: "0 5px",
@@ -2532,6 +2541,7 @@ function BudgetLineRow({
               >
                 {line.subLines!.filter((s) => !s.isSubtotal).length}
               </span>
+              </HoverCard>
             )}
             {line.notes && <LineNoteMarker text={line.notes} />}
             {line.allocations && line.allocations.length > 0 && (
@@ -3141,10 +3151,10 @@ function CreateBudgetDialog({
             <Field label="Year">
               <input type="number" min={2000} max={2100} value={year}
                 onChange={(e) => setYear(Number(e.target.value) || today.getFullYear() + 1)}
-                style={{ ...selectStyleLocal, fontSize: 15, fontWeight: 700 }} />
+                style={{ fontWeight: 700 }} />
             </Field>
             <Field label="Portfolio">
-              <select value={category} onChange={(e) => setCategory(e.target.value as typeof category)} style={{ ...selectStyleLocal, fontSize: 15, fontWeight: 700 }}>
+              <select value={category} onChange={(e) => setCategory(e.target.value as typeof category)} style={{ fontWeight: 700 }}>
                 <option value="Shopping Centers">Shopping Centers</option>
                 <option value="Office">Office</option>
                 <option value="Residential">Residential</option>
@@ -3158,7 +3168,7 @@ function CreateBudgetDialog({
               <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
                 <input type="number" min={0} max={100} step="0.5" value={growth}
                   onChange={(e) => { const v = Number(e.target.value); setGrowth(v); if (!splitGrowth) { setRetGrowth(v); setInsGrowth(v); } }}
-                  style={{ ...selectStyleLocal, width: 84, fontSize: 22, fontWeight: 800, textAlign: "right", padding: "6px 10px" }} />
+                  style={{ width: 84, fontSize: 22, fontWeight: 800, textAlign: "right" }} />
                 <span style={{ fontSize: 22, fontWeight: 800 }}>%</span>
               </div>
             </div>
@@ -3166,10 +3176,10 @@ function CreateBudgetDialog({
             {splitGrowth && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
                 <Field label="Taxes growth %">
-                  <input type="number" min={0} max={100} step="0.5" value={retGrowth} onChange={(e) => setRetGrowth(Number(e.target.value))} style={selectStyleLocal} />
+                  <input type="number" min={0} max={100} step="0.5" value={retGrowth} onChange={(e) => setRetGrowth(Number(e.target.value))} />
                 </Field>
                 <Field label="Insurance growth %">
-                  <input type="number" min={0} max={100} step="0.5" value={insGrowth} onChange={(e) => setInsGrowth(Number(e.target.value))} style={selectStyleLocal} />
+                  <input type="number" min={0} max={100} step="0.5" value={insGrowth} onChange={(e) => setInsGrowth(Number(e.target.value))} />
                 </Field>
               </div>
             )}
@@ -3180,7 +3190,7 @@ function CreateBudgetDialog({
           </div>
 
           <Field label="Name (optional)">
-            <input type="text" value={name} placeholder={`${category} ${year} — Draft`} onChange={(e) => setName(e.target.value)} style={selectStyleLocal} />
+            <input type="text" value={name} placeholder={`${category} ${year} — Draft`} onChange={(e) => setName(e.target.value)} />
           </Field>
         </div>
 
@@ -3199,16 +3209,6 @@ function CreateBudgetDialog({
   );
 }
 
-const selectStyleLocal: React.CSSProperties = {
-  padding: "8px 10px",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  background: "var(--card)",
-  color: "var(--text)",
-  fontFamily: "inherit",
-  fontSize: 13,
-  outline: "none",
-};
 
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (

@@ -18,15 +18,6 @@ const SECTION_LABEL: React.CSSProperties = {
   color: "var(--muted)",
 };
 
-const selectStyle: React.CSSProperties = {
-  padding: "7px 10px",
-  borderRadius: 9,
-  border: "1px solid var(--border)",
-  background: "var(--card)",
-  color: "var(--text)",
-  fontSize: 14,
-  fontWeight: 700,
-};
 
 const PALETTE = [
   "#0b4a7d", "#d97706", "#16a34a", "#7c3aed", "#db2777", "#0d9488",
@@ -98,7 +89,7 @@ export default function ExpenseTrendsPage() {
 
       <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <span style={SECTION_LABEL}>Building</span>
-        <select value={propCode} onChange={(e) => setPropCode(e.target.value)} style={selectStyle}>
+        <select className="select-brand" value={propCode} onChange={(e) => setPropCode(e.target.value)}>
           {OFFICE_BUILDINGS.map((b) => (
             <option key={b.code} value={b.code}>
               {b.name} (#{b.code}){SEED_EXPENSES[b.code] ? "" : " — no data"}

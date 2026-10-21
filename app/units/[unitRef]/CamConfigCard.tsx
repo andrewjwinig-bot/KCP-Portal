@@ -579,10 +579,6 @@ export default function CamConfigCard({
                     const v = Number(e.target.value);
                     if (Number.isFinite(v)) update({ camCap: { ...cap, priorYear: Math.round(v) } });
                   }}
-                  style={{
-                    padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
-                    background: "var(--card)", color: "var(--text)", fontSize: 13, fontFamily: "inherit",
-                  }}
                 />
               </label>
               <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -604,12 +600,7 @@ export default function CamConfigCard({
                       const v = raw === "" ? 0 : Number(raw);
                       if (Number.isFinite(v)) update({ camCap: { ...cap, controllableAmount: Math.max(0, v) } });
                     }}
-                    style={{
-                      width: "100%", padding: "8px 10px 8px 22px", borderRadius: 6,
-                      border: "1px solid var(--border)", background: "var(--card)",
-                      color: "var(--text)", fontSize: 13, fontFamily: "inherit",
-                      fontVariantNumeric: "tabular-nums", textAlign: "right",
-                    }}
+                    style={{ width: "100%", paddingLeft: 22, fontVariantNumeric: "tabular-nums", textAlign: "right" }}
                   />
                 </div>
               </label>
@@ -627,10 +618,6 @@ export default function CamConfigCard({
                     const v = Number(e.target.value);
                     if (Number.isFinite(v)) update({ camCap: { ...cap, growthPct: Math.max(0, Math.min(100, v)) } });
                   }}
-                  style={{
-                    padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
-                    background: "var(--card)", color: "var(--text)", fontSize: 13, fontFamily: "inherit",
-                  }}
                 />
               </label>
             </div>
@@ -643,11 +630,7 @@ export default function CamConfigCard({
                 value={cap.notes}
                 placeholder="Lease cite, etc."
                 onChange={(e) => update({ camCap: { ...cap, notes: e.target.value.slice(0, 500) } })}
-                style={{
-                  padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
-                  background: "var(--card)", color: "var(--text)", fontSize: 13, fontFamily: "inherit",
-                  resize: "vertical",
-                }}
+                style={{ resize: "vertical" }}
               />
             </label>
             {isStale && (
@@ -761,10 +744,6 @@ export default function CamConfigCard({
                           description: e.target.value.slice(0, 120),
                         },
                       })}
-                      style={{
-                        padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)",
-                        background: "var(--card)", color: "var(--text)", fontSize: 13, fontFamily: "inherit",
-                      }}
                     />
                     <div style={{ position: "relative" }}>
                       <span style={{
@@ -786,12 +765,7 @@ export default function CamConfigCard({
                             },
                           });
                         }}
-                        style={{
-                          width: "100%", padding: "8px 10px 8px 22px", borderRadius: 6,
-                          border: "1px solid var(--border)", background: "var(--card)",
-                          color: "var(--text)", fontSize: 13, fontFamily: "inherit",
-                          fontVariantNumeric: "tabular-nums", textAlign: "right",
-                        }}
+                        style={{ width: "100%", paddingLeft: 22, fontVariantNumeric: "tabular-nums", textAlign: "right" }}
                       />
                     </div>
                   </div>

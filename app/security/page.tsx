@@ -4,6 +4,7 @@
 // key) into Authy / Google Authenticator, then confirm a code to turn it on.
 
 import { useEffect, useState } from "react";
+import { Pill, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
 
 type Status = { user: string | null; enabled: boolean; required: boolean; disabled: boolean };
 type Enrollment = { otpauthUri: string; secret: string; manualKey: string; qrDataUrl: string };
@@ -79,11 +80,7 @@ export default function SecurityPage() {
               A 6-digit code from your authenticator app (Authy, Google/Microsoft Authenticator) at login.
             </div>
           </div>
-          <span style={{ fontSize: 12, fontWeight: 800, padding: "4px 10px", borderRadius: 999,
-            background: status?.enabled ? "rgba(21,128,61,0.12)" : "rgba(100,116,139,0.12)",
-            color: status?.enabled ? "#15803d" : "#475569", border: `1px solid ${status?.enabled ? "rgba(21,128,61,0.35)" : "rgba(100,116,139,0.3)"}` }}>
-            {status?.enabled ? "ON" : "OFF"}
-          </span>
+          <Pill tone={status?.enabled ? TONE_GREEN : TONE_NEUTRAL}>{status?.enabled ? "ON" : "OFF"}</Pill>
         </div>
 
         {status?.disabled && (
@@ -132,7 +129,7 @@ export default function SecurityPage() {
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 inputMode="numeric" placeholder="123456" autoFocus
-                style={{ font: "inherit", fontSize: 18, letterSpacing: 4, width: 130, textAlign: "center", padding: "8px 10px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--card)" }} />
+                style={{ fontSize: 18, letterSpacing: 4, width: 130, textAlign: "center" }} />
               <button className="btn primary" disabled={busy || code.length !== 6} onClick={confirm} style={{ fontSize: 14, padding: "9px 16px", fontWeight: 700 }}>Confirm & turn on</button>
             </div>
           </div>

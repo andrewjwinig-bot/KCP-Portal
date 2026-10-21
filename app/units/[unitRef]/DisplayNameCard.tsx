@@ -85,11 +85,7 @@ export default function DisplayNameCard({ code, occupantName }: { code: string; 
         onChange={(e) => onChange(e.target.value)}
         placeholder={fallback || occupantName}
         title="Public leasing-page name. Blank uses the rent-roll name."
-        style={{
-          flex: "1 1 200px", maxWidth: 360,
-          border: "1px solid var(--border)", borderRadius: 8, padding: "7px 10px",
-          fontSize: 14, background: "var(--card)", color: "var(--text)", fontFamily: "inherit",
-        }}
+        style={{ flex: "1 1 200px", maxWidth: 360 }}
       />
       <AutosaveStatus saving={saving} savedFlash={savedFlash} />
       {error && <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>{error}</span>}

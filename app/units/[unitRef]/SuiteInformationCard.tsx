@@ -14,12 +14,9 @@ import {
   type SuiteInformation,
 } from "@/lib/suites/information";
 
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "8px 10px", fontSize: 13, fontFamily: "inherit",
-  border: "1px solid var(--border)", borderRadius: 8,
-  background: "var(--card)", color: "var(--text)", outline: "none",
-};
-const selectStyle: React.CSSProperties = { ...inputStyle, cursor: "pointer" };
+// The look comes from globals.css (the program-wide control pill).
+const inputStyle: React.CSSProperties = { width: "100%" };
+const selectStyle: React.CSSProperties = inputStyle;
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`;

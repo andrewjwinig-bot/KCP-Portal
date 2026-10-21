@@ -177,10 +177,7 @@ function isLineEmpty(t: StatementTotals): boolean {
   return isZero(t.ytdActual) && isZero(t.ytdBudget);
 }
 
-const threshInput: React.CSSProperties = {
-  width: 64, fontSize: 12, fontWeight: 700, padding: "3px 6px", textAlign: "right",
-  border: "1px solid var(--border)", borderRadius: 6, background: "var(--card)", color: "var(--text)",
-};
+const threshInput: React.CSSProperties = { width: 80, fontWeight: 700, textAlign: "right" };
 
 type Thresh = { dollar: number; pct: number; min: number };
 
@@ -1739,7 +1736,7 @@ function NoteModal({ lineKey, initial, isAi, meta, editorLabel, onPersist, onClo
           autoFocus
           rows={6}
           placeholder="Explain the variance…"
-          style={{ width: "100%", border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)", font: "inherit", fontSize: 14, lineHeight: 1.5, padding: "10px 12px", color: "var(--text)", resize: "vertical" }}
+          style={{ width: "100%", lineHeight: 1.5, resize: "vertical" }}
         />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 12 }}>
           <span className="muted small">

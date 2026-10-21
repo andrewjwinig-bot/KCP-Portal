@@ -103,7 +103,7 @@ function SendLink({ group, year }: { group: "SC" | "BP"; year: number }) {
           <>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <input readOnly value={link.url ?? ""} onFocus={(e) => e.currentTarget.select()} aria-label={`${person}'s link`}
-                style={{ flex: "1 1 420px", minWidth: 0, fontSize: 12.5 }} />
+                style={{ flex: "1 1 420px", minWidth: 0 }} />
               <button type="button" className="btn primary" style={{ fontSize: 13, fontWeight: 700 }}
                 onClick={() => { navigator.clipboard?.writeText(link.url ?? "").then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }).catch(() => {}); }}>
                 {copied ? "Copied ✓" : "Copy"}

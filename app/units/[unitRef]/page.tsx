@@ -12,7 +12,7 @@ import {
   InfoField,
   formatModalDate,
 } from "@/app/properties/PropertyDetail";
-import { StatPill } from "@/app/components/Pill";
+import { Pill, StatPill, maintenanceStatusTone, priorityTone } from "@/app/components/Pill";
 import SuiteInformationCard from "./SuiteInformationCard";
 import ContactsCard from "./ContactsCard";
 import DepositCard from "./DepositCard";
@@ -559,14 +559,8 @@ export default function UnitDetailPage() {
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {unitRequests.map((r) => {
-                const statusColor =
-                  r.status === "Complete" ? { bg: "rgba(22,163,74,0.10)", fg: "#15803d", border: "rgba(22,163,74,0.30)" }
-                    : r.status === "In Progress" ? { bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" }
-                      : { bg: "rgba(11,74,125,0.10)", fg: "#0b4a7d", border: "rgba(11,74,125,0.30)" };
-                const prioColor =
-                  r.priority === "High" ? { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" }
-                    : r.priority === "Medium" ? { bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" }
-                      : null;
+                const statusColor = maintenanceStatusTone(r.status);
+                const prioColor = r.priority === "High" || r.priority === "Medium" ? priorityTone(r.priority) : null;
                 // Linked to the request only for someone who can open Maintenance.
                 const MaintRow = (isPathAllowed(user.id, "/maintenance") ? Link : "div") as any;
                 return (
@@ -590,17 +584,9 @@ export default function UnitDetailPage() {
                       </div>
                     </div>
                     {prioColor && (
-                      <span style={{
-                        flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
-                        padding: "2px 8px", borderRadius: 999,
-                        background: prioColor.bg, color: prioColor.fg, border: `1px solid ${prioColor.border}`,
-                      }}>{r.priority}</span>
+                      <span style={{ flexShrink: 0 }}><Pill tone={prioColor}>{r.priority}</Pill></span>
                     )}
-                    <span style={{
-                      flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
-                      padding: "2px 8px", borderRadius: 999,
-                      background: statusColor.bg, color: statusColor.fg, border: `1px solid ${statusColor.border}`,
-                    }}>{r.status}</span>
+                    <span style={{ flexShrink: 0 }}><Pill tone={statusColor}>{r.status}</Pill></span>
                   </MaintRow>
                 );
               })}
