@@ -1577,7 +1577,7 @@ export default function ExpensesPage() {
                         {propId} — {propName(propId)}
                         {bill && bill.prior > 0 && (
                           <span style={{ marginLeft: 6 }}>
-                            <HoverCard title="Carried forward" rows={[{ label: "Included in this bill", value: toMoney(bill.prior) }]} footer="Held under $100 in earlier months, billed now.">
+                            <HoverCard title="Carried forward" rows={[{ label: "Included in this bill", value: toMoney(bill.prior) }]} footer={{ label: "", value: "Held under $100 earlier, billed now." }}>
                               <Pill tone={TONE_AMBER}>+ carried</Pill>
                             </HoverCard>
                           </span>

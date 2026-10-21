@@ -20,14 +20,7 @@ import { summarize } from "@/lib/maintenance/summarize";
 import { useUser } from "@/app/components/UserProvider";
 import { blobSrc } from "@/lib/blobProxy";
 import { bestTenantMatch, isResolvedTenant } from "@/lib/tenants/match";
-import {
-  Pill,
-  Badge,
-  maintenanceStatusTone,
-  priorityTone,
-  TONE_BLUE,
-  TONE_NEUTRAL,
-} from "@/app/components/Pill";
+import { Pill, Badge, TONE_AMBER, TONE_BLUE, TONE_NEUTRAL, maintenanceStatusTone, priorityTone } from "@/app/components/Pill";
 
 type Tab = "active" | "completed";
 
@@ -561,17 +554,9 @@ function MaintenancePageInner() {
                       <td style={{ fontSize: 13 }}>
                         {companyOf(r) || <span className="muted small">—</span>}
                         {r.tenantResolved === false && (
-                          <span
-                            title="Tenant name didn't match the rent roll — needs assignment"
-                            style={{
-                              marginLeft: 6, padding: "1px 7px", borderRadius: 999,
-                              fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
-                              background: "rgba(180,83,9,0.12)", color: "#b45309",
-                              border: "1px solid rgba(180,83,9,0.35)",
-                            }}
-                          >
+                          <span title="Tenant name didn't match the rent roll — needs assignment" style={{ marginLeft: 6 }}><Pill tone={TONE_AMBER}>
                             ⚠ Unmatched
-                          </span>
+                          </Pill></span>
                         )}
                       </td>
                       <td style={{ fontSize: 13 }}>
@@ -908,11 +893,7 @@ function RequestModal({
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
               {readOnly && (
-                <span style={{
-                  fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase",
-                  padding: "4px 10px", borderRadius: 999,
-                  background: "rgba(15,23,42,0.06)", color: "var(--muted)", border: "1px solid var(--border)",
-                }}>View only</span>
+                <Pill tone={TONE_NEUTRAL}>VIEW ONLY</Pill>
               )}
               {!readOnly && (request.status !== "Complete" ? (
                 <>
@@ -998,19 +979,9 @@ function RequestModal({
                 {companyOf(request) || <span style={{ color: "var(--muted)" }}>—</span>}
               </span>
               {request.tenantResolved === false && (
-                <span
-                  title="The typed company name didn't match the rent roll — assign a tenant below."
-                  style={{
-                    display: "inline-flex", alignItems: "center", gap: 4,
-                    alignSelf: "flex-start", marginTop: 2,
-                    padding: "2px 8px", borderRadius: 999,
-                    fontSize: 11, fontWeight: 700,
-                    background: "rgba(180,83,9,0.12)", color: "#b45309",
-                    border: "1px solid rgba(180,83,9,0.35)",
-                  }}
-                >
+                <span title="The typed company name didn't match the rent roll — assign a tenant below." style={{ alignSelf: "flex-start", marginTop: 2 }}><Pill tone={TONE_AMBER}>
                   ⚠ Needs assignment
-                </span>
+                </Pill></span>
               )}
               {!readOnly && tenantSuggestion && (
                 <button

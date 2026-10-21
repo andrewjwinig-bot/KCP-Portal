@@ -12,6 +12,7 @@ import { useUser } from "../components/UserProvider";
 import { loadTaxChecked } from "../tracker/tax-data";
 import { TypePill } from "./PropertyDetail";
 import { SHADOW_PROPERTIES, totalAcres, type ShadowProperty } from "../../lib/properties/shadowProperties";
+import { Pill, TONE_NEUTRAL, TONE_PURPLE } from "@/app/components/Pill";
 
 /** The managed properties plus the held-only shadow holdings — the shadows
  *  appear HERE and nowhere else (they are not in PROPERTY_DEFS). */
@@ -74,19 +75,9 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
             fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
           }}>{prop.id}</code>
           {shadow ? (
-            <span style={{
-              fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
-              color: "#475569", background: "rgba(15,23,42,0.06)",
-              border: "1px solid rgba(15,23,42,0.15)",
-              padding: "2px 8px", borderRadius: 999, textTransform: "uppercase",
-            }}>Not managed</span>
+            <Pill tone={TONE_NEUTRAL}>NOT MANAGED</Pill>
           ) : isEntity ? (
-            <span style={{
-              fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
-              color: "#6d28d9", background: "rgba(109,40,217,0.08)",
-              border: "1px solid rgba(109,40,217,0.25)",
-              padding: "2px 8px", borderRadius: 999, textTransform: "uppercase",
-            }}>{prop.entityKind}</span>
+            <Pill tone={TONE_PURPLE}>{prop.entityKind}</Pill>
           ) : (
             <TypePill type={prop.type} />
           )}

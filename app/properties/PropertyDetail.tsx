@@ -18,7 +18,7 @@ import {
   baseEntityName, filingLabel, isTaskEffectivelyDone,
   type TaxTask, type TaxParcel, TAX_CATEGORIES, type K1Investor,
 } from "../tracker/tax-data";
-import { StatPill } from "../components/Pill";
+import { Pill, Badge, StatPill, TONE_AMBER, TONE_GREEN, TONE_TEAL, maintenanceStatusTone, priorityTone } from "../components/Pill";
 import ShareFolderCard from "../components/ShareFolderCard";
 import AllowedLink from "@/app/components/AllowedLink";
 
@@ -502,12 +502,7 @@ export function CollapsibleSection({ title, link, count, children }: {
           </svg>
           <span>{title}</span>
           {typeof count === "number" && (
-            <span style={{
-              fontSize: 10, fontWeight: 800,
-              padding: "1px 7px", borderRadius: 999,
-              background: "rgba(15,23,42,0.06)", color: "var(--muted)",
-              letterSpacing: 0,
-            }}>{count}</span>
+            <Badge muted>{count}</Badge>
           )}
         </button>
         {link && <span onClick={(e) => e.stopPropagation()}>{link}</span>}
@@ -905,8 +900,8 @@ export function PropertyDetailBody({
                     K-1 Distribution · Due {MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}
                   </span>
                   {allDone
-                    ? <span style={{ fontSize: 10, fontWeight: 800, color: "#16a34a", background: "rgba(22,163,74,0.08)", padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(22,163,74,0.2)" }}>All Distributed</span>
-                    : <span style={{ fontSize: 10, fontWeight: 800, color: "#b45309", background: "rgba(180,83,9,0.08)", padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.25)" }}>Pending</span>
+                    ? <Pill tone={TONE_GREEN}>All Distributed</Pill>
+                    : <Pill tone={TONE_AMBER}>Pending</Pill>
                   }
                 </div>
               );
@@ -1102,14 +1097,9 @@ export function PropertyDetailBody({
                       }}>
                         {effectiveVacant ? "Vacant" : occupantLabel}
                         {isAmenity && (
-                          <span style={{
-                            marginLeft: 8, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
-                            padding: "2px 7px", borderRadius: 999,
-                            background: "rgba(13,148,136,0.10)", color: "#0d9488",
-                            border: "1px solid rgba(13,148,136,0.35)", textTransform: "uppercase",
-                          }}>
-                            In-House
-                          </span>
+                          <span style={{ marginLeft: 8 }}><Pill tone={TONE_TEAL}>
+                            IN-HOUSE
+                          </Pill></span>
                         )}
                       </td>
                       <td style={{ whiteSpace: "nowrap" }}>
@@ -1152,14 +1142,8 @@ export function PropertyDetailBody({
                   return (Date.parse(b.submittedDate) || 0) - (Date.parse(a.submittedDate) || 0);
                 })
                 .map((r) => {
-                  const statusColor =
-                    r.status === "Complete" ? { bg: "rgba(22,163,74,0.10)", fg: "#15803d", border: "rgba(22,163,74,0.30)" }
-                      : r.status === "In Progress" ? { bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" }
-                        : { bg: "rgba(11,74,125,0.10)", fg: "#0b4a7d", border: "rgba(11,74,125,0.30)" };
-                  const prioColor =
-                    r.priority === "High" ? { bg: "rgba(220,38,38,0.10)", fg: "#b91c1c", border: "rgba(220,38,38,0.30)" }
-                      : r.priority === "Medium" ? { bg: "rgba(217,119,6,0.10)", fg: "#b45309", border: "rgba(217,119,6,0.30)" }
-                        : null;
+                  const statusColor = maintenanceStatusTone(r.status);
+                  const prioColor = r.priority === "High" || r.priority === "Medium" ? priorityTone(r.priority) : null;
                   // Linked to the request only for someone who can open Maintenance.
                   const MaintRow = (isPathAllowed(user.id, "/maintenance") ? Link : "div") as any;
                   return (
@@ -1183,17 +1167,9 @@ export function PropertyDetailBody({
                         </div>
                       </div>
                       {prioColor && (
-                        <span style={{
-                          flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
-                          padding: "2px 8px", borderRadius: 999,
-                          background: prioColor.bg, color: prioColor.fg, border: `1px solid ${prioColor.border}`,
-                        }}>{r.priority}</span>
+                        <span style={{ flexShrink: 0 }}><Pill tone={prioColor}>{r.priority}</Pill></span>
                       )}
-                      <span style={{
-                        flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
-                        padding: "2px 8px", borderRadius: 999,
-                        background: statusColor.bg, color: statusColor.fg, border: `1px solid ${statusColor.border}`,
-                      }}>{r.status}</span>
+                      <span style={{ flexShrink: 0 }}><Pill tone={statusColor}>{r.status}</Pill></span>
                     </MaintRow>
                   );
                 })}
@@ -1390,10 +1366,7 @@ function BuildingFacts({
           fontSize: 11, fontWeight: 900, letterSpacing: "0.08em",
           color: "var(--muted)", textTransform: "uppercase",
         }}>Building Facts</span>
-        <span style={{
-          fontSize: 10, fontWeight: 800, padding: "1px 7px", borderRadius: 999,
-          background: "rgba(15,23,42,0.06)", color: "var(--muted)",
-        }}>{filledCount}</span>
+        <Badge muted>{filledCount}</Badge>
         {canEdit && !editing && (
           <button
             onClick={startEdit}

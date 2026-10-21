@@ -29,6 +29,7 @@ import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
 import MonthlyReviewPanel from "../reports/monthly/MonthlyReviewPanel";
 import DebtSummaryCard from "./DebtSummaryCard";
 import MgmtFeesChartCard from "./MgmtFeesChartCard";
+import { Pill, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
@@ -503,10 +504,10 @@ function DashboardInner() {
         <td style={{ fontWeight: 600 }}>
           {unit.occupantName}
           {vacated && (
-            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(100,116,139,0.14)", color: "#475569", border: "1px solid rgba(100,116,139,0.4)", letterSpacing: "0.04em" }}>VACATED</span>
+            <span style={{ marginLeft: 8 }}><Pill tone={TONE_NEUTRAL}>VACATED</Pill></span>
           )}
           {!vacated && !isDrew && isVacating(unit.unitRef, unit.occupantName) && (
-            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.1)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>VACATING</span>
+            <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>VACATING</Pill></span>
           )}
         </td>
         <td style={{ fontSize: 13, color: "var(--muted)" }}>{propLabel(propertyCode)}</td>
@@ -886,9 +887,9 @@ function DashboardInner() {
                   <div style={{ fontWeight: 600, fontSize: 14 }}>
                     Download Bank Statements — {bankRecPeriodLabel(bankStmt.period)}
                     {bankStmt.status === "overdue" && (
-                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.15)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>
+                      <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>
                         PAST DUE
-                      </span>
+                      </Pill></span>
                     )}
                   </div>
                   <div className="muted small" style={{ marginTop: 2 }}>
@@ -937,9 +938,9 @@ function DashboardInner() {
                   <div style={{ fontWeight: 600, fontSize: 14 }}>
                     Reconcile Bank Statements — {bankRecPeriodLabel(bankRec.period)}
                     {bankRec.status === "overdue" && (
-                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.15)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>
+                      <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>
                         PAST DUE
-                      </span>
+                      </Pill></span>
                     )}
                   </div>
                   <div className="muted small" style={{ marginTop: 2 }}>
@@ -1009,7 +1010,7 @@ function DashboardInner() {
                         <div style={{ fontWeight: 600, fontSize: 14 }}>
                           Exercise Option Notice Date — {n.tenant || "(no tenant)"}
                           {overdue && (
-                            <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.15)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>PAST DUE</span>
+                            <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>PAST DUE</Pill></span>
                           )}
                         </div>
                         <div className="muted small" style={{ marginTop: 2 }}>

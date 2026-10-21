@@ -10,6 +10,7 @@ import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import { PROPERTY_OWNERSHIP } from "../../lib/properties/ownership";
 import { TAX_TASKS, isTaskEffectivelyDone, type TaxTask } from "../tracker/tax-data";
+import { Pill, TONE_BLUE } from "@/app/components/Pill";
 
 type Insight = {
   /** Headline number / phrase. */
@@ -82,12 +83,7 @@ export default function Insights({
   return (
     <div style={{ gridColumn: "1 / -1" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <span style={{
-          fontSize: 11, fontWeight: 800, letterSpacing: "0.08em",
-          textTransform: "uppercase", color: "#0b4a7d",
-          background: "rgba(11,74,125,0.08)", border: "1px solid rgba(11,74,125,0.25)",
-          padding: "3px 10px", borderRadius: 999,
-        }}>Briefing</span>
+        <Pill tone={TONE_BLUE}>BRIEFING</Pill>
         <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{insights.length}</span>
         <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
       </div>

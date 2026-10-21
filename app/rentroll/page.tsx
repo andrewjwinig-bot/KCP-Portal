@@ -12,6 +12,7 @@ import { isPathAllowed } from "@/lib/users";
 import { LastImported } from "../components/LastImported";
 import { blobSrc } from "../../lib/blobProxy";
 import { normName } from "../../lib/centers/registry";
+import { Pill, TONE_RED, TONE_TEAL } from "@/app/components/Pill";
 
 // Hand-off key: a successful rent-roll import stashes its success message here,
 // then hard-reloads the page; the mount effect reads it back to flash a
@@ -570,14 +571,9 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                       : isAmenity
                         ? <span>
                             {occupantLabel}
-                            <span style={{
-                              marginLeft: 8, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
-                              padding: "2px 7px", borderRadius: 999,
-                              background: "rgba(13,148,136,0.10)", color: "#0d9488",
-                              border: "1px solid rgba(13,148,136,0.35)", textTransform: "uppercase",
-                            }}>
-                              In-House
-                            </span>
+                            <span style={{ marginLeft: 8 }}><Pill tone={TONE_TEAL}>
+                              IN-HOUSE
+                            </Pill></span>
                           </span>
                         : showDba
                           ? <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
@@ -596,7 +592,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                             </span>
                           : occupantLabel}
                     {!effectiveVacant && !isAmenity && vacatingUnitRefs?.has(unit.unitRef) && (
-                      <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.1)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.35)", letterSpacing: "0.04em" }}>VACATING</span>
+                      <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>VACATING</Pill></span>
                     )}
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>

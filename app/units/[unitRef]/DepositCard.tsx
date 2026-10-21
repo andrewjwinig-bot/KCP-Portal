@@ -7,6 +7,7 @@ import { DEPOSIT_ACCOUNTS, type SecurityDeposit } from "@/lib/deposits/deposits"
 import { useUser } from "@/app/components/UserProvider";
 import DepositForm, { type UnitOption } from "@/app/deposits/DepositForm";
 import { blobSrc } from "@/lib/blobProxy";
+import { Pill, TONE_GREEN } from "@/app/components/Pill";
 
 function money(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -160,14 +161,9 @@ export default function DepositCard({
                     {d.checkNumber ? `Check #${d.checkNumber}` : ""}
                   </span>
                   {d.refunded && (
-                    <span style={{
-                      fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
-                      padding: "2px 8px", borderRadius: 999,
-                      background: "rgba(22,163,74,0.10)", color: "#15803d",
-                      border: "1px solid rgba(22,163,74,0.30)",
-                    }}>
+                    <Pill tone={TONE_GREEN}>
                       Refunded{d.refundDate ? ` · ${prettyDate(d.refundDate)}` : ""}
-                    </span>
+                    </Pill>
                   )}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--muted)" }}>
