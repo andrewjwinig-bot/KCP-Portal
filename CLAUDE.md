@@ -422,7 +422,15 @@ the import KEEPS that suffix (stripping it would merge a former and a current
 tenant of one suite); `pickOpenAr` reads past `-CU` / `-FO`. A full run leaves
 former tenants off, so run theirs on its own. With no statement under the
 roll's name it falls back to the suite's (never the current occupant's) and
-says so (`nameMatched: false`). Pinned by
+says so (`nameMatched: false`). **Importing the tenant's FINAL statement is a
+standing close-out step, done ON the close-out page** (owner: "add the option
+right in the close out page … a regular task for a close out"): the Final
+Bill opens with "Step: final statement from Skyline" and an Import / Re-import
+button (`POST /api/cam-recon/moveout/statement`), which takes ONLY that
+tenant's statement from the file (`pickTenantStatement` — any file, even a
+whole property's, moves no one else) and files it in its newest charge month
+or the month already holding the tenant, whichever is later. The approval
+email asks for it before approving. Pinned by
 `openAr.test.ts`.
 
 # Tenant monthly statements (open A/R) — sources of truth
