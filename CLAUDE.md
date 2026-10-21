@@ -444,7 +444,12 @@ list; Building / Year / Tenant / As of (and manual entry) open only behind
 error). **A deposit with no amount keyed applies nothing** and says so
 (`depositSettlement` / the card) — the Deposits form read "25,496" as $0
 (`Number` on a comma), which saved SEOM's deposit at $0; it now parses
-`amountNum`. The move-out statement's expense tables
+`amountNum`. **The deposit is keyed ON the Final Bill when missing or wrong**
+(owner: "rather than forcing me to go into deposits page"): Add deposit /
+Enter amount / Edit opens amount + check # in place, saved through the
+Deposits API — an existing record is PUT back WHOLE with the new figures (the
+PUT replaces every field), a missing one is POSTed under the suite and tenant.
+The move-out statement's expense tables
 HIDE the Acct column by default (owner: "clean this up and simplify it") — an
 "Account codes" checkbox in the statement header shows them, remembered per
 browser (`kcp.interim.showAcct`). Pinned by
