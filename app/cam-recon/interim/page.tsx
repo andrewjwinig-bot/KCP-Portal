@@ -40,7 +40,16 @@ type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresIn
 type Candidate = { propertyCode: string; propertyName: string; unitRef: string; name: string; leaseTo: string | null; kind: "vacated" | "expiring"; days: number | null; year: number | null; month: number | null };
 type DepositStatus = "held" | "refunded" | "forfeited" | "partial";
 type RawDeposit = { amount: number; checkNumber: string; refunded: boolean; tenantDefaulted: boolean; partialRefund: boolean; partialRefundAmount?: number };
-type DepositInfo = { amount: number; checkNumber: string; status: DepositStatus; partialRefundAmount: number };
+type DepositInfo = { amount: number; checkNumber: string; status: DepositStatus; partialRefundAmount: number; raw?: Record<string, unknown> & { id?: string } };
+const toDepositInfo = (pick: RawDeposit): DepositInfo => ({
+  amount: pick.amount,
+  checkNumber: pick.checkNumber,
+  status: pick.refunded ? "refunded" : pick.tenantDefaulted ? "forfeited" : pick.partialRefund ? "partial" : "held",
+  partialRefundAmount: pick.partialRefundAmount ?? 0,
+  raw: pick as unknown as DepositInfo["raw"],
+});
+/** "25,496" / "$25,496.00" → dollars (Number alone reads a comma as NaN). */
+const dollars = (v: string) => { const n = Number(String(v ?? "").replace(/[$,\s]/g, "")); return Number.isFinite(n) ? n : 0; };
 
 type Draft = {
   unitRef: string; name: string; sqft: string; leaseFrom: string; vacatedISO: string; opexMonth: string; reTaxMonth: string;
@@ -485,16 +494,43 @@ export default function InterimReconPage() {
         const list = (j.deposits ?? []) as RawDeposit[];
         // Prefer a deposit still on file; otherwise the most recent record.
         const pick = list.find((d) => !d.refunded && !d.tenantDefaulted) ?? list[list.length - 1] ?? null;
-        setDeposit(pick ? {
-          amount: pick.amount,
-          checkNumber: pick.checkNumber,
-          status: pick.refunded ? "refunded" : pick.tenantDefaulted ? "forfeited" : pick.partialRefund ? "partial" : "held",
-          partialRefundAmount: pick.partialRefundAmount ?? 0,
-        } : null);
+        setDeposit(pick ? toDepositInfo(pick) : null);
       })
       .catch(() => { if (!cancelled) setDeposit(null); });
     return () => { cancelled = true; };
   }, [meta?.unitRef, metaName]);
+
+  // The deposit is keyed RIGHT HERE when it is missing or wrong (owner: "allow
+  // user to enter security deposits right in there … rather than forcing me to
+  // go into deposits page"). Saves through the Deposits API: an existing
+  // record keeps every other field (the PUT replaces the whole record).
+  const [depEdit, setDepEdit] = useState(false);
+  const [depAmtIn, setDepAmtIn] = useState("");
+  const [depCkIn, setDepCkIn] = useState("");
+  const [depSaving, setDepSaving] = useState(false);
+  const [depErr, setDepErr] = useState<string | null>(null);
+  useEffect(() => { setDepEdit(false); setDepErr(null); }, [meta?.unitRef]);
+  const startDepEdit = () => {
+    setDepAmtIn(deposit && deposit.amount > 0 ? deposit.amount.toLocaleString("en-US") : "");
+    setDepCkIn(deposit?.checkNumber ?? "");
+    setDepErr(null); setDepEdit(true);
+  };
+  const saveDepositHere = useCallback(async () => {
+    if (!meta) return;
+    const amount = dollars(depAmtIn);
+    if (!(amount > 0)) { setDepErr("Enter the deposit amount."); return; }
+    setDepSaving(true); setDepErr(null);
+    try {
+      const id = deposit?.raw?.id;
+      const res = id
+        ? await fetch(`/api/deposits/${encodeURIComponent(id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...deposit!.raw, amount, checkNumber: depCkIn.trim() }) })
+        : await fetch("/api/deposits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unitRef: meta.unitRef, propertyCode: meta.property, tenantCompany: meta.name, amount, checkNumber: depCkIn.trim() }) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || !j.deposit) { setDepErr(j.error ?? `Couldn't save (${res.status}).`); return; }
+      setDeposit(toDepositInfo(j.deposit as RawDeposit));
+      setDepEdit(false);
+    } catch (e) { setDepErr(String(e)); } finally { setDepSaving(false); }
+  }, [meta, deposit, depAmtIn, depCkIn]);
 
   // The open balance still on the account — the close-out is the tenant's
   // final bill, so it is netted with the true-up (owner). Off their newest
@@ -798,15 +834,35 @@ export default function InterimReconPage() {
         )}
 
         {lineRow(
-          <>Security deposit{deposit?.checkNumber ? <span className="muted"> · ck# {deposit.checkNumber}</span> : ""}</>,
-          depAmt ? signed(-depAmt) : <span className="muted" style={{ fontWeight: 500 }}>—</span>,
-          !deposit
-            ? <>None on record — <AllowedLink href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#0b4a7d" }}>add it on Deposits</AllowedLink>.</>
-            : !depositApplies
-              ? `${depositStatusLabel[deposit.status]} — not applied.`
-              : !(deposit.amount > 0)
-                ? <span style={{ color: "#b45309" }}>On file with no amount — <AllowedLink href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#b45309", fontWeight: 700 }}>enter it on Deposits</AllowedLink>.</span>
-                : null,
+          <>Security deposit{deposit?.checkNumber && !depEdit ? <span className="muted"> · ck# {deposit.checkNumber}</span> : ""}</>,
+          depEdit ? null : depAmt ? signed(-depAmt) : <span className="muted" style={{ fontWeight: 500 }}>—</span>,
+          depEdit ? (
+            <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <input value={depAmtIn} onChange={(e) => setDepAmtIn(e.target.value)} placeholder="Amount" inputMode="decimal" autoFocus
+                onKeyDown={(e) => { if (e.key === "Enter") saveDepositHere(); }} style={{ width: 130 }} />
+              <input value={depCkIn} onChange={(e) => setDepCkIn(e.target.value)} placeholder="Check #" style={{ width: 100 }} />
+              <button className="btn sm primary" disabled={depSaving} onClick={saveDepositHere}>{depSaving ? "Saving…" : "Save"}</button>
+              <button className="btn sm" disabled={depSaving} onClick={() => setDepEdit(false)}>Cancel</button>
+              {depErr && <span style={{ color: "#b91c1c", fontWeight: 600 }}>{depErr}</span>}
+            </span>
+          ) : (
+            <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span>
+                {!deposit
+                  ? "None on record."
+                  : !depositApplies
+                    ? `${depositStatusLabel[deposit.status]} — not applied.`
+                    : !(deposit.amount > 0)
+                      ? <span style={{ color: "#b45309", fontWeight: 600 }}>On file with no amount — enter it.</span>
+                      : null}
+              </span>
+              {(!deposit || depositApplies) && (
+                <button className={!deposit || !(deposit.amount > 0) ? "btn sm primary" : "btn sm"} onClick={startDepEdit}>
+                  {!deposit ? "Add deposit" : !(deposit.amount > 0) ? "Enter amount" : "Edit"}
+                </button>
+              )}
+            </span>
+          ),
         )}
 
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0 0", borderTop: "2px solid var(--text)", fontSize: 15, fontWeight: 800 }}>
