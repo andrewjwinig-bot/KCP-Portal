@@ -22,7 +22,7 @@ const dateUS = (iso: string | null) => {
  *  open charge still on the account, the deposit applied, and what is left.
  *  The close-out is the tenant's last bill, so it lists everything (owner);
  *  unpaid escrow already billed is named as such. Same letterhead, tint bars
- *  and boxed balance as the statement on page 1. */
+ *  and boxed balance as the reconciliation behind it, which follows as page 2. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function drawSettlement(doc: any, c: SettlementHeader, s: MoveoutSettlement) {
   const meta = c;
@@ -61,7 +61,7 @@ export function drawSettlement(doc: any, c: SettlementHeader, s: MoveoutSettleme
 
   const cats = c.kind === "retail" ? "CAM / INS / RET" : "CAM / RET";
   bar(`1 · Final ${cats} Reconciliation`);
-  row(s.reconBalance >= 0 ? "Due from tenant (page 1)" : "Credit to tenant (page 1)", money2(s.reconBalance), { bold: true });
+  row(s.reconBalance >= 0 ? "Due from tenant (reconciliation, page 2)" : "Credit to tenant (reconciliation, page 2)", money2(s.reconBalance), { bold: true });
   y += 8;
 
   const ar = s.openAr;

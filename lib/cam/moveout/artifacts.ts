@@ -24,9 +24,9 @@ export function moveoutFileBase(c: Ok): string {
   return `${meta.property}_${meta.year}_Suite${safe(result.suite)}_${safe(result.name)}_Final_${cats}`;
 }
 
-/** The final move-out statement as a branded PDF (Buffer). Same drawing routine
- *  and footnotes as the interim worksheet's "Download PDF", plus the FINAL
- *  SETTLEMENT page when the settlement is given. */
+/** The final move-out statement as a branded PDF (Buffer): the FINAL
+ *  SETTLEMENT first when given, then the reconciliation — the same document
+ *  the move-out page's one "Download PDF" produces. */
 export function buildMoveoutPdf(c: Ok, settlement?: MoveoutSettlement): Buffer {
   const { meta } = c;
   const doc = new jsPDF({ unit: "pt", format: "letter" });
@@ -37,6 +37,11 @@ export function buildMoveoutPdf(c: Ok, settlement?: MoveoutSettlement): Buffer {
     ? [`${c.result.unpostedMonths} occupied month(s) are not yet posted to the GL — figures are through the latest posted month.`]
     : [];
 
+  // The Final Settlement LEADS (the answer), the reconciliation follows.
+  if (settlement) {
+    drawSettlement(doc, { kind: c.kind, name: c.result.name, suite: c.result.suite, property: meta.property, propertyName: meta.propertyName, asOfMonth: meta.asOfMonth, year: meta.year }, settlement);
+    doc.addPage();
+  }
   if (c.kind === "retail") {
     drawRetailStatement(doc, c.result, meta.year, propLabel, undefined, {
       subtitle: `Final Move-Out Statement · as of ${asOf}`,
@@ -57,10 +62,6 @@ export function buildMoveoutPdf(c: Ok, settlement?: MoveoutSettlement): Buffer {
         ...unpostedNote,
       ],
     });
-  }
-  if (settlement) {
-    doc.addPage();
-    drawSettlement(doc, { kind: c.kind, name: c.result.name, suite: c.result.suite, property: meta.property, propertyName: meta.propertyName, asOfMonth: meta.asOfMonth, year: meta.year }, settlement);
   }
   return Buffer.from(doc.output("arraybuffer"));
 }

@@ -591,7 +591,7 @@ export default function InterimReconPage() {
   const [showPicker, setShowPicker] = useState(false);
   const pickerOpen = showPicker || candidates.length === 0 || isManual || !!error;
   const grandTotal = totalDueOf(totalBalance, openAr);
-  const depositAppliesNow = deposit != null && (deposit.status === "held" || deposit.status === "partial");
+  const depositAppliesNow = deposit != null && (deposit.status === "held" || deposit.status === "partial") && deposit.amount > 0;
   // The settlement page the downloads append — the SAME page the final PDF carries.
   const settlementFor = useCallback(() => ({
     reconBalance: totalBalance,
@@ -600,10 +600,20 @@ export default function InterimReconPage() {
     deposit: deposit ? { amount: deposit.amount, status: deposit.status, net: depositAppliesNow ? deposit.amount - grandTotal : null } : null,
   }), [totalBalance, openAr, grandTotal, deposit, depositAppliesNow]);
 
+  // ONE PDF for the whole close-out (owner: "shouldnt it be one download PDF
+  // for all of it comprehensively?"): the Final Settlement first — the answer —
+  // then the reconciliation behind its first line. The emailed final
+  // statement (artifacts.ts) is laid out the same way.
+  const settlementFirst = (doc: unknown, kind: "office" | "retail", name: string, suite: string, asOfMonth: number) => {
+    if (!meta || meta.manual) return;
+    drawSettlement(doc, { kind, name, suite, property: meta.property, propertyName: meta.propertyName, asOfMonth, year: meta.year }, settlementFor());
+    (doc as { addPage: () => void }).addPage();
+  };
   const downloadPdf = useCallback(async () => {
     if (!r || !meta) return;
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ unit: "pt", format: "letter" });
+    settlementFirst(doc, "office", r.name, r.suite, r.asOfMonth);
     const asOf = `${MONTHS[r.asOfMonth - 1]} ${meta.year}`;
     drawTenantStatement(doc, r, meta.year, `${meta.property} — ${meta.propertyName}`, undefined, {
       subtitle: `Interim Statement · as of ${asOf}`,
@@ -615,14 +625,15 @@ export default function InterimReconPage() {
         ...(r.unpostedMonths > 0 ? [`${r.unpostedMonths} occupied month(s) are not yet posted to the GL — figures are through the latest posted month.`] : []),
       ],
     });
-    if (!meta.manual) { doc.addPage(); drawSettlement(doc, { kind: "office", name: r.name, suite: r.suite, property: meta.property, propertyName: meta.propertyName, asOfMonth: r.asOfMonth, year: meta.year }, settlementFor()); }
-    doc.save(`${meta.property}_${meta.year}_Suite${r.suite}_${r.name.replace(/[^\w]+/g, "_")}_Interim_CAM_RET.pdf`);
+    doc.save(`${meta.property}_${meta.year}_Suite${r.suite}_${r.name.replace(/[^\w]+/g, "_")}_${meta.manual ? "Interim_CAM_RET" : "Final_Bill"}.pdf`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [r, meta, settlementFor]);
 
   const downloadRetailPdf = useCallback(async () => {
     if (!retail || !meta) return;
     const { jsPDF } = await import("jspdf");
     const doc = new jsPDF({ unit: "pt", format: "letter" });
+    settlementFirst(doc, "retail", retail.name, retail.suite, retail.asOfMonth);
     const asOf = `${MONTHS[retail.asOfMonth - 1]} ${meta.year}`;
     drawRetailStatement(doc, retail, meta.year, `${meta.property} — ${meta.propertyName}`, undefined, {
       subtitle: `Interim Statement · as of ${asOf}`,
@@ -632,8 +643,8 @@ export default function InterimReconPage() {
         ...(retail.unpostedMonths > 0 ? [`${retail.unpostedMonths} occupied month(s) are not yet posted to the GL — figures are through the latest posted month.`] : []),
       ],
     });
-    if (!meta.manual) { doc.addPage(); drawSettlement(doc, { kind: "retail", name: retail.name, suite: retail.suite, property: meta.property, propertyName: meta.propertyName, asOfMonth: retail.asOfMonth, year: meta.year }, settlementFor()); }
-    doc.save(`${meta.property}_${meta.year}_Suite${retail.suite}_${retail.name.replace(/[^\w]+/g, "_")}_Interim_CAM_INS_RET.pdf`);
+    doc.save(`${meta.property}_${meta.year}_Suite${retail.suite}_${retail.name.replace(/[^\w]+/g, "_")}_${meta.manual ? "Interim_CAM_INS_RET" : "Final_Bill"}.pdf`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [retail, meta, settlementFor]);
 
   const [sanity, setSanity] = useState<{ ok: boolean; findings: { severity?: string; note?: string }[] } | null>(null);
@@ -793,6 +804,8 @@ export default function InterimReconPage() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <button className="btn" onClick={retail ? downloadRetailPdf : downloadPdf} title="The final settlement, then the reconciliation — one PDF"
+            style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
           {letterButton}
           {canFinalize && (
             <button className="btn primary" onClick={approveFinalize} disabled={finalizing || finalizeDone}
@@ -1021,8 +1034,6 @@ export default function InterimReconPage() {
               <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/RET · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
               {acctToggle}
               {sanityButton}
-              {letterButton}
-              <button className="btn primary" onClick={downloadPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
             </div>
           </div>
           <div className="muted small" style={{ marginBottom: 10 }}>
@@ -1069,8 +1080,6 @@ export default function InterimReconPage() {
               <div style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>Interim CAM/INS/RET · as of {MONTHS[retail.asOfMonth - 1]} {meta.year}</div>
               {acctToggle}
               {sanityButton}
-              {letterButton}
-              <button className="btn primary" onClick={downloadRetailPdf} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
             </div>
           </div>
           <div className="muted small" style={{ marginBottom: 10 }}>

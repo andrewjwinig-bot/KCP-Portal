@@ -406,8 +406,11 @@ used to net the true-up alone, so a tenant $31K behind read as owed a refund.
 open balance, so crediting only what was paid would bill those months twice.
 The settlement says so in words (`escrowNote` — "Includes $800.00 of estimated
 charges billed Aug – Sep 2026 and not yet paid…"). A posted move-out
-adjustment line is left out of the open balance (it IS the true-up). The final
-PDF's page 2 is the **Final Settlement** (`settlementPdf.ts`, shared with the
+adjustment line is left out of the open balance (it IS the true-up). The move-out
+is ONE PDF (owner: "one download PDF for all of it comprehensively") — page 1
+the **Final Settlement**, then the reconciliation; the page's single Download PDF
+sits on the Final Bill card and the emailed final statement is the same. The
+settlement page is (`settlementPdf.ts`, shared with the
 interim page's download): the true-up, the open charges by category, total
 due, less the deposit, the boxed balance; the approval and "finalized" emails
 print the same block (`settlementText.ts`), the interim page's close-out card
