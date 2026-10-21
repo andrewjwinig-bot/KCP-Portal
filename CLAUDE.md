@@ -416,7 +416,13 @@ on-screen statement itself ends in a **Final Bill** block under Total Interim
 Balance (reconciliation, unpaid charges by type with the escrow note, total
 due, less the deposit, final balance) — the reconciliation above keeps escrow
 AS BILLED, which is why it still reads e.g. $3,600; with no monthly statement
-on file it says so instead. Pinned by
+on file it says so instead. **A moved-out tenant is on Skyline's Statement
+report as `<suite>-FO` (former occupant)** — SEOM printed `3640-300-FO` — and
+the import KEEPS that suffix (stripping it would merge a former and a current
+tenant of one suite); `pickOpenAr` reads past `-CU` / `-FO`. A full run leaves
+former tenants off, so run theirs on its own. With no statement under the
+roll's name it falls back to the suite's (never the current occupant's) and
+says so (`nameMatched: false`). Pinned by
 `openAr.test.ts`.
 
 # Tenant monthly statements (open A/R) — sources of truth

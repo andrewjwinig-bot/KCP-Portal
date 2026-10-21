@@ -39,6 +39,20 @@ describe("move-out open balance", () => {
     const next = st("Acme Dental Group", [], 5000);
     const runs = [{ period: "2026-11", statements: [next] }, { period: "2026-10", statements: [seom] }];
     expect(pickOpenAr(runs, "3640-300", "SEOM", 2026)?.period).toBe("2026-10");
-    expect(pickOpenAr(runs, "3640-300", "Nobody Inc", 2026)).toBeNull();
+    // No name match: never the suite's current occupant…
+    expect(pickOpenAr(runs, "3640-300", "Nobody Inc", 2026, "Acme Dental Group")?.period).toBe("2026-10");
+  });
+  it("finds a former tenant Skyline lists as <suite>-FO", () => {
+    const fo = { ...st("Search Engines Marketer, Inc.", seom.charges, 31460.39), unitRef: "3640-300-FO", skylineUnitRef: "3640-300-FO" };
+    const ar = pickOpenAr([{ period: "2026-10", statements: [fo] }], "3640-300", "Search Engines Marketer", 2026, null);
+    expect(ar?.balance).toBe(31460.39);
+    expect(ar?.nameMatched).toBe(true);
+  });
+  it("falls back to the suite when Skyline prints a different name", () => {
+    const legal = st("Southeastern Orthopedic Medicine LLC", seom.charges, seom.reportedBalance);
+    const ar = pickOpenAr([{ period: "2026-09", statements: [legal] }], "3640-300", "SEOM", 2026, null);
+    expect(ar?.balance).toBe(25460.39);
+    expect(ar?.nameMatched).toBe(false);
+    expect(ar?.tenantName).toBe("Southeastern Orthopedic Medicine LLC");
   });
 });

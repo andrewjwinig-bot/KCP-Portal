@@ -170,7 +170,10 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
     const ref = cell(row, COL_UNITREF).toUpperCase();
     const m = ref.match(UNIT_REF_RE);
     if (m) {
-      // "2300-1817-CU" → portal ref "2300-1817", suite "1817".
+      // "2300-1817-CU" → portal ref "2300-1817", suite "1817". A FORMER
+      // occupant prints "-FO" and keeps it, deliberately: a run can carry both
+      // the former and the current tenant of one suite, and stripping it would
+      // merge two tenants into one statement. The move-out reads past it.
       const portalRef = ref.replace(/-CU$/, "");
       // A continuation page for the SAME tenant must not rewind the section.
       if (portalRef !== current) section = "prior";

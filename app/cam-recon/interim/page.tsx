@@ -697,6 +697,9 @@ export default function InterimReconPage() {
         </div>
       ))}
       {escrowNote(openAr) && <div className="muted small" style={{ fontStyle: "italic", margin: "4px 0 2px 16px" }}>{escrowNote(openAr)}</div>}
+      {openAr.nameMatched === false && (
+        <div className="small" style={{ color: "#b45309", margin: "4px 0 2px 16px" }}>From the suite&rsquo;s statement under &ldquo;{openAr.tenantName}&rdquo; — check it is this tenant.</div>
+      )}
       <BalanceRow label="Total due" value={money(grandTotal)} strong />
       {deposit && depositAppliesNow && (
         <BalanceRow label={`Less: security deposit${deposit.checkNumber ? ` (ck# ${deposit.checkNumber})` : ""}`} value={money(-deposit.amount)} />
