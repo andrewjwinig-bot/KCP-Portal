@@ -449,7 +449,7 @@ error). **A deposit with no amount keyed applies nothing** and says so
 (`Number` on a comma), which saved SEOM's deposit at $0; it now parses
 `amountNum`. **The deposit is keyed ON the Final Bill when missing or wrong**
 (owner: "rather than forcing me to go into deposits page"): Add deposit /
-Enter amount / Edit opens amount + check # in place, saved through the
+Enter amount / Edit opens amount, check # and check date (`Calendar`) in place, saved through the
 Deposits API — an existing record is PUT back WHOLE with the new figures (the
 PUT replaces every field), a missing one is POSTed under the suite and tenant.
 The move-out statement's expense tables
