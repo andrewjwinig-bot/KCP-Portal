@@ -430,7 +430,10 @@ button (`POST /api/cam-recon/moveout/statement`), which takes ONLY that
 tenant's statement from the file (`pickTenantStatement` — any file, even a
 whole property's, moves no one else) and files it in its newest charge month
 or the month already holding the tenant, whichever is later. The approval
-email asks for it before approving. Pinned by
+email asks for it before approving. The move-out statement's expense tables
+HIDE the Acct column by default (owner: "clean this up and simplify it") — an
+"Account codes" checkbox in the statement header shows them, remembered per
+browser (`kcp.interim.showAcct`). Pinned by
 `openAr.test.ts`.
 
 # Tenant monthly statements (open A/R) — sources of truth
