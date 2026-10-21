@@ -14,6 +14,7 @@ import type { TenantReconResult } from "@/lib/cam/office/types";
 import type { RetailTenantResult } from "@/lib/cam/retail/types";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import AllowedLink from "@/app/components/AllowedLink";
+import { Calendar } from "@/app/components/Calendar";
 import { useUser } from "@/app/components/UserProvider";
 import { HoverCard } from "@/app/components/HoverCard";
 import { escrowNote, escrowClause, totalDue as totalDueOf, type MoveoutOpenAr } from "@/lib/cam/moveout/openAr";
@@ -507,12 +508,14 @@ export default function InterimReconPage() {
   const [depEdit, setDepEdit] = useState(false);
   const [depAmtIn, setDepAmtIn] = useState("");
   const [depCkIn, setDepCkIn] = useState("");
+  const [depDateIn, setDepDateIn] = useState("");
   const [depSaving, setDepSaving] = useState(false);
   const [depErr, setDepErr] = useState<string | null>(null);
   useEffect(() => { setDepEdit(false); setDepErr(null); }, [meta?.unitRef]);
   const startDepEdit = () => {
     setDepAmtIn(deposit && deposit.amount > 0 ? deposit.amount.toLocaleString("en-US") : "");
     setDepCkIn(deposit?.checkNumber ?? "");
+    setDepDateIn(String(deposit?.raw?.checkDate ?? ""));
     setDepErr(null); setDepEdit(true);
   };
   const saveDepositHere = useCallback(async () => {
@@ -523,14 +526,14 @@ export default function InterimReconPage() {
     try {
       const id = deposit?.raw?.id;
       const res = id
-        ? await fetch(`/api/deposits/${encodeURIComponent(id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...deposit!.raw, amount, checkNumber: depCkIn.trim() }) })
-        : await fetch("/api/deposits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unitRef: meta.unitRef, propertyCode: meta.property, tenantCompany: meta.name, amount, checkNumber: depCkIn.trim() }) });
+        ? await fetch(`/api/deposits/${encodeURIComponent(id)}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...deposit!.raw, amount, checkNumber: depCkIn.trim(), checkDate: depDateIn }) })
+        : await fetch("/api/deposits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unitRef: meta.unitRef, propertyCode: meta.property, tenantCompany: meta.name, amount, checkNumber: depCkIn.trim(), checkDate: depDateIn }) });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j.deposit) { setDepErr(j.error ?? `Couldn't save (${res.status}).`); return; }
       setDeposit(toDepositInfo(j.deposit as RawDeposit));
       setDepEdit(false);
     } catch (e) { setDepErr(String(e)); } finally { setDepSaving(false); }
-  }, [meta, deposit, depAmtIn, depCkIn]);
+  }, [meta, deposit, depAmtIn, depCkIn, depDateIn]);
 
   // The open balance still on the account — the close-out is the tenant's
   // final bill, so it is netted with the true-up (owner). Off their newest
@@ -847,13 +850,14 @@ export default function InterimReconPage() {
         )}
 
         {lineRow(
-          <>Security deposit{deposit?.checkNumber && !depEdit ? <span className="muted"> · ck# {deposit.checkNumber}</span> : ""}</>,
+          <>Security deposit{deposit && !depEdit ? <span className="muted">{deposit.checkNumber ? ` · ck# ${deposit.checkNumber}` : ""}{/^\d{4}-\d{2}-\d{2}$/.test(String(deposit.raw?.checkDate ?? "")) ? ` · ${String(deposit.raw!.checkDate).replace(/^(\d{4})-(\d{2})-(\d{2})$/, (_m, y, mo, d) => `${Number(mo)}/${Number(d)}/${y}`)}` : ""}</span> : ""}</>,
           depEdit ? null : depAmt ? signed(-depAmt) : <span className="muted" style={{ fontWeight: 500 }}>—</span>,
           depEdit ? (
             <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <input value={depAmtIn} onChange={(e) => setDepAmtIn(e.target.value)} placeholder="Amount" inputMode="decimal" autoFocus
                 onKeyDown={(e) => { if (e.key === "Enter") saveDepositHere(); }} style={{ width: 130 }} />
               <input value={depCkIn} onChange={(e) => setDepCkIn(e.target.value)} placeholder="Check #" style={{ width: 100 }} />
+              <span style={{ width: 150 }}><Calendar value={depDateIn} onChange={setDepDateIn} variant="card" placeholder="Check date" maxISO={new Date().toISOString().slice(0, 10)} /></span>
               <button className="btn sm primary" disabled={depSaving} onClick={saveDepositHere}>{depSaving ? "Saving…" : "Save"}</button>
               <button className="btn sm" disabled={depSaving} onClick={() => setDepEdit(false)}>Cancel</button>
               {depErr && <span style={{ color: "#b91c1c", fontWeight: 600 }}>{depErr}</span>}
