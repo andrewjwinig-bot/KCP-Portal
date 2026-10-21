@@ -12,6 +12,7 @@ import { ALLOC_PCT } from "../../lib/properties/data";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { AvidReviewModal, AvidSuccessModal } from "@/app/components/AvidSend";
 import { InvoicerOverview } from "./InvoicerOverview";
+import { Badge, Pill, TONE_AMBER, TONE_GREEN, TONE_RED } from "@/app/components/Pill";
 import {
   CARRYOVER_THRESHOLD,
   isYearEndMonth,
@@ -891,7 +892,7 @@ export default function AllocatedInvoicerPage() {
                 placeholder="Search…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                style={{ fontSize: 13, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", outline: "none", width: 160 }}
+                style={{ width: 160 }}
               />
             </div>
           </div>
@@ -920,9 +921,7 @@ export default function AllocatedInvoicerPage() {
                     </td>
                     <td className="muted">
                       {group.accountName}
-                      <span style={{ marginLeft: 8, fontSize: 11, background: "var(--border)", borderRadius: 999, padding: "1px 6px", color: "var(--muted)", fontWeight: 600 }}>
-                        {group.txList.length}
-                      </span>
+                      <Badge muted>{group.txList.length}</Badge>
                     </td>
                     <td style={{ textAlign: "right" }}>{group.totalDebit ? toMoney(group.totalDebit) : "—"}</td>
                     {anyCredit && <td style={{ textAlign: "right" }}>{group.totalCredit ? toMoney(group.totalCredit) : "—"}</td>}
@@ -990,19 +989,15 @@ export default function AllocatedInvoicerPage() {
                     <tr key={prop.id}>
                       <td>
                         {prop.id} — {prop.name}
-                        {hasCarry && <span title="Includes a balance carried forward from prior months" style={{ marginLeft: 6, fontSize: 10, background: "#fef3c7", color: "#92400e", borderRadius: 999, padding: "1px 6px", fontWeight: 700 }}>+ carried</span>}
+                        {hasCarry && <span title="Includes a balance carried forward from prior months" style={{ marginLeft: 6 }}><Pill tone={TONE_AMBER}>+ carried</Pill></span>}
                       </td>
                       <td>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                           {billedNames.map((name) => (
-                            <span key={`b-${name}`} title="Billing this period" style={{ fontSize: 11, background: "rgba(22,163,74,0.12)", color: "#15803d", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>
-                              {name}
-                            </span>
+                            <span key={`b-${name}`} title="Billing this period"><Pill tone={TONE_GREEN}>{name}</Pill></span>
                           ))}
                           {heldNames.map((name) => (
-                            <span key={`h-${name}`} title="Held under $100 — carried forward" style={{ fontSize: 11, background: "rgba(220,38,38,0.10)", color: "#b91c1c", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>
-                              {name}
-                            </span>
+                            <span key={`h-${name}`} title="Held under $100 — carried forward"><Pill tone={TONE_RED}>{name}</Pill></span>
                           ))}
                         </div>
                       </td>

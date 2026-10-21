@@ -4,6 +4,7 @@ import LoadingState from "@/app/components/LoadingState";
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import { useUser } from "../../components/UserProvider";
+import { Pill, TONE_NEUTRAL, TONE_TEAL } from "@/app/components/Pill";
 
 type SavedTx = {
   date: string;
@@ -153,13 +154,7 @@ export default function ExpenseHistoryPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 700, fontSize: 15 }}>{s.periodText || s.statementMonth}</span>
-                    <span style={{
-                      fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase",
-                      padding: "2px 8px", borderRadius: 999,
-                      background: s.source === "generated" ? "rgba(13,148,136,0.10)" : "rgba(15,23,42,0.06)",
-                      color: s.source === "generated" ? "#0d9488" : "var(--muted)",
-                      border: `1px solid ${s.source === "generated" ? "rgba(13,148,136,0.30)" : "var(--border)"}`,
-                    }}>{s.source === "generated" ? "Auto-logged" : "Manual"}</span>
+                    <Pill tone={s.source === "generated" ? TONE_TEAL : TONE_NEUTRAL}>{s.source === "generated" ? "AUTO-LOGGED" : "MANUAL"}</Pill>
                   </div>
                   <div className="small muted" style={{ marginTop: 2 }}>
                     Saved {new Date(s.savedAt).toLocaleDateString()} &nbsp;·&nbsp; {s.txCount} transactions &nbsp;·&nbsp; {toMoney(s.total)}

@@ -20,6 +20,8 @@ import { ALLOC_PCT, FUND_SF_ALLOC } from "../../lib/properties/data";
 import { useUser } from "../components/UserProvider";
 import { LastImported } from "@/app/components/LastImported";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { Pill, TONE_AMBER, TONE_GREEN, TONE_RED } from "@/app/components/Pill";
+import { HoverCard } from "@/app/components/HoverCard";
 import { AvidReviewModal, AvidSuccessModal, sendToAvid, type AvidProperty } from "@/app/components/AvidSend";
 
 // ── Constants ────────────────────────────────────────────────────────────────
@@ -1397,7 +1399,7 @@ export default function ExpensesPage() {
                 const sortIcon = (col: string) => tableSortCol === col ? (tableSortDir === "asc" ? " ↑" : " ↓") : <span style={{ opacity: 0.35, fontSize: 10 }}> ⇅</span>;
                 const thBase: React.CSSProperties = { ...stickyThStyle, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" };
                 const filterTh: React.CSSProperties = { ...stickyThStyle, top: 38, padding: "4px 6px", borderBottom: "1px solid var(--border)", background: "#f8fafc" };
-                const filterInput: React.CSSProperties = { width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 6, border: "1px solid var(--border)", outline: "none" };
+                const filterInput: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
                 return (
                   <>
                     <tr>
@@ -1425,13 +1427,13 @@ export default function ExpensesPage() {
                           );
                         })}
                         <th style={filterTh}>
-                          <select style={{ ...filterInput, padding: "3px 4px" }} value={colFilters["category"] ?? ""} onChange={(e) => setColFilter("category", e.target.value)}>
+                          <select className="select-sm" style={filterInput} value={colFilters["category"] ?? ""} onChange={(e) => setColFilter("category", e.target.value)}>
                             <option value="">All</option>
                             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                           </select>
                         </th>
                         <th style={filterTh}>
-                          <select style={{ ...filterInput, padding: "3px 4px" }} value={colFilters["property"] ?? ""} onChange={(e) => setColFilter("property", e.target.value)}>
+                          <select className="select-sm" style={filterInput} value={colFilters["property"] ?? ""} onChange={(e) => setColFilter("property", e.target.value)}>
                             <option value="">All</option>
                             {PROPERTIES.map((p) => <option key={p.id} value={p.id}>{p.id} — {p.name}</option>)}
                           </select>
@@ -1573,15 +1575,21 @@ export default function ExpensesPage() {
                     <tr key={propId}>
                       <td>
                         {propId} — {propName(propId)}
-                        {bill && bill.prior > 0 && <span title={`Includes ${toMoney(bill.prior)} carried forward`} style={{ marginLeft: 6, fontSize: 10, background: "#fef3c7", color: "#92400e", borderRadius: 999, padding: "1px 6px", fontWeight: 700 }}>+ carried</span>}
+                        {bill && bill.prior > 0 && (
+                          <span style={{ marginLeft: 6 }}>
+                            <HoverCard title="Carried forward" rows={[{ label: "Included in this bill", value: toMoney(bill.prior) }]} footer="Held under $100 in earlier months, billed now.">
+                              <Pill tone={TONE_AMBER}>+ carried</Pill>
+                            </HoverCard>
+                          </span>
+                        )}
                       </td>
                       <td>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
                           {billCats.map((c) => (
-                            <span key={`b-${c}`} title="Billing this period" style={{ fontSize: 11, background: "rgba(22,163,74,0.12)", color: "#15803d", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>{c}</span>
+                            <span key={`b-${c}`} title="Billing this period"><Pill tone={TONE_GREEN}>{c}</Pill></span>
                           ))}
                           {heldCats.map((c) => (
-                            <span key={`h-${c}`} title="Held under $100 — carried forward" style={{ fontSize: 11, background: "rgba(220,38,38,0.10)", color: "#b91c1c", borderRadius: 999, padding: "2px 8px", fontWeight: 600, whiteSpace: "nowrap" }}>{c}</span>
+                            <span key={`h-${c}`} title="Held under $100 — carried forward"><Pill tone={TONE_RED}>{c}</Pill></span>
                           ))}
                         </div>
                       </td>

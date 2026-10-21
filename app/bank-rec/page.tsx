@@ -375,13 +375,7 @@ export default function BankAccTrackerPage() {
                               onChange={(e) => updateComment(r.last4, e.target.value)}
                               placeholder="Add note…"
                               aria-label={`Comment for ${r.accountName}`}
-                              style={{
-                                width: "100%", padding: "6px 8px",
-                                fontSize: 13, fontFamily: "inherit",
-                                border: "1px solid var(--border)", borderRadius: 6,
-                                background: "var(--card)", color: "var(--text)",
-                                outline: "none",
-                              }}
+                              style={{ width: "100%" }}
                             />
                           </td>
                         </tr>

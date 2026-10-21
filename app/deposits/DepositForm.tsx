@@ -17,10 +17,13 @@ export type UnitOption = {
   tenantCompany: string;
 };
 
-const inputStyle: React.CSSProperties = {
-  width: "100%", padding: "8px 10px", fontSize: 13, fontFamily: "inherit",
-  border: "1px solid var(--border)", borderRadius: 8,
-  background: "var(--card)", color: "var(--text)", outline: "none",
+// The look of an input / select comes from globals.css (the program-wide
+// control pill); only the layout is set here.
+const inputStyle: React.CSSProperties = { width: "100%" };
+// A fixed tenant is shown read-only in the same pill shape as the controls.
+const readOnlyLook: React.CSSProperties = {
+  width: "100%", padding: "7px 13px", fontSize: 13, borderRadius: 999,
+  border: "1px solid var(--border)", background: "rgba(15,23,42,0.04)", color: "var(--text)",
 };
 const labelStyle: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
@@ -380,7 +383,7 @@ export default function DepositForm({
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <span style={labelStyle}>Tenant / Unit</span>
         {fixedUnitRef ? (
-          <div style={{ ...inputStyle, background: "rgba(15,23,42,0.04)" }}>
+          <div style={readOnlyLook}>
             {unit ? unit.label : fixedUnitRef}
           </div>
         ) : (

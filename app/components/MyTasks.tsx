@@ -6,6 +6,7 @@
 // repeat, importance, note). Backed by /api/todos, scoped to the signed-in user.
 
 import { useCallback, useEffect, useState } from "react";
+import { Calendar } from "@/app/components/Calendar";
 import {
   type Priority,
   type Repeat,
@@ -31,10 +32,7 @@ const PRIORITY_META: Record<Priority, { label: string; color: string }> = {
   low: { label: "Low", color: "#94a3b8" },
 };
 
-const inputStyle: React.CSSProperties = {
-  border: "1px solid var(--border)", borderRadius: 8, padding: "9px 11px",
-  fontSize: 14, background: "var(--card)", color: "var(--text)", fontFamily: "inherit",
-};
+const inputStyle: React.CSSProperties = { boxSizing: "border-box" };
 
 function formatDue(due: string, now: Date): { label: string; tone: string } {
   const d = parseDueDate(due);
@@ -113,7 +111,7 @@ export function TaskModal({ initial, onClose, onSave }: {
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <div style={{ flex: 1, minWidth: 150 }}>
               <label style={label}>Due date <span style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span></label>
-              <input type="date" value={due} onChange={(e) => setDue(e.target.value)} style={{ ...inputStyle, width: "100%" }} />
+              <Calendar variant="card" value={due} onChange={setDue} />
               <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
                 <button onClick={() => setDue(endOfWeekISO(now))} title="Due by the end of this week" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700, color: BRAND }}>This week</button>
                 {due && <button onClick={() => setDue("")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>Clear</button>}

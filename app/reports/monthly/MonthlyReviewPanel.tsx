@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { StatPill, Pill, TONE_AMBER } from "@/app/components/Pill";
+import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL, priorityTone } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { useCanOpen } from "@/app/components/useCanOpen";
 import LoadingState from "@/app/components/LoadingState";
@@ -209,7 +209,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
               {report.requestsByPriority.length > 0 && (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {report.requestsByPriority.map((r) => (
-                    <span key={r.priority} className="muted small" style={{ padding: "2px 9px", borderRadius: 999, background: "rgba(15,23,42,0.05)", fontWeight: 700 }}>{r.priority}: {r.count}</span>
+                    <Pill key={r.priority} tone={priorityTone(r.priority)}>{r.priority}: {r.count}</Pill>
                   ))}
                 </div>
               )}
@@ -323,7 +323,7 @@ function monthLabelOf(key: string | null): string | null {
 // Small grey status pill for the recently-vacated rows (matches the
 // dashboard's VACATED chip).
 function GonePill({ text }: { text: string }) {
-  return <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(100,116,139,0.14)", color: "#475569", border: "1px solid rgba(100,116,139,0.4)", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{text}</span>;
+  return <span style={{ marginLeft: 8 }}><Pill tone={TONE_NEUTRAL}>{text}</Pill></span>;
 }
 
 /** 2-digit base year for the B/Y column — 4-digit year → last 2 digits;

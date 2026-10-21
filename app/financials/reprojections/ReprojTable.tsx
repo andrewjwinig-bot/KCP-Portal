@@ -245,8 +245,15 @@ function figureCells(t: Totals, view: ViewOpts, opts: { bold?: boolean; color?: 
       <td {...totalClick} style={{ ...td, borderLeft: "1px solid var(--border)", fontSize: opts.bold ? 14 : 13, fontWeight: 900, color: opts.color ?? BRAND }}>{money(totalVal, psf, sqft)}</td>
       {!actuals && <td style={{ ...td, fontWeight: opts.bold ? 800 : undefined, color: opts.color ?? "var(--muted)" }}>{money(t.budgetTotal, psf, sqft)}</td>}
       {!actuals && (
-        <td style={{ ...td, fontWeight: 800, color: opts.color ?? varColor(t.variance) }} title={fmtVarPct(t.variance, t.budgetTotal)}>
-          {t.variance == null ? "—" : money(t.variance, psf, sqft)}
+        <td style={{ ...td, fontWeight: 800, color: opts.color ?? varColor(t.variance) }}>
+          {t.variance == null ? "—" : fmtVarPct(t.variance, t.budgetTotal) ? (
+            <HoverCard title="Variance to Budget" width={240} rows={[
+              { label: actuals ? "Actual" : "Reprojection", value: money(totalVal, psf, sqft) },
+              { label: "Annual Budget", value: money(t.budgetTotal, psf, sqft) },
+            ]} footer={{ label: "Variance", value: `${money(t.variance, psf, sqft)} · ${fmtVarPct(t.variance, t.budgetTotal)}` }}>
+              {money(t.variance, psf, sqft)}
+            </HoverCard>
+          ) : money(t.variance, psf, sqft)}
         </td>
       )}
     </>

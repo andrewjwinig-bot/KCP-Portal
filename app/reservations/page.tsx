@@ -175,7 +175,7 @@ function ReservationsPageInner() {
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", padding: "0 2px" }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Room</span>
-          <select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)} style={selectStyle}>
+          <select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)}>
             <option value="All">All rooms</option>
             {BOOKABLE_ROOMS.map((r) => (
               <option key={r.unitRef} value={r.unitRef}>{r.label} — {r.propertyName}</option>
@@ -656,12 +656,12 @@ function EmailComposer({
       </div>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>From</span>
-        <input value={author} onChange={(e) => setAuthor(e.target.value)} style={{ ...selectStyle, width: "auto", minWidth: 140 }} />
+        <input value={author} onChange={(e) => setAuthor(e.target.value)} style={{ minWidth: 140 }} />
       </div>
-      <input value={subject} onChange={(e) => setSubject(e.target.value)} style={{ ...selectStyle, width: "100%", fontSize: 14, fontWeight: 600 }} />
+      <input value={subject} onChange={(e) => setSubject(e.target.value)} style={{ width: "100%", fontWeight: 600 }} />
       <textarea
         value={text} onChange={(e) => setText(e.target.value)} rows={12}
-        style={{ ...selectStyle, width: "100%", minHeight: 220, fontFamily: "inherit", resize: "vertical", fontSize: 13, lineHeight: 1.5 }}
+        style={{ width: "100%", minHeight: 220, resize: "vertical", lineHeight: 1.5 }}
       />
       {error && <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -740,11 +740,6 @@ function customEmailBody(r: Reservation, sender: string): string {
 
 // ── shared primitives ─────────────────────────────────────────────────
 
-const selectStyle: React.CSSProperties = {
-  padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 6,
-  background: "var(--card)", color: "var(--text)",
-  fontFamily: "inherit", fontSize: 13, outline: "none",
-};
 
 
 function MetaCell({ label, value, sub }: { label: string; value: string; sub?: string }) {

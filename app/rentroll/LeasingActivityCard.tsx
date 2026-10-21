@@ -11,6 +11,7 @@ import {
   type OptionToRenew,
 } from "../../lib/leasing/types";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
+import { Pill, TONE_RED } from "../components/Pill";
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
@@ -126,7 +127,7 @@ function BuildingMultiSelect({ value, onChange }: { value: string; onChange: (v:
         type="button"
         onClick={() => setOpen(o => !o)}
         style={{
-          ...inputStyle,
+          ...pickerLook,
           textAlign: "center",
           cursor: "pointer",
           position: "relative",
@@ -184,15 +185,20 @@ function BuildingMultiSelect({ value, onChange }: { value: string; onChange: (v:
   );
 }
 
-const inputStyle: React.CSSProperties = {
-  padding: "7px 10px",
-  fontSize: 14,
-  borderRadius: 8,
+// The look of a text input / select comes from globals.css (the program-wide
+// pill); only the layout is set here.
+const inputStyle: React.CSSProperties = { width: "100%" };
+
+// The building picker is a <button>, which the baseline does not reach, so it
+// borrows the same pill the inputs and dropdowns beside it draw.
+const pickerLook: React.CSSProperties = {
+  width: "100%",
+  padding: "4px 13px",
+  fontSize: 13,
+  borderRadius: 999,
   border: "1px solid var(--border)",
   background: "var(--card)",
-  width: "100%",
   fontFamily: "inherit",
-  color: "var(--text)",
 };
 
 function DeleteBtn({ onClick }: { onClick: () => void }) {
@@ -625,7 +631,7 @@ export default function LeasingActivityCard({
                     {opts.map((opt2) => <option key={opt2.unitRef} value={opt2.unitRef}>{opt2.label}</option>)}
                   </select>
                   {ns.pastDue && (
-                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: "rgba(220,38,38,0.18)", color: "#b91c1c", border: "1px solid rgba(220,38,38,0.45)", letterSpacing: "0.04em" }}>PAST DUE</span>
+                    <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>PAST DUE</Pill></span>
                   )}
                 </td>
                 <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{o.building || "—"}</span></td>

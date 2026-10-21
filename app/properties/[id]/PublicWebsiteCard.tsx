@@ -32,12 +32,17 @@ const SHIMMER: CSSProperties = {
 const LABEL: CSSProperties = {
   fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)",
 };
-const INPUT: CSSProperties = {
-  border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px",
-  fontSize: 14, background: "var(--card)", color: "var(--text)", width: "100%", fontFamily: "inherit",
+// The look of an input comes from globals.css (the program-wide control
+// pill); only the layout is set here.
+const INPUT: CSSProperties = { width: "100%" };
+// Read-only cells and the remove button are not inputs, so they borrow the
+// same pill shape explicitly.
+const CONTROL_LOOK: CSSProperties = {
+  border: "1px solid var(--border)", borderRadius: 999, padding: "7px 13px",
+  fontSize: 13, background: "var(--card)", color: "var(--text)", width: "100%", fontFamily: "inherit",
 };
 const READONLY: CSSProperties = {
-  ...INPUT, background: "var(--panel, #f4f6f8)", color: "var(--muted)", fontWeight: 600,
+  ...CONTROL_LOOK, background: "var(--panel, #f4f6f8)", color: "var(--muted)", fontWeight: 600,
   display: "flex", alignItems: "center", minHeight: 37, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
 };
 
@@ -246,7 +251,7 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
                   <input style={INPUT} placeholder="Marketing note (e.g. Corner bay, grocery-adjacent)" value={s.notes} onChange={(e) => setSpace(i, { notes: e.target.value })} />
                   <input style={INPUT} placeholder="Kind" value={s.kind} onChange={(e) => setSpace(i, { kind: e.target.value })} />
                   <input style={INPUT} placeholder="Frontage" value={s.frontage} onChange={(e) => setSpace(i, { frontage: e.target.value })} />
-                  <button type="button" onClick={() => removeSpace(i)} title="Remove" style={{ ...INPUT, cursor: "pointer", color: RED, textAlign: "center", padding: "8px 0" }}>×</button>
+                  <button type="button" onClick={() => removeSpace(i)} title="Remove" style={{ ...CONTROL_LOOK, cursor: "pointer", color: RED, textAlign: "center", padding: "7px 0" }}>×</button>
                 </div>
               ))}
             </div>

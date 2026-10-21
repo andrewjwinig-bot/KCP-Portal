@@ -1,6 +1,7 @@
 "use client";
 
 import { TabButton } from "@/app/components/TabButton";
+import { Calendar } from "@/app/components/Calendar";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { groupByPropertyType } from "@/lib/properties/typeGroups";
@@ -421,21 +422,21 @@ function MaintenancePageInner() {
         {/* Filters — inline strip, no card chrome. */}
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", padding: "0 2px" }}>
           <Field label="Priority">
-            <select value={priority} onChange={(e) => setPriority(e.target.value as typeof priority)} style={selectStyle}>
+            <select value={priority} onChange={(e) => setPriority(e.target.value as typeof priority)}>
               <option value="All">All</option>
               {REQUEST_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
               <option value="None">No Priority Set</option>
             </select>
           </Field>
           <Field label="Assignee">
-            <select value={assignee} onChange={(e) => setAssignee(e.target.value as typeof assignee)} style={selectStyle}>
+            <select value={assignee} onChange={(e) => setAssignee(e.target.value as typeof assignee)}>
               <option value="All">All</option>
               <option value="Unassigned">Unassigned</option>
               {STAFF.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </Field>
           <Field label="Property">
-            <select value={property} onChange={(e) => setProperty(e.target.value)} style={selectStyle}>
+            <select value={property} onChange={(e) => setProperty(e.target.value)}>
               <option value="All">All</option>
               {propertyGroups.map((g) => (
                 <optgroup key={g.label} label={g.label}>
@@ -445,7 +446,7 @@ function MaintenancePageInner() {
             </select>
           </Field>
           <Field label="Category">
-            <select value={category} onChange={(e) => setCategory(e.target.value)} style={selectStyle}>
+            <select value={category} onChange={(e) => setCategory(e.target.value)}>
               <option value="">All</option>
               {REQUEST_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -456,7 +457,7 @@ function MaintenancePageInner() {
               placeholder="Description, tenant, ref ID, notes…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ ...selectStyle, minWidth: 240 }}
+              style={{ minWidth: 240 }}
             />
           </Field>
           <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)", paddingBottom: 6 }}>
@@ -631,16 +632,8 @@ function MaintenancePageInner() {
 
 // ── Subcomponents ──────────────────────────────────────────────────────────
 
-const selectStyle: React.CSSProperties = {
-  padding: "8px 10px",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  background: "var(--card)",
-  color: "var(--text)",
-  fontFamily: "inherit",
-  fontSize: 13,
-  outline: "none",
-};
+// Controls take their look from globals.css (the program-wide pill); nothing
+// is restyled here.
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -1054,10 +1047,8 @@ function RequestModal({
                     const suite = pick.units.map((u) => u.unitRef).join(", ");
                     patch({ tenantCompany: pick.name, tenantSuite: suite, tenantResolved: true });
                   }}
-                  style={{
-                    ...selectStyle,
-                    fontSize: 12, padding: "4px 8px", marginTop: 4,
-                  }}
+                  className="select-sm"
+                  style={{ marginTop: 4 }}
                   title="Resolve to a rent-roll tenant"
                 >
                   <option value="">Resolve tenant…</option>
@@ -1076,12 +1067,12 @@ function RequestModal({
           {/* Action row: status / priority / assignee */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
             <Field label="Status">
-              <select disabled={busy || readOnly} value={request.status} onChange={(e) => patch({ status: e.target.value as RequestStatus })} style={selectStyle}>
+              <select disabled={busy || readOnly} value={request.status} onChange={(e) => patch({ status: e.target.value as RequestStatus })}>
                 {REQUEST_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </Field>
             <Field label="Priority">
-              <select disabled={busy || readOnly} value={request.priority} onChange={(e) => patch({ priority: e.target.value as RequestPriority | "" })} style={selectStyle}>
+              <select disabled={busy || readOnly} value={request.priority} onChange={(e) => patch({ priority: e.target.value as RequestPriority | "" })}>
                 <option value="">—</option>
                 {REQUEST_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -1281,7 +1272,7 @@ function RequestModal({
                   value={draftNote}
                   onChange={(e) => setDraftNote(e.target.value)}
                   rows={3}
-                  style={{ ...selectStyle, width: "100%", minHeight: 64, fontFamily: "inherit", resize: "vertical", fontSize: 14 }}
+                  style={{ width: "100%", minHeight: 64, resize: "vertical" }}
                 />
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
                   <button
@@ -1391,7 +1382,7 @@ function TenantBillbackEditor({
               const n = Number(e.target.value);
               onChange({ ...value, amount: Number.isFinite(n) ? n : 0 });
             }}
-            style={{ ...selectStyle, paddingLeft: 22, textAlign: "right" }}
+            style={{ paddingLeft: 22, textAlign: "right" }}
           />
         </div>
       </Field>
@@ -1402,17 +1393,14 @@ function TenantBillbackEditor({
           value={value.description}
           onChange={(e) => onChange({ ...value, description: e.target.value })}
           placeholder="Parts, labor, etc."
-          style={selectStyle}
         />
       </Field>
       <Field label="Date">
-        <input
-          type="date"
-          disabled={disabled}
-          value={value.date}
-          onChange={(e) => onChange({ ...value, date: e.target.value })}
-          style={selectStyle}
-        />
+        {disabled ? (
+          <input type="text" disabled value={value.date ? value.date.replace(/^(\d{4})-(\d{2})-(\d{2})$/, (_m, y, mo, d) => `${Number(mo)}/${Number(d)}/${y}`) : ""} />
+        ) : (
+          <Calendar value={value.date} onChange={(iso) => onChange({ ...value, date: iso })} variant="card" />
+        )}
       </Field>
       <button
         type="button"
@@ -1470,13 +1458,11 @@ function RowAssigneeSelect({
       disabled={busy}
       onChange={(e) => setTo(e.target.value === "" ? null : (e.target.value as StaffId))}
       onClick={(e) => e.stopPropagation()}
+      className="select-sm"
       style={{
-        ...selectStyle,
-        padding: "5px 8px",
-        fontSize: 12,
         fontWeight: 600,
         minWidth: 110,
-        background: request.assignedTo ? "rgba(11,74,125,0.06)" : "var(--card)",
+        backgroundColor: request.assignedTo ? "rgba(11,74,125,0.06)" : "var(--card)",
         color: request.assignedTo ? "var(--text)" : "var(--muted)",
       }}
     >
@@ -1600,13 +1586,13 @@ function EmailTenantComposer({
         type="text"
         value={subject}
         onChange={(e) => setSubject(e.target.value)}
-        style={{ ...selectStyle, width: "100%", fontSize: 14, fontWeight: 600 }}
+        style={{ width: "100%", fontWeight: 600 }}
       />
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={9}
-        style={{ ...selectStyle, width: "100%", minHeight: 180, fontFamily: "inherit", resize: "vertical", fontSize: 13, lineHeight: 1.5 }}
+        style={{ width: "100%", minHeight: 180, resize: "vertical", lineHeight: 1.5 }}
       />
       {error && <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>

@@ -68,7 +68,9 @@ const emptyDraft: Draft = {
   camEscrowOverride: "", insEscrowOverride: "", retEscrowOverride: "",
 };
 
-const inputStyle: React.CSSProperties = { borderRadius: 6, padding: "8px 10px", fontSize: 13, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", width: "100%", boxSizing: "border-box" };
+// The look comes from globals.css (the program-wide control pill); only the
+// layout is set here. `needsStyle` still tints an essential empty field amber.
+const inputStyle: React.CSSProperties = { width: "100%" };
 
 /** "YYYY-MM-DD" → "M/D/YYYY" (the format the recon engine + rent roll use). */
 function isoToUS(iso: string): string {
@@ -277,7 +279,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
         <span>Base year</span>
         <select value={r.noBaseStop ? "" : String(r.baseYear)} disabled={r.noBaseStop}
           onChange={(e) => onBaseYear(e.target.value)}
-          style={{ width: 86, padding: "3px 7px", fontSize: 12, fontFamily: "inherit", cursor: "pointer", color: "var(--text)", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}>
+          className="select-sm" style={{ width: 86 }}>
           {r.noBaseStop && <option value="">NNN</option>}
           {baseYears.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>

@@ -6,6 +6,7 @@ import { useUser } from "@/app/components/UserProvider";
 import { isPathAllowed } from "@/lib/users";
 import { Pill, StatPill, TONE_AMBER, TONE_GREEN, type PillTone } from "@/app/components/Pill";
 import { LastImported } from "@/app/components/LastImported";
+import { HoverCard } from "@/app/components/HoverCard";
 import type { BudgetWorkbook, OccupancyDetailRow } from "@/lib/financials/budgets/types";
 import { pickBudgetYear } from "@/lib/financials/budgets/inForce";
 
@@ -2086,20 +2087,27 @@ function RentModal({ detail, onClose }: {
                           // bolded cells.
                           boxShadow: bump ? "inset 0 -2px 0 rgba(15,23,42,0.55)" : undefined,
                         }}
-                        title={bump
-                          ? (() => {
-                              const prev = e.months[j - 1] ?? 0;
-                              const pct = prev > 0 ? ((m - prev) / prev) * 100 : 0;
-                              // Show one decimal when the bump is
-                              // sub-10%, otherwise whole-number — keeps
-                              // the tooltip readable for both the
-                              // common 3% escalator and the bigger
-                              // mid-lease step-ups.
-                              const pctLabel = pct >= 10 ? `${Math.round(pct)}%` : `${pct.toFixed(1)}%`;
-                              return `Rent bump: $${Math.round(prev).toLocaleString()} → $${Math.round(m).toLocaleString()} (+${pctLabel})`;
-                            })()
-                          : undefined}>
-                          {fmt(m)}
+                        >
+                          {bump
+                            ? (() => {
+                                const prev = e.months[j - 1] ?? 0;
+                                const pct = prev > 0 ? ((m - prev) / prev) * 100 : 0;
+                                // Show one decimal when the bump is
+                                // sub-10%, otherwise whole-number — keeps
+                                // the hover readable for both the
+                                // common 3% escalator and the bigger
+                                // mid-lease step-ups.
+                                const pctLabel = pct >= 10 ? `${Math.round(pct)}%` : `${pct.toFixed(1)}%`;
+                                return (
+                                  <HoverCard title="Rent bump" width={220} rows={[
+                                    { label: "Prior month", value: `$${Math.round(prev).toLocaleString()}` },
+                                    { label: "This month", value: `$${Math.round(m).toLocaleString()}` },
+                                  ]} footer={{ label: "Increase", value: `+${pctLabel}` }}>
+                                    {fmt(m)}
+                                  </HoverCard>
+                                );
+                              })()
+                            : fmt(m)}
                         </td>
                       );
                     })}
@@ -3141,10 +3149,10 @@ function CreateBudgetDialog({
             <Field label="Year">
               <input type="number" min={2000} max={2100} value={year}
                 onChange={(e) => setYear(Number(e.target.value) || today.getFullYear() + 1)}
-                style={{ ...selectStyleLocal, fontSize: 15, fontWeight: 700 }} />
+                style={{ fontWeight: 700 }} />
             </Field>
             <Field label="Portfolio">
-              <select value={category} onChange={(e) => setCategory(e.target.value as typeof category)} style={{ ...selectStyleLocal, fontSize: 15, fontWeight: 700 }}>
+              <select value={category} onChange={(e) => setCategory(e.target.value as typeof category)} style={{ fontWeight: 700 }}>
                 <option value="Shopping Centers">Shopping Centers</option>
                 <option value="Office">Office</option>
                 <option value="Residential">Residential</option>
@@ -3158,7 +3166,7 @@ function CreateBudgetDialog({
               <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
                 <input type="number" min={0} max={100} step="0.5" value={growth}
                   onChange={(e) => { const v = Number(e.target.value); setGrowth(v); if (!splitGrowth) { setRetGrowth(v); setInsGrowth(v); } }}
-                  style={{ ...selectStyleLocal, width: 84, fontSize: 22, fontWeight: 800, textAlign: "right", padding: "6px 10px" }} />
+                  style={{ width: 84, fontSize: 22, fontWeight: 800, textAlign: "right" }} />
                 <span style={{ fontSize: 22, fontWeight: 800 }}>%</span>
               </div>
             </div>
@@ -3166,10 +3174,10 @@ function CreateBudgetDialog({
             {splitGrowth && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
                 <Field label="Taxes growth %">
-                  <input type="number" min={0} max={100} step="0.5" value={retGrowth} onChange={(e) => setRetGrowth(Number(e.target.value))} style={selectStyleLocal} />
+                  <input type="number" min={0} max={100} step="0.5" value={retGrowth} onChange={(e) => setRetGrowth(Number(e.target.value))} />
                 </Field>
                 <Field label="Insurance growth %">
-                  <input type="number" min={0} max={100} step="0.5" value={insGrowth} onChange={(e) => setInsGrowth(Number(e.target.value))} style={selectStyleLocal} />
+                  <input type="number" min={0} max={100} step="0.5" value={insGrowth} onChange={(e) => setInsGrowth(Number(e.target.value))} />
                 </Field>
               </div>
             )}
@@ -3180,7 +3188,7 @@ function CreateBudgetDialog({
           </div>
 
           <Field label="Name (optional)">
-            <input type="text" value={name} placeholder={`${category} ${year} — Draft`} onChange={(e) => setName(e.target.value)} style={selectStyleLocal} />
+            <input type="text" value={name} placeholder={`${category} ${year} — Draft`} onChange={(e) => setName(e.target.value)} />
           </Field>
         </div>
 
@@ -3199,16 +3207,6 @@ function CreateBudgetDialog({
   );
 }
 
-const selectStyleLocal: React.CSSProperties = {
-  padding: "8px 10px",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  background: "var(--card)",
-  color: "var(--text)",
-  fontFamily: "inherit",
-  fontSize: 13,
-  outline: "none",
-};
 
 function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (

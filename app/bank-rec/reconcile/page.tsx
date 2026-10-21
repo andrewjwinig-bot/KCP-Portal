@@ -15,7 +15,6 @@ const AMBER = "#b45309";
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const money = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const inputStyle: React.CSSProperties = { border: "1px solid var(--border)", borderRadius: 8, padding: "8px 10px", fontSize: 14, background: "var(--card)", color: "var(--text)", fontFamily: "inherit" };
 
 type RunResponse = {
   result: ReconResult;
@@ -91,7 +90,7 @@ export default function BankReconcilePage() {
     <main style={{ maxWidth: 1180 }}>
       <header style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: BRAND }}>Banking</div>
-        <h1 style={{ margin: "2px 0 0", fontSize: 40 }}>Bank Reconciliation</h1>
+        <h1 style={{ margin: "2px 0 0" }}>Bank Reconciliation</h1>
         <div className="muted small" style={{ marginTop: 4 }}>Reconciles the bank statement against the GL cash account already imported to Operating Statements. Pick an account, choose the month, and import the bank CSV.</div>
       </header>
 
@@ -132,25 +131,25 @@ export default function BankReconcilePage() {
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginTop: 12 }}>
                   <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <span className="muted small" style={{ fontWeight: 700 }}>Year</span>
-                    <select value={year} onChange={(e) => setYear(Number(e.target.value))} style={inputStyle}>
+                    <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
                       {[now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2].map((y) => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </label>
                   <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <span className="muted small" style={{ fontWeight: 700 }}>Statement month</span>
-                    <select value={month} onChange={(e) => setMonth(Number(e.target.value))} style={inputStyle}>
+                    <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
                       {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
                     </select>
                   </label>
                   <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <span className="muted small" style={{ fontWeight: 700 }}>GL cash account</span>
-                    <select value={cashAccount} onChange={(e) => setCashAccount(e.target.value)} style={inputStyle}>
+                    <select value={cashAccount} onChange={(e) => setCashAccount(e.target.value)}>
                       {(cashAccounts.length ? cashAccounts : [{ code: "0110-0000", name: "Cash-Operating" }]).map((c) => <option key={c.code} value={c.code}>{c.code} — {c.name}</option>)}
                     </select>
                   </label>
                   <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     <span className="muted small" style={{ fontWeight: 700 }}>Statement ending balance</span>
-                    <input value={statementEnd} onChange={(e) => setStatementEnd(e.target.value)} placeholder="auto from CSV" inputMode="decimal" style={{ ...inputStyle, width: 150 }} />
+                    <input value={statementEnd} onChange={(e) => setStatementEnd(e.target.value)} placeholder="auto from CSV" inputMode="decimal" style={{ width: 150 }} />
                   </label>
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginTop: 12 }}>
@@ -163,7 +162,7 @@ export default function BankReconcilePage() {
                 </div>
                 <details style={{ marginTop: 10 }}>
                   <summary className="muted small" style={{ cursor: "pointer" }}>…or paste CSV</summary>
-                  <textarea value={bankCsv} onChange={(e) => setBankCsv(e.target.value)} rows={4} placeholder="Details,Posting Date,Description,Amount,Type,Balance,Check or Slip #…" style={{ ...inputStyle, width: "100%", marginTop: 6, fontFamily: "monospace", fontSize: 12 }} />
+                  <textarea value={bankCsv} onChange={(e) => setBankCsv(e.target.value)} rows={4} placeholder="Details,Posting Date,Description,Amount,Type,Balance,Check or Slip #…" style={{ width: "100%", marginTop: 6, fontFamily: "monospace", fontSize: 12 }} />
                 </details>
               </div>
 

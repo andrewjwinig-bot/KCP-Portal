@@ -176,7 +176,7 @@ export default function MaintenanceOverview() {
       {/* Filters */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", padding: "0 2px" }}>
         <Field label="Window">
-          <select value={window} onChange={(e) => setWindow(e.target.value as Window)} style={selectStyle}>
+          <select value={window} onChange={(e) => setWindow(e.target.value as Window)}>
             <option value="7">Last 7 days</option>
             <option value="30">Last 30 days</option>
             <option value="90">Last 90 days</option>
@@ -184,7 +184,7 @@ export default function MaintenanceOverview() {
           </select>
         </Field>
         <Field label="Scope">
-          <select value={scope} onChange={(e) => setScope(e.target.value as Scope)} style={selectStyle}>
+          <select value={scope} onChange={(e) => setScope(e.target.value as Scope)}>
             <option value="all">All requests</option>
             <option value="active">Active only</option>
           </select>
@@ -280,16 +280,6 @@ function countBy(
     .sort((a, b) => b.n - a.n);
 }
 
-const selectStyle: React.CSSProperties = {
-  padding: "8px 10px",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  background: "var(--card)",
-  color: "var(--text)",
-  fontFamily: "inherit",
-  fontSize: 13,
-  outline: "none",
-};
 
 const sectionLabelStyle: React.CSSProperties = {
   fontSize: 12,
