@@ -19,7 +19,7 @@ import { seasonalTrendFlags, meetsFlagFloor, FLAG_MIN_DOLLARS, revenueShortfallR
 import { basisForLine, checkBasisForLine } from "./rentCheck";
 import { loadRentCheckShared, loadRentCheckContext, runRentCheck, billingFlagReason } from "./rentCheckRun";
 import { markMissingDebt, mortgagePaymentsFor } from "./debtFlag";
-import { expectedPostedThrough } from "./outstanding";
+import { expectedPostedThroughFor } from "./outstanding";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -221,7 +221,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     const recon = reconcileGlFiles(fulls.filter((g) => g.key === m.key && g.year === year));
     const tieOut = recon.checked > 0 ? { checked: recon.checked, mismatches: recon.mismatches.length } : null;
     // Coverage vs expected posted-through — only meaningful for the current year.
-    const exp = expectedPostedThrough();
+    const exp = expectedPostedThroughFor(m.propertyCode || m.key);
     const through = stored.coverageEnd ?? max;
     const coverage = year === exp.year ? { through, expected: exp.period, behind: through < exp.period } : null;
 

@@ -51,6 +51,10 @@ export async function getMapping(key: string): Promise<StatementMapping | null> 
  */
 export const NOT_IMPORTED_MONTHLY = new Set(["KORMAN HOMES"]);
 
+// The land holdings are imported QUARTERLY, not monthly — see `postingSchedule.ts`.
+export { QUARTERLY_STATEMENTS, isQuarterlyStatement } from "./postingSchedule";
+
+
 /** The operating statements run each month: every mapping except the ones
  *  above. The statement picker, the "GL uploads behind" reminders, Flags to
  *  Investigate, the not-posted alerts and Reprojections all read this. */
