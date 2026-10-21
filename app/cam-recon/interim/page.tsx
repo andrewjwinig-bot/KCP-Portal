@@ -7,13 +7,13 @@
 // entered here too, with optional YTD-expense + escrow overrides.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { drawTenantStatement } from "@/lib/cam/office/statementPdf";
 import { drawRetailStatement } from "@/lib/cam/retail/statementPdf";
 import type { TenantReconResult } from "@/lib/cam/office/types";
 import type { RetailTenantResult } from "@/lib/cam/retail/types";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import AllowedLink from "@/app/components/AllowedLink";
+import { SegToggle } from "@/app/financials/reprojections/ReprojTable";
 import { Calendar } from "@/app/components/Calendar";
 import { useUser } from "@/app/components/UserProvider";
 import { HoverCard } from "@/app/components/HoverCard";
@@ -587,10 +587,9 @@ export default function InterimReconPage() {
   const [showAcct, setShowAcct] = useState(false);
   useEffect(() => { try { setShowAcct(localStorage.getItem("kcp.interim.showAcct") === "1"); } catch { /* private mode */ } }, []);
   const toggleAcct = (v: boolean) => { setShowAcct(v); try { localStorage.setItem("kcp.interim.showAcct", v ? "1" : "0"); } catch { /* private mode */ } };
+  // The SAME control Reprojections uses for its GL codes — not a checkbox.
   const acctToggle = (
-    <label className="muted" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, cursor: "pointer" }}>
-      <input type="checkbox" checked={showAcct} onChange={(e) => toggleAcct(e.target.checked)} /> Account codes
-    </label>
+    <SegToggle label="GL" leftLabel="Hide" rightLabel="Show" leftActive={!showAcct} onLeft={() => toggleAcct(false)} onRight={() => toggleAcct(true)} />
   );
   // ONE way to pick a tenant: the move-out candidate list. Building / Year /
   // Tenant / As of (and manual entry) open only on request — or when there
@@ -952,45 +951,41 @@ export default function InterimReconPage() {
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Move-Out Close-Out</h1>
-        <Link href="/cam-recon" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>← Year-end Reconciliation</Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", minWidth: 0 }}>
+          <h1 style={{ margin: 0 }}>Move-Out Close-Out</h1>
+          {/* The page's ONE driving control, as other pages place theirs: the
+              brand pill in the header, sized to its contents, no label. */}
+          {candidates.length > 0 && (
+            <>
+              <select
+                value={candidates.some((c) => c.propertyCode === property && c.unitRef === unitRef) ? `${property}|${unitRef}` : ""}
+                onChange={(e) => { const c = candidates.find((x) => `${x.propertyCode}|${x.unitRef}` === e.target.value); if (c) pickCandidate(c); }}
+                className={SELECT_BRAND} aria-label="Move-out" style={{ maxWidth: "100%" }}
+              >
+                <option value="">Select a move-out or a lease ending…</option>
+                {candidates.map((c) => {
+                  const past = c.days != null && c.days < 0;
+                  // Only "Moved out" is a close-out. A lease past its date while
+                  // the tenant is still on the rent roll is a renewal not yet
+                  // keyed, or a holdover — never offered as a move-out.
+                  const status = c.kind === "vacated" ? "Moved out (off the rent roll)"
+                    : past ? `Lease ended ${Math.abs(c.days!)}d ago · still on the rent roll`
+                    : c.days != null ? `Lease ends in ${c.days}d` : "Lease ending";
+                  return (
+                    <option key={`${c.propertyCode}|${c.unitRef}|${c.name}`} value={`${c.propertyCode}|${c.unitRef}`}>
+                      {c.name} — {c.propertyCode} {c.unitRef} · {status}
+                    </option>
+                  );
+                })}
+              </select>
+              <button className="btn sm" onClick={() => setShowPicker((v) => !v)}>
+                {pickerOpen ? "Hide other options" : "Other tenant / as of…"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Move-out candidates — a single dropdown of recently-vacated /
-          expiring-soon tenants (portfolio-wide). Pick one to pre-fill and run;
-          anything not listed can still be selected or added via Building /
-          Tenant below. */}
-      {candidates.length > 0 && (
-        <div className="card" style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600, flex: "1 1 460px" }}>
-            <span>Move-out candidate <span className="muted" style={{ fontWeight: 500 }}>· confirmed move-outs, then leases ending</span></span>
-            <select
-              value={candidates.some((c) => c.propertyCode === property && c.unitRef === unitRef) ? `${property}|${unitRef}` : ""}
-              onChange={(e) => { const c = candidates.find((x) => `${x.propertyCode}|${x.unitRef}` === e.target.value); if (c) pickCandidate(c); }}
-              className={SELECT_BRAND} style={{ width: "100%" }}
-            >
-              <option value="">Select a move-out or a lease ending…</option>
-              {candidates.map((c) => {
-                const past = c.days != null && c.days < 0;
-                // Only "Moved out" is a close-out. A lease past its date while
-                // the tenant is still on the rent roll is a renewal not yet
-                // keyed, or a holdover — never offered as a move-out.
-                const status = c.kind === "vacated" ? "Moved out (off the rent roll)"
-                  : past ? `Lease ended ${Math.abs(c.days!)}d ago · still on the rent roll`
-                  : c.days != null ? `Lease ends in ${c.days}d` : "Lease ending";
-                return (
-                  <option key={`${c.propertyCode}|${c.unitRef}|${c.name}`} value={`${c.propertyCode}|${c.unitRef}`}>
-                    {c.name} — {c.propertyCode} {c.unitRef} · {status}
-                  </option>
-                );
-              })}
-            </select>
-          </label>
-          <button className="btn sm" onClick={() => setShowPicker((v) => !v)} style={{ marginBottom: 4 }}>
-            {pickerOpen ? "Hide other options" : "Other tenant / as of…"}
-          </button>
-        </div>
-      )}
 
       {pickerOpen && <div className="card">
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>

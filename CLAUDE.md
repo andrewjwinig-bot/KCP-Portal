@@ -459,7 +459,13 @@ name. **Unpaid charges are ITEMIZED** (`openAr.charges`, Skyline's printed
 order, `escrow` marks the billed-and-unpaid estimates with †): "Show the n
 charges" on the card, and the PDF's settlement page lists every charge (date /
 description / amount, continuing onto further pages) under the summary.
-**One way to pick a tenant**: the move-out candidate
+**Its controls are the program's own, never page-made** (owner: "everything
+like that needs to match the master styling of the program"): the move-out
+picker is the brand `select` IN THE HEADER beside the title, sized to its
+contents with no label (as Balance Sheet / Flags to Investigate place theirs),
+the account-code switch is Reprojections' `SegToggle` ("GL · Hide / Show"), not
+a checkbox, and there is no "← Year-end Reconciliation" link — a close-out is
+not part of the year-end recon. **One way to pick a tenant**: the move-out candidate
 list; Building / Year / Tenant / As of (and manual entry) open only behind
 "Other tenant / as of…" (or with no candidates, a manual worksheet, or an
 error). **A deposit with no amount keyed applies nothing** and says so
