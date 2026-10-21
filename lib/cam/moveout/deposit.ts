@@ -9,6 +9,8 @@ import { sameTenant } from "@/lib/leasing/confirmedMoveouts";
 import { allRuns } from "@/lib/statements/store";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { pickOpenAr, totalDue, type MoveoutOpenAr } from "./openAr";
+import type { DepositDetail } from "./settlementPdf";
+import { get as getBlob } from "@vercel/blob";
 
 /** The departing tenant's deposit. The SUITE alone is not enough: once a
  *  suite is re-leased it holds the new tenant's deposit too, and the close-out
@@ -52,6 +54,9 @@ export type MoveoutSettlement = {
   /** reconBalance + the open balance. */
   totalDue: number;
   deposit: CloseOutDeposit | null;
+  /** The deposit record behind line 3 — check #, date, notes and the check
+   *  image — for the PDF's Security Deposit page. */
+  depositDetail?: DepositDetail | null;
 };
 
 export async function tenantOpenAr(unitRef: string, name: string | undefined, year: number): Promise<MoveoutOpenAr | null> {
@@ -69,5 +74,31 @@ export async function moveoutSettlement(
   const openAr = await tenantOpenAr(unitRef, name, year);
   const due = totalDue(reconBalance, openAr);
   const all = deposits ?? await listDeposits().catch(() => [] as SecurityDeposit[]);
-  return { reconBalance, openAr, totalDue: due, deposit: depositSettlement(pickDeposit(all, unitRef, name), due) };
+  const picked = pickDeposit(all, unitRef, name);
+  return {
+    reconBalance, openAr, totalDue: due,
+    deposit: depositSettlement(picked, due),
+    depositDetail: picked ? await depositDetailOf(picked) : null,
+  };
+}
+
+/** The record for the PDF's Security Deposit page, with the check image read
+ *  from the private blob store when it is a JPEG / PNG (a PDF scan is named). */
+export async function depositDetailOf(d: SecurityDeposit): Promise<DepositDetail> {
+  const img = d.checkImage;
+  const out: DepositDetail = {
+    checkNumber: d.checkNumber, checkDate: d.checkDate, notes: d.notes,
+    imageName: img?.name ?? null, imageType: img?.contentType ?? null, image: null,
+  };
+  const format = /png/i.test(img?.contentType ?? "") ? "PNG" : /jpe?g/i.test(img?.contentType ?? "") ? "JPEG" : null;
+  if (img && format && process.env.BLOB_READ_WRITE_TOKEN) {
+    try {
+      const r = await getBlob(img.url, { access: "private" });
+      if (r) {
+        const buf = Buffer.from(await new Response(r.stream).arrayBuffer());
+        out.image = { dataUrl: `data:${img.contentType};base64,${buf.toString("base64")}`, format };
+      }
+    } catch { /* named, not drawn */ }
+  }
+  return out;
 }

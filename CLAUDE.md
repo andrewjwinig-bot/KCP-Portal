@@ -407,8 +407,17 @@ open balance, so crediting only what was paid would bill those months twice.
 The settlement says so in words (`escrowNote` — "Includes $800.00 of estimated
 charges billed Aug – Sep 2026 and not yet paid…"). A posted move-out
 adjustment line is left out of the open balance (it IS the true-up). The move-out
-is ONE PDF (owner: "one download PDF for all of it comprehensively") — page 1
-the **Final Settlement**, then the reconciliation; the page's single Download PDF
+is ONE PDF (owner: "one download PDF for all of it comprehensively"), in the
+SETTLEMENT'S OWN ORDER (owner: "keep the detail in the same order as its listed
+on the final settlement"): the **Final Settlement** (lines numbered 1–3, ending
+in the CAM rec's own amber/green NET BALANCE DUE callout), then 1 the
+reconciliation, 2 **Unpaid Charges** (`drawUnpaidDetail`, every charge), 3
+**Security Deposit** (`drawDepositDetail` — amount, check #, date, status, and
+the CHECK IMAGE when a JPEG/PNG is on file, read from the private blob store
+server-side by `depositDetailOf` and through `/api/blob` on the page; a PDF scan
+is named, not drawn). The card has no big number of its own — it ends in the
+CAM rec's `FinalBalanceRow`, and its rows use the rec's 13px BalanceRow type and
+"-$3,144" signs; the page's single Download PDF
 sits on the Final Bill card and the emailed final statement is the same. The
 settlement page is (`settlementPdf.ts`, shared with the
 interim page's download): the true-up, the open charges by category, total
