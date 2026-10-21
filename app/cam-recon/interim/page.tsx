@@ -6,7 +6,7 @@
 // billed. Former (vacated) tenants who've dropped off the rent roll can be
 // entered here too, with optional YTD-expense + escrow overrides.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { drawTenantStatement } from "@/lib/cam/office/statementPdf";
 import { drawRetailStatement } from "@/lib/cam/retail/statementPdf";
@@ -14,6 +14,7 @@ import type { TenantReconResult } from "@/lib/cam/office/types";
 import type { RetailTenantResult } from "@/lib/cam/retail/types";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import AllowedLink from "@/app/components/AllowedLink";
+import { useUser } from "@/app/components/UserProvider";
 import { HoverCard } from "@/app/components/HoverCard";
 import { escrowNote, escrowClause, totalDue as totalDueOf, type MoveoutOpenAr } from "@/lib/cam/moveout/openAr";
 import { drawSettlement } from "@/lib/cam/moveout/settlementPdf";
@@ -512,6 +513,50 @@ export default function InterimReconPage() {
       .catch(() => { if (!cancelled) setOpenAr(null); });
     return () => { cancelled = true; };
   }, [meta?.unitRef, meta?.manual, metaName, metaYear]);
+  // STEP: import the tenant's FINAL Skyline statement, right here (owner:
+  // "a regular task for a close out … itll show the final charges"). Only this
+  // tenant's statement is taken from the file (`/api/cam-recon/moveout/statement`).
+  const { user } = useUser();
+  const stmtFileRef = useRef<HTMLInputElement>(null);
+  const [stmtBusy, setStmtBusy] = useState(false);
+  const [stmtMsg, setStmtMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => { setStmtMsg(null); }, [meta?.unitRef]);
+  const importFinalStatement = useCallback(async (file: File) => {
+    if (!meta) return;
+    setStmtBusy(true); setStmtMsg(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("unitRef", meta.unitRef);
+      if (metaName) fd.append("tenant", metaName);
+      fd.append("year", String(meta.year));
+      if (user?.label) fd.append("uploadedBy", user.label);
+      const res = await fetch("/api/cam-recon/moveout/statement", { method: "POST", body: fd });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || j.error) { setStmtMsg({ ok: false, text: j.error ?? `Import failed (${res.status}).` }); return; }
+      setOpenAr((j.openAr ?? null) as MoveoutOpenAr | null);
+      setStmtMsg({ ok: true, text: j.tiesOut === false ? "Imported — but it doesn't tie to Skyline's balance; check the file." : "Imported — the Final Bill now reads it." });
+    } catch (e) { setStmtMsg({ ok: false, text: String(e) }); }
+    finally { setStmtBusy(false); if (stmtFileRef.current) stmtFileRef.current.value = ""; }
+  }, [meta, metaName, user?.label]);
+  const finalStatementStep = !!meta && !meta.manual && (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 12px", marginBottom: 8, borderRadius: 8,
+      border: `1px solid ${openAr ? "var(--border)" : "#d9770655"}`, background: openAr ? "transparent" : "rgba(217,119,6,0.06)" }}>
+      <div style={{ fontSize: 13 }}>
+        <b>Step: final statement from Skyline</b>
+        <span className="muted"> · {openAr
+          ? <>imported {openAr.asOf ? new Date(openAr.asOf).toLocaleDateString("en-US") : ""} — re-import once the last charges (final electric) post</>
+          : <>not imported — run Skyline&rsquo;s Statement report for this tenant alone (a moved-out tenant is {meta.unitRef}-FO)</>}</span>
+        {stmtMsg && <div style={{ fontSize: 12, fontWeight: 600, marginTop: 3, color: stmtMsg.ok ? "#15803d" : "#b91c1c" }}>{stmtMsg.text}</div>}
+      </div>
+      <input ref={stmtFileRef} type="file" accept=".xls,.xlsx" style={{ display: "none" }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) importFinalStatement(f); }} />
+      <button className={openAr ? "btn" : "btn primary"} disabled={stmtBusy} onClick={() => stmtFileRef.current?.click()}
+        style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>
+        {stmtBusy ? "Importing…" : openAr ? "Re-import final statement" : "Import final statement"}
+      </button>
+    </div>
+  );
   const grandTotal = totalDueOf(totalBalance, openAr);
   const depositAppliesNow = deposit != null && (deposit.status === "held" || deposit.status === "partial");
   // The settlement page the downloads append — the SAME page the final PDF carries.
@@ -689,6 +734,7 @@ export default function InterimReconPage() {
   const finalBill = !!meta && !meta.manual && openAr && (
     <div style={{ marginTop: 18, paddingTop: 12, borderTop: "2px solid var(--border)" }}>
       <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Final Bill</div>
+      {finalStatementStep}
       <BalanceRow label={`${retail ? "CAM / INS / RET" : "CAM / RET"} reconciliation (above)`} value={money(totalBalance)} />
       <BalanceRow label={`Unpaid charges on account${openAr.asOf ? ` (as of ${new Date(openAr.asOf).toLocaleDateString("en-US")})` : ""}`} value={money(openAr.balance)} />
       {openAr.byCategory.map((k) => (
@@ -709,8 +755,9 @@ export default function InterimReconPage() {
   );
 
   const noStatementNote = !!meta && !meta.manual && !openAr && (
-    <div className="muted small" style={{ marginTop: 12, padding: "8px 12px", borderRadius: 8, border: "1px dashed var(--border)" }}>
-      No monthly statement on file for {meta.name} ({meta.unitRef}), so unpaid charges aren&rsquo;t on this bill yet. Import their Skyline Statement on Monthly Statements and they appear here.
+    <div style={{ marginTop: 18, paddingTop: 12, borderTop: "2px solid var(--border)" }}>
+      <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Final Bill</div>
+      {finalStatementStep}
     </div>
   );
 

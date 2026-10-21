@@ -48,6 +48,11 @@ async function sendApproval(c: Ok, settlement: MoveoutSettlement): Promise<boole
   lines.push(...settlementLines(settlement, cats));
   lines.push("");
   const link = `${PORTAL_BASE}/cam-recon/interim?property=${encodeURIComponent(meta.property)}&unitRef=${encodeURIComponent(meta.unitRef)}&year=${meta.year}&asOf=${meta.asOfMonth}`;
+  // A standing close-out step: the tenant's FINAL Skyline statement (owner).
+  lines.push(settlement.openAr
+    ? `Their final statement is in as of ${settlement.openAr.asOf ? new Date(settlement.openAr.asOf).toLocaleDateString("en-US") : "the last import"} — if charges have posted since (the final electric), re-import it on the close-out page first.`
+    : `Before approving: import their final Skyline statement on the close-out page (Final Bill → Import final statement) so their unpaid charges are on the final bill. A moved-out tenant is listed in Skyline as ${meta.unitRef}-FO.`);
+  lines.push("");
   lines.push(`Review the attached statement and approve it here:`);
   lines.push(link);
   lines.push("");
