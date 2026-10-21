@@ -2444,6 +2444,21 @@ only, nothing from the budget**.
   (`buildT12Xlsx`): the trailing month headings, a live `=SUM` T-12 column,
   no Ann Bud / Var. Pinned by `t12/export.test.ts` reading the file back.
 
+# Security deposits — check images
+
+- **A check image or scan goes STRAIGHT TO BLOB from the browser**
+  (`/api/deposits/blob-upload`, `upload` from `@vercel/blob/client`, then
+  `POST /api/deposits/[id]/check-image` with `{ url, name, contentType, size }`
+  to attach it). A scanned PDF of a check is often over the 4.5 MB a request to
+  the app can carry, and the platform rejected it before the route ran, with no
+  message (Nancy, SEOM 3640-300, 10/2026). Up to 25 MB, PDF or image. The old
+  multipart path still works for small files.
+- **An existing deposit keeps ITS OWN tenant** (`DepositForm`'s `unit`): a
+  departed tenant's suite may be re-leased, and taking the first option on the
+  suite handed the deposit the NEW tenant's name on the next save. It matches
+  the option for this suite AND this tenant, else falls back to the deposit's
+  own record.
+
 # Shadow properties — held, not managed
 
 **`SHADOW_PROPERTIES` (`lib/properties/shadowProperties.ts`) holds land we OWN

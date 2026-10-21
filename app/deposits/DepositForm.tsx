@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Calendar } from "@/app/components/Calendar";
+import { upload as blobUpload } from "@vercel/blob/client";
 import { accountForProperty, DEPOSIT_ACCOUNTS, depositDupKey, type SecurityDeposit } from "@/lib/deposits/deposits";
 
 export type UnitOption = {
@@ -107,8 +108,15 @@ export default function DepositForm({
 
   // Fall back to the deposit's stored unit when the tenant has since left
   // the rent roll, so an existing record stays editable.
+  // An EXISTING deposit keeps its own tenant: a departed tenant's suite may be
+  // re-leased, and taking the first option on the suite handed their deposit
+  // the new tenant's name on the next save.
+  const norm = (s: string | undefined) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
   const unit: UnitOption | null =
-    unitOptions.find((u) => u.unitRef === unitRef) ??
+    (deposit && deposit.unitRef === unitRef
+      ? unitOptions.find((u) => u.unitRef === unitRef && norm(u.tenantCompany) === norm(deposit.tenantCompany))
+      : undefined) ??
+    (deposit && deposit.unitRef === unitRef && deposit.tenantCompany ? null : unitOptions.find((u) => u.unitRef === unitRef)) ??
     (deposit && deposit.unitRef === unitRef
       ? {
           unitRef: deposit.unitRef,
@@ -196,15 +204,29 @@ export default function DepositForm({
 
     // Image upload is optional — only attempt it when a file is staged.
     if (stagedFile) {
-      const fd = new FormData();
-      fd.append("file", stagedFile);
-      const up = await fetch(`/api/deposits/${saved.id}/check-image`, { method: "POST", body: fd });
+      // Straight to Blob from the browser, then attach — a scanned PDF of a
+      // check is often over the 4.5 MB a request to the app can carry, and
+      // the platform rejected it with no message.
+      const seg = (v: string) => String(v).replace(/[^\w.\-]+/g, "_").slice(0, 80) || "check";
+      let blobUrl: string;
+      try {
+        const blob = await blobUpload(`deposits/${saved.id}/${seg(stagedFile.name)}`, stagedFile, {
+          access: "private",
+          handleUploadUrl: "/api/deposits/blob-upload",
+          contentType: stagedFile.type || undefined,
+          multipart: stagedFile.size > 8 * 1024 * 1024,
+        });
+        blobUrl = blob.url;
+      } catch (e) {
+        throw new Error(`The deposit was saved, but the check image didn't upload: ${e instanceof Error ? e.message : "upload failed"}.`);
+      }
+      const up = await fetch(`/api/deposits/${saved.id}/check-image`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: blobUrl, name: stagedFile.name, contentType: stagedFile.type, size: stagedFile.size }),
+      });
       const uj = await readJson(up);
       if (!up.ok || !uj.deposit) {
-        throw new Error(
-          (uj.error as string) ??
-          "The deposit was saved, but the check image upload failed — it may be too large.",
-        );
+        throw new Error((uj.error as string) ?? "The deposit was saved, but the check image couldn't be attached.");
       }
       saved = uj.deposit as SecurityDeposit;
       setExistingImage(saved.checkImage ?? null);
