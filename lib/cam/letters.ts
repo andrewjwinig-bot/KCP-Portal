@@ -28,6 +28,13 @@ export type LetterInput = {
   securityDeposit?: number | null;
   /** Disposition of that deposit. Defaults to "held" when a deposit is known. */
   depositStatus?: DepositStatus | null;
+  /** Move-out only: the open balance still on the account (their newest
+   *  monthly statement). The deposit is applied against the reconciliation AND
+   *  this — the close-out is the tenant's final bill. */
+  openBalance?: number | null;
+  /** A clause naming estimated charges billed and not paid ("including $800.00
+   *  of estimated charges billed Aug – Sep 2026 and not yet paid"), if any. */
+  openBalanceNote?: string | null;
 };
 
 /** Move-out close-out letter for a departed tenant. Weaves in the security
@@ -41,6 +48,14 @@ export function moveOutCloseOutLetter(i: LetterInput): string {
 
   // Security-deposit paragraph. When we hold the deposit, show the net
   // settlement (deposit applied against the reconciliation balance).
+  // The open balance on the account rides with the true-up: together they are
+  // everything owed, and the deposit is applied against both.
+  const open = i.openBalance ?? null;
+  const total = i.totalBalance + (open ?? 0);
+  const totalAmt = money(total);
+  const openPara = open != null && Math.abs(open) >= 0.5
+    ? `Your account also carries an open balance of ${money(open)} in unpaid charges${i.openBalanceNote ? `, ${i.openBalanceNote}` : ""}. Together with the reconciliation, ${total >= 0 ? `a total of ${totalAmt} is due` : `a total credit of ${totalAmt} is due to you`}.`
+    : null;
   let depositPara: string;
   const dep = i.securityDeposit;
   if (dep == null) {
@@ -51,11 +66,12 @@ export function moveOutCloseOutLetter(i: LetterInput): string {
     depositPara = `The enclosed statement details the reconciliation. Your security deposit of ${money(dep)} was applied to amounts owed under the lease.`;
   } else {
     // Held (or partial) → present the net settlement.
-    const net = dep - i.totalBalance; // >0 → refund to tenant; <0 → tenant owes
+    const net = dep - total; // >0 → refund to tenant; <0 → tenant owes
     const netAmt = money(net);
+    const against = open != null ? (total >= 0 ? `total of ${totalAmt} due` : `total credit of ${totalAmt}`) : (owed ? `balance of ${amt} due` : `credit of ${amt}`);
     depositPara = net >= 0
-      ? `The enclosed statement details the reconciliation. We hold a security deposit of ${money(dep)} on your account. Applying it against the ${owed ? `balance of ${amt} due` : `credit of ${amt}`}, a net refund of ${netAmt} will be issued to you.`
-      : `The enclosed statement details the reconciliation. We hold a security deposit of ${money(dep)} on your account. Applying it against the balance of ${amt} due, a net balance of ${netAmt} remains due; please remit payment within 30 days of the date of this letter.`;
+      ? `The enclosed statement details the reconciliation and the final settlement. We hold a security deposit of ${money(dep)} on your account. Applying it against the ${against}, a net refund of ${netAmt} will be issued to you.`
+      : `The enclosed statement details the reconciliation and the final settlement. We hold a security deposit of ${money(dep)} on your account. Applying it against the ${against}, a net balance of ${netAmt} remains due; please remit payment within 30 days of the date of this letter.`;
   }
 
   return [
@@ -69,6 +85,7 @@ export function moveOutCloseOutLetter(i: LetterInput): string {
       ? `Based on the actual operating expenses for the period against the amounts you were billed, a balance of ${amt} is due.`
       : `Based on the actual operating expenses for the period against the amounts you were billed, a credit of ${amt} is due to you.`,
     ``,
+    ...(openPara ? [openPara, ``] : []),
     depositPara,
     ``,
     `Please contact us with any questions.`,

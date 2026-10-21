@@ -17,6 +17,7 @@
 // instead of duplicating.
 
 import "server-only";
+import type { MoveoutOpenAr } from "./openAr";
 import { getJSON, storeJSON, listJSON, deleteJSON } from "@/lib/storage";
 
 const PREFIX = "moveout-closeout";
@@ -28,7 +29,8 @@ export type CloseOutDeposit = {
   amount: number;
   /** held | partial | refunded | forfeited */
   status: string;
-  /** deposit − reconciliation balance: >0 refund to tenant, <0 still due. Null
+  /** deposit − what the tenant owes (true-up + open balance): >0 refund to
+   *  the tenant, <0 still due. Null
    *  when the deposit no longer applies (already refunded / forfeited). */
   net: number | null;
 };
@@ -55,6 +57,11 @@ export type CloseOut = {
 
   // Security-deposit settlement, captured when the entry goes ready.
   deposit: CloseOutDeposit | null;
+  /** The open balance on the tenant's newest monthly statement, netted into
+   *  the settlement with the true-up (`openAr.ts`). Absent on older entries. */
+  openAr?: MoveoutOpenAr | null;
+  /** balance + the open balance — everything the tenant owes. */
+  totalDue?: number;
 
   // Lifecycle.
   detectedAt: string;
