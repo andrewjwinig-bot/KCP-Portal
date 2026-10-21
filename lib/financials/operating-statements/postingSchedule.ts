@@ -10,7 +10,7 @@
 // last completed quarter. They stay in the statement picker, Reprojections and
 // the flags; only what is owed changes.
 
-export const QUARTERLY_STATEMENTS = new Set(["0800", "0900", "2070", "2040", "2080"]);
+export const QUARTERLY_STATEMENTS = new Set(["0800", "0900", "2070", "2040", "2080", "1500", "9200"]);
 export const isQuarterlyStatement = (keyOrCode: string | null | undefined) => QUARTERLY_STATEMENTS.has(String(keyOrCode ?? "").toUpperCase());
 
 /** The month a monthly statement's GL should be posted through (prior month). */
