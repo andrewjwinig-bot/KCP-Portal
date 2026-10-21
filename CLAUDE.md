@@ -460,8 +460,9 @@ how-to-pay instructions. Sources of truth:
   untied tenant holds the WHOLE month back, judged on the merged month so a
   later clean export can't publish over an earlier one's bad tenant. It never
   un-publishes — a tenant that stops reconciling is flagged "under review" on
-  their own statement rather than retracting everyone else's. Staff can switch
-  auto-publish off per browser (`kcp.stmt.autoPublish`). Because tying out is the
+  their own statement rather than retracting everyone else's. It is ALWAYS on —
+  the per-browser "Publish automatically when all tie out" checkbox was removed
+  (owner: "i dont think id ever uncheck that"). Because tying out is the
   norm, the roster has NO "ties out" column — only the exception is flagged, as a
   REVIEW pill on the tenant's own row plus a banner that filters to them.
 - **Every derived number comes from `lib/statements/summary.ts`** (`summarize`,

@@ -52,8 +52,8 @@ export function ImportInstructions({ stop, variant = "charges" }: { stop?: boole
           <li>Run Skyline&rsquo;s tenant <strong>Statement</strong> report for the month, across the buildings you&rsquo;re billing.</li>
           <li>Report Destination: <strong>Excel</strong> — save the .xls it produces.</li>
           <li>Upload it here <strong>unmodified</strong>. Don&rsquo;t delete rows, re-sort, or paste into a new sheet: the parser reads Skyline&rsquo;s own layout and reconciles every tenant to the balance Skyline printed.</li>
-          <li>Shopping centers and business parks export separately — upload both and they merge into the one month.</li>
-          <li>Review the tie-outs, then <strong>Publish</strong> to release the month to the tenant portal.</li>
+          <li>Upload as many files as you need — by group, or shopping centers and business parks separately. Each one merges into the same month; a tenant in two files keeps the later one.</li>
+          <li>Nothing to publish: once <strong>every tenant ties out</strong> (their charges add up to the balance Skyline printed), the month goes to the tenant portal on its own. A tenant that doesn&rsquo;t carries a <strong>REVIEW</strong> pill and holds the month back — re-run and re-import that tenant to clear it.</li>
         </ol>
       </div>
     );
