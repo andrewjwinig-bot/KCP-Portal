@@ -327,7 +327,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
             <span>Less: Billed (escrow)</span>
             <MoneyInput value={opexEsc} onChange={setOpexEsc} highlight={opexEsc.trim() === ""} />
           </div>
-          <FinalBalanceRow label="CAM / Operating Expenses Balance" value={opexBal} />
+          <FinalBalanceRow label="Balance, Op Ex Costs Due" value={opexBal} />
         </div>
 
         {/* Real Estate Taxes */}
@@ -367,7 +367,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
             <span>Less: Billed (escrow)</span>
             <MoneyInput value={retEsc} onChange={setRetEsc} highlight={retEsc.trim() === ""} />
           </div>
-          <FinalBalanceRow label="Real Estate Taxes Balance" value={retBal} />
+          <FinalBalanceRow label="Balance, Real Estate Taxes Due" value={retBal} />
         </div>
       </div>
 
@@ -1092,7 +1092,6 @@ export default function InterimReconPage() {
                   cam would be a subsection"): smaller, brand-coloured, and
                   without the tenant name the Final Bill already carries. */}
               <div style={{ fontSize: 17, fontWeight: 800, color: "#0b4a7d" }}>CAM / RET Reconciliation</div>
-              <div className="muted" style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>Detail behind the Final Bill&rsquo;s first line · as of {MONTHS[r.asOfMonth - 1]} {meta.year}</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {acctToggle}
@@ -1101,7 +1100,6 @@ export default function InterimReconPage() {
           </div>
           <div className="muted small" style={{ marginBottom: 10 }}>
             Base year <b>{r.noBaseStop ? "NNN (full pool)" : r.baseYear}</b> · pro-rata <b>{pct2(r.proRataPct)}%</b> · occupied <b>{r.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
-            {meta.escrowSource === "monthly-rolls" && <> · <span style={{ color: "#15803d", fontWeight: 600 }}>escrow summed from {meta.escrowMonthsFound} monthly rent roll{meta.escrowMonthsFound === 1 ? "" : "s"}</span></>}
           </div>
           {sanityCard}
 
@@ -1143,7 +1141,6 @@ export default function InterimReconPage() {
                   cam would be a subsection"): smaller, brand-coloured, and
                   without the tenant name the Final Bill already carries. */}
               <div style={{ fontSize: 17, fontWeight: 800, color: "#0b4a7d" }}>CAM / INS / RET Reconciliation</div>
-              <div className="muted" style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>Detail behind the Final Bill&rsquo;s first line · as of {MONTHS[retail.asOfMonth - 1]} {meta.year}</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {acctToggle}
@@ -1152,7 +1149,6 @@ export default function InterimReconPage() {
           </div>
           <div className="muted small" style={{ marginBottom: 10 }}>
             Pro-rata <b>{pct2(retail.camPrs)}%</b> CAM (+{pct2(retail.adminFeePct)}% admin) · <b>{pct2(retail.insPrs)}%</b> INS · <b>{pct2(retail.retPrs)}%</b> RET · occupied <b>{retail.occupiedMonths}</b> of 12 months{meta.leaseTo ? <> · lease to <b>{meta.leaseTo}</b></> : null} · {meta.sqft.toLocaleString()} sf
-            {meta.escrowSource === "monthly-rolls" && <> · <span style={{ color: "#15803d", fontWeight: 600 }}>escrow summed from {meta.escrowMonthsFound} monthly rent roll{meta.escrowMonthsFound === 1 ? "" : "s"}</span></>}
           </div>
           {sanityCard}
           {retail.unpostedMonths > 0 && (
@@ -1181,20 +1177,20 @@ export default function InterimReconPage() {
               <BalanceRow label={`+ Admin fee (${pct2(retail.adminFeePct)}%)`} value={money(retail.camAdmin)} />
               <BalanceRow label="CAM Due" value={money(retail.camDue)} strong />
               <BalanceRow label={`Less: Billed (${money(meta.opexMonth)}/mo × ${retail.occupiedMonths})`} value={money(-retail.camEscrow)} />
-              <FinalBalanceRow label="CAM Balance" value={retail.camBalance} />
+              <FinalBalanceRow label="Balance, CAM Due" value={retail.camBalance} />
             </div>
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Insurance</div>
               <BalanceRow label={`Property INS pool ×${retail.occupiedMonths}/12`} value={money(retail.insPool)} />
               <BalanceRow label={`× Share (${pct2(retail.insPrs)}%)`} value={money(retail.insDue)} strong />
               <BalanceRow label="Less: Billed" value={money(-retail.insEscrow)} />
-              <FinalBalanceRow label="INS Balance" value={retail.insBalance} />
+              <FinalBalanceRow label="Balance, INS Due" value={retail.insBalance} />
               <div style={{ height: 14 }} />
               <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Real Estate Taxes</div>
               <BalanceRow label={`RET pool ×${retail.occupiedMonths}/12`} value={money(retail.retPool)} />
               <BalanceRow label={`× Share (${pct2(retail.retPrs)}%)${retail.retDiscountPct ? ` − ${pct2(retail.retDiscountPct)}% disc` : ""}`} value={money(retail.retDue)} strong />
               <BalanceRow label={`Less: Billed (${money(meta.reTaxMonth)}/mo × ${retail.occupiedMonths})`} value={money(-retail.retEscrow)} />
-              <FinalBalanceRow label="RET Balance" value={retail.retBalance} />
+              <FinalBalanceRow label="Balance, RET Due" value={retail.retBalance} />
             </div>
           </div>
           <FinalBalanceRow label="Reconciliation Balance" value={retail.camBalance + retail.insBalance + retail.retBalance} />

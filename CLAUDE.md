@@ -453,9 +453,8 @@ showed the same figures twice. The statement's own total now reads
 "Reconciliation Balance". **Header hierarchy** (owner: "final bill is the header …
 cam would be a subsection"): the page is "Move-Out Close-Out"; **Final Bill**
 (22px) is THE header, the tenant name + suite its subline; the reconciliation
-card is a SUBSECTION — "CAM / RET Reconciliation" at 17px in brand colour,
-"Detail behind the Final Bill's first line · as of …", no repeated tenant
-name. **Unpaid charges are ITEMIZED** (`openAr.charges`, Skyline's printed
+card is a SUBSECTION — "CAM / RET Reconciliation" at 17px in brand colour, no
+subline (owner deleted it) and no repeated tenant name. **Unpaid charges are ITEMIZED** (`openAr.charges`, Skyline's printed
 order, `escrow` marks the billed-and-unpaid estimates with †): "Show the n
 charges" on the card, and the PDF's settlement page lists every charge (date /
 description / amount, continuing onto further pages) under the summary.
