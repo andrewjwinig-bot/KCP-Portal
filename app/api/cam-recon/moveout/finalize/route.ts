@@ -106,7 +106,7 @@ export async function POST(req: Request) {
     lines.push(...settlementLines(settlement, cats));
     lines.push("");
     lines.push(`Attached:`);
-    lines.push(`  • Final statement PDF, with the final settlement on page 2 (send to the tenant / keep on file)`);
+    lines.push(`  • Final statement PDF — the final settlement, then the reconciliation (send to the tenant / keep on file)`);
     lines.push(`  • Skyline GL adjustment (${glRows.length} row${glRows.length === 1 ? "" : "s"}, effective ${effectiveDate}) — import to post the true-up`);
     lines.push("");
     lines.push(`— KCP Portal`);
