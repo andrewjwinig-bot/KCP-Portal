@@ -2045,15 +2045,7 @@ function RentModal({ detail, onClose }: {
                 // when we have it. Renewals show "Expires" (the
                 // workbook's date is when the current lease ends);
                 // new-lease assumptions show "Lease" (start → end).
-                const tooltipLines = [e.tenantName];
-                if (e.leaseFrom && e.leaseTo) {
-                  tooltipLines.push(`Lease: ${e.leaseFrom} – ${e.leaseTo}`);
-                } else if (e.leaseTo) {
-                  tooltipLines.push(`Expires: ${e.leaseTo}`);
-                } else if (e.leaseFrom) {
-                  tooltipLines.push(`Starts: ${e.leaseFrom}`);
-                }
-                const rowTooltip = tooltipLines.join("\n");
+                const leaseRows = leaseTipRows(e);
                 // Rent bump = a month with a strictly higher value
                 // than the previous month, and both values positive.
                 // A first-month start (0 → X) doesn't count as a bump
@@ -2062,9 +2054,9 @@ function RentModal({ detail, onClose }: {
                 const isBump = (j: number) => j > 0 && (e.months[j] ?? 0) > (e.months[j - 1] ?? 0) && (e.months[j - 1] ?? 0) > 0;
                 return (
                   <tr key={idx}>
-                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }} title={rowTooltip}>{e.unitRef}</td>
-                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }} title={rowTooltip}>
-                      {e.tenantName}
+                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }}>{e.unitRef}</td>
+                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }}>
+                      {leaseRows.length ? <HoverCard title={e.tenantName} rows={leaseRows} width={240}>{e.tenantName}</HoverCard> : e.tenantName}
                     </td>
                     {e.months.map((m, j) => {
                       const bump = isBump(j);
@@ -2264,16 +2256,12 @@ function OccupancyDetailModal({ detail, property, onClose }: {
               {rows.map(({ entry: e, monthlySqft }, idx) => {
                 const isVacant = e.category === "vacant";
                 const avg = Math.round(monthlySqft.reduce((s, v) => s + v, 0) / 12);
-                const tooltipLines = [e.tenantName];
-                if (e.leaseFrom && e.leaseTo) tooltipLines.push(`Lease: ${e.leaseFrom} – ${e.leaseTo}`);
-                else if (e.leaseTo) tooltipLines.push(`Expires: ${e.leaseTo}`);
-                else if (e.leaseFrom) tooltipLines.push(`Starts: ${e.leaseFrom}`);
-                const rowTooltip = tooltipLines.join("\n");
+                const leaseRows = leaseTipRows(e);
                 return (
                   <tr key={idx}>
-                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }} title={rowTooltip}>{e.unitRef}</td>
-                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }} title={rowTooltip}>
-                      {e.tenantName}
+                    <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", fontSize: 12 }}>{e.unitRef}</td>
+                    <td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontSize: 12, fontWeight: 400, color: isVacant ? "var(--muted)" : undefined, fontStyle: isVacant ? "italic" : undefined }}>
+                      {leaseRows.length ? <HoverCard title={e.tenantName} rows={leaseRows} width={240}>{e.tenantName}</HoverCard> : e.tenantName}
                     </td>
                     <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12, color: "var(--muted)" }}>
                       {e.sqft ? e.sqft.toLocaleString() : "—"}
@@ -2315,6 +2303,16 @@ function OccupancyDetailModal({ detail, property, onClose }: {
       </div>
     </div>
   );
+}
+
+/** The lease window behind a rent / occupancy row, for its hover. Renewals
+ *  show "Expires" (the workbook's date is when the current lease ends); new
+ *  lease assumptions show the term. */
+function leaseTipRows(e: { leaseFrom?: string | null; leaseTo?: string | null }): { label: string; value: string }[] {
+  if (e.leaseFrom && e.leaseTo) return [{ label: "Lease", value: `${e.leaseFrom} – ${e.leaseTo}` }];
+  if (e.leaseTo) return [{ label: "Expires", value: e.leaseTo }];
+  if (e.leaseFrom) return [{ label: "Starts", value: e.leaseFrom }];
+  return [];
 }
 
 function LineNoteMarker({ text }: { text: string }) {
@@ -2523,10 +2521,13 @@ function BudgetLineRow({
               )}
             </span>
             {hasSubLines && (
+              <HoverCard title={`${line.subLines!.filter((s) => !s.isSubtotal).length} sub-lines`} width={260}
+                rows={sumTies ? [] : [
+                  { label: "Sub-lines", value: money(subTotal) },
+                  { label: "Line", value: money(line.total) },
+                ]}
+                footer={sumTies ? { label: "Ties to the line", value: money(line.total) } : { label: "Difference", value: money(subTotal - line.total), color: "#854d0e" }}>
               <span
-                title={sumTies
-                  ? `${line.subLines!.filter((s) => !s.isSubtotal).length} sub-lines (click to expand)`
-                  : `Δ ${money(subTotal - line.total)} between sub-lines and parent`}
                 style={{
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                   minWidth: 18, height: 18, padding: "0 5px",
@@ -2540,6 +2541,7 @@ function BudgetLineRow({
               >
                 {line.subLines!.filter((s) => !s.isSubtotal).length}
               </span>
+              </HoverCard>
             )}
             {line.notes && <LineNoteMarker text={line.notes} />}
             {line.allocations && line.allocations.length > 0 && (

@@ -89,7 +89,7 @@ export default function ExpenseTrendsPage() {
 
       <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <span style={SECTION_LABEL}>Building</span>
-        <select value={propCode} onChange={(e) => setPropCode(e.target.value)}>
+        <select className="select-brand" value={propCode} onChange={(e) => setPropCode(e.target.value)}>
           {OFFICE_BUILDINGS.map((b) => (
             <option key={b.code} value={b.code}>
               {b.name} (#{b.code}){SEED_EXPENSES[b.code] ? "" : " — no data"}

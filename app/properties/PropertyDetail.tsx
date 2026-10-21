@@ -1424,14 +1424,6 @@ function BuildingFacts({
                   value={value}
                   placeholder={f.placeholder}
                   onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
-                  style={{
-                    padding: "8px 10px",
-                    border: "1px solid var(--border)",
-                    borderRadius: 6,
-                    background: "var(--card)",
-                    color: "var(--text)",
-                    fontFamily: "inherit", fontSize: 13, outline: "none",
-                  }}
                 />
               </label>
               </Fragment>

@@ -1066,8 +1066,7 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18, marginBottom: 6 }}>
         <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Quarterly Statement</div>
-        <select value={billingQ} onChange={(e) => setBillingQ(e.target.value as Quarter)}
-          style={{ borderRadius: 8, padding: "4px 10px", fontSize: 13, fontWeight: 700, border: "1px solid rgba(11,74,125,0.3)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}>
+        <select value={billingQ} onChange={(e) => setBillingQ(e.target.value as Quarter)} className="select-brand select-sm">
           {QUARTERS.map((qq) => <option key={qq} value={qq}>{qq} {year}</option>)}
         </select>
       </div>

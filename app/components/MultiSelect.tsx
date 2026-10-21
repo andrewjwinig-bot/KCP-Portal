@@ -144,11 +144,7 @@ export function MultiSelect({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Find an option"
-            style={{
-              padding: "6px 8px", fontSize: 13, fontFamily: "inherit",
-              border: "1px solid var(--border)", borderRadius: 6,
-              background: "var(--card)", color: "var(--text)", outline: "none",
-            }}
+            style={{ boxSizing: "border-box" }}
           />
           {filtered.length === 0 && (
             <div style={{ fontSize: 12, color: "var(--muted)", padding: "4px 6px" }}>

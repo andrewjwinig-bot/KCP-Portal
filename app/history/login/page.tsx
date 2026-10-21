@@ -49,7 +49,6 @@ function LoginForm() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
-          style={{ padding: "8px 10px", fontSize: 14, borderRadius: 7, border: "1px solid var(--border)" }}
         />
         {error && <div style={{ color: "#b42318", fontSize: 13 }}>{error}</div>}
         <button type="submit" className="btn" disabled={busy || !password}>

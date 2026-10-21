@@ -37,7 +37,6 @@ function depositStatus(d: Deposit): { label: string; tone: PillTone } {
   return { label: "Held", tone: TONE_AMBER };
 }
 
-const inputStyle: React.CSSProperties = { borderRadius: 8, padding: "8px 12px", fontSize: 13, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)" };
 const th: React.CSSProperties = { textAlign: "left", padding: "6px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)" };
 const td: React.CSSProperties = { padding: "8px 10px", fontSize: 13, borderBottom: "1px solid var(--border)" };
 const numTd: React.CSSProperties = { ...td, textAlign: "right", fontVariantNumeric: "tabular-nums" };
@@ -86,8 +85,8 @@ export default function PastTenantsPage() {
       </p>
 
       <div className="card" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tenant, unit, or property…" style={{ ...inputStyle, flex: "1 1 280px" }} />
-        <select value={prop} onChange={(e) => setProp(e.target.value)} style={inputStyle}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tenant, unit, or property…" style={{ flex: "1 1 280px" }} />
+        <select value={prop} onChange={(e) => setProp(e.target.value)}>
           <option value="">All properties</option>
           {properties.map(([code, name]) => <option key={code} value={code}>{code} · {name}</option>)}
         </select>

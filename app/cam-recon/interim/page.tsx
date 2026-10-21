@@ -740,7 +740,7 @@ export default function InterimReconPage() {
         </div>
         <p className="muted small" style={{ marginTop: 0 }}>Draft — review and edit before sending. Figures are pulled from the statement.</p>
         <textarea value={letterText} onChange={(e) => setLetterText(e.target.value)}
-          style={{ width: "100%", minHeight: 300, fontSize: 13, lineHeight: 1.5, padding: 12, borderRadius: 8, border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", fontFamily: "inherit", resize: "vertical" }} />
+          style={{ width: "100%", minHeight: 300, lineHeight: 1.5, resize: "vertical" }} />
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 10 }}>
           <button className="btn" onClick={() => { navigator.clipboard?.writeText(letterText).catch(() => {}); }} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Copy</button>
           <button className="btn primary" onClick={() => {

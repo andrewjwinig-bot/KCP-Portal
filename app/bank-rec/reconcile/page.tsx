@@ -89,8 +89,7 @@ export default function BankReconcilePage() {
   return (
     <main style={{ maxWidth: 1180 }}>
       <header style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: BRAND }}>Banking</div>
-        <h1 style={{ margin: "2px 0 0" }}>Bank Reconciliation</h1>
+        <h1 style={{ margin: 0 }}>Bank Reconciliation</h1>
         <div className="muted small" style={{ marginTop: 4 }}>Reconciles the bank statement against the GL cash account already imported to Operating Statements. Pick an account, choose the month, and import the bank CSV.</div>
       </header>
 

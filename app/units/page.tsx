@@ -317,11 +317,7 @@ export default function UnitInfoIndexPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by tenant, unit, or property…"
-            style={{
-              flex: "1 1 260px", maxWidth: 420, padding: "8px 12px", fontSize: 14,
-              borderRadius: 9, border: "1px solid var(--border)", background: "var(--card)",
-              color: "var(--text)",
-            }}
+            style={{ flex: "1 1 260px", maxWidth: 420 }}
           />
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}>
             <input type="checkbox" checked={vacantOnly} onChange={(e) => setVacantOnly(e.target.checked)} />

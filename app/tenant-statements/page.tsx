@@ -484,12 +484,12 @@ export default function TenantStatementsPage() {
               )}
 
               <div className="card" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <select value={property} onChange={(e) => setProperty(e.target.value)} style={{ fontSize: 13, padding: "6px 10px" }}>
+                <select value={property} onChange={(e) => setProperty(e.target.value)}>
                   <option value="All">All properties</option>
                   {detail.properties.map((p) => <option key={p.code} value={p.code}>{p.code} — {p.name}</option>)}
                 </select>
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tenant or unit…"
-                  style={{ fontSize: 13, padding: "6px 10px", minWidth: 220, flex: "1 1 220px" }} />
+                  style={{ minWidth: 220, flex: "1 1 220px" }} />
                 <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
                   <input type="checkbox" checked={onlyOwing} onChange={(e) => setOnlyOwing(e.target.checked)} />
                   Only tenants with a balance
@@ -498,8 +498,7 @@ export default function TenantStatementsPage() {
                   <input type="checkbox" checked={onlyUnshared} onChange={(e) => setOnlyUnshared(e.target.checked)} />
                   Not shared yet
                 </label>
-                <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort tenants"
-                  style={{ fontSize: 13, padding: "6px 10px" }}>
+                <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort tenants">
                   <option value="statement">Statement order</option>
                   <option value="balance">Largest balance first</option>
                 </select>
@@ -720,7 +719,7 @@ function RecordPayment({ t, period, onDone }: { t: TenantRow; period: string; on
     <label style={{ display: "block", width }}>
       <div style={SECTION_LABEL}>{label}</div>
       <input value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder}
-        style={{ width: "100%", marginTop: 4, fontSize: 13.5, padding: "6px 9px", fontFamily: "inherit" }} />
+        style={{ width: "100%", marginTop: 4, boxSizing: "border-box" }} />
     </label>
   );
 
@@ -745,7 +744,7 @@ function RecordPayment({ t, period, onDone }: { t: TenantRow; period: string; on
           <label style={{ display: "block", marginTop: 10 }}>
             <div style={SECTION_LABEL}>Note to the tenant (optional)</div>
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-              style={{ width: "100%", marginTop: 4, fontSize: 13.5, padding: "7px 9px", fontFamily: "inherit", resize: "vertical" }} />
+              style={{ width: "100%", marginTop: 4, boxSizing: "border-box", resize: "vertical" }} />
           </label>
           {msg && <div style={{ color: "#b45309", fontSize: 12.5, fontWeight: 600, marginTop: 10 }}>{msg}</div>}
           <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
@@ -1071,10 +1070,10 @@ function PaymentCard({ properties, onClose, by }: { properties: { code: string; 
       <div style={SECTION_LABEL}>{label}</div>
       {rows ? (
         <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={rows}
-          style={{ width: "100%", marginTop: 5, fontSize: 13.5, padding: "7px 9px", fontFamily: "inherit", resize: "vertical" }} />
+          style={{ width: "100%", marginTop: 5, boxSizing: "border-box", resize: "vertical" }} />
       ) : (
         <input value={value} onChange={(e) => onChange(e.target.value)}
-          style={{ width: "100%", marginTop: 5, fontSize: 13.5, padding: "7px 9px", fontFamily: "inherit" }} />
+          style={{ width: "100%", marginTop: 5, boxSizing: "border-box" }} />
       )}
     </label>
   );
@@ -1089,7 +1088,7 @@ function PaymentCard({ properties, onClose, by }: { properties: { code: string; 
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <select value={key} onChange={(e) => setKey(e.target.value)} style={{ fontSize: 13, padding: "6px 10px" }}>
+          <select value={key} onChange={(e) => setKey(e.target.value)}>
             <option value="default">All properties</option>
             {properties.map((p) => <option key={p.code} value={p.code}>{p.code} — {p.name}</option>)}
           </select>

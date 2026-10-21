@@ -1388,7 +1388,7 @@ export default function ExpensesPage() {
             {Object.values(colFilters).some((v) => v.trim()) && (
               <button className="btn" style={{ fontSize: 12, padding: "5px 10px" }} onClick={() => setColFilters({})}>Clear Filters</button>
             )}
-            <input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ fontSize: 13, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", outline: "none", width: 160 }} />
+            <input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 160 }} />
           </div>
         </div>
 
@@ -1464,13 +1464,13 @@ export default function ExpensesPage() {
                     <td style={{ padding: "10px" }}>{toMoney(t.amount)}</td>
                     <td style={{ padding: "10px", whiteSpace: "pre-wrap" }}>{displayDesc}</td>
                     <td style={{ padding: "8px" }}>
-                      <select value={t.category} onChange={(e) => updateTx(t.id, { category: e.target.value, suite: e.target.value === "TI" ? t.suite : "" })} style={{ fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)", width: "100%" }}>
+                      <select value={t.category} onChange={(e) => updateTx(t.id, { category: e.target.value, suite: e.target.value === "TI" ? t.suite : "" })} style={{ width: "100%", boxSizing: "border-box" }}>
                         <option value="">—</option>
                         {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </td>
                     <td style={{ padding: "8px" }}>
-                      <select value={t.propertyId} onChange={(e) => updateTx(t.id, { propertyId: e.target.value })} style={{ fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)", width: "100%" }}>
+                      <select value={t.propertyId} onChange={(e) => updateTx(t.id, { propertyId: e.target.value })} style={{ width: "100%", boxSizing: "border-box" }}>
                         <option value="">—</option>
                         {properties.map((p) => <option key={p.id} value={p.id}>{p.id} — {p.name}</option>)}
                       </select>
@@ -1482,10 +1482,10 @@ export default function ExpensesPage() {
                       </td>
                     )}
                     <td style={{ padding: "8px" }}>
-                      <input value={t.category === "TI" ? t.suite : ""} disabled={t.category !== "TI"} placeholder={t.category === "TI" ? "Suite (required)" : "—"} onChange={(e) => updateTx(t.id, { suite: e.target.value })} style={{ fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)", width: "100%" }} />
+                      <input value={t.category === "TI" ? t.suite : ""} disabled={t.category !== "TI"} placeholder={t.category === "TI" ? "Suite (required)" : "—"} onChange={(e) => updateTx(t.id, { suite: e.target.value })} style={{ width: "100%", boxSizing: "border-box" }} />
                     </td>
                     <td style={{ padding: "8px" }}>
-                      <input value={t.codedDescription} placeholder="Line item description…" onChange={(e) => updateTx(t.id, { codedDescription: e.target.value })} style={{ fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)", width: "100%" }} />
+                      <input value={t.codedDescription} placeholder="Line item description…" onChange={(e) => updateTx(t.id, { codedDescription: e.target.value })} style={{ width: "100%", boxSizing: "border-box" }} />
                     </td>
                     <td style={{ padding: "8px", whiteSpace: "nowrap" }}>
                       {(() => {
