@@ -33,7 +33,8 @@ export function pickDeposit(all: SecurityDeposit[], unitRef: string, name: strin
 export function depositSettlement(d: SecurityDeposit | null, balance: number): CloseOutDeposit | null {
   if (!d) return null;
   const status = d.refunded ? "refunded" : d.tenantDefaulted ? "forfeited" : d.partialRefund ? "partial" : "held";
-  const applies = status === "held" || status === "partial";
+  // A deposit on file with no amount keyed applies nothing — never a $0 credit.
+  const applies = (status === "held" || status === "partial") && d.amount > 0;
   return { amount: d.amount, status, net: applies ? d.amount - balance : null };
 }
 

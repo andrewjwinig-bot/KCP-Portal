@@ -5,6 +5,11 @@ import { Calendar } from "@/app/components/Calendar";
 import { upload as blobUpload } from "@vercel/blob/client";
 import { accountForProperty, DEPOSIT_ACCOUNTS, depositDupKey, type SecurityDeposit } from "@/lib/deposits/deposits";
 
+/** The typed amount as dollars. "25,496" and "$25,496.00" are what people
+ *  type; bare Number() read them as NaN → $0, which saved SEOM's $25,496
+ *  deposit (3640-300) as $0 and dropped it from the move-out settlement. */
+const amountNum = (v: string) => { const n = Number(String(v ?? "").replace(/[$,\s]/g, "")); return Number.isFinite(n) ? n : 0; };
+
 export type UnitOption = {
   unitRef: string;
   label: string;
@@ -132,7 +137,7 @@ export default function DepositForm({
   // legitimately pay via multiple checks — but a match is usually a double-entry.
   const dupMatch = (() => {
     if (!unit) return null;
-    const sig = depositDupKey({ checkNumber, amount: Number(amount) || 0, checkDate });
+    const sig = depositDupKey({ checkNumber, amount: amountNum(amount) || 0, checkDate });
     if (!sig) return null;
     return (allDeposits ?? []).find(
       (x) => x.id !== editId && x.unitRef === unit.unitRef && depositDupKey(x) === sig,
@@ -182,7 +187,7 @@ export default function DepositForm({
       propertyCode: unit.propertyCode,
       tenantCompany: unit.tenantCompany,
       checkNumber,
-      amount: Number(amount) || 0,
+      amount: amountNum(amount) || 0,
       checkDate,
       notes,
       refunded,
@@ -247,7 +252,7 @@ export default function DepositForm({
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function autosave() {
-    if (!unit || !(Number(amount) > 0)) return;
+    if (!unit || !(amountNum(amount) > 0)) return;
     if (savingRef.current) { dirtyRef.current = true; return; }
     savingRef.current = true;
     setAutoStatus("saving");
@@ -267,7 +272,7 @@ export default function DepositForm({
 
   useEffect(() => {
     if (firstRun.current) { firstRun.current = false; return; }
-    if (!unit || !(Number(amount) > 0)) return;
+    if (!unit || !(amountNum(amount) > 0)) return;
     setAutoStatus("pending");
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => { void autosave(); }, 500);
@@ -279,15 +284,15 @@ export default function DepositForm({
   // right then instead of waiting out the debounce.
   function flushSave() {
     if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
-    if (unit && Number(amount) > 0) void autosave();
+    if (unit && amountNum(amount) > 0) void autosave();
   }
 
   async function save(addAnother = false) {
     if (!unit) { setError("Pick a unit."); return; }
     // "Done" on an untouched new form (no record yet, no amount) just closes —
     // never create a blank deposit.
-    if (!addAnother && !editIdRef.current && !(Number(amount) > 0)) { onCancel(); return; }
-    if (addAnother && !(Number(amount) > 0)) {
+    if (!addAnother && !editIdRef.current && !(amountNum(amount) > 0)) { onCancel(); return; }
+    if (addAnother && !(amountNum(amount) > 0)) {
       setError("Enter this check's amount before adding another.");
       return;
     }

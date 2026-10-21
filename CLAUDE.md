@@ -430,7 +430,21 @@ button (`POST /api/cam-recon/moveout/statement`), which takes ONLY that
 tenant's statement from the file (`pickTenantStatement` — any file, even a
 whole property's, moves no one else) and files it in its newest charge month
 or the month already holding the tenant, whichever is later. The approval
-email asks for it before approving. The move-out statement's expense tables
+email asks for it before approving. **The move-out page is ONE Final Bill
+card at the top, answer first** (owner: "i dont even know what the number is
+theres too much going on"): the balance due / refund in large type, then three
+lines — reconciliation (the statement below is its working), unpaid charges
+(hover for the breakdown; the Import / Re-import final statement button sits on
+that line), security deposit — and the bottom line. It REPLACED the "Move-out
+close-out package" card and the Final Bill block inside the statement, which
+showed the same figures twice. The statement's own total now reads
+"Reconciliation Balance". **One way to pick a tenant**: the move-out candidate
+list; Building / Year / Tenant / As of (and manual entry) open only behind
+"Other tenant / as of…" (or with no candidates, a manual worksheet, or an
+error). **A deposit with no amount keyed applies nothing** and says so
+(`depositSettlement` / the card) — the Deposits form read "25,496" as $0
+(`Number` on a comma), which saved SEOM's deposit at $0; it now parses
+`amountNum`. The move-out statement's expense tables
 HIDE the Acct column by default (owner: "clean this up and simplify it") — an
 "Account codes" checkbox in the statement header shows them, remembered per
 browser (`kcp.interim.showAcct`). Pinned by

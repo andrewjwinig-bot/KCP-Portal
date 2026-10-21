@@ -358,7 +358,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
         </div>
       </div>
 
-      <FinalBalanceRow label="Total Interim Balance" value={totalBal} />
+      <FinalBalanceRow label="Reconciliation Balance" value={totalBal} />
       <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
         Manual worksheet — base year &amp; actuals are seeded from the building&apos;s expense history + GL; edit any of them live. A positive balance is owed by the tenant; a credit is refunded.
       </p>
@@ -539,24 +539,6 @@ export default function InterimReconPage() {
     } catch (e) { setStmtMsg({ ok: false, text: String(e) }); }
     finally { setStmtBusy(false); if (stmtFileRef.current) stmtFileRef.current.value = ""; }
   }, [meta, metaName, user?.label]);
-  const finalStatementStep = !!meta && !meta.manual && (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 12px", marginBottom: 8, borderRadius: 8,
-      border: `1px solid ${openAr ? "var(--border)" : "#d9770655"}`, background: openAr ? "transparent" : "rgba(217,119,6,0.06)" }}>
-      <div style={{ fontSize: 13 }}>
-        <b>Step: final statement from Skyline</b>
-        <span className="muted"> · {openAr
-          ? <>imported {openAr.asOf ? new Date(openAr.asOf).toLocaleDateString("en-US") : ""} — re-import once the last charges (final electric) post</>
-          : <>not imported — run Skyline&rsquo;s Statement report for this tenant alone (a moved-out tenant is {meta.unitRef}-FO)</>}</span>
-        {stmtMsg && <div style={{ fontSize: 12, fontWeight: 600, marginTop: 3, color: stmtMsg.ok ? "#15803d" : "#b91c1c" }}>{stmtMsg.text}</div>}
-      </div>
-      <input ref={stmtFileRef} type="file" accept=".xls,.xlsx" style={{ display: "none" }}
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) importFinalStatement(f); }} />
-      <button className={openAr ? "btn" : "btn primary"} disabled={stmtBusy} onClick={() => stmtFileRef.current?.click()}
-        style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>
-        {stmtBusy ? "Importing…" : openAr ? "Re-import final statement" : "Import final statement"}
-      </button>
-    </div>
-  );
   // Account codes are off by default (owner: "hide or at least default to
   // toggle off the account codes … to clean this up"); remembered per browser.
   const [showAcct, setShowAcct] = useState(false);
@@ -567,6 +549,11 @@ export default function InterimReconPage() {
       <input type="checkbox" checked={showAcct} onChange={(e) => toggleAcct(e.target.checked)} /> Account codes
     </label>
   );
+  // ONE way to pick a tenant: the move-out candidate list. Building / Year /
+  // Tenant / As of (and manual entry) open only on request — or when there
+  // is no candidate list, a manual worksheet is open, or something failed.
+  const [showPicker, setShowPicker] = useState(false);
+  const pickerOpen = showPicker || candidates.length === 0 || isManual || !!error;
   const grandTotal = totalDueOf(totalBalance, openAr);
   const depositAppliesNow = deposit != null && (deposit.status === "held" || deposit.status === "partial");
   // The settlement page the downloads append — the SAME page the final PDF carries.
@@ -737,46 +724,39 @@ export default function InterimReconPage() {
   }, [meta]);
   const finalizeDone = (finalizeMsg ?? "").startsWith("✓");
 
-  // THE FINAL BILL, on the statement itself (owner: "it is the tenants final
-  // bill - cam due and unpaid items as well"): the true-up above, every unpaid
-  // charge still on the account, the deposit applied, and what is left. The
-  // escrow line above stays as BILLED — unpaid months are collected here.
-  const finalBill = !!meta && !meta.manual && openAr && (
-    <div style={{ marginTop: 18, paddingTop: 12, borderTop: "2px solid var(--border)" }}>
-      <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Final Bill</div>
-      {finalStatementStep}
-      <BalanceRow label={`${retail ? "CAM / INS / RET" : "CAM / RET"} reconciliation (above)`} value={money(totalBalance)} />
-      <BalanceRow label={`Unpaid charges on account${openAr.asOf ? ` (as of ${new Date(openAr.asOf).toLocaleDateString("en-US")})` : ""}`} value={money(openAr.balance)} />
-      {openAr.byCategory.map((k) => (
-        <div key={k.category} className="muted" style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "1px 0 1px 16px" }}>
-          <span>{k.label}</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{money(k.amount)}</span>
-        </div>
-      ))}
-      {escrowNote(openAr) && <div className="muted small" style={{ fontStyle: "italic", margin: "4px 0 2px 16px" }}>{escrowNote(openAr)}</div>}
-      {openAr.nameMatched === false && (
-        <div className="small" style={{ color: "#b45309", margin: "4px 0 2px 16px" }}>From the suite&rsquo;s statement under &ldquo;{openAr.tenantName}&rdquo; — check it is this tenant.</div>
-      )}
-      <BalanceRow label="Total due" value={money(grandTotal)} strong />
-      {deposit && depositAppliesNow && (
-        <BalanceRow label={`Less: security deposit${deposit.checkNumber ? ` (ck# ${deposit.checkNumber})` : ""}`} value={money(-deposit.amount)} />
-      )}
-      <FinalBalanceRow label={deposit && depositAppliesNow ? "Final Balance" : "Total Due"} value={deposit && depositAppliesNow ? grandTotal - deposit.amount : grandTotal} />
+  // THE FINAL BILL — ONE card, at the top, answer first (owner: "i dont even
+  // know what the number is theres too much going on"). The tenant's last
+  // bill: the CAM/RET true-up (the statement below is its working), every
+  // unpaid charge still on the account, less the deposit = what is left. The
+  // tenant's final Skyline statement is imported right on its line.
+  const depAmt = deposit && depositApplies && deposit.amount > 0 ? deposit.amount : 0;
+  const finalNet = grandTotal - depAmt; // >0 owed by the tenant, <0 refund
+  const shortEscrow = openAr && openAr.escrowUnpaid >= 0.005
+    ? `Includes ${money(openAr.escrowUnpaid)} of estimates billed ${openAr.escrowMonths} and not paid (credited as billed in the reconciliation).`
+    : null;
+  const lineRow = (label: React.ReactNode, value: React.ReactNode, sub?: React.ReactNode) => (
+    <div style={{ padding: "9px 0", borderTop: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, fontSize: 14 }}>
+        <span>{label}</span><span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{value}</span>
+      </div>
+      {sub && <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{sub}</div>}
     </div>
   );
-
-  const noStatementNote = !!meta && !meta.manual && !openAr && (
-    <div style={{ marginTop: 18, paddingTop: 12, borderTop: "2px solid var(--border)" }}>
-      <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Final Bill</div>
-      {finalStatementStep}
-    </div>
-  );
-
-  const closeOutCard = (r || retail) && meta && (
+  const signed = (n: number) => n < 0 ? `(${money(Math.abs(n))})` : money(n);
+  const finalBillCard = (r || retail) && meta && (
     <div className="card">
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
-        <div style={{ fontSize: 16, fontWeight: 800 }}>Move-out close-out package</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <AllowedLink href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>Deposits →</AllowedLink>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ ...secLabel, color: "#0b4a7d" }}>Final Bill · {meta.name}</div>
+          <div style={{ fontSize: 30, fontWeight: 900, marginTop: 4, color: finalNet > 0.5 ? "#b91c1c" : finalNet < -0.5 ? "#15803d" : "var(--text)", fontVariantNumeric: "tabular-nums" }}>
+            {money(Math.abs(finalNet))}
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>
+            {finalNet > 0.5 ? "due from the tenant" : finalNet < -0.5 ? "refund to the tenant" : "nothing due"}
+            {!openAr && !meta.manual ? " · before their unpaid charges" : ""}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {letterButton}
           {canFinalize && (
             <button className="btn primary" onClick={approveFinalize} disabled={finalizing || finalizeDone}
@@ -785,62 +765,55 @@ export default function InterimReconPage() {
               {finalizing ? "Finalizing…" : finalizeDone ? "✓ Finalized" : "Approve & finalize"}
             </button>
           )}
-          {!confirmedGone && !meta.manual && (
-            <span className="muted small" style={{ maxWidth: 260 }}>
-              Still on the rent roll — an interim statement only. It can be finalized once a rent roll no longer shows them.
-            </span>
-          )}
         </div>
       </div>
-      {finalizeMsg && (
-        <div style={{ fontSize: 13, marginBottom: 10, fontWeight: 600, color: finalizeDone ? "#15803d" : "#b91c1c" }}>{finalizeMsg}</div>
+      {finalizeMsg && <div style={{ fontSize: 13, marginTop: 8, fontWeight: 600, color: finalizeDone ? "#15803d" : "#b91c1c" }}>{finalizeMsg}</div>}
+      {!confirmedGone && !meta.manual && (
+        <div className="muted small" style={{ marginTop: 6 }}>Still on the rent roll — an interim statement only; it can be finalized once a rent roll no longer shows them.</div>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14 }}>
-          <span>1 · Final {retail ? "CAM/INS/RET" : "CAM/RET"} reconciliation {owedByTenant ? "due from tenant" : "credit to tenant"}</span>
-          <b style={{ color: owedByTenant ? "#b91c1c" : "#15803d" }}>{money(Math.abs(totalBalance))}</b>
+
+      <div style={{ marginTop: 14 }}>
+        {lineRow(`${retail ? "CAM / INS / RET" : "CAM / RET"} reconciliation`, signed(totalBalance),
+          totalBalance < -0.5 ? "A credit — the statement below shows the working." : "The statement below shows the working.")}
+
+        {!meta.manual && lineRow(
+          <>Unpaid charges on account{openAr?.asOf ? <span className="muted"> · as of {new Date(openAr.asOf).toLocaleDateString("en-US")}</span> : ""}</>,
+          openAr
+            ? <HoverCard title="Unpaid charges" rows={openAr.byCategory.map((k) => ({ label: k.label, value: money(k.amount) }))} footer={{ label: "Total", value: money(openAr.balance) }}>
+                <span style={{ cursor: "help", borderBottom: "1px dotted var(--muted)" }}>{money(openAr.balance)}</span>
+              </HoverCard>
+            : <span className="muted" style={{ fontWeight: 500 }}>not imported</span>,
+          <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span>
+              {openAr ? (shortEscrow ?? "From their final Skyline statement.") : <>Import the tenant&rsquo;s final Skyline statement (a moved-out tenant is <code>{meta.unitRef}-FO</code>).</>}
+              {openAr?.nameMatched === false && <span style={{ color: "#b45309" }}> Filed under &ldquo;{openAr.tenantName}&rdquo; — check it is this tenant.</span>}
+              {stmtMsg && <span style={{ fontWeight: 600, color: stmtMsg.ok ? "#15803d" : "#b91c1c" }}> {stmtMsg.text}</span>}
+            </span>
+            <input ref={stmtFileRef} type="file" accept=".xls,.xlsx" style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importFinalStatement(f); }} />
+            <button className={openAr ? "btn sm" : "btn sm primary"} disabled={stmtBusy} onClick={() => stmtFileRef.current?.click()}>
+              {stmtBusy ? "Importing…" : openAr ? "Re-import" : "Import final statement"}
+            </button>
+          </span>,
+        )}
+
+        {lineRow(
+          <>Security deposit{deposit?.checkNumber ? <span className="muted"> · ck# {deposit.checkNumber}</span> : ""}</>,
+          depAmt ? signed(-depAmt) : <span className="muted" style={{ fontWeight: 500 }}>—</span>,
+          !deposit
+            ? <>None on record — <AllowedLink href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#0b4a7d" }}>add it on Deposits</AllowedLink>.</>
+            : !depositApplies
+              ? `${depositStatusLabel[deposit.status]} — not applied.`
+              : !(deposit.amount > 0)
+                ? <span style={{ color: "#b45309" }}>On file with no amount — <AllowedLink href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#b45309", fontWeight: 700 }}>enter it on Deposits</AllowedLink>.</span>
+                : null,
+        )}
+
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0 0", borderTop: "2px solid var(--text)", fontSize: 15, fontWeight: 800 }}>
+          <span>{finalNet >= 0 ? "Balance due from tenant" : "Refund to tenant"}</span>
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>{money(Math.abs(finalNet))}</span>
         </div>
-        {!meta.manual && (
-          <div style={{ borderTop: "1px solid var(--border)", paddingTop: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14 }}>
-              <span>2 · Open balance on account {openAr?.asOf ? <span className="muted" style={{ fontWeight: 600 }}>· as of {new Date(openAr.asOf).toLocaleDateString("en-US")}</span> : ""}</span>
-              {openAr
-                ? <HoverCard title="Open charges" rows={openAr.byCategory.map((k) => ({ label: k.label, value: money(k.amount) }))} footer={{ label: "Open balance", value: money(openAr.balance) }}>
-                    <b style={{ color: openAr.balance > 0 ? "#b91c1c" : "#15803d", cursor: "help" }}>{money(openAr.balance)}</b>
-                  </HoverCard>
-                : <span className="muted" style={{ fontStyle: "italic" }}>No monthly statement on file — check Skyline</span>}
-            </div>
-            {escrowNote(openAr) && <div className="muted small" style={{ marginTop: 3, fontStyle: "italic" }}>{escrowNote(openAr)}</div>}
-          </div>
-        )}
-        {openAr && (
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, fontWeight: 700, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
-            <span>Total due {grandTotal >= 0 ? "from tenant" : "to tenant"}</span>
-            <span style={{ color: grandTotal >= 0 ? "#b91c1c" : "#15803d" }}>{money(Math.abs(grandTotal))}</span>
-          </div>
-        )}
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, borderTop: "1px solid var(--border)", paddingTop: 8 }}>
-          <span>{meta.manual ? 2 : 3} · Security deposit {deposit ? <span className="muted" style={{ fontWeight: 600 }}>· {depositStatusLabel[deposit.status]}{deposit.checkNumber ? ` · ck# ${deposit.checkNumber}` : ""}</span> : ""}</span>
-          {deposit
-            ? <b>{money(deposit.amount)}</b>
-            : <span className="muted" style={{ fontStyle: "italic" }}>None on record — <Link href={`/deposits?unitRef=${encodeURIComponent(meta.unitRef)}`} style={{ color: "#0b4a7d" }}>add one</Link></span>}
-        </div>
-        {netToTenant != null && (
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 15, fontWeight: 800, borderTop: "2px solid var(--border)", paddingTop: 8, marginTop: 2 }}>
-            <span>{meta.manual ? 3 : 4} · Net settlement — {netToTenant >= 0 ? "refund to tenant" : "still due from tenant"}</span>
-            <span style={{ color: netToTenant >= 0 ? "#15803d" : "#b91c1c" }}>{money(Math.abs(netToTenant))}</span>
-          </div>
-        )}
       </div>
-      <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
-        {deposit
-          ? (depositApplies
-              ? (openAr
-                  ? "The deposit is applied against everything owed — the reconciliation and the open balance — to net the settlement. The statement PDF carries this as its Final Settlement page; nothing is sent automatically."
-                  : "The deposit is applied against the reconciliation balance to net the settlement. Draft the letter to send all three together; nothing is sent automatically.")
-              : "This deposit is no longer on file, so it isn't netted here. Draft the letter for the reconciliation balance.")
-          : "No security deposit is on record for this unit. Add it on the Deposits page to net it into the settlement and the letter."}
-      </p>
     </div>
   );
 
@@ -881,11 +854,13 @@ export default function InterimReconPage() {
               })}
             </select>
           </label>
-          <span className="muted small" style={{ paddingBottom: 8 }}>…or use Building / Tenant below to pick or add one manually.</span>
+          <button className="btn sm" onClick={() => setShowPicker((v) => !v)} style={{ marginBottom: 4 }}>
+            {pickerOpen ? "Hide other options" : "Other tenant / as of…"}
+          </button>
         </div>
       )}
 
-      <div className="card">
+      {pickerOpen && <div className="card">
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
           <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, fontWeight: 600 }}>Building
             <select value={property} onChange={(e) => { setProperty(e.target.value); setUnitRef(""); setData(null); setAsOf(""); }} className={SELECT_BRAND}>
@@ -974,7 +949,9 @@ export default function InterimReconPage() {
             {manualMsg && <span style={{ fontSize: 13, color: "#b42318" }}>{manualMsg}</span>}
           </div>
         )}
-      </div>
+      </div>}
+
+      {finalBillCard}
 
       {r && meta && meta.manual && (
         <EditableOfficeStatement key={`${meta.unitRef}|${meta.name}|${meta.proRataPct}`} r={r} meta={meta} baseYears={baseYears} onBaseYear={(y) => generateManual({ baseYear: y })} />
@@ -1021,10 +998,9 @@ export default function InterimReconPage() {
               occupiedMonths={r.occupiedMonths} asOfLabel={asOfLabel} reconYear={meta.year} monthly={meta.reTaxMonth} showAcct={showAcct} />
           </div>
 
-          <FinalBalanceRow label="Total Interim Balance" value={r.opexBalance + r.retBalance} />
-          {finalBill || noStatementNote}
+          <FinalBalanceRow label="Reconciliation Balance" value={r.opexBalance + r.retBalance} />
           <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
-            A positive balance is owed by the tenant; a credit is refunded. {finalBill ? <>The reconciliation credits escrow as billed; anything billed and not paid is in the unpaid charges. Unpaid charges are as of the last Skyline Statement import.</> : <>This is an interim figure as of {MONTHS[r.asOfMonth - 1]} {meta.year} — the move-out close-out (with the security-deposit return) follows.</>}
+            A positive balance is owed by the tenant; a credit is refunded. This is an interim figure as of {MONTHS[r.asOfMonth - 1]} {meta.year} — the Final Bill above carries it, with the unpaid charges and the deposit.
           </p>
         </div>
       )}
@@ -1088,14 +1064,12 @@ export default function InterimReconPage() {
               <FinalBalanceRow label="RET Balance" value={retail.retBalance} />
             </div>
           </div>
-          <FinalBalanceRow label="Total Interim Balance" value={retail.camBalance + retail.insBalance + retail.retBalance} />
-          {finalBill || noStatementNote}
+          <FinalBalanceRow label="Reconciliation Balance" value={retail.camBalance + retail.insBalance + retail.retBalance} />
           <p className="muted small" style={{ marginTop: 10, marginBottom: 0 }}>
-            A positive balance is owed by the tenant; a credit is refunded. CAM pulls live YTD actuals from the GL; INS &amp; RET prorate the property pool to the occupied months. {finalBill ? <>Escrow is credited as billed; anything billed and not paid is in the unpaid charges, as of the last Skyline Statement import.</> : <>Interim figure as of {MONTHS[retail.asOfMonth - 1]} {meta.year} — the move-out close-out (with the security-deposit return) follows.</>}
+            A positive balance is owed by the tenant; a credit is refunded. CAM pulls live YTD actuals from the GL; INS &amp; RET prorate the property pool to the occupied months. Interim figure as of {MONTHS[retail.asOfMonth - 1]} {meta.year} — the Final Bill above carries it, with the unpaid charges and the deposit.
           </p>
         </div>
       )}
-      {closeOutCard}
       {letterModal}
     </main>
   );
