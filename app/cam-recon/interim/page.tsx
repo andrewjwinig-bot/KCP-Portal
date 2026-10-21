@@ -18,7 +18,8 @@ import { Calendar } from "@/app/components/Calendar";
 import { useUser } from "@/app/components/UserProvider";
 import { HoverCard } from "@/app/components/HoverCard";
 import { escrowNote, escrowClause, totalDue as totalDueOf, type MoveoutOpenAr } from "@/lib/cam/moveout/openAr";
-import { drawSettlement } from "@/lib/cam/moveout/settlementPdf";
+import { drawSettlement, drawUnpaidDetail, drawDepositDetail, type DepositDetail } from "@/lib/cam/moveout/settlementPdf";
+import { blobSrc } from "@/lib/blobProxy";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 /** Percent to at most 2 decimals, trailing zeros dropped (2.2626… → "2.26", 5 → "5"). */
@@ -610,10 +611,38 @@ export default function InterimReconPage() {
   // for all of it comprehensively?"): the Final Settlement first — the answer —
   // then the reconciliation behind its first line. The emailed final
   // statement (artifacts.ts) is laid out the same way.
+  const settleHead = (kind: "office" | "retail", name: string, suite: string, asOfMonth: number) =>
+    ({ kind, name, suite, property: meta!.property, propertyName: meta!.propertyName, asOfMonth, year: meta!.year });
   const settlementFirst = (doc: unknown, kind: "office" | "retail", name: string, suite: string, asOfMonth: number) => {
     if (!meta || meta.manual) return;
-    drawSettlement(doc, { kind, name, suite, property: meta.property, propertyName: meta.propertyName, asOfMonth, year: meta.year }, settlementFor());
+    drawSettlement(doc, settleHead(kind, name, suite, asOfMonth), settlementFor());
     (doc as { addPage: () => void }).addPage();
+  };
+  // After the reconciliation, the rest of the settlement's detail in its own
+  // order: 2 the unpaid charges, 3 the deposit — with the check image when one
+  // is on file (read through the authenticated blob proxy).
+  const detailAfter = async (doc: unknown, kind: "office" | "retail", name: string, suite: string, asOfMonth: number) => {
+    if (!meta || meta.manual) return;
+    const s = settlementFor();
+    const head = settleHead(kind, name, suite, asOfMonth);
+    const d = doc as { addPage: () => void };
+    if (s.openAr) { d.addPage(); drawUnpaidDetail(doc, head, s); }
+    if (s.deposit) {
+      const raw = deposit?.raw as { checkNumber?: string; checkDate?: string; notes?: string; checkImage?: { url: string; name: string; contentType: string } | null } | undefined;
+      const img = raw?.checkImage ?? null;
+      const detail: DepositDetail = { checkNumber: raw?.checkNumber, checkDate: raw?.checkDate, notes: raw?.notes, imageName: img?.name ?? null, imageType: img?.contentType ?? null, image: null };
+      const format = /png/i.test(img?.contentType ?? "") ? "PNG" : /jpe?g/i.test(img?.contentType ?? "") ? "JPEG" : null;
+      if (img && format) {
+        try {
+          const blob = await fetch(blobSrc(img.url)).then((r) => (r.ok ? r.blob() : null));
+          if (blob) {
+            const dataUrl = await new Promise<string>((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result)); fr.onerror = rej; fr.readAsDataURL(blob); });
+            detail.image = { dataUrl, format };
+          }
+        } catch { /* named, not drawn */ }
+      }
+      d.addPage(); drawDepositDetail(doc, head, s, detail);
+    }
   };
   const downloadPdf = useCallback(async () => {
     if (!r || !meta) return;
@@ -631,6 +660,7 @@ export default function InterimReconPage() {
         ...(r.unpostedMonths > 0 ? [`${r.unpostedMonths} occupied month(s) are not yet posted to the GL — figures are through the latest posted month.`] : []),
       ],
     });
+    await detailAfter(doc, "office", r.name, r.suite, r.asOfMonth);
     doc.save(`${meta.property}_${meta.year}_Suite${r.suite}_${r.name.replace(/[^\w]+/g, "_")}_${meta.manual ? "Interim_CAM_RET" : "Final_Bill"}.pdf`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [r, meta, settlementFor]);
@@ -649,6 +679,7 @@ export default function InterimReconPage() {
         ...(retail.unpostedMonths > 0 ? [`${retail.unpostedMonths} occupied month(s) are not yet posted to the GL — figures are through the latest posted month.`] : []),
       ],
     });
+    await detailAfter(doc, "retail", retail.name, retail.suite, retail.asOfMonth);
     doc.save(`${meta.property}_${meta.year}_Suite${retail.suite}_${retail.name.replace(/[^\w]+/g, "_")}_${meta.manual ? "Interim_CAM_INS_RET" : "Final_Bill"}.pdf`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [retail, meta, settlementFor]);
@@ -789,26 +820,21 @@ export default function InterimReconPage() {
     : null;
   const lineRow = (label: React.ReactNode, value: React.ReactNode, sub?: React.ReactNode) => (
     <div style={{ padding: "9px 0", borderTop: "1px solid var(--border)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, fontSize: 14 }}>
-        <span>{label}</span><span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{value}</span>
+      {/* The reconciliation's BalanceRow type (13px / 500), so the Final Bill
+          and the CAM rec below it read as one statement. */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, fontSize: 13, fontWeight: 500 }}>
+        <span>{label}</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{value}</span>
       </div>
       {sub && <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{sub}</div>}
     </div>
   );
-  const signed = (n: number) => n < 0 ? `(${money(Math.abs(n))})` : money(n);
+  const signed = (n: number) => money(n); // the CAM rec's own "-$3,144" style
   const finalBillCard = (r || retail) && meta && (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 800 }}>Final Bill</div>
           <div className="muted" style={{ fontSize: 14, fontWeight: 600, marginTop: 2 }}>{meta.name} <code style={{ fontSize: 12 }}>{meta.unitRef}</code></div>
-          <div style={{ fontSize: 30, fontWeight: 900, marginTop: 10, color: finalNet > 0.5 ? "#b91c1c" : finalNet < -0.5 ? "#15803d" : "var(--text)", fontVariantNumeric: "tabular-nums" }}>
-            {money(Math.abs(finalNet))}
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>
-            {finalNet > 0.5 ? "due from the tenant" : finalNet < -0.5 ? "refund to the tenant" : "nothing due"}
-            {!openAr && !meta.manual ? " · before their unpaid charges" : ""}
-          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button className="btn" onClick={retail ? downloadRetailPdf : downloadPdf} title="The final settlement, then the reconciliation — one PDF"
@@ -917,10 +943,11 @@ export default function InterimReconPage() {
           ),
         )}
 
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "10px 0 0", borderTop: "2px solid var(--text)", fontSize: 15, fontWeight: 800 }}>
-          <span>{finalNet >= 0 ? "Balance due from tenant" : "Refund to tenant"}</span>
-          <span style={{ fontVariantNumeric: "tabular-nums" }}>{money(Math.abs(finalNet))}</span>
-        </div>
+        {/* The CAM rec's own boxed balance row (owner: "format the total due
+            like how we show amounts due on the CAM rec page") — the one place
+            the answer is stated; no second big number above. */}
+        <FinalBalanceRow label={finalNet >= 0 ? "Balance Due From Tenant" : "Refund Due to Tenant"} value={finalNet} />
+        {!openAr && !meta.manual && <div className="muted small" style={{ marginTop: 6 }}>Before unpaid charges — import the final statement above.</div>}
       </div>
     </div>
   );

@@ -10,7 +10,7 @@ import { drawTenantStatement } from "@/lib/cam/office/statementPdf";
 import { chargeRowsToCSV, type SkylineChargeRow } from "@/lib/cam/office/exports";
 import type { MoveoutOk } from "./compute";
 import type { MoveoutSettlement } from "./deposit";
-import { drawSettlement } from "./settlementPdf";
+import { drawSettlement, drawUnpaidDetail, drawDepositDetail } from "./settlementPdf";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 type Ok = MoveoutOk;
@@ -37,9 +37,11 @@ export function buildMoveoutPdf(c: Ok, settlement?: MoveoutSettlement): Buffer {
     ? [`${c.result.unpostedMonths} occupied month(s) are not yet posted to the GL — figures are through the latest posted month.`]
     : [];
 
-  // The Final Settlement LEADS (the answer), the reconciliation follows.
+  // The settlement's own order: the Final Settlement (the answer), then each
+  // line's detail — 1 the reconciliation, 2 the unpaid charges, 3 the deposit.
+  const head = { kind: c.kind, name: c.result.name, suite: c.result.suite, property: meta.property, propertyName: meta.propertyName, asOfMonth: meta.asOfMonth, year: meta.year };
   if (settlement) {
-    drawSettlement(doc, { kind: c.kind, name: c.result.name, suite: c.result.suite, property: meta.property, propertyName: meta.propertyName, asOfMonth: meta.asOfMonth, year: meta.year }, settlement);
+    drawSettlement(doc, head, settlement);
     doc.addPage();
   }
   if (c.kind === "retail") {
@@ -63,6 +65,8 @@ export function buildMoveoutPdf(c: Ok, settlement?: MoveoutSettlement): Buffer {
       ],
     });
   }
+  if (settlement?.openAr) { doc.addPage(); drawUnpaidDetail(doc, head, settlement); }
+  if (settlement?.deposit) { doc.addPage(); drawDepositDetail(doc, head, settlement, settlement.depositDetail); }
   return Buffer.from(doc.output("arraybuffer"));
 }
 
