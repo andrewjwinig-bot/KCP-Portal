@@ -108,16 +108,8 @@ export default function TenantStatementsPage() {
   const [sort, setSort] = useState<"statement" | "balance">("statement");
   const [onlyReview, setOnlyReview] = useState(false);
   const [onlyUnshared, setOnlyUnshared] = useState(false);
-  // Auto-publish is on by default: a month where every tenant reconciles needs
-  // no ceremony. Remembered per browser so staff who prefer to stage keep it off.
-  const [autoPublish, setAutoPublish] = useState(true);
-  useEffect(() => {
-    try { setAutoPublish(localStorage.getItem("kcp.stmt.autoPublish") !== "0"); } catch { /* private mode */ }
-  }, []);
-  const changeAutoPublish = (v: boolean) => {
-    setAutoPublish(v);
-    try { localStorage.setItem("kcp.stmt.autoPublish", v ? "1" : "0"); } catch { /* private mode */ }
-  };
+  // A month where every tenant reconciles publishes itself on import — always
+  // (owner: "i dont think id ever uncheck that"; the per-browser opt-out is gone).
   const [expanded, setExpanded] = useState<string | null>(null);
   const [links, setLinks] = useState<LinksPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -177,7 +169,6 @@ export default function TenantStatementsPage() {
         const fd = new FormData();
         fd.append("file", file);
         fd.append("uploadedBy", user.label);
-        fd.append("autoPublish", autoPublish ? "1" : "0");
         const j = await fetch("/api/tenant-statements", { method: "POST", body: fd }).then((r) => r.json());
         if (!j.ok) return { status: "failed", error: j.error ?? "Import failed" };
         const untied: number = j.untied?.length ?? j.mismatched.length;
@@ -367,11 +358,6 @@ export default function TenantStatementsPage() {
               ]}
             />
           )}
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, cursor: "pointer", color: "var(--muted)" }}
-            title="A month where every tenant reconciles to Skyline's balance goes live on import. Anything that doesn't reconcile holds the whole month back.">
-            <input type="checkbox" checked={autoPublish} onChange={(e) => changeAutoPublish(e.target.checked)} />
-            Publish automatically when all tie out
-          </label>
           <button className="btn primary" onClick={() => fileRef.current?.click()} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>
             Import Skyline Statements
           </button>
