@@ -59,30 +59,23 @@ export function drawSettlement(doc: any, c: SettlementHeader, s: MoveoutSettleme
     y += 4; doc.setFont("helvetica", "normal"); doc.setFontSize(10);
   };
 
+  const footer = () => {
+    stroke(LINE); doc.setLineWidth(0.6); doc.line(L, 752, R, 752);
+    ink(MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+    doc.text("Invoices available, upon request.", L, 766);
+    doc.text(`Final Settlement · Suite ${c.suite}`, R, 766, { align: "right" });
+  };
   const cats = c.kind === "retail" ? "CAM / INS / RET" : "CAM / RET";
-  bar(`1 · Final ${cats} Reconciliation`);
-  row(s.reconBalance >= 0 ? "Due from tenant (reconciliation, page 2)" : "Credit to tenant (reconciliation, page 2)", money2(s.reconBalance), { bold: true });
-  y += 8;
-
   const ar = s.openAr;
-  bar(`2 · Open Balance on Account${ar && dateUS(ar.asOf) ? ` · as of ${dateUS(ar.asOf)}` : ""}`);
-  if (ar) {
-    for (const k of ar.byCategory) row(k.label, money2(k.amount), { indent: true });
-    rule();
-    row("Open balance", money2(ar.balance), { bold: true });
-    const en = escrowNote(ar);
-    if (en) note(en);
-  } else {
-    row("No monthly statement on file for this tenant", "—");
-  }
-  y += 8;
+  const dep = s.deposit;
 
-  bar("3 · Settlement");
-  row(`Final reconciliation`, money2(s.reconBalance), { indent: true });
-  if (ar) row(`Open balance`, money2(ar.balance), { indent: true });
+  // ── The settlement — the answer, first ──
+  bar("Final Settlement");
+  row(`${cats} reconciliation${s.reconBalance < 0 ? " — credit" : ""} (see the reconciliation)`, money2(s.reconBalance), { indent: true });
+  if (ar) row(`Unpaid charges on account${dateUS(ar.asOf) ? ` as of ${dateUS(ar.asOf)}` : ""} (itemized below)`, money2(ar.balance), { indent: true });
+  else row("Unpaid charges — no statement on file", "—", { indent: true });
   rule();
   row("Total due", money2(s.totalDue), { bold: true });
-  const dep = s.deposit;
   if (dep && dep.net != null) {
     row(`Less security deposit${dep.status === "partial" ? " (partially refunded)" : ""}`, money2(-dep.amount), { indent: true });
     y += 10;
@@ -91,18 +84,42 @@ export function drawSettlement(doc: any, c: SettlementHeader, s: MoveoutSettleme
     stroke(owed ? RED : GREEN); doc.setLineWidth(1.2); doc.rect(L, y - 17, W, 26);
     doc.setFont("helvetica", "bold"); doc.setFontSize(11.5); ink(owed ? RED : GREEN);
     at(owed ? "BALANCE DUE FROM TENANT" : "REFUND DUE TO TENANT", L + 10); at(money2(Math.abs(net)), R - 10, { align: "right" });
-    y += 30;
+    y += 26;
   } else if (dep) {
-    note(`Security deposit of ${money2(dep.amount)} is ${dep.status} — not applied here.`);
+    note(`Security deposit of ${money2(dep.amount)} is ${dep.status === "held" && !(dep.amount > 0) ? "on file with no amount" : dep.status} — not applied here.`);
   } else {
     note("No security deposit is on record for this suite.");
   }
+  y += 12;
 
+  // ── Every unpaid charge behind the open balance ──
+  if (ar) {
+    bar(`Unpaid Charges on Account${dateUS(ar.asOf) ? ` · as of ${dateUS(ar.asOf)}` : ""}`);
+    const head = () => {
+      ink(MUTED); doc.setFont("helvetica", "bold"); doc.setFontSize(8.5);
+      at("DATE", L + 6); at("DESCRIPTION", L + 80); at("AMOUNT", R - 6, { align: "right" }); y += 13;
+    };
+    head();
+    doc.setFontSize(9);
+    ar.charges.forEach((k, i) => {
+      if (y > 712) { footer(); doc.addPage(); y = 60; head(); doc.setFontSize(9); }
+      if (i % 2 === 1) { fill([247, 249, 251]); doc.rect(L, y - 9, W, 13, "F"); }
+      doc.setFont("helvetica", "normal"); ink(INK);
+      at(dateUS(k.dateISO) ?? "", L + 6);
+      at(`${k.description}${k.escrow ? " \u2020" : ""}`.slice(0, 80), L + 80);
+      at(money2(k.amount), R - 6, { align: "right" });
+      y += 13;
+    });
+    if (y > 712) { footer(); doc.addPage(); y = 60; }
+    rule();
+    row("Total unpaid charges", money2(ar.balance), { bold: true });
+    const en = escrowNote(ar);
+    if (en) note(`\u2020 ${en}`);
+  }
+
+  if (y > 720) { footer(); doc.addPage(); y = 60; }
   y += 6; ink(MUTED); doc.setFont("helvetica", "italic"); doc.setFontSize(8.5);
   for (const ln of doc.splitTextToSize("The open balance lists the charges still unpaid on your account as of the date shown; payments received after that date are credited against the balance due.", W)) { at(ln, L); y += 11; }
-  stroke(LINE); doc.setLineWidth(0.6); doc.line(L, 752, R, 752);
-  ink(MUTED); doc.setFont("helvetica", "normal"); doc.setFontSize(8);
-  doc.text("Invoices available, upon request.", L, 766);
-  doc.text(`Final Settlement · Suite ${c.suite}`, R, 766, { align: "right" });
+  footer();
 }
 
