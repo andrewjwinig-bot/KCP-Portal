@@ -408,6 +408,15 @@ Butler & Main is a SHOPPING CENTRE** (owner) — in the Rent Roll's `SC_CODES`
 and the copies of that list on the dashboard, the rent-roll snapshot, the
 monthly review, the status report and Harry's `SC_INDIVIDUAL` scope.
 
+**The status report's Occupancy Summary ends in a TRAILING 6-MONTH
+OCCUPANCY line chart** (owner: "just JV III and NI LLC for the office, not each
+individual building"): `occupancyTrend` (`lib/rentroll/occupancyTrend.ts`)
+reads the monthly `rentroll-history` snapshots, takes each property from the
+newest roll at or before the month (the `composeCurrentRoll` carry-forward), and
+leaves a month with no roll that early OFF the line rather than back-filling it.
+Occupied SF ÷ total SF, ending at the report's month. Pinned by
+`occupancyTrend.test.ts`.
+
 **An import MERGES into its month, never overwrites it** (`mergeSameMonth` in
 `current.ts`, used by `/api/rentroll` and `/api/rentroll/history`). Snapshots
 are keyed by report month, and writing an office-only file straight over a

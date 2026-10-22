@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "pdf-lib";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
-import { getJSON } from "@/lib/storage";
+import { getJSON, listJSON } from "@/lib/storage";
+import { occupancyTrend } from "@/lib/rentroll/occupancyTrend";
+import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
 import { resolveDbaMap, dbaLabel } from "@/lib/centers/dba";
 import { EMPTY_LEASING_ACTIVITY, type LeasingActivity } from "@/lib/leasing/types";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
@@ -964,6 +966,89 @@ export async function POST(req: Request) {
           "* Occupied Space + Pending Leases - Tenants Vacating.",
           { x: tableX, y: py(curY + 10), size: 8, font, color: C_MUTED },
         );
+        curY += 30;
+
+        // ── Trailing 6-month occupancy (JV III + NI LLC), off the monthly
+        // rent-roll snapshots. A month with no roll yet is left off the line.
+        try {
+          const snaps = (await listJSON("rentroll-history")) as any[];
+          const keys = snaps.filter((s) => s && Array.isArray(s.properties)).map((s) => snapshotMonthKey(s)).sort();
+          const endMonth = month && /^\d{4}-\d{2}$/.test(month) ? month : keys[keys.length - 1];
+          if (endMonth) {
+            const SERIES = [
+              { label: "JV III",  codes: JV_III_CODES, color: rgb(0.165, 0.471, 0.839) }, // --series-1
+              { label: "NI LLC",  codes: NI_LLC_CODES, color: rgb(0.922, 0.408, 0.204) }, // --series-2
+            ];
+            const trend = occupancyTrend(snaps, endMonth, 6, SERIES);
+            const vals = trend.flatMap((t) => SERIES.map((g) => t.pct[g.label])).filter((v): v is number => v != null);
+            if (vals.length) {
+              const CH_H = 190;
+              let cPage = page;
+              if (curY + CH_H > PH - M) {
+                cPage = pdfDoc.addPage([PW, PH]);
+                cPage.drawLine({ start: { x: M, y: py(M) }, end: { x: PW - M, y: py(M) }, thickness: 2, color: C_BRAND });
+                curY = M + 20;
+              }
+              cPage.drawText("TRAILING 6-MONTH OCCUPANCY", { x: tableX, y: py(curY + 9), size: 9, font: fontBold, color: C_MUTED });
+              // Legend, right-aligned on the heading line
+              let lx = tableX + tableW;
+              for (const g of [...SERIES].reverse()) {
+                const lw = font.widthOfTextAtSize(g.label, 8);
+                lx -= lw;
+                cPage.drawText(g.label, { x: lx, y: py(curY + 9), size: 8, font, color: C_DARK });
+                lx -= 14;
+                cPage.drawLine({ start: { x: lx, y: py(curY + 6) }, end: { x: lx + 10, y: py(curY + 6) }, thickness: 2, color: g.color });
+                cPage.drawCircle({ x: lx + 5, y: py(curY + 6), size: 2.2, color: g.color });
+                lx -= 14;
+              }
+              // Y axis: 5-point steps, tight to the data, never over 100%.
+              const lo = Math.max(0, Math.floor((Math.min(...vals) - 2) / 5) * 5);
+              const hi = Math.min(100, Math.ceil((Math.max(...vals) + 2) / 5) * 5);
+              const yMax = hi > lo ? hi : lo + 5;
+              const plotX = tableX + 34, plotW = tableW - 44;
+              const plotTop = curY + 24, plotH = CH_H - 60;
+              const yAt = (v: number) => plotTop + plotH - ((v - lo) / (yMax - lo)) * plotH;
+              const step = yMax - lo > 20 ? 10 : 5;
+              for (let v = lo; v <= yMax + 0.001; v += step) {
+                const yy = yAt(v);
+                cPage.drawLine({ start: { x: plotX, y: py(yy) }, end: { x: plotX + plotW, y: py(yy) }, thickness: 0.5, color: C_LINE });
+                const t = `${v}%`;
+                cPage.drawText(t, { x: plotX - 6 - font.widthOfTextAtSize(t, 7.5), y: py(yy + 2.5), size: 7.5, font, color: C_MUTED });
+              }
+              const colW = plotW / trend.length;
+              const xAt = (i: number) => plotX + colW * (i + 0.5);
+              trend.forEach((t, i) => {
+                const [yy, mm] = t.month.split("-");
+                const lab = `${MONTHS[Number(mm) - 1].slice(0, 3)} ${yy.slice(2)}`;
+                cPage.drawText(lab, { x: xAt(i) - font.widthOfTextAtSize(lab, 8) / 2, y: py(plotTop + plotH + 14), size: 8, font, color: C_DARK });
+              });
+              for (const [gi, g] of SERIES.entries()) {
+                let prev: { x: number; y: number } | null = null;
+                trend.forEach((t, i) => {
+                  const v = t.pct[g.label];
+                  if (v == null) { prev = null; return; }
+                  const pt = { x: xAt(i), y: yAt(v) };
+                  if (prev) cPage.drawLine({ start: { x: prev.x, y: py(prev.y) }, end: { x: pt.x, y: py(pt.y) }, thickness: 2, color: g.color });
+                  prev = pt;
+                });
+                trend.forEach((t, i) => {
+                  const v = t.pct[g.label];
+                  if (v == null) return;
+                  const x = xAt(i), y = yAt(v);
+                  cPage.drawCircle({ x, y: py(y), size: 3, color: g.color, borderColor: rgb(1, 1, 1), borderWidth: 1 });
+                  // Value label: the higher series above its point, the lower below.
+                  const other = t.pct[SERIES[1 - gi].label];
+                  const above = other == null || v >= other;
+                  const txt = `${v.toFixed(1)}%`;
+                  const tw = fontBold.widthOfTextAtSize(txt, 7.5);
+                  cPage.drawText(txt, { x: x - tw / 2, y: py(above ? y - 7 : y + 13), size: 7.5, font: fontBold, color: g.color });
+                });
+              }
+              const note = "Occupied sq ft ÷ total sq ft, from each month's rent roll.";
+              cPage.drawText(note, { x: tableX, y: py(plotTop + plotH + 30), size: 7.5, font, color: C_MUTED });
+            }
+          }
+        } catch { /* no history — the summary stands without the chart */ }
       }
     }
 
