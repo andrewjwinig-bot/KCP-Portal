@@ -45,7 +45,7 @@ export default function ContactPage() {
       </section>
 
       <section className="w-full relative" style={{ marginBottom: -1 }}>
-        <div className="h-[60vh] md:h-[80vh] w-full overflow-hidden">
+        <div className="h-[60vh] md:h-[80vh] w-full overflow-hidden bg-slate-100">
           <iframe
             title={`Map showing location of ${HQ.name}`}
             src={`https://www.google.com/maps?q=${HQ.lat},${HQ.lng}&z=${HQ.zoom}&output=embed`}
