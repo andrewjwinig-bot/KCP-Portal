@@ -340,6 +340,52 @@ one that happened to serve the request.
   stays attached to the project. Never detach a hostname that has been emailed
   — point it at the app and let it redirect.
 
+# The company website (kormancommercial.com) — rebuilt in the portal at /site
+
+**kormancommercial.com is a frameset around a vendor's Next.js site
+(korman-commercial-properties.vercel.app) whose content lived in the vendor's
+Sanity CMS.** Neither the code nor the Vercel project was ours, so in 10/2026
+it was CLONED into the portal (owner: "lets at least get in our control cloned
+as it is now … i want to rethink some pages anyway"). Public, no login
+(`middleware.ts` exempts `site(?:/|$)` and `api/website/`; `AppShell` drops the
+staff chrome), pinned by `middleware.test.ts`.
+
+- **Content is ours now**: `lib/site/content.ts` — every property (facts,
+  portable-text body, gallery, site plan, coordinates, leasing contact),
+  category info and all availabilities (`SITE_LISTINGS`, keyed by property
+  slug). Photos in `public/site/img/<sanity-hash>.webp` (resized to 2000px
+  WebP), the vendor's `/images/*` at `public/site/<same path>`. Edit a property
+  by editing its entry. Fort Washington Ave's CMS coordinates were a
+  placeholder (1, 1) — kept null.
+- **Every internal link goes through `sitePath`** (`lib/site/paths.ts`,
+  `SITE_BASE = "/site"`), so serving it at the domain root later is one change.
+- **Styling is the vendor's compiled Tailwind, verbatim** (`app/site/site.css`,
+  loaded only by `app/site/layout.tsx`; Inter from `public/site/fonts`). There
+  is NO Tailwind compiler here — a class not already in site.css does nothing;
+  add a scoped rule at the end of site.css instead. The site renders inside
+  `.kcs`, and **globals.css skips everything inside it**: its element rules
+  (main, h1, tables, inputs, selects, textareas, hr, the dark-theme overrides)
+  carry `:where(:not(.kcs *))`, which keeps their specificity unchanged for the
+  portal. A new element-level rule in globals.css needs the same guard or it
+  will leak onto the website.
+- Pages: home (`app/site/page.tsx`, splash + counters), company,
+  current-properties, `[category]` (grouped by subcategory), `[category]/[slug]`
+  (gallery, facts, Available Space with the $/SF/YR · $/SF/MO · $ Amt switch,
+  site plan, keyless Google Maps embed), available-space, contact, maintenance,
+  privacy-policy. Header (menu overlay + local property search) and footer in
+  `app/site/_components/`.
+- **Forms are ours, not the vendor's**: Contact posts to
+  `/api/website/contact` (honeypot + 5/hour rate limit, emails
+  `SITE_CONTACT_TO`, default info@kormancommercial.com, Reply-To the visitor;
+  a failed send is reported, never a false "sent"; pinned by
+  `lib/site/contact.test.ts`). Maintenance posts to the portal's own
+  `/api/maintenance/submit`, so requests land on the Maintenance page — its
+  property list is the portal's buildings and Company is required.
+- **Not yet done (owner's call)**: pointing kormancommercial.com at it — attach
+  the domain to the portal's Vercel project and rewrite that host's paths to
+  `/site/...` in middleware (then set `SITE_BASE` accordingly), retiring the
+  frameset and the vendor site.
+
 # Rent roll — one source
 
 **Read the rent roll through `lib/rentroll/current.ts`** (`resolveCurrentRentroll`,

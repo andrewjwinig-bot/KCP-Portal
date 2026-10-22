@@ -5,7 +5,10 @@ import ListingsTable from "../_property/ListingsTable";
 // Every availability across the portfolio, a table per property in
 // alphabetical order — the vendor site's /available-space.
 
-export const metadata: Metadata = { title: "Available Space" };
+export const metadata: Metadata = {
+  title: "Available Office Space",
+  description: "Browse our available office space for lease at Korman Commercial Properties.",
+};
 
 export default function AvailableSpacePage() {
   const nameOf = new Map(SITE_PROPERTIES.map((p) => [p.slug, p.name]));

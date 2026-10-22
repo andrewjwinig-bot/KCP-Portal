@@ -18,7 +18,8 @@ export function generateStaticParams() {
 
 export function generateMetadata({ params }: { params: { category: string } }): Metadata {
   if (!isCategory(params.category)) return {};
-  return { title: SITE_CATEGORIES[params.category].title };
+  const { title } = SITE_CATEGORIES[params.category];
+  return { title, description: `Explore Korman Commercial's ${title} in the ${title} category.` };
 }
 
 function Group({ title, properties }: { title?: string; properties: SiteProperty[] }) {

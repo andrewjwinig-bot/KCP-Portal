@@ -19,7 +19,13 @@ export function generateStaticParams() {
 
 export function generateMetadata({ params }: { params: { category: string; slug: string } }): Metadata {
   const p = propertyBySlug(params.category, params.slug);
-  return p ? { title: p.name } : {};
+  if (!p) return {};
+  const description = `View details and information about ${p.name} in ${p.city}, ${p.state}.`;
+  return {
+    title: p.name,
+    description,
+    openGraph: { title: p.name, description, images: p.mainImage ? [p.mainImage] : undefined },
+  };
 }
 
 /** The amenities the original listed on every office property. */
