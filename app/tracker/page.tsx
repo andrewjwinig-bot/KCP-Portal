@@ -80,7 +80,6 @@ function saveChecked(year: number, month: number, data: Record<string, boolean>)
 const COMPLETED_BY: Record<string, string> = {
   "m-post": "Crosses off once every property's GL is imported — that is what proves the posting took.",
   "m-close": "Crosses off once every property's GL is imported.",
-  "m-opstmt": "Crosses off once every property's GL is imported.",
 };
 
 function stepKey(taskId: string, stepIndex: number): string {

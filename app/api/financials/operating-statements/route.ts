@@ -533,7 +533,7 @@ export async function POST(req: Request) {
         const { behind } = await outstandingGlUploads(now);
         glBehind = behind.length;
         if (behind.length === 0) {
-          tasksCompleted = ["m-post", "m-close", "m-opstmt"];
+          tasksCompleted = ["m-post", "m-close"];
           for (const taskId of tasksCompleted) {
             await markTaskComplete(now.getFullYear(), now.getMonth(), taskId, { at: now.toISOString(), source: "gl-upload" });
           }
