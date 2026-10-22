@@ -342,7 +342,7 @@ function DashboardInner() {
   // ── Portfolio occupancy ──
   const JV_III_CODES = useMemo(() => new Set(["3610", "3620", "3640"]), []);
   const NI_LLC_CODES = useMemo(() => new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]), []);
-  const SC_CODES     = useMemo(() => new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]), []);
+  const SC_CODES     = useMemo(() => new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200", "9000"]), []);
   const OW_CODES     = useMemo(() => new Set(["4900"]), []);
 
   function propLabelFor(code: string, fallback?: string): string {

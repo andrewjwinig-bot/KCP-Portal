@@ -178,7 +178,7 @@ const EXCLUDED_UNIT_REFS = new Set(["3060-207"]);
 const JV_III_CODES  = new Set(["3610", "3620", "3640"]);
 const NI_LLC_CODES  = new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
 const NI_LLC_ORDER  = ["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"];
-const SC_CODES      = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]);
+const SC_CODES      = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200", "9000"]);
 const KH_CODES      = new Set(["9800", "9820", "9840", "9860"]);
 
 // ─── Category filter sets ─────────────────────────────────────────────────────
@@ -548,6 +548,18 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
 
               const rowId = `unit-${unit.unitRef.replace(/[^a-zA-Z0-9]/g, "-")}`;
 
+              // A VACANT suite should bill nothing. A charge on one is a rent
+              // roll that wasn't cleaned up (or a tenant still being billed
+              // after leaving), so the cell is called out in red.
+              const billedVacant = (n: number | null | undefined) => effectiveVacant && !!n && Math.abs(n) >= 0.005;
+              const vacantCell = (n: number | null | undefined): React.CSSProperties =>
+                billedVacant(n) ? { background: "rgba(220,38,38,0.14)", color: "#b91c1c", fontWeight: 700 } : {};
+              const charge = (n: number | null | undefined, what: string, text: string) =>
+                billedVacant(n)
+                  ? <HoverCard title="Charge on a vacant suite" rows={[{ label: what, value: text, color: "#b91c1c" }]}
+                      footer={{ label: "A vacant suite should bill nothing", value: "Check the rent roll" }}>{text}</HoverCard>
+                  : text;
+
               return (
                 <tr
                   key={i}
@@ -627,17 +639,17 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                     </td>
                   )}
                   {!hideRent && (
-                    <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>
-                      {unit.annualRentPerSqft ? `$${unit.annualRentPerSqft.toFixed(2)}` : "—"}
+                    <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)", ...vacantCell(unit.annualRentPerSqft) }}>
+                      {unit.annualRentPerSqft ? charge(unit.annualRentPerSqft, "Rent $/SF", `$${unit.annualRentPerSqft.toFixed(2)}`) : "—"}
                     </td>
                   )}
-                  {!hideRent && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.baseRent ? money(unit.baseRent) : "—"}</td>}
-                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.opexMonth ? money(unit.opexMonth) : "—"}</td>}
-                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.otherMonth ? money(unit.otherMonth) : "—"}</td>}
-                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13 }}>{unit.reTaxMonth ? money(unit.reTaxMonth) : "—"}</td>}
+                  {!hideRent && <td style={{ textAlign: "right", fontSize: 13, ...vacantCell(unit.baseRent) }}>{unit.baseRent ? charge(unit.baseRent, "Base rent / mo", money(unit.baseRent)) : "—"}</td>}
+                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13, ...vacantCell(unit.opexMonth) }}>{unit.opexMonth ? charge(unit.opexMonth, "Operating expense / mo", money(unit.opexMonth)) : "—"}</td>}
+                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13, ...vacantCell(unit.otherMonth) }}>{unit.otherMonth ? charge(unit.otherMonth, "Other expense / mo", money(unit.otherMonth)) : "—"}</td>}
+                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13, ...vacantCell(unit.reTaxMonth) }}>{unit.reTaxMonth ? charge(unit.reTaxMonth, "Real estate tax / mo", money(unit.reTaxMonth)) : "—"}</td>}
                   {!hideRent && (
-                    <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>
-                      {unit.grossRentTotal ? money(unit.grossRentTotal) : "—"}
+                    <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, ...vacantCell(unit.grossRentTotal) }}>
+                      {unit.grossRentTotal ? charge(unit.grossRentTotal, "Gross / mo", money(unit.grossRentTotal)) : "—"}
                     </td>
                   )}
                 </tr>
