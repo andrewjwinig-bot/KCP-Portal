@@ -12,14 +12,14 @@ const gated = (p: string) => new RegExp(`^${src}$`).test(p);
 describe("middleware matcher", () => {
   it("keeps internal routes behind login", () => {
     for (const p of ["/api/statements", "/api/statements/x", "/api/tenants/past", "/dashboard", "/investors",
-      "/api/investor-k1", "/reservations", "/api/reservations", "/tenant-statements", "/api/tenant-statements"]) {
+      "/api/investor-k1", "/reservations", "/sites", "/site-admin", "/api/reservations", "/tenant-statements", "/api/tenant-statements"]) {
       expect(gated(p), p).toBe(true);
     }
   });
   it("leaves the public pages and token routes open", () => {
     for (const p of ["/statement/t", "/api/statement/t", "/portal/t", "/api/portal/t", "/investor/t", "/api/investor/t",
       "/api/tenants/lookup", "/api/tenants/companies", "/reserve", "/submit", "/service", "/centers/x", "/login",
-      "/budget-review/t", "/api/cron/allocated-send"]) {
+      "/budget-review/t", "/api/cron/allocated-send", "/site", "/site/retail", "/site/retail/x", "/api/website/contact"]) {
       expect(gated(p), p).toBe(false);
     }
   });
