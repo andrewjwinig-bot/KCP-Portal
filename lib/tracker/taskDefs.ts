@@ -379,14 +379,8 @@ export const TASK_DEFS: TaskDef[] = [
       ],
     },
   },
-  {
-    id: "m-opstmt",
-    label: "Operating Statements",
-    category: "routine",
-    dueDay: 20,
-    link: "/financials/operating-statements",
-    notes: "Update and record variances.",
-  },
+  // "Operating Statements" (m-opstmt) is gone (owner: "now that i import
+  // them that really is the task") — the monthly GL import reminder is it.
   // Due on the 5th, after the 1st-of-month billing has posted: the Skyline
   // Statement report is an OPEN-ITEMS report, so running it before the month's
   // charges land publishes a balance that is missing what was just billed.
