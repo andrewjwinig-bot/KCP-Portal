@@ -399,6 +399,15 @@ Anything checking a specific month (the operating statement's rent check) uses
 `rollAsOf`, so a later import cannot move a past month's expectation.
 `lib/rentroll/oneSource.test.ts` fails the build if a new file reads the pointer.
 
+**A charge on a VACANT suite is called out in red on the Rent Roll** (owner:
+"if there is rent being shown for a vacancy please highlight the cell in
+red"): `billedVacant` / `vacantCell` in `app/rentroll/page.tsx` tint any
+$/SF, base rent, CAM, other, RE tax or gross cell that is non-zero on a vacant
+row, with a `HoverCard` saying a vacant suite should bill nothing. **9000
+Butler & Main is a SHOPPING CENTRE** (owner) — in the Rent Roll's `SC_CODES`
+and the copies of that list on the dashboard, the rent-roll snapshot, the
+monthly review, the status report and Harry's `SC_INDIVIDUAL` scope.
+
 **An import MERGES into its month, never overwrites it** (`mergeSameMonth` in
 `current.ts`, used by `/api/rentroll` and `/api/rentroll/history`). Snapshots
 are keyed by report month, and writing an office-only file straight over a

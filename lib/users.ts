@@ -39,7 +39,7 @@ export type UserDef = {
   budgetScope?: { codes: Set<string> };
 };
 
-const SC_INDIVIDUAL = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]);
+const SC_INDIVIDUAL = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200", "9000"]);
 const OFFICE_AND_OW_INDIVIDUAL = new Set([
   "3610", "3620", "3640",
   "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0",

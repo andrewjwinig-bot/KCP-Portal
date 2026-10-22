@@ -24,7 +24,7 @@ const HISTORY_PREFIX = "rentroll-history";
 
 // Company groupings for the report.
 const BUSINESS_PARKS = new Set(["3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
-const SHOPPING_CENTERS = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200"]);
+const SHOPPING_CENTERS = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200", "9000"]);
 const LIK = new Set(["2000", "2010"]);
 export const REPORT_GROUP_ORDER = ["bp", "sc", "lik", "other"] as const;
 export type ReportGroupKey = (typeof REPORT_GROUP_ORDER)[number];
