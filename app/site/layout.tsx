@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./site.css";
 import SiteHeader from "./_components/SiteHeader";
 import SiteFooter from "./_components/SiteFooter";
+import { SiteLoadingProvider } from "./_components/SiteLoading";
 
 // THE COMPANY WEBSITE (kormancommercial.com), rebuilt inside the portal from
 // the vendor's site in 10/2026 so we own it. Public — exempt from site auth in
@@ -19,9 +20,11 @@ export const metadata: Metadata = {
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="kcs __className_f367f3 bg-white text-slate-900" style={{ minHeight: "100vh", colorScheme: "light" }}>
-      <SiteHeader />
-      <main className="pt-16">{children}</main>
-      <SiteFooter />
+      <SiteLoadingProvider>
+        <SiteHeader />
+        <main className="pt-16">{children}</main>
+        <SiteFooter />
+      </SiteLoadingProvider>
     </div>
   );
 }
