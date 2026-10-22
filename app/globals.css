@@ -209,7 +209,7 @@
 [data-theme="dark"] .muted { color: var(--muted); }
 [data-theme="dark"] code,
 [data-theme="dark"] pre { background: rgba(255,255,255,0.06); color: var(--text); }
-[data-theme="dark"] hr { border-color: var(--border); }
+[data-theme="dark"] hr:where(:not(.kcs *)) { border-color: var(--border); }
 
 [data-theme="dark"] body {
   color: var(--text);
@@ -218,21 +218,21 @@
 
 /* Inputs / selects / textareas — many have inline `background: #fff`
    which we override here so they don't glow on dark cards. */
-[data-theme="dark"] input[type="text"],
-[data-theme="dark"] input[type="number"],
-[data-theme="dark"] input[type="search"],
-[data-theme="dark"] input[type="email"],
-[data-theme="dark"] input[type="password"],
-[data-theme="dark"] input[type="url"],
-[data-theme="dark"] input:not([type]),
-[data-theme="dark"] select,
-[data-theme="dark"] textarea {
+[data-theme="dark"] input[type="text"]:where(:not(.kcs *)),
+[data-theme="dark"] input[type="number"]:where(:not(.kcs *)),
+[data-theme="dark"] input[type="search"]:where(:not(.kcs *)),
+[data-theme="dark"] input[type="email"]:where(:not(.kcs *)),
+[data-theme="dark"] input[type="password"]:where(:not(.kcs *)),
+[data-theme="dark"] input[type="url"]:where(:not(.kcs *)),
+[data-theme="dark"] input:not([type]):where(:not(.kcs *)),
+[data-theme="dark"] select:where(:not(.kcs *)),
+[data-theme="dark"] textarea:where(:not(.kcs *)) {
   background-color: rgba(255, 255, 255, 0.04) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
 }
-[data-theme="dark"] input::placeholder,
-[data-theme="dark"] textarea::placeholder { color: var(--muted); }
+[data-theme="dark"] input:where(:not(.kcs *))::placeholder,
+[data-theme="dark"] textarea:where(:not(.kcs *))::placeholder { color: var(--muted); }
 
 /* Table headers / rows pick up theme tokens automatically through their
    var(--text) / var(--border) references; nothing extra needed here. */
@@ -247,7 +247,7 @@ html, body {
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
-main {
+main:where(:not(.kcs *)) {
   max-width: 1400px;
   margin: 0 auto;
   padding: 22px 20px 50px;
@@ -255,7 +255,7 @@ main {
 
 /* Sidebar hover highlight (applied via inline onMouseEnter in component) */
 
-h1 {
+h1:where(:not(.kcs *)) {
   margin: 0;
   font-size: 54px;
   line-height: 1.02;
@@ -263,10 +263,10 @@ h1 {
 }
 
 @media (max-width: 720px) {
-  main {
+  main:where(:not(.kcs *)) {
     padding: 14px 12px 36px;
   }
-  h1 {
+  h1:where(:not(.kcs *)) {
     font-size: 36px;
   }
   /* Tables on narrow screens scroll horizontally inside their parent
@@ -346,14 +346,14 @@ p { margin: 0; }
  * A page that sizes its own input inline still wins, and controls inside a
  * table cell are pulled back to dense padding below, so this cannot blow a
  * row's height open. */
-input[type="text"],
-input[type="search"],
-input[type="email"],
-input[type="number"],
-input[type="tel"],
-input[type="url"],
-input[type="password"],
-input:not([type]) {
+input[type="text"]:where(:not(.kcs *)),
+input[type="search"]:where(:not(.kcs *)),
+input[type="email"]:where(:not(.kcs *)),
+input[type="number"]:where(:not(.kcs *)),
+input[type="tel"]:where(:not(.kcs *)),
+input[type="url"]:where(:not(.kcs *)),
+input[type="password"]:where(:not(.kcs *)),
+input:not([type]):where(:not(.kcs *)) {
   font-family: inherit;
   font-size: 13px;
   color: var(--text);
@@ -364,7 +364,7 @@ input:not([type]) {
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
-textarea {
+textarea:where(:not(.kcs *)) {
   font-family: inherit;
   font-size: 13px;
   color: var(--text);
@@ -375,25 +375,25 @@ textarea {
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
-input[type="text"]:focus-visible,
-input[type="search"]:focus-visible,
-input[type="email"]:focus-visible,
-input[type="number"]:focus-visible,
-input[type="tel"]:focus-visible,
-input[type="url"]:focus-visible,
-input[type="password"]:focus-visible,
-input:not([type]):focus-visible,
-textarea:focus-visible {
+input[type="text"]:focus-visible:where(:not(.kcs *)),
+input[type="search"]:focus-visible:where(:not(.kcs *)),
+input[type="email"]:focus-visible:where(:not(.kcs *)),
+input[type="number"]:focus-visible:where(:not(.kcs *)),
+input[type="tel"]:focus-visible:where(:not(.kcs *)),
+input[type="url"]:focus-visible:where(:not(.kcs *)),
+input[type="password"]:focus-visible:where(:not(.kcs *)),
+input:not([type]):focus-visible:where(:not(.kcs *)),
+textarea:focus-visible:where(:not(.kcs *)) {
   outline: none;
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(11, 74, 125, 0.15);
 }
 
-input::placeholder,
-textarea::placeholder { color: var(--muted); opacity: 0.75; }
+input:where(:not(.kcs *))::placeholder,
+textarea:where(:not(.kcs *))::placeholder { color: var(--muted); opacity: 0.75; }
 
 /* Inside a table a control is a cell, not a form field — keep rows dense. */
-td input, td select, th input, th select { padding-top: 4px; padding-bottom: 4px; }
+td input:where(:not(.kcs *)), td select:where(:not(.kcs *)), th input:where(:not(.kcs *)), th select:where(:not(.kcs *)) { padding-top: 4px; padding-bottom: 4px; }
 
 /* ── Dropdowns ────────────────────────────────────────────────────────────
  * Every `<select>` in the program, styled once. Sixty-eight of them across
@@ -409,7 +409,7 @@ td input, td select, th input, th select { padding-top: 4px; padding-bottom: 4px
  *     that drives a page — the year, the property.
  * Both are pills, matching `.btn` and the tab controls, so the whole toolbar
  * shares a shape. */
-select {
+select:where(:not(.kcs *)) {
   appearance: none;
   -webkit-appearance: none;
   font-family: inherit;
@@ -429,25 +429,25 @@ select {
   transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
 }
 
-select:hover:not(:disabled) {
+select:hover:not(:disabled):where(:not(.kcs *)) {
   border-color: rgba(11, 74, 125, 0.4);
   background-color: rgba(11, 74, 125, 0.03);
 }
 
-select:focus-visible {
+select:focus-visible:where(:not(.kcs *)) {
   outline: none;
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(11, 74, 125, 0.15);
 }
 
-select:disabled {
+select:disabled:where(:not(.kcs *)) {
   opacity: 0.55;
   cursor: not-allowed;
 }
 
 /* The options list is drawn by the OS, which does not inherit the control's
    colours — say them explicitly so a dark theme doesn't render white-on-white. */
-select option {
+select option:where(:not(.kcs *)) {
   color: var(--text);
   background: var(--card);
 }
@@ -457,7 +457,7 @@ select option {
    draws these and inherits nothing, so a dark theme would otherwise render the
    heading in its own default colour against the card. Muted and uppercase so a
    heading reads as a heading rather than as a selectable row. */
-select optgroup {
+select optgroup:where(:not(.kcs *)) {
   color: var(--muted);
   background: var(--card);
   font-weight: 700;
@@ -469,7 +469,7 @@ select optgroup {
 
 /* The options inside a group return to normal weight — the browser otherwise
    inherits the heading's styling onto every row beneath it. */
-select optgroup option {
+select optgroup option:where(:not(.kcs *)) {
   font-weight: 400;
   font-size: inherit;
   letter-spacing: normal;
@@ -497,7 +497,7 @@ select.select-sm {
   background-position: right 9px center;
 }
 
-[data-theme="dark"] select:hover:not(:disabled) {
+[data-theme="dark"] select:hover:not(:disabled):where(:not(.kcs *)) {
   border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
@@ -580,33 +580,33 @@ select.select-sm {
   margin-top: 12px;
 }
 
-table {
+table:where(:not(.kcs *)) {
   width: 100%;
   border-collapse: collapse;
 }
 
-th, td {
+th:where(:not(.kcs *)), td:where(:not(.kcs *)) {
   padding: 12px 10px;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
   vertical-align: top;
 }
 
-thead th {
+thead th:where(:not(.kcs *)) {
   text-align: left;
   font-size: 13px;
   color: var(--muted);
   font-weight: 800;
 }
 
-tfoot td {
+tfoot td:where(:not(.kcs *)) {
   font-weight: 900;
 }
 
-tbody tr:hover {
+tbody tr:hover:where(:not(.kcs *)) {
   background: rgba(15, 23, 42, 0.04);
 }
 
-hr {
+hr:where(:not(.kcs *)) {
   border: 0;
   border-top: 1px solid rgba(15, 23, 42, 0.10);
   margin: 14px 0;
@@ -700,7 +700,7 @@ code {
 @media print {
   /* Hide app chrome */
   aside, nav.sidebar, .sidebar, .no-print { display: none !important; }
-  main {
+  main:where(:not(.kcs *)) {
     padding: 0 !important;
     margin: 0 !important;
     max-width: none !important;
