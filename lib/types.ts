@@ -101,6 +101,8 @@ export type PropertyInvoice = {
   propertyName?: string;
   propertyCode?: string;
   payDate?: string | null;
+  /** PR<code><MM><YY><payPeriod> — set by buildInvoices. */
+  invoiceNumber?: string;
   lines?: Array<{ description: string; accCode: string; amount: number }>;
   salaryREC: number;
   salaryNR: number;
