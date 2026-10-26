@@ -30,7 +30,7 @@ export type CenterData = {
 const fmt = (n: number) => n.toLocaleString("en-US");
 
 /** Resolve a value from a normalized-name map, exact then loose contains. */
-function lookupByName(map: Record<string, string> | undefined, name: string): string | undefined {
+export function lookupByName(map: Record<string, string> | undefined, name: string): string | undefined {
   if (!map) return undefined;
   const key = normName(name);
   if (map[key]) return map[key];

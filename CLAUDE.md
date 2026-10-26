@@ -386,6 +386,43 @@ staff chrome), pinned by `middleware.test.ts`.
   `/site/...` in middleware (then set `SITE_BASE` accordingly), retiring the
   frameset and the vendor site.
 
+# Shopping-center pages — DESIGNED pages replace the template one by one
+
+**`/centers/<slug>` was one data-driven template for all five centres
+(`app/centers/[slug]`); the owner is now designing each centre's page in Claude
+Design (interactive site plan, tenant index, order-online logo row) and handing
+it off as ONE self-contained HTML file** (owner: "i want to do these for all
+the shopping centers with interactive site plans … ideally sync with the rent
+roll"). Lafayette Hill (9510) is the first.
+
+- **A designed page is served WHOLE by a static route that beats the template**
+  (`app/centers/lafayette-hill/route.ts` → `renderDesignedCenter`,
+  `lib/centers/designed/render.ts`): its own fonts, CSS and script, none of
+  the portal's. The HTML lives in `lib/centers/designed/<slug>.html` (traced in
+  by `outputFileTracingIncludes` "/centers/**"), its images in
+  `public/centers/<slug>/assets/` (absolute paths — the page URL has no
+  trailing slash). Public by the middleware's `centers` exemption.
+- **The design owns geometry and copy; the RENT ROLL owns who and how big**
+  (`syncSuites` in `sync.ts`, pure, pinned by `sync.test.ts`). The handoff's
+  `SUITES` array is `lafayetteHill.ts`, and each request lays the live roll
+  over it: vacant → available at the roll's SF; occupied where the page said
+  available, or by someone other than `rollName` → the roll's tenant (DBA via
+  the centre's display names / admin DBA) WITHOUT the old copy, links or logo;
+  otherwise the curated suite. GLA and the "available" figures are computed
+  from the synced suites. Changes are logged (`[centers/<slug>] rent roll: …`).
+- **`rollName` is the ROLL's name for the tenant the copy describes, often a
+  legal name** (Toyosu = "Liang Jiang", Miles Pet Grooming = "DKMNK") — it is
+  what makes a turnover detectable. A suite without one is never treated as
+  turned over, only as vacant / occupied. `units` draws several roll suites as
+  one storefront (From The Boot = 400 + 404).
+- **The next centre**: its HTML into `lib/centers/designed/<slug>.html` with
+  `const SUITES=/*@SUITES@*/[];` and the `{{GLA}}` / `{{AVAIL_SF}}` /
+  `{{AVAIL_DETAIL}}` placeholders, its suites into a `<centre>.ts` with
+  `rollName`s, a `DESIGNED` entry in `render.ts`, and a three-line
+  `app/centers/<slug>/route.ts`. The template still serves every centre not
+  yet designed; its admin photo / availability edits do not reach a designed
+  page (DBA does).
+
 # Rent roll — one source
 
 **Read the rent roll through `lib/rentroll/current.ts`** (`resolveCurrentRentroll`,
