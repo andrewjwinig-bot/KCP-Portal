@@ -74,3 +74,17 @@ describe("syncSuites", () => {
     expect(new Set(BROOKWOOD_SUITES.map((s) => s.id)).size).toBe(BROOKWOOD_SUITES.length);
   });
 });
+
+describe("Gray's Ferry — diagonal suites keep their polygon through a turnover", () => {
+  it("a turned-over polygon suite keeps pts and its label placement", async () => {
+    const { GRAYS_FERRY_SUITES } = await import("./graysFerry");
+    const hilti = GRAYS_FERRY_SUITES.find((s) => s.id === "3001")!;
+    const { suites } = syncSuites([hilti], [{ unitRef: "4500-3001", occupantName: "Someone New LLC", isVacant: false, sqft: 3200 }]);
+    expect(suites[0]).toMatchObject({ tenant: UNPROFILED_TENANT, pts: hilti.pts, cx: hilti.cx, cy: hilti.cy, rot: -51 });
+  });
+  it("every suite names its rent-roll tenant", async () => {
+    const { GRAYS_FERRY_SUITES } = await import("./graysFerry");
+    expect(GRAYS_FERRY_SUITES.every((s) => s.rollName)).toBe(true);
+    expect(GRAYS_FERRY_SUITES.map((s) => s.id)).toHaveLength(10);
+  });
+});

@@ -398,6 +398,15 @@ roll"). Lafayette Hill (9510) is the first; **Brookwood (2300,
 numbers, and its `shadow` suites (Regency Furniture, Ashley — next door, not
 the centre's) are never on the roll, so sync leaves them as designed and the
 page keeps them out of the tenant index (`shadow` / `rects` on `DesignedSuite`).
+**Gray's Ferry (4500, `/centers/grays-ferry`, `graysFerry.ts`)** the third —
+its in-line storefronts run on a DIAGONAL, so a suite can be a POLYGON (`pts`,
+label at `cx`/`cy` rotated `rot`, logo at `lw/lh/lx/ly`); sync carries the
+polygon through a turnover. `rollName`s are fragments of the roll's names
+("JP Morgan" = Chase, "Victra" = Verizon, "PLCB" = Fine Wine). Clear Channel's
+billboard (3000) is on the roll with no SF and is not drawn. Every designed
+page uses the website's full-resolution Korman logo
+(`Korman_CORPORATE_logo_WHT.png` copied in as `logo-white.png`), never the
+handoff's screenshot crop.
 
 - **A designed page is served WHOLE by a static route that beats the template**
   (`app/centers/lafayette-hill/route.ts` → `renderDesignedCenter`,
