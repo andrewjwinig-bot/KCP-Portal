@@ -6,7 +6,7 @@ import { occupancyTrend } from "@/lib/rentroll/occupancyTrend";
 import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
 import { resolveDbaMap, dbaLabel } from "@/lib/centers/dba";
 import { EMPTY_LEASING_ACTIVITY, type LeasingActivity } from "@/lib/leasing/types";
-import { resolveCurrentRentroll } from "@/lib/rentroll/current";
+import { resolveCurrentRentroll, rollAsOf } from "@/lib/rentroll/current";
 
 export const runtime = "nodejs";
 
@@ -490,10 +490,14 @@ export async function POST(req: Request) {
     let fullProperties: any[];
     let reportFrom: string;
     if (month && /^\d{4}-\d{2}$/.test(month)) {
-      const snap = (await getJSON("rentroll-history", month)) as { properties: any[]; reportFrom?: string } | null;
-      if (!snap) {
+      const own = (await getJSON("rentroll-history", month)) as { properties: any[]; reportFrom?: string } | null;
+      if (!own) {
         return new NextResponse("Snapshot not found", { status: 404 });
       }
+      // The month AS OF it: a property this month's import did not carry is
+      // taken from its latest earlier roll, as the Rent Roll page shows it.
+      const others = ((await listJSON("rentroll-history")) as any[]).filter((s) => s && snapshotMonthKey(s) !== snapshotMonthKey(own as any));
+      const snap = rollAsOf([...others, own] as any[], snapshotMonthKey(own as any)) ?? own;
       fullProperties = snap.properties ?? [];
       properties = applyCategory(fullProperties, category);
       const [yy, mm] = month.split("-");

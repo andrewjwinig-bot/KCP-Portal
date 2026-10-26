@@ -1447,6 +1447,9 @@ export default function RentRollPage() {
   // Full rent roll for the selected historical month. Null when viewing
   // "Current" (then the page renders rawRentroll instead).
   const [monthRentroll, setMonthRentroll] = useState<RentRollData | null>(null);
+  // Properties the selected month's own import did not carry, shown from an
+  // earlier month's roll (code → "YYYY-MM").
+  const [carriedFrom, setCarriedFrom] = useState<Record<string, string>>({});
   const [monthLoading, setMonthLoading] = useState(false);
   // When we've just imported a month, the fresh roll lives in this ref so the
   // per-month effect shows it straight from the upload response instead of
@@ -1602,7 +1605,7 @@ export default function RentRollPage() {
     setMonthLoading(true);
     fetch(`/api/rentroll/history/${reportMonth}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (alive) setMonthRentroll(j?.rentroll ?? null); })
+      .then((j) => { if (alive) { setMonthRentroll(j?.rentroll ?? null); setCarriedFrom(j?.carriedFrom ?? {}); } })
       .catch(() => { if (alive) setMonthRentroll(null); })
       .finally(() => { if (alive) setMonthLoading(false); });
     return () => { alive = false; };
@@ -1864,6 +1867,19 @@ export default function RentRollPage() {
             <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
+        {reportMonth && Object.keys(carriedFrom).length > 0 && (() => {
+          const byMonth = new Map<string, string[]>();
+          for (const [c, m] of Object.entries(carriedFrom)) byMonth.set(m, [...(byMonth.get(m) ?? []), c]);
+          const label = (m: string) => { const [yy, mm] = m.split("-"); return `${MONTHS_SHORT[parseInt(mm) - 1]} ${yy}`; };
+          return (
+            <p className="muted small" style={{ marginTop: 8 }}>
+              Not in this month&apos;s import, so shown from the latest earlier roll:{" "}
+              {[...byMonth.entries()].sort().map(([m, codes], i) => (
+                <span key={m}>{i ? " · " : ""}{codes.sort().join(", ")} <b>({label(m)})</b></span>
+              ))}
+            </p>
+          );
+        })()}
         <p className="muted small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
           <span>Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx) — click Import or drag the file onto this card.</span>
           <ImportInstructionsButton nextMonth={(() => {

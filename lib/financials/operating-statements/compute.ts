@@ -266,6 +266,31 @@ function computeSection(
   };
 }
 
+/** The statement's ladder — revenues, operating expenses, NOI, capital, debt
+ *  service and the two cash-flow lines — from its sections' subtotals. */
+export function rollupsOf(sections: StatementSection[]): StatementRollups {
+  const subOf = (roles: SectionRole[]) =>
+    sections.filter((s) => roles.includes(s.role)).map((s) => s.subtotal);
+  const totalRevenues = sumTotals(subOf(["revenue", "reimbursement"]), 1);
+  const totalOperatingExpenses = sumTotals(subOf(EXPENSE_ROLES), -1);
+  const netOperatingIncome = diffTotals(totalRevenues, totalOperatingExpenses, 1);
+  const capital = sumTotals(subOf(["capital"]), -1);
+  const cashFlowBeforeDebtService = diffTotals(netOperatingIncome, capital, 1);
+  const totalDebtService = sumTotals(subOf(["debt-service"]), -1);
+  const cashFlowAfterDebtService = diffTotals(cashFlowBeforeDebtService, totalDebtService, 1);
+  return { totalRevenues, totalOperatingExpenses, netOperatingIncome, cashFlowBeforeDebtService, totalDebtService, cashFlowAfterDebtService };
+}
+
+/** Add a scheduled amount to a line's month and year-to-date actuals (debt
+ *  not yet posted), then re-total its section and the ladder above it. */
+export function addAnticipated(statement: PropertyStatement, section: StatementSection, line: StatementLine, amount: number): void {
+  const fav = favorability(section.role);
+  const t = mkTotals(line.periodActual + amount, line.periodBudget, line.ytdActual + amount, line.ytdBudget, line.annualBudget, fav);
+  Object.assign(line, t);
+  section.subtotal = sumTotals(section.lines, fav);
+  statement.rollups = rollupsOf(statement.sections);
+}
+
 export function computeStatement(input: ComputeInput): PropertyStatement {
   const { mapping, gl, budgetLookup } = input;
   const accounts = gl.map((r) => r.account);
@@ -273,29 +298,7 @@ export function computeStatement(input: ComputeInput): PropertyStatement {
     computeSection(s, gl, accounts, budgetLookup)
   );
 
-  const subOf = (roles: SectionRole[]) =>
-    sections.filter((s) => roles.includes(s.role)).map((s) => s.subtotal);
-
-  const totalRevenues = sumTotals(subOf(["revenue", "reimbursement"]), 1);
-  const totalOperatingExpenses = sumTotals(subOf(EXPENSE_ROLES), -1);
-  const netOperatingIncome = diffTotals(totalRevenues, totalOperatingExpenses, 1);
-  const capital = sumTotals(subOf(["capital"]), -1);
-  const cashFlowBeforeDebtService = diffTotals(netOperatingIncome, capital, 1);
-  const totalDebtService = sumTotals(subOf(["debt-service"]), -1);
-  const cashFlowAfterDebtService = diffTotals(
-    cashFlowBeforeDebtService,
-    totalDebtService,
-    1
-  );
-
-  const rollups: StatementRollups = {
-    totalRevenues,
-    totalOperatingExpenses,
-    netOperatingIncome,
-    cashFlowBeforeDebtService,
-    totalDebtService,
-    cashFlowAfterDebtService,
-  };
+  const rollups = rollupsOf(sections);
 
   // Trial-balance tie-out: any GL account not captured by some line's mask.
   const mapped = new Set<string>();

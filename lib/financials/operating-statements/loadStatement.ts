@@ -5,7 +5,8 @@ import "server-only";
 import { computeStatement } from "./compute";
 import { summaryForPeriod } from "./glParser";
 import { getMapping } from "./mappingStore";
-import { assembledGl, getNotesBundle } from "./statementStore";
+import { assembledGlConsolidated, getNotesBundle, getDismissedFlags } from "./statementStore";
+import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import { markMissingDebt } from "./debtFlag";
 import { markPaidMonths } from "./paidMonth";
@@ -16,11 +17,15 @@ import { PROPERTY_DEFS } from "@/lib/properties/data";
 export async function loadStatement(key: string, year: number, requestedPeriod?: number): Promise<{ statement: PropertyStatement; meta: StatementMeta; notes: Record<string, string> } | null> {
   const mapping = await getMapping(key);
   if (!mapping) return null;
-  const stored = await assembledGl(key, year);
+  // A fund (PNIPLX, PJV3) has no P&L of its own — its shell holds only swept
+  // cash — so it is its member buildings' GLs combined, exactly as the screen
+  // builds it. Reading the shell alone exported a BLANK statement.
+  const stored = await assembledGlConsolidated(key, year);
   if (!stored) return null;
   const period = Math.min(Math.max(1, requestedPeriod || stored.maxPeriodInFile), stored.maxPeriodInFile);
   const gl = summaryForPeriod(stored.monthly, period);
-  const budget = await resolvePropertyBudget(mapping.propertyCode, year);
+  const fundParts = FUND_BUILDINGS[key];
+  const budget = await resolvePropertyBudget(fundParts ? [key, ...fundParts, mapping.propertyCode] : mapping.propertyCode, year);
   // Only line up a SAME-YEAR budget (matching the on-screen statement): a
   // nearest-year fallback would compare against the wrong year's plan and, worse,
   // drive the not-posted / paid-YTD signals off the wrong budget.
@@ -29,7 +34,8 @@ export async function loadStatement(key: string, year: number, requestedPeriod?:
   const propertyName = PROPERTY_DEFS.find((p) => p.id === key)?.name ?? mapping.entityName;
   const statement = computeStatement({ mapping, propertyName, year, period, gl, budgetLookup });
   // Flag debt scheduled by the Debt Tracker but not posted — same as the screen.
-  await markMissingDebt(statement, key, mapping.propertyCode, year, period);
+  const dismissed = new Set(await getDismissedFlags(key, year, period).catch(() => [] as string[]));
+  await markMissingDebt(statement, key, mapping.propertyCode, year, period, undefined, (sec, label) => dismissed.has(`${sec}::${label}`));
   // Record the month a paid-up-front line posted (for the export's "paid in Mar").
   markPaidMonths(statement, stored.monthly, period);
   const { notes } = await getNotesBundle(key, year, period);

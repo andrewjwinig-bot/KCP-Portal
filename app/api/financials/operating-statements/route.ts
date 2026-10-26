@@ -268,7 +268,7 @@ export async function GET(req: Request) {
   // posted to the debt-service line — flag each debt line's $0 so the statement
   // shows the debt as unposted rather than a complete $0. Shared with the
   // Excel/PDF export loader so both flag it identically.
-  const debtCheckRaw = await markMissingDebt(statement, key, mapping.propertyCode, year, period);
+  const debtCheckRaw = await markMissingDebt(statement, key, mapping.propertyCode, year, period, undefined, (sec, label) => dismissed.has(`${sec}::${label}`));
   // A DISMISSED LINE IS DONE — its not-posted warning included. The page resets
   // its own dismissed set on every load (this response is already filtered),
   // so a warning left on a dismissed line came back on every reload and
