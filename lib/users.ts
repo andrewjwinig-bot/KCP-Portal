@@ -102,6 +102,7 @@ export const USERS: Record<UserId, UserDef> = {
       // the master budget page (Step 3). The page stays reachable; it is
       // Greg's view.
       "financials-statements",
+      "bank-balances",
       "cash-analysis-draft",
       "tenant-statements",
       "investor-k1",
@@ -190,8 +191,10 @@ export const USERS: Record<UserId, UserDef> = {
     // "financials-budgets": Harry owns the shopping centres' leasing
     // assumptions, which live on the master budget page — without the grant
     // he could not open the page, or save a decision, on work assigned to him.
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/financials/budgets", "/"],
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets", "bank-balances"]),
+    // "/financials/cash-analysis" is Bank Balances — VIEW ONLY for Harry
+    // (owner): `canEditCashSheet` keeps the import and reserves to Drew/admin.
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/financials/budgets", "/financials/cash-analysis", "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
@@ -225,7 +228,7 @@ export const USERS: Record<UserId, UserDef> = {
     label: "ALISON",
     // President — a high-level view: dashboard, properties, investors,
     // rent roll, debt. No operational tools or action items.
-    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "investor-k1"]),
+    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "bank-balances", "investor-k1"]),
     allowedPathPrefixes: [
       "/dashboard", "/properties", "/rentroll", "/units", "/investors", "/debt",
       "/bank-transfers", "/financials", "/cam-recon", "/reports", "/insurance",
@@ -356,6 +359,9 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   // the page already shows the whole budget — and every SAVE is still checked
   // against the line's owner (`canEdit`) in the route.
   ["/api/budget-inputs", ["/budget-inputs", "/financials/budgets"]],
+  // Bank Balances' own API answers to its page, so a view-only grant of
+  // /financials/cash-analysis (Harry) reads it without the rest of /financials.
+  ["/api/financials/bank-balances", "/financials/cash-analysis"],
   ["/api/financials", "/financials"],
   ["/api/cam-recon", "/cam-recon"],
   ["/api/cam-config", "/cam-recon"],

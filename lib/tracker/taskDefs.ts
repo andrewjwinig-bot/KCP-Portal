@@ -488,6 +488,18 @@ export const TASK_DEFS: TaskDef[] = [
     notes: "Same time as monthly close",
     link: "/expenses",
   },
+  // Bank Balances, every Monday (owner: "add bank balances to my weekly tasks
+  // on mondays"). The import ticks that week's occurrence itself
+  // (`/api/financials/bank-balances`), as the AP report does Pay Avid Bills.
+  {
+    id: "w-bank",
+    label: "Bank Balances",
+    category: "weekly",
+    dueDay: 0,          // placeholder — overridden per-Monday at expansion time
+    everyMonday: true,
+    notes: "Save each bank's accounts page as a PDF (Chase, Liberty, M&T) and import them. The last bank in sends ownership the cash position.",
+    link: "/financials/cash-analysis",
+  },
   {
     id: "m-avid",
     label: "Pay Avid Bills",
@@ -887,4 +899,18 @@ export function taskOccurrencesBetween(start: Date, end: Date, now: Date = new D
     cursor.setMonth(cursor.getMonth() + 1);
   }
   return out.sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+/** The "Bank Balances" occurrence an import made at `now` completes: the
+ *  Monday of its week, in Eastern time (the server runs UTC, the tracker in
+ *  the office). Keyed as `tasksForMonth` keys it — `w-bank-<y>-<m1>-<d>`,
+ *  bucketed under that Monday's month, so a Tuesday import on the 1st still
+ *  ticks the previous month's last Monday. */
+export function bankTaskOccurrence(now: Date): { year: number; month0: number; id: string } {
+  const [y, m, d] = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" })
+    .format(now).split("-").map(Number);
+  const local = new Date(Date.UTC(y, m - 1, d));
+  const mon = new Date(local.getTime() - ((local.getUTCDay() + 6) % 7) * 86_400_000);
+  const year = mon.getUTCFullYear(), month0 = mon.getUTCMonth(), day = mon.getUTCDate();
+  return { year, month0, id: `w-bank-${year}-${month0 + 1}-${day}` };
 }

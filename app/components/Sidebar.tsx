@@ -43,7 +43,8 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Bank Transfers":     "bank-transfers",
   // Budgets is its own key (Nancy sees only Budgets); the other financials
   // pages require the broader "financials-statements" key.
-  "Bank Balances":      "financials-statements",
+  // Its own key: Harry views Bank Balances without the statements.
+  "Bank Balances":      "bank-balances",
   "Operating Statements": "financials-statements",
   "Management Fees":    "financials-statements",
   "Flags to Investigate": "financials-statements",
