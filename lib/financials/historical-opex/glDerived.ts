@@ -11,7 +11,7 @@ import "server-only";
 import { listFullGls, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
-import { claimAccounts } from "@/lib/financials/operating-statements/mask";
+import { claimMapping } from "@/lib/financials/operating-statements/mask";
 import { EXPENSE_ROLES } from "@/lib/financials/operating-statements/types";
 import type { HistoricalOpExEntry } from "./types";
 
@@ -43,11 +43,11 @@ export async function glDerivedOpEx(): Promise<HistoricalOpExEntry[]> {
       const asm = assembleGls(arr);
       if (!asm) continue;
       const accounts = Object.keys(asm.monthly);
+      // Claimed across the whole mapping — matching the operating statement
+      // engine — so an account two sections reach is counted once.
+      const allClaims = claimMapping(mapping.sections.map((s) => s.lines.map((l) => l.mask)), accounts);
       for (const sec of expenseSections) {
-        // Claim each account to its most-specific line so a catch-all mask
-        // (e.g. G&A "8*-*") doesn't re-count accounts owned by a specific line —
-        // matching the operating statement engine.
-        const claimed = claimAccounts(sec.lines.map((l) => l.mask), accounts);
+        const claimed = allClaims[mapping.sections.indexOf(sec)];
         sec.lines.forEach((line, li) => {
           // Full-year total: sum the line's claimed accounts' 12 monthly nets
           // (expense sign is +1, so debit-normal nets are already positive).

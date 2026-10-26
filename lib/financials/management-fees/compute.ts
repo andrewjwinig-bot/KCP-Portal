@@ -7,6 +7,7 @@
 // Total Revenues rollup, which is the fee income the management company budgets
 // to earn. The two should roughly tie.
 
+import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import "server-only";
 import { availableStatements } from "@/lib/financials/operating-statements/mappingStore";
 import { listFullGls } from "@/lib/financials/operating-statements/statementStore";
@@ -165,6 +166,9 @@ export async function loadManagementFees(year: number): Promise<MgmtFeeData> {
     // The management company (LIK 2000/2010) earns the fees — it's the budget
     // source, not a fee-paying building.
     if (groupOf(code) === "lik") continue;
+    // A fund shell or roll-up (PJV3, PNIPLX, PHOMES) pays no fee of its own —
+    // a roll-up upload carries its buildings' 6610, which would count twice.
+    if (FUND_BUILDINGS[m.key] || m.key === "PHOMES") continue;
 
     const stored = assembleGls(fulls.filter((g) => g.key === m.key && g.year === year));
     const feeMonthly = stored ? lineMonthly(stored.monthly, MGMT_FEE_MASK, 1, 12) : new Array(12).fill(0);

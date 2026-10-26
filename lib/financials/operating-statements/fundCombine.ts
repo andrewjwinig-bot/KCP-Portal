@@ -16,6 +16,7 @@
 
 import type { StoredGl } from "./statementStore";
 import type { GlTransaction } from "./glParser";
+import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 
 const isRent = (acct: string) => acct.startsWith("4230");
 
@@ -75,4 +76,34 @@ export function memberTransactionsOutsideRollup(
     if (kept.length) out[acct] = kept;
   }
   return out;
+}
+
+/** The fund shell's OWN figures — what it adds on top of its buildings — for
+ *  anything that sums every statement key side by side (the portfolio NOI,
+ *  the assistant's roll-up, Flags to Investigate). In a cash-only month that
+ *  is the shell as uploaded; in a roll-up month it is the roll-up LESS the
+ *  buildings, so a portfolio sum of buildings + shell counts each building
+ *  once whichever way the fund was exported. */
+export function shellOwnGl(shell: StoredGl, members: StoredGl[]): StoredGl {
+  const rollup = rollupMonths(shell);
+  if (!rollup.some(Boolean)) return shell;
+  const monthly: Record<string, number[]> = {};
+  for (const [a, nets] of Object.entries(shell.monthly)) monthly[a] = [...nets];
+  for (const g of members) {
+    for (const [a, nets] of Object.entries(g.monthly)) {
+      const arr = (monthly[a] ??= new Array(12).fill(0));
+      for (let i = 0; i < 12; i++) if (rollup[i]) arr[i] -= nets[i] ?? 0;
+    }
+  }
+  for (const arr of Object.values(monthly)) for (let i = 0; i < 12; i++) if (Math.abs(arr[i]) < 0.005) arr[i] = 0;
+  return { ...shell, monthly };
+}
+
+/** A statement key's GL for a SIDE-BY-SIDE sum over every key: a fund shell
+ *  reads its own figures only (`shellOwnGl`), every other key as assembled. */
+export function ownGlFor(key: string, assemble: (k: string) => StoredGl | null): StoredGl | null {
+  const members = FUND_BUILDINGS[key] ?? FUND_BUILDINGS[key.toUpperCase()];
+  const g = assemble(key);
+  if (!g || !members) return g;
+  return shellOwnGl(g, members.map(assemble).filter((x): x is StoredGl => !!x));
 }

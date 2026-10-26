@@ -802,6 +802,34 @@ buildings may be managed by a third party" as an explanation for a gap.
   with the buildings' fees (`fee-rollup`) and would have dropped it. `2000`
   (Clearing) still carries the old combined mask.
 
+# Data integrity — every sum counts each dollar once (audit 10/2026)
+
+Owner: "its a little concerning that our data might not be mapped properly".
+The rules the audit put in place — keep them:
+
+- **An account is claimed ONCE ACROSS THE WHOLE MAPPING** (`claimMapping` in
+  `mask.ts`; narrowest mask wins, ties → the earlier line). Claiming per
+  section let 8990-8599 count in G&A (`8*-*`) AND Capital's Extraordinary
+  Expense at every property, 6510-8501 on BOTH Insurance lines at the business
+  parks, and 9210-0000 in 2000/2010's Interest Expense AND Debt Service. The
+  statement, budget lookup, reprojection and expense history all use it, and
+  the "?" series, auto-explain and the drill-down read the line's CLAIMED
+  accounts (`lineOwnedAccounts`), not the raw mask — the mask lists other
+  lines' charges. Pinned by `dataIntegrity.test.ts`.
+- **A side-by-side sum over every statement key reads a fund shell's OWN
+  figures** (`ownGlFor` / `shellOwnGl` in `fundCombine.ts`): the monthly
+  report's portfolio NOI, the assistant's roll-up and ranking, Flags to
+  Investigate and the not-posted check. One property's view reads the fund
+  CONSOLIDATED (`combineFundGls`), Bank Rec included. Management Fees skips
+  fund shells and PHOMES; the 1099 register does not re-read a building its
+  fund's transactions already carry.
+- **A newer GL upload is the whole truth for the months it covers**
+  (`assembleGls`): an account it no longer lists is ZERO there, not the older
+  file's figure (a reclass or a void used to leave the old amount behind).
+- **Posting reports fill only months after the GL's LAST active month**
+  (`actualsThrough`), not its last contiguous one — a quiet property's
+  September posting was added on top of the GL's own September.
+
 # Operating statements — which properties are run monthly
 
 **`monthlyStatements()` (`mappingStore.ts`) is the list of statements run each
@@ -1503,7 +1531,7 @@ time — and the team does not have time to open the GL over $80.
   Rental, Bank Fees, Business Taxes, Legal & Accounting, Employee Training,
   Insurance, Auto/ Vehicle Expenses, G&A Clearing, Outside Consultants (Accounting / Consultants), then the
   lines the workbook does not carry. Keep Salaries & Benefits (8000-*) ABOVE
-  Auto/ Vehicle Expenses (it carries 8000-0000 too) — a mask overlap on 8000-0000 goes to the first line.
+  Auto/ Vehicle Expenses (it carries 8000-0000 too). NOTE: the NARROWEST mask wins, not the first line — `8000-0000` (exact, on Auto/ Vehicle) beats `8000-*`, so 8000-0000 lands on Auto/ Vehicle Expenses.
   **2010's budget has NO Capital section and NO Debt Service** (owner: "delete Capital section
   from 2010 budget"; "there is no mortgage or interest expense" — the Debt
   Service section and the Expenses' Interest Expense line are dropped too) — dropped from the draft only; the statement mapping

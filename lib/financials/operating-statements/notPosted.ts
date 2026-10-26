@@ -1,4 +1,5 @@
 import "server-only";
+import { ownGlFor } from "./fundCombine";
 import { monthlyStatements, getMapping } from "./mappingStore";
 import { listFullGls } from "./statementStore";
 import { assembleGls } from "./glAssemble";
@@ -73,7 +74,7 @@ export async function collectNotPosted(year: number, key?: string): Promise<NotP
   const propsWith = new Set<string>();
 
   for (const m of targets) {
-    const stored = assembleGls(fulls.filter((g) => g.key === m.key && g.year === year));
+    const stored = ownGlFor(m.key, (k) => assembleGls(fulls.filter((g) => g.key === k && g.year === year)));
     if (!stored) continue;
     const mapping = await getMapping(m.key);
     if (!mapping) continue;

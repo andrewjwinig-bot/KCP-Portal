@@ -9,7 +9,7 @@ import { currentLineKey, withCurrentLineKeys } from "./lineRenames";
 import "server-only";
 import { storeJSON, listJSON, getJSON, deleteJSON } from "@/lib/storage";
 import type { GlTransaction } from "./glParser";
-import { assembleGls, mergeTransactions } from "./glAssemble";
+import { assembleGls, mergeTransactions, actualsThrough } from "./glAssemble";
 import { combineFundGls, rollupMonths, memberTransactionsOutsideRollup } from "./fundCombine";
 import { applyPostingDeltas, applyPostingTransactions, postingDeltasFor } from "./postingDeltaStore";
 import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
@@ -99,7 +99,7 @@ export async function assembledTransactions(key: string, year: number): Promise<
       // Actuals-through (last posted month), NOT the report range end — so a
       // year-to-date GL exported early doesn't suppress interim posting-report
       // transactions for the months it hasn't actually posted yet.
-      coveredThrough = base?.maxPeriodInFile ?? 0;
+      coveredThrough = actualsThrough(base);
     }
     // Interim posting deltas layer on for months the full GL doesn't cover.
     const deltas = await postingDeltasFor(k, year);

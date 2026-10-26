@@ -3,6 +3,7 @@
 // Shopping Centers / LIK / Other. Numbers are computed here; the report page
 // only renders them (with optional AI narrative layered on top).
 
+import { ownGlFor } from "@/lib/financials/operating-statements/fundCombine";
 import "server-only";
 import { getJSON, listJSON } from "@/lib/storage";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
@@ -209,7 +210,9 @@ export async function buildMonthlyReport(year: number, month: number, now: Date)
 
     const perProperty = await Promise.all(mappings.map(async (m) => {
       try {
-        const stored = assembleGls(byKeyYear.get(m.key) ?? []);
+        // A fund shell adds only its OWN figures (its roll-up upload already
+        // carries the buildings summed here too).
+        const stored = ownGlFor(m.key, (k) => assembleGls(byKeyYear.get(k) ?? []));
         if (!stored) return null;
         const period = Math.min(month, stored.maxPeriodInFile);
         if (period < 1) return null;

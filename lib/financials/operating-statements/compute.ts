@@ -6,7 +6,7 @@
 // testable (compute.test.ts) and reused by the API + any export. The page,
 // importer, and budget wiring all layer on top.
 
-import { claimAccounts } from "./mask";
+import { claimMapping } from "./mask";
 import { isDiscretionaryLine, isKnownObligation } from "./flagRules";
 import {
   EXPENSE_ROLES,
@@ -98,6 +98,9 @@ function diffTotals(a: StatementTotals, b: StatementTotals, fav: 1 | -1): Statem
   );
 }
 
+/** Where a line sits in its mapping: every section's masks, and its indices. */
+export type MappingPosition = { masks: string[][]; section: number; line: number };
+
 export type ComputeInput = {
   mapping: StatementMapping;
   propertyName: string;
@@ -109,7 +112,7 @@ export type ComputeInput = {
    *  masks let it claim each budget account to its most-specific line (so a
    *  catch-all doesn't double-count budget the way it must not for actuals).
    *  Return null for no-budget — the column renders blank. */
-  budgetLookup?: (sectionName: string, lineMask: string, sectionMasks: string[]) => LineBudget | null;
+  budgetLookup?: (sectionName: string, lineMask: string, sectionMasks: string[], at?: MappingPosition) => LineBudget | null;
 };
 
 function computeLine(
@@ -119,7 +122,8 @@ function computeLine(
   matched: string[],          // accounts CLAIMED by this line within its section
   sectionMasks: string[],
   budgetLookup?: ComputeInput["budgetLookup"],
-  sectionName?: string
+  sectionName?: string,
+  at?: MappingPosition,
 ): StatementLine {
   const sign = roleSign(role);
   const set = new Set(matched);
@@ -132,7 +136,7 @@ function computeLine(
   }
   periodActual *= sign;
   ytdActual *= sign;
-  const b = budgetLookup?.(sectionName ?? "", line.mask, sectionMasks) ?? null;
+  const b = budgetLookup?.(sectionName ?? "", line.mask, sectionMasks, at) ?? null;
   const t = mkTotals(
     periodActual,
     b?.periodBudget ?? null,
@@ -247,16 +251,17 @@ function budgetExpectedMissing(
 function computeSection(
   section: MappingSection,
   gl: GlSummaryRow[],
-  accounts: string[],
-  budgetLookup?: ComputeInput["budgetLookup"]
+  claimed: string[][],
+  budgetLookup: ComputeInput["budgetLookup"] | undefined,
+  allMasks: string[][],
+  si: number,
 ): StatementSection {
-  // Assign each account to its most-specific line so a catch-all mask (e.g.
-  // G&A "8*-*") never re-counts an account already owned by a specific line
-  // (e.g. Business Taxes "8210-8501") — which would double-count the subtotal.
-  const masks = section.lines.map((l) => l.mask);
-  const claimed = claimAccounts(masks, accounts);
+  // Each account is claimed by its most-specific line ACROSS THE MAPPING
+  // (`claimMapping`), so a catch-all (G&A "8*-*") never re-counts an account
+  // with its own line — in this section or another one.
+  const masks = allMasks[si];
   const lines = section.lines.map((l, i) =>
-    computeLine(l, section.role, gl, claimed[i], masks, budgetLookup, section.name)
+    computeLine(l, section.role, gl, claimed[i], masks, budgetLookup, section.name, { masks: allMasks, section: si, line: i })
   );
   return {
     name: section.name,
@@ -294,8 +299,10 @@ export function addAnticipated(statement: PropertyStatement, section: StatementS
 export function computeStatement(input: ComputeInput): PropertyStatement {
   const { mapping, gl, budgetLookup } = input;
   const accounts = gl.map((r) => r.account);
-  const sections = mapping.sections.map((s) =>
-    computeSection(s, gl, accounts, budgetLookup)
+  const allMasks = mapping.sections.map((s) => s.lines.map((l) => l.mask));
+  const claimed = claimMapping(allMasks, accounts);
+  const sections = mapping.sections.map((s, si) =>
+    computeSection(s, gl, claimed[si], budgetLookup, allMasks, si)
   );
 
   const rollups = rollupsOf(sections);

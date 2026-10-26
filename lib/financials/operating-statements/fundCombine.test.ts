@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { combineFundGls, rollupMonths, memberTransactionsOutsideRollup } from "./fundCombine";
+import { combineFundGls, rollupMonths, memberTransactionsOutsideRollup, shellOwnGl } from "./fundCombine";
 import type { StoredGl } from "./statementStore";
 
 const m = (vals: Record<number, number>) => Array.from({ length: 12 }, (_, i) => vals[i + 1] ?? 0);
@@ -34,5 +34,18 @@ describe("combineFundGls", () => {
   it("drops the members' detail for a roll-up month", () => {
     const tx = { "4230-0000": [{ month: 8, date: null, description: "a", ref: "", amount: -100 }, { month: 9, date: null, description: "b", ref: "", amount: -100 }] };
     expect(memberTransactionsOutsideRollup(tx, rollupMonths(shell))["4230-0000"].map((t) => t.month)).toEqual([8]);
+  });
+});
+
+describe("shellOwnGl", () => {
+  it("is the roll-up less the buildings, so buildings + shell counts each building once", () => {
+    const b1 = gl("3610", { "4230-0000": m({ 9: -100 }) });
+    const b2 = gl("3620", { "4230-0000": m({ 9: -50 }) });
+    const shell = gl("PJV3", { "4230-0000": m({ 9: -150 }), "9210-0000": m({ 9: 30 }) });
+    const own = shellOwnGl(shell, [b1, b2]);
+    expect(own.monthly["4230-0000"][8]).toBe(0);
+    expect(own.monthly["9210-0000"][8]).toBe(30);
+    const cashOnly = gl("PJV3", { "9210-0000": m({ 9: 30 }) });
+    expect(shellOwnGl(cashOnly, [b1, b2])).toBe(cashOnly);
   });
 });

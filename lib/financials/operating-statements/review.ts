@@ -6,6 +6,7 @@
 // have dismissed. The result is organized property → line → month, so a line's
 // flagged months across the year sit together rather than in one flat list.
 
+import { ownGlFor } from "./fundCombine";
 import "server-only";
 import { monthlyStatements, getMapping } from "./mappingStore";
 import { listFullGls, getDismissedFlags, getNotesBundle } from "./statementStore";
@@ -13,7 +14,7 @@ import { assembleGls, reconcileGlFiles } from "./glAssemble";
 import { summaryForPeriod } from "./glParser";
 import { computeStatement } from "./compute";
 import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
-import { lineMonthly } from "./lineSeries";
+import { lineMonthly, lineOwnedAccounts } from "./lineSeries";
 import { trendFlags } from "./trends";
 import { seasonalTrendFlags, meetsFlagFloor, FLAG_MIN_DOLLARS, revenueShortfallReason } from "./flagRules";
 import { basisForLine, checkBasisForLine } from "./rentCheck";
@@ -140,12 +141,14 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
 
   for (const m of mappings) {
     const name = propertyName(m.key, m.entityName);
-    const stored = assembleGls(fulls.filter((g) => g.key === m.key && g.year === year));
+    // A fund shell is reviewed on its OWN figures — a roll-up upload would
+    // repeat every building's items under the fund.
+    const stored = ownGlFor(m.key, (k) => assembleGls(fulls.filter((g) => g.key === k && g.year === year)));
     if (!stored) {
       properties.push({ key: m.key, propertyCode: m.propertyCode, propertyName: name, hasData: false, latestPeriod: 0, latestMonthLabel: "—", monthsCovered: 0, lines: [], flaggedMonthCount: 0, issues: [], tieOut: null, coverage: null });
       continue;
     }
-    const storedPY = assembleGls(fulls.filter((g) => g.key === m.key && g.year === year - 1));
+    const storedPY = ownGlFor(m.key, (k) => assembleGls(fulls.filter((g) => g.key === k && g.year === year - 1)));
     const max = stored.maxPeriodInFile;
     const mapping = await getMapping(m.key);
     if (!mapping) continue;
@@ -240,8 +243,8 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
       const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
       for (const l of sec.lines) {
         const lineKey = `${sec.name}::${l.label}`;
-        const amounts = lineMonthly(stored.monthly, l.mask, sign, max);
-        const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
+        const amounts = lineMonthly(stored.monthly, l.mask, sign, max, lineOwnedAccounts(mapping, stored.monthly, sec.name, l.label));
+        const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12, lineOwnedAccounts(mapping, storedPY.monthly, sec.name, l.label)) : [];
         const hits: Hit[] = [];
         for (let M = firstMonth; M <= max; M++) {
           const series = amounts.slice(0, M);
@@ -284,7 +287,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
               flaggedPeriods.add(M);
               const lineKey = `${sec.name}::${l.label}`;
               if (!hitsByLine.has(lineKey)) {
-                hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits: [], history: lineMonthly(stored.monthly, l.mask, sign, max) });
+                hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits: [], history: lineMonthly(stored.monthly, l.mask, sign, max, lineOwnedAccounts(mapping, stored.monthly, sec.name, l.label)) });
               }
             }
           }
@@ -314,7 +317,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
             flaggedPeriods.add(M);
             if (!hitsByLine.has(lineKey)) {
               const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
-              hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits: [], history: lineMonthly(stored.monthly, l.mask, sign, max) });
+              hitsByLine.set(lineKey, { section: sec.name, line: l.label, hits: [], history: lineMonthly(stored.monthly, l.mask, sign, max, lineOwnedAccounts(mapping, stored.monthly, sec.name, l.label)) });
             }
           }
         }

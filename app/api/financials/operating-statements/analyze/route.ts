@@ -8,7 +8,7 @@ import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 import { buildTenantLookup } from "@/lib/financials/operating-statements/tenants";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
 import { seasonalTrendFlags, isCapitalLine, FLAG_MIN_DOLLARS, revenueShortfallReason } from "@/lib/financials/operating-statements/flagRules";
-import { lineMonthly, lineTxnCounts } from "@/lib/financials/operating-statements/lineSeries";
+import { lineMonthly, lineOwnedAccounts, lineTxnCounts } from "@/lib/financials/operating-statements/lineSeries";
 
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -116,9 +116,9 @@ export async function POST(req: Request) {
       // When only the YEAR is off, the note must say so rather than presenting
       // a year-to-date finding as this month's news.
       const ytdOnly = !periodCls && !!ytdCls;
-      const amounts = lineMonthly(stored.monthly, l.mask, sign, period);
-      const counts = lineTxnCounts(txByAccount, l.mask, period);
-      const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
+      const amounts = lineMonthly(stored.monthly, l.mask, sign, period, lineOwnedAccounts(mapping, stored.monthly, sec.name, l.label));
+      const counts = lineTxnCounts(txByAccount, l.mask, period, lineOwnedAccounts(mapping, txByAccount, sec.name, l.label));
+      const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12, lineOwnedAccounts(mapping, storedPY.monthly, sec.name, l.label)) : [];
       const pySameMonth = pyAmounts.length >= period ? pyAmounts[period - 1] : null;
       // The SAME rules the "?" uses — seasonal/lumpy adjustments and the
       // variance floor — so auto-explain writes a note for exactly the lines
