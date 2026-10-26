@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
     importedAt: new Date().toISOString(),
     importedBy: uploadedBy,
     tenantCount: parsed.statements.length,
-  });
+  }, { clearAbsentInProperties: true });
   let run = merge.run;
 
   // Judged on the WHOLE merged month, not just this file — a second export

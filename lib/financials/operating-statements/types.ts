@@ -175,5 +175,7 @@ export type PropertyStatement = {
   /** Trial-balance tie-out: accounts present in the GL/TB but NOT mapped into
    *  any statement line (Depreciation, Interest, Deferred costs, Rounding…).
    *  A non-zero leftover is surfaced as a tie-out warning. */
-  unmappedAccounts: { account: string; ytdActual: number; name?: string | null }[];
+  /** GL accounts no line claims. `pl` = a revenue / expense account (4000 up),
+   *  which is therefore NOT in NOI — the one kind worth acting on. */
+  unmappedAccounts: { account: string; ytdActual: number; periodActual?: number; pl?: boolean; name?: string | null }[];
 };

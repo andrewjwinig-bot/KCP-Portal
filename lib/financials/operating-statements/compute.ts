@@ -310,9 +310,13 @@ export function computeStatement(input: ComputeInput): PropertyStatement {
   // Trial-balance tie-out: any GL account not captured by some line's mask.
   const mapped = new Set<string>();
   for (const s of sections) for (const l of s.lines) for (const a of l.accounts) mapped.add(a);
+  // A revenue / expense account (4000 up) on NO line is left out of NOI — it
+  // is flagged `pl` so the page and the exports lead with it, apart from the
+  // balance-sheet accounts that are expected here. An account with activity
+  // THIS month that nets to zero for the year is still listed.
   const unmappedAccounts = gl
-    .filter((r) => !mapped.has(r.account) && Math.abs(r.ytdActual) > 0.005)
-    .map((r) => ({ account: r.account, ytdActual: r.ytdActual }));
+    .filter((r) => !mapped.has(r.account) && (Math.abs(r.ytdActual) > 0.005 || Math.abs(r.periodActual) > 0.005))
+    .map((r) => ({ account: r.account, ytdActual: r.ytdActual, periodActual: r.periodActual, pl: Number(r.account.split("-")[0]) >= 4000 }));
 
   return {
     propertyCode: mapping.propertyCode,

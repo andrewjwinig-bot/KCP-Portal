@@ -315,6 +315,17 @@ describe("mergeStatements", () => {
     expect(stats.carriedOver).toBe(2);
   });
 
+  it("a full export of a property reads a tenant it no longer lists as paid in full — never a property it did not cover, never a former occupant", () => {
+    const fo = { ...st("1100-50-FO", 80), skylineUnitRef: "1100-50-FO" };
+    const existing = [st("1100-34", 100), st("1100-36", 200), fo, st("2300-1817", 300)];
+    const { statements, stats } = mergeStatements(existing, [st("1100-34", 120, "later")], { clearAbsentInProperties: true, stamp: { importedAt: "later", sourceFile: "f" } });
+    const by = Object.fromEntries(statements.map((s) => [s.unitRef, s]));
+    expect(by["1100-36"]).toMatchObject({ chargeTotal: 0, reportedBalance: 0, noOpenItems: true, importedAt: "later" });
+    expect(by["1100-50-FO"].chargeTotal).toBe(80);
+    expect(by["2300-1817"].chargeTotal).toBe(300);
+    expect(stats).toMatchObject({ cleared: 1, carriedOver: 2 });
+  });
+
   it("keeps a replaced tenant in their slot rather than moving them to the end", () => {
     const { statements } = mergeStatements(
       [st("1100-34", 1), st("1100-36", 2), st("1100-12330", 3)],

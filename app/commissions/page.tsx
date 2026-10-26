@@ -78,6 +78,7 @@ function toMoney(n: number): string {
 export default function CommissionsPage() {
   const [rentroll, setRentroll] = useState<RentRollData | null>(null);
   const [entries, setEntries]   = useState<CommissionEntry[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [loading, setLoading]   = useState(true);
   const [saving, setSaving]     = useState(false);
   const [error, setError]       = useState<string | null>(null);
@@ -110,12 +111,15 @@ export default function CommissionsPage() {
   useEffect(() => {
     Promise.all([
       fetch("/api/rentroll").then((r) => r.json()).catch(() => ({ rentroll: null })),
-      fetch("/api/commissions").then((r) => r.json()).catch(() => ({ entries: [] })),
+      fetch("/api/commissions").then((r) => (r.ok ? r.json() : { failed: true })).catch(() => ({ failed: true })),
       fetch("/api/commissions/avidbill-sent").then((r) => r.json()).catch(() => ({ log: {} })),
     ])
       .then(([rr, ce, av]) => {
         setRentroll(rr.rentroll ?? null);
-        setEntries(Array.isArray(ce.entries) ? ce.entries : []);
+        // A failed load must not read as "no commissions": the page would then
+        // save over every entry on file. Saving stays off until a reload works.
+        if (ce?.failed) { setLoadFailed(true); setError("Couldn't load the commissions — refresh the page before making changes."); }
+        setEntries(Array.isArray(ce?.entries) ? ce.entries : []);
         setAvidSent({ ...((av?.log && typeof av.log === "object") ? av.log : {}), ...(av?.sentByKind?.office ?? {}) });
         setSentHistory(av?.history?.office ?? {});
         setReview(av?.review ?? {});
@@ -212,15 +216,20 @@ export default function CommissionsPage() {
   }
 
   async function persist(next: CommissionEntry[]) {
+    if (loadFailed) { setError("Couldn't load the commissions — refresh the page before making changes."); return; }
+    const baseIds = entries.map((e) => e.id);
     setSaving(true);
     setEntries(next);
     try {
       const res = await fetch("/api/commissions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries: next }),
+        body: JSON.stringify({ entries: next, baseIds }),
       });
       if (!res.ok) throw new Error("Save failed");
+      // The server MERGES (another tab's entries are kept) — show what it holds.
+      const saved = await res.json().catch(() => null);
+      if (Array.isArray(saved?.entries)) setEntries(saved.entries);
       setError(null);
     } catch (e: any) {
       setError(e?.message ?? "Save failed");

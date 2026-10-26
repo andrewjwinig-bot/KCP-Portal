@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getJSON, deleteJSON, listJSON } from "@/lib/storage";
+import { getJSON, deleteJSON, listJSON, storeJSON } from "@/lib/storage";
 import { rollAsOf } from "@/lib/rentroll/current";
 import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
 
@@ -37,10 +37,28 @@ export async function GET(_req: Request, ctx: { params: { month: string } }) {
   return NextResponse.json({ rentroll: { ...own, properties: asOf.properties }, carriedFrom });
 }
 
-/** DELETE /api/rentroll/history/YYYY-MM → remove a snapshot. */
-export async function DELETE(_req: Request, ctx: { params: { month: string } }) {
+/** DELETE /api/rentroll/history/YYYY-MM?property=CODE → take ONE property's
+ *  roll out of the month. A month holds every import MERGED into it (Nancy's
+ *  office roll beside Harry's retail), so deleting the whole document to undo
+ *  one import erased the others with it. The whole month goes only with
+ *  `?all=1`, said deliberately. */
+export async function DELETE(req: Request, ctx: { params: { month: string } }) {
   const month = (ctx.params.month ?? "").replace(/[^0-9-]/g, "");
-  const ok = await deleteJSON(HISTORY_PREFIX, month);
-  if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json({ ok: true });
+  const url = new URL(req.url);
+  const property = (url.searchParams.get("property") ?? "").toUpperCase();
+  if (url.searchParams.get("all") === "1") {
+    const ok = await deleteJSON(HISTORY_PREFIX, month);
+    if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ ok: true, removed: "month" });
+  }
+  if (!property) {
+    return NextResponse.json({ error: "Name the property to remove (?property=CODE) — the month holds every import merged together. ?all=1 removes the whole month." }, { status: 400 });
+  }
+  const doc = (await getJSON(HISTORY_PREFIX, month, { retryOnMiss: true })) as { properties?: any[] } | null;
+  if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const keep = (doc.properties ?? []).filter((p) => code(p) !== property);
+  if (keep.length === (doc.properties ?? []).length) return NextResponse.json({ error: `${property} is not in ${month}` }, { status: 404 });
+  if (!keep.length) await deleteJSON(HISTORY_PREFIX, month);
+  else await storeJSON(HISTORY_PREFIX, month, { ...doc, properties: keep });
+  return NextResponse.json({ ok: true, removed: property });
 }

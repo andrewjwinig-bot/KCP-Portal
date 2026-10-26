@@ -38,6 +38,8 @@ export async function loadStatement(key: string, year: number, requestedPeriod?:
   await markMissingDebt(statement, key, mapping.propertyCode, year, period, undefined, (sec, label) => dismissed.has(`${sec}::${label}`));
   // Record the month a paid-up-front line posted (for the export's "paid in Mar").
   markPaidMonths(statement, stored.monthly, period);
+  // Name the accounts no line picks up — the export lists the P&L ones.
+  statement.unmappedAccounts = statement.unmappedAccounts.map((u) => ({ ...u, name: stored.names?.[u.account] ?? null }));
   const { notes } = await getNotesBundle(key, year, period);
   return { statement, meta: { propertyCode: mapping.propertyCode, propertyName, year, period, budgetYear: sameYearBudget?.budgetYear ?? null }, notes };
 }

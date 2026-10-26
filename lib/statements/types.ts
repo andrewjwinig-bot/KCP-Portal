@@ -88,6 +88,11 @@ export type TenantStatement = {
    *  Optional: records stored before provenance existed simply have neither. */
   importedAt?: string;
   sourceFile?: string;
+  /** Set when a later export of the tenant's PROPERTY no longer lists them:
+   *  the Statement report is open items only, so a tenant who paid in full
+   *  simply drops off it. They read $0, "no open items as of" that import,
+   *  instead of keeping the last balance they were shown. */
+  noOpenItems?: boolean;
 };
 
 /** One uploaded Skyline file within a period's run. */

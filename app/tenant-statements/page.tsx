@@ -172,10 +172,11 @@ export default function TenantStatementsPage() {
         const j = await fetch("/api/tenant-statements", { method: "POST", body: fd }).then((r) => r.json());
         if (!j.ok) return { status: "failed", error: j.error ?? "Import failed" };
         const untied: number = j.untied?.length ?? j.mismatched.length;
-        const mg = j.merge as { replaced: number; added: number; carriedOver: number } | undefined;
-        const merged = mg && mg.carriedOver > 0
+        const mg = j.merge as { replaced: number; added: number; carriedOver: number; cleared?: number } | undefined;
+        const paidOff = mg?.cleared ? ` · ${mg.cleared} paid in full` : "";
+        const merged = (mg && mg.carriedOver > 0
           ? ` · ${mg.replaced} replaced, ${mg.carriedOver} kept`
-          : mg && mg.replaced > 0 && mg.added === 0 ? ` · ${mg.replaced} replaced` : "";
+          : mg && mg.replaced > 0 && mg.added === 0 ? ` · ${mg.replaced} replaced` : "") + paidOff;
         const note = untied
           ? `⚠ ${untied} tenant${untied === 1 ? "" : "s"} don't reconcile — held back from the portal`
           : j.autoPublished ? "every tenant ties out · published to the portal"
@@ -195,7 +196,7 @@ export default function TenantStatementsPage() {
       report: (rows) => {
         const ok = rows.filter((r) => r.status === "done")
           .map((r) => r.raw as { period: string; tenants: number; totalTenants: number; openBalance: number; mismatched: string[]; untied?: string[]; published: boolean; autoPublished: boolean;
-            merge?: { replaced: number; added: number; carriedOver: number; changed: number; netChange: number } });
+            merge?: { replaced: number; added: number; carriedOver: number; changed: number; netChange: number; cleared?: number } });
         const last = ok[ok.length - 1];
         const p = last?.period;
         const open = ok.reduce((a, r) => a + r.openBalance, 0);
@@ -211,6 +212,7 @@ export default function TenantStatementsPage() {
               ? [
                   { value: String(m.replaced), label: m.replaced === 1 ? "statement replaced" : "statements replaced" },
                   { value: String(m.carriedOver), label: "kept as they were" },
+                  ...(m.cleared ? [{ value: String(m.cleared), label: "paid in full · now $0" }] : []),
                   { value: m.changed ? `${m.netChange >= 0 ? "+" : "−"}${money0(Math.abs(m.netChange))}` : "no change",
                     label: m.changed ? `net across ${m.changed} ${m.changed === 1 ? "balance" : "balances"}` : "to any balance" },
                 ]

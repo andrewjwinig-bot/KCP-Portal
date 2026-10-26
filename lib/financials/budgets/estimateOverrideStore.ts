@@ -12,6 +12,12 @@ async function stored(year: number, code: string): Promise<EstimateOverrides> {
   return ((await getJSON(PREFIX, key(year, code)).catch(() => null)) as EstimateOverrides | null) ?? {};
 }
 
+/** The stored document for a WRITE: a failed read throws rather than reading
+ *  as "no overrides", which would write one tenant's over every other one. */
+async function storedForWrite(year: number, code: string): Promise<EstimateOverrides> {
+  return ((await getJSON(PREFIX, key(year, code), { retryOnMiss: true })) as EstimateOverrides | null) ?? {};
+}
+
 /** The stored overrides laid over the seeded ones. */
 export async function getEstimateOverrides(year: number, code: string): Promise<EstimateOverrides> {
   return { ...seededEstimateOverrides(year, code), ...(await stored(year, code)) };
@@ -20,7 +26,7 @@ export async function getEstimateOverrides(year: number, code: string): Promise<
 /** Set (or, with null, clear) one tenant's override. Clearing a SEEDED one
  *  stores an empty override, so the seed stays undone. */
 export async function setEstimateOverride(year: number, code: string, unitRef: string, o: EstimateOverride | null): Promise<EstimateOverrides> {
-  const doc = await stored(year, code);
+  const doc = await storedForWrite(year, code);
   if (o) doc[unitRef] = o;
   else if (seededEstimateOverrides(year, code)[unitRef]) doc[unitRef] = {};
   else delete doc[unitRef];

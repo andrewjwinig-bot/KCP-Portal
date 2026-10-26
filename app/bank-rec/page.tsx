@@ -46,14 +46,16 @@ export default function BankAccTrackerPage() {
 
   const commentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestComments = useRef<Record<string, string>>({});
+  const dirtyComments = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/bank-rec").then((r) => r.json()).catch(() => ({ checked: {} })),
-      fetch("/api/bank-rec/statements").then((r) => r.json()).catch(() => ({ statements: {} })),
-      fetch("/api/bank-rec/comments").then((r) => r.json()).catch(() => ({ comments: {} })),
+      fetch("/api/bank-rec").then((r) => (r.ok ? r.json() : { failed: true })).catch(() => ({ failed: true })),
+      fetch("/api/bank-rec/statements").then((r) => (r.ok ? r.json() : { failed: true })).catch(() => ({ failed: true })),
+      fetch("/api/bank-rec/comments").then((r) => (r.ok ? r.json() : { failed: true })).catch(() => ({ failed: true })),
     ])
       .then(([rec, stmt, com]) => {
+        if (rec.failed || stmt.failed || com.failed) setError("Couldn't load every tick — refresh before relying on this page.");
         setReconciled(rec.checked ?? {});
         setStatements(stmt.statements ?? {});
         const initialComments = com.comments ?? {};
@@ -99,7 +101,7 @@ export default function BankAccTrackerPage() {
       const res = await fetch("/api/bank-rec", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ checked: next }),
+        body: JSON.stringify({ patch: { [key]: next[key] ? true : null } }),
       });
       if (!res.ok) throw new Error("Save failed");
       setError(null);
@@ -118,7 +120,7 @@ export default function BankAccTrackerPage() {
       const res = await fetch("/api/bank-rec/statements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ statements: next }),
+        body: JSON.stringify({ patch: { [key]: next[key] ? true : null } }),
       });
       if (!res.ok) throw new Error("Save failed");
       setError(null);
@@ -136,15 +138,17 @@ export default function BankAccTrackerPage() {
       latestComments.current = next;
       return next;
     });
+    dirtyComments.current.add(key);
     if (commentSaveTimer.current) clearTimeout(commentSaveTimer.current);
     commentSaveTimer.current = setTimeout(async () => {
       try {
         const res = await fetch("/api/bank-rec/comments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ comments: latestComments.current }),
+          body: JSON.stringify({ patch: Object.fromEntries([...dirtyComments.current].map((k) => [k, latestComments.current[k] ?? null])) }),
         });
         if (!res.ok) throw new Error("Save failed");
+        dirtyComments.current.clear();
         setError(null);
       } catch (e: any) {
         setError(e?.message ?? "Save failed");

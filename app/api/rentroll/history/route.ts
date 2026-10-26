@@ -59,7 +59,15 @@ export async function POST(req: NextRequest) {
     const rentroll = { id: "history", uploadedAt, ...parsed } as RentRollData;
 
     let key = snapshotMonthKey(rentroll);
-    if (monthOverride && /^\d{4}-\d{2}$/.test(monthOverride)) key = monthOverride;
+    if (monthOverride && /^\d{4}-\d{2}$/.test(monthOverride)) {
+      key = monthOverride;
+      // The roll is FILED by its key but READ (composeCurrentRoll / rollAsOf)
+      // by its own reportTo — so an overridden month must carry the override's
+      // date too, or a backfill sorts as the month the file says.
+      const [y, m] = monthOverride.split("-").map(Number);
+      const last = new Date(y, m, 0).getDate();
+      (rentroll as any).reportTo = `${m}/${last}/${y}`;
+    }
 
     // A read that FAILS is not "nothing filed for this month": treating it so
     // wrote the import over the month alone and dropped every property it did

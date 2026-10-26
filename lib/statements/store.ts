@@ -54,6 +54,9 @@ export type MergeStats = {
   changed: number;
   /** Net movement in open balance across those changes. */
   netChange: number;
+  /** Tenants of a property the upload covers who are no longer on it — paid
+   *  in full; now $0 with `noOpenItems`. */
+  cleared: number;
 };
 
 /**
@@ -71,6 +74,7 @@ export type MergeStats = {
 export function mergeStatements(
   existing: TenantStatement[],
   incoming: TenantStatement[],
+  opts: { clearAbsentInProperties?: boolean; stamp?: { importedAt: string; sourceFile: string } } = {},
 ): { statements: TenantStatement[]; stats: MergeStats } {
   const prior = new Map(existing.map((s) => [s.unitRef, s]));
   const byUnit = new Map<string, TenantStatement>(prior);
@@ -90,12 +94,36 @@ export function mergeStatements(
     byUnit.set(s.unitRef, s);
   }
 
+  // A WHOLE export of a property is the open-items truth for it: the Statement
+  // report lists only unpaid items, so a tenant who paid in full is simply not
+  // on it. Kept as they were, they went on showing last import's balance — on
+  // the portal, the roster and the budget's "billed today" — and "re-import to
+  // pick up payments" never worked for anyone who paid everything. Only for
+  // properties this upload carries (a building it does not cover keeps its
+  // tenants), and never a former occupant (`-FO`), whose statement is run on
+  // its own because a full run leaves them off.
+  let cleared = 0;
+  if (opts.clearAbsentInProperties) {
+    const covered = new Set(incoming.map((s) => s.propertyCode.toUpperCase()));
+    const isFormer = (s: TenantStatement) => /-FO$/i.test(s.unitRef) || /-FO$/i.test(s.skylineUnitRef ?? "");
+    for (const was of existing) {
+      if (touched.has(was.unitRef) || !covered.has(was.propertyCode.toUpperCase()) || isFormer(was)) continue;
+      if (was.noOpenItems && was.chargeTotal === 0) continue;
+      cleared += 1;
+      netChange -= was.chargeTotal;
+      byUnit.set(was.unitRef, {
+        ...was, charges: [], reportedBalance: 0, priorBalance: 0, currentTotal: 0, chargeTotal: 0, tiesOut: true,
+        noOpenItems: true, ...(opts.stamp ?? {}),
+      });
+    }
+  }
+
   return {
     statements: [...byUnit.values()],
     stats: {
-      replaced, added, changed,
+      replaced, added, changed, cleared,
       netChange: Math.round(netChange * 100) / 100,
-      carriedOver: existing.filter((s) => !touched.has(s.unitRef)).length,
+      carriedOver: existing.filter((s) => !touched.has(s.unitRef)).length - cleared,
     },
   };
 }
@@ -104,6 +132,7 @@ export async function mergeIntoPeriod(
   period: string,
   statements: TenantStatement[],
   source: StatementSource,
+  opts: { clearAbsentInProperties?: boolean } = {},
 ): Promise<{ run: StatementRun; stats: MergeStats }> {
   if (!PERIOD_RE.test(period)) throw new Error(`Invalid statement period "${period}".`);
   const now = new Date().toISOString();
@@ -111,7 +140,10 @@ export async function mergeIntoPeriod(
 
   // Stamp provenance so a carried-over tenant stays identifiable later.
   const stamped = statements.map((s) => ({ ...s, importedAt: source.importedAt, sourceFile: source.filename }));
-  const { statements: merged, stats } = mergeStatements(existing?.statements ?? [], stamped);
+  const { statements: merged, stats } = mergeStatements(existing?.statements ?? [], stamped, {
+    clearAbsentInProperties: opts.clearAbsentInProperties,
+    stamp: { importedAt: source.importedAt, sourceFile: source.filename },
+  });
 
   const run: StatementRun = {
     period,

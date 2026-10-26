@@ -316,6 +316,25 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
       nr.getCell(1).alignment = { wrapText: true, vertical: "top" };
     }
   }
+  // Revenue / expense accounts no line picks up are OUT of every total above,
+  // so the file says so — on screen they were the only place it was said.
+  const offLine = s.unmappedAccounts.filter((u) => u.pl);
+  if (offLine.length) {
+    ws.addRow([]);
+    const h = ws.addRow(["Revenue & expense accounts on no line — NOT included in NOI"]);
+    h.getCell(1).font = { bold: true, size: 11, color: { argb: "FFB91C1C" } };
+    const first = ws.rowCount + 1;
+    for (const u of offLine) {
+      const r = ws.addRow([`${u.account}${u.name ? ` · ${u.name}` : ""}`, u.periodActual ?? 0, null, null, u.ytdActual]);
+      r.getCell(2).numFmt = MONEY_FMT; r.getCell(5).numFmt = MONEY_FMT;
+    }
+    const last = ws.rowCount;
+    const t = ws.addRow(["Total not in NOI"]);
+    t.getCell(1).font = { bold: true };
+    t.getCell(2).value = { formula: `SUM(B${first}:B${last})`, result: offLine.reduce((a, u) => a + (u.periodActual ?? 0), 0) };
+    t.getCell(5).value = { formula: `SUM(E${first}:E${last})`, result: offLine.reduce((a, u) => a + u.ytdActual, 0) };
+    for (const c of [2, 5]) { t.getCell(c).numFmt = MONEY_FMT; t.getCell(c).font = { bold: true }; }
+  }
   ws.addRow([]);
   const stamp = ws.addRow([`Report run ${reportStamp()}`]);
   stamp.getCell(1).font = { italic: true, size: 9, color: { argb: "FF6B7280" } };
@@ -614,6 +633,21 @@ export async function buildStatementPdf(s: PropertyStatement, meta: StatementMet
         y += 11;
       }
       y += 3;
+    }
+  }
+
+  // Revenue / expense accounts on no line — out of NOI, so the PDF says so.
+  const offLine = s.unmappedAccounts.filter((u) => u.pl);
+  if (offLine.length) {
+    if (y > PAGE_H - MARGIN - 40 - offLine.length * 11) newPage(false);
+    y += 8;
+    leftText("REVENUE & EXPENSE ACCOUNTS ON NO LINE — NOT INCLUDED IN NOI", MARGIN, y + 9, 9, bold, RED);
+    y += 16;
+    for (const u of offLine) {
+      if (y > PAGE_H - MARGIN - 14) newPage(false);
+      leftText(`${u.account}${u.name ? ` · ${u.name}` : ""}`, MARGIN, y + 8, 8, font, TEXT, 320);
+      rightText(`${fmtMoney(u.ytdActual).t} YTD`, PAGE_W - MARGIN, y + 8, 8, font, TEXT);
+      y += 11;
     }
   }
 

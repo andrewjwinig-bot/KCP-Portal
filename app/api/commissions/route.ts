@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getJSON, storeJSON } from "@/lib/storage";
 import type { CommissionEntry } from "@/lib/commissions";
+import { mergeEntries } from "@/lib/commissions/mergeEntries";
 import { applyCommissionCorrections } from "@/lib/commissions/corrections";
 
 const PREFIX = "commissions";
@@ -13,20 +14,26 @@ export async function GET() {
     await applyCommissionCorrections().catch(() => {});
     const data = (await getJSON(PREFIX, ID)) as CommissionEntry[] | null;
     return NextResponse.json({ entries: Array.isArray(data) ? data : [] });
-  } catch {
-    return NextResponse.json({ entries: [] });
+  } catch (err: any) {
+    // A failed read must NOT read as "no commissions" — the page would then
+    // save over every entry on file. It refuses to save after a failed load.
+    console.error("[GET api/commissions]", err?.message ?? err);
+    return NextResponse.json({ error: "Could not load commissions — refresh before saving." }, { status: 503 });
   }
 }
 
-/** POST body: { entries: CommissionEntry[] } — replaces the whole array. */
+/** POST body: { entries, baseIds } — merged into what is stored
+ *  (`mergeEntries`): the page's entries upserted, an entry removed only when
+ *  the page had it (`baseIds`) and dropped it. Returns the merged list. */
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const list: CommissionEntry[] = Array.isArray(body?.entries) ? body.entries : [];
-    // Light validation: drop entries missing an id.
-    const cleaned = list.filter((e) => e && typeof e.id === "string" && e.id.length > 0);
-    await storeJSON(PREFIX, ID, cleaned);
-    return NextResponse.json({ ok: true, entries: cleaned });
+    const baseIds: string[] | null = Array.isArray(body?.baseIds) ? body.baseIds.map(String) : null;
+    const stored = (await getJSON(PREFIX, ID, { retryOnMiss: true })) as CommissionEntry[] | null;
+    const merged = mergeEntries(Array.isArray(stored) ? stored : [], list, baseIds);
+    await storeJSON(PREFIX, ID, merged);
+    return NextResponse.json({ ok: true, entries: merged });
   } catch (err: any) {
     console.error("[POST /api/commissions]", err?.message ?? err);
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
