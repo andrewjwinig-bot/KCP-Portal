@@ -1343,8 +1343,8 @@ time — and the team does not have time to open the GL over $80.
   - **Bucks** (source "Per county", in the ⓘ hover): values from the county's parcel layer
     (`Bucks_County_Parcels` on ArcGIS — `bucksParcelUrl`), rates from the
     county's 2026 millage sheet. County + township bill in APRIL, school in
-    AUGUST (September where the Tax Tracker says 9/10). Bensalem 241.5974
-    mills, Nockamixon 160.064.
+    AUGUST (September where the Tax Tracker says 9/10). Bensalem 231.7815
+    mills (the schedule's), Nockamixon 160.064.
   - **Montgomery** (source "Per county", in the ⓘ hover): values from the county's property
     records (`montcoParcelUrl`), whose own per-body tax estimate the figures
     reproduce exactly (9510: $34,727 on 2026 rates — pinned by the test);
@@ -1365,9 +1365,13 @@ time — and the team does not have time to open the GL over $80.
     → $603,580, NI LLC $3,244,570 → $1,978,890). The county's records carry
     the new values, and every one matches the schedule (`schedule` on the
     parcel; pinned by the test, which also reproduces the schedule's Building
-    1 tax of $40,597.78 at its rates less 2%). The schedule used the rates of
-    the time (27.45 / 23 / 181.3315); the budget uses the rates since adopted
-    (29.65 / 23 / 188.9474) + 3%.
+    1 tax of $40,597.78 at its rates less 2%). **The budget uses the
+    SCHEDULE'S rates (27.45 / 23 / 181.3315), held flat, less 2%** (owner,
+    10/2026: Buildings 1 / 2 / 4 "should be $40,598 / $42,594 / $53,909"):
+    every Bensalem parcel, through `bensalem()` in `assessedTaxes.ts`. The
+    county's 2026 sheet reads 29.65 / 23 / 188.9474, which +3% budgeted
+    ~7% more; the owner's figures govern. Nockamixon (2070) still uses the
+    county sheet's 29.65 + 3%.
   - **Hover the pill for the working; CLICK it for the trail**
     (`SourceBadge.tsx`). The dialog reads as the CALCULATION: three `StatPill`
     tiles — Assessed value × Millage (− the early-pay discount, its own tile, where one is taken) = the tax (`total` = the brand-bordered

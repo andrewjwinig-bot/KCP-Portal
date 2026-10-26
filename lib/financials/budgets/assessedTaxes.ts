@@ -96,11 +96,26 @@ const bucks = (id: string, twp: Levy, school: Levy, schoolMonth = 8): Jurisdicti
   rateLink: BUCKS_RATES,
   discountPct: 2,
 });
-const BENSALEM_TWP: Levy = { body: "Bensalem Township", mills: 23.0, rateYear: "2026", adopted: false };
-const BENSALEM_SD: Levy = { body: "Bensalem Township SD", mills: 188.9474, rateYear: "2026–27", adopted: false };
-const BENSALEM = bucks("BENSALEM", BENSALEM_TWP, BENSALEM_SD);
+// The business parks (all Bensalem) are budgeted at the rates on the owner's
+// 2026 RET reassessment schedule — county 27.45, township 23, school 181.3315
+// — held flat (owner, 10/2026: Buildings 1 / 2 / 4 "should be $40,598 /
+// $42,594 / $53,909", the schedule's figures to the dollar). The county's
+// 2026 sheet reads higher (29.65 county, 188.9474 school 2026–27); the owner's
+// figures govern the budget.
+const BENSALEM_COUNTY: Levy = { body: "Bucks County", mills: 27.45, rateYear: "2026 schedule", adopted: true };
+const BENSALEM_TWP: Levy = { body: "Bensalem Township", mills: 23.0, rateYear: "2026 schedule", adopted: true };
+const BENSALEM_SD: Levy = { body: "Bensalem Township SD", mills: 181.3315, rateYear: "2026 schedule", adopted: true };
+const bensalem = (id: string, schoolMonth = 8): Jurisdiction => {
+  const j = bucks(id, BENSALEM_TWP, BENSALEM_SD, schoolMonth);
+  return {
+    ...j,
+    source: "Bucks County Board of Assessment — parcel assessments; rates per the 2026 RET reassessment schedule",
+    bills: [{ ...j.bills[0], levies: [BENSALEM_COUNTY, BENSALEM_TWP] }, j.bills[1]],
+  };
+};
+const BENSALEM = bensalem("BENSALEM");
 // The Tax Tracker has the 2-acre lot's and the JV III condo's school bill due 9/10.
-const BENSALEM_SEP = bucks("BENSALEM-SEP", BENSALEM_TWP, BENSALEM_SD, 9);
+const BENSALEM_SEP = bensalem("BENSALEM-SEP", 9);
 const NOCKAMIXON = bucks("NOCKAMIXON",
   { body: "Nockamixon Township", mills: 7.0, rateYear: "2026", adopted: false },
   { body: "Palisades SD", mills: 123.414, rateYear: "2026–27", adopted: false });
