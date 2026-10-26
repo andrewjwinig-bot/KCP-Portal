@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
-import { DEPOSIT_ACCOUNTS, type SecurityDeposit } from "@/lib/deposits/deposits";
+import { DEPOSIT_ACCOUNTS, depositAccountOf, type SecurityDeposit } from "@/lib/deposits/deposits";
 import { useUser } from "@/app/components/UserProvider";
 import DepositForm, { type UnitOption } from "@/app/deposits/DepositForm";
 import { blobSrc } from "@/lib/blobProxy";
@@ -167,7 +167,7 @@ export default function DepositCard({
                   )}
                 </div>
                 <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                  {prettyDate(d.checkDate)} · {DEPOSIT_ACCOUNTS[d.account].bank}
+                  {prettyDate(d.checkDate)} · {DEPOSIT_ACCOUNTS[depositAccountOf(d)].bank}
                 </div>
               </div>
               {d.checkImage && !d.checkImage.contentType.startsWith("image/") && (

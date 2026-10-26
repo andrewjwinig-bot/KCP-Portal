@@ -2766,6 +2766,16 @@ only, nothing from the budget**.
 
 # Security deposits — check images
 
+- **The Office Works' tenants (4900) are their OWN section** (owner: "nancy
+  records their tenants security deposits so need to have a section"):
+  `office-works` in `DEPOSIT_ACCOUNTS` (M&T x3777, the Office Works
+  Partnership account — the only one the bank registry has for 4900),
+  between NI LLC and All but NI LLC (`DEPOSIT_ACCOUNT_ORDER`). The section is
+  read from the PROPERTY (`depositAccountOf`), never the stored `account`, so
+  a 4900 deposit saved before the section existed moves without a re-save —
+  the page, the unit card and the status report all read it. A section shows
+  only where the viewer's scope reaches it or it holds a deposit.
+
 - **A check image or scan goes STRAIGHT TO BLOB from the browser**
   (`/api/deposits/blob-upload`, `upload` from `@vercel/blob/client`, then
   `POST /api/deposits/[id]/check-image` with `{ url, name, contentType, size }`

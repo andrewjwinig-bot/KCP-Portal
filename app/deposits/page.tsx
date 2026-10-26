@@ -6,6 +6,9 @@ import Link from "next/link";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import {
   DEPOSIT_ACCOUNTS,
+  DEPOSIT_ACCOUNT_ORDER,
+  accountForProperty,
+  depositAccountOf,
   duplicateDepositIds,
   type DepositAccount,
   type SecurityDeposit,
@@ -172,8 +175,8 @@ export default function SecurityDepositsPage() {
   }, [rentroll, scopeCodes, pastTenants]);
 
   const byAccount = useMemo(() => {
-    const map: Record<DepositAccount, SecurityDeposit[]> = { "ni-llc": [], "all-but-ni": [] };
-    for (const d of visibleDeposits ?? []) map[d.account]?.push(d);
+    const map: Record<DepositAccount, SecurityDeposit[]> = { "ni-llc": [], "all-but-ni": [], "office-works": [] };
+    for (const d of visibleDeposits ?? []) map[depositAccountOf(d)].push(d);
     for (const k of Object.keys(map) as DepositAccount[]) {
       map[k].sort((a, b) => a.tenantCompany.localeCompare(b.tenantCompany));
     }
@@ -209,10 +212,11 @@ export default function SecurityDepositsPage() {
   // "Held" totals exclude deposits that have been refunded to the tenant.
   const heldDeposits = (visibleDeposits ?? []).filter((d) => !d.refunded);
   const total = heldDeposits.reduce((s, d) => s + d.amount, 0);
-  const heldByAccount = {
-    "ni-llc": heldDeposits.filter((d) => d.account === "ni-llc"),
-    "all-but-ni": heldDeposits.filter((d) => d.account === "all-but-ni"),
-  };
+  const heldByAccount = Object.fromEntries(DEPOSIT_ACCOUNT_ORDER.map((a) => [a, heldDeposits.filter((d) => depositAccountOf(d) === a)])) as Record<DepositAccount, SecurityDeposit[]>;
+  // A section shows when the viewer's scope reaches it (Harry's centres never
+  // see Office Works or NI LLC) or it already holds a deposit.
+  const shownAccounts = DEPOSIT_ACCOUNT_ORDER.filter((a) =>
+    byAccount[a].length > 0 || !scopeCodes || [...scopeCodes].some((c) => accountForProperty(c) === a));
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
@@ -229,12 +233,11 @@ export default function SecurityDepositsPage() {
 
       <div className="pills" style={{ marginTop: 0 }}>
         <StatPill label="Total Held" value={money(total)} />
-        <StatPill label={DEPOSIT_ACCOUNTS["ni-llc"].bank}
-          value={money(heldByAccount["ni-llc"].reduce((s, d) => s + d.amount, 0))}
-          sub={`NI LLC · ${heldByAccount["ni-llc"].length} checks`} />
-        <StatPill label={DEPOSIT_ACCOUNTS["all-but-ni"].bank}
-          value={money(heldByAccount["all-but-ni"].reduce((s, d) => s + d.amount, 0))}
-          sub={`All but NI LLC · ${heldByAccount["all-but-ni"].length} checks`} />
+        {shownAccounts.map((a) => (
+          <StatPill key={a} label={DEPOSIT_ACCOUNTS[a].bank}
+            value={money(heldByAccount[a].reduce((s, d) => s + d.amount, 0))}
+            sub={`${a === "ni-llc" ? "NI LLC" : a === "office-works" ? "The Office Works" : "All but NI LLC"} · ${heldByAccount[a].length} checks`} />
+        ))}
       </div>
 
       {!loading && dupIds.size > 0 && (
@@ -250,7 +253,7 @@ export default function SecurityDepositsPage() {
       {loading ? (
         <LoadingState status="Loading security deposits…" rows={4} />
       ) : (
-        (["ni-llc", "all-but-ni"] as DepositAccount[]).map((acct) => (
+        shownAccounts.map((acct) => (
           <div key={acct} className="card" style={{ padding: 0 }}>
             <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
               <div style={{ fontSize: 14, fontWeight: 700 }}>{DEPOSIT_ACCOUNTS[acct].label}</div>
@@ -395,8 +398,9 @@ export default function SecurityDepositsPage() {
       )}
 
       <div className="muted small">
-        Deposits route to one of two Liberty accounts automatically by property —
-        NI LLC buildings to x7448, everything else to x7216.{" "}
+        Deposits are filed by property automatically — NI LLC buildings to
+        Liberty x7448, The Office Works&apos; tenants to their own section, everything
+        else to Liberty x7216.{" "}
         <Link href="/rentroll" style={{ color: "var(--brand)" }}>Rent roll →</Link>
       </div>
     </main>

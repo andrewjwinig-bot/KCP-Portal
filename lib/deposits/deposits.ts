@@ -2,10 +2,11 @@
 // Pure types + helpers, safe to import from client components.
 // Server-only storage lives in ./storage.ts.
 
-export type DepositAccount = "ni-llc" | "all-but-ni";
+export type DepositAccount = "ni-llc" | "all-but-ni" | "office-works";
 
-// The two Liberty accounts deposits land in. NI LLC properties have a
-// dedicated account; everything else pools into the second.
+// Where deposits are held. NI LLC properties have a dedicated Liberty
+// account; The Office Works' tenants (4900) are their own section, which
+// Nancy keeps (owner, 10/2026); everything else pools into the second.
 export const DEPOSIT_ACCOUNTS: Record<DepositAccount, {
   label: string;
   bank: string;
@@ -14,14 +15,26 @@ export const DEPOSIT_ACCOUNTS: Record<DepositAccount, {
 }> = {
   "ni-llc":     { label: "NI LLC Security Deposits",           bank: "Liberty x7448", propertyCode: "4000" },
   "all-but-ni": { label: "Security Deposits — All but NI LLC", bank: "Liberty x7216", propertyCode: "2010" },
+  "office-works": { label: "The Office Works Security Deposits", bank: "M&T x3777", propertyCode: "4900" },
 };
+
+/** The sections in the order the page shows them. */
+export const DEPOSIT_ACCOUNT_ORDER: DepositAccount[] = ["ni-llc", "office-works", "all-but-ni"];
 
 const NI_LLC_CODES = new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
 
 /** Which Liberty account a unit's deposit belongs in, by property code. */
 export function accountForProperty(propertyCode: string): DepositAccount {
-  return NI_LLC_CODES.has((propertyCode ?? "").toUpperCase()) ? "ni-llc" : "all-but-ni";
+  const code = (propertyCode ?? "").toUpperCase();
+  if (NI_LLC_CODES.has(code)) return "ni-llc";
+  if (code === "4900") return "office-works";
+  return "all-but-ni";
 }
+
+/** A deposit's section — always from its property, so a record saved before
+ *  a section existed (an Office Works deposit filed as "All but NI LLC")
+ *  lands where it belongs without being re-saved. */
+export const depositAccountOf = (d: Pick<SecurityDeposit, "propertyCode">): DepositAccount => accountForProperty(d.propertyCode);
 
 export type DepositCheckImage = {
   url: string;
