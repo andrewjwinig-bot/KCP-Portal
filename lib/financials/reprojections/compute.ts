@@ -11,7 +11,7 @@
 // the Operating Statements role/sign/favorability logic and the same line
 // mapping, so the section ladder + rollups match the budget and statement.
 
-import { claimAccounts } from "@/lib/financials/operating-statements/mask";
+import { claimMapping } from "@/lib/financials/operating-statements/mask";
 import { roleSign, favorability } from "@/lib/financials/operating-statements/compute";
 import {
   EXPENSE_ROLES,
@@ -128,15 +128,19 @@ export function reproject(input: ReprojectInput): Reprojection {
   const usedAccounts = new Set<string>();
 
   const budgetAccts = input.budgetLines.map((b) => b.glAccount);
-  const sections: ReprojSection[] = input.mapping.sections.map((section: MappingSection) => {
+  // Claimed across the whole mapping — the statement engine's rule — so an
+  // account two sections reach counts once.
+  const allMasks = input.mapping.sections.map((s) => s.lines.map((l) => l.mask));
+  const glClaims = claimMapping(allMasks, accounts);
+  const budgetClaims = claimMapping(allMasks, budgetAccts);
+  const sections: ReprojSection[] = input.mapping.sections.map((section: MappingSection, si: number) => {
     const sign = roleSign(section.role);
     const fav = favorability(section.role);
     // Assign each GL and budget account to its most-specific line so a catch-all
     // mask never re-counts an account with its own line (double-counting the
     // subtotal) — matching the operating statement engine.
-    const masks = section.lines.map((l) => l.mask);
-    const claimedGl = claimAccounts(masks, accounts);
-    const claimedBudget = claimAccounts(masks, budgetAccts);
+    const claimedGl = glClaims[si];
+    const claimedBudget = budgetClaims[si];
     const lines: ReprojLine[] = section.lines.map((l, li) => {
       const matched = claimedGl[li];
       matched.forEach((a) => usedAccounts.add(a));

@@ -14,6 +14,7 @@
 import { createCollectionStore } from "@/lib/collectionStore";
 import type { GlTransaction } from "./glParser";
 import type { StoredGl } from "./statementStore";
+import { actualsThrough } from "./glAssemble";
 
 export type PostingDelta = {
   /** Deterministic content hash — re-importing the same report overwrites. */
@@ -56,8 +57,7 @@ export async function deletePostingDelta(id: string): Promise<void> {
  *  Feb; keying off coverageEnd would suppress every interim posting report for
  *  Mar–Dec. Deltas fill the months the full GL hasn't actually posted. */
 function fullCoverage(base: StoredGl | null): number {
-  if (!base) return 0;
-  return base.maxPeriodInFile ?? base.coverageEnd ?? 0;
+  return actualsThrough(base);
 }
 
 /** Signature for de-duplicating a posted line across overlapping reports. Only

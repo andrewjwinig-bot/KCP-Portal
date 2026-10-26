@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
+import { combineFundGls, shellOwnGl } from "@/lib/financials/operating-statements/fundCombine";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { ownerNamesForProperty } from "@/lib/properties/ownership";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
@@ -407,7 +409,11 @@ type StmtInputs = {
   mappings: { key: string; propertyCode: string; entityName: string }[];
   byKeyYear: Map<string, StoredGl[]>; // key -> `${glKey}::${year}`
 };
-async function loadStatementInputs(): Promise<StmtInputs> {
+/** `consolidated` (default): a fund reads as its statement does — shell +
+ *  buildings by the fund rule. `own`: a fund shell carries only its OWN
+ *  figures, for a sum over every key side by side (the portfolio roll-up, the
+ *  ranking), where its buildings are counted on their own rows. */
+async function loadStatementInputs(mode: "consolidated" | "own" = "consolidated"): Promise<StmtInputs> {
   const [mappings, fulls] = await Promise.all([monthlyStatements(), listFullGls()]);
   const byKeyYear = new Map<string, StoredGl[]>();
   for (const g of fulls) {
@@ -415,6 +421,17 @@ async function loadStatementInputs(): Promise<StmtInputs> {
     const a = byKeyYear.get(k) ?? [];
     a.push(g);
     byKeyYear.set(k, a);
+  }
+  const raw = new Map(byKeyYear);
+  for (const k of raw.keys()) {
+    const [key, yr] = k.split("::");
+    const members = FUND_BUILDINGS[key];
+    if (!members) continue;
+    const at = (kk: string) => assembleGls(raw.get(`${kk}::${yr}`) ?? []);
+    const memberGls = members.map(at).filter((x): x is StoredGl => !!x);
+    const shell = at(key);
+    const one = mode === "own" ? (shell ? shellOwnGl(shell, memberGls) : null) : combineFundGls(shell, memberGls);
+    byKeyYear.set(k, one ? [one] : []);
   }
   return { mappings, byKeyYear };
 }
@@ -911,7 +928,7 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
       const groupFilter = typeof input.group === "string" ? (input.group as ReportGroupKey) : null;
       const order = input.order === "asc" ? "asc" : "desc";
       try {
-        const { mappings, byKeyYear } = await loadStatementInputs();
+        const { mappings, byKeyYear } = await loadStatementInputs("own");
         const rows = (await Promise.all(mappings.map(async (m) => {
           if (groupFilter && groupOf(m.propertyCode) !== groupFilter) return null;
           const gls = byKeyYear.get(`${m.key}::${year}`) ?? [];
@@ -941,7 +958,7 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
       const year = Number.isFinite(input.year) ? Number(input.year) : new Date().getFullYear();
       const groupFilter = typeof input.group === "string" ? (input.group as ReportGroupKey) : null;
       try {
-        const { mappings, byKeyYear } = await loadStatementInputs();
+        const { mappings, byKeyYear } = await loadStatementInputs("own");
         let revenue = 0, opex = 0, noi = 0, noiBudget = 0, hasBudget = false, cf = 0, n = 0;
         const included: string[] = [];
         await Promise.all(mappings.map(async (m) => {

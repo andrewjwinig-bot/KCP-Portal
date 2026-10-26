@@ -18,7 +18,8 @@ import "server-only";
 import { listBudgets } from "@/lib/financials/budgets/storage";
 import type { BudgetWorkbook } from "@/lib/financials/budgets/types";
 import type { BudgetLine, RentDetail } from "@/lib/financials/budgets/types";
-import { accountMatchesMask, accountsMatchingMask, claimAccounts } from "./mask";
+import { accountMatchesMask, accountsMatchingMask, claimAccounts, claimMapping } from "./mask";
+import type { MappingPosition } from "./compute";
 import { pickBudgetYear, preferredWorkbooks } from "@/lib/financials/budgets/inForce";
 import type { LineBudget } from "./types";
 
@@ -159,12 +160,21 @@ export async function resolvePropertyBudget(
 export function makeBudgetLookup(
   budget: ResolvedBudget,
   period: number
-): (sectionName: string, lineMask: string, sectionMasks: string[]) => LineBudget | null {
+): (sectionName: string, lineMask: string, sectionMasks: string[], at?: MappingPosition) => LineBudget | null {
   const accts = budget.lines.map((l) => l.glAccount);
-  return (_section, lineMask, sectionMasks) => {
-    const owned = claimAccounts(sectionMasks, accts);
-    const idx = sectionMasks.indexOf(lineMask);
-    const claimedSet = new Set(idx >= 0 ? owned[idx] : accountsMatchingMask(lineMask, accts));
+  // Claimed across the whole mapping (as the actuals are), once per mapping.
+  let cacheKey: string[][] | null = null, cache: string[][][] = [];
+  return (_section, lineMask, sectionMasks, at) => {
+    let mine: string[];
+    if (at) {
+      if (cacheKey !== at.masks) { cacheKey = at.masks; cache = claimMapping(at.masks, accts); }
+      mine = cache[at.section]?.[at.line] ?? [];
+    } else {
+      const owned = claimAccounts(sectionMasks, accts);
+      const idx = sectionMasks.indexOf(lineMask);
+      mine = idx >= 0 ? owned[idx] : accountsMatchingMask(lineMask, accts);
+    }
+    const claimedSet = new Set(mine);
     const matched = budget.lines.filter((l) => claimedSet.has(l.glAccount));
     if (!matched.length) return { periodBudget: 0, ytdBudget: 0, annualBudget: 0 };
     let periodBudget = 0, ytdBudget = 0, annualBudget = 0;

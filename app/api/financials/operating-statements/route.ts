@@ -10,7 +10,7 @@ import { detectPostingFormat, parsePostingReport } from "@/lib/financials/operat
 import { savePostingDelta, type PostingDelta } from "@/lib/financials/operating-statements/postingDeltaStore";
 import crypto from "node:crypto";
 import { cashAtStartOfMonth } from "@/lib/financials/operating-statements/cash";
-import { lineMonthly } from "@/lib/financials/operating-statements/lineSeries";
+import { lineMonthly, lineOwnedAccounts } from "@/lib/financials/operating-statements/lineSeries";
 import { trendFlags } from "@/lib/financials/operating-statements/trends";
 import { seasonalTrendFlags, FLAG_MIN_DOLLARS, revenueShortfallReason } from "@/lib/financials/operating-statements/flagRules";
 import { basisForLine, checkBasisForLine } from "@/lib/financials/operating-statements/rentCheck";
@@ -208,8 +208,8 @@ export async function GET(req: Request) {
     const sign = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
     for (const l of sec.lines) {
       if (dismissed.has(`${sec.name}::${l.label}`)) continue;
-      const amounts = lineMonthly(stored.monthly, l.mask, sign, period);
-      const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12) : [];
+      const amounts = lineMonthly(stored.monthly, l.mask, sign, period, lineOwnedAccounts(mapping, stored.monthly, sec.name, l.label));
+      const pyAmounts = storedPY ? lineMonthly(storedPY.monthly, l.mask, sign, 12, lineOwnedAccounts(mapping, storedPY.monthly, sec.name, l.label)) : [];
       const pySame = pyAmounts.length >= period ? pyAmounts[period - 1] : null;
       const base = trendFlags(amounts, [], amounts[period - 1] ?? null, pySame);
       // Seasonal / lumpy adjustment (snow, RET, capital) — shared with the Review.

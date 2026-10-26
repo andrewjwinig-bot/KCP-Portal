@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getGl, getTransactions, assembledTransactions, transactionDetail } from "@/lib/financials/operating-statements/statementStore";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
+import { lineOwnedAccounts } from "@/lib/financials/operating-statements/lineSeries";
+import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { buildTenantDirectory } from "@/lib/financials/operating-statements/tenants";
 import { identifyTx } from "@/lib/financials/operating-statements/txUnits";
 
@@ -37,7 +39,14 @@ export async function GET(req: Request) {
   // totals only — the modal says which rather than showing nothing.
   const detail = versionId ? "stored" : await transactionDetail(key, year).catch(() => "stored" as const);
   if (!Object.keys(byAccount).length) return NextResponse.json({ transactions: [], total: 0, count: 0, detail });
-  const accounts = Object.keys(byAccount).filter((a) => accountMatchesMask(mask, a));
+  // The accounts the line OWNS (claimed across its mapping, as the statement
+  // totals it) — a raw mask match lists other lines' charges too, so the list
+  // would not add up to the line. Falls back to the mask when the line cannot
+  // be found uniquely by its mask.
+  const mapping = await getMapping(key).catch(() => null);
+  const hits = mapping ? mapping.sections.flatMap((s) => s.lines.filter((l) => l.mask === mask).map((l) => ({ s: s.name, l: l.label }))) : [];
+  const owned = mapping && hits.length === 1 ? lineOwnedAccounts(mapping, byAccount, hits[0].s, hits[0].l) : null;
+  const accounts = Object.keys(byAccount).filter((a) => (owned ? owned.has(a) : accountMatchesMask(mask, a)));
   const dir = await buildTenantDirectory();
 
   // Suite/tenant per transaction — `identifyTx` is the one rule, shared with

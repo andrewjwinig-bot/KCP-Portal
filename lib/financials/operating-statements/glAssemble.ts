@@ -85,6 +85,20 @@ export function postedThrough(g: { coverageEnd?: number; maxPeriodInFile: number
   return g.coverageEnd ?? g.maxPeriodInFile;
 }
 
+/** The last month (1–12) a full GL carries ANY activity — at least
+ *  `maxPeriodInFile`. A quiet property (0900: January, then nothing until
+ *  September) reads "actuals through January" by the contiguous rule, and a
+ *  September posting report was then added on top of the GL's own September.
+ *  Interim posting reports fill only months AFTER this. */
+export function actualsThrough(g: { monthly: Record<string, number[]>; maxPeriodInFile: number } | null | undefined): number {
+  if (!g) return 0;
+  let last = g.maxPeriodInFile || 0;
+  for (let m = 12; m > last; m--) {
+    if (Object.values(g.monthly).some((nets) => Math.abs(nets?.[m - 1] ?? 0) > 0.005)) { last = m; break; }
+  }
+  return last;
+}
+
 /** First month (1–12) with any activity in a file = where its coverage starts. */
 export function coverageStart(g: AssembleInput): number {
   const max = Math.max(1, Math.min(12, g.maxPeriodInFile || 12));
@@ -116,12 +130,17 @@ export function assembleGls<T extends AssembleInput>(gls: T[]): T | null {
   for (const g of ordered) {
     const start = coverageStart(g);
     const end = Math.min(12, g.maxPeriodInFile || 0);
+    // The newer file is the whole truth for the months it covers: an account
+    // it no longer lists (a charge reclassified out, an entry voided) is ZERO
+    // there, not the older file's figure — the same rule mergeTransactions
+    // applies to the detail.
+    for (const arr of Object.values(monthly)) for (let m = start; m <= end; m++) arr[m - 1] = 0;
     for (const [acct, nets] of Object.entries(g.monthly)) {
       const arr = (monthly[acct] ??= new Array(12).fill(0));
       for (let m = start; m <= end; m++) arr[m - 1] = nets?.[m - 1] ?? 0;
     }
     if (g.names) for (const [a, n] of Object.entries(g.names)) if (n && !names[a]) names[a] = n;
-    if (g.beginning && start < beginningStart) { beginning = g.beginning; beginningStart = start; }
+    if (g.beginning && start <= beginningStart) { beginning = g.beginning; beginningStart = start; }
     if (end >= maxRangeEnd) { maxRangeEnd = end; if (g.ytdTotal) ytdTotal = g.ytdTotal; }
     if (g.uploadedAt > uploadedAt) uploadedAt = g.uploadedAt;
   }

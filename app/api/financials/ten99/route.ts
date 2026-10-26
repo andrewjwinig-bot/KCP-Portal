@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { USERS } from "@/lib/users";
@@ -37,7 +38,11 @@ export async function GET(req: NextRequest) {
   // One GL key per property/fund that has an upload for the year. Transactions
   // come from the canonical accessor so revisions and interim posting deltas are
   // merged exactly as every other page sees them.
-  const keys = [...new Set(metas.filter((g) => g.year === year).map((g) => g.key))];
+  // A fund key's transactions already include its buildings' (glKeysFor), so a
+  // building whose fund is read is not read again — it would count twice.
+  const uploaded = [...new Set(metas.filter((g) => g.year === year).map((g) => g.key))];
+  const viaFund = new Set(uploaded.flatMap((k) => (FUND_BUILDINGS[k] ? FUND_BUILDINGS[k] : [])));
+  const keys = uploaded.filter((k) => !viaFund.has(k));
   const gls: GlInput[] = [];
   for (const key of keys) {
     const [transactions, gl] = await Promise.all([

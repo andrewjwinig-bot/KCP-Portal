@@ -90,6 +90,25 @@ function maskSpecificityFor(mask: string, account: string): number {
  *  union of the returned lists equals `accountsMatchingMask` over all masks —
  *  the trial-balance / unmapped tie-out is unaffected. */
 export function claimAccounts(masks: string[], accounts: string[]): string[][] {
+  return claimAccountsIn(masks, accounts);
+}
+
+/** `claimAccounts` across EVERY section of a mapping at once — `masks[s][l]`
+ *  is section s, line l. Claiming one section at a time let an account matched
+ *  in two sections count in BOTH: 8990-8599 in G&A ("8*-*") AND on Capital's
+ *  Extraordinary Expense, 6510-8501 on Reimbursable AND Non-Reimbursable
+ *  Insurance at the business parks, 9210-0000 on 2010's Interest Expense AND
+ *  Debt Service — each lowered NOI or cash flow twice. Claimed once across the
+ *  mapping, the narrowest mask still wins (ties → the earlier line). Within a
+ *  section nothing moves; only an account two sections both reached does. */
+export function claimMapping(masks: string[][], accounts: string[]): string[][][] {
+  const flat = masks.flat();
+  const owned = claimAccountsIn(flat, accounts);
+  let i = 0;
+  return masks.map((sec) => sec.map(() => owned[i++]));
+}
+
+function claimAccountsIn(masks: string[], accounts: string[]): string[][] {
   const owned: string[][] = masks.map(() => []);
   for (const acct of accounts) {
     let bestIdx = -1;

@@ -8,6 +8,7 @@
 // GL — the same consolidation the cash analysis uses. That way a rec finds the
 // GL Drew uploaded whether it's stored under the fund key or a building key.
 
+import { combineFundGls } from "@/lib/financials/operating-statements/fundCombine";
 import "server-only";
 import { assembledTransactions, listFullGls } from "@/lib/financials/operating-statements/statementStore";
 import { assembleGls } from "@/lib/financials/operating-statements/glAssemble";
@@ -46,11 +47,11 @@ export async function loadBookSide(key: string, year: number, month: number, cas
 
   // Assemble each key's uploads (revisions), then aggregate the cash account
   // across keys — a fund's cash is the sum of its buildings.
-  const assembled: StoredGl[] = [];
-  for (const k of searchKeys) {
-    const gl = assembleGls(all.filter((g) => g.key === k && g.year === year));
-    if (gl) assembled.push(gl);
-  }
+  // A fund's roll-up upload already carries its buildings, so the shell and
+  // members are combined by the one fund rule (combineFundGls), never summed.
+  const parts = searchKeys.map((k) => assembleGls(all.filter((g) => g.key === k && g.year === year)));
+  const combined = parts.length > 1 ? combineFundGls(parts[0], parts.slice(1).filter((g): g is StoredGl => !!g)) : parts[0];
+  const assembled: StoredGl[] = combined ? [combined] : [];
   if (assembled.length === 0) return null;
 
   let begin = 0;
