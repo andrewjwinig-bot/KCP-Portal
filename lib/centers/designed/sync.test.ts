@@ -61,7 +61,7 @@ describe("syncSuites", () => {
 
   it("Brookwood: every tenant the roll names keeps its copy, 1879 vacant reads available, the shadow anchors are untouched", () => {
     const roll: [string, string, number][] = [
-      ["1817", "M&T Bank", 3800], ["1847", "Crafty Crab", 12759], ["1851", "Planet Fitness", 20433],
+      ["1817", "M&T Bank", 3800], ["1847", "Crafty Crab", 12759], ["1851", "National Fitness Partners", 20433],
       ["1861", "Edible Arrangements", 2000], ["1863", "Cohen Fashion Optical", 1600], ["1867", "T-Mobile Northeast LLC", 3200],
       ["1869", "China Sun", 1600], ["1871", "Lee's Hoagie House", 1600], ["1877", "Evolve Nails", 1600],
       ["1879", "", 1280], ["1881", "Citizens Bank of PA", 2700], ["1885", "Dunkin Donuts", 4000], ["1883", "Wawa", 5000],
