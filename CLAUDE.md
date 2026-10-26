@@ -402,7 +402,7 @@ page keeps them out of the tenant index (`shadow` / `rects` on `DesignedSuite`).
 its in-line storefronts run on a DIAGONAL, so a suite can be a POLYGON (`pts`,
 label at `cx`/`cy` rotated `rot`, logo at `lw/lh/lx/ly`); sync carries the
 polygon through a turnover. `rollName`s are fragments of the roll's names
-("JP Morgan" = Chase, "Victra" = Verizon, "PLCB" = Fine Wine). Clear Channel's
+("JP Morgan" = Chase, "Wakefern" = the Fresh Grocer, "Victra" = Verizon, "Pennsylvania LCB" = Fine Wine). Clear Channel's
 billboard (3000) is on the roll with no SF and is not drawn. Every designed
 page uses the website's full-resolution Korman logo
 (`Korman_CORPORATE_logo_WHT.png` copied in as `logo-white.png`), never the
