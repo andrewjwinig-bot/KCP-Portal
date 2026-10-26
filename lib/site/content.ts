@@ -342,8 +342,8 @@ export const SITE_PROPERTIES: SiteProperty[] = [
     "leasingInquiryEmail": "hfeldman@kormancommercial.com",
     "leasingInquiryName": "Harry Feldman",
     "leasingInquiryPhone": "(215) 350-5933",
-    "mainImage": "/site/img/c1d5ce6423300f0b46437d5aaef92372833d4ce9.webp",
-    "mainImageAlt": null,
+    "mainImage": "/site/img/shops-of-lafayette-hill-wawa.webp",
+    "mainImageAlt": "Wawa Food Market at the Shops of Lafayette Hill",
     "name": "Shops of Lafayette Hill",
     "sitePlan": {
       "alt": null,
