@@ -19,6 +19,7 @@ import { sameTenant } from "@/lib/leasing/confirmedMoveouts";
 import NotPostedCard from "./NotPostedCard";
 import ApOutboxCard from "./ApOutboxCard";
 import MoveOutsCard from "./MoveOutsCard";
+import NewTenantsCard from "./NewTenantsCard";
 import DrewTasksThisWeek from "./DrewTasksThisWeek";
 import CommissionsReminder from "./CommissionsReminder";
 import AnnualStatementReminder from "./AnnualStatementReminder";
@@ -1066,6 +1067,7 @@ function DashboardInner() {
         {(user.id === "drew" || isAdmin) && <NotPostedCard order={-1} />}
         {(user.id === "drew" || user.id === "harry" || user.id === "marie" || isAdmin) && <ApOutboxCard order={-1} />}
         {(user.id === "drew" || user.id === "harry" || user.id === "nancy" || user.id === "marie" || isAdmin) && <MoveOutsCard order={-1} />}
+        {(user.id === "harry" || isAdmin) && <NewTenantsCard order={-1} />}
 
         {/* ── New Bank Transfers — surface recent transfers for admin /
              drew / harry / marie. Each card is dismissible. ── */}

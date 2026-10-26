@@ -415,6 +415,21 @@ roll"). Lafayette Hill (9510) is the first.
   what makes a turnover detectable. A suite without one is never treated as
   turned over, only as vacant / occupied. `units` draws several roll suites as
   one storefront (From The Boot = 400 + 404).
+- **A NEW TENANT IS DESCRIBED BY HARRY BEFORE THE PUBLIC SEES IT** (owner:
+  "when theres a new retail tenant it could prompt harry to enter the DBA,
+  logo, and website … that way its all checked by him"). A suite whose roll
+  occupant neither the design (`rollName`) nor a saved profile describes reads
+  **"Coming soon"** on the page — NEVER the roll's legal name — and is listed
+  by `profilesNeeded` → `GET /api/centers/tenant-profiles` → Harry's
+  dashboard card **New Tenants on the Website** (`NewTenantsCard.tsx`; admin
+  too). "Add details" takes the store name, what it is, website, online
+  ordering / booking link, logo (the centre's `upload-direct`, served through
+  `centerImageSrc`) and a short description; "Publish to the website" saves it
+  (`POST`, Harry / Drew / Alison / admin, stamped) to `center-tenant-profiles/
+  <code>` keyed by DESIGNED suite (`profileStore.ts`). A profile applies only
+  while its `rollName` is still the occupant, so the next turnover prompts
+  again instead of showing the old logo; a matching profile wins over the
+  curated copy. Pinned by `sync.test.ts`.
 - **The next centre**: its HTML into `lib/centers/designed/<slug>.html` with
   `const SUITES=/*@SUITES@*/[];` and the `{{GLA}}` / `{{AVAIL_SF}}` /
   `{{AVAIL_DETAIL}}` placeholders, its suites into a `<centre>.ts` with
