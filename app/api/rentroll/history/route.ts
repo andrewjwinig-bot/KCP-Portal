@@ -61,7 +61,12 @@ export async function POST(req: NextRequest) {
     let key = snapshotMonthKey(rentroll);
     if (monthOverride && /^\d{4}-\d{2}$/.test(monthOverride)) key = monthOverride;
 
-    const prior = await getJSON(HISTORY_PREFIX, key).catch(() => null);
+    // A read that FAILS is not "nothing filed for this month": treating it so
+    // wrote the import over the month alone and dropped every property it did
+    // not carry. Refuse instead — re-importing is cheap, a lost roll is not.
+    let prior: any = null;
+    try { prior = await getJSON(HISTORY_PREFIX, key, { retryOnMiss: true }); }
+    catch { return NextResponse.json({ error: "Couldn't read the rent roll already filed for this month — nothing was saved. Try the import again." }, { status: 503 }); }
     await storeJSON(HISTORY_PREFIX, key, mergeSameMonth(prior as any, rentroll));
 
     return NextResponse.json({ ok: true, month: key, summary: summarizeSnapshot(rentroll) });

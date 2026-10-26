@@ -201,14 +201,18 @@ export function seasonalTrendFlags(
  *
  * A month that budgeted nothing cannot be missing anything.
  */
-type ExpectedMissingLike = { scope: "ytd" | "period" } | null | undefined;
+type ExpectedMissingLike = { scope: "ytd" | "period"; anticipated?: number } | null | undefined;
 
 export function marksPeriodUnposted(
   em: ExpectedMissingLike,
   periodActual: number,
   periodBudget: number | null | undefined,
 ): boolean {
-  if (!em || Math.abs(periodActual) >= 0.5) return false;
+  if (!em) return false;
+  // An anticipated payment carries its figure, so the cell is not $0 — it is
+  // still unposted, and still marked.
+  if (em.anticipated) return em.scope === "period";
+  if (Math.abs(periodActual) >= 0.5) return false;
   // A debt signal IS about this month — the Debt Tracker schedules P&I for it.
   if (em.scope === "period") return true;
   // A budget signal only reaches the month when the month expected something.

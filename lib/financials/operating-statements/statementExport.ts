@@ -240,7 +240,9 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
       if (group === "Capital") capLines.push(rn);
       const em = row.em, ff = row.ff;
       const emNote = em
-        ? em.basis === "debt"
+        ? em.anticipated
+          ? `Not posted to the GL yet — ${money0s(em.anticipated)} is the Debt Tracker's scheduled payment for the month, filled in so Debt Service and Cash Flow aren't overstated.`
+          : em.basis === "debt"
           ? `Debt service not posted — the Debt Tracker schedules ~${money0s(em.expected)}/mo P&I on this property. This $0 is unposted, not final.`
           : `Budgeted ~${money0s(em.expected)} but nothing posted year-to-date — looks unposted, not a complete $0.`
         : undefined;
@@ -249,7 +251,13 @@ export async function buildStatementXlsx(s: PropertyStatement, meta: StatementMe
         ? `Already paid${ffMonth ? ` in ${ffMonth}` : ""} — the full-year budget (${money0s(ff.annualBudget)}) is booked year-to-date (${money0s(ff.ytdActual)}). A $0 this month is expected (e.g. taxes / insurance paid up front), not a shortfall.`
         : undefined;
       // Period actual — ⚠ if unposted, ✓ if a paid-up-front $0, else the figure.
-      if (marksPeriodUnposted(em, row.t.periodActual, row.t.periodBudget)) warnCell(gr.getCell(2), 2, emNote);
+      if (em?.anticipated) {
+        // Anticipated debt: the figure on the not-posted fill — it is in every total.
+        money(gr.getCell(2), row.t.periodActual, false, false, 2);
+        gr.getCell(2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFDE9C8" } };
+        gr.getCell(2).font = { ...(gr.getCell(2).font ?? {}), bold: true, italic: true, color: { argb: "FFB45309" } };
+        if (emNote) gr.getCell(2).note = emNote;
+      } else if (marksPeriodUnposted(em, row.t.periodActual, row.t.periodBudget)) warnCell(gr.getCell(2), 2, emNote);
       else if (ff && Math.abs(row.t.periodActual) < 0.5) paidCell(gr.getCell(2), 2, ffMonth ? `✓ paid ${ffMonth}` : "✓ paid", ffNote);
       else money(gr.getCell(2), row.t.periodActual, false, false, 2);
       money(gr.getCell(3), row.t.periodBudget, false, false, 3);
@@ -550,7 +558,11 @@ export async function buildStatementPdf(s: PropertyStatement, meta: StatementMet
       page.drawText(str, { x: col.x + (col.w - w) / 2, y: PAGE_H - (y + 9.5), size, font: ff2, color });
     };
     C.cols.forEach((col, i) => {
-      if (warnCols.has(i)) {
+      if (warnCols.has(i) && em?.anticipated && i === 0) {
+        // Anticipated debt: the scheduled figure on the not-posted fill.
+        page.drawRectangle({ x: col.x + 2, y: PAGE_H - (y + 11), width: col.w - 4, height: rowH, color: AMBER_FILL });
+        rightText(`${fmtMoney(vals[i]).t}*`, col.x + col.w - 3, y + 9.5, 7.5, bold, AMBER);
+      } else if (warnCols.has(i)) {
         page.drawRectangle({ x: col.x + 2, y: PAGE_H - (y + 11), width: col.w - 4, height: rowH, color: AMBER_FILL });
         centerText("NOT POSTED", col, 6.5, bold, AMBER);
       } else if (paidCols.has(i)) {
@@ -566,6 +578,13 @@ export async function buildStatementPdf(s: PropertyStatement, meta: StatementMet
       }
     });
     y += rowH;
+  }
+  // The * on an anticipated debt figure needs its key on the page itself.
+  if (rows.some((r) => r.kind === "line" && r.em?.anticipated)) {
+    if (y > PAGE_H - MARGIN - 16) newPage();
+    y += 4;
+    leftText("* Debt service not posted to the GL — the Debt Tracker's scheduled payment is shown and included in the totals.", MARGIN, y + 8, 7, font, AMBER);
+    y += 12;
   }
   flushDividers();
 

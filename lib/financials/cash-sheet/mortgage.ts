@@ -32,3 +32,23 @@ export async function mortgagePaymentsFor(year: number, month: number): Promise<
   }
   return out;
 }
+
+export type PaymentSplit = { payment: number; interest: number; principal: number };
+
+/** The same scheduled payments as `mortgagePaymentsFor`, split into interest
+ *  and principal — what an unposted month's debt-service lines are filled
+ *  with on the operating statement. */
+export async function mortgageSplitsFor(year: number, month: number): Promise<Record<string, PaymentSplit>> {
+  const loans = await listLoans();
+  const ym = `${year}-${String(month).padStart(2, "0")}`;
+  const out: Record<string, PaymentSplit> = {};
+  for (const loan of loans) {
+    if (!loan.property) continue;
+    const row = buildSchedule(loan).find((r) => r.date.startsWith(ym));
+    if (!row || row.payment <= 0) continue;
+    const code = (LOAN_TO_CASHSHEET[loan.property] ?? loan.property).toUpperCase();
+    const cur = out[code] ?? { payment: 0, interest: 0, principal: 0 };
+    out[code] = { payment: cur.payment + row.payment, interest: cur.interest + row.interest, principal: cur.principal + row.principal };
+  }
+  return out;
+}

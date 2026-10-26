@@ -145,7 +145,12 @@ export async function POST(req: NextRequest) {
     // replaces the properties it carries and keeps the rest. Overwriting the
     // month outright erased the retail and residential properties.
     const importedMonth = snapshotMonthKey(imported);
-    const prior = await getJSON(HISTORY_PREFIX, importedMonth).catch(() => null);
+    // A read that FAILS is not "nothing filed for this month": treating it so
+    // wrote the import over the month alone and dropped every property it did
+    // not carry. Refuse instead — re-importing is cheap, a lost roll is not.
+    let prior: any = null;
+    try { prior = await getJSON(HISTORY_PREFIX, importedMonth, { retryOnMiss: true }); }
+    catch { return NextResponse.json({ error: "Couldn't read the rent roll already filed for this month — nothing was saved. Try the import again." }, { status: 503 }); }
     await storeJSON(HISTORY_PREFIX, importedMonth, mergeSameMonth(prior as any, imported));
 
     // "Current" = a per-property union across every snapshot (each property

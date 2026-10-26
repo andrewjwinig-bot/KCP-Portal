@@ -19,6 +19,7 @@ import { seasonalTrendFlags, meetsFlagFloor, FLAG_MIN_DOLLARS, revenueShortfallR
 import { basisForLine, checkBasisForLine } from "./rentCheck";
 import { loadRentCheckShared, loadRentCheckContext, runRentCheck, billingFlagReason } from "./rentCheckRun";
 import { markMissingDebt, mortgagePaymentsFor } from "./debtFlag";
+import { mortgageSplitsFor, type PaymentSplit } from "@/lib/financials/cash-sheet/mortgage";
 import { expectedPostedThroughFor } from "./outstanding";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
@@ -131,6 +132,11 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     if (!debtCache.has(M)) debtCache.set(M, mortgagePaymentsFor(year, M).catch(() => ({})));
     return debtCache.get(M)!;
   };
+  const splitCache = new Map<number, Promise<Record<string, PaymentSplit>>>();
+  const splitsFor = (M: number) => {
+    if (!splitCache.has(M)) splitCache.set(M, mortgageSplitsFor(year, M).catch(() => ({})));
+    return splitCache.get(M)!;
+  };
 
   for (const m of mappings) {
     const name = propertyName(m.key, m.entityName);
@@ -197,7 +203,7 @@ export async function reviewFlaggedLines(year: number): Promise<ReviewResult> {
     const hasDebt = statementMax.sections.some((sec) => sec.role === "debt-service" && sec.lines.length);
     for (let M = hasDebt ? firstMonth : max; M <= max; M++) {
       const st = monthStatement(M);
-      await markMissingDebt(st, m.key, m.propertyCode, year, M, await debtFor(M));
+      await markMissingDebt(st, m.key, m.propertyCode, year, M, await debtFor(M), undefined, await splitsFor(M));
       const dismissedM = new Set(await getDismissedFlags(m.key, year, M).catch(() => [] as string[]));
       for (const sec of st.sections) {
         for (const l of sec.lines) {

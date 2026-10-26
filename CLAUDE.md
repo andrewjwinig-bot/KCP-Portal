@@ -469,6 +469,19 @@ leaves a month with no roll that early OFF the line rather than back-filling it.
 Occupied SF ÷ total SF, ending at the report's month. Pinned by
 `occupancyTrend.test.ts`.
 
+**A MONTH'S ROLL IS EVERY PROPERTY AS OF THAT MONTH, not just what was
+imported for it** (owner, again: "do not delete properties that she doesnt
+import … its frustrating to make me reimport every time"). The stored data was
+never lost — the composed current roll carried retail forward — but the Rent
+Roll page opens on the NEWEST MONTH and read that month's RAW snapshot
+(`/api/rentroll/history/[month]`), so Nancy's office-only file filed under a
+new month made the page (and the status report's month mode) show no retail.
+That route now returns `rollAsOf` for the month — each property from its newest
+roll at or before it — plus `carriedFrom` (code → month), which the page states
+in one muted line under the import instructions. **An import refuses (503)
+when it cannot read the month already filed** — the old `.catch(() => null)`
+read a failed read as "nothing here" and wrote the import over the month alone.
+
 **An import MERGES into its month, never overwrites it** (`mergeSameMonth` in
 `current.ts`, used by `/api/rentroll` and `/api/rentroll/history`). Snapshots
 are keyed by report month, and writing an office-only file straight over a
@@ -1057,6 +1070,26 @@ time — and the team does not have time to open the GL over $80.
   each showed every budgeted line. One signal meaning two things depending on
   where it is read is the defect; the rule now lives at the point the finding is
   MADE, and `isSignificantNotPosted` delegates to it.
+- **DEBT THAT IS SCHEDULED BUT NOT POSTED IS FILLED IN, STILL MARKED**
+  (owner: "its just misleading to look at the income when we know theres
+  debt"). `markMissingDebt` puts the Debt Tracker's payment for the month on
+  the unposted debt lines — interest on the interest line, principal on the
+  amortization line (`mortgageSplitsFor`, `anticipatedSplit`) — through
+  `addAnticipated` (`compute.ts`), which re-totals the section and the ladder
+  (`rollupsOf`), so Total Debt Service and Cash Flow After Debt Service carry
+  it on the screen, the Excel and the PDF alike. The line keeps its finding
+  (`expectedMissing.anticipated`): `marksPeriodUnposted` stays true, the cell
+  shows the FIGURE on the amber fill with "NOT POSTED · EST." (Excel: bold
+  italic amber + a note; PDF: amber figure with * and a key line), and it still
+  counts as an Item to Investigate. A DISMISSED line gets no figure (the split
+  is made across every unposted line first, so a dismissed share is not moved
+  to its sibling). Only the selected month is filled — an earlier month that
+  never posted stays out of YTD. Pinned by `debtAnticipated.test.ts`.
+- **A FUND'S EXPORT IS ITS MEMBERS' GL** (`loadStatement` →
+  `assembledGlConsolidated`, budget across the members): the single-month
+  Excel/PDF read the fund SHELL alone, which holds only swept cash, so
+  PNIPLX's September statement downloaded BLANK while the screen (which
+  consolidates) was full.
 - **The ⚠ "not posted" mark: which CELL it belongs on lives in `flagRules`**
   (`marksPeriodUnposted` / `marksYtdUnposted`), shared by the statement page,
   the Excel export and the PDF. All three used to decide it themselves and all

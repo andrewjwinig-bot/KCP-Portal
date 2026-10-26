@@ -1577,14 +1577,17 @@ function RollupCard({ label, t, view, strong }: { label: string; t: StatementTot
 /** The seven figure cells (Period A/B/Var% · YTD A/B/Var% · Annual). When
  *  `flag` (the thresholds) is supplied, the month/YTD Var % cells that are
  *  high-variance get a green (favorable) / red (unfavorable) highlight. */
-function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string; noBorder?: boolean; psf?: boolean; sqft?: number; varMode?: VarMode; flag?: Thresh; drill?: (tab: "gl" | "budget", scope: "month" | "ytd" | "annual") => void; expectedMissing?: { expected: number; basis: "budget" | "debt"; scope: "ytd" | "period" } | null; fullyFunded?: { ytdActual: number; annualBudget: number; paidPeriod?: number | null } | null } = {}) {
+function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string; noBorder?: boolean; psf?: boolean; sqft?: number; varMode?: VarMode; flag?: Thresh; drill?: (tab: "gl" | "budget", scope: "month" | "ytd" | "annual") => void; expectedMissing?: { expected: number; basis: "budget" | "debt"; scope: "ytd" | "period"; anticipated?: number } | null; fullyFunded?: { ytdActual: number; annualBudget: number; paidPeriod?: number | null } | null } = {}) {
   const { bold, color, noBorder, psf = false, sqft = 0, varMode = "pct", flag, drill, expectedMissing, fullyFunded } = opts;
   // Amber highlight on an actual cell that reads ~$0 but has evidence it should
   // carry a figure — i.e. nothing posted to the GL yet. Which cell that is lives
   // in flagRules (shared with the Excel + PDF exports, which each used to decide
   // it themselves and each got it wrong the same way).
+  const anticipated = expectedMissing?.anticipated ?? 0;
   const missTitle = expectedMissing
-    ? expectedMissing.basis === "debt"
+    ? anticipated
+      ? `Not posted to the GL yet — ${money0(anticipated)} is the Debt Tracker's scheduled payment for this month, filled in so Debt Service and Cash Flow aren't overstated. It will be replaced by the actual posting.`
+      : expectedMissing.basis === "debt"
       ? `Debt service isn't posted — the Debt Tracker schedules ~${money0(expectedMissing.expected)}/mo P&I on this property. This $0 is unposted, not final.`
       : `Nothing posted year-to-date, but this line is budgeted ~${money0(expectedMissing.expected)}. Looks unposted — not a complete $0.`
     : undefined;
@@ -1633,7 +1636,7 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
       : {};
   return (
     <>
-      <td {...click("gl", "month", t.periodActual)} title={missPeriod ? missTitle : paidPeriod ? paidTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missPeriod ? missStyle : paidPeriod ? paidStyle : {}) }}>{missPeriod ? missIcon : paidPeriod ? paidIcon : amt(t.periodActual)}</td>
+      <td {...click("gl", "month", t.periodActual)} title={missPeriod ? missTitle : paidPeriod ? paidTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missPeriod ? (anticipated ? { ...missStyle, textAlign: "right", fontSize: undefined } : missStyle) : paidPeriod ? paidStyle : {}) }}>{missPeriod ? (anticipated ? <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1 }}><span style={{ fontSize: 13, fontWeight: 700 }}>{amt(t.periodActual)}</span><span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em" }}>NOT POSTED · EST.</span></span> : missIcon) : paidPeriod ? paidIcon : amt(t.periodActual)}</td>
       <td {...click("budget", "month", t.periodBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
       <td style={paidPeriod ? { ...base, color: "#15803d" } : structuralPeriod ? neutral : varCell(varMode === "dollar" ? t.periodVariance : pV, mFlag)} title={paidPeriod ? paidTitle : structuralPeriod ? "Nothing posted this month — the variance is the whole budget, so the percentage is 100% by arithmetic rather than by coming in under." : undefined}>{varText(t.periodVariance, pV)}</td>
       <td {...click("gl", "ytd", t.ytdActual)} title={missYtd ? missTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missYtd ? missStyle : {}) }}>{missYtd ? missIcon : amt(t.ytdActual)}</td>

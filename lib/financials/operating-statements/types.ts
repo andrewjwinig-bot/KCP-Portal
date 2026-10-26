@@ -126,6 +126,11 @@ export type ExpectedMissing = {
   basis: "budget" | "debt";
   /** Which column(s) the zero appears in / should be highlighted. */
   scope: "ytd" | "period";
+  /** The scheduled amount FILLED IN on this line (debt only): the Debt
+   *  Tracker's P&I for the month, carried in the line's actuals and every total
+   *  above it, so cash flow after debt service is not overstated by a payment
+   *  that simply has not been keyed. Still not posted — the cell says so. */
+  anticipated?: number;
 };
 
 /** A section with its lines + a subtotal row (e.g. "Total Reimbursements"). */
