@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { syncSuites, type DesignedSuite } from "./sync";
+import { syncSuites, profilesNeeded, UNPROFILED_TENANT, type DesignedSuite } from "./sync";
 import { LAFAYETTE_HILL_SUITES } from "./lafayetteHill";
 
 const geo = { x: 0, y: 0, w: 10, h: 10 };
@@ -23,15 +23,25 @@ describe("syncSuites", () => {
     expect(r.suites[0].url).toBeUndefined();
   });
 
-  it("shows a new tenant (turnover, or a lease on an available suite) by its display name", () => {
-    const r = syncSuites(
-      [suite({ id: "416", status: "available", use: "Retail" }), suite({ id: "408", rollName: "Vino's Pizza", tenant: "Vino's Pizza", logo: "l" })],
-      [unit("9510-416", "Acme Corp", 2486), unit("9510-408", "New Pizza LLC", 1035)],
-      (n) => (n === "Acme Corp" ? "Acme Coffee" : n),
-    );
-    expect(r.suites[0]).toMatchObject({ tenant: "Acme Coffee", status: "leased" });
-    expect(r.suites[1]).toMatchObject({ tenant: "New Pizza LLC", status: "leased" });
+  it("shows a tenant nobody has described as Coming soon — never the roll's legal name — and asks for it", () => {
+    const suites = [suite({ id: "416", status: "available", use: "Retail" }), suite({ id: "408", rollName: "Vino's Pizza", tenant: "Vino's Pizza", logo: "l" })];
+    const units = [unit("9510-416", "Acme Corp", 2486), unit("9510-408", "New Pizza LLC", 1035)];
+    const r = syncSuites(suites, units);
+    expect(r.suites[0]).toMatchObject({ tenant: UNPROFILED_TENANT, status: "leased" });
+    expect(r.suites[1]).toMatchObject({ tenant: UNPROFILED_TENANT, status: "leased" });
     expect(r.suites[1].logo).toBeUndefined();
+    expect(profilesNeeded(suites, units).map((n) => [n.suite, n.occupant])).toEqual([["416", "Acme Corp"], ["408", "New Pizza LLC"]]);
+  });
+
+  it("uses the profile entered for the occupant, and asks again once that tenant leaves", () => {
+    const suites = [suite({ id: "416", status: "available" })];
+    const profiles = { "416": { rollName: "Acme Corp", tenant: "Acme Coffee", url: "https://acme.test", logo: "/api/center-image?u=x" } };
+    const r = syncSuites(suites, [unit("9510-416", "ACME CORP.", 2486)], profiles);
+    expect(r.suites[0]).toMatchObject({ tenant: "Acme Coffee", url: "https://acme.test", popLogo: "/api/center-image?u=x", status: "leased" });
+    expect(profilesNeeded(suites, [unit("9510-416", "ACME CORP.", 2486)], profiles)).toEqual([]);
+    const next = [unit("9510-416", "Zeta LLC", 2486)];
+    expect(syncSuites(suites, next, profiles).suites[0].tenant).toBe(UNPROFILED_TENANT);
+    expect(profilesNeeded(suites, next, profiles)).toHaveLength(1);
   });
 
   it("draws several roll suites as one storefront and leaves suites the roll lacks alone", () => {
