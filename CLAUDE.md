@@ -830,6 +830,40 @@ The rules the audit put in place — keep them:
   (`actualsThrough`), not its last contiguous one — a quiet property's
   September posting was added on top of the GL's own September.
 
+- **A save never trusts a failed load** (second pass of the audit):
+  - **Commissions** (office + retail) save as a MERGE (`mergeEntries` in
+    `lib/commissions/mergeEntries.ts`): the page sends its list AND the ids it
+    loaded (`baseIds`); an entry is removed only when the page had it and
+    dropped it, and one another tab added is kept. Their GET answers 503 on a
+    failed read (it used to return an empty list, which the next save wrote
+    over every entry), and the page refuses to save after a failed load.
+  - **Bank Rec** ticks, statements and comments save per KEY (`{ patch }`),
+    not as the whole map; GET answers 503 on a failed read.
+  - **Estimate overrides** and the **payroll budget** read for a write with
+    `retryOnMiss` and let a failure THROW — a failed read used to become `{}` /
+    the seeded document and be saved over the real one.
+- **A whole export of a property is the open-items truth for it**
+  (`mergeStatements(…, { clearAbsentInProperties })`, the main statement
+  import only): a tenant of a property the upload covers who is no longer on
+  it PAID IN FULL — they go to $0 with `noOpenItems`, instead of keeping the
+  last balance shown. Never a property the upload does not carry, never a
+  former occupant (`-FO`, imported on its own), never from the move-out
+  page's single-tenant import.
+- **One AvidXchange delivery per (source, period) at a time**
+  (`takeLock` in `avidDelivery.ts`, `avid-send-locks`, stale after 10 min): a
+  double-click or the cron overlapping a button press used to mail every
+  invoice twice. A failed save of the sent-ledger STOPS the run — going on
+  would mail invoices a retry cannot know were sent.
+- **Rent roll**: DELETE of a month takes `?property=CODE` (one import out of
+  the merged month) — the whole month only with `?all=1`; a `monthOverride`
+  import also stamps `reportTo` to that month, since the roll is read by its
+  own date.
+- **Revenue / expense accounts on NO line are called out** (`pl` on
+  `unmappedAccounts`): their own red card on the statement ("not in NOI"),
+  ahead of the expected balance-sheet list, and a section with a live total in
+  the single-month Excel and PDF. An account active this month that nets to
+  zero for the year is listed too.
+
 # Operating statements — which properties are run monthly
 
 **`monthlyStatements()` (`mappingStore.ts`) is the list of statements run each

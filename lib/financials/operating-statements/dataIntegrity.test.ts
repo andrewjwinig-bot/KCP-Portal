@@ -30,7 +30,7 @@ describe("assembleGls", () => {
   it("a revised file is the whole truth for its months — an account it dropped is zero", () => {
     const old = { ...base, uploadedAt: "1", monthly: { "6220-8502": m({ 9: 5000 }), "4230-0000": m({ 1: -1, 9: -100 }) } };
     const rev = { ...base, uploadedAt: "2", monthly: { "1440-0000": m({ 9: 5000 }), "4230-0000": m({ 1: -1, 9: -100 }) } };
-    const a = assembleGls([old, rev] as never[])!;
+    const a = assembleGls([old, rev] as any[])! as any;
     expect(a.monthly["6220-8502"][8]).toBe(0);
     expect(a.monthly["1440-0000"][8]).toBe(5000);
   });

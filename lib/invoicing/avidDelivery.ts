@@ -11,6 +11,34 @@ import "server-only";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { getAvidSent, saveAvidSent } from "./avidSentStore";
 import { recordAvidSend, type AvidSource } from "./avidSendLog";
+import { getJSON, storeJSON, deleteJSON } from "@/lib/storage";
+import { randomUUID } from "node:crypto";
+
+// ONE delivery per (source, period) at a time. The sent-ledger is read once and
+// then every invoice not on it is mailed, so two runs at once — a double-click
+// on Send, the morning cron overlapping a button press — each read "not sent"
+// and each emailed every invoice. A run takes a lock first and leaves if
+// another holds a fresh one; a lock older than LOCK_STALE_MS is a run that
+// died, and is taken over. Blob writes are not atomic, so the lock is written,
+// then read back to confirm it is ours before anything is sent.
+const LOCK_PREFIX = "avid-send-locks";
+const LOCK_STALE_MS = 10 * 60 * 1000;
+const lockId = (source: string, period: string) => `${source}-${period}`.replace(/[^a-zA-Z0-9_-]+/g, "_");
+
+async function takeLock(source: string, period: string): Promise<string | null> {
+  const id = lockId(source, period);
+  const held = (await getJSON(LOCK_PREFIX, id).catch(() => null)) as { token: string; at: string } | null;
+  if (held && Date.now() - Date.parse(held.at) < LOCK_STALE_MS) return null;
+  const token = randomUUID();
+  await storeJSON(LOCK_PREFIX, id, { token, at: new Date().toISOString() });
+  const back = (await getJSON(LOCK_PREFIX, id).catch(() => null)) as { token: string } | null;
+  return back?.token === token ? token : null;
+}
+async function releaseLock(source: string, period: string, token: string): Promise<void> {
+  const id = lockId(source, period);
+  const held = (await getJSON(LOCK_PREFIX, id).catch(() => null)) as { token: string } | null;
+  if (held?.token === token) await deleteJSON(LOCK_PREFIX, id).catch(() => {});
+}
 
 const AVID_TO = "kormancommercial@avidbill.com";
 const REPORT_FROM = "dwinig@kormancommercial.com"; // verified Postmark sender
@@ -43,9 +71,27 @@ export type DeliverResult = {
   /** True once every invoice AND the team summary have been delivered — the
    *  caller marks the period done only then, so a partial failure can be retried. */
   allDelivered: boolean;
+  /** Another run is delivering this period right now — nothing was sent. */
+  inProgress?: boolean;
 };
 
-export async function deliverInvoicesToAvid(opts: {
+export async function deliverInvoicesToAvid(opts: DeliverOpts): Promise<DeliverResult> {
+  if (!isMailConfigured()) {
+    return { avidSent: 0, alreadySent: 0, invoiceCount: opts.invoices.length, teamNotified: false, emailed: false, mailConfigured: false, allDelivered: false };
+  }
+  const token = await takeLock(opts.source, opts.period);
+  if (!token) {
+    console.warn(`[avid] ${opts.source} ${opts.period}: another delivery is in progress — not sending twice`);
+    return { avidSent: 0, alreadySent: 0, invoiceCount: opts.invoices.length, teamNotified: false, emailed: false, mailConfigured: true, allDelivered: false, inProgress: true };
+  }
+  try {
+    return await deliverLocked(opts);
+  } finally {
+    await releaseLock(opts.source, opts.period, token);
+  }
+}
+
+type DeliverOpts = {
   /** Dedup namespace, e.g. "allocated" | "credit-card" | "payroll". */
   source: string;
   /** "Allocated Expenses" | "Credit Card Expenses" | "Payroll". */
@@ -67,7 +113,9 @@ export async function deliverInvoicesToAvid(opts: {
   /** Payroll: reassure the figures are property-level only. */
   privacyNote?: boolean;
   by?: string | null;
-}): Promise<DeliverResult> {
+};
+
+async function deliverLocked(opts: DeliverOpts): Promise<DeliverResult> {
   const invoiceCount = opts.invoices.length;
   const shown = opts.periodLabel || opts.period;
   if (!isMailConfigured()) {
@@ -91,7 +139,13 @@ export async function deliverInvoicesToAvid(opts: {
     if (ok) {
       avidSent++;
       sent.invoices[inv.fileName] = new Date().toISOString();
-      try { await saveAvidSent(sent); } catch { /* best-effort — resend is idempotent */ }
+      // The ledger IS the guard against a resend, so a failed save stops the
+      // run: going on would mail invoices a retry cannot know were sent.
+      let saved = false;
+      for (let i = 0; i < 2 && !saved; i++) {
+        try { await saveAvidSent(sent); saved = true; } catch (e) { if (i) console.error(`[avid] ${opts.source} ${opts.period}: could not record ${inv.fileName} as sent — stopping`, e); }
+      }
+      if (!saved) break;
     }
   }
   const allInvoicesSent = opts.invoices.every((inv) => !!sent.invoices[inv.fileName]);

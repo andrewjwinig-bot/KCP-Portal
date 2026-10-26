@@ -1181,12 +1181,24 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
           Budget &amp; Variance are hidden — no {s.year} budget is loaded for this property (the nearest is {budgetYear}, and comparing to a different year would be misleading). Import the {s.year} budget to compare.
         </div>
       )}
-      {s.unmappedAccounts.length > 0 && (
+      {s.unmappedAccounts.some((u) => u.pl) && (
+        <div style={{ marginBottom: 12 }}>
+          <AccountListCard
+            title="Revenue & Expense Accounts on No Line — Not in NOI"
+            description="These are income or expense accounts (4000 and up) that no statement line picks up, so they are left out of every total above. Each one needs a line on the mapping."
+            accent="#b91c1c"
+            defaultOpen
+            rows={s.unmappedAccounts.filter((u) => u.pl).map((u) => ({ account: u.account, name: u.name, amount: u.ytdActual }))}
+            format={(n) => (Math.abs(n) < 0.5 ? "$0" : `${n < 0 ? "-" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`)}
+          />
+        </div>
+      )}
+      {s.unmappedAccounts.some((u) => !u.pl) && (
         <AccountListCard
           title="Non-operating accounts — not on the operating statement"
-          description="Balance-sheet & offset accounts carrying a YTD balance but no P&L line — e.g. Prepaid Insurance (the offset to Insurance expense), Cash, depreciation, interest, deferred costs. Expected here; review only if a true operating account appears."
+          description="Balance-sheet & offset accounts carrying a YTD balance but no P&L line — e.g. Prepaid Insurance (the offset to Insurance expense), Cash, depreciation, deferred costs. Expected here."
           accent="#b45309"
-          rows={s.unmappedAccounts.map((u) => ({ account: u.account, name: u.name, amount: u.ytdActual }))}
+          rows={s.unmappedAccounts.filter((u) => !u.pl).map((u) => ({ account: u.account, name: u.name, amount: u.ytdActual }))}
           format={(n) => (Math.abs(n) < 0.5 ? "$0" : `${n < 0 ? "-" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`)}
         />
       )}

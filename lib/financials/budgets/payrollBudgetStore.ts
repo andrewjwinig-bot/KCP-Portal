@@ -11,7 +11,10 @@ const PREFIX = "budget-payroll";
 /** The year's payroll budget; a year never saved starts from the year before
  *  (or the 2026 workbook) and says so (`seeded`). */
 export async function getPayrollBudget(year: number): Promise<{ doc: PayrollBudgetDoc; seeded: boolean }> {
-  const saved = (await getJSON(PREFIX, String(year)).catch(() => null)) as PayrollBudgetDoc | null;
+  // A failed read THROWS (the route answers with an error) — read as "never
+  // saved", it handed the page a seeded document, and saving that would have
+  // written the seed over the real year's payroll budget.
+  const saved = (await getJSON(PREFIX, String(year), { retryOnMiss: true })) as PayrollBudgetDoc | null;
   if (saved?.employees) return { doc: withAutoAllowances(saved), seeded: false };
   const prior = (await getJSON(PREFIX, String(year - 1)).catch(() => null)) as PayrollBudgetDoc | null;
   return { doc: withAutoAllowances(seedPayrollBudget(year, prior?.employees ? prior : null)), seeded: true };

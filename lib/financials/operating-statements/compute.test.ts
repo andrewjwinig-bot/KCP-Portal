@@ -92,7 +92,7 @@ describe("operating-statement compute", () => {
   });
 
   it("flags unmapped GL accounts for the trial-balance tie-out", () => {
-    expect(st.unmappedAccounts).toEqual([{ account: "6810-8501", ytdActual: 999 }]);
+    expect(st.unmappedAccounts).toEqual([expect.objectContaining({ account: "6810-8501", ytdActual: 999, pl: true })]);
   });
 });
 
