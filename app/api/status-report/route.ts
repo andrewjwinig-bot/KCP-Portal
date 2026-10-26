@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { accountForProperty } from "@/lib/deposits/deposits";
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "pdf-lib";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
 import { getJSON, listJSON } from "@/lib/storage";
@@ -1411,6 +1412,7 @@ export async function POST(req: Request) {
       if (deposits.length > 0) {
         const ACCOUNTS = [
           { key: "ni-llc",     bank: "Liberty x7448", label: "NI LLC Security Deposits" },
+          { key: "office-works", bank: "M&T x3777", label: "The Office Works Security Deposits" },
           { key: "all-but-ni", bank: "Liberty x7216", label: "Security Deposits — All but NI LLC" },
         ];
         const fmtMoney = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
@@ -1449,7 +1451,7 @@ export async function POST(req: Request) {
 
         for (const acct of ACCOUNTS) {
           const rows = deposits
-            .filter((d) => d.account === acct.key)
+            .filter((d) => accountForProperty(String(d.propertyCode ?? "")) === acct.key)
             .sort((a, b) => String(a.tenantCompany || "").localeCompare(String(b.tenantCompany || "")));
           if (rows.length === 0) continue;
           if (dY > PH - M - 90) ({ page: dPage, curY: dY } = newPage());

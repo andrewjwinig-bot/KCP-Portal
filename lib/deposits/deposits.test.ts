@@ -73,3 +73,14 @@ describe("duplicateDepositIds", () => {
     expect(dups.size).toBe(0);
   });
 });
+
+describe("The Office Works section", () => {
+  it("files a 4900 tenant's deposit in its own section, even one saved before it existed", async () => {
+    const { accountForProperty, depositAccountOf, sanitizeDeposit } = await import("./deposits");
+    expect(accountForProperty("4900")).toBe("office-works");
+    expect(accountForProperty("4050")).toBe("ni-llc");
+    expect(accountForProperty("9510")).toBe("all-but-ni");
+    expect(sanitizeDeposit({ propertyCode: "4900", unitRef: "4900-12" }).account).toBe("office-works");
+    expect(depositAccountOf({ propertyCode: "4900" })).toBe("office-works");
+  });
+});
