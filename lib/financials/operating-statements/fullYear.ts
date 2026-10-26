@@ -9,6 +9,7 @@ import { summaryForPeriod } from "./glParser";
 import { getMapping } from "./mappingStore";
 import { listFullGls, getNotesBundle, type StoredGl } from "./statementStore";
 import { assembleGls } from "./glAssemble";
+import { combineFundGls } from "./fundCombine";
 import { resolvePropertyBudget, makeBudgetLookup } from "./budgetCrosswalk";
 import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -39,29 +40,12 @@ const ROLLUP_KEYS: FullYearRollupKey[] = [
   "cashFlowBeforeDebtService", "totalDebtService", "cashFlowAfterDebtService",
 ];
 
-/** Account-level sum of several entities' monthly GLs into one (fund = shell +
- *  member buildings). Mirrors statementStore's consolidation but on the raw
- *  full GLs (no interim posting deltas), matching the on-screen statement. */
-export function combineGls(gls: StoredGl[]): StoredGl {
-  const monthly: Record<string, number[]> = {};
-  const beginning: Record<string, number> = {};
-  const ytdTotal: Record<string, number> = {};
-  const names: Record<string, string> = {};
-  let maxPeriodInFile = 0, coverageEnd = 0;
-  let coverageStartMonth: number | undefined;
-  for (const g of gls) {
-    for (const [a, nets] of Object.entries(g.monthly)) {
-      const arr = (monthly[a] ??= new Array(12).fill(0));
-      for (let i = 0; i < 12; i++) arr[i] += nets[i] ?? 0;
-    }
-    if (g.beginning) for (const [a, v] of Object.entries(g.beginning)) beginning[a] = (beginning[a] ?? 0) + v;
-    if (g.ytdTotal) for (const [a, v] of Object.entries(g.ytdTotal)) ytdTotal[a] = (ytdTotal[a] ?? 0) + v;
-    if (g.names) for (const [a, n] of Object.entries(g.names)) if (n && !names[a]) names[a] = n;
-    maxPeriodInFile = Math.max(maxPeriodInFile, g.maxPeriodInFile || 0);
-    coverageEnd = Math.max(coverageEnd, g.coverageEnd ?? g.maxPeriodInFile ?? 0);
-    if (g.coverageStartMonth != null) coverageStartMonth = Math.min(coverageStartMonth ?? 12, g.coverageStartMonth);
-  }
-  return { ...gls[gls.length - 1], monthly, beginning, ytdTotal, names, maxPeriodInFile, coverageEnd, coverageStartMonth };
+/** A fund's GL: the shell plus its member buildings, the shell alone in a
+ *  month its upload is the roll-up (`combineFundGls`). The first entry is the
+ *  shell (null when it has none). */
+export function combineGls(gls: (StoredGl | null)[]): StoredGl | null {
+  const [shell, ...members] = gls;
+  return combineFundGls(shell ?? null, members.filter((g): g is StoredGl => !!g));
 }
 
 /** Build the 12-month + full-year-total payload from a resolved GL. Pure: the
@@ -173,7 +157,7 @@ export async function loadFullYearStatement(key: string, year: number): Promise<
   const assembleFor = (k: string, yr: number) => assembleGls(fulls.filter((g) => g.key === k && g.year === yr));
   const fundParts = FUND_BUILDINGS[key];
   const stored = fundParts
-    ? combineGls([key, ...fundParts].map((k) => assembleFor(k, year)).filter((g): g is StoredGl => !!g))
+    ? combineGls([key, ...fundParts].map((k) => assembleFor(k, year)))
     : assembleFor(key, year);
   if (!stored) return null;
 

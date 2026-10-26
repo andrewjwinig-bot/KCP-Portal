@@ -1090,6 +1090,16 @@ time — and the team does not have time to open the GL over $80.
   Excel/PDF read the fund SHELL alone, which holds only swept cash, so
   PNIPLX's September statement downloaded BLANK while the screen (which
   consolidates) was full.
+- **A FUND SHELL UPLOAD CAN BE THE ROLL-UP — then that month is the shell
+  ALONE** (`combineFundGls` / `rollupMonths` in `fundCombine.ts`; owner: "the
+  JV III fund is like the roll up of the buildings"). Skyline exports the fund
+  entity either as the shell (swept cash, fund debt) or consolidated with every
+  building; summed with the buildings, the consolidated one doubled PJV3's
+  September rent. A shell carrying RENT (`4230-*`) in a month is the roll-up
+  for that month — judged month by month, and the drill-down drops the
+  members' transactions for it. Every fund consolidation (statement page,
+  downloads, reprojections, T-12, balance sheet, budget draft) reads it.
+  Pinned by `fundCombine.test.ts`.
 - **The ⚠ "not posted" mark: which CELL it belongs on lives in `flagRules`**
   (`marksPeriodUnposted` / `marksYtdUnposted`), shared by the statement page,
   the Excel export and the PDF. All three used to decide it themselves and all

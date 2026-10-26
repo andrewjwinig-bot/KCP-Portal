@@ -10,6 +10,7 @@ import "server-only";
 import { storeJSON, listJSON, getJSON, deleteJSON } from "@/lib/storage";
 import type { GlTransaction } from "./glParser";
 import { assembleGls, mergeTransactions } from "./glAssemble";
+import { combineFundGls, rollupMonths, memberTransactionsOutsideRollup } from "./fundCombine";
 import { applyPostingDeltas, applyPostingTransactions, postingDeltasFor } from "./postingDeltaStore";
 import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 
@@ -82,6 +83,9 @@ export async function assembledTransactions(key: string, year: number): Promise<
   const keys = glKeysFor(key);
   const all = await listFullGls();
   const out: Record<string, GlTransaction[]> = {};
+  // A month the shell's upload is the buildings' roll-up already carries
+  // their detail — the members' transactions for it would list twice.
+  const rollup = keys.length > 1 ? rollupMonths(await assembledGl(keys[0], year)) : new Array(12).fill(false);
   for (const k of keys) {
     const gls = all.filter((g) => g.key === k && g.year === year);
     let merged: Record<string, GlTransaction[]> = {};
@@ -99,7 +103,8 @@ export async function assembledTransactions(key: string, year: number): Promise<
     }
     // Interim posting deltas layer on for months the full GL doesn't cover.
     const deltas = await postingDeltasFor(k, year);
-    const withDeltas = applyPostingTransactions(merged, deltas, coveredThrough);
+    const withDeltasAll = applyPostingTransactions(merged, deltas, coveredThrough);
+    const withDeltas = k === keys[0] ? withDeltasAll : memberTransactionsOutsideRollup(withDeltasAll, rollup);
     for (const [acct, txs] of Object.entries(withDeltas)) {
       out[acct] = out[acct] ? out[acct].concat(txs) : txs;
     }
@@ -191,27 +196,10 @@ export async function assembledGl(key: string, year: number): Promise<StoredGl |
 export async function assembledGlConsolidated(key: string, year: number): Promise<StoredGl | null> {
   const keys = glKeysFor(key);
   if (keys.length <= 1) return assembledGl(key, year);
-  const parts = (await Promise.all(keys.map((k) => assembledGl(k, year)))).filter((g): g is StoredGl => !!g);
-  if (!parts.length) return null;
-  const monthly: Record<string, number[]> = {};
-  const beginning: Record<string, number> = {};
-  const ytdTotal: Record<string, number> = {};
-  const names: Record<string, string> = {};
-  let maxPeriodInFile = 0, coverageEnd = 0;
-  let coverageStartMonth: number | undefined;
-  for (const g of parts) {
-    for (const [a, nets] of Object.entries(g.monthly)) {
-      const arr = (monthly[a] ??= new Array(12).fill(0));
-      for (let i = 0; i < 12; i++) arr[i] += nets[i] ?? 0;
-    }
-    if (g.beginning) for (const [a, v] of Object.entries(g.beginning)) beginning[a] = (beginning[a] ?? 0) + v;
-    if (g.ytdTotal) for (const [a, v] of Object.entries(g.ytdTotal)) ytdTotal[a] = (ytdTotal[a] ?? 0) + v;
-    if (g.names) for (const [a, n] of Object.entries(g.names)) if (n && !names[a]) names[a] = n;
-    maxPeriodInFile = Math.max(maxPeriodInFile, g.maxPeriodInFile || 0);
-    coverageEnd = Math.max(coverageEnd, g.coverageEnd ?? g.maxPeriodInFile ?? 0);
-    if (g.coverageStartMonth != null) coverageStartMonth = Math.min(coverageStartMonth ?? 12, g.coverageStartMonth);
-  }
-  return { ...parts[parts.length - 1], monthly, beginning, ytdTotal, names, maxPeriodInFile, coverageEnd, coverageStartMonth };
+  // The shell first; in a month its upload is the buildings' roll-up it
+  // stands alone (fundCombine.ts), else the parts add up.
+  const [shell, ...members] = await Promise.all(keys.map((k) => assembledGl(k, year)));
+  return combineFundGls(shell, members.filter((g): g is StoredGl => !!g));
 }
 
 // ── Line notes (variance explanations) ───────────────────────────────────────

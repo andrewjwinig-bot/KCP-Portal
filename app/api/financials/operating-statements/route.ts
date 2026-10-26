@@ -121,8 +121,7 @@ export async function GET(req: Request) {
   const fundParts = FUND_BUILDINGS[key];
   const assembleFor = (k: string, yr: number) => assembleGls(fulls.filter((g) => g.key === k && g.year === yr));
   const consolidateFund = (yr: number): StoredGl | null => {
-    const parts = [key, ...fundParts!].map((k) => assembleFor(k, yr)).filter((g): g is StoredGl => !!g);
-    return parts.length ? combineGls(parts) : null;
+    return combineGls([key, ...fundParts!].map((k) => assembleFor(k, yr)));
   };
   const stored = versionId ? await getGl(versionId) : (fundParts ? consolidateFund(year) : assembleFor(key, year));
   const storedPY = versionId ? null : (fundParts ? consolidateFund(year - 1) : assembleFor(key, year - 1));
