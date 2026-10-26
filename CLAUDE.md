@@ -2685,6 +2685,18 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   remains, as does its `{send:true}`). Each send is Bcc'd to Drew (`CASH_POSITION_COPY_TO`).
 - **The monthly "Operating Statements" task is GONE** (`m-opstmt` / `drew-m-opstmt`; owner: "now that i import them that really is the task") — the General Ledger import reminder (`imports.ts`) is the task.
 - **The monthly "Cash Analysis Report" task is GONE** (`m-cash` in `taskDefs.ts`, `drew-m-cash` in `marie-tasks.ts`; owner: "now i just import the weekly bank balances instead"). The weekly Bank Balances import below replaces it.
+- **"Bank Balances" is also a WEEKLY TASK on Drew's tracker, every Monday**
+  (`w-bank` in `taskDefs.ts`, `everyMonday`; `drew-wkly-bank` in
+  `marie-tasks.ts`; owner: "add bank balances to my weekly tasks on mondays").
+  The import TICKS that week's occurrence itself (`bankTaskOccurrence` — the
+  Monday of the import's week in Eastern time, bucketed under that Monday's
+  month — → `markTaskComplete`), as the AP report ticks Pay Avid Bills.
+- **Harry VIEWS Bank Balances** (owner): the `bank-balances` nav key (the
+  sidebar item's own key now, not `financials-statements`) and
+  `/financials/cash-analysis` on his paths; `/api/financials/bank-balances`
+  answers to that page, so he reads it without the rest of `/financials`.
+  View-only — `canEditCashSheet` keeps the import and reserves to Drew /
+  admin. Pinned by `lib/bankBalancesAccess.test.ts`.
 - **The weekly import reminder is "Bank Balances", Mondays** (`imp-bank`,
   ticked by the import) — it REPLACED the AP Selection Report (owner: "swap my
   task"). The AP upload route still works; it just no longer has a reminder.

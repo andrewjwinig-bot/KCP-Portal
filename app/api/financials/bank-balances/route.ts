@@ -8,6 +8,8 @@ import { buildBalanceView } from "@/lib/financials/bank-balances/view";
 import { logAudit, auditIp } from "@/lib/audit";
 import { pdfText } from "@/lib/pdf/pdfText";
 import { recordImport } from "@/lib/tracker/importEvents";
+import { markTaskComplete } from "@/lib/tracker/completionStore";
+import { bankTaskOccurrence } from "@/lib/tracker/taskDefs";
 import { maybeSendCashPosition } from "@/lib/financials/bank-balances/ownershipEmail";
 
 export const runtime = "nodejs";
@@ -57,6 +59,11 @@ export async function POST(req: Request) {
     const saved = await saveImport(parsed, by);
     await logAudit({ event: "bank-balances.import", user: user ?? "?", ip: auditIp(req), detail: results.map((r) => `${r.bank ?? r.file}: ${r.accounts}`).join(" · ") }).catch(() => {});
     try { await recordImport("imp-bank", { at: new Date().toISOString(), by }); } catch { /* best-effort */ }
+    // …and ticks this week's Monday "Bank Balances" task on everyone's tracker.
+    try {
+      const o = bankTaskOccurrence(new Date());
+      await markTaskComplete(o.year, o.month0, o.id, { at: new Date().toISOString(), by: by ?? undefined, source: "bank-balances" });
+    } catch { /* best-effort — the balances still imported */ }
     // Every bank in for the week → the Monday cash position goes to ownership.
     const email = await maybeSendCashPosition(by).catch((e) => ({ sent: false, reason: e?.message ?? "Email failed" }));
     return NextResponse.json({ ok: true, results, ...saved, email });

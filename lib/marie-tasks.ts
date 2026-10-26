@@ -224,6 +224,8 @@ export const DREW_TASKS: MarieTask[] = [
     instructions: "Check and approve open invoices.\nhttps://one.avidxchange.net/#/invoices" },
 
   // ── Weekly ───────────────────────────────────────────────────────
+  { id: "drew-wkly-bank", title: "Bank Balances (every Monday)", frequency: "weekly", owner: "drew", link: "/financials/cash-analysis",
+    instructions: "Save each bank's accounts page as a PDF (Chase, Liberty, M&T) and import them on Bank Balances. The last bank in sends ownership the cash position." },
   { id: "drew-wkly-avid", title: "Pay Avid Bills (every Wednesday)", frequency: "weekly", owner: "drew",
     instructions: "Export from Skyline and import to Avid. Run JV III, JV III Condo, NI LLC FNIPLX, then All Linked Accounts." },
 
