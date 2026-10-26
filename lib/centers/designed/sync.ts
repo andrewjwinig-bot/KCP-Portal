@@ -20,6 +20,11 @@ export type DesignedSuite = {
   rollName?: string;
   addr?: boolean;
   x: number; y: number; w: number; h: number;
+  /** An L-shaped suite: several [x, y, w, h] boxes drawn as one. */
+  rects?: [number, number, number, number][];
+  /** Next door, not part of the centre (Brookwood's Regency / Ashley): never
+   *  on the roll, so drawn as designed and left out of the tenant index. */
+  shadow?: boolean;
   tenant: string;
   use: string;
   sf: number;
@@ -114,7 +119,7 @@ export function syncSuites(
     if (!o) return s;
     matched = true;
     gla += o.sf;
-    const geometry = { id: s.id, addr: s.addr, x: s.x, y: s.y, w: s.w, h: s.h };
+    const geometry = { id: s.id, addr: s.addr, x: s.x, y: s.y, w: s.w, h: s.h, rects: s.rects };
     if (!o.occupant) {
       if (s.status !== "available") changes.push(`${s.id}: ${s.tenant} → available (vacant on the rent roll)`);
       return { ...geometry, tenant: "", use: s.status === "available" ? s.use : "Retail space", sf: o.sf, status: "available" };

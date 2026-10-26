@@ -393,7 +393,11 @@ staff chrome), pinned by `middleware.test.ts`.
 Design (interactive site plan, tenant index, order-online logo row) and handing
 it off as ONE self-contained HTML file** (owner: "i want to do these for all
 the shopping centers with interactive site plans … ideally sync with the rent
-roll"). Lafayette Hill (9510) is the first.
+roll"). Lafayette Hill (9510) is the first; **Brookwood (2300,
+`/centers/brookwood`, `brookwood.ts`)** the second — suite ids are street
+numbers, and its `shadow` suites (Regency Furniture, Ashley — next door, not
+the centre's) are never on the roll, so sync leaves them as designed and the
+page keeps them out of the tenant index (`shadow` / `rects` on `DesignedSuite`).
 
 - **A designed page is served WHOLE by a static route that beats the template**
   (`app/centers/lafayette-hill/route.ts` → `renderDesignedCenter`,

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { syncSuites, profilesNeeded, UNPROFILED_TENANT, type DesignedSuite } from "./sync";
 import { LAFAYETTE_HILL_SUITES } from "./lafayetteHill";
+import { BROOKWOOD_SUITES } from "./brookwood";
 
 const geo = { x: 0, y: 0, w: 10, h: 10 };
 const suite = (s: Partial<DesignedSuite> & { id: string }): DesignedSuite =>
@@ -56,5 +57,20 @@ describe("syncSuites", () => {
     const ids = LAFAYETTE_HILL_SUITES.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const s of LAFAYETTE_HILL_SUITES) expect(s.w * s.h).toBeGreaterThan(0);
+  });
+
+  it("Brookwood: every tenant the roll names keeps its copy, 1879 vacant reads available, the shadow anchors are untouched", () => {
+    const roll: [string, string, number][] = [
+      ["1817", "M&T Bank", 3800], ["1847", "Crafty Crab", 12759], ["1851", "Planet Fitness", 20433],
+      ["1861", "Edible Arrangements", 2000], ["1863", "Cohen Fashion Optical", 1600], ["1867", "T-Mobile Northeast LLC", 3200],
+      ["1869", "China Sun", 1600], ["1871", "Lee's Hoagie House", 1600], ["1877", "Evolve Nails", 1600],
+      ["1879", "", 1280], ["1881", "Citizens Bank of PA", 2700], ["1885", "Dunkin Donuts", 4000], ["1883", "Wawa", 5000],
+    ];
+    const r = syncSuites(BROOKWOOD_SUITES, roll.map(([s, n, sf]) => unit(`2300-${s}`, n, sf)));
+    expect(r.changes).toEqual([]);
+    expect(r.gla).toBe(roll.reduce((t, [, , sf]) => t + sf, 0));
+    expect(r.suites.find((s) => s.id === "1879")).toMatchObject({ status: "available", sf: 1280 });
+    for (const id of ["regency", "ashley"]) expect(r.suites.find((s) => s.id === id)).toBe(BROOKWOOD_SUITES.find((s) => s.id === id));
+    expect(new Set(BROOKWOOD_SUITES.map((s) => s.id)).size).toBe(BROOKWOOD_SUITES.length);
   });
 });

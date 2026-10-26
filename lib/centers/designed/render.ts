@@ -8,6 +8,7 @@ import { lookupByName } from "../data";
 import { syncSuites, profilesNeeded, type DesignedSuite, type RollUnitLite, type TenantProfile } from "./sync";
 import { getTenantProfiles } from "./profileStore";
 import { LAFAYETTE_HILL_SUITES } from "./lafayetteHill";
+import { BROOKWOOD_SUITES } from "./brookwood";
 
 // A center page built in Claude Design and handed off as one self-contained
 // HTML file (lib/centers/designed/<slug>.html, assets under
@@ -19,6 +20,7 @@ type Designed = { suites: DesignedSuite[]; fallbackGla: number };
 
 const DESIGNED: Record<string, Designed> = {
   "lafayette-hill": { suites: LAFAYETTE_HILL_SUITES, fallbackGla: 18487 },
+  brookwood: { suites: BROOKWOOD_SUITES, fallbackGla: 61572 },
 };
 
 export const hasDesignedPage = (slug: string) => slug in DESIGNED;
