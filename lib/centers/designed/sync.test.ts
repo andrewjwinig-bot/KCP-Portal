@@ -104,3 +104,14 @@ describe("Parkwood — multi-polygon Wawa, upstairs suites", () => {
     expect(suites[0]).toMatchObject({ tenant: UNPROFILED_TENANT, addr: "Suite 206 · Second floor", fs: 20 });
   });
 });
+
+describe("a departed tenant still on the roll", () => {
+  it("Parkwood's former Rite Aid reads available, a new occupant reads Coming soon", async () => {
+    const { PARKWOOD_SUITES } = await import("./parkwood");
+    const ra = PARKWOOD_SUITES.find((s) => s.id === "12311")!;
+    const still = syncSuites([ra], [{ unitRef: "7010-12311", occupantName: "Rite Aid Corp-Store# 01956", isVacant: false, sqft: 11211 }]);
+    expect(still.suites[0]).toMatchObject({ status: "available", sf: 11211 });
+    const next = syncSuites([ra], [{ unitRef: "7010-12311", occupantName: "Aldi Inc", isVacant: false, sqft: 11211 }]);
+    expect(next.suites[0]).toMatchObject({ status: "leased", tenant: UNPROFILED_TENANT });
+  });
+});

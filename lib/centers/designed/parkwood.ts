@@ -8,8 +8,8 @@
 // (`fs`). Wawa (12301) is TWO polygons — the store and the fuel canopy — and
 // is "1230A" on the roll (`units`). `noRow` keeps Petroski's upstairs suite
 // out of the order-online row so it is not listed twice. `rollName` is a
-// fragment of the roll's name ("CBRO" = Coldwell Banker, "Foot and Ankle" =
-// Einstein Podiatry). SF here is used only when the roll carries none.
+// fragment of the roll's name ("CBRO" = Coldwell Banker). The former Rite Aid (12311) is
+// still on the roll; `departedRollName` keeps it reading available. SF here is used only when the roll carries none.
 
 import type { DesignedSuite } from "./sync";
 
@@ -33,10 +33,10 @@ export const PARKWOOD_SUITES: DesignedSuite[] = [
   {id:"12325",rollName:"Pack",sf:1440,x:2063,y:851,w:58,h:211,pts:"2063,851 2121,851 2121,1062 2063,1062",cx:2092,cy:956,rot:0,tenant:"Parkwood Pack and Ship",use:"Shipping · Printing",status:"leased",url:"https://www.pwpackandship.com/"},
   {id:"12319",rollName:"Reen",sf:4480,x:2123,y:850,w:157,h:212,pts:"2123,850 2280,850 2280,1062 2123,1062",cx:2201,cy:956,rot:0,tenant:"Reen's Deli",use:"Deli · Catering",status:"leased",url:"https://www.reensdeli.com/",order:"https://togoorder.com/web/1237#/",logo:"/centers/parkwood/assets/logo-reens.png",lw:140,lh:75,lx:2131,ly:919},
   {id:"12315",rollName:"Pat",sf:3200,x:2282,y:850,w:105,h:212,pts:"2282,850 2387,850 2387,1062 2282,1062",cx:2334,cy:956,rot:0,tenant:"Pat's Pizzeria",use:"Pizza · Italian · Seafood",status:"leased",url:"https://www.pizzaparkwood.com/",order:"https://www.grubhub.com/restaurant/pats-pizzeria-and-seafood-12317-academy-rd-philadelphia/4372720?pickup=true",popLogo:"/centers/parkwood/assets/logo-pats.png"},
-  {id:"12311",x:2616,y:786,w:353,h:429,pts:"2844,786 2824,835 2748,806 2616,1146 2793,1215 2825,1211 2854,1186 2969,893 2888,861 2905,810",cx:2827,cy:975,rot:-68,tenant:"Available",use:"Freestanding building · Former pharmacy",status:"available",sf:0},
+  {id:"12311",departedRollName:"Rite Aid",x:2616,y:786,w:353,h:429,pts:"2844,786 2824,835 2748,806 2616,1146 2793,1215 2825,1211 2854,1186 2969,893 2888,861 2905,810",cx:2827,cy:975,rot:-68,tenant:"Available",use:"Freestanding building · Former pharmacy",status:"available",sf:0},
   {id:"12375",rollName:"Dunkin",sf:0,x:1288,y:1489,w:257,h:157,pts:"1304,1489 1288,1540 1300,1545 1291,1576 1372,1601 1371,1613 1393,1620 1407,1612 1519,1646 1545,1563 1463,1538 1464,1523 1433,1513 1425,1526",tenant:"Dunkin'",use:"Coffee · Donuts · Drive-thru",status:"leased",url:"https://www.dunkindonuts.com/",order:"https://www.dunkindonuts.com/menu/",logo:"/centers/parkwood/assets/logo-dunkin.png",lw:170,lh:60,lx:1335,ly:1537},
   {id:"12301",rollName:"Wawa",units:["1230A"],sf:6237,x:2232,y:1342,w:495,h:530,pts:["2463,1342 2408,1484 2476,1510 2475,1522 2499,1532 2505,1557 2546,1573 2571,1559 2594,1568 2602,1559 2672,1586 2727,1445","2264,1628 2232,1710 2649,1872 2680,1789"],tenant:"Wawa",use:"Convenience store · Coffee · Fuel",status:"leased",url:"https://www.wawa.com/",order:"https://www.wawa.com/",logo:"/centers/parkwood/assets/logo-wawa.png",lw:190,lh:110,lx:2470,ly:1405,blurb:"Fresh food, built-to-order hoagies, coffee, fuel and everyday essentials."},
-  {id:"201",rollName:"Foot and Ankle",sf:0,x:1151,y:478,w:113,h:111,pts:"1151,478 1264,478 1264,589 1151,589",cx:1207,cy:533,rot:0,fs:20,addr:"Suite 201 · Second floor",tenant:"Einstein Podiatry Associates",use:"Podiatry",status:"leased"},
+  {id:"201",rollName:"Einstein",sf:0,x:1151,y:478,w:113,h:111,pts:"1151,478 1264,478 1264,589 1151,589",cx:1207,cy:533,rot:0,fs:20,addr:"Suite 201 · Second floor",tenant:"Einstein Podiatry Associates",use:"Podiatry",status:"leased"},
   {id:"203",rollName:"Parkwood Medical",sf:0,x:1268,y:478,w:148,h:111,pts:"1268,478 1416,478 1416,589 1268,589",cx:1342,cy:533,rot:0,fs:20,addr:"Suite 203 · Second floor",tenant:"Parkwood Medical Practice",use:"Medical practice",status:"leased"},
   {id:"205",x:1419,y:478,w:151,h:111,pts:"1419,478 1570,478 1570,589 1419,589",cx:1494,cy:533,rot:0,fs:20,addr:"Suite 205 · Second floor",tenant:"Available",use:"Second-floor office suite",status:"available",sf:0},
   {id:"206",x:1512,y:348,w:70,h:109,pts:"1512,348 1582,348 1582,457 1512,457",cx:1547,cy:402,rot:0,fs:20,addr:"Suite 206 · Second floor",tenant:"Available",use:"Second-floor office suite",status:"available",sf:0},
