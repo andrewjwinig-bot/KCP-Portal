@@ -88,3 +88,19 @@ describe("Gray's Ferry — diagonal suites keep their polygon through a turnover
     expect(GRAYS_FERRY_SUITES.map((s) => s.id)).toHaveLength(10);
   });
 });
+
+describe("Parkwood — multi-polygon Wawa, upstairs suites", () => {
+  it("Wawa reads the roll's 1230A and keeps both polygons", async () => {
+    const { PARKWOOD_SUITES } = await import("./parkwood");
+    const wawa = PARKWOOD_SUITES.find((s) => s.id === "12301")!;
+    expect(Array.isArray(wawa.pts)).toBe(true);
+    const { suites } = syncSuites([wawa], [{ unitRef: "7010-1230A", occupantName: "Wawa, Inc #8035", isVacant: false, sqft: 6237 }]);
+    expect(suites[0]).toMatchObject({ tenant: "Wawa", sf: 6237, pts: wawa.pts });
+  });
+  it("an upstairs suite leasing up keeps its address line and label size", async () => {
+    const { PARKWOOD_SUITES } = await import("./parkwood");
+    const s206 = PARKWOOD_SUITES.find((s) => s.id === "206")!;
+    const { suites } = syncSuites([s206], [{ unitRef: "7010-206", occupantName: "New Tenant LLC", isVacant: false, sqft: 900 }]);
+    expect(suites[0]).toMatchObject({ tenant: UNPROFILED_TENANT, addr: "Suite 206 · Second floor", fs: 20 });
+  });
+});

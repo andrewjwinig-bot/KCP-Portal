@@ -18,7 +18,8 @@ export type DesignedSuite = {
   units?: string[];
   /** The roll's name for the tenant the curated copy describes. */
   rollName?: string;
-  addr?: boolean;
+  /** true → the street-number address line; a string replaces it ("Suite 210 · Second floor"). */
+  addr?: boolean | string;
   x: number; y: number; w: number; h: number;
   /** An L-shaped suite: several [x, y, w, h] boxes drawn as one. */
   rects?: [number, number, number, number][];
@@ -28,7 +29,13 @@ export type DesignedSuite = {
   /** A diagonal suite (Gray's Ferry): SVG polygon points in plan pixels,
    *  replacing the rectangle (x/y/w/h stay as its bounding box); the label
    *  sits at cx, cy rotated `rot`. */
-  pts?: string; cx?: number; cy?: number; rot?: number;
+  pts?: string | string[]; cx?: number; cy?: number; rot?: number;
+  /** Label font size (Parkwood's small upstairs rooms). */
+  fs?: number;
+  /** Has an order link but stays out of the order-online row (listed elsewhere). */
+  noRow?: boolean;
+  /** Directory-only entry pointing at another suite's shape. */
+  ref?: string;
   /** Explicit logo size / position on the plan. */
   lw?: number; lh?: number; lx?: number; ly?: number;
   tenant: string;
@@ -125,7 +132,7 @@ export function syncSuites(
     if (!o) return s;
     matched = true;
     gla += o.sf;
-    const geometry = { id: s.id, addr: s.addr, x: s.x, y: s.y, w: s.w, h: s.h, rects: s.rects, pts: s.pts, cx: s.cx, cy: s.cy, rot: s.rot };
+    const geometry = { id: s.id, addr: s.addr, x: s.x, y: s.y, w: s.w, h: s.h, rects: s.rects, pts: s.pts, cx: s.cx, cy: s.cy, rot: s.rot, fs: s.fs };
     if (!o.occupant) {
       if (s.status !== "available") changes.push(`${s.id}: ${s.tenant} → available (vacant on the rent roll)`);
       return { ...geometry, tenant: "", use: s.status === "available" ? s.use : "Retail space", sf: o.sf, status: "available" };
