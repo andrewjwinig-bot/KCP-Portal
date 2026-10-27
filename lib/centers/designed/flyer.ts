@@ -9,6 +9,7 @@
 //  - Each AVAILABLE suite's marketing, laid over by the portal's own per-suite
 //    descriptions (the "Public website" card on the property page — `availDesc`,
 //    kind / frontage / notes), so staff edit availability copy in the portal.
+//  - Each suite's floor plan uploaded there (`floorplans`), whatever its status.
 //
 // Pure: no storage, so it is tested directly.
 
@@ -72,15 +73,24 @@ export function propertyFor(profile: CenterProfile, cfg: FlyerConfig, suites: De
 }
 
 /** The portal's per-suite availability copy over an AVAILABLE suite: kind →
- *  space use, frontage and notes → detail bullets (after the design's own). */
-export function withAvailDesc(suites: DesignedSuite[], desc: Record<string, AvailDesc>): DesignedSuite[] {
+ *  space use, frontage and notes → detail bullets (after the design's own).
+ *  The Public website card keys it by the roll's unit ref ("1100-30"), so a
+ *  suite is looked up as `<code>-<suite>` as well as bare. A floor plan
+ *  uploaded there is the SUITE's and applies whatever its status. */
+export function withAvailDesc(
+  suites: DesignedSuite[], desc: Record<string, AvailDesc>, code = "",
+  floorplans: Record<string, string> = {},
+): DesignedSuite[] {
+  const keys = (s: DesignedSuite) => (s.units ?? [s.id]).flatMap((u) => [norm(`${code}-${u}`), norm(u)]);
   return suites.map((s) => {
-    if (s.status !== "available") return s;
-    const d = (s.units ?? [s.id]).map((u) => desc[norm(u)]).find(Boolean);
-    if (!d) return s;
+    const fp = keys(s).map((k) => floorplans[k]).find(Boolean);
+    const withFp = fp ? { ...s, floorplan: fp } : s;
+    if (s.status !== "available") return withFp;
+    const d = keys(s).map((k) => desc[k]).find(Boolean);
+    if (!d) return withFp;
     const extra = [d.frontage, ...(d.notes || "").split(/\n+/)].map((x) => (x || "").trim()).filter(Boolean);
     return {
-      ...s,
+      ...withFp,
       spaceUse: d.kind?.trim() || s.spaceUse,
       details: [...(s.details ?? []), ...extra.filter((x) => !(s.details ?? []).includes(x))],
     };

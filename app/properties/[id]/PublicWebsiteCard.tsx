@@ -52,14 +52,17 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
   const [vacants, setVacants] = useState<Vacant[]>([]);     // live vacant units
   const [hasRoll, setHasRoll] = useState(false);            // property found in the current rent roll
   const [availDesc, setAvailDesc] = useState<Record<string, Desc>>({});
+  // Floor plans are the SUITE's (normName(unit ref) → url), kept whoever
+  // occupies it — uploaded on a vacancy row, still on file once it leases.
+  const [floorplans, setFloorplans] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [pct, setPct] = useState(0);
   const [uploadError, setUploadError] = useState<{ key: string; msg: string } | null>(null);
 
-  const latest = useRef({ sitePlan, spaces, availDesc });
-  latest.current = { sitePlan, spaces, availDesc };
+  const latest = useRef({ sitePlan, spaces, availDesc, floorplans });
+  latest.current = { sitePlan, spaces, availDesc, floorplans };
 
   useEffect(() => {
     let alive = true;
@@ -76,6 +79,7 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
           cfg.override?.availabilities?.length ? cfg.override.availabilities : cfg.defaults.availabilities,
         );
         setAvailDesc(cfg.override?.availDesc ?? {});
+        setFloorplans(cfg.override?.floorplans ?? {});
         if (rrRes && rrRes.ok) {
           const rr = await rrRes.json();
           // GET /api/rentroll returns { rentroll: { properties } }.
@@ -142,6 +146,7 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
         assets: { ...(ov.assets ?? {}), sitePlan: s.sitePlan },
         availabilities: hasRoll ? (ov.availabilities ?? []) : s.spaces,
         availDesc: s.availDesc,
+        floorplans: s.floorplans,
         dba: ov.dba ?? {},
       }),
     });
@@ -174,6 +179,20 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
     setAvailDesc((m) => ({ ...m, [normName(suite)]: { ...descFor(suite), ...patch } }));
     bump();
   };
+
+  const onFloorplan = async (suite: string, f: File | null) => {
+    if (!f) return;
+    const url = await doUpload(f, `floorplan-${normName(suite)}`);
+    if (!url) return;
+    setFloorplans((m) => ({ ...m, [normName(suite)]: url }));
+    bump();
+  };
+  const clearFloorplan = (key: string) => {
+    setFloorplans((m) => { const n = { ...m }; delete n[key]; return n; });
+    bump();
+  };
+  const vacantKeys = new Set(vacants.map((v) => normName(v.suite)));
+  const plansOnFile = Object.entries(floorplans).filter(([k]) => !vacantKeys.has(k));
 
   const availSf = vacants.reduce((s, v) => s + v.sf, 0);
 
@@ -220,24 +239,31 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
             <div style={{ fontSize: 13, color: "var(--muted)" }}>No vacancies on the current rent roll — the public page shows a “fully leased” note.</div>
           ) : (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "110px 90px 1fr 150px 150px", gap: 8, ...LABEL, fontSize: 10 }}>
-                <div>Suite</div><div>SF</div><div>Marketing note</div><div>Kind</div><div>Frontage</div>
+              <div style={{ display: "grid", gridTemplateColumns: VAC_COLS, gap: 8, ...LABEL, fontSize: 10 }}>
+                <div>Suite</div><div>SF</div><div>Marketing note</div><div>Kind</div><div>Frontage</div><div>Floor plan</div>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {vacants.map((v) => {
                   const d = descFor(v.suite);
                   return (
-                    <div key={v.suite} style={{ display: "grid", gridTemplateColumns: "110px 90px 1fr 150px 150px", gap: 8, alignItems: "center" }}>
+                    <div key={v.suite} style={{ display: "grid", gridTemplateColumns: VAC_COLS, gap: 8, alignItems: "center" }}>
                       <div style={READONLY} title={v.suite}>{v.suite}</div>
                       <div style={READONLY}>{fmt(v.sf)}</div>
                       <input style={INPUT} placeholder="e.g. Corner bay, grocery-adjacent" value={d.notes} onChange={(e) => setDescFor(v.suite, { notes: e.target.value })} />
                       <input style={INPUT} placeholder="Kind (e.g. Inline retail)" value={d.kind} onChange={(e) => setDescFor(v.suite, { kind: e.target.value })} />
                       <input style={INPUT} placeholder="Frontage" value={d.frontage} onChange={(e) => setDescFor(v.suite, { frontage: e.target.value })} />
+                      <FloorplanSlot
+                        url={floorplans[normName(v.suite)]}
+                        busy={busyKey === `floorplan-${normName(v.suite)}`}
+                        error={uploadError?.key === `floorplan-${normName(v.suite)}` ? uploadError.msg : undefined}
+                        onPick={(f) => onFloorplan(v.suite, f)}
+                        onClear={() => clearFloorplan(normName(v.suite))}
+                      />
                     </div>
                   );
                 })}
               </div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>Suite &amp; SF sync from the rent roll — just add the descriptions. Changes save automatically.</div>
+              <div style={{ fontSize: 12, color: "var(--muted)" }}>Suite &amp; SF sync from the rent roll — just add the descriptions. A floor plan stays with the suite after it leases. Changes save automatically.</div>
             </>
           )
         ) : (
@@ -257,8 +283,45 @@ export default function PublicWebsiteCard({ code }: { code: string }) {
             </div>
           </>
         )}
+        {plansOnFile.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+            <div style={{ ...LABEL, fontSize: 10 }}>Floor plans on file · leased suites</div>
+            {plansOnFile.map(([k, url]) => (
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13 }}>
+                <code style={{ fontSize: 12 }}>{k.toUpperCase()}</code>
+                <a href={centerImageSrc(url)} target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>View</a>
+                <button type="button" className="btn" style={{ fontSize: 12, padding: "4px 10px", color: RED }} onClick={() => clearFloorplan(k)}>Remove</button>
+              </div>
+            ))}
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>Kept for when the suite next comes available.</div>
+          </div>
+        )}
       </div>
     </>
+  );
+}
+
+const VAC_COLS = "110px 90px 1fr 150px 150px 150px";
+
+function FloorplanSlot({ url, busy, error, onPick, onClear }: {
+  url?: string; busy: boolean; error?: string; onPick: (f: File | null) => void; onClear: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      {url && !busy
+        ? <a href={centerImageSrc(url)} target="_blank" rel="noreferrer" title="Open the floor plan">
+            <img src={centerImageSrc(url)} alt="Floor plan" style={{ width: 40, height: 30, objectFit: "cover", borderRadius: 6, border: "1px solid var(--border)", display: "block" }} />
+          </a>
+        : null}
+      <button type="button" className="btn" style={{ fontSize: 12, padding: "5px 10px" }} disabled={busy} onClick={() => ref.current?.click()}>
+        {busy ? "Uploading…" : url ? "Replace" : "Upload"}
+      </button>
+      {url && !busy && <button type="button" className="btn" style={{ fontSize: 12, padding: "5px 9px", color: RED }} onClick={onClear} title="Remove">×</button>}
+      {error && <span style={{ fontSize: 11, color: RED }} title={error}>Failed</span>}
+      <input ref={ref} type="file" accept="image/*" style={{ display: "none" }}
+        onChange={(e) => { onPick(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+    </div>
   );
 }
 

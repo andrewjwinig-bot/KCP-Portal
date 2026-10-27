@@ -19,7 +19,7 @@ describe("middleware matcher", () => {
   it("leaves the public pages and token routes open", () => {
     for (const p of ["/statement/t", "/api/statement/t", "/portal/t", "/api/portal/t", "/investor/t", "/api/investor/t",
       "/api/tenants/lookup", "/api/tenants/companies", "/reserve", "/submit", "/service", "/centers/x", "/login",
-      "/budget-review/t", "/api/cron/allocated-send", "/site", "/site/retail", "/site/retail/x", "/api/website/contact"]) {
+      "/budget-review/t", "/api/cron/allocated-send", "/site", "/site/retail", "/site/retail/x", "/api/website/contact", "/office-works", "/api/website/tour"]) {
       expect(gated(p), p).toBe(false);
     }
   });

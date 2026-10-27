@@ -42,7 +42,18 @@ describe("availability: the rent roll decides, the portal describes", () => {
     expect(vacant).toMatchObject({ status: "available", floorplan: s30.floorplan, spaceName: "Suite 30 · End Cap" });
     const leased = syncSuites([s30], [{ unitRef: "1100-30", occupantName: "New Bank", isVacant: false, sqft: 3025 }]).suites[0];
     expect(leased.status).toBe("leased");
-    expect(leased.floorplan).toBeUndefined();
+    // The floor plan is the suite's — it stays through the turnover.
+    expect(leased.floorplan).toBe(s30.floorplan);
+    expect(leased.spaceName).toBeUndefined();
+  });
+  it("finds the portal's copy keyed by the roll's unit ref, and a suite's floor plan whatever its status", () => {
+    const out = withAvailDesc(
+      [suite({ id: "32", status: "available" }), suite({ id: "36", tenant: "Honest" })],
+      { "110032": { kind: "Medical / office", frontage: "", notes: "" } }, "1100",
+      { "110036": "https://blob/fp-36.png", "32": "https://blob/fp-32.png" },
+    );
+    expect(out[0]).toMatchObject({ spaceUse: "Medical / office", floorplan: "https://blob/fp-32.png" });
+    expect(out[1]).toMatchObject({ status: "leased", floorplan: "https://blob/fp-36.png" });
   });
   it("a suite that just went vacant carries no stale marketing", () => {
     const leasedDesign = suite({ id: "36", rollName: "Honest", tenant: "Honest Real Estate", details: ["x"] as string[] });
