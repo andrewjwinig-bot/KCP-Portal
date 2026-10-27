@@ -58,6 +58,17 @@ function sanitizeAvailDesc(input: unknown): Record<string, { kind: string; front
   return out;
 }
 
+function sanitizeFloorplans(input: unknown): Record<string, string> {
+  if (!input || typeof input !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+    const key = String(k).trim().slice(0, 80);
+    const url = String(v ?? "").trim().slice(0, 2000);
+    if (key && /^(https?:\/\/|\/)/.test(url)) out[key] = url;
+  }
+  return out;
+}
+
 function sanitizeDba(input: unknown): Record<string, string> {
   if (!input || typeof input !== "object") return {};
   const out: Record<string, string> = {};
@@ -92,6 +103,11 @@ export async function PUT(req: NextRequest, { params }: { params: { code: string
     availabilities: sanitizeSpaces(body.availabilities),
     availDesc: sanitizeAvailDesc(body.availDesc),
     dba: sanitizeDba(body.dba),
+    // Floor plans are the suite's; a caller that does not send them (the DBA
+    // card, the hero banner) keeps what is stored rather than wiping it.
+    floorplans: body.floorplans === undefined
+      ? (await getCenterOverride(profile.code)).floorplans ?? {}
+      : sanitizeFloorplans(body.floorplans),
   };
 
   const saved = await saveCenterOverride(profile.code, next);

@@ -45,9 +45,11 @@ export type DesignedSuite = {
   tenant: string;
   use: string;
   sf: number;
+  /** The suite's floor plan — the SUITE's, kept whoever occupies it. */
+  floorplan?: string;
   /** Marketing for an AVAILABLE suite (the Available Space table and the
    *  leasing flyer). Kept only while the suite is vacant on the roll. */
-  spaceName?: string; spaceUse?: string; details?: string[]; floorplan?: string;
+  spaceName?: string; spaceUse?: string; details?: string[];
   term?: string; rate?: string; availableWhen?: string; condition?: string;
   possession?: string; rent?: string;
   status: "leased" | "available";
@@ -125,7 +127,10 @@ const profileFor = (profiles: Record<string, TenantProfile>, s: DesignedSuite, o
   return p && sameOccupant(p.rollName, occupant) ? p : null;
 };
 
-const MARKETING_KEYS = ["spaceName", "spaceUse", "details", "floorplan", "term", "rate", "availableWhen", "condition", "possession", "rent", "blurb"] as const;
+// The floor plan is NOT marketing: it belongs to the SUITE (owner: "even if
+// the tenant vacates that floorplan will still apply"), so it rides with the
+// geometry through every turnover.
+const MARKETING_KEYS = ["spaceName", "spaceUse", "details", "term", "rate", "availableWhen", "condition", "possession", "rent", "blurb"] as const;
 function marketingOf(s: DesignedSuite): Partial<DesignedSuite> {
   const out: Partial<DesignedSuite> = {};
   for (const k of MARKETING_KEYS) if (s[k] !== undefined) (out as Record<string, unknown>)[k] = s[k];
@@ -148,7 +153,7 @@ export function syncSuites(
     if (!o) return s;
     matched = true;
     gla += o.sf;
-    const geometry = { id: s.id, addr: s.addr, x: s.x, y: s.y, w: s.w, h: s.h, rects: s.rects, pts: s.pts, cx: s.cx, cy: s.cy, rot: s.rot, fs: s.fs };
+    const geometry = { id: s.id, addr: s.addr, x: s.x, y: s.y, w: s.w, h: s.h, rects: s.rects, pts: s.pts, cx: s.cx, cy: s.cy, rot: s.rot, fs: s.fs, floorplan: s.floorplan };
     if (!o.occupant) {
       if (s.status !== "available") changes.push(`${s.id}: ${s.tenant} → available (vacant on the rent roll)`);
       // A suite the design marketed as available keeps its marketing (floor

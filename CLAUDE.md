@@ -386,6 +386,29 @@ staff chrome), pinned by `middleware.test.ts`.
   `/site/...` in middleware (then set `SITE_BASE` accordingly), retiring the
   frameset and the vendor site.
 
+# The Office Works website — /office-works
+
+**The Office Works (4900) has its own designed site** (Claude Design handoff,
+owner), served whole by `app/office-works/route.ts` → `renderOfficeWorks`
+(`lib/officeWorks/render.ts`, HTML `lib/officeWorks/office-works.html`,
+assets `public/office-works/assets/`). Public by the middleware's
+`office-works(?:/|$)` exemption, ready to sit behind its own domain.
+- **"Pick your office" is the 4900 RENT ROLL's vacant offices** (owner: "show
+  availability based on 4900 suite availability"; `officesFromRoll` in
+  `offices.ts`): vacant, at the roll's SF, named "5-019" from "5019". **Shared
+  space is never an office** (owner: "ignore the reception area, conference
+  rooms etc just show vacant" — `isRentableOffice`: amenities, named rooms
+  with no number, and reception / conference / lounge / kitchen / mail …
+  by suite or name). The hero's size range is over every rentable office.
+  Nothing open → "Every office is leased right now". No 4900 roll → the
+  handoff's five offices. Pinned by `offices.test.ts`.
+- **The tour form posts to `/api/website/tour`** (`lib/site/tour.ts`,
+  honeypot + 5/hour, emails `SITE_CONTACT_TO` / info@ with Reply-To; a failed
+  send is reported, never a false "sent"). Pinned by `tour.test.ts`.
+- Korman footer logo is the full-resolution one; the Office Works logo, the
+  prices ($900 / $75 / $25) and the lounge / café photos are still the
+  handoff's placeholders.
+
 # Shopping-center pages — DESIGNED pages replace the template one by one
 
 **`/centers/<slug>` was one data-driven template for all five centres
@@ -444,6 +467,18 @@ handoff's screenshot crop.
   website card (`availDesc`: kind / frontage / notes) is laid over it
   (`withAvailDesc`). `liveDesignedSuites(slug)` is the ONE synced read — the
   page and the website both call it. Pinned by `flyer.test.ts`.
+- **A FLOOR PLAN BELONGS TO THE SUITE, NOT THE TENANCY** (owner: "even if
+  the tenant vacates that floorplan will still apply"). Uploaded per vacancy
+  row on the property page's Public website card (`floorplans` on the centre
+  override, keyed `normName(unit ref)`), it is NEVER cleared when the suite
+  leases — "Floor plans on file · leased suites" lists the kept ones — and
+  `syncSuites` carries a design's `floorplan` with the geometry through every
+  turnover (it is no longer a marketing field). `withAvailDesc(suites, desc,
+  code, floorplans)` lays it on whatever the status; the table and flyer show
+  it when the suite is available. The PUT keeps stored floor plans when a
+  caller (DBA card, hero banner) does not send them. That card keys copy by the
+  roll's unit ref ("1100-30"), which the designed pages used to look up as the
+  bare suite ("30") and so never found — both are tried now.
 - **THE WEBSITE'S SHOPPING-CENTRE AVAILABILITIES ARE LIVE TOO**
   (`lib/site/liveListings.ts`, `revalidate = 300` on `/site/available-space`
   and `/site/[category]/[slug]`): the five centres' listings are their designed

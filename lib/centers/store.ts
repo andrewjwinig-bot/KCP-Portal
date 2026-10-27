@@ -40,6 +40,9 @@ export type CenterOverride = {
    *  Once lease abstracts exist, a higher-precedence source slots in above
    *  this map with no change to the merge below. */
   dba?: Record<string, string>;
+  /** Floor plans keyed by normName(unit ref) — the SUITE's, not a tenancy's:
+   *  kept whoever occupies it, shown whenever it is available. */
+  floorplans?: Record<string, string>;
 };
 
 const PREFIX = "centers-config";
@@ -59,6 +62,7 @@ export async function saveCenterOverride(code: string, next: CenterOverride): Pr
     availabilities: Array.isArray(next.availabilities) ? next.availabilities : [],
     availDesc: next.availDesc && typeof next.availDesc === "object" ? next.availDesc : {},
     dba: next.dba && typeof next.dba === "object" ? next.dba : {},
+    floorplans: next.floorplans && typeof next.floorplans === "object" ? next.floorplans : {},
   };
   await storeJSON(PREFIX, code, clean);
   return clean;

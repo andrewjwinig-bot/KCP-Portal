@@ -71,15 +71,16 @@ export async function liveDesignedSuites(slug: string) {
   const designed = DESIGNED[slug];
   const profile = centerBySlug(slug);
   if (!designed || !profile) return null;
-  const [{ units, profiles }, availDesc] = await Promise.all([
+  const [{ units, profiles }, override] = await Promise.all([
     liveInputs(profile),
-    getCenterOverride(profile.code).then((o) => o.availDesc ?? {}).catch((): Record<string, AvailDesc> => ({})),
+    getCenterOverride(profile.code).catch((): { availDesc?: Record<string, AvailDesc>; floorplans?: Record<string, string> } => ({})),
   ]);
+  const floorplans = Object.fromEntries(Object.entries(override.floorplans ?? {}).map(([k, u]) => [k, centerImageSrc(u)]));
   const synced = syncSuites(designed.suites, units, profiles);
   if (synced.changes.length) console.log(`[centers/${slug}] rent roll: ${synced.changes.join("; ")}`);
   return {
     designed, profile,
-    suites: withAvailDesc(synced.suites, availDesc),
+    suites: withAvailDesc(synced.suites, override.availDesc ?? {}, profile.code, floorplans),
     gla: synced.gla ?? designed.fallbackGla,
   };
 }
