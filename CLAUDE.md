@@ -409,6 +409,11 @@ billboard (3000) is on the roll with no SF and is not drawn. **Parkwood (7010,
 (`units`); the second-floor office suites 201–218 carry an `addr` STRING
 ("Suite 210 · Second floor"; `addr: true` still means the street line) and a
 label size `fs`; `noRow` keeps Petroski's upstairs suite out of the order row.
+**Parkwood Commons (1100)** the fifth — the registry's slug is
+`parkwood-professional`, so the page is `DESIGNED["parkwood-professional"]`
+(`parkwoodCommons.ts`, `parkwood-professional.html`) served at BOTH
+`/centers/parkwood-professional` and `/centers/parkwood-commons`; its assets
+live under `public/centers/parkwood-commons/`.
 `departedRollName` marks a tenant who has LEFT but is still on the roll — the
 former Rite Aid (12311, in bankruptcy) reads AVAILABLE while the roll still
 names Rite Aid, not "Coming soon"; once the roll changes, the normal rules apply.
