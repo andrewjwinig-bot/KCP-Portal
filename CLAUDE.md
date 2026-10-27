@@ -422,6 +422,35 @@ page uses the website's full-resolution Korman logo
 (`Korman_CORPORATE_logo_WHT.png` copied in as `logo-white.png`), never the
 handoff's screenshot crop.
 
+- **EVERY DESIGNED PAGE HAS AN AVAILABLE SPACE TABLE AND ON-DEMAND LEASING
+  FLYERS** (Parkwood Commons v2 handoff, rolled to all five; owner: "integrate
+  these changes into all the properties … tenancy and everything to pull
+  directly from the portal"). ONE implementation in `lib/centers/designed/
+  shared/` (`available.css` / `.html` / `.js`), injected by `render.ts` at
+  `/*@SHARED_CSS@*/`, `<!--@AVAILABLE@-->`, `/*@SHARED_JS@*/` — never copy it
+  into a page. The table is built from SUITES where `status: "available"`, i.e.
+  the ROLL's vacancies (a vacant suite appears, a leased one leaves), and hides
+  itself when there are none; each row and each available suite's popover offer
+  "Download leasing flyer" — a two-page landscape PDF built in the browser with
+  jsPDF 2.5.1, SERVED FROM US (`public/centers/_shared/`, with the Barlow
+  Condensed fonts), never a CDN. Its `PROPERTY` is filled by `flyer.ts`
+  (`propertyFor`): the PUBLIC name and flyer copy per centre (`FLYERS`), but
+  GLA live, the "neighbors" the leading tenants on the synced roll
+  (`leadingTenants`), and the address + leasing contact from the registry.
+  Suite marketing (`spaceName`, `spaceUse`, `details`, `floorplan`, `term`,
+  `rate`, `availableWhen`, `condition`, `possession`, `rent`) lives on the
+  designed suite and survives sync ONLY while the suite stays available
+  (`marketingOf`); the portal's per-suite copy on the property page's Public
+  website card (`availDesc`: kind / frontage / notes) is laid over it
+  (`withAvailDesc`). `liveDesignedSuites(slug)` is the ONE synced read — the
+  page and the website both call it. Pinned by `flyer.test.ts`.
+- **THE WEBSITE'S SHOPPING-CENTRE AVAILABILITIES ARE LIVE TOO**
+  (`lib/site/liveListings.ts`, `revalidate = 300` on `/site/available-space`
+  and `/site/[category]/[slug]`): the five centres' listings are their designed
+  pages' available suites, not the vendor CMS copy (which still listed Ferry
+  Good Treats' leased 1,228 SF at 1100 and Petroski's 210 at Parkwood). A CMS
+  listing of the same SF lends its photos / details. Properties with no
+  designed page keep their CMS listings. Pinned by `liveListings.test.ts`.
 - **A designed page is served WHOLE by a static route that beats the template**
   (`app/centers/lafayette-hill/route.ts` → `renderDesignedCenter`,
   `lib/centers/designed/render.ts`): its own fonts, CSS and script, none of
