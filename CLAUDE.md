@@ -403,7 +403,13 @@ its in-line storefronts run on a DIAGONAL, so a suite can be a POLYGON (`pts`,
 label at `cx`/`cy` rotated `rot`, logo at `lw/lh/lx/ly`); sync carries the
 polygon through a turnover. `rollName`s are fragments of the roll's names
 ("JP Morgan" = Chase, "Wakefern" = the Fresh Grocer, "Victra" = Verizon, "Pennsylvania LCB" = Fine Wine). Clear Channel's
-billboard (3000) is on the roll with no SF and is not drawn. Every designed
+billboard (3000) is on the roll with no SF and is not drawn. **Parkwood (7010,
+`/centers/parkwood`, `parkwood.ts`)** the fourth — Wawa (12301) is TWO polygons
+(`pts` may be an array: store + fuel canopy) and is `1230A` on the roll
+(`units`); the second-floor office suites 201–218 carry an `addr` STRING
+("Suite 210 · Second floor"; `addr: true` still means the street line) and a
+label size `fs`; `noRow` keeps Petroski's upstairs suite out of the order row.
+Every designed
 page uses the website's full-resolution Korman logo
 (`Korman_CORPORATE_logo_WHT.png` copied in as `logo-white.png`), never the
 handoff's screenshot crop.

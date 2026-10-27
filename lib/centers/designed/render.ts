@@ -10,6 +10,7 @@ import { getTenantProfiles } from "./profileStore";
 import { LAFAYETTE_HILL_SUITES } from "./lafayetteHill";
 import { BROOKWOOD_SUITES } from "./brookwood";
 import { GRAYS_FERRY_SUITES } from "./graysFerry";
+import { PARKWOOD_SUITES } from "./parkwood";
 
 // A center page built in Claude Design and handed off as one self-contained
 // HTML file (lib/centers/designed/<slug>.html, assets under
@@ -23,6 +24,7 @@ const DESIGNED: Record<string, Designed> = {
   "lafayette-hill": { suites: LAFAYETTE_HILL_SUITES, fallbackGla: 18487 },
   brookwood: { suites: BROOKWOOD_SUITES, fallbackGla: 61572 },
   "grays-ferry": { suites: GRAYS_FERRY_SUITES, fallbackGla: 82809 },
+  parkwood: { suites: PARKWOOD_SUITES, fallbackGla: 61036 },
 };
 
 export const hasDesignedPage = (slug: string) => slug in DESIGNED;
