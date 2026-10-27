@@ -3,7 +3,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { centerBySlug, centerImageSrc, CENTER_PROFILES, type CenterProfile } from "../registry";
-import { getCenterOverride } from "../store";
+import { getCenterOverride, type AvailDesc } from "../store";
 import { lookupByName } from "../data";
 import { syncSuites, profilesNeeded, type DesignedSuite, type RollUnitLite, type TenantProfile } from "./sync";
 import { getTenantProfiles } from "./profileStore";
@@ -12,6 +12,7 @@ import { BROOKWOOD_SUITES } from "./brookwood";
 import { GRAYS_FERRY_SUITES } from "./graysFerry";
 import { PARKWOOD_SUITES } from "./parkwood";
 import { PARKWOOD_COMMONS_SUITES } from "./parkwoodCommons";
+import { FLYERS, propertyFor, withAvailDesc } from "./flyer";
 
 // A center page built in Claude Design and handed off as one self-contained
 // HTML file (lib/centers/designed/<slug>.html, assets under
@@ -19,7 +20,7 @@ import { PARKWOOD_COMMONS_SUITES } from "./parkwoodCommons";
 // and script, none of the portal's — with its SUITES and the figures that
 // depend on them filled in from the live rent roll on every request (sync.ts).
 
-type Designed = { suites: DesignedSuite[]; fallbackGla: number };
+type Designed = { suites: DesignedSuite[]; fallbackGla: number; /** Under public/centers/; defaults to the slug. */ assetDir?: string };
 
 const DESIGNED: Record<string, Designed> = {
   "lafayette-hill": { suites: LAFAYETTE_HILL_SUITES, fallbackGla: 18487 },
@@ -27,7 +28,7 @@ const DESIGNED: Record<string, Designed> = {
   "grays-ferry": { suites: GRAYS_FERRY_SUITES, fallbackGla: 82809 },
   parkwood: { suites: PARKWOOD_SUITES, fallbackGla: 61036 },
   // 1100 Parkwood Commons — the registry's slug; /centers/parkwood-commons serves it too.
-  "parkwood-professional": { suites: PARKWOOD_COMMONS_SUITES, fallbackGla: 8287 },
+  "parkwood-professional": { suites: PARKWOOD_COMMONS_SUITES, fallbackGla: 8287, assetDir: "parkwood-commons" },
 };
 
 export const hasDesignedPage = (slug: string) => slug in DESIGNED;
@@ -52,14 +53,44 @@ async function liveInputs(profile: CenterProfile): Promise<{ units: RollUnitLite
   return { units, profiles };
 }
 
-export async function renderDesignedCenter(slug: string): Promise<string | null> {
+/** The Available Space table + leasing flyer every designed page shares
+ *  (shared/available.*), read once per instance. */
+let _shared: Promise<{ css: string; html: string; js: string }> | null = null;
+function sharedParts() {
+  const dir = path.join(process.cwd(), "lib/centers/designed/shared");
+  return (_shared ??= Promise.all(["available.css", "available.html", "available.js"].map((f) => readFile(path.join(dir, f), "utf8")))
+    .then(([css, html, js]) => ({ css, html, js }))
+    .catch((e) => { _shared = null; throw e; }));
+}
+
+/** A designed centre's suites as the public sees them right now: the design
+ *  laid under the live rent roll (who, how big, what is vacant), Harry's tenant
+ *  profiles, and the portal's per-suite availability copy. The ONE source for
+ *  the centre page and the website's availability listings. */
+export async function liveDesignedSuites(slug: string) {
   const designed = DESIGNED[slug];
   const profile = centerBySlug(slug);
   if (!designed || !profile) return null;
+  const [{ units, profiles }, availDesc] = await Promise.all([
+    liveInputs(profile),
+    getCenterOverride(profile.code).then((o) => o.availDesc ?? {}).catch((): Record<string, AvailDesc> => ({})),
+  ]);
+  const synced = syncSuites(designed.suites, units, profiles);
+  if (synced.changes.length) console.log(`[centers/${slug}] rent roll: ${synced.changes.join("; ")}`);
+  return {
+    designed, profile,
+    suites: withAvailDesc(synced.suites, availDesc),
+    gla: synced.gla ?? designed.fallbackGla,
+  };
+}
+
+export async function renderDesignedCenter(slug: string): Promise<string | null> {
+  const [live, shared] = await Promise.all([liveDesignedSuites(slug), sharedParts()]);
+  if (!live) return null;
+  const { designed, profile, suites, gla: glaNow } = live;
   const template = await readFile(path.join(process.cwd(), "lib/centers/designed", `${slug}.html`), "utf8");
-  const { units, profiles } = await liveInputs(profile);
-  const { suites, gla, changes } = syncSuites(designed.suites, units, profiles);
-  if (changes.length) console.log(`[centers/${slug}] rent roll: ${changes.join("; ")}`);
+  const flyer = FLYERS[slug];
+  const property = flyer ? propertyFor(profile, flyer, suites, glaNow, `/centers/${designed.assetDir ?? slug}/assets`) : null;
 
   const available = suites.filter((s) => s.status === "available");
   const availSf = available.reduce((t, s) => t + s.sf, 0);
@@ -68,9 +99,13 @@ export async function renderDesignedCenter(slug: string): Promise<string | null>
     : "Fully leased";
   // JSON is valid JS; escaping "<" keeps a tenant name from closing the script.
   const json = JSON.stringify(suites).replace(/</g, "\\u003c");
+  const propJson = JSON.stringify(property ?? {}).replace(/</g, "\\u003c");
   return template
-    .replace("/*@SUITES@*/[]", json)
-    .replaceAll("{{GLA}}", fmt(gla ?? designed.fallbackGla))
+    .replace("/*@SUITES@*/[]", () => json)
+    .replace("/*@SHARED_CSS@*/", () => shared.css)
+    .replace("<!--@AVAILABLE@-->", () => (property ? shared.html : ""))
+    .replace("/*@SHARED_JS@*/", () => (property ? shared.js.replace("/*@PROPERTY@*/{}", () => propJson) : ""))
+    .replaceAll("{{GLA}}", fmt(glaNow))
     .replaceAll("{{AVAIL_SF}}", fmt(availSf))
     .replaceAll("{{AVAIL_DETAIL}}", availDetail);
 }

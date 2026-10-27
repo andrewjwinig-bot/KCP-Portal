@@ -229,6 +229,7 @@ footer .flogo{height:22px;width:auto;margin-bottom:18px}
 footer address{font-style:normal;line-height:1.6}
 .fine{border-top:1px solid rgba(255,255,255,.08);margin-top:36px;padding-top:22px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:14px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+/*@SHARED_CSS@*/
 </style>
 
 <header class="top">
@@ -318,6 +319,7 @@ footer address{font-style:normal;line-height:1.6}
         <div class="line"><a href="mailto:hfeldman@kormancommercial.com">hfeldman@kormancommercial.com</a><button class="copy" type="button" data-copy="hfeldman@kormancommercial.com" id="copy-em">Copy</button></div>
       </div>
     </div>
+<!--@AVAILABLE@-->
   </section>
 </main>
 
@@ -378,7 +380,7 @@ function show(id,pin){
    ${s.blurb?`<p class="blurb">${s.blurb}</p>`:""}
    ${s.order?`<a class="visit order" href="${s.order}" target="_blank" rel="noopener">${s.orderLabel||"Order online"}</a>`:""}
    ${s.url?`<a class="visit${s.order?" sec":""}" href="${s.url}" target="_blank" rel="noopener">${s.linkLabel||"Visit website"}</a>`:""}
-   ${av?`<p class="contact">Harry Feldman · <b>(215) 350-5933</b><br><b>hfeldman@kormancommercial.com</b></p>`:""}`;
+   ${av?`<p class="contact">Harry Feldman · <b>(215) 350-5933</b><br><b>hfeldman@kormancommercial.com</b></p><button class="visit flyer" type="button" id="pop-flyer">Download leasing flyer</button>`:""}`;
   pop.classList.toggle("pinned",pin);pop.hidden=false;
   mark(s.ref||id);
   const B=plan.getBoundingClientRect(),k=B.width/3365,pw=pop.offsetWidth;
@@ -386,6 +388,7 @@ function show(id,pin){
   const below=(s.y-380)*k<pop.offsetHeight+16;pop.classList.toggle("below",below);
   pop.style.left=left+"px";pop.style.top=((below?s.y+s.h:s.y)-380)*k+"px";pop.style.setProperty("--arrow",(pw/2+cx-left)+"px");
   const x=document.getElementById("pop-x");if(x)x.onclick=e=>{e.stopPropagation();hide(true)};
+  const fb=document.getElementById("pop-flyer");if(fb)fb.onclick=e=>{e.stopPropagation();if(pinned!==s.id)show(s.id,true);downloadFlyer(s,document.getElementById("pop-flyer"))};
 }
 function hide(force){if(force||!pinned){pinned=null;pop.hidden=true;ov.querySelectorAll(".sel").forEach(el=>el.classList.remove("sel"));mark(null)}}
 function mark(id){dir.querySelectorAll(".ten").forEach(b=>b.classList.toggle("on",b.dataset.id===id));ov.querySelectorAll(".suite").forEach(g=>g.classList.toggle("lit",g.dataset.id===id))}
@@ -408,4 +411,5 @@ SUITES.filter(s=>s.order&&!s.noRow).sort((a,b)=>{const ia=first.indexOf(a.id),ib
   a.innerHTML=lg?`<img src="${lg}" alt="${s.tenant}" loading="lazy"${s.logoBg?' class="inv"':""}>`:`<span class="wm">${s.tenant}</span>`;
   oc.append(a)});
 if(!oc.children.length){document.getElementById("order").hidden=true;document.getElementById("nav-order").hidden=true}
+/*@SHARED_JS@*/
 </script>

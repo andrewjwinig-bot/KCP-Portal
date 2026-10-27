@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { SITE_CATEGORIES, SITE_PROPERTIES, listingsFor, propertyBySlug, type SiteProperty } from "@/lib/site/content";
+import { SITE_CATEGORIES, SITE_PROPERTIES, propertyBySlug, type SiteProperty } from "@/lib/site/content";
+import { liveListingsFor } from "@/lib/site/liveListings";
 import { sitePath } from "@/lib/site/paths";
 import { ChevronLeft, ExternalLink } from "../../_components/icons";
 import Gallery from "../../_property/Gallery";
@@ -13,6 +14,8 @@ import { PortableText } from "../../_property/shared";
 // map (not on residential).
 
 export const dynamicParams = false;
+// A shopping centre's Available Space is the rent roll's, live (liveListings.ts).
+export const revalidate = 300;
 export function generateStaticParams() {
   return SITE_PROPERTIES.map((p) => ({ category: p.category, slug: p.slug }));
 }
@@ -76,13 +79,13 @@ function Facts({ p }: { p: SiteProperty }) {
   );
 }
 
-export default function PropertyPage({ params }: { params: { category: string; slug: string } }) {
+export default async function PropertyPage({ params }: { params: { category: string; slug: string } }) {
   const p = propertyBySlug(params.category, params.slug);
   if (!p) notFound();
   const category = SITE_CATEGORIES[p.category];
   const images = [...(p.mainImage ? [{ url: p.mainImage, alt: p.mainImageAlt || p.name }] : []), ...(p.gallery ?? [])];
   // "$0/SF/YR" is how the CMS said "ask us".
-  const listings = listingsFor(p.slug).map((l) => ({
+  const listings = (await liveListingsFor(p.slug)).map((l) => ({
     ...l,
     propertyName: p.name,
     rentalRate: l.rentalRate === "$0.00/SF/YR" || l.rentalRate === "$0/SF/YR" ? "Upon Request" : l.rentalRate,

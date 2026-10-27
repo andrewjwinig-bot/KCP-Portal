@@ -1,18 +1,23 @@
 import type { Metadata } from "next";
-import { AVAILABLE_SPACE_PAGE, SITE_LISTINGS, SITE_PROPERTIES } from "@/lib/site/content";
+import { AVAILABLE_SPACE_PAGE, SITE_PROPERTIES } from "@/lib/site/content";
+import { liveSiteListings } from "@/lib/site/liveListings";
 import ListingsTable from "../_property/ListingsTable";
 
 // Every availability across the portfolio, a table per property in
 // alphabetical order — the vendor site's /available-space.
+
+// The shopping centres' spaces are the rent roll's, live (liveListings.ts);
+// re-read every five minutes so an import reaches the website on its own.
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Available Office Space",
   description: "Browse our available office space for lease at Korman Commercial Properties.",
 };
 
-export default function AvailableSpacePage() {
+export default async function AvailableSpacePage() {
   const nameOf = new Map(SITE_PROPERTIES.map((p) => [p.slug, p.name]));
-  const listings = SITE_LISTINGS.map((l) => ({ ...l, propertyName: nameOf.get(l.property) ?? "Other Properties" }));
+  const listings = (await liveSiteListings()).map((l) => ({ ...l, propertyName: nameOf.get(l.property) ?? "Other Properties" }));
   const title = AVAILABLE_SPACE_PAGE.title || "Available Space";
 
   return (

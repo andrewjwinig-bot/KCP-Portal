@@ -45,6 +45,11 @@ export type DesignedSuite = {
   tenant: string;
   use: string;
   sf: number;
+  /** Marketing for an AVAILABLE suite (the Available Space table and the
+   *  leasing flyer). Kept only while the suite is vacant on the roll. */
+  spaceName?: string; spaceUse?: string; details?: string[]; floorplan?: string;
+  term?: string; rate?: string; availableWhen?: string; condition?: string;
+  possession?: string; rent?: string;
   status: "leased" | "available";
   url?: string; linkLabel?: string;
   order?: string; orderLabel?: string;
@@ -120,6 +125,13 @@ const profileFor = (profiles: Record<string, TenantProfile>, s: DesignedSuite, o
   return p && sameOccupant(p.rollName, occupant) ? p : null;
 };
 
+const MARKETING_KEYS = ["spaceName", "spaceUse", "details", "floorplan", "term", "rate", "availableWhen", "condition", "possession", "rent", "blurb"] as const;
+function marketingOf(s: DesignedSuite): Partial<DesignedSuite> {
+  const out: Partial<DesignedSuite> = {};
+  for (const k of MARKETING_KEYS) if (s[k] !== undefined) (out as Record<string, unknown>)[k] = s[k];
+  return out;
+}
+
 /** Shown until someone enters the tenant's details: never the roll's legal name. */
 export const UNPROFILED_TENANT = "Coming soon";
 
@@ -139,7 +151,11 @@ export function syncSuites(
     const geometry = { id: s.id, addr: s.addr, x: s.x, y: s.y, w: s.w, h: s.h, rects: s.rects, pts: s.pts, cx: s.cx, cy: s.cy, rot: s.rot, fs: s.fs };
     if (!o.occupant) {
       if (s.status !== "available") changes.push(`${s.id}: ${s.tenant} → available (vacant on the rent roll)`);
-      return { ...geometry, tenant: "", use: s.status === "available" ? s.use : "Retail space", sf: o.sf, status: "available" };
+      // A suite the design marketed as available keeps its marketing (floor
+      // plan, details, terms); one that just went vacant starts from none —
+      // its copy described the tenant who left.
+      const marketing = s.status === "available" ? marketingOf(s) : {};
+      return { ...geometry, ...marketing, tenant: "", use: s.status === "available" ? s.use : "Retail space", sf: o.sf, status: "available" };
     }
     if (s.departedRollName && sameOccupant(s.departedRollName, o.occupant)) {
       return { ...geometry, tenant: "", use: s.use, sf: o.sf, status: "available" };
