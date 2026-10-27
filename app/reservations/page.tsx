@@ -1,7 +1,7 @@
 "use client";
 
 import { TabButton } from "@/app/components/TabButton";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   RESERVATION_STATUSES,
@@ -300,6 +300,11 @@ function ReservationModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [composer, setComposer] = useState<null | "modify" | "custom">(null);
+  // Bring the composer (and its Send button) into view when it opens.
+  const composerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (composer) composerRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [composer]);
 
   // Known rent-roll companies for the reservation's property — drives the
   // "Resolve to rent-roll tenant" dropdown so staff can normalize the free
@@ -422,7 +427,7 @@ function ReservationModal({
       style={{
         position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)",
         display: "flex", alignItems: "flex-start", justifyContent: "center",
-        padding: "48px 16px 32px", zIndex: 100, overflow: "auto",
+        padding: "24px 16px", zIndex: 100, overflow: "auto",
       }}
     >
       <div
@@ -431,6 +436,10 @@ function ReservationModal({
           background: "var(--card)", color: "var(--text)",
           borderRadius: 14, border: "1px solid var(--border)",
           maxWidth: 880, width: "100%",
+          // Never taller than the window: the header and the action bar stay
+          // put and the details scroll between them — the email composer used
+          // to push Send off the bottom of a laptop screen (Nancy, 10/2026).
+          maxHeight: "calc(100vh - 48px)",
           boxShadow: "0 24px 60px rgba(15,23,42,0.32)",
           display: "flex", flexDirection: "column", overflow: "hidden",
         }}
@@ -455,7 +464,7 @@ function ReservationModal({
           </div>
         </div>
 
-        <div style={{ padding: "24px 32px", display: "flex", flexDirection: "column", gap: 22 }}>
+        <div style={{ padding: "24px 32px", display: "flex", flexDirection: "column", gap: 22, flex: "1 1 auto", minHeight: 0, overflowY: "auto" }}>
           <div style={{
             display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             gap: 16, padding: "14px 18px", border: "1px solid var(--border)", borderRadius: 10,
@@ -548,6 +557,7 @@ function ReservationModal({
           </Section>
 
           {composer && (
+            <div ref={composerRef}>
             <EmailComposer
               reservation={reservation}
               sameDay={sameDay}
@@ -556,6 +566,7 @@ function ReservationModal({
               onCancel={() => setComposer(null)}
               onSent={(updated) => { setComposer(null); onChange(updated); }}
             />
+            </div>
           )}
 
           {error && <div style={{ fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
