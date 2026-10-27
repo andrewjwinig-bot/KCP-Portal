@@ -11,6 +11,7 @@ import { LAFAYETTE_HILL_SUITES } from "./lafayetteHill";
 import { BROOKWOOD_SUITES } from "./brookwood";
 import { GRAYS_FERRY_SUITES } from "./graysFerry";
 import { PARKWOOD_SUITES } from "./parkwood";
+import { PARKWOOD_COMMONS_SUITES } from "./parkwoodCommons";
 
 // A center page built in Claude Design and handed off as one self-contained
 // HTML file (lib/centers/designed/<slug>.html, assets under
@@ -25,6 +26,8 @@ const DESIGNED: Record<string, Designed> = {
   brookwood: { suites: BROOKWOOD_SUITES, fallbackGla: 61572 },
   "grays-ferry": { suites: GRAYS_FERRY_SUITES, fallbackGla: 82809 },
   parkwood: { suites: PARKWOOD_SUITES, fallbackGla: 61036 },
+  // 1100 Parkwood Commons — the registry's slug; /centers/parkwood-commons serves it too.
+  "parkwood-professional": { suites: PARKWOOD_COMMONS_SUITES, fallbackGla: 8287 },
 };
 
 export const hasDesignedPage = (slug: string) => slug in DESIGNED;
