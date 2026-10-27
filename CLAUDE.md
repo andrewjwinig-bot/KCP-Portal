@@ -409,6 +409,9 @@ billboard (3000) is on the roll with no SF and is not drawn. **Parkwood (7010,
 (`units`); the second-floor office suites 201–218 carry an `addr` STRING
 ("Suite 210 · Second floor"; `addr: true` still means the street line) and a
 label size `fs`; `noRow` keeps Petroski's upstairs suite out of the order row.
+`departedRollName` marks a tenant who has LEFT but is still on the roll — the
+former Rite Aid (12311, in bankruptcy) reads AVAILABLE while the roll still
+names Rite Aid, not "Coming soon"; once the roll changes, the normal rules apply.
 Every designed
 page uses the website's full-resolution Korman logo
 (`Korman_CORPORATE_logo_WHT.png` copied in as `logo-white.png`), never the

@@ -34,6 +34,10 @@ export type DesignedSuite = {
   fs?: number;
   /** Has an order link but stays out of the order-online row (listed elsewhere). */
   noRow?: boolean;
+  /** A tenant who has LEFT but is still on the roll (Parkwood's Rite Aid,
+   *  in bankruptcy): while the roll still names them the suite reads as the
+   *  design has it — available — never as "Coming soon". */
+  departedRollName?: string;
   /** Directory-only entry pointing at another suite's shape. */
   ref?: string;
   /** Explicit logo size / position on the plan. */
@@ -136,6 +140,9 @@ export function syncSuites(
     if (!o.occupant) {
       if (s.status !== "available") changes.push(`${s.id}: ${s.tenant} → available (vacant on the rent roll)`);
       return { ...geometry, tenant: "", use: s.status === "available" ? s.use : "Retail space", sf: o.sf, status: "available" };
+    }
+    if (s.departedRollName && sameOccupant(s.departedRollName, o.occupant)) {
+      return { ...geometry, tenant: "", use: s.use, sf: o.sf, status: "available" };
     }
     const p = profileFor(profiles, s, o.occupant);
     if (p) {
