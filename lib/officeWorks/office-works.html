@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Furnished private offices, virtual offices and lounge and meeting space by the hour at Neshaminy Interplex, Trevose, Bucks County, PA. Receptionist, mail, internet and coffee included.">
 <title>The Office Works</title>
-<meta property="og:title" content="The Office Works at Neshaminy Interplex">
-<meta property="og:image" content="/office-works/assets/p-ext.jpg">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -262,9 +260,91 @@ form.f{background:var(--bg);border-radius:12px;padding:30px;display:grid;grid-te
 .b.oak.photo svg{color:var(--oak-hi)}
 .b.photo p{color:#ecebe8}
 .price b.inq{font-size:clamp(30px,2.8vw,40px);margin-right:6px}
+
+/* interactive floor plan */
+.fpbox{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:20px;align-items:start}
+.fpwrap{position:relative;background:#fff;border-radius:12px;border:1px solid var(--line)}
+.fpwrap img{display:block;width:100%;height:auto;border-radius:12px}
+.fpwrap svg{position:absolute;inset:0;width:100%;height:100%}
+#fpov g.ls rect{fill:transparent;pointer-events:none}
+#fpov g.ls text{font:500 40px var(--sans);fill:#1c1d1f;text-anchor:middle}
+#fpov g.av{cursor:pointer;outline:none}
+#fpov g.av rect{fill:rgba(154,106,54,.30);stroke:#9a6a36;stroke-width:6;transition:fill .15s}
+#fpov g.av:hover rect,#fpov g.av:focus-visible rect,#fpov g.av.sel rect{fill:rgba(154,106,54,.6)}
+#fpov g.av text{font:600 40px var(--sans);fill:#1c1d1f;text-anchor:middle;pointer-events:none}
+#fpov text.area{font:italic 36px var(--serif);fill:#8a8c90;text-anchor:middle;pointer-events:none}
+.fppop{position:absolute;z-index:5;width:240px;background:var(--bg);color:var(--ink);border-radius:10px;padding:16px 18px;box-shadow:0 18px 50px rgba(0,0,0,.28);transform:translate(-50%,calc(-100% - 12px));display:grid;gap:6px;text-align:center}
+.fppop::after{content:"";position:absolute;left:var(--ax,50%);bottom:-6px;width:12px;height:12px;background:var(--bg);transform:translateX(-50%) rotate(45deg)}
+.fppop.below{transform:translate(-50%,12px)}.fppop.below::after{bottom:auto;top:-6px}
+.fppop .pk{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--mute);display:flex;align-items:center;justify-content:center;gap:8px}
+.fppop .pill{background:var(--oak);color:#fff;border-radius:99px;padding:2px 8px;letter-spacing:.08em;font-size:10.5px}
+.fppop .px{position:absolute;right:8px;top:4px;border:0;background:none;font-size:20px;color:var(--mute);cursor:pointer}
+.fppop .psf{font-family:var(--serif);font-weight:400;font-size:34px;line-height:1}
+.fppop p{font-size:14px;color:var(--ink-2)}
+.fppop .btn{padding:11px 16px;font-size:14px;margin-top:6px}
+.fpside{display:grid;gap:14px}
+.leg{display:grid;gap:8px;font-size:14px;color:var(--ink-2)}
+.leg span{display:flex;align-items:center;gap:10px}
+.k{width:16px;height:16px;border-radius:3px;display:inline-block;border:1px solid var(--line)}
+.k.av{background:rgba(154,106,54,.35);border-color:#9a6a36}.k.ls{background:#fff}.k.sh{background:#f2f2f1}
+.fpside h3{font-size:26px;margin-top:8px}
+.fplist{display:grid;gap:6px}
+.fplist button{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:baseline;text-align:left;font:inherit;padding:12px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.fplist button:hover,.fplist button.sel{border-color:var(--oak);background:color-mix(in srgb,var(--oak) 8%,var(--bg))}
+.fplist .ln{font-weight:600}.fplist .ls2{font-family:var(--serif);font-size:20px}.fplist .lw{font-size:12px;color:var(--mute);letter-spacing:.06em;text-transform:uppercase}
+@media (max-width:900px){.fpbox{grid-template-columns:1fr}.fplist{grid-template-columns:1fr 1fr}}
+@media (max-width:480px){.fplist{grid-template-columns:1fr}.fppop{width:210px}}
+
+/* list panel inside the plan's lower-left */
+.fpbox{grid-template-columns:1fr}
+.fpwrap{overflow:hidden}
+.fpside{position:absolute;left:calc(40/2180*100%);top:calc(1290/2320*100%);width:calc(1380/2180*100%);bottom:calc(40/2320*100%);padding:0;align-content:center;gap:clamp(8px,1vw,14px);background:transparent}
+.fpside .leg{display:flex;flex-wrap:wrap;gap:8px 20px}
+.fpside h3{margin-top:2px;font-size:clamp(20px,2vw,28px);color:#1c1d1f}
+.fpside .leg,.fpside .onote{color:#4a4c50}
+.fpside .fplist button{background:#26272a;color:#fff;border-color:#26272a}
+.fpside .fplist button:hover,.fpside .fplist button.sel{background:#9a6a36;border-color:#9a6a36}
+.fpside .fplist .lw{color:#c9c7c3}
+.fpside .fplist button{padding:clamp(7px,.8vw,11px) clamp(10px,1vw,14px)}
+.fpside .fplist .ls2{font-size:clamp(15px,1.4vw,19px)}
+.fpside .leg{font-size:13px}
+.fpside .onote{margin-top:2px;font-size:13px}
+.fpside .fplist{grid-template-columns:repeat(2,minmax(0,1fr))}
+.fpwrap .fppop{z-index:6}
+@media (max-width:860px){.fpwrap{overflow:visible}.fpside{position:static;width:auto;border:0;border-radius:0;padding:20px 0 0;background:transparent}}
+@media (max-width:480px){.fpside .fplist{grid-template-columns:1fr}}
+
+/* panel scales with the plan so it fills the empty corner */
+.fpwrap{container-type:inline-size}
+@container (min-width:861px){
+  .fpside{gap:1.6cqw;top:calc(1240/2320*100%)}
+  .fpside .leg{font-size:1.25cqw;gap:.8cqw 2cqw}
+  .fpside .leg .k{width:1.4cqw;height:1.4cqw}
+  .fpside h3{font-size:3.4cqw;margin:0}
+  .fpside .fplist{gap:1cqw}
+  .fpside .fplist button{padding:1.55cqw 1.6cqw;border-radius:.8cqw}
+  .fpside .fplist .ln{font-size:1.75cqw}
+  .fpside .fplist .ls2{font-size:2.1cqw}
+  .fpside .fplist .lw{font-size:1.05cqw}
+  .fpside .onote{font-size:1.25cqw}
+}
+
+/* adaptive list sizing by number of open offices */
+.fpside{display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+.fpside .fplist{min-height:0;overflow-y:auto;scrollbar-width:thin}
+.fpnone{grid-column:1/-1;color:#4a4c50;font-size:15px;max-width:40ch}
+@container (min-width:861px){
+  .fpside .fplist[data-size="few"] button{padding:2.2cqw 2cqw}
+  .fpside .fplist[data-size="few"] .ln{font-size:2.1cqw}
+  .fpside .fplist[data-size="few"] .ls2{font-size:2.5cqw}
+  .fpside .fplist[data-size="many"],.fpside .fplist[data-size="lots"]{grid-template-columns:repeat(3,minmax(0,1fr));gap:.8cqw}
+  .fpside .fplist[data-size="many"] button,.fpside .fplist[data-size="lots"] button{padding:1.1cqw 1.2cqw;grid-template-columns:1fr auto}
+  .fpside .fplist[data-size="many"] .lw,.fpside .fplist[data-size="lots"] .lw{display:none}
+  .fpside .fplist[data-size="many"] .ln,.fpside .fplist[data-size="lots"] .ln{font-size:1.5cqw}
+  .fpside .fplist[data-size="many"] .ls2,.fpside .fplist[data-size="lots"] .ls2{font-size:1.75cqw}
+  .fpnone{font-size:1.7cqw}
+}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
-.onone{font-size:17px;color:var(--ink-2);padding:28px 0}
-.reach b a,.foot small a{color:inherit;text-decoration:none}
 </style>
 </head>
 <body>
@@ -356,9 +436,22 @@ form.f{background:var(--bg);border-radius:12px;padding:30px;display:grid;grid-te
   </section>
   <section class="sec" id="available" style="padding-top:20px" aria-labelledby="h-avail">
     <div class="in">
-      <div class="sec-h"><div><p class="kick">Available now · Building Five</p><h2 id="h-avail">Pick your office.</h2></div><p>Drawn to scale. Tap one to request a tour of it.</p></div>
-      <div class="ogrid" id="ogrid"></div>
-      <p class="onote">Furnished and ready. Rates on request. Parking included.</p>
+      <div class="sec-h"><div><p class="kick">Available now · Building Five, second floor</p><h2 id="h-avail">Pick your office.</h2></div><p><b id="fpcount"></b> offices open now. Hover or tap a highlighted office for details.</p></div>
+      <div class="fpbox">
+        <div class="fpwrap" id="fp">
+          <img src="/office-works/assets/plan-ow.webp" alt="Floor plan of The Office Works, second floor of Neshaminy Interplex Building Five" width="2180" height="2320">
+          <svg viewBox="0 0 2180 2320" id="fpov" role="group" aria-label="Offices">
+          </svg>
+          <div class="fppop" id="fppop" hidden></div>
+        <div class="fpside">
+          <div class="leg"><span><i class="k av"></i>Available</span><span><i class="k ls"></i>Leased</span></div>
+          <h3>Open offices</h3>
+          <div class="fplist" id="fplist"></div>
+          <p class="onote">Furnished and ready. Rates on request.</p>
+        </div>
+        </div>
+
+      </div>
     </div>
   </section>
 
@@ -403,27 +496,62 @@ form.f{background:var(--bg);border-radius:12px;padding:30px;display:grid;grid-te
 
 <footer class="foot">
   <div class="in">
-    <img src="/office-works/assets/logo-white.png" alt="Korman Commercial Properties" width="275" height="34">
-    <small>The Office Works® is a Korman Commercial Properties business · <a href="tel:+12152445175">215.244.5175</a></small>
+    <img src="/office-works/assets/logo-white.png" alt="Korman Commercial Properties" width="235" height="34">
+    <small>The Office Works® is a Korman Commercial Properties business · 215.244.5175</small>
   </div>
 </footer>
 
 <script>
-// Filled by the portal from the 4900 rent roll's vacant offices (lib/officeWorks).
 const OFFICES=/*@OFFICES@*/[];
-
 (function(){
-  const g=document.getElementById("ogrid"),opt=document.getElementById("f-office"),max=Math.max(1,...OFFICES.map(o=>o.sf)),box=132;
-  if(!OFFICES.length){g.outerHTML='<p class="onone">Every office is leased right now. Schedule a tour and we will tell you when one opens.</p>';document.querySelector('.onote')?.remove();return}
+  const ns="http://www.w3.org/2000/svg",svg=document.getElementById("fpov"),pop=document.getElementById("fppop"),wrap=document.getElementById("fp"),list=document.getElementById("fplist"),opt=document.getElementById("f-office");
+  let pinned=null;
+  const desc=o=>`${o.win?"Window office":"Interior office"} · Furnished`;
+  const sfTxt=o=>`${o.est?"≈ ":""}${o.sf} SF`;
+  function choose(o){document.getElementById("pr-1").checked=true;opt.value=o.id;document.getElementById("tour").scrollIntoView({behavior:"smooth"});setTimeout(()=>document.getElementById("f-name").focus({preventScroll:true}),500)}
+  function show(o,pin){
+    pinned=pin?o.id:null;
+    svg.querySelectorAll("g.av").forEach(g=>g.classList.toggle("sel",g.dataset.id===o.id));
+    list.querySelectorAll("button").forEach(b=>b.classList.toggle("sel",b.dataset.id===o.id));
+    pop.innerHTML=`<div class="pk">Office ${o.id}<span class="pill">Available</span></div>${pin?'<button type="button" class="px" aria-label="Close">&times;</button>':""}<b class="psf">${sfTxt(o)}</b><p>${desc(o)}${o.m2m?" · Month-to-month":""}</p><button type="button" class="btn dark pgo">Request a tour</button>`;
+    pop.hidden=false;
+    const B=wrap.getBoundingClientRect(),k=B.width/2180,pw=pop.offsetWidth,ph=pop.offsetHeight;
+    const cx=(o.x+o.w/2)*k,left=Math.min(Math.max(cx,pw/2+8),B.width-pw/2-8);
+    const below=o.y*k<ph+16;
+    pop.classList.toggle("below",below);
+    pop.style.left=left+"px";pop.style.top=((below?o.y+o.h:o.y)*k)+"px";pop.style.setProperty("--ax",(pw/2+cx-left)+"px");
+    pop.querySelector(".pgo").onclick=e=>{e.stopPropagation();choose(o)};
+    const x=pop.querySelector(".px");if(x)x.onclick=e=>{e.stopPropagation();hide(true)};
+  }
+  function hide(force){if(pinned&&!force)return;pinned=null;pop.hidden=true;svg.querySelectorAll("g.sel").forEach(g=>g.classList.remove("sel"));list.querySelectorAll("button.sel").forEach(b=>b.classList.remove("sel"))}
   OFFICES.forEach(o=>{
-    const side=Math.round(box*Math.sqrt(o.sf/max));
-    const b=document.createElement("button");b.type="button";b.className="office";
-    b.setAttribute("aria-label",`Office ${o.id}, ${o.sf} square feet. Request a tour of this office.`);
-    b.innerHTML=`<span class="no">Office ${o.id}</span><span class="stage"><span class="room" style="width:${side}px;height:${side}px"></span></span><span class="sf">${o.sf}<small>${o.m2m?"MONTH-TO-MONTH":"SQ FT"}</small></span>`;
-    b.addEventListener("click",()=>{document.getElementById("pr-1").checked=true;opt.value=o.id;document.getElementById("tour").scrollIntoView({behavior:"smooth"});setTimeout(()=>document.getElementById("f-name").focus({preventScroll:true}),500)});
-    g.append(b);
-    const op=document.createElement("option");op.value=o.id;op.textContent=`Office ${o.id} · ${o.sf} SF`;opt.append(op);
+    const g=document.createElementNS(ns,"g");g.setAttribute("class",o.av?"av":"ls");g.dataset.id=o.id;
+    const r=document.createElementNS(ns,"rect");Object.entries({x:o.x,y:o.y,width:o.w,height:o.h}).forEach(([k,v])=>r.setAttribute(k,v));g.append(r);
+    if(o.av){const t=document.createElementNS(ns,"text");t.setAttribute("x",o.x+o.w/2);t.setAttribute("y",o.y+o.h/2+14);t.textContent=o.id;g.append(t)}
+    if(o.av){
+      g.setAttribute("tabindex","0");g.setAttribute("role","button");g.setAttribute("aria-label",`Office ${o.id}, available, ${sfTxt(o)}`);
+      g.addEventListener("mouseenter",()=>{if(!pinned)show(o,false)});
+      g.addEventListener("mouseleave",()=>{if(!pinned)hide()});
+      g.addEventListener("click",e=>{e.stopPropagation();pinned===o.id?hide(true):show(o,true)});
+      g.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();show(o,true)}});
+      const b=document.createElement("button");b.type="button";b.dataset.id=o.id;
+      b.innerHTML=`<span class="ln">${o.id}</span><span class="ls2">${sfTxt(o)}</span><span class="lw">${o.win?"Window":"Interior"}</span>`;
+      b.addEventListener("mouseenter",()=>{if(!pinned)show(o,false)});b.addEventListener("mouseleave",()=>{if(!pinned)hide()});
+      b.addEventListener("click",e=>{e.stopPropagation();show(o,true)});
+      list.append(b);
+      const op=document.createElement("option");op.value=o.id;op.textContent=`Office ${o.id} · ${sfTxt(o)}`;opt.append(op);
+    }
+    svg.append(g);
   });
+  const nOpen=OFFICES.filter(o=>o.av).length;
+  document.getElementById("fpcount").textContent=nOpen;
+  // layout adapts to how many offices are open
+  list.dataset.size=nOpen===0?"none":nOpen<=4?"few":nOpen<=8?"mid":nOpen<=12?"many":"lots";
+  if(nOpen===0){list.innerHTML='<p class="fpnone">All offices are currently leased. Call 215.244.5175 or request a tour to join the waitlist.</p>';
+    document.getElementById("fpcount").closest("p").innerHTML="All offices are currently leased.";const on=document.querySelector(".fpside .onote");if(on)on.hidden=true;}
+  document.addEventListener("click",e=>{if(pinned&&!pop.contains(e.target))hide(true)});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")hide(true)});
+  window.addEventListener("resize",()=>hide(true));
 })();
 
 document.querySelectorAll("[data-prog]").forEach(a=>a.addEventListener("click",()=>{const v=a.dataset.prog;document.querySelectorAll('input[name="prog"]').forEach(r=>r.checked=r.value===v)}));
