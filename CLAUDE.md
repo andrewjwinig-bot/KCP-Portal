@@ -595,9 +595,12 @@ handoff's screenshot crop.
   recoveries never reach the service logins (`accessGroup === "service"`), A/R
   only those who can open `/tenant-statements`, read by suite AND name from
   the newest statement (a re-leased suite never shows the last tenant's
-  balance). Labels shrink to fit a narrow bay (`labelSize`). **Parkwood first
-  (`STAFF_PLAN_SLUGS`)** — every designed centre already carries its `plan`,
-  so another joins by adding its slug. Pinned by `staffPlanMath.test.ts`.
+  balance). Labels shrink to fit a narrow bay (`labelSize`). **On ALL FIVE
+  designed centres** (`STAFF_PLAN_SLUGS`: Parkwood first, then Brookwood,
+  Gray's Ferry, Lafayette Hill and Parkwood Commons — owner: "roll it out to
+  the other centers"); Brookwood's `shadow` neighbours are drawn uncoloured
+  and do not click. A new designed centre joins by adding its slug once its
+  `plan` is set. Pinned by `staffPlanMath.test.ts`.
 - **The next centre**: its HTML into `lib/centers/designed/<slug>.html` with
   `const SUITES=/*@SUITES@*/[];` and the `{{GLA}}` / `{{AVAIL_SF}}` /
   `{{AVAIL_DETAIL}}` placeholders, its suites into a `<centre>.ts` with
