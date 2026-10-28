@@ -15,10 +15,10 @@ import { isoDate, type StaffPlan, type StaffSuite, type StaffSuiteAr } from "./s
 // the roll's own occupant name, lease dates, rent and recoveries, and the
 // tenant's open A/R from their newest monthly statement.
 
-/** Properties whose page shows the plan. Parkwood first (owner: "start with
- *  parkwood"); the other designed centres carry a `plan` already and join by
- *  adding their slug here. */
-export const STAFF_PLAN_SLUGS = new Set(["parkwood"]);
+/** Properties whose page shows the plan — every designed centre (Parkwood
+ *  first, then the rest: owner, "roll it out to the other centers"). A new
+ *  designed centre joins by adding its slug here once its `plan` is set. */
+export const STAFF_PLAN_SLUGS = new Set(["parkwood", "brookwood", "grays-ferry", "lafayette-hill", "parkwood-professional"]);
 
 export function staffPlanSlug(code: string): string | null {
   const slug = centerByCode(code)?.slug;
