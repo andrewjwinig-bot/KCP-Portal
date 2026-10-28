@@ -437,7 +437,8 @@ assets `public/office-works/assets/`). Public by the middleware's
   Nothing open → "Every office is leased right now". No 4900 roll → the
   handoff's five offices. Pinned by `offices.test.ts`.
 - **The tour form posts to `/api/website/tour`** (`lib/site/tour.ts`,
-  honeypot + 5/hour, emails `SITE_CONTACT_TO` / info@ with Reply-To; a failed
+  honeypot + 5/hour, emails **Nancy Fox** — `tourRecipients`, nfox@, she
+  answers them; `OFFICE_WORKS_TOUR_TO` overrides — with Reply-To; a failed
   send is reported, never a false "sent"). Pinned by `tour.test.ts`.
 - Korman footer logo is the full-resolution one; the Office Works logo and the
   phone photos (p-office, p-conf, p-boardroom, p-lounge2, p-coffee) are still

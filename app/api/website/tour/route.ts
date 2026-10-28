@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { contactRecipients } from "@/lib/site/contact";
-import { checkTour, tourEmailText } from "@/lib/site/tour";
+import { checkTour, tourEmailText, tourRecipients } from "@/lib/site/tour";
 
 // Public endpoint behind The Office Works website's tour form (/office-works).
 // Same guards as /api/website/contact: honeypot + per-IP rate limit, public by
-// the middleware's api/website/ exemption. Emails SITE_CONTACT_TO (default
-// info@) with the visitor as Reply-To; nothing is stored. A failed send is
+// the middleware's api/website/ exemption. Emails Nancy (tourRecipients —
+// OFFICE_WORKS_TOUR_TO, default nfox@) with the visitor as Reply-To; nothing is stored. A failed send is
 // reported, never a false "sent".
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const RATE_LIMIT_PER_HOUR = 5;
-const FALLBACK = "Your request could not be sent. Please call 215.244.5175 or email info@kormancommercial.com.";
+const FALLBACK = "Your request could not be sent. Please call 215.244.5175 or email nfox@kormancommercial.com.";
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
@@ -35,7 +34,7 @@ export async function POST(req: NextRequest) {
   let delivered = false;
   if (isMailConfigured()) {
     delivered = await sendMail({
-      to: contactRecipients().join(", "),
+      to: tourRecipients().join(", "),
       subject: `Office Works tour request — ${value.name}${value.office ? ` · Office ${value.office}` : ""}`,
       textBody: tourEmailText(value),
       headers: [{ Name: "Reply-To", Value: value.email }],

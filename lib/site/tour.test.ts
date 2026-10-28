@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkTour, tourEmailText } from "./tour";
+import { checkTour, tourEmailText, tourRecipients } from "./tour";
 
 describe("Office Works tour request", () => {
   it("needs a name and a valid email", () => {
@@ -22,5 +22,13 @@ describe("Office Works tour request", () => {
     expect(text).toContain("Tuesday, November 3, 2026");
     expect(text).toContain("Company:  Lee LLC");
     expect(text).not.toContain("Phone:");
+  });
+});
+
+describe("Office Works tour recipients", () => {
+  it("go to Nancy unless overridden", () => {
+    expect(tourRecipients("")).toEqual(["nfox@kormancommercial.com"]);
+    expect(tourRecipients(undefined)).toEqual(["nfox@kormancommercial.com"]);
+    expect(tourRecipients("a@x.com, b@x.com")).toEqual(["a@x.com", "b@x.com"]);
   });
 });
