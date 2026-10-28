@@ -102,7 +102,7 @@ const PROPERTIES = [
   { id: "8200", name: "Trust # 4" },
   { id: "9000", name: "Butler & Main" },
   { id: "9200", name: "Eastwick JV XII" },
-  { id: "9510", name: "Shops at Lafayette Hill" },
+  { id: "9510", name: "Shops of Lafayette Hill" },
   { id: "9800", name: "KH Bellaire" },
   { id: "9820", name: "KH Spring Garden" },
   { id: "9840", name: "KH Joshua" },

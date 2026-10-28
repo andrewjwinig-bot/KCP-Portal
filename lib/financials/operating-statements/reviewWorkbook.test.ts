@@ -4,7 +4,7 @@ import { buildReviewChecklistXlsx } from "./reviewWorkbook";
 import type { ReviewResult, ReviewProperty } from "./review";
 
 const prop = (o: Partial<ReviewProperty> & { key: string; propertyCode: string }): ReviewProperty => ({
-  propertyName: "Shops at Lafayette Hill", hasData: true,
+  propertyName: "Shops of Lafayette Hill", hasData: true,
   latestPeriod: 7, latestMonthLabel: "July", monthsCovered: 7,
   lines: [], flaggedMonthCount: 0, issues: [], tieOut: null, coverage: null, ...o,
 });

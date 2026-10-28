@@ -64,7 +64,7 @@ describe("a group workbook is a sheet per property", () => {
   });
 
   it("leads each tab with the CODE, which is what tabs are scanned by", async () => {
-    const buf = await buildReprojGroupXlsx([{ r: fixture(), meta: meta("9510", "Shops at Lafayette Hill") }]);
+    const buf = await buildReprojGroupXlsx([{ r: fixture(), meta: meta("9510", "Shops of Lafayette Hill") }]);
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buf as never);
     expect(wb.worksheets[0].name.startsWith("9510")).toBe(true);

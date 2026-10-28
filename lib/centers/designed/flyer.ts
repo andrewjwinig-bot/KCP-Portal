@@ -101,7 +101,7 @@ export function withAvailDesc(
  *  contact, which suites are available) are NOT here — they are live. */
 export const FLYERS: Record<string, FlyerConfig> = {
   "lafayette-hill": {
-    name: "Shops at Lafayette Hill", flyerName: ["LAFAYETTE", "HILL SHOPS"], street: "Germantown Pike",
+    name: "Shops of Lafayette Hill", flyerName: ["LAFAYETTE", "HILL SHOPS"], street: "Germantown Pike",
     stats: [{ big: "Wawa", small: "Anchor", icon: "store" }, { big: "At the Door", small: "Parking", icon: "parking" },
       { big: "Germantown Pike", small: "Whitemarsh Twp", icon: "pin" }],
     highlights: [

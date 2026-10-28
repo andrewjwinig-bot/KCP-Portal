@@ -1,6 +1,6 @@
 import { renderDesignedCenter } from "@/lib/centers/designed/render";
 
-// The Shops at Lafayette Hill's designed page (Claude Design handoff), served
+// The Shops of Lafayette Hill's designed page (Claude Design handoff), served
 // whole in place of the /centers/[slug] template. Tenancy and SF are the live
 // rent roll's on every request — see lib/centers/designed/sync.ts.
 export const dynamic = "force-dynamic";

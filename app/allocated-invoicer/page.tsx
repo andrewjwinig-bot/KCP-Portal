@@ -42,7 +42,7 @@ const ALLOC_PROPERTIES = [
   { id: "7200", name: "Elbridge Shopping Center" },
   { id: "7300", name: "Revere Shopping Center" },
   { id: "8200", name: "Trust # 4" },
-  { id: "9510", name: "Shops at Lafayette Hill" },
+  { id: "9510", name: "Shops of Lafayette Hill" },
 ] as const;
 
 // Overhead-allocation shares — single source of truth in lib/properties/data.ts.

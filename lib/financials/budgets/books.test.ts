@@ -54,7 +54,7 @@ describe("the budget books", () => {
 
   it("names each property for the tab strip", () => {
     const tabs = bookProperties(bookById("shopping-centers")!);
-    expect(tabs.find((t) => t.code === "9510")?.name).toBe("Shops at Lafayette Hill");
+    expect(tabs.find((t) => t.code === "9510")?.name).toBe("Shops of Lafayette Hill");
     expect(tabs).toHaveLength(11);
   });
 });
