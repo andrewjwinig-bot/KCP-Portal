@@ -577,6 +577,27 @@ handoff's screenshot crop.
   while its `rollName` is still the occupant, so the next turnover prompts
   again instead of showing the old logo; a matching profile wins over the
   curated copy. Pinned by `sync.test.ts`.
+- **THE PROPERTY PAGE CARRIES THE SAME PLAN, INTERNALLY** (owner: "a nice
+  internal tool just for us"; `SitePlanCard` under the KPI tiles of
+  `/properties/<code>`, data `GET /api/properties/[id]/siteplan` →
+  `buildStaffPlan` in `staffPlan.ts`, colouring in `staffPlanMath.ts`). The
+  designed page's own shapes over its own image (`plan` on each `DESIGNED`
+  entry — image + viewBox) and `liveDesignedSuites`, so it can never disagree
+  with the public page about who is where — but coloured by what WE act on:
+  **Lease Expiry** (past term / ≤12 mo / 12–24 / 24+ / vacant), **Rent $/SF**
+  (a brand ramp), **Open A/R** (past due is the exception; this month's open
+  charges amber). Hover a suite (`TipCard`, the body of `HoverCard`, placed at
+  the mouse) for the roll's own occupant name, lease dates, rent, CAM · RET ·
+  Other and A/R; click for the unit page. Tiles: occupied %, vacant SF,
+  expiring ≤ 12 mo, past due; the legend filters the plan; a Lease
+  Expirations · Next 24 Months table sits under it. **The server decides what
+  a viewer sees** (`/api/properties` is open to everyone signed in): rent and
+  recoveries never reach the service logins (`accessGroup === "service"`), A/R
+  only those who can open `/tenant-statements`, read by suite AND name from
+  the newest statement (a re-leased suite never shows the last tenant's
+  balance). Labels shrink to fit a narrow bay (`labelSize`). **Parkwood first
+  (`STAFF_PLAN_SLUGS`)** — every designed centre already carries its `plan`,
+  so another joins by adding its slug. Pinned by `staffPlanMath.test.ts`.
 - **The next centre**: its HTML into `lib/centers/designed/<slug>.html` with
   `const SUITES=/*@SUITES@*/[];` and the `{{GLA}}` / `{{AVAIL_SF}}` /
   `{{AVAIL_DETAIL}}` placeholders, its suites into a `<centre>.ts` with

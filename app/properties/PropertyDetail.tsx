@@ -1,5 +1,6 @@
 "use client";
 
+import SitePlanCard from "./[id]/SitePlanCard";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -699,6 +700,9 @@ export function PropertyDetailBody({
           ))}
         </div>
       )}
+
+      {/* ── Site plan (designed centres): large, coloured by lease expiry / rent / A/R ── */}
+      <SitePlanCard code={prop.id} style={{ marginBottom: 14 }} />
 
       {/* Body — sections */}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

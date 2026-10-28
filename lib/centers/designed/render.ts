@@ -13,6 +13,7 @@ import { GRAYS_FERRY_SUITES } from "./graysFerry";
 import { PARKWOOD_SUITES } from "./parkwood";
 import { PARKWOOD_COMMONS_SUITES } from "./parkwoodCommons";
 import { FLYERS, propertyFor, withAvailDesc } from "./flyer";
+import type { PlanMeta } from "./staffPlanMath";
 
 // A center page built in Claude Design and handed off as one self-contained
 // HTML file (lib/centers/designed/<slug>.html, assets under
@@ -20,18 +21,33 @@ import { FLYERS, propertyFor, withAvailDesc } from "./flyer";
 // and script, none of the portal's — with its SUITES and the figures that
 // depend on them filled in from the live rent roll on every request (sync.ts).
 
-type Designed = { suites: DesignedSuite[]; fallbackGla: number; /** Under public/centers/; defaults to the slug. */ assetDir?: string };
+type Designed = {
+  suites: DesignedSuite[]; fallbackGla: number;
+  /** Under public/centers/; defaults to the slug. */ assetDir?: string;
+  /** The site-plan image and the SVG viewBox its suites are drawn in — the
+   *  designed page's own, so the property page's internal plan (staffPlan.ts)
+   *  draws the same shapes over the same picture. */
+  plan: PlanMeta;
+};
 
 const DESIGNED: Record<string, Designed> = {
-  "lafayette-hill": { suites: LAFAYETTE_HILL_SUITES, fallbackGla: 18487 },
-  brookwood: { suites: BROOKWOOD_SUITES, fallbackGla: 61572 },
-  "grays-ferry": { suites: GRAYS_FERRY_SUITES, fallbackGla: 82809 },
-  parkwood: { suites: PARKWOOD_SUITES, fallbackGla: 61036 },
+  "lafayette-hill": { suites: LAFAYETTE_HILL_SUITES, fallbackGla: 18487,
+    plan: { src: "/centers/lafayette-hill/assets/siteplan-tight.webp", viewBox: "0 600 3300 1670", width: 2400, height: 1215 } },
+  brookwood: { suites: BROOKWOOD_SUITES, fallbackGla: 61572,
+    plan: { src: "/centers/brookwood/assets/siteplan.webp", viewBox: "0 250 3300 2010", width: 2400, height: 1462 } },
+  "grays-ferry": { suites: GRAYS_FERRY_SUITES, fallbackGla: 82809,
+    plan: { src: "/centers/grays-ferry/assets/siteplan.webp", viewBox: "0 100 3300 2070", width: 2400, height: 1505 } },
+  parkwood: { suites: PARKWOOD_SUITES, fallbackGla: 61036,
+    plan: { src: "/centers/parkwood/assets/siteplan.webp", viewBox: "0 300 3300 1880", width: 2400, height: 1367 } },
   // 1100 Parkwood Commons — the registry's slug; /centers/parkwood-commons serves it too.
-  "parkwood-professional": { suites: PARKWOOD_COMMONS_SUITES, fallbackGla: 8287, assetDir: "parkwood-commons" },
+  "parkwood-professional": { suites: PARKWOOD_COMMONS_SUITES, fallbackGla: 8287, assetDir: "parkwood-commons",
+    plan: { src: "/centers/parkwood-commons/assets/siteplan.webp", viewBox: "0 380 3365 2334", width: 2400, height: 1665 } },
 };
 
 export const hasDesignedPage = (slug: string) => slug in DESIGNED;
+
+/** A designed centre's plan image + coordinate space (the internal plan). */
+export const designedPlan = (slug: string): PlanMeta | null => DESIGNED[slug]?.plan ?? null;
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
