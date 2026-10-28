@@ -515,6 +515,13 @@ handoff's screenshot crop.
   Good Treats' leased 1,228 SF at 1100 and Petroski's 210 at Parkwood). A CMS
   listing of the same SF lends its photos / details. Properties with no
   designed page keep their CMS listings. Pinned by `liveListings.test.ts`.
+- **THE WEBSITE'S CENTRE LINKS GO TO THE DESIGNED PAGES** (owner: "the new
+  pages i built arent loading"): `DESIGNED_CENTER_PAGES` / `propertyPath` in
+  `lib/site/paths.ts` map the website's slug (`brookwood-shopping-center`) to
+  `/centers/<slug>`; the category grid and search link there (plain `<a>` /
+  a full load — the page is a route handler, not a Next page) and the old
+  `/site/retail/<slug>` 308s to it. A designed page's header logo links back
+  to `/site`. A new designed centre gets its row in that map.
 - **A designed page is served WHOLE by a static route that beats the template**
   (`app/centers/lafayette-hill/route.ts` → `renderDesignedCenter`,
   `lib/centers/designed/render.ts`): its own fonts, CSS and script, none of

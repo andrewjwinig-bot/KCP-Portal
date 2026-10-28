@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { SITE_CATEGORIES, SITE_PROPERTIES, propertyBySlug, type SiteProperty } from "@/lib/site/content";
 import { liveListingsFor } from "@/lib/site/liveListings";
-import { sitePath } from "@/lib/site/paths";
+import { DESIGNED_CENTER_PAGES, sitePath } from "@/lib/site/paths";
 import { ChevronLeft, ExternalLink } from "../../_components/icons";
 import Gallery from "../../_property/Gallery";
 import ListingsTable from "../../_property/ListingsTable";
@@ -82,6 +82,9 @@ function Facts({ p }: { p: SiteProperty }) {
 export default async function PropertyPage({ params }: { params: { category: string; slug: string } }) {
   const p = propertyBySlug(params.category, params.slug);
   if (!p) notFound();
+  // A centre with a designed page (interactive site plan) lives there.
+  const designed = DESIGNED_CENTER_PAGES[p.slug];
+  if (designed) permanentRedirect(designed);
   const category = SITE_CATEGORIES[p.category];
   const images = [...(p.mainImage ? [{ url: p.mainImage, alt: p.mainImageAlt || p.name }] : []), ...(p.gallery ?? [])];
   // "$0/SF/YR" is how the CMS said "ask us".
