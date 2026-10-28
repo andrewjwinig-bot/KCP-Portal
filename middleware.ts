@@ -28,7 +28,7 @@ export const config = {
     // and run the login check on the portal's public token pages.
     {
       source: "/((?!_next/static|_next/image).*)",
-      has: [{ type: "host", value: "^(www\\.)?(kormancommercial\\.com|theofficeworks\\.(com|net)|brookwoodshoppingcenter\\.com|brookwood-shopping\\.com)$" }],
+      has: [{ type: "host", value: "^(www\\.)?(kormancommercial\\.com|theofficeworks\\.(com|net)|brookwoodshoppingcenter\\.com|brookwood-shopping\\.com|parkwoodshoppingcenter\\.com)$" }],
     },
   ],
 };

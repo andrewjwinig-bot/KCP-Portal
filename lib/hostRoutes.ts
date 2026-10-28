@@ -22,6 +22,7 @@ export const OFFICE_WORKS_HOSTS: string[] = ["theofficeworks.com", "theofficewor
 export const CENTER_HOSTS: Record<string, string> = {
   "brookwoodshoppingcenter.com": "/centers/brookwood",
   "brookwood-shopping.com": "/centers/brookwood",
+  "parkwoodshoppingcenter.com": "/centers/parkwood",
 };
 
 export function hostBase(host: string | null | undefined, env: string | undefined = process.env.OFFICE_WORKS_HOSTS): string | null {
