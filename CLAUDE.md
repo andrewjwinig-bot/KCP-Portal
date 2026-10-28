@@ -381,10 +381,19 @@ staff chrome), pinned by `middleware.test.ts`.
   `lib/site/contact.test.ts`). Maintenance posts to the portal's own
   `/api/maintenance/submit`, so requests land on the Maintenance page — its
   property list is the portal's buildings and Company is required.
-- **Not yet done (owner's call)**: pointing kormancommercial.com at it — attach
-  the domain to the portal's Vercel project and rewrite that host's paths to
-  `/site/...` in middleware (then set `SITE_BASE` accordingly), retiring the
-  frameset and the vendor site.
+- **kormancommercial.com SERVES IT** (owner, 10/28/26: "make it live today";
+  `lib/hostRoutes.ts`, pinned by `hostRoutes.test.ts`): the apex and www are
+  attached to the portal's Vercel project, and middleware REWRITES a request on
+  those hosts into `/site` (`/company` → `/site/company`, URL unchanged; paths
+  already under `/site`, `/api/`, `/_next/` pass through). The site's own links
+  still read `/site/...`, which works on both hosts. **The root layout tells
+  `AppShell` by HOST** (`website` prop, `hostBase(headers().get("host"))`):
+  on a rewritten request the page sees "/", not "/site", so path checks alone
+  would draw the staff sidebar around the public website. The portal stays at
+  portal.kormancommercial.com. **The Office Works domain** goes in
+  `OFFICE_WORKS_HOSTS` (the constant or the env var) and is rewritten into
+  `/office-works` the same way. DNS lives at GoDaddy — only the apex A record
+  and the www CNAME point at Vercel; MX and the Postmark records are untouched.
 
 # The Office Works website — /office-works
 

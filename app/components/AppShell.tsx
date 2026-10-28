@@ -12,7 +12,7 @@ import { isPathAllowed } from "../../lib/users";
 // can reach them without signing in.
 const PUBLIC_PATHS = new Set(["/submit", "/login", "/service", "/reserve"]);
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({ children, website = false }: { children: React.ReactNode; website?: boolean }) {
   const [open, setOpen] = useState(true);
   const [isNarrow, setIsNarrow] = useState(false);
   const sidebarW = isNarrow ? 0 : open ? 220 : 60;
@@ -22,7 +22,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // Public pages render without the internal app chrome (no staff sidebar, no
   // auth gate). The tenant statement/portal links carry their OWN tenant-facing
   // sidebar, so they must never inherit the internal one.
-  const isPublic = PUBLIC_PATHS.has(pathname) || pathname.startsWith("/statement/") || pathname.startsWith("/portal/") || pathname.startsWith("/investor/") || pathname.startsWith("/budget-review/") || pathname.startsWith("/commissions-review/") || pathname.startsWith("/centers/") || pathname === "/site" || pathname.startsWith("/site/");
+  const isPublic = website || PUBLIC_PATHS.has(pathname) || pathname.startsWith("/statement/") || pathname.startsWith("/portal/") || pathname.startsWith("/investor/") || pathname.startsWith("/budget-review/") || pathname.startsWith("/commissions-review/") || pathname.startsWith("/centers/") || pathname === "/site" || pathname.startsWith("/site/");
 
   // Auto-collapse the sidebar to a hidden drawer on narrow viewports.
   useEffect(() => {
