@@ -11,7 +11,9 @@
 export const SITE_HOSTS = ["kormancommercial.com", "www.kormancommercial.com"];
 
 /** The Office Works domain(s): OFFICE_WORKS_HOSTS (comma-separated) on top of
- *  any listed here. */
+ *  any listed here. A host listed here must ALSO be in the website-host
+ *  matcher in middleware.ts — the portal's matcher skips public paths, so
+ *  only that entry makes middleware see (and lock down) every request on it. */
 export const OFFICE_WORKS_HOSTS: string[] = [];
 
 export function hostBase(host: string | null | undefined, env: string | undefined = process.env.OFFICE_WORKS_HOSTS): string | null {
@@ -23,11 +25,40 @@ export function hostBase(host: string | null | undefined, env: string | undefine
   return null;
 }
 
-/** Where a request on a website host is served from, or null to leave it. */
-export function hostRewrite(host: string | null | undefined, pathname: string, env?: string): string | null {
+/** Paths a website host may serve besides its own section: Next's internals,
+ *  the public endpoints its forms and images call, and the shared public
+ *  assets (the site's photos, the Office Works page's, the centre pages and
+ *  their flyer kit). */
+const WEBSITE_PASSTHROUGH = [
+  /^\/_next\//,
+  /^\/api\/website\//,
+  /^\/api\/maintenance\/submit$/,
+  /^\/api\/center-image$/,
+  /^\/(site|office-works|centers)(\/|$)/,
+  /^\/(favicon\.ico|robots\.txt|korman-logo\.svg)$/,
+];
+
+export type WebsiteRoute = { kind: "pass" } | { kind: "rewrite"; path: string } | { kind: "notFound" };
+
+/**
+ * A website domain serves ONLY the website (owner: "is it right to have it
+ * part of the portal?" — yes, for the live rent-roll data, but locked down).
+ * On kormancommercial.com or the Office Works domain: the section and the
+ * public paths above pass; every other API answers 404; any other page path
+ * is read as a page of the website (`/company` → `/site/company`), so a
+ * portal page (/login, /dashboard, /submit) is never served there. Null on
+ * any other host — the portal's own rules apply.
+ */
+export function websiteRoute(host: string | null | undefined, pathname: string, env?: string): WebsiteRoute | null {
   const base = hostBase(host, env);
   if (!base) return null;
-  if (pathname === base || pathname.startsWith(`${base}/`)) return null;
-  if (/^\/(api|_next)\//.test(pathname) || pathname === "/favicon.ico" || pathname === "/robots.txt") return null;
-  return pathname === "/" ? base : `${base}${pathname}`;
+  if (WEBSITE_PASSTHROUGH.some((re) => re.test(pathname))) return { kind: "pass" };
+  if (pathname.startsWith("/api/") || /\.[a-z0-9]{2,5}$/i.test(pathname)) return { kind: "notFound" };
+  return { kind: "rewrite", path: pathname === "/" ? base : `${base}${pathname}` };
+}
+
+/** Where a request on a website host is served from, or null to leave it. */
+export function hostRewrite(host: string | null | undefined, pathname: string, env?: string): string | null {
+  const r = websiteRoute(host, pathname, env);
+  return r?.kind === "rewrite" ? r.path : null;
 }
