@@ -16,7 +16,8 @@ describe("website domains are served from their section of the portal", () => {
     expect(hostRewrite("theofficeworks.com", "/", "theofficeworks.com")).toBe("/office-works");
     expect(hostRewrite("www.theofficeworks.com", "/", "theofficeworks.com")).toBe("/office-works");
     expect(hostRewrite("theofficeworks.com", "/office-works/assets/p-ext.jpg", "theofficeworks.com")).toBeNull();
-    expect(hostRewrite("theofficeworks.com", "/", "")).toBeNull();
+    expect(hostRewrite("officeworks.example", "/", "")).toBeNull();
+    expect(hostRewrite("officeworks.example", "/", "officeworks.example")).toBe("/office-works");
   });
 });
 
@@ -36,6 +37,21 @@ describe("a website domain serves only the website", () => {
     }
     expect(k("/wp-login.php")).toEqual({ kind: "notFound" });
     expect(k("/favicon.ico")).toEqual({ kind: "rewrite", path: "/site/favicon.ico" });
+  });
+  it("theofficeworks.com / .net serve The Office Works site", () => {
+    for (const h of ["theofficeworks.com", "www.theofficeworks.com", "theofficeworks.net", "www.theofficeworks.net"]) {
+      expect(websiteRoute(h, "/"), h).toEqual({ kind: "rewrite", path: "/office-works" });
+      expect(websiteRoute(h, "/login"), h).toEqual({ kind: "rewrite", path: "/office-works/login" });
+      expect(websiteRoute(h, "/api/rentroll"), h).toEqual({ kind: "notFound" });
+      expect(websiteRoute(h, "/api/website/tour"), h).toEqual({ kind: "pass" });
+      expect(websiteRoute(h, "/office-works/assets/p-ext.jpg"), h).toEqual({ kind: "pass" });
+    }
+  });
+  it("the middleware's website matcher catches every website host, anchored", async () => {
+    const { config } = await import("../middleware");
+    const re = new RegExp((config.matcher[1] as { has: { value: string }[] }).has[0].value);
+    for (const h of ["kormancommercial.com", "www.kormancommercial.com", "theofficeworks.com", "www.theofficeworks.net"]) expect(re.test(h), h).toBe(true);
+    for (const h of ["portal.kormancommercial.com", "kcp-portal.vercel.app", "theofficeworks.com.evil.io"]) expect(re.test(h), h).toBe(false);
   });
   it("leaves the portal's own host alone", () => {
     expect(websiteRoute("portal.kormancommercial.com", "/login")).toBeNull();
