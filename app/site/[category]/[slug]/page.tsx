@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { SITE_CATEGORIES, SITE_PROPERTIES, propertyBySlug, type SiteProperty } from "@/lib/site/content";
 import { liveListingsFor } from "@/lib/site/liveListings";
-import { DESIGNED_CENTER_PAGES, sitePath } from "@/lib/site/paths";
+import { DESIGNED_PAGES, sitePath } from "@/lib/site/paths";
 import { ChevronLeft, ExternalLink } from "../../_components/icons";
 import Gallery from "../../_property/Gallery";
 import ListingsTable from "../../_property/ListingsTable";
@@ -83,7 +83,7 @@ export default async function PropertyPage({ params }: { params: { category: str
   const p = propertyBySlug(params.category, params.slug);
   if (!p) notFound();
   // A centre with a designed page (interactive site plan) lives there.
-  const designed = DESIGNED_CENTER_PAGES[p.slug];
+  const designed = DESIGNED_PAGES[p.slug];
   if (designed) permanentRedirect(designed);
   const category = SITE_CATEGORIES[p.category];
   const images = [...(p.mainImage ? [{ url: p.mainImage, alt: p.mainImageAlt || p.name }] : []), ...(p.gallery ?? [])];

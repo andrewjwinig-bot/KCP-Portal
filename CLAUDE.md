@@ -516,9 +516,9 @@ handoff's screenshot crop.
   listing of the same SF lends its photos / details. Properties with no
   designed page keep their CMS listings. Pinned by `liveListings.test.ts`.
 - **THE WEBSITE'S CENTRE LINKS GO TO THE DESIGNED PAGES** (owner: "the new
-  pages i built arent loading"): `DESIGNED_CENTER_PAGES` / `propertyPath` in
+  pages i built arent loading"): `DESIGNED_PAGES` / `propertyPath` in
   `lib/site/paths.ts` map the website's slug (`brookwood-shopping-center`) to
-  `/centers/<slug>`; the category grid and search link there (plain `<a>` /
+  `/centers/<slug>` — and The Office Works' listing to `/office-works`; the category grid and search link there (plain `<a>` /
   a full load — the page is a route handler, not a Next page) and the old
   `/site/retail/<slug>` 308s to it. A designed page's header logo links back
   to `/site`. A new designed centre gets its row in that map.
