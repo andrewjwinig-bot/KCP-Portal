@@ -47,7 +47,8 @@ describe("a website domain serves only the website", () => {
   it("theofficeworks.com / .net serve The Office Works site", () => {
     for (const h of ["theofficeworks.com", "www.theofficeworks.com", "theofficeworks.net", "www.theofficeworks.net"]) {
       expect(websiteRoute(h, "/"), h).toEqual({ kind: "rewrite", path: "/office-works" });
-      expect(websiteRoute(h, "/login"), h).toEqual({ kind: "rewrite", path: "/office-works/login" });
+      expect(websiteRoute(h, "/login"), h).toEqual({ kind: "notFound" });
+      expect(websiteRoute(h, "/dashboard"), h).toEqual({ kind: "notFound" });
       expect(websiteRoute(h, "/api/rentroll"), h).toEqual({ kind: "notFound" });
       expect(websiteRoute(h, "/api/website/tour"), h).toEqual({ kind: "pass" });
       expect(websiteRoute(h, "/office-works/assets/p-ext.jpg"), h).toEqual({ kind: "pass" });
