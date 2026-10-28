@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Furnished private offices, virtual offices and conference rooms by the hour at Neshaminy Interplex, Trevose, Bucks County, PA. Receptionist, mail, internet and coffee included.">
+<meta name="description" content="Furnished private offices, virtual offices and lounge and meeting space by the hour at Neshaminy Interplex, Trevose, Bucks County, PA. Receptionist, mail, internet and coffee included.">
 <title>The Office Works</title>
 <meta property="og:title" content="The Office Works at Neshaminy Interplex">
 <meta property="og:image" content="/office-works/assets/p-ext.jpg">
@@ -251,6 +251,17 @@ form.f{background:var(--bg);border-radius:12px;padding:30px;display:grid;grid-te
 .pfoot .price b{font-size:clamp(40px,3.6vw,52px)}
 .pfoot .price small{font-size:14px}
 .pfoot a{margin:0 0 6px}
+
+.b.photo{position:relative;overflow:hidden;color:#fff;background:#2a2620;justify-content:flex-end}
+.b.photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 45%;transition:transform 1s}
+.b.photo:hover img{transform:scale(1.04)}
+.b.photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,21,23,.1) 20%,rgba(20,21,23,.78) 100%)}
+.b.photo>*:not(img){position:relative;z-index:1}
+.b.photo .big{color:var(--oak-hi)}
+.b.oak.photo i{color:var(--oak-hi)}
+.b.oak.photo svg{color:var(--oak-hi)}
+.b.photo p{color:#ecebe8}
+.price b.inq{font-size:clamp(30px,2.8vw,40px);margin-right:6px}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 .onone{font-size:17px;color:var(--ink-2);padding:28px 0}
 .reach b a,.foot small a{color:inherit;text-decoration:none}
@@ -287,10 +298,10 @@ form.f{background:var(--bg);border-radius:12px;padding:30px;display:grid;grid-te
       <div class="sec-h"><h2 id="h-prog">Three ways to work here.</h2><p>Same front desk and conference rooms behind every one.</p></div>
       <div class="progs">
         <article class="prog">
-          <div class="ph"><img src="/office-works/assets/p-lounge.jpg" alt="" loading="lazy" style="object-position:72% 62%"><span class="tag">Most popular</span></div>
+          <div class="ph"><img src="/office-works/assets/p-office.jpg" alt="A furnished private office with desk, credenza and a window onto the campus" loading="lazy" style="object-position:center 55%"><span class="tag">Most popular</span></div>
           <div class="body"><h3>Private Office</h3>
             <ul><li>Furnished, {{OFFICE_RANGE}} SF</li><li>Receptionist, mail and packages</li><li>Utilities, internet, coffee included</li></ul>
-            <div class="pfoot"><p class="price"><small>From</small> <b>$900</b><small>/mo</small></p><a href="#available">See open offices</a></div></div>
+            <div class="pfoot"><p class="price"><b class="inq">Inquire</b><small>for pricing</small></p><a href="#available">See open offices</a></div></div>
         </article>
         <article class="prog">
           <div class="ph type"><div><span>Your address</span><small>Answered in your name</small></div></div>
@@ -299,10 +310,10 @@ form.f{background:var(--bg);border-radius:12px;padding:30px;display:grid;grid-te
             <div class="pfoot"><p class="price"><small>From</small> <b>$75</b><small>/mo</small></p><a href="#tour" data-prog="Virtual office">Ask about pricing</a></div></div>
         </article>
         <article class="prog">
-          <div class="ph"><img src="/office-works/assets/p-cafe.jpg" alt="" loading="lazy" style="object-position:42% 62%"></div>
+          <div class="ph"><img src="/office-works/assets/p-lounge2.jpg" alt="The lounge with a wall-mounted TV, bouclé chairs and café tables" loading="lazy" style="object-position:20% 50%"></div>
           <div class="body"><h3>By the Hour</h3>
-            <ul><li>Conference rooms and offices</li><li>Hourly or daily</li><li>No commitment</li></ul>
-            <div class="pfoot"><p class="price"><small>From</small> <b>$25</b><small>/hr</small></p><a href="#tour" data-prog="Occasional use">Book a room</a></div></div>
+            <ul><li>Lounge access</li><li>Hourly or daily</li><li>No commitment</li></ul>
+            <div class="pfoot"><p class="price"><small>From</small> <b>$30</b><small>/hr</small></p><a href="#tour" data-prog="Occasional use">Book a room</a></div></div>
         </article>
       </div>
     </div>
@@ -314,10 +325,10 @@ form.f{background:var(--bg);border-radius:12px;padding:30px;display:grid;grid-te
       <div class="bento">
         <figure class="b-photo"><img src="/office-works/assets/p-cafe.jpg" alt="Café tables with oak wishbone chairs beside the private tenant mailboxes" loading="lazy"><figcaption><b>Lounge, Café &amp; Mailroom</b><span>Shared by every tenant</span></figcaption></figure>
         <div class="b olive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16M6 18v-5a6 6 0 0112 0v5"/><circle cx="12" cy="5" r="1.3"/></svg><h3>A receptionist <i>on your payroll</i>, without the payroll.</h3><p>Calls answered in your company's name. Clients greeted and seated.</p></div>
-        <div class="b cream"><span class="big">3</span><h3>Meeting Rooms</h3><p>Two conference rooms and a meeting room, bookable whenever you need them.</p></div>
+        <div class="b cream photo"><img src="/office-works/assets/p-boardroom.jpg" alt="The large conference room with a long table and seating for twelve" loading="lazy"><span class="big">3</span><h3>Meeting Rooms</h3><p>Two conference rooms and a meeting room, bookable whenever you need them.</p></div>
         <div class="b char"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V7a3 3 0 016 0v4"/><rect x="5" y="11" width="14" height="10" rx="1.5"/></svg><span class="big">24/7</span><p>Access to your private office, early and late.</p></div>
-        <div class="b oak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h11v6a4 4 0 01-4 4H9a4 4 0 01-4-4V9zM16 10h1.5a2.5 2.5 0 010 5H16M8 3v3M11 3v3M14 3v3"/></svg><h3>Stocked kitchen. <i>Unlimited coffee.</i></h3></div>
-        <figure class="b-photo wide2"><img src="/office-works/assets/p-lounge.jpg" alt="The lounge with bouclé swivel chairs and an olive banquette" loading="lazy" style="object-position:60% 62%"><figcaption><b>A Lounge for Client Meetings</b><span>Bouclé chairs, café tables, room to talk</span></figcaption></figure>
+        <div class="b oak photo"><img src="/office-works/assets/p-coffee.jpg" alt="The coffee station with two espresso machines, a sink and a beverage fridge" loading="lazy" style="object-position:center 40%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h11v6a4 4 0 01-4 4H9a4 4 0 01-4-4V9zM16 10h1.5a2.5 2.5 0 010 5H16M8 3v3M11 3v3M14 3v3"/></svg><h3>Stocked kitchen. <i>Unlimited coffee.</i></h3></div>
+        <figure class="b-photo wide2"><img src="/office-works/assets/p-conf.jpg" alt="A small conference room with an oval table and four chairs" loading="lazy" style="object-position:center 55%"><figcaption><b>Small Conference Room</b><span>Seats four, bookable by the hour</span></figcaption></figure>
       </div>
       <h3 class="svc-h">Services at the Front Desk &amp; in the Suite</h3>
       <div class="svcs"><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="1.5"/><path d="M3 8l9 6 9-6"/></svg><b>Mail &amp; Packages</b><span>Signed for and held at the front desk</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M4 9h16M4 15h16M12 3v18"/><circle cx="9" cy="6" r=".6"/><circle cx="16" cy="12" r=".6"/></svg><b>Locking Mailboxes</b><span>Your own box in the mailroom</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.5 5 5.5.8-4 3.9 1 5.5L12 15.6 7 18.2l1-5.5-4-3.9 5.5-.8z"/></svg><b>Notary Public</b><span>On staff, no appointment needed</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8V3h10v5M7 17H4v-7a2 2 0 012-2h12a2 2 0 012 2v7h-3"/><rect x="7" y="14" width="10" height="7"/></svg><b>Copying &amp; Scanning</b><span>Color copies, scans, printing</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M6 16l9-9 3 3-9 9H6v-3zM13 9l3 3"/></svg><b>Secretarial Services</b><span>Admin help when you need it</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15h16M5 15a7 7 0 0114 0M12 6v2M3 18h18"/></svg><b>Catering</b><span>For meetings and client visits</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a15 15 0 0120 0M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19" r="1"/></svg><b>High-Speed Internet</b><span>Network and phone ready day one</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L5 14h6l-1 8 8-12h-6z"/></svg><b>Utilities Included</b><span>Power, heat and cooling</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M10 21V11h4v10M9 11V7l3-4 3 4v4"/></svg><b>Janitorial &amp; Maintenance</b><span>Cleaned and kept up for you</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><b>Lobby Directory</b><span>Your company name in the lobby</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18M5 10v9M19 10v9M8 14h8"/><path d="M7 10V6h10v4"/></svg><b>Furnished Offices</b><span>Desk, chairs, storage, ready to work</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M10 16V8h3a2.5 2.5 0 010 5h-3"/></svg><b>Free Parking</b><span>Included with every office</span></div></div>
@@ -347,7 +358,7 @@ form.f{background:var(--bg);border-radius:12px;padding:30px;display:grid;grid-te
     <div class="in">
       <div class="sec-h"><div><p class="kick">Available now · Building Five</p><h2 id="h-avail">Pick your office.</h2></div><p>Drawn to scale. Tap one to request a tour of it.</p></div>
       <div class="ogrid" id="ogrid"></div>
-      <p class="onote">Furnished and ready. Private offices from $900/mo. Parking included.</p>
+      <p class="onote">Furnished and ready. Rates on request. Parking included.</p>
     </div>
   </section>
 
