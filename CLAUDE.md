@@ -399,7 +399,10 @@ staff chrome), pinned by `middleware.test.ts`.
   belongs in the portal at all — kept, for the live rent-roll data, but locked
   down; `websiteRoute` in `lib/hostRoutes.ts`). On those hosts: the section,
   `/api/website/*`, `/api/maintenance/submit`, `/api/center-image`, `/_next/`
-  and the public asset folders (`/site`, `/office-works`, `/centers`) pass;
+  the public asset folders (`/site`, `/office-works`, `/centers`) and the
+  tenant Service Request forms (`/service`, `/submit`, `/reserve`, with
+  `/api/reservations/{submit,tenants}` and `/api/tenants/{lookup,companies}`
+  — a 404 there stopped a tenant's request on 10/28/26) pass;
   every other API is 404; any other path is a page OF THE WEBSITE, so `/login`,
   `/dashboard`, `/submit` never reach the portal there. The portal's matcher
   SKIPS its public paths, so a second matcher entry (`has` host, the regex

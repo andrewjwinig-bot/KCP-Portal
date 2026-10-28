@@ -35,6 +35,12 @@ describe("a website domain serves only the website", () => {
       "/_next/static/x.js", "/centers/parkwood", "/office-works/assets/p-ext.jpg", "/site/img/a.webp"]) {
       expect(k(p), p).toEqual({ kind: "pass" });
     }
+    for (const p of ["/service", "/submit", "/reserve", "/api/reservations/submit", "/api/reservations/tenants",
+      "/api/tenants/lookup", "/api/tenants/companies"]) {
+      expect(k(p), p).toEqual({ kind: "pass" });
+    }
+    expect(k("/api/tenants")).toEqual({ kind: "notFound" });
+    expect(k("/api/reservations")).toEqual({ kind: "notFound" });
     expect(k("/wp-login.php")).toEqual({ kind: "notFound" });
     expect(k("/favicon.ico")).toEqual({ kind: "rewrite", path: "/site/favicon.ico" });
   });
