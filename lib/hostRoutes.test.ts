@@ -64,7 +64,7 @@ describe("a website domain serves only the website", () => {
     }
   });
   it("parkwoodshoppingcenter.com serves the Parkwood page alone", () => {
-    for (const h of ["parkwoodshoppingcenter.com", "www.parkwoodshoppingcenter.com", "graysferryshoppingcenter.com"]) {
+    for (const h of ["parkwoodshoppingcenter.com", "www.parkwoodshoppingcenter.com"]) {
       expect(websiteRoute(h, "/"), h).toEqual({ kind: "rewrite", path: "/centers/parkwood" });
       expect(websiteRoute(h, "/dashboard"), h).toEqual({ kind: "notFound" });
     }
