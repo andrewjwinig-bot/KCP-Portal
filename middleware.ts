@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { HISTORY_COOKIE, verifyHistoryToken } from "./lib/history-auth";
 import { SITE_COOKIE, verifySiteTokenFull } from "./lib/site-auth";
 import { ALL_USERS, authorizeRequest, isPathAllowed, type UserId } from "./lib/users";
+import { hostRewrite } from "./lib/hostRoutes";
 
 // Two layers:
 //  - Site auth (SITE_PASSWORD / SITE_AUTH_SECRET): gates every page + API
@@ -45,6 +46,16 @@ function isAdminPath(pathname: string): boolean {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   let signedInUser: string | null = null;
+
+  // ── Public website domains ──────────────────────────────────────────
+  // kormancommercial.com serves the rebuilt company site (/site) and the
+  // Office Works domain its page — public, no login (lib/hostRoutes.ts).
+  const websitePath = hostRewrite(req.headers.get("host"), pathname);
+  if (websitePath) {
+    const url = req.nextUrl.clone();
+    url.pathname = websitePath;
+    return NextResponse.rewrite(url);
+  }
 
   // ── Site-wide auth ──────────────────────────────────────────────────
   const sitePassword = process.env.SITE_PASSWORD;

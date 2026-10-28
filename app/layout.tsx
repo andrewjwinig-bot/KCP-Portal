@@ -3,6 +3,8 @@ import "./globals.css";
 import AppShell from "./components/AppShell";
 import { UserProvider } from "./components/UserProvider";
 import { ImportProvider } from "./components/import/ImportProvider";
+import { headers } from "next/headers";
+import { hostBase } from "../lib/hostRoutes";
 
 export const metadata: Metadata = {
   title: "KCP Portal",
@@ -15,6 +17,11 @@ export const viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // A request on a website domain (kormancommercial.com, the Office Works
+  // domain) is rewritten into /site or /office-works by middleware, but the
+  // page sees the domain's own path ("/", "/company") — so the shell is told
+  // by the HOST that this is the public website, never the staff portal.
+  const website = !!hostBase(headers().get("host"));
   return (
     <html lang="en">
       <head>
@@ -34,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <UserProvider>
           <ImportProvider>
-            <AppShell>{children}</AppShell>
+            <AppShell website={website}>{children}</AppShell>
           </ImportProvider>
         </UserProvider>
       </body>
