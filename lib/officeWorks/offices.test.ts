@@ -17,7 +17,8 @@ describe("Office Works floor plan follows the 4900 rent roll", () => {
     roll[roll.findIndex((x) => x.unitRef === "4900-5032")] = u("4900-5032", 141);
     const plan = planFromRoll(roll);
     expect(plan.filter((o) => o.av).map((o) => o.id)).toEqual(["5-008", "5-032"]);
-    expect(plan.find((o) => o.id === "5-008")).toMatchObject({ sf: 142, est: false, x: 1204 });
+    expect(plan.find((o) => o.id === "5-008")).toMatchObject({ sf: 142, est: false, x: 1204, cap: 1 });
+    expect(plan.every((o) => o.cap >= 1)).toBe(true);
   });
   it("never offers a vacant roll unit the plan does not draw, nor shared space", () => {
     expect(open([u("4900-5001", 173), u("4900-5002", 139), u("4900-5206", 84), u("4900-5026", 130)])).toEqual(["5-026"]);
