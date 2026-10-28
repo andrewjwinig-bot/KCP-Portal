@@ -341,7 +341,7 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
-  doc.text("Payable to LIKM1",             margin, pageH - 88);
+  doc.text("Payable to LIKM4",             margin, pageH - 88);
   doc.text("Korman Commercial Properties", margin, pageH - 72);
 
   doc.setFillColor(TEAL.r, TEAL.g, TEAL.b);
@@ -379,7 +379,7 @@ function drawPageFooter(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(0, 0, 0);
-  doc.text("Payable to LIKM1",             margin, pageH - 88);
+  doc.text("Payable to LIKM4",             margin, pageH - 88);
   doc.text("Korman Commercial Properties", margin, pageH - 72);
 
   doc.setFillColor(TEAL.r, TEAL.g, TEAL.b);
