@@ -394,6 +394,18 @@ staff chrome), pinned by `middleware.test.ts`.
   `OFFICE_WORKS_HOSTS` (the constant or the env var) and is rewritten into
   `/office-works` the same way. DNS lives at GoDaddy — only the apex A record
   and the www CNAME point at Vercel; MX and the Postmark records are untouched.
+- **A WEBSITE DOMAIN SERVES ONLY THE WEBSITE** (owner asked whether the site
+  belongs in the portal at all — kept, for the live rent-roll data, but locked
+  down; `websiteRoute` in `lib/hostRoutes.ts`). On those hosts: the section,
+  `/api/website/*`, `/api/maintenance/submit`, `/api/center-image`, `/_next/`
+  and the public asset folders (`/site`, `/office-works`, `/centers`) pass;
+  every other API is 404; any other path is a page OF THE WEBSITE, so `/login`,
+  `/dashboard`, `/submit` never reach the portal there. The portal's matcher
+  SKIPS its public paths, so a second matcher entry (`has` host, the regex
+  ANCHORED — unanchored it matches portal.kormancommercial.com too) makes
+  middleware see every request on a website host. A new website host goes in
+  that regex AND `hostRoutes.ts`. If the site grows, split it into its own
+  Vercel project reading a public availability feed.
 
 # The Office Works website — /office-works
 

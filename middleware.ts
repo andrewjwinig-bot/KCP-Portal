@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { HISTORY_COOKIE, verifyHistoryToken } from "./lib/history-auth";
 import { SITE_COOKIE, verifySiteTokenFull } from "./lib/site-auth";
 import { ALL_USERS, authorizeRequest, isPathAllowed, type UserId } from "./lib/users";
-import { hostRewrite } from "./lib/hostRoutes";
+import { websiteRoute } from "./lib/hostRoutes";
 
 // Two layers:
 //  - Site auth (SITE_PASSWORD / SITE_AUTH_SECRET): gates every page + API
@@ -21,6 +21,15 @@ export const config = {
   // Pinned by middleware.test.ts.
   matcher: [
     "/((?!_next/static|_next/image|_next/data|favicon.ico|images|login|submit|service|reserve|centers|office-works(?:/|$)|site(?:/|$)|api/website/|statement/|portal/|investor/|budget-review/|api/budget-review/|commissions-review/|api/commissions-review/|api/statement/|api/portal/|api/investor/|api/site/login|api/site/logout|api/maintenance/inbound|api/maintenance/submit|api/tenants/lookup|api/tenants/companies|api/reservations/submit|api/reservations/tenants|api/leasing-inquiry|api/center-image|api/commissions/avidbill-quarter|api/cron/weekly-tasks|api/cron/moveout-closeouts|api/cron/allocated-send|api/cron/cash-position).*)",
+    // The website domains (lib/hostRoutes.ts): EVERY request, so a portal
+    // page the line above leaves public (/login, /submit…) is never served
+    // there. A new website host goes in this regex AND in hostRoutes.ts.
+    // ANCHORED: unanchored it would also match portal.kormancommercial.com
+    // and run the login check on the portal's public token pages.
+    {
+      source: "/((?!_next/static|_next/image).*)",
+      has: [{ type: "host", value: "^(www\\.)?kormancommercial\\.com$" }],
+    },
   ],
 };
 
@@ -50,10 +59,12 @@ export async function middleware(req: NextRequest) {
   // ── Public website domains ──────────────────────────────────────────
   // kormancommercial.com serves the rebuilt company site (/site) and the
   // Office Works domain its page — public, no login (lib/hostRoutes.ts).
-  const websitePath = hostRewrite(req.headers.get("host"), pathname);
-  if (websitePath) {
+  const website = websiteRoute(req.headers.get("host"), pathname);
+  if (website?.kind === "pass") return NextResponse.next();
+  if (website?.kind === "notFound") return new NextResponse("Not found", { status: 404, headers: { "content-type": "text/plain" } });
+  if (website?.kind === "rewrite") {
     const url = req.nextUrl.clone();
-    url.pathname = websitePath;
+    url.pathname = website.path;
     return NextResponse.rewrite(url);
   }
 
