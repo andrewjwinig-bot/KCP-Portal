@@ -400,7 +400,8 @@ staff chrome), pinned by `middleware.test.ts`.
   Office Works site is ONE page: on its hosts any other path is a plain 404.
   **A designed centre can have its OWN domain** (`CENTER_HOSTS`):
   brookwoodshoppingcenter.com and brookwood-shopping.com serve
-  `/centers/brookwood`, parkwoodshoppingcenter.com serves `/centers/parkwood`,
+  `/centers/brookwood`, parkwoodshoppingcenter.com `/centers/parkwood`,
+  graysferryshoppingcenter.com `/centers/grays-ferry` —
   one page like The Office Works. DNS lives at GoDaddy — only the apex A record
   and the www CNAME point at Vercel; MX and the Postmark records are untouched.
 - **A WEBSITE DOMAIN SERVES ONLY THE WEBSITE** (owner asked whether the site
