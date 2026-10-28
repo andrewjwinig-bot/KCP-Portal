@@ -35,6 +35,7 @@ describe("a website domain serves only the website", () => {
       expect(k(p), p).toEqual({ kind: "pass" });
     }
     expect(k("/wp-login.php")).toEqual({ kind: "notFound" });
+    expect(k("/favicon.ico")).toEqual({ kind: "rewrite", path: "/site/favicon.ico" });
   });
   it("leaves the portal's own host alone", () => {
     expect(websiteRoute("portal.kormancommercial.com", "/login")).toBeNull();

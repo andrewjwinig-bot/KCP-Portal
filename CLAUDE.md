@@ -404,7 +404,9 @@ staff chrome), pinned by `middleware.test.ts`.
   SKIPS its public paths, so a second matcher entry (`has` host, the regex
   ANCHORED — unanchored it matches portal.kormancommercial.com too) makes
   middleware see every request on a website host. A new website host goes in
-  that regex AND `hostRoutes.ts`. If the site grows, split it into its own
+  that regex AND `hostRoutes.ts`. `/favicon.ico` there is the WEBSITE's icon (`/site/favicon.ico`) —
+  the portal has none, so the browser's automatic request used to land on the
+  portal's 404, whose metadata says "KCP Portal · internal portal". If the site grows, split it into its own
   Vercel project reading a public availability feed.
 
 # The Office Works website — /office-works
