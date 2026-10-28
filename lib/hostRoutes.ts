@@ -34,6 +34,12 @@ const WEBSITE_PASSTHROUGH = [
   /^\/api\/website\//,
   /^\/api\/maintenance\/submit$/,
   /^\/api\/center-image$/,
+  // The tenant Service Request forms (/service → /submit maintenance,
+  // /reserve a room) — public portal pages tenants reach from the website,
+  // and the public endpoints they call.
+  /^\/(service|submit|reserve)\/?$/,
+  /^\/api\/reservations\/(submit|tenants)$/,
+  /^\/api\/tenants\/(lookup|companies)$/,
   /^\/(site|office-works|centers)(\/|$)/,
   /^\/(robots\.txt|korman-logo\.svg)$/,
 ];
