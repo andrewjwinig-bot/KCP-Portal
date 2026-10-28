@@ -396,7 +396,8 @@ staff chrome), pinned by `middleware.test.ts`.
   portal.kormancommercial.com. **The Office Works domain** goes in
   `OFFICE_WORKS_HOSTS` (the constant or the env var) and is rewritten into
   `/office-works` the same way — **theofficeworks.com and theofficeworks.net**
-  (and their www) are listed there and in the middleware's host regex. DNS lives at GoDaddy — only the apex A record
+  (and their www) are listed there and in the middleware's host regex. The
+  Office Works site is ONE page: on its hosts any other path is a plain 404. DNS lives at GoDaddy — only the apex A record
   and the www CNAME point at Vercel; MX and the Postmark records are untouched.
 - **A WEBSITE DOMAIN SERVES ONLY THE WEBSITE** (owner asked whether the site
   belongs in the portal at all — kept, for the live rent-roll data, but locked

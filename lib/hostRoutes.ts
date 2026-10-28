@@ -64,6 +64,9 @@ export function websiteRoute(host: string | null | undefined, pathname: string, 
   // The website's own icon answers it instead.
   if (pathname === "/favicon.ico") return { kind: "rewrite", path: "/site/favicon.ico" };
   if (pathname.startsWith("/api/") || /\.[a-z0-9]{2,5}$/i.test(pathname)) return { kind: "notFound" };
+  // The Office Works site is ONE page: any other path is not found (a plain
+  // 404), never the portal's not-found page.
+  if (base === "/office-works" && pathname !== "/" && !/^\/(service|submit|reserve)\/?$/.test(pathname)) return { kind: "notFound" };
   return { kind: "rewrite", path: pathname === "/" ? base : `${base}${pathname}` };
 }
 
