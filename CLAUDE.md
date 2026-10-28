@@ -429,27 +429,31 @@ owner), served whole by `app/office-works/route.ts` → `renderOfficeWorks`
 (`lib/officeWorks/render.ts`, HTML `lib/officeWorks/office-works.html`,
 assets `public/office-works/assets/`). Public by the middleware's
 `office-works(?:/|$)` exemption, ready to sit behind its own domain.
-- **"Pick your office" is the 4900 RENT ROLL's vacant offices** (owner: "show
-  availability based on 4900 suite availability"; `officesFromRoll` in
-  `offices.ts`): vacant, at the roll's SF, named "5-019" from "5019". **Shared
-  space is never an office** (owner: "ignore the reception area, conference
-  rooms etc just show vacant" — `isRentableOffice`: amenities, named rooms
-  with no number, and reception / conference / lounge / kitchen / mail …
-  by suite or name). The hero's size range is over every rentable office.
-  Nothing open → "Every office is leased right now". No 4900 roll → the
-  handoff's five offices. Pinned by `offices.test.ts`.
+- **"Pick your office" is an INTERACTIVE FLOOR PLAN driven by the 4900 RENT
+  ROLL** (third handoff 10/28/26; owner: "dynamic floorplan open office
+  selection"). The design draws every office on `assets/plan-ow.webp`
+  (`PLAN_OFFICES` in `offices.ts`: rectangle in plan pixels, SF, window /
+  interior, month-to-month); `planFromRoll` lays the roll over it — an office is
+  OPEN when the roll has it vacant and rentable (`isRentableOffice`), at the
+  roll's SF; one the roll does not carry reads leased. **The plan decides what
+  IS an office**: a vacant roll unit it does not draw (5-001 / 5-002 at
+  reception, 5-206 upstairs) is never offered. No 4900 roll → the design's own
+  flags. The hero's size range is over the plan's offices (`planSizeRange`).
+  The popover's "Request a tour" pre-fills the form with that office; zero open
+  shows the design's waitlist message. Pinned by `offices.test.ts`.
 - **The tour form posts to `/api/website/tour`** (`lib/site/tour.ts`,
   honeypot + 5/hour, emails **Nancy Fox** — `tourRecipients`, nfox@, she
   answers them; `OFFICE_WORKS_TOUR_TO` overrides — with Reply-To; a failed
   send is reported, never a false "sent"). Pinned by `tour.test.ts`.
 - Korman footer logo is the full-resolution one; the Office Works logo and the
   phone photos (p-office, p-conf, p-boardroom, p-lounge2, p-coffee) are still
-  the handoff's placeholders. Second handoff (10/28/26): private offices read
-  "Inquire for pricing", virtual from $75/mo, by the hour from $30/hr. A new
-  handoff is re-applied by the same edits: absolute `/office-works/assets/`
-  paths, `/*@OFFICES@*/[]` and `{{OFFICE_RANGE}}`, the tour form's fetch to
-  `/api/website/tour` with the `f-web` honeypot, tel:/mailto: links, the
-  empty-grid message.
+  the handoff's placeholders (keep OUR full-resolution `logo-white.png`, not
+  the handoff's). Private offices read "Inquire for pricing", virtual from
+  $75/mo, by the hour from $30/hr. A new handoff is re-applied by the same
+  edits: absolute `/office-works/assets/` paths, its `OFFICES` array moved
+  into `PLAN_OFFICES` and replaced by `/*@OFFICES@*/[]`, "130–460" →
+  `{{OFFICE_RANGE}}`, the tour form's fetch to `/api/website/tour` with the
+  `f-web` honeypot and the "your request is in" panel, tel:/mailto: links.
 
 # Shopping-center pages — DESIGNED pages replace the template one by one
 

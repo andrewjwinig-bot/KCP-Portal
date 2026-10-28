@@ -1,29 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { officeLabel, officesFromRoll, sizeRange } from "./offices";
+import { PLAN_OFFICES, isRentableOffice, officeLabel, planFromRoll, planSizeRange } from "./offices";
 
 const u = (unitRef: string, sqft: number, occupantName = "") =>
   ({ unitRef, sqft, occupantName, isVacant: !occupantName });
+const open = (units: ReturnType<typeof u>[] | null) => planFromRoll(units).filter((o) => o.av).map((o) => o.id);
 
-describe("Office Works offices come from the 4900 rent roll", () => {
-  it("names Building Five's offices as the page does", () => {
+describe("Office Works floor plan follows the 4900 rent roll", () => {
+  it("names Building Five's offices as the plan does", () => {
     expect(officeLabel("4900-5019")).toBe("5-019");
     expect(officeLabel("4900-5-26")).toBe("5-026");
     expect(officeLabel("4900-CONF")).toBe("CONF");
   });
-  it("lists only the vacant offices, at the roll's SF, numbered in order", () => {
-    const out = officesFromRoll([u("4900-5032", 141), u("4900-5019", 199.4), u("4900-5020", 160, "Acme"), u("4900-5026", 0)]);
-    expect(out).toEqual([{ id: "5-019", sf: 199, m2m: true }, { id: "5-032", sf: 141 }]);
+  it("opens exactly the plan's offices the roll has vacant, at the roll's SF", () => {
+    const roll = PLAN_OFFICES.map((o) => u(`4900-${o.id.replace("-", "")}`, o.sf, "Tenant"));
+    roll[roll.findIndex((x) => x.unitRef === "4900-5008")] = u("4900-5008", 142.4);
+    roll[roll.findIndex((x) => x.unitRef === "4900-5032")] = u("4900-5032", 141);
+    const plan = planFromRoll(roll);
+    expect(plan.filter((o) => o.av).map((o) => o.id)).toEqual(["5-008", "5-032"]);
+    expect(plan.find((o) => o.id === "5-008")).toMatchObject({ sf: 142, est: false, x: 1204 });
   });
-  it("never offers the reception area, conference rooms or other shared space", () => {
-    const out = officesFromRoll([
-      u("4900-5019", 199), u("4900-CONF", 400), u("4900-5001", 900, "Reception Area"),
-      u("4900-5002", 380, "Conference Room A"), { ...u("4900-5003", 120), amenity: true },
-    ]);
-    expect(out.map((o) => o.id)).toEqual(["5-019"]);
-    expect(sizeRange([u("4900-5019", 199), u("4900-5001", 900, "Reception"), u("4900-5026", 130)])).toBe("130–199");
+  it("never offers a vacant roll unit the plan does not draw, nor shared space", () => {
+    expect(open([u("4900-5001", 173), u("4900-5002", 139), u("4900-5206", 84), u("4900-5026", 130)])).toEqual(["5-026"]);
+    expect(isRentableOffice(u("4900-5027", 141, "Conference Room"))).toBe(false);
   });
-  it("reads the size range over every office, leased or not", () => {
-    expect(sizeRange([u("4900-5019", 199), u("4900-5020", 460, "Acme"), u("4900-5026", 130)])).toBe("130–460");
-    expect(sizeRange([])).toBe("130–460");
+  it("shows an office the roll does not carry as leased, and the design's flags with no roll", () => {
+    expect(open([])).toEqual([]);
+    expect(open(null)).toEqual(PLAN_OFFICES.filter((o) => o.av).map((o) => o.id));
+  });
+  it("reads the size range over every office on the plan", () => {
+    expect(planSizeRange(PLAN_OFFICES)).toBe("130–325");
   });
 });
