@@ -54,10 +54,19 @@ describe("a website domain serves only the website", () => {
       expect(websiteRoute(h, "/office-works/assets/p-ext.jpg"), h).toEqual({ kind: "pass" });
     }
   });
+  it("the Brookwood domains serve the Brookwood page alone", () => {
+    for (const h of ["brookwoodshoppingcenter.com", "www.brookwoodshoppingcenter.com", "brookwood-shopping.com", "www.brookwood-shopping.com"]) {
+      expect(websiteRoute(h, "/"), h).toEqual({ kind: "rewrite", path: "/centers/brookwood" });
+      expect(websiteRoute(h, "/login"), h).toEqual({ kind: "notFound" });
+      expect(websiteRoute(h, "/api/rentroll"), h).toEqual({ kind: "notFound" });
+      expect(websiteRoute(h, "/centers/brookwood/assets/x.png"), h).toEqual({ kind: "pass" });
+      expect(websiteRoute(h, "/centers/_shared/jspdf.min.js"), h).toEqual({ kind: "pass" });
+    }
+  });
   it("the middleware's website matcher catches every website host, anchored", async () => {
     const { config } = await import("../middleware");
     const re = new RegExp((config.matcher[1] as { has: { value: string }[] }).has[0].value);
-    for (const h of ["kormancommercial.com", "www.kormancommercial.com", "theofficeworks.com", "www.theofficeworks.net"]) expect(re.test(h), h).toBe(true);
+    for (const h of ["kormancommercial.com", "www.kormancommercial.com", "theofficeworks.com", "www.theofficeworks.net", "brookwoodshoppingcenter.com", "www.brookwood-shopping.com"]) expect(re.test(h), h).toBe(true);
     for (const h of ["portal.kormancommercial.com", "kcp-portal.vercel.app", "theofficeworks.com.evil.io"]) expect(re.test(h), h).toBe(false);
   });
   it("leaves the portal's own host alone", () => {
