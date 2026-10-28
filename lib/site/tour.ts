@@ -13,6 +13,14 @@ export type TourCheck =
   | { ok: true; spam: boolean; value: TourValue }
   | { ok: false; error: string };
 
+/** Nancy Fox answers Office Works tour requests (owner: "she would be the one
+ *  to respond to those"). OFFICE_WORKS_TOUR_TO (comma-separated) overrides. */
+export const TOUR_TO_DEFAULT = "nfox@kormancommercial.com";
+export function tourRecipients(env: string | undefined = process.env.OFFICE_WORKS_TOUR_TO): string[] {
+  const list = (env ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  return list.length ? list : [TOUR_TO_DEFAULT];
+}
+
 const PROGRAMS = ["Private office", "Virtual office", "Occasional use"];
 const clean = (v: unknown, max: number) => String(v ?? "").trim().slice(0, max);
 
