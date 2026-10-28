@@ -440,7 +440,10 @@ assets `public/office-works/assets/`). Public by the middleware's
   reception, 5-206 upstairs) is never offered. No 4900 roll → the design's own
   flags. The hero's size range is over the plan's offices (`planSizeRange`).
   The popover's "Request a tour" pre-fills the form with that office; zero open
-  shows the design's waitlist message. Pinned by `offices.test.ts`.
+  shows the design's waitlist message. **Each office carries its SEATS**
+  (`cap` on `PlanOffice`, fourth handoff): a person icon + count on the plan, in
+  the popover ("Up to 2 people") and on the Open offices list; leased offices
+  read grey. Pinned by `offices.test.ts`.
 - **The tour form posts to `/api/website/tour`** (`lib/site/tour.ts`,
   honeypot + 5/hour, emails **Nancy Fox** — `tourRecipients`, nfox@, she
   answers them; `OFFICE_WORKS_TOUR_TO` overrides — with Reply-To; a failed
@@ -451,7 +454,7 @@ assets `public/office-works/assets/`). Public by the middleware's
   the handoff's). Private offices read "Inquire for pricing", virtual from
   $75/mo, by the hour from $30/hr. A new handoff is re-applied by the same
   edits: absolute `/office-works/assets/` paths, its `OFFICES` array moved
-  into `PLAN_OFFICES` and replaced by `/*@OFFICES@*/[]`, "130–460" →
+  (with `cap`) into `PLAN_OFFICES` and replaced by `/*@OFFICES@*/[]`, "130–460" →
   `{{OFFICE_RANGE}}`, the tour form's fetch to `/api/website/tour` with the
   `f-web` honeypot and the "your request is in" panel, tel:/mailto: links.
 
