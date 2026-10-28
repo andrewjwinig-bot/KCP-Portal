@@ -65,6 +65,49 @@ export function snapshotMonthKey(rentroll: { reportTo?: string | null; uploadedA
   return `${u.getFullYear()}-${String(u.getMonth() + 1).padStart(2, "0")}`;
 }
 
+const isoMonth = (iso: string | null | undefined): string | null => {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  // Eastern time — when the office imported it.
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit" }).formatToParts(d);
+  const y = parts.find((x) => x.type === "year")?.value, m = parts.find((x) => x.type === "month")?.value;
+  return y && m ? `${y}-${m}` : null;
+};
+
+/**
+ * How RECENT a roll (or one property inside it) is, for deciding which import
+ * is current. A roll's report month alone was the rule, and it let a roll dated
+ * AHEAD of the day it was imported — a November roll brought in during
+ * October — outrank every import made after it: the owner imported October's
+ * full roll twice and the portal kept showing the November file's 4900
+ * (a vacant suite still billing $775) and read every retail property as
+ * "not in this month's import". A roll can't be newer than the day it was
+ * imported, so its rank is the EARLIER of its report month and its import
+ * month, and within a month the LATER import wins. A backfill of a past month
+ * keeps its own (earlier) month, so it never dethrones the current roll.
+ * `importedAt` is stamped per property (a month holds several imports merged);
+ * older data falls back to the snapshot's `uploadedAt`.
+ */
+export function importRank(
+  snap: { reportTo?: string | null; uploadedAt?: string | null },
+  prop?: { importedAt?: string | null },
+): string {
+  const report = snapshotMonthKey(snap);
+  const at = prop?.importedAt ?? snap.uploadedAt ?? "";
+  const imported = isoMonth(at);
+  const month = imported && imported.localeCompare(report) < 0 ? imported : report;
+  return `${month}|${at}`;
+}
+
+/** The month the current roll is filed under — the snapshot holding the most
+ *  recent import by `importRank`, not simply the latest month key. */
+export function currentSnapshotMonth<T extends { month: string; reportTo?: string | null; uploadedAt?: string | null }>(snaps: T[]): string {
+  let best: T | null = null;
+  for (const s of snaps) if (!best || importRank(s).localeCompare(importRank(best)) > 0) best = s;
+  return best?.month ?? "";
+}
+
 function parseUSDate(s: string | null | undefined): Date | null {
   if (!s) return null;
   const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);

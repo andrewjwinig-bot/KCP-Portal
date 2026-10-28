@@ -1442,6 +1442,7 @@ export default function RentRollPage() {
   const { user } = useUser();
   const [rawRentroll, setRawRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading]   = useState(true);
+  const [currentMonthKey, setCurrentMonthKey] = useState("");
   const [snapshotList, setSnapshotList] = useState<import("../../lib/rentroll/snapshot").RentRollSnapshotSummary[]>([]);
   const [reportMonth, setReportMonth] = useState<string>(""); // "" = current; otherwise YYYY-MM
   // Full rent roll for the selected historical month. Null when viewing
@@ -1625,6 +1626,7 @@ export default function RentRollPage() {
       .then((j) => {
         const snaps = (j.snapshots ?? []) as import("../../lib/rentroll/snapshot").RentRollSnapshotSummary[];
         setSnapshotList(snaps);
+        setCurrentMonthKey(j.currentMonth ?? "");
         // Deep link (?month=YYYY-MM, e.g. from the Cash Sheet) wins when a
         // snapshot exists for it; otherwise default the period to the most
         // recent month (snapshots are sorted ascending). "Current" and the
@@ -1633,7 +1635,10 @@ export default function RentRollPage() {
         if (wantMonth && snaps.some((s) => s.month === wantMonth)) {
           setReportMonth(wantMonth);
         } else if (snaps.length > 0) {
-          setReportMonth((prev) => prev || snaps[snaps.length - 1].month);
+          // The month holding the most recent IMPORT — not simply the last
+          // month: a roll dated ahead of the day it was imported does not
+          // outrank a later import (lib/rentroll/snapshot.ts importRank).
+          setReportMonth((prev) => prev || j.currentMonth || snaps[snaps.length - 1].month);
         }
       })
       .catch(() => {});
@@ -1678,10 +1683,14 @@ export default function RentRollPage() {
       // the more-recent roll stays current — say so, so the unchanged on-screen
       // roll isn't surprising.
       const importedMonth: string | undefined = data.imported?.month;
+      const later: string[] = data.imported?.laterMonths ?? [];
+      const laterNote = later.length
+        ? ` A roll dated ${later.join(", ")} was imported earlier; this import is now the current roll, but ${later.length === 1 ? "that month still shows" : "those months still show"} the older file — delete ${later.length === 1 ? "it" : "them"} on Rent Roll Trends if ${later.length === 1 ? "it was" : "they were"} imported by mistake.`
+        : "";
       const successMsg = (data.imported && data.imported.becameCurrent === false)
         ? `Imported ${data.imported.month} into history. ${data.currentMonth} remains the current rent roll.`
         : importedMonth
-          ? `Imported ${importedMonth} — now showing as the current rent roll.`
+          ? `Imported ${importedMonth} — now showing as the current rent roll.${laterNote}`
           : "Rent roll imported.";
 
       // Auto-refresh so the import is unmistakably visible: hand the success
@@ -1704,7 +1713,7 @@ export default function RentRollPage() {
   // The page renders the selected month's snapshot. For the latest month
   // (the default) we fall back to the already-loaded current roll while its
   // snapshot fetches, so there's no flicker; older months show Loading.
-  const latestMonth = snapshotList.length ? snapshotList[snapshotList.length - 1].month : "";
+  const latestMonth = currentMonthKey || (snapshotList.length ? snapshotList[snapshotList.length - 1].month : "");
   const rentroll: RentRollData | null = reportMonth
     ? (monthRentroll ?? (reportMonth === latestMonth ? rawRentroll : null))
     : rawRentroll;

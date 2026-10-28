@@ -1,6 +1,6 @@
 import "server-only";
 import { getJSON, listJSON } from "@/lib/storage";
-import { snapshotMonthKey } from "./snapshot";
+import { importRank, snapshotMonthKey } from "./snapshot";
 import type { RentRollData, RentRollUnit } from "./parseRentRollExcel";
 
 // Read-only resolution of the "current" rent roll. "Current" is composed as a
@@ -21,25 +21,32 @@ const HISTORY_PREFIX = "rentroll-history";
 
 const propCode = (p: { propertyCode?: string }) => String(p?.propertyCode ?? "").toUpperCase();
 
-/** Compose the current roll from all history snapshots: newest snapshot's
- *  properties (in order), then any property missing from it carried forward
- *  from progressively older snapshots (most-recent version wins). Returns null
- *  for an empty history. Exported so the API route and readers share one rule. */
+/** Compose the current roll from all history snapshots: each property from the
+ *  snapshot holding its most recent IMPORT (`importRank` — the earlier of the
+ *  report month and the import month, then the import time), so a property a
+ *  later import omitted carries forward and a roll dated ahead of its import
+ *  never outranks a later one. The top-level metadata is the most recent
+ *  snapshot's. Null for an empty history. Exported so the API route and
+ *  readers share one rule. */
 export function composeCurrentRoll<T extends { properties?: any[] }>(snapshots: T[]): T | null {
   const valid = snapshots.filter((s) => s && Array.isArray((s as { properties?: unknown[] }).properties));
   if (!valid.length) return null;
-  const sorted = [...valid].sort((a, b) => snapshotMonthKey(a as any).localeCompare(snapshotMonthKey(b as any)));
-  const newest = sorted[sorted.length - 1];
-  const props: any[] = [];
-  const seen = new Set<string>();
-  for (const p of newest.properties ?? []) { props.push(p); seen.add(propCode(p)); }
-  for (let i = sorted.length - 2; i >= 0; i--) {
-    for (const p of sorted[i].properties ?? []) {
+  const rank = (s: T, p?: any) => importRank(s as any, p);
+  const sorted = [...valid].sort((a, b) => rank(b).localeCompare(rank(a)) || snapshotMonthKey(b as any).localeCompare(snapshotMonthKey(a as any)));
+  const best = new Map<string, { p: any; r: string; order: number }>();
+  let order = 0;
+  for (const s of sorted) {
+    for (const p of s.properties ?? []) {
       const c = propCode(p);
-      if (c && !seen.has(c)) { props.push(p); seen.add(c); }
+      if (!c) continue;
+      const r = rank(s, p);
+      const was = best.get(c);
+      if (!was) best.set(c, { p, r, order: order++ });
+      else if (r.localeCompare(was.r) > 0) best.set(c, { p, r, order: was.order });
     }
   }
-  return { ...(newest as T), properties: props };
+  const props = [...best.values()].sort((a, b) => a.order - b.order).map((x) => x.p);
+  return { ...(sorted[0] as T), properties: props };
 }
 
 /** Lay a newly imported roll over the SAME MONTH's existing snapshot,
@@ -50,6 +57,10 @@ export function composeCurrentRoll<T extends { properties?: any[] }>(snapshots: 
  *  for that month — and with no older snapshot to carry them forward, from
  *  the current roll too. Re-importing a property still replaces it. */
 export function mergeSameMonth<T extends { properties?: any[] }>(existing: T | null | undefined, imported: T): T {
+  // Each property remembers when IT was imported — the month document's own
+  // uploadedAt is the last import's, and the kept properties are older.
+  const at = (imported as { uploadedAt?: string }).uploadedAt;
+  if (at) imported = { ...imported, properties: (imported.properties ?? []).map((p) => (p.importedAt ? p : { ...p, importedAt: at })) };
   if (!existing || !Array.isArray(existing.properties) || !existing.properties.length) return imported;
   const incoming = new Set((imported.properties ?? []).map(propCode));
   const kept = existing.properties.filter((p) => !incoming.has(propCode(p)));
@@ -57,7 +68,9 @@ export function mergeSameMonth<T extends { properties?: any[] }>(existing: T | n
 }
 
 export async function resolveCurrentRentroll(): Promise<RentRollData | null> {
-  const snapshots = (await listJSON(HISTORY_PREFIX)) as RentRollData[];
+  // FRESH: a snapshot is overwritten in place, and the CDN serves its old body
+  // for a minute or more after an import.
+  const snapshots = (await listJSON(HISTORY_PREFIX, { fresh: true })) as RentRollData[];
   const composed = composeCurrentRoll(snapshots);
   if (composed) return composed;
   return (await getJSON(RENTROLL_PREFIX, RENTROLL_ID)) as RentRollData | null;

@@ -83,7 +83,10 @@ function rollSig(r: any): string {
 }
 
 async function resolveCurrentRentroll(): Promise<any | null> {
-  const snapshots = (await listJSON(HISTORY_PREFIX)) as any[];
+  // FRESH — a snapshot is overwritten in place and the CDN serves its old
+  // body for a minute or more, so the page reloaded after an import read the
+  // roll as it was BEFORE the import.
+  const snapshots = (await listJSON(HISTORY_PREFIX, { fresh: true })) as any[];
   const composed = composeCurrentRoll(snapshots);
   if (!composed) {
     return await getJSON(RENTROLL_PREFIX, RENTROLL_ID);
@@ -151,24 +154,37 @@ export async function POST(req: NextRequest) {
     let prior: any = null;
     try { prior = await getJSON(HISTORY_PREFIX, importedMonth, { retryOnMiss: true }); }
     catch { return NextResponse.json({ error: "Couldn't read the rent roll already filed for this month — nothing was saved. Try the import again." }, { status: 503 }); }
-    await storeJSON(HISTORY_PREFIX, importedMonth, mergeSameMonth(prior as any, imported));
+    const merged = mergeSameMonth(prior as any, imported);
+    await storeJSON(HISTORY_PREFIX, importedMonth, merged);
 
     // "Current" = a per-property union across every snapshot (each property
     // from the latest snapshot that has it). Backfilling an older roll never
     // dethrones a newer current, AND a partial import (e.g. office-only) never
     // erases the properties it omitted — they carry forward from the last
     // snapshot that had them. See composeCurrentRoll.
-    const all = (await listJSON(HISTORY_PREFIX)) as any[];
-    let latestMonth = importedMonth;
-    for (const snap of all) {
-      const m = snapshotMonthKey(snap);
-      if (m.localeCompare(latestMonth) > 0) latestMonth = m;
-    }
+    // The month just written is taken from memory, never re-read: the list
+    // can hand back the month's body from BEFORE this import (the CDN keeps a
+    // blob's old body for a minute), and composing from it wrote the old roll
+    // straight back to "current".
+    const all = [
+      ...((await listJSON(HISTORY_PREFIX, { fresh: true })) as any[]).filter((s) => s && snapshotMonthKey(s) !== importedMonth),
+      merged,
+    ];
     const composed = composeCurrentRoll(all) ?? imported;
     const current = { ...composed, id: RENTROLL_ID };
     await storeJSON(RENTROLL_PREFIX, RENTROLL_ID, current);
 
+    // Current = the most recent IMPORT (importRank), not the latest month key:
+    // a roll dated ahead of the day it was imported does not outrank this one.
+    const latestMonth = snapshotMonthKey(composed as any);
     const becameCurrent = latestMonth === importedMonth;
+    // Any month dated after this one that still holds properties this import
+    // carries — imported earlier, so the import replaces them in "current",
+    // but that month's own page still shows the older figures.
+    const laterMonths = all
+      .filter((s) => s && snapshotMonthKey(s).localeCompare(importedMonth) > 0)
+      .map((s) => snapshotMonthKey(s))
+      .sort();
 
     const summary = {
       uploadedAt,
@@ -268,7 +284,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       summary,
       rentroll: normalizeOccupantNames(current),
-      imported: { month: importedMonth, becameCurrent },
+      imported: { month: importedMonth, becameCurrent, laterMonths },
       currentMonth: latestMonth,
       changes,
     });

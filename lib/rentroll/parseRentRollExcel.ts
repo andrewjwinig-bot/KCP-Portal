@@ -140,6 +140,8 @@ export interface RentRollProperty {
   occupiedSqft: number;
   vacantSqft: number;
   units: RentRollUnit[];
+  /** When this property's roll was imported (a month merges several imports). */
+  importedAt?: string;
 }
 
 /** A rent-roll row with a valid unit-ref shape but a property code the portal

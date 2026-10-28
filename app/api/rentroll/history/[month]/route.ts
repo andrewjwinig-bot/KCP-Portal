@@ -23,7 +23,7 @@ export async function GET(_req: Request, ctx: { params: { month: string } }) {
   const month = (ctx.params.month ?? "").replace(/[^0-9-]/g, "");
   const own = await getJSON(HISTORY_PREFIX, month);
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const all = ((await listJSON(HISTORY_PREFIX)) as any[]).filter((s) => s && snapshotMonthKey(s) !== snapshotMonthKey(own));
+  const all = ((await listJSON(HISTORY_PREFIX, { fresh: true })) as any[]).filter((s) => s && snapshotMonthKey(s) !== snapshotMonthKey(own));
   const asOf = rollAsOf([...all, own], snapshotMonthKey(own)) ?? own;
   const ownCodes = new Set((own.properties ?? []).map(code));
   const carriedFrom: Record<string, string> = {};
