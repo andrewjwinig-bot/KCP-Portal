@@ -200,9 +200,9 @@ function searchSite(query: string): { properties: SiteProperty[]; pages: PageHit
 }
 
 const propertyHref = (p: SiteProperty) => propertyPath(p.category, p.slug);
-// A designed centre page is served whole by a route handler, not a Next page,
+// A designed page (a centre, The Office Works) is served whole by a route handler, not a Next page,
 // so it is reached by a full page load rather than client navigation.
-const isDesignedHref = (href: string) => href.startsWith("/centers/");
+const isDesignedHref = (href: string) => !href.startsWith("/site");
 
 function SearchModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [query, setQuery] = useState("");
