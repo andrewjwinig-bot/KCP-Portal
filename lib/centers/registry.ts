@@ -365,7 +365,7 @@ const LAFAYETTE_HILL = scaffold(
     heroSub:
       "A convenience-anchored strip on Germantown Pike, serving one of Montgomery County's most established communities.",
     overview:
-      "The Shops at Lafayette Hill line Germantown Pike in Whitemarsh Township, an established, affluent Montgomery County community northwest of the city. Anchored by Wawa, the center pairs everyday convenience with easy access to Plymouth Meeting, Chestnut Hill and the Blue Route (I-476).",
+      "The Shops of Lafayette Hill line Germantown Pike in Whitemarsh Township, an established, affluent Montgomery County community northwest of the city. Anchored by Wawa, the center pairs everyday convenience with easy access to Plymouth Meeting, Chestnut Hill and the Blue Route (I-476).",
     parking: "Surface parking at the door",
     parkingShort: "On-site",
     extraFacts: [
@@ -389,12 +389,12 @@ const LAFAYETTE_HILL = scaffold(
     ],
     availableBlurb: "Compact inline suites for neighborhood-serving uses. Contact the leasing team for current availability.",
     seo: {
-      title: "Shops at Lafayette Hill | Retail Space for Lease, Lafayette Hill PA",
+      title: "Shops of Lafayette Hill | Retail Space for Lease, Lafayette Hill PA",
       description:
-        "The Shops at Lafayette Hill, 400-428 Germantown Pike, Lafayette Hill PA. Wawa-anchored convenience retail in Whitemarsh Township, Montgomery County. Retail space for lease from Korman Commercial Properties.",
+        "The Shops of Lafayette Hill, 400-428 Germantown Pike, Lafayette Hill PA. Wawa-anchored convenience retail in Whitemarsh Township, Montgomery County. Retail space for lease from Korman Commercial Properties.",
       keywords:
-        "retail space for lease Lafayette Hill, Shops at Lafayette Hill, Germantown Pike retail, Montgomery County shopping center, Korman Commercial Properties",
-      ogTitle: "Shops at Lafayette Hill — Retail Space for Lease",
+        "retail space for lease Lafayette Hill, Shops of Lafayette Hill, Germantown Pike retail, Montgomery County shopping center, Korman Commercial Properties",
+      ogTitle: "Shops of Lafayette Hill — Retail Space for Lease",
       ogDescription:
         "Convenience retail on Germantown Pike in Whitemarsh Township, minutes from Plymouth Meeting and I-476.",
     },

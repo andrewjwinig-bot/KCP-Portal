@@ -3,7 +3,7 @@ import { deriveContributions, overallProgress, ownerProgress, kindProgress, type
 import type { InPlaceRevenueRecord } from "./inPlaceStore";
 
 const props: BudgetProperty[] = [
-  { code: "9510", name: "Shops at Lafayette Hill", allocGroup: "SC" },
+  { code: "9510", name: "Shops of Lafayette Hill", allocGroup: "SC" },
   { code: "3610", name: "Interplex 1", allocGroup: "BP" },
 ];
 

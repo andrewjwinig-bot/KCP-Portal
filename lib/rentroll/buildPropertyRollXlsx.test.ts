@@ -13,7 +13,7 @@ const unit = (o: Partial<RentRollUnit> & { unitRef: string }): RentRollUnit => (
 });
 
 const prop = (units: RentRollUnit[]): RentRollProperty => ({
-  propertyCode: "9510", reportedPropertyName: "Shops at Lafayette Hill",
+  propertyCode: "9510", reportedPropertyName: "Shops of Lafayette Hill",
   totalSqft: units.reduce((s, u) => s + u.sqft, 0),
   occupiedSqft: units.filter((u) => !u.isVacant).reduce((s, u) => s + u.sqft, 0),
   vacantSqft: units.filter((u) => u.isVacant).reduce((s, u) => s + u.sqft, 0),
@@ -57,7 +57,7 @@ describe("one property's rent roll as a workbook", () => {
   let ws: ExcelJS.Worksheet;
   let wb: ExcelJS.Workbook;
   beforeAll(async () => {
-    const buf = await buildPropertyRollXlsx(prop(units), "Shops at Lafayette Hill", "2026-07-31");
+    const buf = await buildPropertyRollXlsx(prop(units), "Shops of Lafayette Hill", "2026-07-31");
     wb = await bookOf(buf);
     ws = wb.worksheets[0];
   });
@@ -70,7 +70,7 @@ describe("one property's rent roll as a workbook", () => {
 
   it("says which property and as of when, since it leaves the building", () => {
     expect(String(val(ws, "A1"))).toContain("KORMAN");
-    expect(val(ws, "A2")).toBe("9510 — Shops at Lafayette Hill");
+    expect(val(ws, "A2")).toBe("9510 — Shops of Lafayette Hill");
     expect(String(val(ws, "A3"))).toContain("Rent Roll");
     expect(String(val(ws, "A3"))).toContain("As of 2026-07-31");
   });
@@ -124,14 +124,14 @@ describe("one property's rent roll as a workbook", () => {
   it("labels a vacant unit rather than leaving its tenant blank", async () => {
     const one = await sheetOf(await buildPropertyRollXlsx(
       prop([unit({ unitRef: "9510-400", isVacant: true, occupantName: "", baseRent: 0, grossRentTotal: 0 })]),
-      "Shops at Lafayette Hill", null));
+      "Shops of Lafayette Hill", null));
     expect(val(one, `A${FIRST}`)).toBe("VACANT");
     // No date is claimed when none is known.
     expect(String(val(one, "A3"))).toBe("Rent Roll");
   });
 
   it("survives a property with no units instead of writing a broken total", async () => {
-    const empty = await sheetOf(await buildPropertyRollXlsx(prop([]), "Shops at Lafayette Hill", "2026-07-31"));
+    const empty = await sheetOf(await buildPropertyRollXlsx(prop([]), "Shops of Lafayette Hill", "2026-07-31"));
     expect(val(empty, `A${HEADER}`)).toBe("Tenant");
     expect(val(empty, `A${FIRST}`)).toBeNull();
   });

@@ -1,4 +1,4 @@
-// The Shops at Lafayette Hill — the designed page's suites (the Claude Design
+// The Shops of Lafayette Hill — the designed page's suites (the Claude Design
 // handoff's SUITES array). Geometry (x, y, w, h) is in the ORIGINAL site-plan
 // pixels (3300 × 2550) and never changes unless the plan does. The tenant copy,
 // links and logos are curated here; WHO is in each suite and its SF come from
