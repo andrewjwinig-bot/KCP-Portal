@@ -63,10 +63,16 @@ describe("a website domain serves only the website", () => {
       expect(websiteRoute(h, "/centers/_shared/jspdf.min.js"), h).toEqual({ kind: "pass" });
     }
   });
+  it("parkwoodshoppingcenter.com serves the Parkwood page alone", () => {
+    for (const h of ["parkwoodshoppingcenter.com", "www.parkwoodshoppingcenter.com"]) {
+      expect(websiteRoute(h, "/"), h).toEqual({ kind: "rewrite", path: "/centers/parkwood" });
+      expect(websiteRoute(h, "/dashboard"), h).toEqual({ kind: "notFound" });
+    }
+  });
   it("the middleware's website matcher catches every website host, anchored", async () => {
     const { config } = await import("../middleware");
     const re = new RegExp((config.matcher[1] as { has: { value: string }[] }).has[0].value);
-    for (const h of ["kormancommercial.com", "www.kormancommercial.com", "theofficeworks.com", "www.theofficeworks.net", "brookwoodshoppingcenter.com", "www.brookwood-shopping.com"]) expect(re.test(h), h).toBe(true);
+    for (const h of ["kormancommercial.com", "www.kormancommercial.com", "theofficeworks.com", "www.theofficeworks.net", "brookwoodshoppingcenter.com", "www.brookwood-shopping.com", "www.parkwoodshoppingcenter.com"]) expect(re.test(h), h).toBe(true);
     for (const h of ["portal.kormancommercial.com", "kcp-portal.vercel.app", "theofficeworks.com.evil.io"]) expect(re.test(h), h).toBe(false);
   });
   it("leaves the portal's own host alone", () => {
