@@ -39,8 +39,8 @@ export type Kv = { k: string; v: string };
 export type LeasingContact = {
   name: string;
   company: string;
-  phone: string;      // display, e.g. "(215) 350-5933"
-  phoneHref: string;  // tel: value, e.g. "+12153505933"
+  phone: string;      // display, e.g. "(215) 244-5148"
+  phoneHref: string;  // tel: value, e.g. "+12152445148"
   email: string;
   site: string;       // display, e.g. "kormancommercial.com"
 };
@@ -121,8 +121,8 @@ const ACCENT_ON_DARK = "#8fb2ff";
 const HARRY: LeasingContact = {
   name: "Harry Feldman",
   company: "Korman Commercial Properties",
-  phone: "(215) 350-5933",
-  phoneHref: "+12153505933",
+  phone: "(215) 244-5148",
+  phoneHref: "+12152445148",
   email: "hfeldman@kormancommercial.com",
   site: "kormancommercial.com",
 };
