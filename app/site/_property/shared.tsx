@@ -3,7 +3,7 @@
 
 import type { CSSProperties, ReactNode } from "react";
 import type { PortableBlock, SiteCategory, SiteProperty } from "@/lib/site/content";
-import { sitePath } from "@/lib/site/paths";
+import { propertyPath, sitePath } from "@/lib/site/paths";
 
 /** next/image's `fill` layout, which the original used for every photo. */
 export const FILL: CSSProperties = { position: "absolute", height: "100%", width: "100%", inset: 0, color: "transparent" };
@@ -103,7 +103,7 @@ export function OtherCategoriesBand({ current }: { current: SiteCategory }) {
 /** One property card on a category page. */
 export function PropertyCard({ p }: { p: SiteProperty }) {
   return (
-    <a href={sitePath(`/${p.category}/${p.slug}`)}
+    <a href={propertyPath(p.category, p.slug)}
       className="block overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.2)] hover:shadow-[0_25px_60px_rgba(0,0,0,0.3)] transition-all duration-300 group">
       <div className="relative aspect-[4/3] overflow-hidden">
         <img alt={p.mainImageAlt || p.name} src={p.mainImage || ""} loading="lazy" decoding="async" style={FILL}

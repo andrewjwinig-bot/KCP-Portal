@@ -103,6 +103,9 @@ export async function renderDesignedCenter(slug: string): Promise<string | null>
   const propJson = JSON.stringify(property ?? {}).replace(/</g, "\\u003c");
   return template
     .replace("/*@SUITES@*/[]", () => json)
+    // The header logo goes back to the company website (/site works on
+    // kormancommercial.com and on the portal host alike).
+    .replace(/<img class="logo"[^>]*>/, (img) => `<a href="/site" aria-label="Korman Commercial Properties — home">${img}</a>`)
     .replace("/*@SHARED_CSS@*/", () => shared.css)
     .replace("<!--@AVAILABLE@-->", () => (property ? shared.html : ""))
     .replace("/*@SHARED_JS@*/", () => (property ? shared.js.replace("/*@PROPERTY@*/{}", () => propJson) : ""))

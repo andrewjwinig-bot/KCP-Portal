@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { SITE_BASE, sitePath, siteAsset } from "@/lib/site/paths";
+import { SITE_BASE, propertyPath, sitePath, siteAsset } from "@/lib/site/paths";
 import { SITE_CATEGORIES, SITE_PROPERTIES, type SiteProperty } from "@/lib/site/content";
 import { useSiteLoading } from "./SiteLoading";
 import { ArrowRight, Building, ChevronDown, ExternalLink, Mail, MapPin, Menu, Phone, Search, WalletMinimal, Wrench, X } from "./icons";
@@ -199,7 +199,10 @@ function searchSite(query: string): { properties: SiteProperty[]; pages: PageHit
   return { properties: scored.slice(0, 10).map((x) => x.p), pages: pages.slice(0, 7) };
 }
 
-const propertyHref = (p: SiteProperty) => sitePath(`/${p.category}/${p.slug}`);
+const propertyHref = (p: SiteProperty) => propertyPath(p.category, p.slug);
+// A designed centre page is served whole by a route handler, not a Next page,
+// so it is reached by a full page load rather than client navigation.
+const isDesignedHref = (href: string) => href.startsWith("/centers/");
 
 function SearchModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [query, setQuery] = useState("");
@@ -249,7 +252,7 @@ function SearchModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                if (results.properties.length) { router.push(propertyHref(results.properties[0])); onClose(); }
+                if (results.properties.length) { const h = propertyHref(results.properties[0]); if (isDesignedHref(h)) window.location.assign(h); else router.push(h); onClose(); }
                 else if (results.pages.length) { router.push(sitePath(results.pages[0].href)); onClose(); }
               }}
               className="flex-1 flex items-center"
@@ -289,7 +292,7 @@ function SearchModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
                   <h3 className="text-lg font-medium text-slate-800 mb-4">Properties</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {results.properties.map((p) => (
-                      <Link key={p.id} href={propertyHref(p)} onClick={onClose} className="group flex flex-col bg-white border border-slate-200  overflow-hidden hover:shadow-md transition-shadow duration-300">
+                      <a key={p.id} href={propertyHref(p)} onClick={onClose} className="group flex flex-col bg-white border border-slate-200  overflow-hidden hover:shadow-md transition-shadow duration-300">
                         <div className="relative aspect-[16/9] overflow-hidden">
                           {p.mainImage && (
                             <img src={p.mainImage} alt={p.name} loading="lazy" className="object-cover transition-transform duration-500 group-hover:scale-105" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
@@ -303,7 +306,7 @@ function SearchModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void
                             {p.address}
                           </div>
                         </div>
-                      </Link>
+                      </a>
                     ))}
                   </div>
                 </div>
