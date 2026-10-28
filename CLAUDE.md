@@ -573,6 +573,25 @@ in one muted line under the import instructions. **An import refuses (503)
 when it cannot read the month already filed** — the old `.catch(() => null)`
 read a failed read as "nothing here" and wrote the import over the month alone.
 
+**THE CURRENT ROLL IS THE MOST RECENT IMPORT, NOT THE LATEST REPORT MONTH**
+(`importRank` in `lib/rentroll/snapshot.ts`; 10/28/26: the owner imported
+October's full roll twice and the portal kept a November-dated office roll
+imported EARLIER — 4900-5002, vacant, still billing $775, and every retail
+property "not in this month's import"). A roll cannot be newer than the day it
+was imported, so its rank is the EARLIER of its report month and its import
+month, then the import time; `composeCurrentRoll` picks each property by it
+(`importedAt` stamped per property by `mergeSameMonth`, the snapshot's
+`uploadedAt` for older data). A backfill of a past month keeps its own month and
+never dethrones the current roll. The Rent Roll page opens on
+`currentSnapshotMonth` (`/api/rentroll/history`'s `currentMonth`), and an import
+that leaves a later-dated month behind SAYS so (`laterMonths`) — delete it on
+Rent Roll Trends (whose Delete sends `?all=1`; the bare DELETE had been
+refusing since months began merging). **Every rent-roll read of history is
+FRESH** (`listJSON(…, { fresh: true })`) and the import composes "current" from
+the month it just WROTE, not a re-read: the CDN serves a snapshot's old body
+for a minute, and composing from it wrote the pre-import roll back over
+"current". Pinned by `composeCurrentRoll.test.ts`.
+
 **An import MERGES into its month, never overwrites it** (`mergeSameMonth` in
 `current.ts`, used by `/api/rentroll` and `/api/rentroll/history`). Snapshots
 are keyed by report month, and writing an office-only file straight over a

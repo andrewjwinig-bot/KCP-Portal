@@ -115,7 +115,9 @@ export default function TrendsPage() {
   async function deleteSnapshot(month: string) {
     if (!confirm(`Delete the ${month} snapshot? The current rent roll on /rentroll is not affected.`)) return;
     try {
-      const res = await fetch(`/api/rentroll/history/${month}`, { method: "DELETE" });
+      // ?all=1 — the whole month (the route refuses a bare DELETE, which only
+      // ever meant one property's import out of a merged month).
+      const res = await fetch(`/api/rentroll/history/${month}?all=1`, { method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
       await reloadHistory();
       if (drilldown?.month === month) setDrilldown(null);

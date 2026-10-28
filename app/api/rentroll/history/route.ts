@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listJSON, getJSON, storeJSON } from "@/lib/storage";
 import { parseRentRollExcel, type RentRollData } from "@/lib/rentroll/parseRentRollExcel";
-import { snapshotMonthKey, summarizeSnapshot } from "@/lib/rentroll/snapshot";
+import { currentSnapshotMonth, snapshotMonthKey, summarizeSnapshot } from "@/lib/rentroll/snapshot";
 import { mergeSameMonth } from "@/lib/rentroll/current";
 
 const RENTROLL_PREFIX = "rentroll";
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   try {
-    let snapshots = await listJSON(HISTORY_PREFIX) as RentRollData[];
+    let snapshots = await listJSON(HISTORY_PREFIX, { fresh: true }) as RentRollData[];
     if (snapshots.length === 0) {
       const current = await getJSON(RENTROLL_PREFIX, RENTROLL_ID) as RentRollData | null;
       if (current) {
@@ -29,7 +29,12 @@ export async function GET() {
       }
     }
     const summaries = snapshots.map(summarizeSnapshot).sort((a, b) => a.month.localeCompare(b.month));
-    return NextResponse.json({ snapshots: summaries });
+    // The month holding the most recent import (importRank) — what the Rent
+    // Roll page opens on. Not simply the last month: a roll dated ahead of the
+    // day it was imported does not outrank a later import.
+    const currentMonth = currentSnapshotMonth(summaries);
+    console.info(`[rentroll history] current=${currentMonth} ` + summaries.map((x) => `${x.month}@${(x.uploadedAt ?? "").slice(0, 10)}:${x.byProperty.length}`).join(" "));
+    return NextResponse.json({ snapshots: summaries, currentMonth });
   } catch (err: any) {
     console.error("[GET /api/rentroll/history]", err?.message ?? err);
     return NextResponse.json({ snapshots: [] });
