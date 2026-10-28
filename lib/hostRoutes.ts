@@ -35,7 +35,7 @@ const WEBSITE_PASSTHROUGH = [
   /^\/api\/maintenance\/submit$/,
   /^\/api\/center-image$/,
   /^\/(site|office-works|centers)(\/|$)/,
-  /^\/(favicon\.ico|robots\.txt|korman-logo\.svg)$/,
+  /^\/(robots\.txt|korman-logo\.svg)$/,
 ];
 
 export type WebsiteRoute = { kind: "pass" } | { kind: "rewrite"; path: string } | { kind: "notFound" };
@@ -53,6 +53,10 @@ export function websiteRoute(host: string | null | undefined, pathname: string, 
   const base = hostBase(host, env);
   if (!base) return null;
   if (WEBSITE_PASSTHROUGH.some((re) => re.test(pathname))) return { kind: "pass" };
+  // The portal has no favicon.ico, so the browser's automatic request fell to
+  // the PORTAL's 404 page — "KCP Portal · internal portal" in its metadata.
+  // The website's own icon answers it instead.
+  if (pathname === "/favicon.ico") return { kind: "rewrite", path: "/site/favicon.ico" };
   if (pathname.startsWith("/api/") || /\.[a-z0-9]{2,5}$/i.test(pathname)) return { kind: "notFound" };
   return { kind: "rewrite", path: pathname === "/" ? base : `${base}${pathname}` };
 }
