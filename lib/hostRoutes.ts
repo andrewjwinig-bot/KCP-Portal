@@ -14,7 +14,7 @@ export const SITE_HOSTS = ["kormancommercial.com", "www.kormancommercial.com"];
  *  any listed here. A host listed here must ALSO be in the website-host
  *  matcher in middleware.ts — the portal's matcher skips public paths, so
  *  only that entry makes middleware see (and lock down) every request on it. */
-export const OFFICE_WORKS_HOSTS: string[] = [];
+export const OFFICE_WORKS_HOSTS: string[] = ["theofficeworks.com", "theofficeworks.net"];
 
 export function hostBase(host: string | null | undefined, env: string | undefined = process.env.OFFICE_WORKS_HOSTS): string | null {
   const h = String(host ?? "").toLowerCase().split(":")[0].trim();
