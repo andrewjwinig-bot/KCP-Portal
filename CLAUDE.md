@@ -405,9 +405,14 @@ assets `public/office-works/assets/`). Public by the middleware's
 - **The tour form posts to `/api/website/tour`** (`lib/site/tour.ts`,
   honeypot + 5/hour, emails `SITE_CONTACT_TO` / info@ with Reply-To; a failed
   send is reported, never a false "sent"). Pinned by `tour.test.ts`.
-- Korman footer logo is the full-resolution one; the Office Works logo, the
-  prices ($900 / $75 / $25) and the lounge / café photos are still the
-  handoff's placeholders.
+- Korman footer logo is the full-resolution one; the Office Works logo and the
+  phone photos (p-office, p-conf, p-boardroom, p-lounge2, p-coffee) are still
+  the handoff's placeholders. Second handoff (10/28/26): private offices read
+  "Inquire for pricing", virtual from $75/mo, by the hour from $30/hr. A new
+  handoff is re-applied by the same edits: absolute `/office-works/assets/`
+  paths, `/*@OFFICES@*/[]` and `{{OFFICE_RANGE}}`, the tour form's fetch to
+  `/api/website/tour` with the `f-web` honeypot, tel:/mailto: links, the
+  empty-grid message.
 
 # Shopping-center pages — DESIGNED pages replace the template one by one
 
