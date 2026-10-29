@@ -6,6 +6,7 @@ describe("website property links", () => {
   it("send a centre with a designed page there, everything else to its template page", () => {
     expect(propertyPath("retail", "brookwood-shopping-center")).toBe("/centers/brookwood");
     expect(propertyPath("office", "the-office-works-instant-offices")).toBe("/office-works");
+    expect(propertyPath("office", "neshaminy-interplex")).toBe("/site/office/neshaminy-interplex");
     expect(propertyPath("retail", "castor-ave-usps")).toBe("/site/retail/castor-ave-usps");
   });
   it("every mapped slug is a real website property", () => {

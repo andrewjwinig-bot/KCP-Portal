@@ -24,7 +24,14 @@ export const DESIGNED_PAGES: Record<string, string> = {
   "parkwood-commons": "/centers/parkwood-commons",
   // The Office Works' own designed site (lib/officeWorks).
   "the-office-works-instant-offices": "/office-works",
+  // The Neshaminy Interplex Business Center's designed site (lib/interplex) —
+  // at its own website address, served by a route handler.
+  "neshaminy-interplex": "/site/office/neshaminy-interplex",
 };
+
+/** A designed page is served whole by a route handler, not a Next page, so a
+ *  link to it must be a full page load rather than client navigation. */
+export const isDesignedPath = (href: string) => !href.startsWith("/site") || Object.values(DESIGNED_PAGES).includes(href);
 
 /** Where a website property links: its designed centre page when it has one. */
 export function propertyPath(category: string, slug: string): string {

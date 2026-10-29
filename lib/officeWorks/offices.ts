@@ -22,6 +22,10 @@ const SHARED_SPACE = /recep|confer|\bconf\b|meeting|board ?room|lobby|lounge|kit
 
 /** An office the page can offer: an area, not an amenity or shared space,
  *  and a numbered suite ("5019"), not a named room ("CONF"). */
+/** A roll unit that is shared space (a conference room, a lobby, storage),
+ *  by its suite or its name — never offered to the public. */
+export const isSharedSpace = (suite: string, name: string) => SHARED_SPACE.test(suite) || SHARED_SPACE.test(name);
+
 export function isRentableOffice(u: RollUnitLite): boolean {
   const suite = u.unitRef.split("-").slice(1).join("-");
   return !u.amenity && u.sqft > 0 && /\d/.test(suite)

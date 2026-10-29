@@ -458,6 +458,38 @@ assets `public/office-works/assets/`). Public by the middleware's
   `{{OFFICE_RANGE}}`, the tour form's fetch to `/api/website/tour` with the
   `f-web` honeypot and the "your request is in" panel, tel:/mailto: links.
 
+# The Neshaminy Interplex Business Center website — /site/office/neshaminy-interplex
+
+**The business park has its own designed site** (Claude Design handoff, owner:
+"put that zip on …/site/office/neshaminy-interplex … call it neshaminy
+interplex business center so people know its more than just one building"),
+served whole by the STATIC route `app/site/office/neshaminy-interplex/route.ts`
+→ `renderInterplex` (`lib/interplex/render.ts`, HTML `lib/interplex/
+interplex.html`, assets `public/site/interplex/assets/`). The static route
+beats the website's `[category]/[slug]` template for this one slug; the
+template's designed-page redirect skips a path that IS the designed page.
+`DESIGNED_PAGES` maps `neshaminy-interplex` to it and `isDesignedPath` makes
+the site's search do a full load (a route handler is not a Next page).
+- **Available Space is the CURRENT RENT ROLL's** (owner: "populate the
+  availabilities with our most recent rent roll info"): `spacesFromRoll`
+  (`lib/interplex/spaces.ts`, pinned by `spaces.test.ts`) lists every vacant,
+  rentable suite in the ten buildings (`INTERPLEX_BUILDINGS`: 1/2/4 = 3610/
+  3620/3640, 5–8 = 4050–4080, Kor Center A/B/C = 40A0/40B0/40C0), floor from a
+  three-digit suite, at `/*@SPACES@*/[]`; `SAMPLE_DATA` is false. Shared space
+  and amenities never list (`isSharedSpace`, from The Office Works'
+  `offices.ts`); The Office Works (4900) is offered on its own page. The hero's
+  SF is the roll's total for the ten (`{{TOTAL_SF}}`, the design's 379,315 with
+  no roll). Each building's map range is derived from the list by the page.
+- **The leasing form posts to `/api/website/leasing`** (`lib/site/leasing.ts`,
+  honeypot + 5/hour, emails **Nancy Fox** — `leasingRecipients`,
+  `INTERPLEX_LEASING_TO` overrides — Reply-To the visitor; a failed send is
+  reported). Pinned by `leasing.test.ts`. The Office Works section links to
+  `/office-works`.
+- **The office category is now two listings**: Neshaminy Interplex Business
+  Center and The Office Works — the Kor Center and Interplex Drive Office Park
+  listings were DELETED from `lib/site/content.ts` (owner), since the park's
+  page covers every building.
+
 # Shopping-center pages — DESIGNED pages replace the template one by one
 
 **`/centers/<slug>` was one data-driven template for all five centres
