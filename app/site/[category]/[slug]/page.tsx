@@ -84,7 +84,7 @@ export default async function PropertyPage({ params }: { params: { category: str
   if (!p) notFound();
   // A centre with a designed page (interactive site plan) lives there.
   const designed = DESIGNED_PAGES[p.slug];
-  if (designed) permanentRedirect(designed);
+  if (designed && designed !== sitePath(`/${p.category}/${p.slug}`)) permanentRedirect(designed);
   const category = SITE_CATEGORIES[p.category];
   const images = [...(p.mainImage ? [{ url: p.mainImage, alt: p.mainImageAlt || p.name }] : []), ...(p.gallery ?? [])];
   // "$0/SF/YR" is how the CMS said "ask us".

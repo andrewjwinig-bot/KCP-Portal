@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Neshaminy Interplex Business Center</title>
+<meta name="description" content="Neshaminy Interplex Business Center: ten office buildings on one campus on Route 1 in Trevose, PA, with a hotel, fitness and conference centers, and The Office Works. Office space for lease.">
+</head>
+<body>
+
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Campus-scale corporate: Interplex navy + olive from the logo, Futura-like Jost echoing the wordmark,
+   full-bleed photography, an interactive campus map as the centerpiece. Deliberately single (light) theme. */
+:root{
+  --navy:#18468b; --navy-d:#0e2c5a; --navy-x:#0a1f40; --olive:#838906; --olive-l:#b9be4a;
+  --paper:#ffffff; --mist:#f3f5f8; --ink:#13213a; --ink-2:#43506a; --mute:#6c7890; --line:#dde3ec;
+  --f-display:"Jost","Futura","Century Gothic",Arial,sans-serif; --f-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --gl:max(16px,env(safe-area-inset-left,0px)); --gr:max(16px,env(safe-area-inset-right,0px));
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{background:var(--paper);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:#fff}
+.in{max-width:1260px;margin:0 auto;padding-left:var(--gl);padding-right:var(--gr)}
+h1,h2,h3,h4{font-family:var(--f-display);font-weight:500;letter-spacing:-.01em;line-height:1.05;margin:0;text-wrap:balance}
+p{margin:0}
+:focus-visible{outline:2px solid var(--olive);outline-offset:3px}
+.kick{font-family:var(--f-display);font-size:13px;letter-spacing:.32em;text-transform:uppercase;font-weight:500;color:var(--olive);margin:0 0 18px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;font:inherit;font-weight:600;font-size:15px;padding:15px 24px;border-radius:2px;border:1px solid transparent;cursor:pointer;text-decoration:none;transition:background .15s,color .15s,border-color .15s}
+.btn.navy{background:var(--navy);color:#fff}.btn.navy:hover{background:var(--navy-d)}
+.btn.olive{background:var(--olive);color:#fff}.btn.olive:hover{background:#6d7205}
+.btn.ghost{color:#fff;border-color:rgba(255,255,255,.6)}.btn.ghost:hover{border-color:#fff;background:rgba(255,255,255,.08)}
+.btn.line{color:var(--navy);border-color:var(--line);background:#fff}.btn.line:hover{border-color:var(--navy)}
+section{scroll-margin-top:80px}
+
+/* header */
+.mast{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.mast .in{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:76px}
+.mast .brand img{height:44px;width:auto;display:block}
+.nav{display:flex;align-items:center;gap:28px;font-size:15px;font-weight:500}
+.nav a{text-decoration:none;color:var(--ink-2)}.nav a:hover{color:var(--navy)}
+.nav .btn{padding:11px 18px;font-size:14px}
+@media (max-width:980px){.nav a:not(.btn){display:none}.mast .brand img{height:36px}}
+
+/* hero */
+.hero{position:relative;min-height:min(86vh,820px);color:#fff;display:grid;grid-template-rows:1fr auto;overflow:hidden;background:var(--navy-x)}
+.hero>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 55%;animation:drift 22s ease-out both}
+@keyframes drift{from{transform:scale(1.08)}to{transform:scale(1)}}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,31,64,.82) 0%,rgba(10,31,64,.45) 45%,rgba(10,31,64,.05) 75%),linear-gradient(180deg,rgba(10,31,64,0) 55%,rgba(10,31,64,.75) 100%)}
+.hero>.in{position:relative;z-index:1;align-self:center;width:100%;padding-block:110px 40px}
+.hero .kick{color:var(--olive-l)}
+.hero h1{font-size:clamp(48px,7.4vw,108px);font-weight:400;line-height:.95;letter-spacing:-.02em;max-width:12ch}
+.hero h1 b{font-weight:600}
+.hero p.lede{font-size:clamp(18px,1.6vw,21px);max-width:44ch;margin-top:26px;color:#e3e9f3}
+.hero .ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px}
+.stats{position:relative;z-index:1;border-top:1px solid rgba(255,255,255,.2);background:rgba(10,31,64,.55);backdrop-filter:blur(8px)}
+.stats .in{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.stats .in>div{padding:20px 0 22px;text-align:center;border-left:1px solid rgba(255,255,255,.14)}
+.stats .in>div:first-child{border-left:0}
+.stats b{display:block;font-family:var(--f-display);font-weight:500;font-size:clamp(28px,3.4vw,46px);line-height:1;white-space:nowrap}
+.stats span{display:block;margin-top:8px;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#c9d4e6}
+@media (max-width:760px){.stats .in{grid-template-columns:1fr 1fr}.stats .in>div:nth-child(3){border-left:0}.stats .in>div{border-top:1px solid rgba(255,255,255,.14)}.hero>.in{padding-block:80px 28px}}
+
+/* intro */
+.sec{padding-block:72px}
+.intro{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:72px;align-items:center}
+.intro h2{font-size:clamp(36px,4.4vw,60px);font-weight:400}
+.intro h2 b{font-weight:600;color:var(--navy)}
+.intro p{color:var(--ink-2);margin-top:22px;max-width:56ch}
+.award{display:flex;align-items:center;gap:18px;margin-top:34px;padding:18px 22px;border:1px solid var(--line);border-left:4px solid var(--olive);max-width:430px}
+.award b{font-family:var(--f-display);font-size:30px;font-weight:600;color:var(--navy);line-height:1}
+.award span{font-size:14px;color:var(--ink-2);line-height:1.4}
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.duo figure{margin:0;overflow:hidden;border-radius:3px;aspect-ratio:3/4;max-width:100%}
+.duo figure:last-child{margin-top:60px}
+.duo img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 1.2s}
+.duo figure:hover img{transform:scale(1.04)}
+@media (max-width:900px){.intro{grid-template-columns:1fr;gap:40px}.sec{padding-block:52px}}
+
+/* campus map */
+.campus{background:var(--mist)}
+.sec-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:20px;margin-bottom:28px}
+.sec-h h2{font-size:clamp(36px,4.4vw,58px);font-weight:400}
+.sec-h p{color:var(--ink-2);max-width:40ch}
+.mapbox{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:22px;align-items:start}
+.mapwrap{position:relative;background:#fff;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.mapwrap img{display:block;width:100%;height:auto}
+.mapwrap svg{position:absolute;top:0;left:0;width:100%;height:auto;aspect-ratio:1109/684}
+.bld{cursor:pointer;outline:none}
+.bld polygon{fill:rgba(131,137,6,0);stroke:transparent;stroke-width:3;transition:fill .15s,stroke .15s}
+.bld:hover polygon,.bld:focus-visible polygon,.bld.sel polygon{fill:rgba(131,137,6,.42);stroke:var(--olive)}
+.bld.has polygon{fill:rgba(131,137,6,.16)}
+.bld.has:hover polygon,.bld.has.sel polygon{fill:rgba(131,137,6,.48)}
+.lmk{pointer-events:none;filter:drop-shadow(0 2px 4px rgba(10,31,64,.18))}
+.pin circle{fill:var(--olive);stroke:#fff;stroke-width:2}
+.pin text{font:600 11px var(--f-body);fill:#fff;text-anchor:middle;pointer-events:none}
+.mpop{position:absolute;z-index:5;width:270px;background:#fff;border-radius:6px;box-shadow:0 20px 50px rgba(10,31,64,.3);padding:18px 20px;transform:translate(-50%,calc(-100% - 12px));display:grid;gap:7px}
+.mpop::after{content:"";position:absolute;left:var(--ax,50%);bottom:-6px;width:12px;height:12px;background:#fff;transform:translateX(-50%) rotate(45deg)}
+.mpop.below{transform:translate(-50%,12px)}.mpop.below::after{bottom:auto;top:-6px}
+.mpop.dock{position:static;width:auto;transform:none;box-shadow:none;border-top:1px solid var(--line);border-radius:0}.mpop.dock::after{display:none}.mpop.dock .pimg{border-radius:0;max-height:180px}
+.mpop.sr{transform:none}.mpop.sl{transform:translateX(-100%)}
+.mpop.sr::after,.mpop.sl::after{bottom:auto;top:var(--ay,50%);transform:translateY(-50%) rotate(45deg)}
+.mpop.sr::after{left:-6px}.mpop.sl::after{left:auto;right:-6px}
+.mpop .pimg{display:block;width:calc(100% + 40px);max-width:none;margin:-18px -20px 6px;aspect-ratio:2/1;object-fit:cover;object-position:center 40%;border-radius:6px 6px 0 0}
+.mpop .k{font-family:var(--f-display);font-size:11.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--olive);font-weight:600}
+.mpop h3{font-size:26px;font-weight:500;color:var(--navy)}
+.mpop p{font-size:14px;color:var(--ink-2);line-height:1.45}
+.mpop .avail{display:inline-block;justify-self:start;font-size:12.5px;font-weight:600;background:#eef0d9;color:#5a5e04;padding:4px 9px;border-radius:2px}
+.mpop .btn{padding:10px 14px;font-size:13.5px;margin-top:4px;justify-self:start}
+.mpop .x{position:absolute;right:8px;top:4px;border:0;background:none;font-size:20px;color:var(--mute);cursor:pointer}
+.side{display:grid;gap:18px}
+.side h3{font-size:22px;color:var(--navy)}
+.blist{display:grid;gap:6px}
+.blist button{display:grid;grid-template-columns:34px 1fr auto;gap:12px;align-items:center;text-align:left;font:inherit;font-size:15px;padding:10px 12px;border:1px solid var(--line);background:#fff;border-radius:3px;cursor:pointer;color:var(--ink)}
+.blist button:hover,.blist button.sel{border-color:var(--olive);background:#fafbef}
+.blist .n{min-width:34px;padding:0 4px;width:auto;height:34px;display:grid;place-items:center;background:var(--navy);color:#fff;font-family:var(--f-display);font-weight:600;border-radius:2px}
+.blist .a{font-size:12px;font-weight:600;color:#5a5e04}
+.keys{display:grid;grid-template-columns:22px 1fr;gap:5px 9px;font-size:13px;color:var(--ink-2);align-items:center}
+.keys i{width:22px;height:22px;border-radius:50%;background:var(--olive);color:#fff;display:grid;place-items:center;font-style:normal;font-size:11px;font-weight:600}
+@media (max-width:980px){.mapbox{grid-template-columns:1fr}.blist{grid-template-columns:1fr 1fr}}
+@media (max-width:480px){.blist{grid-template-columns:1fr}.mpop{width:230px}}
+
+/* amenities */
+.amen{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(230px,auto);gap:14px}
+.tile{position:relative;overflow:hidden;border-radius:4px;color:#fff;display:flex;flex-direction:column;justify-content:flex-end;padding:24px;min-width:0;background:var(--navy)}
+.tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform 1.2s}
+.tile:hover img{transform:scale(1.04)}
+.tile.ph::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,31,64,0) 35%,rgba(10,31,64,.82) 100%)}
+.tile>*:not(img){position:relative;z-index:1}
+.tile h3{font-size:clamp(22px,2vw,28px);font-weight:500}
+.tile p{font-size:14.5px;color:#dbe3f0;margin-top:6px;max-width:34ch}
+.tile .big{font-family:var(--f-display);font-size:clamp(54px,5.4vw,80px);font-weight:500;line-height:.9;color:var(--olive-l)}
+.tile.w2{grid-column:span 2}.tile.h2{grid-row:span 2}
+.tile.olive{background:var(--olive)}.tile.olive p{color:#f1f3d6}.tile.olive .big{color:#fff}
+.tile.navy-d{background:var(--navy-d)}
+.feat{margin-top:44px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.feat div{border:1px solid var(--line);border-radius:3px;padding:18px 16px;display:grid;gap:10px;align-content:start;min-width:0;background:#fff}
+.feat svg{width:26px;height:26px;color:var(--navy)}
+.feat b{font-weight:600;font-size:14.5px;line-height:1.3}
+@media (max-width:1000px){.amen{grid-template-columns:1fr 1fr}.feat{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.amen{grid-template-columns:1fr}.tile.w2{grid-column:auto}.tile.h2{grid-row:auto}.feat{grid-template-columns:1fr 1fr}}
+
+/* gallery */
+.gal{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));grid-auto-rows:150px;gap:12px}
+.gal figure{margin:0;overflow:hidden;border-radius:3px;position:relative}
+.gal img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 1.2s}
+.gal figure:hover img{transform:scale(1.04)}
+.gal figcaption{position:absolute;left:12px;bottom:12px;font-size:12px;font-weight:600;letter-spacing:.06em;background:rgba(255,255,255,.94);color:var(--navy);padding:6px 10px;border-radius:2px}
+.g1{grid-column:span 7;grid-row:span 3}.g2{grid-column:span 5;grid-row:span 2}.g3{grid-column:span 5;grid-row:span 1}
+.g4{grid-column:span 4;grid-row:span 2}.g5{grid-column:span 4;grid-row:span 2}.g6{grid-column:span 4;grid-row:span 2}
+@media (max-width:800px){.gal{grid-template-columns:1fr 1fr;grid-auto-rows:180px}.gal figure{grid-column:span 1!important;grid-row:span 1!important}.g1{grid-column:span 2!important;grid-row:span 2!important}}
+
+/* office works band */
+.ow{background:var(--navy);color:#fff}
+.ow .in{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;padding-left:0;padding-right:0;max-width:none}
+.ow figure{margin:0;min-height:360px;position:relative}
+.ow figure img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ow .txt{padding:70px max(32px,env(safe-area-inset-right,0px)) 70px 64px;display:grid;gap:18px;align-content:center;max-width:640px}
+.ow .kick{color:var(--olive-l)}
+.ow h2{font-size:clamp(34px,3.8vw,52px);font-weight:400}
+.ow p{color:#d3dcea}
+.ow .ctas{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+@media (max-width:900px){.ow .in{grid-template-columns:1fr}.ow .txt{padding:48px var(--gr) 56px var(--gl)}}
+
+/* location */
+.loc{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:64px;align-items:start}
+.loc h2{font-size:clamp(36px,4.4vw,58px);font-weight:400}
+.loc p{color:var(--ink-2);margin-top:18px;max-width:46ch}
+.trips{display:grid;gap:0;border-top:1px solid var(--line)}
+.trip{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 18px;padding:18px 0;border-bottom:1px solid var(--line);align-items:center}
+.trip b{font-weight:600}
+.trip span{font-size:14px;color:var(--mute)}
+.trip .m{grid-row:span 2;font-family:var(--f-display);font-size:38px;font-weight:500;color:var(--navy);line-height:1;text-align:right}
+.trip .m small{font-size:14px;color:var(--mute);margin-left:4px;font-weight:400}
+.bar{grid-column:1/-1;height:3px;background:var(--mist);border-radius:2px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--olive)}
+@media (max-width:900px){.loc{grid-template-columns:1fr;gap:36px}}
+
+/* leasing */
+.lease{position:relative;color:#fff;overflow:hidden;background:var(--navy-x)}
+.lease>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.28}
+.lease .in{position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:64px;align-items:start;padding-block:72px}
+.lease .kick{color:var(--olive-l)}
+.lease h2{font-size:clamp(40px,5vw,68px);font-weight:400}
+.lease p{color:#d3dcea;margin-top:18px;max-width:42ch}
+.agent{margin-top:34px;display:grid;gap:10px}
+.agent .nm{font-family:var(--f-display);font-size:28px;font-weight:500}
+.agent .rl{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#aebbd3;margin-bottom:6px}
+.agent div{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.agent b{font-weight:500;font-size:18px;user-select:all}
+.copy{font:inherit;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:#fff;background:none;border:1px solid rgba(255,255,255,.35);border-radius:99px;padding:5px 11px;cursor:pointer}
+.copy:hover{border-color:#fff}
+form.f{background:#fff;color:var(--ink);border-radius:4px;padding:30px;display:grid;grid-template-columns:1fr 1fr;gap:16px 18px}
+.f .full{grid-column:1/-1}
+.f h3{font-size:24px;color:var(--navy)}
+.f label{display:grid;gap:7px;font-size:13px;font-weight:600;color:var(--ink-2);min-width:0}
+.f input,.f select,.f textarea{font:inherit;font-size:16px;padding:12px 13px;border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--ink);width:100%;min-width:0}
+.f textarea{min-height:90px;resize:vertical}
+.f input:focus,.f select:focus,.f textarea:focus{outline:2px solid var(--olive);outline-offset:0;border-color:transparent}
+.f .err{color:#b42318;font-size:13px}
+.done{background:#fff;color:var(--ink);border-radius:4px;padding:30px}
+.done pre{white-space:pre-wrap;font:inherit;font-size:15px;background:var(--mist);padding:16px;margin:16px 0;border-radius:2px}
+@media (max-width:900px){.lease .in{grid-template-columns:1fr;gap:40px;padding-block:52px}form.f{grid-template-columns:1fr;padding:22px}}
+
+/* footer */
+.foot{background:#fff;border-top:1px solid var(--line);font-size:14px;color:var(--ink-2)}
+.foot .in{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:22px;padding-block:34px}
+.foot img.ip{height:40px;width:auto;display:block}
+.foot .kor{background:var(--navy-x);padding:10px 14px;border-radius:2px}
+.foot .kor img{height:22px;width:auto;display:block}
+.foot small{width:100%;color:var(--mute);font-size:12.5px;border-top:1px solid var(--line);padding-top:18px}
+
+.ghead{display:grid;gap:2px;padding:14px 2px 6px;cursor:default}
+.ghead:first-child{padding-top:0}
+.ghead b{font-family:var(--f-display);font-weight:600;font-size:14px;letter-spacing:.16em;text-transform:uppercase;color:var(--olive)}
+.ghead span{font-size:13px;color:var(--mute);line-height:1.35}
+.bld.grp polygon{fill:rgba(131,137,6,.42);stroke:var(--olive)}
+@media (max-width:980px){.ghead{grid-column:1/-1}}
+
+/* subtler clustering */
+.ghead{padding:12px 2px 2px;border-top:1px solid var(--line);margin-top:6px}
+.ghead:first-child{border-top:0;margin-top:0;padding-top:0}
+.ghead b{font-family:var(--f-body);font-size:11.5px;letter-spacing:.14em;font-weight:600;color:var(--mute)}
+.blist{gap:4px}
+.blist button{padding:7px 10px;font-size:14.5px}
+.blist .n{height:28px;min-width:28px;font-size:14px}
+.mapbox{grid-template-areas:"map side" "keys side"}
+.mapwrap{grid-area:map}.side{grid-area:side}
+.keys{grid-area:keys;grid-template-columns:22px 1fr 22px 1fr 22px 1fr;gap:6px 9px;align-self:start}
+@media (max-width:980px){.mapbox{grid-template-areas:"map" "side" "keys"}.keys{grid-template-columns:22px 1fr 22px 1fr}}
+@media (max-width:480px){.keys{grid-template-columns:22px 1fr}}
+
+.mpop .plogo{height:44px;width:auto;justify-self:start;display:block;margin-bottom:2px}
+.mpop .rwm{display:block;font-family:Georgia,"Times New Roman",serif;font-size:30px;letter-spacing:.02em;color:#1d3c6e;line-height:1;margin-bottom:2px}
+
+/* commute */
+.commute{background:var(--mist)}
+.ccards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.ccard{background:#fff;border:1px solid var(--line);border-radius:4px;padding:28px 28px 26px;display:grid;gap:6px}
+.ccard .town{font-family:var(--f-display);font-size:13px;letter-spacing:.24em;text-transform:uppercase;color:var(--olive);font-weight:600}
+.ccard b{font-family:var(--f-display);font-weight:500;font-size:clamp(56px,6vw,84px);line-height:.95;color:var(--navy);margin-top:6px}
+.ccard b small{font-size:.3em;color:var(--mute);margin-left:6px;font-weight:400}
+.ccard .to{font-size:15px;color:var(--ink-2)}
+.ccard .vs{height:6px;background:#dfe5ee;border-radius:3px;overflow:hidden;margin-top:14px}
+.ccard .vs i{display:block;height:100%;background:var(--olive)}
+.ccard .cc{font-size:13.5px;color:var(--mute)}
+.cother{margin-top:22px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;font-size:15px;color:var(--ink-2)}
+.cother label{font-weight:600;color:var(--ink)}
+.cother select{font:inherit;font-size:15px;padding:9px 12px;border:1px solid var(--line);border-radius:2px;background:#fff;color:var(--ink)}
+.cother b{color:var(--navy)}.cother a{color:var(--navy);font-weight:600}
+.cnote{margin-top:12px;font-size:13px;color:var(--mute)}
+@media (max-width:760px){.ccards{grid-template-columns:1fr}}
+.ow .owlogo{height:clamp(52px,5.2vw,72px);width:auto;display:block;margin:4px 0 6px}
+/* available space */
+.av-sec{background:#fff}
+.sample{display:flex;gap:10px;align-items:center;background:#fff8e1;border:1px solid #f0d98a;color:#6b5300;font-size:14px;padding:10px 14px;border-radius:3px;margin-bottom:18px}
+.afilt{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;align-items:center}
+.afilt span{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:600;margin-right:6px}
+.afilt button{font:inherit;font-size:14px;font-weight:500;padding:8px 14px;border-radius:99px;border:1px solid var(--line);background:#fff;color:var(--ink-2);cursor:pointer}
+.afilt button:hover{border-color:var(--navy);color:var(--navy)}
+.afilt button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.acontrols{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px 24px;margin-bottom:18px}
+.acontrols .afilt{margin-bottom:0}
+.asel{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.asel label{display:flex;align-items:center;gap:8px;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.asel select{font:inherit;font-size:14px;letter-spacing:0;text-transform:none;font-weight:500;color:var(--ink);padding:8px 30px 8px 12px;border:1px solid var(--line);border-radius:99px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2343506a' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 12px center;appearance:none;-webkit-appearance:none;cursor:pointer}
+.asel select:hover{border-color:var(--navy)}
+.asel select.on{border-color:var(--navy);background-color:#eef2f9}
+.atable{border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.arow{display:grid;grid-template-columns:36px 1.15fr .9fr .9fr .55fr .85fr 1fr .75fr .75fr;align-items:center;gap:12px;padding:0 20px 0 8px;min-height:54px}
+.ahead{background:var(--navy-x);color:#fff;font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;min-height:46px}
+.agrp{background:var(--mist);border-top:1px solid var(--line);display:flex;align-items:baseline;gap:12px;padding:12px 20px 12px 18px;font-family:var(--f-display)}
+.agrp:first-child{border-top:0}
+.agrp b{font-size:19px;font-weight:500;color:var(--navy)}
+.agrp span{font-size:13px;color:var(--mute);font-family:var(--f-body)}
+.aitem{border-top:1px solid var(--line)}
+.aitem>.arow{width:100%;border:0;background:#fff;font:inherit;font-size:16px;color:var(--ink);text-align:left;cursor:pointer}
+.aitem>.arow:hover{background:#f8fafc}
+.aitem>.arow b{font-weight:600}.aitem>.arow span{white-space:nowrap}
+.chev{width:9px;height:9px;border-right:2px solid var(--mute);border-bottom:2px solid var(--mute);transform:rotate(-45deg);justify-self:center;transition:transform .2s}
+.aitem.open .chev{transform:rotate(45deg)}
+.apanel{display:none;background:#f8fafc;padding:22px 20px 24px 48px;gap:28px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);border-top:1px solid var(--line)}
+.aitem.open .apanel{display:grid}
+.apanel .fp{background:#fff;border:1px solid var(--line);border-radius:3px;padding:10px;display:flex;align-items:center;justify-content:center;min-height:190px}
+.apanel .fp img{max-width:100%;max-height:340px;display:block}
+.apanel .fp.none{color:var(--mute);font-size:14px}
+.apanel h4{font-size:22px;font-weight:500;color:var(--navy);margin:0 0 10px}
+.apanel ul{margin:0 0 16px;padding-left:18px;color:var(--ink-2);font-size:15.5px;line-height:1.7}
+.apanel .meta{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:var(--mute);margin:0 0 18px}
+.apanel .meta b{color:var(--ink);font-weight:600}
+.apanel .acts{display:flex;flex-wrap:wrap;gap:10px}
+.apanel .acts .btn{padding:12px 18px;font-size:14px}
+.aempty{padding:28px 20px;color:var(--mute);text-align:center;border-top:1px solid var(--line)}
+.mb{display:none}
+@media (max-width:860px){.arow{grid-template-columns:30px 1.3fr .9fr .8fr;padding-right:12px}.c-fl,.c-rt,.c-b,.c-tm,.c-us{display:none}.mb{display:block;font-size:13px;color:var(--mute);font-weight:400}.apanel{grid-template-columns:1fr;padding-left:20px}}
+.mpop a.lnk{font-size:14px;font-weight:600;color:var(--navy);text-decoration:none}.mpop a.lnk:hover{text-decoration:underline}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+</style>
+
+<header class="mast">
+  <div class="in">
+    <a class="brand" href="#top" aria-label="Neshaminy Interplex Business Center, home"><img src="/site/interplex/assets/logo-ip.png" alt="Neshaminy Interplex Business Center" width="1200" height="329"></a>
+    <nav class="nav" aria-label="Sections"><a href="#about">The Park</a><a href="#campus">Campus Map</a><a href="#amenities">Amenities</a><a href="#location">Location</a><a href="#commute">Commute</a><a href="#available">Available Space</a><a class="btn navy" href="#leasing">Leasing Inquiry</a></nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="h-hero">
+    <img src="/site/interplex/assets/p-aerial.jpg" alt="Aerial view of the Neshaminy Interplex buildings and courtyard in autumn" width="2000" height="1498">
+    <div class="in">
+      <p class="kick">Trevose · Bucks County · Philadelphia</p>
+      <h1 id="h-hero">Where business <b>works.</b></h1>
+      <p class="lede">Class A office suites in a landscaped corporate campus on U.S. Route 1, with a hotel, fitness center, child care and conference facilities a short walk from your door.</p>
+      <div class="ctas"><a class="btn olive" href="#leasing">Inquire about space</a><a class="btn ghost" href="#campus">Explore the campus</a></div>
+    </div>
+    <div class="stats"><div class="in">
+      <div><b data-count="{{TOTAL_SF_RAW}}">{{TOTAL_SF}}</b><span>SF Class A office</span></div>
+      <div><b id="bcount">10</b><span>Office buildings</span></div>
+      <div><b>274</b><span>Hotel rooms on campus</span></div>
+      <div><b>24/7</b><span>Tenant access</span></div>
+    </div></div>
+  </section>
+
+  <section class="sec" id="about" aria-labelledby="h-about">
+    <div class="in intro">
+      <div>
+        <p class="kick">Neshaminy Interplex Business Center®</p>
+        <h2 id="h-about">A <b>prestigious corporate address</b> just outside Philadelphia.</h2>
+        <p>Neshaminy Interplex Business Center is Bucks County's premier office park: Class A suites for lease in Bensalem Township, set among courtyards, fountains and walking trails, with an impressive array of on-site amenities and services. Owned and managed on site by Korman Commercial Properties.</p>
+        <div class="award"><b>Best of Bucks</b><span>Voted the county's best business center five years running, 2012 to 2016.</span></div>
+      </div>
+      <div class="duo">
+        <figure><img src="/site/interplex/assets/p-five.jpg" alt="The glass stair tower and entrance of Building Five" loading="lazy"></figure>
+        <figure><img src="/site/interplex/assets/p-lobby8.jpg" alt="The two-story lobby of Building Eight with its glass stair and sculptural 8" loading="lazy" style="object-position:30% 50%"></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec campus" id="campus" aria-labelledby="h-campus">
+    <div class="in">
+      <div class="sec-h"><div><p class="kick">Campus map</p><h2 id="h-campus">Explore the campus.</h2></div><p>Ten office buildings on one campus, all sharing the same amenities. Hover or tap a building for details.</p></div>
+      <div class="mapbox">
+        <div class="mapwrap" id="map">
+          <img src="/site/interplex/assets/campus-map.png" alt="Site map of the Neshaminy Interplex campus with buildings, roads and amenities" width="1109" height="684">
+          <svg viewBox="0 0 1109 684" id="mapov" role="group" aria-label="Buildings and amenities"></svg>
+          <div class="mpop" id="mpop" hidden></div>
+        </div>
+        <aside class="side">
+          <div><h3>Office buildings</h3></div>
+          <div class="blist" id="blist"></div>
+        </aside>
+        <div class="keys" id="keys"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="amenities" aria-labelledby="h-amen">
+    <div class="in">
+      <div class="sec-h"><div><p class="kick">Amenities &amp; services</p><h2 id="h-amen">Everything on campus.</h2></div><p>The services of a downtown tower, with the parking, green space and easy access of the suburbs.</p></div>
+      <div class="amen">
+        <div class="tile ph w2 h2"><img src="/site/interplex/assets/p-fountain.jpg" alt="The courtyard fountain surrounded by trees" loading="lazy"><h3>Landscaped Courtyards</h3><p>Fountains, shade trees and benches between the buildings, with walking trails along Poquessing Creek.</p></div>
+        <div class="tile navy-d"><span class="big">274</span><h3>Radisson Hotel</h3><p>On campus for visiting clients and teams.</p></div>
+        <div class="tile olive"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h3M18 12h3M6 8v8M18 8v8M9 10v4M15 10v4M9 12h6"/></svg><h3>Fitness Center</h3><p>On site in Building Eight.</p></div>
+        <div class="tile ph"><img src="/site/interplex/assets/p-conference.jpg" alt="Conference center with a large U-shaped wood table and projection screen" loading="lazy" style="object-position:50% 65%"><h3>Conference Center</h3><p>Meeting rooms for teams and events.</p></div>
+        <div class="tile ph"><img src="/site/interplex/assets/p-bbq.jpg" alt="Tenants at a food truck lunch outside an Interplex building" loading="lazy"><h3>Food Truck Program</h3><p>Plus tenant appreciation events all year.</p></div>
+        <div class="tile ph w2"><img src="/site/interplex/assets/p-suite.jpg" alt="A renovated office suite with white floors, oak-framed glass offices and an outdoor terrace" loading="lazy"><h3>Class A Suites</h3><p>From single offices to full floors, built to suit.</p></div>
+        <div class="tile navy-d"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="7" r="3"/><path d="M5 21c0-4 3-7 7-7s7 3 7 7"/></svg><h3>Child Care</h3><p>Just Children child care center on campus.</p></div>
+        <div class="tile olive"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 3v8M5 3v4a2 2 0 004 0V3M7 11v10M16 3c-1.5 0-3 2-3 5s1.5 4 3 4v9"/></svg><h3>Wawa on Campus</h3><p>Coffee, food and fuel at the campus edge on Route 1.</p></div>
+      </div>
+      <div class="feat">
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><b>24 Hour Access</b></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="5" y="3" width="14" height="15" rx="2"/><path d="M5 12h14M8 21v-3M16 21v-3"/><circle cx="8.5" cy="15" r=".8"/><circle cx="15.5" cy="15" r=".8"/></svg><b>Bus Line</b></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z"/></svg><b>Security System</b></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 2L5 14h6l-1 8 8-12h-6z"/></svg><b>Car Charging Station</b></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg><b>Property Manager on Site</b></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 20c4-1 4-6 8-7s4-6 8-7"/><circle cx="20" cy="6" r="1.5"/></svg><b>Walking Trails</b></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" aria-label="Gallery" style="padding-top:0">
+    <div class="in gal">
+      <figure class="g1"><img src="/site/interplex/assets/p-seven.jpg" alt="Building Seven framed by blossoming cherry trees" loading="lazy"><figcaption>Building Seven</figcaption></figure>
+      <figure class="g2"><img src="/site/interplex/assets/p-entrance.jpg" alt="The Interplex entrance sign with flags and flower beds" loading="lazy"><figcaption>Main Entrance</figcaption></figure>
+      <figure class="g3"><img src="/site/interplex/assets/p-lobby8.jpg" alt="Building Eight lobby" loading="lazy" style="object-position:70% 60%"><figcaption>Building Eight Lobby</figcaption></figure>
+      <figure class="g4"><img src="/site/interplex/assets/p-seven-side.jpg" alt="Garden path and benches beside Building Seven" loading="lazy"><figcaption>Garden Walks</figcaption></figure>
+      <figure class="g5"><img src="/site/interplex/assets/p-suite.jpg" alt="Renovated office suite" loading="lazy" style="object-position:70% 50%"><figcaption>Renovated Suites</figcaption></figure>
+      <figure class="g6"><img src="/site/interplex/assets/p-boardroom.jpg" alt="Conference room" loading="lazy"><figcaption>Conference Rooms</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="ow" aria-labelledby="h-ow">
+    <div class="in">
+      <figure><img src="/site/interplex/assets/p-ow-ext.jpg" alt="Building Five at dusk with The Office Works signage on the facade" loading="lazy" style="object-position:center 45%"></figure>
+      <div class="txt">
+        <p class="kick">On campus · Building Five</p>
+        <h2 id="h-ow">Need a smaller space?</h2>
+        <img class="owlogo" src="/site/interplex/assets/logo-ow-white.png" alt="The Office Works" width="900" height="272">
+        <p>Furnished private offices, virtual offices and meeting space by the hour, with a receptionist and full support services. A flexible way to start at the Interplex and grow into a suite.</p>
+        <div class="ctas"><a class="btn olive" href="#leasing" data-int="The Office Works">Ask about The Office Works</a><a class="btn line" href="/office-works">Visit The Office Works</a></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="location" aria-labelledby="h-loc">
+    <div class="in loc">
+      <div>
+        <p class="kick">Location</p>
+        <h2 id="h-loc">On Route 1, minutes from everything.</h2>
+        <p>At U.S. Route 1 and Old Lincoln Highway on the Philadelphia–Bucks County line, with the PA Turnpike interchange just up Route 1, SEPTA Regional Rail nearby and a bus line at the door.</p>
+        <p style="margin-top:22px;font-weight:600;color:var(--ink)">8 Neshaminy Interplex<br>Trevose, PA 19053</p>
+        <div style="margin-top:26px"><a class="btn line" href="https://www.google.com/maps/search/?api=1&amp;query=Neshaminy+Interplex+Trevose+PA+19053" target="_blank" rel="noopener">Open in Google Maps</a></div>
+      </div>
+      <div class="trips" id="trips"></div>
+    </div>
+  </section>
+
+
+  <section class="sec commute" id="commute" aria-labelledby="h-com">
+    <div class="in">
+      <div class="sec-h"><div><p class="kick">Commute</p><h2 id="h-com">Closer to your team.</h2></div><p>Shorter drives for the people you want to hire, and no city parking.</p></div>
+      <div class="ccards" id="ccards"></div>
+      <div class="cother"><label for="cpick">Check another town</label><select id="cpick"><option value="">Choose a town</option></select><span id="cout" aria-live="polite"></span></div>
+      <p class="cnote">Estimated off-peak drive times. Rush hour adds time, especially into Center City.</p>
+    </div>
+  </section>
+  <section class="sec av-sec" id="available" aria-labelledby="h-avail">
+    <div class="in">
+      <div class="sec-h"><div><p class="kick">Available space</p><h2 id="h-avail">Find the right suite.</h2></div><p><b id="avcount"></b> Open a row for details and floor plans.</p></div>
+      <p class="sample" id="avsample" hidden>Sample listings shown for layout. Real availability coming soon.</p>
+      <div class="acontrols"><div class="afilt" id="afilt" role="group" aria-label="Filter by size"><span>Size</span></div>
+        <div class="asel"><label>Building<select id="abld"><option value="">All buildings</option></select></label><label>Sort<select id="asort"><option value="sf">Size: small to large</option><option value="sfd">Size: large to small</option><option value="b">Building</option></select></label></div></div>
+      <div class="atable" role="table" aria-label="Available space">
+        <div class="arow ahead" role="row"><span role="columnheader"></span><span role="columnheader" class="c-b">Building</span><span role="columnheader">Suite</span><span role="columnheader">Size</span><span role="columnheader" class="c-fl">Floor</span><span role="columnheader" class="c-tm">Term</span><span role="columnheader" class="c-rt">Rate</span><span role="columnheader" class="c-us">Space use</span><span role="columnheader">Available</span></div>
+        <div id="arows"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="lease" id="leasing" aria-labelledby="h-lease">
+    <img src="/site/interplex/assets/p-entrance.jpg" alt="" loading="lazy">
+    <div class="in">
+      <div>
+        <p class="kick">Leasing</p>
+        <h2 id="h-lease">Find your space at the Interplex.</h2>
+        <p>Suites from a few thousand square feet to full floors. Tell us what you need and we'll set up a tour.</p>
+        <div class="agent">
+          <span class="nm">Nancy Fox</span>
+          <span class="rl">Korman Commercial Properties</span>
+          <div><b><a href="tel:+12152445175">(215) 244-5175</a></b><button class="copy" type="button" data-copy="(215) 244-5175">Copy</button></div>
+          <div><b><a href="mailto:nfox@kormancommercial.com">nfox@kormancommercial.com</a></b><button class="copy" type="button" data-copy="nfox@kormancommercial.com">Copy</button></div>
+        </div>
+      </div>
+      <div>
+        <form class="f" id="lf" novalidate>
+          <h3 class="full">Leasing inquiry</h3>
+          <label>Name<input id="l-name" autocomplete="name" required></label>
+          <label>Company<input id="l-co" autocomplete="organization"></label>
+          <label>Email<input id="l-email" type="email" autocomplete="email" required></label>
+          <label>Phone<input id="l-phone" type="tel" autocomplete="tel"></label>
+          <label>Space needed<select id="l-size"><option>Under 2,500 SF</option><option>2,500–5,000 SF</option><option>5,000–10,000 SF</option><option>10,000 SF+</option><option>The Office Works (furnished offices)</option></select></label>
+          <label>Building of interest<select id="l-bld"><option value="">No preference</option></select></label>
+          <label class="hp" aria-hidden="true">Website<input id="l-web" tabindex="-1" autocomplete="off"></label>
+          <label class="full">Notes<textarea id="l-msg" placeholder="Timing, headcount, parking, anything else"></textarea></label>
+          <p class="err full" id="l-err" hidden></p>
+          <div class="full"><button class="btn navy" type="submit" id="l-send">Send inquiry</button></div>
+        </form>
+        <div class="done" id="ldone" hidden>
+          <h3 style="color:var(--navy)">Thanks — your inquiry is in.</h3>
+          <p style="color:var(--ink-2);margin-top:8px">Nancy Fox will be in touch. Questions in the meantime? Call (215) 244-5175.</p>
+          <pre id="lsum"></pre>
+          <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn line" type="button" id="ledit">Send another</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="in">
+    <img class="ip" src="/site/interplex/assets/logo-ip.png" alt="Neshaminy Interplex Business Center" width="1200" height="329">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap"><span>Owned and managed by</span><span class="kor"><img src="/site/interplex/assets/korman-white.png" alt="Korman Commercial Properties" width="235" height="34"></span></div>
+    <small>Neshaminy Interplex Business Center® · 8 Neshaminy Interplex, Trevose, PA 19053 · (215) 244-5175</small>
+  </div>
+</footer>
+
+<script>
+/* Buildings: polygon in campus-map.png pixels (1109×684). avail = listed space range (update from leasing). */
+const BUILDINGS=[
+ {id:"1",name:"Building One",group:"drive",photo:"/site/interplex/assets/b-1.jpg",pts:"761,305 809,293 820,335 772,348",avail:"2,394 SF",note:"ATM on site.",keys:["E"]},
+ {id:"2",name:"Building Two",group:"drive",photo:"/site/interplex/assets/b-2.jpg",pts:"841,308 888,294 903,342 855,356",avail:"2,587 – 7,400 SF",note:"",keys:[]},
+ {id:"4",name:"Building Four",group:"drive",photo:"/site/interplex/assets/b-4.jpg",pts:"752,232 800,208 822,250 775,274",avail:"2,495 – 3,678 SF",note:"",keys:[]},
+ {id:"5",name:"Building Five",group:"circle",photo:"/site/interplex/assets/b-5.jpg",pts:"518,246 561,232 583,290 572,296 540,306",avail:"",note:"Home of The Office Works®, furnished private offices and virtual offices.",keys:["G"]},
+ {id:"6",name:"Building Six",group:"circle",photo:"/site/interplex/assets/b-6.jpg",pts:"378,362 421,342 451,334 471,346 469,366 439,369 412,384 389,402 376,392",avail:"1,992 – 18,474 SF",note:"Conference center.",keys:["H"]},
+ {id:"7",name:"Building Seven",group:"circle",photo:"/site/interplex/assets/b-7.jpg",pts:"412,242 429,236 449,256 465,286 459,309 441,314 423,292 409,264",avail:"3,170 – 9,877 SF",note:"",keys:[]},
+ {id:"8",name:"Building Eight",group:"circle",photo:"/site/interplex/assets/b-8.jpg",pts:"321,250 375,226 391,236 371,269 353,286 343,319 349,354 364,366 353,376 331,366 313,342 304,300",avail:"2,447 – 20,847 SF",note:"Fitness center, conference center and management office. Adjacent parking deck.",keys:["I","H","F"]},
+ {id:"A",name:"Kor Center A",group:"kor",photo:"/site/interplex/assets/b-A.jpg",pts:"1026,102 1076,102 1076,139 1026,139",avail:"",note:"",keys:[]},
+ {id:"B",name:"Kor Center B",group:"kor",photo:"/site/interplex/assets/b-B.jpg",pts:"903,36 933,36 933,92 903,92",avail:"",note:"Just Children child care center.",keys:["J"]},
+ {id:"C",name:"Kor Center C",group:"kor",photo:"/site/interplex/assets/b-C.jpg",pts:"1011,36 1076,36 1076,69 1011,69",avail:"",note:"",keys:[]}
+];
+/* ============ AVAILABLE SPACE ============
+   One entry per vacant suite. This list drives the table, the size filters, the building
+   "Available" tags in the map list, and the SF range in each map popover.
+   Fields: bldg (must match a BUILDINGS id: "1","2","4","5","6","7","8","A","B","C"), suite, sf (number),
+   floor, available ("Now" or a date), rate (optional; defaults to "Upon request"),
+   details (optional bullet list), floorplan (optional image path, e.g. "fp-8-200.jpg").
+   SAMPLE_DATA: set to false once the real list is in; it hides the yellow "sample listings" notice. */
+const SAMPLE_DATA=false;
+const TERM="1–5 years", USE="Office"; /* default lease term shown for every suite; a suite can override with term:"..."; USE = default space use, override with use:"..." */
+const SPACES=/*@SPACES@*/[];
+const SIZES=[{id:"all",label:"All"},{id:"s",label:"Under 2,500 SF",min:0,max:2499},{id:"m",label:"2,500–5,000",min:2500,max:5000},{id:"l",label:"5,000–10,000",min:5001,max:10000},{id:"xl",label:"10,000+",min:10001,max:1e9}];
+const fmt=n=>n.toLocaleString("en-US");
+/* derive each building's "avail" range from SPACES so the map always matches the table */
+BUILDINGS.forEach(b=>{const s=SPACES.filter(x=>x.bldg===b.id).map(x=>x.sf);b.count=s.length;
+  b.avail=s.length?(s.length===1||Math.min(...s)===Math.max(...s)?fmt(s[0])+" SF":fmt(Math.min(...s))+" – "+fmt(Math.max(...s))+" SF"):""});
+
+const GROUPS=[
+ {id:"circle",name:"Interplex Circle",sub:"Buildings 5–8 · signature lobbies around the central courtyard"},
+ {id:"drive",name:"Interplex Drive",sub:"Buildings 1, 2 & 4 · around their own courtyard"},
+ {id:"kor",name:"Kor Center",sub:"Buildings A, B & C · along Interplex Drive"}];
+const KEYS={A:"Car rental & limousine service",B:"Wawa with gas station",D:"Outdoor exercise trail",E:"ATM",F:"Management office",G:"The Office Works",H:"Conference center",I:"Fitness center",J:"Just Children child care center"};
+const OTHER=[
+ {id:"rad",name:"Radisson Hotel",kick:"Hotel · On campus",logo:"/site/interplex/assets/logo-radisson.png",photo:"/site/interplex/assets/b-rad.jpg",pts:"583,387 631,366 686,376 719,399 723,444 693,474 651,496 611,486 586,444",note:"274-room hotel for visiting clients and teams. Car rental & limousine service."},
+ {id:"wawa",name:"Wawa",kick:"On campus · Route 1",logo:"/site/interplex/assets/logo-wawa.png",photo:"/site/interplex/assets/b-wawa.jpg",pts:"306,486 402,486 402,534 306,534",note:"Coffee, built-to-order food and a 24-hour gas station at the campus entrance on Route 1."}
+];
+[...BUILDINGS,...OTHER].forEach(b=>{if(b.photo){const i=new Image();i.src=b.photo}});
+const TRIPS=[{to:"Trevose station",n:"SEPTA Regional Rail",m:5,mi:1.7},{to:"Neshaminy Falls station",n:"SEPTA Regional Rail",m:6,mi:2.4},{to:"Trenton-Mercer Airport",n:"TTN",m:27,mi:16.5},{to:"Philadelphia International",n:"PHL",m:46,mi:29.6}];
+
+(function(){
+  const ns="http://www.w3.org/2000/svg",svg=document.getElementById("mapov"),pop=document.getElementById("mpop"),wrap=document.getElementById("map"),list=document.getElementById("blist"),sel=document.getElementById("l-bld");
+  let pinned=null;
+  function bbox(p){const xs=[],ys=[];p.trim().split(/\s+/).forEach(q=>{const[a,b]=q.split(",").map(Number);xs.push(a);ys.push(b)});return{x:Math.min(...xs),y:Math.min(...ys),w:Math.max(...xs)-Math.min(...xs),h:Math.max(...ys)-Math.min(...ys)}}
+  function show(o,pin){
+    pinned=pin?o.id:null;
+    svg.querySelectorAll(".bld").forEach(g=>g.classList.toggle("sel",g.dataset.id===o.id));
+    list.querySelectorAll("button").forEach(b=>b.classList.toggle("sel",b.dataset.id===o.id));
+    const isB=!!o.keys;
+    pop.innerHTML=`${pin?'<button class="x" type="button" aria-label="Close">&times;</button>':""}${o.photo?`<img class="pimg" src="${o.photo}" alt="${o.name} entrance">`:""}${o.logo?`<img class="plogo" src="${o.logo}" alt="${o.name}">`:""}<span class="k">${isB?(GROUPS.find(g=>g.id===o.group)||{name:"Neshaminy Interplex"}).name:o.kick}</span>${o.logo?"":`<h3>${o.name}</h3>`}${o.avail?`<span class="avail">${o.count} ${o.count===1?"suite":"suites"} · ${o.avail.replace(" – ","–")}</span>`:""}${o.note?`<p>${o.note}</p>`:""}${isB?(o.avail?`<a class="lnk" href="#available" data-b="${o.id}">See available suites &rarr;</a>`:"")+`<a class="btn navy" href="#leasing">Inquire about ${o.name}</a>`:""}`;
+    pop.hidden=false;
+    const b=bbox(o.pts),B=wrap.querySelector("img").getBoundingClientRect(),k=B.width/1109;
+    pop.classList.remove("below","sl","sr","dock");
+    const ph=pop.offsetHeight,pw=pop.offsetWidth,cx=(b.x+b.w/2)*k,cy=(b.y+b.h/2)*k,top=b.y*k,bot=(b.y+b.h)*k;
+    const sideR=(b.x+b.w)*k+pw+20<=B.width,sideL=b.x*k-pw-20>=0,sideOK=ph+16<=B.height&&(sideR||sideL);
+    if(!(top>=ph+16||bot+ph+16<=B.height||sideOK)){pop.classList.add("dock");pop.style.left=pop.style.top="";return wireBtns()}  /* map too small: dock under it */
+    if(top>=ph+16||bot+ph+16<=B.height){                                /* above, else below */
+      const below=top<ph+16,left=Math.min(Math.max(cx,pw/2+8),B.width-pw/2-8);
+      pop.classList.toggle("below",below);pop.style.left=left+"px";pop.style.top=(below?bot:top)+"px";pop.style.setProperty("--ax",(pw/2+cx-left)+"px");
+    }else{                                                               /* neither fits: beside the building, clamped inside the map */
+      const right=sideR,t=Math.min(Math.max(cy-ph/2,8),B.height-ph-8);
+      pop.classList.add(right?"sr":"sl");pop.style.left=(right?(b.x+b.w)*k+12:b.x*k-12)+"px";pop.style.top=t+"px";pop.style.setProperty("--ay",(cy-t)+"px");
+    }
+    wireBtns();
+    function wireBtns(){
+    const x=pop.querySelector(".x");if(x)x.onclick=e=>{e.stopPropagation();hide(true)};
+    const a=pop.querySelector("a.btn");if(a)a.onclick=()=>{sel.value=o.id};
+    const l=pop.querySelector("a.lnk");if(l)l.onclick=e=>{e.preventDefault();hide(true);AV.building(o.id)};
+    }
+  }
+  function hide(f){if(pinned&&!f)return;pinned=null;pop.hidden=true;svg.querySelectorAll(".sel").forEach(g=>g.classList.remove("sel"));list.querySelectorAll(".sel").forEach(g=>g.classList.remove("sel"))}
+  function add(o,isB){
+    const g=document.createElementNS(ns,"g");g.setAttribute("class","bld"+(o.avail?" has":""));g.dataset.id=o.id;if(o.group)g.dataset.g=o.group;g.setAttribute("tabindex","0");g.setAttribute("role","button");g.setAttribute("aria-label",o.name+(o.avail?`, space available ${o.avail}`:""));
+    const p=document.createElementNS(ns,"polygon");p.setAttribute("points",o.pts);g.append(p);
+    g.addEventListener("mouseenter",()=>{if(!pinned)show(o,false)});g.addEventListener("mouseleave",()=>{if(!pinned)hide()});
+    g.addEventListener("click",e=>{e.stopPropagation();pinned===o.id?hide(true):show(o,true)});
+    g.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();show(o,true)}});
+    svg.append(g);
+    if(isB){
+      const b=document.createElement("button");b.type="button";b.dataset.id=o.id;b.innerHTML=`<span class="n">${o.id}</span><span>${o.name}</span><span class="a">${o.avail?"Available":""}</span>`;
+      b.addEventListener("mouseenter",()=>{if(!pinned)show(o,false)});b.addEventListener("mouseleave",()=>{if(!pinned)hide()});
+      b.addEventListener("click",e=>{e.stopPropagation();wrap.scrollIntoView({behavior:"smooth",block:"center"});show(o,true)});
+      list.append(b);
+      const op=document.createElement("option");op.value=o.id;op.textContent=o.name;sel.append(op);
+    }
+  }
+  OTHER.forEach(o=>add(o,false));
+  GROUPS.forEach(gr=>{
+    const h=document.createElement("div");h.className="ghead";h.innerHTML=`<b>${gr.name}</b>`;h.title=gr.sub;
+    h.addEventListener("mouseenter",()=>{if(!pinned)svg.querySelectorAll(`.bld[data-g="${gr.id}"]`).forEach(g=>g.classList.add("grp"))});
+    h.addEventListener("mouseleave",()=>svg.querySelectorAll(".grp").forEach(g=>g.classList.remove("grp")));
+    list.append(h);
+    BUILDINGS.filter(o=>o.group===gr.id).sort((a,b)=>isNaN(a.id)?a.id.localeCompare(b.id):a.id-b.id).forEach(o=>add(o,true));
+  });
+  const bc=document.getElementById("bcount");if(bc)bc.textContent=BUILDINGS.length;
+  const kd=document.getElementById("keys");Object.entries(KEYS).forEach(([k,v])=>{kd.insertAdjacentHTML("beforeend",`<i>${k}</i><span>${v}</span>`)});
+  document.addEventListener("click",e=>{if(pinned&&!pop.contains(e.target))hide(true)});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")hide(true)});
+  window.addEventListener("resize",()=>hide(true));
+})();
+
+(function(){const box=document.getElementById("trips"),max=Math.max(...TRIPS.map(t=>t.m));
+  TRIPS.forEach(t=>box.insertAdjacentHTML("beforeend",`<div class="trip"><div><b>${t.to}</b><br><span>${t.n} · ${t.mi} mi</span></div><div class="m">${t.m}<small>min</small></div><div class="bar"><i style="width:${Math.max(6,t.m/max*100)}%"></i></div></div>`))})();
+
+/* count-up for the GLA stat */
+(function(){const el=document.querySelector("[data-count]");if(!el||matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const end=+el.dataset.count,t0=performance.now(),d=1600;function f(t){const p=Math.min(1,(t-t0)/d),e=1-Math.pow(1-p,3);el.textContent=Math.round(end*e).toLocaleString("en-US");if(p<1)requestAnimationFrame(f)}requestAnimationFrame(f)})();
+
+function copyText(t,btn,el){const ok=()=>{const l=btn.textContent;btn.textContent="Copied";setTimeout(()=>btn.textContent=l,1600)};
+  try{navigator.clipboard.writeText(t).then(ok).catch(()=>sel(el))}catch(e){sel(el)}}
+function sel(el){if(!el)return;const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)}
+document.querySelectorAll(".copy").forEach(b=>b.addEventListener("click",()=>copyText(b.dataset.copy,b,b.previousElementSibling)));
+document.querySelectorAll("[data-int]").forEach(a=>a.addEventListener("click",()=>{document.getElementById("l-size").value="The Office Works (furnished offices)"}));
+
+(function(){
+  const f=document.getElementById("lf"),done=document.getElementById("ldone"),err=document.getElementById("l-err"),sum=document.getElementById("lsum");
+  f.addEventListener("submit",async e=>{e.preventDefault();const v=id=>document.getElementById(id).value.trim();
+    const em=v("l-email"),miss=[];if(!v("l-name"))miss.push("your name");if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))miss.push("a valid email");
+    if(miss.length){err.textContent="Add "+miss.join(" and ")+" so we can follow up.";err.hidden=false;return}err.hidden=true;
+    const bs=document.getElementById("l-bld"),bld=bs.value?bs.options[bs.selectedIndex].text:"",btn=document.getElementById("l-send");
+    const lines=[`Space needed: ${v("l-size")}`,`Building: ${bld||"No preference"}`,"",`Name: ${v("l-name")}`];
+    if(v("l-co"))lines.push(`Company: ${v("l-co")}`);lines.push(`Email: ${em}`);if(v("l-phone"))lines.push(`Phone: ${v("l-phone")}`);if(v("l-msg"))lines.push("",`Notes: ${v("l-msg")}`);
+    btn.disabled=true;btn.textContent="Sending…";
+    try{
+      const r=await fetch("/api/website/leasing",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({size:v("l-size"),building:bld,name:v("l-name"),company:v("l-co"),email:em,phone:v("l-phone"),notes:v("l-msg"),website:v("l-web")})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok||!j.success)throw new Error(j.message||"Your inquiry could not be sent. Please call (215) 244-5175.");
+      sum.textContent=lines.join("\n");f.hidden=true;done.hidden=false;f.reset();
+    }catch(x){err.textContent=x.message||"Your inquiry could not be sent. Please call (215) 244-5175.";err.hidden=false}
+    finally{btn.disabled=false;btn.textContent="Send inquiry"}});
+  document.getElementById("ledit").addEventListener("click",()=>{done.hidden=true;f.hidden=false});
+})();
+
+/* ---------- Commute tool: estimated off-peak drive times ---------- */
+(function(){
+  const IP=[40.1385,-74.9745],CC=[39.9526,-75.1652];
+  const TOWNS={
+   "Bucks County":[["Bensalem",40.1046,-74.9510],["Feasterville",40.1440,-75.0052],["Langhorne",40.1746,-74.9227],["Levittown",40.1551,-74.8288],["Southampton",40.1757,-75.0377],["Richboro",40.2151,-75.0108],["Newtown",40.2290,-74.9368],["Yardley",40.2457,-74.8460],["Bristol",40.1007,-74.8518],["Morrisville",40.2115,-74.7880],["Warminster",40.2068,-75.0996],["Doylestown",40.3101,-75.1299],["New Hope",40.3643,-74.9513]],
+   "Montgomery County":[["Huntingdon Valley",40.1365,-75.0627],["Abington",40.1207,-75.1182],["Jenkintown",40.0959,-75.1252],["Willow Grove",40.1440,-75.1157],["Horsham",40.1784,-75.1285],["Fort Washington",40.1415,-75.2093],["Ambler",40.1546,-75.2216],["Blue Bell",40.1523,-75.2663],["Lansdale",40.2415,-75.2838],["Conshohocken",40.0793,-75.3016],["King of Prussia",40.0893,-75.3963]],
+   "Philadelphia":[["Somerton",40.1287,-75.0157],["Fox Chase",40.0790,-75.0830],["Mayfair",40.0390,-75.0520],["Chestnut Hill",40.0765,-75.2085],["Manayunk",40.0262,-75.2240],["Fishtown",39.9714,-75.1340],["University City",39.9522,-75.1932],["South Philadelphia",39.9250,-75.1690]],
+   "New Jersey":[["Burlington",40.0712,-74.8649],["Willingboro",40.0279,-74.8691],["Moorestown",39.9689,-74.9488],["Mount Laurel",39.9340,-74.8910],["Cherry Hill",39.9348,-75.0307],["Trenton",40.2171,-74.7429],["Hamilton",40.2290,-74.6670],["Princeton",40.3573,-74.6672]]
+  };
+  const hav=(a,b)=>{const R=3958.8,t=x=>x*Math.PI/180,dl=t(b[0]-a[0]),dn=t(b[1]-a[1]),h=Math.sin(dl/2)**2+Math.cos(t(a[0]))*Math.cos(t(b[0]))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
+  // road distance ≈ straight line × circuity; off-peak avg ~37 mph + 4 min local; downtown adds 7 min for Center City streets/garage
+  const drive=(p,dest,nj)=>{const d=hav(p,dest)*(nj?1.38:1.3);return Math.max(5,Math.round(4+d/0.62+(dest===CC?7:0)))};
+  const all=[];Object.entries(TOWNS).forEach(([g,list])=>list.forEach(([n,la,lo])=>{const nj=g==="New Jersey";all.push({n,g,p:[la,lo],ip:drive([la,lo],IP,nj),cc:drive([la,lo],CC,nj)})}));
+  const cards=document.getElementById("ccards");
+  ["Bensalem","Levittown","Newtown"].forEach(n=>{const t=all.find(x=>x.n===n);
+    cards.insertAdjacentHTML("beforeend",`<div class="ccard"><span class="town">${t.n}</span><b>${t.ip}<small>min</small></b><span class="to">to the Interplex</span><div class="vs"><i style="width:${t.ip/t.cc*100}%"></i></div><span class="cc">vs. ${t.cc} min to Center City</span></div>`)});
+  const pick=document.getElementById("cpick"),out=document.getElementById("cout");
+  Object.keys(TOWNS).forEach(g=>{const og=document.createElement("optgroup");og.label=g;all.filter(t=>t.g===g).forEach(t=>{const o=document.createElement("option");o.value=t.n;o.textContent=t.n;og.append(o)});pick.append(og)});
+  pick.onchange=()=>{const t=all.find(x=>x.n===pick.value);out.innerHTML=t?`<b>~${t.ip} min</b> to the Interplex · ~${t.cc} min to Center City · <a href="https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(t.n+", "+(t.g==="New Jersey"?"NJ":"PA"))}&destination=Neshaminy+Interplex+Trevose+PA" target="_blank" rel="noopener">Live route</a>`:""};
+})();
+
+/* ---------- Available space table ---------- */
+const AV=(function(){
+  const rows=document.getElementById("arows"),filt=document.getElementById("afilt"),cnt=document.getElementById("avcount");
+  document.getElementById("avsample").hidden=!SAMPLE_DATA;
+  let size="all",bf=null;
+  const bName=id=>(BUILDINGS.find(b=>b.id===id)||{name:"Building "+id}).name;
+  SIZES.forEach(z=>{const b=document.createElement("button");b.type="button";b.textContent=z.label;b.dataset.z=z.id;if(z.id==="all")b.classList.add("on");
+    b.onclick=()=>{size=z.id;filt.querySelectorAll("[data-z]").forEach(x=>x.classList.toggle("on",x===b));render()};filt.append(b)});
+  const bsel=document.getElementById("abld"),ssel=document.getElementById("asort");let sort="sf";
+  BUILDINGS.filter(b=>SPACES.some(x=>x.bldg===b.id)).forEach(b=>bsel.insertAdjacentHTML("beforeend",`<option value="${b.id}">${b.name}</option>`));
+  bsel.onchange=()=>{bf=bsel.value||null;render()};ssel.onchange=()=>{sort=ssel.value;render()};
+  function render(){
+    const z=SIZES.find(x=>x.id===size),list=SPACES.filter(s=>(!z.min&&!z.max||s.sf>=z.min&&s.sf<=z.max)&&(!bf||s.bldg===bf));
+    bsel.value=bf||"";bsel.classList.toggle("on",!!bf);
+    const tot=SPACES.length,nb=new Set(SPACES.map(s=>s.bldg)).size;
+    cnt.textContent=`${tot} ${tot===1?"suite":"suites"} available across ${nb} ${nb===1?"building":"buildings"}.`;
+    rows.innerHTML="";
+    if(!list.length){rows.innerHTML=`<div class="aempty">No suites in this size range right now. <a href="#leasing">Tell us what you need</a> and we'll let you know.</div>`;return}
+    list.slice().sort((a,b)=>{const ord=BUILDINGS.map(x=>x.id);return sort==="sfd"?b.sf-a.sf:sort==="b"?(ord.indexOf(a.bldg)-ord.indexOf(b.bldg))||(a.sf-b.sf):a.sf-b.sf}).forEach((s,i)=>{
+        const id=s.bldg;
+        const it=document.createElement("div");it.className="aitem";const pid=`ap-${i}`;
+        it.innerHTML=`<button class="arow" type="button" aria-expanded="false" aria-controls="${pid}"><span class="chev" aria-hidden="true"></span><span class="c-b">${bName(id)}</span><span><b>${s.suite}</b><span class="mb">${bName(id)}</span></span><span>${fmt(s.sf)} SF</span><span class="c-fl">${s.floor||"—"}</span><span class="c-tm">${s.term||TERM}</span><span class="c-rt">${s.rate||"Upon request"}</span><span class="c-us">${s.use||USE}</span><span>${s.available||"Now"}</span></button>
+          <div class="apanel" id="${pid}" role="region" aria-label="${bName(id)} ${s.suite} details">
+            <div class="fp${s.floorplan?"":" none"}">${s.floorplan?`<img src="${s.floorplan}" alt="Floor plan of ${bName(id)} ${s.suite}" loading="lazy">`:"Floor plan available on request"}</div>
+            <div><h4>${bName(id)} · ${s.suite}</h4>
+              ${s.details&&s.details.length?`<ul>${s.details.map(x=>`<li>${x}</li>`).join("")}</ul>`:""}
+              <p class="meta"><span>Size <b>${fmt(s.sf)} SF</b></span>${s.floor?`<span>Floor <b>${s.floor}</b></span>`:""}<span>Term <b>${s.term||TERM}</b></span><span>Rate <b>${s.rate||"Upon request"}</b></span><span>Space use <b>${s.use||USE}</b></span><span>Available <b>${s.available||"Now"}</b></span></p>
+              <div class="acts"><a class="btn navy inq" href="#leasing">Inquire about this suite</a><button class="btn line see" type="button">View on campus map</button></div>
+            </div>
+          </div>`;
+        const h=it.querySelector(".arow");h.onclick=()=>{const o=it.classList.toggle("open");h.setAttribute("aria-expanded",o)};
+        it.querySelector(".inq").onclick=()=>{const sel=document.getElementById("l-bld"),sz=document.getElementById("l-size"),msg=document.getElementById("l-msg");
+          if(sel)sel.value=id;if(sz)sz.selectedIndex=s.sf<2500?0:s.sf<=5000?1:s.sf<=10000?2:3;if(msg&&!msg.value)msg.value=`Interested in ${bName(id)}, ${s.suite} (${fmt(s.sf)} SF).`};
+        it.querySelector(".see").onclick=()=>{const g=document.querySelector(`#mapov .bld[data-id="${id}"]`);document.getElementById("map").scrollIntoView({behavior:"smooth",block:"center"});
+          if(g)setTimeout(()=>g.dispatchEvent(new MouseEvent("click",{bubbles:true})),450)};
+        rows.append(it);
+    });
+  }
+  render();
+  return{building(id){bf=id;size="all";filt.querySelectorAll("[data-z]").forEach(x=>x.classList.toggle("on",x.dataset.z==="all"));render();document.getElementById("available").scrollIntoView({behavior:"smooth"})}};
+})();
+</script>
+
+</body>
+</html>

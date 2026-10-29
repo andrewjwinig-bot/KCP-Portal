@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { SITE_BASE, propertyPath, sitePath, siteAsset } from "@/lib/site/paths";
+import { SITE_BASE, isDesignedPath, propertyPath, sitePath, siteAsset } from "@/lib/site/paths";
 import { SITE_CATEGORIES, SITE_PROPERTIES, type SiteProperty } from "@/lib/site/content";
 import { useSiteLoading } from "./SiteLoading";
 import { ArrowRight, Building, ChevronDown, ExternalLink, Mail, MapPin, Menu, Phone, Search, WalletMinimal, Wrench, X } from "./icons";
@@ -202,7 +202,7 @@ function searchSite(query: string): { properties: SiteProperty[]; pages: PageHit
 const propertyHref = (p: SiteProperty) => propertyPath(p.category, p.slug);
 // A designed page (a centre, The Office Works) is served whole by a route handler, not a Next page,
 // so it is reached by a full page load rather than client navigation.
-const isDesignedHref = (href: string) => !href.startsWith("/site");
+const isDesignedHref = isDesignedPath;
 
 function SearchModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [query, setQuery] = useState("");
