@@ -511,8 +511,9 @@ the site's search do a full load (a route handler is not a Next page).
   larger"): "Crop to the suite" on the unit page's Floorplan card, then drag a
   box on the whole sheet; stored as `crop` (`PlanCrop`, fractions of the sheet
   AS DRAWN at its absolute `rotation` — `cropAt` ignores it at any other turn,
-  and a turn clears it). The website draws that box large with "View the full
-  floor plan (PDF)" under it. HAND-DRAWN ON PURPOSE: an automatic crop (the
+  and a turn clears it). The website draws that box large as a PREVIEW (labelled "Preview — suite only") with a
+  "Full floor plan (PDF)" button under it — the crop never replaces the PDF
+  (owner: "just like preview crop then still have the full info for download"). HAND-DRAWN ON PURPOSE: an automatic crop (the
   plan window found from the grey shading) was tried on all 42 plans and cut
   into the suite on too many. **The Rent Roll's Vacancy Summary rows open the unit page** (where the
   floor plan is uploaded; "+ Add" where none is on file).
