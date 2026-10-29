@@ -490,6 +490,12 @@ the site's search do a full load (a route handler is not a Next page).
   serves ONLY that suite's floorplan (never its other attachments), and only
   while the unit is a vacancy the page lists — the private blob is otherwise
   unreachable from the website.
+  A PDF floor plan is DRAWN, full width, in the suite's open panel (owner: "show
+  the actual floorplan here as big as you can"): page one rendered by pdf.js
+  (`drawPlans`), served from `public/site/interplex/pdfjs/` (pdfjs-dist's
+  legacy build — never a CDN), the first time the row opens; a click opens the
+  PDF. **The Rent Roll's Vacancy Summary rows open the unit page** (where the
+  floor plan is uploaded; "+ Add" where none is on file).
 - **The leasing form posts to `/api/website/leasing`** (`lib/site/leasing.ts`,
   honeypot + 5/hour, emails **Nancy Fox** — `leasingRecipients`,
   `INTERPLEX_LEASING_TO` overrides — Reply-To the visitor; a failed send is

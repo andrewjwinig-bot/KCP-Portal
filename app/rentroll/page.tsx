@@ -896,6 +896,9 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
 type FloorplanRef = { url: string; name: string; contentType: string };
 
 function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
+  // A vacancy row opens its unit page — where its floor plan is uploaded
+  // (owner: "i need to import some floor plans").
+  const router = useRouter();
   const [expOpen, setExpOpen] = useState(false);
   const [vacOpen, setVacOpen] = useState(false);
   // Floorplans per unit (private-store summary), so the Vacancy Summary can
@@ -1088,12 +1091,18 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                             {rows.map(({ propertyCode, unit }, i) => {
                               const fp = floorplans[unit.unitRef];
                               return (
-                              <tr key={`${label}-${i}`} style={{ background: "rgba(15,23,42,0.012)" }}>
+                              <tr key={`${label}-${i}`}
+                                onClick={() => router.push(`/units/${encodeURIComponent(unit.unitRef)}`)}
+                                title="Open the unit page"
+                                style={{ background: "rgba(15,23,42,0.012)", cursor: "pointer" }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
                                 <td style={{ fontSize: 13, paddingLeft: 20 }}>{propName(propertyCode)}</td>
                                 <td><code style={{ fontSize: 12 }}>{unit.unitRef}</code></td>
                                 <td>
                                   {fp ? (
                                     <a href={blobSrc(fp.url)} target="_blank" rel="noreferrer" title={fp.name}
+                                      onClick={(e) => e.stopPropagation()}
                                       style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
                                       {fp.contentType.startsWith("image/") ? (
                                         <img src={blobSrc(fp.url)} alt="" loading="lazy"
@@ -1102,7 +1111,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                                       View
                                     </a>
                                   ) : (
-                                    <span style={{ color: "var(--muted)" }}>—</span>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>+ Add</span>
                                   )}
                                 </td>
                                 <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
