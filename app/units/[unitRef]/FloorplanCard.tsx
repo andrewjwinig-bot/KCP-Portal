@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import type { SuiteAttachment } from "@/lib/suites/information";
 import { blobSrc } from "@/lib/blobProxy";
+import FloorplanPdf from "@/app/components/FloorplanPdf";
+import { chosenTurn, type Turn } from "@/lib/suites/floorplanTurn";
 
 // Standalone Floorplan card — sits in the top row of the unit page next
 // to Lease Term and the shared-drive folder. Reads the floorplan field
@@ -18,6 +20,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
   const [error, setError] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [shownAuto, setShownAuto] = useState<Turn>(0);
 
   const api = `/api/suites/${encodeURIComponent(unitRef)}/information`;
 
@@ -61,6 +64,23 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
     }
   }
 
+  // How the plan is drawn here and on the website: the automatic rule, or a
+  // turn chosen with the arrows (saved on the plan; the file is untouched).
+  async function setTurn(turn: Turn | null) {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(api, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ floorplanTurn: turn }) });
+      const j = (await res.json().catch(() => null)) as { info?: { floorplan?: SuiteAttachment | null }; error?: string } | null;
+      if (!res.ok || !j) throw new Error(j?.error ?? `Save failed (${res.status}).`);
+      setFloorplan(j.info?.floorplan ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function remove() {
     setBusy(true);
     setError(null);
@@ -77,6 +97,14 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
       setBusy(false);
     }
   }
+
+  // The arrows turn from what is SHOWN: the hand-chosen turn, else the
+  // quarter-turn the rule gives a sideways sheet. Turns are relative to the
+  // page's own /Rotate, which `planRotation` adds back.
+  const nextTurn = (by: number): Turn => {
+    const cur = chosenTurn(unitRef, floorplan) ?? shownAuto;
+    return ((((cur + by) % 360) + 360) % 360) as Turn;
+  };
 
   return (
     <div className="card">
@@ -118,14 +146,25 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
               >
                 {floorplan.name} ↗
               </a>
-              <iframe
-                title="Suite floorplan"
-                src={`${blobSrc(floorplan.url)}#toolbar=0&navpanes=0&view=FitH`}
-                style={{
-                  width: "100%", height: 300, borderRadius: 10,
-                  border: "1px solid var(--border)", background: "rgba(15,23,42,0.02)",
-                }}
-              />
+              <FloorplanPdf src={blobSrc(floorplan.url)} turn={chosenTurn(unitRef, floorplan) ?? null}
+                onTurn={(t) => setShownAuto(t as Turn)} />
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)" }}>
+                <button type="button" className="btn" disabled={busy} title="Rotate left" aria-label="Rotate left"
+                  style={{ fontSize: 13, padding: "3px 10px" }} onClick={() => void setTurn(nextTurn(-90))}>↺</button>
+                <button type="button" className="btn" disabled={busy} title="Rotate right" aria-label="Rotate right"
+                  style={{ fontSize: 13, padding: "3px 10px" }} onClick={() => void setTurn(nextTurn(90))}>↻</button>
+                {chosenTurn(unitRef, floorplan) == null ? (
+                  <span>Turned automatically · shown as on the website</span>
+                ) : (
+                  <>
+                    <span>Turned by hand · shown as on the website</span>
+                    {floorplan.turn != null && (
+                      <button type="button" className="linkBtn" disabled={busy} onClick={() => void setTurn(null)}
+                        style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d" }}>Auto</button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           ) : (
             <a

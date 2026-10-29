@@ -614,11 +614,18 @@ function sel(el){if(!el)return;const r=document.createRange();r.selectNodeConten
    panel, full width, the first time the row opens (pdf.js, served from this site). */
 let _pdfjs=null;
 function pdfjs(){return _pdfjs??=import("/site/interplex/pdfjs/pdf.min.mjs").then(m=>{m.GlobalWorkerOptions.workerSrc="/site/interplex/pdfjs/pdf.worker.min.mjs";return m})}
+/* Which way up: the portal's rule (floorplanTurn.ts), injected — a sideways sheet
+   is turned to read across; a turn chosen on the unit page wins. */
+const planRotation=/*@PLAN_ROTATION@*/null;
+async function rotationOf(page,turn){const v=page.view,w=v[2]-v[0],h=v[3]-v[1];let angles=[];
+  if(turn==null){try{const tc=await page.getTextContent();angles=tc.items.filter(t=>t.str&&t.str.trim()).map(t=>({angle:Math.atan2(t.transform[1],t.transform[0])*180/Math.PI,weight:t.str.trim().length}))}catch(e){}}
+  return planRotation?planRotation({width:w,height:h,rotate:page.rotate,angles,turn}):page.rotate}
 function drawPlans(root){root.querySelectorAll("canvas[data-pdf]:not([data-done])").forEach(async cv=>{
   cv.dataset.done="1";const box=cv.closest(".fpdf");
   try{const lib=await pdfjs();const doc=await lib.getDocument(cv.dataset.pdf).promise;const page=await doc.getPage(1);
-    const w=Math.max(box.clientWidth,300),base=page.getViewport({scale:1}),dpr=Math.min(window.devicePixelRatio||1,2);
-    const vp=page.getViewport({scale:w/base.width*dpr});cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);
+    const rotation=await rotationOf(page,cv.dataset.turn===undefined?null:+cv.dataset.turn);
+    const w=Math.max(box.clientWidth,300),base=page.getViewport({scale:1,rotation}),dpr=Math.min(window.devicePixelRatio||1,2);
+    const vp=page.getViewport({scale:w/base.width*dpr,rotation});cv.width=Math.round(vp.width);cv.height=Math.round(vp.height);
     await page.render({canvasContext:cv.getContext("2d"),viewport:vp}).promise;box.classList.add("ok");
   }catch(e){box.querySelector(".fpl").textContent="View floor plan (PDF) →"}
 })}
@@ -688,7 +695,7 @@ const AV=(function(){
         const it=document.createElement("div");it.className="aitem";const pid=`ap-${i}`;
         it.innerHTML=`<button class="arow" type="button" aria-expanded="false" aria-controls="${pid}"><span class="chev" aria-hidden="true"></span><span class="c-b">${bName(id)}</span><span><b>${s.suite}</b><span class="mb">${bName(id)}</span></span><span>${fmt(s.sf)} SF</span><span class="c-fl">${s.floor||"—"}</span><span class="c-tm">${s.term||TERM}</span><span class="c-rt">${s.rate||"Upon request"}</span><span class="c-us">${s.use||USE}</span><span>${s.available||"Now"}</span></button>
           <div class="apanel" id="${pid}" role="region" aria-label="${bName(id)} ${s.suite} details">
-            <div class="fp${s.floorplan?"":" none"}">${s.floorplan?(s.floorplanPdf?`<div style="width:100%"><a class="fpdf" href="${s.floorplan}" target="_blank" rel="noopener" aria-label="Floor plan of ${bName(id)} ${s.suite}, opens the PDF"><canvas data-pdf="${s.floorplan}"></canvas><span class="fpl">Loading floor plan…</span></a><a class="fphint" href="${s.floorplan}" target="_blank" rel="noopener">Open the floor plan PDF &rarr;</a></div>`:`<a href="${s.floorplan}" target="_blank" rel="noopener"><img src="${s.floorplan}" alt="Floor plan of ${bName(id)} ${s.suite}" loading="lazy"></a>`):"Floor plan available on request"}</div>
+            <div class="fp${s.floorplan?"":" none"}">${s.floorplan?(s.floorplanPdf?`<div style="width:100%"><a class="fpdf" href="${s.floorplan}" target="_blank" rel="noopener" aria-label="Floor plan of ${bName(id)} ${s.suite}, opens the PDF"><canvas data-pdf="${s.floorplan}"${s.floorplanTurn!=null?` data-turn="${s.floorplanTurn}"`:""}></canvas><span class="fpl">Loading floor plan…</span></a><a class="fphint" href="${s.floorplan}" target="_blank" rel="noopener">Open the floor plan PDF &rarr;</a></div>`:`<a href="${s.floorplan}" target="_blank" rel="noopener"><img src="${s.floorplan}" alt="Floor plan of ${bName(id)} ${s.suite}" loading="lazy"></a>`):"Floor plan available on request"}</div>
             <div><h4>${bName(id)} · ${s.suite}</h4>
               ${s.details&&s.details.length?`<ul>${s.details.map(x=>`<li>${x}</li>`).join("")}</ul>`:""}
               <p class="meta"><span>Size <b>${fmt(s.sf)} SF</b></span>${s.floor?`<span>Floor <b>${s.floor}</b></span>`:""}<span>Term <b>${s.term||TERM}</b></span><span>Rate <b>${s.rate||"Upon request"}</b></span><span>Space use <b>${s.use||USE}</b></span><span>Available <b>${s.available||"Now"}</b></span></p>

@@ -494,7 +494,19 @@ the site's search do a full load (a route handler is not a Next page).
   the actual floorplan here as big as you can"): page one rendered by pdf.js
   (`drawPlans`), served from `public/site/interplex/pdfjs/` (pdfjs-dist's
   legacy build — never a CDN), the first time the row opens; a click opens the
-  PDF. **The Rent Roll's Vacancy Summary rows open the unit page** (where the
+  PDF. **ALWAYS THE RIGHT WAY UP** (owner): `planRotation`
+  (`lib/suites/floorplanTurn.ts`, its OWN source injected into the page at
+  `/*@PLAN_ROTATION@*/null`, so there is one rule) honours the PDF's /Rotate,
+  turns real text to read across, and turns a page that displays PORTRAIT a
+  quarter COUNTER-clockwise — the Korman / Polek sheets are landscape
+  drawings laid on portrait pages, lettering running downward (10 of the 12
+  portrait plans on file). A plan the rule gets wrong is turned with ↺ / ↻ on
+  the unit page's Floorplan card (drawn there by `FloorplanPdf` exactly as the
+  website draws it; `PATCH /api/suites/<ref>/information { floorplanTurn }`,
+  stored as `turn` on the attachment, "Auto" clears it); `TURN_SEED` holds the
+  two set before the control existed (3610-304 upright, 40A0-204 the other
+  way), keyed unit + file name so a new upload goes back to the rule.
+  All 42 plans on file checked upright 10/29/26. **The Rent Roll's Vacancy Summary rows open the unit page** (where the
   floor plan is uploaded; "+ Add" where none is on file).
 - **The leasing form posts to `/api/website/leasing`** (`lib/site/leasing.ts`,
   honeypot + 5/hour, emails **Nancy Fox** — `leasingRecipients`,
