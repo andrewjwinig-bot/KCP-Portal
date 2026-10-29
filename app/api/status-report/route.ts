@@ -8,6 +8,7 @@ import { snapshotMonthKey } from "@/lib/rentroll/snapshot";
 import { resolveDbaMap, dbaLabel } from "@/lib/centers/dba";
 import { EMPTY_LEASING_ACTIVITY, type LeasingActivity } from "@/lib/leasing/types";
 import { resolveCurrentRentroll, rollAsOf } from "@/lib/rentroll/current";
+import { drawFloorPlanPages } from "@/lib/buildings/statusReportPages";
 
 export const runtime = "nodejs";
 
@@ -1392,6 +1393,15 @@ export async function POST(req: Request) {
         kHomesY = curY + rowH + 8;
       }
 
+      // An office building with mapped floors: its floor plans, coloured by
+      // this month's roll, right after its rent roll (lib/buildings).
+      try {
+        const [mm, dd, yyyy] = String(reportFrom).split("/");
+        const asOf = yyyy ? new Date(Number(yyyy), Number(mm) - 1, Number(dd) || 1) : new Date();
+        await drawFloorPlanPages(pdfDoc, { font, bold: fontBold }, prop, { name, reportTitle, asOf });
+      } catch (e) {
+        console.warn(`[status-report] floor plans for ${code}:`, e instanceof Error ? e.message : e);
+      }
     }
 
     // ── Security Deposits page ───────────────────────────────────────────────

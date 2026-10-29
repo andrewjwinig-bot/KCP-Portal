@@ -54,6 +54,8 @@ const nextConfig = {
       // The Office Works website reads its HTML the same way.
       "/office-works": ["./lib/officeWorks/**"],
       "/site/office/neshaminy-interplex": ["./lib/interplex/**"],
+      // The status report draws office floor plans from their images.
+      "/api/status-report": ["./public/buildings/**"],
       // pdfjs loads its worker by a run-time import the tracer cannot see
       // (lib/pdf/pdfText.ts) — every route that reads an uploaded PDF.
       "/api/financials/bank-balances/**": ["./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"],
