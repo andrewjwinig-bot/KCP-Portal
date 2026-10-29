@@ -28,6 +28,8 @@ export type SuiteAttachment = {
   /** A floor plan's quarter-turns (clockwise), chosen on the unit page when
    *  the automatic rule draws it the wrong way up (`floorplanTurn.ts`). */
   turn?: 0 | 90 | 180 | 270;
+  /** The suite's part of the sheet, drawn large on the website (`PlanCrop`). */
+  crop?: { x: number; y: number; w: number; h: number; rotation: number };
 };
 
 export type SuiteInformation = {

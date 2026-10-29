@@ -5,7 +5,7 @@ import {
   saveSuiteInformation,
 } from "@/lib/suites/informationStorage";
 import { sanitizeFields, type SuiteAttachment } from "@/lib/suites/information";
-import { isTurn } from "@/lib/suites/floorplanTurn";
+import { isPlanCrop, isTurn } from "@/lib/suites/floorplanTurn";
 
 // Admin-only — site auth middleware covers everything outside the public
 // /submit and /reserve paths.
@@ -60,27 +60,43 @@ export async function PUT(
   return NextResponse.json({ info });
 }
 
-// Turn the floor plan: `{ floorplanTurn: 0 | 90 | 180 | 270 }` sets how it is
-// drawn (on the unit page and the website); `null` hands it back to the
-// automatic rule (floorplanTurn.ts). The file itself is never rewritten.
+// Turn or crop the floor plan: `{ floorplanTurn: 0 | 90 | 180 | 270 | null }`
+// sets how it is drawn (on the unit page and the website; null → the automatic
+// rule — a turn also drops the crop, which was drawn at the old turn);
+// `{ floorplanCrop: PlanCrop | null }` sets the part the website shows large.
+// The file itself is never rewritten.
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { unitRef: string } },
 ) {
   const unitRef = unitRefOf(params);
   if (!unitRef) return NextResponse.json({ error: "unitRef required" }, { status: 400 });
-  let body: { floorplanTurn?: unknown };
+  let body: { floorplanTurn?: unknown; floorplanCrop?: unknown };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const turn = body.floorplanTurn;
-  if (turn !== null && !isTurn(turn)) return NextResponse.json({ error: "floorplanTurn must be 0, 90, 180, 270 or null" }, { status: 400 });
   const existing = await getOrEmptySuiteInformation(unitRef);
   if (!existing.floorplan) return NextResponse.json({ error: "No floorplan on file" }, { status: 404 });
-  const { turn: _old, ...fp } = existing.floorplan;
-  const info = await saveSuiteInformation({ ...existing, floorplan: isTurn(turn) ? { ...fp, turn } : fp });
+  let fp: SuiteAttachment = { ...existing.floorplan };
+  if ("floorplanTurn" in body) {
+    const turn = body.floorplanTurn;
+    if (turn !== null && !isTurn(turn)) return NextResponse.json({ error: "floorplanTurn must be 0, 90, 180, 270 or null" }, { status: 400 });
+    delete fp.turn;
+    delete fp.crop;
+    if (isTurn(turn)) fp = { ...fp, turn };
+  }
+  if ("floorplanCrop" in body) {
+    const crop = body.floorplanCrop;
+    if (crop !== null && !isPlanCrop(crop)) return NextResponse.json({ error: "Invalid floorplanCrop" }, { status: 400 });
+    delete fp.crop;
+    if (isPlanCrop(crop)) {
+      const r4 = (n: number) => Math.round(n * 10000) / 10000;
+      fp = { ...fp, crop: { x: r4(crop.x), y: r4(crop.y), w: r4(crop.w), h: r4(crop.h), rotation: crop.rotation } };
+    }
+  }
+  const info = await saveSuiteInformation({ ...existing, floorplan: fp });
   return NextResponse.json({ info });
 }
 

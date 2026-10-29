@@ -4,7 +4,7 @@
 // that leases leaves the table on the next import, a vacancy appears.
 
 import { isSharedSpace } from "@/lib/officeWorks/offices";
-import { chosenTurn } from "@/lib/suites/floorplanTurn";
+import { chosenTurn, isPlanCrop, type PlanCrop } from "@/lib/suites/floorplanTurn";
 
 /** The page's building ids (its campus map) → the portal's property codes.
  *  Building Five's Office Works suites are 4900, deliberately not here: they
@@ -26,6 +26,8 @@ export type InterplexSpace = {
   floorplan?: string; floorplanPdf?: boolean;
   /** A turn chosen by hand for the PDF; absent → the rule (`planRotation`). */
   floorplanTurn?: number;
+  /** The suite's part of the sheet, chosen on the unit page (`PlanCrop`). */
+  floorplanCrop?: PlanCrop;
 };
 
 export type RollUnitForSpace = { unitRef: string; occupantName: string; isVacant: boolean; sqft: number; amenity?: unknown };
@@ -76,13 +78,14 @@ export const floorplanPath = (unitRef: string) => `/api/website/floorplan?unit=$
  *  suites; a PDF is drawn by the page, the right way up (`planRotation`). */
 export function withFloorplans(
   spaces: InterplexSpace[],
-  plans: Map<string, { contentType: string; name?: string; turn?: number }>,
+  plans: Map<string, { contentType: string; name?: string; turn?: number; crop?: unknown }>,
 ): InterplexSpace[] {
   return spaces.map((s) => {
     const fp = plans.get(s.unit.toUpperCase());
     if (!fp) return s;
     const pdf = /pdf/i.test(fp.contentType);
     const turn = pdf ? chosenTurn(s.unit, { name: fp.name ?? "", turn: fp.turn }) : undefined;
-    return { ...s, floorplan: floorplanPath(s.unit), ...(pdf ? { floorplanPdf: true } : {}), ...(turn != null ? { floorplanTurn: turn } : {}) };
+    return { ...s, floorplan: floorplanPath(s.unit), ...(pdf ? { floorplanPdf: true } : {}), ...(turn != null ? { floorplanTurn: turn } : {}),
+      ...(pdf && isPlanCrop(fp.crop) ? { floorplanCrop: fp.crop } : {}) };
   });
 }
