@@ -478,8 +478,18 @@ the site's search do a full load (a route handler is not a Next page).
   three-digit suite, at `/*@SPACES@*/[]`; `SAMPLE_DATA` is false. Shared space
   and amenities never list (`isSharedSpace`, from The Office Works'
   `offices.ts`); The Office Works (4900) is offered on its own page. The hero's
-  SF is the roll's total for the ten (`{{TOTAL_SF}}`, the design's 379,315 with
-  no roll). Each building's map range is derived from the list by the page.
+  SF is the roll's total for the ten, ROUNDED DOWN to 25K with a plus
+  (`sfHeadline`, "525K+"; owner: no exact SF) at `{{TOTAL_SF}}` — the
+  design's 379,315 with no roll; the count-up animation went with the exact
+  figure. Each building's map range is derived from the list by the page.
+- **A suite's FLOOR PLAN is the one uploaded on its UNIT PAGE** (Unit Info →
+  Floorplan, `suite-information`; owner: "ill add floorplans to the unit pages
+  … that should trickle down"): `withFloorplans` lays it on each listed suite
+  as `/api/website/floorplan?unit=<ref>` (a PDF as a "View floor plan (PDF)"
+  link, an image drawn). That PUBLIC route takes a UNIT, never a blob URL,
+  serves ONLY that suite's floorplan (never its other attachments), and only
+  while the unit is a vacancy the page lists — the private blob is otherwise
+  unreachable from the website.
 - **The leasing form posts to `/api/website/leasing`** (`lib/site/leasing.ts`,
   honeypot + 5/hour, emails **Nancy Fox** — `leasingRecipients`,
   `INTERPLEX_LEASING_TO` overrides — Reply-To the visitor; a failed send is

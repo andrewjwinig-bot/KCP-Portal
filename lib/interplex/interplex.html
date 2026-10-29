@@ -321,7 +321,7 @@ form.f{background:#fff;color:var(--ink);border-radius:4px;padding:30px;display:g
       <div class="ctas"><a class="btn olive" href="#leasing">Inquire about space</a><a class="btn ghost" href="#campus">Explore the campus</a></div>
     </div>
     <div class="stats"><div class="in">
-      <div><b data-count="{{TOTAL_SF_RAW}}">{{TOTAL_SF}}</b><span>SF Class A office</span></div>
+      <div><b>{{TOTAL_SF}}</b><span>SF Class A office</span></div>
       <div><b id="bcount">10</b><span>Office buildings</span></div>
       <div><b>274</b><span>Hotel rooms on campus</span></div>
       <div><b>24/7</b><span>Tenant access</span></div>
@@ -670,7 +670,7 @@ const AV=(function(){
         const it=document.createElement("div");it.className="aitem";const pid=`ap-${i}`;
         it.innerHTML=`<button class="arow" type="button" aria-expanded="false" aria-controls="${pid}"><span class="chev" aria-hidden="true"></span><span class="c-b">${bName(id)}</span><span><b>${s.suite}</b><span class="mb">${bName(id)}</span></span><span>${fmt(s.sf)} SF</span><span class="c-fl">${s.floor||"—"}</span><span class="c-tm">${s.term||TERM}</span><span class="c-rt">${s.rate||"Upon request"}</span><span class="c-us">${s.use||USE}</span><span>${s.available||"Now"}</span></button>
           <div class="apanel" id="${pid}" role="region" aria-label="${bName(id)} ${s.suite} details">
-            <div class="fp${s.floorplan?"":" none"}">${s.floorplan?`<img src="${s.floorplan}" alt="Floor plan of ${bName(id)} ${s.suite}" loading="lazy">`:"Floor plan available on request"}</div>
+            <div class="fp${s.floorplan?"":" none"}">${s.floorplan?(s.floorplanPdf?`<a href="${s.floorplan}" target="_blank" rel="noopener" style="font-weight:600;color:var(--navy)">View floor plan (PDF) &rarr;</a>`:`<a href="${s.floorplan}" target="_blank" rel="noopener"><img src="${s.floorplan}" alt="Floor plan of ${bName(id)} ${s.suite}" loading="lazy"></a>`):"Floor plan available on request"}</div>
             <div><h4>${bName(id)} · ${s.suite}</h4>
               ${s.details&&s.details.length?`<ul>${s.details.map(x=>`<li>${x}</li>`).join("")}</ul>`:""}
               <p class="meta"><span>Size <b>${fmt(s.sf)} SF</b></span>${s.floor?`<span>Floor <b>${s.floor}</b></span>`:""}<span>Term <b>${s.term||TERM}</b></span><span>Rate <b>${s.rate||"Upon request"}</b></span><span>Space use <b>${s.use||USE}</b></span><span>Available <b>${s.available||"Now"}</b></span></p>
