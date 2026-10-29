@@ -58,7 +58,15 @@ export type StaffSuite = {
   money?: StaffSuiteMoney;
   /** Omitted for viewers without Monthly Statements, or no statement on file. */
   ar?: StaffSuiteAr | null;
+  /** An office building's floor ("1") — the card draws one floor at a time. */
+  floor?: string;
 };
+
+/** One floor of an office building's plan (lib/buildings/plans). */
+export type StaffFloor = { floor: string; label: string; plan: PlanMeta };
+
+/** A suite on the rent roll that no floor plan has mapped yet. */
+export type UnmappedSuite = { unitRef: string; tenant: string; sf: number; vacant: boolean };
 
 export type StaffPlan = {
   code: string;
@@ -70,6 +78,10 @@ export type StaffPlan = {
   rollImportedAt: string | null;
   canSeeMoney: boolean;
   canSeeAr: boolean;
+  /** An office building: its floors (each suite carries `floor`), and the
+   *  rent roll's suites not mapped onto any floor yet. */
+  floors?: StaffFloor[];
+  unmapped?: UnmappedSuite[];
 };
 
 // ── Lease expiry ────────────────────────────────────────────────────────────

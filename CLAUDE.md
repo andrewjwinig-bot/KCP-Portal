@@ -527,6 +527,35 @@ the site's search do a full load (a route handler is not a Next page).
   listings were DELETED from `lib/site/content.ts` (owner), since the park's
   page covers every building.
 
+# Office buildings — FLOOR PLANS coloured from the rent roll
+
+**An office building's property page carries its FLOOR PLANS, coloured like a
+centre's site plan** (owner: "show the leased vs occupied space color coded
+and filled in … on the property info page as well like the shopping
+centers"). Same card (`SitePlanCard` — floor tabs when `plan.floors`), same
+colours, hover and click-through; `buildStaffPlan` falls back to
+`buildBuildingPlan` for a code with a mapped plan (`lib/buildings/plans`).
+- **Mapping is done ONCE per floor by `scripts/floorplans/map_suites.py`**
+  (PyMuPDF + numpy, run by hand): the BASE PLAN per floor (walls only — no
+  suite numbers) and each suite's own SHEET, whose KEY PLAN is the whole floor
+  drawn small with the suite shaded grey. The script finds the key plan (the
+  ink cluster with the floor's proportions), closes the grey over interior
+  walls into the suite's PERIMETER (owner: "just block out the suite
+  perimeter"), maps it by the floor outline onto the base plan, and writes
+  `public/buildings/<code>/floor-<n>.png` + `lib/buildings/plans/<code>.json`.
+  A new building = its JSON added to `PLANS` in `index.ts`. Look at the floor
+  after a run. `plans.test.ts` checks every suite lies on its image.
+- **Who and how big are the RENT ROLL's** at request time; the JSON holds
+  only geometry. A rent-roll suite no floor maps is listed under the plan
+  ("n suites … not mapped yet") and STILL COUNTS in the tiles — the tiles are
+  the building's, not the mapped part's. A mapped suite the roll no longer
+  carries is drawn uncoloured (`shadow`).
+- **Building 5 (4050)**, 10/2026: floor 1 has 101, 115, 117, 119 (from the
+  owner's sheets); floors 2 and 3 are base plans with nothing mapped yet. The
+  owner's `.dwg` files could not be read here (no converter installable).
+- NEXT: the status report's floor-plan pages (landscape, `FP_W`/`FP_H` — kept
+  from the old static plans) drawn from the same data.
+
 # Shopping-center pages — DESIGNED pages replace the template one by one
 
 **`/centers/<slug>` was one data-driven template for all five centres
