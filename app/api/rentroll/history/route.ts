@@ -1,0 +1,90 @@
+import { NextRequest, NextResponse } from "next/server";
+import { listJSON, getJSON, storeJSON } from "@/lib/storage";
+import { parseRentRollExcel, type RentRollData } from "@/lib/rentroll/parseRentRollExcel";
+import { currentSnapshotMonth, snapshotMonthKey, summarizeSnapshot } from "@/lib/rentroll/snapshot";
+import { mergeSameMonth } from "@/lib/rentroll/current";
+
+const RENTROLL_PREFIX = "rentroll";
+const RENTROLL_ID     = "current";
+const HISTORY_PREFIX  = "rentroll-history";
+
+export const runtime = "nodejs";
+// Always read fresh so a new import shows up in the month dropdown immediately.
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/rentroll/history
+ * Returns sorted-asc array of snapshot summaries (one per month).
+ * On first read with no history, backfill from the current rent roll if present.
+ */
+export async function GET() {
+  try {
+    let snapshots = await listJSON(HISTORY_PREFIX, { fresh: true }) as RentRollData[];
+    if (snapshots.length === 0) {
+      const current = await getJSON(RENTROLL_PREFIX, RENTROLL_ID) as RentRollData | null;
+      if (current) {
+        const key = snapshotMonthKey(current);
+        await storeJSON(HISTORY_PREFIX, key, current);
+        snapshots = [current];
+      }
+    }
+    const summaries = snapshots.map(summarizeSnapshot).sort((a, b) => a.month.localeCompare(b.month));
+    // The month holding the most recent import (importRank) — what the Rent
+    // Roll page opens on. Not simply the last month: a roll dated ahead of the
+    // day it was imported does not outrank a later import.
+    const currentMonth = currentSnapshotMonth(summaries);
+    console.info(`[rentroll history] current=${currentMonth} ` + summaries.map((x) => `${x.month}@${(x.uploadedAt ?? "").slice(0, 10)}:${x.byProperty.length}`).join(" "));
+    return NextResponse.json({ snapshots: summaries, currentMonth });
+  } catch (err: any) {
+    console.error("[GET /api/rentroll/history]", err?.message ?? err);
+    return NextResponse.json({ snapshots: [] });
+  }
+}
+
+/**
+ * POST /api/rentroll/history
+ * Body: { fileBase64: string, monthOverride?: string }
+ * Parses the uploaded rent roll Excel and writes ONLY a history snapshot
+ * (keyed by report month, or by monthOverride if provided as YYYY-MM).
+ * Does NOT touch the current rent roll. Used for backfilling past months.
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const fileBase64 = body?.fileBase64 as string | undefined;
+    const monthOverride = (body?.monthOverride as string | undefined)?.trim();
+
+    if (!fileBase64) {
+      return NextResponse.json({ error: "Missing fileBase64" }, { status: 400 });
+    }
+
+    const buf = Buffer.from(fileBase64, "base64");
+    const parsed = parseRentRollExcel(buf);
+    const uploadedAt = new Date().toISOString();
+    const rentroll = { id: "history", uploadedAt, ...parsed } as RentRollData;
+
+    let key = snapshotMonthKey(rentroll);
+    if (monthOverride && /^\d{4}-\d{2}$/.test(monthOverride)) {
+      key = monthOverride;
+      // The roll is FILED by its key but READ (composeCurrentRoll / rollAsOf)
+      // by its own reportTo — so an overridden month must carry the override's
+      // date too, or a backfill sorts as the month the file says.
+      const [y, m] = monthOverride.split("-").map(Number);
+      const last = new Date(y, m, 0).getDate();
+      (rentroll as any).reportTo = `${m}/${last}/${y}`;
+    }
+
+    // A read that FAILS is not "nothing filed for this month": treating it so
+    // wrote the import over the month alone and dropped every property it did
+    // not carry. Refuse instead — re-importing is cheap, a lost roll is not.
+    let prior: any = null;
+    try { prior = await getJSON(HISTORY_PREFIX, key, { retryOnMiss: true }); }
+    catch { return NextResponse.json({ error: "Couldn't read the rent roll already filed for this month — nothing was saved. Try the import again." }, { status: 503 }); }
+    await storeJSON(HISTORY_PREFIX, key, mergeSameMonth(prior as any, rentroll));
+
+    return NextResponse.json({ ok: true, month: key, summary: summarizeSnapshot(rentroll) });
+  } catch (err: any) {
+    console.error("[POST /api/rentroll/history]", err?.message ?? err);
+    return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
+  }
+}

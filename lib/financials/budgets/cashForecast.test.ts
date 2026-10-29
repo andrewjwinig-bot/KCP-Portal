@@ -1,0 +1,83 @@
+import { describe, it, expect } from "vitest";
+import { budgetedDistributions, plannedDistributions, cashOnGl, distributionsOnGl, projectBalance, rollForward, rollFromDate, isOperatingCash } from "./cashForecast";
+
+describe("planned distributions", () => {
+  it("splits the annual plan between April and October", () => {
+    const m = plannedDistributions("4500");
+    expect(m[3]).toBe(250_000);
+    expect(m[9]).toBe(250_000);
+    expect(m.reduce((a, b) => a + b, 0)).toBe(500_000);
+    expect(plannedDistributions("7300")[3]).toBe(150_000);
+    expect(plannedDistributions("7010").reduce((a, b) => a + b, 0)).toBe(200_000);
+    expect(plannedDistributions("8200").reduce((a, b) => a + b, 0)).toBe(200_000);
+  });
+  it("is zero for a property with no plan", () => {
+    expect(plannedDistributions("9510").every((v) => v === 0)).toBe(true);
+  });
+});
+
+describe("cash on the GL", () => {
+  const gl = {
+    beginning: { "0110-0000": 100_000, "0250-0000": 20_000, "2720-0000": -900_000 },
+    monthly: { "0110-0000": [5_000, -2_000, 3_000, 0, 0, 0, 0, 0, 0, 0, 0, 0], "0250-0000": [1_000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], "3050-0000": [0, 0, 0, 50_000, 0, 0, 0, 0, 0, 0, 0, 0] },
+    names: { "0110-0000": "Cash - Operating", "0250-0000": "Security Deposits", "2720-0000": "Mortgage", "3050-0000": "Partner Distributions" },
+    maxPeriodInFile: 2,
+  };
+  it("sums operating cash through the last posted month, deposits excluded", () => {
+    const c = cashOnGl(gl)!;
+    expect(c.month).toBe(2);
+    expect(c.balance).toBe(103_000);
+    expect(c.accounts.map((a) => a.code)).toEqual(["0110-0000"]);
+    expect(isOperatingCash("0250-0000", "Security Deposits")).toBe(false);
+  });
+  it("is null without opening balances — nets alone are not a balance", () => {
+    expect(cashOnGl({ monthly: gl.monthly, names: gl.names, maxPeriodInFile: 2 })).toBeNull();
+  });
+  it("reads distributions off the capital accounts", () => {
+    expect(distributionsOnGl(gl)[3]).toBe(50_000);
+  });
+});
+
+describe("projected balance", () => {
+  it("rolls the opening forward: + cash flow − distributions", () => {
+    const cf = new Array(12).fill(10_000);
+    const d = plannedDistributions("7010");
+    const b = projectBalance(50_000, cf, d);
+    expect(b[0]).toBe(60_000);
+    expect(b[3]).toBe(50_000 + 40_000 - 100_000);
+    expect(b[11]).toBe(50_000 + 120_000 - 200_000);
+  });
+  it("rolls this year forward from the GL's last month", () => {
+    const cf = new Array(12).fill(1_000);
+    expect(rollForward(10_000, 8, cf, plannedDistributions("7010"))).toBe(10_000 + 4_000 - 100_000);
+  });
+});
+
+describe("the bank balance rolled to Dec 31", () => {
+  const flow = new Array(12).fill(10_000);
+  it("takes the rest of the as-of month by days left, then every later month", () => {
+    // Oct 16 of 31 → 15/31 of October's flow, plus Nov and Dec.
+    const r = rollFromDate(100_000, "2026-10-16", 2026, flow, new Array(12).fill(0))!;
+    expect(r.remainder).toBe(Math.round((15 / 31) * 10_000 + 20_000));
+    expect(r.yearEnd).toBe(100_000 + r.remainder);
+  });
+  it("counts the as-of month's distribution as still to come unless the GL shows it paid", () => {
+    const plan = plannedDistributions("4500");
+    const open = rollFromDate(1_000_000, "2026-10-01", 2026, flow, plan)!;
+    expect(open.remainder).toBe(Math.round((30 / 31) * 10_000) + 20_000 - 250_000);
+    const paid = new Array(12).fill(0); paid[9] = 250_000;
+    expect(rollFromDate(1_000_000, "2026-10-01", 2026, flow, plan, paid)!.remainder).toBe(Math.round((30 / 31) * 10_000) + 20_000);
+  });
+  it("refuses a balance not dated in the basis year", () => {
+    expect(rollFromDate(1, "2025-12-31", 2026, flow, flow)).toBeNull();
+    expect(rollFromDate(1, "", 2026, flow, flow)).toBeNull();
+  });
+});
+
+describe("budgetedDistributions", () => {
+  it("drops 4500 from the budget year but keeps it in this year's roll", () => {
+    expect(budgetedDistributions("4500").every((v) => v === 0)).toBe(true);
+    expect(plannedDistributions("4500").reduce((a, b) => a + b, 0)).toBe(500_000);
+    expect(budgetedDistributions("7300")).toEqual(plannedDistributions("7300"));
+  });
+});
