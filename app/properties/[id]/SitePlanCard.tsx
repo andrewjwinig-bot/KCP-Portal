@@ -36,6 +36,8 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
   const [hover, setHover] = useState<{ s: StaffSuite; x: number; y: number } | null>(null);
   /** A legend entry the plan is narrowed to (others dimmed). */
   const [focus, setFocus] = useState<string | null>(null);
+  /** An office building's floor on show. */
+  const [floor, setFloor] = useState<string | null>(null);
   const today = useMemo(() => new Date(), []);
 
   useEffect(() => {
@@ -52,6 +54,12 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
 
   if (!plan) return null;
 
+  // An office building draws one floor at a time; the tiles, legend and
+  // expirations stay building-wide.
+  const cur = plan.floors?.find((f) => f.floor === floor) ?? plan.floors?.[0] ?? null;
+  const meta = cur ? cur.plan : plan.plan;
+  const drawn = cur ? plan.suites.filter((s) => s.floor === cur.floor) : plan.suites;
+
   // What each suite reads as in the current mode: its bucket key (for the
   // legend and the focus filter) and its fill.
   const paint = (s: StaffSuite): { key: string; fill: string } | null => {
@@ -67,8 +75,12 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
   };
 
   // KPI tiles — the centre at a glance.
-  const totalSf = ours.reduce((t, s) => t + s.sf, 0);
-  const vacantSf = ours.filter((s) => s.status === "available").reduce((t, s) => t + s.sf, 0);
+  // A building's suites not mapped yet still count — the tiles are the building's.
+  const unmapped = plan.unmapped ?? [];
+  const totalSf = ours.reduce((t, s) => t + s.sf, 0) + unmapped.reduce((t, u) => t + u.sf, 0);
+  const vacantSf = ours.filter((s) => s.status === "available").reduce((t, s) => t + s.sf, 0)
+    + unmapped.filter((u) => u.vacant).reduce((t, u) => t + u.sf, 0);
+  const vacantCount = ours.filter((s) => s.status === "available").length + unmapped.filter((u) => u.vacant).length;
   const expiring = ours.filter((s) => { const b = expiryBucket(s, today); return b === "expired" || b === "lt12"; });
   const expiringSf = expiring.reduce((t, s) => t + s.sf, 0);
   const pastDue = ours.reduce((t, s) => t + (s.ar?.pastDue ?? 0), 0);
@@ -96,8 +108,9 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
     return keys.filter((k) => tally.has(k.key)).map((k) => ({ ...k, ...tally.get(k.key)! }));
   })();
 
-  const vbW = Number(plan.plan.viewBox.split(/\s+/)[2]) || 3300;
-  const fontFor = (s: StaffSuite) => labelSize(s, Math.max(22, Math.min(34, vbW / 110)));
+  const vbW = Number(meta.viewBox.split(/\s+/)[2]) || 3300;
+  // A floor plan is drawn smaller per foot than a site plan, so its labels run larger.
+  const fontFor = (s: StaffSuite) => labelSize(s, cur ? vbW / 55 : Math.max(22, Math.min(34, vbW / 110)));
 
   const open = (s: StaffSuite) => {
     const ref = s.unitRefs[0];
@@ -113,7 +126,7 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
     <div className="card" style={{ padding: 0, overflow: "hidden", ...style }}>
       <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>Site Plan</div>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>{plan.floors ? "Floor Plans" : "Site Plan"}</div>
           <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
             Live from the rent roll{plan.rollImportedAt ? ` imported ${new Date(plan.rollImportedAt).toLocaleDateString("en-US")}` : ""} · hover a suite for its lease, click for the unit
           </div>
@@ -128,7 +141,7 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
       <div className="pills" style={{ padding: "14px 20px 0", marginTop: 0 }}>
         <StatPill label="Occupied" value={totalSf ? `${(((totalSf - vacantSf) / totalSf) * 100).toFixed(1)}%` : "—"} sub={`${totalSf.toLocaleString()} SF`} />
         <StatPill label="Vacant SF" value={vacantSf.toLocaleString()} accent={vacantSf ? EXPIRY_COLOR.vacant : undefined}
-          sub={`${ours.filter((s) => s.status === "available").length} suites`} />
+          sub={`${vacantCount} suites`} />
         <StatPill label="Expiring ≤ 12 mo" value={String(expiring.length)} accent={expiring.length ? "#b45309" : undefined}
           sub={`${expiringSf.toLocaleString()} SF incl. past term`} />
         {plan.canSeeAr && (
@@ -137,11 +150,26 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
         )}
       </div>
 
+      {plan.floors && plan.floors.length > 1 && (
+        <div style={{ display: "flex", gap: 6, padding: "14px 20px 0", flexWrap: "wrap" }}>
+          {plan.floors.map((f) => {
+            const n = plan.suites.filter((s) => s.floor === f.floor && !s.shadow).length;
+            const on = f.floor === cur?.floor;
+            return (
+              <button key={f.floor} type="button" onClick={() => { setFloor(f.floor); setHover(null); }}
+                className={on ? "btn primary" : "btn"} style={{ fontSize: 12, padding: "5px 12px" }}>
+                {f.label}<span style={{ opacity: 0.7, fontWeight: 500, marginLeft: 6 }}>{n ? `${n} suite${n === 1 ? "" : "s"}` : "not mapped"}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div style={{ position: "relative", margin: "14px 20px 0" }} onMouseLeave={() => setHover(null)}>
-        <img src={plan.plan.src} alt={`Site plan of ${plan.name}`} width={plan.plan.width} height={plan.plan.height}
-          style={{ display: "block", width: "100%", height: "auto", borderRadius: 8, border: "1px solid var(--border)" }} />
-        <svg viewBox={plan.plan.viewBox} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} role="group" aria-label="Suites">
-          {plan.suites.map((s) => {
+        <img src={meta.src} alt={`${cur ? `${cur.label} plan` : "Site plan"} of ${plan.name}`} width={meta.width} height={meta.height}
+          style={{ display: "block", width: "100%", height: "auto", borderRadius: 8, border: "1px solid var(--border)", background: "#fff" }} />
+        <svg viewBox={meta.viewBox} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} role="group" aria-label="Suites">
+          {drawn.map((s) => {
             const p = paint(s);
             const dim = focus && p?.key !== focus;
             const hot = hover?.s.id === s.id;
@@ -149,7 +177,7 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
               fill: p ? p.fill : "transparent",
               fillOpacity: p ? (dim ? 0.12 : hot ? 0.85 : 0.62) : 0,
               stroke: p ? (hot ? "#0f172a" : "rgba(15,23,42,0.55)") : "transparent",
-              strokeWidth: hot ? 8 : 3,
+              strokeWidth: (hot ? 8 : 3) * (cur ? 0.6 : 1),
             };
             return (
               <g key={s.id} style={{ cursor: s.unitRefs.length && !s.shadow ? "pointer" : "default" }}
@@ -189,6 +217,23 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
           </button>
         ))}
       </div>
+
+      {plan.unmapped && plan.unmapped.length > 0 && (
+        <details style={{ borderTop: "1px solid var(--border)", padding: "10px 20px" }}>
+          <summary style={{ cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>
+            {plan.unmapped.length} {plan.unmapped.length === 1 ? "suite" : "suites"} on the rent roll not mapped yet
+            {" · "}{plan.unmapped.reduce((t, u) => t + u.sf, 0).toLocaleString()} SF
+          </summary>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+            {plan.unmapped.map((u) => (
+              <a key={u.unitRef} href={`/units/${encodeURIComponent(u.unitRef)}`}
+                style={{ fontSize: 12, padding: "3px 9px", borderRadius: 999, border: "1px solid var(--border)", textDecoration: "none", color: "var(--text)" }}>
+                <code style={{ fontSize: 11 }}>{u.unitRef}</code> {u.vacant ? <span className="muted">Vacant</span> : u.tenant}
+              </a>
+            ))}
+          </div>
+        </details>
+      )}
 
       {upcoming.length > 0 && (
         <div style={{ borderTop: "1px solid var(--border)", padding: "12px 20px 16px" }}>
