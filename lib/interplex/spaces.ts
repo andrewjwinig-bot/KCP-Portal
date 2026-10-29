@@ -17,7 +17,13 @@ export const INTERPLEX_BUILDINGS: Record<string, string> = {
 /** The handoff's figure, kept for a page served before any roll is reachable. */
 export const DESIGN_TOTAL_SF = 379315;
 
-export type InterplexSpace = { bldg: string; suite: string; sf: number; floor?: string; available: string };
+export type InterplexSpace = {
+  bldg: string; suite: string; sf: number; floor?: string; available: string;
+  /** The roll's unit ref — the key the unit page's floor plan is stored under. */
+  unit: string;
+  /** The unit page's floor plan, through the public /api/website/floorplan. */
+  floorplan?: string; floorplanPdf?: boolean;
+};
 
 export type RollUnitForSpace = { unitRef: string; occupantName: string; isVacant: boolean; sqft: number; amenity?: unknown };
 export type RollPropertyForSpace = { propertyCode: string; totalSqft?: number; units: RollUnitForSpace[] };
@@ -37,7 +43,7 @@ export function spacesFromRoll(properties: RollPropertyForSpace[]): InterplexSpa
     for (const u of byCode.get(code)?.units ?? []) {
       const suite = u.unitRef.split("-").slice(1).join("-");
       if (!u.isVacant || u.amenity || !(u.sqft > 0) || !suite || isSharedSpace(suite, u.occupantName || "")) continue;
-      out.push({ bldg, suite: `Suite ${suite}`, sf: Math.round(u.sqft), floor: floorOf(suite), available: "Now" });
+      out.push({ bldg, suite: `Suite ${suite}`, sf: Math.round(u.sqft), floor: floorOf(suite), available: "Now", unit: u.unitRef });
     }
   }
   return out.sort((a, b) => a.sf - b.sf);
@@ -50,4 +56,28 @@ export function totalSfFromRoll(properties: RollPropertyForSpace[]): number {
     .filter((p) => codes.has(p.propertyCode.toUpperCase()))
     .reduce((t, p) => t + (p.totalSqft || 0), 0);
   return total > 0 ? Math.round(total) : DESIGN_TOTAL_SF;
+}
+
+/** The hero's SF, rounded DOWN to the nearest 25K with a plus (owner: "you
+ *  dont need to show exact sf … maybe say +525K sf"): 536,950 → "525K+". */
+export function sfHeadline(totalSf: number): string {
+  const k = Math.floor(totalSf / 25000) * 25;
+  return k > 0 ? `${k}K+` : `${Math.round(totalSf).toLocaleString("en-US")}`;
+}
+
+/** Where a listed suite's floor plan is served from: the public route, keyed
+ *  by unit — never the private blob URL itself. */
+export const floorplanPath = (unitRef: string) => `/api/website/floorplan?unit=${encodeURIComponent(unitRef)}`;
+
+/** Lay the unit pages' floor plans (Unit Info → Floorplan) onto the listed
+ *  suites; a PDF is linked rather than drawn. */
+export function withFloorplans(
+  spaces: InterplexSpace[],
+  plans: Map<string, { contentType: string }>,
+): InterplexSpace[] {
+  return spaces.map((s) => {
+    const fp = plans.get(s.unit.toUpperCase());
+    if (!fp) return s;
+    return { ...s, floorplan: floorplanPath(s.unit), ...(/pdf/i.test(fp.contentType) ? { floorplanPdf: true } : {}) };
+  });
 }

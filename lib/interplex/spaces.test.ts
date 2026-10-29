@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DESIGN_TOTAL_SF, floorOf, spacesFromRoll, totalSfFromRoll } from "./spaces";
+import { DESIGN_TOTAL_SF, floorOf, floorplanPath, sfHeadline, withFloorplans, spacesFromRoll, totalSfFromRoll } from "./spaces";
 
 const u = (unitRef: string, sqft: number, occupantName = "") => ({ unitRef, sqft, occupantName, isVacant: !occupantName });
 
@@ -31,5 +31,16 @@ describe("Neshaminy Interplex Business Center availability follows the rent roll
   it("totals the park's SF off the roll, else the design's figure", () => {
     expect(totalSfFromRoll([{ propertyCode: "3610", totalSqft: 41821, units: [] }, { propertyCode: "9510", totalSqft: 9999, units: [] }])).toBe(41821);
     expect(totalSfFromRoll([])).toBe(DESIGN_TOTAL_SF);
+  });
+  it("shows the park's SF rounded down to 25K with a plus", () => {
+    expect(sfHeadline(536950)).toBe("525K+");
+    expect(sfHeadline(379315)).toBe("375K+");
+  });
+  it("carries the unit page's floor plan through the public route, a PDF as a link", () => {
+    const spaces = spacesFromRoll([{ propertyCode: "4050", units: [u("4050-101", 9434), u("4050-119", 1850)] }]);
+    const plans = new Map([["4050-101", { contentType: "application/pdf" }]]);
+    const out = withFloorplans(spaces, plans);
+    expect(out.find((s) => s.unit === "4050-101")).toMatchObject({ floorplan: floorplanPath("4050-101"), floorplanPdf: true });
+    expect(out.find((s) => s.unit === "4050-119")?.floorplan).toBeUndefined();
   });
 });
