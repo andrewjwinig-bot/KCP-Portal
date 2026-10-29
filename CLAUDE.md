@@ -553,8 +553,12 @@ colours, hover and click-through; `buildStaffPlan` falls back to
 - **Building 5 (4050)**, 10/2026: floor 1 has 101, 115, 117, 119 (from the
   owner's sheets); floors 2 and 3 are base plans with nothing mapped yet. The
   owner's `.dwg` files could not be read here (no converter installable).
-- NEXT: the status report's floor-plan pages (landscape, `FP_W`/`FP_H` — kept
-  from the old static plans) drawn from the same data.
+- **The STATUS REPORT draws them too** (`drawFloorPlanPages`,
+  `lib/buildings/statusReportPages.ts`): after a building's rent roll, one
+  landscape page per MAPPED floor, each suite filled by the REPORT MONTH'S roll
+  (lease-expiry colours, as of the report date) with its number and tenant, a
+  legend, and "not shaded = common area or not yet mapped". The images ride
+  into the function by `outputFileTracingIncludes` ("/api/status-report").
 
 # Shopping-center pages — DESIGNED pages replace the template one by one
 
