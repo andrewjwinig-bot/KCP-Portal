@@ -64,3 +64,26 @@ export function planRotation(page: {
   const portrait = r % 180 === 0 ? page.height > page.width : page.width > page.height;
   return portrait ? wrap(r + 270) : r;
 }
+
+/** The part of the sheet the website shows — the suite itself, drawn large
+ *  (owner: "crop out all the excess stuff and just show the actual suite
+ *  floorplan larger"); the whole sheet stays one click away. Fractions of the
+ *  page AS DRAWN at `rotation` (the absolute pdf.js rotation it was drawn at),
+ *  so a crop never applies to a plan turned another way since. Chosen by hand
+ *  on the unit page: an automatic crop was tried on the 42 plans on file and
+ *  cut into the suite on too many of them. */
+export type PlanCrop = { x: number; y: number; w: number; h: number; rotation: number };
+
+export function isPlanCrop(c: unknown): c is PlanCrop {
+  if (!c || typeof c !== "object") return false;
+  const { x, y, w, h, rotation } = c as Record<string, unknown>;
+  const f = (n: unknown) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1;
+  return f(x) && f(y) && f(w) && f(h) && (w as number) > 0.02 && (h as number) > 0.02
+    && (x as number) + (w as number) <= 1.0001 && (y as number) + (h as number) <= 1.0001
+    && (rotation === 0 || rotation === 90 || rotation === 180 || rotation === 270);
+}
+
+/** The crop to draw at this rotation, or null (none, or chosen at another turn). */
+export function cropAt(crop: unknown, rotation: number): PlanCrop | null {
+  return isPlanCrop(crop) && crop.rotation === rotation ? crop : null;
+}

@@ -5,7 +5,7 @@ import { SectionLabel } from "@/app/properties/PropertyDetail";
 import type { SuiteAttachment } from "@/lib/suites/information";
 import { blobSrc } from "@/lib/blobProxy";
 import FloorplanPdf from "@/app/components/FloorplanPdf";
-import { chosenTurn, type Turn } from "@/lib/suites/floorplanTurn";
+import { chosenTurn, type PlanCrop, type Turn } from "@/lib/suites/floorplanTurn";
 
 // Standalone Floorplan card — sits in the top row of the unit page next
 // to Lease Term and the shared-drive folder. Reads the floorplan field
@@ -21,6 +21,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const [shownAuto, setShownAuto] = useState<Turn>(0);
+  const [cropping, setCropping] = useState(false);
 
   const api = `/api/suites/${encodeURIComponent(unitRef)}/information`;
 
@@ -66,11 +67,15 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
 
   // How the plan is drawn here and on the website: the automatic rule, or a
   // turn chosen with the arrows (saved on the plan; the file is untouched).
-  async function setTurn(turn: Turn | null) {
+  const setTurn = (turn: Turn | null) => patch({ floorplanTurn: turn });
+  // The part of the sheet the website shows large — dragged on the plan.
+  const setCrop = (crop: PlanCrop | null) => patch({ floorplanCrop: crop }).then(() => setCropping(false));
+
+  async function patch(body: { floorplanTurn?: Turn | null; floorplanCrop?: PlanCrop | null }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(api, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ floorplanTurn: turn }) });
+      const res = await fetch(api, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
       const j = (await res.json().catch(() => null)) as { info?: { floorplan?: SuiteAttachment | null }; error?: string } | null;
       if (!res.ok || !j) throw new Error(j?.error ?? `Save failed (${res.status}).`);
       setFloorplan(j.info?.floorplan ?? null);
@@ -147,7 +152,25 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
                 {floorplan.name} ↗
               </a>
               <FloorplanPdf src={blobSrc(floorplan.url)} turn={chosenTurn(unitRef, floorplan) ?? null}
-                onTurn={(t) => setShownAuto(t as Turn)} />
+                crop={floorplan.crop ?? null} editing={cropping}
+                onTurn={(t) => setShownAuto(t as Turn)} onCrop={(c) => void setCrop(c)} />
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 12, color: "var(--muted)" }}>
+                {cropping ? (
+                  <>
+                    <span style={{ fontWeight: 600, color: "var(--text)" }}>Drag a box around the suite</span>
+                    {floorplan.crop && (
+                      <button type="button" className="btn" disabled={busy} style={{ fontSize: 12, padding: "3px 10px" }}
+                        onClick={() => void setCrop(null)}>Show the whole sheet</button>
+                    )}
+                    <button type="button" className="linkBtn" disabled={busy} onClick={() => setCropping(false)}
+                      style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d" }}>Cancel</button>
+                  </>
+                ) : (
+                  <button type="button" className="btn" disabled={busy} style={{ fontSize: 12, padding: "3px 10px" }}
+                    title="The website shows this part of the sheet, large; the whole PDF stays a click away"
+                    onClick={() => setCropping(true)}>{floorplan.crop ? "Re-crop" : "Crop to the suite"}</button>
+                )}
+              </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)" }}>
                 <button type="button" className="btn" disabled={busy} title="Rotate left" aria-label="Rotate left"
                   style={{ fontSize: 13, padding: "3px 10px" }} onClick={() => void setTurn(nextTurn(-90))}>↺</button>

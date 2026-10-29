@@ -506,7 +506,15 @@ the site's search do a full load (a route handler is not a Next page).
   stored as `turn` on the attachment, "Auto" clears it); `TURN_SEED` holds the
   two set before the control existed (3610-304 upright, 40A0-204 the other
   way), keyed unit + file name so a new upload goes back to the rule.
-  All 42 plans on file checked upright 10/29/26. **The Rent Roll's Vacancy Summary rows open the unit page** (where the
+  All 42 plans on file checked upright 10/29/26. **A plan can be CROPPED TO THE SUITE** (owner:
+  "crop out all the excess stuff and just show the actual suite floorplan
+  larger"): "Crop to the suite" on the unit page's Floorplan card, then drag a
+  box on the whole sheet; stored as `crop` (`PlanCrop`, fractions of the sheet
+  AS DRAWN at its absolute `rotation` — `cropAt` ignores it at any other turn,
+  and a turn clears it). The website draws that box large with "View the full
+  floor plan (PDF)" under it. HAND-DRAWN ON PURPOSE: an automatic crop (the
+  plan window found from the grey shading) was tried on all 42 plans and cut
+  into the suite on too many. **The Rent Roll's Vacancy Summary rows open the unit page** (where the
   floor plan is uploaded; "+ Add" where none is on file).
 - **The leasing form posts to `/api/website/leasing`** (`lib/site/leasing.ts`,
   honeypot + 5/hour, emails **Nancy Fox** — `leasingRecipients`,

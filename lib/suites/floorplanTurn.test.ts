@@ -42,3 +42,14 @@ describe("chosenTurn", () => {
     expect(chosenTurn("3610-304", { name: "One Neshaminy Suite 304_2026.pdf" })).toBe(0);
   });
 });
+
+describe("plan crop", () => {
+  it("applies only at the rotation it was drawn at", async () => {
+    const { cropAt, isPlanCrop } = await import("./floorplanTurn");
+    const c = { x: 0.2, y: 0.3, w: 0.4, h: 0.35, rotation: 270 };
+    expect(cropAt(c, 270)).toEqual(c);
+    expect(cropAt(c, 0)).toBeNull();
+    expect(isPlanCrop({ ...c, w: 0.9 })).toBe(false);
+    expect(isPlanCrop({ ...c, w: 0 })).toBe(false);
+  });
+});
