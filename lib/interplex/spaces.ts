@@ -4,6 +4,7 @@
 // that leases leaves the table on the next import, a vacancy appears.
 
 import { isSharedSpace } from "@/lib/officeWorks/offices";
+import { chosenTurn } from "@/lib/suites/floorplanTurn";
 
 /** The page's building ids (its campus map) → the portal's property codes.
  *  Building Five's Office Works suites are 4900, deliberately not here: they
@@ -23,6 +24,8 @@ export type InterplexSpace = {
   unit: string;
   /** The unit page's floor plan, through the public /api/website/floorplan. */
   floorplan?: string; floorplanPdf?: boolean;
+  /** A turn chosen by hand for the PDF; absent → the rule (`planRotation`). */
+  floorplanTurn?: number;
 };
 
 export type RollUnitForSpace = { unitRef: string; occupantName: string; isVacant: boolean; sqft: number; amenity?: unknown };
@@ -70,14 +73,16 @@ export function sfHeadline(totalSf: number): string {
 export const floorplanPath = (unitRef: string) => `/api/website/floorplan?unit=${encodeURIComponent(unitRef)}`;
 
 /** Lay the unit pages' floor plans (Unit Info → Floorplan) onto the listed
- *  suites; a PDF is linked rather than drawn. */
+ *  suites; a PDF is drawn by the page, the right way up (`planRotation`). */
 export function withFloorplans(
   spaces: InterplexSpace[],
-  plans: Map<string, { contentType: string }>,
+  plans: Map<string, { contentType: string; name?: string; turn?: number }>,
 ): InterplexSpace[] {
   return spaces.map((s) => {
     const fp = plans.get(s.unit.toUpperCase());
     if (!fp) return s;
-    return { ...s, floorplan: floorplanPath(s.unit), ...(/pdf/i.test(fp.contentType) ? { floorplanPdf: true } : {}) };
+    const pdf = /pdf/i.test(fp.contentType);
+    const turn = pdf ? chosenTurn(s.unit, { name: fp.name ?? "", turn: fp.turn }) : undefined;
+    return { ...s, floorplan: floorplanPath(s.unit), ...(pdf ? { floorplanPdf: true } : {}), ...(turn != null ? { floorplanTurn: turn } : {}) };
   });
 }

@@ -25,6 +25,9 @@ export type SuiteAttachment = {
   contentType: string;
   size: number;
   uploadedAt: string;
+  /** A floor plan's quarter-turns (clockwise), chosen on the unit page when
+   *  the automatic rule draws it the wrong way up (`floorplanTurn.ts`). */
+  turn?: 0 | 90 | 180 | 270;
 };
 
 export type SuiteInformation = {

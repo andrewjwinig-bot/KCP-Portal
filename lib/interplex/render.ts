@@ -3,6 +3,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { getAllSuiteInformation } from "@/lib/suites/informationStorage";
+import { planRotation } from "@/lib/suites/floorplanTurn";
 import { sfHeadline, withFloorplans, spacesFromRoll, totalSfFromRoll, DESIGN_TOTAL_SF, type InterplexSpace } from "./spaces";
 
 // The Neshaminy Interplex Business Center website (Claude Design handoff),
@@ -33,5 +34,7 @@ export async function renderInterplex(): Promise<string> {
   const json = JSON.stringify(spaces).replace(/</g, "\\u003c");
   return template
     .replace("/*@SPACES@*/[]", () => json)
+    // The ONE orientation rule, shared with the unit page (floorplanTurn.ts).
+    .replace("/*@PLAN_ROTATION@*/null", () => `(${planRotation.toString()})`)
     .replaceAll("{{TOTAL_SF}}", sfHeadline(totalSf));
 }
