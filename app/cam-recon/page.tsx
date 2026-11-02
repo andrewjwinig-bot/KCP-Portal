@@ -937,7 +937,13 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
         const mp = j?.gl?.maxPosted ?? 0;
         setGl(j?.gl ?? { hasGl: false, maxPosted: 0, uploadedAt: null });
         setSends(j?.sends ?? {});
-        setBillingQ(QUARTERS[Math.min(3, Math.max(0, Math.ceil(mp / 3) - 1))] ?? "Q1");
+        // Open on the quarter that needs sending: the earliest COMPLETE quarter
+        // not yet sent, else the latest complete one. A GL running into
+        // October used to open on Q4 (not billable yet), hiding Q3's Send.
+        const complete = QUARTERS.slice(0, Math.min(4, Math.floor(mp / 3)));
+        const s = (j?.sends ?? {}) as Partial<Record<Quarter, QuarterSendRecord>>;
+        const due = complete.find((qq) => s[qq]?.status !== "sent");
+        setBillingQ(due ?? complete[complete.length - 1] ?? "Q1");
       })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
