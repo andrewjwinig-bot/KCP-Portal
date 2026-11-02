@@ -35,7 +35,25 @@ export type QuarterlyBillingDef = {
   /** GL account carrying real estate taxes. */
   retAccount: string;
   years: number[];
+  /** Who the quarter's statement is emailed to (owner: "Santiago … received
+   *  the email"), and how the email names the store. */
+  sendTo: string;
+  /** "store #97 in Lafayette Hill, PA" — the email body's own wording. */
+  storePhrase: string;
+  /** "Wawa Store #97" — the subject and the PDF's heading. */
+  storeName: string;
+  /** The first quarter the portal sends ON ITS OWN when the GL for the
+   *  quarter's last month is imported. Earlier quarters were emailed by hand
+   *  before the portal sent them; they can still be sent from the page. */
+  autoFrom: { year: number; quarter: Quarter };
 };
+
+/** Every year from the first through this one — the list never runs out. */
+function yearsFrom(first: number): number[] {
+  const out: number[] = [];
+  for (let y = first; y <= new Date().getFullYear(); y++) out.push(y);
+  return out;
+}
 
 export const QUARTERLY_BILLINGS: Record<string, QuarterlyBillingDef> = {
   "9510-WAWA-Q": {
@@ -74,7 +92,13 @@ export const QUARTERLY_BILLINGS: Record<string, QuarterlyBillingDef> = {
       "Liability Insurance": "6510-8502",
     },
     retAccount: "6410-8502",
-    years: [2025, 2026],
+    years: yearsFrom(2025),
+    sendTo: "santiago.betancourt@wawa.com",
+    storePhrase: "store #97 in Lafayette Hill, PA",
+    storeName: "Wawa Store #97",
+    // Q1 and Q2 2026 went out by hand; Q3 2026 is sent from the page once its
+    // figures are checked (the July parking-lot charge); Q4 on is automatic.
+    autoFrom: { year: 2026, quarter: "Q4" },
   },
 };
 
@@ -212,4 +236,80 @@ export function computeQuarterly(def: QuarterlyBillingDef, data: QuarterlyData):
     camDueYtd: sum(camDueByQ), retDueYtd: sum(retDueByQ),
     dueYtd, billedYtd, balanceYtd: dueYtd - billedYtd,
   };
+}
+
+// ── Sending the quarter ──────────────────────────────────────────────────────
+
+/** The quarter's last month (1-based) — its GL being imported is the trigger. */
+export const quarterLastMonth = (q: Quarter): number => (QUARTERS.indexOf(q) + 1) * 3;
+
+/** Every month of the quarter is posted in the GL. */
+export const quarterPosted = (q: Quarter, maxPostedMonth: number): boolean => maxPostedMonth >= quarterLastMonth(q);
+
+const ORDINAL: Record<Quarter, string> = { Q1: "first", Q2: "second", Q3: "third", Q4: "fourth" };
+
+/** The email, in the owner's own wording (as sent by hand before the portal did). */
+export function quarterlyEmail(def: QuarterlyBillingDef, q: Quarter, year: number, signer: string) {
+  const first = def.sendTo.split("@")[0].split(/[._]/)[0];
+  const hello = first ? first[0].toUpperCase() + first.slice(1).toLowerCase() : "";
+  return {
+    subject: `${q} ${year} CAM and Tax — ${def.storeName}, Lafayette Hill, PA`,
+    textBody: [
+      `Hi ${hello},`,
+      "",
+      `I hope you are doing well. Attached is the ${ORDINAL[q]} quarter’s CAM and TAX amounts for ${def.storePhrase}.`,
+      "",
+      "Thank you,",
+      signer,
+    ].join("\n"),
+    attachmentName: `${def.storeName.replace(/[^A-Za-z0-9]+/g, "_")}_${q}_${year}_CAM_and_Tax.pdf`,
+  };
+}
+
+/** The quarter is on or after the first one sent automatically. */
+export function isAutoQuarter(def: QuarterlyBillingDef, year: number, q: Quarter): boolean {
+  if (year !== def.autoFrom.year) return year > def.autoFrom.year;
+  return QUARTERS.indexOf(q) >= QUARTERS.indexOf(def.autoFrom.quarter);
+}
+
+/** A cost line that jumped — what holds an automatic send for a look first,
+ *  as an Allocated split that doesn't tie is held. The same quarter LAST year
+ *  is the comparison (snow lands in Q1 every year, so a Q1 snow bill is not a
+ *  spike); with no prior year, the year's other posted quarters. Over both
+ *  $5,000 and 2× the comparison. 9510's July 2026 parking-lot charge
+ *  ($21,750, probably capital — which Wawa's lease excludes) is the shape. */
+export const SPIKE_MIN_DOLLARS = 5000;
+
+/** Lines that land in some quarters and not others by nature — judged only
+ *  against the same quarter last year, never against the other quarters. */
+const SEASONAL = /snow|landscap|real estate tax/i;
+
+export type QuarterSpike = { label: string; amount: number; typical: number; basis: "last year" | "other quarters" | "none" };
+
+export function quarterSpikes(
+  def: QuarterlyBillingDef,
+  data: QuarterlyData,
+  q: Quarter,
+  prior: QuarterlyData | null,
+  postedQuarters: Quarter[],
+): QuarterSpike[] {
+  const out: QuarterSpike[] = [];
+  const rows: { label: string; now: Partial<Record<Quarter, number>>; then?: Partial<Record<Quarter, number>> }[] = [
+    ...def.camLines.map((label) => ({ label, now: data.camCosts[label] ?? {}, then: prior?.camCosts[label] })),
+    { label: "Real Estate Taxes", now: data.retCosts, then: prior?.retCosts },
+  ];
+  for (const r of rows) {
+    const amount = r.now[q] ?? 0;
+    if (amount < SPIKE_MIN_DOLLARS) continue;
+    let typical: number | null = null;
+    let basis: QuarterSpike["basis"] = "none";
+    if (prior) { typical = r.then?.[q] ?? 0; basis = "last year"; }
+    else if (!SEASONAL.test(r.label)) {
+      const others = postedQuarters.filter((x) => x !== q).map((x) => r.now[x] ?? 0);
+      if (others.length) { typical = others.reduce((a, b) => a + b, 0) / others.length; basis = "other quarters"; }
+    }
+    if (typical == null) continue;
+    if (amount > 2 * typical && amount - typical >= SPIKE_MIN_DOLLARS) out.push({ label: r.label, amount, typical: Math.round(typical), basis });
+  }
+  return out;
 }

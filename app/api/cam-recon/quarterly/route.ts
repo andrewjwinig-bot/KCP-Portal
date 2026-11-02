@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { QUARTERLY_BILLINGS, QUARTERS, computeQuarterly, autoQuarterlyFromGl, mergeQuarterly, QUARTERLY_OVERRIDE_SEED, type Quarter } from "@/lib/cam/retail/quarterly";
-import { getQuarterly, saveQuarterlyCell, type QuarterlyField } from "@/lib/cam/retail/quarterlyStore";
-import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
+import { QUARTERLY_BILLINGS, QUARTERS, type Quarter } from "@/lib/cam/retail/quarterly";
+import { saveQuarterlyCell, type QuarterlyField } from "@/lib/cam/retail/quarterlyStore";
+import { loadQuarterly } from "@/lib/cam/retail/quarterlyLoad";
+import { sendRecordsFor } from "@/lib/cam/retail/quarterlySend";
 
 export const runtime = "nodejs";
 
@@ -18,19 +19,9 @@ export async function GET(req: NextRequest) {
   if (!def || !def.years.includes(year)) {
     return NextResponse.json({ error: `No quarterly billing for ${key} ${year}` }, { status: 404 });
   }
-  const manual = await getQuarterly(key, year);
-  const gl = await assembledGl(def.parentProperty, year);
-  const maxPosted = gl?.maxPeriodInFile ?? 0;
-  const glAuto = gl ? autoQuarterlyFromGl(def, gl.monthly, maxPosted) : { camCosts: {}, retCosts: {}, billed: {} };
   // GL raw < finalized override seed (backed-out items) < staff manual edit.
-  const seed = QUARTERLY_OVERRIDE_SEED[`${key}-${year}`] ?? { camCosts: {}, retCosts: {}, billed: {} };
-  const auto = mergeQuarterly(glAuto, seed);
-  const effective = mergeQuarterly(auto, manual);
-  const computed = computeQuarterly(def, effective);
-  return NextResponse.json({
-    def, data: manual, auto, effective, computed,
-    gl: { hasGl: !!gl, maxPosted, uploadedAt: gl?.uploadedAt ?? null },
-  });
+  const q = (await loadQuarterly(key, year))!;
+  return NextResponse.json({ def, data: q.manual, auto: q.auto, effective: q.effective, computed: q.computed, gl: q.gl, sends: await sendRecordsFor(key, year) });
 }
 
 const FIELDS = new Set<QuarterlyField>(["camCost", "retCost", "billed"]);

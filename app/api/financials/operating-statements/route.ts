@@ -25,6 +25,8 @@ import { buildFullYearPayload, combineGls, type FullYearPayload } from "@/lib/fi
 import { logAudit, auditIp } from "@/lib/audit";
 import { savePendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
 import { prepareAllocation, prepareAllocationFromGl, autoSendAllocation } from "@/lib/allocated-invoicer/autoProcess";
+import { autoSendQuarterly } from "@/lib/cam/retail/quarterlySend";
+import { QUARTERLY_BILLINGS } from "@/lib/cam/retail/quarterly";
 import { glFromPosting } from "@/lib/allocated-invoicer/postingIntake";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { expectedPostedThrough, outstandingGlUploads } from "@/lib/financials/operating-statements/outstanding";
@@ -421,6 +423,13 @@ async function importPostingReport(
     }
   } catch { /* best-effort — the posting deltas are already saved */ }
 
+  // A posting report that fills a quarter's last month triggers the quarterly CAM too.
+  for (const a of applied) {
+    if (Object.values(QUARTERLY_BILLINGS).some((d) => d.parentProperty === a.key)) {
+      try { await autoSendQuarterly(a.key, uploadedBy); } catch { /* the cron retries */ }
+    }
+  }
+
   await logAudit({ event: "gl.posting-report", user: uploadedBy ?? "import", ip: auditIp(req), detail: `${file.name} · ${applied.length} properties · ${year}` });
 
   return NextResponse.json({
@@ -577,6 +586,15 @@ export async function POST(req: Request) {
       }
     }
 
+    // A quarter-billed tenant's quarterly CAM (Wawa @ 9510) sends itself once
+    // its parent property's GL reaches the quarter's last month (owner: "similarly
+    // to allocated expenses that should trigger this"); a jump is held and Drew
+    // told. The daily cron retries. Best-effort — the import still succeeds.
+    let quarterlyCam: Awaited<ReturnType<typeof autoSendQuarterly>> | null = null;
+    if (Object.values(QUARTERLY_BILLINGS).some((d) => d.parentProperty === key)) {
+      try { quarterlyCam = await autoSendQuarterly(key, importedBy); } catch { /* the cron retries */ }
+    }
+
     // On-import "things to check": scan THIS property's just-imported latest
     // month for budgeted/scheduled lines still reading $0, so the importer sees
     // right away whether the statement is complete. Best-effort.
@@ -596,6 +614,7 @@ export async function POST(req: Request) {
       maxPeriodInFile: primary.maxPeriodInFile,
       accounts: Object.keys(primary.monthly).length,
       allocatedGlReady: isGandA,
+      quarterlyCam,
       // Auto-processed allocated-invoicer result (2000 G&A GL only).
       allocated,
       tasksCompleted,
