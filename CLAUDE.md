@@ -713,7 +713,9 @@ handoff's screenshot crop.
   entry — image + viewBox) and `liveDesignedSuites`, so it can never disagree
   with the public page about who is where — but coloured by what WE act on:
   **Lease Expiry** (past term / ≤12 mo / 12–24 / 24+ / vacant), **Rent $/SF**
-  (a brand ramp), **Open A/R** (past due is the exception; this month's open
+  (up to five GREEN steps cut at the quantiles of the suites' own rents —
+  `rentBands`, drawn at 85% so the dark greens don't read grey; a straight
+  min→max ramp let one outlier make every suite the same shade, owner), **Open A/R** (past due is the exception; this month's open
   charges amber). Hover a suite (`TipCard`, the body of `HoverCard`, placed at
   the mouse) for the roll's own occupant name, lease dates, rent, CAM · RET ·
   Other and A/R; click for the unit page. Tiles: occupied %, vacant SF,

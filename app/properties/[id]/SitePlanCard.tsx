@@ -15,8 +15,8 @@ import { th, thL, td, tdL } from "../../components/tableStyles";
 import CampusPlanCard from "./CampusPlanCard";
 import type { CampusView } from "../../../lib/buildings/campusMath";
 import {
-  AR_COLOR, AR_LABEL, arBucket, brandRamp, EXPIRY_COLOR, EXPIRY_LABEL, EXPIRY_ORDER, expiryBucket,
-  labelSize, monthsLeft, scaleOf, type ArBucket, type ExpiryBucket, type StaffPlan, type StaffSuite,
+  AR_COLOR, AR_LABEL, arBucket, EXPIRY_COLOR, EXPIRY_LABEL, EXPIRY_ORDER, expiryBucket,
+  labelSize, monthsLeft, rentBandOf, rentBands, type ArBucket, type ExpiryBucket, type StaffPlan, type StaffSuite,
 } from "../../../lib/centers/designed/staffPlanMath";
 
 type Mode = "expiry" | "rent" | "ar";
@@ -35,6 +35,8 @@ const areaOf = (polys: string[]) => polys.reduce((t, poly) => {
   for (let i = 0; i < p.length; i++) { const [x1, y1] = p[i], [x2, y2] = p[(i + 1) % p.length]; a += x1 * y2 - x2 * y1; }
   return t + Math.abs(a) / 2;
 }, 0);
+/** A leased suite paying no base rent — a pale lime, still in the greens (owner: not grey). */
+const NO_RENT = "#ecfccb";
 const termLeft = (m: number | null) =>
   m == null ? "" : m < 0 ? `ended ${-m} mo ago` : m < 12 ? `${m} mo left` : `${Math.floor(m / 12)} yr ${m % 12} mo left`;
 
@@ -62,6 +64,7 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
 
   const ours = useMemo(() => (plan?.suites ?? []).filter((s) => !s.shadow), [plan]);
   const rents = useMemo(() => ours.map((s) => s.money?.rentPsf ?? 0), [ours]);
+  const bands = useMemo(() => rentBands(rents), [rents]);
 
   if (!plan) return campus ? <CampusPlanCard campus={campus} style={style} /> : null;
 
@@ -82,7 +85,8 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
     }
     if (s.status === "available") return { key: "vacant", fill: EXPIRY_COLOR.vacant };
     const psf = s.money?.rentPsf ?? 0;
-    return psf > 0 ? { key: "rent", fill: brandRamp(0.15 + 0.85 * scaleOf(psf, rents)) } : { key: "norent", fill: "#94a3b8" };
+    if (psf > 0) { const b = rentBandOf(psf, bands); return { key: b.key, fill: b.color }; }
+    return { key: "norent", fill: NO_RENT };
   };
 
   // KPI tiles — the centre at a glance.
@@ -112,8 +116,8 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
           { key: "vacant", label: "Vacant", color: EXPIRY_COLOR.vacant },
         ]
       : [
-          { key: "rent", label: rentRangeLabel(rents), color: brandRamp(0.7) },
-          { key: "norent", label: "No base rent", color: "#94a3b8" },
+          ...bands.map((b) => ({ key: b.key, label: b.lo === b.hi ? `${money2(b.lo)}/SF` : `${money2(b.lo)} – ${money2(b.hi)}/SF`, color: b.color })),
+          { key: "norent", label: "No base rent", color: NO_RENT },
           { key: "vacant", label: "Vacant", color: EXPIRY_COLOR.vacant },
         ];
     return keys.filter((k) => tally.has(k.key)).map((k) => ({ ...k, ...tally.get(k.key)! }));
@@ -204,7 +208,9 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
             } : {
               fill: p ? p.fill : "transparent",
               // Lighter while hovered on a floor with interiors, so the offices read through.
-              fillOpacity: p ? (dim ? 0.12 : hot ? (meta.detailSrc ? 0.3 : 0.85) : 0.62) : 0,
+              // Rent's green steps are drawn near full strength: washed over the white
+              // plan at 62% the darker greens read grey (owner: "dont have it be grey").
+              fillOpacity: p ? (dim ? 0.12 : hot ? (meta.detailSrc ? 0.3 : 0.9) : mode === "rent" ? 0.85 : 0.62) : 0,
               stroke: p ? (hot ? "#0f172a" : "rgba(15,23,42,0.55)") : "transparent",
               strokeWidth: (hot ? 8 : 3) * (cur ? 0.6 : 1),
             };
@@ -331,11 +337,6 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
   );
 }
 
-function rentRangeLabel(rents: number[]): string {
-  const xs = rents.filter((r) => r > 0);
-  if (!xs.length) return "Base rent $/SF";
-  return `Base rent ${money2(Math.min(...xs))} → ${money2(Math.max(...xs))} /SF`;
-}
 
 function SuiteTip({ s, x, y, plan, today }: { s: StaffSuite; x: number; y: number; plan: StaffPlan; today: Date }) {
   const width = 280;
