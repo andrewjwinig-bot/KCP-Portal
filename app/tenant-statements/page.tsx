@@ -674,7 +674,6 @@ function PortalLinkCell({ info }: { info: LinkInfo | null }) {
             { label: "Shared", value: new Date(link.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) },
             ...(link.createdBy ? [{ label: "By", value: link.createdBy }] : []),
             { label: "Access PIN", value: link.hasPin ? "Required" : "None" },
-            { label: "Opened", value: viewed ? `${viewed} time${viewed === 1 ? "" : "s"}` : "Not yet" },
           ]}
           footer={{ label: "Last opened", value: link.lastViewedAt ? new Date(link.lastViewedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—" }}>
           <Pill tone={viewed ? TONE_GREEN : TONE_BLUE}>{viewed ? `OPENED ${viewed}×` : "SHARED"}</Pill>
@@ -814,12 +813,10 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
                 rows={[
                   ...(t.pendingPayment.paymentRef ? [{ label: "Reference", value: t.pendingPayment.paymentRef }] : []),
                   ...(t.pendingPayment.receivedOn ? [{ label: "Received", value: t.pendingPayment.receivedOn }] : []),
-                  { label: "Recorded by", value: t.pendingPayment.createdBy ?? "—" },
                   { label: "Tenant asked", value: t.pendingPayment.askedAt
-                    ? new Date(t.pendingPayment.askedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                    : "Not yet — no email sent" },
-                ]}
-                footer={{ label: "Status", value: t.pendingPayment.askedAt ? "Waiting on the tenant" : "Recorded, not asked" }}>
+                    ? `${new Date(t.pendingPayment.askedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · waiting`
+                    : "Not yet", color: t.pendingPayment.askedAt ? undefined : "#b45309" },
+                ]}>
                 <Pill tone={TONE_AMBER}>{`UNAPPLIED ${money0(t.pendingPayment.amount)}`}</Pill>
               </HoverCard>
             )}
@@ -845,7 +842,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
                   { label: "From", value: t.sourceFile ?? "an earlier import" },
                   { label: "Imported", value: t.importedAt ? new Date(t.importedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—" },
                 ]}
-                footer={{ label: "Status", value: "Kept — the latest export didn't include them" }}>
+                footer={{ label: "Kept", value: "not in the latest export" }}>
                 <Pill tone={TONE_NEUTRAL}>CARRIED OVER</Pill>
               </HoverCard>
             )}
@@ -917,12 +914,10 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
                 rows={[
                   ...(t.pendingPayment.paymentRef ? [{ label: "Reference", value: t.pendingPayment.paymentRef }] : []),
                   ...(t.pendingPayment.receivedOn ? [{ label: "Received", value: t.pendingPayment.receivedOn }] : []),
-                  { label: "Recorded by", value: t.pendingPayment.createdBy ?? "—" },
                   { label: "Tenant asked", value: t.pendingPayment.askedAt
-                    ? new Date(t.pendingPayment.askedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                    : "Not yet — no email sent" },
-                ]}
-                footer={{ label: "Status", value: t.pendingPayment.askedAt ? "Waiting on the tenant" : "Recorded, not asked" }}>
+                    ? `${new Date(t.pendingPayment.askedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · waiting`
+                    : "Not yet", color: t.pendingPayment.askedAt ? undefined : "#b45309" },
+                ]}>
                 <Pill tone={TONE_AMBER}>{`UNAPPLIED ${money0(t.pendingPayment.amount)}`}</Pill>
               </HoverCard>
             )}

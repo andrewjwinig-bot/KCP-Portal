@@ -219,9 +219,9 @@ export default function ManagementFeesPage() {
                                   const negative = isNegative(b, m);
                                   const shown = posted ? (b.feeMonthly[m] ? money(b.feeMonthly[m]) : "—") : (rm[m] ? money(rm[m]) : "");
                                   const flag = negative
-                                    ? { title: "Negative management fee", text: `The GL netted to a ${money(Math.abs(b.feeMonthly[m]))} credit — likely a reversal or prior-period correction. Verify the 6610 entries.` }
+                                    ? { title: "Negative management fee", text: `${money(Math.abs(b.feeMonthly[m]))} credit — check the 6610 entries.` }
                                     : missing
-                                      ? { title: "Management fee missing", text: posted ? "GL posted, but no management fee this month — it may need to be reposted." : "Not posted yet — other buildings have posted this month." }
+                                      ? { title: "Management fee missing", text: posted ? "GL posted, no fee — repost it?" : "Not posted yet; others have." }
                                       : null;
                                   return (
                                     <td key={m}

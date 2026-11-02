@@ -407,7 +407,7 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
             <HoverCard title={`${r.tenant} · past term`} width={300} rows={[
               { label: "Lease ended", value: r.leaseTo ?? "—" },
               { label: "On the rent roll", value: rollLabel ? `Yes — ${rollLabel}` : "Yes" },
-            ]} footer={{ label: "Renewed or holding over until the renewal is keyed — not a move-out. It becomes one only if a later rent roll no longer shows them.", value: "" }}>
+            ]} footer={{ label: "Holding over — not a move-out", value: "" }}>
               <span style={{ marginLeft: 8 }}><Pill tone={TONE_AMBER}>PAST TERM</Pill></span>
             </HoverCard>
           )}

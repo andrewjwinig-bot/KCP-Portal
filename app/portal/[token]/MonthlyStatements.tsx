@@ -149,8 +149,8 @@ function CategoryTiles({ st }: { st: MonthlyStatement }) {
               key={c.category}
               title={CATEGORY_LABEL[c.category]}
               width={296}
-              rows={lines.slice(0, 8).map((l) => ({ label: `${dateLabel(l.dateISO)} · ${l.description}`, value: money2(l.amount), color: CATEGORY_COLOR[c.category] }))}
-              footer={{ label: lines.length > 8 ? `Total (${lines.length} charges)` : "Total", value: money2(c.amount) }}
+              rows={lines.slice(0, 5).map((l) => ({ label: `${dateLabel(l.dateISO)} · ${l.description}`, value: money2(l.amount), color: CATEGORY_COLOR[c.category] }))}
+              footer={{ label: lines.length > 5 ? `Total (${lines.length} charges)` : "Total", value: money2(c.amount) }}
               style={{ display: "block" }}
             >
               <div style={{ border: "1px solid var(--border)", borderLeft: `3px solid ${CATEGORY_COLOR[c.category]}`, borderRadius: 12, padding: "13px 15px", background: "var(--card)", boxShadow: "var(--shadow)", height: "100%", boxSizing: "border-box" }}>

@@ -970,7 +970,7 @@ export default function OperatingStatementsPage() {
                       { label: "Reconciled", value: String(glTieOut.reconciled), color: "#15803d" },
                       ...(glTieOut.mismatches ? [{ label: "Do not reconcile", value: String(glTieOut.mismatches), color: "#b91c1c" }] : []),
                     ]}
-                    footer={{ label: "Checks", value: "Each account's monthly nets against the ending balance the file reports" }}
+                    footer={{ label: "Checks", value: "monthly nets vs ending balance" }}
                   >
                     <div><Pill tone={tiesTone(glTieOut.mismatches === 0)}>
                       {glTieOut.mismatches === 0 ? "GL TIES" : `${glTieOut.mismatches} DON'T TIE`}

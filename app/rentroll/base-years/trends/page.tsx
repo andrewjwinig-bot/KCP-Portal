@@ -223,7 +223,15 @@ function LineChart({
         <HoverBands n={years.length} xAt={xs} x0={padL} x1={padL + innerW} top={padT} height={innerH} active={hover} onHover={setHover} />
         {hover != null && (
           <ChartTooltip x={xs(hover)} y={padT} chartW={W} title={String(years[hover])}
-            rows={visible.filter((s) => s.values[hover] != null).map((s) => ({ label: s.label, color: s.color, value: fmtY(s.values[hover]!) }))} />
+            rows={(() => {
+              // The six largest lines that year, the rest as one row — a hover is a glance.
+              const xs2 = visible.filter((s) => s.values[hover] != null).sort((a, b) => (b.values[hover] ?? 0) - (a.values[hover] ?? 0));
+              const rest = xs2.slice(6);
+              return [
+                ...xs2.slice(0, 6).map((s) => ({ label: s.label, color: s.color, value: fmtY(s.values[hover]!) })),
+                ...(rest.length ? [{ label: `${rest.length} other line${rest.length === 1 ? "" : "s"}`, value: fmtY(rest.reduce((a, s) => a + (s.values[hover] ?? 0), 0)) }] : []),
+              ];
+            })()} />
         )}
       </svg>
 

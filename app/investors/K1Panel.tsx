@@ -422,7 +422,7 @@ function SendPill({ link, name }: { link: PortalLink; name: string }) {
   // Links minted from the send-tracking release on carry `sendCount` (0 when
   // created but not emailed). Null means the link is older than the tracking.
   const tracked = link.sendCount !== null && link.sendCount !== undefined;
-  const rows: { label: string; value: string }[] = [];
+  const rows: { label: string; value: string; color?: string }[] = [];
 
   const manual = link.sentVia === "manual";
   if (sentAt) {
@@ -431,16 +431,10 @@ function SendPill({ link, name }: { link: PortalLink; name: string }) {
     // A hand-recorded send is somebody's word, not something the app watched
     // happen — there is no message id behind it. Say so, rather than letting
     // it read with the same certainty as one the app made and confirmed.
-    rows.push({
-      label: "Sent by",
-      value: manual ? "Recorded by hand — sent from Outlook" : "The portal, confirmed by Postmark",
-    });
-    rows.push({
-      label: "PIN email",
-      value: manual
-        ? "Sent by hand alongside the link"
-        : link.pinSentAt ? "Sent separately, same time" : "DID NOT SEND — give them the PIN",
-    });
+    if (manual) rows.push({ label: "Sent by", value: "Hand (Outlook)" });
+    rows.push(manual ? { label: "PIN", value: "By hand" }
+      : link.pinSentAt ? { label: "PIN", value: "Sent separately" }
+      : { label: "PIN", value: "NOT SENT — give it to them", color: "#b91c1c" });
     if ((link.sendCount ?? 0) > 1) rows.push({ label: "Times sent", value: String(link.sendCount) });
   } else {
     rows.push({ label: "Link created", value: sentStampFull(link.createdAt) });
@@ -449,9 +443,7 @@ function SendPill({ link, name }: { link: PortalLink; name: string }) {
     // so an untracked link says so plainly instead.
     rows.push({
       label: "Emailed",
-      value: tracked
-        ? "Never — copy the link and send it yourself"
-        : "Not recorded — this link predates send tracking",
+      value: tracked ? "Never" : "Not recorded (older link)",
     });
   }
   rows.push({
@@ -479,9 +471,6 @@ function SendPill({ link, name }: { link: PortalLink; name: string }) {
       title={name}
       width={320}
       rows={rows}
-      footer={sentAt && !link.pinSentAt
-        ? { label: "Action", value: "They cannot open this until they have the PIN" }
-        : undefined}
     >
       <span><Pill tone={tone}>{label}</Pill></span>
     </HoverCard>

@@ -155,10 +155,9 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
                       { label: `${BASIS_LABEL[basis]} · ${window}`, value: money0(r.expected) },
                       { label: "Billed to the GL", value: money0(r.billed) },
                       { label: "Difference", value: money0(r.variance), color: r.variance < -1 ? "#b91c1c" : undefined },
-                      { label: "Lease term", value: r.leaseFrom || r.leaseTo ? `${r.leaseFrom ?? "—"} → ${r.leaseTo ?? "—"}` : "Not on the rent roll" },
-                      { label: "Months of the window leased", value: `${r.monthsCovered} of ${r.monthsInScope}` },
+                      { label: "Leased", value: r.leaseFrom || r.leaseTo ? `${r.monthsCovered} of ${r.monthsInScope} mo · to ${r.leaseTo ?? "—"}` : "Not on the rent roll" },
                     ]}
-                    footer={r.caveats.length ? { label: "Note", value: r.caveats.join(" ") } : { label: "Difference", value: money0(r.variance) }}
+                    footer={r.caveats.length ? { label: "Note", value: r.caveats[0] } : undefined}
                     width={300}
                   >
                     <Pill tone={rentCheckTone(r.status)}>{statusLabel(r.status, r.variance)}</Pill>

@@ -103,7 +103,7 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
                   <HoverCard
                     title="Centres missing from the export"
                     rows={rec.missing.map((m) => ({ label: m, value: "no rows" }))}
-                    footer={{ label: "What to do", value: "Re-run the Skyline report across every centre and import again — a centre with no rows is not a centre with no rent." }}
+                    footer={{ label: "Fix", value: "Re-run across all centres" }}
                   >
                     <div><Pill tone={TONE_RED}>MISSING {rec.missing.join(", ")}</Pill></div>
                   </HoverCard>
@@ -111,8 +111,8 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
                 {rec.skipped.length > 0 && (
                   <HoverCard
                     title="Rows with no readable amount"
-                    rows={rec.skipped.slice(0, 8).map((s) => ({ label: `Row ${s.row}`, value: s.reason }))}
-                    footer={{ label: "Why it matters", value: "A blank rent is a real space with no contracted charge — it belongs on the vacancy list, not in the budget at nil." }}
+                    rows={rec.skipped.slice(0, 5).map((s) => ({ label: `Row ${s.row}`, value: s.reason }))}
+                    footer={{ label: "Belongs on", value: "the vacancy list" }}
                   >
                     <div><Pill tone={TONE_AMBER}>{rec.skipped.length} ROWS WITHOUT AN AMOUNT</Pill></div>
                   </HoverCard>

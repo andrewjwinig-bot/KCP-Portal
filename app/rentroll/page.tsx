@@ -805,7 +805,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
                   color="#b91c1c"
                   bg="rgba(220,38,38,0.08)"
                   border="rgba(220,38,38,0.28)"
-                  title={`Rent roll sums to ${sqftFmt(Math.round(prop.totalSqft))} SF, but this building's GLA on file is ${sqftFmt(gla)} SF (${sfDeltaLabel}). Check the imported roll for a missing, duplicated, or mis-sized unit — or update the building SF in the property master if the roll is correct.`}
+                  title={`Roll ${sqftFmt(Math.round(prop.totalSqft))} SF vs GLA ${sqftFmt(gla)} SF — check the roll or the property master.`}
                 />
               )}
               {expiringCount > 0 && (
