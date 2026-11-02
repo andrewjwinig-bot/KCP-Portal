@@ -153,11 +153,12 @@ export function scaleOf(v: number, values: number[]): number {
 }
 
 /** Light → deep brand for a sequential figure (rent $/SF). */
-/** Rent $/SF on a plan: up to five GREEN steps cut at the quantiles of the
+/** Rent $/SF on a plan: up to five steps, red (lowest) to green (highest), cut at the quantiles of the
  *  suites' own rents, so every step holds about the same number of suites and
  *  reads as its own colour (a straight min→max ramp let one outlier squeeze
  *  every other suite into the same shade — owner: "they all look the same"). */
-export const RENT_GREENS = ["#bbf7d0", "#4ade80", "#22c55e", "#15803d", "#14532d"];
+/** Low rent RED → high rent GREEN (owner: "green should be higher and red should be lower"). */
+export const RENT_GREENS = ["#dc2626", "#f97316", "#facc15", "#a3e635", "#22c55e"];
 export type RentBand = { key: string; lo: number; hi: number; color: string };
 export function rentBands(values: number[]): RentBand[] {
   const xs = values.filter((x) => x > 0).sort((a, b) => a - b);
@@ -172,7 +173,7 @@ export function rentBands(values: number[]): RentBand[] {
   }
   edges.push(Infinity);
   const k = edges.length - 1;
-  // Spread the steps used across the whole palette, light → dark.
+  // Spread the steps used across the whole palette, red → green.
   const colorAt = (i: number) => RENT_GREENS[k === 1 ? RENT_GREENS.length - 2 : Math.round((i * (RENT_GREENS.length - 1)) / (k - 1))];
   return edges.slice(0, -1).map((lo, i) => {
     const inBand = xs.filter((x) => x >= lo && x < edges[i + 1]);

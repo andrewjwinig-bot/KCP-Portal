@@ -713,11 +713,16 @@ handoff's screenshot crop.
   entry — image + viewBox) and `liveDesignedSuites`, so it can never disagree
   with the public page about who is where — but coloured by what WE act on:
   **Lease Expiry** (past term / ≤12 mo / 12–24 / 24+ / vacant), **Rent $/SF**
-  (up to five GREEN steps cut at the quantiles of the suites' own rents —
-  `rentBands`, drawn at 85% so the dark greens don't read grey; a straight
+  (up to five steps, RED lowest → GREEN highest, cut at the quantiles of the
+  suites' own rents — `rentBands`, drawn at 85% so nothing reads grey; no base
+  rent is a deeper red; the legend opens with what the colours MEAN —
+  "Colored by lease expiry" etc. — because a yellow suite in the default
+  Lease Expiry view was read as a rent; a straight
   min→max ramp let one outlier make every suite the same shade, owner), **Open A/R** (past due is the exception; this month's open
-  charges amber). Hover a suite (`TipCard`, the body of `HoverCard`, placed at
-  the mouse) for the roll's own occupant name, lease dates, rent, CAM · RET ·
+  charges amber). Hover a suite (`SuiteTip` — the tenant big and bold, a
+  colour rail in the suite's current colour, then Expires / Base rent / $/SF /
+  CAM · RET · Other / Gross, A/R under a rule; no lease-from line, no term,
+  no dot — owner: "bold and big and clear" like the Management Fees hover) for the roll's own occupant name, lease dates, rent, CAM · RET ·
   Other and A/R; click for the unit page. Tiles: occupied %, vacant SF,
   expiring ≤ 12 mo, past due; the legend filters the plan; a Lease
   Expirations · Next 24 Months table sits under it. **The server decides what

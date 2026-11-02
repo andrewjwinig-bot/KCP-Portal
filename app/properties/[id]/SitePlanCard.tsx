@@ -10,7 +10,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatPill } from "../../components/Pill";
 import { TabButton } from "../../components/TabButton";
-import { TipCard, type TipRow } from "../../components/HoverCard";
 import { th, thL, td, tdL } from "../../components/tableStyles";
 import CampusPlanCard from "./CampusPlanCard";
 import type { CampusView } from "../../../lib/buildings/campusMath";
@@ -35,8 +34,8 @@ const areaOf = (polys: string[]) => polys.reduce((t, poly) => {
   for (let i = 0; i < p.length; i++) { const [x1, y1] = p[i], [x2, y2] = p[(i + 1) % p.length]; a += x1 * y2 - x2 * y1; }
   return t + Math.abs(a) / 2;
 }, 0);
-/** A leased suite paying no base rent — a pale lime, still in the greens (owner: not grey). */
-const NO_RENT = "#ecfccb";
+/** A leased suite paying no base rent — below the lowest step, so a deeper red (owner: not grey). */
+const NO_RENT = "#7f1d1d";
 const termLeft = (m: number | null) =>
   m == null ? "" : m < 0 ? `ended ${-m} mo ago` : m < 12 ? `${m} mo left` : `${Math.floor(m / 12)} yr ${m % 12} mo left`;
 
@@ -208,8 +207,8 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
             } : {
               fill: p ? p.fill : "transparent",
               // Lighter while hovered on a floor with interiors, so the offices read through.
-              // Rent's green steps are drawn near full strength: washed over the white
-              // plan at 62% the darker greens read grey (owner: "dont have it be grey").
+              // Rent's steps are drawn near full strength: washed over the white plan
+              // at 62% the colours read grey (owner: "dont have it be grey").
               fillOpacity: p ? (dim ? 0.12 : hot ? (meta.detailSrc ? 0.3 : 0.9) : mode === "rent" ? 0.85 : 0.62) : 0,
               stroke: p ? (hot ? "#0f172a" : "rgba(15,23,42,0.55)") : "transparent",
               strokeWidth: (hot ? 8 : 3) * (cur ? 0.6 : 1),
@@ -259,10 +258,15 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
             );
           })}
         </svg>
-        {hover && <SuiteTip s={hover.s} x={hover.x} y={hover.y} plan={plan} today={today} />}
+        {hover && <SuiteTip s={hover.s} x={hover.x} y={hover.y} plan={plan} today={today} accent={paint(hover.s)?.fill} />}
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 20px 16px" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 20px 16px", alignItems: "center" }}>
+        {/* Say what the colours MEAN — the view switch sits far off at the top right,
+            and a yellow suite read as a rent when it was a lease date. */}
+        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginRight: 2 }}>
+          {mode === "expiry" ? "Colored by lease expiry" : mode === "rent" ? "Colored by base rent $/SF · red lowest → green highest" : "Colored by open A/R"}
+        </span>
         {legend.map((l) => (
           <button key={l.key} type="button" onClick={() => setFocus(focus === l.key ? null : l.key)}
             style={{
@@ -338,37 +342,71 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
 }
 
 
-function SuiteTip({ s, x, y, plan, today }: { s: StaffSuite; x: number; y: number; plan: StaffPlan; today: Date }) {
-  const width = 280;
-  const rows: TipRow[] = [];
-  rows.push({ label: "Suite", value: `${s.unitRefs.join(" + ") || s.id}${s.addr ? ` · ${s.addr.split("·").pop()!.trim()}` : ""}` });
-  rows.push({ label: "Size", value: `${s.sf.toLocaleString()} SF` });
-  if (s.status === "leased") {
+/** The suite hover: the tenant big and bold, then a few clear figures — the
+ *  Management Fees chart's tooltip look (owner: "bold and big and clear"),
+ *  with a colour rail in the suite's current colour instead of a dot. */
+function SuiteTip({ s, x, y, plan, today, accent }: { s: StaffSuite; x: number; y: number; plan: StaffPlan; today: Date; accent?: string }) {
+  const width = 360;
+  const rows: { label: string; value: string; color?: string; strong?: boolean }[] = [];
+  const vacant = s.status === "available";
+  if (!vacant) {
     if (s.occupant && s.occupant !== s.tenant) rows.push({ label: "On the rent roll", value: s.occupant });
     const b = expiryBucket(s, today);
-    rows.push({ label: "Lease", value: `${dateLabel(s.leaseFrom)} – ${dateLabel(s.leaseTo)}`, color: EXPIRY_COLOR[b] });
-    const left = monthsLeft(s.leaseTo, today);
-    if (left != null) rows.push({ label: "Term", value: b === "expired" ? "Past term / holdover" : termLeft(left) });
+    rows.push({
+      label: "Expires",
+      value: b === "expired" ? `${dateLabel(s.leaseTo)} · past term` : dateLabel(s.leaseTo),
+      color: b === "expired" ? "#b91c1c" : b === "lt12" ? "#b45309" : undefined,
+      strong: true,
+    });
     if (s.money) {
-      rows.push({ label: "Base rent", value: `${money0(s.money.baseRent)}/mo · ${money2(s.money.rentPsf)}/SF` });
+      rows.push({ label: "Base rent", value: `${money0(s.money.baseRent)} / mo`, strong: true });
+      rows.push({ label: "Rent $/SF", value: `${money2(s.money.rentPsf)} / SF / yr` });
       const rec = s.money.cam + s.money.ret + s.money.other;
       if (rec > 0) rows.push({ label: "CAM · RET · Other", value: `${money0(s.money.cam)} · ${money0(s.money.ret)} · ${money0(s.money.other)}` });
+      if (s.money.gross > 0) rows.push({ label: "Gross", value: `${money0(s.money.gross)} / mo` });
     }
   }
-  const footer: TipRow | undefined =
-    s.status === "available" ? { label: "Status", value: "Vacant", color: EXPIRY_COLOR.vacant }
+  const footer =
+    vacant ? null
     : plan.canSeeAr
       ? s.ar
-        ? { label: `Open A/R · ${s.ar.period}`, value: s.ar.pastDue >= 1 ? `${money2(s.ar.totalDue)} (${money2(s.ar.pastDue)} past due)` : money2(s.ar.totalDue),
+        ? { label: `Open A/R · ${s.ar.period}`, value: s.ar.pastDue >= 1 ? `${money2(s.ar.totalDue)} · ${money2(s.ar.pastDue)} past due` : money2(s.ar.totalDue),
             color: s.ar.pastDue >= 1 ? "#b91c1c" : s.ar.totalDue >= 1 ? "#b45309" : "#15803d" }
-        : { label: "Open A/R", value: "No statement on file" }
-    : s.money ? { label: "Gross / mo", value: money0(s.money.gross) } : undefined;
+        : { label: "Open A/R", value: "No statement on file", color: "var(--muted)" }
+      : null;
   const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
   const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  const left = x + 16 + width > vw - 8 ? x - 16 - width : x + 16;
-  const top = Math.min(y + 16, vh - 260);
+  const left = x + 18 + width > vw - 8 ? x - 18 - width : x + 18;
+  const top = Math.max(8, Math.min(y + 18, vh - 330));
   return (
-    <TipCard title={s.tenant} rows={rows} footer={footer} width={width}
-      style={{ position: "fixed", zIndex: 3000, left, top }} />
+    <div role="tooltip" style={{
+      position: "fixed", zIndex: 3000, left, top, width, pointerEvents: "none",
+      background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
+      boxShadow: "0 10px 30px rgba(15,23,42,0.22)", overflow: "hidden", color: "var(--text)",
+      borderLeft: `6px solid ${accent ?? "var(--brand)"}`,
+    }}>
+      <div style={{ padding: "14px 16px 10px" }}>
+        <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.2 }}>{vacant ? "Vacant" : s.tenant}</div>
+        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, fontWeight: 600 }}>
+          Suite {s.unitRefs.join(" + ") || s.id} · {s.sf.toLocaleString()} SF{s.addr ? ` · ${s.addr.split("·").pop()!.trim()}` : ""}
+        </div>
+      </div>
+      {rows.length > 0 && (
+        <div style={{ padding: "4px 16px 12px", display: "grid", gap: 7 }}>
+          {rows.map((r) => (
+            <div key={r.label} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>{r.label}</span>
+              <span style={{ fontSize: r.strong ? 15 : 14, fontWeight: r.strong ? 800 : 700, color: r.color ?? "var(--text)", textAlign: "right" }}>{r.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {footer && (
+        <div style={{ borderTop: "1px solid var(--border)", padding: "10px 16px", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
+          <span style={{ fontSize: 13, color: "var(--muted)" }}>{footer.label}</span>
+          <span style={{ fontSize: 15, fontWeight: 800, color: footer.color }}>{footer.value}</span>
+        </div>
+      )}
+    </div>
   );
 }
