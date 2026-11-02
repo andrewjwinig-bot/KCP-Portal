@@ -8,6 +8,8 @@ import {
 } from "./quarterly";
 import { loadQuarterly } from "./quarterlyLoad";
 import { buildQuarterlyPdf, quarterFigures } from "./quarterlyPdf";
+import { quarterDetail, type QuarterDetail } from "./quarterlyDetail";
+import { assembledTransactions } from "@/lib/financials/operating-statements/statementStore";
 
 // Sending a quarter-billed tenant's quarterly CAM and tax statement (Wawa @
 // 9510) — and doing it ON ITS OWN (owner: "once we get the last month of the
@@ -50,6 +52,11 @@ export type QuarterSendRecord = {
   heldNotified?: string;
   startedAt?: string;
   lastError?: string;
+  /** The GL charges behind the figures sent, frozen at the send, so the
+   *  backup Wawa may ask for is the one that matches what they received. */
+  detail?: QuarterDetail;
+  /** On a record read for the page: a frozen detail exists. */
+  hasDetail?: boolean;
 };
 
 const store = createMapStore<QuarterSendRecord>({ prefix: "cam-retail-quarterly-sends" });
@@ -62,7 +69,10 @@ const SENT_OUTSIDE: Record<string, QuarterSendRecord> = {
 };
 
 export async function getSendRecord(key: string, year: number, q: Quarter): Promise<QuarterSendRecord | null> {
-  return (await store.get(recKey(key, year, q))) ?? SENT_OUTSIDE[recKey(key, year, q)] ?? null;
+  const rec = (await store.get(recKey(key, year, q))) ?? SENT_OUTSIDE[recKey(key, year, q)] ?? null;
+  if (!rec) return null;
+  const { detail, ...rest } = rec; // the frozen detail is served by `detailFor`
+  return { ...rest, hasDetail: !!detail };
 }
 
 export async function sendRecordsFor(key: string, year: number): Promise<Partial<Record<Quarter, QuarterSendRecord>>> {
@@ -165,12 +175,16 @@ export async function sendQuarter(
     testMode: (res as { testMode?: boolean }).testMode ?? false,
     auto: !!opts.auto,
   };
+  try {
+    rec.detail = quarterDetail(def, q, year, await assembledTransactions(def.parentProperty, year), effective);
+  } catch { /* the live detail still serves */ }
   await store.set(k, rec);
   try {
     const occ = taskOccurrence(year, q);
     await markTaskComplete(occ.year, occ.month0, TASK_ID, { at: rec.sentAt!, by: opts.by ?? "auto", source: "wawa-quarterly" });
   } catch { /* best-effort — the send stands */ }
-  return { ok: true, sent: true, record: rec };
+  const { detail: _d, ...shown } = rec;
+  return { ok: true, sent: true, record: { ...shown, hasDetail: !!_d } };
 }
 
 /** The automatic run: every quarter-billed tenant (of `parent`, when a GL
@@ -227,4 +241,14 @@ async function holdQuarter(key: string, year: number, q: Quarter, reasons: strin
     if (r.ok) rec.heldNotified = sig;
   }
   await store.set(recKey(key, year, q), rec);
+}
+
+/** The GL detail for a quarter: the copy frozen at its send, else built live. */
+export async function detailFor(key: string, year: number, q: Quarter): Promise<{ detail: QuarterDetail; frozen: boolean } | null> {
+  const rec = await store.get(recKey(key, year, q));
+  if (rec?.status === "sent" && rec.detail) return { detail: rec.detail, frozen: true };
+  const loaded = await loadQuarterly(key, year);
+  if (!loaded) return null;
+  const tx = await assembledTransactions(loaded.def.parentProperty, year);
+  return { detail: quarterDetail(loaded.def, q, year, tx, loaded.effective), frozen: false };
 }
