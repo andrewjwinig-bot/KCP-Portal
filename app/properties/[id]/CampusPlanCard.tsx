@@ -9,7 +9,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatPill } from "../../components/Pill";
-import { TipCard, type TipRow } from "../../components/HoverCard";
+import PlanTip, { type PlanTipRow } from "./PlanTip";
 import { OCC_BANDS, occBand, occupancyOf, type CampusBuildingFigures, type CampusView } from "../../../lib/buildings/campusMath";
 
 const money0 = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
@@ -85,20 +85,22 @@ export default function CampusPlanCard({ campus, style }: { campus: CampusView; 
 }
 
 function BuildingTip({ b, x, y, campus }: { b: CampusBuildingFigures; x: number; y: number; campus: CampusView }) {
-  const width = 270;
-  const rows: TipRow[] = !b.onRoll ? [{ label: "Rent roll", value: "Not imported" }] : [
-    { label: "Fund", value: b.fund ?? "—" },
-    { label: "Leased", value: `${b.leasedSf.toLocaleString()} of ${b.sf.toLocaleString()} SF`, color: occBand(b).color },
+  const occ = occupancyOf(b);
+  const rows: PlanTipRow[] = !b.onRoll ? [{ label: "Rent roll", value: "Not imported" }] : [
+    { label: "Occupied", value: pct(occ), color: occBand(b).color, strong: true },
+    { label: "Leased SF", value: `${b.leasedSf.toLocaleString()} of ${b.sf.toLocaleString()}` },
     { label: "Tenants", value: String(b.tenants) },
     { label: "Vacant suites", value: String(b.vacantSuites) },
     ...(b.walt != null ? [{ label: "WALT", value: `${b.walt.toFixed(1)} yr` }] : []),
-    ...(campus.canSeeMoney && b.baseRentAnnual != null ? [{ label: "Base rent", value: `${money0(b.baseRentAnnual)}/yr · $${(b.avgRentPsf ?? 0).toFixed(2)}/SF` }] : []),
+    ...(campus.canSeeMoney && b.baseRentAnnual != null
+      ? [{ label: "Base rent / yr", value: money0(b.baseRentAnnual), strong: true }, { label: "Avg rent $/SF", value: `$${(b.avgRentPsf ?? 0).toFixed(2)}/SF` }]
+      : []),
   ];
-  const footer: TipRow | undefined = campus.canSeeAr && b.onRoll
+  const footer = campus.canSeeAr && b.onRoll
     ? { label: "Past due", value: money0(b.pastDue ?? 0), color: (b.pastDue ?? 0) >= 1 ? "#b91c1c" : "#15803d" }
-    : { label: "Occupied", value: pct(occupancyOf(b)) };
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  const left = x + 16 + width > vw - 8 ? x - 16 - width : x + 16;
-  return <TipCard title={b.name} rows={rows} footer={footer} width={width} style={{ position: "fixed", zIndex: 3000, left, top: Math.min(y + 16, vh - 240) }} />;
+    : null;
+  return (
+    <PlanTip title={b.name} subtitle={`${b.fund ?? "Neshaminy Interplex"} · ${b.sf.toLocaleString()} SF`} rows={rows} footer={footer}
+      accent={b.onRoll ? occBand(b).color : "#94a3b8"} x={x} y={y} />
+  );
 }

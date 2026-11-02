@@ -719,9 +719,12 @@ handoff's screenshot crop.
   "Colored by lease expiry" etc. — because a yellow suite in the default
   Lease Expiry view was read as a rent; a straight
   min→max ramp let one outlier make every suite the same shade, owner), **Open A/R** (past due is the exception; this month's open
-  charges amber). Hover a suite (`SuiteTip` — the tenant big and bold, a
-  colour rail in the suite's current colour, then Expires / Base rent / $/SF /
-  CAM · RET · Other / Gross, A/R under a rule; no lease-from line, no term,
+  charges amber). Hover a suite (`SuiteTip` on the shared `PlanTip` — the
+  campus map's building hover uses it too — the tenant big and bold, a colour
+  rail in the suite's current colour, then the figures as label-over-value
+  TILES two to a row (owner: "fill the space … reduce any empty space"; a tile
+  alone in its row spans both, `fill`): Expires / Base rent / $/SF / Gross /
+  CAM · RET · Other, A/R under a rule; no lease-from line, no term,
   no dot — owner: "bold and big and clear" like the Management Fees hover) for the roll's own occupant name, lease dates, rent, CAM · RET ·
   Other and A/R; click for the unit page. Tiles: occupied %, vacant SF,
   expiring ≤ 12 mo, past due; the legend filters the plan; a Lease
