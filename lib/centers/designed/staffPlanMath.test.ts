@@ -40,3 +40,23 @@ describe("internal site plan colouring", () => {
     expect(labelSize({ label: "210", w: 40, h: 40, rot: 0, fs: 22 }, 30)).toBe(22);
   });
 });
+
+import { RENT_GREENS, rentBandOf, rentBands } from "./staffPlanMath";
+describe("rent $/SF bands", () => {
+  it("five green steps by quantile, so one outlier doesn't flatten the rest", () => {
+    const rents = [14, 15, 16, 17, 18, 19, 20, 21, 22, 60];
+    const b = rentBands(rents);
+    expect(b).toHaveLength(5);
+    expect(b.map((x) => x.color)).toEqual(RENT_GREENS);
+    expect(rentBandOf(14, b).color).toBe(RENT_GREENS[0]);
+    expect(rentBandOf(17, b).color).not.toBe(rentBandOf(19, b).color);
+    expect(rentBandOf(60, b).color).toBe(RENT_GREENS[4]);
+  });
+  it("few distinct rents use fewer steps, spread light to dark", () => {
+    const b = rentBands([20, 20, 30]);
+    expect(b).toHaveLength(2);
+    expect(b[0].color).toBe(RENT_GREENS[0]);
+    expect(b[1].color).toBe(RENT_GREENS[4]);
+    expect(rentBands([])).toEqual([]);
+  });
+});
