@@ -10,6 +10,8 @@ export type PlanMeta = {
   viewBox: string;
   width: number;
   height: number;
+  /** An office floor's interiors, revealed only inside the hovered suite. */
+  detailSrc?: string;
 };
 
 export type StaffSuiteMoney = {
@@ -60,6 +62,8 @@ export type StaffSuite = {
   ar?: StaffSuiteAr | null;
   /** An office building's floor ("1") — the card draws one floor at a time. */
   floor?: string;
+  /** A common room (conference / training) — drawn grey and named, never counted. */
+  amenity?: string;
 };
 
 /** One floor of an office building's plan (lib/buildings/plans). */

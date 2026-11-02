@@ -550,9 +550,35 @@ colours, hover and click-through; `buildStaffPlan` falls back to
   ("n suites … not mapped yet") and STILL COUNTS in the tiles — the tiles are
   the building's, not the mapped part's. A mapped suite the roll no longer
   carries is drawn uncoloured (`shadow`).
-- **Building 5 (4050)**, 10/2026: floor 1 has 101, 115, 117, 119 (from the
-  owner's sheets); floors 2 and 3 are base plans with nothing mapped yet. The
-  owner's `.dwg` files could not be read here (no converter installable).
+- **EVERY INTERPLEX OFFICE BUILDING IS MAPPED** (Claude Design handoff
+  `korman-siteplans`, 11/2026; owner: "implement these office properties …
+  using actual data from the portal"): Buildings 1, 2, 4 (3610 / 3620 / 3640)
+  and 5, 6, 7, 8 (4050–4080), every floor, every suite on the roll. Imported by
+  `scripts/floorplans/import_handoff.py <handoff dir>` (Pillow): per floor a
+  SHELL image (`floor-<n>.webp`, what the card draws), a DETAIL image
+  (`-detail.webp`, the interiors — drawn ONLY inside the hovered suite, the
+  suite's fill lightening so the offices read through) and a greyscale PNG
+  (`pdfSrc`, for the status report — pdf-lib cannot read WebP). Retail plans in
+  the handoff are skipped (the designed centres carry theirs); its
+  `sample-data.js` is NOT imported — figures are the live roll's. The images
+  sit in `public/buildings`, which the middleware keeps behind sign-in (it is
+  not in the matcher's public list). On a floor each suite reads its TENANT
+  (or VACANT) over its number where the name fits (fitted to √area, not the
+  bounding box, so the 45° wings of 6 / 7 / 8 don't overlap), else the number.
+  Common rooms (4060-217, 3640-112 — the roll's `amenity` rows) are drawn grey
+  and named, never counted; a roll line with NO SF (4080's GYM / RT1) is a
+  charge, never "not mapped". Pinned by `plans.test.ts` (every suite on its
+  image, all three images exist) and `statusReportPages.test.ts` (a page per
+  floor). Rebuilding a floor: a new handoff, re-run the script.
+- **THE CAMPUS MAP IS ON THE HOLDING ENTITIES' PAGES** (`CAMPUS_PAGES`: 3610A
+  JV III Condo, 4000 NI LLC; `CampusPlanCard`, `lib/buildings/campus.ts` →
+  `campus` on the siteplan route): the ten Interplex buildings coloured by how
+  much is leased (`OCC_BANDS`: 95%+ / 85–95 / 70–85 / under 70), the page's own
+  fund solid and the other fund lighter, each labelled with its %; hover for
+  leased SF, tenants, vacant suites, WALT, base rent (not the service logins)
+  and past due (Monthly Statements only); click for the building's page and its
+  floors. Tiles are the page's fund. `campusMath.ts` is pure, pinned by
+  `campusMath.test.ts`.
 - **The STATUS REPORT draws them too** (`drawFloorPlanPages`,
   `lib/buildings/statusReportPages.ts`): after a building's rent roll, one
   landscape page per MAPPED floor, each suite filled by the REPORT MONTH'S roll

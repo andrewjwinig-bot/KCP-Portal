@@ -33,7 +33,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** The tenant's newest statement — by suite AND name, so a re-leased suite
  *  never shows the last occupant's balance (the move-out rule, `openAr.ts`). */
-function arFor(unitRefs: string[], occupant: string | null, runs: StatementRun[]): StaffSuiteAr | null {
+export function arFor(unitRefs: string[], occupant: string | null, runs: StatementRun[]): StaffSuiteAr | null {
   if (!occupant) return null;
   const refs = new Set(unitRefs.map((r) => r.toUpperCase()));
   for (const run of runs) {
@@ -151,8 +151,10 @@ async function buildBuildingPlan(code: string, opts: { money: boolean; ar: boole
   ]);
   const prop = roll?.properties.find((p) => p.propertyCode.toUpperCase() === code.toUpperCase());
   const byRef = new Map<string, RentRollUnit[]>();
+  /** Common rooms the roll carries (conference / training rooms) — named, never counted. */
+  const amenities = new Map<string, string>();
   for (const u of prop?.units ?? []) {
-    if (u.amenity) continue;
+    if (u.amenity) { amenities.set(u.unitRef.toUpperCase(), u.occupantName || "Amenity"); continue; }
     const k = u.unitRef.toUpperCase();
     byRef.set(k, [...(byRef.get(k) ?? []), u]);
   }
@@ -164,6 +166,7 @@ async function buildBuildingPlan(code: string, opts: { money: boolean; ar: boole
       const ref = m.unit.toUpperCase();
       mapped.add(ref);
       const rows = byRef.get(ref) ?? [];
+      const amenity = amenities.get(ref) ?? (m.amenity && !rows.length ? "Amenity" : undefined);
       const r = fromRoll(rows, 0, opts.money);
       const xs = m.pts.flatMap((p) => p.split(" ").map((q) => Number(q.split(",")[0])));
       const ys = m.pts.flatMap((p) => p.split(" ").map((q) => Number(q.split(",")[1])));
@@ -177,8 +180,10 @@ async function buildBuildingPlan(code: string, opts: { money: boolean; ar: boole
         unitRefs: rows.length ? [rows[0].unitRef] : [m.unit],
         sf: r.sf,
         status: r.leased ? "leased" : "available",
-        // A mapped suite the roll no longer carries (combined, renumbered) is drawn but not counted.
+        // A mapped suite the roll no longer carries (combined, renumbered) is drawn but not counted;
+        // so is a common room, which reads by its name.
         shadow: rows.length ? undefined : true,
+        amenity,
         leaseFrom: r.leaseFrom, leaseTo: r.leaseTo,
         money: r.money,
         ar: opts.ar && r.leased ? arFor(rows.map((u) => u.unitRef), r.occupant, runs) : undefined,
@@ -187,7 +192,9 @@ async function buildBuildingPlan(code: string, opts: { money: boolean; ar: boole
     }
   }
   const unmapped = [...byRef.entries()]
-    .filter(([ref, rows]) => !mapped.has(ref) && !isSharedSpace(ref.split("-").slice(1).join("-"), rows[0].occupantName ?? ""))
+    // A roll line with no SF is a charge, not a space (4080's GYM / RT1).
+    .filter(([ref, rows]) => !mapped.has(ref) && rows.some((u) => (u.sqft || 0) > 0)
+      && !isSharedSpace(ref.split("-").slice(1).join("-"), rows[0].occupantName ?? ""))
     .map(([, rows]) => {
       const r = fromRoll(rows, 0, false);
       return { unitRef: rows[0].unitRef, tenant: r.occupant ?? "Vacant", sf: r.sf, vacant: !r.leased };
