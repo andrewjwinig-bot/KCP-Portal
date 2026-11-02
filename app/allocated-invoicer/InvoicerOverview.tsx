@@ -154,7 +154,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
       case "sent": return <>{fmtDate(p.sentAt)}{p.sentBy ? <span className="muted"> · {p.sentBy}</span> : null}</>;
       case "sent-in-batch": return <>{fmtDate(p.sentAt)}<span className="muted"> · in the {p.batch} batch</span></>;
       case "finalized": return <HoverCard title="Finalized — no send on record" rows={[]} width={300}
-        body={<div style={{ fontSize: 12.5, lineHeight: 1.45 }}>Its carryover was closed (the old manual Finalize, or a later batch), but the portal has no record of the invoices reaching AvidXchange. Check AvidXchange for this month.</div>}>
+        body={<div style={{ fontSize: 12.5, lineHeight: 1.45 }}>Carryover closed, but no send on record — check AvidXchange.</div>}>
         <Pill tone={TONE_NEUTRAL}>FINALIZED · NO SEND RECORD</Pill></HoverCard>;
       case "not-sent": return <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}><Pill tone={TONE_AMBER}>NOT SENT</Pill>{sendBtn(p, false)}</span>;
       default: return <span className="muted">Processed — never staged to send</span>;
@@ -293,7 +293,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                   <td style={tdL}>{statusCell(p)}</td>
                   <td style={td}>
                     {p.reconstructed && <HoverCard title="Rebuilt from the GL" rows={[]} width={280}
-                      body={<div style={{ fontSize: 12.5, lineHeight: 1.45 }}>The exact invoices sent for this month aren&rsquo;t on file. These PDFs were rebuilt from the GL{p.reconstructedAt ? ` on ${fmtDate(p.reconstructedAt)}` : ""} for reference.</div>}>
+                      body={<div style={{ fontSize: 12.5, lineHeight: 1.45 }}>Originals not on file — rebuilt from the GL{p.reconstructedAt ? ` ${fmtDate(p.reconstructedAt)}` : ""}.</div>}>
                       <span style={{ marginRight: 6 }}><Pill tone={TONE_AMBER}>REBUILT</Pill></span></HoverCard>}
                     {p.invoiceCount ?? p.invoices?.length ?? "—"}
                   </td>

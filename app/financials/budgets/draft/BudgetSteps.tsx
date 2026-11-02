@@ -154,7 +154,7 @@ export function BudgetSteps({ year, category, refreshTick }: { year: number; cat
                 { label: "Done", value: String(o.done), color: "#15803d" },
                 ...(o.open ? [{ label: "Still open", value: String(o.open), color: "#b45309" }] : []),
               ]}
-              footer={o.open ? { label: "Note", value: "Drew can fill any of these in the review; the item keeps its owner either way." } : undefined}
+              footer={undefined}
             >
               <Pill tone={o.open === 0 ? TONE_GREEN : contributorTone(o.owner)}>{(NAME[o.owner] ?? o.owner).toUpperCase()} {o.done}/{o.total}</Pill>
             </HoverCard>

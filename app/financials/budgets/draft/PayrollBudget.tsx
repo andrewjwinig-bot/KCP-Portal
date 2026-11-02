@@ -437,16 +437,13 @@ export function PayrollBudget({ year }: { year: number }) {
               const tipFor = (key: AllocKey, label: string): Tip | undefined => {
                 const d = dollars[key] ?? 0;
                 if (!(Math.abs(d) >= 0.5)) return undefined;
-                const rows = [
-                  { label: "Gross annual", value: money0(gross) },
-                  { label: "Allocation", value: pct(e.alloc?.[key] ?? 0, 1) },
-                ];
+                const rows = [{ label: "Allocation", value: pct(e.alloc?.[key] ?? 0, 1) }];
                 const fund = (["sc", "niLlc", "jv3"] as string[]).includes(key) ? doc.funds[key as FundKey] : null;
                 if (fund) {
                   const shares = fundShares(fund, e.group === "maintenance" ? fund.basis.maintenance : fund.basis.office);
                   for (const b of fund.buildings) {
                     const v = d * (shares[b.code] ?? 0);
-                    if (Math.abs(v) >= 0.5) rows.push({ label: `  ${b.code}`, value: `${money0(v)} · ${money0(v / 12)}/mo` });
+                    if (Math.abs(v) >= 0.5) rows.push({ label: b.code, value: money0(v) });
                   }
                 }
                 return { title: `${e.name || "Employee"} · ${label}`, rows,

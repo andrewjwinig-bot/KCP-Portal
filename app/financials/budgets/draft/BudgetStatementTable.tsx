@@ -174,17 +174,16 @@ function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boo
     title: "Utilities on Vacant Space — Rate",
     // The working, not just the answer: this year's line ÷ today's vacant SF
     // is the default, so both figures are shown and the rate can be checked.
+    // Three figures: what the default comes from, the rate in use, the SF it
+    // applies to — the working, not paragraphs about it.
     rows: [
-      ...(v.fixedDefault
-        ? [{ label: `Default rate (${v.groupLabel ?? "shared"})`, value: `$${(v.defaultRate ?? 0).toFixed(2)}/SF/yr — minimal use on vacant space` },
-           { label: "This year's Utilities (for reference)", value: money0(v.basisAnnual), color: "var(--muted)" }]
-        : [{ label: "This year's Utilities (full-year Reprojection)", value: money0(v.basisAnnual) },
-           { label: "÷ Vacant SF on today's Rent Roll", value: Math.round(v.sfToday).toLocaleString("en-US") },
-           ...(v.defaultRate != null ? [{ label: "= Default rate", value: `$${v.defaultRate.toFixed(2)}/SF/yr` }] : [{ label: "Default rate", value: "none — no vacancy today" }])]),
-      { label: v.rateTyped ? (v.scope ? `Rate in use — typed (shared by all ${v.groupLabel ?? "properties in the group"})` : "Rate in use — typed") : "Rate in use — the default", value: `$${v.rate.toFixed(2)}/SF/yr`, color: "var(--brand)" },
-      { label: "Vacant SF over the Budget year (avg)", value: Math.round(v.sf.reduce((a, n) => a + n, 0) / 12).toLocaleString("en-US") },
+      v.fixedDefault
+        ? { label: `Default (${v.groupLabel ?? "shared"})`, value: `$${(v.defaultRate ?? 0).toFixed(2)}/SF` }
+        : { label: `Utilities ÷ ${Math.round(v.sfToday).toLocaleString("en-US")} vacant SF`, value: v.defaultRate != null ? `$${v.defaultRate.toFixed(2)}/SF` : "no vacancy" },
+      { label: v.rateTyped ? (v.scope ? `In use · typed for all ${v.groupLabel ?? "the group"}` : "In use · typed") : "In use · default", value: `$${v.rate.toFixed(2)}/SF`, color: "var(--brand)" },
+      { label: "Avg vacant SF", value: Math.round(v.sf.reduce((a, n) => a + n, 0) / 12).toLocaleString("en-US") },
     ],
-    footer: { label: v.scope ? `One rate for all ${v.groupLabel ?? "the group"}` : "Each month", value: "vacant SF × rate ÷ 12" },
+    footer: { label: "Each month", value: "vacant SF × rate ÷ 12" },
   };
   if (open) {
     return (
@@ -200,7 +199,7 @@ function VacancyRate({ v, canEdit, onSave }: { v: VacancyUtilities; canEdit: boo
   // An ⓘ like every other source marker; the rate is in its hover, and a
   // click types a new one.
   return (
-    <HoverCard title={tip.title} rows={canEdit ? [...tip.rows, { label: tip.footer.label, value: tip.footer.value }] : tip.rows} footer={canEdit ? { label: "Click to change the rate", value: `$${v.rate.toFixed(2)}/SF` } : tip.footer} width={360} help={false}>
+    <HoverCard title={tip.title} rows={tip.rows} footer={canEdit ? { label: "Click to change", value: "vacant SF × rate ÷ 12" } : tip.footer} width={320} help={false}>
       <SourceIconButton kind="info" label={canEdit ? "Edit the utilities rate" : "Utilities rate"} onClick={canEdit ? () => setOpen(true) : undefined} />
     </HoverCard>
   );
@@ -474,14 +473,13 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     if (l.inputSource) return <SourceBadge source={l.inputSource} label={l.label} />;
     const jump = l.source === "cam-estimate" ? "#revenue-by-tenant" : l.source === "leases" ? "#step-rent" : null;
     if (jump) return <SourceIcon kind="link" href={jump} label={`Go to where ${l.label} is worked out`} title={l.source === "leases" ? "From the Leases" : "From Recoveries"}
-      rows={[{ label: "Worked out in", value: SOURCE_WHERE[jump] }]} footer={{ label: "Click to jump there", value: "↓" }} />;
+      rows={[]} footer={{ label: SOURCE_WHERE[jump], value: "↓" }} />;
     if (l.source === "pool") {
       // The payroll budget is Drew's and Alison's alone: they get a link, and
       // the route strips `pool` for everyone else, who are told the source.
       return l.pool && onOpenPayroll
         ? <SourceIcon kind="link" onClick={onOpenPayroll} label="Open the Payroll Budget" title="From the Payroll Budget"
-            rows={[{ label: "Worked out in", value: "2010 LIK Payroll Budget — each employee's pay, allocated by building" },
-              ...l.pool.map((p) => ({ label: `${p.label} · ${p.gl}`, value: money0(p.amount) }))]} footer={{ label: "Click to open it", value: "↗" }} />
+            rows={l.pool.map((p) => ({ label: `${p.label} · ${p.gl}`, value: money0(p.amount) }))} footer={{ label: "Click to open it", value: "↗" }} />
         : <SourceIcon title="Source: Payroll Budget" rows={[{ label: "This property's share of", value: "the 2010 LIK Payroll Budget" }]} label="Source: Payroll Budget" />;
     }
     if (l.source === "office-lease" && l.officeLease) return <SourceIcon title="LIK's Office Lease at Building 8" label="How Office Rental is figured"
@@ -489,7 +487,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
         { label: "Rent from", value: l.officeLease.fromSchedule ? "Building 8's rent schedule" : "the rent roll, held flat" }]}
       footer={{ label: "Year", value: money0(l.total), color: COLOR_BRAND }} />;
     if (l.source === "fee") return <SourceIcon title={`Management Fee · ${l.feePct ?? "–"}% of Revenue`} label="How the Management Fee is figured"
-      rows={[{ label: "Rate (last year's Budget formula)", value: `${l.feePct ?? "–"}%` }, { label: "× This Budget's Total Revenue", value: "month by month" }]}
+      rows={[{ label: "× Total Revenue, by month", value: `${l.feePct ?? "–"}%` }]}
       footer={{ label: "Year", value: money0(l.total), color: COLOR_BRAND }} />;
     if (l.source === "fee-rollup") return <SourceIcon title="Sum of the Buildings' Management Fees" label="How 2010's Management Fee revenue is figured"
       rows={[{ label: "Each fee-paying building's", value: "6610 Management Fee" }]} footer={{ label: "Hover a month", value: "for the buildings" }} />;
@@ -551,25 +549,39 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const val = (ms: number[]) => (m == null ? ms.reduce((a, v) => a + v, 0) : ms[m] || 0);
     const yy = String(draft.basisYear).slice(2);
     let flagged = 0;
-    const rows: TipRow[] = rollupProps
+    const all = rollupProps
       .map((p) => ({ p, x: split.get(p.code) }))
       .filter((r) => r.x && (Math.abs(val(r.x.months)) >= 0.5 || (m == null && Math.abs(r.x.basis) >= 0.5)))
       .map(({ p, x }) => {
         const v = val(x!.months);
         const off = m == null ? offBy(v, x!.basis) : null;
         if (off) flagged++;
-        return {
-          label: `${p.code} ${p.name}${off ? ` · ${off} vs ${yy} Reproj` : ""}`,
+        return { v, off, row: {
+          label: `${p.code} ${p.name}${off ? ` · ${off}` : ""}`,
           value: money0(v),
           ...(off ? { color: "#b45309" } : v < 0 ? { color: "#b91c1c" } : {}),
-        };
+        } as TipRow };
       });
-    if (!rows.length) return null;
+    if (!all.length) return null;
+    // The year cell POINTS AT THE OUTLIERS: the flagged properties, the rest
+    // folded into one row; a month lists its five largest.
+    const rows: TipRow[] = flagged
+      ? [...all.filter((r) => r.off).map((r) => r.row),
+         ...(all.length > flagged ? [{ label: `${all.length - flagged} other${all.length - flagged === 1 ? "" : "s"} on plan vs ${yy} Reproj`, value: money0(all.filter((r) => !r.off).reduce((a, r) => a + r.v, 0)), color: "var(--muted)" }] : [])]
+      : topN([...all].sort((a, b) => Math.abs(b.v) - Math.abs(a.v)), (r) => r.row, (r) => r.v, "properties");
     const total = [...split.values()].reduce((a, x) => a + val(x.months), 0);
     return {
       title: `${title} · ${m == null ? draft.budgetYear : MONTHS[m]}`, rows,
       footer: { label: flagged ? `Total · ${flagged} to look at` : "Total", value: money0(total), color: flagged ? "#b45309" : COLOR_BRAND },
     };
+  };
+  /** A hover lists the TOP FIVE and folds the rest into one row (owner: hovers
+   *  were "so busy and hard to follow"); the click-through has everyone. */
+  const TOP = 5;
+  const topN = <T,>(items: T[], row: (t: T) => TipRow, amt: (t: T) => number, plural: string): TipRow[] => {
+    if (items.length <= TOP + 1) return items.map(row);
+    const rest = items.slice(TOP);
+    return [...items.slice(0, TOP).map(row), { label: `${rest.length} other ${plural}`, value: money0(rest.reduce((a, t) => a + amt(t), 0)), color: "var(--muted)" }];
   };
   const lineSplit = (l: Line) => splitOf([{ sec: { lines: [l] } as unknown as BudgetDraftSection, sign: 1 }]);
   /** Sum `amt` per building, as hover rows (zero buildings dropped). */
@@ -587,8 +599,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const feeRollupHover = (m: number) => {
     const rows = (draft.feeRollup ?? []).map((b) => ({ b, v: b.months[m] || 0 })).filter((x) => Math.abs(x.v) >= 0.5).sort((a, b) => b.v - a.v);
     if (!rows.length) return null;
-    const top = rows.slice(0, 10), rest = rows.slice(10);
-    const tip: TipRow[] = top.map(({ b, v }) => ({ label: `${b.code} ${b.name}${b.feePct != null ? ` · ${b.feePct}%` : ""}`, value: money0(v) }));
+    const top = rows.slice(0, TOP), rest = rows.slice(TOP);
+    const tip: TipRow[] = top.map(({ b, v }) => ({ label: `${b.code} ${b.name}`, value: money0(v) }));
     if (rest.length) tip.push({ label: `${rest.length} other building${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, x) => a + x.v, 0)), color: "var(--muted)" });
     return { title: `Buildings' management fees · ${MONTHS[m]}`, rows: tip, footer: { label: "Total fee revenue", value: money0(rows.reduce((a, x) => a + x.v, 0)), color: COLOR_BRAND } };
   };
@@ -596,19 +608,13 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   // make up the month (or the year), and how each was figured.
   type DealField = "ti" | "lc" | "commission";
   const DEAL_TITLE: Record<DealField, string> = { ti: "Tenant improvements", lc: "Outside leasing commissions", commission: "Internal broker's commission" };
-  const KIND: Record<string, string> = { renew: "Renewal", hold: "Renewal", leaseup: "Lease-up" };
-  const dealBasis = (d: NonNullable<typeof draft.deals>[number], f: DealField) =>
-    f === "ti" ? `${d.tiPsf != null ? `$${d.tiPsf.toFixed(2)}/SF × ` : ""}${d.sqft.toLocaleString("en-US")} SF`
-    : f === "lc" ? `${d.lcPct ?? 0}% × ${money0(d.annualRent)}/yr × ${termYearsMonths(d.termYears) || "0 yr"}`
-    : `${d.sqft.toLocaleString("en-US")} SF${d.termYears ? ` · ${termYearsMonths(d.termYears)} term` : ""}`;
   const dealTip = (f: DealField, m: number | null) => {
     const list = (draft.deals ?? []).filter((d) => d[f] > 0 && (m == null || d.month === m + 1)).sort((a, b) => b[f] - a[f]);
     if (!list.length) return null;
-    const rows: TipRow[] = list.slice(0, 10).flatMap((d) => [
-      { label: `${d.tenant || "Lease-up"} · ${d.unitRef}`, value: money0(d[f]) },
-      { label: `  ${KIND[d.kind] ?? d.kind}${m == null ? ` · ${MONTHS[d.month - 1]}` : ""} · ${dealBasis(d, f)}`, value: "", color: "var(--muted)" },
-    ]);
-    if (list.length > 10) rows.push({ label: `${list.length - 10} more deal${list.length - 10 === 1 ? "" : "s"}`, value: money0(list.slice(10).reduce((a, d) => a + d[f], 0)), color: "var(--muted)" });
+    // One row per deal — the tenant (and its month on the year cell); how it
+    // was figured lives in the leasing call itself.
+    const rows: TipRow[] = list.slice(0, TOP).map((d) => ({ label: `${d.tenant || "Lease-up"}${m == null ? ` · ${MONTHS[d.month - 1]}` : ""}`, value: money0(d[f]) }));
+    if (list.length > TOP) rows.push({ label: `${list.length - TOP} more deal${list.length - TOP === 1 ? "" : "s"}`, value: money0(list.slice(TOP).reduce((a, d) => a + d[f], 0)), color: "var(--muted)" });
     return { title: `${DEAL_TITLE[f]} · ${m == null ? draft.budgetYear : MONTHS[m]}`, rows, footer: { label: `${list.length} deal${list.length === 1 ? "" : "s"}`, value: money0(list.reduce((a, d) => a + d[f], 0)), color: COLOR_BRAND } };
   };
   const dealField = (label: string, mask: string, account?: string): DealField | null =>
@@ -632,8 +638,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     if (!list.length) return null;
     const rows: TipRow[] = rollupProps
       ? byBuilding(recTenants, (t) => (t[cat] ?? []).reduce((a, v) => a + (v || 0), 0))
-      : list.slice(0, 8).map((x) => ({ label: x.name, value: money0(x.year) }));
-    const rest = rollupProps ? [] : list.slice(8);
+      : list.slice(0, TOP).map((x) => ({ label: x.name, value: money0(x.year) }));
+    const rest = rollupProps ? [] : list.slice(TOP);
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, x) => a + x.year, 0)), color: "var(--muted)" });
     rows.push({ label: `${CATEGORY_LABEL[cat]} pool`, value: money0(mk.poolYear), color: "var(--muted)" });
     return {
@@ -671,8 +677,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
       return { title: `Rental income · ${m == null ? "year" : MONTHS[m]}`, rows: byBuilding(list, amt), footer: { label: "Total", value: money0(list.reduce((a, t) => a + amt(t), 0)), color: COLOR_BRAND } };
     }
     const assumedIn = (t: (typeof recTenants)[number]) => (m == null ? t.assumed.some(Boolean) : !!t.assumed[m]);
-    const rows: TipRow[] = list.slice(0, 8).map((t) => ({ label: `${nameOf(t)}${assumedTag(t, assumedIn(t))}`, value: money0(amt(t)), ...(assumedIn(t) ? { color: "#65a30d" } : {}) }));
-    const rest = list.slice(8);
+    const rows: TipRow[] = list.slice(0, TOP).map((t) => ({ label: `${nameOf(t)}${assumedTag(t, assumedIn(t))}`, value: money0(amt(t)), ...(assumedIn(t) ? { color: "#65a30d" } : {}) }));
+    const rest = list.slice(TOP);
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, t) => a + amt(t), 0)), color: "var(--muted)" });
     const total = list.reduce((a, t) => a + amt(t), 0);
     return { title: `Rental income · ${m == null ? "year" : MONTHS[m]}`, rows, footer: { label: "Total", value: money0(total), color: COLOR_BRAND } };
@@ -701,11 +707,15 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const occ = occSuites.filter((t) => pays(t, m)).sort((a, b) => b.sqft - a.sqft);
     const vacant = occSuites.filter((t) => !pays(t, m));
     const occSf = occ.reduce((a, t) => a + t.sqft, 0);
-    const rows: TipRow[] = occ.slice(0, 8).map((t) => ({ label: `${nameOf(t)}${assumedTag(t, !!t.assumed[m])}`, value: `${sfFmt(t.sqft)} SF`, ...(t.assumed[m] ? { color: "#65a30d" } : {}) }));
-    const rest = occ.slice(8);
-    if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: `${sfFmt(rest.reduce((a, t) => a + t.sqft, 0))} SF`, color: "var(--muted)" });
-    if (vacant.length) rows.push({ label: `Vacant · ${vacant.length} space${vacant.length === 1 ? "" : "s"}`, value: `${sfFmt(occTotalSf - occSf)} SF`, color: "#b45309" });
-    rows.push(...moves(m));
+    // The SF and the month's moves — not a tenant list (the % is about space;
+    // Occupancy by Suite on click has every suite).
+    const rows: TipRow[] = [
+      { label: `Occupied · ${occ.length} suite${occ.length === 1 ? "" : "s"}`, value: `${sfFmt(occSf)} SF` },
+      ...(vacant.length ? [{ label: `Vacant · ${vacant.length} suite${vacant.length === 1 ? "" : "s"}`, value: `${sfFmt(occTotalSf - occSf)} SF`, color: "#b45309" }] : []),
+    ];
+    const mv = moves(m);
+    rows.push(...mv.slice(0, 3));
+    if (mv.length > 3) rows.push({ label: `${mv.length - 3} more move${mv.length - 3 === 1 ? "" : "s"}`, value: "", color: "var(--muted)" });
     return { title: `Occupancy · ${MONTHS[m]}`, rows, footer: { label: `${sfFmt(occSf)} of ${sfFmt(occTotalSf)} SF`, value: occTotalSf > 0 ? `${((occSf / occTotalSf) * 100).toFixed(1)}%` : "–", color: COLOR_BRAND } };
   };
 
@@ -715,18 +725,18 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     if (rollupProps) {
       const rows = byBuilding(recTenants, (t) => t[cat]?.[m] || 0);
       const inMay = atReconTotal(cat, m);
-      if (inMay) rows.push({ label: "Includes at-recon collections (the year's true-up, due by 4/30)", value: money0(inMay), color: "#b45309" });
+      if (inMay) rows.push({ label: "Incl. at-recon true-up", value: money0(inMay), color: "#b45309" });
       return { title: `${CATEGORY_LABEL[cat]} recoveries · ${MONTHS[m]}`, rows, footer: { label: "Annual Recovery Ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND } };
     }
-    const top = mk.tenants.slice(0, 8);
-    const rest = mk.tenants.slice(8);
+    const top = mk.tenants.slice(0, TOP);
+    const rest = mk.tenants.slice(TOP);
     // A tenant whose charge is collected only at reconciliation lands its year
     // here, in May (reconOnly.ts) — say so on its row and in the total.
     const atRecon = (unitRef: string) => m === RECON_MONTH ? recTenants.find((t) => t.unitRef === unitRef)?.atRecon?.[cat] ?? 0 : 0;
     const rows: TipRow[] = top.map((t) => ({ label: `${t.tenant}${atRecon(t.unitRef) ? " · at recon" : ""}`, value: money0(t.amount), ...(atRecon(t.unitRef) ? { color: "#b45309" } : {}) }));
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"} · click for all`, value: money0(rest.reduce((a, t) => a + t.amount, 0)), color: "var(--muted)" });
     const inMay = atReconTotal(cat, m);
-    if (inMay) rows.push({ label: "Includes at-recon collections (the year's true-up, due by 4/30)", value: money0(inMay), color: "#b45309" });
+    if (inMay) rows.push({ label: "Incl. at-recon true-up", value: money0(inMay), color: "#b45309" });
     // The YEAR's ratio only — a month's flat estimate against that month's
     // lumpy expense is timing, not a ratio (recoveryMakeup.ts).
     return {
@@ -1050,7 +1060,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
       ? { title: `Bank balance · ${shortDay(cash.bank.asOf)}`,
           rows: [
             ...cash.bank.accounts.map((a) => ({ label: `${a.bank.replace("JPM-", "")} ${a.last4}${a.name ? ` · ${a.name}` : ""}`, value: money0(a.balance) })),
-            { label: `+ ${draft.basisYear} reprojected cash flow to Dec 31, less distributions`, value: money0((cash.projectedYearEnd ?? cash.opening) - cash.bank.balance) },
+            { label: `+ Rest of ${draft.basisYear}, net`, value: money0((cash.projectedYearEnd ?? cash.opening) - cash.bank.balance) },
           ],
           footer: { label: "Rolled to Dec 31", value: money0(cash.projectedYearEnd ?? cash.opening), color: COLOR_BRAND } }
       : cash.byProperty?.length
@@ -1128,12 +1138,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
           reads (owner). One quiet ⓘ; the icons on each line explain themselves. */}
       <div className="muted small" style={{ padding: "2px 4px", display: "inline-flex", alignItems: "center", gap: 6 }}>
         <HoverCard title="Reading the grid" width={360} help={false} rows={[
-          { label: "Change", value: "against this year's reprojection" },
-          { label: "ⓘ", value: "hover for how the line is figured" },
-          { label: "↗", value: "worked out elsewhere — click to go" },
-          { label: `${String(draft.basisYear).slice(2)} Reproj`, value: "actuals to date + budget for the rest" },
-          ...(onEdit ? [{ label: "Light blue / bold blue", value: "you can type it / typed" }, { label: "Budget column", value: "type an annual to spread it" }] : []),
-        ]} footer={{ label: "Click a line's name", value: "for its history" }}>
+          { label: "ⓘ / ↗", value: "how it's figured / go to it" },
+          { label: `${String(draft.basisYear).slice(2)} Reproj`, value: "actual + budget" },
+          ...(onEdit ? [{ label: "Light / bold blue", value: "typeable / typed" }] : []),
+        ]} footer={{ label: "Click a line's name", value: "history" }}>
           <SourceIconButton kind="info" label="How to read the grid" />
         </HoverCard>
         <span>How to read the grid</span>

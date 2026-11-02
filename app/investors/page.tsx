@@ -343,7 +343,6 @@ function InvestorEmailCell({ resolved }: { resolved: OwnerEmail[] | null }) {
         ...extra.map((e) => ({ label: "Also", value: e })),
         { label: "Source", value: withEmail[0].emailNote || withEmail[0].emailSource },
       ]}
-      footer={extra.length ? { label: "", value: "Additional recipients can open this investor's K-1." } : undefined}
     >
       <span style={{ display: "inline-flex", alignItems: "baseline", gap: 6, fontSize: 12.5 }}>
         <span style={{ wordBreak: "break-all" }}>{unique[0]}</span>

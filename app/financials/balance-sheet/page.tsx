@@ -299,8 +299,8 @@ function ProofCard({ sheet }: { sheet: Sheet }) {
           footer={{
             label: "",
             value: ok
-              ? "Every account in the ledger is on the sheet, and double entry does the rest."
-              : "The gap is what the sheet could not place. Assign those accounts below.",
+              ? "Every account is on the sheet"
+              : "Gap = accounts to assign below",
           }}
         >
           <span style={{ fontSize: 13 }}>

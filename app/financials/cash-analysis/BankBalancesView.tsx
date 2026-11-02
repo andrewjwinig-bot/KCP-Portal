@@ -299,11 +299,11 @@ export default function BankBalancesView() {
                               {r.handsOff?.accrued ? (
                                 <HoverCard title={`${r.name} — accrued`} width={320}
                                   rows={[
-                                    { label: `Statement balance, ${MONTHS[r.handsOff.anchor.month - 1]} 1, ${r.handsOff.anchor.year}`, value: money2(r.handsOff.anchor.balance) },
-                                    { label: `Interest ${(r.handsOff.rate * 100).toFixed(2)}%, compounded daily`, value: money2((r.balance ?? 0) - r.handsOff.anchor.balance + r.handsOff.monthlyFee * monthsSince(r.handsOff.anchor)), color: "#15803d" },
-                                    ...(r.handsOff.monthlyFee ? [{ label: `Bank charge $${r.handsOff.monthlyFee} / mo`, value: money2(-r.handsOff.monthlyFee * monthsSince(r.handsOff.anchor)), color: "#b91c1c" }] : []),
+                                    { label: `Statement · ${MONTHS[r.handsOff.anchor.month - 1]} ${r.handsOff.anchor.year}`, value: money2(r.handsOff.anchor.balance) },
+                                    { label: `+ Interest ${(r.handsOff.rate * 100).toFixed(2)}%`, value: money2((r.balance ?? 0) - r.handsOff.anchor.balance + r.handsOff.monthlyFee * monthsSince(r.handsOff.anchor)), color: "#15803d" },
+                                    ...(r.handsOff.monthlyFee ? [{ label: "− Bank charges", value: money2(-r.handsOff.monthlyFee * monthsSince(r.handsOff.anchor)), color: "#b91c1c" }] : []),
                                   ]}
-                                  footer={{ label: "Not imported — estimated today", value: money2(r.balance) }}>
+                                  footer={{ label: "Estimated today", value: money2(r.balance) }}>
                                   <span style={{ fontStyle: "italic" }}>{money0(r.balance)}</span>
                                 </HoverCard>
                               ) : money0(r.balance)}
@@ -337,11 +337,10 @@ export default function BankBalancesView() {
                             <td style={{ ...td, color: "var(--muted)" }}>
                               {r.debt == null ? "—" : (
                                 <HoverCard title={`${r.name} — debt`} width={320}
-                                  rows={r.loans.flatMap((l) => [
-                                    { label: `${l.lender} · ${l.ratePct}% · matures ${dateLabel(l.maturity)}`, value: l.nextOutlay != null ? `${money0(l.nextOutlay)} / mo` : "—" },
-                                    ...(l.nextDate ? [{ label: `  Next payment ${dateLabel(l.nextDate)} (incl. escrow)`, value: "" }] : []),
-                                    { label: "  Principal outstanding", value: money0(l.balance) },
-                                  ])}
+                                  rows={[
+                                    ...r.loans.map((l) => ({ label: `${l.lender} · ${l.ratePct}%`, value: l.nextOutlay != null ? `${money0(l.nextOutlay)} / mo` : "—" })),
+                                    { label: "Principal outstanding", value: money0(r.loans.reduce((a, l) => a + (l.balance || 0), 0)), color: "var(--muted)" },
+                                  ]}
                                   footer={{ label: "Monthly debt service", value: money0(r.debtService) }}>
                                   <span>{money0(r.debtService)}</span>
                                 </HoverCard>

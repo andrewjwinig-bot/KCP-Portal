@@ -220,6 +220,18 @@ stays, because it is a check rather than a restatement.
 **Hovers / tooltips — ALWAYS use the shared rich style, never a plain native `title=` or a tiny SVG `<title>`, whenever the hover conveys real data.** The user wants every data-bearing hover to feel considered: a styled card with a title, colored value rows, and an optional footer/delta line — not a small plain browser tooltip. This is the default for ALL future hovers where applicable; do not ship a plain `title=` tooltip for a value/breakdown and wait to be asked to upgrade it.
 - **In an SVG chart** → `ChartTooltip` (+ `HoverBands`) from `app/components/ChartTooltip.tsx`. Track a hovered index in the chart, render `HoverBands` last (full-height hit bands + dashed guide line), enlarge the point(s) on the active index, and render `ChartTooltip` with pre-formatted string rows (title = the x label; one row per series with its color; footer = the delta/variance). Reference implementation: the Management Fees chart (`app/financials/management-fees/page.tsx`).
 - **On an HTML element** (a table cell, a chip/pill, an inline callout) → `HoverCard` from `app/components/HoverCard.tsx` — same card look, portal-rendered so table/card overflow never clips it. Pass `title`, `rows`, optional `footer`.
+- **A HOVER IS A GLANCE, NOT A REPORT** (audit 11/2026; owner: "some of them
+  have way too much info and its so busy and hard to follow"). The shared
+  `TipCard` draws the title 15px/800 and values bold, and lists at most
+  `TIP_MAX_ROWS` (10) rows before "+ n more". Within that: a list of
+  tenants / deals / buildings shows the TOP FIVE and one "n others" row (the
+  budget grid's `TOP` / `topN`), with the full list on the click; ONE row per
+  item (no indented basis sub-row); no sentences in a value or footer — a short
+  phrase ("Re-run across all centres", "Holding over — not a move-out"); never a
+  row repeating the cell or the footer. A roll-up's year cell lists only the
+  properties OFF their reprojection. Deliberate exceptions the owner asked for:
+  the CAM estimates' per-cell calculation (`calcTip` / `CamWorksheet`) and the
+  real-estate-tax working (`SourceBadge`).
 - A bare `title=` is fine ONLY for a trivial action/label affordance (a "Close"/"Download"/"Open in new tab" icon button) — never for numbers, breakdowns, lease terms, variances, or any figure a user would want to read clearly.
 
 # Excel exports — one look, from `lib/excel/theme.ts`

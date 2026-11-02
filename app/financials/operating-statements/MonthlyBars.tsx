@@ -156,13 +156,12 @@ export function MonthlyBars({ txns, period, year, selectedMonth, onSelectMonth, 
   const hs = hm?.segs.find((s) => s.vendor === hover!.vendor) ?? null;
   let tip: { title: string; rows: TipRow[]; footer?: TipRow } | null = null;
   if (hm && hs) {
-    const shown = [...hs.charges].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)).slice(0, 6);
+    const shown = [...hs.charges].sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)).slice(0, 4);
     const rows: TipRow[] = shown.map((c) => ({
       label: clip(`${shortDate(c.date)}${hs.vendor === OTHER ? ` ${c.vendorLabel}` : ""}${c.description && c.description !== c.vendorLabel ? ` · ${c.description.replace(`${c.vendorLabel} — `, "")}` : ""}`, 30),
       value: cents(c.amount),
     }));
-    if (hs.charges.length > shown.length) rows.push({ label: `…and ${hs.charges.length - shown.length} more`, value: "" });
-    if (hs.charges.length > 1) rows.push({ label: `${hs.charges.length} charges`, value: whole(hs.total), color: colorOf(hs.vendor) });
+    if (hs.charges.length > 1) rows.push({ label: `${hs.charges.length} charges${hs.charges.length > shown.length ? ` (${hs.charges.length - shown.length} more)` : ""}`, value: whole(hs.total), color: colorOf(hs.vendor) });
     tip = {
       title: `${clip(hs.label, 26)} · ${MONTHS[hm.month - 1]} ${year}`,
       rows,

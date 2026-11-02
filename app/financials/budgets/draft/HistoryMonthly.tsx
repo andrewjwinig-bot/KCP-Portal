@@ -99,7 +99,7 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, draftTyped, bad
                       {r.tone === "draft" && showBadge && <Pill tone={badge!.tone}>{badge!.text}</Pill>}
                       {r.totalsOnly && (
                         <HoverCard title={`${r.glYear} — totals only`} width={300} rows={[]}
-                          footer={{ label: "No GL detail", value: `${r.totalsOnly === "partial" ? "Part of this year's" : "This year's"} GL was imported "monthly totals only". Re-upload it on Operating Statements with that box unticked to drill into the transactions.` }}>
+                          footer={{ label: "Fix", value: "Re-upload without \"totals only\"" }}>
                           <Pill tone={TONE_NEUTRAL}>TOTALS ONLY</Pill>
                         </HoverCard>
                       )}

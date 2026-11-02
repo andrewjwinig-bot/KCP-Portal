@@ -36,7 +36,6 @@ const tone = (n: number) => (n > 0.5 ? UP : n < -0.5 ? DOWN : "var(--muted)");
 const LABEL = { cam: "CAM", ins: "INS", ret: "RET" } as const;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const monthName = (ym?: string | null) => (ym ? `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}` : "");
-const SOURCE = { statement: "monthly statement", rentroll: "rent roll", recon: "last recon's INS due ÷ 12 (how the estimate was set)" } as const;
 
 type Sort = "suite" | "change" | "pct";
 type Only = "all" | "flagged" | "fallback" | "differs";
@@ -212,7 +211,7 @@ function CheckRow({ check, ry, year }: { check: GroupCheck[]; ry: number | null;
           { label: `${year} budget pool`, value: money0(c.pool) },
           { label: "Ratio", value: pct0(c.ratio), color: color(c) },
           ...(c.reconRatio != null ? [{ label: `${ry} recon ratio`, value: pct0(c.reconRatio) }] : []),
-          { label: "Review above", value: `${money0(c.ceiling)} (${c.reconRatio != null && c.reconRatio > 1.15 ? `${ry} ratio` : "115% of the pool — admin fees"})` },
+          { label: "Review above", value: money0(c.ceiling) },
         ]}>
           <span style={{ fontWeight: 800, color: color(c) }}>{span > 1 ? `${c.label} ` : ""}{pct0(c.ratio)}</span>
         </HoverCard>
@@ -234,33 +233,24 @@ function CheckRow({ check, ry, year }: { check: GroupCheck[]; ry: number | null;
   );
 }
 
-/** The why, one category at a time: today → the reconciled actual → the budget. */
+/** The why, ONE ROW per category: today → the budget, and what moved it
+ *  (the catch-up to the reconciled actual, the pool's change). The working
+ *  (share, admin, cap, lines) is on each category cell's own hover. */
 function whyRows(e: EstimateRow, ry: number | null, year: number): TipRow[] {
   const rows: TipRow[] = [];
   for (const w of e.why) {
-    const pool = w.poolPct != null ? `, pool ${w.poolPct >= 0 ? "+" : "−"}${Math.abs(w.poolPct).toFixed(1)}%` : "";
-    rows.push({ label: `${LABEL[w.part]} today`, value: money0(w.now) });
-    if (w.recon != null) rows.push({ label: `  → ${ry} actual`, value: `${money0(w.recon)} (${signed(w.catchUp ?? 0)})`, color: tone(w.catchUp ?? 0) });
-    rows.push({ label: `  → ${year}${w.overridden ? " (set by hand)" : ""}`, value: `${money0(w.next)}${w.budgetChange != null ? ` (${signed(w.budgetChange)}${pool})` : ""}`, color: w.overridden ? "var(--brand)" : tone(w.next - (w.recon ?? w.now)) });
-    if (w.overridden && w.computed != null) rows.push({ label: "  computed was", value: money0(w.computed), color: "var(--muted)" });
-    if (w.annual) rows.push({ label: `  collected at reconciliation`, value: `${money0(w.annual)} in May ${year} · no monthly estimate`, color: "var(--muted)" });
+    const parts = [
+      w.recon != null && Math.abs(w.catchUp ?? 0) >= 1 ? `${signed(w.catchUp ?? 0)} to ${ry} actual` : "",
+      w.budgetChange != null && Math.abs(w.budgetChange) >= 1 ? `${signed(w.budgetChange)} budget${w.poolPct != null ? ` (pool ${w.poolPct >= 0 ? "+" : "−"}${Math.abs(w.poolPct).toFixed(0)}%)` : ""}` : "",
+    ].filter(Boolean).join(" · ");
+    rows.push({
+      label: `${LABEL[w.part]}${w.overridden ? " · set by hand" : w.annual ? " · at recon" : parts ? ` · ${parts}` : ""}`,
+      value: w.annual ? `${money0(w.annual)} in May` : `${money0(w.now)} → ${money0(w.next)}`,
+      color: w.overridden ? "var(--brand)" : tone(w.next - w.now),
+    });
   }
-  if (e.billedFrom) {
-    const src = (p: "cam" | "ins" | "ret") => e.billedFrom![p] === "statement" ? `${monthName(e.billedMonth)} statement` : SOURCE[e.billedFrom![p]];
-    rows.push({ label: "Today from", value: `CAM ${src("cam")} · INS ${src("ins")} · RET ${src("ret")}`, color: "var(--muted)" });
-    for (const d of e.differs ?? []) rows.push({ label: `  ${LABEL[d.part]}: statement vs rent roll`, value: `${money0(d.statement)} vs ${money0(d.rentRoll)}`, color: UP });
-  }
-  if (e.uo) rows.push({ label: "U&O billed today (not an estimate)", value: money0(e.uo), color: "var(--muted)" });
-  const m = e.method;
-  if (m?.kind === "retail" && !m.basis) {
-    rows.push({ label: "Share (CAM / INS / RET)", value: `${m.camPrs.toFixed(2)}% / ${m.insPrs.toFixed(2)}% / ${m.retPrs.toFixed(2)}%` });
-    if (m.adminFeePct) rows.push({ label: "Admin fee", value: `${m.adminFeePct}%` });
-    if (m.capPct != null) rows.push({ label: "CAM cap", value: `${m.capPct}% a year`, color: UP });
-    if (m.excludedLines) rows.push({ label: "Excluded CAM lines", value: String(m.excludedLines) });
-  } else if (m?.kind === "office") {
-    rows.push({ label: "Pro-rata share", value: `${m.proRataPct.toFixed(2)}%` });
-    rows.push({ label: "Base year", value: m.noBaseStop ? "None (full NNN)" : m.baseYear ? String(m.baseYear) : "–" });
-  }
+  // The one exception worth reading: today's billing disagrees between sources.
+  for (const d of e.differs ?? []) rows.push({ label: `${LABEL[d.part]} · statement ≠ rent roll`, value: `${money0(d.statement)} vs ${money0(d.rentRoll)}`, color: UP });
   return rows;
 }
 
@@ -372,17 +362,11 @@ function reconTip(e: EstimateRow, ry: number): { rows: TipRow[]; footer: TipRow 
   const m = e.method;
   if (m?.kind !== "retail" || !m.reconCalc || !e.recon) return null;
   const c = m.reconCalc;
+  // One row per category: the year due and its month.
   const rows: TipRow[] = [];
-  const occ = c.occ < 1 ? ` × ${(c.occ * 100).toFixed(1)}% occ` : "";
-  if (m.recon.cam) {
-    rows.push({ label: `CAM pool${c.capped ? " (capped)" : ""} × ${m.camPrs.toFixed(2)}%${occ}`, value: `${money0(c.camPool)} → ${money0(c.camShare)}` });
-    if (c.camAdmin) rows.push({ label: `  + admin fee ${m.adminFeePct}%`, value: money0(c.camAdmin) });
-    rows.push({ label: "  CAM due", value: `${money0(m.recon.cam)} · ${money0(e.recon.cam)}/mo`, color: "var(--brand)" });
-  }
-  if (m.recon.ins) rows.push({ label: `INS pool × ${m.insPrs.toFixed(2)}%${occ}`, value: `${money0(c.insPool)} → ${money0(m.recon.ins)} · ${money0(e.recon.ins)}/mo` });
-  if (m.recon.ret) rows.push(c.flatRet != null
-    ? { label: "RET — own parcel, fixed", value: `${money0(m.recon.ret)} · ${money0(e.recon.ret)}/mo` }
-    : { label: `RET pool × ${m.retPrs.toFixed(2)}%${c.retDiscountPct ? ` − ${c.retDiscountPct}%` : ""}${occ}`, value: `${money0(c.retPool)} → ${money0(m.recon.ret)} · ${money0(e.recon.ret)}/mo` });
+  if (m.recon.cam) rows.push({ label: `CAM${c.capped ? " · capped" : ""}`, value: `${money0(m.recon.cam)} · ${money0(e.recon.cam)}/mo` });
+  if (m.recon.ins) rows.push({ label: "INS", value: `${money0(m.recon.ins)} · ${money0(e.recon.ins)}/mo` });
+  if (m.recon.ret) rows.push({ label: c.flatRet != null ? "RET · own parcel" : "RET", value: `${money0(m.recon.ret)} · ${money0(e.recon.ret)}/mo` });
   if (!rows.length) return null;
   return { rows, footer: { label: `${ry} due, a month`, value: money0(e.recon.total) } };
 }
