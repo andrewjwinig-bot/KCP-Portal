@@ -12,6 +12,7 @@ import { StatPill } from "../../components/Pill";
 import { TabButton } from "../../components/TabButton";
 import { th, thL, td, tdL } from "../../components/tableStyles";
 import CampusPlanCard from "./CampusPlanCard";
+import PlanTip, { type PlanTipRow } from "./PlanTip";
 import type { CampusView } from "../../../lib/buildings/campusMath";
 import {
   AR_COLOR, AR_LABEL, arBucket, EXPIRY_COLOR, EXPIRY_LABEL, EXPIRY_ORDER, expiryBucket,
@@ -347,10 +348,10 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
  *  with a colour rail in the suite's current colour instead of a dot. */
 function SuiteTip({ s, x, y, plan, today, accent }: { s: StaffSuite; x: number; y: number; plan: StaffPlan; today: Date; accent?: string }) {
   const width = 360;
-  const rows: { label: string; value: string; color?: string; strong?: boolean }[] = [];
+  const rows: PlanTipRow[] = [];
   const vacant = s.status === "available";
   if (!vacant) {
-    if (s.occupant && s.occupant !== s.tenant) rows.push({ label: "On the rent roll", value: s.occupant });
+    if (s.occupant && s.occupant !== s.tenant) rows.push({ label: "On the rent roll", value: s.occupant, wide: true });
     const b = expiryBucket(s, today);
     rows.push({
       label: "Expires",
@@ -359,11 +360,11 @@ function SuiteTip({ s, x, y, plan, today, accent }: { s: StaffSuite; x: number; 
       strong: true,
     });
     if (s.money) {
-      rows.push({ label: "Base rent", value: `${money0(s.money.baseRent)} / mo`, strong: true });
-      rows.push({ label: "Rent $/SF", value: `${money2(s.money.rentPsf)} / SF / yr` });
+      rows.push({ label: "Base rent / mo", value: money0(s.money.baseRent), strong: true });
+      rows.push({ label: "Rent $/SF", value: `${money2(s.money.rentPsf)}/SF` });
+      if (s.money.gross > 0) rows.push({ label: "Gross / mo", value: money0(s.money.gross) });
       const rec = s.money.cam + s.money.ret + s.money.other;
-      if (rec > 0) rows.push({ label: "CAM · RET · Other", value: `${money0(s.money.cam)} · ${money0(s.money.ret)} · ${money0(s.money.other)}` });
-      if (s.money.gross > 0) rows.push({ label: "Gross", value: `${money0(s.money.gross)} / mo` });
+      if (rec > 0) rows.push({ label: "CAM · RET · Other / mo", value: `${money0(s.money.cam)} · ${money0(s.money.ret)} · ${money0(s.money.other)}`, wide: true });
     }
   }
   const footer =
@@ -374,39 +375,8 @@ function SuiteTip({ s, x, y, plan, today, accent }: { s: StaffSuite; x: number; 
             color: s.ar.pastDue >= 1 ? "#b91c1c" : s.ar.totalDue >= 1 ? "#b45309" : "#15803d" }
         : { label: "Open A/R", value: "No statement on file", color: "var(--muted)" }
       : null;
-  const vw = typeof window !== "undefined" ? window.innerWidth : 1200;
-  const vh = typeof window !== "undefined" ? window.innerHeight : 800;
-  const left = x + 18 + width > vw - 8 ? x - 18 - width : x + 18;
-  const top = Math.max(8, Math.min(y + 18, vh - 330));
   return (
-    <div role="tooltip" style={{
-      position: "fixed", zIndex: 3000, left, top, width, pointerEvents: "none",
-      background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
-      boxShadow: "0 10px 30px rgba(15,23,42,0.22)", overflow: "hidden", color: "var(--text)",
-      borderLeft: `6px solid ${accent ?? "var(--brand)"}`,
-    }}>
-      <div style={{ padding: "14px 16px 10px" }}>
-        <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.2 }}>{vacant ? "Vacant" : s.tenant}</div>
-        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, fontWeight: 600 }}>
-          Suite {s.unitRefs.join(" + ") || s.id} · {s.sf.toLocaleString()} SF{s.addr ? ` · ${s.addr.split("·").pop()!.trim()}` : ""}
-        </div>
-      </div>
-      {rows.length > 0 && (
-        <div style={{ padding: "4px 16px 12px", display: "grid", gap: 7 }}>
-          {rows.map((r) => (
-            <div key={r.label} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
-              <span style={{ fontSize: 13, color: "var(--muted)" }}>{r.label}</span>
-              <span style={{ fontSize: r.strong ? 15 : 14, fontWeight: r.strong ? 800 : 700, color: r.color ?? "var(--text)", textAlign: "right" }}>{r.value}</span>
-            </div>
-          ))}
-        </div>
-      )}
-      {footer && (
-        <div style={{ borderTop: "1px solid var(--border)", padding: "10px 16px", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
-          <span style={{ fontSize: 13, color: "var(--muted)" }}>{footer.label}</span>
-          <span style={{ fontSize: 15, fontWeight: 800, color: footer.color }}>{footer.value}</span>
-        </div>
-      )}
-    </div>
+    <PlanTip title={vacant ? "Vacant" : s.tenant} accent={accent} x={x} y={y} rows={rows} footer={footer}
+      subtitle={`Suite ${s.unitRefs.join(" + ") || s.id} · ${s.sf.toLocaleString()} SF${s.addr ? ` · ${s.addr.split("·").pop()!.trim()}` : ""}`} />
   );
 }
