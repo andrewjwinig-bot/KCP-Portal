@@ -1,5 +1,6 @@
 "use client";
 
+import QuarterlySend, { type QuarterSendRecord } from "./QuarterlySend";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Pill, StatPill, reconBalanceTone, TONE_NEUTRAL, TONE_AMBER, TONE_BLUE, TONE_PURPLE, PortionPill } from "@/app/components/Pill";
@@ -921,6 +922,7 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
   const [gl, setGl] = useState<{ hasGl: boolean; maxPosted: number; uploadedAt: string | null }>({ hasGl: false, maxPosted: 0, uploadedAt: null });
   const [billingQ, setBillingQ] = useState<Quarter>("Q1");
   const [loading, setLoading] = useState(true);
+  const [sends, setSends] = useState<Partial<Record<Quarter, QuarterSendRecord>>>({});
 
   useEffect(() => {
     let alive = true;
@@ -934,6 +936,7 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
         setManual(j?.data ?? emptyQuarterlyData());
         const mp = j?.gl?.maxPosted ?? 0;
         setGl(j?.gl ?? { hasGl: false, maxPosted: 0, uploadedAt: null });
+        setSends(j?.sends ?? {});
         setBillingQ(QUARTERS[Math.min(3, Math.max(0, Math.ceil(mp / 3) - 1))] ?? "Q1");
       })
       .finally(() => { if (alive) setLoading(false); });
@@ -1081,6 +1084,8 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
         <FinalBalanceRow label={`Total Charges — ${q} ${year}`} value={totalChargesQ} />
         <p className="small muted" style={{ marginTop: 8 }}>Add CAM charge to the tenant in Skyline for &ldquo;{q} CAM&rdquo;.</p>
       </div>
+      <QuarterlySend billingKey={billingKey} year={year} quarter={q} name={def.name} record={sends[q]}
+        onSent={(r) => setSends((s) => ({ ...s, [q]: r }))} />
       {openBackup && (
         <CamBackupModal
           property={def.parentProperty} year={year} account={openBackup.account} label={openBackup.label}
