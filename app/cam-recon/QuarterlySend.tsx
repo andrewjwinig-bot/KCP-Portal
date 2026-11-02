@@ -23,6 +23,7 @@ export type QuarterSendRecord = {
   outside?: boolean;
   heldReasons?: string[];
   lastError?: string;
+  hasDetail?: boolean;
 };
 
 type Preview = {
@@ -77,15 +78,17 @@ export default function QuarterlySend({ billingKey, year, quarter, record, name,
   ) : record?.status === "held" ? <Pill tone={TONE_AMBER}>Held for review</Pill> : <Pill tone={TONE_NEUTRAL}>Not sent</Pill>;
 
   return (
-    <div style={{ marginTop: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+    <div style={{ marginBottom: 12, maxWidth: 640, padding: "10px 12px", border: "1px solid var(--border)", borderLeft: `3px solid ${sent ? TONE_GREEN.fg : "var(--brand)"}`, borderRadius: 10, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
       {status}
       <span className="small muted" style={{ flex: 1, minWidth: 220 }}>
         {sent && !record!.outside && <>To {record!.to}{record!.auto ? " · sent automatically on the GL import" : record!.sentBy ? ` · by ${record!.sentBy}` : ""}{record!.total != null ? ` · ${money0(record!.total)}` : ""}{record!.testMode ? " · TEST MODE — nothing delivered" : ""}</>}
         {sent && record!.outside && <>Emailed before the portal sent it.</>}
+        {sent && record!.hasDetail && <> · GL detail saved as sent</>}
         {record?.status === "held" && <>Not sent automatically: {(record.heldReasons ?? []).join("; ") || record.lastError}</>}
         {!record && <>Goes out on its own when the GL for the quarter&rsquo;s last month is imported.</>}
       </span>
-      <button type="button" className="btn sm" onClick={() => void openConfirm()}>
+      <a className="btn sm" href={`/api/cam-recon/quarterly/send?${qs}&detail=1`} target="_blank" rel="noreferrer">GL Detail (PDF)</a>
+      <button type="button" className={sent ? "btn sm" : "btn sm primary"} onClick={() => void openConfirm()}>
         {sent ? `Re-send ${quarter}` : `Send ${quarter} to ${name}`}
       </button>
 
@@ -130,6 +133,9 @@ export default function QuarterlySend({ billingKey, year, quarter, record, name,
                   <pre style={{ margin: 0, padding: "10px 12px", whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 13 }}>{preview.body}</pre>
                   <div className="small" style={{ padding: "8px 12px", borderTop: "1px solid var(--border)" }}>
                     📎 <a href={`/api/cam-recon/quarterly/send?${qs}&pdf=1`} target="_blank" rel="noreferrer" style={{ fontWeight: 600, color: "var(--brand)" }}>{preview.attachmentName}</a>
+                    <span className="muted"> · backup if asked: </span>
+                    <a href={`/api/cam-recon/quarterly/send?${qs}&detail=1`} target="_blank" rel="noreferrer" style={{ fontWeight: 600, color: "var(--brand)" }}>GL Detail (PDF)</a>
+                    <span className="muted"> — not attached; saved with the send</span>
                   </div>
                 </div>
               </>

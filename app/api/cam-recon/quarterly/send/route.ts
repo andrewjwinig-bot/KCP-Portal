@@ -3,7 +3,8 @@ import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS } from "@/lib/users";
 import { QUARTERLY_BILLINGS, QUARTERS, type Quarter } from "@/lib/cam/retail/quarterly";
-import { previewQuarter, sendQuarter } from "@/lib/cam/retail/quarterlySend";
+import { detailFor, previewQuarter, sendQuarter } from "@/lib/cam/retail/quarterlySend";
+import { buildQuarterlyDetailPdf } from "@/lib/cam/retail/quarterlyDetail";
 import { buildQuarterlyPdf } from "@/lib/cam/retail/quarterlyPdf";
 
 export const runtime = "nodejs";
@@ -34,6 +35,16 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const a = parse(sp.get("key"), sp.get("year"), sp.get("quarter"));
   if (!a) return NextResponse.json({ error: "Unknown billing, year or quarter" }, { status: 404 });
+  if (sp.get("detail")) {
+    const d = await detailFor(a.key, a.year, a.quarter);
+    if (!d) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const def = QUARTERLY_BILLINGS[a.key];
+    const bytes = buildQuarterlyDetailPdf(def, d.detail);
+    const name = `${def.storeName} ${a.quarter} ${a.year} GL Detail.pdf`.replace(/[#/\\]/g, "");
+    return new Response(Buffer.from(bytes), {
+      headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="${name}"` },
+    });
+  }
   const p = await previewQuarter(a.key, a.year, a.quarter);
   if (!p) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (sp.get("pdf")) {
@@ -46,6 +57,8 @@ export async function GET(req: NextRequest) {
   const { loaded: _loaded, ...preview } = p;
   return NextResponse.json(preview);
 }
+
+/* `&detail=1` → the GL charges behind the quarter (frozen at its send). */
 
 /** POST { key, year, quarter, force? } → send it now (from Drew to the tenant,
  *  PDF attached, Bcc Drew) and record it. */

@@ -1079,6 +1079,8 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
           {QUARTERS.map((qq) => <option key={qq} value={qq}>{qq} {year}</option>)}
         </select>
       </div>
+      <QuarterlySend billingKey={billingKey} year={year} quarter={q} name={def.name} record={sends[q]}
+        onSent={(r) => setSends((s) => ({ ...s, [q]: r }))} />
       <div style={{ maxWidth: 460 }}>
         <BalanceRow label="Total Costs" value={money0(totalCostQ)} />
         <BalanceRow label={`Percent of GLA (${def.sharePct}%) · Occupancy ${pct(def.occPct, 0)}`} value={money0(grossDueQ)} />
@@ -1090,8 +1092,6 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
         <FinalBalanceRow label={`Total Charges — ${q} ${year}`} value={totalChargesQ} />
         <p className="small muted" style={{ marginTop: 8 }}>Add CAM charge to the tenant in Skyline for &ldquo;{q} CAM&rdquo;.</p>
       </div>
-      <QuarterlySend billingKey={billingKey} year={year} quarter={q} name={def.name} record={sends[q]}
-        onSent={(r) => setSends((s) => ({ ...s, [q]: r }))} />
       {openBackup && (
         <CamBackupModal
           property={def.parentProperty} year={year} account={openBackup.account} label={openBackup.label}
