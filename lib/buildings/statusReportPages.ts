@@ -47,7 +47,7 @@ export async function drawFloorPlanPages(
     if (!f.suites.length) continue;
     let png;
     try {
-      png = await pdf.embedPng(await readFile(path.join(process.cwd(), "public", f.src)));
+      png = await pdf.embedPng(await readFile(path.join(process.cwd(), "public", f.pdfSrc ?? f.src)));
     } catch {
       continue; // image not deployed with the function — skip the page rather than fail the report
     }

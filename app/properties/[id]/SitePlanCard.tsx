@@ -12,6 +12,8 @@ import { StatPill } from "../../components/Pill";
 import { TabButton } from "../../components/TabButton";
 import { TipCard, type TipRow } from "../../components/HoverCard";
 import { th, thL, td, tdL } from "../../components/tableStyles";
+import CampusPlanCard from "./CampusPlanCard";
+import type { CampusView } from "../../../lib/buildings/campusMath";
 import {
   AR_COLOR, AR_LABEL, arBucket, brandRamp, EXPIRY_COLOR, EXPIRY_LABEL, EXPIRY_ORDER, expiryBucket,
   labelSize, monthsLeft, scaleOf, type ArBucket, type ExpiryBucket, type StaffPlan, type StaffSuite,
@@ -26,12 +28,21 @@ const dateLabel = (iso: string | null) => {
   const [y, m, d] = iso.split("-");
   return `${m}/${d}/${y}`;
 };
+/** Area of a suite's polygons (shoelace), in plan pixels². */
+const areaOf = (polys: string[]) => polys.reduce((t, poly) => {
+  const p = poly.trim().split(/\s+/).map((q) => q.split(",").map(Number));
+  let a = 0;
+  for (let i = 0; i < p.length; i++) { const [x1, y1] = p[i], [x2, y2] = p[(i + 1) % p.length]; a += x1 * y2 - x2 * y1; }
+  return t + Math.abs(a) / 2;
+}, 0);
 const termLeft = (m: number | null) =>
   m == null ? "" : m < 0 ? `ended ${-m} mo ago` : m < 12 ? `${m} mo left` : `${Math.floor(m / 12)} yr ${m % 12} mo left`;
 
 export default function SitePlanCard({ code, style }: { code: string; style?: React.CSSProperties }) {
   const router = useRouter();
   const [plan, setPlan] = useState<StaffPlan | null>(null);
+  /** A holding entity's page (JV III Condo, NI LLC) draws the Interplex campus instead. */
+  const [campus, setCampus] = useState<CampusView | null>(null);
   const [mode, setMode] = useState<Mode>("expiry");
   const [hover, setHover] = useState<{ s: StaffSuite; x: number; y: number } | null>(null);
   /** A legend entry the plan is narrowed to (others dimmed). */
@@ -44,7 +55,7 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
     let alive = true;
     fetch(`/api/properties/${encodeURIComponent(code)}/siteplan`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (alive) setPlan(j?.plan ?? null); })
+      .then((j) => { if (alive) { setPlan(j?.plan ?? null); setCampus(j?.campus ?? null); } })
       .catch(() => { if (alive) setPlan(null); });
     return () => { alive = false; };
   }, [code]);
@@ -52,7 +63,7 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
   const ours = useMemo(() => (plan?.suites ?? []).filter((s) => !s.shadow), [plan]);
   const rents = useMemo(() => ours.map((s) => s.money?.rentPsf ?? 0), [ours]);
 
-  if (!plan) return null;
+  if (!plan) return campus ? <CampusPlanCard campus={campus} style={style} /> : null;
 
   // An office building draws one floor at a time; the tiles, legend and
   // expirations stay building-wide.
@@ -169,13 +180,31 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
         <img src={meta.src} alt={`${cur ? `${cur.label} plan` : "Site plan"} of ${plan.name}`} width={meta.width} height={meta.height}
           style={{ display: "block", width: "100%", height: "auto", borderRadius: 8, border: "1px solid var(--border)", background: "#fff" }} />
         <svg viewBox={meta.viewBox} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} role="group" aria-label="Suites">
+          {/* An office floor's interiors show only inside the suite under the mouse,
+              so the plan reads as clean suite blocks until you look at one. */}
+          {meta.detailSrc && hover && hover.s.floor === cur?.floor && hover.s.pts && (
+            <>
+              <defs>
+                <clipPath id={`detail-${plan.code}`}>
+                  {hover.s.pts.map((pts, i) => <polygon key={i} points={pts} />)}
+                </clipPath>
+              </defs>
+              <rect x={0} y={0} width={vbW} height={Number(meta.viewBox.split(/\s+/)[3]) || meta.height} fill="#fff"
+                clipPath={`url(#detail-${plan.code})`} />
+              <image href={meta.detailSrc} x={0} y={0} width={vbW} height={Number(meta.viewBox.split(/\s+/)[3]) || meta.height}
+                preserveAspectRatio="none" clipPath={`url(#detail-${plan.code})`} style={{ pointerEvents: "none" }} />
+            </>
+          )}
           {drawn.map((s) => {
             const p = paint(s);
             const dim = focus && p?.key !== focus;
             const hot = hover?.s.id === s.id;
-            const shapeProps = {
+            const shapeProps = s.amenity ? {
+              fill: "#e2e8f0", fillOpacity: 0.85, stroke: "rgba(15,23,42,0.35)", strokeWidth: 3 * (cur ? 0.6 : 1),
+            } : {
               fill: p ? p.fill : "transparent",
-              fillOpacity: p ? (dim ? 0.12 : hot ? 0.85 : 0.62) : 0,
+              // Lighter while hovered on a floor with interiors, so the offices read through.
+              fillOpacity: p ? (dim ? 0.12 : hot ? (meta.detailSrc ? 0.3 : 0.85) : 0.62) : 0,
               stroke: p ? (hot ? "#0f172a" : "rgba(15,23,42,0.55)") : "transparent",
               strokeWidth: (hot ? 8 : 3) * (cur ? 0.6 : 1),
             };
@@ -189,13 +218,37 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
                 {s.pts
                   ? s.pts.map((pts, i) => <polygon key={i} points={pts} {...shapeProps} />)
                   : (s.rects ?? []).map(([x, y, w, h], i) => <rect key={i} x={x} y={y} width={w} height={h} {...shapeProps} />)}
-                {!s.shadow && (
-                  <text x={s.cx} y={s.cy + fontFor(s) / 3} textAnchor="middle" fontSize={fontFor(s)} fontWeight={800}
-                    fill={dim ? "rgba(15,23,42,0.35)" : "#0f172a"} stroke="#fff" strokeWidth={fontFor(s) / 5} paintOrder="stroke"
-                    transform={s.rot ? `rotate(${s.rot} ${s.cx} ${s.cy})` : undefined} style={{ pointerEvents: "none" }}>
-                    {s.label}
-                  </text>
+                {s.amenity && (
+                  <text x={s.cx} y={s.cy} textAnchor="middle" fontSize={fontFor({ ...s, label: s.amenity }) * 0.8} fontWeight={700}
+                    fill="#64748b" style={{ pointerEvents: "none" }}>{s.amenity}</text>
                 )}
+                {!s.shadow && (() => {
+                  const fs = fontFor(s);
+                  const textProps = {
+                    textAnchor: "middle" as const, fill: dim ? "rgba(15,23,42,0.35)" : "#0f172a", stroke: "#fff",
+                    paintOrder: "stroke" as const, style: { pointerEvents: "none" as const },
+                    transform: s.rot ? `rotate(${s.rot} ${s.cx} ${s.cy})` : undefined,
+                  };
+                  // An office floor names who is in the suite (or VACANT) over its number,
+                  // when the suite is big enough for the name to read; otherwise the number alone.
+                  if (cur) {
+                    const name = s.status === "available" ? "VACANT" : s.tenant;
+                    // Fit the name to the suite's real width, not its bounding box —
+                    // on the angled floors (Buildings 6, 7, 8) a box is far wider than the suite.
+                    const span = Math.min(s.w, 1.15 * Math.sqrt(areaOf(s.pts ?? [])) || s.w);
+                    const nameFs = labelSize({ ...s, w: span, label: name }, vbW / 70);
+                    if (nameFs >= vbW / 150 && s.h > nameFs * 3) {
+                      const numFs = Math.min(fs, nameFs * 0.85);
+                      return (
+                        <>
+                          <text x={s.cx} y={s.cy - nameFs * 0.15} fontSize={nameFs} fontWeight={800} strokeWidth={nameFs / 5} {...textProps}>{name}</text>
+                          <text x={s.cx} y={s.cy + numFs * 1.05} fontSize={numFs} fontWeight={600} strokeWidth={numFs / 5} {...textProps}>{s.label}</text>
+                        </>
+                      );
+                    }
+                  }
+                  return <text x={s.cx} y={s.cy + fs / 3} fontSize={fs} fontWeight={800} strokeWidth={fs / 5} {...textProps}>{s.label}</text>;
+                })()}
               </g>
             );
           })}

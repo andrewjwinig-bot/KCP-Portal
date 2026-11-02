@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { accessGroup, ALL_USERS, isPathAllowed, type UserId } from "@/lib/users";
 import { buildStaffPlan } from "@/lib/centers/designed/staffPlan";
+import { buildCampus } from "@/lib/buildings/campus";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,11 +24,9 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   const user = await currentUser();
   if (!user) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   try {
-    const plan = await buildStaffPlan(params.id, {
-      money: accessGroup(user) !== "service",
-      ar: isPathAllowed(user, "/tenant-statements"),
-    });
-    return NextResponse.json({ plan });
+    const opts = { money: accessGroup(user) !== "service", ar: isPathAllowed(user, "/tenant-statements") };
+    const [plan, campus] = await Promise.all([buildStaffPlan(params.id, opts), buildCampus(params.id, opts)]);
+    return NextResponse.json({ plan, campus });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to load the site plan" }, { status: 500 });
   }
