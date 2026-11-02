@@ -14,7 +14,7 @@ import { createPortal } from "react-dom";
 export type TipRow = { label: string; value: string; color?: string };
 
 export function HoverCard({
-  children, title, rows, footer, width = 260, help = true, style, body,
+  children, title, rows, footer, width = 280, help = true, style, body,
 }: {
   children: React.ReactNode;
   title?: string;
@@ -55,37 +55,47 @@ export function HoverCard({
   );
 }
 
+/** At most this many rows are listed; the rest read "+ n more" — a hover is a
+ *  glance, and a list past ten is a table that belongs on the page (owner:
+ *  "some of them have way too much info and its so busy"). */
+export const TIP_MAX_ROWS = 10;
+
 /** The card itself — title, rows, optional body and footer — for a caller that
- *  places it (an SVG plan tracking the mouse) rather than wrapping a trigger. */
-export function TipCard({ title, rows, body, footer, width = 260, style }: {
+ *  places it (an SVG plan tracking the mouse) rather than wrapping a trigger.
+ *  Same language as the plan hovers (PlanTip): the title big and bold, the
+ *  values bold and readable, one rule before the footer. */
+export function TipCard({ title, rows, body, footer, width = 280, style }: {
   title?: string; rows: TipRow[]; body?: React.ReactNode; footer?: TipRow; width?: number; style?: React.CSSProperties;
 }) {
+  const shown = rows.length > TIP_MAX_ROWS ? rows.slice(0, TIP_MAX_ROWS - 1) : rows;
+  const more = rows.length - shown.length;
   return (
     <div
       role="tooltip"
       style={{
         pointerEvents: "none", width,
-        background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10,
-        boxShadow: "0 6px 20px rgba(15,23,42,0.20)", padding: "10px 12px",
+        background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
+        boxShadow: "0 10px 30px rgba(15,23,42,0.22)", padding: "12px 14px",
         font: "inherit", color: "var(--text)",
         ...style,
       }}
     >
-      {title && <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: rows.length || body ? 8 : 0 }}>{title}</div>}
-      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-        {rows.map((r, k) => (
-          <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 }}>
-            {r.color && <span style={{ width: 9, height: 9, borderRadius: 999, background: r.color, flex: "0 0 auto" }} />}
-            <span style={{ color: "var(--muted)" }}>{r.label}</span>
-            <span style={{ marginLeft: "auto", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{r.value}</span>
+      {title && <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.25, marginBottom: shown.length || body ? 9 : 0 }}>{title}</div>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {shown.map((r, k) => (
+          <div key={k} style={{ display: "flex", alignItems: "baseline", gap: 10, fontSize: 13 }}>
+            {r.color && <span style={{ width: 9, height: 9, borderRadius: 3, background: r.color, flex: "0 0 auto", alignSelf: "center" }} />}
+            <span style={{ color: "var(--muted)", minWidth: 0 }}>{r.label}</span>
+            <span style={{ marginLeft: "auto", fontWeight: 800, fontSize: 13.5, fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{r.value}</span>
           </div>
         ))}
+        {more > 0 && <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>+ {more} more</div>}
       </div>
       {body}
       {footer && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-          <span style={{ color: "var(--muted)" }}>{footer.label}</span>
-          <span style={{ marginLeft: "auto", fontWeight: 800, color: footer.color ?? "var(--text)", fontVariantNumeric: "tabular-nums" }}>{footer.value}</span>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 10, paddingTop: 9, borderTop: "1px solid var(--border)" }}>
+          <span style={{ color: "var(--muted)", fontSize: 13 }}>{footer.label}</span>
+          <span style={{ marginLeft: "auto", fontWeight: 800, fontSize: 15, color: footer.color ?? "var(--text)", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{footer.value}</span>
         </div>
       )}
     </div>
