@@ -25,6 +25,7 @@ import { EXPENSE_ROLES, type SectionRole } from "@/lib/financials/operating-stat
 import { projectLeaseRevenue, type ExpiringLease, type VacantUnit, type RentRow, type ContractedLease } from "./leaseRevenue";
 import { getLeasingAssumptions } from "./leasingAssumptions";
 import { estimateReimbursements, type ReimbursementEstimate } from "./reimbursementEstimate";
+import { isAllGross, ALL_GROSS_NOTE } from "./grossProperties";
 import { expenseInputKindOf, resolveKind, splitAcrossLines, type ExpenseInputKind, type ExpenseInput } from "./expenseInputs";
 import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
 import { statementBillingFor } from "./statementBilling";
@@ -1236,7 +1237,8 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
     pool.ret[1] = Math.max(0, pool.ret[1] - offPool.basis);
   }
   const ratioOf = ([budget, basis]: number[]) => (basis > 0 ? budget / basis : 1);
-  reimbursementEstimate = (await estimateReimbursements(meta.propertyCode, budgetYear, growthPct, {
+  // An ALL-GROSS property (9000) recovers nothing — no estimate is run.
+  reimbursementEstimate = isAllGross(meta.propertyCode) ? undefined : (await estimateReimbursements(meta.propertyCode, budgetYear, growthPct, {
     poolRatios: { cam: ratioOf(pool.cam), ins: ratioOf(pool.ins), ret: ratioOf(pool.ret) },
     officePoolRatios: mixed ? { cam: ratioOf(officePool.cam), ins: ratioOf(officePool.ins), ret: ratioOf(officePool.ret) } : undefined,
     retBudgetPool: pool.ret[0],
@@ -1292,6 +1294,18 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
   const before = fee.total;
   fee = applyManagementFee(sections, feeRates);
   if (!fee.reimbursable || Math.abs(fee.total - before) < 1) break;
+  }
+  // ALL-GROSS: the CAM / RE tax / insurance recovery lines are $0 and derived
+  // (not typeable), whatever this year's GL carried.
+  if (isAllGross(meta.propertyCode)) {
+    for (const sec of sections) {
+      if (sec.role !== "revenue" && sec.role !== "reimbursement") continue;
+      sec.lines = sec.lines.map((l) => {
+        const b = basisForLine(l.label, l.mask);
+        if (b !== "cam" && b !== "ret" && b !== "other") return l;
+        return { ...l, months: new Array(12).fill(0), total: 0, source: "cam-estimate" as DraftSource, subLines: undefined };
+      });
+    }
   }
   const recoveryTie = reimbursementEstimate ? tieRecoveries(reimbursementEstimate, sections) : undefined;
   const rentLineLabel = sections.flatMap((sec) => sec.role === "revenue" ? sec.lines : []).find((l) => l.source === "leases")?.label;
@@ -1440,7 +1454,17 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
   })();
 
 
-  const tenantRevenue = lease.hasData ? withStatementBilling(combineTenantRevenue(lease.rows ?? [], reimbursementEstimate), stmtBilling) : undefined;
+  const tenantRevenue0 = lease.hasData ? withStatementBilling(combineTenantRevenue(lease.rows ?? [], reimbursementEstimate), stmtBilling) : undefined;
+  // ALL-GROSS: no tenant is billed — or estimated — any recovery, so CAM
+  // Estimates by Tenant lists none (today's CAM / INS / RET read $0; rent kept).
+  const tenantRevenue = tenantRevenue0 && isAllGross(meta.propertyCode)
+    ? tenantRevenue0.map((r) => r.tenant ? {
+        ...r, cam: new Array(12).fill(0), ins: new Array(12).fill(0), ret: new Array(12).fill(0),
+        note: ALL_GROSS_NOTE, method: { kind: "new" as const, sqft: r.sqft ?? 0, assumption: "gross" as const },
+        billing: r.billing ? { ...r.billing, cam: 0, ins: 0, ret: 0, stmt: undefined } : r.billing,
+        computed: undefined, overridden: undefined, atRecon: undefined,
+      } : r)
+    : tenantRevenue0;
   return {
     cash,
     propertyCode: meta.propertyCode,

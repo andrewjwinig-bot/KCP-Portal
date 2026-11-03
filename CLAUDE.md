@@ -2797,8 +2797,12 @@ time — and the team does not have time to open the GL over $80.
   book (`allocGroup: "SC"`) but had no statement mapping, so its draft could
   not build; its mapping is now a copy of 7300 Revere's SC ladder. With no GL
   yet, every expense grows off $0 — the owner types them — while rent comes
-  from the rent roll (`projectLeaseRevenue`) and tenants on no recon are held
-  at what they are billed today. Debt service is the **ICA loan**
+  from the rent roll (`projectLeaseRevenue`). **Its tenants are budgeted GROSS**
+  (owner: "the only CAM that butler and main tenants pay is their own
+  utilities … no monthly CAM estimates right now"; `ALL_GROSS_PROPERTIES` in
+  `grossProperties.ts`): no recovery estimate runs, the CAM / RET / insurance
+  recovery lines are $0 and locked, and CAM Estimates by Tenant lists none of
+  them. Take 9000 out of that set once its leases recover. Debt service is the **ICA loan**
   (`BUTLER_MAIN_9000_LOAN` in `lib/debt/amortization.ts`): $1.4M, 6.55%,
   25-yr amortization, $9,496.69/mo, 10-yr term with a year-5 rate reset (held
   flat). The commitment gives no closing date or escrow — anchored at
