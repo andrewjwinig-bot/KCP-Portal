@@ -64,6 +64,8 @@ export type StaffSuite = {
   floor?: string;
   /** A common room (conference / training) — drawn grey and named, never counted. */
   amenity?: string;
+  /** Its place on the rent roll (the Rent Roll page's order) — the card's default sort. */
+  order?: number;
 };
 
 /** One floor of an office building's plan (lib/buildings/plans). */
@@ -74,6 +76,7 @@ export type UnmappedSuite = {
   unitRef: string; tenant: string; sf: number; vacant: boolean;
   /** For the card's tenant list — a suite not drawn is still listed in full. */
   leaseFrom?: string | null; leaseTo?: string | null; money?: StaffSuiteMoney;
+  order?: number;
 };
 
 export type StaffPlan = {

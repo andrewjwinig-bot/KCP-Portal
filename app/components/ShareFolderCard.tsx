@@ -27,9 +27,12 @@ function FolderIcon() {
 export default function ShareFolderCard({
   kind,
   entityKey,
+  inline,
 }: {
   kind: "unit" | "property";
   entityKey: string;
+  /** A compact row for a card header (the property page's Overview) — no card of its own. */
+  inline?: boolean;
 }) {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(true);
@@ -71,6 +74,34 @@ export default function ShareFolderCard({
     } finally {
       setSaving(false);
     }
+  }
+
+  if (inline) {
+    const linkBtn = { fontSize: 12, fontWeight: 600, color: "var(--brand)", background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 0 } as const;
+    if (loading) return null;
+    if (editing) return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <input style={{ width: 320 }} value={draft} placeholder="Paste the SharePoint folder link (https://…)"
+          onChange={(e) => setDraft(e.target.value)} autoFocus />
+        <button type="button" onClick={save} disabled={saving} className="btn primary sm">{saving ? "Saving…" : "Save"}</button>
+        <button type="button" onClick={() => { setEditing(false); setError(null); }} disabled={saving} className="btn sm">Cancel</button>
+        {url && <button type="button" onClick={() => { setDraft(""); save(); }} disabled={saving} style={{ ...linkBtn, color: "#b91c1c" }}>Remove</button>}
+        {error && <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>{error}</span>}
+      </div>
+    );
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {url && (
+          <a href={url} target="_blank" rel="noopener noreferrer" className="btn sm"
+            style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <FolderIcon /> SharePoint Folder
+          </a>
+        )}
+        <button type="button" onClick={() => { setDraft(url); setEditing(true); setError(null); }} style={linkBtn}>
+          {url ? "Change" : "Link a SharePoint folder"}
+        </button>
+      </div>
+    );
   }
 
   return (

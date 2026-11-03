@@ -19,6 +19,7 @@ import {
   baseEntityName, filingLabel, isTaskEffectivelyDone,
   type TaxTask, type TaxParcel, TAX_CATEGORIES, type K1Investor,
 } from "../tracker/tax-data";
+import ShareFolderCard from "../components/ShareFolderCard";
 import { Pill, Badge, StatPill, TONE_AMBER, TONE_GREEN, TONE_TEAL, maintenanceStatusTone, priorityTone } from "../components/Pill";
 import AllowedLink from "@/app/components/AllowedLink";
 
@@ -721,7 +722,11 @@ export function PropertyDetailBody({
 
         {/* ── Overview ── */}
         <div className="card">
-          <SectionLabel>Overview</SectionLabel>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <SectionLabel>Overview</SectionLabel>
+            {/* The property's SharePoint folder — a link in the header, not a card of its own. */}
+            <ShareFolderCard kind="property" entityKey={prop.id} inline />
+          </div>
 
           {/* Identifiers & accounts · Parcel Numbers · Floorplan — one row */}
           <div style={{

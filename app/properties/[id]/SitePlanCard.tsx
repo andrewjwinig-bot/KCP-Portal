@@ -21,8 +21,8 @@ import {
   labelSize, monthsLeft, rentBandOf, rentBands, type ArBucket, type ExpiryBucket, type StaffPlan, type StaffSuite,
 } from "../../../lib/centers/designed/staffPlanMath";
 
-type Mode = "expiry" | "rent" | "ar";
-type SortKey = "tenant" | "suite" | "sf" | "from" | "to" | "rent" | "psf" | "gross" | "ar" | "past";
+type Mode = "plain" | "expiry" | "rent" | "ar";
+type SortKey = "order" | "tenant" | "suite" | "sf" | "from" | "to" | "rent" | "psf" | "gross" | "ar" | "past";
 
 const money0 = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 const money2 = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -40,6 +40,8 @@ const areaOf = (polys: string[]) => polys.reduce((t, poly) => {
 }, 0);
 /** A leased suite paying no base rent — below the lowest step, so a deeper red (owner: not grey). */
 const NO_RENT = "#7f1d1d";
+/** The plain view's leased fill — quiet, so the vacancies are what reads. */
+const LEASED = "#cbd5e1";
 const termLeft = (m: number | null) =>
   m == null ? "" : m < 0 ? `ended ${-m} mo ago` : m < 12 ? `${m} mo left` : `${Math.floor(m / 12)} yr ${m % 12} mo left`;
 
@@ -58,7 +60,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
   const [plan, setPlan] = useState<StaffPlan | null>(null);
   /** A holding entity's page (JV III Condo, NI LLC) draws the Interplex campus instead. */
   const [campus, setCampus] = useState<CampusView | null>(null);
-  const [mode, setMode] = useState<Mode>("expiry");
+  const [mode, setMode] = useState<Mode>("plain");
   const [hover, setHover] = useState<{ s: StaffSuite; x: number; y: number } | null>(null);
   /** A legend entry the plan is narrowed to (others dimmed). */
   const [focus, setFocus] = useState<string | null>(null);
@@ -102,6 +104,8 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
   // legend and the focus filter) and its fill.
   const paint = (s: StaffSuite): { key: string; fill: string } | null => {
     if (s.shadow) return null;
+    // PLAIN (the default): leased vs vacant only.
+    if (mode === "plain") return s.status === "available" ? { key: "vacant", fill: EXPIRY_COLOR.vacant } : { key: "leased", fill: LEASED };
     if (mode === "expiry") { const b = expiryBucket(s, today); return { key: b, fill: EXPIRY_COLOR[b] }; }
     if (mode === "ar") {
       if (s.status === "available") return { key: "vacant", fill: EXPIRY_COLOR.vacant };
@@ -131,7 +135,8 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
       tally.set(p.key, { count: t.count + 1, sf: t.sf + s.sf });
     }
     const keys: { key: string; label: string; color: string }[] =
-      mode === "expiry" ? EXPIRY_ORDER.map((b) => ({ key: b, label: EXPIRY_LABEL[b], color: EXPIRY_COLOR[b] }))
+      mode === "plain" ? [{ key: "leased", label: "Leased", color: LEASED }, { key: "vacant", label: "Vacant", color: EXPIRY_COLOR.vacant }]
+      : mode === "expiry" ? EXPIRY_ORDER.map((b) => ({ key: b, label: EXPIRY_LABEL[b], color: EXPIRY_COLOR[b] }))
       : mode === "ar" ? [
           ...(["pastDue", "current", "none", "unknown"] as ArBucket[]).map((b) => ({ key: b, label: AR_LABEL[b], color: AR_COLOR[b] })),
           { key: "vacant", label: "Vacant", color: EXPIRY_COLOR.vacant },
@@ -161,6 +166,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
   const val = (r: RollRow, k: SortKey): number | string => {
     const s = r.s;
     switch (k) {
+      case "order": return s.order ?? 1e6;
       case "tenant": return s.status === "available" ? "\uffff" : s.tenant.toLowerCase();
       case "suite": return s.unitRefs[0] ?? s.id;
       case "sf": return s.sf;
@@ -173,14 +179,14 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
       case "past": return s.ar?.pastDue ?? -1;
     }
   };
-  const eff = sort ?? (mode === "rent" ? { key: "psf" as SortKey, dir: -1 as const } : mode === "ar" ? { key: "past" as SortKey, dir: -1 as const } : { key: "to" as SortKey, dir: 1 as const });
+  const eff = sort ?? (mode === "rent" ? { key: "psf" as SortKey, dir: -1 as const } : mode === "ar" ? { key: "past" as SortKey, dir: -1 as const } : mode === "expiry" ? { key: "to" as SortKey, dir: 1 as const } : { key: "order" as SortKey, dir: 1 as const });
   rows.sort((a, b) => {
     const x = val(a, eff.key), y = val(b, eff.key);
     const c = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true });
     return c * eff.dir || String(a.s.unitRefs[0] ?? a.s.id).localeCompare(String(b.s.unitRefs[0] ?? b.s.id), undefined, { numeric: true });
   });
   const clickSort = (k: SortKey) => setSort((cur) => (cur?.key === k ? (cur.dir === 1 ? { key: k, dir: -1 } : null) : { key: k, dir: k === "tenant" || k === "suite" || k === "to" || k === "from" ? 1 : -1 }));
-  const modeLabel = mode === "expiry" ? "lease expiry" : mode === "rent" ? "base rent $/SF" : "open A/R";
+  const modeLabel = mode === "plain" ? "leased / vacant" : mode === "expiry" ? "lease expiry" : mode === "rent" ? "base rent $/SF" : "open A/R";
   const focusLabel = focus ? legend.find((l) => l.key === focus)?.label ?? null : null;
   const viewTitle = `${plan.name}${cur && plan.floors && plan.floors.length > 1 ? ` · ${cur.label}` : ""}`;
   const downloads = [
@@ -206,6 +212,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
         <div style={{ display: "flex", alignItems: "flex-end", gap: 14 }}>
         <DownloadMenu items={downloads} variant="default" />
         <div style={{ display: "flex", borderBottom: "1px solid var(--border)" }}>
+          <TabButton active={mode === "plain"} onClick={() => { setMode("plain"); setFocus(null); setSort(null); }}>Plain</TabButton>
           <TabButton active={mode === "expiry"} onClick={() => { setMode("expiry"); setFocus(null); setSort(null); }}>Lease Expiry</TabButton>
           {plan.canSeeMoney && <TabButton active={mode === "rent"} onClick={() => { setMode("rent"); setFocus(null); setSort(null); }}>Rent $/SF</TabButton>}
           {plan.canSeeAr && <TabButton active={mode === "ar"} onClick={() => { setMode("ar"); setFocus(null); setSort(null); }}>Open A/R</TabButton>}
@@ -327,7 +334,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
         {/* Say what the colours MEAN — the view switch sits far off at the top right,
             and a yellow suite read as a rent when it was a lease date. */}
         <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginRight: 2 }}>
-          {mode === "expiry" ? "Colored by lease expiry" : mode === "rent" ? "Colored by base rent $/SF · red lowest → green highest" : "Colored by open A/R"}
+          {mode === "plain" ? "Leased / vacant" : mode === "expiry" ? "Colored by lease expiry" : mode === "rent" ? "Colored by base rent $/SF · red lowest → green highest" : "Colored by open A/R"}
         </span>
         {legend.map((l) => (
           <button key={l.key} type="button" onClick={() => setFocus(focus === l.key ? null : l.key)}
@@ -349,7 +356,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
           <span className="muted" style={{ fontSize: 12 }}>
             {focusLabel ? <>{rows.length} of {all.length} suites · {focusLabel} · <button type="button" className="linkish" onClick={() => setFocus(null)}
               style={{ background: "none", border: 0, padding: 0, color: "var(--brand)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>show all</button></>
-              : <>{all.length} suites · click a legend entry to narrow, a column to sort</>}
+              : <>{all.length} suites · {eff.key === "order" ? "rent roll order" : "sorted"} · click a legend entry to narrow, a column to sort</>}
           </span>
         </div>
         <div className="tableWrap">
