@@ -1,6 +1,7 @@
 "use client";
 
 import SitePlanCard from "./[id]/SitePlanCard";
+import PerformanceCard from "./[id]/PerformanceCard";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -706,6 +707,9 @@ export function PropertyDetailBody({
       )}
 
       {/* ── Site plan (designed centres): large, coloured by lease expiry / rent / A/R ── */}
+      {/* ── This year against budget — the dashboard's financial half ── */}
+      <PerformanceCard code={prop.id} style={{ marginBottom: 14 }} />
+
       <SitePlanCard code={prop.id} style={{ marginBottom: 14 }} onLoaded={setPlanDrawn}
         extraTiles={heroYearBuilt ? [{ label: "Year Built", value: String(heroYearBuilt) }] : undefined} />
 
