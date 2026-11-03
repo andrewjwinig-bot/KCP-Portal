@@ -765,7 +765,12 @@ handoff's screenshot crop.
   under-budget months in `--series-2`), and **What's Driving the Variance**
   (the eight largest YTD line variances ≥ $500, diverging green / red).
   Gated on the server to `/financials/operating-statements` (403 → the card
-  hides). More panels belong here (debt, A/R, leasing) — add them to this card
+  hides). **Bank Balance** sits beside them: the property's bank line over
+  every weekly import (`balanceTrend` / `balanceLineFor` in
+  `lib/financials/bank-balances/trend.ts` — a fund building reads its fund's
+  account; each date is every account's newest figure, and waits until all
+  have one), gated to Bank Balances (`/financials/cash-analysis`) on its own,
+  so Harry sees the balance without the statements. More panels belong here (debt, A/R, leasing) — add them to this card
   family, not as new full-width cards elsewhere.
 - **THE PLAN CARD IS THE PROPERTY PAGE'S ONE MASTER VIEW** (owner, 11/2026:
   "a lot of like duplicated info that we can really clean up into one master

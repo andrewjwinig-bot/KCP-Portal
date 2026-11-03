@@ -14,6 +14,7 @@ import { HoverCard } from "../../components/HoverCard";
 import { ChartTooltip, HoverBands, type TipRow } from "../../components/ChartTooltip";
 import { ChartLegend, LineChart, type Series } from "../../financials/management-fees/FeeChart";
 import { tightScale } from "../../../lib/charts/tightScale";
+import type { BalanceTrend } from "../../../lib/financials/bank-balances/trend";
 import { cumulative, type PerfLine, type PerfTotals, type PropertyPerformance } from "../../../lib/properties/performance";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -32,16 +33,23 @@ const pctOf = (v: number, base: number) => (Math.abs(base) >= 1 ? `${v >= 0 ? "+
 
 export default function PerformanceCard({ code, style }: { code: string; style?: React.CSSProperties }) {
   const [perf, setPerf] = useState<PropertyPerformance | null>(null);
+  const [bank, setBank] = useState<BalanceTrend | null>(null);
   useEffect(() => {
     let alive = true;
     fetch(`/api/properties/${encodeURIComponent(code)}/performance`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (alive) setPerf(j?.performance ?? null); })
+      .then((j) => { if (alive) { setPerf(j?.performance ?? null); setBank(j?.bank?.points?.length ? j.bank : null); } })
       .catch(() => { if (alive) setPerf(null); });
     return () => { alive = false; };
   }, [code]);
 
-  if (!perf || perf.through === 0 && !perf.hasBudget) return null;
+  const perfShown = !!perf && (perf.through > 0 || perf.hasBudget);
+  if (!perfShown) return bank ? (
+    <div className="card" style={{ ...style }}>
+      <ChartPanel title="Bank Balance" sub={bankSub(bank)}><BankTrend t={bank} /></ChartPanel>
+    </div>
+  ) : null;
+  if (!perf) return null;
   const n = perf.through;
   const through = n ? MONTHS[n - 1] : null;
 
@@ -88,6 +96,11 @@ export default function PerformanceCard({ code, style }: { code: string; style?:
         <ChartPanel title="NOI by Month" sub="Bars are actual; the outline is budget">
           <MonthBars t={perf.noi} through={n} />
         </ChartPanel>
+        {bank && (
+          <ChartPanel title="Bank Balance" sub={bankSub(bank)}>
+            <BankTrend t={bank} />
+          </ChartPanel>
+        )}
       </div>
 
       {perf.hasBudget && n > 0 && <VarianceDrivers lines={perf.lines} through={MONTHS[n - 1]} />}
@@ -208,5 +221,58 @@ function VarianceDrivers({ lines, through }: { lines: PerfLine[]; through: strin
         })}
       </div>
     </div>
+  );
+}
+
+const shortDate = (iso: string) => { const [, m, d] = iso.split("-"); return `${Number(m)}/${Number(d)}`; };
+function bankSub(t: BalanceTrend): string {
+  const last = t.points[t.points.length - 1], first = t.points[0];
+  const ch = last.balance - first.balance;
+  return `${t.name}${t.accounts > 1 ? ` · ${t.accounts} accounts` : ""} · ${money(last.balance)} on ${shortDate(last.date)}`
+    + (t.points.length > 1 ? ` · ${ch >= 0 ? "up" : "down"} ${compact(Math.abs(ch))} since ${shortDate(first.date)}` : "");
+}
+
+/** The line's balance at each weekly import — an area under a line. */
+function BankTrend({ t }: { t: BalanceTrend }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const W = 760, H = 280, padL = 62, padR = 16, padT = 16, padB = 30;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const pts = t.points, n = pts.length;
+  const vals = pts.map((p) => p.balance);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const sc = tightScale(Math.min(0, lo), Math.max(0, hi));
+  const y = (v: number) => padT + innerH - ((v - sc.min) / (sc.max - sc.min || 1)) * innerH;
+  const x = (i: number) => padL + (n > 1 ? (i / (n - 1)) * innerW : innerW / 2);
+  const ticks: number[] = [];
+  for (let v = Math.ceil(sc.min / sc.step) * sc.step; v <= sc.max + 1e-6; v += sc.step) ticks.push(v);
+  const path = pts.map((p, i) => `${i ? "L" : "M"} ${x(i).toFixed(1)} ${y(p.balance).toFixed(1)}`).join(" ");
+  const area = n > 1 ? `${path} L ${x(n - 1).toFixed(1)} ${y(Math.max(0, sc.min)).toFixed(1)} L ${x(0).toFixed(1)} ${y(Math.max(0, sc.min)).toFixed(1)} Z` : "";
+  const labelEvery = Math.max(1, Math.ceil(n / 8));
+  const prev = hover != null && hover > 0 ? pts[hover - 1].balance : null;
+  return (
+    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }} onMouseLeave={() => setHover(null)}>
+      {ticks.map((v) => (
+        <g key={v}>
+          <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} stroke={v === 0 ? "rgba(15,23,42,0.25)" : "rgba(15,23,42,0.08)"} />
+          <text x={padL - 8} y={y(v) + 4} fontSize={10} fill="var(--muted)" textAnchor="end">{compact(v)}</text>
+        </g>
+      ))}
+      {area && <path d={area} fill={ACTUAL} opacity={0.12} pointerEvents="none" />}
+      <path d={path} fill="none" stroke={ACTUAL} strokeWidth={2.5} strokeLinejoin="round" pointerEvents="none" />
+      {pts.map((p, i) => (
+        <g key={p.date} pointerEvents="none">
+          <circle cx={x(i)} cy={y(p.balance)} r={hover === i ? 6 : 3} fill={ACTUAL} stroke="#fff" strokeWidth={1.5} />
+          {(i % labelEvery === 0 || i === n - 1) && (
+            <text x={x(i)} y={H - padB + 17} fontSize={10} fill={hover === i ? "var(--text)" : "var(--muted)"} fontWeight={hover === i ? 800 : 400} textAnchor="middle">{shortDate(p.date)}</text>
+          )}
+        </g>
+      ))}
+      <HoverBands n={n} xAt={x} x0={padL} x1={padL + innerW} top={padT} height={innerH} active={hover} onHover={setHover} />
+      {hover != null && (
+        <ChartTooltip x={x(hover)} y={padT + 2} chartW={W} title={new Date(`${pts[hover].date}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          rows={[{ label: "Balance", value: money(pts[hover].balance), color: ACTUAL }]}
+          footer={prev != null ? { label: "Change", value: `${pts[hover].balance - prev >= 0 ? "+" : "−"}${money(Math.abs(pts[hover].balance - prev))}`, color: pts[hover].balance - prev >= 0 ? GOOD : BAD } : undefined} />
+      )}
+    </svg>
   );
 }
