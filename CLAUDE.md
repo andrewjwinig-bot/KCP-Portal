@@ -2880,6 +2880,11 @@ time — and the team does not have time to open the GL over $80.
   sweeping $400/mo ($4,800) and maintenance $6,000 recurring, quarterly, no
   big project — seeded in `SEEDED_LINE_OVERRIDES` (1100 budgets $3,600 /
   $5,000, 9510 $16,583 / $21,378).
+  **Business taxes $500 in April** (no Philadelphia BIRT in Ambler — 9510
+  budgets $0; the PA annual report + any borough business privilege tax, to
+  confirm) and **Legal & Accounting $500/mo** (first full-year return, 8 of 13
+  leases expiring 12/31/2027) — both seeded the same way. Snow is the owner's
+  own $4,000/mo × 4, typed in the grid.
 - **A FUND'S LOANS ARE ALLOCATED TO ITS BUILDINGS** (`FUND_SHELL`,
   `fundDebtShares`, `shareOfDebt` in `debtBudget.ts`). JV III's and NI LLC's
   mortgages are booked on the holding entity (3600 / 4000) and imported into
