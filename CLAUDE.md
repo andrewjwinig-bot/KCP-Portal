@@ -2805,9 +2805,8 @@ time — and the team does not have time to open the GL over $80.
   them. Take 9000 out of that set once its leases recover. Debt service is the **ICA loan**
   (`BUTLER_MAIN_9000_LOAN` in `lib/debt/amortization.ts`): $1.4M, 6.55%,
   25-yr amortization, $9,496.69/mo, 10-yr term with a year-5 rate reset (held
-  flat). The commitment gives no closing date or escrow — anchored at
-  $1,400,000 on 10/1/2026 (first payment 11/1/2026, a September closing) with
-  no escrow; re-anchor from the closing statement. The mapping also puts 9000
+  flat). Closed 9/3/2026 — anchored at $1,400,000 on 10/1/2026, first
+  full payment 11/1/2026; no escrow known (add it from the servicer statement). The mapping also puts 9000
   on the monthly statements, so the GL reminder now asks for its GL.
 - **A FUND'S LOANS ARE ALLOCATED TO ITS BUILDINGS** (`FUND_SHELL`,
   `fundDebtShares`, `shareOfDebt` in `debtBudget.ts`). JV III's and NI LLC's

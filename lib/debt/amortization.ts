@@ -481,11 +481,9 @@ export const BUTLER_MAIN_9000_LOAN: Loan = {
   amortYears: 25,
   scheduledPayment: 9496.69,
   maturityDate: "2036-10-01",
-  // The commitment closes by 9/28/2026; the first FULL payment is the 1st of
-  // the second month after closing (11/1/2026), with the closing-month stub
-  // interest due 10/1. Anchored at the full balance on 10/1 so the first
-  // projected row is 11/1. Re-anchor to the closing statement / first
-  // servicer statement when it arrives.
+  // Closed 9/3/2026. The first FULL payment is the 1st of the second month
+  // after closing (11/1/2026); the stub interest 9/3–9/30 was due 10/1.
+  // Anchored at the full balance on 10/1 so the first projected row is 11/1.
   anchorBalance: 1400000,
   anchorDate: "2026-10-01",
   interestOnly: false,
@@ -499,9 +497,9 @@ export const BUTLER_MAIN_9000_LOAN: Loan = {
     "maintenance, 60 days' notice; open the last 90 days, and at the end of " +
     "year 5 if the rate is not adjusted. Guarantor Alison Korman Feldman. " +
     "Max 65% LTV. Collateral: three mixed-use buildings, 15,045 SF on 0.58 " +
-    "acres. Closing date and any tax / insurance escrow are NOT in the " +
-    "commitment — the anchor assumes a September 2026 closing (first payment " +
-    "11/1/2026) and no escrow; update both from the closing statement.",
+    "acres. Closed 9/3/2026; first full payment 11/1/2026 (stub interest " +
+    "9/3–9/30 due 10/1). Any tax / insurance escrow is not in the commitment " +
+    "— none assumed; add it from the first servicer statement.",
 };
 
 /** All loans are code-managed and reconciled to these definitions on load. */
