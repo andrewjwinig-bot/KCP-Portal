@@ -18,6 +18,12 @@ const sep = (amount: number) => { const m: (number | null)[] = new Array(12).fil
  *  September at +3%, on the Insurance line's Other bucket. */
 export const SEEDED_LINE_OVERRIDES: Record<string, LineOverrides> = {
   "2027-9000": {
+    // Parking lot (owner: "somewhere between 1100 and 9510 sized … closer to
+    // 1100"): 1100 budgets $3,600 sweeping / $5,000 maintenance, 9510 $16,583 /
+    // $21,378. Sweeping $400 a month; maintenance $6,000 recurring, quarterly
+    // like 1100 (the line's base bucket); no big project.
+    "Reimbursable Expenses::Parking Lot Cleaning": { months: new Array(12).fill(400), by: "Estimate · between 1100 and 9510, closer to 1100 — $400/mo sweeping" },
+    "Reimbursable Expenses::Parking Lot Maintenance": { months: [0, 0, 1500, 0, 0, 1500, 0, 0, 1500, 0, 0, 1500], by: "Estimate · $6,000 recurring, quarterly (1100 $5,000 · 9510 $11,078)" },
     // Liability — 73% of the $10,000 underwriting (expenseInputStore.ts holds the property part).
     "Reimbursable Expenses::Insurance#Liability": { months: [608, 608, 608, 608, 608, 608, 608, 608, 608, 608, 627, 627], by: "Underwriting $10,000/yr · liability 73%, Nov renewal +3%" },
     "Reimbursable Expenses::Insurance#Other": { months: sep(Math.round(3757 * 1.03)), by: "Flood policy 0006262172 · $3,757 paid 9/15/2026, +3% at renewal" },
