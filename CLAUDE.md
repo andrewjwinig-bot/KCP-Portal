@@ -2863,6 +2863,19 @@ time — and the team does not have time to open the GL over $80.
   flat). Closed 9/3/2026 — anchored at $1,400,000 on 10/1/2026, first
   full payment 11/1/2026; no escrow known (add it from the servicer statement). The mapping also puts 9000
   on the monthly statements, so the GL reminder now asks for its GL.
+  **FLOOD INSURANCE** (owner, 11/2026): policy 0006262172, new business
+  9/15/2026 at $3,757 — the 2027 renewal ($3,870, +3%) in SEPTEMBER on the
+  Insurance line's **Other** bucket, seeded by `SEEDED_LINE_OVERRIDES`
+  (`lineOverrideStore.ts`) — laid UNDER the typed months, so a typed figure
+  wins and ↺ hands it back to the seed; an edit never writes the seed in.
+  **Property + liability are the acquisition UNDERWRITING's $10,000 a year**
+  (owner; no premium history yet), split 27 / 73 as the Shopping Centers book
+  splits its premium (2026: property $68,592 / liability $190,003), renewing in
+  November with the book (Jan–Oct flat, Nov–Dec +3%): property $2,714 as the
+  line's Budget Inputs seed (`INSURANCE_SEEDS` in `expenseInputStore.ts`, pill
+  "Underwriting", under anything keyed), liability $7,334 on the Liability
+  bucket. 2027 insurance $13,918 with flood. Cross-check: the centres budget
+  ~$0.70/SF, ≈ $10,500 on 15,045 SF.
 - **A FUND'S LOANS ARE ALLOCATED TO ITS BUILDINGS** (`FUND_SHELL`,
   `fundDebtShares`, `shareOfDebt` in `debtBudget.ts`). JV III's and NI LLC's
   mortgages are booked on the holding entity (3600 / 4000) and imported into
