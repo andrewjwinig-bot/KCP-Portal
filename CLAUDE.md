@@ -751,6 +751,26 @@ handoff's screenshot crop.
   the other centers"); Brookwood's `shadow` neighbours are drawn uncoloured
   and do not click. A new designed centre joins by adding its slug once its
   `plan` is set. Pinned by `staffPlanMath.test.ts`.
+- **THE PLAN CARD IS THE PROPERTY PAGE'S ONE MASTER VIEW** (owner, 11/2026:
+  "a lot of like duplicated info that we can really clean up into one master
+  interactive comprehensive data page"). Where a site / floor plan (or the
+  campus) is drawn: its tiles are the page's ONLY KPI row (the hero strip is
+  dropped; Year Built rides in as `extraTiles`), its **Rent Roll** table lists
+  EVERY suite the roll carries — drawn ones plus `unmapped` ("not on the
+  plan") — narrowed by the legend filter, sorted by the view (soonest expiry /
+  highest $/SF / most past due) or a clicked column, with totals, and a row
+  hovers its suite on the plan; the page's separate Rent Roll card is hidden.
+  A **Download** menu (`sitePlanExport.ts`): the plain drawing, the plan AS
+  SHOWN (colours, filter, legend) as a PNG, and the rent roll as shown in
+  Excel (shared theme, live totals). **Occupancy is the RENT ROLL'S**: a
+  suite's status on the staff plan comes from its roll rows, never the public
+  sync — the sync shows a departed tenant still on the roll (Rite Aid at 7010)
+  as available, which made the plan read 72.3% against the roll's 87.6%.
+  Removed from the page (owner): the hero photo (`CenterHeroBanner`), the
+  plain site-plan upload + vacancies-with-marketing-notes card
+  (`PublicWebsiteCard` — its stored floor plans and copy stay in the centre
+  override, but there is no longer an upload on the property page), and the
+  Shared Drive Folder card (units keep theirs).
 - **The next centre**: its HTML into `lib/centers/designed/<slug>.html` with
   `const SUITES=/*@SUITES@*/[];` and the `{{GLA}}` / `{{AVAIL_SF}}` /
   `{{AVAIL_DETAIL}}` placeholders, its suites into a `<centre>.ts` with

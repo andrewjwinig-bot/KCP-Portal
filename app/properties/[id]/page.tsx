@@ -7,8 +7,6 @@ import { PROPERTY_DEFS } from "../../../lib/properties/data";
 import { centerByCode } from "../../../lib/centers/registry";
 import { loadTaxChecked } from "../../tracker/tax-data";
 import { PropertyDetailBody, TypePill } from "../PropertyDetail";
-import PublicWebsiteCard from "./PublicWebsiteCard";
-import CenterHeroBanner from "./CenterHeroBanner";
 import ShadowLandDetail from "./ShadowLandDetail";
 import { shadowProperty } from "../../../lib/properties/shadowProperties";
 
@@ -102,11 +100,8 @@ export default function PropertyDetailPage() {
         </div>
       </header>
 
-      {center && <CenterHeroBanner code={prop.id} fallbackHero={center.assets.hero} />}
-
       {shadow ? <ShadowLandDetail prop={shadow} /> : <PropertyDetailBody prop={prop} checked={checked} />}
 
-      {center && <PublicWebsiteCard code={prop.id} />}
     </main>
   );
 }

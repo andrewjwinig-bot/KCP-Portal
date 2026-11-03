@@ -70,7 +70,11 @@ export type StaffSuite = {
 export type StaffFloor = { floor: string; label: string; plan: PlanMeta };
 
 /** A suite on the rent roll that no floor plan has mapped yet. */
-export type UnmappedSuite = { unitRef: string; tenant: string; sf: number; vacant: boolean };
+export type UnmappedSuite = {
+  unitRef: string; tenant: string; sf: number; vacant: boolean;
+  /** For the card's tenant list — a suite not drawn is still listed in full. */
+  leaseFrom?: string | null; leaseTo?: string | null; money?: StaffSuiteMoney;
+};
 
 export type StaffPlan = {
   code: string;

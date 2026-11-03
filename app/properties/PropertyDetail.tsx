@@ -20,7 +20,6 @@ import {
   type TaxTask, type TaxParcel, TAX_CATEGORIES, type K1Investor,
 } from "../tracker/tax-data";
 import { Pill, Badge, StatPill, TONE_AMBER, TONE_GREEN, TONE_TEAL, maintenanceStatusTone, priorityTone } from "../components/Pill";
-import ShareFolderCard from "../components/ShareFolderCard";
 import AllowedLink from "@/app/components/AllowedLink";
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -654,6 +653,8 @@ export function PropertyDetailBody({
   }, [prop.id]);
 
   const [instructionsTask, setInstructionsTask] = useState<TaxTask | null>(null);
+  /** null until the site-plan card has answered whether it draws a plan. */
+  const [planDrawn, setPlanDrawn] = useState<boolean | null>(null);
 
   const today = new Date();
 
@@ -692,8 +693,10 @@ export function PropertyDetailBody({
 
   return (
     <>
-      {/* ── Hero KPI strip ── */}
-      {heroTiles.length > 0 && (
+      {/* ── Hero KPI strip — only where no site / floor plan is drawn: the plan
+          card carries the page's ONE KPI row (owner: "dont love the look of 2
+          consecutive KPI rows especially when they differ"). ── */}
+      {planDrawn === false && heroTiles.length > 0 && (
         <div className="pills" style={{ marginTop: 0, marginBottom: 14 }}>
           {heroTiles.map((t) => (
             <StatPill key={t.label} label={t.label} value={t.value} accent={t.accent} />
@@ -702,7 +705,8 @@ export function PropertyDetailBody({
       )}
 
       {/* ── Site plan (designed centres): large, coloured by lease expiry / rent / A/R ── */}
-      <SitePlanCard code={prop.id} style={{ marginBottom: 14 }} />
+      <SitePlanCard code={prop.id} style={{ marginBottom: 14 }} onLoaded={setPlanDrawn}
+        extraTiles={heroYearBuilt ? [{ label: "Year Built", value: String(heroYearBuilt) }] : undefined} />
 
       {/* Body — sections */}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -714,9 +718,6 @@ export function PropertyDetailBody({
             <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>{prop.notes}</p>
           </div>
         )}
-
-        {/* ── Shared Drive Folder ── */}
-        <ShareFolderCard kind="property" entityKey={prop.id} />
 
         {/* ── Overview ── */}
         <div className="card">
@@ -1044,7 +1045,8 @@ export function PropertyDetailBody({
         )}
 
         {/* ── Rent Roll table (collapsible inside the open card) ── */}
-        {rrProp && rrProp.units.length > 0 && (
+        {/* Where a plan is drawn, its card IS the rent roll (every suite, following its filters). */}
+        {planDrawn === false && rrProp && rrProp.units.length > 0 && (
           <div className="card">
           <CollapsibleSection title="Rent Roll" count={rrProp.units.length}>
             <div className="tableWrap" style={{ marginTop: 4 }}>
