@@ -2308,7 +2308,7 @@ time — and the team does not have time to open the GL over $80.
     and account beside the budget line it lands on (`payrollFlowCheck` — the
     draft's rule, run on the statement mappings by the payroll GET's
     `landing`), amounts live off the doc. Anything reaching no budget —
-    Eastwick (no code), 0800 / 9000 (no budget book) — is an amber
+    Eastwick (no code), 0800 (no budget book) — is an amber
     pill and the header says how much: "$x REACHES NO BUDGET".
   - NEXT (not built): give Harry's Payroll Invoicer its 2027 allocation from
     it (employee × building %, recoverable = maintenance) effective 1/1/27.
@@ -2791,6 +2791,20 @@ time — and the team does not have time to open the GL over $80.
   stacked by property — the operating statements' own `MonthlyBars` (one
   segment = one property's month, legend = property filter, click a month to
   read that month's figures in the table).
+- **9000 BUTLER & MAIN IS BUDGETED IN THE SHOPPING CENTERS BOOK** (owner:
+  "build the 9000 budget … using the rent roll and using the shopping center
+  budget as a template. i can fill in the expenses"). It was always in the
+  book (`allocGroup: "SC"`) but had no statement mapping, so its draft could
+  not build; its mapping is now a copy of 7300 Revere's SC ladder. With no GL
+  yet, every expense grows off $0 — the owner types them — while rent comes
+  from the rent roll (`projectLeaseRevenue`) and tenants on no recon are held
+  at what they are billed today. Debt service is the **ICA loan**
+  (`BUTLER_MAIN_9000_LOAN` in `lib/debt/amortization.ts`): $1.4M, 6.55%,
+  25-yr amortization, $9,496.69/mo, 10-yr term with a year-5 rate reset (held
+  flat). The commitment gives no closing date or escrow — anchored at
+  $1,400,000 on 10/1/2026 (first payment 11/1/2026, a September closing) with
+  no escrow; re-anchor from the closing statement. The mapping also puts 9000
+  on the monthly statements, so the GL reminder now asks for its GL.
 - **A FUND'S LOANS ARE ALLOCATED TO ITS BUILDINGS** (`FUND_SHELL`,
   `fundDebtShares`, `shareOfDebt` in `debtBudget.ts`). JV III's and NI LLC's
   mortgages are booked on the holding entity (3600 / 4000) and imported into
