@@ -9,6 +9,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatPill } from "../../components/Pill";
+import { DownloadMenu } from "../../components/DownloadMenu";
+import { downloadPlanPng, downloadRollXlsx, type RollRow } from "./sitePlanExport";
 import { TabButton } from "../../components/TabButton";
 import { th, thL, td, tdL } from "../../components/tableStyles";
 import CampusPlanCard from "./CampusPlanCard";
@@ -20,6 +22,7 @@ import {
 } from "../../../lib/centers/designed/staffPlanMath";
 
 type Mode = "expiry" | "rent" | "ar";
+type SortKey = "tenant" | "suite" | "sf" | "from" | "to" | "rent" | "psf" | "gross" | "ar" | "past";
 
 const money0 = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 const money2 = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -40,8 +43,18 @@ const NO_RENT = "#7f1d1d";
 const termLeft = (m: number | null) =>
   m == null ? "" : m < 0 ? `ended ${-m} mo ago` : m < 12 ? `${m} mo left` : `${Math.floor(m / 12)} yr ${m % 12} mo left`;
 
-export default function SitePlanCard({ code, style }: { code: string; style?: React.CSSProperties }) {
+export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
+  code: string; style?: React.CSSProperties;
+  /** Tiles from the page laid into the card's ONE KPI row (Year Built). */
+  extraTiles?: { label: string; value: string; sub?: string }[];
+  /** Tells the page whether a plan (or campus) is drawn, so it can drop its own tiles and rent roll. */
+  onLoaded?: (drawn: boolean) => void;
+}) {
   const router = useRouter();
+  const svgRef = React.useRef<SVGSVGElement | null>(null);
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 } | null>(null);
+  /** A rent-roll row under the mouse — its suite is outlined on the plan. */
+  const [hoverId, setHoverId] = useState<string | null>(null);
   const [plan, setPlan] = useState<StaffPlan | null>(null);
   /** A holding entity's page (JV III Condo, NI LLC) draws the Interplex campus instead. */
   const [campus, setCampus] = useState<CampusView | null>(null);
@@ -57,12 +70,23 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
     let alive = true;
     fetch(`/api/properties/${encodeURIComponent(code)}/siteplan`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (alive) { setPlan(j?.plan ?? null); setCampus(j?.campus ?? null); } })
-      .catch(() => { if (alive) setPlan(null); });
+      .then((j) => { if (alive) { setPlan(j?.plan ?? null); setCampus(j?.campus ?? null); onLoaded?.(!!(j?.plan || j?.campus)); } })
+      .catch(() => { if (alive) { setPlan(null); onLoaded?.(false); } });
     return () => { alive = false; };
   }, [code]);
 
   const ours = useMemo(() => (plan?.suites ?? []).filter((s) => !s.shadow), [plan]);
+  // EVERY suite the roll carries — the drawn ones plus any not mapped onto the
+  // drawing — so the tiles, legend and rent roll below are the whole property's.
+  const all = useMemo<StaffSuite[]>(() => [
+    ...ours.filter((s) => !s.amenity),
+    ...(plan?.unmapped ?? []).map((u) => ({
+      id: u.unitRef, label: u.unitRef.split("-").slice(1).join("-"), cx: 0, cy: 0, rot: 0, w: 0, h: 0,
+      tenant: u.tenant, occupant: u.vacant ? null : u.tenant, unitRefs: [u.unitRef], sf: u.sf,
+      status: (u.vacant ? "available" : "leased") as StaffSuite["status"],
+      leaseFrom: u.leaseFrom ?? null, leaseTo: u.leaseTo ?? null, money: u.money, notDrawn: true,
+    })),
+  ], [ours, plan]);
   const rents = useMemo(() => ours.map((s) => s.money?.rentPsf ?? 0), [ours]);
   const bands = useMemo(() => rentBands(rents), [rents]);
 
@@ -89,22 +113,19 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
     return { key: "norent", fill: NO_RENT };
   };
 
-  // KPI tiles — the centre at a glance.
-  // A building's suites not mapped yet still count — the tiles are the building's.
-  const unmapped = plan.unmapped ?? [];
-  const totalSf = ours.reduce((t, s) => t + s.sf, 0) + unmapped.reduce((t, u) => t + u.sf, 0);
-  const vacantSf = ours.filter((s) => s.status === "available").reduce((t, s) => t + s.sf, 0)
-    + unmapped.filter((u) => u.vacant).reduce((t, u) => t + u.sf, 0);
-  const vacantCount = ours.filter((s) => s.status === "available").length + unmapped.filter((u) => u.vacant).length;
-  const expiring = ours.filter((s) => { const b = expiryBucket(s, today); return b === "expired" || b === "lt12"; });
+  // KPI tiles — the property at a glance, over every suite the roll carries.
+  const totalSf = all.reduce((t, s) => t + s.sf, 0);
+  const vacantSf = all.filter((s) => s.status === "available").reduce((t, s) => t + s.sf, 0);
+  const vacantCount = all.filter((s) => s.status === "available").length;
+  const expiring = all.filter((s) => { const b = expiryBucket(s, today); return b === "expired" || b === "lt12"; });
   const expiringSf = expiring.reduce((t, s) => t + s.sf, 0);
-  const pastDue = ours.reduce((t, s) => t + (s.ar?.pastDue ?? 0), 0);
-  const pastDueCount = ours.filter((s) => arBucket(s.ar) === "pastDue").length;
+  const pastDue = all.reduce((t, s) => t + (s.ar?.pastDue ?? 0), 0);
+  const pastDueCount = all.filter((s) => arBucket(s.ar) === "pastDue").length;
 
   // Legend: every bucket present in this mode, with its count and SF.
   const legend: { key: string; label: string; color: string; count: number; sf: number }[] = (() => {
     const tally = new Map<string, { count: number; sf: number }>();
-    for (const s of ours) {
+    for (const s of all) {
       const p = paint(s); if (!p) continue;
       const t = tally.get(p.key) ?? { count: 0, sf: 0 };
       tally.set(p.key, { count: t.count + 1, sf: t.sf + s.sf });
@@ -132,10 +153,46 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
     if (ref) router.push(`/units/${encodeURIComponent(ref)}`);
   };
 
-  // Lease expirations over the next 24 months (and anything past term), soonest first.
-  const upcoming = ours
-    .filter((s) => { const b = expiryBucket(s, today); return b === "expired" || b === "lt12" || b === "lt24"; })
-    .sort((a, b) => (a.leaseTo ?? "").localeCompare(b.leaseTo ?? ""));
+  // THE RENT ROLL — every suite, narrowed by the legend filter, sorted by the
+  // view (soonest expiry / highest rent / most past due) unless a column is clicked.
+  const rows: RollRow[] = all
+    .filter((s) => !focus || paint(s)?.key === focus)
+    .map((s) => ({ s, color: paint(s)?.fill ?? "transparent", bucket: expiryBucket(s, today) }));
+  const val = (r: RollRow, k: SortKey): number | string => {
+    const s = r.s;
+    switch (k) {
+      case "tenant": return s.status === "available" ? "\uffff" : s.tenant.toLowerCase();
+      case "suite": return s.unitRefs[0] ?? s.id;
+      case "sf": return s.sf;
+      case "from": return s.leaseFrom ?? "";
+      case "to": return s.status === "available" ? "9999" : s.leaseTo ?? "9998";
+      case "rent": return s.money?.baseRent ?? -1;
+      case "psf": return s.money?.rentPsf ?? -1;
+      case "gross": return s.money?.gross ?? -1;
+      case "ar": return s.ar?.totalDue ?? -1;
+      case "past": return s.ar?.pastDue ?? -1;
+    }
+  };
+  const eff = sort ?? (mode === "rent" ? { key: "psf" as SortKey, dir: -1 as const } : mode === "ar" ? { key: "past" as SortKey, dir: -1 as const } : { key: "to" as SortKey, dir: 1 as const });
+  rows.sort((a, b) => {
+    const x = val(a, eff.key), y = val(b, eff.key);
+    const c = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true });
+    return c * eff.dir || String(a.s.unitRefs[0] ?? a.s.id).localeCompare(String(b.s.unitRefs[0] ?? b.s.id), undefined, { numeric: true });
+  });
+  const clickSort = (k: SortKey) => setSort((cur) => (cur?.key === k ? (cur.dir === 1 ? { key: k, dir: -1 } : null) : { key: k, dir: k === "tenant" || k === "suite" || k === "to" || k === "from" ? 1 : -1 }));
+  const modeLabel = mode === "expiry" ? "lease expiry" : mode === "rent" ? "base rent $/SF" : "open A/R";
+  const focusLabel = focus ? legend.find((l) => l.key === focus)?.label ?? null : null;
+  const viewTitle = `${plan.name}${cur && plan.floors && plan.floors.length > 1 ? ` · ${cur.label}` : ""}`;
+  const downloads = [
+    { label: "Site plan — plain", description: "The drawing alone, no colours", onClick: () => downloadPlanPng({ src: meta.src, width: meta.width, height: meta.height, svg: null, title: viewTitle, file: `${plan.code} site plan` }) },
+    { label: "Site plan — as shown", description: `Coloured by ${modeLabel}${focusLabel ? `, ${focusLabel} only` : ""}, with the legend`, onClick: () => downloadPlanPng({
+      src: meta.src, width: meta.width, height: meta.height, svg: svgRef.current, title: viewTitle,
+      subtitle: `Colored by ${modeLabel}${focusLabel ? ` · ${focusLabel}` : ""} · rent roll ${plan.rollImportedAt ? new Date(plan.rollImportedAt).toLocaleDateString("en-US") : ""}`,
+      legend: legend.filter((l) => !focus || l.key === focus).map((l) => ({ color: l.color, label: `${l.label} · ${l.count} · ${l.sf.toLocaleString()} SF` })),
+      file: `${plan.code} site plan - ${modeLabel}${focusLabel ? ` - ${focusLabel}` : ""}`,
+    }) },
+    { label: "Rent roll — as shown (Excel)", description: `${rows.length} suite${rows.length === 1 ? "" : "s"}${focusLabel ? ` · ${focusLabel}` : ""}, in this order`, onClick: () => { void downloadRollXlsx({ name: plan.name, code: plan.code, rows, money: plan.canSeeMoney, ar: plan.canSeeAr, floors: !!plan.floors, filter: focusLabel, today }); } },
+  ];
 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden", ...style }}>
@@ -146,15 +203,18 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
             Live from the rent roll{plan.rollImportedAt ? ` imported ${new Date(plan.rollImportedAt).toLocaleDateString("en-US")}` : ""} · hover a suite for its lease, click for the unit
           </div>
         </div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 14 }}>
+        <DownloadMenu items={downloads} variant="default" />
         <div style={{ display: "flex", borderBottom: "1px solid var(--border)" }}>
-          <TabButton active={mode === "expiry"} onClick={() => { setMode("expiry"); setFocus(null); }}>Lease Expiry</TabButton>
-          {plan.canSeeMoney && <TabButton active={mode === "rent"} onClick={() => { setMode("rent"); setFocus(null); }}>Rent $/SF</TabButton>}
-          {plan.canSeeAr && <TabButton active={mode === "ar"} onClick={() => { setMode("ar"); setFocus(null); }}>Open A/R</TabButton>}
+          <TabButton active={mode === "expiry"} onClick={() => { setMode("expiry"); setFocus(null); setSort(null); }}>Lease Expiry</TabButton>
+          {plan.canSeeMoney && <TabButton active={mode === "rent"} onClick={() => { setMode("rent"); setFocus(null); setSort(null); }}>Rent $/SF</TabButton>}
+          {plan.canSeeAr && <TabButton active={mode === "ar"} onClick={() => { setMode("ar"); setFocus(null); setSort(null); }}>Open A/R</TabButton>}
+        </div>
         </div>
       </div>
 
       <div className="pills" style={{ padding: "14px 20px 0", marginTop: 0 }}>
-        <StatPill label="Occupied" value={totalSf ? `${(((totalSf - vacantSf) / totalSf) * 100).toFixed(1)}%` : "—"} sub={`${totalSf.toLocaleString()} SF`} />
+        <StatPill label="Occupied" value={totalSf ? `${(((totalSf - vacantSf) / totalSf) * 100).toFixed(1)}%` : "—"} sub={`${totalSf.toLocaleString()} SF · ${all.length} suites`} />
         <StatPill label="Vacant SF" value={vacantSf.toLocaleString()} accent={vacantSf ? EXPIRY_COLOR.vacant : undefined}
           sub={`${vacantCount} suites`} />
         <StatPill label="Expiring ≤ 12 mo" value={String(expiring.length)} accent={expiring.length ? "#b45309" : undefined}
@@ -163,6 +223,7 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
           <StatPill label="Past Due" value={money0(pastDue)} accent={pastDue >= 1 ? "#b91c1c" : undefined}
             sub={`${pastDueCount} ${pastDueCount === 1 ? "tenant" : "tenants"}`} />
         )}
+        {(extraTiles ?? []).map((t) => <StatPill key={t.label} label={t.label} value={t.value} sub={t.sub} />)}
       </div>
 
       {plan.floors && plan.floors.length > 1 && (
@@ -183,7 +244,7 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
       <div style={{ position: "relative", margin: "14px 20px 0" }} onMouseLeave={() => setHover(null)}>
         <img src={meta.src} alt={`${cur ? `${cur.label} plan` : "Site plan"} of ${plan.name}`} width={meta.width} height={meta.height}
           style={{ display: "block", width: "100%", height: "auto", borderRadius: 8, border: "1px solid var(--border)", background: "#fff" }} />
-        <svg viewBox={meta.viewBox} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} role="group" aria-label="Suites">
+        <svg ref={svgRef} viewBox={meta.viewBox} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} role="group" aria-label="Suites">
           {/* An office floor's interiors show only inside the suite under the mouse,
               so the plan reads as clean suite blocks until you look at one. */}
           {meta.detailSrc && hover && hover.s.floor === cur?.floor && hover.s.pts && (
@@ -202,7 +263,7 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
           {drawn.map((s) => {
             const p = paint(s);
             const dim = focus && p?.key !== focus;
-            const hot = hover?.s.id === s.id;
+            const hot = hover?.s.id === s.id || hoverId === s.id;
             const shapeProps = s.amenity ? {
               fill: "#e2e8f0", fillOpacity: 0.85, stroke: "rgba(15,23,42,0.35)", strokeWidth: 3 * (cur ? 0.6 : 1),
             } : {
@@ -282,62 +343,81 @@ export default function SitePlanCard({ code, style }: { code: string; style?: Re
         ))}
       </div>
 
-      {plan.unmapped && plan.unmapped.length > 0 && (
-        <details style={{ borderTop: "1px solid var(--border)", padding: "10px 20px" }}>
-          <summary style={{ cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>
-            {plan.unmapped.length} {plan.unmapped.length === 1 ? "suite" : "suites"} on the rent roll not mapped yet
-            {" · "}{plan.unmapped.reduce((t, u) => t + u.sf, 0).toLocaleString()} SF
-          </summary>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-            {plan.unmapped.map((u) => (
-              <a key={u.unitRef} href={`/units/${encodeURIComponent(u.unitRef)}`}
-                style={{ fontSize: 12, padding: "3px 9px", borderRadius: 999, border: "1px solid var(--border)", textDecoration: "none", color: "var(--text)" }}>
-                <code style={{ fontSize: 11 }}>{u.unitRef}</code> {u.vacant ? <span className="muted">Vacant</span> : u.tenant}
-              </a>
-            ))}
-          </div>
-        </details>
-      )}
-
-      {upcoming.length > 0 && (
-        <div style={{ borderTop: "1px solid var(--border)", padding: "12px 20px 16px" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase", marginBottom: 6 }}>
-            Lease Expirations · Next 24 Months
-          </div>
-          <div className="tableWrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style={thL}>Tenant</th><th style={thL}>Suite</th><th style={th}>SF</th><th style={th}>Lease To</th><th style={thL}>Term</th>
-                  {plan.canSeeMoney && <th style={th}>Rent / mo</th>}
-                  {plan.canSeeMoney && <th style={th}>$/SF</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {upcoming.map((s) => {
-                  const b = expiryBucket(s, today) as ExpiryBucket;
-                  return (
-                    <tr key={s.id} style={{ cursor: "pointer" }} onClick={() => open(s)}>
-                      <td style={{ ...tdL, fontWeight: 600 }}>
-                        <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 3, background: EXPIRY_COLOR[b], marginRight: 8 }} />
-                        {s.tenant}
-                      </td>
-                      <td style={tdL}><code>{s.unitRefs[0] ?? s.id}</code></td>
-                      <td style={td}>{s.sf.toLocaleString()}</td>
-                      <td style={td}>{dateLabel(s.leaseTo)}</td>
-                      <td style={{ ...tdL, color: b === "expired" ? "#b91c1c" : "var(--muted)" }}>
-                        {b === "expired" ? "Past term" : termLeft(monthsLeft(s.leaseTo, today))}
-                      </td>
-                      {plan.canSeeMoney && <td style={td}>{s.money ? money0(s.money.baseRent) : "—"}</td>}
-                      {plan.canSeeMoney && <td style={td}>{s.money?.rentPsf ? money2(s.money.rentPsf) : "—"}</td>}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+      <div style={{ borderTop: "1px solid var(--border)", padding: "12px 20px 16px" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>Rent Roll</div>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {focusLabel ? <>{rows.length} of {all.length} suites · {focusLabel} · <button type="button" className="linkish" onClick={() => setFocus(null)}
+              style={{ background: "none", border: 0, padding: 0, color: "var(--brand)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>show all</button></>
+              : <>{all.length} suites · click a legend entry to narrow, a column to sort</>}
+          </span>
         </div>
-      )}
+        <div className="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                {([
+                  ["tenant", "Tenant", true], ["suite", "Suite", true], ["sf", "SF", false], ["from", "Lease From", false], ["to", "Lease To", false],
+                ] as [SortKey, string, boolean][]).map(([k, l, left]) => (
+                  <th key={k} style={{ ...(left ? thL : th), cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => clickSort(k)}>{l}{eff.key === k ? (eff.dir === 1 ? " ▲" : " ▼") : ""}</th>
+                ))}
+                <th style={thL}>Term</th>
+                {plan.canSeeMoney && ([["rent", "Rent / mo"], ["psf", "$/SF"], ["gross", "Gross / mo"]] as [SortKey, string][]).map(([k, l]) => (
+                  <th key={k} style={{ ...th, cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => clickSort(k)}>{l}{eff.key === k ? (eff.dir === 1 ? " ▲" : " ▼") : ""}</th>
+                ))}
+                {plan.canSeeAr && ([["ar", "Open A/R"], ["past", "Past Due"]] as [SortKey, string][]).map(([k, l]) => (
+                  <th key={k} style={{ ...th, cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => clickSort(k)}>{l}{eff.key === k ? (eff.dir === 1 ? " ▲" : " ▼") : ""}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ s, color, bucket: b }) => {
+                const vacant = s.status === "available";
+                return (
+                  <tr key={s.id} style={{ cursor: s.unitRefs.length ? "pointer" : "default", background: vacant ? "rgba(15,23,42,0.025)" : undefined }}
+                    onClick={() => open(s)}
+                    onMouseEnter={() => setHoverId(s.id)} onMouseLeave={() => setHoverId(null)}>
+                    <td style={{ ...tdL, fontWeight: vacant ? 400 : 600, fontStyle: vacant ? "italic" : "normal", color: vacant ? "var(--muted)" : "var(--text)" }}>
+                      <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 3, background: color, marginRight: 8 }} />
+                      {vacant ? "Vacant" : s.tenant}
+                      {(s as StaffSuite & { notDrawn?: boolean }).notDrawn && <span className="muted" style={{ fontSize: 11, fontWeight: 500, fontStyle: "normal", marginLeft: 6 }}>not on the plan</span>}
+                    </td>
+                    <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", whiteSpace: "nowrap" }}>{s.unitRefs.join(" + ") || s.id}</code></td>
+                    <td style={td}>{s.sf ? s.sf.toLocaleString() : "—"}</td>
+                    <td style={{ ...td, color: "var(--muted)" }}>{vacant ? "" : dateLabel(s.leaseFrom)}</td>
+                    <td style={td}>{vacant ? "" : dateLabel(s.leaseTo)}</td>
+                    <td style={{ ...tdL, color: b === "expired" ? "#b91c1c" : b === "lt12" ? "#b45309" : "var(--muted)", whiteSpace: "nowrap" }}>
+                      {vacant ? "" : b === "expired" ? "Past term" : termLeft(monthsLeft(s.leaseTo, today))}
+                    </td>
+                    {plan.canSeeMoney && <td style={td}>{s.money ? money0(s.money.baseRent) : vacant ? "" : "—"}</td>}
+                    {plan.canSeeMoney && <td style={td}>{s.money?.rentPsf ? money2(s.money.rentPsf) : vacant ? "" : "—"}</td>}
+                    {plan.canSeeMoney && <td style={td}>{s.money?.gross ? money0(s.money.gross) : vacant ? "" : "—"}</td>}
+                    {plan.canSeeAr && <td style={td}>{s.ar ? money0(s.ar.totalDue) : ""}</td>}
+                    {plan.canSeeAr && <td style={{ ...td, color: (s.ar?.pastDue ?? 0) >= 1 ? "#b91c1c" : undefined, fontWeight: (s.ar?.pastDue ?? 0) >= 1 ? 700 : undefined }}>{s.ar && s.ar.pastDue >= 1 ? money0(s.ar.pastDue) : ""}</td>}
+                  </tr>
+                );
+              })}
+            </tbody>
+            {rows.length > 1 && (() => {
+              const t = (f: (s: StaffSuite) => number) => rows.reduce((a, r) => a + (f(r.s) || 0), 0);
+              const sf = t((s) => s.sf), rent = t((s) => s.money?.baseRent ?? 0), occSf = t((s) => (s.money ? s.sf : 0));
+              return (
+                <tfoot>
+                  <tr style={{ fontWeight: 700, borderTop: "2px solid var(--border)" }}>
+                    <td style={{ ...tdL, fontWeight: 700 }}>Total · {rows.length} suites</td><td style={tdL} />
+                    <td style={{ ...td, fontWeight: 700 }}>{sf.toLocaleString()}</td><td style={td} /><td style={td} /><td style={tdL} />
+                    {plan.canSeeMoney && <td style={{ ...td, fontWeight: 700 }}>{money0(rent)}</td>}
+                    {plan.canSeeMoney && <td style={{ ...td, fontWeight: 700 }}>{occSf ? money2((rent * 12) / occSf) : "—"}</td>}
+                    {plan.canSeeMoney && <td style={{ ...td, fontWeight: 700 }}>{money0(t((s) => s.money?.gross ?? 0))}</td>}
+                    {plan.canSeeAr && <td style={{ ...td, fontWeight: 700 }}>{money0(t((s) => s.ar?.totalDue ?? 0))}</td>}
+                    {plan.canSeeAr && <td style={{ ...td, fontWeight: 700, color: t((s) => s.ar?.pastDue ?? 0) >= 1 ? "#b91c1c" : undefined }}>{money0(t((s) => s.ar?.pastDue ?? 0))}</td>}
+                  </tr>
+                </tfoot>
+              );
+            })()}
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

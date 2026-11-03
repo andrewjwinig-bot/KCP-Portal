@@ -112,7 +112,10 @@ export async function buildStaffPlan(code: string, opts: { money: boolean; ar: b
       occupant,
       unitRefs,
       sf,
-      status: s.status,
+      // OCCUPANCY IS THE RENT ROLL'S, not the public page's: the public sync
+      // shows a departed tenant still on the roll (Rite Aid at 7010) as
+      // available, which made the plan's Occupied disagree with the roll's.
+      status: rows.length ? (occ.length ? "leased" : "available") : s.status,
       shadow: s.shadow || undefined,
       addr: typeof s.addr === "string" ? s.addr : undefined,
       leaseFrom: isoDate(lead?.leaseFrom),
@@ -129,9 +132,20 @@ export async function buildStaffPlan(code: string, opts: { money: boolean; ar: b
     };
   });
 
+  // The roll's suites the drawing does not carry — still listed and counted,
+  // so the card's tiles and tenant list are the whole property's.
+  const drawnRefs = new Set(suites.flatMap((s) => s.unitRefs.map((r) => r.toUpperCase())));
+  const unmapped = (prop?.units ?? [])
+    .filter((u) => !u.amenity && (u.sqft || 0) > 0 && !drawnRefs.has(u.unitRef.toUpperCase()))
+    .map((u) => {
+      const r = fromRoll([u], 0, opts.money);
+      return { unitRef: u.unitRef, tenant: r.occupant ?? "Vacant", sf: r.sf, vacant: !r.leased, leaseFrom: r.leaseFrom, leaseTo: r.leaseTo, money: r.money };
+    });
+
   return {
     code: live.profile.code, slug, name: live.profile.name, plan,
     suites,
+    unmapped,
     rollImportedAt: prop?.importedAt ?? null,
     canSeeMoney: opts.money,
     canSeeAr: opts.ar,
@@ -196,8 +210,8 @@ async function buildBuildingPlan(code: string, opts: { money: boolean; ar: boole
     .filter(([ref, rows]) => !mapped.has(ref) && rows.some((u) => (u.sqft || 0) > 0)
       && !isSharedSpace(ref.split("-").slice(1).join("-"), rows[0].occupantName ?? ""))
     .map(([, rows]) => {
-      const r = fromRoll(rows, 0, false);
-      return { unitRef: rows[0].unitRef, tenant: r.occupant ?? "Vacant", sf: r.sf, vacant: !r.leased };
+      const r = fromRoll(rows, 0, opts.money);
+      return { unitRef: rows[0].unitRef, tenant: r.occupant ?? "Vacant", sf: r.sf, vacant: !r.leased, leaseFrom: r.leaseFrom, leaseTo: r.leaseTo, money: r.money };
     })
     .sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true }));
   const first = bp.floors[0];
