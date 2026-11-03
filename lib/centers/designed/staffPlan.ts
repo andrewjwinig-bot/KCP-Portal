@@ -83,6 +83,8 @@ export async function buildStaffPlan(code: string, opts: { money: boolean; ar: b
   if (!live) return null;
   const prop = roll?.properties.find((p) => p.propertyCode.toUpperCase() === code.toUpperCase());
   const bySuite = new Map<string, RentRollUnit[]>();
+  const rollIndex = new Map<string, number>((prop?.units ?? []).map((u, i) => [u.unitRef.toUpperCase(), i] as [string, number]));
+  const orderOf = (refs: string[]) => Math.min(...refs.map((r) => rollIndex.get(r.toUpperCase()) ?? 1e6), 1e6);
   for (const u of prop?.units ?? []) {
     if (u.amenity) continue;
     const k = suiteOf(u.unitRef);
@@ -129,6 +131,7 @@ export async function buildStaffPlan(code: string, opts: { money: boolean; ar: b
         gross: sum((u) => u.grossRentTotal),
       } : undefined,
       ar: opts.ar && s.status === "leased" ? arFor(unitRefs, occupant, runs) : undefined,
+      order: orderOf(unitRefs),
     };
   });
 
@@ -139,7 +142,7 @@ export async function buildStaffPlan(code: string, opts: { money: boolean; ar: b
     .filter((u) => !u.amenity && (u.sqft || 0) > 0 && !drawnRefs.has(u.unitRef.toUpperCase()))
     .map((u) => {
       const r = fromRoll([u], 0, opts.money);
-      return { unitRef: u.unitRef, tenant: r.occupant ?? "Vacant", sf: r.sf, vacant: !r.leased, leaseFrom: r.leaseFrom, leaseTo: r.leaseTo, money: r.money };
+      return { unitRef: u.unitRef, tenant: r.occupant ?? "Vacant", sf: r.sf, vacant: !r.leased, leaseFrom: r.leaseFrom, leaseTo: r.leaseTo, money: r.money, order: orderOf([u.unitRef]) };
     });
 
   return {
@@ -165,6 +168,7 @@ async function buildBuildingPlan(code: string, opts: { money: boolean; ar: boole
   ]);
   const prop = roll?.properties.find((p) => p.propertyCode.toUpperCase() === code.toUpperCase());
   const byRef = new Map<string, RentRollUnit[]>();
+  const rollIndex = new Map<string, number>((prop?.units ?? []).map((u, i) => [u.unitRef.toUpperCase(), i] as [string, number]));
   /** Common rooms the roll carries (conference / training rooms) — named, never counted. */
   const amenities = new Map<string, string>();
   for (const u of prop?.units ?? []) {
@@ -202,6 +206,7 @@ async function buildBuildingPlan(code: string, opts: { money: boolean; ar: boole
         money: r.money,
         ar: opts.ar && r.leased ? arFor(rows.map((u) => u.unitRef), r.occupant, runs) : undefined,
         floor,
+        order: rollIndex.get(ref) ?? 1e6,
       });
     }
   }
@@ -211,9 +216,9 @@ async function buildBuildingPlan(code: string, opts: { money: boolean; ar: boole
       && !isSharedSpace(ref.split("-").slice(1).join("-"), rows[0].occupantName ?? ""))
     .map(([, rows]) => {
       const r = fromRoll(rows, 0, opts.money);
-      return { unitRef: rows[0].unitRef, tenant: r.occupant ?? "Vacant", sf: r.sf, vacant: !r.leased, leaseFrom: r.leaseFrom, leaseTo: r.leaseTo, money: r.money };
+      return { unitRef: rows[0].unitRef, tenant: r.occupant ?? "Vacant", sf: r.sf, vacant: !r.leased, leaseFrom: r.leaseFrom, leaseTo: r.leaseTo, money: r.money, order: rollIndex.get(rows[0].unitRef.toUpperCase()) ?? 1e6 };
     })
-    .sort((a, b) => a.unitRef.localeCompare(b.unitRef, undefined, { numeric: true }));
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   const first = bp.floors[0];
   return {
     code: bp.code, slug: "", name: PROPERTY_DEFS.find((p) => p.id === code)?.name ?? code,

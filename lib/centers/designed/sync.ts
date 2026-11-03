@@ -47,6 +47,8 @@ export type DesignedSuite = {
   sf: number;
   /** The suite's floor plan — the SUITE's, kept whoever occupies it. */
   floorplan?: string;
+  /** The floor plan is a PDF (the unit page takes either) — linked, not drawn. */
+  floorplanPdf?: boolean;
   /** Marketing for an AVAILABLE suite (the Available Space table and the
    *  leasing flyer). Kept only while the suite is vacant on the roll. */
   spaceName?: string; spaceUse?: string; details?: string[];

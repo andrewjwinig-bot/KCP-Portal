@@ -7,6 +7,7 @@ import { getCenterOverride, type AvailDesc } from "../store";
 import { lookupByName } from "../data";
 import { syncSuites, profilesNeeded, type DesignedSuite, type RollUnitLite, type TenantProfile } from "./sync";
 import { getTenantProfiles } from "./profileStore";
+import { getSuiteInformation } from "@/lib/suites/informationStorage";
 import { LAFAYETTE_HILL_SUITES } from "./lafayetteHill";
 import { BROOKWOOD_SUITES } from "./brookwood";
 import { GRAYS_FERRY_SUITES } from "./graysFerry";
@@ -79,6 +80,25 @@ function sharedParts() {
     .catch((e) => { _shared = null; throw e; }));
 }
 
+/** A SUITE'S FLOOR PLAN IS THE ONE ON ITS UNIT PAGE (owner: "individual suite
+ *  floorplans should be on the unit pages"): each AVAILABLE suite takes the
+ *  plan uploaded under Unit Info → Floorplan, served publicly by
+ *  /api/website/floorplan (only while the suite is a listed vacancy). The old
+ *  centre-level uploads stay the fallback. */
+async function withUnitFloorplans(suites: DesignedSuite[], code: string): Promise<DesignedSuite[]> {
+  return Promise.all(suites.map(async (s) => {
+    if (s.status !== "available") return s;
+    for (const u of s.units ?? [s.id]) {
+      const ref = `${code}-${u}`.toUpperCase();
+      const fp = (await getSuiteInformation(ref).catch(() => null))?.floorplan;
+      if (!fp?.url) continue;
+      const pdf = /pdf/i.test(fp.contentType ?? "") || /\.pdf$/i.test(fp.name ?? "");
+      return { ...s, floorplan: `/api/website/floorplan?unit=${encodeURIComponent(ref)}`, ...(pdf ? { floorplanPdf: true } : { floorplanPdf: undefined }) };
+    }
+    return s;
+  }));
+}
+
 /** A designed centre's suites as the public sees them right now: the design
  *  laid under the live rent roll (who, how big, what is vacant), Harry's tenant
  *  profiles, and the portal's per-suite availability copy. The ONE source for
@@ -94,9 +114,10 @@ export async function liveDesignedSuites(slug: string) {
   const floorplans = Object.fromEntries(Object.entries(override.floorplans ?? {}).map(([k, u]) => [k, centerImageSrc(u)]));
   const synced = syncSuites(designed.suites, units, profiles);
   if (synced.changes.length) console.log(`[centers/${slug}] rent roll: ${synced.changes.join("; ")}`);
+  const suites = await withUnitFloorplans(withAvailDesc(synced.suites, override.availDesc ?? {}, profile.code, floorplans), profile.code);
   return {
     designed, profile,
-    suites: withAvailDesc(synced.suites, override.availDesc ?? {}, profile.code, floorplans),
+    suites,
     gla: synced.gla ?? designed.fallbackGla,
   };
 }

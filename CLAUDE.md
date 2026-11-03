@@ -757,9 +757,12 @@ handoff's screenshot crop.
   campus) is drawn: its tiles are the page's ONLY KPI row (the hero strip is
   dropped; Year Built rides in as `extraTiles`), its **Rent Roll** table lists
   EVERY suite the roll carries — drawn ones plus `unmapped` ("not on the
-  plan") — narrowed by the legend filter, sorted by the view (soonest expiry /
-  highest $/SF / most past due) or a clicked column, with totals, and a row
-  hovers its suite on the plan; the page's separate Rent Roll card is hidden.
+  plan") — narrowed by the legend filter, sorted by the view or a clicked
+  column, with totals, and a row hovers its suite on the plan; the page's
+  separate Rent Roll card is hidden. **The card opens on PLAIN** (leased in a
+  quiet slate, vacant highlighted) with the rent roll in the RENT ROLL PAGE'S
+  ORDER (`order` on each suite = its place on the roll); Lease Expiry / Rent
+  $/SF / Open A/R sort soonest expiry / highest $/SF / most past due.
   A **Download** menu (`sitePlanExport.ts`): the plain drawing, the plan AS
   SHOWN (colours, filter, legend) as a PNG, and the rent roll as shown in
   Excel (shared theme, live totals). **Occupancy is the RENT ROLL'S**: a
@@ -769,8 +772,15 @@ handoff's screenshot crop.
   Removed from the page (owner): the hero photo (`CenterHeroBanner`), the
   plain site-plan upload + vacancies-with-marketing-notes card
   (`PublicWebsiteCard` — its stored floor plans and copy stay in the centre
-  override, but there is no longer an upload on the property page), and the
-  Shared Drive Folder card (units keep theirs).
+  override, but there is no longer an upload on the property page). The
+  SharePoint folder link is a compact row in the Overview header
+  (`ShareFolderCard inline`); units keep their card. **A suite's floor plan is
+  the one on its UNIT PAGE** (owner: "individual suite floorplans should be
+  on the unit pages"): `withUnitFloorplans` (render.ts) gives each AVAILABLE
+  designed-centre suite its Unit Info → Floorplan, served by
+  `/api/website/floorplan` (which now also admits a vacancy a designed centre
+  page lists); a PDF is a "View floor plan (PDF)" link and is left off the
+  flyer; the old centre-level uploads are the fallback.
 - **The next centre**: its HTML into `lib/centers/designed/<slug>.html` with
   `const SUITES=/*@SUITES@*/[];` and the `{{GLA}}` / `{{AVAIL_SF}}` /
   `{{AVAIL_DETAIL}}` placeholders, its suites into a `<centre>.ts` with
