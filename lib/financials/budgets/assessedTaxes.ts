@@ -246,6 +246,13 @@ export const ASSESSED_TAXES: AssessedTax[] = [
     { number: "01-00-04904-00-9", label: "120 N Spring Garden", address: "120 N Spring Garden St", ...same(86_330), recoverable: true },
     { number: "01-00-04903-00-1", label: "122 N Spring Garden", address: "122 N Spring Garden St", ...same(86_210), recoverable: true },
   ]),
+  // 9000 Butler & Main — bought 9/3/2026 (deed 6451-00598). Its tenants are
+  // gross (grossProperties.ts), so no parcel is in a RET recovery pool.
+  T("9000", AMBLER, [
+    { number: "01-00-00538-00-1", label: "9 W Butler Ave", address: "9 W Butler Ave", ...same(295_450), recoverable: false },
+    { number: "01-00-02581-00-1", label: "14-22 N Main St", address: "14-22 N Main St", ...same(211_720), recoverable: false },
+    { number: "01-00-02587-00-4", label: "10 N Main St", address: "10 N Main St", ...same(85_360), recoverable: false },
+  ]),
 ];
 
 // ─── The arithmetic ───────────────────────────────────────────────────────

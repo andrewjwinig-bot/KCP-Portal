@@ -48,6 +48,16 @@ describe("Bucks and Montgomery — assessment × each body's millage, on its own
     expect(month("9510", 5)).toBe(Math.round(971_730 * (5.462 + 0.49 + 2.3633) * 1.03 * 0.98 / 1000));
     expect(month("9510", 9)).toBe(Math.round(971_730 * 27.422 * 1.03 * 0.98 / 1000));
   });
+  it("9000 Butler & Main: three Ambler parcels reproduce the county's 2026 estimates ($12,518 / $8,970 / $3,617)", () => {
+    const mills2026 = 5.462 + 0.49 + 9.815 + 26.6;
+    // within $1 — the county rounds each body's line before totalling
+    [295_450, 211_720, 85_360].forEach((v, i) => expect(Math.abs(v * mills2026 / 1000 - [12_518, 8_970, 3_617][i])).toBeLessThan(1.5));
+    const v = 295_450 + 211_720 + 85_360;
+    // per-parcel rounding: within $2 of the whole
+    expect(Math.abs(month("9000", 4) - v * (5.462 + 0.49 + 9.815) * 1.03 * 0.98 / 1000)).toBeLessThan(2);
+    expect(Math.abs(month("9000", 9) - v * 26.6 * 1.03 * 0.98 / 1000)).toBeLessThan(2);
+    expect(input("9000").nonRecoverable).toBeTruthy(); // gross tenants: nothing in a RET pool
+  });
   it("Bensalem: county + township in April, school in August — the 2026 schedule's 231.7815 mills, flat, less the 2% discount", () => {
     const b = ASSESSED_TAXES.find((a) => a.code === "4060")!.jurisdiction.bills;
     expect(b.reduce((s, x) => s + x.levies.reduce((t, l) => t + l.mills, 0), 0)).toBeCloseTo(231.7815, 4);

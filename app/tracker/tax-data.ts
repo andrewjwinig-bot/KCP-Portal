@@ -329,6 +329,10 @@ export const PARCEL_INFO: Record<string, TaxParcel[]> = {
   "9820 Spring Garden St":      [{ method: "Check", number: "01-00-04904-00-9", label: "120", link: "https://propertyrecords.montcopa.org/PT/Datalets/Datalet.aspx?mode=&UseSearch=no&pin=010004904009&jur=046&taxyr=2026" },
                                   { method: "Check", number: "01-00-04903-00-1", label: "122", link: "https://propertyrecords.montcopa.org/PT/Datalets/Datalet.aspx?mode=&UseSearch=no&pin=010004903001&jur=046&taxyr=2026" }],
 
+  "9000 Butler & Main":         [{ number: "01-00-00538-00-1", label: "9 W Butler",   link: "https://propertyrecords.montcopa.org/PT/Datalets/Datalet.aspx?mode=&UseSearch=no&pin=010000538001&jur=046&taxyr=2026" },
+                                  { number: "01-00-02581-00-1", label: "14-22 N Main", link: "https://propertyrecords.montcopa.org/PT/Datalets/Datalet.aspx?mode=&UseSearch=no&pin=010002581001&jur=046&taxyr=2026" },
+                                  { number: "01-00-02587-00-4", label: "10 N Main",    link: "https://propertyrecords.montcopa.org/PT/Datalets/Datalet.aspx?mode=&UseSearch=no&pin=010002587004&jur=046&taxyr=2026" }],
+
   "PIIICO Condo":                    [{                         number: "02001002-016"      }],
   "0800 Bellmawr":                   [{                         number: "Block 173.01 Lot 1"}],
 };
@@ -352,6 +356,8 @@ export const PARCEL_ACRES: Record<string, number> = {
   // Montgomery
   "65-00-06280-00-9": 0.23, "54-00-06484-00-5": 0.11, "54-00-01999-00-8": 0.23,
   "01-00-04904-00-9": 0.05, "01-00-04903-00-1": 0.05,
+  // 9000 Butler & Main — the record's lot size (9,776 / 13,140 / 1,377 SF)
+  "01-00-00538-00-1": 0.22, "01-00-02581-00-1": 0.30, "01-00-02587-00-4": 0.03,
   // Bellmawr, NJ — the state's parcel composite (CALC_ACRE): Heller Rd, vacant land
   "Block 173.01 Lot 1": 5.6,
 };
