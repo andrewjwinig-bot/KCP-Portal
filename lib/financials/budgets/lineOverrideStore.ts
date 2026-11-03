@@ -9,14 +9,32 @@ import { applyEdit, type LineOverrides } from "./lineOverrides";
 const PREFIX = "budget-line-overrides";
 const idFor = (budgetYear: number, propertyCode: string) => `${budgetYear}-${propertyCode.toUpperCase()}`;
 
+const sep = (amount: number) => { const m: (number | null)[] = new Array(12).fill(null); m[8] = amount; return m; };
+
+/** Figures known from a document rather than typed, laid UNDER the stored
+ *  typed months (anything typed on the same key wins). Keyed `<year>-<code>`.
+ *  9000 Butler & Main's FLOOD policy (owner, 11/2026): policy 0006262172, new
+ *  business 9/15/2026 at $3,757.00 (receipt 188060) — the 2027 renewal in
+ *  September at +3%, on the Insurance line's Other bucket. */
+export const SEEDED_LINE_OVERRIDES: Record<string, LineOverrides> = {
+  "2027-9000": {
+    // Liability — 73% of the $10,000 underwriting (expenseInputStore.ts holds the property part).
+    "Reimbursable Expenses::Insurance#Liability": { months: [608, 608, 608, 608, 608, 608, 608, 608, 608, 608, 627, 627], by: "Underwriting $10,000/yr · liability 73%, Nov renewal +3%" },
+    "Reimbursable Expenses::Insurance#Other": { months: sep(Math.round(3757 * 1.03)), by: "Flood policy 0006262172 · $3,757 paid 9/15/2026, +3% at renewal" },
+  },
+};
+
 export async function getLineOverrides(budgetYear: number, propertyCode: string): Promise<LineOverrides> {
-  return withCurrentLineKeys(propertyCode, ((await getJSON(PREFIX, idFor(budgetYear, propertyCode))) as LineOverrides | null) ?? {});
+  const stored = withCurrentLineKeys(propertyCode, ((await getJSON(PREFIX, idFor(budgetYear, propertyCode))) as LineOverrides | null) ?? {});
+  return { ...(SEEDED_LINE_OVERRIDES[idFor(budgetYear, propertyCode)] ?? {}), ...stored };
 }
 
 export async function editLineOverride(
   budgetYear: number, propertyCode: string, key: string, month: number | "all", value: number | null | number[], by: string,
 ): Promise<LineOverrides> {
-  const doc = applyEdit(await getLineOverrides(budgetYear, propertyCode), key, month, value, by);
+  // Edits the STORED doc only — a seed is never written in, so ↺ hands a seeded key back to its seed.
+  const stored = withCurrentLineKeys(propertyCode, ((await getJSON(PREFIX, idFor(budgetYear, propertyCode))) as LineOverrides | null) ?? {});
+  const doc = applyEdit(stored, key, month, value, by);
   await storeJSON(PREFIX, idFor(budgetYear, propertyCode), doc);
   return doc;
 }
