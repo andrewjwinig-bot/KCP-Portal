@@ -751,6 +751,22 @@ handoff's screenshot crop.
   the other centers"); Brookwood's `shadow` neighbours are drawn uncoloured
   and do not click. A new designed centre joins by adding its slug once its
   `plan` is set. Pinned by `staffPlanMath.test.ts`.
+- **EACH PROPERTY PAGE IS THE PROPERTY'S COMMAND CENTER — it opens on
+  PERFORMANCE** (owner: "each property page should be a dashboard … a graph of
+  how were doing this year vs budget"; "i like visuals and graphical displays
+  of data"). `PerformanceCard` (`app/properties/[id]/`), data
+  `GET /api/properties/[id]/performance` → `performanceOf`
+  (`lib/properties/performance.ts`, pure, tested) over the property's
+  REPROJECTION, so it says what Reprojections and the statement say. Tiles:
+  NOI / Revenue / Op Ex YTD and the full-year NOI reprojection against budget
+  (+ cash flow after debt where there is debt), favorable green, a miss within
+  2% amber, worse red; charts: **Cumulative NOI** (actual, budget path,
+  reprojection), **NOI by Month** (actual bars over dashed budget outlines,
+  under-budget months in `--series-2`), and **What's Driving the Variance**
+  (the eight largest YTD line variances ≥ $500, diverging green / red).
+  Gated on the server to `/financials/operating-statements` (403 → the card
+  hides). More panels belong here (debt, A/R, leasing) — add them to this card
+  family, not as new full-width cards elsewhere.
 - **THE PLAN CARD IS THE PROPERTY PAGE'S ONE MASTER VIEW** (owner, 11/2026:
   "a lot of like duplicated info that we can really clean up into one master
   interactive comprehensive data page"). Where a site / floor plan (or the
