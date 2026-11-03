@@ -467,6 +467,43 @@ export const PARKWOOD_7010_LOAN: Loan = {
     "change; only the tax/insurance escrow did.",
 };
 
+// Butler & Main (property 9000) — ICA (Innovative Capital Advisors) first
+// mortgage, serviced by M&T Realty Capital. Amortizing from the first payment.
+export const BUTLER_MAIN_9000_LOAN: Loan = {
+  id: "loan_butlermain",
+  property: "9000",
+  partnership: "Butler & Main, LLC",
+  collateral: "8-10 & 16-22 N Main St, 9-19 W Butler Ave, Ambler",
+  lender: "ICA / M&T Realty Capital",
+  group: "Shopping Centers",
+  originalBalance: 1400000,
+  annualRatePct: 6.55,
+  amortYears: 25,
+  scheduledPayment: 9496.69,
+  maturityDate: "2036-10-01",
+  // The commitment closes by 9/28/2026; the first FULL payment is the 1st of
+  // the second month after closing (11/1/2026), with the closing-month stub
+  // interest due 10/1. Anchored at the full balance on 10/1 so the first
+  // projected row is 11/1. Re-anchor to the closing statement / first
+  // servicer statement when it arrives.
+  anchorBalance: 1400000,
+  anchorDate: "2026-10-01",
+  interestOnly: false,
+  notes:
+    "ICA Mortgage Loan No. 2026-02-1852 (commitment 7/13/2026, accepted " +
+    "7/28/2026). $1,400,000 first mortgage at 6.55% on a 25-yr amortization, " +
+    "P&I $9,496.69/mo. 10-yr term with a rate reset at year 5 (5+5) — the " +
+    "projection holds 6.55% throughout, so it is reliable only through 2031. " +
+    "Funded by UMB Bank as custodian for ICA; serviced by M&T Realty Capital " +
+    "Corp (Kevin Collins, Radnor). Prepayment: greater of 1% or yield " +
+    "maintenance, 60 days' notice; open the last 90 days, and at the end of " +
+    "year 5 if the rate is not adjusted. Guarantor Alison Korman Feldman. " +
+    "Max 65% LTV. Collateral: three mixed-use buildings, 15,045 SF on 0.58 " +
+    "acres. Closing date and any tax / insurance escrow are NOT in the " +
+    "commitment — the anchor assumes a September 2026 closing (first payment " +
+    "11/1/2026) and no escrow; update both from the closing statement.",
+};
+
 /** All loans are code-managed and reconciled to these definitions on load. */
 /**
  * KH-Joshua 3044 LLC (property 9840) — M&T Bank. Interest-only ARM.
@@ -588,6 +625,7 @@ export const MANAGED_LOANS: Loan[] = [
   BROOKWOOD_2300_LOAN,
   GRAYS_FERRY_4500_LOAN,
   PARKWOOD_7010_LOAN,
+  BUTLER_MAIN_9000_LOAN,
 ];
 
 export const SEED_LOANS: Loan[] = MANAGED_LOANS;
