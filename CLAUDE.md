@@ -2876,6 +2876,10 @@ time — and the team does not have time to open the GL over $80.
   "Underwriting", under anything keyed), liability $7,334 on the Liability
   bucket. 2027 insurance $13,918 with flood. Cross-check: the centres budget
   ~$0.70/SF, ≈ $10,500 on 15,045 SF.
+  **Parking lot** (owner: sized "between 1100 and 9510 … closer to 1100"):
+  sweeping $400/mo ($4,800) and maintenance $6,000 recurring, quarterly, no
+  big project — seeded in `SEEDED_LINE_OVERRIDES` (1100 budgets $3,600 /
+  $5,000, 9510 $16,583 / $21,378).
 - **A FUND'S LOANS ARE ALLOCATED TO ITS BUILDINGS** (`FUND_SHELL`,
   `fundDebtShares`, `shareOfDebt` in `debtBudget.ts`). JV III's and NI LLC's
   mortgages are booked on the holding entity (3600 / 4000) and imported into
