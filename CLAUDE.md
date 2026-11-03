@@ -1801,6 +1801,10 @@ time — and the team does not have time to open the GL over $80.
     under a made-up 3610A that no budget reads). **8200 is the Four Seasons parcel only —
     McDonald's pays its own bill on 882047229.** 9840 (3044 Joshua Rd) is
     65-00-06280-00-9 (the Tax Tracker listed 9860's number for it; corrected 10/5/26).
+    **9000 Butler & Main is three Ambler parcels** (01-00-00538-00-1 9 W Butler,
+    01-00-02581-00-1 14-22 N Main, 01-00-02587-00-4 10 N Main — $592,530
+    assessed; bought 9/3/2026), all `recoverable: false` since its tenants are
+    gross; the county's 2026 estimate ($25,105) is reproduced within $1.
   - **A parcel NOT in CAM** (`recoverable: false`) is taken out of the RET
     recovery pool in draft.ts (`nonRecoverable`, budget AND this year's
     basis) — ALWAYS, even after the taxes are typed over. **4500 Gray's Ferry:
