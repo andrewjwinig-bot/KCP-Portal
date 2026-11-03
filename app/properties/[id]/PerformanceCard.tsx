@@ -11,6 +11,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { StatPill } from "../../components/Pill";
 import { HoverCard } from "../../components/HoverCard";
+import { TabButton } from "../../components/TabButton";
 import { ChartTooltip, HoverBands, type TipRow } from "../../components/ChartTooltip";
 import { ChartLegend, LineChart, type Series } from "../../financials/management-fees/FeeChart";
 import { tightScale } from "../../../lib/charts/tightScale";
@@ -89,21 +90,36 @@ export default function PerformanceCard({ code, style }: { code: string; style?:
         {perf.cashFlow && tile("Cash Flow After Debt · YTD", perf.cashFlow)}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))", gap: 18, marginTop: 16 }}>
-        <ChartPanel title="Cumulative NOI" sub="Where the year is heading against the budget's path">
-          <CumulativeNoi noi={perf.noi} through={n} />
-        </ChartPanel>
-        <ChartPanel title="NOI by Month" sub="Bars are actual; the outline is budget">
-          <MonthBars t={perf.noi} through={n} />
-        </ChartPanel>
-        {bank && (
-          <ChartPanel title="Bank Balance" sub={bankSub(bank)}>
-            <BankTrend t={bank} />
-          </ChartPanel>
-        )}
-      </div>
+      {/* ONE chart at full width, picked by tab — three side by side were too small to read (owner). */}
+      <PerfCharts perf={perf} bank={bank} through={n} />
 
       {perf.hasBudget && n > 0 && <VarianceDrivers lines={perf.lines} through={MONTHS[n - 1]} />}
+    </div>
+  );
+}
+
+type ChartKey = "month" | "cum" | "bank";
+function PerfCharts({ perf, bank, through }: { perf: PropertyPerformance; bank: BalanceTrend | null; through: number }) {
+  const [tab, setTab] = useState<ChartKey>("month");
+  const tabs: { key: ChartKey; label: string; sub: string }[] = [
+    { key: "month", label: "NOI by Month", sub: "Bars are actual; the dashed outline is budget" },
+    { key: "cum", label: "Cumulative NOI", sub: "Where the year is heading against the budget's path" },
+    ...(bank ? [{ key: "bank" as ChartKey, label: "Bank Balance", sub: bankSub(bank) }] : []),
+  ];
+  const cur = tabs.find((t) => t.key === tab) ?? tabs[0];
+  return (
+    <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "12px 16px 14px", marginTop: 16 }}>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div className="muted" style={{ fontSize: 13 }}>{cur.sub}</div>
+        <div style={{ display: "flex", borderBottom: "1px solid var(--border)" }}>
+          {tabs.map((t) => <TabButton key={t.key} active={cur.key === t.key} onClick={() => setTab(t.key)}>{t.label}</TabButton>)}
+        </div>
+      </div>
+      <div style={{ maxWidth: 1100, margin: "10px auto 0" }}>
+        {cur.key === "month" && <MonthBars t={perf.noi} through={through} />}
+        {cur.key === "cum" && <CumulativeNoi noi={perf.noi} through={through} />}
+        {cur.key === "bank" && bank && <BankTrend t={bank} />}
+      </div>
     </div>
   );
 }

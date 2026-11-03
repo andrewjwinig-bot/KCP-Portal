@@ -706,12 +706,11 @@ export function PropertyDetailBody({
         </div>
       )}
 
-      {/* ── Site plan (designed centres): large, coloured by lease expiry / rent / A/R ── */}
-      {/* ── This year against budget — the dashboard's financial half ── */}
-      <PerformanceCard code={prop.id} style={{ marginBottom: 14 }} />
-
+      {/* ── Site plan + current metrics FIRST (owner), then this year against budget ── */}
       <SitePlanCard code={prop.id} style={{ marginBottom: 14 }} onLoaded={setPlanDrawn}
         extraTiles={heroYearBuilt ? [{ label: "Year Built", value: String(heroYearBuilt) }] : undefined} />
+
+      <PerformanceCard code={prop.id} style={{ marginBottom: 14 }} />
 
       {/* Body — sections */}
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
