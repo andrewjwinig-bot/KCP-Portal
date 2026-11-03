@@ -751,8 +751,11 @@ handoff's screenshot crop.
   the other centers"); Brookwood's `shadow` neighbours are drawn uncoloured
   and do not click. A new designed centre joins by adding its slug once its
   `plan` is set. Pinned by `staffPlanMath.test.ts`.
-- **EACH PROPERTY PAGE IS THE PROPERTY'S COMMAND CENTER — it opens on
-  PERFORMANCE** (owner: "each property page should be a dashboard … a graph of
+- **EACH PROPERTY PAGE IS THE PROPERTY'S COMMAND CENTER — the SITE PLAN
+  with its current metrics comes FIRST, then PERFORMANCE** (owner: "still put
+  site plan w current metrics first"; the charts were "too small to clearly
+  read" three across, so they are ONE chart at full width picked by tab —
+  NOI by Month (default) · Cumulative NOI · Bank Balance; owner: "each property page should be a dashboard … a graph of
   how were doing this year vs budget"; "i like visuals and graphical displays
   of data"). `PerformanceCard` (`app/properties/[id]/`), data
   `GET /api/properties/[id]/performance` → `performanceOf`
