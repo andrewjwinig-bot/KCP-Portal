@@ -52,6 +52,10 @@ export async function sendApproval(c: Ok, settlement: MoveoutSettlement, by?: st
     ? `Their final statement is in as of ${settlement.openAr.asOf ? new Date(settlement.openAr.asOf).toLocaleDateString("en-US") : "the last import"} — if charges have posted since (the final electric), re-import it on the close-out page first.`
     : `Before approving: import their final Skyline Laser Statement on the close-out page (Final Bill → Import final statement) so their unpaid charges are on the final bill. A moved-out tenant is listed in Skyline as ${meta.unitRef}-FO.`);
   lines.push("");
+  if (result.unpostedMonths > 0) {
+    lines.push(`Note: the GL is posted through ${MONTHS[(meta.maxPosted ?? 1) - 1] ?? "an earlier month"} — ${result.unpostedMonths} occupied month(s) are not posted yet, so the reconciliation can be approved once they are.`);
+    lines.push("");
+  }
   lines.push(`Review the attached statement and approve it here:`);
   lines.push(link);
   lines.push("");
