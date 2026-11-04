@@ -720,14 +720,17 @@ export default function InterimReconPage() {
   const approver = retail ? { first: "Harry", email: "hfeldman@kormancommercial.com" } : { first: "Nancy", email: "nfox@kormancommercial.com" };
   const [approval, setApproval] = useState<{ notifiedAt?: string | null; notifiedBy?: string | null; status?: string; chargesSentTo?: string | null; chargesSentAt?: string | null } | null>(null);
   const [confirmSend, setConfirmSend] = useState(false);
+  // Gone from the rent roll, looked up for THIS tenant over two years — the
+  // candidate list only reaches ~60 days back (Gilson left in July).
+  const [goneOnRoll, setGoneOnRoll] = useState<boolean | null>(null);
   const [sending, setSending] = useState(false);
   const [sendMsg, setSendMsg] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => {
-    setApproval(null); setSendMsg(null); setConfirmSend(false);
+    setApproval(null); setSendMsg(null); setConfirmSend(false); setGoneOnRoll(null);
     if (!meta || meta.manual) return;
-    const q = new URLSearchParams({ property: meta.property, unitRef: meta.unitRef, year: String(meta.year) });
-    fetch(`/api/cam-recon/moveout/request-approval?${q}`).then((r) => r.json()).then((j) => setApproval(j.entry ?? null)).catch(() => {});
-  }, [meta?.property, meta?.unitRef, meta?.year, meta?.manual]);
+    const q = new URLSearchParams({ property: meta.property, unitRef: meta.unitRef, year: String(meta.year), name: meta.name ?? "" });
+    fetch(`/api/cam-recon/moveout/request-approval?${q}`).then((r) => r.json()).then((j) => { setApproval(j.entry ?? null); setGoneOnRoll(j.confirmedGone ?? null); }).catch(() => {});
+  }, [meta?.property, meta?.unitRef, meta?.year, meta?.manual, meta?.name]);
   const sendForApproval = useCallback(async () => {
     if (!meta) return;
     setSending(true); setSendMsg(null);
@@ -804,7 +807,7 @@ export default function InterimReconPage() {
   // newest rent roll covering the property (the server checks it too). A
   // tenant still on the roll — renewed, or holding over — gets an interim
   // statement only.
-  const confirmedGone = !!meta && candidates.some((c) => c.kind === "vacated" && c.propertyCode === meta.property && c.unitRef === meta.unitRef);
+  const confirmedGone = goneOnRoll === true || (!!meta && candidates.some((c) => c.kind === "vacated" && c.propertyCode === meta.property && c.unitRef === meta.unitRef));
   const canFinalize = !!meta && !meta.manual && !!(r || retail) && unpostedMonths === 0 && confirmedGone;
   // Sending for approval needs only a confirmed move-out — GL months still to
   // post are a warning, not a block (owner: the button "isnt showing for
@@ -885,7 +888,7 @@ export default function InterimReconPage() {
           The GL is posted through {MONTHS[meta.maxPosted - 1] ?? "—"} — {unpostedMonths} occupied month{unpostedMonths > 1 ? "s" : ""} still to post. You can send it to {approver.first} now; it can be approved once the GL is posted through the move-out month.
         </div>
       )}
-            {!confirmedGone && !meta.manual && (
+      {!confirmedGone && !meta.manual && goneOnRoll === false && (
         <div className="muted small" style={{ marginTop: 6 }}>Still on the rent roll — an interim statement only; it can be finalized once a rent roll no longer shows them.</div>
       )}
 
