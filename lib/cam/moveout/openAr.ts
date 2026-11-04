@@ -113,7 +113,14 @@ export function pickTenantStatement(
   if (named) return { statement: named, nameMatched: true };
   const successor = currentOccupant && !(name && like(currentOccupant, name)) ? currentOccupant : null;
   const other = onSuite.find((s) => !(successor && like(s.tenantName, successor)));
-  return other ? { statement: other, nameMatched: false } : null;
+  if (other) return { statement: other, nameMatched: false };
+  // Skyline can file a former occupant under a LETTERED suite — Gilson's
+  // final statement is "3640-105A-FO" for suite 3640-105. Taken only on a
+  // NAME match, so another tenant of 105A/105B is never read as theirs.
+  if (!name) return null;
+  const lettered = (s: string) => { const k = refKey(s); return k.length === ref.length + 1 && k.startsWith(ref) && /[a-z]$/.test(k); };
+  const variant = statements.find((s) => (lettered(s.unitRef) || lettered(s.skylineUnitRef)) && like(s.tenantName, name));
+  return variant ? { statement: variant, nameMatched: true } : null;
 }
 
 /** The departing tenant's newest statement across the imported months (`runs`
