@@ -40,6 +40,13 @@ export function floorOf(suite: string): string | undefined {
   return /^[1-9]\d\d$/.test(suite) ? ordinal(Number(suite[0])) : undefined;
 }
 
+/** Vacant suites kept OFF the website even though the roll shows them vacant
+ *  (owner: "hide building 5 suite 309 from the korman website. dont show it as
+ *  available"). By unit ref; remove one to list it again. Its floor plan stops
+ *  being served publicly too, since the floorplan route serves only listed
+ *  suites. */
+export const WEBSITE_HIDDEN_UNITS = new Set<string>(["4050-309"]);
+
 /** Every vacant, rentable suite in the park, smallest first (the page sorts too). */
 export function spacesFromRoll(properties: RollPropertyForSpace[]): InterplexSpace[] {
   const byCode = new Map(properties.map((p) => [p.propertyCode.toUpperCase(), p]));
@@ -48,6 +55,7 @@ export function spacesFromRoll(properties: RollPropertyForSpace[]): InterplexSpa
     for (const u of byCode.get(code)?.units ?? []) {
       const suite = u.unitRef.split("-").slice(1).join("-");
       if (!u.isVacant || u.amenity || !(u.sqft > 0) || !suite || isSharedSpace(suite, u.occupantName || "")) continue;
+      if (WEBSITE_HIDDEN_UNITS.has(u.unitRef.toUpperCase())) continue;
       out.push({ bldg, suite: `Suite ${suite}`, sf: Math.round(u.sqft), floor: floorOf(suite), available: "Now", unit: u.unitRef });
     }
   }

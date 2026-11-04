@@ -44,3 +44,13 @@ describe("Neshaminy Interplex Business Center availability follows the rent roll
     expect(out.find((s) => s.unit === "4050-119")?.floorplan).toBeUndefined();
   });
 });
+
+describe("suites kept off the website", () => {
+  it("never lists Building 5 suite 309, even when the roll has it vacant", () => {
+    const out = spacesFromRoll([{ propertyCode: "4050", units: [
+      { unitRef: "4050-309", occupantName: "", isVacant: true, sqft: 1200 },
+      { unitRef: "4050-310", occupantName: "", isVacant: true, sqft: 900 },
+    ] }]);
+    expect(out.map((s) => s.unit)).toEqual(["4050-310"]);
+  });
+});
