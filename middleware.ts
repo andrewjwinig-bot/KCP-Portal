@@ -89,7 +89,11 @@ export async function middleware(req: NextRequest) {
       }
       const url = req.nextUrl.clone();
       url.pathname = "/login";
-      url.searchParams.set("next", pathname);
+      // Keep the query string: an emailed link names its record there (the
+      // move-out approval link is /cam-recon/interim?property=…&unitRef=…),
+      // and a sign-in that kept only the path landed on an empty page.
+      url.search = "";
+      url.searchParams.set("next", pathname + req.nextUrl.search);
       return NextResponse.redirect(url);
     }
     const siteUser = full.userId;

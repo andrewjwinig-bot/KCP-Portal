@@ -718,6 +718,9 @@ export default function InterimReconPage() {
   // the approver — office → Nancy, retail → Harry — and once she approves, the
   // charges go to Tanya to post (`/api/cam-recon/moveout/finalize`).
   const approver = retail ? { first: "Harry", email: "hfeldman@kormancommercial.com" } : { first: "Nancy", email: "nfox@kormancommercial.com" };
+  // The approver opening her own link sees Approve, not "Send to Nancy".
+  const { user: viewer } = useUser();
+  const viewerIsApprover = viewer?.id === (retail ? "harry" : "nancy");
   const [approval, setApproval] = useState<{ notifiedAt?: string | null; notifiedBy?: string | null; status?: string; chargesSentTo?: string | null; chargesSentAt?: string | null } | null>(null);
   const [confirmSend, setConfirmSend] = useState(false);
   // Gone from the rent roll, looked up for THIS tenant over two years — the
@@ -859,7 +862,7 @@ export default function InterimReconPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button className="btn" onClick={retail ? downloadRetailPdf : downloadPdf} title="The final settlement, then the reconciliation — one PDF"
             style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
-          {canSend && approval?.status !== "approved" && (
+          {canSend && !viewerIsApprover && approval?.status !== "approved" && (
             <button className={approval?.notifiedAt ? "btn" : "btn primary"} onClick={() => { setSendMsg(null); setConfirmSend(true); }}
               style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
               {approval?.notifiedAt ? `Re-send to ${approver.first}` : `Send to ${approver.first} for approval`}

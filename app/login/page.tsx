@@ -2,6 +2,7 @@
 
 import { Suspense, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { safeNext, loginDestination } from "@/lib/loginNext";
 import { ALL_USERS, USERS, type UserId } from "../../lib/users";
 
 /** Resolve a typed username (user id or display label, any case) to a user id. */
@@ -26,7 +27,7 @@ const fieldStyle: React.CSSProperties = {
 
 function LoginFormInner() {
   const params = useSearchParams();
-  const nextPath = params.get("next") || "/dashboard";
+  const nextPath = safeNext(params.get("next"));
 
   const inputRef = useRef<HTMLInputElement>(null);
   const [user, setUser] = useState("");
@@ -75,12 +76,12 @@ function LoginFormInner() {
         throw new Error(j?.error ?? "Login failed");
       }
       // First login of the day lands on the dashboard (to see the day's tasks),
-      // ignoring any deep-link `next`; later logins the same day honor `next`.
+      // ignoring a bare-page `next`; later logins the same day honor `next`.
       let dest = nextPath;
       try {
         localStorage.setItem("kcp:activeUser", resolvedId);
         const today = new Date().toDateString();
-        if (localStorage.getItem("kcp:lastLoginDay") !== today) dest = "/dashboard";
+        dest = loginDestination(nextPath, localStorage.getItem("kcp:lastLoginDay") !== today);
         localStorage.setItem("kcp:lastLoginDay", today);
       } catch { /* ignore */ }
       window.location.assign(dest);
