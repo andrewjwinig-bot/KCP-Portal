@@ -68,7 +68,7 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
       const j = await res.json();
       if (!res.ok || j.error) { setMsg((m) => ({ ...m, [c.key]: j.error ?? "Could not finalize." })); }
       else {
-        setMsg((m) => ({ ...m, [c.key]: j.emailed ? "✓ Finalized — GL entry + statement sent" : "✓ Finalized (email not configured)" }));
+        setMsg((m) => ({ ...m, [c.key]: j.emailed ? "✓ Approved — charges sent to Tanya" : "✓ Approved (email not configured)" }));
         load();
       }
     } catch (e) { setMsg((m) => ({ ...m, [c.key]: String(e) })); }

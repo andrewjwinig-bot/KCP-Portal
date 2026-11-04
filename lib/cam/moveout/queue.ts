@@ -67,6 +67,11 @@ export type CloseOut = {
   detectedAt: string;
   readyAt: string | null;
   notifiedAt: string | null; // approval email sent
+  /** Who sent it for approval from the Final Bill (absent when the watcher sent it). */
+  notifiedBy?: string | null;
+  /** Where the approved charges went (Tanya) and when. */
+  chargesSentTo?: string | null;
+  chargesSentAt?: string | null;
   approvedAt: string | null;
   approvedBy: string | null;
   updatedAt: string;
