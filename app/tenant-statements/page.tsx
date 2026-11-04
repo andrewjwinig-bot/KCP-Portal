@@ -161,7 +161,7 @@ export default function TenantStatementsPage() {
     await startImport({
       kind: "tenant-statements",
       title: (n) => `Importing ${n} Skyline statement export${n === 1 ? "" : "s"}`,
-      subtitle: "Skyline Statement report · .xls / .xlsx · you can keep working while this runs",
+      subtitle: "Skyline Laser Statement · .xls / .xlsx · you can keep working while this runs",
       files,
       by: user.label,
       concurrency: 1,
@@ -379,7 +379,7 @@ export default function TenantStatementsPage() {
         <div className="card">
           <div style={{ fontWeight: 800, fontSize: 17 }}>No statements imported yet</div>
           <div className="muted small" style={{ marginTop: 6, maxWidth: 620 }}>
-            Import Skyline&rsquo;s tenant Statement report and every tenant&rsquo;s open charges become a portal statement —
+            Import Skyline&rsquo;s Laser Statement and every tenant&rsquo;s open charges become a portal statement —
             aged, categorized, and downloadable as a branded PDF.
           </div>
           <ImportInstructions variant="statements" />

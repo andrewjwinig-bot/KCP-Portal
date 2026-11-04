@@ -37,8 +37,8 @@ export async function POST(req: NextRequest) {
   if (!hit) {
     return NextResponse.json({
       error: parsed.statements.length
-        ? `That file has no statement for ${unitRef}${name ? ` (${name})` : ""}. Run Skyline's Statement report for this tenant alone — a moved-out tenant is listed as ${unitRef}-FO.`
-        : "No tenant statements found. Export Skyline's Statement report to Excel and upload that file unmodified.",
+        ? `That file has no statement for ${unitRef}${name ? ` (${name})` : ""}. Run Skyline's Laser Statement for this tenant alone — a moved-out tenant is listed as ${unitRef}-FO.`
+        : "No tenant statements found. Export Skyline's Laser Statement to Excel and upload that file unmodified.",
     }, { status: 400 });
   }
 

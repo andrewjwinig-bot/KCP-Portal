@@ -1012,7 +1012,7 @@ reconciliation (unchanged) and the **monthly statement of account** — every op
 charge Skyline is carrying for that tenant, aged, categorized, and paired with
 how-to-pay instructions. Sources of truth:
 
-- **The Skyline "Statement" report is the only input.** Parser:
+- **The Skyline "Statement" report — Skyline names it the LASER STATEMENT, and every instruction in the app calls it that (owner) — is the only input.** Parser:
   `lib/statements/parseSkylineStatements.ts`. Never hand-key a tenant's open
   balance anywhere.
 - **A statement has THREE parts and the amount due is the sum of two of them:**

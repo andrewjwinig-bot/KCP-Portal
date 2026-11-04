@@ -393,12 +393,12 @@ export const TASK_DEFS: TaskDef[] = [
     category: "routine",
     dueDay: 5,
     link: "/tenant-statements",
-    notes: "Import the Skyline Statement report; a month where every tenant ties publishes itself.",
+    notes: "Import the Skyline Laser Statement; a month where every tenant ties publishes itself.",
     instructions: {
       intro: "Open A/R for every tenant, imported from Skyline and published to the tenant portal.",
       steps: [
         {
-          title: "Run the Statement report in Skyline",
+          title: "Run the Laser Statement in Skyline",
           path: "Property Management → Reports → Statement",
           items: [
             "Run it AFTER the 1st-of-month charges have posted",

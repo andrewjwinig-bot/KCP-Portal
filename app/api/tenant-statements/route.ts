@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   }
   if (parsed.statements.length === 0) {
     return NextResponse.json(
-      { error: "No tenant statements found. Export Skyline's Statement report to Excel and upload that file unmodified." },
+      { error: "No tenant statements found. Export Skyline's Laser Statement to Excel and upload that file unmodified." },
       { status: 400 },
     );
   }
