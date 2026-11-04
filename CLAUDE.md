@@ -487,7 +487,7 @@ the site's search do a full load (a route handler is not a Next page).
   (`lib/interplex/spaces.ts`, pinned by `spaces.test.ts`) lists every vacant,
   rentable suite in the ten buildings (`INTERPLEX_BUILDINGS`: 1/2/4 = 3610/
   3620/3640, 5–8 = 4050–4080, Kor Center A/B/C = 40A0/40B0/40C0), floor from a
-  three-digit suite, at `/*@SPACES@*/[]`; `SAMPLE_DATA` is false. Shared space
+  three-digit suite, at `/*@SPACES@*/[]`; `SAMPLE_DATA` is false. **A vacancy can be kept OFF the website** (`WEBSITE_HIDDEN_UNITS` in `spaces.ts`, by unit ref — **4050-309**, Building 5 suite 309, owner: "dont show it as available"); its floor plan stops being served publicly with it. Shared space
   and amenities never list (`isSharedSpace`, from The Office Works'
   `offices.ts`); The Office Works (4900) is offered on its own page. The hero's
   SF is the roll's total for the ten, ROUNDED DOWN to 25K with a plus
