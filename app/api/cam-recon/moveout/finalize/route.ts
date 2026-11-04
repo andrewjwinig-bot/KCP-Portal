@@ -9,7 +9,7 @@ import { buildMoveoutPdf, buildMoveoutGlCsv, moveoutGlRows, moveoutEffectiveDate
 import { moveoutSettlement } from "@/lib/cam/moveout/deposit";
 import { settlementLines } from "@/lib/cam/moveout/settlementText";
 import { recordMoveoutSend } from "@/lib/cam/moveout/sendLog";
-import { moveoutCandidates } from "@/lib/cam/moveout/candidates";
+import { isConfirmedGone } from "@/lib/leasing/recentlyVacated";
 import { APPROVER, MOVEOUT_CHARGES_NAME, moveoutChargesTo } from "@/lib/cam/moveout/recipients";
 
 export const runtime = "nodejs";
@@ -68,15 +68,14 @@ export async function POST(req: Request) {
   // covering the property. Without this a renewed tenant (still on the roll,
   // lease date passed) could be finalized from the interim page, mailing the
   // approver a GL adjustment and a deposit release. Fails closed.
-  const cands = await moveoutCandidates().catch(() => null);
-  if (!cands) return NextResponse.json({ error: "Couldn't confirm the move-out against the rent roll — try again." }, { status: 503 });
-  if (!cands.some((x) => x.kind === "vacated" && x.propertyCode.toUpperCase() === property.toUpperCase() && x.unitRef === unitRef)) {
-    return NextResponse.json({ error: `${unitRef} is still on the newest rent roll — renewed or holding over, so not a move-out. Finalize once a rent roll no longer shows them.` }, { status: 409 });
-  }
-
   // Re-compute from source so we finalize the current numbers, not a stale snapshot.
   const c = await computeMoveoutStatement(property, year, unitRef, vacateMonth);
   if (!moveoutOk(c)) return NextResponse.json({ error: c.error }, { status: 409 });
+  const gone = await isConfirmedGone(property, unitRef, c.meta.name).catch(() => null);
+  if (gone == null) return NextResponse.json({ error: "Couldn't confirm the move-out against the rent roll — try again." }, { status: 503 });
+  if (!gone) {
+    return NextResponse.json({ error: `${unitRef} is still on the newest rent roll — renewed or holding over, so not a move-out. Finalize once a rent roll no longer shows them.` }, { status: 409 });
+  }
   if (c.result.unpostedMonths > 0 || c.result.occupiedMonths <= 0) {
     return NextResponse.json({
       error: `Not ready to finalize — ${c.result.unpostedMonths} occupied month(s) aren't posted to the GL yet.`,

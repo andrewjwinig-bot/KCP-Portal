@@ -66,3 +66,23 @@ describe("confirmedMoveouts — a renewal is never a move-out", () => {
     expect(out).toEqual([]);
   });
 });
+
+describe("confirmedMoveouts — a close-out looks further back than the candidate list", () => {
+  // Gilson (3640-105): lease ended 6/30/2026, off the July roll; opened to
+  // close out in November, he read "still on the rent roll" because the
+  // candidate list only reaches ~60 days back.
+  const rolls = [
+    roll("6/30/2026", [{ propertyCode: "3640", units: [u("3640-105", "Edward J. Gilson Jr.", "6/30/2026"), u("3640-106", "Stays", "12/31/2028")] }]),
+    roll("7/31/2026", [{ propertyCode: "3640", units: [u("3640-105", "", null, true), u("3640-106", "Stays", "12/31/2028")] }]),
+    roll("10/31/2026", [{ propertyCode: "3640", units: [u("3640-105", "", null, true), u("3640-106", "Stays", "12/31/2028")] }]),
+  ];
+  const nov = new Date("2026-11-04T12:00:00Z");
+  it("is outside the 60-day candidate window", () => {
+    expect(confirmedMoveouts(rolls, nov).some((m) => m.unitRef === "3640-105")).toBe(false);
+  });
+  it("is confirmed gone over the close-out lookback, and a tenant still there is not", () => {
+    const out = confirmedMoveouts(rolls, nov, 730);
+    expect(out.some((m) => m.unitRef === "3640-105" && sameTenant(m.occupantName, "Edward J. Gilson Jr."))).toBe(true);
+    expect(out.some((m) => m.unitRef === "3640-106")).toBe(false);
+  });
+});
