@@ -10,13 +10,13 @@ import { moveoutSettlement } from "@/lib/cam/moveout/deposit";
 import { settlementLines } from "@/lib/cam/moveout/settlementText";
 import { recordMoveoutSend } from "@/lib/cam/moveout/sendLog";
 import { moveoutCandidates } from "@/lib/cam/moveout/candidates";
+import { APPROVER, MOVEOUT_CHARGES_NAME, moveoutChargesTo } from "@/lib/cam/moveout/recipients";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const FROM = "dwinig@kormancommercial.com";
-const APPROVER = { office: "nfox@kormancommercial.com", retail: "hfeldman@kormancommercial.com" } as const;
 const money0 = (n: number) => "$" + Math.abs(Math.round(Number(n) || 0)).toLocaleString("en-US");
 
 async function currentUserLabel(): Promise<string | undefined> {
@@ -31,8 +31,8 @@ async function currentUserLabel(): Promise<string | undefined> {
  * POST { key } — approve & finalize a ready move-out close-out (the one human
  * touch). Re-computes the statement fresh (the GL may have moved), refuses if
  * it's no longer fully posted, then produces the final statement PDF + the
- * Skyline GL adjustment and emails the post-approval package to the approver
- * (office → Nancy, retail → Harry, cc the user). Records the finalize in the
+ * Skyline GL adjustment and emails the CHARGES to Tanya to post to the
+ * tenant's account (cc the approver — office → Nancy, retail → Harry). Records the finalize in the
  * move-out send log and flips the queue entry to `approved`.
  */
 export async function POST(req: Request) {
@@ -97,29 +97,42 @@ export async function POST(req: Request) {
   const bottom = dep?.net != null ? -dep.net : settlement.totalDue;
   const owed = bottom >= 0;
 
-  // Post-approval package → the approver (posts Skyline + releases the deposit), cc the user.
+  // Once approved, the CHARGES go to Tanya, who posts them to the tenant's
+  // account in Skyline (owner: "tanya processes the charges once approved");
+  // the approver is cc'd so she has the record of what she approved.
+  const chargesTo = moveoutChargesTo();
+  const money2 = (n: number) => (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   let emailed = false;
   if (isMailConfigured()) {
     const lines: string[] = [];
-    lines.push(`${c.meta.name} (Suite ${c.result.suite}, ${c.meta.property} — ${c.meta.propertyName}) — final move-out ${cats} reconciliation ${by ? `approved by ${by}` : "approved"}.`);
+    lines.push(`Hi ${MOVEOUT_CHARGES_NAME},`);
     lines.push("");
+    lines.push(`${c.meta.name} (Suite ${c.result.suite}, ${c.meta.property} — ${c.meta.propertyName}) moved out — their final bill was ${by ? `approved by ${by}` : "approved"}. Please post these charges to their account (${c.meta.unitRef}):`);
+    lines.push("");
+    if (glRows.length) {
+      for (const r of glRows) lines.push(`  • ${r.chargeDescription} (${r.chargeCode}) — ${money2(r.amount)}, effective ${effectiveDate}`);
+      lines.push("");
+      lines.push(`The attached CSV is the same charges as a Skyline import.`);
+    } else {
+      lines.push(`  • No reconciliation charge to post — the ${cats} true-up nets to $0.`);
+    }
+    lines.push("");
+    lines.push(`The final bill:`);
     lines.push(...settlementLines(settlement, cats));
     lines.push("");
-    lines.push(`Attached:`);
-    lines.push(`  • Final statement PDF — the final settlement, then the reconciliation (send to the tenant / keep on file)`);
-    lines.push(`  • Skyline GL adjustment (${glRows.length} row${glRows.length === 1 ? "" : "s"}, effective ${effectiveDate}) — import to post the true-up`);
+    lines.push(`Attached: the Final Bill PDF${glRows.length ? " and the Skyline charge import" : ""}.`);
     lines.push("");
     lines.push(`— KCP Portal`);
 
+    const attachments = [{ name: `${base}.pdf`, content: pdf, contentType: "application/pdf" }];
+    if (glRows.length) attachments.push({ name: `${base}_GL.csv`, content: Buffer.from(glCsv, "utf8"), contentType: "text/csv" });
     emailed = await sendMail({
-      to: APPROVER[c.kind],
+      to: chargesTo,
+      cc: APPROVER[c.kind].email,
       from: FROM,
-      subject: `Move-out finalized — ${c.meta.name} (${c.meta.property} ${c.meta.unitRef}) — ${money0(bottom)} ${owed ? "due" : dep?.net != null ? "refund" : "credit"}`,
+      subject: `Post move-out charges — ${c.meta.name} (${c.meta.property} ${c.meta.unitRef}) — ${money0(bottom)} ${owed ? "due" : dep?.net != null ? "refund" : "credit"}`,
       textBody: lines.join("\n"),
-      attachments: [
-        { name: `${base}.pdf`, content: pdf, contentType: "application/pdf" },
-        { name: `${base}_GL.csv`, content: Buffer.from(glCsv, "utf8"), contentType: "text/csv" },
-      ],
+      attachments,
     }).catch(() => false);
   }
 
@@ -130,6 +143,7 @@ export async function POST(req: Request) {
     name: c.meta.name, kind: c.kind, vacateMonth: c.meta.asOfMonth, leaseTo: c.meta.leaseTo,
     status: "ready", balance, occupiedMonths: c.result.occupiedMonths, unpostedMonths: 0,
     maxPosted: c.meta.maxPosted, deposit: dep, openAr: settlement.openAr, totalDue: settlement.totalDue,
+    ...(emailed ? { chargesSentTo: chargesTo, chargesSentAt: new Date().toISOString() } : {}),
   });
   await markApproved(key, by ?? null);
   await recordMoveoutSend({
@@ -139,5 +153,5 @@ export async function POST(req: Request) {
     finalizedAt: new Date().toISOString(), finalizedBy: by ?? null, glRows: glRows.length, emailed,
   }).catch(() => {});
 
-  return NextResponse.json({ ok: true, emailed, mailConfigured: isMailConfigured(), balance, glRows: glRows.length, effectiveDate });
+  return NextResponse.json({ ok: true, emailed, chargesTo, mailConfigured: isMailConfigured(), balance, glRows: glRows.length, effectiveDate });
 }

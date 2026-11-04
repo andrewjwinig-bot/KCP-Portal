@@ -21,21 +21,20 @@ import { buildMoveoutPdf, moveoutFileBase } from "./artifacts";
 import { closeOutKey, upsertCloseOut, getCloseOut, pruneCloseOuts } from "./queue";
 import { moveoutSettlement, type MoveoutSettlement } from "./deposit";
 import { settlementLines } from "./settlementText";
+import { APPROVER, MOVEOUT_CHARGES_NAME } from "./recipients";
 
 const GL_FROM_YEAR = 2026; // interim recon sources actuals from the imported GL
 const PORTAL_BASE = portalOrigin();
 const FROM = "dwinig@kormancommercial.com"; // verified Postmark sender
-const APPROVER: Record<"office" | "retail", { email: string; first: string }> = {
-  office: { email: "nfox@kormancommercial.com", first: "Nancy" },
-  retail: { email: "hfeldman@kormancommercial.com", first: "Harry" },
-};
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 
 type Ok = MoveoutOk;
 
-/** The one approval email — routed by kind, cc the user, statement PDF attached. */
-async function sendApproval(c: Ok, settlement: MoveoutSettlement): Promise<boolean> {
+/** The one approval email — routed by kind, the Final Bill PDF attached. Sent
+ *  by the watcher once the GL is posted, or from the Final Bill's "Send to
+ *  Nancy for approval" (`/api/cam-recon/moveout/request-approval`). */
+export async function sendApproval(c: Ok, settlement: MoveoutSettlement, by?: string): Promise<boolean> {
   const { meta, result } = c;
   const to = APPROVER[c.kind];
   const cats = c.kind === "retail" ? "CAM/INS/RET" : "CAM/RET";
@@ -43,7 +42,7 @@ async function sendApproval(c: Ok, settlement: MoveoutSettlement): Promise<boole
   const lines: string[] = [];
   lines.push(`Hi ${to.first},`);
   lines.push("");
-  lines.push(`${meta.name} (Suite ${result.suite}, ${meta.property} — ${meta.propertyName}) moved out ${movedOut}. Their final ${cats} reconciliation is ready — please review and approve it.`);
+  lines.push(`${meta.name} (Suite ${result.suite}, ${meta.property} — ${meta.propertyName}) moved out ${movedOut}. ${by ? `${by} sent you their final bill` : `Their final bill is ready`} — please review and approve it.`);
   lines.push("");
   lines.push(...settlementLines(settlement, cats));
   lines.push("");
@@ -56,7 +55,7 @@ async function sendApproval(c: Ok, settlement: MoveoutSettlement): Promise<boole
   lines.push(`Review the attached statement and approve it here:`);
   lines.push(link);
   lines.push("");
-  lines.push(`Once you approve, the Skyline GL adjustment and the final statement are generated automatically — nothing else needs to be done.`);
+  lines.push(`Once you approve, the charges go to ${MOVEOUT_CHARGES_NAME} to post to the tenant's account — nothing else needs to be done.`);
   lines.push("");
   lines.push(`— KCP Portal`);
 

@@ -17,7 +17,7 @@ import { SegToggle } from "@/app/financials/reprojections/ReprojTable";
 import { Calendar } from "@/app/components/Calendar";
 import { useUser } from "@/app/components/UserProvider";
 import { HoverCard } from "@/app/components/HoverCard";
-import { escrowNote, escrowClause, totalDue as totalDueOf, type MoveoutOpenAr } from "@/lib/cam/moveout/openAr";
+import { escrowNote, totalDue as totalDueOf, type MoveoutOpenAr } from "@/lib/cam/moveout/openAr";
 import { drawSettlement, drawUnpaidDetail, drawDepositDetail, type DepositDetail } from "@/lib/cam/moveout/settlementPdf";
 import { blobSrc } from "@/lib/blobProxy";
 
@@ -713,42 +713,55 @@ export default function InterimReconPage() {
     </button>
   );
 
-  const [letterText, setLetterText] = useState<string | null>(null);
-  const openLetter = useCallback(async () => {
+  // SEND TO NANCY FOR APPROVAL (owner: "instead of draft letter a button to
+  // send to nancy"). The Final Bill is reviewed here (Download PDF), sent to
+  // the approver — office → Nancy, retail → Harry — and once she approves, the
+  // charges go to Tanya to post (`/api/cam-recon/moveout/finalize`).
+  const approver = retail ? { first: "Harry", email: "hfeldman@kormancommercial.com" } : { first: "Nancy", email: "nfox@kormancommercial.com" };
+  const [approval, setApproval] = useState<{ notifiedAt?: string | null; notifiedBy?: string | null; status?: string; chargesSentTo?: string | null; chargesSentAt?: string | null } | null>(null);
+  const [confirmSend, setConfirmSend] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendMsg, setSendMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    setApproval(null); setSendMsg(null); setConfirmSend(false);
+    if (!meta || meta.manual) return;
+    const q = new URLSearchParams({ property: meta.property, unitRef: meta.unitRef, year: String(meta.year) });
+    fetch(`/api/cam-recon/moveout/request-approval?${q}`).then((r) => r.json()).then((j) => setApproval(j.entry ?? null)).catch(() => {});
+  }, [meta?.property, meta?.unitRef, meta?.year, meta?.manual]);
+  const sendForApproval = useCallback(async () => {
     if (!meta) return;
-    const kind = retail ? "retail" : "office";
-    const { moveOutCloseOutLetter } = await import("@/lib/cam/letters");
-    setLetterText(moveOutCloseOutLetter({
-      propertyName: meta.propertyName, tenant: meta.name, suite: meta.unitRef.split("-").slice(1).join("-"),
-      year: meta.year, asOfMonth: meta.asOfMonth, occupiedMonths: meta.occupiedMonths, totalBalance, kind,
-      securityDeposit: deposit ? deposit.amount : null,
-      depositStatus: deposit ? deposit.status : null,
-      openBalance: openAr ? openAr.balance : null,
-      openBalanceNote: escrowClause(openAr),
-    }));
-  }, [retail, r, meta, totalBalance, deposit, openAr]);
-  const letterButton = (
-    <button className="btn" onClick={openLetter} title="Draft a move-out close-out letter with these figures"
-      style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Draft letter</button>
-  );
-  const letterModal = letterText != null && (
-    <div onClick={() => setLetterText(null)} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "6vh 16px 16px", overflowY: "auto" }}>
-      <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "100%", maxWidth: 640, margin: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div style={{ fontSize: 16, fontWeight: 800 }}>Move-out close-out letter</div>
-          <button onClick={() => setLetterText(null)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)" }} aria-label="Close">×</button>
+    setSending(true); setSendMsg(null);
+    try {
+      const res = await fetch("/api/cam-recon/moveout/request-approval", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ property: meta.property, unitRef: meta.unitRef, year: meta.year, asOf: meta.asOfMonth }),
+      });
+      const j = await res.json();
+      if (!res.ok || j.error) setSendMsg({ ok: false, text: j.error ?? "Could not send." });
+      else { setApproval(j.entry); setSendMsg({ ok: true, text: `✓ Sent to ${j.approver} for approval.` }); setConfirmSend(false); }
+    } catch (e) { setSendMsg({ ok: false, text: String(e) }); } finally { setSending(false); }
+  }, [meta]);
+  const fmtWhen = (iso?: string | null) => iso ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+  const sendModal = confirmSend && meta && (
+    <div onClick={() => !sending && setConfirmSend(false)} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "10vh 16px 16px", overflowY: "auto" }}>
+      <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "100%", maxWidth: 520, margin: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>Send to {approver.first} for approval</div>
+          <button onClick={() => setConfirmSend(false)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)" }} aria-label="Close">×</button>
         </div>
-        <p className="muted small" style={{ marginTop: 0 }}>Draft — review and edit before sending. Figures are pulled from the statement.</p>
-        <textarea value={letterText} onChange={(e) => setLetterText(e.target.value)}
-          style={{ width: "100%", minHeight: 300, lineHeight: 1.5, resize: "vertical" }} />
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 10 }}>
-          <button className="btn" onClick={() => { navigator.clipboard?.writeText(letterText).catch(() => {}); }} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Copy</button>
-          <button className="btn primary" onClick={() => {
-            const blob = new Blob([letterText], { type: "text/plain" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a"); a.href = url; a.download = `${meta?.name?.replace(/[^\w]+/g, "_") ?? "tenant"}_close_out_letter.txt`; a.click();
-            setTimeout(() => URL.revokeObjectURL(url), 2000);
-          }} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download .txt</button>
+        <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>{meta.name} <code style={{ fontSize: 12 }}>{meta.unitRef}</code></div>
+        <div style={{ fontSize: 13, display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 14px" }}>
+          <span className="muted">To</span><span><strong>{approver.first}</strong> · {approver.email}</span>
+          <span className="muted">Attached</span><span>The Final Bill PDF — the same one Download PDF gives you</span>
+          <span className="muted">Then</span><span>{approver.first} approves on this page, and the charges go to <strong>Tanya</strong> (trovkin@kormancommercial.com) to post to the tenant&rsquo;s account.</span>
+        </div>
+        {approval?.notifiedAt && <div style={{ fontSize: 12.5, marginTop: 12, color: "#b45309", fontWeight: 600 }}>Already sent {fmtWhen(approval.notifiedAt)}{approval.notifiedBy ? ` by ${approval.notifiedBy}` : ""} — this sends it again.</div>}
+        {sendMsg && !sendMsg.ok && <div style={{ fontSize: 13, marginTop: 10, fontWeight: 600, color: "#b91c1c" }}>{sendMsg.text}</div>}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
+          <button className="btn" onClick={() => setConfirmSend(false)} disabled={sending} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Cancel</button>
+          <button className="btn primary" onClick={sendForApproval} disabled={sending} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
+            {sending ? "Sending…" : `Send to ${approver.first}`}
+          </button>
         </div>
       </div>
     </div>
@@ -804,7 +817,7 @@ export default function InterimReconPage() {
       });
       const j = await res.json();
       if (!res.ok || j.error) setFinalizeMsg(j.error ?? "Could not finalize.");
-      else setFinalizeMsg(j.emailed ? "✓ Finalized — Skyline GL adjustment + final statement emailed to the office." : "✓ Finalized (email not configured).");
+      else setFinalizeMsg(j.emailed ? `✓ Approved — the charges were sent to Tanya (${j.chargesTo}) to post.` : "✓ Approved (email not configured — nothing was sent to Tanya).");
     } catch (e) { setFinalizeMsg(String(e)); } finally { setFinalizing(false); }
   }, [meta]);
   const finalizeDone = (finalizeMsg ?? "").startsWith("✓");
@@ -837,16 +850,29 @@ export default function InterimReconPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button className="btn" onClick={retail ? downloadRetailPdf : downloadPdf} title="The final settlement, then the reconciliation — one PDF"
             style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
-          {letterButton}
-          {canFinalize && (
-            <button className="btn primary" onClick={approveFinalize} disabled={finalizing || finalizeDone}
-              title="Post the true-up: generates the Skyline GL adjustment + final statement and emails the office"
+          {canFinalize && approval?.status !== "approved" && (
+            <button className={approval?.notifiedAt ? "btn" : "btn primary"} onClick={() => { setSendMsg(null); setConfirmSend(true); }}
               style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
-              {finalizing ? "Finalizing…" : finalizeDone ? "✓ Finalized" : "Approve & finalize"}
+              {approval?.notifiedAt ? `Re-send to ${approver.first}` : `Send to ${approver.first} for approval`}
+            </button>
+          )}
+          {canFinalize && (
+            <button className={approval?.notifiedAt ? "btn primary" : "btn"} onClick={approveFinalize} disabled={finalizing || finalizeDone || approval?.status === "approved"}
+              title="Approve the Final Bill — the charges go to Tanya to post to the tenant's account"
+              style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
+              {finalizing ? "Approving…" : finalizeDone || approval?.status === "approved" ? "✓ Approved" : "Approve & finalize"}
             </button>
           )}
         </div>
       </div>
+      {(approval?.notifiedAt || approval?.status === "approved") && !finalizeMsg && (
+        <div className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+          {approval.status === "approved"
+            ? <>Approved{approval.chargesSentAt ? <> · charges sent to Tanya {fmtWhen(approval.chargesSentAt)}</> : null}</>
+            : <>Sent to {approver.first} for approval {fmtWhen(approval.notifiedAt)}{approval.notifiedBy ? ` by ${approval.notifiedBy}` : ""}</>}
+        </div>
+      )}
+      {sendMsg?.ok && <div style={{ fontSize: 13, marginTop: 8, fontWeight: 600, color: "#15803d" }}>{sendMsg.text}</div>}
       {finalizeMsg && <div style={{ fontSize: 13, marginTop: 8, fontWeight: 600, color: finalizeDone ? "#15803d" : "#b91c1c" }}>{finalizeMsg}</div>}
       {!confirmedGone && !meta.manual && (
         <div className="muted small" style={{ marginTop: 6 }}>Still on the rent roll — an interim statement only; it can be finalized once a rent roll no longer shows them.</div>
@@ -1201,7 +1227,7 @@ export default function InterimReconPage() {
           </p>
         </div>
       )}
-      {letterModal}
+      {sendModal}
     </main>
   );
 }
