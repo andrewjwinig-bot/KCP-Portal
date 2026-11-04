@@ -955,7 +955,7 @@ AS BILLED, which is why it still reads e.g. $3,600; with no monthly statement
 on file it says so instead. **A moved-out tenant is on Skyline's Statement
 report as `<suite>-FO` (former occupant)** — SEOM printed `3640-300-FO` — and
 the import KEEPS that suffix (stripping it would merge a former and a current
-tenant of one suite); `pickOpenAr` reads past `-CU` / `-FO`. A full run leaves
+tenant of one suite); `pickOpenAr` reads past `-CU` / `-FO`. Skyline can also file a former occupant under a LETTERED suite (Gilson's final statement is `3640-105A-FO` for 3640-105); `pickTenantStatement` takes `<suite><letter>` only on a NAME match. A full run leaves
 former tenants off, so run theirs on its own. With no statement under the
 roll's name it falls back to the suite's (never the current occupant's) and
 says so (`nameMatched: false`). **Importing the tenant's FINAL statement is a

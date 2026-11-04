@@ -48,6 +48,15 @@ describe("move-out open balance", () => {
     expect(ar?.balance).toBe(31460.39);
     expect(ar?.nameMatched).toBe(true);
   });
+  it("finds a former tenant Skyline files under a lettered suite (3640-105A-FO)", () => {
+    const fo = { ...st("Edward J. Gilson Jr.", seom.charges, 135.41), unitRef: "3640-105A-FO", skylineUnitRef: "3640-105A-FO", suite: "105A" };
+    const ar = pickOpenAr([{ period: "2026-11", statements: [fo] }], "3640-105", "Edward J. Gilson Jr.", 2026, null);
+    expect(ar?.balance).toBe(135.41);
+    expect(ar?.nameMatched).toBe(true);
+    // …never another tenant's lettered suite.
+    expect(pickOpenAr([{ period: "2026-11", statements: [fo] }], "3640-105", "Acme Dental Group", 2026, null)).toBeNull();
+    expect(pickOpenAr([{ period: "2026-11", statements: [{ ...fo, unitRef: "3640-1050-FO", skylineUnitRef: "3640-1050-FO" }] }], "3640-105", "Edward J. Gilson Jr.", 2026, null)).toBeNull();
+  });
   it("falls back to the suite when Skyline prints a different name", () => {
     const legal = st("Southeastern Orthopedic Medicine LLC", seom.charges, seom.reportedBalance);
     const ar = pickOpenAr([{ period: "2026-09", statements: [legal] }], "3640-300", "SEOM", 2026, null);
