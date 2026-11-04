@@ -742,6 +742,7 @@ export default function InterimReconPage() {
     } catch (e) { setSendMsg({ ok: false, text: String(e) }); } finally { setSending(false); }
   }, [meta]);
   const fmtWhen = (iso?: string | null) => iso ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
+  const modalUnposted = retail?.unpostedMonths ?? r?.unpostedMonths ?? 0;
   const sendModal = confirmSend && meta && (
     <div onClick={() => !sending && setConfirmSend(false)} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "10vh 16px 16px", overflowY: "auto" }}>
       <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "100%", maxWidth: 520, margin: 0 }}>
@@ -755,6 +756,7 @@ export default function InterimReconPage() {
           <span className="muted">Attached</span><span>The Final Bill PDF — the same one Download PDF gives you</span>
           <span className="muted">Then</span><span>{approver.first} approves on this page, and the charges go to <strong>Tanya</strong> (trovkin@kormancommercial.com) to post to the tenant&rsquo;s account.</span>
         </div>
+        {modalUnposted > 0 && <div style={{ fontSize: 12.5, marginTop: 12, color: "#b45309", fontWeight: 600 }}>GL posted through {MONTHS[meta.maxPosted - 1] ?? "—"} — {modalUnposted} occupied month{modalUnposted > 1 ? "s" : ""} still to post. The email says so; {approver.first} can approve once it posts.</div>}
         {approval?.notifiedAt && <div style={{ fontSize: 12.5, marginTop: 12, color: "#b45309", fontWeight: 600 }}>Already sent {fmtWhen(approval.notifiedAt)}{approval.notifiedBy ? ` by ${approval.notifiedBy}` : ""} — this sends it again.</div>}
         {sendMsg && !sendMsg.ok && <div style={{ fontSize: 13, marginTop: 10, fontWeight: 600, color: "#b91c1c" }}>{sendMsg.text}</div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
@@ -804,6 +806,10 @@ export default function InterimReconPage() {
   // statement only.
   const confirmedGone = !!meta && candidates.some((c) => c.kind === "vacated" && c.propertyCode === meta.property && c.unitRef === meta.unitRef);
   const canFinalize = !!meta && !meta.manual && !!(r || retail) && unpostedMonths === 0 && confirmedGone;
+  // Sending for approval needs only a confirmed move-out — GL months still to
+  // post are a warning, not a block (owner: the button "isnt showing for
+  // gilson"); Approve & finalize keeps the fully-posted rule.
+  const canSend = !!meta && !meta.manual && !!(r || retail) && confirmedGone;
   const [finalizing, setFinalizing] = useState(false);
   const [finalizeMsg, setFinalizeMsg] = useState<string | null>(null);
   useEffect(() => { setFinalizing(false); setFinalizeMsg(null); }, [meta?.unitRef, meta?.year, meta?.asOfMonth]);
@@ -850,14 +856,14 @@ export default function InterimReconPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button className="btn" onClick={retail ? downloadRetailPdf : downloadPdf} title="The final settlement, then the reconciliation — one PDF"
             style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>Download PDF</button>
-          {canFinalize && approval?.status !== "approved" && (
+          {canSend && approval?.status !== "approved" && (
             <button className={approval?.notifiedAt ? "btn" : "btn primary"} onClick={() => { setSendMsg(null); setConfirmSend(true); }}
               style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
               {approval?.notifiedAt ? `Re-send to ${approver.first}` : `Send to ${approver.first} for approval`}
             </button>
           )}
-          {canFinalize && (
-            <button className={approval?.notifiedAt ? "btn primary" : "btn"} onClick={approveFinalize} disabled={finalizing || finalizeDone || approval?.status === "approved"}
+          {canSend && (
+            <button className={approval?.notifiedAt ? "btn primary" : "btn"} onClick={approveFinalize} disabled={!canFinalize || finalizing || finalizeDone || approval?.status === "approved"}
               title="Approve the Final Bill — the charges go to Tanya to post to the tenant's account"
               style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
               {finalizing ? "Approving…" : finalizeDone || approval?.status === "approved" ? "✓ Approved" : "Approve & finalize"}
@@ -874,7 +880,12 @@ export default function InterimReconPage() {
       )}
       {sendMsg?.ok && <div style={{ fontSize: 13, marginTop: 8, fontWeight: 600, color: "#15803d" }}>{sendMsg.text}</div>}
       {finalizeMsg && <div style={{ fontSize: 13, marginTop: 8, fontWeight: 600, color: finalizeDone ? "#15803d" : "#b91c1c" }}>{finalizeMsg}</div>}
-      {!confirmedGone && !meta.manual && (
+      {confirmedGone && !meta.manual && unpostedMonths > 0 && approval?.status !== "approved" && (
+        <div style={{ fontSize: 12.5, marginTop: 8, color: "#b45309", fontWeight: 600 }}>
+          The GL is posted through {MONTHS[meta.maxPosted - 1] ?? "—"} — {unpostedMonths} occupied month{unpostedMonths > 1 ? "s" : ""} still to post. You can send it to {approver.first} now; it can be approved once the GL is posted through the move-out month.
+        </div>
+      )}
+            {!confirmedGone && !meta.manual && (
         <div className="muted small" style={{ marginTop: 6 }}>Still on the rent roll — an interim statement only; it can be finalized once a rent roll no longer shows them.</div>
       )}
 

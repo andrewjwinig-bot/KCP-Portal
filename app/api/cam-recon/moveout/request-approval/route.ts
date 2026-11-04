@@ -64,9 +64,10 @@ export async function POST(req: Request) {
   }
   const c = await computeMoveoutStatement(property, year, unitRef, asOf);
   if (!moveoutOk(c)) return NextResponse.json({ error: c.error }, { status: 409 });
-  if (c.result.unpostedMonths > 0 || c.result.occupiedMonths <= 0) {
-    return NextResponse.json({ error: `Not ready — ${c.result.unpostedMonths} occupied month(s) aren't posted to the GL yet.` }, { status: 409 });
-  }
+  // GL months still unposted do NOT block the send (owner: "the send to nancy
+  // button isnt showing for gilson") — she can review the Final Bill now; the
+  // email says the GL is short, and Approve & finalize still waits for it.
+  if (c.result.occupiedMonths <= 0) return NextResponse.json({ error: "No occupied months to reconcile." }, { status: 409 });
 
   const by = await currentUserLabel();
   const balance = moveoutBalance(c);
@@ -78,9 +79,9 @@ export async function POST(req: Request) {
   const entry = await upsertCloseOut(key, {
     property, unitRef, year, propertyName: c.meta.propertyName, suite: c.result.suite,
     name: c.meta.name, kind: c.kind, vacateMonth: c.meta.asOfMonth, leaseTo: c.meta.leaseTo,
-    status: "ready", balance, occupiedMonths: c.result.occupiedMonths, unpostedMonths: 0,
+    status: c.result.unpostedMonths > 0 ? "waiting" : "ready", balance, occupiedMonths: c.result.occupiedMonths, unpostedMonths: c.result.unpostedMonths,
     maxPosted: c.meta.maxPosted, deposit: settlement.deposit, openAr: settlement.openAr, totalDue: settlement.totalDue,
-    readyAt: prior?.readyAt ?? now, notifiedAt: now, notifiedBy: by ?? null,
+    readyAt: c.result.unpostedMonths > 0 ? (prior?.readyAt ?? null) : (prior?.readyAt ?? now), notifiedAt: now, notifiedBy: by ?? null,
   });
   return NextResponse.json({ ok: true, to: APPROVER[c.kind].email, approver: APPROVER[c.kind].first, entry });
 }
