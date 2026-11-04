@@ -865,7 +865,7 @@ export default function InterimReconPage() {
             : <span className="muted" style={{ fontWeight: 500 }}>not imported</span>,
           <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <span>
-              {openAr ? "From their final Skyline statement." : <>Import the tenant&rsquo;s final Skyline statement (a moved-out tenant is <code>{meta.unitRef}-FO</code>).</>}
+              {openAr ? "From their final Skyline Laser Statement." : <>Import the tenant&rsquo;s final Skyline <strong>Laser Statement</strong>, run for this tenant alone (a moved-out tenant is <code>{meta.unitRef}-FO</code>).</>}
               {openAr && openAr.charges?.length > 0 && (
                 <button className="btn-link" onClick={() => setShowCharges((v) => !v)}
                   style={{ marginLeft: 6, background: "none", border: "none", padding: 0, color: "#0b4a7d", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>
