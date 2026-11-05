@@ -3408,6 +3408,28 @@ the other statement pages (`financials-statements` → Drew, Alison, admin).
   changes it is a security decision on the order of the K-1s (encrypted at rest,
   its own access key), not an incremental feature.
 
+# PA nonresident withholding on distributions — the property page
+
+**Elbridge (7200) and Revere (7300) carry a PA NR WITHHOLDING calculator on
+their property page** (`PaWithholdingCard`, under Ownership; owner: "so we
+know how much to withhold when making distributions"). The owner's "2026
+Distribution PA NR WH" workbooks rebuilt: type the TOTAL DISTRIBUTION; each
+partner's gross = roster % × it, withholding = the prior year's PA NR payment
++ this year's estimate the partnership paid on their behalf, net = gross −
+withholding (`computeWithholding` in `lib/investors/paNrWithholding.ts`, pure —
+the card, the API and the Excel all call it). Ownership % is the ROSTER's
+(`ownership.ts`), never re-keyed. Payments are typed in the light-blue cells
+and stored per property per distribution year (`pa-nr-withholding`,
+`<code>-<year>`); a year never saved starts from `WITHHOLDING_SEEDS` (2026 =
+the workbooks), any later year with the distribution and $0 payments. Gated on
+the server to `canEditOwnership` (`/api/properties/[id]/pa-withholding` — the
+`/api/properties` prefix is open to everyone signed in). Excel: shared theme,
+the distribution an input cell, every gross / withholding / net and total a
+live formula. **Revere's seed leaves out Brendan K. Isard** (redeemed 10/2026):
+his $285 + $285.86 are not recovered, and the gross uses the post-redemption
+%s, not the workbook's. A new partnership = one entry in `WITHHOLDING_SEEDS`.
+Pinned by `paNrWithholding.test.ts` (Elbridge ties to the workbook to the cent).
+
 # Investor K-1 delivery — sources of truth
 
 Schedule K-1s carry taxpayer IDs, income allocations and capital accounts. This
