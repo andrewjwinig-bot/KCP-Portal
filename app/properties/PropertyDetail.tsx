@@ -2,6 +2,7 @@
 
 import SitePlanCard from "./[id]/SitePlanCard";
 import PerformanceCard from "./[id]/PerformanceCard";
+import PaWithholdingCard from "./[id]/PaWithholdingCard";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -982,6 +983,9 @@ export function PropertyDetailBody({
           )}
           </div>
         )}
+
+        {/* ── PA nonresident withholding on a distribution (its API gates who sees it) ── */}
+        {!isMaint && <PaWithholdingCard code={prop.id} />}
 
         {/* ── Tax Filings ── */}
         {!isMaint && filingTasks.length > 0 && (
