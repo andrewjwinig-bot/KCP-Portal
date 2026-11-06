@@ -21,6 +21,7 @@ import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { buildDataset, type DatasetYear } from "@/lib/assistant/dataset";
+import { breakdown, propertyTypeOf, type BreakdownGroupBy, type BreakdownMetric, type PropertyFigure } from "@/lib/assistant/breakdown";
 import { validateTable } from "@/lib/assistant/validateTable";
 import { validateClarify } from "@/lib/assistant/clarify";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
@@ -330,6 +331,25 @@ const FINANCIAL_TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "portfolio_breakdown",
+    description:
+      "Break a year's operating-statement figure down across the portfolio and give each group's TOTAL and its % SHARE of the whole, computed in code. " +
+      "metric: 'revenue', 'opex', 'noi' or 'cash_flow' (after debt service). group_by: 'property_type' (Office / Retail / Residential / Land — the property's type), 'book' (Business Parks / Shopping Centers / Other), or 'property' (each property's share). " +
+      "Use for 'what % of revenue comes from office vs retail', 'breakdown of NOI by property type', 'share of revenue by property', 'mix of income'. " +
+      "LIK Management (2000 / 2010) is LEFT OUT by default — its revenue is the management fees the properties pay it, so including it counts those dollars twice; set include_management_company only if the user asks for it, and say in the answer that it was excluded. " +
+      "Figures are year to date through each property's last posted month; when `periodsDiffer` is true, say so.",
+    input_schema: {
+      type: "object",
+      properties: {
+        metric: { type: "string", enum: ["revenue", "opex", "noi", "cash_flow"], description: "What to break down" },
+        group_by: { type: "string", enum: ["property_type", "book", "property"], description: "How to group (default property_type)" },
+        year: { type: "number", description: "Year (defaults to current year)" },
+        include_management_company: { type: "boolean", description: "Include LIK Management (2000/2010). Default false." },
+      },
+      required: ["metric"],
+    },
+  },
+  {
     name: "debt_summary",
     description:
       "Portfolio debt aggregates: total projected outstanding balance, weighted-average interest rate, total monthly & annual debt service, and loans maturing within 24 months. Computed in code.",
@@ -378,6 +398,7 @@ const TOOL_STATUS: Record<string, string> = {
   get_statement_detail: "Reading statement line detail",
   rank_properties: "Ranking properties",
   portfolio_rollup: "Rolling up the portfolio",
+  portfolio_breakdown: "Breaking the portfolio down",
   build_dataset: "Building the dataset across properties and years",
   debt_summary: "Summarizing the debt",
   get_monthly_report: "Reading the Monthly Review",
@@ -946,8 +967,8 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
             default: value = f.noi;
           }
           if (value == null) return null;
-          return { property: m.propertyCode, name: mapping.entityName, group: REPORT_GROUP_LABELS[groupOf(m.propertyCode)], throughPeriod: f.period, value: metric === "noi_margin" ? value : round(value) };
-        }))).filter(Boolean) as { property: string; name: string; group: string; throughPeriod: number; value: number }[];
+          return { property: m.propertyCode, name: mapping.entityName, type: propertyTypeOf(m.propertyCode), group: REPORT_GROUP_LABELS[groupOf(m.propertyCode)], throughPeriod: f.period, value: metric === "noi_margin" ? value : round(value) };
+        }))).filter(Boolean) as { property: string; name: string; type: string; group: string; throughPeriod: number; value: number }[];
         rows.sort((a, b) => order === "asc" ? a.value - b.value : b.value - a.value);
         return { metric, year, group: groupFilter ? REPORT_GROUP_LABELS[groupFilter] : "All", unit: metric === "noi_margin" ? "percent" : "dollars", count: rows.length, ranked: rows };
       } catch (e) { return { error: e instanceof Error ? e.message : "Failed to rank." }; }
@@ -982,6 +1003,31 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
           cashFlowAfterDebtService: round(cf),
         };
       } catch (e) { return { error: e instanceof Error ? e.message : "Failed to roll up." }; }
+    }
+
+    case "portfolio_breakdown": {
+      if (!showFinancials) return { error: "Not authorized to view financials." };
+      const year = Number.isFinite(input.year) ? Number(input.year) : new Date().getFullYear();
+      const metric = (["revenue", "opex", "noi", "cash_flow"].includes(String(input.metric)) ? String(input.metric) : "revenue") as BreakdownMetric;
+      const groupBy = (["property_type", "book", "property"].includes(String(input.group_by)) ? String(input.group_by) : "property_type") as BreakdownGroupBy;
+      try {
+        const { mappings, byKeyYear } = await loadStatementInputs("own");
+        const figures = (await Promise.all(mappings.map(async (m): Promise<PropertyFigure | null> => {
+          const gls = byKeyYear.get(`${m.key}::${year}`) ?? [];
+          if (!gls.length) return null;
+          const mapping = await getMapping(m.key);
+          if (!mapping) return null;
+          const f = await computeYearFinancials(mapping, m.propertyCode, year, gls);
+          if (!f) return null;
+          return { property: m.propertyCode, name: mapping.entityName ?? m.propertyCode, revenue: f.revenue, opex: f.opex, noi: f.noi, cashFlow: f.cfAfterDebt, throughPeriod: f.period };
+        }))).filter((x): x is PropertyFigure => !!x);
+        if (!figures.length) return { error: `No operating statements found for ${year}.` };
+        const r = breakdown(figures, { metric, groupBy, includeManagement: input.include_management_company === true });
+        return {
+          year, ...r,
+          note: "value = year-to-date dollars; sharePct = the group's share of the total, already computed — quote it, do not recompute. excluded = properties left out (the management company, unless asked).",
+        };
+      } catch (e) { return { error: e instanceof Error ? e.message : "Failed to break down." }; }
     }
 
     case "debt_summary": {
@@ -1086,7 +1132,7 @@ export async function POST(req: Request) {
     `Answer the user's question by calling the provided tools to look up live data, then giving a concise, direct answer. ` +
     `Use the tools as many times as needed; chain them (e.g. find a property code, then pull its operating statement). ` +
     `Rules: answer ONLY from tool results — NEVER guess, estimate, or invent numbers, names, or dates. If the tools don't have the answer, say so plainly and point to the most relevant page. ` +
-    `Every figure in your answer must come from a tool result. For totals, rankings, year-over-year, averages, or any cross-record math, ALWAYS use the aggregate/rank/rollup/trend tools that compute the number in code — do NOT add, subtract, or average figures yourself. When comparing years, prefer get_noi_trend's period-aligned series. Today is ${new Date().toISOString().slice(0, 10)}.\n\n` +
+    `Every figure in your answer must come from a tool result. For totals, rankings, year-over-year, averages, or any cross-record math, ALWAYS use the aggregate/rank/rollup/trend tools that compute the number in code — do NOT add, subtract, or average figures yourself. When comparing years, prefer get_noi_trend's period-aligned series. For any SHARE / MIX / "% of … by …" question (by property type, by book, by property), use portfolio_breakdown — it returns the percentages already computed. Property TYPE (office / retail / residential / land) and BOOK (business parks / shopping centers) are different groupings: use the one the user named. Today is ${new Date().toISOString().slice(0, 10)}.\n\n` +
     (showFinancials ? "" : "You do NOT have access to financial figures (NOI, budget, debt) for this user — do not attempt to state them.\n\n") +
     `When you have enough to answer, reply with ONLY a JSON object (no prose around it): ` +
     `{"answer": "markdown string", "links": [{"label": "...", "href": "/route"}], "chart": null | {"type": "bar"|"line", "title": "...", "unit": "dollars"|"percent"|"sqft"|"count", "series": [{"label": "...", "value": number}]}, "letter": null | {"kind": "...", "to": "...", "subject": "...", "body": "..."}, "table": null | {"title": "...", "subtitle": "...", "columns": [{"key": "...", "label": "...", "format": "text"|"money"|"percent"|"number", "ratioOf": {"numerator": "<col key>", "denominator": "<col key>"}}], "rows": [{"<col key>": number|string|null}], "notes": ["..."]}, "clarify": null | {"question": "...", "options": ["...", "..."]}}. ` +
