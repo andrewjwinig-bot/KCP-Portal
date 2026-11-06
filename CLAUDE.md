@@ -62,6 +62,21 @@ list — Tasks This Week, the daily digest, the Monday email, the sidebar count 
 until its due day, then keeps it through the week if not ticked. The Task
 Tracker's calendar still shows every Wednesday. Pinned by `taskDefs.test.ts`.
 
+**RANDY (Randolph Lee) IS THE STAFF ACCOUNTANT, READ-ONLY WHILE ONBOARDING**
+(owner: "lets make randy his account"; earlier: "without giving him full access
+yet"). His profile (`randy` in `lib/users.ts`, access group `accounting`)
+reaches the dashboard, properties, rent roll, units, all of `/financials`
+(statements, reprojections, T-12, balance sheet, 1099, Bank Balances, budgets —
+payroll stays behind `canSeePayroll`), Monthly Statements and the Report
+Center. **Read-only is enforced on the SERVER**: `READ_ONLY_USERS` makes
+`authorizeRequest` (called by the middleware with the request METHOD) refuse
+every non-GET API call except sign-in / out, 2FA and the assistant — several
+`/api/financials` routes trust the page grant alone, and a GL upload there
+would also fire the Allocated Expenses send to AvidXchange. No Debt Tracker
+(its PUT is open to anyone with the page), bank recs, investors, payroll or
+invoicers. To give him real work: widen his profile and take him out of
+`READ_ONLY_USERS`. Pinned by `authz.test.ts`.
+
 # Known data gaps / accepted exceptions (do NOT re-flag as bugs)
 
 - **Payroll allocation — Harry Feldman sums to ~94.86%, not 100%.** This is intentional and accepted, NOT a keying error. His allocation workbook row (`data/allocation.xlsx`) is: ~85% across the shopping centers, 5% Interstate/Bellmawr (`0800`), 5% Eastwick (the `Eastwick` column → "Eastwick JV"), and **5% Middletown**. Middletown is a land parcel Korman owns but the portal does NOT track (no property code, no allocation column), so that ~5.14% has nowhere to land and his tracked total reads 94.86%. The dashboard allocation-gap warning will keep flagging him — that's expected. Leave it as-is unless the user decides to add Middletown as a tracked land property (they'd supply its GL code, and Nancy would add a `Middletown` column with the 5% to the workbook).

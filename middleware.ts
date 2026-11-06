@@ -120,7 +120,7 @@ export async function middleware(req: NextRequest) {
     // The signed cookie carries the real logged-in user; enforce their page
     // access + sensitive-API access here (not just client-side in AppShell).
     // Switchers (admin/drew/alison) keep broad access via their own profile.
-    if (!(ALL_USERS as readonly string[]).includes(siteUser) || !authorizeRequest(siteUser as UserId, pathname)) {
+    if (!(ALL_USERS as readonly string[]).includes(siteUser) || !authorizeRequest(siteUser as UserId, pathname, req.method)) {
       if (pathname.startsWith("/api/")) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
