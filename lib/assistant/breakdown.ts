@@ -36,7 +36,7 @@ export function propertyTypeOf(code: string): string {
 }
 
 /** The fund shells are the business parks' own entities. */
-function bookOf(code: string): string {
+export function bookOf(code: string): string {
   const c = code.toUpperCase();
   if (c === "PJV3" || c === "PNIPLX" || c === "PIIICO" || c === "CONDO") return REPORT_GROUP_LABELS.bp;
   return REPORT_GROUP_LABELS[groupOf(c)];

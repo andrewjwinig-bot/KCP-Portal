@@ -21,7 +21,9 @@ import { getMapping } from "@/lib/financials/operating-statements/mappingStore";
 import { summaryForPeriod } from "@/lib/financials/operating-statements/glParser";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { buildDataset, type DatasetYear } from "@/lib/assistant/dataset";
-import { breakdown, propertyTypeOf, type BreakdownGroupBy, type BreakdownMetric, type PropertyFigure } from "@/lib/assistant/breakdown";
+import { rentRollBreakdown } from "@/lib/assistant/rentRollBreakdown";
+import { calculate, type CalcOp } from "@/lib/assistant/calculate";
+import { breakdown, bookOf, propertyTypeOf, type BreakdownGroupBy, type BreakdownMetric, type PropertyFigure } from "@/lib/assistant/breakdown";
 import { validateTable } from "@/lib/assistant/validateTable";
 import { validateClarify } from "@/lib/assistant/clarify";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
@@ -196,13 +198,42 @@ const OPERATIONAL_TOOLS: ToolDef[] = [
   {
     name: "get_occupancy",
     description:
-      "Occupancy computed in code for a scope: a single property code, a group (bp/sc/lik/other), or the whole portfolio. Returns total / occupied / vacant square footage, occupancy %, unit count, and vacant-unit count.",
+      "Occupancy computed in code for a scope: a single property code, a group (bp/sc/lik/other), a property TYPE (office/retail/residential/land), or the whole portfolio. Returns total / occupied / vacant square footage, occupancy %, unit count, and vacant-unit count.",
     input_schema: {
       type: "object",
       properties: {
-        scope: { type: "string", description: "A property code (e.g. '4500'), a group key (bp/sc/lik/other), or 'portfolio'" },
+        scope: { type: "string", description: "A property code (e.g. '4500'), a group key (bp/sc/lik/other), a property type (office/retail/residential/land), or 'portfolio'" },
       },
       required: ["scope"],
+    },
+  },
+  {
+    name: "rent_roll_breakdown",
+    description:
+      "Occupancy and rent per SF from the CURRENT rent roll, grouped by 'property_type' (Office / Retail / Residential / Land), 'book' (Business Parks / Shopping Centers / Other) or 'property'. Each group: total / occupied / vacant SF, occupancy %, units, vacant units, annual base rent and base rent per SF, annual gross rent (base + CAM + RE tax + other) and gross rent per SF, and its share of the portfolio's SF and base rent — plus a portfolio total row. All computed in code. " +
+      "Rent per SF is ANNUAL rent ÷ the SF of paying tenants (not total SF). LIK Management's own space is left out unless asked. " +
+      "Use for 'occupancy by property type', 'average rent per SF for office vs retail', 'which building has the highest rent per SF', 'how much of our space is retail'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        group_by: { type: "string", enum: ["property_type", "book", "property"], description: "How to group (default property_type)" },
+        property_type: { type: "string", description: "Optional: only properties of this type (Office, Retail, Residential, Land) — e.g. with group_by 'property' to rank the retail properties" },
+      },
+    },
+  },
+  {
+    name: "calculate",
+    description:
+      "Do arithmetic in code on numbers you copied EXACTLY from earlier tool results — never on numbers you made up. Operations: 'sum', 'average', 'difference' ([a, b] → a − b), 'ratio' ([num, den]), 'percent' ([part, whole] → %), 'percent_change' ([from, to] → %), 'share' (each value's % of their total; pass `labels`). " +
+      "Use whenever an answer needs math across two or more tool results (a difference between groups, a % change, a combined total). Never do that arithmetic yourself.",
+    input_schema: {
+      type: "object",
+      properties: {
+        operation: { type: "string", enum: ["sum", "average", "difference", "ratio", "percent", "percent_change", "share"] },
+        values: { type: "array", items: { type: "number" } },
+        labels: { type: "array", items: { type: "string" }, description: "Optional names for each value (used by 'share')" },
+      },
+      required: ["operation", "values"],
     },
   },
   {
@@ -399,6 +430,8 @@ const TOOL_STATUS: Record<string, string> = {
   rank_properties: "Ranking properties",
   portfolio_rollup: "Rolling up the portfolio",
   portfolio_breakdown: "Breaking the portfolio down",
+  rent_roll_breakdown: "Breaking down occupancy and rent",
+  calculate: "Calculating",
   build_dataset: "Building the dataset across properties and years",
   debt_summary: "Summarizing the debt",
   get_monthly_report: "Reading the Monthly Review",
@@ -418,7 +451,7 @@ async function currentRoll(): Promise<RentRollData | null> {
 
 function propertySummary(p: (typeof PROPERTY_DEFS)[number]) {
   return {
-    code: p.id, name: p.name, type: p.type,
+    code: p.id, name: p.name, type: propertyTypeOf(p.id), book: bookOf(p.id),
     address: [p.address, p.city, p.state, p.zip].filter(Boolean).join(", ") || null,
     owner: ownerNamesForProperty(p.id).join(", ") || null,
     sqft: p.sqft ?? null,
@@ -621,9 +654,12 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
       const groupKeys: ReportGroupKey[] = ["bp", "sc", "lik", "other"];
       const asGroup = groupKeys.includes(scope.toLowerCase() as ReportGroupKey) ? (scope.toLowerCase() as ReportGroupKey) : null;
       const isPortfolio = scope.toLowerCase() === "portfolio" || scope.toLowerCase() === "all";
+      const TYPES = ["office", "retail", "residential", "land"];
+      const asType = TYPES.includes(scope.toLowerCase()) ? scope.toLowerCase() : null;
       let totalSqft = 0, occSqft = 0, units = 0, vacantUnits = 0;
       for (const p of roll?.properties ?? []) {
-        if (!isPortfolio && !asGroup && p.propertyCode.toLowerCase() !== scope.toLowerCase()) continue;
+        if (asType) { if (propertyTypeOf(p.propertyCode).toLowerCase() !== asType) continue; }
+        else if (!isPortfolio && !asGroup && p.propertyCode.toLowerCase() !== scope.toLowerCase()) continue;
         if (asGroup && groupOf(p.propertyCode) !== asGroup) continue;
         for (const u of p.units ?? []) {
           const sf = u.sqft ?? 0;
@@ -633,11 +669,43 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
       }
       if (units === 0) return { error: `No rent-roll units found for scope "${scope}".` };
       return {
-        scope: isPortfolio ? "Whole portfolio" : asGroup ? REPORT_GROUP_LABELS[asGroup] : scope,
+        scope: isPortfolio ? "Whole portfolio" : asGroup ? REPORT_GROUP_LABELS[asGroup] : asType ? `${asType[0].toUpperCase()}${asType.slice(1)} properties` : scope,
         totalSqft: round(totalSqft), occupiedSqft: round(occSqft), vacantSqft: round(totalSqft - occSqft),
         occupancyPct: totalSqft > 0 ? Math.round((occSqft / totalSqft) * 1000) / 10 : null,
         unitCount: units, vacantUnitCount: vacantUnits,
       };
+    }
+
+    case "rent_roll_breakdown": {
+      const roll = await currentRoll();
+      if (!roll?.properties?.length) return { error: "No rent roll has been imported." };
+      const groupBy = (["property_type", "book", "property"].includes(String(input.group_by)) ? String(input.group_by) : "property_type") as BreakdownGroupBy;
+      const onlyType = typeof input.property_type === "string" && input.property_type.trim() ? input.property_type.trim().toLowerCase() : null;
+      const props = onlyType ? roll.properties.filter((p) => propertyTypeOf(p.propertyCode).toLowerCase() === onlyType) : roll.properties;
+      if (!props.length) return { error: `No ${input.property_type} properties on the rent roll.` };
+      const names = Object.fromEntries(PROPERTY_DEFS.map((d) => [d.id.toUpperCase(), d.name]));
+      const r = rentRollBreakdown(props, { groupBy, names });
+      // Rent is financial: occupancy for everyone, the rent columns only where financials are allowed.
+      const strip = (g: Record<string, unknown>) => {
+        if (showFinancials) return g;
+        const { annualBaseRent, baseRentPerSf, annualGrossRent, grossRentPerSf, shareOfBaseRentPct, ...rest } = g as any;
+        void annualBaseRent; void baseRentPerSf; void annualGrossRent; void grossRentPerSf; void shareOfBaseRentPct;
+        return rest;
+      };
+      return {
+        asOf: "the current rent roll",
+        groupBy: r.groupBy,
+        groups: r.groups.map(strip),
+        total: strip(r.total as any),
+        note: "Figures are already computed — quote them. Rent per SF = annual rent ÷ SF of paying tenants. Occupancy counts in-house amenity space as occupied, as the rent roll does." + (showFinancials ? "" : " Rent figures are withheld for this user."),
+      };
+    }
+
+    case "calculate": {
+      const op = String(input.operation) as CalcOp;
+      const values = Array.isArray(input.values) ? (input.values as unknown[]).map(Number) : [];
+      const labels = Array.isArray(input.labels) ? (input.labels as unknown[]).map(String) : undefined;
+      return calculate(op, values, labels);
     }
 
     case "get_property_rent_roll": {
@@ -1132,7 +1200,13 @@ export async function POST(req: Request) {
     `Answer the user's question by calling the provided tools to look up live data, then giving a concise, direct answer. ` +
     `Use the tools as many times as needed; chain them (e.g. find a property code, then pull its operating statement). ` +
     `Rules: answer ONLY from tool results — NEVER guess, estimate, or invent numbers, names, or dates. If the tools don't have the answer, say so plainly and point to the most relevant page. ` +
-    `Every figure in your answer must come from a tool result. For totals, rankings, year-over-year, averages, or any cross-record math, ALWAYS use the aggregate/rank/rollup/trend tools that compute the number in code — do NOT add, subtract, or average figures yourself. When comparing years, prefer get_noi_trend's period-aligned series. For any SHARE / MIX / "% of … by …" question (by property type, by book, by property), use portfolio_breakdown — it returns the percentages already computed. Property TYPE (office / retail / residential / land) and BOOK (business parks / shopping centers) are different groupings: use the one the user named. Today is ${new Date().toISOString().slice(0, 10)}.\n\n` +
+    `Every figure in your answer must come from a tool result. For totals, rankings, year-over-year, averages, or any cross-record math, ALWAYS use the aggregate/rank/rollup/trend tools that compute the number in code — do NOT add, subtract, or average figures yourself. When comparing years, prefer get_noi_trend's period-aligned series. For any SHARE / MIX / "% of … by …" question (by property type, by book, by property), use portfolio_breakdown — it returns the percentages already computed. Property TYPE (office / retail / residential / land) and BOOK (business parks / shopping centers) are different groupings: use the one the user named.\n\n` +
+    `HOW TO THINK: first decide what the question needs (which figures, which grouping, which period), then pick the tool built for it — ` +
+    `money from the books (revenue, expenses, NOI, cash flow, any GL line) → the operating-statement tools (portfolio_breakdown, portfolio_rollup, rank_properties, build_dataset, get_noi_trend, get_operating_statement); ` +
+    `space, tenants and rent (occupancy, vacancy, rent per SF, gross rent, who is where, expirations) → the rent-roll tools (rent_roll_breakdown, get_occupancy, aggregate_tenants, get_property_rent_roll, list_expirations, search_tenants); ` +
+    `loans → debt_summary / list_debt; what data exists → get_data_coverage. ` +
+    `A question that needs two of these is answered by calling both and combining them with the calculate tool — e.g. "NOI per SF by property type" = portfolio_breakdown (NOI) + rent_roll_breakdown (SF) + calculate. Never refuse a question a combination of tools can answer, and never do arithmetic yourself: use calculate. ` +
+    `Say what a figure is: year to date through which month, or as of the current rent roll; base or gross rent; which properties were left out and why. If the data truly is not in the portal, say exactly what is missing and which page or import would supply it. Today is ${new Date().toISOString().slice(0, 10)}.\n\n` +
     (showFinancials ? "" : "You do NOT have access to financial figures (NOI, budget, debt) for this user — do not attempt to state them.\n\n") +
     `When you have enough to answer, reply with ONLY a JSON object (no prose around it): ` +
     `{"answer": "markdown string", "links": [{"label": "...", "href": "/route"}], "chart": null | {"type": "bar"|"line", "title": "...", "unit": "dollars"|"percent"|"sqft"|"count", "series": [{"label": "...", "value": number}]}, "letter": null | {"kind": "...", "to": "...", "subject": "...", "body": "..."}, "table": null | {"title": "...", "subtitle": "...", "columns": [{"key": "...", "label": "...", "format": "text"|"money"|"percent"|"number", "ratioOf": {"numerator": "<col key>", "denominator": "<col key>"}}], "rows": [{"<col key>": number|string|null}], "notes": ["..."]}, "clarify": null | {"question": "...", "options": ["...", "..."]}}. ` +
