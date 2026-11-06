@@ -26,6 +26,9 @@ import { calculate, type CalcOp } from "@/lib/assistant/calculate";
 import { breakdown, bookOf, propertyTypeOf, type BreakdownGroupBy, type BreakdownMetric, type PropertyFigure } from "@/lib/assistant/breakdown";
 import { validateTable } from "@/lib/assistant/validateTable";
 import { validateClarify } from "@/lib/assistant/clarify";
+import { validateFollowups } from "@/lib/assistant/followups";
+import { openArSummary, type ArGroupBy } from "@/lib/assistant/openAr";
+import { allRuns } from "@/lib/statements/store";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
@@ -42,15 +45,18 @@ export const maxDuration = 300;
 
 // Financial data (NOI / budget / debt) is gated to the same users who may see
 // the company-wide Monthly Review; everyone else gets operations + occupancy.
-async function canSeeFinancials(): Promise<boolean> {
+async function canOpen(path: string): Promise<boolean> {
   const secret = process.env.SITE_AUTH_SECRET;
   if (!secret) return process.env.NODE_ENV !== "production";
   try {
     const token = (await cookies()).get(SITE_COOKIE)?.value;
     const id = await verifySiteToken(token, secret);
-    return !!id && (ALL_USERS as readonly string[]).includes(id) && isPathAllowed(id as UserId, "/reports/monthly");
+    return !!id && (ALL_USERS as readonly string[]).includes(id) && isPathAllowed(id as UserId, path);
   } catch { return false; }
 }
+const canSeeFinancials = () => canOpen("/reports/monthly");
+// Tenant balances are gated to whoever may open Monthly Statements.
+const canSeeAr = () => canOpen("/tenant-statements");
 
 // Pages the assistant may link to (grounded links only).
 const ROUTES = [
@@ -273,6 +279,25 @@ const OPERATIONAL_TOOLS: ToolDef[] = [
   },
 ];
 
+const AR_TOOLS: ToolDef[] = [
+  {
+    name: "get_open_ar",
+    description:
+      "Tenant OPEN A/R from the newest imported Skyline laser statement (Monthly Statements): total open balance, PAST DUE, over-90-days, how many tenants are past due, a breakdown by property / property_type / book with each group's share of past due, and the top tenants by past due — all computed in code. " +
+      "Use for 'who is behind on rent', 'how much is past due', 'A/R at <property>', 'biggest delinquencies', 'past due by property type'. " +
+      "The statement lists OPEN items only as of its import: say 'as of the <period> statement'. Tenants who paid simply drop off.",
+    input_schema: {
+      type: "object",
+      properties: {
+        group_by: { type: "string", enum: ["property", "property_type", "book"], description: "How to group (default property)" },
+        property: { type: "string", description: "Optional property code to limit to, e.g. 4500" },
+        top: { type: "number", description: "How many tenants to list (default 10, max 25)" },
+        past_due_only: { type: "boolean", description: "List only tenants with a past-due balance" },
+      },
+    },
+  },
+];
+
 const FINANCIAL_TOOLS: ToolDef[] = [
   {
     name: "get_operating_statement",
@@ -368,13 +393,15 @@ const FINANCIAL_TOOLS: ToolDef[] = [
       "metric: 'revenue', 'opex', 'noi' or 'cash_flow' (after debt service). group_by: 'property_type' (Office / Retail / Residential / Land — the property's type), 'book' (Business Parks / Shopping Centers / Other), or 'property' (each property's share). " +
       "Use for 'what % of revenue comes from office vs retail', 'breakdown of NOI by property type', 'share of revenue by property', 'mix of income'. " +
       "LIK Management (2000 / 2010) is LEFT OUT by default — its revenue is the management fees the properties pay it, so including it counts those dollars twice; set include_management_company only if the user asks for it, and say in the answer that it was excluded. " +
-      "Figures are year to date through each property's last posted month; when `periodsDiffer` is true, say so.",
+      "Figures are year to date through each property's last posted month; when `periodsDiffer` is true, say so. " +
+      "For 'how has the mix changed', 'vs last year', 'growth by type', pass compare_year.",
     input_schema: {
       type: "object",
       properties: {
         metric: { type: "string", enum: ["revenue", "opex", "noi", "cash_flow"], description: "What to break down" },
         group_by: { type: "string", enum: ["property_type", "book", "property"], description: "How to group (default property_type)" },
         year: { type: "number", description: "Year (defaults to current year)" },
+        compare_year: { type: "number", description: "Optional prior year to compare against (e.g. year-1). Each group then carries priorValue, change and changePct, computed over the SAME months as `year` so a partial year is compared like for like." },
         include_management_company: { type: "boolean", description: "Include LIK Management (2000/2010). Default false." },
       },
       required: ["metric"],
@@ -437,6 +464,7 @@ const TOOL_STATUS: Record<string, string> = {
   get_monthly_report: "Reading the Monthly Review",
   list_debt: "Listing the loans",
   get_data_coverage: "Checking which years and properties have data",
+  get_open_ar: "Reading tenant balances from the monthly statements",
 };
 function statusFor(names: string[]): string {
   const labels = [...new Set(names.map((n) => TOOL_STATUS[n] ?? n.replace(/_/g, " ")))];
@@ -530,7 +558,7 @@ async function computeYearFinancials(
 }
 const round = (n: number) => Math.round(n);
 
-async function runTool(name: string, input: Record<string, unknown>, showFinancials: boolean): Promise<unknown> {
+async function runTool(name: string, input: Record<string, unknown>, showFinancials: boolean, showAr = false): Promise<unknown> {
   switch (name) {
     case "list_properties":
       return PROPERTY_DEFS.map(propertySummary);
@@ -1080,22 +1108,56 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
       const groupBy = (["property_type", "book", "property"].includes(String(input.group_by)) ? String(input.group_by) : "property_type") as BreakdownGroupBy;
       try {
         const { mappings, byKeyYear } = await loadStatementInputs("own");
-        const figures = (await Promise.all(mappings.map(async (m): Promise<PropertyFigure | null> => {
-          const gls = byKeyYear.get(`${m.key}::${year}`) ?? [];
+        const figuresFor = async (yr: number, throughByProp?: Map<string, number>) => (await Promise.all(mappings.map(async (m): Promise<PropertyFigure | null> => {
+          const gls = byKeyYear.get(`${m.key}::${yr}`) ?? [];
           if (!gls.length) return null;
           const mapping = await getMapping(m.key);
           if (!mapping) return null;
-          const f = await computeYearFinancials(mapping, m.propertyCode, year, gls);
+          const through = throughByProp?.get(m.propertyCode);
+          if (throughByProp && through == null) return null;
+          const f = await computeYearFinancials(mapping, m.propertyCode, yr, gls, through);
           if (!f) return null;
           return { property: m.propertyCode, name: mapping.entityName ?? m.propertyCode, revenue: f.revenue, opex: f.opex, noi: f.noi, cashFlow: f.cfAfterDebt, throughPeriod: f.period };
         }))).filter((x): x is PropertyFigure => !!x);
+        const figures = await figuresFor(year);
         if (!figures.length) return { error: `No operating statements found for ${year}.` };
-        const r = breakdown(figures, { metric, groupBy, includeManagement: input.include_management_company === true });
+        const includeManagement = input.include_management_company === true;
+        const r = breakdown(figures, { metric, groupBy, includeManagement });
+        const cmp = Number(input.compare_year);
+        if (Number.isFinite(cmp) && cmp !== year) {
+          // Like for like: the prior year through the SAME month each property has posted this year.
+          const prior = breakdown(await figuresFor(cmp, new Map(figures.map((f) => [f.property, f.throughPeriod]))), { metric, groupBy, includeManagement });
+          const priorOf = new Map(prior.groups.map((g) => [g.group, g]));
+          const groups = r.groups.map((g) => {
+            const p = priorOf.get(g.group);
+            const priorValue = p ? p.value : null;
+            return { ...g, priorValue, priorSharePct: p ? p.sharePct : null, change: priorValue == null ? null : g.value - priorValue, changePct: priorValue ? Math.round(((g.value - priorValue) / Math.abs(priorValue)) * 1000) / 10 : null };
+          });
+          return {
+            year, compareYear: cmp, ...r, groups, priorTotal: prior.total,
+            totalChangePct: prior.total ? Math.round(((r.total - prior.total) / Math.abs(prior.total)) * 1000) / 10 : null,
+            note: "value / priorValue = dollars over the same months in each year; sharePct / priorSharePct = share of each year's total; change and changePct already computed — quote them.",
+          };
+        }
         return {
           year, ...r,
           note: "value = year-to-date dollars; sharePct = the group's share of the total, already computed — quote it, do not recompute. excluded = properties left out (the management company, unless asked).",
         };
       } catch (e) { return { error: e instanceof Error ? e.message : "Failed to break down." }; }
+    }
+
+    case "get_open_ar": {
+      if (!showAr) return { error: "Not authorized to view tenant balances." };
+      try {
+        const runs = (await allRuns()).sort((a, b) => b.period.localeCompare(a.period));
+        const run = runs[0];
+        if (!run) return { error: "No monthly statements have been imported yet (Monthly Statements → import the Skyline laser statement)." };
+        const gb = (["property", "property_type", "book"].includes(String(input.group_by)) ? String(input.group_by) : "property") as ArGroupBy;
+        return {
+          ...openArSummary(run, { groupBy: gb, property: input.property ? String(input.property) : undefined, top: Number(input.top) || undefined, pastDueOnly: input.past_due_only === true }),
+          note: "Open items only, as of this statement. pastDue = everything older than the statement month; over90 = the over-90-days bucket. Already computed — quote them. Link /tenant-statements.",
+        };
+      } catch (e) { return { error: e instanceof Error ? e.message : "Failed to read statements." }; }
     }
 
     case "debt_summary": {
@@ -1185,8 +1247,8 @@ export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "AI isn't configured (ANTHROPIC_API_KEY not set)." }, { status: 503 });
 
-  const showFinancials = await canSeeFinancials();
-  const tools = showFinancials ? [...OPERATIONAL_TOOLS, ...FINANCIAL_TOOLS] : OPERATIONAL_TOOLS;
+  const [showFinancials, showAr] = await Promise.all([canSeeFinancials(), canSeeAr()]);
+  const tools = [...OPERATIONAL_TOOLS, ...(showAr ? AR_TOOLS : []), ...(showFinancials ? FINANCIAL_TOOLS : [])];
 
   // Standing preferences the team taught the assistant — injected so it "learns"
   // from feedback ("keep it to one sentence", "always whole dollars", etc.).
@@ -1204,12 +1266,14 @@ export async function POST(req: Request) {
     `HOW TO THINK: first decide what the question needs (which figures, which grouping, which period), then pick the tool built for it — ` +
     `money from the books (revenue, expenses, NOI, cash flow, any GL line) → the operating-statement tools (portfolio_breakdown, portfolio_rollup, rank_properties, build_dataset, get_noi_trend, get_operating_statement); ` +
     `space, tenants and rent (occupancy, vacancy, rent per SF, gross rent, who is where, expirations) → the rent-roll tools (rent_roll_breakdown, get_occupancy, aggregate_tenants, get_property_rent_roll, list_expirations, search_tenants); ` +
-    `loans → debt_summary / list_debt; what data exists → get_data_coverage. ` +
+    `loans → debt_summary / list_debt; tenant balances, past due, delinquency, A/R → get_open_ar; what data exists → get_data_coverage. ` +
+    `"vs last year", "growth", "how has it changed" → pass compare_year (period-aligned) rather than calling twice. ` +
     `A question that needs two of these is answered by calling both and combining them with the calculate tool — e.g. "NOI per SF by property type" = portfolio_breakdown (NOI) + rent_roll_breakdown (SF) + calculate. Never refuse a question a combination of tools can answer, and never do arithmetic yourself: use calculate. ` +
     `Say what a figure is: year to date through which month, or as of the current rent roll; base or gross rent; which properties were left out and why. If the data truly is not in the portal, say exactly what is missing and which page or import would supply it. Today is ${new Date().toISOString().slice(0, 10)}.\n\n` +
     (showFinancials ? "" : "You do NOT have access to financial figures (NOI, budget, debt) for this user — do not attempt to state them.\n\n") +
     `When you have enough to answer, reply with ONLY a JSON object (no prose around it): ` +
-    `{"answer": "markdown string", "links": [{"label": "...", "href": "/route"}], "chart": null | {"type": "bar"|"line", "title": "...", "unit": "dollars"|"percent"|"sqft"|"count", "series": [{"label": "...", "value": number}]}, "letter": null | {"kind": "...", "to": "...", "subject": "...", "body": "..."}, "table": null | {"title": "...", "subtitle": "...", "columns": [{"key": "...", "label": "...", "format": "text"|"money"|"percent"|"number", "ratioOf": {"numerator": "<col key>", "denominator": "<col key>"}}], "rows": [{"<col key>": number|string|null}], "notes": ["..."]}, "clarify": null | {"question": "...", "options": ["...", "..."]}}. ` +
+    `{"answer": "markdown string", "links": [{"label": "...", "href": "/route"}], "chart": null | {"type": "bar"|"line", "title": "...", "unit": "dollars"|"percent"|"sqft"|"count", "series": [{"label": "...", "value": number}]}, "letter": null | {"kind": "...", "to": "...", "subject": "...", "body": "..."}, "table": null | {"title": "...", "subtitle": "...", "columns": [{"key": "...", "label": "...", "format": "text"|"money"|"percent"|"number", "ratioOf": {"numerator": "<col key>", "denominator": "<col key>"}}], "rows": [{"<col key>": number|string|null}], "notes": ["..."]}, "clarify": null | {"question": "...", "options": ["...", "..."]}, "followups": ["...", "..."]}. ` +
+    `"followups": 2-3 SHORT next questions (under ~10 words each, phrased as the user would type them) that build on THIS answer and that your tools can answer — drill into the biggest group, compare to last year, chart it, the same for another book, who is driving it. Specific to the data just shown ("Which tenants drive Retail's past due?"), never generic ("Anything else?"). Empty when asking a clarify question or drafting a letter. ` +
     `Put 1-4 relevant page links in "links", choosing hrefs from this list of routes: ${ROUTES.map((r) => r.path).join(", ")}. ` +
     `Prefer DEEP links straight to the specific record when you know it, using these exact shapes: /units/<unitRef> (a unit's tenant + CAM config page, e.g. /units/2300-01), /properties/<code> (a property page, e.g. /properties/4500), /maintenance?property=<code> (also tab=completed, priority, status, assignee, category), /rentroll/base-years?property=<code> (a property's expense history), /cam-recon/interim?property=<code>&unitRef=<ref>&asOf=<month 1-12> (the move-out close-out — pre-fills and computes the exact interim CAM/RET balance, the security deposit, and a letter), /reservations?openId=<id>, /debt?openId=<id>. Use real unit refs / property codes from your tool results — never guess an id you don't have. ` +
     `Include a "chart" ONLY when the answer is naturally visual — a multi-year/YoY trend (use "line"), a ranking or a breakdown/comparison across properties or categories (use "bar"). Otherwise set "chart" to null. ` +
@@ -1309,7 +1373,7 @@ export async function POST(req: Request) {
           const results = await Promise.all(
             toolUses.map(async (tu) => {
               let out: unknown;
-              try { out = await runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, showFinancials); }
+              try { out = await runTool(tu.name, (tu.input ?? {}) as Record<string, unknown>, showFinancials, showAr); }
               catch (e) { out = { error: e instanceof Error ? e.message : "tool failed" }; }
               return { type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out).slice(0, 40000) };
             })
@@ -1332,7 +1396,7 @@ export async function POST(req: Request) {
         // computed is the worst of both — the user reads the number, and the
         // number rests on the assumption still being asked about.
         const clarify = validateClarify(parsed.clarify);
-        if (clarify) { send({ type: "result", answer: "", links: [], chart: null, letter: null, table: null, clarify }); return; }
+        if (clarify) { send({ type: "result", answer: "", links: [], chart: null, letter: null, table: null, clarify, followups: [] }); return; }
 
         const validPaths = new Set(ROUTES.map((r) => r.path));
         const links = (parsed.links ?? [])
@@ -1366,7 +1430,8 @@ export async function POST(req: Request) {
         // a ratio reference that names a column which doesn't exist dropped rather
         // than shipped as a formula pointing somewhere arbitrary.
         const table = validateTable(parsed.table);
-        send({ type: "result", answer: (parsed.answer ?? "").trim() || "No answer.", links, chart, letter, table, clarify: null });
+        const followups = letter ? [] : validateFollowups((parsed as { followups?: unknown }).followups, q);
+        send({ type: "result", answer: (parsed.answer ?? "").trim() || "No answer.", links, chart, letter, table, clarify: null, followups });
       } catch (e) {
         send({ type: "error", error: e instanceof Error ? e.message : "Assistant failed" });
       } finally {
