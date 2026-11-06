@@ -3422,6 +3422,21 @@ each group's total and `sharePct` computed in code. **LIK Management (2000 /
 so counting it beside them doubles those dollars. `rank_properties` rows carry
 `type` too. Pinned by `breakdown.test.ts`.
 
+**`rent_roll_breakdown`** (`lib/assistant/rentRollBreakdown.ts`; owner: "also
+make it handle occupancy and rent per SF by type"): the CURRENT rent roll
+grouped the same three ways — SF, occupancy %, units, annual base and gross
+rent and **rent per SF = annual rent ÷ the SF of PAYING tenants** (amenity
+space counts as occupied, carries no rent), plus each group's share of the
+portfolio's SF and rent. Occupancy for everyone; the rent columns only where
+the user may see financials. `get_occupancy` also takes a property type.
+**`calculate`** (`lib/assistant/calculate.ts`; owner: "make it smarter"): sum /
+average / difference / ratio / percent / percent change / share on numbers the
+model copies from tool results — the prompt forbids it doing math itself, so
+questions needing two tools combined ("NOI per SF by type") had no way to
+finish. The system prompt now carries a "HOW TO THINK" map (books → statement
+tools, space and rent → rent-roll tools, combine with `calculate`, never refuse
+what a combination can answer). Pinned by `rentRollBreakdown.test.ts`.
+
 # PA nonresident withholding on distributions — the property page
 
 **Elbridge (7200) and Revere (7300) carry a PA NR WITHHOLDING calculator on
