@@ -30,6 +30,7 @@ import {
   type AiLetterSpec,
   type AiClarifySpec,
   ClarifyCard,
+  FollowupChips,
 } from "./ai/AiKit";
 
 // Minimal shapes — keeps us off the server-only Reservation export.
@@ -317,11 +318,13 @@ const SAMPLE_SEARCHES = [
   "Who's expiring in the next 90 days?",
   "NOI for 4500, 2022–2025",
   "Who has a CAM exclusion of security?",
+  "% of revenue by property type",
+  "Which tenants are most past due?",
 ];
 
 type ChatTurn =
   | { role: "user"; text: string }
-  | { role: "assistant"; answer: string; links: { label: string; href: string }[]; chart: AiChartSpec | null; letter: AiLetterSpec | null; table: AiTableSpec | null; clarify: AiClarifySpec | null };
+  | { role: "assistant"; answer: string; links: { label: string; href: string }[]; chart: AiChartSpec | null; letter: AiLetterSpec | null; table: AiTableSpec | null; clarify: AiClarifySpec | null; followups: string[] };
 
 export default function GlobalSearch() {
   const { user } = useUser();
@@ -367,6 +370,7 @@ export default function GlobalSearch() {
         letter: (j.letter as AiLetterSpec | null) ?? null,
         table: (j.table as AiTableSpec | null) ?? null,
         clarify: (j.clarify as AiClarifySpec | null) ?? null,
+        followups: Array.isArray(j.followups) ? (j.followups as unknown[]).map(String).slice(0, 3) : [],
       }],
       loading: false, error: null, status: "",
     }));
@@ -965,6 +969,9 @@ export default function GlobalSearch() {
             onLinkClick={() => setOpen(false)}
           />
           {teachFor === ti && teachBox(ti)}
+          {ti === chat.turns.length - 1 && !chat.loading && t.followups.length > 0 && (
+            <FollowupChips items={t.followups} onPick={(q) => askAi(q)} />
+          )}
         </div>
       ))}
       {chat.loading && <ThinkingCard status={chat.status || "Reading live portal data…"} />}

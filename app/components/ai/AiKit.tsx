@@ -480,6 +480,21 @@ export function ClarifyCard({ clarify, onPick }: { clarify: AiClarifySpec; onPic
   );
 }
 
+/** Suggested next questions under the latest answer — one click asks it. */
+export function FollowupChips({ items, onPick }: { items: string[]; onPick: (q: string) => void }) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 7, marginTop: 10 }}>
+      <span style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", fontWeight: 700, marginRight: 2 }}>Ask next</span>
+      {items.map((q) => (
+        <button key={q} type="button" onClick={() => onPick(q)}
+          style={{ all: "unset", cursor: "pointer", padding: "6px 11px", borderRadius: 999, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", color: "var(--ai-text)", fontSize: 12.5, fontWeight: 600 }}>
+          {q}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function AnswerCard({
   answer,
   contextTag,

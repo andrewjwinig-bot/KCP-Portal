@@ -3437,6 +3437,19 @@ finish. The system prompt now carries a "HOW TO THINK" map (books → statement
 tools, space and rent → rent-roll tools, combine with `calculate`, never refuse
 what a combination can answer). Pinned by `rentRollBreakdown.test.ts`.
 
+**`get_open_ar`** (`lib/assistant/openAr.ts`): tenant open A/R from the newest
+imported laser statement — total open, past due, over 90, tenants past due, by
+property / type / book with each group's share of past due, and the top tenants —
+through the SAME `summarize` the Monthly Statements page uses. Offered only to
+users who can open `/tenant-statements` (`canSeeAr`), checked again in the tool.
+**`portfolio_breakdown` takes `compare_year`**: the prior year over the SAME
+months each property has posted this year (`computeYearFinancials`' forcePeriod),
+with priorValue / change / changePct per group. **Every answer can carry 2–3
+`followups`** (`validateFollowups` — short, distinct, never the question just
+asked; none on a clarify or a letter), shown as "Ask next" chips
+(`FollowupChips` in `AiKit.tsx`) under the LATEST answer only. Pinned by
+`openAr.test.ts`.
+
 # PA nonresident withholding on distributions — the property page
 
 **Elbridge (7200) and Revere (7300) carry a PA NR WITHHOLDING calculator on
