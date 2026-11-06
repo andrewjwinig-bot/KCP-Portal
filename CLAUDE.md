@@ -3408,6 +3408,20 @@ the other statement pages (`financials-statements` → Drew, Alison, admin).
   changes it is a security decision on the order of the K-1s (encrypted at rest,
   its own access key), not an incremental feature.
 
+# The portal assistant — breakdowns by property type
+
+**`portfolio_breakdown`** (`lib/assistant/breakdown.ts`, a tool on
+`/api/search/agent`; owner: "give me the breakdown in % of revenue by property
+type … it could not"). The assistant could rank properties and roll up a BOOK,
+but nothing grouped by property TYPE, so a share / mix question had no tool.
+It groups a year's revenue, op ex, NOI or cash flow by `property_type`
+(Office / Retail / Residential / Land — `propertyTypeOf`: PROPERTY_DEFS' type,
+fund shells and The Office Works read Office), `book` or `property`, and returns
+each group's total and `sharePct` computed in code. **LIK Management (2000 /
+2010) is left out by default** — its revenue is the fees the properties pay it,
+so counting it beside them doubles those dollars. `rank_properties` rows carry
+`type` too. Pinned by `breakdown.test.ts`.
+
 # PA nonresident withholding on distributions — the property page
 
 **Elbridge (7200) and Revere (7300) carry a PA NR WITHHOLDING calculator on
