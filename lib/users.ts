@@ -1,4 +1,4 @@
-export const ALL_USERS = ["admin", "drew", "marie", "nancy", "harry", "maint", "greg", "charles", "jay", "alison"] as const;
+export const ALL_USERS = ["admin", "drew", "marie", "nancy", "harry", "maint", "greg", "charles", "jay", "alison", "randy"] as const;
 export type UserId = typeof ALL_USERS[number];
 
 export type RentRollCategory = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
@@ -242,14 +242,41 @@ export const USERS: Record<UserId, UserDef> = {
     defaultPropertyType: "all",
     dashboardScope: "groups",
   },
+  // Randy (Randolph Lee) — the staff accountant, onboarding. He READS the
+  // books: operating statements, reprojections, T-12, balance sheet, the 1099
+  // register, Bank Balances, budgets, monthly statements (A/R) and the report
+  // center — and changes nothing (owner: "without giving him full access
+  // yet"). READ-ONLY IS ENFORCED ON THE SERVER (`READ_ONLY_USERS` →
+  // `authorizeRequest`): any write to an API is refused, because several
+  // /api/financials routes trust the page grant alone — a GL upload there
+  // would also fire the Allocated Expenses send to AvidXchange. No Debt
+  // Tracker (its PUT is open to anyone with the page; loans are on Bank
+  // Balances' debt service column), no bank recs, investors, payroll or
+  // invoicers. Widen him here, and take him out of READ_ONLY_USERS, when he
+  // starts doing the work.
+  randy: {
+    id: "randy",
+    label: "RANDY",
+    navKeys: new Set([...universalNav, "financials-statements", "financials-budgets", "bank-balances", "tenant-statements"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/financials", "/tenant-statements", "/reports"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
 };
+
+/** Users who may READ everything their profile reaches but WRITE nothing —
+ *  every non-GET API call is refused in `authorizeRequest`, whatever the page
+ *  grant. Signing in / out, 2FA and asking the assistant still work. */
+export const READ_ONLY_USERS: ReadonlySet<UserId> = new Set<UserId>(["randy"]);
+const READ_ONLY_WRITES_ALLOWED = ["/api/site", "/api/2fa", "/api/search/agent", "/api/search/ask"];
 
 // Access groups — users who share a role / access tier belong to one group, so
 // related logins can be shown "grouped" (e.g. one avatar color per group). The
 // SERVICE clones (maint/greg/charles/jay) are one group; admin + drew are the
 // elevated admin tier; the rest are their own role. The switch is exhaustive
 // over UserId, so adding a user forces assigning it a group here.
-export type AccessGroup = "admin" | "service" | "office" | "retail" | "operations" | "executive";
+export type AccessGroup = "admin" | "service" | "office" | "retail" | "operations" | "executive" | "accounting";
 
 export function accessGroup(userId: UserId): AccessGroup {
   switch (userId) {
@@ -269,6 +296,8 @@ export function accessGroup(userId: UserId): AccessGroup {
       return "operations";
     case "alison":
       return "executive";
+    case "randy":
+      return "accounting";
   }
 }
 
@@ -381,7 +410,7 @@ const underPrefix = (pathname: string, p: string) => pathname === p || pathname.
 /** Server-side authorization for a request path. Pages use isPathAllowed;
  *  sensitive API groups map to their governing page; everything else stays
  *  open to any signed-in user. */
-export function authorizeRequest(userId: UserId, pathname: string): boolean {
+export function authorizeRequest(userId: UserId, pathname: string, method = "GET"): boolean {
   // Profile-switchers (admin / Drew) may view ANY user's profile, so the server
   // grants them full access. The signed cookie carries the switcher — not the
   // profile they're currently viewing — so without this, a switcher viewing
@@ -390,6 +419,8 @@ export function authorizeRequest(userId: UserId, pathname: string): boolean {
   // client already gates faithfully to the viewed profile; elevated paths
   // (/history, /audit) stay behind the separate admin-auth layer in middleware.
   if (canSwitchUsers(userId)) return true;
+  if (READ_ONLY_USERS.has(userId) && pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase())
+      && !READ_ONLY_WRITES_ALLOWED.some((p) => underPrefix(pathname, p))) return false;
   // Self-service 2FA — every signed-in user manages their own (the
   // admin-only required-list endpoint is gated separately in middleware).
   if (pathname === "/security" || pathname.startsWith("/security/") || pathname.startsWith("/api/2fa")) return true;

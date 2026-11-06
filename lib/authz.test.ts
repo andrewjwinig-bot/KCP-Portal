@@ -79,3 +79,35 @@ describe("server-side authorizeRequest", () => {
     }
   });
 });
+
+describe("Randy — the staff accountant, read-only", () => {
+  it("reads the books, bank balances, budgets, A/R and reports", () => {
+    for (const p of ["/financials/operating-statements", "/financials/cash-analysis", "/financials/budgets/draft", "/financials/balance-sheet", "/tenant-statements", "/reports/monthly"]) {
+      expect(authorizeRequest("randy", p)).toBe(true);
+    }
+    expect(authorizeRequest("randy", "/api/financials/operating-statements", "GET")).toBe(true);
+    expect(authorizeRequest("randy", "/api/financials/bank-balances", "GET")).toBe(true);
+  });
+
+  it("writes nothing — a GL upload, a note, a budget edit are all refused", () => {
+    for (const p of ["/api/financials/operating-statements", "/api/financials/budgets/line-overrides", "/api/financials/ten99", "/api/tenant-statements", "/api/rentroll"]) {
+      expect(authorizeRequest("randy", p, "POST")).toBe(false);
+      expect(authorizeRequest("randy", p, "DELETE")).toBe(false);
+    }
+  });
+
+  it("can still sign in and out, set up 2FA and ask the assistant", () => {
+    for (const p of ["/api/site/logout", "/api/2fa/enroll", "/api/search/agent"]) expect(authorizeRequest("randy", p, "POST")).toBe(true);
+    expect(authorizeRequest("randy", "/api/search/preferences", "POST")).toBe(false);
+  });
+
+  it("does not reach debt, bank recs, investors, payroll or the invoicers", () => {
+    for (const p of ["/debt", "/bank-rec", "/investors", "/investor-k1", "/payroll", "/allocated-invoicer", "/expenses", "/commissions"]) {
+      expect(authorizeRequest("randy", p)).toBe(false);
+    }
+  });
+
+  it("other users' writes are unchanged", () => {
+    expect(authorizeRequest("alison", "/api/financials/operating-statements", "POST")).toBe(true);
+  });
+});
