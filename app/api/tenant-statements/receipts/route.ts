@@ -16,6 +16,8 @@
 // plan is never what a payment is applied against.
 
 import { NextRequest, NextResponse } from "next/server";
+import { jsPDF } from "jspdf";
+import { drawMonthlyStatement } from "@/lib/statements/monthlyStatementPdf";
 import { allRuns, getRun } from "@/lib/statements/store";
 import { accountOf, composeReceiptEmail, explainPayment, planById, respondByFrom, type Explanation } from "@/lib/statements/receiptMatch";
 import { allReceipts, deleteReceipt, getReceipt, receiptStatus, saveReceipt, todayET, type ReceiptRec } from "@/lib/statements/receiptStore";
@@ -59,6 +61,16 @@ async function statementOf(period: string, unit: string): Promise<{ st: TenantSt
   // file itself records no creation time.
   const dates: DataDates = { dataThrough: st.exportedAt ?? null, importedOn: st.importedAt ?? run?.updatedAt ?? null, stampRead: st.exportedAt !== undefined };
   return { st, dates, asOf: (dates.dataThrough ?? dates.importedOn)?.slice(0, 10) ?? null };
+}
+
+/** The tenant's statement of account for the month — the same branded PDF
+ *  their portal serves — attached to the receipt email (owner: "attach the
+ *  tenant's most recent laser statement"). */
+async function statementPdf(period: string, st: TenantStatement): Promise<{ name: string; content: Uint8Array; contentType: string }> {
+  const doc = new jsPDF({ unit: "pt", format: "letter" });
+  drawMonthlyStatement(doc, st, { propLabel: `${st.propertyCode} — ${propertyName(st.propertyCode)}`, period, payment: await instructionsFor(st.propertyCode) });
+  const safe = (s: string) => s.replace(/[^\w]+/g, "_");
+  return { name: `${safe(st.tenantName)}_${period}_Statement.pdf`, content: new Uint8Array(doc.output("arraybuffer")), contentType: "application/pdf" };
 }
 
 async function recipientsFor(unitRef: string): Promise<string[]> {
@@ -111,6 +123,11 @@ export async function GET(req: NextRequest) {
   const found = await statementOf(period, unit);
   if (!found) return NextResponse.json({ error: "No statement for that tenant and month." }, { status: 404 });
   const { st, asOf, dates } = found;
+  // ?pdf=1 — the statement exactly as it will be attached, to preview.
+  if (q.get("pdf")) {
+    const a = await statementPdf(period, st);
+    return new NextResponse(Buffer.from(a.content), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${a.name}"`, "Cache-Control": "no-store" } });
+  }
   const acct = accountOf(st);
   const amount = money(q.get("amount"));
   const explanations = Number.isFinite(amount) && amount > 0 ? explainPayment(acct, amount, { currentMonth: period }) : [];
@@ -122,7 +139,7 @@ export async function GET(req: NextRequest) {
     const received = isISO(q.get("received")) ? q.get("received")! : todayET();
     draft = composeReceiptEmail({
       tenantName: st.tenantName, propertyName: propertyName(st.propertyCode), suite: st.suite, amount, receivedISO: received,
-      checkNo: q.get("check") || null, asOfISO: asOf, acct, plan, respondByISO: respondByFrom(todayET()), signer: await signer(st.propertyCode),
+      checkNo: q.get("check") || null, asOfISO: asOf, acct, plan, attached: q.get("attach") !== "0", respondByISO: respondByFrom(todayET()), signer: await signer(st.propertyCode),
     });
   }
   return NextResponse.json({
@@ -167,7 +184,11 @@ export async function POST(req: NextRequest) {
       const body = typeof b?.body === "string" && b.body.trim() ? b.body.slice(0, 20000) : "";
       if (!subject || !body) return NextResponse.json({ error: "The email has no subject or body." }, { status: 400 });
       const sig = await signer(st.propertyCode);
-      const msg = { to: to.join(", "), bcc: sig.email, subject, textBody: body, headers: [{ Name: "Reply-To", Value: sig.email }] };
+      const attach = b?.attachStatement !== false;
+      const msg = {
+        to: to.join(", "), bcc: sig.email, subject, textBody: body, headers: [{ Name: "Reply-To", Value: sig.email }],
+        ...(attach ? { attachments: [await statementPdf(period, st)] } : {}),
+      };
       // From Tami's own address. Postmark sends only from an address it has
       // verified, so if hers is refused the email still goes — from the
       // portal's verified sender, under her name, replies still to her.
@@ -179,7 +200,7 @@ export async function POST(req: NextRequest) {
         sent = await sendMailDetailed({ ...msg, from: `${sig.name}, Korman Commercial Properties <${VERIFIED_FROM}>` });
       }
       if (!sent.ok) return NextResponse.json({ error: `The email did not send: ${sent.error ?? "unknown error"}` }, { status: 502 });
-      rec.email = { to, subject, body, sentAt: now, sentBy: by, from: fromUsed };
+      rec.email = { to, subject, body, sentAt: now, sentBy: by, from: fromUsed, attachedStatement: attach };
       rec.respondByISO = respondByFrom(todayET());
     }
     await saveReceipt(rec);

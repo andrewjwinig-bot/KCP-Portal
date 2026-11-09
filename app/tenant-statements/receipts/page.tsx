@@ -83,6 +83,7 @@ export default function ReceiptReconciliationPage() {
   const [body, setBody] = useState("");
   const [edited, setEdited] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [attach, setAttach] = useState(true);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -109,7 +110,7 @@ export default function ReceiptReconciliationPage() {
     if (!period || !unit) { setDetail(null); return; }
     const my = ++seq.current;
     const t = setTimeout(async () => {
-      const q = new URLSearchParams({ period, unit, received, ...(validAmount ? { amount: String(amount) } : {}), ...(checkNo ? { check: checkNo } : {}), ...(effectivePlan ? { plan: effectivePlan } : {}) });
+      const q = new URLSearchParams({ period, unit, received, ...(validAmount ? { amount: String(amount) } : {}), ...(checkNo ? { check: checkNo } : {}), ...(effectivePlan ? { plan: effectivePlan } : {}), attach: attach ? "1" : "0" });
       const r = await fetch(`/api/tenant-statements/receipts?${q}`, { cache: "no-store" }).catch(() => null);
       const j = r ? await r.json().catch(() => null) : null;
       if (my !== seq.current) return;
@@ -119,10 +120,10 @@ export default function ReceiptReconciliationPage() {
     }, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, unit, amountText, received, checkNo, effectivePlan]);
+  }, [period, unit, amountText, received, checkNo, effectivePlan, attach]);
 
   // A new reading of the payment resets the wording to the standard one.
-  useEffect(() => { setEdited(false); }, [effectivePlan, unit, amountText]);
+  useEffect(() => { setEdited(false); }, [effectivePlan, unit, amountText, attach]);
 
   const pickTenant = (u: string) => {
     setUnit(u); setPlanId(null); setCustom({ on: false, idx: new Set(), credit: false }); setExcluded(new Set()); setAnswering(null); setDraftId(null); setEdited(false);
@@ -149,7 +150,7 @@ export default function ReceiptReconciliationPage() {
     setBusy(true); setError(null);
     const r = await fetch("/api/tenant-statements/receipts", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, id: draftId ?? undefined, period, unitRef: detail.tenant.unitRef, amount, receivedISO: received, checkNo, plan: plan.id, subject, body, exclude: [...excluded] }),
+      body: JSON.stringify({ action, id: draftId ?? undefined, period, unitRef: detail.tenant.unitRef, amount, receivedISO: received, checkNo, plan: plan.id, subject, body, exclude: [...excluded], attachStatement: attach }),
     }).catch(() => null);
     const j = r ? await r.json().catch(() => null) : null;
     setBusy(false); setConfirming(false);
@@ -434,6 +435,11 @@ export default function ReceiptReconciliationPage() {
               </label>
             )) : <div className="small" style={{ color: "#b45309", fontWeight: 600 }}>No email on file for this suite — add a contact on the <a href={`/units/${detail.tenant.unitRef}`}>unit page</a>, or save it as a draft.</div>}
           </div>
+          <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="checkbox" checked={attach} onChange={(e) => setAttach(e.target.checked)} />
+            Attach their {period ? periodLabel(period) : ""} statement (PDF)
+            <a href={`/api/tenant-statements/receipts?period=${period}&unit=${encodeURIComponent(detail.tenant.unitRef)}&pdf=1`} target="_blank" rel="noreferrer">Preview</a>
+          </label>
           <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
             <input value={subject} onChange={(e) => { setSubject(e.target.value); setEdited(true); }} aria-label="Subject"
               style={{ width: "100%", border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, padding: "10px 14px", fontWeight: 700, background: "transparent" }} />
