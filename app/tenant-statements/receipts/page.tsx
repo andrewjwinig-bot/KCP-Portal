@@ -132,6 +132,8 @@ export default function ReceiptReconciliationPage() {
   }, [tenants]);
 
   const plan = detail?.plan ?? null;
+  /** A payment is typed and read — show what it covers. */
+  const applying = !!(detail && validAmount && plan);
   const appliedByIdx = useMemo(() => new Map((plan?.lines ?? []).map((l) => [l.idx, l])), [plan]);
   const to = (detail?.recipients ?? []).filter((e) => !excluded.has(e.toLowerCase()));
 
@@ -320,10 +322,21 @@ export default function ReceiptReconciliationPage() {
             </label>
           )}
 
+        </section>
+      )}
+
+      {/* ── Open charges & credits — as soon as a tenant is picked; once a
+          payment is typed, what it covers is highlighted line by line. ── */}
+      {detail && (
+        <section className="card" style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 17, fontWeight: 800 }}>Open charges &amp; credits</div>
+            {!applying && <div className="muted small">Type what they paid to see how it applies.</div>}
+          </div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
-                {custom.on && <th style={thL} />}
+                {custom.on && applying && <th style={thL} />}
                 <th style={thL}>Date</th><th style={thL}>Charge</th>
                 <th style={thL}>
                   <HoverCard title="Master order of application" width={300} rows={[]} body={
@@ -334,7 +347,8 @@ export default function ReceiptReconciliationPage() {
                   }>
                     <span style={{ cursor: "help", borderBottom: "1px dotted currentColor" }}>Order</span>
                   </HoverCard>
-                </th><th style={th}>Open</th><th style={th}>From payment</th><th style={th}>From credit</th><th style={th}>Still open</th>
+                </th><th style={th}>Open</th>
+                {applying && <><th style={th}>From payment</th><th style={th}>From credit</th><th style={th}>Still open</th></>}
               </tr></thead>
               <tbody>
                 {detail.account.charges.map((ch) => {
@@ -342,27 +356,35 @@ export default function ReceiptReconciliationPage() {
                   const left = ch.amount - (a?.fromPayment ?? 0) - (a?.fromCredit ?? 0);
                   return (
                     <tr key={ch.idx} style={{ borderTop: "1px solid var(--border)", background: a ? "rgba(22,163,74,0.06)" : undefined }}>
-                      {custom.on && <td style={tdL}><input type="checkbox" checked={custom.idx.has(ch.idx)} onChange={(e) => setCustom((c) => { const s = new Set(c.idx); if (e.target.checked) s.add(ch.idx); else s.delete(ch.idx); return { ...c, idx: s }; })} /></td>}
+                      {custom.on && applying && <td style={tdL}><input type="checkbox" checked={custom.idx.has(ch.idx)} onChange={(e) => setCustom((c) => { const s = new Set(c.idx); if (e.target.checked) s.add(ch.idx); else s.delete(ch.idx); return { ...c, idx: s }; })} /></td>}
                       <td style={tdL}>{dateLabel(ch.dateISO)}</td>
                       <td style={{ ...tdL, whiteSpace: "normal" }}>{ch.description}</td>
                       <td style={tdL}><span className="muted small">{APPLICATION_ORDER.findIndex((x) => x.key === ch.appClass) + 1}. {APPLICATION_LABEL[ch.appClass]}</span></td>
                       <td style={td}>{money(ch.amount)}</td>
+                      {applying && <>
                       <td style={{ ...td, fontWeight: a?.fromPayment ? 700 : 400, color: a?.fromPayment ? "#15803d" : "var(--muted)" }}>{a?.fromPayment ? money(a.fromPayment) : "—"}</td>
                       <td style={{ ...td, color: a?.fromCredit ? "#15803d" : "var(--muted)" }}>{a?.fromCredit ? money(a.fromCredit) : "—"}</td>
                       <td style={{ ...td, color: left > 0.005 ? "var(--text)" : "var(--muted)" }}>{left > 0.005 ? money(left) : "—"}</td>
+                      </>}
                     </tr>
                   );
                 })}
                 {detail.account.creditLines.map((cl, i) => (
                   <tr key={`c${i}`} style={{ borderTop: "1px solid var(--border)" }}>
-                    {custom.on && <td />}
+                    {custom.on && applying && <td />}
                     <td style={tdL}>{dateLabel(cl.dateISO)}</td>
                     <td style={tdL}>{cl.description}</td>
                     <td style={tdL}><span className="muted small">Credit</span></td>
                     <td style={{ ...td, color: "#15803d" }}>({money(cl.amount)})</td>
-                    <td colSpan={3} />
+                    {applying && <td colSpan={3} />}
                   </tr>
                 ))}
+                <tr style={{ borderTop: "2px solid var(--border)" }}>
+                  {custom.on && applying && <td />}
+                  <td style={tdL} /><td style={{ ...tdL, fontWeight: 700 }}>Balance due</td><td style={tdL} />
+                  <td style={{ ...td, fontWeight: 800 }}>{money(detail.account.net)}</td>
+                  {applying && <td colSpan={3} />}
+                </tr>
               </tbody>
             </table>
           </div>
