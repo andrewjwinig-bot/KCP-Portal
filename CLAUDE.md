@@ -80,8 +80,10 @@ invoicers. To give him real work: widen his profile and take him out of
 **TAMI PROCESSES THE TENANT RECEIPTS** (owner, 11/2026: "needs access to the
 monthly statements, rent rolls, and property statements"). Her profile
 (`tami` in `lib/users.ts`, access group `accounting`) WORKS Monthly Statements
-(payments, credits, the laser import, tenant links) and READS the rent roll,
-unit pages, properties and Operating Statements — that page only, not the rest
+(payments, credits, the laser import, tenant links) and Receipt
+Reconciliation, and READS unit pages and Operating Statements — NO Rent Roll or
+Property Info (owner: "hide rent roll property info for tami too"; her nav is
+not the universal one) — that page only, not the rest
 of `/financials` (its API now answers to its own page; the sidebar shows it on
 the `operating-statements` key). Her writes are confined by `WRITE_SCOPE` to
 `/api/tenant-statements` and `/api/cam-recon/tenant-link`, so a GL upload

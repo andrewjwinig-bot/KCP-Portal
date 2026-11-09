@@ -83,6 +83,8 @@ export async function GET(req: NextRequest) {
     const now = new Date();
     return NextResponse.json({
       ok: true, period, periods: runs.map((r) => r.period).sort().reverse(), tenants,
+      // The day the month's data was posted — the last day its figures are accurate.
+      postedAsOf: (run?.statements ?? []).map((s) => s.importedAt ?? "").sort().pop()?.slice(0, 10) || run?.updatedAt?.slice(0, 10) || null,
       receipts: receipts.map((r) => ({ ...r, status: receiptStatus(r, now) })),
     });
   }

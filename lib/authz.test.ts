@@ -113,12 +113,13 @@ describe("Randy — the staff accountant, read-only", () => {
 });
 
 describe("Tami — tenant receipts", () => {
-  it("reads Monthly Statements, the rent roll, unit pages and Operating Statements", () => {
-    for (const p of ["/tenant-statements", "/rentroll", "/units/2300-1817", "/financials/operating-statements", "/properties/2300"]) {
+  it("reads Monthly Statements, Receipt Reconciliation, unit pages and Operating Statements", () => {
+    for (const p of ["/tenant-statements", "/tenant-statements/receipts", "/units/2300-1817", "/financials/operating-statements"]) {
       expect(authorizeRequest("tami", p)).toBe(true);
     }
     expect(authorizeRequest("tami", "/api/financials/operating-statements", "GET")).toBe(true);
     expect(authorizeRequest("tami", "/api/financials/operating-statements/transactions", "GET")).toBe(true);
+    expect(authorizeRequest("tami", "/api/tenant-statements/receipts", "POST")).toBe(true);
   });
 
   it("works Monthly Statements — payments, credits, imports, tenant links", () => {
@@ -134,7 +135,7 @@ describe("Tami — tenant receipts", () => {
   });
 
   it("sees none of the rest of financials, budgets, banking, payroll or investors", () => {
-    for (const p of ["/financials/budgets", "/financials/cash-analysis", "/financials/reprojections", "/api/financials/budgets", "/api/financials/bank-balances", "/bank-rec", "/payroll", "/investors", "/cam-recon", "/deposits"]) {
+    for (const p of ["/rentroll", "/properties", "/properties/2300", "/financials/budgets", "/financials/cash-analysis", "/financials/reprojections", "/api/financials/budgets", "/api/financials/bank-balances", "/bank-rec", "/payroll", "/investors", "/cam-recon", "/deposits"]) {
       expect(authorizeRequest("tami", p)).toBe(false);
     }
   });

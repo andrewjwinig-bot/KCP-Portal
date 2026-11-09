@@ -62,12 +62,12 @@ function confidenceTone(e: Explanation) {
 export default function ReceiptReconciliationPage() {
   const [period, setPeriod] = useState<string | null>(null);
   const [periods, setPeriods] = useState<string[]>([]);
+  const [postedAsOf, setPostedAsOf] = useState<string | null>(null);
   const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // The payment being worked.
-  const [search, setSearch] = useState("");
   const [unit, setUnit] = useState<string>("");
   const [amountText, setAmountText] = useState("");
   const [received, setReceived] = useState(todayISO());
@@ -94,7 +94,7 @@ export default function ReceiptReconciliationPage() {
     const r = await fetch(`/api/tenant-statements/receipts${p ? `?period=${p}` : ""}`, { cache: "no-store" }).catch(() => null);
     const j = r ? await r.json().catch(() => null) : null;
     if (!j?.ok) { setError(j?.error ?? "Could not load the statements."); return; }
-    setPeriod(j.period); setPeriods(j.periods); setTenants(j.tenants); setReceipts(j.receipts);
+    setPeriod(j.period); setPeriods(j.periods); setPostedAsOf(j.postedAsOf ?? null); setTenants(j.tenants); setReceipts(j.receipts);
   }, []);
   useEffect(() => { loadList(); }, [loadList]);
 
@@ -122,12 +122,14 @@ export default function ReceiptReconciliationPage() {
   const pickTenant = (u: string) => {
     setUnit(u); setPlanId(null); setCustom({ on: false, idx: new Set(), credit: false }); setExcluded(new Set()); setAnswering(null); setDraftId(null); setEdited(false);
   };
-  const resetWork = () => { pickTenant(""); setAmountText(""); setCheckNo(""); setReceived(todayISO()); setSearch(""); };
+  const resetWork = () => { pickTenant(""); setAmountText(""); setCheckNo(""); setReceived(todayISO()); };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return tenants.filter((t) => !q || t.tenantName.toLowerCase().includes(q) || t.unitRef.toLowerCase().includes(q) || t.propertyName.toLowerCase().includes(q));
-  }, [tenants, search]);
+  // The tenant dropdown: grouped by property in statement order, A–Z within.
+  const byProperty = useMemo(() => {
+    const m = new Map<string, TenantRow[]>();
+    for (const t of tenants) { const k = `${t.propertyCode} · ${t.propertyName}`; m.set(k, [...(m.get(k) ?? []), t]); }
+    return [...m.entries()].map(([k, rows]) => [k, rows.sort((x, y) => x.tenantName.localeCompare(y.tenantName))] as const);
+  }, [tenants]);
 
   const plan = detail?.plan ?? null;
   const appliedByIdx = useMemo(() => new Map((plan?.lines ?? []).map((l) => [l.idx, l])), [plan]);
@@ -201,6 +203,23 @@ export default function ReceiptReconciliationPage() {
 
       {error && <div className="card" style={{ color: "#b91c1c", fontWeight: 600, fontSize: 13 }}>{error}</div>}
 
+      {/* The figures are only as current as the laser statement behind them —
+          a payment or charge keyed in Skyline since will not be here. The
+          tenant's own import date when one is picked, else the month's. */}
+      {(detail?.asOf ?? postedAsOf) && (
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", border: "1px solid rgba(217,119,6,0.35)", background: "rgba(217,119,6,0.08)", borderRadius: 12, padding: "12px 16px" }}>
+          <span aria-hidden style={{ fontSize: 18, lineHeight: 1.2, color: "#b45309" }}>⚠</span>
+          <div style={{ display: "grid", gap: 2 }}>
+            <div style={{ fontWeight: 800, color: "#b45309" }}>
+              Data posted {new Date(`${(detail?.asOf ?? postedAsOf)!}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}{detail ? ` for ${detail.tenant.tenantName}` : ""} — the last day these figures are accurate.
+            </div>
+            <div className="small">
+              Anything posted in Skyline after that — a payment, a credit, a new charge — isn&rsquo;t shown here. Check the tenant&rsquo;s <b>Occupant History</b> in Skyline for unposted items before you reconcile or email them.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── 1. The payment ───────────────────────────────────────────── */}
       <section className="card" style={{ display: "grid", gap: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -223,22 +242,14 @@ export default function ReceiptReconciliationPage() {
                 {!answering && <button className="btn sm" onClick={() => pickTenant("")}>Change</button>}
               </div>
             ) : (
-              <div style={{ position: "relative" }}>
-                <input type="search" placeholder="Search tenant, suite or property…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: "100%" }} />
-                {search.trim() && (
-                  <div className="card" style={{ position: "absolute", zIndex: 20, top: "calc(100% + 4px)", left: 0, right: 0, maxHeight: 320, overflowY: "auto", padding: 4 }}>
-                    {filtered.slice(0, 40).map((t) => (
-                      <button key={t.unitRef} type="button" onClick={() => { pickTenant(t.unitRef); setSearch(""); }}
-                        style={{ display: "flex", width: "100%", justifyContent: "space-between", gap: 10, padding: "7px 10px", border: 0, background: "transparent", cursor: "pointer", textAlign: "left", borderRadius: 8 }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(11,74,125,0.06)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                        <span><b>{t.tenantName}</b> <span className="muted small">· {t.propertyName} · <code>{t.unitRef}</code></span></span>
-                        <span className="small" style={{ fontWeight: 700, whiteSpace: "nowrap" }}>{money(t.net)}</span>
-                      </button>
-                    ))}
-                    {!filtered.length && <div className="muted small" style={{ padding: 10 }}>No tenant on the {period ? periodLabel(period) : ""} statement matches.</div>}
-                  </div>
-                )}
-              </div>
+              <select value="" onChange={(e) => { if (e.target.value) pickTenant(e.target.value); }} aria-label="Tenant" style={{ width: "100%" }}>
+                <option value="">Select a tenant…</option>
+                {byProperty.map(([prop, rows]) => (
+                  <optgroup key={prop} label={prop}>
+                    {rows.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.tenantName} · {t.unitRef} — {money(t.net)}</option>)}
+                  </optgroup>
+                ))}
+              </select>
             )}
           </label>
           <label style={{ display: "grid", gap: 4, flex: "0 0 160px" }}>
@@ -258,13 +269,12 @@ export default function ReceiptReconciliationPage() {
         {detail && (
           <>
             <div className="pills" style={{ justifyContent: "flex-start", margin: 0 }}>
-              <StatPill label="Open charges" value={money(detail.account.gross)} sub={`${detail.account.charges.length} charges`} />
+              <StatPill label="Open charges" value={money(detail.account.gross)} sub={`${detail.account.charges.length} charge${detail.account.charges.length === 1 ? "" : "s"}`} />
               <StatPill label="Open credit" value={detail.account.credit ? `(${money(detail.account.credit)})` : "—"} accent={detail.account.credit ? "#15803d" : undefined} />
               <StatPill label="Net due" value={money(detail.account.net)} total />
               {validAmount && <StatPill label="They paid" value={money(amount)} sub={amount === detail.account.net ? "exactly the balance" : `${money(amount - detail.account.net)} vs balance`} accent={Math.abs(amount - detail.account.net) < 0.005 ? "#15803d" : "#b45309"} />}
             </div>
             {!detail.tenant.tiesOut && <div className="small" style={{ color: "#b45309", fontWeight: 600 }}>This tenant&rsquo;s statement did not tie out on import — check the charges below against Skyline before sending.</div>}
-            <div className="muted small">Open items only, as of {detail.asOf ? dateLabel(detail.asOf) : "the last import"} — re-import the laser statement to pick up payments since.</div>
           </>
         )}
       </section>
