@@ -400,9 +400,18 @@ export default function ReceiptReconciliationPage() {
                 ))}
                 <tr style={{ borderTop: "2px solid var(--border)" }}>
                   {custom.on && applying && <td />}
-                  <td style={tdL} /><td style={{ ...tdL, fontWeight: 700 }}>Balance due</td><td style={tdL} />
+                  <td style={tdL} /><td style={{ ...tdL, fontWeight: 700 }}>{applying ? "Total" : "Balance due"}</td><td style={tdL} />
                   <td style={{ ...td, fontWeight: 800 }}>{money(detail.account.net)}</td>
-                  {applying && <td colSpan={3} />}
+                  {applying && plan && (() => {
+                    const fromPay = plan.lines.reduce((a, l) => a + l.fromPayment, 0);
+                    const fromCredit = plan.lines.reduce((a, l) => a + l.fromCredit, 0);
+                    const stillOpen = detail.account.gross - fromPay - fromCredit;
+                    return <>
+                      <td style={{ ...td, fontWeight: 800, color: "#15803d" }}>{money(fromPay)}</td>
+                      <td style={{ ...td, fontWeight: 800, color: fromCredit ? "#15803d" : "var(--muted)" }}>{fromCredit ? money(fromCredit) : "—"}</td>
+                      <td style={{ ...td, fontWeight: 800 }}>{stillOpen > 0.005 ? money(stillOpen) : "—"}</td>
+                    </>;
+                  })()}
                 </tr>
               </tbody>
             </table>
