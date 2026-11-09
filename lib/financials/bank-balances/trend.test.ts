@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { balanceLineFor, balanceTrend } from "./trend";
+import { balanceLineFor, balanceTrend, portfolioTrend } from "./trend";
 import { BALANCE_ACCOUNTS, accountId, entityFor } from "./entities";
 
 describe("bank balance trend", () => {
@@ -17,5 +17,26 @@ describe("bank balance trend", () => {
     // a later snapshot carrying only one account keeps the others' last figure
     const t2 = balanceTrend("7010", [snap("2026-10-05", ids.map(() => 50)), { date: "2026-10-19", accounts: { [ids[0]]: { balance: 80, asOf: "2026-10-19" } } }])!;
     expect(t2.points[t2.points.length - 1].balance).toBe(80 + 50 * (ids.length - 1));
+  });
+});
+
+describe("portfolio trend (the header tiles over time)", () => {
+  const op = BALANCE_ACCOUNTS.filter((a) => !entityFor(a).restricted);
+  const chase = op.find((a) => String(a.bank).includes("Chase"))!;
+  const mt = op.find((a) => a.bank === "M&T")!;
+  const sd = BALANCE_ACCOUNTS.find((a) => entityFor(a).restricted)!;
+  const id = (a: typeof chase) => accountId(a.bank, a.last4);
+  it("waits until every bank is in, carries figures forward, splits deposits", () => {
+    const pts = portfolioTrend([
+      { date: "2026-11-02", accounts: { [id(chase)]: { balance: 100, asOf: "2026-11-02" } } },
+      { date: "2026-11-03", accounts: { [id(mt)]: { balance: 50, asOf: "2026-11-03" }, [id(sd)]: { balance: 20, asOf: "2026-11-03" } } },
+      { date: "2026-11-09", accounts: { [id(chase)]: { balance: 130, asOf: "2026-11-09" } } },
+    ], [{ id: "Liberty Bank|x9245", balanceOn: () => 1000 }]);
+    expect(pts[0].date).toBe("2026-11-03");
+    const last = pts[pts.length - 1];
+    expect(last.cash).toBe(130 + 50 + 20 + 1000);
+    expect(last.deposits).toBe(20);
+    expect(last.handsOff).toBe(1000);
+    expect(last.operating).toBe(180);
   });
 });

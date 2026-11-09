@@ -3,7 +3,10 @@ import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, USERS, canEditCashSheet, type UserId } from "@/lib/users";
 import { parseBankBalances, unreadablePdfText, UNREADABLE_PDF_MESSAGE, type ParsedStatement } from "@/lib/financials/bank-balances/parse";
-import { saveImport } from "@/lib/financials/bank-balances/store";
+import { saveImport, loadSnapshots } from "@/lib/financials/bank-balances/store";
+import { portfolioTrend } from "@/lib/financials/bank-balances/trend";
+import { ACCRUED_ACCOUNTS, accruedBalance } from "@/lib/financials/bank-balances/accrued";
+import { accountId } from "@/lib/financials/bank-balances/entities";
 import { buildBalanceView } from "@/lib/financials/bank-balances/view";
 import { logAudit, auditIp } from "@/lib/audit";
 import { pdfText } from "@/lib/pdf/pdfText";
@@ -26,8 +29,10 @@ async function currentUser(): Promise<UserId | null> {
 export async function GET() {
   const user = await currentUser();
   try {
-    const view = await buildBalanceView();
-    return NextResponse.json({ ...view, canEdit: !user || canEditCashSheet(user) });
+    const [view, snapshots] = await Promise.all([buildBalanceView(), loadSnapshots().catch(() => [])]);
+    // The header tiles over time (clicked open on the page).
+    const trend = portfolioTrend(snapshots, ACCRUED_ACCOUNTS.map((a) => ({ id: accountId(a.bank, a.last4), balanceOn: (d: string) => accruedBalance(a, d) })));
+    return NextResponse.json({ ...view, trend, canEdit: !user || canEditCashSheet(user) });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });
   }

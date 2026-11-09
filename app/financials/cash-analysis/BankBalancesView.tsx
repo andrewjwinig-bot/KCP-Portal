@@ -16,6 +16,7 @@ import { th, thL, td as tdBase, tdL as tdLBase } from "@/app/components/tableSty
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { useImport } from "@/app/components/import/ImportProvider";
 import { useUser } from "@/app/components/UserProvider";
+import { BalanceTrendModal, type PortfolioPoint, type TrendMetric } from "./BalanceTrendModal";
 
 type Account = { id: string; bank: string; last4: string; name: string; link: string | null; balance: number | null; available: number | null; asOf: string | null; prior: { balance: number; asOf: string } | null };
 type Row = {
@@ -31,6 +32,8 @@ type View = {
   ym: string; rows: Row[]; groups: string[]; canEdit: boolean; unplacedDebt: number; unplacedDebtService: number;
   unmatched: { bank: string; last4: string; name: string; balance: number }[];
   byBank: { bank: string; asOf: string | null; importedAt: string | null; importedBy: string | null; accounts: number }[];
+  /** The header tiles over time — one point per import date. */
+  trend?: PortfolioPoint[];
 };
 
 const BANK_LABEL: Record<string, string> = { "JPM-Chase": "Chase", "Liberty Bank": "Liberty", "M&T": "M&T" };
@@ -94,6 +97,7 @@ export default function BankBalancesView() {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [trendOpen, setTrendOpen] = useState<TrendMetric | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { startImport } = useImport();
   const { user } = useUser();
@@ -237,13 +241,18 @@ export default function BankBalancesView() {
 
       {data && (
         <div className="pills">
-          <StatPill label="Cash in bank" value={money0(totalCash)}
+          <StatPill label="Cash in bank" value={money0(totalCash)} onClick={() => setTrendOpen("cash")} hint="Cash in bank over time"
             sub={wow.change != null ? `${wow.change >= 0 ? "▲" : "▼"} ${money0(Math.abs(wow.change))} since ${shortDate(wow.priorAsOf)}` : undefined} />
-          <StatPill label="Security deposits" value={money0(restricted)} sub="Tenants' money" />
+          <StatPill label="Security deposits" value={money0(restricted)} sub="Tenants' money" onClick={() => setTrendOpen("deposits")} hint="Security deposits over time" />
           <StatPill label="Reserves" value={money0(reserves)} sub={handsOff ? `Big Projects · incl. ${money0(handsOff)} hands off` : "Big Projects, next 3 months"} />
-          <StatPill label="Net available" value={money0(net)} total />
+          <StatPill label="Net available" value={money0(net)} total onClick={() => setTrendOpen("net")} hint="Net available over time" />
           <StatPill label="Debt service / mo" value={money0(debtService)} sub={`${money0(debt)} principal · not netted`} />
         </div>
+      )}
+
+      {data && trendOpen && (
+        <BalanceTrendModal trend={data.trend ?? []} metric={trendOpen} onMetric={setTrendOpen}
+          operatingReserves={reserves - handsOff} onClose={() => setTrendOpen(null)} />
       )}
 
       {data && missing.length > 0 && data.byBank.length > 0 && (
