@@ -38,6 +38,22 @@ const money = (s: string): number => {
 };
 const AMT = String.raw`\(?-?\$?-?[\d,]+\.\d{2}\)?`;
 
+/** The PDF's text cannot be read at all. A page printed through the "Adobe
+ *  PDF" printer (PScript5 + Acrobat Distiller) embeds its fonts as Type 3 with
+ *  no character map, so every reader — ours included — gets control characters
+ *  and shuffled punctuation instead of words (Chase, 11/9/26). The balances are
+ *  not recoverable from such a file; it has to be saved again. */
+export function unreadablePdfText(text: string): boolean {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (t.length < 40) return true;
+  if (/balance|account|total|checking|savings|chase|liberty|deposit/i.test(t)) return false;
+  return true;
+}
+
+export const UNREADABLE_PDF_MESSAGE =
+  "The PDF's text can't be read — it was likely saved with the \"Adobe PDF\" printer, which scrambles the fonts. " +
+  "Re-save the bank's accounts page from Chrome: Print → Destination \"Save as PDF\" (or \"Microsoft Print to PDF\"), then import that file.";
+
 export function detectBank(text: string): BankName | null {
   if (/Previous Day Deposit Accounts|Closing Ledger|M&?T Bank|Treasury Center/i.test(text)) return "M&T";
   if (/Liberty Bank/i.test(text)) return "Liberty Bank";
