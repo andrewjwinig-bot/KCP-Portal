@@ -422,14 +422,21 @@ export function composeReceiptEmail(x: ReceiptEmailInput): { subject: string; bo
   // Wherever WE decided the order (no reading of theirs did), say what it is.
   if (plan.fallback || plan.id === "monthly" || plan.id.startsWith("near:")) lines.push(ORDER_SENTENCE, "");
   lines.push(`If you intended this payment for different charges, please reply to this email by ${longDate(x.respondByISO)} and let us know which charges it covers. If we don't hear from you by then, we'll apply it as shown above.`, "");
+  lines.push(`If you are not the person who makes payment allocation decisions for your company, please forward this email to the appropriate person or department.`, "");
   lines.push(`Thank you,`, x.signer.name, "Korman Commercial Properties", x.signer.email, ...(x.signer.phone ? [x.signer.phone] : []));
   return { subject: `Your payment of ${usd(x.amount)} — ${x.propertyName}, Suite ${x.suite}`, body: lines.join("\n") };
 }
 
-/** The next business day (Mon–Fri) after `iso`, as YYYY-MM-DD — "give them a
- *  day to respond". */
-export function respondByFrom(iso: string): string {
+/** How long a tenant has to answer before the plan applies (owner, 11/2026:
+ *  "give 2 days before we apply the charges"). */
+export const RESPOND_BUSINESS_DAYS = 2;
+
+/** `days` business days (Mon–Fri) after `iso`, as YYYY-MM-DD. */
+export function respondByFrom(iso: string, days = RESPOND_BUSINESS_DAYS): string {
   const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
-  do d.setUTCDate(d.getUTCDate() + 1); while (d.getUTCDay() === 0 || d.getUTCDay() === 6);
+  for (let n = 0; n < days;) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) n++;
+  }
   return d.toISOString().slice(0, 10);
 }

@@ -123,12 +123,14 @@ describe("the email", () => {
     expect(body).toMatch(/check #1042/);
     expect(body).toMatch(/Less: credit on your account/);
     expect(body).toMatch(/your account will carry a credit of \$300\.00/);
-    expect(body).toMatch(/reply to this email by Tuesday, November 10, 2026/);
+    expect(body).toMatch(/reply to this email by Wednesday, November 11, 2026/);
+    expect(body).toMatch(/If you are not the person who makes payment allocation decisions for your company, please forward this email/);
     expect(body).toMatch(/If we don't hear from you by then, we'll apply it as shown above/);
   });
 
-  it("gives a Friday payment until Monday", () => {
-    expect(respondByFrom("2026-11-13")).toBe("2026-11-16");
+  it("gives the tenant two business days — a Friday email until Tuesday", () => {
+    expect(respondByFrom("2026-11-09")).toBe("2026-11-11");
+    expect(respondByFrom("2026-11-13")).toBe("2026-11-17");
   });
 });
 
