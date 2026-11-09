@@ -161,7 +161,12 @@ export default function BankRecPage() {
   const glOff = (r?.gl ?? []).filter((g) => g.difference != null && Math.abs(g.difference) >= 0.005);
   const glCompared = (r?.gl ?? []).filter((g) => g.difference != null).length;
   const months = useMemo(() => {
-    const s = new Set<string>([priorMonth(), period, ...(data?.history ?? []).map((h) => h.period)]);
+    // The last twelve months, so a back month (catching up, or seeding the first
+    // one) can be run — not only last month and the months already on file.
+    const recent: string[] = [];
+    const d = new Date(); d.setDate(1);
+    for (let i = 0; i < 12; i++) { d.setMonth(d.getMonth() - 1); recent.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); }
+    const s = new Set<string>([...recent, period, ...(data?.history ?? []).map((h) => h.period)]);
     return [...s].sort().reverse();
   }, [data, period]);
   const resolvedById = useMemo(() => new Map((data?.resolutions ?? []).map((x) => [x.id, x])), [data]);
