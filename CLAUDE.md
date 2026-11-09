@@ -1278,6 +1278,18 @@ charges"; `RESPOND_BUSINESS_DAYS`, `respondByFrom`); with no answer the record t
   payment is typed), with **Copy email** for a suite with no email on file.
 - Records: `tenant-receipt-recs` (`receiptStore.ts`); API
   `/api/tenant-statements/receipts` (inside Tami's `WRITE_SCOPE`).
+- **EVERY RECEIPT EMAIL IS ARCHIVED AS SENT** (owner: "record and save all
+  sent emails … a proof and a record in the portal that we did request a
+  response from the tenant"; `receiptEmailLog.ts`, `tenant-receipt-emails`):
+  at the send, the exact HTML + text, From / To / Bcc / Reply-To, subject,
+  the answer-by date, Postmark's message ID and the attached statement PDF
+  (base64) — one record per send, written once, never edited, and KEPT when
+  the receipt record is deleted. The receipt carries `emailIds` (every send).
+  The page's **Sent Emails** card lists them all (and "View sent email" on a
+  receipt's row): a modal with the headers, the email rendered in a sandboxed
+  iframe, the statement, and **Download .eml** (`toEml` in `receiptEml.ts`,
+  `GET …/receipts?email=<id>&format=eml|pdf`) — opens in Outlook as the
+  record. Pinned by `receiptEml.test.ts`.
 
 # Management fees — the intercompany must tie exactly
 

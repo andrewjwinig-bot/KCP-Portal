@@ -2,7 +2,10 @@
 // (`/api/tenant-statements` → the Monthly Statements page), and inside Tami's
 // write scope.
 //
-//   GET  ?period=                → the month's tenants (for the picker) and every receipt record
+//   GET  ?period=                → the month's tenants (for the picker), every receipt record
+//                                   and the archive of every receipt email sent
+//   GET  ?email=<id>[&format=eml|pdf] → one sent email exactly as it went (JSON),
+//                                   as an .eml file, or its attached statement
 //   GET  ?period=&unit=&amount=  → that tenant's account, the explanations of the amount,
 //                                   who the email goes to, and the drafted email for `plan`
 //   POST { action: "send", … }   → recompute the chosen plan from the STORED statement,
@@ -30,6 +33,8 @@ import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
 import { logAudit, auditIp } from "@/lib/audit";
 import type { TenantStatement } from "@/lib/statements/types";
+import { allSentEmails, getSentEmail, recordSentEmail, summarizeSent, type SentReceiptEmail } from "@/lib/statements/receiptEmailLog";
+import { toEml } from "@/lib/statements/receiptEml";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -100,12 +105,32 @@ async function who(): Promise<string | null> {
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
+  const emailId = q.get("email");
+  if (emailId) {
+    const e = await getSentEmail(emailId);
+    if (!e) return NextResponse.json({ error: "That email is not on file." }, { status: 404 });
+    const safe = (s: string) => s.replace(/[^\w]+/g, "_");
+    const format = q.get("format");
+    if (format === "eml") {
+      return new NextResponse(toEml(e), { headers: {
+        "Content-Type": "message/rfc822", "Cache-Control": "no-store",
+        "Content-Disposition": `attachment; filename="${safe(e.tenantName)}_${e.sentAt.slice(0, 10)}_receipt_email.eml"`,
+      } });
+    }
+    if (format === "pdf") {
+      if (!e.attachment) return NextResponse.json({ error: "No statement was attached to that email." }, { status: 404 });
+      return new NextResponse(Buffer.from(e.attachment.base64, "base64"), { headers: {
+        "Content-Type": e.attachment.contentType, "Cache-Control": "no-store", "Content-Disposition": `inline; filename="${e.attachment.name}"`,
+      } });
+    }
+    return NextResponse.json({ ok: true, email: { ...summarizeSent(e), html: e.html, text: e.text } });
+  }
   const period = q.get("period") || (await latestPeriod());
-  if (!period) return NextResponse.json({ ok: true, period: null, periods: [], tenants: [], receipts: [] });
+  if (!period) return NextResponse.json({ ok: true, period: null, periods: [], tenants: [], receipts: [], sentEmails: await allSentEmails() });
   const unit = q.get("unit");
 
   if (!unit) {
-    const [run, runs, receipts] = await Promise.all([getRun(period), allRuns(), allReceipts()]);
+    const [run, runs, receipts, sentEmails] = await Promise.all([getRun(period), allRuns(), allReceipts(), allSentEmails()]);
     const tenants = (run?.statements ?? []).map((s) => {
       const a = accountOf(s);
       return { unitRef: s.unitRef, tenantName: s.tenantName, propertyCode: s.propertyCode, propertyName: propertyName(s.propertyCode), gross: a.gross, credit: a.credit, net: a.net };
@@ -120,6 +145,7 @@ export async function GET(req: NextRequest) {
         stampRead: (run?.statements ?? []).some((s) => s.exportedAt !== undefined),
       },
       receipts: receipts.map((r) => ({ ...r, status: receiptStatus(r, now) })),
+      sentEmails,
     });
   }
 
@@ -202,15 +228,32 @@ export async function POST(req: NextRequest) {
       // verified, so if hers is refused the email still goes — from the
       // portal's verified sender, under her name, replies still to her.
       let fromUsed = sig.email;
-      let sent = await sendMailDetailed({ ...msg, from: `${sig.name}, Korman Commercial Properties <${sig.email}>` });
+      let fromHeader = `${sig.name}, Korman Commercial Properties <${sig.email}>`;
+      let sent = await sendMailDetailed({ ...msg, from: fromHeader });
       if (!sent.ok && sig.email.toLowerCase() !== VERIFIED_FROM.toLowerCase()) {
         console.warn(`[receipts] sending from ${sig.email} refused (${sent.error}) — retrying from ${VERIFIED_FROM}`);
         fromUsed = VERIFIED_FROM;
-        sent = await sendMailDetailed({ ...msg, from: `${sig.name}, Korman Commercial Properties <${VERIFIED_FROM}>` });
+        fromHeader = `${sig.name}, Korman Commercial Properties <${VERIFIED_FROM}>`;
+        sent = await sendMailDetailed({ ...msg, from: fromHeader });
       }
       if (!sent.ok) return NextResponse.json({ error: `The email did not send: ${sent.error ?? "unknown error"}` }, { status: 502 });
-      rec.email = { to, subject, body, sentAt: now, sentBy: by, from: fromUsed, attachedStatement: attach };
       rec.respondByISO = respondByFrom(todayET());
+      // The archive: the email EXACTLY as it went — kept on its own, so the
+      // proof that we asked survives the receipt record.
+      const att = msg.attachments?.[0] ?? null;
+      const archived: SentReceiptEmail = {
+        id: `${now.replace(/\D/g, "").slice(0, 14)}-${st.unitRef}-${Math.random().toString(36).slice(2, 7)}`,
+        receiptId: rec.id, period, unitRef: st.unitRef, tenantName: st.tenantName, propertyCode: st.propertyCode,
+        amount, planTitle: plan.title, respondByISO: rec.respondByISO,
+        sentAt: now, sentBy: by, from: fromHeader, to, bcc: sig.email, replyTo: sig.email, subject, html, text: body,
+        messageId: sent.messageId ?? null, testMode: !!sent.testMode,
+        attachment: att ? { name: att.name, contentType: att.contentType, size: att.content.byteLength, base64: Buffer.from(att.content).toString("base64") } : null,
+      };
+      try { await recordSentEmail(archived); }
+      catch (err) { console.error(`[receipts] the email to ${st.unitRef} went but could not be archived`, err); }
+      const prior = typeof b?.id === "string" && b.id ? await getReceipt(b.id) : null;
+      rec.emailIds = [...(prior?.emailIds ?? []), archived.id];
+      rec.email = { to, subject, body, sentAt: now, sentBy: by, from: fromUsed, attachedStatement: attach, messageId: archived.messageId, archiveId: archived.id };
     }
     await saveReceipt(rec);
     await logAudit({ event: `tenant-statements.receipt-${action}`, user: by, ip: auditIp(req), detail: `${st.unitRef} · $${amount.toFixed(2)} · ${plan.title}` });

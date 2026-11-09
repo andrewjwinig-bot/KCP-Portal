@@ -36,9 +36,16 @@ type TenantRow = { unitRef: string; tenantName: string; propertyCode: string; pr
 type Status = "draft" | "waiting" | "apply" | "posted";
 type Receipt = {
   id: string; period: string; unitRef: string; tenantName: string; propertyCode: string; amount: number; receivedISO: string; checkNo: string | null;
-  plan: Explanation; email: { to: string[]; subject: string; sentAt: string; sentBy: string | null; from?: string } | null; respondByISO: string | null;
+  plan: Explanation; email: { to: string[]; subject: string; sentAt: string; sentBy: string | null; from?: string; archiveId?: string } | null; respondByISO: string | null;
+  emailIds?: string[];
   reply: { at: string; by: string | null; note: string } | null; postedAt: string | null; postedBy: string | null; createdAt: string; createdBy: string | null;
   status: Status;
+};
+/** One email in the sent archive (the bytes are fetched when it is opened). */
+type SentEmail = {
+  id: string; receiptId: string; period: string; unitRef: string; tenantName: string; propertyCode: string; amount: number; planTitle: string;
+  respondByISO: string | null; sentAt: string; sentBy: string | null; from: string; to: string[]; bcc: string | null; replyTo: string | null;
+  subject: string; messageId: string | null; testMode: boolean; attachmentName: string | null;
 };
 type Detail = {
   period: string; asOf: string | null; dates: DataDates;
@@ -69,6 +76,9 @@ export default function ReceiptReconciliationPage() {
   const [monthDates, setMonthDates] = useState<DataDates | null>(null);
   const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [sentEmails, setSentEmails] = useState<SentEmail[]>([]);
+  const [viewing, setViewing] = useState<string | null>(null);
+  const [sentQuery, setSentQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   // The payment being worked.
@@ -101,7 +111,7 @@ export default function ReceiptReconciliationPage() {
     const r = await fetch(`/api/tenant-statements/receipts${p ? `?period=${p}` : ""}`, { cache: "no-store" }).catch(() => null);
     const j = r ? await r.json().catch(() => null) : null;
     if (!j?.ok) { setError(j?.error ?? "Could not load the statements."); return; }
-    setPeriod(j.period); setPeriods(j.periods); setMonthDates(j.dates ?? null); setTenants(j.tenants); setReceipts(j.receipts);
+    setPeriod(j.period); setPeriods(j.periods); setMonthDates(j.dates ?? null); setTenants(j.tenants); setReceipts(j.receipts); setSentEmails(j.sentEmails ?? []);
   }, []);
   // ?period=&unit= (from the Receivables dashboard) opens straight on a tenant.
   useEffect(() => {
@@ -595,6 +605,11 @@ export default function ReceiptReconciliationPage() {
                                     </tbody>
                                   </table>
                                   <div className="muted small">
+                                    {(r.emailIds?.length ?? 0) > 0 && (
+                                      <span style={{ marginRight: 8 }}>
+                                        {r.emailIds!.map((eid, i) => <button key={eid} className="btn sm" style={{ marginRight: 6 }} onClick={() => setViewing(eid)}>{r.emailIds!.length > 1 ? `View sent email ${i + 1}` : "View sent email"}</button>)}
+                                      </span>
+                                    )}
                                     {r.email ? <>Emailed {new Date(r.email.sentAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.email.sentBy ? ` by ${r.email.sentBy}` : ""}{r.email.from ? ` from ${r.email.from}` : ""} to {r.email.to.join(", ")}.</> : "Not emailed."}
                                     {r.reply && <> Tenant&rsquo;s answer recorded by {r.reply.by ?? "—"}{r.reply.note ? `: “${r.reply.note}”` : ""}.</>}
                                     {r.postedAt && <> Posted {dateLabel(r.postedAt.slice(0, 10))}{r.postedBy ? ` by ${r.postedBy}` : ""}.</>}
@@ -614,11 +629,105 @@ export default function ReceiptReconciliationPage() {
         )}
       </section>
 
+      {/* ── The sent-email archive — proof each tenant was asked ─────── */}
+      <section className="card" style={{ padding: 0 }}>
+        <div style={{ padding: "14px 18px 6px", display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Sent Emails</div>
+          <div className="muted small" style={{ flex: 1, minWidth: 220 }}>Every receipt email, kept exactly as it went — kept even if its receipt is deleted.</div>
+          {sentEmails.length > 8 && <input type="search" placeholder="Search tenant, suite, recipient…" value={sentQuery} onChange={(e) => setSentQuery(e.target.value)} style={{ width: 240 }} />}
+        </div>
+        {!sentEmails.length ? <div className="muted small" style={{ padding: "6px 18px 16px" }}>None sent yet.</div> : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr><th style={thL}>Sent</th><th style={thL}>Tenant</th><th style={th}>Payment</th><th style={thL}>To</th><th style={thL}>Answer by</th><th style={thL} /></tr></thead>
+              <tbody>
+                {sentEmails.filter((e) => {
+                  const q = sentQuery.trim().toLowerCase();
+                  return !q || [e.tenantName, e.unitRef, e.subject, ...e.to].some((x) => x.toLowerCase().includes(q));
+                }).map((e) => (
+                  <tr key={e.id} style={{ borderTop: "1px solid var(--border)", cursor: "pointer" }} onClick={() => setViewing(e.id)}>
+                    <td style={tdL}>{new Date(e.sentAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}{e.sentBy ? <span className="muted small"> · {e.sentBy}</span> : null}</td>
+                    <td style={{ ...tdL, whiteSpace: "normal" }}><b>{e.tenantName}</b> <code className="muted" style={{ fontSize: 12 }}>{e.unitRef}</code></td>
+                    <td style={{ ...td, fontWeight: 700 }}>{money(e.amount)}</td>
+                    <td style={{ ...tdL, whiteSpace: "normal" }} className="small">{e.to.join(", ")}</td>
+                    <td style={tdL}>{e.respondByISO ? longDate(e.respondByISO) : "—"}</td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {e.testMode && <Pill tone={TONE_AMBER}>TEST</Pill>}{" "}
+                      <button className="btn sm" onClick={(ev) => { ev.stopPropagation(); setViewing(e.id); }}>View</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {viewing && <SentEmailModal id={viewing} onClose={() => setViewing(null)} />}
+
       {confirming && detail && plan && (
         <ConfirmSend to={to} subject={subject} tenant={detail.tenant.tenantName} amount={amount} plan={plan} respondBy={detail.respondBy} busy={busy}
           onCancel={() => setConfirming(false)} onSend={() => save("send")} />
       )}
     </main>
+  );
+}
+
+/** One archived email, as it went: the headers, the rendered body, the
+ *  attached statement, and an .eml download that opens in Outlook. */
+function SentEmailModal({ id, onClose }: { id: string; onClose: () => void }) {
+  const [e, setE] = useState<(SentEmail & { html: string; text: string }) | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/tenant-statements/receipts?email=${encodeURIComponent(id)}`, { cache: "no-store" })
+      .then(async (r) => { const j = await r.json(); if (!live) return; if (!r.ok) setErr(j.error ?? "Could not open it."); else setE(j.email); })
+      .catch(() => live && setErr("Could not open it."));
+    return () => { live = false; };
+  }, [id]);
+  useEffect(() => {
+    const k = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [onClose]);
+  if (typeof document === "undefined") return null;
+  const base = `/api/tenant-statements/receipts?email=${encodeURIComponent(id)}`;
+  const row = (label: string, value: React.ReactNode) => (
+    <div style={{ display: "grid", gridTemplateColumns: "92px 1fr", gap: 8, alignItems: "baseline" }}>
+      <span style={SECTION}>{label}</span><span className="small" style={{ wordBreak: "break-word" }}>{value}</span>
+    </div>
+  );
+  return createPortal(
+    <div role="dialog" aria-modal="true" onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "grid", placeItems: "center", zIndex: 1000, padding: 16 }}>
+      <div className="card" onClick={(ev) => ev.stopPropagation()} style={{ width: "min(820px, 100%)", maxHeight: "92vh", display: "grid", gridTemplateRows: "auto auto 1fr auto", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>Sent email{e ? ` — ${e.tenantName}` : ""}</div>
+          {e?.testMode && <Pill tone={TONE_AMBER}>TEST MODE · NOT DELIVERED</Pill>}
+          <button className="btn sm" onClick={onClose} title="Close">✕</button>
+        </div>
+        {err ? <div className="small" style={{ color: "#b91c1c" }}>{err}</div> : !e ? <div className="muted small">Opening…</div> : (
+          <div style={{ display: "grid", gap: 4 }}>
+            {row("Sent", <>{new Date(e.sentAt).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", timeZoneName: "short" })}{e.sentBy ? ` · by ${e.sentBy}` : ""}</>)}
+            {row("From", e.from)}
+            {row("To", e.to.join(", "))}
+            {e.bcc && row("Bcc", e.bcc)}
+            {e.replyTo && row("Reply-To", e.replyTo)}
+            {row("Subject", <b>{e.subject}</b>)}
+            {row("Answer by", e.respondByISO ? longDate(e.respondByISO) : "—")}
+            {row("Message ID", e.messageId ? <code style={{ fontSize: 12 }}>{e.messageId}</code> : <span className="muted">none returned</span>)}
+            {row("Attached", e.attachmentName ? <a href={`${base}&format=pdf`} target="_blank" rel="noreferrer">{e.attachmentName}</a> : <span className="muted">no attachment</span>)}
+          </div>
+        )}
+        {e ? (
+          <iframe title="Email as sent" sandbox="" srcDoc={e.html} style={{ width: "100%", minHeight: 360, height: "100%", border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }} />
+        ) : <div />}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span className="muted small">The archived copy — the exact HTML, recipients and statement that went. The Message ID finds it in Postmark&rsquo;s activity log.</span>
+          {e && <a className="btn primary" style={{ textDecoration: "none" }} href={`${base}&format=eml`}>Download .eml</a>}
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
