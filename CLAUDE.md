@@ -3092,6 +3092,12 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   shapes; the LEDGER figure is the balance, available is kept for the hover. An
   import updates only the accounts it carries (`store.ts`, `latest` + a dated
   `snap-YYYY-MM-DD`); an older export never replaces a newer balance.
+- **A PDF printed through the "Adobe PDF" printer CANNOT be imported**
+  (Chase, 11/9/26): PScript5 + Acrobat Distiller embeds the page's fonts as
+  Type 3 with no character map, so the text reads as control characters and no
+  balance is recoverable. `unreadablePdfText` catches it and the import says to
+  re-save from Chrome (Print → "Save as PDF"), instead of the misleading "is
+  this a Chase, Liberty or M&T export?".
 - **Accounts → lines** come from the Bank Rec Tracker's registry
   (`UNIQUE_BANK_ACCOUNTS`) plus `EXTRA_ACCOUNTS` (M&T's Eastwick x4031, which
   the tracker does not reconcile) — `entities.ts`. Funds are ONE line (JV III

@@ -76,3 +76,11 @@ describe("bank balance parsers", () => {
     expect(parseBankBalances("hello world")).toBeNull();
   });
 });
+
+import { unreadablePdfText } from "./parse";
+describe("unreadable PDF text (Adobe PDF printer, Type 3 fonts)", () => {
+  it("flags scrambled text and passes a real export", () => {
+    expect(unreadablePdfText("\u0000\u0002\u0003\u0004 #')'\t/,-ÿMG ./ 0(((1$12 38<I5 7<8:86 /@ABCD EF G 376H5 I9I:78 R38H4:96")).toBe(true);
+    expect(unreadablePdfText("Accounts - chase.com Checking (...1234) $1,000.00 $1,000.00 Present balance")).toBe(false);
+  });
+});

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, USERS, canEditCashSheet, type UserId } from "@/lib/users";
-import { parseBankBalances, type ParsedStatement } from "@/lib/financials/bank-balances/parse";
+import { parseBankBalances, unreadablePdfText, UNREADABLE_PDF_MESSAGE, type ParsedStatement } from "@/lib/financials/bank-balances/parse";
 import { saveImport } from "@/lib/financials/bank-balances/store";
 import { buildBalanceView } from "@/lib/financials/bank-balances/view";
 import { logAudit, auditIp } from "@/lib/audit";
@@ -47,6 +47,7 @@ export async function POST(req: Request) {
       try {
         const text = await pdfText(Buffer.from(await file.arrayBuffer()));
         const s = parseBankBalances(text);
+        if ((!s || !s.accounts.length) && unreadablePdfText(text)) { results.push({ file: file.name, bank: null, accounts: 0, total: 0, error: UNREADABLE_PDF_MESSAGE }); continue; }
         if (!s || !s.accounts.length) { results.push({ file: file.name, bank: s?.bank ?? null, accounts: 0, total: 0, error: "No account balances found — is this a Chase, Liberty or M&T balance export?" }); continue; }
         parsed.push(s);
         results.push({ file: file.name, bank: s.bank, accounts: s.accounts.length, total: Math.round(s.accounts.reduce((t, a) => t + a.balance, 0) * 100) / 100 });
