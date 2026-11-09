@@ -45,7 +45,10 @@ export async function POST(req: Request) {
     const results: { file: string; bank: string | null; accounts: number; total: number; error?: string }[] = [];
     for (const file of files) {
       try {
-        const text = await pdfText(Buffer.from(await file.arrayBuffer()));
+        const buf = Buffer.from(await file.arrayBuffer());
+        // Judged by CONTENT, not name: Chrome saves Chase's page as "Accounts - chase.com".
+        if (buf.subarray(0, 1024).indexOf("%PDF") < 0) { results.push({ file: file.name, bank: null, accounts: 0, total: 0, error: "Not a PDF — save the bank's accounts page with Print → \"Save as PDF\" and import that file." }); continue; }
+        const text = await pdfText(buf);
         const s = parseBankBalances(text);
         if ((!s || !s.accounts.length) && unreadablePdfText(text)) { results.push({ file: file.name, bank: null, accounts: 0, total: 0, error: UNREADABLE_PDF_MESSAGE }); continue; }
         if (!s || !s.accounts.length) { results.push({ file: file.name, bank: s?.bank ?? null, accounts: 0, total: 0, error: "No account balances found — is this a Chase, Liberty or M&T balance export?" }); continue; }

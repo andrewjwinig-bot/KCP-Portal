@@ -3098,6 +3098,13 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   balance is recoverable. `unreadablePdfText` catches it and the import says to
   re-save from Chrome (Print → "Save as PDF"), instead of the misleading "is
   this a Chase, Liberty or M&T export?".
+- **The import takes ANY file name and checks it is a PDF by CONTENT**
+  (`%PDF`), not extension: Chrome names "Save as PDF" after the page title, so
+  Chase's export saves as `Accounts - chase.com` and Windows reads `.com` as
+  its type — the `.pdf`-only picker refused it, which is why the owner fell
+  back to the Adobe PDF printer above. **A negative balance prints with a
+  typographic minus** (U+2212, "−$381.46"); `AMT` / `money` read it — before,
+  an overdrawn account (2010 LIK Mgmt x9629) silently dropped out.
 - **Accounts → lines** come from the Bank Rec Tracker's registry
   (`UNIQUE_BANK_ACCOUNTS`) plus `EXTRA_ACCOUNTS` (M&T's Eastwick x4031, which
   the tracker does not reconcile) — `entities.ts`. Funds are ONE line (JV III

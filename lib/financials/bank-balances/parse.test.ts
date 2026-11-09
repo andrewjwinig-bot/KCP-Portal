@@ -84,3 +84,16 @@ describe("unreadable PDF text (Adobe PDF printer, Type 3 fonts)", () => {
     expect(unreadablePdfText("Accounts - chase.com Checking (...1234) $1,000.00 $1,000.00 Present balance")).toBe(false);
   });
 });
+
+describe("Chase negative balance with a typographic minus", () => {
+  it("keeps an overdrawn account (−$381.46) instead of dropping it", () => {
+    const text = `Printed from Chase for Business Bank accounts
+  7010 Pkwood SC OP (...5656) $307,203.36 $307,927.36 Checking
+  2010 LIK Mgmt OP (...9629) −$381.46 −$381.46 Checking
+  2000 LIK CLEARING (...1622) $79,872.54 $79,872.54 Checking`;
+    const s = parseBankBalances(text)!;
+    const lik = s.accounts.find((a) => a.last4 === "x9629");
+    expect(lik?.balance).toBe(-381.46);
+    expect(s.accounts.map((a) => a.last4)).toEqual(["x5656", "x9629", "x1622"]);
+  });
+});

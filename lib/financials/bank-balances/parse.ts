@@ -31,12 +31,14 @@ export type ParsedStatement = {
   accounts: ParsedBalance[];
 };
 
+// Chase prints a negative balance with a typographic minus (U+2212, "−$381.46"),
+// which a plain "-" never matched — an overdrawn account dropped out of the import.
 const money = (s: string): number => {
-  const neg = /-|\(/.test(s);
+  const neg = /[-\u2212]|\(/.test(s);
   const n = Number(s.replace(/[^0-9.]/g, ""));
   return neg ? -n : n;
 };
-const AMT = String.raw`\(?-?\$?-?[\d,]+\.\d{2}\)?`;
+const AMT = String.raw`\(?[-\u2212]?\$?[-\u2212]?[\d,]+\.\d{2}\)?`;
 
 /** The PDF's text cannot be read at all. A page printed through the "Adobe
  *  PDF" printer (PScript5 + Acrobat Distiller) embeds its fonts as Type 3 with
