@@ -36,7 +36,7 @@ type TenantRow = { unitRef: string; tenantName: string; propertyCode: string; pr
 type Status = "draft" | "waiting" | "apply" | "posted";
 type Receipt = {
   id: string; period: string; unitRef: string; tenantName: string; propertyCode: string; amount: number; receivedISO: string; checkNo: string | null;
-  plan: Explanation; email: { to: string[]; subject: string; sentAt: string; sentBy: string | null } | null; respondByISO: string | null;
+  plan: Explanation; email: { to: string[]; subject: string; sentAt: string; sentBy: string | null; from?: string } | null; respondByISO: string | null;
   reply: { at: string; by: string | null; note: string } | null; postedAt: string | null; postedBy: string | null; createdAt: string; createdBy: string | null;
   status: Status;
 };
@@ -511,7 +511,7 @@ export default function ReceiptReconciliationPage() {
                                     </tbody>
                                   </table>
                                   <div className="muted small">
-                                    {r.email ? <>Emailed {new Date(r.email.sentAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.email.sentBy ? ` by ${r.email.sentBy}` : ""} to {r.email.to.join(", ")}.</> : "Not emailed."}
+                                    {r.email ? <>Emailed {new Date(r.email.sentAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.email.sentBy ? ` by ${r.email.sentBy}` : ""}{r.email.from ? ` from ${r.email.from}` : ""} to {r.email.to.join(", ")}.</> : "Not emailed."}
                                     {r.reply && <> Tenant&rsquo;s answer recorded by {r.reply.by ?? "—"}{r.reply.note ? `: “${r.reply.note}”` : ""}.</>}
                                     {r.postedAt && <> Posted {dateLabel(r.postedAt.slice(0, 10))}{r.postedBy ? ` by ${r.postedBy}` : ""}.</>}
                                   </div>
@@ -569,7 +569,7 @@ function ConfirmSend({ to, subject, tenant, amount, plan, respondBy, busy, onCan
           {to.map((e) => <div key={e} className="small">{e}</div>)}
         </div>
         <div className="small"><span style={SECTION}>Subject</span><div>{subject}</div></div>
-        <div className="muted small">From Korman Commercial Properties; replies go to Accounts Receivable, which gets a blind copy for the record. If they don&rsquo;t answer by {longDate(respondBy)}, the receipt moves to Ready to apply.</div>
+        <div className="muted small">From Tami Tomlinson (ttomlinson@kormancommercial.com); replies come back to her, and she gets a blind copy for the record. If they don&rsquo;t answer by {longDate(respondBy)}, the receipt moves to Ready to apply.</div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <button className="btn" onClick={onCancel} disabled={busy}>Cancel</button>
           <button className="btn primary" onClick={onSend} disabled={busy}>{busy ? "Sending…" : `Send to ${to.length} recipient${to.length === 1 ? "" : "s"}`}</button>

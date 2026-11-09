@@ -66,10 +66,16 @@ async function recipientsFor(unitRef: string): Promise<string[]> {
   return camRecipientEmails(rec.contacts).split(";").map((s) => s.trim()).filter(Boolean);
 }
 
+// Tami sends these and answers them (owner, 11/2026: "set it up to be from
+// ttomlinson@kormancommercial.com"): her address is the From, the Reply-To
+// and the blind copy, and she signs it. RECEIPT_FROM / RECEIPT_FROM_NAME
+// override without a deploy.
+const RECEIPT_FROM = (process.env.RECEIPT_FROM ?? "ttomlinson@kormancommercial.com").trim();
+const RECEIPT_FROM_NAME = (process.env.RECEIPT_FROM_NAME ?? "Tami Tomlinson").trim();
+
 async function signer(propertyCode: string) {
   const ins = await instructionsFor(propertyCode);
-  const email = (process.env.RECEIPT_REPLY_TO ?? "").trim() || ins.contactEmail;
-  return { name: "Accounts Receivable", email, phone: ins.contactPhone || undefined };
+  return { name: RECEIPT_FROM_NAME, title: "Accounts Receivable", email: RECEIPT_FROM, phone: ins.contactPhone || undefined };
 }
 
 async function who(): Promise<string | null> {
@@ -161,12 +167,19 @@ export async function POST(req: NextRequest) {
       const body = typeof b?.body === "string" && b.body.trim() ? b.body.slice(0, 20000) : "";
       if (!subject || !body) return NextResponse.json({ error: "The email has no subject or body." }, { status: 400 });
       const sig = await signer(st.propertyCode);
-      const sent = await sendMailDetailed({
-        from: `Korman Commercial Properties <${VERIFIED_FROM}>`, to: to.join(", "), bcc: sig.email, subject, textBody: body,
-        headers: [{ Name: "Reply-To", Value: sig.email }],
-      });
+      const msg = { to: to.join(", "), bcc: sig.email, subject, textBody: body, headers: [{ Name: "Reply-To", Value: sig.email }] };
+      // From Tami's own address. Postmark sends only from an address it has
+      // verified, so if hers is refused the email still goes — from the
+      // portal's verified sender, under her name, replies still to her.
+      let fromUsed = sig.email;
+      let sent = await sendMailDetailed({ ...msg, from: `${sig.name}, Korman Commercial Properties <${sig.email}>` });
+      if (!sent.ok && sig.email.toLowerCase() !== VERIFIED_FROM.toLowerCase()) {
+        console.warn(`[receipts] sending from ${sig.email} refused (${sent.error}) — retrying from ${VERIFIED_FROM}`);
+        fromUsed = VERIFIED_FROM;
+        sent = await sendMailDetailed({ ...msg, from: `${sig.name}, Korman Commercial Properties <${VERIFIED_FROM}>` });
+      }
       if (!sent.ok) return NextResponse.json({ error: `The email did not send: ${sent.error ?? "unknown error"}` }, { status: 502 });
-      rec.email = { to, subject, body, sentAt: now, sentBy: by };
+      rec.email = { to, subject, body, sentAt: now, sentBy: by, from: fromUsed };
       rec.respondByISO = respondByFrom(todayET());
     }
     await saveReceipt(rec);
