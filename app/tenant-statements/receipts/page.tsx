@@ -17,7 +17,7 @@ import { createPortal } from "react-dom";
 import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
-import { APPLICATION_LABEL, APPLICATION_ORDER, renderReceiptEmail, type Account, type Explanation } from "@/lib/statements/receiptMatch";
+import { APPLICATION_LABEL, APPLICATION_ORDER, creditUsage, renderReceiptEmail, type Account, type Explanation } from "@/lib/statements/receiptMatch";
 import { HoverCard } from "@/app/components/HoverCard";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -410,7 +410,15 @@ export default function ReceiptReconciliationPage() {
                     <td style={tdL}>{cl.description}</td>
                     <td style={tdL}><span className="muted small">Credit</span></td>
                     <td style={{ ...td, color: "#15803d" }}>({money(cl.amount)})</td>
-                    {applying && <td colSpan={3} />}
+                    {applying && plan && (() => {
+                      // How much of this credit the plan applies, and what is LEFT on account.
+                      const u = creditUsage(detail.account, plan.creditUsed)[i];
+                      return <>
+                        <td style={td} />
+                        <td style={{ ...td, fontWeight: u.used ? 700 : 400, color: u.used ? "#15803d" : "var(--muted)" }}>{u.used ? `${money(u.used)} applied` : "—"}</td>
+                        <td style={{ ...td, fontWeight: u.left ? 700 : 400, color: u.left ? "#15803d" : "var(--muted)" }}>{u.left ? `(${money(u.left)}) left` : "fully applied"}</td>
+                      </>;
+                    })()}
                   </tr>
                 ))}
                 <tr style={{ borderTop: "2px solid var(--border)" }}>
@@ -420,11 +428,12 @@ export default function ReceiptReconciliationPage() {
                   {applying && plan && (() => {
                     const fromPay = plan.lines.reduce((a, l) => a + l.fromPayment, 0);
                     const fromCredit = plan.lines.reduce((a, l) => a + l.fromCredit, 0);
-                    const stillOpen = detail.account.gross - fromPay - fromCredit;
+                    // Nets the credit left on account — negative = a credit the account keeps.
+                    const stillOpen = detail.account.gross - fromPay - fromCredit - (detail.account.credit - plan.creditUsed);
                     return <>
                       <td style={{ ...td, fontWeight: 800, color: "#15803d" }}>{money(fromPay)}</td>
                       <td style={{ ...td, fontWeight: 800, color: fromCredit ? "#15803d" : "var(--muted)" }}>{fromCredit ? money(fromCredit) : "—"}</td>
-                      <td style={{ ...td, fontWeight: 800 }}>{stillOpen > 0.005 ? money(stillOpen) : "—"}</td>
+                      <td style={{ ...td, fontWeight: 800, color: stillOpen < -0.005 ? "#15803d" : undefined }}>{stillOpen > 0.005 ? money(stillOpen) : stillOpen < -0.005 ? `(${money(-stillOpen)}) credit` : "—"}</td>
                     </>;
                   })()}
                 </tr>
