@@ -47,6 +47,17 @@ export type GlCheck = {
   note?: string;
 };
 
+/** The portal's rec of an account against Marie's Skyline rec for the same
+ *  month: the statement and check-book balances each of them used, and the
+ *  open items only one of them lists. `agrees` is all four empty. */
+export type MarieCompare = {
+  agrees: boolean;
+  statement: { marie: number | null; portal: number | null };
+  checkBook: { marie: number | null; portal: number | null };
+  onlyMarie: OpenItem[];
+  onlyPortal: OpenItem[];
+};
+
 export type AccountRow = {
   last4: string;
   bank: string;
@@ -57,7 +68,11 @@ export type AccountRow = {
   /** "n/a" — an account Skyline does not keep (not managed by LIK). */
   na?: boolean;
   /** Marie's own Skyline rec for the month, when one is filed — shown beside ours. */
-  skylineRec?: { inBalance: boolean; unreconciled: number; adjustedCheckBookBalance: number | null; file: string } | null;
+  skylineRec?: {
+    inBalance: boolean; unreconciled: number; adjustedCheckBookBalance: number | null; file: string;
+    /** The portal's month against Marie's — her rec is the answer key. */
+    vs?: MarieCompare;
+  } | null;
   /** Where this month's opening open items came from. */
   carriedFrom: "portal" | "skyline-rec" | "none";
 };
