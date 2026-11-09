@@ -1220,6 +1220,11 @@ first → the standard email → send. The tenant has until the NEXT BUSINESS DA
   (the fallback, the usual-monthly reading, a short/over payment) the email
   states it (`ORDER_SENTENCE`) — change the order in that file and the
   explanation follows. The page's Order column shows each charge's step.
+- **CREDITS ARE ALWAYS USED** (owner: "apply the credit to keep them current
+  … apply their credits to get them to a $0 balance"; `topUpCredit`): whatever
+  a payment was meant for, any credit the plan has not used goes on the charges
+  still open after it, in the master order. A credit stays on account only when
+  nothing is left open — the one case is a tenant who paid every charge.
 - **The server re-derives every plan** (`planById`, a `custom:` id for a
   hand-picked set) from the STORED statement before sending or saving — a
   client figure is never what a payment is applied against.
