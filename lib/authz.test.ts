@@ -111,3 +111,31 @@ describe("Randy — the staff accountant, read-only", () => {
     expect(authorizeRequest("alison", "/api/financials/operating-statements", "POST")).toBe(true);
   });
 });
+
+describe("Tami — tenant receipts", () => {
+  it("reads Monthly Statements, the rent roll, unit pages and Operating Statements", () => {
+    for (const p of ["/tenant-statements", "/rentroll", "/units/2300-1817", "/financials/operating-statements", "/properties/2300"]) {
+      expect(authorizeRequest("tami", p)).toBe(true);
+    }
+    expect(authorizeRequest("tami", "/api/financials/operating-statements", "GET")).toBe(true);
+    expect(authorizeRequest("tami", "/api/financials/operating-statements/transactions", "GET")).toBe(true);
+  });
+
+  it("works Monthly Statements — payments, credits, imports, tenant links", () => {
+    for (const p of ["/api/tenant-statements", "/api/tenant-statements/payment", "/api/tenant-statements/credit-apply", "/api/cam-recon/tenant-link"]) {
+      expect(authorizeRequest("tami", p, "POST")).toBe(true);
+    }
+  });
+
+  it("cannot upload a GL, import a rent roll, or write anywhere else", () => {
+    for (const p of ["/api/financials/operating-statements", "/api/financials/operating-statements/dismiss-flag", "/api/rentroll", "/api/suites/2300-1817/information", "/api/cam-recon/office"]) {
+      expect(authorizeRequest("tami", p, "POST")).toBe(false);
+    }
+  });
+
+  it("sees none of the rest of financials, budgets, banking, payroll or investors", () => {
+    for (const p of ["/financials/budgets", "/financials/cash-analysis", "/financials/reprojections", "/api/financials/budgets", "/api/financials/bank-balances", "/bank-rec", "/payroll", "/investors", "/cam-recon", "/deposits"]) {
+      expect(authorizeRequest("tami", p)).toBe(false);
+    }
+  });
+});

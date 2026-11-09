@@ -881,7 +881,10 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
   function isVisible(item: (typeof NAV)[number]) {
     // Role-based visibility (admin sees all; others must have the nav key)
     const roleKey = NAV_ROLE_KEY[item.label];
-    const passesRole = !roleKey || user.navKeys.has("all") || user.navKeys.has(roleKey);
+    // Operating Statements alone also answers to its own key (Tami reads the
+    // statements without the rest of the financials group).
+    const passesRole = !roleKey || user.navKeys.has("all") || user.navKeys.has(roleKey)
+      || (item.label === "Operating Statements" && user.navKeys.has("operating-statements"));
     if (!passesRole) return false;
 
 

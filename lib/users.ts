@@ -1,4 +1,4 @@
-export const ALL_USERS = ["admin", "drew", "marie", "nancy", "harry", "maint", "greg", "charles", "jay", "alison", "randy"] as const;
+export const ALL_USERS = ["admin", "drew", "marie", "nancy", "harry", "maint", "greg", "charles", "jay", "alison", "randy", "tami"] as const;
 export type UserId = typeof ALL_USERS[number];
 
 export type RentRollCategory = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
@@ -263,6 +263,30 @@ export const USERS: Record<UserId, UserDef> = {
     defaultPropertyType: "all",
     dashboardScope: "groups",
   },
+  // Tami — processes the tenant receipts (owner, 11/2026: "needs access to the
+  // monthly statements, rent rolls, and property statements"). Monthly
+  // Statements is her working page — recording payments, applying credits,
+  // importing the laser statement, tenant links — so she WRITES there. The
+  // rent roll, unit pages and Operating Statements she READS: her writes are
+  // confined to `WRITE_SCOPE` below, which keeps a GL upload (it fires the
+  // Allocated Expenses send to AvidXchange) or a rent-roll import out of her
+  // reach. Operating Statements only — not the rest of /financials.
+  tami: {
+    id: "tami",
+    label: "TAMI",
+    navKeys: new Set([...universalNav, "tenant-statements", "operating-statements"]),
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/tenant-statements", "/financials/operating-statements", "/reports"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+};
+
+/** Users whose API WRITES are confined to these prefixes (plus sign-in / 2FA /
+ *  the assistant). They read whatever their pages reach; a write anywhere else
+ *  is refused in `authorizeRequest`, whatever the page grant. */
+export const WRITE_SCOPE: Partial<Record<UserId, string[]>> = {
+  tami: ["/api/tenant-statements", "/api/cam-recon/tenant-link"],
 };
 
 /** Users who may READ everything their profile reaches but WRITE nothing —
@@ -297,6 +321,7 @@ export function accessGroup(userId: UserId): AccessGroup {
     case "alison":
       return "executive";
     case "randy":
+    case "tami":
       return "accounting";
   }
 }
@@ -391,7 +416,12 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   // Bank Balances' own API answers to its page, so a view-only grant of
   // /financials/cash-analysis (Harry) reads it without the rest of /financials.
   ["/api/financials/bank-balances", "/financials/cash-analysis"],
+  // Operating Statements' own API answers to its page, so a grant of just that
+  // page (Tami) reads statements without the rest of /financials.
+  ["/api/financials/operating-statements", "/financials/operating-statements"],
   ["/api/financials", "/financials"],
+  // Tenant portal links are minted from Monthly Statements as well as the recon.
+  ["/api/cam-recon/tenant-link", ["/cam-recon", "/tenant-statements"]],
   ["/api/cam-recon", "/cam-recon"],
   ["/api/cam-config", "/cam-recon"],
   ["/api/reports", "/reports"],
@@ -421,6 +451,9 @@ export function authorizeRequest(userId: UserId, pathname: string, method = "GET
   if (canSwitchUsers(userId)) return true;
   if (READ_ONLY_USERS.has(userId) && pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase())
       && !READ_ONLY_WRITES_ALLOWED.some((p) => underPrefix(pathname, p))) return false;
+  const scope = WRITE_SCOPE[userId];
+  if (scope && pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase())
+      && ![...scope, ...READ_ONLY_WRITES_ALLOWED].some((p) => underPrefix(pathname, p))) return false;
   // Self-service 2FA — every signed-in user manages their own (the
   // admin-only required-list endpoint is gated separately in middleware).
   if (pathname === "/security" || pathname.startsWith("/security/") || pathname.startsWith("/api/2fa")) return true;

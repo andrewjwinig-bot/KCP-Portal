@@ -77,6 +77,17 @@ would also fire the Allocated Expenses send to AvidXchange. No Debt Tracker
 invoicers. To give him real work: widen his profile and take him out of
 `READ_ONLY_USERS`. Pinned by `authz.test.ts`.
 
+**TAMI PROCESSES THE TENANT RECEIPTS** (owner, 11/2026: "needs access to the
+monthly statements, rent rolls, and property statements"). Her profile
+(`tami` in `lib/users.ts`, access group `accounting`) WORKS Monthly Statements
+(payments, credits, the laser import, tenant links) and READS the rent roll,
+unit pages, properties and Operating Statements — that page only, not the rest
+of `/financials` (its API now answers to its own page; the sidebar shows it on
+the `operating-statements` key). Her writes are confined by `WRITE_SCOPE` to
+`/api/tenant-statements` and `/api/cam-recon/tenant-link`, so a GL upload
+(which fires the Allocated send) or a rent-roll import is refused on the
+server. Pinned by `authz.test.ts`.
+
 # Known data gaps / accepted exceptions (do NOT re-flag as bugs)
 
 - **Payroll allocation — Harry Feldman sums to ~94.86%, not 100%.** This is intentional and accepted, NOT a keying error. His allocation workbook row (`data/allocation.xlsx`) is: ~85% across the shopping centers, 5% Interstate/Bellmawr (`0800`), 5% Eastwick (the `Eastwick` column → "Eastwick JV"), and **5% Middletown**. Middletown is a land parcel Korman owns but the portal does NOT track (no property code, no allocation column), so that ~5.14% has nowhere to land and his tracked total reads 94.86%. The dashboard allocation-gap warning will keep flagging him — that's expected. Leave it as-is unless the user decides to add Middletown as a tracked land property (they'd supply its GL code, and Nancy would add a `Middletown` column with the 5% to the workbook).
