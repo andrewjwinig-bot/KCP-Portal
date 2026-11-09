@@ -423,6 +423,17 @@ export function receiptEmailParts(x: ReceiptEmailInput): ReceiptEmailParts {
   return { subject: `Your payment of ${usd(x.amount)} — ${x.propertyName}, Suite ${x.suite}`, opening, closing };
 }
 
+/** How much of each credit line the plan uses, and what is LEFT on account —
+ *  in printed order (owner: "if a credit is applied but theres still an open
+ *  credit show that leftover credit too"). */
+export function creditUsage(acct: Account, creditUsed: number): { used: number; left: number }[] {
+  let use = c(creditUsed);
+  return acct.creditLines.map((cl) => {
+    const u = Math.min(use, c(cl.amount)); use -= u;
+    return { used: u / 100, left: (c(cl.amount) - u) / 100 };
+  });
+}
+
 type TableRow = { date: string; description: string; open: number; fromPayment: number; fromCredit: number; stillOpen: number; isCredit?: boolean };
 
 function tableRows(acct: Account, plan: Explanation): { rows: TableRow[]; totals: { open: number; fromPayment: number; fromCredit: number; stillOpen: number } } {
@@ -432,9 +443,15 @@ function tableRows(acct: Account, plan: Explanation): { rows: TableRow[]; totals
     const fp = l?.fromPayment ?? 0, fc = l?.fromCredit ?? 0;
     return { date: dateLabel(ch.dateISO), description: ch.description, open: ch.amount, fromPayment: fp, fromCredit: fc, stillOpen: r2(ch.amount - fp - fc) };
   });
-  for (const cl of acct.creditLines) rows.push({ date: dateLabel(cl.dateISO), description: cl.description, open: -cl.amount, fromPayment: 0, fromCredit: 0, stillOpen: 0, isCredit: true });
-  const t = (k: "fromPayment" | "fromCredit" | "stillOpen") => r2(rows.reduce((a, r) => a + (r.isCredit ? 0 : r[k]), 0));
-  return { rows, totals: { open: acct.net, fromPayment: t("fromPayment"), fromCredit: t("fromCredit"), stillOpen: t("stillOpen") } };
+  // A credit row: how much of it is applied (From your credit) and what is
+  // LEFT on account (Still open, as a credit).
+  const usage = creditUsage(acct, plan.creditUsed);
+  acct.creditLines.forEach((cl, i) => rows.push({ date: dateLabel(cl.dateISO), description: cl.description, open: -cl.amount, fromPayment: 0, fromCredit: usage[i].used, stillOpen: -usage[i].left, isCredit: true }));
+  const t = (k: "fromPayment" | "fromCredit") => r2(rows.reduce((a, r) => a + (r.isCredit ? 0 : r[k]), 0));
+  // Still open nets the credit left: what they owe after this, or (negative)
+  // the credit the account keeps.
+  const stillOpen = r2(rows.reduce((a, r) => a + r.stillOpen, 0));
+  return { rows, totals: { open: acct.net, fromPayment: t("fromPayment"), fromCredit: t("fromCredit"), stillOpen } };
 }
 
 /** The sentences under the table — figures, so generated, not edited. */
@@ -464,10 +481,10 @@ export function receiptTableHtml(x: Pick<ReceiptEmailInput, "acct" | "plan" | "a
     return `<tr style="${applied ? "background:#effaf3" : ""}">${td(esc(r.date), { color: MUTED })}${`<td style="padding:7px 10px;border-bottom:1px solid ${LINE}">${esc(r.description)}</td>`}${
       td(r.isCredit ? `(${usd(-r.open)})` : usd(r.open), { right: true, color: r.isCredit ? GREEN : undefined })}${
       td(r.isCredit ? "" : m(r.fromPayment), { right: true, color: r.fromPayment ? GREEN : MUTED, bold: r.fromPayment > 0 })}${
-      td(r.isCredit ? "" : m(r.fromCredit), { right: true, color: r.fromCredit ? GREEN : MUTED, bold: r.fromCredit > 0 })}${
-      td(r.isCredit ? "" : m(r.stillOpen), { right: true, color: r.stillOpen ? undefined : MUTED })}</tr>`;
+      td(r.isCredit ? (r.fromCredit ? `${usd(r.fromCredit)} applied` : "—") : m(r.fromCredit), { right: true, color: r.fromCredit ? GREEN : MUTED, bold: !r.isCredit && r.fromCredit > 0 })}${
+      td(r.isCredit ? (r.stillOpen ? `(${usd(-r.stillOpen)}) credit left` : "fully applied") : m(r.stillOpen), { right: true, color: r.isCredit ? (r.stillOpen ? GREEN : MUTED) : r.stillOpen ? undefined : MUTED, bold: !!r.isCredit && !!r.stillOpen })}</tr>`;
   }).join("");
-  const tot = `<tr style="background:#f3f6f9">${td("")}${`<td style="padding:8px 10px;font-weight:800">Total</td>`}${td(usd(totals.open), { right: true, bold: true })}${td(m(totals.fromPayment), { right: true, bold: true, color: GREEN })}${td(m(totals.fromCredit), { right: true, bold: true, color: totals.fromCredit ? GREEN : MUTED })}${td(m(totals.stillOpen), { right: true, bold: true })}</tr>`;
+  const tot = `<tr style="background:#f3f6f9">${td("")}${`<td style="padding:8px 10px;font-weight:800">Total</td>`}${td(usd(totals.open), { right: true, bold: true })}${td(m(totals.fromPayment), { right: true, bold: true, color: GREEN })}${td(m(totals.fromCredit), { right: true, bold: true, color: totals.fromCredit ? GREEN : MUTED })}${td(totals.stillOpen < -0.005 ? `(${usd(-totals.stillOpen)}) credit` : m(totals.stillOpen), { right: true, bold: true, color: totals.stillOpen < -0.005 ? GREEN : undefined })}</tr>`;
   const summary = summaryLines(x.acct, x.plan).map((l) => `<li style="margin:0 0 4px">${esc(l)}</li>`).join("");
   return `<div style="margin:6px 0 18px">
 <div style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:${NAVY};margin:0 0 6px">Your account${x.asOfISO ? ` as of ${dateLabel(x.asOfISO)}` : ""} — and how we will apply your payment</div>
@@ -483,11 +500,15 @@ function receiptTableText(x: Pick<ReceiptEmailInput, "acct" | "plan" | "asOfISO"
   const { rows, totals } = tableRows(x.acct, x.plan);
   const out = [`YOUR ACCOUNT${x.asOfISO ? ` AS OF ${dateLabel(x.asOfISO)}` : ""} — AND HOW WE WILL APPLY YOUR PAYMENT`, ""];
   for (const r of rows) {
-    if (r.isCredit) { out.push(`  ${r.date === "—" ? "" : `${r.date} — `}${r.description}: (${usd(-r.open)})`); continue; }
+    if (r.isCredit) {
+      const bits = [r.fromCredit ? `${usd(r.fromCredit)} applied` : "", r.stillOpen ? `${usd(-r.stillOpen)} credit left on account` : "fully applied"].filter(Boolean).join("; ");
+      out.push(`  ${r.date === "—" ? "" : `${r.date} — `}${r.description}: (${usd(-r.open)}) → ${bits}`);
+      continue;
+    }
     const parts = [r.fromPayment ? `${usd(r.fromPayment)} from your payment` : "", r.fromCredit ? `${usd(r.fromCredit)} from your credit` : ""].filter(Boolean).join(" + ");
     out.push(`  ${r.date} — ${r.description}: ${usd(r.open)}${parts ? ` → ${parts}` : ""}${r.stillOpen > 0.005 ? `; ${usd(r.stillOpen)} still open` : ""}`);
   }
-  out.push("", `  Total: ${usd(totals.open)} · from your payment ${usd(totals.fromPayment)}${totals.fromCredit ? ` · from your credit ${usd(totals.fromCredit)}` : ""} · still open ${usd(totals.stillOpen)}`, "");
+  out.push("", `  Total: ${usd(totals.open)} · from your payment ${usd(totals.fromPayment)}${totals.fromCredit ? ` · from your credit ${usd(totals.fromCredit)}` : ""} · ${totals.stillOpen < -0.005 ? `credit left ${usd(-totals.stillOpen)}` : `still open ${usd(totals.stillOpen)}`}`, "");
   for (const l of summaryLines(x.acct, x.plan)) out.push(`• ${l}`);
   return out.join("\n");
 }

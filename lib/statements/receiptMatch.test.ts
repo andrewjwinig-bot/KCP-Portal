@@ -196,3 +196,22 @@ describe("the email's table", () => {
     expect(renderReceiptEmail({ acct, plan, asOfISO: null }, "<b>x</b>", "").html).toMatch(/&lt;b&gt;x&lt;\/b&gt;/);
   });
 });
+
+describe("leftover credit", () => {
+  it("shows what of the credit is applied and what is LEFT on account", () => {
+    const small = accountOf(st([ch("2026-11-01", "2026 CAM Estimate", "cam", 200), ch(null, "Open Credits", "credit", -300)]));
+    // A $0 payment-ish case: paying nothing more, the credit covers the $200 and $100 is left.
+    const plan = explainPayment(small, 0.01).find((x) => x.fallback)!;
+    const { html, text } = renderReceiptEmail({ acct: small, plan, asOfISO: null }, "Hi", "Bye");
+    expect(plan.creditUsed).toBe(199.99);
+    expect(html).toMatch(/\$199\.99 applied/);
+    expect(html).toMatch(/\(\$100\.01\) credit left/);
+    expect(text).toMatch(/\$100\.01 credit left on account/);
+  });
+  it("a credit the plan does not touch reads as left in full, and the total as a credit", () => {
+    const plan = top(5300); // paid every charge — the credit stays
+    const { html } = renderReceiptEmail({ acct, plan, asOfISO: null }, "Hi", "Bye");
+    expect(html).toMatch(/\(\$300\.00\) credit left/);
+    expect(html).toMatch(/\(\$300\.00\) credit<\/td><\/tr><\/tbody>/);
+  });
+});
