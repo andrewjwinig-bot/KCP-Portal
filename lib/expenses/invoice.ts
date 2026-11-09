@@ -105,6 +105,13 @@ const PROPERTY_ACC2: Record<string, string[]> = {
   "0800": ["8501"],
 };
 
+// Building Maint. and Office Supplies code to the RECOVERABLE suffix (-8502),
+// which exists only at a property with tenants. 2010 LIK Management has none
+// (owner: "there is not 8502 suffix for 2010 since its not a property with
+// tenants"), so its charges code to -8501. Shared with the Expenses page.
+export const NO_RECOVERABLE_SUFFIX = new Set(["2010"]);
+export const recoverableSuffix = (propertyCode: string) => (NO_RECOVERABLE_SUFFIX.has(propertyCode) ? "8501" : "8502");
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function formatStatementMonth(yyyymm: string) {
@@ -166,11 +173,11 @@ function buildLinesForCategory(
     }
     if (category === "BUILDING MAINT.") {
       const amt = Number(t.amount || 0);
-      return [{ date: t.date, accountCode: "6220-8502", description: useDesc, amount: amt, originalAmount: orig }];
+      return [{ date: t.date, accountCode: `6220-${recoverableSuffix(propertyCode)}`, description: useDesc, amount: amt, originalAmount: orig }];
     }
     if (category === "OFFICE SUPPLIES") {
       const amt = Number(t.amount || 0);
-      return [{ date: t.date, accountCode: "8930-8502", description: useDesc, amount: amt, originalAmount: orig }];
+      return [{ date: t.date, accountCode: `8930-${recoverableSuffix(propertyCode)}`, description: useDesc, amount: amt, originalAmount: orig }];
     }
 
     const acc = CATEGORY_ACC[category] || "";
