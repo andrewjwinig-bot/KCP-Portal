@@ -30,8 +30,10 @@ export const DEFAULT_INSTRUCTIONS: PaymentInstructions = {
   payableTo: "Korman Commercial Properties, Inc.",
   remitTo: ["Korman Commercial Properties, Inc.", "8 Neshaminy Interplex, Suite 400", "Trevose, PA 19053"],
   achNote: "Paying by ACH or wire? Email accounting for remittance instructions before you send — include your unit reference so the payment posts to the right account.",
-  contactName: "Marie Jaster",
-  contactEmail: "mjaster@kormancommercial.com",
+  // Tami Tomlinson handles tenant receipts and balance questions (owner,
+  // 11/2026: "dont say from marie say from Tami").
+  contactName: "Tami Tomlinson",
+  contactEmail: "ttomlinson@kormancommercial.com",
   contactPhone: "",
   note: "Please reference your unit number on every payment. Charges are due on the first of the month.",
 };
