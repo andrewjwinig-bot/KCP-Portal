@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { PDFDocument } from "pdf-lib";
-import { buildInvoicePdf, buildReimbursementInvoicePdf, makeInvoiceId, CategoryGroup } from "../../lib/expenses/invoice";
+import { buildInvoicePdf, buildReimbursementInvoicePdf, makeInvoiceId, recoverableSuffix, CategoryGroup } from "../../lib/expenses/invoice";
 import { buildTopSheetXlsx, TopSheetTx } from "../../lib/expenses/topSheet";
 import { groupBy, normalizeAmount, toMoney } from "../../lib/expenses/utils";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
@@ -363,8 +363,8 @@ function yyyymmddFromDate(d: Date | null) {
 function getAccountCodes(category: string, propertyId: string): string[] {
   if (category === "EQUIPMENT (CAP)") return ["1450-0000"];
   if (category === "BUILDINGS (CAP)") return ["1430-0000"];
-  if (category === "BUILDING MAINT.") return ["6220-8502"];
-  if (category === "OFFICE SUPPLIES") return ["8930-8502"];
+  if (category === "BUILDING MAINT.") return [`6220-${recoverableSuffix(propertyId)}`];
+  if (category === "OFFICE SUPPLIES") return [`8930-${recoverableSuffix(propertyId)}`];
   const catAcc = (CATEGORY_ACC as Record<string, string>)[category];
   const propAcc2 = (PROPERTY_ACC2 as Record<string, string[]>)[propertyId];
   if (!catAcc || !propAcc2 || !propAcc2.length) return [];
