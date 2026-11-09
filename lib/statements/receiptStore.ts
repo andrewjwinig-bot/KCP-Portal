@@ -26,7 +26,10 @@ export type ReceiptRec = {
   plan: Explanation;
   /** `from` — the address it actually went from (Tami's, or the portal's
    *  verified sender when Postmark refused hers). */
-  email: { to: string[]; subject: string; body: string; sentAt: string; sentBy: string | null; from?: string; attachedStatement?: boolean } | null;
+  email: { to: string[]; subject: string; body: string; sentAt: string; sentBy: string | null; from?: string; attachedStatement?: boolean; messageId?: string | null; archiveId?: string } | null;
+  /** Every send of this receipt, oldest first — ids in the sent-email archive
+   *  (`receiptEmailLog.ts`), which keeps each exactly as it went. */
+  emailIds?: string[];
   respondByISO: string | null;
   /** The tenant answered — what they said, and the plan confirmed from it. */
   reply: { at: string; by: string | null; note: string } | null;
