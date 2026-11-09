@@ -10,7 +10,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_AMBER } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
-import { useFileDrop, byExt } from "@/app/components/useFileDrop";
+import { useFileDrop } from "@/app/components/useFileDrop";
 import { formatImportedAt } from "@/app/components/LastImported";
 import { th, thL, td as tdBase, tdL as tdLBase } from "@/app/components/tableStyles";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
@@ -159,7 +159,10 @@ export default function BankBalancesView() {
       setBusy(false);
     }
   }
-  const drop = useFileDrop(importFiles, { accept: byExt([".pdf"]), disabled: !data?.canEdit || busy });
+  // Any file: Chrome names "Save as PDF" after the page title, so Chase's export
+  // arrives as "Accounts - chase.com" — Windows reads ".com" as the type. The
+  // server checks the file IS a PDF by its content, not its name.
+  const drop = useFileDrop(importFiles, { disabled: !data?.canEdit || busy });
 
   const saveReserve = (row: Row, raw: string) => {
     const t = raw.replace(/[$,\s]/g, "");
@@ -213,7 +216,7 @@ export default function BankBalancesView() {
               <button className="btn" disabled={busy} onClick={() => fileRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
                 {busy ? "Importing…" : drop.dragging ? "Drop to import" : "Import balances"}
               </button>
-              <input ref={fileRef} type="file" accept=".pdf" multiple style={{ display: "none" }}
+              <input ref={fileRef} type="file" multiple style={{ display: "none" }}
                 onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; importFiles(f); }} />
             </>
           )}
