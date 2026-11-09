@@ -81,6 +81,7 @@ export default function BankRecPage() {
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [reconciling, setReconciling] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [onlyIssues, setOnlyIssues] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -97,10 +98,10 @@ export default function BankRecPage() {
   useEffect(() => { setData(null); load(period); }, [period, load]);
 
   const run = useCallback(async (force = false) => {
-    setBusy("Reconciling every account…");
+    setReconciling(true); setError(null);
     const r = await fetch("/api/bank-rec/month", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ period, force }) }).catch(() => null);
     const j = r ? await r.json().catch(() => null) : null;
-    setBusy(null);
+    setReconciling(false);
     if (!j?.ok) { setError(j?.error ?? "The rec did not run."); return; }
     await load();
   }, [period, load]);
@@ -183,10 +184,10 @@ export default function BankRecPage() {
             {signed && <Pill tone={TONE_GREEN}>SIGNED OFF {r?.signedOff?.by ? `· ${r.signedOff.by}` : ""} · {new Date(r!.signedOff!.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</Pill>}
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {r && !signed && <button className="btn" disabled={!!busy} onClick={() => run()}>Re-run</button>}
+            {r && !signed && <button className="btn" disabled={!!busy || reconciling} onClick={() => run()}>Re-run</button>}
             {r && (signed
-              ? <button className="btn" disabled={!!busy} onClick={() => signOff(false)}>Reopen month</button>
-              : <button className="btn primary" disabled={!!busy || counts.out > 0 || counts.incomplete > 0} onClick={() => signOff(true)}
+              ? <button className="btn" disabled={!!busy || reconciling} onClick={() => signOff(false)}>Reopen month</button>
+              : <button className="btn primary" disabled={!!busy || reconciling || counts.out > 0 || counts.incomplete > 0} onClick={() => signOff(true)}
                   title={counts.out || counts.incomplete ? "Every account must be filed and in balance first" : undefined}>Sign off {shortPeriod(period)}</button>)}
           </div>
         </div>
@@ -240,13 +241,15 @@ export default function BankRecPage() {
         {error && <div style={{ color: "#b91c1c", fontWeight: 600, fontSize: 13 }}>{error}</div>}
       </div>
 
-      {data && !r && (
+      {reconciling && <ReconcilingCard period={period} accounts={[...new Set((data?.files ?? []).map((f) => f.last4).filter(Boolean) as string[])].sort()} />}
+
+      {!reconciling && data && !r && (
         <div className="card muted small">Nothing reconciled for {periodLabel(period)} yet — drop the month&rsquo;s folder above.
           {data.files.length > 0 && <> {data.files.length} files are on file — <button className="btn sm" onClick={() => run()}>Run the rec</button></>}
         </div>
       )}
 
-      {r && (
+      {!reconciling && r && (
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: "14px 18px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ fontSize: 18, fontWeight: 800 }}>Accounts</div>
@@ -556,6 +559,82 @@ function GlCard({ gl, period }: { gl: GlCheck[]; period: string }) {
             })}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+// While the month runs (one request, up to a couple of minutes): an animated
+// card so a long run reads as WORKING, not stuck — a sweep across the
+// accounts on file, the stage it is likely on, and a running clock. The stages
+// advance on time, not on the server's progress (the run is one request), so
+// the last one HOLDS rather than looping back to the start.
+const REC_STAGES = [
+  "Reading Skyline's checking register",
+  "Matching checks by number",
+  "Matching deposits and receipt batches",
+  "Carrying open items from last month",
+  "Checking Skyline against the GL",
+  "Writing the month's record",
+];
+function ReconcilingCard({ period, accounts }: { period: string; accounts: string[] }) {
+  const [t, setT] = useState(0);
+  useEffect(() => { const start = Date.now(); const id = setInterval(() => setT((Date.now() - start) / 1000), 200); return () => clearInterval(id); }, []);
+  const stage = Math.min(REC_STAGES.length - 1, Math.floor(t / 3.5));
+  const tiles = accounts.length ? accounts : Array.from({ length: 24 }, () => "");
+  const lit = Math.floor(t * 4) % tiles.length;
+  const secs = Math.floor(t);
+  return (
+    <div className="card" style={{ padding: "22px 22px 18px", display: "grid", gap: 16, overflow: "hidden" }} role="status" aria-live="polite">
+      <style>{`
+        @keyframes brScan { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        @keyframes brPulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+        @keyframes brSpin { to { transform: rotate(360deg); } }
+        @keyframes brPop { 0% { transform: scale(.92); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+      `}</style>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span aria-hidden style={{ width: 22, height: 22, borderRadius: 999, border: "3px solid #dbe7f3", borderTopColor: "#0b4a7d", animation: "brSpin .8s linear infinite", flex: "none" }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: "#0b4a7d" }}>Reconciling every account for {periodLabel(period)}</div>
+          <div className="muted small">{accounts.length ? `${accounts.length} accounts on file` : "Every account on file"} · usually under a minute — keep this page open</div>
+        </div>
+        <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700, color: "var(--muted)", fontSize: 13 }}>{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}</div>
+      </div>
+
+      <div style={{ position: "relative", height: 4, borderRadius: 999, background: "#e6eef6", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, width: "40%", background: "linear-gradient(90deg, transparent, #0b4a7d, transparent)", animation: "brScan 1.4s ease-in-out infinite" }} />
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        {tiles.map((a, i) => {
+          const on = i === lit;
+          const near = !on && (i === (lit - 1 + tiles.length) % tiles.length);
+          return (
+            <span key={i} style={{
+              minWidth: 54, height: 26, padding: "0 8px", borderRadius: 999, display: "inline-flex", alignItems: "center", justifyContent: "center",
+              fontSize: 11.5, fontWeight: 700, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              border: `1px solid ${on ? "#0b4a7d" : "var(--border, #e5e7eb)"}`,
+              background: on ? "#0b4a7d" : near ? "#dbe7f3" : "transparent",
+              color: on ? "#fff" : "var(--muted)",
+              transition: "background .25s, color .25s, border-color .25s",
+              animation: on ? "brPop .3s ease-out" : undefined,
+            }}>{a || "\u00a0"}</span>
+          );
+        })}
+      </div>
+
+      <div style={{ display: "grid", gap: 6 }}>
+        {REC_STAGES.map((label, i) => {
+          const done = i < stage, now = i === stage;
+          return (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: done ? "var(--text)" : now ? "#0b4a7d" : "var(--muted)", fontWeight: now ? 700 : 500, opacity: done || now ? 1 : 0.55 }}>
+              <span aria-hidden style={{ width: 16, textAlign: "center", color: done ? "#15803d" : "#0b4a7d", fontWeight: 800 }}>
+                {done ? "✓" : now ? <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 999, background: "#0b4a7d", animation: "brPulse 1s ease-in-out infinite" }} /> : "·"}
+              </span>
+              {label}{now && i === REC_STAGES.length - 1 && t > 30 ? " — big month, still going" : ""}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
