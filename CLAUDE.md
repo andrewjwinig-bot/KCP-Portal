@@ -1238,6 +1238,17 @@ first → the standard email → send. The tenant has until the NEXT BUSINESS DA
   statement contacts (`camRecipientEmails`, tickable), Reply-To and Bcc the AR
   contact (`RECEIPT_REPLY_TO`, else the payment instructions' contact), behind
   a confirm naming every recipient.
+- **"DATA THROUGH" IS WHEN SKYLINE RAN THE REPORT, NOT THE IMPORT** (owner:
+  "needs to reflect last day of data not just the last day it was posted").
+  The laser statement prints only a billing "Statement Date: 11/01/2026", so
+  the import reads the WORKBOOK'S OWN creation stamp (`exportedAt`,
+  `workbookStamp` in `parseSkylineStatements.ts`; Created, else Modified) and
+  stamps it per tenant beside `importedAt`. The callout leads with it; an
+  import from before it was read says to re-import; a file with no stamp says
+  the import date is only the latest it could be. Either way: check the
+  tenant's Occupant History in Skyline for anything posted since.
+- The email step shows from the moment a tenant is picked (it drafts once a
+  payment is typed), with **Copy email** for a suite with no email on file.
 - Records: `tenant-receipt-recs` (`receiptStore.ts`); API
   `/api/tenant-statements/receipts` (inside Tami's `WRITE_SCOPE`).
 

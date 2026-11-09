@@ -88,6 +88,10 @@ export type TenantStatement = {
    *  Optional: records stored before provenance existed simply have neither. */
   importedAt?: string;
   sourceFile?: string;
+  /** When Skyline PRODUCED the export (the workbook's own creation stamp) —
+   *  the open items are as posted through that moment. The import can be
+   *  days later; this is the date the figures are actually true as of. */
+  exportedAt?: string | null;
   /** Set when a later export of the tenant's PROPERTY no longer lists them:
    *  the Statement report is open items only, so a tenant who paid in full
    *  simply drops off it. They read $0, "no open items as of" that import,
@@ -99,6 +103,8 @@ export type TenantStatement = {
 export type StatementSource = {
   filename: string;
   importedAt: string;
+  /** The export's own creation time, when the workbook records one. */
+  exportedAt?: string | null;
   importedBy: string | null;
   tenantCount: number;
 };

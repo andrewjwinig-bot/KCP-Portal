@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
   const merge = await mergeIntoPeriod(period, parsed.statements, {
     filename: file.name,
     importedAt: new Date().toISOString(),
+    exportedAt: parsed.exportedAt,
     importedBy: uploadedBy,
     tenantCount: parsed.statements.length,
   }, { clearAbsentInProperties: true });

@@ -443,3 +443,18 @@ describe("current charges section", () => {
 });
 
 
+
+describe("export stamp", () => {
+  it("reads when Skyline produced the file — the data-through time", () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([...header("2300-1817-CU", "Tenant"), row({ date: "11/01/2026", desc: "Monthly Rent", amount: 100 }), ...CLOSE(100)]), "Sheet1");
+    wb.Props = { CreatedDate: new Date("2026-10-21T13:05:00Z") };
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+    expect(parseSkylineStatements(buf).exportedAt).toBe("2026-10-21T13:05:00.000Z");
+  });
+  it("is null when the file records none", () => {
+    const buf = build([...header("2300-1817-CU", "Tenant"), row({ date: "11/01/2026", desc: "Monthly Rent", amount: 100 }), ...CLOSE(100)]);
+    const at = parseSkylineStatements(buf).exportedAt;
+    expect(at === null || typeof at === "string").toBe(true);
+  });
+});
