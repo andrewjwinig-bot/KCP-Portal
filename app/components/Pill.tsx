@@ -55,6 +55,8 @@ export function StatPill({
   sub,
   accent,
   total,
+  onClick,
+  hint,
 }: {
   label: string;
   value: React.ReactNode;
@@ -62,9 +64,14 @@ export function StatPill({
   accent?: string;
   /** The result tile of a row — brand-bordered (`.pill-total`). */
   total?: boolean;
+  /** Makes the tile a button (e.g. opens its trend over time). */
+  onClick?: () => void;
+  /** Hover label for a clickable tile. */
+  hint?: string;
 }) {
   return (
-    <div className={total ? "pill pill-total" : "pill"}>
+    <div className={total ? "pill pill-total" : "pill"}
+      {...(onClick ? { role: "button", tabIndex: 0, title: hint, onClick, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }, style: { cursor: "pointer" } } : {})}>
       <b style={accent ? { color: accent } : undefined}>{value}</b>
       <span className="small muted">{label}</span>
       {sub && <span className="small muted">{sub}</span>}

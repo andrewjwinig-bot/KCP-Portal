@@ -3105,6 +3105,19 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   back to the Adobe PDF printer above. **A negative balance prints with a
   typographic minus** (U+2212, "−$381.46"); `AMT` / `money` read it — before,
   an overdrawn account (2010 LIK Mgmt x9629) silently dropped out.
+- **THE HEADER TILES OPEN THEIR TREND OVER TIME** (owner: "click the header
+  KPI pills … to see line charts over time"). Cash in bank, Security deposits
+  and Net available are clickable (`StatPill`'s `onClick` — a brand border on
+  hover) and open `BalanceTrendModal`, a tab per metric over the weekly import
+  snapshots (`portfolioTrend` in `trend.ts`, returned as `trend` by the GET):
+  each account's newest figure at each date, a date counted only once every
+  bank is in, the hands-off trust accrued to the date. **Reserves have no
+  history** (the budget's Big Projects, next three months), so Net available is
+  OPERATING CASH over time against today's reserves as a dashed line — the gap
+  at the right edge is today's net available; Reserves and Debt service tiles
+  are not clickable. The chart is `BalanceTrendChart`
+  (`app/components/`), the property page's Bank Balance chart lifted out so
+  the two read the same. Pinned by `trend.test.ts`.
 - **Accounts → lines** come from the Bank Rec Tracker's registry
   (`UNIQUE_BANK_ACCOUNTS`) plus `EXTRA_ACCOUNTS` (M&T's Eastwick x4031, which
   the tracker does not reconcile) — `entities.ts`. Funds are ONE line (JV III

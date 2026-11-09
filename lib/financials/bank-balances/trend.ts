@@ -44,3 +44,59 @@ export function balanceTrend(code: string, snapshots: Snapshot[]): BalanceTrend 
   }
   return { key: line.key, name: line.name, accounts: ids.length, points };
 }
+
+// THE PORTFOLIO OVER TIME — the Bank Balances header tiles, clickable (owner:
+// "click the header KPI pills at the top to see line charts over time"). Same
+// rule as one line: each account's NEWEST figure at or before the date, and a
+// date is a point only once every BANK seen in the snapshots has been
+// imported (Chase, Liberty and M&T come in separately — a date with only one
+// of them would read as a cash collapse). Accrued accounts (the Leonard Korman
+// Trust, never imported) are accrued to each date, as the page does today.
+export type PortfolioPoint = {
+  date: string;
+  /** Every mapped account — the "Cash in bank" tile. */
+  cash: number;
+  /** Security-deposit lines — tenants' money. */
+  deposits: number;
+  /** Hands-off money (the accrued trust), held back in full. */
+  handsOff: number;
+  /** cash − deposits − hands-off: what reserves come out of. */
+  operating: number;
+};
+
+export function portfolioTrend(
+  snapshots: Snapshot[],
+  accrued: { id: string; balanceOn: (date: string) => number }[] = [],
+): PortfolioPoint[] {
+  const known = new Map<string, { bank: string; restricted: boolean }>();
+  for (const a of BALANCE_ACCOUNTS) known.set(accountId(a.bank, a.last4), { bank: String(a.bank), restricted: !!entityFor(a).restricted });
+  const accruedIds = new Set(accrued.map((a) => a.id));
+  const snaps = [...snapshots].sort((a, b) => a.date.localeCompare(b.date));
+  const banks = new Set<string>();
+  for (const s of snaps) for (const id of Object.keys(s.accounts)) { const k = known.get(id); if (k && !accruedIds.has(id)) banks.add(k.bank); }
+  const cur = new Map<string, number>();
+  const seen = new Set<string>();
+  const out: PortfolioPoint[] = [];
+  for (const s of snaps) {
+    for (const [id, v] of Object.entries(s.accounts)) {
+      const k = known.get(id);
+      if (!k || !v || typeof v.balance !== "number") continue;
+      cur.set(id, v.balance);
+      if (!accruedIds.has(id)) seen.add(k.bank);
+    }
+    if ([...banks].some((b) => !seen.has(b))) continue;
+    let cash = 0, deposits = 0, handsOff = 0;
+    for (const [id, bal] of cur) {
+      if (accruedIds.has(id)) continue;
+      cash += bal;
+      if (known.get(id)!.restricted) deposits += bal;
+    }
+    for (const a of accrued) {
+      const bal = cur.get(a.id) ?? a.balanceOn(s.date);
+      cash += bal; handsOff += bal;
+    }
+    const p = { date: s.date, cash: Math.round(cash), deposits: Math.round(deposits), handsOff: Math.round(handsOff), operating: Math.round(cash - deposits - handsOff) };
+    if (out.length && out[out.length - 1].date === s.date) out[out.length - 1] = p; else out.push(p);
+  }
+  return out;
+}
