@@ -1228,6 +1228,15 @@ charges"; `RESPOND_BUSINESS_DAYS`, `respondByFrom`); with no answer the record t
 - **The server re-derives every plan** (`planById`, a `custom:` id for a
   hand-picked set) from the STORED statement before sending or saving — a
   client figure is never what a payment is applied against.
+- **THE EMAIL IS HTML WITH A TABLE** (owner: "make it a table like the open
+  charges & credits … very clear about what charges/credits are being
+  applied"): an editable OPENING and CLOSING (`receiptEmailParts`) around the
+  ACCOUNT TABLE (`receiptTableHtml`) — every open charge and credit, From
+  your payment / From your credit / Still open, applied rows tinted green, a
+  Total row, then the balance-after sentences. The table is generated from
+  the plan and RE-RENDERED on the server at send (`renderReceiptEmail`, HTML
+  + a plain-text twin); Tami's text is escaped. Copy email puts the HTML on
+  the clipboard so Outlook keeps the table.
 - **ONE wording for every tenant** (`composeReceiptEmail`): what we received,
   the open charges, the credit, the balance due, how the payment will be
   applied line by line (payment vs credit), what credit remains or is held,

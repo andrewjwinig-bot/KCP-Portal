@@ -17,7 +17,7 @@ import { createPortal } from "react-dom";
 import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
-import { APPLICATION_LABEL, APPLICATION_ORDER, type Account, type Explanation } from "@/lib/statements/receiptMatch";
+import { APPLICATION_LABEL, APPLICATION_ORDER, renderReceiptEmail, type Account, type Explanation } from "@/lib/statements/receiptMatch";
 import { HoverCard } from "@/app/components/HoverCard";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -44,7 +44,7 @@ type Detail = {
   period: string; asOf: string | null; dates: DataDates;
   tenant: { unitRef: string; tenantName: string; propertyCode: string; propertyName: string; suite: string; tiesOut: boolean };
   account: Account; explanations: Explanation[]; plan: Explanation | null; recipients: string[];
-  draft: { subject: string; body: string } | null; respondBy: string;
+  draft: { subject: string; opening: string; closing: string; tableHtml: string } | null; respondBy: string;
 };
 
 const STATUS_PILL: Record<Status, React.ReactNode> = {
@@ -80,7 +80,8 @@ export default function ReceiptReconciliationPage() {
   const [custom, setCustom] = useState<{ on: boolean; idx: Set<number>; credit: boolean }>({ on: false, idx: new Set(), credit: false });
   const [detail, setDetail] = useState<Detail | null>(null);
   const [subject, setSubject] = useState("");
-  const [body, setBody] = useState("");
+  const [opening, setOpening] = useState("");
+  const [closing, setClosing] = useState("");
   const [edited, setEdited] = useState(false);
   const [copied, setCopied] = useState(false);
   const [attach, setAttach] = useState(true);
@@ -116,7 +117,7 @@ export default function ReceiptReconciliationPage() {
       if (my !== seq.current) return;
       if (!j?.ok) { setError(j?.error ?? "Could not read that tenant."); return; }
       setError(null); setDetail(j);
-      if (!edited && j.draft) { setSubject(j.draft.subject); setBody(j.draft.body); }
+      if (!edited && j.draft) { setSubject(j.draft.subject); setOpening(j.draft.opening); setClosing(j.draft.closing); }
     }, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -145,12 +146,26 @@ export default function ReceiptReconciliationPage() {
   const appliedByIdx = useMemo(() => new Map((plan?.lines ?? []).map((l) => [l.idx, l])), [plan]);
   const to = (detail?.recipients ?? []).filter((e) => !excluded.has(e.toLowerCase()));
 
+  /** Copy the email WITH its table — as HTML for Outlook, text as fallback. */
+  async function copyEmail() {
+    if (!detail || !plan) return;
+    const { html, text } = renderReceiptEmail({ acct: detail.account, plan, asOfISO: detail.asOf }, opening, closing);
+    try {
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([`${subject}\n\n${text}`], { type: "text/plain" }) })]);
+      } else {
+        await navigator.clipboard.writeText(`${subject}\n\n${text}`);
+      }
+      setCopied(true); setTimeout(() => setCopied(false), 1800);
+    } catch { /* clipboard blocked */ }
+  }
+
   async function save(action: "send" | "draft") {
     if (!detail || !plan || !validAmount || !period) return;
     setBusy(true); setError(null);
     const r = await fetch("/api/tenant-statements/receipts", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, id: draftId ?? undefined, period, unitRef: detail.tenant.unitRef, amount, receivedISO: received, checkNo, plan: plan.id, subject, body, exclude: [...excluded], attachStatement: attach }),
+      body: JSON.stringify({ action, id: draftId ?? undefined, period, unitRef: detail.tenant.unitRef, amount, receivedISO: received, checkNo, plan: plan.id, subject, opening, closing, exclude: [...excluded], attachStatement: attach }),
     }).catch(() => null);
     const j = r ? await r.json().catch(() => null) : null;
     setBusy(false); setConfirming(false);
@@ -452,7 +467,15 @@ export default function ReceiptReconciliationPage() {
           <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
             <input value={subject} onChange={(e) => { setSubject(e.target.value); setEdited(true); }} aria-label="Subject"
               style={{ width: "100%", border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, padding: "10px 14px", fontWeight: 700, background: "transparent" }} />
-            <textarea value={body} onChange={(e) => { setBody(e.target.value); setEdited(true); }} aria-label="Message" rows={Math.min(34, Math.max(14, body.split("\n").length + 1))}
+            <textarea value={opening} onChange={(e) => { setOpening(e.target.value); setEdited(true); }} aria-label="Opening" rows={Math.max(5, opening.split("\n").length + 1)}
+              style={{ width: "100%", border: 0, borderRadius: 0, padding: "12px 14px", fontFamily: "inherit", fontSize: 13.5, lineHeight: 1.55, resize: "vertical", background: "transparent" }} />
+            {/* The table is generated from the plan (the server re-renders it
+                on send) — what the tenant reads, exactly; not editable. */}
+            {detail.draft && (
+              <div style={{ padding: "0 14px", background: "#ffffff", color: "#111827", overflowX: "auto" }} title="Generated from the charges above — not editable"
+                dangerouslySetInnerHTML={{ __html: detail.draft.tableHtml }} />
+            )}
+            <textarea value={closing} onChange={(e) => { setClosing(e.target.value); setEdited(true); }} aria-label="Closing" rows={Math.max(8, closing.split("\n").length + 4)}
               style={{ width: "100%", border: 0, borderRadius: 0, padding: "12px 14px", fontFamily: "inherit", fontSize: 13.5, lineHeight: 1.55, resize: "vertical", background: "transparent" }} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -460,7 +483,7 @@ export default function ReceiptReconciliationPage() {
               The standard wording, with this tenant&rsquo;s figures. Edit freely{edited && <> · <button className="btn sm" onClick={() => setEdited(false)}>Reset to standard wording</button></>}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn" onClick={async () => { try { await navigator.clipboard.writeText(`${subject}\n\n${body}`); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* clipboard blocked */ } }}>{copied ? "Copied ✓" : "Copy email"}</button>
+              <button className="btn" onClick={() => copyEmail()}>{copied ? "Copied ✓" : "Copy email"}</button>
               <button className="btn" disabled={busy} onClick={() => save("draft")}>Save draft</button>
               <button className="btn primary" disabled={busy || !to.length} onClick={() => setConfirming(true)} title={!to.length ? "No email on file for this suite" : undefined}>Send email…</button>
             </div>

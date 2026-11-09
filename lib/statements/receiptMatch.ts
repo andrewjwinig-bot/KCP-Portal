@@ -391,43 +391,120 @@ export type ReceiptEmailInput = {
 
 const longDate = (iso: string) => { const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`); return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }); };
 
-export function composeReceiptEmail(x: ReceiptEmailInput): { subject: string; body: string } {
-  const { acct, plan } = x;
-  // Plain lines, no column padding — most mail programs set text in a
-  // proportional font, where padded columns come out ragged.
-  const row = (date: string, desc: string, amt: string) => `  ${date ? `${date} — ` : ""}${desc}: ${amt}`;
+// The email is three parts: an OPENING and a CLOSING Tami can edit, and in
+// between the ACCOUNT TABLE — every open charge and credit, what the payment
+// and the credit cover, and what stays open — generated from the plan on the
+// server, never retyped (owner: "make it a table like the open charges &
+// credits to clean it up and be very clear"). Sent as HTML with a plain-text
+// twin of the same three parts.
+
+export type ReceiptEmailParts = { subject: string; opening: string; closing: string };
+
+export function receiptEmailParts(x: ReceiptEmailInput): ReceiptEmailParts {
+  const { plan } = x;
   const ref = x.checkNo ? ` (check #${x.checkNo})` : "";
-  const lines: string[] = [];
-  lines.push(`Hello,`, "");
-  lines.push(`Thank you for your payment of ${usd(x.amount)}${ref}, received ${longDate(x.receivedISO)}, for ${x.propertyName}, Suite ${x.suite}.`, "");
-  lines.push(`The amount doesn't match the balance on your account exactly, so we want to confirm how it should be applied before we post it.`, "");
-  if (x.attached) lines.push(`Your current statement of account is attached for reference.`, "");
-  lines.push(`YOUR ACCOUNT${x.asOfISO ? ` AS OF ${dateLabel(x.asOfISO)}` : ""}`, "");
-  for (const ch of acct.charges) lines.push(row(dateLabel(ch.dateISO), ch.description, usd(ch.amount)));
-  lines.push("", row("", "Total open charges", usd(acct.gross)));
-  if (acct.credit > 0) lines.push(row("", "Less: credit on your account", `(${usd(acct.credit)})`));
-  lines.push(row("", "Balance due", usd(acct.net)), "");
-  lines.push(`HOW WE WILL APPLY YOUR PAYMENT`, "");
-  for (const l of plan.lines) {
-    const parts = [l.fromPayment ? `${usd(l.fromPayment)} of your payment` : "", l.fromCredit ? `${usd(l.fromCredit)} of your credit` : ""].filter(Boolean).join(" + ");
-    lines.push(row(dateLabel(l.dateISO), l.description, usd(l.fromPayment + l.fromCredit)) + ` (${parts})`);
+  const opening = [
+    `Hello,`,
+    ``,
+    `Thank you for your payment of ${usd(x.amount)}${ref}, received ${longDate(x.receivedISO)}, for ${x.propertyName}, Suite ${x.suite}.`,
+    ``,
+    `The amount doesn't match the balance on your account exactly, so we want to confirm how it should be applied before we post it. The table below shows your open charges and credits and how we will apply your payment.${x.attached ? " Your current statement of account is attached for reference." : ""}`,
+  ].join("\n");
+  const closing = [
+    // Wherever WE decided the order (no reading of theirs did), say what it is.
+    ...(plan.fallback || plan.id === "monthly" || plan.id.startsWith("near:") ? [ORDER_SENTENCE, ``] : []),
+    `If you intended this payment for different charges, please reply to this email by ${longDate(x.respondByISO)} and let us know which charges it covers. If we don't hear from you by then, we'll apply it as shown above.`,
+    ``,
+    `If you are not the person who makes payment allocation decisions for your company, please forward this email to the appropriate person or department.`,
+    ``,
+    `Thank you,`,
+    x.signer.name, ...(x.signer.title ? [x.signer.title] : []), "Korman Commercial Properties", x.signer.email, ...(x.signer.phone ? [x.signer.phone] : []),
+  ].join("\n");
+  return { subject: `Your payment of ${usd(x.amount)} — ${x.propertyName}, Suite ${x.suite}`, opening, closing };
+}
+
+type TableRow = { date: string; description: string; open: number; fromPayment: number; fromCredit: number; stillOpen: number; isCredit?: boolean };
+
+function tableRows(acct: Account, plan: Explanation): { rows: TableRow[]; totals: { open: number; fromPayment: number; fromCredit: number; stillOpen: number } } {
+  const by = new Map(plan.lines.map((l) => [l.idx, l]));
+  const rows: TableRow[] = byHierarchy(acct.charges).sort((p, q) => (p.dateISO ?? "9999").localeCompare(q.dateISO ?? "9999") || p.idx - q.idx).map((ch) => {
+    const l = by.get(ch.idx);
+    const fp = l?.fromPayment ?? 0, fc = l?.fromCredit ?? 0;
+    return { date: dateLabel(ch.dateISO), description: ch.description, open: ch.amount, fromPayment: fp, fromCredit: fc, stillOpen: r2(ch.amount - fp - fc) };
+  });
+  for (const cl of acct.creditLines) rows.push({ date: dateLabel(cl.dateISO), description: cl.description, open: -cl.amount, fromPayment: 0, fromCredit: 0, stillOpen: 0, isCredit: true });
+  const t = (k: "fromPayment" | "fromCredit" | "stillOpen") => r2(rows.reduce((a, r) => a + (r.isCredit ? 0 : r[k]), 0));
+  return { rows, totals: { open: acct.net, fromPayment: t("fromPayment"), fromCredit: t("fromCredit"), stillOpen: t("stillOpen") } };
+}
+
+/** The sentences under the table — figures, so generated, not edited. */
+function summaryLines(acct: Account, plan: Explanation): string[] {
+  const out: string[] = [];
+  if (plan.creditUsed > 0) out.push(`${usd(plan.creditUsed)} of the credit on your account is applied as shown, to bring your account current.`);
+  if (acct.credit - plan.creditUsed > 0.005 && plan.balanceAfter > 0.005) out.push(`Your remaining credit of ${usd(acct.credit - plan.creditUsed)} stays on your account toward future charges.`);
+  if (plan.unapplied > 0.005) out.push(`${usd(plan.unapplied)} of your payment is more than the charges above and will be held as a credit on your account.`);
+  out.push(plan.balanceAfter > 0.005
+    ? `After this payment, your remaining balance will be ${usd(plan.balanceAfter)}.`
+    : plan.balanceAfter < -0.005 ? `After this payment, your account will carry a credit of ${usd(-plan.balanceAfter)}.` : `After this payment, your account will be paid in full.`);
+  return out;
+}
+
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const paras = (t: string) => t.split(/\n{2,}/).map((p) => `<p style="margin:0 0 14px">${esc(p).replace(/\n/g, "<br>")}</p>`).join("");
+
+/** The account table as email-safe HTML (inline styles, no classes). */
+export function receiptTableHtml(x: Pick<ReceiptEmailInput, "acct" | "plan" | "asOfISO">): string {
+  const { rows, totals } = tableRows(x.acct, x.plan);
+  const NAVY = "#0b4a7d", GREEN = "#15803d", LINE = "#d9dee5", MUTED = "#6b7280";
+  const th = (t: string, right = false) => `<th style="padding:8px 10px;text-align:${right ? "right" : "left"};font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#ffffff;background:${NAVY}">${t}</th>`;
+  const td = (t: string, o: { right?: boolean; color?: string; bold?: boolean } = {}) => `<td style="padding:7px 10px;border-bottom:1px solid ${LINE};text-align:${o.right ? "right" : "left"};${o.color ? `color:${o.color};` : ""}${o.bold ? "font-weight:700;" : ""}white-space:nowrap">${t}</td>`;
+  const m = (n: number) => (n ? usd(n) : "—");
+  const body = rows.map((r) => {
+    const applied = r.fromPayment > 0 || r.fromCredit > 0;
+    return `<tr style="${applied ? "background:#effaf3" : ""}">${td(esc(r.date), { color: MUTED })}${`<td style="padding:7px 10px;border-bottom:1px solid ${LINE}">${esc(r.description)}</td>`}${
+      td(r.isCredit ? `(${usd(-r.open)})` : usd(r.open), { right: true, color: r.isCredit ? GREEN : undefined })}${
+      td(r.isCredit ? "" : m(r.fromPayment), { right: true, color: r.fromPayment ? GREEN : MUTED, bold: r.fromPayment > 0 })}${
+      td(r.isCredit ? "" : m(r.fromCredit), { right: true, color: r.fromCredit ? GREEN : MUTED, bold: r.fromCredit > 0 })}${
+      td(r.isCredit ? "" : m(r.stillOpen), { right: true, color: r.stillOpen ? undefined : MUTED })}</tr>`;
+  }).join("");
+  const tot = `<tr style="background:#f3f6f9">${td("")}${`<td style="padding:8px 10px;font-weight:800">Total</td>`}${td(usd(totals.open), { right: true, bold: true })}${td(m(totals.fromPayment), { right: true, bold: true, color: GREEN })}${td(m(totals.fromCredit), { right: true, bold: true, color: totals.fromCredit ? GREEN : MUTED })}${td(m(totals.stillOpen), { right: true, bold: true })}</tr>`;
+  const summary = summaryLines(x.acct, x.plan).map((l) => `<li style="margin:0 0 4px">${esc(l)}</li>`).join("");
+  return `<div style="margin:6px 0 18px">
+<div style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:${NAVY};margin:0 0 6px">Your account${x.asOfISO ? ` as of ${dateLabel(x.asOfISO)}` : ""} — and how we will apply your payment</div>
+<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;max-width:680px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111827;border:1px solid ${LINE}">
+<thead><tr>${th("Date")}${th("Charge")}${th("Open", true)}${th("From your payment", true)}${th("From your credit", true)}${th("Still open", true)}</tr></thead>
+<tbody>${body}${tot}</tbody></table>
+<ul style="margin:10px 0 0;padding-left:18px;font-size:13px;color:#111827">${summary}</ul>
+</div>`;
+}
+
+/** The same table as plain text, for the text part of the email. */
+function receiptTableText(x: Pick<ReceiptEmailInput, "acct" | "plan" | "asOfISO">): string {
+  const { rows, totals } = tableRows(x.acct, x.plan);
+  const out = [`YOUR ACCOUNT${x.asOfISO ? ` AS OF ${dateLabel(x.asOfISO)}` : ""} — AND HOW WE WILL APPLY YOUR PAYMENT`, ""];
+  for (const r of rows) {
+    if (r.isCredit) { out.push(`  ${r.date === "—" ? "" : `${r.date} — `}${r.description}: (${usd(-r.open)})`); continue; }
+    const parts = [r.fromPayment ? `${usd(r.fromPayment)} from your payment` : "", r.fromCredit ? `${usd(r.fromCredit)} from your credit` : ""].filter(Boolean).join(" + ");
+    out.push(`  ${r.date} — ${r.description}: ${usd(r.open)}${parts ? ` → ${parts}` : ""}${r.stillOpen > 0.005 ? `; ${usd(r.stillOpen)} still open` : ""}`);
   }
-  lines.push("");
-  if (plan.creditUsed > 0) lines.push(`• ${usd(plan.creditUsed)} of the credit on your account is applied as shown above, to bring your account current.`);
-  // A credit left over is said once: as "stays on your account" while a
-  // balance remains, or as the credit the account carries when none does.
-  if (acct.credit - plan.creditUsed > 0.005 && plan.balanceAfter > 0.005) lines.push(`• Your remaining credit of ${usd(acct.credit - plan.creditUsed)} stays on your account toward future charges.`);
-  if (plan.unapplied > 0.005) lines.push(`• ${usd(plan.unapplied)} of your payment is more than the charges above and will be held as a credit on your account.`);
-  lines.push(plan.balanceAfter > 0.005
-    ? `• After this payment, your remaining balance will be ${usd(plan.balanceAfter)}.`
-    : plan.balanceAfter < -0.005 ? `• After this payment, your account will carry a credit of ${usd(-plan.balanceAfter)}.` : `• After this payment, your account will be paid in full.`);
-  lines.push("");
-  // Wherever WE decided the order (no reading of theirs did), say what it is.
-  if (plan.fallback || plan.id === "monthly" || plan.id.startsWith("near:")) lines.push(ORDER_SENTENCE, "");
-  lines.push(`If you intended this payment for different charges, please reply to this email by ${longDate(x.respondByISO)} and let us know which charges it covers. If we don't hear from you by then, we'll apply it as shown above.`, "");
-  lines.push(`If you are not the person who makes payment allocation decisions for your company, please forward this email to the appropriate person or department.`, "");
-  lines.push(`Thank you,`, x.signer.name, ...(x.signer.title ? [x.signer.title] : []), "Korman Commercial Properties", x.signer.email, ...(x.signer.phone ? [x.signer.phone] : []));
-  return { subject: `Your payment of ${usd(x.amount)} — ${x.propertyName}, Suite ${x.suite}`, body: lines.join("\n") };
+  out.push("", `  Total: ${usd(totals.open)} · from your payment ${usd(totals.fromPayment)}${totals.fromCredit ? ` · from your credit ${usd(totals.fromCredit)}` : ""} · still open ${usd(totals.stillOpen)}`, "");
+  for (const l of summaryLines(x.acct, x.plan)) out.push(`• ${l}`);
+  return out.join("\n");
+}
+
+/** Put an email together from the (edited) opening and closing and the
+ *  generated table: HTML and its plain-text twin. */
+export function renderReceiptEmail(x: Pick<ReceiptEmailInput, "acct" | "plan" | "asOfISO">, opening: string, closing: string): { html: string; text: string } {
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#111827;max-width:700px">${paras(opening)}${receiptTableHtml(x)}${paras(closing)}</div>`;
+  const text = `${opening}\n\n${receiptTableText(x)}\n\n${closing}`;
+  return { html, text };
+}
+
+/** Subject + the whole plain-text body — the parts with no edits. */
+export function composeReceiptEmail(x: ReceiptEmailInput): { subject: string; body: string; html: string } {
+  const p = receiptEmailParts(x);
+  const r = renderReceiptEmail(x, p.opening, p.closing);
+  return { subject: p.subject, body: r.text, html: r.html };
 }
 
 /** How long a tenant has to answer before the plan applies (owner, 11/2026:
