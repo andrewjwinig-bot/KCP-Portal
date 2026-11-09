@@ -500,6 +500,19 @@ select.select-brand:hover:not(:disabled) {
   background-color: rgba(11, 74, 125, 0.05);
 }
 
+/* A large variant for the one picker a page is worked from (Receipt
+   Reconciliation's tenant list) — easier to read down a long list. The
+   options inherit the size in Chrome / Edge. */
+select.select-lg {
+  font-size: 15px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+select.select-lg option,
+select.select-lg optgroup {
+  font-size: 15px;
+}
+
 /* A compact variant for a card header or a table row. */
 select.select-sm {
   font-size: 12px;
