@@ -46,10 +46,19 @@ async function latestPeriod(): Promise<string | null> {
   return runs.map((r) => r.period).sort().pop() ?? null;
 }
 
-async function statementOf(period: string, unit: string): Promise<{ st: TenantStatement; asOf: string | null } | null> {
+/** When the figures are true as of: Skyline's export time (the workbook's own
+ *  stamp, `exportedAt`) — NOT the day it was imported into the portal, which
+ *  can be days later. Imports before the stamp was read have only the import. */
+type DataDates = { dataThrough: string | null; importedOn: string | null; stampRead: boolean };
+
+async function statementOf(period: string, unit: string): Promise<{ st: TenantStatement; asOf: string | null; dates: DataDates } | null> {
   const run = await getRun(period);
   const st = run?.statements.find((s) => s.unitRef.toUpperCase() === unit.toUpperCase()) ?? null;
-  return st ? { st, asOf: st.importedAt?.slice(0, 10) ?? run?.updatedAt?.slice(0, 10) ?? null } : null;
+  if (!st) return null;
+  // `exportedAt` undefined = imported before the stamp was read; null = the
+  // file itself records no creation time.
+  const dates: DataDates = { dataThrough: st.exportedAt ?? null, importedOn: st.importedAt ?? run?.updatedAt ?? null, stampRead: st.exportedAt !== undefined };
+  return { st, dates, asOf: (dates.dataThrough ?? dates.importedOn)?.slice(0, 10) ?? null };
 }
 
 async function recipientsFor(unitRef: string): Promise<string[]> {
@@ -84,14 +93,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true, period, periods: runs.map((r) => r.period).sort().reverse(), tenants,
       // The day the month's data was posted — the last day its figures are accurate.
-      postedAsOf: (run?.statements ?? []).map((s) => s.importedAt ?? "").sort().pop()?.slice(0, 10) || run?.updatedAt?.slice(0, 10) || null,
+      dates: {
+        dataThrough: (run?.statements ?? []).map((s) => s.exportedAt ?? "").sort().pop() || null,
+        importedOn: (run?.statements ?? []).map((s) => s.importedAt ?? "").sort().pop() || run?.updatedAt || null,
+        stampRead: (run?.statements ?? []).some((s) => s.exportedAt !== undefined),
+      },
       receipts: receipts.map((r) => ({ ...r, status: receiptStatus(r, now) })),
     });
   }
 
   const found = await statementOf(period, unit);
   if (!found) return NextResponse.json({ error: "No statement for that tenant and month." }, { status: 404 });
-  const { st, asOf } = found;
+  const { st, asOf, dates } = found;
   const acct = accountOf(st);
   const amount = money(q.get("amount"));
   const explanations = Number.isFinite(amount) && amount > 0 ? explainPayment(acct, amount, { currentMonth: period }) : [];
@@ -107,7 +120,7 @@ export async function GET(req: NextRequest) {
     });
   }
   return NextResponse.json({
-    ok: true, period, asOf,
+    ok: true, period, asOf, dates,
     tenant: { unitRef: st.unitRef, tenantName: st.tenantName, propertyCode: st.propertyCode, propertyName: propertyName(st.propertyCode), suite: st.suite, tiesOut: st.tiesOut },
     account: acct, explanations, plan, recipients, draft, respondBy: respondByFrom(todayET()),
   });

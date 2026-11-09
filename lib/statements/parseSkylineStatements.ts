@@ -144,7 +144,21 @@ export type ParsedStatements = {
   period: string | null;
   /** Tenants whose charges don't sum to Skyline's reported balance. */
   mismatched: string[];
+  /** When Skyline produced the file — the workbook's creation stamp (else its
+   *  last-saved stamp). Null when the file records neither. */
+  exportedAt: string | null;
 };
+
+/** The workbook's own timestamp: Created, else Modified. A Crystal/Skyline
+ *  export writes it when the report is run, so it is the "data through" time. */
+function workbookStamp(wb: XLSX.WorkBook): string | null {
+  const props = (wb.Props ?? {}) as { CreatedDate?: Date | string; ModifiedDate?: Date | string };
+  for (const v of [props.CreatedDate, props.ModifiedDate]) {
+    const d = v instanceof Date ? v : typeof v === "string" ? new Date(v) : null;
+    if (d && !Number.isNaN(d.getTime()) && d.getFullYear() > 2000) return d.toISOString();
+  }
+  return null;
+}
 
 /** Parse one Skyline Statement export (.xls or .xlsx) into per-tenant records. */
 export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStatements {
@@ -281,7 +295,7 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
     statements.push(rec);
   }
 
-  return { statements, period: periodOf(statements), mismatched };
+  return { statements, period: periodOf(statements), mismatched, exportedAt: workbookStamp(wb) };
 }
 
 /** The statement month — the newest charge date across the export. */

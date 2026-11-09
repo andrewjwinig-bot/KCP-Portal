@@ -28,6 +28,10 @@ const longDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateStrin
 const todayISO = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 const SECTION: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
+type DataDates = { dataThrough: string | null; importedOn: string | null; stampRead?: boolean };
+const etStamp = (iso: string, withTime: boolean) => new Date(iso).toLocaleString("en-US", {
+  timeZone: "America/New_York", weekday: "long", month: "long", day: "numeric", year: "numeric", ...(withTime ? { hour: "numeric", minute: "2-digit" } : {}),
+});
 type TenantRow = { unitRef: string; tenantName: string; propertyCode: string; propertyName: string; gross: number; credit: number; net: number };
 type Status = "draft" | "waiting" | "apply" | "posted";
 type Receipt = {
@@ -37,7 +41,7 @@ type Receipt = {
   status: Status;
 };
 type Detail = {
-  period: string; asOf: string | null;
+  period: string; asOf: string | null; dates: DataDates;
   tenant: { unitRef: string; tenantName: string; propertyCode: string; propertyName: string; suite: string; tiesOut: boolean };
   account: Account; explanations: Explanation[]; plan: Explanation | null; recipients: string[];
   draft: { subject: string; body: string } | null; respondBy: string;
@@ -62,7 +66,7 @@ function confidenceTone(e: Explanation) {
 export default function ReceiptReconciliationPage() {
   const [period, setPeriod] = useState<string | null>(null);
   const [periods, setPeriods] = useState<string[]>([]);
-  const [postedAsOf, setPostedAsOf] = useState<string | null>(null);
+  const [monthDates, setMonthDates] = useState<DataDates | null>(null);
   const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +82,7 @@ export default function ReceiptReconciliationPage() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [edited, setEdited] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -94,7 +99,7 @@ export default function ReceiptReconciliationPage() {
     const r = await fetch(`/api/tenant-statements/receipts${p ? `?period=${p}` : ""}`, { cache: "no-store" }).catch(() => null);
     const j = r ? await r.json().catch(() => null) : null;
     if (!j?.ok) { setError(j?.error ?? "Could not load the statements."); return; }
-    setPeriod(j.period); setPeriods(j.periods); setPostedAsOf(j.postedAsOf ?? null); setTenants(j.tenants); setReceipts(j.receipts);
+    setPeriod(j.period); setPeriods(j.periods); setMonthDates(j.dates ?? null); setTenants(j.tenants); setReceipts(j.receipts);
   }, []);
   useEffect(() => { loadList(); }, [loadList]);
 
@@ -132,6 +137,8 @@ export default function ReceiptReconciliationPage() {
   }, [tenants]);
 
   const plan = detail?.plan ?? null;
+  /** The tenant's own data dates once one is picked, else the month's. */
+  const dataDates: DataDates | null = detail?.dates ?? monthDates;
   /** A payment is typed and read — show what it covers. */
   const applying = !!(detail && validAmount && plan);
   const appliedByIdx = useMemo(() => new Map((plan?.lines ?? []).map((l) => [l.idx, l])), [plan]);
@@ -208,15 +215,26 @@ export default function ReceiptReconciliationPage() {
       {/* The figures are only as current as the laser statement behind them —
           a payment or charge keyed in Skyline since will not be here. The
           tenant's own import date when one is picked, else the month's. */}
-      {(detail?.asOf ?? postedAsOf) && (
+      {dataDates && (dataDates.dataThrough || dataDates.importedOn) && (
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start", border: "1px solid rgba(217,119,6,0.35)", background: "rgba(217,119,6,0.08)", borderRadius: 12, padding: "12px 16px" }}>
           <span aria-hidden style={{ fontSize: 18, lineHeight: 1.2, color: "#b45309" }}>⚠</span>
           <div style={{ display: "grid", gap: 2 }}>
-            <div style={{ fontWeight: 800, color: "#b45309" }}>
-              Data posted {new Date(`${(detail?.asOf ?? postedAsOf)!}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}{detail ? ` for ${detail.tenant.tenantName}` : ""} — the last day these figures are accurate.
-            </div>
+            {dataDates.dataThrough ? (
+              <div style={{ fontWeight: 800, color: "#b45309" }}>
+                Data through {etStamp(dataDates.dataThrough, true)}{detail ? ` for ${detail.tenant.tenantName}` : ""} — when Skyline ran the laser statement.
+              </div>
+            ) : (
+              <div style={{ fontWeight: 800, color: "#b45309" }}>
+                Imported {etStamp(dataDates.importedOn!, false)}{detail ? ` for ${detail.tenant.tenantName}` : ""} — the data is at least this old.
+              </div>
+            )}
             <div className="small">
-              Anything posted in Skyline after that — a payment, a credit, a new charge — isn&rsquo;t shown here. Check the tenant&rsquo;s <b>Occupant History</b> in Skyline for unposted items before you reconcile or email them.
+              {dataDates.dataThrough
+                ? <>Open items as posted in Skyline up to that moment{dataDates.importedOn ? <> (imported into the portal {etStamp(dataDates.importedOn, false)})</> : null}. </>
+                : dataDates.stampRead
+                  ? <>Skyline&rsquo;s file doesn&rsquo;t record when the report was run, so this is the latest it could be — the run may be earlier. </>
+                  : <>This was imported before the portal read the export time — re-import the laser statement to capture when Skyline ran it. </>}
+              Anything posted since — a payment, a credit, a new charge — isn&rsquo;t shown here. Check the tenant&rsquo;s <b>Occupant History</b> in Skyline for unposted items before you reconcile or email them.
             </div>
           </div>
         </div>
@@ -391,11 +409,20 @@ export default function ReceiptReconciliationPage() {
         </section>
       )}
 
+      {/* The email step is visible from the moment a tenant is picked, so it
+          is never a mystery where the draft is — it fills in once a payment is typed. */}
+      {detail && !applying && !answering && (
+        <section className="card" style={{ display: "grid", gap: 6 }}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Draft email to the tenant</div>
+          <div className="muted small">Type the amount they paid above — the email drafts itself from how the payment applies, ready to edit and send.</div>
+        </section>
+      )}
+
       {/* ── 3. Tell the tenant ───────────────────────────────────────── */}
       {detail && validAmount && plan && !answering && (
         <section className="card" style={{ display: "grid", gap: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ fontSize: 17, fontWeight: 800 }}>Email the tenant</div>
+            <div style={{ fontSize: 17, fontWeight: 800 }}>Draft email to the tenant</div>
             <div className="muted small">They have until <b>{longDate(detail.respondBy)}</b> to answer; after that it applies as shown.</div>
           </div>
           <div style={{ display: "grid", gap: 6 }}>
@@ -418,8 +445,9 @@ export default function ReceiptReconciliationPage() {
               The standard wording, with this tenant&rsquo;s figures. Edit freely{edited && <> · <button className="btn sm" onClick={() => setEdited(false)}>Reset to standard wording</button></>}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn" disabled={busy} onClick={() => save("draft")}>Save without emailing</button>
-              <button className="btn primary" disabled={busy || !to.length} onClick={() => setConfirming(true)}>Send to tenant…</button>
+              <button className="btn" onClick={async () => { try { await navigator.clipboard.writeText(`${subject}\n\n${body}`); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* clipboard blocked */ } }}>{copied ? "Copied ✓" : "Copy email"}</button>
+              <button className="btn" disabled={busy} onClick={() => save("draft")}>Save draft</button>
+              <button className="btn primary" disabled={busy || !to.length} onClick={() => setConfirming(true)} title={!to.length ? "No email on file for this suite" : undefined}>Send email…</button>
             </div>
           </div>
         </section>

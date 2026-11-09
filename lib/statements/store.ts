@@ -74,7 +74,7 @@ export type MergeStats = {
 export function mergeStatements(
   existing: TenantStatement[],
   incoming: TenantStatement[],
-  opts: { clearAbsentInProperties?: boolean; stamp?: { importedAt: string; sourceFile: string } } = {},
+  opts: { clearAbsentInProperties?: boolean; stamp?: { importedAt: string; sourceFile: string; exportedAt?: string | null } } = {},
 ): { statements: TenantStatement[]; stats: MergeStats } {
   const prior = new Map(existing.map((s) => [s.unitRef, s]));
   const byUnit = new Map<string, TenantStatement>(prior);
@@ -139,10 +139,10 @@ export async function mergeIntoPeriod(
   const existing = await store.get(period);
 
   // Stamp provenance so a carried-over tenant stays identifiable later.
-  const stamped = statements.map((s) => ({ ...s, importedAt: source.importedAt, sourceFile: source.filename }));
+  const stamped = statements.map((s) => ({ ...s, importedAt: source.importedAt, sourceFile: source.filename, exportedAt: source.exportedAt ?? null }));
   const { statements: merged, stats } = mergeStatements(existing?.statements ?? [], stamped, {
     clearAbsentInProperties: opts.clearAbsentInProperties,
-    stamp: { importedAt: source.importedAt, sourceFile: source.filename },
+    stamp: { importedAt: source.importedAt, sourceFile: source.filename, exportedAt: source.exportedAt ?? null },
   });
 
   const run: StatementRun = {
