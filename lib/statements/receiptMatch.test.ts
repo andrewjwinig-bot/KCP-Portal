@@ -43,7 +43,11 @@ describe("reading the tenant's mind", () => {
   it("paid one month's bill → that month, current month preferred", () => {
     const e = top(2650);
     expect(e.title).toBe("Paid the October 2026 charges");
-    expect(e.lines.every((l) => l.dateISO === "2026-10-01")).toBe(true);
+    // The payment covers October; their $300 credit goes on September's
+    // charges (master order: CAM first) to bring them current.
+    expect(e.lines.filter((l) => l.fromPayment).every((l) => l.dateISO === "2026-10-01")).toBe(true);
+    expect(e.lines.filter((l) => l.fromCredit).map((l) => [l.appClass, l.dateISO, l.fromCredit])).toEqual([["cam", "2026-09-01", 300]]);
+    expect(e.creditUsed).toBe(300);
     expect(e.balanceAfter).toBe(2350);
     // September is offered too.
     expect(explainPayment(acct, 2650).some((x) => x.title === "Paid the September 2026 charges")).toBe(true);
@@ -64,8 +68,9 @@ describe("reading the tenant's mind", () => {
 
   it("paid one specific old item", () => {
     const e = explainPayment(acct, 450).find((x) => x.id.startsWith("items:"));
-    expect(e?.lines).toHaveLength(1);
-    expect(e?.lines[0].description).toBe("CAM Estimate");
+    const paid = e?.lines.filter((l) => l.fromPayment) ?? [];
+    expect(paid).toHaveLength(1);
+    expect(paid[0].description).toBe("CAM Estimate");
   });
 
   it("a payment nothing explains → the master order: every CAM, then every RET, rent last", () => {
@@ -78,6 +83,14 @@ describe("reading the tenant's mind", () => {
       ["rent", "2026-09-01", 800],
     ]);
     expect(fb.balanceAfter).toBe(2900);
+  });
+
+  it("a payment short of the charges ALWAYS uses the credit — every plan, to bring them current", () => {
+    for (const paid of [2100, 2650, 4000, 450, 4975]) {
+      for (const e of explainPayment(acct, paid)) expect(e.creditUsed).toBe(300);
+    }
+    // Only when nothing is left open does the credit stay on account.
+    expect(top(5300).creditUsed).toBe(0);
   });
 
   it("a short payment close to the balance is named as one", () => {
@@ -94,7 +107,8 @@ describe("reading the tenant's mind", () => {
     expect(planById(acct, 5000, "full-net")?.creditUsed).toBe(300);
     const custom = planById(acct, 650, "custom:0,2")!;
     // RET before rent in the master order: $200 to the RET, $450 to the rent.
-    expect(custom.lines.map((l) => [l.idx, l.fromPayment])).toEqual([[2, 200], [0, 450]]);
+    expect(custom.lines.filter((l) => l.fromPayment).map((l) => [l.idx, l.fromPayment])).toEqual([[2, 200], [0, 450]]);
+    expect(custom.creditUsed).toBe(300);
   });
 });
 

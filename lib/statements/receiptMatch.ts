@@ -165,6 +165,38 @@ export function byHierarchy(xs: OpenCharge[]): OpenCharge[] {
     || (a.dateISO ?? "9999").localeCompare(b.dateISO ?? "9999") || a.idx - b.idx);
 }
 
+/**
+ * CREDITS ARE ALWAYS USED (owner, 11/2026: "if tenant pays less than the
+ * statement charges and there is a credit, apply the credit to keep them
+ * current … apply their credits to get them to a $0 balance"). Whatever the
+ * payment was meant for, any credit the plan has not used goes on the charges
+ * still open after it, in the master order — so the tenant ends as close to
+ * $0 as the payment and credit together allow. A credit stays on account only
+ * when nothing is left open to apply it to.
+ */
+export function topUpCredit(acct: Account, e: Explanation): Explanation {
+  let left = c(acct.credit - e.creditUsed);
+  if (left <= 0) return e;
+  const byIdx = new Map(e.lines.map((l) => [l.idx, { ...l }]));
+  for (const ch of byHierarchy(acct.charges)) {
+    if (left <= 0) break;
+    const l = byIdx.get(ch.idx);
+    const open = c(ch.amount) - c(l?.fromPayment ?? 0) - c(l?.fromCredit ?? 0);
+    if (open <= 0) continue;
+    const take = Math.min(open, left);
+    left -= take;
+    byIdx.set(ch.idx, l ? { ...l, fromCredit: (c(l.fromCredit) + take) / 100 } : { ...ch, fromCredit: take / 100, fromPayment: 0 });
+  }
+  const order = new Map(byHierarchy(acct.charges).map((x, i) => [x.idx, i]));
+  const lines = [...byIdx.values()].sort((a, b) => (order.get(a.idx) ?? 0) - (order.get(b.idx) ?? 0));
+  const creditUsed = r2(acct.credit - left / 100);
+  const added = r2(creditUsed - e.creditUsed);
+  return {
+    ...e, lines, creditUsed,
+    why: added > 0 ? `${e.why} Their ${usd(added)} credit goes on the oldest open charges to bring them current.` : e.why,
+  };
+}
+
 /** Exact subsets of `items` (by cents) summing to `target`, fewest items first.
  *  Bounded — a statement is tens of lines, never thousands. */
 function subsets(items: OpenCharge[], target: number, max = 3): OpenCharge[][] {
@@ -211,7 +243,7 @@ export function explainPayment(acct: Account, paid: number, opts: { currentMonth
   // What is still owed after the payment, net of any credit left on account:
   // gross − credit used − payment applied − credit left = net − payment applied
   // (an overpayment, held as a credit, takes it below zero).
-  const fix = (e: Explanation) => ({ ...e, balanceAfter: r2(N - e.lines.reduce((a, l) => a + l.fromPayment, 0) - e.unapplied) });
+  const fix = (e0: Explanation) => { const e = topUpCredit(acct, e0); return { ...e, balanceAfter: r2(N - e.lines.reduce((a, l) => a + l.fromPayment, 0) - e.unapplied) }; };
 
   if (P <= 0 || !charges.length) {
     const fb = applyTo(byHierarchy(charges), P, 0);
@@ -329,7 +361,8 @@ export function planById(acct: Account, paid: number, id: string, opts: { curren
     const useCredit = !!m[1];
     const a = applyTo(xs, paid, useCredit ? acct.credit : 0);
     const applied = r2(a.lines.reduce((s, l) => s + l.fromPayment, 0));
-    return { id, title: `Applied to ${xs.length === 1 ? xs[0].description : `${xs.length} chosen charges`}${useCredit ? ", credit taken" : ""}`, why: "Chosen by hand.", confidence: 100, exact: a.unapplied < 0.005 && c(sum(xs)) === c(paid + a.creditUsed), ...a, balanceAfter: r2(acct.net - applied - a.unapplied) };
+    const e = topUpCredit(acct, { id, title: `Applied to ${xs.length === 1 ? xs[0].description : `${xs.length} chosen charges`}${useCredit ? ", credit taken" : ""}`, why: "Chosen by hand.", confidence: 100, exact: a.unapplied < 0.005 && c(sum(xs)) === c(paid + a.creditUsed), ...a, balanceAfter: 0 });
+    return { ...e, balanceAfter: r2(acct.net - applied - a.unapplied) };
   }
   return explainPayment(acct, paid, opts).find((e) => e.id === id) ?? null;
 }
@@ -377,7 +410,7 @@ export function composeReceiptEmail(x: ReceiptEmailInput): { subject: string; bo
     lines.push(row(dateLabel(l.dateISO), l.description, usd(l.fromPayment + l.fromCredit)) + ` (${parts})`);
   }
   lines.push("");
-  if (plan.creditUsed > 0) lines.push(`• ${usd(plan.creditUsed)} of your credit is applied as shown above.`);
+  if (plan.creditUsed > 0) lines.push(`• ${usd(plan.creditUsed)} of the credit on your account is applied as shown above, to bring your account current.`);
   // A credit left over is said once: as "stays on your account" while a
   // balance remains, or as the credit the account carries when none does.
   if (acct.credit - plan.creditUsed > 0.005 && plan.balanceAfter > 0.005) lines.push(`• Your remaining credit of ${usd(acct.credit - plan.creditUsed)} stays on your account toward future charges.`);
