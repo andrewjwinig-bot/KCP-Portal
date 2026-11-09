@@ -263,19 +263,21 @@ export const USERS: Record<UserId, UserDef> = {
     defaultPropertyType: "all",
     dashboardScope: "groups",
   },
-  // Tami — processes the tenant receipts (owner, 11/2026: "needs access to the
-  // monthly statements, rent rolls, and property statements"). Monthly
-  // Statements is her working page — recording payments, applying credits,
-  // importing the laser statement, tenant links — so she WRITES there. The
-  // rent roll, unit pages and Operating Statements she READS: her writes are
+  // Tami — processes the tenant receipts (owner, 11/2026). Monthly Statements
+  // and Receipt Reconciliation are her working pages — recording payments,
+  // applying credits, importing the laser statement, tenant links — so she
+  // WRITES there. Unit pages and Operating Statements she READS: her writes are
   // confined to `WRITE_SCOPE` below, which keeps a GL upload (it fires the
   // Allocated Expenses send to AvidXchange) or a rent-roll import out of her
   // reach. Operating Statements only — not the rest of /financials.
   tami: {
     id: "tami",
     label: "TAMI",
-    navKeys: new Set([...universalNav, "tenant-statements", "operating-statements"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/tenant-statements", "/financials/operating-statements", "/reports"],
+    // No Rent Roll or Property Info (owner, 11/2026: "hide rent roll property
+    // info for tami too") — not the universal nav. Unit pages stay reachable
+    // (read-only) for a tenant's contacts, linked from Receipt Reconciliation.
+    navKeys: new Set(["dashboard", "tenant-statements", "operating-statements"]),
+    allowedPathPrefixes: ["/dashboard", "/units", "/tenant-statements", "/financials/operating-statements", "/reports"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",

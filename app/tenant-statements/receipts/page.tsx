@@ -68,7 +68,6 @@ export default function ReceiptReconciliationPage() {
   const [error, setError] = useState<string | null>(null);
 
   // The payment being worked.
-  const [search, setSearch] = useState("");
   const [unit, setUnit] = useState<string>("");
   const [amountText, setAmountText] = useState("");
   const [received, setReceived] = useState(todayISO());
@@ -123,12 +122,14 @@ export default function ReceiptReconciliationPage() {
   const pickTenant = (u: string) => {
     setUnit(u); setPlanId(null); setCustom({ on: false, idx: new Set(), credit: false }); setExcluded(new Set()); setAnswering(null); setDraftId(null); setEdited(false);
   };
-  const resetWork = () => { pickTenant(""); setAmountText(""); setCheckNo(""); setReceived(todayISO()); setSearch(""); };
+  const resetWork = () => { pickTenant(""); setAmountText(""); setCheckNo(""); setReceived(todayISO()); };
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return tenants.filter((t) => !q || t.tenantName.toLowerCase().includes(q) || t.unitRef.toLowerCase().includes(q) || t.propertyName.toLowerCase().includes(q));
-  }, [tenants, search]);
+  // The tenant dropdown: grouped by property in statement order, A–Z within.
+  const byProperty = useMemo(() => {
+    const m = new Map<string, TenantRow[]>();
+    for (const t of tenants) { const k = `${t.propertyCode} · ${t.propertyName}`; m.set(k, [...(m.get(k) ?? []), t]); }
+    return [...m.entries()].map(([k, rows]) => [k, rows.sort((x, y) => x.tenantName.localeCompare(y.tenantName))] as const);
+  }, [tenants]);
 
   const plan = detail?.plan ?? null;
   const appliedByIdx = useMemo(() => new Map((plan?.lines ?? []).map((l) => [l.idx, l])), [plan]);
@@ -241,22 +242,14 @@ export default function ReceiptReconciliationPage() {
                 {!answering && <button className="btn sm" onClick={() => pickTenant("")}>Change</button>}
               </div>
             ) : (
-              <div style={{ position: "relative" }}>
-                <input type="search" placeholder="Search tenant, suite or property…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: "100%" }} />
-                {search.trim() && (
-                  <div className="card" style={{ position: "absolute", zIndex: 20, top: "calc(100% + 4px)", left: 0, right: 0, maxHeight: 320, overflowY: "auto", padding: 4 }}>
-                    {filtered.slice(0, 40).map((t) => (
-                      <button key={t.unitRef} type="button" onClick={() => { pickTenant(t.unitRef); setSearch(""); }}
-                        style={{ display: "flex", width: "100%", justifyContent: "space-between", gap: 10, padding: "7px 10px", border: 0, background: "transparent", cursor: "pointer", textAlign: "left", borderRadius: 8 }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(11,74,125,0.06)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                        <span><b>{t.tenantName}</b> <span className="muted small">· {t.propertyName} · <code>{t.unitRef}</code></span></span>
-                        <span className="small" style={{ fontWeight: 700, whiteSpace: "nowrap" }}>{money(t.net)}</span>
-                      </button>
-                    ))}
-                    {!filtered.length && <div className="muted small" style={{ padding: 10 }}>No tenant on the {period ? periodLabel(period) : ""} statement matches.</div>}
-                  </div>
-                )}
-              </div>
+              <select value="" onChange={(e) => { if (e.target.value) pickTenant(e.target.value); }} aria-label="Tenant" style={{ width: "100%" }}>
+                <option value="">Select a tenant…</option>
+                {byProperty.map(([prop, rows]) => (
+                  <optgroup key={prop} label={prop}>
+                    {rows.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.tenantName} · {t.unitRef} — {money(t.net)}</option>)}
+                  </optgroup>
+                ))}
+              </select>
             )}
           </label>
           <label style={{ display: "grid", gap: 4, flex: "0 0 160px" }}>
@@ -276,7 +269,7 @@ export default function ReceiptReconciliationPage() {
         {detail && (
           <>
             <div className="pills" style={{ justifyContent: "flex-start", margin: 0 }}>
-              <StatPill label="Open charges" value={money(detail.account.gross)} sub={`${detail.account.charges.length} charges`} />
+              <StatPill label="Open charges" value={money(detail.account.gross)} sub={`${detail.account.charges.length} charge${detail.account.charges.length === 1 ? "" : "s"}`} />
               <StatPill label="Open credit" value={detail.account.credit ? `(${money(detail.account.credit)})` : "—"} accent={detail.account.credit ? "#15803d" : undefined} />
               <StatPill label="Net due" value={money(detail.account.net)} total />
               {validAmount && <StatPill label="They paid" value={money(amount)} sub={amount === detail.account.net ? "exactly the balance" : `${money(amount - detail.account.net)} vs balance`} accent={Math.abs(amount - detail.account.net) < 0.005 ? "#15803d" : "#b45309"} />}
