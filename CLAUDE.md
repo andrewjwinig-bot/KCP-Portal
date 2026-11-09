@@ -3230,6 +3230,78 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   left pdf-parse bundled and failing ("Object.defineProperty called on
   non-object"), the AP Selection PDF import included.
 
+# Bank Recs — the portal reconciles every account, every month
+
+`/bank-rec/reconcile` (sidebar Banking → Bank Recs; owner: "build an automated
+bank rec to let me know if all are in balance and call out inbalances … track
+any open items from prior periods to carry through … store the history"). It
+REPLACED the Chase-CSV reconcile page.
+
+- **Three inputs, all from Marie's SharePoint folder**
+  (`!<year> Year End/Bank Account Reconciliations/<NN Month YYYY>/<Bank>/`,
+  dropped on the page as a folder, re-dropped as the month fills in):
+  the **bank statements** (Chase / M&T / Liberty PDFs), **Skyline's Checking
+  Account Report** (.xls — every checking account's register, balance and
+  "Account Ownership by Property/Company"; INACTIVE accounts ignored), and
+  Marie's **Skyline Statement Reconcile Reports** (Rec1 cleared detail, Rec2
+  what is open, Rec2B re-run once cleared, Rec1&2 combined) where filed. The
+  GL is already in the portal. **Files are matched by CONTENT, never the name**
+  (owner): the account number printed on the statement (`last4FromStatement`),
+  the "Checking Account Key" on a Skyline rec (`last4ForSkylineKey`), the
+  report by its layout and filed under its AS-OF month. The name is only a
+  fallback, and the row says so. `ingestFile` (`lib/bank-rec/month.ts`) is the
+  ONE door every file comes through — the future SharePoint reader must call it.
+- **Every statement is ITEMIZED and must PROVE itself** (`statementItems.ts`):
+  Chase by each summary section's count and total, M&T by the running balance
+  on every line, Liberty by beginning + lines = ending. One that does not prove
+  is "not itemized" and the account is checked on balances only — never a
+  confident list missing a line. The parsers were written on the SharePoint
+  reader's text of the September files; pdfText's own text of a real statement
+  is the thing to check when a bank changes layout (`textHead` is kept on any
+  file that fails).
+- **The engine** (`engine.ts`, pure, pinned by `engine.test.ts`): BOOK =
+  Skyline's register + last month's open book items; BANK = the itemized
+  statement + carried bank lines. Matched by CHECK NUMBER (AvidPay lines carry
+  "Ck001632"), then same amount / nearest date, then GROUPS (receipt batches
+  into a lockbox deposit, one batch into several deposits, a day's totals).
+  Laid out as the Skyline Statement Reconcile Report reads: Statement Balance
+  ± Unreconciled = Adjusted Statement Balance vs Check Book Balance ± bank lines
+  not on the books = Adjusted Check Book Balance. **A check whose number
+  matches at a different amount is OUT OF BALANCE**, listed with check #,
+  payee, date and both amounts (owner: "we need to know the specific detail …
+  so we can reference and fix"). Statuses: IN BALANCE · REVIEW (bank lines not
+  on the books, items over 60 days, statement not itemized, Skyline's opening ≠
+  last month's closing) · OUT · NO STATEMENT / NOT IN SKYLINE REPORT · NOT ON
+  SKYLINE (x5623, not managed by LIK).
+- **Open items CARRY** (`carryForward`): book items not cleared, bank lines
+  not on the books, and an off-cycle statement's lines after month end (Liberty
+  money markets run 5th → 5th). Each keeps its ORIGIN month and a stable id.
+  The first month seeds from Marie's prior-month Skyline rec (its Unreconciled
+  Transactions), trimmed to the items that still explain the opening gap
+  (`trimSeed` — an item since cleared in Skyline drops). An item can be
+  **Cleared** by hand with a reason (`bank-rec-resolutions`): it stops carrying.
+- **Skyline vs the GL, by property** (`glChecks`): each company's share of
+  every active checking account vs the cash accounts (`isCashAccount`) on its
+  GL at month end (FJVIII → PJV3, FNIPLX → PNIPLX, FIIICO → PIIICO). Off → the
+  month's GL cash lines no Skyline line accounts for, and the reverse.
+- **HISTORY** (owner: "store the history of bank recs"): each month is kept
+  (`bank-rec-runs/<YYYY-MM>`, files under `bank-rec-files/<YYYY-MM>/`), listed
+  on the page. **Sign off** (only when nothing is out or unfiled) FREEZES the
+  month — a later import cannot change it; Reopen to re-run.
+- **It ticks the Bank Acc Tracker** (additive only): a filed statement ticks
+  Statement, an account IN BALANCE ticks Reconciled.
+- Skyline's checking keys ↔ tracker last-fours live in `SKYLINE_KEY_BY_LAST4`
+  (`monthFiles.ts`). JPM 6010 "LIK Sold Properties" ($500) is active in Skyline
+  and on no tracker — listed, not reconciled.
+
+**NEXT (owner, 11/2026): THE PORTAL READS THE SHARE DRIVE ITSELF** — "so the
+portal can pull the data from our sharedrive and not require imports for all
+of our reports". Needs a Microsoft Entra app registration (Graph
+`Sites.Read.All` / `Files.Read.All`, an admin consent on the tenant) and its
+id / secret in Vercel; then a daily job lists each report folder and feeds
+every new file through its existing import door (`ingestFile` here; the GL,
+rent roll, laser statement and bank balance imports likewise).
+
 # T-12 — trailing twelve months of actuals
 
 `/financials/t12`, reached from the Report Center (Financial), NOT the
