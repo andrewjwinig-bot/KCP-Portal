@@ -62,6 +62,7 @@ function confidenceTone(e: Explanation) {
 export default function ReceiptReconciliationPage() {
   const [period, setPeriod] = useState<string | null>(null);
   const [periods, setPeriods] = useState<string[]>([]);
+  const [postedAsOf, setPostedAsOf] = useState<string | null>(null);
   const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +95,7 @@ export default function ReceiptReconciliationPage() {
     const r = await fetch(`/api/tenant-statements/receipts${p ? `?period=${p}` : ""}`, { cache: "no-store" }).catch(() => null);
     const j = r ? await r.json().catch(() => null) : null;
     if (!j?.ok) { setError(j?.error ?? "Could not load the statements."); return; }
-    setPeriod(j.period); setPeriods(j.periods); setTenants(j.tenants); setReceipts(j.receipts);
+    setPeriod(j.period); setPeriods(j.periods); setPostedAsOf(j.postedAsOf ?? null); setTenants(j.tenants); setReceipts(j.receipts);
   }, []);
   useEffect(() => { loadList(); }, [loadList]);
 
@@ -201,6 +202,23 @@ export default function ReceiptReconciliationPage() {
 
       {error && <div className="card" style={{ color: "#b91c1c", fontWeight: 600, fontSize: 13 }}>{error}</div>}
 
+      {/* The figures are only as current as the laser statement behind them —
+          a payment or charge keyed in Skyline since will not be here. The
+          tenant's own import date when one is picked, else the month's. */}
+      {(detail?.asOf ?? postedAsOf) && (
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", border: "1px solid rgba(217,119,6,0.35)", background: "rgba(217,119,6,0.08)", borderRadius: 12, padding: "12px 16px" }}>
+          <span aria-hidden style={{ fontSize: 18, lineHeight: 1.2, color: "#b45309" }}>⚠</span>
+          <div style={{ display: "grid", gap: 2 }}>
+            <div style={{ fontWeight: 800, color: "#b45309" }}>
+              Data posted {new Date(`${(detail?.asOf ?? postedAsOf)!}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" })}{detail ? ` for ${detail.tenant.tenantName}` : ""} — the last day these figures are accurate.
+            </div>
+            <div className="small">
+              Anything posted in Skyline after that — a payment, a credit, a new charge — isn&rsquo;t shown here. Check the tenant&rsquo;s <b>Occupant History</b> in Skyline for unposted items before you reconcile or email them.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── 1. The payment ───────────────────────────────────────────── */}
       <section className="card" style={{ display: "grid", gap: 14 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -264,7 +282,6 @@ export default function ReceiptReconciliationPage() {
               {validAmount && <StatPill label="They paid" value={money(amount)} sub={amount === detail.account.net ? "exactly the balance" : `${money(amount - detail.account.net)} vs balance`} accent={Math.abs(amount - detail.account.net) < 0.005 ? "#15803d" : "#b45309"} />}
             </div>
             {!detail.tenant.tiesOut && <div className="small" style={{ color: "#b45309", fontWeight: 600 }}>This tenant&rsquo;s statement did not tie out on import — check the charges below against Skyline before sending.</div>}
-            <div className="muted small">Open items only, as of {detail.asOf ? dateLabel(detail.asOf) : "the last import"} — re-import the laser statement to pick up payments since.</div>
           </>
         )}
       </section>
