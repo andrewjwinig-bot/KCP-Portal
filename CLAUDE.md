@@ -77,18 +77,24 @@ would also fire the Allocated Expenses send to AvidXchange. No Debt Tracker
 invoicers. To give him real work: widen his profile and take him out of
 `READ_ONLY_USERS`. Pinned by `authz.test.ts`.
 
-**TAMI PROCESSES THE TENANT RECEIPTS** (owner, 11/2026: "needs access to the
-monthly statements, rent rolls, and property statements"). Her profile
-(`tami` in `lib/users.ts`, access group `accounting`) WORKS Monthly Statements
-(payments, credits, the laser import, tenant links) and Receipt
-Reconciliation, and READS unit pages and Operating Statements — NO Rent Roll or
-Property Info (owner: "hide rent roll property info for tami too"; her nav is
-not the universal one) — that page only, not the rest
-of `/financials` (its API now answers to its own page; the sidebar shows it on
-the `operating-statements` key). Her writes are confined by `WRITE_SCOPE` to
-`/api/tenant-statements` and `/api/cam-recon/tenant-link`, so a GL upload
-(which fires the Allocated send) or a rent-roll import is refused on the
-server. Pinned by `authz.test.ts`.
+**TAMI PROCESSES THE TENANT RECEIPTS — A NARROW VIEW** (owner, 11/2026:
+"she really just needs a constrained narrow view into this process"; "do not
+give her access to operating statements or reports either"; "hide rent roll
+property info for tami too"). Her profile (`tami` in `lib/users.ts`, access
+group `accounting`) reaches ONLY: her dashboard, Monthly Statements and Receipt
+Reconciliation (which she WORKS — payments, credits, the laser import, tenant
+links, receipt emails), and unit pages read-only (for a tenant's contacts). No
+Rent Roll, Property Info, Operating Statements or Report Center
+(`NO_REPORT_CENTER` — the `/reports` landing is otherwise open to everyone,
+and the sidebar hides it). Her writes are confined by `WRITE_SCOPE` to
+`/api/tenant-statements` and `/api/cam-recon/tenant-link`. **Her dashboard is
+RECEIVABLES** (`app/dashboard/ReceivablesOverview.tsx`, returned for `tami`
+the way `maint` gets its own): from the newest laser statement through the
+same `/api/tenant-statements/[period]` Monthly Statements reads — Open A/R /
+Past due / Open credits / Net credit tiles, Tenants with open credits (the
+Open Credit tracker's bands) and Tenants with open A/R (most past due first);
+each tenant opens in Receipt Reconciliation (`?period=&unit=`). Pinned by
+`authz.test.ts`.
 
 # Known data gaps / accepted exceptions (do NOT re-flag as bugs)
 
@@ -1219,7 +1225,10 @@ charges"; `RESPOND_BUSINESS_DAYS`, `respondByFrom`); with no answer the record t
   before the monthly estimates — rent stays last. Wherever WE chose the order
   (the fallback, the usual-monthly reading, a short/over payment) the email
   states it (`ORDER_SENTENCE`) — change the order in that file and the
-  explanation follows. The page's Order column shows each charge's step.
+  explanation follows. The page's Order column numbers each charge in THIS
+  TENANT'S sequence (1 = first to take a payment; `byHierarchy`), green where
+  the plan applies to it, with its type beside; every column of that table
+  sorts (Date = the statement's printed order).
 - **CREDITS ARE ALWAYS USED** (owner: "apply the credit to keep them current
   … apply their credits to get them to a $0 balance"; `topUpCredit`): whatever
   a payment was meant for, any credit the plan has not used goes on the charges

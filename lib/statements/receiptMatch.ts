@@ -193,7 +193,7 @@ export function topUpCredit(acct: Account, e: Explanation): Explanation {
   const added = r2(creditUsed - e.creditUsed);
   return {
     ...e, lines, creditUsed,
-    why: added > 0 ? `${e.why} Their ${usd(added)} credit goes on the oldest open charges to bring them current.` : e.why,
+    why: added > 0 ? `${e.why} Their ${usd(added)} credit goes on the remaining open charges, in the standard order, to bring them current.` : e.why,
   };
 }
 

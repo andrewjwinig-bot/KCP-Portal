@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
 import { openThisWeekCount, type Todo } from "@/lib/todos/types";
-import { accessGroup } from "@/lib/users";
+import { accessGroup, NO_REPORT_CENTER } from "@/lib/users";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
 import ThemeToggle from "./ThemeToggle";
@@ -903,6 +903,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     const passesRole = !roleKey || user.navKeys.has("all") || user.navKeys.has(roleKey)
       || (item.label === "Operating Statements" && user.navKeys.has("operating-statements"));
     if (!passesRole) return false;
+    if (item.label === "Reports" && NO_REPORT_CENTER.has(user.id)) return false;
 
 
     // Existing context-based visibility (e.g. show child item only on parent route)

@@ -17,7 +17,7 @@ import { createPortal } from "react-dom";
 import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
-import { APPLICATION_LABEL, APPLICATION_ORDER, creditUsage, renderReceiptEmail, type Account, type Explanation } from "@/lib/statements/receiptMatch";
+import { APPLICATION_LABEL, APPLICATION_ORDER, byHierarchy, creditUsage, renderReceiptEmail, type Account, type Explanation } from "@/lib/statements/receiptMatch";
 import { HoverCard } from "@/app/components/HoverCard";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -103,7 +103,13 @@ export default function ReceiptReconciliationPage() {
     if (!j?.ok) { setError(j?.error ?? "Could not load the statements."); return; }
     setPeriod(j.period); setPeriods(j.periods); setMonthDates(j.dates ?? null); setTenants(j.tenants); setReceipts(j.receipts);
   }, []);
-  useEffect(() => { loadList(); }, [loadList]);
+  // ?period=&unit= (from the Receivables dashboard) opens straight on a tenant.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const p = q.get("period"), u = q.get("unit");
+    loadList(p && /^\d{4}-\d{2}$/.test(p) ? p : null);
+    if (u) setUnit(u);
+  }, [loadList]);
 
   // Re-read the tenant + explanations + draft whenever the inputs move.
   const seq = useRef(0);
@@ -139,6 +145,27 @@ export default function ReceiptReconciliationPage() {
   }, [tenants]);
 
   const plan = detail?.plan ?? null;
+  // Each charge's place in THIS tenant's application sequence (1 = first to
+  // take a payment) under the master order — by type, oldest first within it.
+  const orderSeq = useMemo(() => new Map(byHierarchy(detail?.account.charges ?? []).map((c, i) => [c.idx, i + 1])), [detail]);
+  const [chSort, setChSort] = useState<ChSort>({ key: "date", dir: 1 });
+  const sortedCharges = useMemo(() => {
+    const xs = [...(detail?.account.charges ?? [])];
+    const ap = new Map((detail?.plan?.lines ?? []).map((l) => [l.idx, l]));
+    const val = (c: (typeof xs)[number]): number | string => {
+      const a = ap.get(c.idx);
+      switch (chSort.key) {
+        case "date": return c.idx; // the laser statement's printed order (oldest first)
+        case "charge": return c.description.toLowerCase();
+        case "order": return orderSeq.get(c.idx) ?? 999;
+        case "open": return c.amount;
+        case "pay": return a?.fromPayment ?? 0;
+        case "credit": return a?.fromCredit ?? 0;
+        case "left": return c.amount - (a?.fromPayment ?? 0) - (a?.fromCredit ?? 0);
+      }
+    };
+    return xs.sort((p, q) => { const x = val(p), y = val(q); return (x < y ? -1 : x > y ? 1 : p.idx - q.idx) * chSort.dir; });
+  }, [detail, chSort, orderSeq]);
   /** The tenant's own data dates once one is picked, else the month's. */
   const dataDates: DataDates | null = detail?.dates ?? monthDates;
   /** A payment is typed and read — show what it covers. */
@@ -371,8 +398,9 @@ export default function ReceiptReconciliationPage() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
                 {custom.on && applying && <th style={thL} />}
-                <th style={thL}>Date</th><th style={thL}>Charge</th>
-                <th style={thL}>
+                <SortTh k="date" sort={chSort} setSort={setChSort} left>Date</SortTh>
+                <SortTh k="charge" sort={chSort} setSort={setChSort} left>Charge</SortTh>
+                <th style={{ ...thL, cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => setChSort((x) => nextSort(x, "order"))}>
                   <HoverCard title="Master order of application" width={300} rows={[]} body={
                     <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12.5, lineHeight: 1.6, textTransform: "none", letterSpacing: 0, fontWeight: 500 }}>
                       {APPLICATION_ORDER.map((x) => <li key={x.key}>{x.label}{x.code ? <span className="muted"> · {x.code}</span> : null}</li>)}
@@ -380,12 +408,17 @@ export default function ReceiptReconciliationPage() {
                     </ol>
                   }>
                     <span style={{ cursor: "help", borderBottom: "1px dotted currentColor" }}>Order</span>
-                  </HoverCard>
-                </th><th style={th}>Open</th>
-                {applying && <><th style={th}>From payment</th><th style={th}>From credit</th><th style={th}>Still open</th></>}
+                  </HoverCard>{sortMark(chSort, "order")}
+                </th>
+                <SortTh k="open" sort={chSort} setSort={setChSort}>Open</SortTh>
+                {applying && <>
+                  <SortTh k="pay" sort={chSort} setSort={setChSort}>From payment</SortTh>
+                  <SortTh k="credit" sort={chSort} setSort={setChSort}>From credit</SortTh>
+                  <SortTh k="left" sort={chSort} setSort={setChSort}>Still open</SortTh>
+                </>}
               </tr></thead>
               <tbody>
-                {detail.account.charges.map((ch) => {
+                {sortedCharges.map((ch) => {
                   const a = appliedByIdx.get(ch.idx);
                   const left = ch.amount - (a?.fromPayment ?? 0) - (a?.fromCredit ?? 0);
                   return (
@@ -393,7 +426,11 @@ export default function ReceiptReconciliationPage() {
                       {custom.on && applying && <td style={tdL}><input type="checkbox" checked={custom.idx.has(ch.idx)} onChange={(e) => setCustom((c) => { const s = new Set(c.idx); if (e.target.checked) s.add(ch.idx); else s.delete(ch.idx); return { ...c, idx: s }; })} /></td>}
                       <td style={tdL}>{dateLabel(ch.dateISO)}</td>
                       <td style={{ ...tdL, whiteSpace: "normal" }}>{ch.description}</td>
-                      <td style={tdL}><span className="muted small">{APPLICATION_ORDER.findIndex((x) => x.key === ch.appClass) + 1}. {APPLICATION_LABEL[ch.appClass]}</span></td>
+                      <td style={{ ...tdL, whiteSpace: "nowrap" }}>
+                        {/* THIS tenant's sequence: the order its charges take a payment under the master order. */}
+                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 22, height: 22, padding: "0 6px", borderRadius: 999, background: a ? "#15803d" : "rgba(11,74,125,0.10)", color: a ? "#fff" : "#0b4a7d", fontSize: 12, fontWeight: 800, marginRight: 8 }}>{orderSeq.get(ch.idx)}</span>
+                        <span className="muted small">{APPLICATION_LABEL[ch.appClass]}</span>
+                      </td>
                       <td style={td}>{money(ch.amount)}</td>
                       {applying && <>
                       <td style={{ ...td, fontWeight: a?.fromPayment ? 700 : 400, color: a?.fromPayment ? "#15803d" : "var(--muted)" }}>{a?.fromPayment ? money(a.fromPayment) : "—"}</td>
@@ -624,5 +661,18 @@ function ConfirmSend({ to, subject, tenant, amount, plan, respondBy, busy, onCan
       </div>
     </div>,
     document.body,
+  );
+}
+
+type ChSortKey = "date" | "charge" | "order" | "open" | "pay" | "credit" | "left";
+type ChSort = { key: ChSortKey; dir: 1 | -1 };
+/** Click a column: sort by it; click again: reverse. */
+const nextSort = (s: ChSort, key: ChSortKey): ChSort => (s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: key === "open" || key === "pay" || key === "credit" || key === "left" ? -1 : 1 });
+const sortMark = (s: ChSort, key: ChSortKey) => (s.key === key ? <span style={{ marginLeft: 4, fontSize: 10 }}>{s.dir === 1 ? "▲" : "▼"}</span> : null);
+function SortTh({ k, sort, setSort, left, children }: { k: ChSortKey; sort: ChSort; setSort: (f: (s: ChSort) => ChSort) => void; left?: boolean; children: React.ReactNode }) {
+  return (
+    <th style={{ ...(left ? thL : th), cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }} onClick={() => setSort((s) => nextSort(s, k))}>
+      {children}{sortMark(sort, k)}
+    </th>
   );
 }

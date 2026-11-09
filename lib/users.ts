@@ -276,13 +276,22 @@ export const USERS: Record<UserId, UserDef> = {
     // No Rent Roll or Property Info (owner, 11/2026: "hide rent roll property
     // info for tami too") — not the universal nav. Unit pages stay reachable
     // (read-only) for a tenant's contacts, linked from Receipt Reconciliation.
-    navKeys: new Set(["dashboard", "tenant-statements", "operating-statements"]),
-    allowedPathPrefixes: ["/dashboard", "/units", "/tenant-statements", "/financials/operating-statements", "/reports"],
+    // A NARROW view (owner, 11/2026: "she really just needs a constrained
+    // narrow view into this process" — "do not give her access to operating
+    // statements or reports either"): her dashboard (open credits + open
+    // A/R), Monthly Statements and Receipt Reconciliation. Unit pages stay
+    // readable for a tenant's contacts, linked from the receipt email card.
+    navKeys: new Set(["dashboard", "tenant-statements"]),
+    allowedPathPrefixes: ["/dashboard", "/units", "/tenant-statements"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
   },
 };
+
+/** Users kept out of the Report Center landing page, which is otherwise open
+ *  to everyone signed in (it lists only what each person can open). */
+export const NO_REPORT_CENTER: ReadonlySet<UserId> = new Set<UserId>(["tami"]);
 
 /** Users whose API WRITES are confined to these prefixes (plus sign-in / 2FA /
  *  the assistant). They read whatever their pages reach; a write anywhere else
@@ -382,7 +391,7 @@ export function isPathAllowed(userId: UserId, pathname: string): boolean {
   // The report center's landing page is open to everyone: it only LISTS
   // reports, filtered to the ones this person can reach. Exact path only —
   // /reports/monthly and anything else under it keeps its own gate.
-  if (pathname === "/reports") return true;
+  if (pathname === "/reports") return !NO_REPORT_CENTER.has(userId);
   return u.allowedPathPrefixes.some((p) => {
     if (p === "/") return pathname === "/";
     return pathname === p || pathname.startsWith(p + "/");
