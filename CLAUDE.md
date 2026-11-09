@@ -1184,6 +1184,48 @@ how-to-pay instructions. Sources of truth:
   tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
   to the token's one unit).
 
+# Receipt Reconciliation — a payment that doesn't match the statement
+
+`/tenant-statements/receipts` (sidebar: Invoicing → Receipt Reconciliation;
+anyone with Monthly Statements — Tami's working page; owner: "get in the brain
+of the tenant and figure out what charges they meant to apply to … provide
+transparency via email"). Pick a tenant on a laser-statement month → open
+charges, open credit, net due → type what they paid → the EXPLANATIONS, best
+first → the standard email → send. The tenant has until the NEXT BUSINESS DAY
+(`respondByFrom`); with no answer the record turns "Ready to apply" on its own
+(`receiptStatus`, judged in Eastern time) — the entries to key in Skyline.
+"Tenant answered…" re-opens it to confirm a different plan with their note;
+"Mark posted" when keyed. Nothing posts to Skyline.
+
+- **The engine is `lib/statements/receiptMatch.ts`, pure, pinned by
+  `receiptMatch.test.ts`.** In order: the full balance with the credit taken /
+  every charge with the credit ignored → whole months (the current month
+  preferred), with or without the credit → one category ("all the rent") →
+  everything except one charge (a disputed item) → specific items by exact
+  subset (ONLY when nothing natural explains it — a month's charges also "add
+  up" with another month's mixed in) → the usual monthly amount → a short /
+  over payment near the balance → ALWAYS the hierarchy fallback.
+- **THE HIERARCHY IS A PLACEHOLDER** (`APPLY_HIERARCHY`,
+  `HIERARCHY_IS_PLACEHOLDER`): oldest month first, then rent, CAM, RET,
+  insurance, U&O, utilities, other. The owner is supplying the master
+  hierarchy — change it there; the fallback, its explanation and the email
+  read it.
+- **The server re-derives every plan** (`planById`, a `custom:` id for a
+  hand-picked set) from the STORED statement before sending or saving — a
+  client figure is never what a payment is applied against.
+- **ONE wording for every tenant** (`composeReceiptEmail`): what we received,
+  the open charges, the credit, the balance due, how the payment will be
+  applied line by line (payment vs credit), what credit remains or is held,
+  the balance after, the deadline, and that it applies as shown if they don't
+  answer. Plain lines, no padded columns (proportional fonts). Typed in place
+  before sending; a new reading of the payment resets to the standard wording.
+  Sent from `Korman Commercial Properties <VERIFIED_FROM>` to the suite's
+  statement contacts (`camRecipientEmails`, tickable), Reply-To and Bcc the AR
+  contact (`RECEIPT_REPLY_TO`, else the payment instructions' contact), behind
+  a confirm naming every recipient.
+- Records: `tenant-receipt-recs` (`receiptStore.ts`); API
+  `/api/tenant-statements/receipts` (inside Tami's `WRITE_SCOPE`).
+
 # Management fees — the intercompany must tie exactly
 
 **No property or building pays an outside management fee. Every dollar goes to
