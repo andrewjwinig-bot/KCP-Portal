@@ -384,6 +384,8 @@ export type ReceiptEmailInput = {
   acct: Account;
   plan: Explanation;
   respondByISO: string;
+  /** The statement PDF rides along — the email says so. */
+  attached?: boolean;
   signer: { name: string; title?: string; email: string; phone?: string };
 };
 
@@ -399,6 +401,7 @@ export function composeReceiptEmail(x: ReceiptEmailInput): { subject: string; bo
   lines.push(`Hello,`, "");
   lines.push(`Thank you for your payment of ${usd(x.amount)}${ref}, received ${longDate(x.receivedISO)}, for ${x.propertyName}, Suite ${x.suite}.`, "");
   lines.push(`The amount doesn't match the balance on your account exactly, so we want to confirm how it should be applied before we post it.`, "");
+  if (x.attached) lines.push(`Your current statement of account is attached for reference.`, "");
   lines.push(`YOUR ACCOUNT${x.asOfISO ? ` AS OF ${dateLabel(x.asOfISO)}` : ""}`, "");
   for (const ch of acct.charges) lines.push(row(dateLabel(ch.dateISO), ch.description, usd(ch.amount)));
   lines.push("", row("", "Total open charges", usd(acct.gross)));

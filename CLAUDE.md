@@ -1252,6 +1252,10 @@ charges"; `RESPOND_BUSINESS_DAYS`, `respondByFrom`); with no answer the record t
   import from before it was read says to re-import; a file with no stamp says
   the import date is only the latest it could be. Either way: check the
   tenant's Occupant History in Skyline for anything posted since.
+- **The tenant's statement rides along** (owner: "attach the tenants most
+  recent laser statement"): the month's statement of account as a PDF — the
+  SAME `drawMonthlyStatement` the tenant portal serves — attached by default
+  (a checkbox turns it off; `?pdf=1` previews it), and the email says so.
 - The email step shows from the moment a tenant is picked (it drafts once a
   payment is typed), with **Copy email** for a suite with no email on file.
 - Records: `tenant-receipt-recs` (`receiptStore.ts`); API
