@@ -20,13 +20,13 @@ import { isCashAccount } from "@/lib/financials/cashAccounts";
 import {
   isSkylineRec, kindFromName, last4ForSkylineKey, last4FromName, last4FromStatement,
   parseBankStatement, parseCheckingReport, parseSkylineRec, SKYLINE_KEY_BY_LAST4, normKey,
-  type CheckingAccount, type CheckingReport,
+  type CheckingAccount, type CheckingReport, type SkylineRec,
 } from "./monthFiles";
 import { itemizeStatement } from "./statementItems";
-import { carryForward, itemId, reconcileAccount, seedFromSkylineRec, type OpenItem } from "./engine";
+import { carryForward, itemId, reconcileAccount, seedFromSkylineRec, type AccountRec, type OpenItem } from "./engine";
 import {
   allRuns, filesFor, reportFor, resolutions, runFor, saveFile, saveReport, saveRun,
-  type AccountRow, type GlCheck, type MonthRun, type StoredFile,
+  type AccountRow, type GlCheck, type MarieCompare, type MonthRun, type StoredFile,
 } from "./store";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -95,6 +95,24 @@ export async function ingestFile(period: string, name: string, bytes: Buffer, by
 // ── The month ─────────────────────────────────────────────────────────────
 
 const REC_RANK: Record<string, number> = { rec2b: 4, rec2: 3, rec12: 2, rec1: 1 };
+/** Lay the portal's rec beside Marie's for the same month. Her Unreconciled
+ *  Transactions are the book items still open; ours are the open book items
+ *  plus any bank line not on the books. Paired by check number, else amount. */
+function compareWithMarie(rec: AccountRec, m: SkylineRec): MarieCompare {
+  const ours = [...rec.openBook, ...rec.openBank];
+  const left = seedFromSkylineRec(m.unreconciled, (iso) => iso.slice(0, 7));
+  const onlyPortal: OpenItem[] = [];
+  const ck = (s: string) => (/^\d{2,9}$/.test(s.trim()) ? s.trim().replace(/^0+/, "") : null);
+  for (const o of ours) {
+    const i = left.findIndex((x) => cents(x.amount) === cents(o.amount) && (ck(x.ref) == null || ck(o.ref) == null || ck(x.ref) === ck(o.ref)));
+    if (i >= 0) left.splice(i, 1); else onlyPortal.push(o);
+  }
+  const statement = { marie: m.statementBalance, portal: rec.statementBalance };
+  const checkBook = { marie: m.reconciledBalance, portal: rec.checkBookBalance };
+  const same = (a: { marie: number | null; portal: number | null }) => a.marie == null || a.portal == null || cents(a.marie) === cents(a.portal);
+  return { agrees: same(statement) && same(checkBook) && !left.length && !onlyPortal.length, statement, checkBook, onlyMarie: left, onlyPortal };
+}
+
 function bestRec(files: StoredFile[], last4: string): StoredFile | null {
   return files.filter((f) => f.last4 === last4 && f.rec)
     .sort((a, b) => (REC_RANK[b.kind] ?? 0) - (REC_RANK[a.kind] ?? 0) || (b.rec!.runDateISO ?? "").localeCompare(a.rec!.runDateISO ?? ""))[0] ?? null;
@@ -143,7 +161,11 @@ export async function runMonth(period: string, by: string | null, opts: { force?
     let carried: OpenItem[] = [];
     let carriedFrom: AccountRow["carriedFrom"] = "none";
     const priorRow = priorRun?.accounts.find((x) => x.last4 === a.last4);
-    if (priorRow?.rec) { carried = carryForward(priorRow.rec, resolvedIds); carriedFrom = "portal"; }
+    // Only a prior month that actually RECONCILED carries. A month run with no
+    // Checking Account Report (August, dropped only to supply Marie's recs) is
+    // "incomplete" with nothing open — carrying from it carried nothing and
+    // skipped Marie's rec, so the catch-up month never seeded.
+    if (priorRow?.rec && priorRow.rec.status !== "incomplete") { carried = carryForward(priorRow.rec, resolvedIds); carriedFrom = "portal"; }
     else {
       const seedRec = bestRec(priorFiles, a.last4);
       if (seedRec?.rec) {
@@ -175,7 +197,10 @@ export async function runMonth(period: string, by: string | null, opts: { force?
     }
     return {
       last4: a.last4, bank: a.bank, name: a.accountName, skylineKey, files: files_, rec, carriedFrom,
-      skylineRec: marie?.rec ? { inBalance: marie.rec.inBalance, unreconciled: marie.rec.unreconciled.length, adjustedCheckBookBalance: marie.rec.adjustedCheckBookBalance, file: marie.name } : null,
+      skylineRec: marie?.rec ? {
+        inBalance: marie.rec.inBalance, unreconciled: marie.rec.unreconciled.length, adjustedCheckBookBalance: marie.rec.adjustedCheckBookBalance, file: marie.name,
+        vs: marie.rec.statementDateISO == null || marie.rec.statementDateISO.slice(0, 7) === period ? compareWithMarie(rec, marie.rec) : undefined,
+      } : null,
     };
   });
 

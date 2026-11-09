@@ -148,12 +148,13 @@ export default function BankRecPage() {
 
   const r = data?.run ?? null;
   const signed = !!r?.signedOff;
-  const accounts = useMemo(() => (r?.accounts ?? []).filter((a) => !onlyIssues || (a.rec && a.rec.status !== "ok") || (!a.rec && !a.na)), [r, onlyIssues]);
+  const accounts = useMemo(() => (r?.accounts ?? []).filter((a) => !onlyIssues || (a.rec && a.rec.status !== "ok") || (!a.rec && !a.na) || (a.skylineRec?.vs && !a.skylineRec.vs.agrees)), [r, onlyIssues]);
   const counts = useMemo(() => {
-    const c = { ok: 0, attention: 0, out: 0, incomplete: 0, total: 0, openItems: 0, openAmt: 0, stale: 0 };
+    const c = { ok: 0, attention: 0, out: 0, incomplete: 0, total: 0, openItems: 0, openAmt: 0, stale: 0, marie: 0, marieAgree: 0 };
     for (const a of r?.accounts ?? []) {
       if (!a.rec || a.na) continue;
       c.total++; c[a.rec.status]++;
+      if (a.skylineRec?.vs) { c.marie++; if (a.skylineRec.vs.agrees) c.marieAgree++; }
       c.openItems += a.rec.openBook.length; c.openAmt += a.rec.openBook.reduce((s, x) => s + x.amount, 0);
       c.stale += a.rec.openBook.filter((x) => ageDays(x.dateISO, periodEndOf(period)) > 60).length;
     }
@@ -231,6 +232,7 @@ export default function BankRecPage() {
             <StatPill label="Out of balance" value={counts.out} accent={counts.out ? "#b91c1c" : undefined} onClick={counts.out ? () => setOnlyIssues(true) : undefined} />
             <StatPill label="To review" value={counts.attention} accent={counts.attention ? "#b45309" : undefined} sub="items to fix or record" onClick={counts.attention ? () => setOnlyIssues(true) : undefined} />
             <StatPill label="Open items" value={counts.openItems} sub={`${money0(counts.openAmt)} · ${counts.stale} over 60 days`} accent={counts.stale ? "#b45309" : undefined} />
+            {counts.marie > 0 && <StatPill label="Agree with Marie's recs" value={`${counts.marieAgree} of ${counts.marie}`} accent={counts.marieAgree < counts.marie ? "#b45309" : "#15803d"} sub="same balances & open items" onClick={counts.marieAgree < counts.marie ? () => setOnlyIssues(true) : undefined} />}
             <StatPill label="Not filed" value={counts.incomplete} sub="statement or Skyline missing" />
             {glCompared > 0
               ? <StatPill label="Skyline vs GL" value={glOff.length ? `${glOff.length} off` : "Ties"} accent={glOff.length ? "#b45309" : "#15803d"} sub={`${glCompared} properties compared`} />
@@ -267,6 +269,7 @@ export default function BankRecPage() {
                   <th style={th}>Open items</th>
                   <th style={th}>Difference</th>
                   <th style={thL}>Status</th>
+                  <th style={thL}>Marie&rsquo;s rec</th>
                 </tr>
               </thead>
               <tbody>
@@ -276,7 +279,7 @@ export default function BankRecPage() {
                   return (
                     <Fragment key={bank}>
                       <tr style={{ background: "rgba(11,74,125,0.07)" }}>
-                        <td style={{ ...tdL, fontWeight: 800 }} colSpan={6}>{BANK_LABEL[bank]} <span className="muted" style={{ fontWeight: 500, fontSize: 12 }}>· {rows.length} accounts</span></td>
+                        <td style={{ ...tdL, fontWeight: 800 }} colSpan={7}>{BANK_LABEL[bank]} <span className="muted" style={{ fontWeight: 500, fontSize: 12 }}>· {rows.length} accounts</span></td>
                       </tr>
                       {rows.map((a) => {
                         const isOpen = open === a.last4;
@@ -296,9 +299,10 @@ export default function BankRecPage() {
                               <td style={td}>{rc && rc.openBook.length ? <span>{rc.openBook.length} · {money(openSum)}</span> : <span className="muted">—</span>}</td>
                               <td style={{ ...td, fontWeight: 700, color: rc?.difference ? "#b91c1c" : undefined }}>{rc?.difference != null ? money(rc.difference) : "—"}</td>
                               <td style={tdL}>{statusPill(a)}</td>
+                              <td style={tdL}>{marieCell(a)}</td>
                             </tr>
                             {isOpen && (
-                              <tr><td colSpan={6} style={{ padding: "6px 18px 18px", background: "rgba(11,74,125,0.025)", maxWidth: 0 }}>
+                              <tr><td colSpan={7} style={{ padding: "6px 18px 18px", background: "rgba(11,74,125,0.025)", maxWidth: 0 }}>
                                 <AccountDetail a={a} period={period} signed={signed} resolvedById={resolvedById} onResolve={resolve} />
                               </td></tr>
                             )}
@@ -406,6 +410,8 @@ function AccountDetail({ a, period, signed, resolvedById, onResolve }: {
           </div>
         </div>
       </div>
+
+      {a.skylineRec?.vs && !a.skylineRec.vs.agrees && <MarieDiff vs={a.skylineRec.vs} file={a.skylineRec.file} />}
 
       {rc.mismatches.length > 0 && (
         <ItemTable title="Amounts that don't agree" tone="#b91c1c"
@@ -636,6 +642,36 @@ function ReconcilingCard({ period, accounts }: { period: string; accounts: strin
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// Marie's Skyline rec is the answer key for a month she has reconciled. The
+// column flags only where the portal DISAGREES with her — an agreeing row says
+// so quietly, so the exceptions are what the eye lands on.
+function marieCell(a: AccountRow) {
+  const vs = a.skylineRec?.vs;
+  if (!a.skylineRec) return <span className="muted small">—</span>;
+  if (!vs) return <span className="muted small">other month</span>;
+  if (vs.agrees) return <span className="muted small">✓ agrees</span>;
+  const n = vs.onlyMarie.length + vs.onlyPortal.length;
+  return <Pill tone={TONE_AMBER}>DIFFERS{n ? ` · ${n}` : ""}</Pill>;
+}
+
+function MarieDiff({ vs, file }: { vs: NonNullable<NonNullable<AccountRow["skylineRec"]>["vs"]>; file: string }) {
+  const off = (x: { marie: number | null; portal: number | null }) => x.marie != null && x.portal != null && Math.round(x.marie * 100) !== Math.round(x.portal * 100);
+  const row = (it: OpenItem) => [dateLabel(it.dateISO), it.ref || "—", it.description, money(it.amount)];
+  return (
+    <div style={{ border: "1px solid #f3d19c", background: "rgba(245,158,11,0.06)", borderRadius: 10, padding: "12px 14px", display: "grid", gap: 10 }}>
+      <div style={{ ...SECTION, color: "#b45309" }}>Against Marie&rsquo;s rec <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 500 }}>· {file}</span></div>
+      {(off(vs.statement) || off(vs.checkBook)) && (
+        <ItemTable title="" head={["", "Marie", "Portal", "Difference"]} rows={[
+          ...(off(vs.statement) ? [["Statement balance", money(vs.statement.marie), money(vs.statement.portal), money((vs.statement.portal ?? 0) - (vs.statement.marie ?? 0))]] : []),
+          ...(off(vs.checkBook) ? [["Check book (Skyline) balance", money(vs.checkBook.marie), money(vs.checkBook.portal), money((vs.checkBook.portal ?? 0) - (vs.checkBook.marie ?? 0))]] : []),
+        ]} />
+      )}
+      {vs.onlyMarie.length > 0 && <ItemTable title={`Open on Marie's rec, cleared by the portal (${vs.onlyMarie.length})`} head={["Date", "Check #", "Description", "Amount"]} rows={vs.onlyMarie.map(row)} />}
+      {vs.onlyPortal.length > 0 && <ItemTable title={`Open in the portal, not on Marie's rec (${vs.onlyPortal.length})`} head={["Date", "Ref", "Description", "Amount"]} rows={vs.onlyPortal.map(row)} />}
     </div>
   );
 }
