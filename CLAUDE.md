@@ -1204,12 +1204,20 @@ first → the standard email → send. The tenant has until the NEXT BUSINESS DA
   everything except one charge (a disputed item) → specific items by exact
   subset (ONLY when nothing natural explains it — a month's charges also "add
   up" with another month's mixed in) → the usual monthly amount → a short /
-  over payment near the balance → ALWAYS the hierarchy fallback.
-- **THE HIERARCHY IS A PLACEHOLDER** (`APPLY_HIERARCHY`,
-  `HIERARCHY_IS_PLACEHOLDER`): oldest month first, then rent, CAM, RET,
-  insurance, U&O, utilities, other. The owner is supplying the master
-  hierarchy — change it there; the fallback, its explanation and the email
-  read it.
+  over payment near the balance → ALWAYS the master-order fallback.
+- **THE MASTER ORDER OF APPLICATION** (owner, 11/2026; `APPLICATION_ORDER`):
+  U&O → legal charges (AD) → Electric → Water → YEC (year-end CAM) → RER
+  (year-end RET) → YEI (year-end INS) → other charges → monthly CAM → monthly
+  RET → monthly INS → Rent LAST, and OLDEST FIRST WITHIN EACH TYPE ("apply all
+  electric charges before moving on to applying to rent"). The laser statement
+  prints DESCRIPTIONS, not Skyline's codes, so `applicationClassOf` reads the
+  wording (Elec / PECO, Water / Sewer, "Year End … Adjustment" /
+  "Reconciliation", Legal / Attorney / "AD"). A charge the order does not name
+  (gas, trash, late fee) is "other charges", after the reconciliations and
+  before the monthly estimates — rent stays last. Wherever WE chose the order
+  (the fallback, the usual-monthly reading, a short/over payment) the email
+  states it (`ORDER_SENTENCE`) — change the order in that file and the
+  explanation follows. The page's Order column shows each charge's step.
 - **The server re-derives every plan** (`planById`, a `custom:` id for a
   hand-picked set) from the STORED statement before sending or saving — a
   client figure is never what a payment is applied against.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountOf, composeReceiptEmail, explainPayment, planById, respondByFrom } from "./receiptMatch";
+import { accountOf, applicationClassOf, byHierarchy, composeReceiptEmail, explainPayment, planById, respondByFrom } from "./receiptMatch";
 import type { StatementCharge, TenantStatement } from "./types";
 
 const ch = (dateISO: string | null, description: string, category: StatementCharge["category"], amount: number): StatementCharge => ({ dateISO, description, category, amount });
@@ -68,12 +68,15 @@ describe("reading the tenant's mind", () => {
     expect(e?.lines[0].description).toBe("CAM Estimate");
   });
 
-  it("a payment nothing explains → the hierarchy, oldest month first, rent first", () => {
+  it("a payment nothing explains → the master order: every CAM, then every RET, rent last", () => {
     const all = explainPayment(acct, 2100);
     const fb = all.find((x) => x.fallback)!;
-    expect(fb).toBeTruthy();
-    expect(fb.lines[0]).toMatchObject({ dateISO: "2026-09-01", category: "rent", fromPayment: 2000 });
-    expect(fb.lines[1]).toMatchObject({ category: "cam", fromPayment: 100 });
+    expect(fb.title).toBe("Apply in the standard order");
+    expect(fb.lines.map((l) => [l.appClass, l.dateISO, l.fromPayment])).toEqual([
+      ["cam", "2026-09-01", 450], ["cam", "2026-10-01", 450],
+      ["ret", "2026-09-01", 200], ["ret", "2026-10-01", 200],
+      ["rent", "2026-09-01", 800],
+    ]);
     expect(fb.balanceAfter).toBe(2900);
   });
 
@@ -90,9 +93,8 @@ describe("reading the tenant's mind", () => {
   it("re-derives a plan by id, and a hand-picked one", () => {
     expect(planById(acct, 5000, "full-net")?.creditUsed).toBe(300);
     const custom = planById(acct, 650, "custom:0,2")!;
-    // Rent before RET in the hierarchy: the $650 lands on September's rent.
-    expect(custom.lines).toHaveLength(1);
-    expect(custom.lines[0]).toMatchObject({ idx: 0, fromPayment: 650 });
+    // RET before rent in the master order: $200 to the RET, $450 to the rent.
+    expect(custom.lines.map((l) => [l.idx, l.fromPayment])).toEqual([[2, 200], [0, 450]]);
   });
 });
 
@@ -113,5 +115,51 @@ describe("the email", () => {
 
   it("gives a Friday payment until Monday", () => {
     expect(respondByFrom("2026-11-13")).toBe("2026-11-16");
+  });
+});
+
+describe("the master order of application", () => {
+  const cls = (description: string, category: StatementCharge["category"]) => applicationClassOf({ description, category });
+  it("recognises each charge by its statement wording", () => {
+    expect(cls("U & O", "uando")).toBe("uando");
+    expect(cls("Legal Fees - Collection", "other")).toBe("legal");
+    expect(cls("AD - Attorney Fees", "other")).toBe("legal");
+    expect(cls("Elec  05/12/2026 - 06/11/2026", "utilities")).toBe("electric");
+    expect(cls("WATER & SEWER", "utilities")).toBe("water");
+    expect(cls("2025 Year End CAM Adjustment", "cam")).toBe("yec");
+    expect(cls("2024 RET Reconciliation", "ret")).toBe("rer");
+    expect(cls("2025 Year End INS Adjustment", "insurance")).toBe("yei");
+    expect(cls("2026 CAM Estimate", "cam")).toBe("cam");
+    expect(cls("2026 RET Estimate", "ret")).toBe("ret");
+    expect(cls("2026 INS Estimate", "insurance")).toBe("ins");
+    expect(cls("Monthly Rent", "rent")).toBe("rent");
+    expect(cls("PGW - 6.12.2026 - 7.15.2026", "utilities")).toBe("other");
+    expect(cls("Late Fee", "other")).toBe("other");
+  });
+
+  it("orders by charge type, oldest first within each — every electric before any rent", () => {
+    const a = accountOf(st([
+      ch("2026-09-01", "Monthly Rent", "rent", 1000),
+      ch("2026-10-01", "2026 CAM Estimate", "cam", 300),
+      ch("2026-10-15", "Elec 09/01/2026 - 09/30/2026", "utilities", 120),
+      ch("2026-04-22", "2025 Year End CAM Adjustment", "cam", 900),
+      ch("2026-08-15", "Elec 07/01/2026 - 07/31/2026", "utilities", 110),
+      ch("2026-10-01", "U & O", "uando", 50),
+      ch("2026-07-01", "Legal Fees", "other", 400),
+    ]));
+    expect(byHierarchy(a.charges).map((x) => x.description)).toEqual([
+      "U & O", "Legal Fees", "Elec 07/01/2026 - 07/31/2026", "Elec 09/01/2026 - 09/30/2026",
+      "2025 Year End CAM Adjustment", "2026 CAM Estimate", "Monthly Rent",
+    ]);
+  });
+
+  it("the email states the order when we chose it", () => {
+    const fb = explainPayment(acct, 2100).find((x) => x.fallback)!;
+    const { body } = composeReceiptEmail({
+      tenantName: "T", propertyName: "P", suite: "1", amount: 2100, receivedISO: "2026-11-09", asOfISO: null, acct, plan: fb,
+      respondByISO: "2026-11-10", signer: { name: "AR", email: "ar@x.com" },
+    });
+    expect(body).toMatch(/applied in our standard order: Use & Occupancy, legal charges, electric, water/);
+    expect(body).toMatch(/rent last — the oldest charge first within each/);
   });
 });

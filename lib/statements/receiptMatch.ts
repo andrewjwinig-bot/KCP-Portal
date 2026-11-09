@@ -28,14 +28,64 @@ const monthOf = (iso: string | null) => (iso ? iso.slice(0, 7) : null);
 const monthLabel = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
 const dateLabel = (iso: string | null) => (iso ? `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}/${iso.slice(0, 4)}` : "—");
 
-// ── The hierarchy ──────────────────────────────────────────────────────────
-// How an ambiguous payment is applied when the tenant does not answer.
-// PLACEHOLDER until the owner supplies the master hierarchy ("i will provide
-// you a master heirarchy of charges"): OLDEST month first, and within a month
-// this category order. Change it HERE — the fallback plan, its explanation and
-// the email all read it.
-export const APPLY_HIERARCHY: ChargeCategory[] = ["rent", "cam", "ret", "insurance", "uando", "utilities", "other"];
-export const HIERARCHY_IS_PLACEHOLDER = true;
+// ── The master order of application ────────────────────────────────────────
+// How a payment the tenant did not direct is applied (owner, 11/2026): by
+// CHARGE TYPE in this order, OLDEST FIRST within each type — "apply all
+// electric charges before moving on to applying to rent". Rent is last.
+//
+// The laser statement prints DESCRIPTIONS, not Skyline's charge codes, so each
+// code is recognised by its wording (`applicationClassOf`):
+//   U&O   "U & O", "Use & Occupancy"
+//   AD    legal charges — "Legal", "Attorney", "Court", "Counsel", "AD"
+//   Electric  "Elec …", "PECO"
+//   Water     "Water", "Sewer", "Aqua"
+//   YEC   "2025 Year End CAM Adjustment", "2024 CAM Reconciliation"
+//   RER   "2024 RET Reconciliation", "Year End RET Adjustment"
+//   YEI   "Year End INS Adjustment", "INS Reconciliation"
+//   then the monthly CAM / RET / INS estimates, then Rent.
+// A charge the order does not name (gas, trash, a late fee, a one-off) is
+// "Other charges", applied after the year-end reconciliations and BEFORE the
+// monthly estimates and rent — so rent stays last.
+// The email states this order whenever it decides how a payment is applied
+// (`ORDER_SENTENCE`), so change it HERE and the explanation follows.
+
+export type ApplicationClass = "uando" | "legal" | "electric" | "water" | "yec" | "rer" | "yei" | "other" | "cam" | "ret" | "ins" | "rent";
+
+export const APPLICATION_ORDER: { key: ApplicationClass; label: string; code: string | null }[] = [
+  { key: "uando", label: "Use & Occupancy", code: "U&O" },
+  { key: "legal", label: "Legal charges", code: "AD" },
+  { key: "electric", label: "Electric", code: null },
+  { key: "water", label: "Water", code: null },
+  { key: "yec", label: "Year-end CAM reconciliation", code: "YEC" },
+  { key: "rer", label: "Year-end real estate tax reconciliation", code: "RER" },
+  { key: "yei", label: "Year-end insurance reconciliation", code: "YEI" },
+  { key: "other", label: "Other charges", code: null },
+  { key: "cam", label: "Monthly CAM", code: null },
+  { key: "ret", label: "Monthly real estate tax", code: null },
+  { key: "ins", label: "Monthly insurance", code: null },
+  { key: "rent", label: "Rent", code: null },
+];
+export const APPLICATION_LABEL = Object.fromEntries(APPLICATION_ORDER.map((x) => [x.key, x.label])) as Record<ApplicationClass, string>;
+
+const isYearEnd = (d: string) => /year\s*-?\s*end|reconcil|\badj(ustment)?\b|true[\s-]?up/i.test(d);
+
+/** Which step of the master order a statement line falls in. */
+export function applicationClassOf(ch: { description: string; category: ChargeCategory }): ApplicationClass {
+  const d = ch.description;
+  if (ch.category === "uando" || /^u\s*&\s*o\b|use\s*(&|and)\s*occupancy/i.test(d)) return "uando";
+  if (/\blegal\b|attorney|counsel|\bcourt\b|lawyer/i.test(d) || /\bAD\b/.test(d)) return "legal";
+  if (/\belec|\bpeco\b|electric/i.test(d)) return "electric";
+  if (/water|sewer|\baqua\b/i.test(d)) return "water";
+  if (ch.category === "cam") return isYearEnd(d) ? "yec" : "cam";
+  if (ch.category === "ret") return isYearEnd(d) ? "rer" : "ret";
+  if (ch.category === "insurance") return isYearEnd(d) ? "yei" : "ins";
+  if (ch.category === "rent") return "rent";
+  return "other";
+}
+
+/** The order in one sentence, for the email. */
+export const ORDER_SENTENCE =
+  "Payments that don't specify which charges they cover are applied in our standard order: Use & Occupancy, legal charges, electric, water, year-end CAM, real estate tax and insurance reconciliations, other charges, monthly CAM, real estate tax and insurance estimates, and rent last — the oldest charge first within each.";
 
 export type OpenCharge = {
   /** Index into the statement's `charges` — stable for a stored statement. */
@@ -43,6 +93,8 @@ export type OpenCharge = {
   dateISO: string | null;
   description: string;
   category: ChargeCategory;
+  /** Its step in the master order of application. */
+  appClass: ApplicationClass;
   amount: number;
 };
 
@@ -61,7 +113,7 @@ export function accountOf(st: TenantStatement): Account {
   const charges: OpenCharge[] = [];
   const creditLines: Account["creditLines"] = [];
   st.charges.forEach((ch: StatementCharge, idx) => {
-    if (ch.amount > 0.005) charges.push({ idx, dateISO: ch.dateISO, description: ch.description, category: ch.category, amount: r2(ch.amount) });
+    if (ch.amount > 0.005) charges.push({ idx, dateISO: ch.dateISO, description: ch.description, category: ch.category, appClass: applicationClassOf(ch), amount: r2(ch.amount) });
     else if (ch.amount < -0.005) creditLines.push({ dateISO: ch.dateISO, description: ch.description, amount: r2(-ch.amount) });
   });
   const gross = r2(charges.reduce((a, x) => a + x.amount, 0));
@@ -104,12 +156,13 @@ function applyTo(targets: OpenCharge[], payment: number, credit: number): { line
   return { lines, creditUsed: r2(credit - cr / 100), unapplied: pay / 100 };
 }
 
-/** Hierarchy order: oldest month first, then the category order, then the
- *  statement's own order. Undated lines last. */
+/** The master order: by charge type (APPLICATION_ORDER), then OLDEST first
+ *  within the type, then the statement's own order. Undated lines last. */
+const RANK = new Map(APPLICATION_ORDER.map((x, i) => [x.key, i]));
 export function byHierarchy(xs: OpenCharge[]): OpenCharge[] {
-  const rank = (cat: ChargeCategory) => { const i = APPLY_HIERARCHY.indexOf(cat); return i < 0 ? APPLY_HIERARCHY.length : i; };
   return [...xs].sort((a, b) =>
-    (monthOf(a.dateISO) ?? "9999").localeCompare(monthOf(b.dateISO) ?? "9999") || rank(a.category) - rank(b.category) || a.idx - b.idx);
+    (RANK.get(a.appClass) ?? 99) - (RANK.get(b.appClass) ?? 99)
+    || (a.dateISO ?? "9999").localeCompare(b.dateISO ?? "9999") || a.idx - b.idx);
 }
 
 /** Exact subsets of `items` (by cents) summing to `target`, fewest items first.
@@ -162,7 +215,7 @@ export function explainPayment(acct: Account, paid: number, opts: { currentMonth
 
   if (P <= 0 || !charges.length) {
     const fb = applyTo(byHierarchy(charges), P, 0);
-    add({ id: "fallback", title: "Apply by hierarchy", why: "Nothing open to match against.", confidence: 0, exact: false, ...fb, fallback: true });
+    add({ id: "fallback", title: "Apply in the standard order", why: "Nothing open to match against.", confidence: 0, exact: false, ...fb, fallback: true });
     return out.map(fix);
   }
   const ordered = byHierarchy(charges);
@@ -236,7 +289,7 @@ export function explainPayment(acct: Account, paid: number, opts: { currentMonth
   if (latest) {
     const monthly = sum(inMonths([latest]));
     if (c(P) === c(monthly) && !out.some((e) => e.exact)) {
-      add({ id: "monthly", title: "Paid their regular monthly amount", why: `${usd(P)} matches one month's charges (${monthLabel(latest)}), applied to the oldest open month first.`, confidence: 70, exact: true, ...applyTo(ordered, P, 0) });
+      add({ id: "monthly", title: "Paid their regular monthly amount", why: `${usd(P)} matches one month's charges (${monthLabel(latest)}), applied in the standard order.`, confidence: 70, exact: true, ...applyTo(ordered, P, 0) });
     }
   }
 
@@ -259,7 +312,7 @@ export function explainPayment(acct: Account, paid: number, opts: { currentMonth
   }
 
   // 9. The fallback — always there: the hierarchy, credit untouched.
-  add({ id: "fallback", title: "Apply by hierarchy", why: `No reading fits exactly; apply ${usd(P)} oldest month first${HIERARCHY_IS_PLACEHOLDER ? "" : ", by the charge hierarchy"}.`, confidence: 20, exact: false, ...applyTo(ordered, P, 0), fallback: true });
+  add({ id: "fallback", title: "Apply in the standard order", why: `No reading fits exactly; apply ${usd(P)} by the master order — U&O, legal, electric, water, year-end reconciliations, other, monthly CAM / RET / INS, rent last — oldest first within each.`, confidence: 20, exact: false, ...applyTo(ordered, P, 0), fallback: true });
 
   return out.map(fix).sort((a, b) => b.confidence - a.confidence);
 }
@@ -333,6 +386,8 @@ export function composeReceiptEmail(x: ReceiptEmailInput): { subject: string; bo
     ? `• After this payment, your remaining balance will be ${usd(plan.balanceAfter)}.`
     : plan.balanceAfter < -0.005 ? `• After this payment, your account will carry a credit of ${usd(-plan.balanceAfter)}.` : `• After this payment, your account will be paid in full.`);
   lines.push("");
+  // Wherever WE decided the order (no reading of theirs did), say what it is.
+  if (plan.fallback || plan.id === "monthly" || plan.id.startsWith("near:")) lines.push(ORDER_SENTENCE, "");
   lines.push(`If you intended this payment for different charges, please reply to this email by ${longDate(x.respondByISO)} and let us know which charges it covers. If we don't hear from you by then, we'll apply it as shown above.`, "");
   lines.push(`Thank you,`, x.signer.name, "Korman Commercial Properties", x.signer.email, ...(x.signer.phone ? [x.signer.phone] : []));
   return { subject: `Your payment of ${usd(x.amount)} — ${x.propertyName}, Suite ${x.suite}`, body: lines.join("\n") };
