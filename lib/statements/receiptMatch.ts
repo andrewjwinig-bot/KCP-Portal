@@ -384,7 +384,7 @@ export type ReceiptEmailInput = {
   acct: Account;
   plan: Explanation;
   respondByISO: string;
-  signer: { name: string; email: string; phone?: string };
+  signer: { name: string; title?: string; email: string; phone?: string };
 };
 
 const longDate = (iso: string) => { const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`); return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }); };
@@ -423,7 +423,7 @@ export function composeReceiptEmail(x: ReceiptEmailInput): { subject: string; bo
   if (plan.fallback || plan.id === "monthly" || plan.id.startsWith("near:")) lines.push(ORDER_SENTENCE, "");
   lines.push(`If you intended this payment for different charges, please reply to this email by ${longDate(x.respondByISO)} and let us know which charges it covers. If we don't hear from you by then, we'll apply it as shown above.`, "");
   lines.push(`If you are not the person who makes payment allocation decisions for your company, please forward this email to the appropriate person or department.`, "");
-  lines.push(`Thank you,`, x.signer.name, "Korman Commercial Properties", x.signer.email, ...(x.signer.phone ? [x.signer.phone] : []));
+  lines.push(`Thank you,`, x.signer.name, ...(x.signer.title ? [x.signer.title] : []), "Korman Commercial Properties", x.signer.email, ...(x.signer.phone ? [x.signer.phone] : []));
   return { subject: `Your payment of ${usd(x.amount)} — ${x.propertyName}, Suite ${x.suite}`, body: lines.join("\n") };
 }
 

@@ -1234,10 +1234,15 @@ charges"; `RESPOND_BUSINESS_DAYS`, `respondByFrom`); with no answer the record t
   the balance after, the deadline, and that it applies as shown if they don't
   answer. Plain lines, no padded columns (proportional fonts). Typed in place
   before sending; a new reading of the payment resets to the standard wording.
-  Sent from `Korman Commercial Properties <VERIFIED_FROM>` to the suite's
-  statement contacts (`camRecipientEmails`, tickable), Reply-To and Bcc the AR
-  contact (`RECEIPT_REPLY_TO`, else the payment instructions' contact), behind
-  a confirm naming every recipient.
+  **Sent FROM TAMI** (owner: "set it up to be from
+  ttomlinson@kormancommercial.com"; `RECEIPT_FROM` / `RECEIPT_FROM_NAME`
+  override): her address is the From, the Reply-To and the Bcc, and she signs
+  it "Tami Tomlinson / Accounts Receivable". Postmark sends only from a
+  verified sender, so if hers is refused the send RETRIES from `VERIFIED_FROM`
+  under her name with replies still to her — never a failed send; the record
+  keeps the address it actually went from (`email.from`). To the suite's
+  statement contacts (`camRecipientEmails`, tickable), behind a confirm naming
+  every recipient.
 - **"DATA THROUGH" IS WHEN SKYLINE RAN THE REPORT, NOT THE IMPORT** (owner:
   "needs to reflect last day of data not just the last day it was posted").
   The laser statement prints only a billing "Statement Date: 11/01/2026", so
