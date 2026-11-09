@@ -1145,6 +1145,30 @@ how-to-pay instructions. Sources of truth:
   Answering closes the request (`AllocationRequest` → `Remittance.requestId` +
   `receivedAmount`). The request is saved even when the email can't go, so a
   cheque is never lost because sending failed.
+- **THE OPEN CREDIT TRACKER AND THE A/R AGING SCHEDULE LEAD THE PAGE**
+  (`lib/statements/openCredits.ts`, pure, pinned by `openCredits.test.ts`;
+  `OpenCreditsCard.tsx`, `AgingScheduleCard.tsx`; owner: "call out the open
+  credits at the top … an open credit tracker", replacing the team's
+  Open_Credits spreadsheet). The tracker lists every tenant with a credit on
+  the month's laser statement, banded JV III / NI LLC / Shopping Centers /
+  Korman Homes / Other / Former tenants (`-FO`), with open charges, net (in
+  parens = we hold money for them), **Since** (the unbroken run of imported
+  months carrying a credit; amber at 3+) and a **Follow-up** note per UNIT
+  (`creditNoteStore.ts`, carried month to month). **The laser statement
+  carries only the aggregate "Open Credits" total** (plus any dated negative
+  line) — the CAM / RET / INS / OTHER split and the cause are in Skyline's
+  tenant ledger, and the row says so. **APPLY** (owner: "click to apply them
+  … widdle them down"): pick open charges (oldest first by default, the last
+  in part, capped at the credit — `planCreditApplication`, recomputed on the
+  server from the stored statement, never the client's figures) and record it
+  (`creditApplicationStore.ts`, per period + unit, `POST/DELETE
+  /api/tenant-statements/credit-apply`). **It does NOT post to Skyline** — the
+  record is the list of entries to key there, and the next import shows the
+  credit gone. The aging schedule ages open CHARGES by month, one stacked bar
+  for the portfolio and one per property row, with credits in their OWN column
+  (never netted into Current — the credit row is undated); a row filters the
+  roster. It replaced the "Open A/R by property" tile grid and the small aging
+  StatPill card, which said the same thing twice.
 - Admin page `/tenant-statements`; portal view `app/portal/[token]/MonthlyStatements.tsx`;
   tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
   to the token's one unit).
