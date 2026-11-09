@@ -68,7 +68,10 @@ async function statementOf(period: string, unit: string): Promise<{ st: TenantSt
  *  tenant's most recent laser statement"). */
 async function statementPdf(period: string, st: TenantStatement): Promise<{ name: string; content: Uint8Array; contentType: string }> {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
-  drawMonthlyStatement(doc, st, { propLabel: `${st.propertyCode} — ${propertyName(st.propertyCode)}`, period, payment: await instructionsFor(st.propertyCode) });
+  // The statement attached to Tami's email names HER as the contact, even if
+  // a stored Payment Instructions override still carries an older name.
+  const payment = { ...(await instructionsFor(st.propertyCode)), contactName: RECEIPT_FROM_NAME, contactEmail: RECEIPT_FROM };
+  drawMonthlyStatement(doc, st, { propLabel: `${st.propertyCode} — ${propertyName(st.propertyCode)}`, period, payment });
   const safe = (s: string) => s.replace(/[^\w]+/g, "_");
   return { name: `${safe(st.tenantName)}_${period}_Statement.pdf`, content: new Uint8Array(doc.output("arraybuffer")), contentType: "application/pdf" };
 }
