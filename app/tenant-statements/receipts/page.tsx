@@ -17,8 +17,8 @@ import { createPortal } from "react-dom";
 import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
-import { CATEGORY_LABEL, type ChargeCategory } from "@/lib/statements/types";
-import type { Account, Explanation } from "@/lib/statements/receiptMatch";
+import { APPLICATION_LABEL, APPLICATION_ORDER, type Account, type Explanation } from "@/lib/statements/receiptMatch";
+import { HoverCard } from "@/app/components/HoverCard";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const periodLabel = (p: string) => `${MONTHS[Number(p.slice(5, 7)) - 1]} ${p.slice(0, 4)}`;
@@ -53,7 +53,7 @@ const STATUS_ORDER: Status[] = ["apply", "waiting", "draft", "posted"];
 const STATUS_BAND: Record<Status, string> = { apply: "Ready to apply in Skyline", waiting: "Waiting on the tenant", draft: "Drafts", posted: "Posted" };
 
 function confidenceTone(e: Explanation) {
-  if (e.fallback) return <Pill tone={TONE_NEUTRAL}>HIERARCHY</Pill>;
+  if (e.fallback) return <Pill tone={TONE_NEUTRAL}>STANDARD ORDER</Pill>;
   if (e.confidence >= 85) return <Pill tone={TONE_GREEN}>MOST LIKELY</Pill>;
   if (e.exact) return <Pill tone={TONE_BLUE}>EXACT MATCH</Pill>;
   return <Pill tone={TONE_AMBER}>CLOSE</Pill>;
@@ -314,7 +314,17 @@ export default function ReceiptReconciliationPage() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
                 {custom.on && <th style={thL} />}
-                <th style={thL}>Date</th><th style={thL}>Charge</th><th style={thL}>Type</th><th style={th}>Open</th><th style={th}>From payment</th><th style={th}>From credit</th><th style={th}>Still open</th>
+                <th style={thL}>Date</th><th style={thL}>Charge</th>
+                <th style={thL}>
+                  <HoverCard title="Master order of application" width={300} rows={[]} body={
+                    <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12.5, lineHeight: 1.6, textTransform: "none", letterSpacing: 0, fontWeight: 500 }}>
+                      {APPLICATION_ORDER.map((x) => <li key={x.key}>{x.label}{x.code ? <span className="muted"> · {x.code}</span> : null}</li>)}
+                      <li style={{ listStyle: "none", marginLeft: -20, marginTop: 4 }} className="muted">Oldest first within each.</li>
+                    </ol>
+                  }>
+                    <span style={{ cursor: "help", borderBottom: "1px dotted currentColor" }}>Order</span>
+                  </HoverCard>
+                </th><th style={th}>Open</th><th style={th}>From payment</th><th style={th}>From credit</th><th style={th}>Still open</th>
               </tr></thead>
               <tbody>
                 {detail.account.charges.map((ch) => {
@@ -325,7 +335,7 @@ export default function ReceiptReconciliationPage() {
                       {custom.on && <td style={tdL}><input type="checkbox" checked={custom.idx.has(ch.idx)} onChange={(e) => setCustom((c) => { const s = new Set(c.idx); if (e.target.checked) s.add(ch.idx); else s.delete(ch.idx); return { ...c, idx: s }; })} /></td>}
                       <td style={tdL}>{dateLabel(ch.dateISO)}</td>
                       <td style={{ ...tdL, whiteSpace: "normal" }}>{ch.description}</td>
-                      <td style={tdL}><span className="muted small">{CATEGORY_LABEL[ch.category as ChargeCategory]}</span></td>
+                      <td style={tdL}><span className="muted small">{APPLICATION_ORDER.findIndex((x) => x.key === ch.appClass) + 1}. {APPLICATION_LABEL[ch.appClass]}</span></td>
                       <td style={td}>{money(ch.amount)}</td>
                       <td style={{ ...td, fontWeight: a?.fromPayment ? 700 : 400, color: a?.fromPayment ? "#15803d" : "var(--muted)" }}>{a?.fromPayment ? money(a.fromPayment) : "—"}</td>
                       <td style={{ ...td, color: a?.fromCredit ? "#15803d" : "var(--muted)" }}>{a?.fromCredit ? money(a.fromCredit) : "—"}</td>
