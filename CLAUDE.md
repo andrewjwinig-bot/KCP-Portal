@@ -1193,8 +1193,8 @@ anyone with Monthly Statements — Tami's working page; owner: "get in the brain
 of the tenant and figure out what charges they meant to apply to … provide
 transparency via email"). Pick a tenant on a laser-statement month → open
 charges, open credit, net due → type what they paid → the EXPLANATIONS, best
-first → the standard email → send. The tenant has until the NEXT BUSINESS DAY
-(`respondByFrom`); with no answer the record turns "Ready to apply" on its own
+first → the standard email → send. The tenant has TWO BUSINESS DAYS (owner: "give 2 days before we apply the
+charges"; `RESPOND_BUSINESS_DAYS`, `respondByFrom`); with no answer the record turns "Ready to apply" on its own
 (`receiptStatus`, judged in Eastern time) — the entries to key in Skyline.
 "Tenant answered…" re-opens it to confirm a different plan with their note;
 "Mark posted" when keyed. Nothing posts to Skyline.

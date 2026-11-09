@@ -9,7 +9,7 @@
 // Pick a tenant → their open charges, credit and net due (the laser statement,
 // lib/statements) → type what they paid → the explanations, best first
 // (lib/statements/receiptMatch.ts) → the standard email, typed in place → send.
-// The tenant has until the next business day; with no answer the plan stands
+// The tenant has two business days to answer; with no answer the plan stands
 // and the receipt moves to "Ready to apply" — the entries to key in Skyline.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
