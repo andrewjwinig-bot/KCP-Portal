@@ -15,6 +15,10 @@ import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { HoverCard } from "@/app/components/HoverCard";
 import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 import { TenantShareLink } from "@/app/cam-recon/TenantShareLink";
+import { OpenCreditsCard, type CreditNote, type CreditApplication } from "./OpenCreditsCard";
+import { AgingScheduleCard } from "./AgingScheduleCard";
+import { READ_ONLY_USERS } from "@/lib/users";
+import type { OpenCreditTracker, AgingSchedule } from "@/lib/statements/openCredits";
 import { AGING_LABEL, AGING_ORDER, CATEGORY_LABEL, CATEGORY_ORDER, type AgingBucket, type ChargeCategory, type StatementCharge } from "@/lib/statements/types";
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
@@ -94,6 +98,10 @@ type Detail = {
   properties: { code: string; name: string }[];
   payment: Record<string, PaymentInstructions>;
   tenants: TenantRow[];
+  credits?: OpenCreditTracker;
+  creditNotes?: Record<string, CreditNote>;
+  creditApplications?: Record<string, CreditApplication>;
+  aging?: AgingSchedule;
 };
 
 export default function TenantStatementsPage() {
@@ -459,7 +467,17 @@ export default function TenantStatementsPage() {
 
           {detail && (
             <>
-              {byProperty.length > 1 && (
+              {detail.credits && (
+                <OpenCreditsCard tracker={detail.credits} notes={detail.creditNotes ?? {}} applications={detail.creditApplications ?? {}}
+                  period={detail.period} readOnly={READ_ONLY_USERS.has(user.id)} onChanged={reloadDetail} />
+              )}
+
+              {detail.aging && detail.aging.rows.length > 0 && (
+                <AgingScheduleCard schedule={detail.aging} active={property} onPick={setProperty}
+                  nameOf={(c) => detail.properties.find((x) => x.code === c)?.name ?? ""} />
+              )}
+
+              {byProperty.length > 1 && !detail.aging && (
                 <div className="card">
                   <div style={SECTION_LABEL}>Open A/R by property</div>
                   <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(146px, 1fr))", marginTop: 10 }}>
@@ -582,17 +600,6 @@ export default function TenantStatementsPage() {
                 </table>
               </div>
 
-              {filteredTotals.aging.size > 1 && (
-                <div className="card">
-                  <div style={SECTION_LABEL}>Aging — {property === "All" ? "all properties" : property}</div>
-                  <div className="pills" style={{ flexWrap: "wrap", justifyContent: "flex-start", marginTop: 10 }}>
-                    {AGING_ORDER.filter((b) => filteredTotals.aging.has(b)).map((b) => (
-                      <StatPill key={b} label={AGING_LABEL[b]} value={money0(filteredTotals.aging.get(b) ?? 0)}
-                        accent={b === "current" ? undefined : "#b45309"} />
-                    ))}
-                  </div>
-                </div>
-              )}
             </>
           )}
 

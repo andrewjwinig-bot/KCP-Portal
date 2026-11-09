@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deleteRun, getRun, setPublished } from "@/lib/statements/store";
+import { allRuns, deleteRun, getRun, setPublished } from "@/lib/statements/store";
+import { agingSchedule, openCredits } from "@/lib/statements/openCredits";
+import { creditNotes } from "@/lib/statements/creditNoteStore";
+import { creditApplicationsFor } from "@/lib/statements/creditApplicationStore";
 import { statementCharges, summarize } from "@/lib/statements/summary";
 import { instructionsFor } from "@/lib/statements/payment";
 import { remittancesForPeriod } from "@/lib/statements/remittanceStore";
@@ -34,9 +37,21 @@ export async function GET(_req: NextRequest, { params }: { params: { period: str
   const latestImport = run.sources.length > 1 ? run.sources[run.sources.length - 1].importedAt : null;
   const payment = Object.fromEntries(await Promise.all(codes.map(async (c) => [c, await instructionsFor(c)] as const)));
 
+  // The Open Credit tracker reads earlier months for "since"; notes and
+  // recorded applications ride beside it. None of these may break the roster.
+  const [earlier, notes, applications] = await Promise.all([
+    allRuns().catch(() => []),
+    creditNotes().catch(() => ({})),
+    creditApplicationsFor(run.period).catch(() => ({})),
+  ]);
+
   return NextResponse.json({
     ok: true,
     period: run.period,
+    credits: openCredits(run, earlier),
+    creditNotes: notes,
+    creditApplications: applications,
+    aging: agingSchedule(run),
     published: run.published,
     publishedAt: run.publishedAt,
     updatedAt: run.updatedAt,
