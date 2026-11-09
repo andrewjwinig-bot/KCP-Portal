@@ -263,7 +263,7 @@ export default function ReceiptReconciliationPage() {
                 {!answering && <button className="btn sm" onClick={() => pickTenant("")}>Change</button>}
               </div>
             ) : (
-              <select value="" onChange={(e) => { if (e.target.value) pickTenant(e.target.value); }} aria-label="Tenant" style={{ width: "100%" }}>
+              <select value="" onChange={(e) => { if (e.target.value) pickTenant(e.target.value); }} aria-label="Tenant" className="select-brand select-lg" style={{ width: "100%" }}>
                 <option value="">Select a tenant…</option>
                 {byProperty.map(([prop, rows]) => (
                   <optgroup key={prop} label={prop}>
