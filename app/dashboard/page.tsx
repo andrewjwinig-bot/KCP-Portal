@@ -25,6 +25,7 @@ import CommissionsReminder from "./CommissionsReminder";
 import AnnualStatementReminder from "./AnnualStatementReminder";
 import DailyDigestModal from "./DailyDigestModal";
 import MaintenanceOverview from "./MaintenanceOverview";
+import ReceivablesOverview from "./ReceivablesOverview";
 import PendingReservationsCard from "./PendingReservationsCard";
 import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
 import MonthlyReviewPanel from "../reports/monthly/MonthlyReviewPanel";
@@ -117,6 +118,8 @@ function Donut({ value, total, color, label }: { value: number; total: number; c
 export default function DashboardPage() {
   const { user } = useUser();
   if (user.id === "maint") return <MaintenanceOverview />;
+  // Tami: open credits and open A/R only — a narrow view into receivables.
+  if (user.id === "tami") return <ReceivablesOverview />;
   return <DashboardInner />;
 }
 
