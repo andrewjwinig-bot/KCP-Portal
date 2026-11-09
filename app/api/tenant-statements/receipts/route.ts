@@ -19,7 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { jsPDF } from "jspdf";
 import { drawMonthlyStatement } from "@/lib/statements/monthlyStatementPdf";
 import { allRuns, getRun } from "@/lib/statements/store";
-import { accountOf, composeReceiptEmail, explainPayment, planById, respondByFrom, type Explanation } from "@/lib/statements/receiptMatch";
+import { accountOf, explainPayment, planById, receiptEmailParts, receiptTableHtml, renderReceiptEmail, respondByFrom, type Explanation } from "@/lib/statements/receiptMatch";
 import { allReceipts, deleteReceipt, getReceipt, receiptStatus, saveReceipt, todayET, type ReceiptRec } from "@/lib/statements/receiptStore";
 import { instructionsFor } from "@/lib/statements/payment";
 import { getOrEmptySuiteContacts } from "@/lib/suites/contactsStorage";
@@ -136,14 +136,16 @@ export async function GET(req: NextRequest) {
   const explanations = Number.isFinite(amount) && amount > 0 ? explainPayment(acct, amount, { currentMonth: period }) : [];
   const recipients = await recipientsFor(st.unitRef);
   const planId = q.get("plan");
-  let draft: { subject: string; body: string } | null = null;
+  // The editable opening / closing, and the generated table between them.
+  let draft: { subject: string; opening: string; closing: string; tableHtml: string } | null = null;
   const plan = planId && Number.isFinite(amount) ? planById(acct, amount, planId, { currentMonth: period }) : explanations[0] ?? null;
   if (plan && Number.isFinite(amount)) {
     const received = isISO(q.get("received")) ? q.get("received")! : todayET();
-    draft = composeReceiptEmail({
+    const parts = receiptEmailParts({
       tenantName: st.tenantName, propertyName: propertyName(st.propertyCode), suite: st.suite, amount, receivedISO: received,
       checkNo: q.get("check") || null, asOfISO: asOf, acct, plan, attached: q.get("attach") !== "0", respondByISO: respondByFrom(todayET()), signer: await signer(st.propertyCode),
     });
+    draft = { ...parts, tableHtml: receiptTableHtml({ acct, plan, asOfISO: asOf }) };
   }
   return NextResponse.json({
     ok: true, period, asOf, dates,
@@ -184,12 +186,16 @@ export async function POST(req: NextRequest) {
       const to = recipients.filter((e) => !pickedOut.has(e.toLowerCase()));
       if (!to.length) return NextResponse.json({ error: "No email on file for this suite — add a contact on the unit page first." }, { status: 400 });
       const subject = typeof b?.subject === "string" && b.subject.trim() ? b.subject.trim().slice(0, 200) : "";
-      const body = typeof b?.body === "string" && b.body.trim() ? b.body.slice(0, 20000) : "";
-      if (!subject || !body) return NextResponse.json({ error: "The email has no subject or body." }, { status: 400 });
+      const opening = typeof b?.opening === "string" ? b.opening.slice(0, 10000) : "";
+      const closing = typeof b?.closing === "string" ? b.closing.slice(0, 10000) : "";
+      if (!subject || !opening.trim()) return NextResponse.json({ error: "The email has no subject or opening." }, { status: 400 });
+      // The table is re-rendered HERE from the plan just re-derived — the
+      // figures the tenant reads are never the client's.
+      const { html, text: body } = renderReceiptEmail({ acct, plan, asOfISO: found.asOf }, opening, closing);
       const sig = await signer(st.propertyCode);
       const attach = b?.attachStatement !== false;
       const msg = {
-        to: to.join(", "), bcc: sig.email, subject, textBody: body, headers: [{ Name: "Reply-To", Value: sig.email }],
+        to: to.join(", "), bcc: sig.email, subject, textBody: body, htmlBody: html, headers: [{ Name: "Reply-To", Value: sig.email }],
         ...(attach ? { attachments: [await statementPdf(period, st)] } : {}),
       };
       // From Tami's own address. Postmark sends only from an address it has

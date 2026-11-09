@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountOf, applicationClassOf, byHierarchy, composeReceiptEmail, explainPayment, planById, respondByFrom } from "./receiptMatch";
+import { accountOf, applicationClassOf, byHierarchy, composeReceiptEmail, explainPayment, planById, renderReceiptEmail, respondByFrom } from "./receiptMatch";
 import type { StatementCharge, TenantStatement } from "./types";
 
 const ch = (dateISO: string | null, description: string, category: StatementCharge["category"], amount: number): StatementCharge => ({ dateISO, description, category, amount });
@@ -115,13 +115,18 @@ describe("reading the tenant's mind", () => {
 describe("the email", () => {
   it("states the account, the plan, the deadline and the default", () => {
     const plan = top(5300);
-    const { subject, body } = composeReceiptEmail({
+    const { subject, body, html } = composeReceiptEmail({
       tenantName: "Test Tenant", propertyName: "Brookwood Shopping Center", suite: "1817", amount: 5300, receivedISO: "2026-11-09", checkNo: "1042",
       asOfISO: "2026-11-01", acct, plan, respondByISO: respondByFrom("2026-11-09"), signer: { name: "Tami", email: "ar@kormancommercial.com" },
     });
     expect(subject).toBe("Your payment of $5,300.00 — Brookwood Shopping Center, Suite 1817");
     expect(body).toMatch(/check #1042/);
-    expect(body).toMatch(/Less: credit on your account/);
+    // The account is a TABLE in the HTML: every charge, the credit, the totals.
+    expect(html).toMatch(/<th[^>]*>From your payment<\/th>/);
+    expect(html).toMatch(/<th[^>]*>Still open<\/th>/);
+    expect(html).toMatch(/Open Credits[\s\S]*\(\$300\.00\)/);
+    expect(html).toMatch(/>Total</);
+    expect(body).toMatch(/Open Credits: \(\$300\.00\)/);
     expect(body).toMatch(/your account will carry a credit of \$300\.00/);
     expect(body).toMatch(/reply to this email by Wednesday, November 11, 2026/);
     expect(body).toMatch(/If you are not the person who makes payment allocation decisions for your company, please forward this email/);
@@ -177,5 +182,17 @@ describe("the master order of application", () => {
     });
     expect(body).toMatch(/applied in our standard order: Use & Occupancy, legal charges, electric, water/);
     expect(body).toMatch(/rent last — the oldest charge first within each/);
+  });
+});
+
+describe("the email's table", () => {
+  it("shows every charge, highlights what the payment and credit cover, and totals them", () => {
+    const plan = explainPayment(acct, 2100).find((x) => x.fallback)!;
+    const { html, text } = renderReceiptEmail({ acct, plan, asOfISO: "2026-10-21" }, "Hello,", "Thank you,");
+    expect(html.match(/<tr/g)!.length).toBe(1 + 6 + 1 + 1); // header, 6 charges, the credit, total
+    expect(html).toMatch(/Total<\/td>[\s\S]*\$5,000\.00[\s\S]*\$2,100\.00[\s\S]*\$300\.00[\s\S]*\$2,900\.00/);
+    expect(text).toMatch(/still open \$2,900\.00/);
+    // Tenant-typed text is escaped, never markup.
+    expect(renderReceiptEmail({ acct, plan, asOfISO: null }, "<b>x</b>", "").html).toMatch(/&lt;b&gt;x&lt;\/b&gt;/);
   });
 });
