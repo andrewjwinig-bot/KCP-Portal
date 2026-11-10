@@ -126,7 +126,7 @@ export default function ManagementFeesPage() {
 
           {/* 2010 tie-out — Σ property 6610 budgets should equal the LIK 2010 fee plan */}
           {tieOut && (
-            <div className="card" style={{ margin: 0, padding: "10px 14px", borderLeft: `4px solid ${tieOut.ok ? "var(--c-15803d)" : "var(--c-d97706)"}`, fontSize: "var(--fs-13)" }}>
+            <div className="card" style={{ margin: 0, padding: "10px 14px", fontSize: "var(--fs-13)" }}>
               <b style={{ color: tieOut.ok ? "var(--c-15803d)" : "var(--c-b45309)" }}>2010 tie-out — BUDGET{tieOut.ok ? " ✓" : " — gap"}:</b>{" "}
               property management-fee budgets (6610) sum to <b>{money(tieOut.bottomUp)}</b>; the LIK 2010 fee plan (4510) is <b>{money(tieOut.lik)}</b>.{" "}
               {tieOut.ok
@@ -386,7 +386,7 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
   };
 
   return (
-    <div className="card" style={{ margin: 0, borderLeft: `4px solid ${accent}`, display: "grid", gap: 12 }}>
+    <div className="card" style={{ margin: 0,  display: "grid", gap: 12 }}>
       {/* The glance. One line, one answer. */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: accent }}>

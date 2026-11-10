@@ -301,7 +301,7 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
   const good = change == null || Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
   return (
     <tr style={rowStyle}>
-      <td style={{ ...lab, ...(subtotal ? { fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-13-5)" } : {}), ...(sub ? { borderLeft: `3px solid ${COLOR_BRAND}`, paddingLeft: depth > 1 ? 46 : 26, fontSize: depth > 1 ? 11.5 : 12, ...(depth > 1 ? { color: "var(--muted)" } : {}) } : {}), whiteSpace: "nowrap", overflow: "hidden" }}>
+      <td style={{ ...lab, ...(subtotal ? { fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-13-5)" } : {}), ...(sub ? {  paddingLeft: depth > 1 ? 46 : 26, fontSize: depth > 1 ? 11.5 : 12, ...(depth > 1 ? { color: "var(--muted)" } : {}) } : {}), whiteSpace: "nowrap", overflow: "hidden" }}>
         {/* The name and its source pill on ONE line, so every row is one row tall. */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         {toggle && (
@@ -935,7 +935,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const negatives = negativeLines(draft);
   if (negatives.length) {
     body.push(
-      <div key="neg" className="card" style={{ padding: "9px 14px", borderLeft: `4px solid ${NEGATIVE_FG}`, background: "var(--tint-amber-bg, rgba(217,119,6,0.06))", fontSize: "var(--fs-13)" }}>
+      <div key="neg" className="card" style={{ padding: "9px 14px",  background: "var(--tint-amber-bg, rgba(217,119,6,0.06))", fontSize: "var(--fs-13)" }}>
         <b style={{ color: NEGATIVE_FG }}>{negatives.length} line{negatives.length === 1 ? "" : "s"} go{negatives.length === 1 ? "es" : ""} negative</b>
         <span className="muted"> — a revenue or expense should not: </span>
         {negatives.slice(0, 8).map((n) => n.label).join(" · ")}{negatives.length > 8 ? ` · +${negatives.length - 8} more` : ""}

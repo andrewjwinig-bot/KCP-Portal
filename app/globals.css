@@ -1268,11 +1268,15 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+/* The total tile: a 1px brand outline, no rail (owner: "i hate that thicker
+   line above net due … when theres one thick line on the side i do not like
+   it either"). Emphasis is the outline and the brand label, never a bar. */
 [data-skin="studio"] .pill-total {
   border-color: var(--brand);
   background: var(--card);
-  box-shadow: inset 0 3px 0 var(--brand);
+  box-shadow: none;
 }
+[data-skin="studio"] .pill-total > span:first-of-type { color: var(--brand); }
 
 /* Buttons: one 8px shape, 44px tall, sentence weight. */
 [data-skin="studio"] .btn {

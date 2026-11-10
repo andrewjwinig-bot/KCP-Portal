@@ -163,7 +163,7 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
         // receives what.
         <div onClick={() => { if (!busy) { setConfirming(false); setResult(null); } }} style={{ position: "fixed", inset: 0, zIndex: 130, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Send ${quarterLabel} commissions to AvidXchange`}
-            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 680, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 680, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
               <div style={SEC_LABEL}>Send to AvidXchange</div>
               <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>

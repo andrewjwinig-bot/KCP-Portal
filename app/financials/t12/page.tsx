@@ -124,7 +124,7 @@ export default function T12Page() {
       {/* A month no GL covers reads $0 — say which, so a short T-12 is never
           mistaken for a real one. */}
       {data && data.missing.length > 0 && (
-        <div className="card" style={{ padding: "9px 14px", borderLeft: "4px solid #b45309", background: "var(--tint-amber-bg, rgba(217,119,6,0.06))", fontSize: "var(--fs-13)" }}>
+        <div className="card" style={{ padding: "9px 14px",  background: "var(--tint-amber-bg, rgba(217,119,6,0.06))", fontSize: "var(--fs-13)" }}>
           <b style={{ color: "var(--c-b45309)" }}>{data.missing.length} month{data.missing.length === 1 ? "" : "s"} not imported</b>
           <span className="muted"> — {data.missing.join(", ")} read $0 until that GL is uploaded, so this T-12 is short.</span>
         </div>

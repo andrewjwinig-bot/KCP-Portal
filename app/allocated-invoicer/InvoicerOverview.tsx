@@ -311,7 +311,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
       {open && typeof document !== "undefined" && createPortal(
         <div onClick={() => setOpen(null)} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`${open.label} allocated invoices`}
-            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 820, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 820, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", gap: 10 }}>
               <div style={{ flex: 1 }}>
                 <div style={secLabel}>Allocated Expenses</div>
@@ -401,7 +401,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
       {confirm && typeof document !== "undefined" && createPortal(
         <div onClick={() => !sending && setConfirm(null)} style={{ position: "fixed", inset: 0, zIndex: 130, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Send ${confirm.p.label} to AvidXchange`}
-            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 640, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 640, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
               <div style={secLabel}>Send to AvidXchange</div>
               <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>Allocated Expenses · {confirm.preview?.label || confirm.p.label}</div>

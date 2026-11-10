@@ -943,7 +943,7 @@ export default function GlobalSearch() {
         <ClarifyCard key={ti} clarify={t.clarify} onPick={(a) => askAi(a)} />
       ) : t.letter ? (
         <div key={ti} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ border: "1px solid var(--ai-border-card)", borderLeft: "3px solid var(--ai)", borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
+          <div style={{ border: "1px solid var(--ai-border-card)",  borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
               <InlineSparkle />
               <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>Assistant</span>

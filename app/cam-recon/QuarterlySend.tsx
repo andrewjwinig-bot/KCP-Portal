@@ -78,7 +78,7 @@ export default function QuarterlySend({ billingKey, year, quarter, record, name,
   ) : record?.status === "held" ? <Pill tone={TONE_AMBER}>Held for review</Pill> : <Pill tone={TONE_NEUTRAL}>Not sent</Pill>;
 
   return (
-    <div style={{ marginBottom: 12, maxWidth: 640, padding: "10px 12px", border: "1px solid var(--border)", borderLeft: `3px solid ${sent ? TONE_GREEN.fg : "var(--brand)"}`, borderRadius: 10, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+    <div style={{ marginBottom: 12, maxWidth: 640, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
       {status}
       <span className="small muted" style={{ flex: 1, minWidth: 220 }}>
         {sent && !record!.outside && <>To {record!.to}{record!.auto ? " · sent automatically on the GL import" : record!.sentBy ? ` · by ${record!.sentBy}` : ""}{record!.total != null ? ` · ${money0(record!.total)}` : ""}{record!.testMode ? " · TEST MODE — nothing delivered" : ""}</>}
@@ -95,7 +95,7 @@ export default function QuarterlySend({ billingKey, year, quarter, record, name,
       {open && typeof document !== "undefined" && createPortal(
         <div onClick={() => !sending && setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 130, background: "rgba(15,23,42,0.55)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
           <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Send ${quarter} ${year} to ${name}`}
-            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 640, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 640, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
               <div style={secLabel}>{sent ? "Re-send" : "Send"} quarterly CAM and tax</div>
               <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{name} · {quarter} {year}</div>

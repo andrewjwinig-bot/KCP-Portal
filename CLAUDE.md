@@ -128,6 +128,13 @@ until he approves it for everyone; build EVERY new or touched UI to it.
 - **Shapes**: cards 12px radius, 1px border, no glow. Controls (buttons,
   dropdowns, inputs) 8px, 42–44px tall — never pills. `.btn` / `.btn.sm` /
   `.btn.primary` from globals; never restyle a button inline.
+- **NO THICK RAILS** (owner: "i hate that thicker line above net due … when
+  theres one thick line on the side i do not like it either"): no 3px+
+  coloured bar down a card's side or across its top — cards, callouts, modals
+  and tiles all take the 1px border; a total tile (`.pill-total`) is a 1px
+  brand outline with a brand label, no inset bar. Say status with an icon and
+  words. The ratchet counts them (max 2: `PlanTip`'s colour rail, which the
+  owner asked for, and the reservation calendar's events).
 - **Checks**: ONE check — `RoundCheck` (`app/components/RoundCheck.tsx`): grey
   circle open, green filled with a white tick done. Native checkboxes are
   drawn the same way by globals. Never hand-build a square checkbox.
@@ -322,7 +329,8 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
   nothing else in the portal. A band carries only figures that are true of the
   group — a per-item count like "owners" must be left blank there rather than
   summed, since a person holding two stakes would be counted twice.
-- **Named things are Title Case in UI copy** (owner: "more polished and
+- **Named things are Title Case in UI copy** — report names included: Laser
+  Statement, Credit Balance Report, Rent Roll, General Ledger (owner: "more polished and
   professional") — a line, account, document, report or section keeps its
   proper name: Payroll Budget, Management Fee, Debt Service, Rent Roll,
   Revenue by Tenant, Real Estate Taxes. The sentence around it stays sentence

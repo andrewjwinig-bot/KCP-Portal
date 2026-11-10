@@ -97,7 +97,7 @@ export default function OpenCreditsPage() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
-          <button className="btn" onClick={() => fileRef.current?.click()}><Upload {...ICON} /> Import Credit Balance report</button>
+          <button className="btn" onClick={() => fileRef.current?.click()}><Upload {...ICON} /> Import Credit Balance Report</button>
           <InfoPopover align="left"><ImportInstructions variant="credit-balance" /></InfoPopover>
         </div>
       </header>
@@ -108,9 +108,9 @@ export default function OpenCreditsPage() {
         <div className="muted small">
           {/* The same account Receipt Reconciliation reads: the Credit Balance
               report where it covers a property, else the laser statement. */}
-          {asOf && <>Credit Balance report as of <b>{longDate(asOf)}</b>, credits itemized with their dates. </>}
-          {data.laser && <>{asOf ? "Properties it doesn\u2019t cover" : "Credits"} are from the <b>laser statement</b> as of {longDate(data.laser.asOf)}, where they print as one undated total. Import the Credit Balance report to itemize them.</>}
-          {!asOf && !data.laser && <>No laser statement or Credit Balance report imported yet.</>}
+          {asOf && <>Credit Balance Report as of <b>{longDate(asOf)}</b>, credits itemized with their dates. </>}
+          {data.laser && <>{asOf ? "Properties it doesn\u2019t cover" : "Credits"} are from the <b>Laser Statement</b> as of {longDate(data.laser.asOf)}, where they print as one undated total. Import the Credit Balance Report to itemize them.</>}
+          {!asOf && !data.laser && <>No Laser Statement or Credit Balance Report imported yet.</>}
         </div>
       )}
 
@@ -170,7 +170,7 @@ export default function OpenCreditsPage() {
                             <td style={td}>{signed(t.charges)}</td>
                             <td style={{ ...td, fontWeight: 700 }}>{signed(t.net)}</td>
                             <td style={tdL}>
-                              {t.fromLaser && !t.oldestCredit ? <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>Not dated · laser statement</span> : shortDate(t.oldestCredit)}
+                              {t.fromLaser && !t.oldestCredit ? <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>Not dated · Laser Statement</span> : shortDate(t.oldestCredit)}
                               {t.oldestDays !== null && <span style={{ marginLeft: 6, fontSize: "var(--fs-12-5)", color: t.oldestDays >= OLD_DAYS ? "var(--c-b45309)" : "var(--muted)", fontWeight: t.oldestDays >= OLD_DAYS ? 700 : 400 }}>{t.oldestDays} days</span>}
                             </td>
                             <td style={tdL}>

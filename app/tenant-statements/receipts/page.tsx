@@ -196,7 +196,7 @@ export default function ReceiptReconciliationPage() {
     const val = (c: (typeof xs)[number]): number | string => {
       const a = ap.get(c.idx);
       switch (chSort.key) {
-        case "date": return c.idx; // the laser statement's printed order (oldest first)
+        case "date": return c.idx; // the Laser Statement's printed order (oldest first)
         case "charge": return c.description.toLowerCase();
         case "order": return orderSeq.get(c.idx) ?? 999;
         case "open": return c.amount;
@@ -213,9 +213,9 @@ export default function ReceiptReconciliationPage() {
   const freshness = useMemo(() => {
     const opts: { label: string; at: string; exact: boolean }[] = [];
     const laserAt = dataDates?.dataThrough ?? dataDates?.importedOn;
-    if (laserAt) opts.push({ label: dataDates?.source === "aging" ? "Credit Balance report" : "laser statement", at: laserAt, exact: !!dataDates?.dataThrough });
+    if (laserAt) opts.push({ label: dataDates?.source === "aging" ? "Credit Balance Report" : "Laser Statement", at: laserAt, exact: !!dataDates?.dataThrough });
     const ag = detail ? detail.aging : monthAging;
-    if (ag) opts.push({ label: "Credit Balance report", at: ag.runAt ?? `${ag.asOf}T12:00:00`, exact: !!ag.runAt });
+    if (ag) opts.push({ label: "Credit Balance Report", at: ag.runAt ?? `${ag.asOf}T12:00:00`, exact: !!ag.runAt });
     if (!opts.length) return null;
     const best = opts.sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime())[0];
     const dayOf = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
@@ -303,7 +303,7 @@ export default function ReceiptReconciliationPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input ref={creditFileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importCredits(f); }} />
-          <button className="btn" onClick={() => creditFileRef.current?.click()}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> Import Credit Balance report</button>
+          <button className="btn" onClick={() => creditFileRef.current?.click()}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> Import Credit Balance Report</button>
           <InfoPopover align="left"><ImportInstructions variant="credit-balance" /></InfoPopover>
         </div>
         <div className="pills" style={{ margin: 0 }}>
@@ -315,7 +315,7 @@ export default function ReceiptReconciliationPage() {
       {error && <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
 
       {/* How current the page is: the NEWER of the laser statement and the
-          Credit Balance report (owner: "whichever was imported last should
+          Credit Balance Report (owner: "whichever was imported last should
           be the most recent data"). Tight on purpose — one line, one action. */}
       {freshness && (
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))", background: "var(--tint-amber-bg, rgba(217,119,6,0.08))", borderRadius: 12, padding: "12px 16px" }}>
@@ -325,7 +325,7 @@ export default function ReceiptReconciliationPage() {
               Most recent data: the {freshness.label}, {freshness.exact ? "run" : "imported"} {etStamp(freshness.at, freshness.exact)} · {freshness.days === 0 ? "today" : `${freshness.days} day${freshness.days === 1 ? "" : "s"} old`}
             </div>
             <div className="small">
-              To get current, import a fresh Credit Balance report. Every tenant with a credit: <a className="text-link" href="/tenant-statements/credits">Open Credits</a>.
+              To get current, import a fresh Credit Balance Report. Every tenant with a credit: <a className="text-link" href="/tenant-statements/credits">Open Credits</a>.
             </div>
           </div>
         </div>

@@ -2652,8 +2652,7 @@ function SubLineRow({
         }}
       >
         <td style={{
-          paddingLeft: indent,
-          borderLeft: "3px solid #0b4a7d",
+          paddingLeft: indent, 
           color: line.isSubtotal ? "var(--c-0b4a7d)" : undefined,
         }}>
           {showGL && line.glAccount && (

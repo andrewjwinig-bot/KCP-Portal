@@ -50,7 +50,7 @@ export function OpenCreditsCard({ tracker, notes, applications, period, readOnly
     return (
       <div className="card">
         <div style={SECTION}>Open Credit Tracker</div>
-        <div className="muted small" style={{ marginTop: 6 }}>No tenant carries a credit on this month&rsquo;s laser statement.</div>
+        <div className="muted small" style={{ marginTop: 6 }}>No tenant carries a credit on this month&rsquo;s Laser Statement.</div>
       </div>
     );
   }
@@ -225,7 +225,7 @@ function CreditDetail({ r, app, period, readOnly, onChanged }: {
             <AppliedTable lines={app.lines} />
             <div className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 6 }}>
               Recorded {app.by ? `by ${app.by} ` : ""}{new Date(app.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}.
-              Key these in Skyline; the next laser statement shows the credit {app.applied >= r.credit - 0.005 ? "gone" : `down to ${money2(r.credit - app.applied)}`}.
+              Key these in Skyline; the next Laser Statement shows the credit {app.applied >= r.credit - 0.005 ? "gone" : `down to ${money2(r.credit - app.applied)}`}.
             </div>
             {!readOnly && <button className="btn sm" style={{ marginTop: 8 }} disabled={busy} onClick={undo}>{busy ? "Undoing…" : "Undo"}</button>}
           </div>

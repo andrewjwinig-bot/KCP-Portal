@@ -312,7 +312,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
   const body = (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "80px 16px", overflowY: "auto" }}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Leasing decision for ${unitRef}`}
-        style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: `3px solid ${tone.border}` }}>
+        style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 520, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
           <div>
             <div style={{ ...secLabel, color: tone.fg }}>{owner.label}&rsquo;s call · {mode === "vacant" ? "vacant space" : mode === "contracted" ? "lease in place" : holdover ? "holdover" : "expiring lease"}</div>

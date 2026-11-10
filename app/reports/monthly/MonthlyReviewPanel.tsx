@@ -224,7 +224,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
               const accent = GROUP_ACCENT[grp.key] ?? BRAND;
               const v = grp.noiActual != null && grp.noiBudget != null ? grp.noiActual - grp.noiBudget : null;
               return (
-                <div key={grp.key} className="card" style={{ borderTop: `3px solid ${accent}` }}>
+                <div key={grp.key} className="card" style={{  }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
                     <span style={{ fontWeight: 800, color: accent }}>{grp.label}</span>
                     <span className="muted small">{sf(Math.round(grp.totalSqft))} sf · {grp.units} units</span>

@@ -50,7 +50,7 @@ export function TenantDetailModal({ r, est, year, onClose }: {
   const body = (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "70px 16px", overflowY: "auto" }}>
       <div onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`${r.tenant || "Vacant"} ${r.unitRef}`}
-        style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 720, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+        style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 720, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
           <div>
             <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
