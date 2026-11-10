@@ -10,15 +10,17 @@ import Link from "next/link";
 import { ChevronRight, Circle, CircleCheck } from "lucide-react";
 import type { MonthClose } from "@/lib/close/monthClose";
 
-export default function MonthCloseCard() {
-  const [data, setData] = useState<MonthClose | null>(null);
+export default function MonthCloseCard({ close }: { close?: MonthClose | null } = {}) {
+  const [own, setData] = useState<MonthClose | null>(null);
   const [failed, setFailed] = useState(false);
+  const data = close !== undefined ? close : own;
   useEffect(() => {
+    if (close !== undefined) return;
     fetch("/api/close", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then(setData)
       .catch(() => setFailed(true));
-  }, []);
+  }, [close]);
   if (failed) return null;
   const items = data?.sections.flatMap((s) => s.items) ?? [];
   const openItems = items.filter((i) => !i.done);

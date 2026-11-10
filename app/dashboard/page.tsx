@@ -34,6 +34,8 @@ import DebtSummaryCard from "./DebtSummaryCard";
 import MgmtFeesChartCard from "./MgmtFeesChartCard";
 import MonthCloseCard from "./MonthCloseCard";
 import LeaseMovementCard from "./LeaseMovementCard";
+import WorkQueue from "./WorkQueue";
+import { useStudioSkin } from "@/app/components/SkinToggle";
 import { Pill, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
@@ -218,6 +220,8 @@ function DashboardInner() {
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
   const isAdmin = user.id === "admin";
+  const studio = useStudioSkin();
+  const queueOn = studio && (user.id === "drew" || user.id === "admin");
   const isMarie = user.id === "marie";
   const isAlison = user.id === "alison";
   const isHarryUser = user.id === "harry";
@@ -656,14 +660,19 @@ function DashboardInner() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+      {/* Drew's WORK QUEUE (the canvas's "Work Queue" board) — the new look
+          only, so switching back to classic brings the old layout back. It
+          absorbs Tasks This Week, Data Imports, the Month Close card and
+          Pending Close-Outs; the rest of the dashboard follows below it. */}
+      {queueOn && <WorkQueue firstName={isAdmin ? "Admin" : "Drew"} />}
+      {!queueOn && <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <h1>Dashboard</h1>
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
           <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
-      </header>
+      </header>}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
         {/* ── Pending reservation requests (anyone with reservations access) ── */}
@@ -1041,19 +1050,19 @@ function DashboardInner() {
         {/* ── Each person's own tasks, saved-status and imports ── */}
         {/* Each sees their OWN tasks (owner: Harry doesn't need Drew's) — the
             credit-card statement, payroll and the commissions are Harry's. */}
-        {(user.id === "drew" || user.id === "harry" || user.id === "nancy") && <DrewTasksThisWeek owner={user.id === "harry" ? "harry" : user.id === "nancy" ? "nancy" : "drew"} />}
+        {!queueOn && (user.id === "drew" || user.id === "harry" || user.id === "nancy") && <DrewTasksThisWeek owner={user.id === "harry" ? "harry" : user.id === "nancy" ? "nancy" : "drew"} />}
         {(user.id === "drew" || user.id === "harry") && <DailyDigestModal userId={user.id} owner={user.id === "harry" ? "harry" : "drew"} />}
         {/* No Allocated Expenses card for Drew (owner): the AP Outbox shows the
             batch once it reaches AvidXchange, and flags it if it was generated
             but never sent. */}
         {user.id === "harry" && <DrewSavedStatus rows={["payroll", "cc"]} />}
         {/* Month-end close — Drew + admin while he reviews it (/close). */}
-        {(user.id === "drew" || isAdmin) && <MonthCloseCard />}
-        {(user.id === "drew" || user.id === "harry" || isAdmin) && <ImportsToDoCard owner={user.id === "harry" ? "harry" : user.id === "drew" ? "drew" : undefined} />}
+        {!queueOn && (user.id === "drew" || isAdmin) && <MonthCloseCard />}
+        {!queueOn && (user.id === "drew" || user.id === "harry" || isAdmin) && <ImportsToDoCard owner={user.id === "harry" ? "harry" : user.id === "drew" ? "drew" : undefined} />}
         {/* Not Harry: the statements it reports on (and links to) are not his. */}
         {(user.id === "drew" || isAdmin) && <NotPostedCard order={-1} />}
         {(user.id === "drew" || user.id === "harry" || user.id === "marie" || isAdmin) && <ApOutboxCard order={-1} />}
-        {(user.id === "drew" || user.id === "harry" || user.id === "nancy" || user.id === "marie" || isAdmin) && <MoveOutsCard order={-1} />}
+        {!(queueOn) && (user.id === "drew" || user.id === "harry" || user.id === "nancy" || user.id === "marie" || isAdmin) && <MoveOutsCard order={-1} />}
         {(user.id === "harry" || isAdmin) && <NewTenantsCard order={-1} />}
 
         {/* ── New Bank Transfers — surface recent transfers for admin /

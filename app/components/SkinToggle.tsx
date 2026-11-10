@@ -83,3 +83,19 @@ export default function SkinToggle() {
     </button>
   );
 }
+
+/** True while the new look is on (`<html data-skin="studio">`), following the
+ *  toggle live. Layout that only exists in the new look (Drew's work queue)
+ *  reads this, so switching back to classic brings the old page back. */
+export function useStudioSkin(): boolean {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const el = document.documentElement;
+    const read = () => setOn(el.dataset.skin === "studio");
+    read();
+    const mo = new MutationObserver(read);
+    mo.observe(el, { attributes: true, attributeFilter: ["data-skin"] });
+    return () => mo.disconnect();
+  }, []);
+  return on;
+}
