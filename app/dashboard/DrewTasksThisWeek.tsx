@@ -2,6 +2,7 @@
 
 import { ChevronRight, CircleCheck, Flag, Plus } from "lucide-react";
 import { RoundCheck } from "@/app/components/RoundCheck";
+import { ImportStepsButton } from "@/app/components/ImportStepsButton";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence, type TaskOwner } from "../../lib/tracker/taskDefs";
@@ -214,7 +215,7 @@ export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwne
                   <Link key={r.id} href={r.link} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.28))", background: "var(--tint-amber-bg, rgba(180,83,9,0.06))", textDecoration: "none", color: "inherit" }}>
                     <span style={{ width: 9, height: 9, borderRadius: 999, background: "var(--c-b45309)", flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--c-7c3d06)" }}>{r.label}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--c-7c3d06)" }}>{r.label}<ImportStepsButton id={r.id} /></div>
                       <div className="muted small" style={{ marginTop: 1 }}>feeds {r.feeds}</div>
                     </div>
                     <div style={{ flexShrink: 0, fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-b45309)" }}>{r.when}</div>
