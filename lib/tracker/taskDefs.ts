@@ -851,9 +851,21 @@ export function lastFridayOfMonth(year: number, month: number): number {
 
 // Resolve computed due day (handles endOfMonth and lastFriday)
 export function effDay(t: TaskDef, year: number, month: number): number {
-  if (t.endOfMonth) return daysInMonth(year, month);
+  if (t.endOfMonth) return workday(year, month, daysInMonth(year, month));
   if (t.lastFriday) return lastFridayOfMonth(year, month);
-  return t.dueDay;
+  return t.dueDay ? workday(year, month, t.dueDay) : t.dueDay;
+}
+
+/** A due date on a Saturday or Sunday moves to the next work day — Monday
+ *  (owner: Liberty Bank Report and LHSC Cushman are due the 15th). One that
+ *  would leave the month (end of month on a weekend) moves back to Friday,
+ *  so a task stays in its own month. */
+export function workday(year: number, month: number, day: number): number {
+  const dow = new Date(year, month, day).getDay();
+  if (dow !== 0 && dow !== 6) return day;
+  const fwd = day + (dow === 6 ? 2 : 1);
+  if (fwd <= daysInMonth(year, month)) return fwd;
+  return day - (dow === 6 ? 1 : 2);
 }
 
 // Human-readable due date label for status badge
@@ -864,7 +876,7 @@ export function dueName(t: TaskDef, year: number, monthIdx: number): string {
     return `Last Fri (${MONTHS[monthIdx].slice(0, 3)} ${d})`;
   }
   if (t.approxDay)  return `~${t.dueDay}th`;
-  return `${MONTHS[monthIdx].slice(0, 3)} ${t.dueDay}`;
+  return `${MONTHS[monthIdx].slice(0, 3)} ${effDay(t, year, monthIdx)}`;
 }
 
 

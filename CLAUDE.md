@@ -57,6 +57,11 @@ and Commissions batch sent to AvidXchange ("visible so i can see if they went
 out … just not on Drew to be the one to do it"). Drew's saved-status card is
 Allocated Expenses only; Harry's is Payroll + Credit Card.
 
+**A TASK DUE ON A WEEKEND IS DUE THE NEXT WORK DAY** (`workday` in
+`taskDefs.ts`, applied by `effDay`; owner: "push it to the next work day
+usually Monday" — Liberty Bank Report and LHSC Cushman on the 15th). One that
+would leave its month (end of month on a Saturday) moves back to Friday.
+
 **Pay Avid Bills appears ON ITS WEDNESDAY, not on Monday** (`showFromDueDay`
 on the task; owner: "we dont pay until wednesday each week").
 `taskOccurrencesBetween(start, end, now)` leaves such a task off every week

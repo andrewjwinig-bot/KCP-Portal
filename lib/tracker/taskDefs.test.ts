@@ -28,3 +28,19 @@ describe("Bank Balances — every Monday, ticked by the import", () => {
     expect(bankTaskOccurrence(new Date("2026-12-01T15:00:00Z"))).toEqual({ year: 2026, month0: 10, id: "w-bank-2026-11-30" });
   });
 });
+
+describe("weekend due dates move to the next work day", () => {
+  it("rolls the 15th (a Sunday in November 2026) to Monday the 16th", async () => {
+    const { effDay, dueName, TASK_DEFS: TASKS } = await import("./taskDefs");
+    const lbr = TASKS.find((t) => t.id === "m-lbr")!;
+    expect(effDay(lbr, 2026, 10)).toBe(16);
+    expect(dueName(lbr, 2026, 10)).toBe("Nov 16");
+    // A weekday due date is untouched (October 15 2026 is a Thursday).
+    expect(effDay(lbr, 2026, 9)).toBe(15);
+  });
+  it("keeps an end-of-month task in its month (Saturday 10/31/2026 → Friday the 30th)", async () => {
+    const { workday } = await import("./taskDefs");
+    expect(workday(2026, 9, 31)).toBe(30);
+    expect(workday(2026, 10, 14)).toBe(16);
+  });
+});
