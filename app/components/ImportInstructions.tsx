@@ -10,7 +10,7 @@ const LABEL: React.CSSProperties = {
   fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 
-export function ImportInstructions({ stop, variant = "charges" }: { stop?: boolean; variant?: "charges" | "statements" | "budget-rent" }) {
+export function ImportInstructions({ stop, variant = "charges" }: { stop?: boolean; variant?: "charges" | "statements" | "budget-rent" | "credit-balance" }) {
   // variant "budget-rent" — pulling next year's SCHEDULED rent out of Skyline
   // for the budget. The two warnings are not decoration: both were handwritten
   // notes in the margin of the 2026 workbook, which is to say both have
@@ -40,6 +40,23 @@ export function ImportInstructions({ stop, variant = "charges" }: { stop?: boole
               The export can quietly leave a centre out — the 2026 workbook was missing 1100 and 1500 and it was caught by eye. The importer names any centre it did not receive, and any unit whose rent came through blank.
             </div>
           </li>
+        </ol>
+      </div>
+    );
+  }
+
+  // variant "credit-balance" — the itemized open credits (and every open item
+  // of a tenant carrying one), for Receipt Reconciliation and Open Credits.
+  if (variant === "credit-balance") {
+    const step = <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />;
+    return (
+      <div style={{ marginTop: 14 }}>
+        <div style={LABEL}>Skyline Export Steps</div>
+        <ol style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: "var(--fs-12-5)", color: "var(--muted)", lineHeight: 1.7 }}>
+          <li>Skyline <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> <strong>Property Management</strong> {step} <strong>Reports</strong> {step} <strong>Financial Reports</strong> {step} <strong>Credit Balance</strong>.</li>
+          <li>When it opens, set <strong>Occupants to Include</strong> to <strong>Any With Open Credits</strong> and hit <strong>Preview</strong>.</li>
+          <li>Once it has run: <strong>Export</strong> {step} the third option from the top, <strong>Microsoft Excel (97-2003) (.xls)</strong>, and save.</li>
+          <li>Upload the .xls here <strong>unmodified</strong>. Every credit comes in with its description and date, and every tenant is checked against the balance Skyline printed.</li>
         </ol>
       </div>
     );

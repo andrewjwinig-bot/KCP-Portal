@@ -20,6 +20,10 @@ export type ReceiptRec = {
   unitRef: string;
   tenantName: string;
   propertyCode: string;
+  /** The Aging Report (its as-of date) the plan was worked on, when it was
+   *  read instead of the laser statement — a later re-derivation reads the
+   *  same figures. Absent: the laser statement alone. */
+  agingAsOf?: string;
   amount: number;
   receivedISO: string;
   checkNo: string | null;
