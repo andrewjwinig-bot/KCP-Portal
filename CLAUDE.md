@@ -186,6 +186,22 @@ close (bank recs, Avid sends, close-outs by `who`), unsent AvidXchange batches
 and the month's flags. Approve / Send back / comments in place need the shared
 queue store — until then a row opens the page that does it.
 
+# Every import prompt carries an (i) with its steps
+
+Owner, 11/2026: "next to import prompts should be a little info i icon that has
+the steps … to help guide someone to access the report or file". ANY place the
+portal asks someone to import a file — the work queue, Data Imports, Files to
+Import This Week, the Month Close card, /close — shows `ImportStepsButton`
+(`app/components/ImportStepsButton.tsx`) beside the title: click for where the
+file comes from (a menu path), the numbered steps, a one-line note, and a link
+to the page that imports it. The steps live in ONE place,
+`lib/tracker/importSteps.ts` (`IMPORT_STEPS`, keyed by the import reminder's id;
+`CLOSE_ITEM_STEPS` maps the close checklist's ids) — never re-type steps on a
+page. A new import reminder needs its entry there (`importSteps.test.ts` fails
+without one), and a new import prompt anywhere takes the icon. The Credit Card
+(AmEx) and Payroll Register entries are a first pass — confirm the source
+system's menus with Harry and correct them there.
+
 # UI consistency — pills, badges, fonts, sizes
 
 The user has flagged repeated drift in pill / chip / badge styling across new pages. Do NOT re-invent chip styles inline. Always use the shared primitives:

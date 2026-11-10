@@ -6,6 +6,8 @@
 // its sweep is too slow for the dashboard.
 
 import { useEffect, useState } from "react";
+import { ImportStepsButton } from "@/app/components/ImportStepsButton";
+import { CLOSE_ITEM_STEPS } from "@/lib/tracker/importSteps";
 import Link from "next/link";
 import { ChevronRight, Circle, CircleCheck } from "lucide-react";
 import type { MonthClose } from "@/lib/close/monthClose";
@@ -45,7 +47,7 @@ export default function MonthCloseCard({ close }: { close?: MonthClose | null } 
           {it.done
             ? <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" aria-label="Done" />
             : <Circle size={20} strokeWidth={1.75} color="var(--c-98a2b3)" aria-label="Open" />}
-          <span style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>{it.label}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: "var(--fs-14)" }}>{it.label}{CLOSE_ITEM_STEPS[it.id] && <ImportStepsButton id={CLOSE_ITEM_STEPS[it.id]} />}</span>
           <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: it.done ? "var(--c-067647)" : "var(--c-b54708)", textAlign: "right" }}>{it.status}</span>
         </Link>
       ))}

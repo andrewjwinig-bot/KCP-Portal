@@ -6,6 +6,8 @@
 // see lib/close/monthClose.ts. Sign-off opens when nothing is left.
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { ImportStepsButton } from "@/app/components/ImportStepsButton";
+import { CLOSE_ITEM_STEPS } from "@/lib/tracker/importSteps";
 import Link from "next/link";
 import { ChevronDown, ChevronRight, Circle, CircleCheck, LoaderCircle } from "lucide-react";
 import type { MonthClose, CloseItem } from "@/lib/close/monthClose";
@@ -132,7 +134,10 @@ export default function MonthClosePage() {
                       ? <CircleCheck size={22} strokeWidth={1.75} color="var(--c-067647)" aria-label="Done" />
                       : <Circle size={22} strokeWidth={1.75} color="var(--c-98a2b3)" aria-label="Open" />}
                     <div style={{ minWidth: 0, display: "grid", gap: 1 }}>
-                      <Link href={it.link} onClick={(e) => e.stopPropagation()} style={{ fontWeight: 600, fontSize: "var(--fs-14)", color: "inherit", textDecoration: "none" }}>{it.label}</Link>
+                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <Link href={it.link} onClick={(e) => e.stopPropagation()} style={{ fontWeight: 600, fontSize: "var(--fs-14)", color: "inherit", textDecoration: "none" }}>{it.label}</Link>
+                        {CLOSE_ITEM_STEPS[it.id] && <ImportStepsButton id={CLOSE_ITEM_STEPS[it.id]} />}
+                      </span>
                       <span style={{ color: "var(--muted)", fontSize: "var(--fs-13)" }}>{[it.owner, it.due].filter(Boolean).join(" · ")}</span>
                     </div>
                     <span style={{ fontWeight: 700, fontSize: "var(--fs-14)", color: it.done ? "var(--c-067647)" : "var(--c-b54708)", textAlign: "right" }}>{it.status}</span>

@@ -8,6 +8,7 @@ import { Circle, CircleCheck } from "lucide-react";
 // glance what still needs importing. Styled to match DrewSavedStatus.
 
 import { useEffect, useState } from "react";
+import { ImportStepsButton } from "@/app/components/ImportStepsButton";
 import Link from "next/link";
 import { HoverCard } from "@/app/components/HoverCard";
 import type { TaskOwner } from "@/lib/tracker/taskDefs";
@@ -53,7 +54,7 @@ export default function ImportsToDoCard({ owner }: { owner?: TaskOwner } = {}) {
           const ev = events?.[r.id];
           const cov = coverage[r.id];
           const status = reminderStatus(r, ev?.at, new Date(), cov);
-          return <Row key={r.id} title={r.label} link={r.link} loading={events == null}
+          return <Row key={r.id} id={r.id} title={r.label} link={r.link} loading={events == null}
             status={status} when={r.when} period={reminderPeriodLabel(r, new Date())} ev={ev} coverage={cov} />;
         })}
       </div>
@@ -78,6 +79,7 @@ const EDGE: Record<ReminderStatus, { border: string; bg: string }> = {
 };
 
 function Row({
+  id,
   title,
   link,
   loading,
@@ -87,6 +89,7 @@ function Row({
   ev,
   coverage,
 }: {
+  id: string;
   title: string;
   link: string;
   loading: boolean;
@@ -133,6 +136,7 @@ function Row({
             biggest, most obvious thing to click. */}
         <Link href={link} style={{ fontWeight: 700, fontSize: "var(--fs-14)", color: "inherit", textDecoration: "none" }}
           className="row-link">{title}</Link>
+        <ImportStepsButton id={id} />
         {/* A count only means something when there is more than one thing to
             import (the GL's properties); a single statement run is in or not. */}
         {!loading && coverage && coverage.total > 1 && (

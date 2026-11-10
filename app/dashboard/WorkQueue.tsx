@@ -18,10 +18,14 @@ import { RoundCheck } from "@/app/components/RoundCheck";
 import { TaskModal } from "@/app/components/MyTasks";
 import MonthCloseCard from "./MonthCloseCard";
 import { taskOccurrencesBetween, type TaskOccurrence, type TaskOwner } from "@/lib/tracker/taskDefs";
+import { ImportStepsButton } from "@/app/components/ImportStepsButton";
 import { IMPORT_REMINDERS, reminderStatus, reminderPeriodLabel, type ImportCoverage, type ImportEvent } from "@/lib/tracker/imports";
 import { openBucketOf, parseDueDate, priorityOf, type Priority, type Repeat, type Todo } from "@/lib/todos/types";
 import type { MonthClose, CloseItem } from "@/lib/close/monthClose";
 import type { CloseDetail } from "@/lib/close/monthCloseMath";
+
+/** A tracker task that IS an import (the Bank Balances Monday task). */
+const TASK_IMPORT: Record<string, string> = { "w-bank": "imp-bank" };
 
 type Bucket = "overdue" | "today" | "week" | "later";
 type Tone = "red" | "amber" | "brand" | "neutral" | "green";
@@ -44,6 +48,8 @@ type Q = {
   toggle?: () => void;
   trail?: { text: string; at: string }[];
   left?: CloseDetail[];
+  /** Import steps id (`lib/tracker/importSteps.ts`) — draws the (i) beside the title. */
+  steps?: string;
 };
 
 const TONE: Record<Tone, { bg: string; fg: string }> = {
@@ -186,6 +192,7 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
         title: o.label, meta: "Recurring", source: mine ? "Task Tracker" : `${o.owner[0].toUpperCase()}${o.owner.slice(1)}'s task`,
         bucket: bucketOf(startOfDay(o.date), now), dueText: dueOf(startOfDay(o.date), now), href: o.link ?? "/tracker",
         who: mine ? "me" : `${o.owner[0].toUpperCase()}${o.owner.slice(1)}`, done, toggle: mine ? () => toggleOcc(o) : undefined,
+        steps: TASK_IMPORT[o.id],
       });
     }
     for (const t of todos) {
@@ -211,7 +218,7 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
         meta: cov && cov.total > 1 ? `${cov.done} of ${cov.total} in${cov.behind.length ? ` · still to import: ${cov.behind.slice(0, 6).join(", ")}${cov.behind.length > 6 ? "…" : ""}` : ""}` : r.feeds,
         source: "Auto · import schedule", bucket: st === "overdue" ? "overdue" : st === "due" ? "today" : "later",
         dueText: st === "overdue" ? "Overdue" : st === "due" ? "Due now" : r.when, href: r.link, action: "Import",
-        who: "me", done: st === "done",
+        who: "me", done: st === "done", steps: r.id,
       });
     }
     for (const u of unsent) {
@@ -235,7 +242,7 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
       out.push({
         id: "bankrec", kind: "Bank recs", icon: Landmark, tone: rec.detail.some((d) => d.meta === "out of balance") ? "red" : "amber",
         title: `${closeLabel} bank recs — ${rec.status}`, meta: rec.detail.slice(0, 2).map((d) => `${d.text} ${d.meta ?? ""}`.trim()).join(" · ") || "Drop the month's statements on Bank Recs",
-        source: "Auto · Bank Recs", bucket: "week", dueText: "This week", href: rec.link, action: "Open rec", who: "me", left: rec.detail,
+        source: "Auto · Bank Recs", bucket: "week", dueText: "This week", href: rec.link, action: "Open rec", who: "me", left: rec.detail, steps: "bankrec",
       });
     }
     for (const id of ["allocated", "cc", "payroll", "commissions"]) {
@@ -335,7 +342,10 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
                       ? <span style={{ display: "flex", justifyContent: "center" }}><RoundCheck done={!!q.done} onToggle={q.toggle} label={`Mark ${q.title} done`} /></span>
                       : <span style={{ width: 34, height: 34, borderRadius: 999, background: t.bg, color: t.fg, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={16} strokeWidth={1.75} /></span>}
                     <div style={{ minWidth: 0, display: "grid", gap: 1 }}>
-                      <span style={{ fontWeight: 600, fontSize: "var(--fs-14)", textDecoration: q.done ? "line-through" : undefined }}>{q.title}</span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: "var(--fs-14)" }}>
+                        <span style={{ textDecoration: q.done ? "line-through" : undefined }}>{q.title}</span>
+                        {q.steps && <ImportStepsButton id={q.steps} />}
+                      </span>
                       {q.meta && <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>{q.meta}</span>}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
