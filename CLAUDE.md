@@ -170,9 +170,17 @@ until he approves it for everyone; build EVERY new or touched UI to it.
   any check that passed in words with its icon ("GL ties" + CircleCheck, a
   `HoverCard` for the detail), and the (i) for import steps. A check never
   floats as a pill in the tile row.
-- **Imports are a white `.btn` with the Lucide `Upload` icon, labelled
-  "Import <thing>"** (Import GL, Import Credit Balance Report). Navy
-  `.btn.primary` is for the page's one forward action, never an upload.
+- **Imports are `.btn.import` with the Lucide `Upload` icon, labelled
+  "Import <thing>"** (Import GL, Import Rent Roll, Import Laser Statement,
+  Import Credit Balance Report): a SOFT NAVY TINT, so it reads apart from the
+  white dropdowns and menus without competing with a primary action (owner:
+  "if all the dropdowns are white then should the import button be a color?
+  … more subtle but still some sort of contrast"). It sits on the LEFT,
+  straight after the property / period pickers it imports for; Display, Open
+  and Export go right. Navy `.btn.primary` is for the page's one forward
+  action, never an upload.
+- **The page's driving `select-brand` reads at 17px** (card-title size; its
+  options stay 15px) — owner: the property name read too small.
 - **Settings someone rarely changes live in the Display menu**, not on the
   page: the variance-highlight thresholds, "Import monthly totals only".
   How-to text ("Import the Detailed General Ledger…") lives in the (i).

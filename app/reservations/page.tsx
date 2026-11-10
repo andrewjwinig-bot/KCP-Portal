@@ -1,5 +1,5 @@
 "use client";
-import { ChevronRight, X } from "lucide-react";
+import { ChevronRight, X, Sparkles } from "lucide-react";
 
 import { TabButton } from "@/app/components/TabButton";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -490,7 +490,7 @@ function ReservationModal({
                     textAlign: "left", lineHeight: 1.35,
                   }}
                 >
-                  ✨ Use “{tenantSuggestion.name}
+                  <Sparkles size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0, verticalAlign: "-3px", marginRight: 4 }} />Use “{tenantSuggestion.name}
                   {tenantSuggestion.units.length === 1
                     ? ` · ${tenantSuggestion.units[0].unitRef}`
                     : ` · ${tenantSuggestion.units.length} suites`}”
@@ -510,7 +510,7 @@ function ReservationModal({
                   <option value="">Match to a tenant (optional)…</option>
                   {companies.map((c) => (
                     <option key={c.name} value={c.name}>
-                      {c.name === tenantSuggestion?.name ? "✨ " : ""}
+                      {c.name === tenantSuggestion?.name ? "Suggested: " : ""}
                       {c.units.length === 1 ? `${c.name} · ${c.units[0].unitRef}` : `${c.name} · ${c.units.length} suites`}
                     </option>
                   ))}

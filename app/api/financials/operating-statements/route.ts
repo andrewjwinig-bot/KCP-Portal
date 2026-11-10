@@ -5,7 +5,7 @@ import { computeStatement } from "@/lib/financials/operating-statements/compute"
 import { monthlyStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { saveGl, getGl, versionsFor, listFullGls, mergeAccountNames, getNotesBundle, saveNote, saveTransactions, getDismissedFlags, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
-import { assembleGls, postedThrough, reconcileGlFiles } from "@/lib/financials/operating-statements/glAssemble";
+import { assembleGls, closedThrough, postedThrough, reconcileGlFiles } from "@/lib/financials/operating-statements/glAssemble";
 import { detectPostingFormat, parsePostingReport } from "@/lib/financials/operating-statements/postingReport";
 import { savePostingDelta, type PostingDelta } from "@/lib/financials/operating-statements/postingDeltaStore";
 import crypto from "node:crypto";
@@ -70,9 +70,11 @@ export async function GET(req: Request) {
   const latestByKey = new Map<string, { year: number; period: number }>();
   for (const [k, ym] of byKeyYear) {
     const latestYear = Math.max(...ym.keys());
-    const asm = assembleGls(ym.get(latestYear)!);
-    // POSTED through, not last ACTIVE — a dormant property is current, not behind.
-    if (asm) latestByKey.set(k, { year: latestYear, period: postedThrough(asm) });
+    const files = ym.get(latestYear)!;
+    const asm = assembleGls(files);
+    // POSTED through, not last ACTIVE — a dormant property is current, not
+    // behind — and never a month that had not ended when it was imported.
+    if (asm) latestByKey.set(k, { year: latestYear, period: closedThrough(asm, latestYear, files) });
   }
   const available = mappings.map((m) => ({
     key: m.key,

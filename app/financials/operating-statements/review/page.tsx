@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 
 // Flags to Investigate — built for a REVIEW SESSION.
 //
@@ -367,7 +367,7 @@ export default function OperatingStatementsReviewPage() {
           <YearSelect value={year} years={[thisYear - 2, thisYear - 1, thisYear]} onChange={(y) => { setYear(y); setPropKey(null); setResolved(new Set()); }} suffix="" tone="neutral" aria-label="Year" />
           <button className="btn ai" onClick={() => runExplain(pairsFor(flat))} disabled={!portfolioOpen || !!explaining}
             title="Write an AI note for every flagged line across every property (skips lines already explained unless re-explain is ticked)">
-            ✨ Explain all properties
+            <Sparkles size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0, verticalAlign: "-3px", marginRight: 4 }} />Explain All Properties
           </button>
           <label className="muted small" style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }} title="Re-run even on lines already explained (uses tokens again). Notes you wrote are never overwritten.">
             <input type="checkbox" checked={forceReexplain} onChange={(e) => setForceReexplain(e.target.checked)} />
@@ -434,7 +434,7 @@ export default function OperatingStatementsReviewPage() {
             {prop && unexplained > 0 && (
               <button className="btn ai" disabled={!!explaining} onClick={() => runExplain(pairsFor([prop]))}
                 title="Write an AI note for this property's flagged lines that don't have one yet">
-                ✨ Explain {unexplained} line{unexplained === 1 ? "" : "s"}
+                <Sparkles size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0, verticalAlign: "-3px", marginRight: 4 }} />Explain {unexplained} Line{unexplained === 1 ? "" : "s"}
               </button>
             )}
           </div>
@@ -562,7 +562,7 @@ function ItemRow({ it, resolved, busy, editing, onEdit, onSaveNote, onResolve, h
             )}
             {it.note ? (
               <div>
-                {it.noteSource === "ai" && <span style={{ marginRight: 6 }}><Pill tone={TONE_PURPLE}>✨ AI</Pill></span>}
+                {it.noteSource === "ai" && <span style={{ marginRight: 6 }}><Pill tone={TONE_PURPLE}>AI</Pill></span>}
                 <span>{it.note}</span>
               </div>
             ) : !missing && !it.billing && (

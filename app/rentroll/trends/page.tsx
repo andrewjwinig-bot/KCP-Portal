@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Upload } from "lucide-react";
 import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useMemo, useState } from "react";
@@ -192,18 +192,18 @@ export default function TrendsPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <label
-            className="btn"
+            className="btn import"
             style={{ cursor: "pointer", margin: 0 }}
             title="Adds a historical snapshot for charts. Does NOT change the current rent roll on /rentroll."
           >
-            {uploading ? "Uploading…" : "Upload past month"}
+            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{uploading ? "Importing" : "Import Past Month"}
             <input type="file" accept=".xls,.xlsx" onChange={uploadHistorical} disabled={uploading} style={{ display: "none" }} />
           </label>
           <a href="/api/rentroll/trends/export" className="btn">Export Excel</a>
         </div>
       </header>
       <div className="muted small" style={{ marginTop: -4 }}>
-        Use <b>Upload past month</b> to add older rent rolls for trends — the current rent roll on /rentroll stays put.
+        Use <b>Import Past Month</b> to add older rent rolls for trends — the current rent roll on /rentroll stays put.
       </div>
 
       {/* Horizon toggle */}

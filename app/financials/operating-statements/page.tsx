@@ -852,7 +852,7 @@ export default function OperatingStatementsPage() {
                 Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
               </div>
             </div>
-            <button className="btn" style={{ flexShrink: 0 }} onClick={() => fileRef.current?.click()}>
+            <button className="btn import" style={{ flexShrink: 0 }} onClick={() => fileRef.current?.click()}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import GL
             </button>
           </div>
@@ -879,12 +879,12 @@ export default function OperatingStatementsPage() {
       )}
 
       <div className="card">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div {...glDrop.dropHandlers} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", borderRadius: 10, outline: glDrop.dragging ? "2px dashed var(--brand)" : "none", outlineOffset: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
             {/* Property + Year are always rendered and kept first so the
                 conditional Month select never reflows them. The property is
                 the control the page is driven by, so it is the brand select. */}
-            <select className="select-brand" aria-label="Property" value={key} onChange={(e) => { setKey(e.target.value); setPeriod(0); setFlagFilter(null); }}>
+            <select className="select-brand" aria-label="Property" style={{ maxWidth: 320 }} value={key} onChange={(e) => { setKey(e.target.value); setPeriod(0); setFlagFilter(null); }}>
               {!cur && <option value="">Choose a property</option>}
               {groupStatementOptions(available).map((grp) => (
                 <optgroup key={grp.label} label={grp.label}>
@@ -905,16 +905,13 @@ export default function OperatingStatementsPage() {
                 <option value={FULL_YEAR}>{maxPeriod >= 12 ? "Full Year" : "Year to Date"}</option>
               </select>
             )}
+            {/* Import sits beside the pickers it imports for (owner). */}
+            <button className="btn import" onClick={() => fileRef.current?.click()}>
+              <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
+              {glDrop.dragging ? "Drop to import" : "Import GL"}
+            </button>
           </div>
-          <div
-            {...glDrop.dropHandlers}
-            style={{
-              display: "flex", alignItems: "center", gap: 10,
-              borderRadius: 10, padding: glDrop.dragging ? "4px 6px" : 0,
-              outline: glDrop.dragging ? "2px dashed var(--brand)" : "none", outlineOffset: 2,
-              transition: "background .15s",
-            }}
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" multiple style={{ display: "none" }} onChange={onUpload} />
             {cur && (
               <ViewMenu
@@ -953,10 +950,6 @@ export default function OperatingStatementsPage() {
                 ]}
               />
             )}
-            <button className="btn" onClick={() => fileRef.current?.click()}>
-              <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
-              {glDrop.dragging ? "Drop to import" : "Import GL"}
-            </button>
           </div>
         </div>
 
@@ -1856,7 +1849,7 @@ function ImportInstructionsModal({ onClose, year, nextPeriod }: { onClose: () =>
         <div>
           <div style={sectionLabelStyle}>2. Import Detailed General Ledger into Portal</div>
           <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: "var(--fs-14)" }}>
-            <li>Select <b>Upload GL</b> in the upper right of the Operating Statements page.</li>
+            <li>Select <b>Import GL</b> in the upper right of the Operating Statements page.</li>
             <li>Select the saved Excel file from above and hit <b>Open</b>.</li>
           </ol>
         </div>

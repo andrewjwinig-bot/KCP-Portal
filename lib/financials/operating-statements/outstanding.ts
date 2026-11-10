@@ -9,7 +9,7 @@ import { monthlyStatements } from "./mappingStore";
 import { expectedPostedThrough, expectedPostedThroughFor } from "./postingSchedule";
 export { expectedPostedThrough, expectedPostedThroughFor };
 import { listFullGls, type StoredGl } from "./statementStore";
-import { assembleGls, postedThrough } from "./glAssemble";
+import { assembleGls, closedThrough } from "./glAssemble";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 
 export type OutstandingGl = {
@@ -40,9 +40,11 @@ export async function outstandingGlUploads(now = new Date()): Promise<{
   const latestByKey = new Map<string, { year: number; period: number }>();
   for (const [k, ym] of byKeyYear) {
     const latestYear = Math.max(...ym.keys());
-    const asm = assembleGls(ym.get(latestYear)!);
-    // POSTED through, not last ACTIVE — a dormant property is current, not behind.
-    if (asm) latestByKey.set(k, { year: latestYear, period: postedThrough(asm) });
+    const files = ym.get(latestYear)!;
+    const asm = assembleGls(files);
+    // POSTED through, not last ACTIVE — a dormant property is current, not
+    // behind — and never a month that had not ended when it was imported.
+    if (asm) latestByKey.set(k, { year: latestYear, period: closedThrough(asm, latestYear, files) });
   }
 
   const behind: OutstandingGl[] = [];

@@ -1,5 +1,5 @@
 "use client";
-import { TriangleAlert, X } from "lucide-react";
+import { TriangleAlert, X, Upload, Sparkles } from "lucide-react";
 
 // Interim ("as-of month") CAM/RET reconciliation — for a mid-year move-out.
 // Pick a building (office or retail) + tenant + as-of month; the statement
@@ -709,8 +709,8 @@ export default function InterimReconPage() {
   const sanityButton = (
     <button className="btn ai" onClick={runSanityCheck} disabled={sanityLoading}
       title="AI review — flag anything that looks off before sending"
-      style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 700 }}>
-      {sanityLoading ? "Checking…" : "✨ Sanity check"}
+>
+      <Sparkles size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0, verticalAlign: "-3px", marginRight: 4 }} />{sanityLoading ? "Checking" : "Sanity Check"}
     </button>
   );
 
@@ -921,8 +921,8 @@ export default function InterimReconPage() {
             </span>
             <input ref={stmtFileRef} type="file" accept=".pdf,.xls,.xlsx" style={{ display: "none" }}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) importFinalStatement(f); }} />
-            <button className={openAr ? "btn sm" : "btn sm primary"} disabled={stmtBusy} onClick={() => stmtFileRef.current?.click()}>
-              {stmtBusy ? "Importing…" : openAr ? "Re-import" : "Import final statement"}
+            <button className="btn sm import" disabled={stmtBusy} onClick={() => stmtFileRef.current?.click()}>
+              <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{stmtBusy ? "Importing" : openAr ? "Re-import Final Statement" : "Import Final Statement"}
             </button>
           </span>,
         )}

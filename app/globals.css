@@ -516,11 +516,17 @@ select optgroup option:where(:not(.kcs *)) {
 
 /* The emphasis tier: the one dropdown a page is actually driven by. */
 select.select-brand {
+  /* The page's driving control reads at card-title size (17px): it names
+     what the whole page is about. Its options stay at body size. */
+  font-size: 17px;
   font-weight: 600;
   color: var(--brand);
   border-color: rgba(11, 74, 125, 0.3);
   background-image: var(--select-chevron-brand);
 }
+
+select.select-brand option,
+select.select-brand optgroup { font-size: 15px; }
 
 select.select-brand:hover:not(:disabled) {
   border-color: rgba(11, 74, 125, 0.55);
@@ -1321,7 +1327,7 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
   padding-bottom: 9px;
 }
 [data-skin="studio"] select:where(:not(.kcs *)) { padding-left: 13px; padding-right: 36px; background-position: right 13px center; font-weight: 500; }
-[data-skin="studio"] select.select-brand { border-color: var(--brand); color: var(--brand); font-weight: 700; }
+[data-skin="studio"] select.select-brand { border-color: var(--brand); color: var(--brand); font-weight: 700; font-size: 17px; }
 [data-skin="studio"] select.select-sm,
 [data-skin="studio"] .select-sm { min-height: 36px; padding-top: 6px; padding-bottom: 6px; font-size: 14px; }
 [data-skin="studio"] textarea:where(:not(.kcs *)) { border-radius: var(--radius-ctl); border: 1px solid #d0d5dd; font-size: 15px; line-height: 1.5; }
@@ -1475,3 +1481,25 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
    text's baseline in the classic look too (the new look's .btn is already a
    flex row with a gap). An inline margin on the icon still wins. */
 html:not([data-skin="studio"]) .btn > svg:first-child { margin-right: 6px; vertical-align: -3px; }
+
+/* The IMPORT button: a soft navy tint, so it stands apart from the white
+   dropdowns and menus beside it without competing with a primary action.
+   Owner: "if all the dropdowns are white then should the import button be a
+   color? … more subtle but still some sort of contrast". Sits on the LEFT,
+   straight after the property / period pickers it imports for. */
+.btn.import,
+[data-skin="studio"] .btn.import {
+  background-color: rgba(11, 74, 125, 0.08);
+  border-color: rgba(11, 74, 125, 0.28);
+  color: var(--brand);
+}
+.btn.import:hover:not(:disabled),
+[data-skin="studio"] .btn.import:hover:not(:disabled) {
+  background-color: rgba(11, 74, 125, 0.14);
+  border-color: rgba(11, 74, 125, 0.45);
+}
+[data-theme="dark"] .btn.import {
+  background-color: rgba(96, 165, 250, 0.14);
+  border-color: rgba(96, 165, 250, 0.4);
+  color: #93c5fd;
+}

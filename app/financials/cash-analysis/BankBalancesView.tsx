@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Upload } from "lucide-react";
 
 // Bank Balances — the bank-balance view (owner: "pivot from our more complex
 // cash sheet … current balance and then another column for reserves to show
@@ -218,8 +218,8 @@ export default function BankBalancesView() {
           )}
           {data?.canEdit && (
             <>
-              <button className="btn" disabled={busy} onClick={() => fileRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
-                {busy ? "Importing…" : drop.dragging ? "Drop to import" : "Import balances"}
+              <button className="btn import" disabled={busy} onClick={() => fileRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
+                <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{busy ? "Importing" : drop.dragging ? "Drop to import" : "Import Bank Balances"}
               </button>
               <input ref={fileRef} type="file" multiple style={{ display: "none" }}
                 onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; importFiles(f); }} />
@@ -243,7 +243,7 @@ export default function BankBalancesView() {
       {data && (
         <div className="pills">
           <StatPill label="Cash in bank" value={money0(totalCash)} onClick={() => setTrendOpen("cash")} hint="Cash in bank over time"
-            sub={wow.change != null ? `${wow.change >= 0 ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />} ${money0(Math.abs(wow.change))} since ${shortDate(wow.priorAsOf)}` : undefined} />
+            sub={wow.change != null ? `${wow.change >= 0 ? "Up" : "Down"} ${money0(Math.abs(wow.change))} since ${shortDate(wow.priorAsOf)}` : undefined} />
           <StatPill label="Security deposits" value={money0(restricted)} sub="Tenants' money" onClick={() => setTrendOpen("deposits")} hint="Security deposits over time" />
           <StatPill label="Reserves" value={money0(reserves)} sub={handsOff ? `Big Projects · incl. ${money0(handsOff)} hands off` : "Big Projects, next 3 months"} />
           <StatPill label="Net available" value={money0(net)} total onClick={() => setTrendOpen("net")} hint="Net available over time" />

@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, StickyNote } from "lucide-react";
 
 // The Reprojections grid — section cards, subtotal cards and the group
 // headings — shared by Reprojections and the T-12 so the two read as one
@@ -297,9 +297,9 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
                 <td style={{ textAlign: "left" }}>
                   {l.label}
                   {n && (
-                    <a href={osHref} title={`${n.ai ? "✨ AI note — " : ""}${n.note}\n\n(click → Operating Statements)`}
+                    <a href={osHref} title={`${n.ai ? "AI note: " : ""}${n.note}\n\n(click → Operating Statements)`}
                       aria-label="Variance note" style={{ marginLeft: 6, textDecoration: "none", cursor: "pointer" }}>
-                      {n.ai ? "✨" : "📝"}
+                      <StickyNote size={16} strokeWidth={1.75} aria-hidden color={n.ai ? "var(--ai)" : "var(--brand)"} style={{ verticalAlign: "-3px" }} />
                     </a>
                   )}
                   {onEdit && l.overridden?.some(Boolean) && (

@@ -1,5 +1,5 @@
 "use client";
-import { X } from "lucide-react";
+import { X, Upload } from "lucide-react";
 
 // Monthly Statements — import Skyline's tenant Statement report, review every
 // tenant's open balance, then publish the month to the tenant portal.
@@ -386,8 +386,8 @@ export default function TenantStatementsPage() {
               ]}
             />
           )}
-          <button className="btn primary" onClick={() => fileRef.current?.click()} style={{ fontSize: "var(--fs-13)", padding: "6px 12px", fontWeight: 700 }}>
-            Import Skyline Statements
+          <button className="btn import" onClick={() => fileRef.current?.click()}>
+            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import Laser Statement
           </button>
         </div>
       </header>
