@@ -1464,3 +1464,14 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 [data-skin="studio"] .prop-card:hover { border-color: var(--brand) !important; }
 [data-skin="studio"] .prop-card.prop-entity { border: 1.5px dashed #98a2b3 !important; background: var(--card) !important; }
 [data-skin="studio"] .code-chip { background: transparent !important; color: var(--brand) !important; padding: 0 !important; font-size: 15px !important; letter-spacing: 0 !important; }
+
+/* AI actions keep their violet in the new look. The studio `.btn` rule sets
+   background and colour on every button, which turned "Explain Flagged Lines"
+   and "Monthly Brief" plain white. */
+[data-skin="studio"] .btn.ai { background: var(--ai-soft); border-color: var(--ai-border); color: var(--ai); }
+[data-skin="studio"] .btn.ai:hover:not(:disabled) { background: rgba(108, 76, 224, 0.13); border-color: var(--ai-border); }
+
+/* An icon leading a button's label sits a little apart from it and on the
+   text's baseline in the classic look too (the new look's .btn is already a
+   flex row with a gap). An inline margin on the icon still wins. */
+html:not([data-skin="studio"]) .btn > svg:first-child { margin-right: 6px; vertical-align: -3px; }

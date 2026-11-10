@@ -157,6 +157,31 @@ until he approves it for everyone; build EVERY new or touched UI to it.
 - **Writing**: buttons say what happens ("Send $18,327 to AvidXchange");
   errors in plain English; one word per status; names in Title Case ("Harry",
   not "HARRY").
+- **A page header is ONE row of controls and ONE meta line** (Operating
+  Statements, 11/2026; owner: "the header hero is a little busy and
+  cluttered"). Row: the brand `select` for the page's driving control, plain
+  `select`s for year / month, then Display, Open, Export and the import
+  button on the right. Meta line, muted 14px: "Imported <when> by <Name>",
+  any check that passed in words with its icon ("GL ties" + CircleCheck, a
+  `HoverCard` for the detail), and the (i) for import steps. A check never
+  floats as a pill in the tile row.
+- **Imports are a white `.btn` with the Lucide `Upload` icon, labelled
+  "Import <thing>"** (Import GL, Import Credit Balance Report). Navy
+  `.btn.primary` is for the page's one forward action, never an upload.
+- **Settings someone rarely changes live in the Display menu**, not on the
+  page: the variance-highlight thresholds, "Import monthly totals only".
+  How-to text ("Import the Detailed General Ledger…") lives in the (i).
+- **A tile says the figure, and the comparison in words under it**: "NOI ·
+  Sep" / "$7,543" / "$6,173 better than budget". Abbreviate a label that
+  would wrap (NOI, YTD); never a two-line label pushing the figure down, and
+  never a variance as the tile's big number.
+- **AI actions are `.btn.ai` with the Lucide `Sparkles` icon**, violet in
+  both looks (studio keeps it by its own rule), Title Case ("Explain Flagged
+  Lines", "Monthly Brief"). An action that only makes sense when something
+  exists (Clear AI Notes) is HIDDEN until it does, not disabled.
+- **Names are Title Case wherever a record stored them in caps**:
+  `titleName` (`app/components/LastImported.tsx`) — "by DREW" read as a
+  shout.
 - **The ratchet** (`lib/ui/noDrift.test.ts`): counts of emoji, text arrows,
   inline hex colours and tinted fills may only go DOWN. When a sweep removes
   some, lower the baseline in that test in the same change.

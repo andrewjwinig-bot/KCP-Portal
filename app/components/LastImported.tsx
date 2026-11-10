@@ -11,6 +11,13 @@ export function formatImportedAt(iso: string): string {
   return `${date} at ${time}`;
 }
 
+/** "DREW" / "drew" -> "Drew": names are Title Case in the UI, however the
+ *  import recorded them. Leaves an already mixed-case name alone. */
+export function titleName(name: string): string {
+  if (name !== name.toUpperCase() && name !== name.toLowerCase()) return name;
+  return name.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_, a, b) => a + b.toUpperCase());
+}
+
 export function LastImported({
   at,
   by,
@@ -26,7 +33,7 @@ export function LastImported({
   return (
     <p className="muted small" style={{ marginTop: 4, fontStyle: "italic", ...style }}>
       {label} {formatImportedAt(at)}
-      {by ? <> by <b style={{ color: "var(--text)" }}>{by}</b></> : null}
+      {by ? <> by <b style={{ color: "var(--text)" }}>{titleName(by)}</b></> : null}
     </p>
   );
 }

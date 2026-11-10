@@ -1,6 +1,6 @@
 "use client";
 import { FilePath } from "@/app/components/FilePath";
-import { ChevronDown, ChevronRight, CircleCheck, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, Clock, Receipt, Sparkles, TriangleAlert, Upload } from "lucide-react";
 
 // Operating Statements — the actuals twin of Operating Budgets. Upload a
 // property's Skyline GL export; the page renders the Comparative Income
@@ -19,7 +19,7 @@ import { RentCheckTable } from "./RentCheckTable";
 import { MonthlyBars } from "./MonthlyBars";
 import { LineDetailModal } from "./LineDetailModal";
 import { basisForLine } from "@/lib/financials/operating-statements/rentCheck";
-import { LastImported } from "@/app/components/LastImported";
+import { formatImportedAt, titleName } from "@/app/components/LastImported";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import { AccountListCard } from "@/app/components/AccountListCard";
 import LoadingState from "@/app/components/LoadingState";
@@ -56,13 +56,6 @@ type FullYear = {
   sections: FYSection[];
   rollups: Record<"totalRevenues" | "totalOperatingExpenses" | "netOperatingIncome" | "cashFlowBeforeDebtService" | "totalDebtService" | "cashFlowAfterDebtService", FYRollup>;
 };
-
-/** Compact "most recent period imported" suffix for the property dropdown,
- *  e.g. " (01-26)" for January 2026, or " (no GL)" when nothing is uploaded. */
-function importedSuffix(a: Available): string {
-  if (!a.latest) return " (no GL)";
-  return ` (${String(a.latest.period).padStart(2, "0")}-${String(a.latest.year).slice(2)})`;
-}
 
 function money0(v: number | null): string {
   if (v == null) return "—";
@@ -114,6 +107,9 @@ const fyHeadStyle: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight:
 
 function fmtPct(v: number | null): string {
   if (v == null) return "—";
+  // Past 999% the figure stops meaning anything (a $4,211 charge on a $515
+  // budget reads "-717.6%"); the dollars beside it say how big it is.
+  if (Math.abs(v) >= 999.5) return v > 0 ? ">+999%" : "<-999%";
   return `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
 }
 // Compact signed dollar for KPI pills: $5.2K, -$1.3M, $850.
@@ -279,7 +275,11 @@ function ToggleRow({ label, left, right, active, onLeft, onRight, disabled }: {
 // Consolidated "View ▾" popover — the four display toggles (Amounts, Variance,
 // Empty rows, GL) in one menu instead of cluttering the toolbar. Closes on
 // outside click or Escape, mirroring the Download menu.
-function ViewMenu({ psf, setPsf, psfDisabled, varMode, setVarMode, hideEmpty, setHideEmpty, showGL, setShowGL }: {
+function ViewMenu({ leanImport, setLeanImport, psf, setPsf, psfDisabled, varMode, setVarMode, hideEmpty, setHideEmpty, showGL, setShowGL, varDollar, setVarDollar, varPct, setVarPct, varFloor, setVarFloor }: {
+  varDollar: number; setVarDollar: (v: number) => void;
+  leanImport: boolean; setLeanImport: (v: boolean) => void;
+  varPct: number; setVarPct: (v: number) => void;
+  varFloor: number; setVarFloor: (v: number) => void;
   psf: boolean; setPsf: (v: boolean) => void; psfDisabled: boolean;
   varMode: VarMode; setVarMode: (v: VarMode) => void;
   hideEmpty: boolean; setHideEmpty: (v: boolean) => void;
@@ -310,7 +310,7 @@ function ViewMenu({ psf, setPsf, psfDisabled, varMode, setVarMode, hideEmpty, se
       </button>
       {open && (
         <div role="menu" style={{
-          position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 40, minWidth: 250,
+          position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 40, minWidth: 290,
           background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10,
           boxShadow: "0 8px 24px rgba(15,23,42,0.18)", padding: 14, display: "flex", flexDirection: "column", gap: 12,
         }}>
@@ -318,6 +318,28 @@ function ViewMenu({ psf, setPsf, psfDisabled, varMode, setVarMode, hideEmpty, se
           <ToggleRow label="Variance" left="%" right="$" active={varMode === "dollar" ? "right" : "left"} onLeft={() => setVarMode("pct")} onRight={() => setVarMode("dollar")} />
           <ToggleRow label="Empty rows" left="Hide" right="Show" active={hideEmpty ? "left" : "right"} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
           <ToggleRow label="GL accounts" left="Hide" right="Show" active={showGL ? "right" : "left"} onLeft={() => setShowGL(false)} onRight={() => setShowGL(true)} />
+          {/* The variance highlight rule. Rarely changed, so it lives here
+              rather than taking a row of the page header. */}
+          <div style={{ borderTop: "1px solid var(--hairline)", paddingTop: 12, display: "grid", gap: 8 }}>
+            <span className="muted small" style={toggleLabel}>Highlight variances over</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-14)" }}>
+              <span>$</span>
+              <input type="text" inputMode="numeric" aria-label="Dollar threshold" value={varDollar.toLocaleString("en-US")}
+                onChange={(e) => setVarDollar(Math.max(0, Number(e.target.value.replace(/[^\d]/g, "")) || 0))} style={threshInput} />
+              <span className="muted">or</span>
+              <input type="number" min={0} aria-label="Percent threshold" value={varPct} onChange={(e) => setVarPct(Math.max(0, Number(e.target.value) || 0))} style={{ ...threshInput, width: 64 }} />
+              <span>%</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-14)" }}>
+              <span className="muted">Ignore under $</span>
+              <input type="text" inputMode="numeric" aria-label="Minimum variance" value={varFloor.toLocaleString("en-US")}
+                onChange={(e) => setVarFloor(Math.max(0, Number(e.target.value.replace(/[^\d]/g, "")) || 0))} style={threshInput} />
+            </div>
+          </div>
+          <label style={{ borderTop: "1px solid var(--hairline)", paddingTop: 12, display: "flex", alignItems: "flex-start", gap: 8, fontSize: "var(--fs-14)", cursor: "pointer" }}>
+            <input type="checkbox" checked={leanImport} onChange={(e) => setLeanImport(e.target.checked)} style={{ marginTop: 2 }} />
+            <span>Import monthly totals only<span className="muted" style={{ display: "block", fontSize: "var(--fs-13)" }}>Skips transaction detail, for backfilling past years</span></span>
+          </label>
         </div>
       )}
     </div>
@@ -790,6 +812,8 @@ export default function OperatingStatementsPage() {
   // The header's one number, recomputed from the SAME dismissed-flag state the
   // "?" reads — so dismissing a mark ticks it down without a refetch.
   const openItems = statement ? investigateCount(statement, dismissedFlags) : 0;
+  const hasAiNotes = Object.keys(notes).some((k) => !!notes[k] && noteSources[k] === "ai");
+  const showBudgetKpi = !budgetFallback;
   const isFullYear = period === FULL_YEAR;
 
   return (
@@ -815,7 +839,7 @@ export default function OperatingStatementsPage() {
       {behindPosting && (
         <div className="card" style={{ borderColor: "var(--tint-amber-line, rgba(180,83,9,0.45))", background: "var(--tint-amber-bg, rgba(217,119,6,0.08))" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 20 }}>⏰</span>
+            <Clock size={20} strokeWidth={1.75} color="var(--c-b45309)" aria-hidden style={{ flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
                 Time to post {MONTHS[expectedPost.period - 1]} {expectedPost.year}
@@ -828,8 +852,8 @@ export default function OperatingStatementsPage() {
                 Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
               </div>
             </div>
-            <button className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, flexShrink: 0 }} onClick={() => fileRef.current?.click()}>
-              {"Upload GL"}
+            <button className="btn" style={{ flexShrink: 0 }} onClick={() => fileRef.current?.click()}>
+              <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import GL
             </button>
           </div>
         </div>
@@ -838,7 +862,7 @@ export default function OperatingStatementsPage() {
       {isGandA && pendingAlloc && !pendingAlloc.alreadyProcessed && (
         <div className="card" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.5))", background: "var(--tint-green-bg, rgba(22,163,74,0.07))" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 20 }}>🧾</span>
+            <Receipt size={20} strokeWidth={1.75} color="var(--c-15803d)" aria-hidden style={{ flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontWeight: 800, color: "var(--c-15803d)" }}>
                 Allocated invoices for {pendingAlloc.statementMonth} are ready to process
@@ -858,62 +882,50 @@ export default function OperatingStatementsPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
             {/* Property + Year are always rendered and kept first so the
-                conditional Period select (below) never reflows them. */}
-            <HeaderSelect value={key} onChange={(v) => { setKey(v); setPeriod(0); setFlagFilter(null); }} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
+                conditional Month select never reflows them. The property is
+                the control the page is driven by, so it is the brand select. */}
+            <select className="select-brand" aria-label="Property" value={key} onChange={(e) => { setKey(e.target.value); setPeriod(0); setFlagFilter(null); }}>
+              {!cur && <option value="">Choose a property</option>}
               {groupStatementOptions(available).map((grp) => (
                 <optgroup key={grp.label} label={grp.label}>
                   {grp.items.map((a) => (
-                    <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{importedSuffix(a)}</option>
+                    <option key={a.key} value={a.key}>{a.propertyCode} · {a.name}</option>
                   ))}
                 </optgroup>
               ))}
-            </HeaderSelect>
-            <HeaderSelect value={String(year)} onChange={(v) => { setYear(Number(v)); setPeriod(0); setFlagFilter(null); }} displayLabel={String(year || "—")} ariaLabel="Year" muted>
+            </select>
+            <select aria-label="Year" value={String(year)} onChange={(e) => { setYear(Number(e.target.value)); setPeriod(0); setFlagFilter(null); }}>
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
-            </HeaderSelect>
+            </select>
             {statement && (
-              <HeaderSelect value={String(period || statement.period)} onChange={(v) => setPeriod(Number(v))} displayLabel={period === FULL_YEAR ? (maxPeriod >= 12 ? "Full Year" : "Year to Date") : MONTHS[(period || statement.period) - 1]} ariaLabel="Period" muted>
+              <select aria-label="Month" value={String(period || statement.period)} onChange={(e) => setPeriod(Number(e.target.value))}>
                 {Array.from({ length: maxPeriod }, (_, i) => i + 1).map((p) => (
-                  <option key={p} value={p}>{MONTHS[p - 1]} — Period {p}</option>
+                  <option key={p} value={p}>{MONTHS_LONG[p - 1]}</option>
                 ))}
-                <option value={FULL_YEAR}>{maxPeriod >= 12 ? "Full Year — all 12 months" : "Year to Date — all months so far"}</option>
-              </HeaderSelect>
+                <option value={FULL_YEAR}>{maxPeriod >= 12 ? "Full Year" : "Year to Date"}</option>
+              </select>
             )}
           </div>
           <div
             {...glDrop.dropHandlers}
-            title="Upload one or more GL files, or drag them here"
             style={{
               display: "flex", alignItems: "center", gap: 10,
               borderRadius: 10, padding: glDrop.dragging ? "4px 6px" : 0,
               outline: glDrop.dragging ? "2px dashed var(--brand)" : "none", outlineOffset: 2,
-              background: glDrop.dragging ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : "transparent",
               transition: "background .15s",
             }}
           >
-            <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property. You can also drag files onto this bar." style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }} onClick={() => fileRef.current?.click()}>
-              {glDrop.dragging ? "Drop to import" : "Upload GL"}
-            </button>
-            <label className="small muted" title="Skip storing per-transaction detail — keeps the monthly totals that power every statement, budget-vs-actual and YoY comparison. Ideal for bulk-backfilling prior years cheaply; the only thing you lose is the line-level transaction drill-down for that import." style={{ display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", cursor: "pointer" }}>
-              <input type="checkbox" checked={leanImport} onChange={(e) => setLeanImport(e.target.checked)} />
-              Monthly totals only
-            </label>
             <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" multiple style={{ display: "none" }} onChange={onUpload} />
-            {statement && (
+            {cur && (
               <ViewMenu
+                leanImport={leanImport} setLeanImport={setLeanImport}
                 psf={psf} setPsf={setPsf} psfDisabled={sqft <= 0}
                 varMode={varMode} setVarMode={setVarMode}
                 hideEmpty={hideEmpty} setHideEmpty={setHideEmpty}
                 showGL={showGL} setShowGL={setShowGL}
-              />
-            )}
-            {cur && statement && (
-              <DownloadMenu
-                disabled={!statement}
-                items={[
-                  { label: "Excel (.xlsx)", description: isFullYear ? "12-month breakdown + Full-Year total (formulas)" : "Full Period + YTD statement with budget & variance", href: `/api/financials/operating-statements/download?key=${encodeURIComponent(key)}&year=${year}${isFullYear ? "&fullYear=1" : period ? `&period=${period}` : ""}` },
-                  { label: "PDF", description: isFullYear ? "12-month breakdown + Full-Year total" : "Presentation-ready single-property statement", href: `/api/financials/operating-statements/download/pdf?key=${encodeURIComponent(key)}&year=${year}${isFullYear ? "&fullYear=1" : period ? `&period=${period}` : ""}` },
-                ]}
+                varDollar={varDollar} setVarDollar={setVarDollar}
+                varPct={varPctThresh} setVarPct={setVarPctThresh}
+                varFloor={varFloor} setVarFloor={setVarFloor}
               />
             )}
             {cur && (
@@ -930,58 +942,75 @@ export default function OperatingStatementsPage() {
                 ]}
               />
             )}
+            {cur && statement && (
+              <DownloadMenu
+                label="Export"
+                variant="default"
+                disabled={!statement}
+                items={[
+                  { label: "Excel (.xlsx)", description: isFullYear ? "12-month breakdown + Full-Year total (formulas)" : "Full Period + YTD statement with budget & variance", href: `/api/financials/operating-statements/download?key=${encodeURIComponent(key)}&year=${year}${isFullYear ? "&fullYear=1" : period ? `&period=${period}` : ""}` },
+                  { label: "PDF", description: isFullYear ? "12-month breakdown + Full-Year total" : "Presentation-ready single-property statement", href: `/api/financials/operating-statements/download/pdf?key=${encodeURIComponent(key)}&year=${year}${isFullYear ? "&fullYear=1" : period ? `&period=${period}` : ""}` },
+                ]}
+              />
+            )}
+            <button className="btn" onClick={() => fileRef.current?.click()}>
+              <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
+              {glDrop.dragging ? "Drop to import" : "Import GL"}
+            </button>
           </div>
         </div>
 
-        <div style={{ marginTop: 8 }}>
-          <p className="muted small" style={{ margin: 0, display: "flex", alignItems: "center", gap: 6 }}>
-            <span>Import <b>Detailed General Ledger</b> Excel file (.xls or .xlsx) — or <b>Posting Reports</b> for interim updates between months. Able to select multiple at once.</span>
-            <ImportInstructionsButton
-              year={year || new Date().getFullYear()}
-              nextPeriod={statement ? Math.min(maxPeriod + 1, 12) : 1}
-            />
-          </p>
-          {cur && <LastImported at={lastImport?.at} by={lastImport?.by} label={`${cur.name} GL last imported`} />}
+        {/* ONE meta line: when the GL came in, whether it ties, and the (i) for
+            how to export it. The long "Import Detailed General Ledger…"
+            sentence lives in the (i) now. */}
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: "var(--fs-14)" }} className="muted">
+          {lastImport?.at && (
+            <span>Imported {formatImportedAt(lastImport.at)}{lastImport.by ? ` by ${titleName(lastImport.by)}` : ""}</span>
+          )}
+          {glTieOut && (
+            <HoverCard
+              title="General ledger tie-out"
+              rows={[
+                { label: "Accounts checked", value: String(glTieOut.checked) },
+                { label: "Reconciled", value: String(glTieOut.reconciled), color: "var(--c-15803d)" },
+                ...(glTieOut.mismatches ? [{ label: "Do not reconcile", value: String(glTieOut.mismatches), color: "var(--c-b91c1c)" }] : []),
+              ]}
+              footer={{ label: "Checks", value: "monthly nets vs ending balance" }}
+            >
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontWeight: 600, color: glTieOut.mismatches === 0 ? "var(--c-067647, #067647)" : "var(--c-b42318, #B42318)" }}>
+                {glTieOut.mismatches === 0
+                  ? <><CircleCheck size={16} strokeWidth={1.75} aria-hidden />GL ties</>
+                  : <><TriangleAlert size={16} strokeWidth={1.75} aria-hidden />{glTieOut.mismatches} accounts don&rsquo;t tie</>}
+              </span>
+            </HoverCard>
+          )}
+          <ImportInstructionsButton
+            year={year || new Date().getFullYear()}
+            nextPeriod={statement ? Math.min(maxPeriod + 1, 12) : 1}
+          />
         </div>
 
         {statement && !isFullYear && (() => {
           const noi = statement.rollups.netOperatingIncome;
-          const mPct = varPct(noi.periodVariance, noi.periodBudget);
-          const yPct = varPct(noi.ytdVariance, noi.ytdBudget);
           const mon = MONTHS[statement.period - 1];
-          const pctAccent = (v: number | null) => (v == null ? undefined : v >= 0 ? "var(--c-15803d)" : "var(--c-b91c1c)");
+          const vs = (v: number | null) => (v == null || !showBudgetKpi ? undefined : Math.abs(v) < 0.5 ? "On budget" : `$${money0(Math.abs(v))} ${v > 0 ? "better" : "worse"} than budget`);
+          const signed = (v: number) => (v < 0 ? `-$${money0(Math.abs(v))}` : `$${money0(v)}`);
           return (
             <>
-              <div className="pills" style={{ marginTop: 12 }}>
-                {operatingCash != null && <StatPill label={`Starting Cash · ${mon} (Per GL)`} value={`$${money0(operatingCash)}`} accent="var(--c-0b4a7d)" />}
-                <StatPill label={`Net Operating Income · ${mon} vs Budget`} value={fmtVarValueNode(noi.periodVariance, mPct)} accent={pctAccent(mPct)} />
-                <StatPill label="Net Operating Income · YTD vs Budget" value={fmtVarValueNode(noi.ytdVariance, yPct)} accent={pctAccent(yPct)} />
-                {/* ONE number, and it is the one you work from: how many lines
-                    still carry a "?". It ticks DOWN as they are dismissed,
-                    because `dismissedFlags` is the same state the mark reads.
-                    It replaced a Favorable / Unfavorable pair that counted
-                    lines whose VARIANCE cleared a threshold — a different
-                    question, and not one anybody acted on: 1100 read "0 / 0"
-                    on a month with items open. A favorable-variance count in
-                    particular is not a to-do list. */}
-                {glTieOut && (
-                  <HoverCard
-                    title="General ledger tie-out"
-                    rows={[
-                      { label: "Accounts checked", value: String(glTieOut.checked) },
-                      { label: "Reconciled", value: String(glTieOut.reconciled), color: "var(--c-15803d)" },
-                      ...(glTieOut.mismatches ? [{ label: "Do not reconcile", value: String(glTieOut.mismatches), color: "var(--c-b91c1c)" }] : []),
-                    ]}
-                    footer={{ label: "Checks", value: "monthly nets vs ending balance" }}
-                  >
-                    <div><Pill tone={tiesTone(glTieOut.mismatches === 0)}>
-                      {glTieOut.mismatches === 0 ? "GL TIES" : `${glTieOut.mismatches} DON'T TIE`}
-                    </Pill></div>
-                  </HoverCard>
-                )}
-                <ClickablePill active={flagFilter === "flagged"} activeColor="var(--c-b45309)" onClick={() => setFlagFilter((f) => (f === "flagged" ? null : "flagged"))} title={openItems ? `Click to show only the ${openItems} line${openItems === 1 ? "" : "s"} still to investigate in ${mon}` : `Nothing open in ${mon}`}>
-                  <StatPill label={`Items to Investigate · ${mon}`} value={openItems} accent={openItems > 0 ? "var(--c-b45309)" : "var(--c-15803d)"} />
-                </ClickablePill>
+              <div className="pills" style={{ marginTop: 14 }}>
+                {operatingCash != null && <StatPill label={`Starting Cash · ${mon}`} value={`$${money0(operatingCash)}`} sub="Per the GL" />}
+                {/* "NOI", not "Net Operating Income": the long label wrapped to
+                    two lines in a tile and pushed the figure down. The tile
+                    shows the figure itself; how it compares is the line under it. */}
+                <StatPill label={`NOI · ${mon}`} value={signed(noi.periodActual)} sub={vs(noi.periodVariance)} />
+                <StatPill label="NOI · Year to Date" value={signed(noi.ytdActual)} sub={vs(noi.ytdVariance)} />
+                <StatPill
+                  label={`Items to Investigate · ${mon}`}
+                  value={openItems}
+                  sub={openItems ? (flagFilter === "flagged" ? "Showing only these" : "Click to show only these") : "Nothing open"}
+                  accent={openItems > 0 ? "var(--c-b45309)" : "var(--c-15803d)"}
+                  onClick={openItems || flagFilter ? () => setFlagFilter((f) => (f === "flagged" ? null : "flagged")) : undefined}
+                />
               </div>
               {analyzing && (
                 <div style={{ marginTop: 10 }}>
@@ -991,50 +1020,27 @@ export default function OperatingStatementsPage() {
                   />
                 </div>
               )}
-              <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <button type="button" className="btn ai" disabled={analyzing} onClick={analyzeFlagged}
-                    title="Use AI to explain each flagged line and auto-fill its note (from budget detail + GL transactions)"
-                    style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700 }}>
-                    {analyzing ? "Analyzing…" : "✨ Auto-explain flagged lines"}
+              <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" className="btn ai sm" disabled={analyzing} onClick={analyzeFlagged}
+                  title="Explain each flagged line from its budget detail and GL transactions">
+                  <Sparkles size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
+                  {analyzing ? "Explaining" : "Explain Flagged Lines"}
+                </button>
+                <button type="button" className="btn ai sm" disabled={briefing} onClick={generateBrief}
+                  title="A short brief on how this property is tracking against budget">
+                  <Sparkles size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
+                  {briefing ? "Writing" : brief ? "Rewrite Monthly Brief" : "Monthly Brief"}
+                </button>
+                {/* Only when there is something to clear. */}
+                {hasAiNotes && (
+                  <button type="button" className="btn sm" disabled={clearing || analyzing} onClick={clearAiNotes}
+                    title="Delete this month's AI notes so it can be explained again. Notes you wrote or edited are kept.">
+                    {clearing ? "Clearing" : "Clear AI Notes"}
                   </button>
-                  <button type="button" className="btn" disabled={clearing || analyzing} onClick={clearAiNotes}
-                    title="Delete every auto-explain note on this month so it can be explained from scratch — notes you wrote or edited yourself are kept"
-                    style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700 }}>
-                    {clearing ? "Clearing…" : "Clear AI notes"}
-                  </button>
-                  <button type="button" className="btn ai" disabled={briefing} onClick={generateBrief}
-                    title="Generate a short AI monthly brief — how this property is tracking vs budget, the drivers, and what to watch"
-                    style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700 }}>
-                    {briefing ? "Writing…" : brief ? "✨ Regenerate brief" : "✨ Monthly brief"}
-                  </button>
-                  {analyzeMsg && !analyzing && (
-                    <span className="small" style={analyzeFailed ? { color: "var(--c-b91c1c)", fontWeight: 700 } : { color: "var(--muted)" }}>{analyzeMsg}</span>
-                  )}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }} className="muted small">
-                  <span style={{ fontWeight: 700 }}>Flag Lines Over</span>
-                  <span>$</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={varDollar.toLocaleString("en-US")}
-                    onChange={(e) => setVarDollar(Math.max(0, Number(e.target.value.replace(/[^\d]/g, "")) || 0))}
-                    style={threshInput}
-                  />
-                  <span>or</span>
-                  <input type="number" min={0} value={varPctThresh} onChange={(e) => setVarPctThresh(Math.max(0, Number(e.target.value) || 0))} style={threshInput} />
-                  <span>%</span>
-                  <span style={{ marginLeft: 6, fontWeight: 700 }}>· min $</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    title="Ignore variances smaller than this, even if the percentage is large"
-                    value={varFloor.toLocaleString("en-US")}
-                    onChange={(e) => setVarFloor(Math.max(0, Number(e.target.value.replace(/[^\d]/g, "")) || 0))}
-                    style={threshInput}
-                  />
-                </div>
+                )}
+                {analyzeMsg && !analyzing && (
+                  <span style={{ fontSize: "var(--fs-14)", ...(analyzeFailed ? { color: "var(--c-b91c1c)", fontWeight: 700 } : { color: "var(--muted)" }) }}>{analyzeMsg}</span>
+                )}
               </div>
             </>
           );
@@ -1045,7 +1051,7 @@ export default function OperatingStatementsPage() {
         <div className="card" style={{ borderColor: "rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.05)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
             <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-6d28d9)", display: "flex", alignItems: "center", gap: 6 }}>
-              ✨ Monthly Brief · {cur?.name} · {MONTHS[(briefPeriod || 1) - 1]} {year}
+              <Sparkles size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Monthly Brief · {cur?.name} · {MONTHS[(briefPeriod || 1) - 1]} {year}
             </div>
             <span className="muted small" style={{ fontStyle: "italic" }}>AI-generated · review before relying on it</span>
           </div>
@@ -1652,10 +1658,10 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
     <>
       <td {...click("gl", "month", t.periodActual)} title={missPeriod ? missTitle : paidPeriod ? paidTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missPeriod ? (anticipated ? { ...missStyle, textAlign: "right", fontSize: undefined } : missStyle) : paidPeriod ? paidStyle : {}) }}>{missPeriod ? (anticipated ? <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1 }}><span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>{amt(t.periodActual)}</span><span style={{ fontSize: "var(--fs-9)", fontWeight: 700, letterSpacing: "0.04em" }}>NOT POSTED · EST.</span></span> : missIcon) : paidPeriod ? paidIcon : amt(t.periodActual)}</td>
       <td {...click("budget", "month", t.periodBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
-      <td style={paidPeriod ? { ...base, color: "var(--c-15803d)" } : structuralPeriod ? neutral : varCell(varMode === "dollar" ? t.periodVariance : pV, mFlag)} title={paidPeriod ? paidTitle : structuralPeriod ? "Nothing posted this month — the variance is the whole budget, so the percentage is 100% by arithmetic rather than by coming in under." : undefined}>{varText(t.periodVariance, pV)}</td>
+      <td style={paidPeriod ? { ...base, color: "var(--c-15803d)" } : structuralPeriod ? neutral : varCell(varMode === "dollar" ? t.periodVariance : pV, mFlag)}>{structuralPeriod ? "\u2014" : varText(t.periodVariance, pV)}</td>
       <td {...click("gl", "ytd", t.ytdActual)} title={missYtd ? missTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missYtd ? missStyle : {}) }}>{missYtd ? missIcon : amt(t.ytdActual)}</td>
       <td {...click("budget", "ytd", t.ytdBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
-      <td style={structuralYtd ? neutral : varCell(varMode === "dollar" ? t.ytdVariance : yV, yFlag)} title={structuralYtd ? "Nothing posted year-to-date — the variance is the whole budget, so the percentage is 100% by arithmetic rather than by coming in under." : undefined}>{varText(t.ytdVariance, yV)}</td>
+      <td style={structuralYtd ? neutral : varCell(varMode === "dollar" ? t.ytdVariance : yV, yFlag)}>{structuralYtd ? "\u2014" : varText(t.ytdVariance, yV)}</td>
       <td {...click("budget", "annual", t.annualBudget)} style={{ ...base, borderLeft: GROUP_DIV, color: color ?? "var(--muted)" }}>{amt(t.annualBudget)}</td>
     </>
   );
@@ -1690,7 +1696,7 @@ function NoteCell({ lineKey, notes, noteSources, noteMeta, editorLabel, onSaveNo
           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block",
         }}
       >
-        {isAi && <span aria-label="AI-generated" style={{ marginRight: 4 }}>✨</span>}
+        {isAi && <Sparkles size={16} strokeWidth={1.75} color="var(--ai)" aria-label="Written by AI" style={{ marginRight: 4, verticalAlign: "-3px" }} />}
         {value || "Add a note…"}
       </button>
       {open && (
@@ -1742,7 +1748,7 @@ function NoteModal({ lineKey, initial, isAi, meta, editorLabel, onPersist, onClo
       <div className="modal" onClick={(e) => e.stopPropagation()} style={{ width: "min(560px, 100%)" }}>
         <div className="modalHeader">
           <div>
-            <div className="modalTitle" style={{ fontSize: 20 }}>{isAi && <span aria-label="AI-generated">✨ </span>}Note</div>
+            <div className="modalTitle" style={{ fontSize: 20 }}>{isAi && <Sparkles size={20} strokeWidth={1.75} color="var(--ai)" aria-label="Written by AI" style={{ marginRight: 6, verticalAlign: "-3px" }} />}Note</div>
             <div className="muted small" style={{ marginTop: 2 }}>{label}{isAi ? " · AI-generated — edit to mark as yours" : ""} · saves automatically</div>
           </div>
           <button className="btn" onClick={onClose}>Close</button>
