@@ -18,6 +18,8 @@ import { useCreditBalanceImport } from "../useCreditBalanceImport";
 import { SentEmailModal } from "../SentEmailModal";
 import { ago } from "../Correspondence";
 import { daysSince } from "@/lib/statements/correspondence";
+import { useUser } from "@/app/components/UserProvider";
+import { canWorkCredits } from "@/lib/users";
 
 type Line = { code: string; description: string; dateISO: string | null; amount: number; bucket: number };
 type Row = {
@@ -54,6 +56,10 @@ export default function OpenCreditsPage() {
   const [emailing, setEmailing] = useState<Row | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // Harry, Alison and Nancy VIEW this page; importing, emailing and notes are
+  // Monthly Statements' (the server refuses their writes too).
+  const { user } = useUser();
+  const canWork = canWorkCredits(user.id);
 
   const load = useCallback(async () => {
     const r = await fetch("/api/tenant-statements/aging", { cache: "no-store" }).catch(() => null);
@@ -98,11 +104,11 @@ export default function OpenCreditsPage() {
             Every tenant carrying a credit, what each credit is and how long it has been open — and an email asking how they want it applied.
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        {canWork && <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
           <button className="btn" onClick={() => fileRef.current?.click()}><Upload {...ICON} /> Import Credit Balance Report</button>
           <InfoPopover align="left"><ImportInstructions variant="credit-balance" /></InfoPopover>
-        </div>
+        </div>}
       </header>
 
       {error && <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}
@@ -186,13 +192,13 @@ export default function OpenCreditsPage() {
                                 : <span style={{ color: "var(--c-b45309)", fontWeight: 600, fontSize: "var(--fs-12-5)" }}>Never asked</span>}
                             </td>
                             <td style={{ ...td, whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
-                              <button className="btn sm" onClick={() => setEmailing(t)}>{t.lastNotice ? "Ask again" : "Email"}</button>
+                              {canWork && <button className="btn sm" onClick={() => setEmailing(t)}>{t.lastNotice ? "Ask again" : "Email"}</button>}
                             </td>
                           </tr>
                           {isOpen && (
                             <tr>
                               <td colSpan={7} style={{ padding: "6px 12px 16px 34px", maxWidth: 0, borderBottom: "1px solid var(--hairline)" }}>
-                                <Detail t={t} onView={setViewing} onNote={load} />
+                                <Detail t={t} onView={setViewing} onNote={load} canWork={canWork} />
                               </td>
                             </tr>
                           )}
@@ -227,7 +233,7 @@ export default function OpenCreditsPage() {
   );
 }
 
-function Detail({ t, onView, onNote }: { t: Row; onView: (src: string) => void; onNote: () => void }) {
+function Detail({ t, onView, onNote, canWork }: { t: Row; onView: (src: string) => void; onNote: () => void; canWork: boolean }) {
   const [note, setNote] = useState(t.note?.text ?? "");
   const [saving, setSaving] = useState(false);
   const lines = [...t.lines].sort((a, b) => (a.amount < 0 ? 0 : 1) - (b.amount < 0 ? 0 : 1) || (a.dateISO ?? "").localeCompare(b.dateISO ?? ""));
@@ -263,16 +269,16 @@ function Detail({ t, onView, onNote }: { t: Row; onView: (src: string) => void; 
       </div>
       <div className="small muted">
         {t.contact ? <>Contact {t.contact}{t.phone ? ` · ${t.phone}` : ""} · </> : null}
-        Deposit held {usd(t.depositsHeld)} ·{" "}
-        <a className="text-link" href={`/tenant-statements/receipts?unit=${encodeURIComponent(t.unitRef)}`}>Work a payment <ChevronRight {...ICON} /></a>
+        Deposit held {usd(t.depositsHeld)}
+        {canWork && <> · <a className="text-link" href={`/tenant-statements/receipts?unit=${encodeURIComponent(t.unitRef)}`}>Work a payment <ChevronRight {...ICON} /></a></>}
         {t.lastNotice && <> · <a href="#" className="text-link" onClick={(e) => { e.preventDefault(); onView(`/api/tenant-statements/correspondence?source=${t.lastNotice!.source}&id=${encodeURIComponent(t.lastNotice!.id)}`); }}>View the last email <ChevronRight {...ICON} /></a></>}
       </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      {!canWork ? (t.note && <div className="small"><span style={SECTION}>Follow-up</span> {t.note.text} <span className="muted">· {t.note.by ? `${t.note.by} · ` : ""}{new Date(t.note.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></div>) : <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <span style={SECTION}>Follow-up</span>
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Tenant says apply to December rent" style={{ flex: 1, minWidth: 220 }} />
         <button className="btn sm" onClick={saveNote} disabled={saving || note === (t.note?.text ?? "")}>{saving ? "Saving…" : "Save note"}</button>
         {t.note && <span className="muted small">{t.note.by ? `${t.note.by} · ` : ""}{new Date(t.note.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
-      </div>
+      </div>}
     </div>
   );
 }

@@ -970,7 +970,9 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     // Operating Statements alone also answers to its own key (Tami reads the
     // statements without the rest of the financials group).
     const passesRole = !roleKey || user.navKeys.has("all") || user.navKeys.has(roleKey)
-      || (item.label === "Operating Statements" && user.navKeys.has("operating-statements"));
+      || (item.label === "Operating Statements" && user.navKeys.has("operating-statements"))
+      // Open Credits alone answers to its own key (Harry, Alison, Nancy view it).
+      || (item.label === "Open Credits" && user.navKeys.has("open-credits"));
     if (!passesRole) return false;
     if (item.label === "Reports" && NO_REPORT_CENTER.has(user.id)) return false;
 
