@@ -60,7 +60,7 @@ export function OpenCreditsCard({ tracker, notes, applications, period, readOnly
       <div style={{ padding: "16px 18px 0", display: "grid", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 18, fontWeight: 800 }}>Open Credit Tracker</div>
-          <div className="muted small">Click a tenant for the credit lines and to apply it to their open charges.</div>
+          <div className="muted small">Click a tenant for the credit lines and to apply it to their open charges.{tracker.small ? ` ${tracker.small} credit${tracker.small === 1 ? "" : "s"} under $5 not shown.` : ""}</div>
         </div>
         <div className="pills" style={{ flexWrap: "wrap", justifyContent: "flex-start", marginTop: 0 }}>
           <StatPill label="Open credits" value={money0(tracker.total)} sub={`${tracker.count} tenant${tracker.count === 1 ? "" : "s"}`} total />

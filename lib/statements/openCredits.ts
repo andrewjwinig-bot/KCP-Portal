@@ -21,6 +21,7 @@ import type { StatementRun, TenantStatement, AgingBucket } from "./types";
 import { AGING_ORDER } from "./types";
 import { agingOf, summarize } from "./summary";
 import { PROPERTY_DEFS } from "../properties/data";
+import { MIN_OPEN_CREDIT } from "./aging";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -73,6 +74,8 @@ export type OpenCreditTracker = {
   netCreditTotal: number;
   netCreditCount: number;
   groups: CreditGroupTotal[];
+  /** Credits under MIN_OPEN_CREDIT left off (owner: not worth chasing). */
+  small: number;
 };
 
 /** Positive credit on one statement, from `summarize` — the roster's figure. */
@@ -86,9 +89,12 @@ export function openCredits(run: StatementRun, earlier: StatementRun[] = []): Op
     .map((r) => ({ period: r.period, byUnit: new Map(r.statements.map((s) => [s.unitRef.toUpperCase(), s])) }));
 
   const rows: OpenCredit[] = [];
+  let small = 0;
   for (const st of run.statements) {
     const credit = creditOf(st, run.period);
     if (credit < 0.005) continue;
+    // Under $5 isn't worth chasing (owner) — left off, as on Open Credits.
+    if (credit < MIN_OPEN_CREDIT) { small++; continue; }
     const lines = st.charges
       .filter((c) => c.amount < 0)
       .map((c) => ({ dateISO: c.dateISO, description: c.description, amount: r2(-c.amount) }));
@@ -123,6 +129,7 @@ export function openCredits(run: StatementRun, earlier: StatementRun[] = []): Op
     netCreditTotal: r2(owed.reduce((a, r) => a - r.net, 0)),
     netCreditCount: owed.length,
     groups,
+    small,
   };
 }
 
