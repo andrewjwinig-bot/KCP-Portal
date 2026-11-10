@@ -13,8 +13,8 @@ import { ChevronDown, ChevronRight, Upload, X } from "lucide-react";
 import { StatPill } from "@/app/components/Pill";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
-import { useImport } from "@/app/components/import/ImportProvider";
-import { useUser } from "@/app/components/UserProvider";
+import { InfoPopover } from "@/app/components/InfoPopover";
+import { useCreditBalanceImport } from "../useCreditBalanceImport";
 import { SentEmailModal } from "../SentEmailModal";
 import { ago } from "../Correspondence";
 import { daysSince } from "@/lib/statements/correspondence";
@@ -45,15 +45,12 @@ const OLD_DAYS = 90;
 type Filter = "all" | "ask" | "old";
 
 export default function OpenCreditsPage() {
-  const { user } = useUser();
-  const { startImport } = useImport();
   const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>("all");
   const [emailing, setEmailing] = useState<Row | null>(null);
   const [viewing, setViewing] = useState<string | null>(null);
-  const [steps, setSteps] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -64,32 +61,7 @@ export default function OpenCreditsPage() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  async function importFiles(files: File[]) {
-    if (!files.length) return;
-    await startImport({
-      kind: "credit-balance",
-      title: (n) => `Reading ${n} Credit Balance report${n === 1 ? "" : "s"}`,
-      subtitle: "Skyline · Credit Balance · Any With Open Credits",
-      files, by: user?.label,
-      upload: async (file, { signal }) => {
-        const fd = new FormData(); fd.append("file", file);
-        const r = await fetch("/api/tenant-statements/aging", { method: "POST", body: fd, signal });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || !j?.result) return { status: "failed", error: j?.error ?? "Could not read it." };
-        const res = j.result;
-        const notes = [
-          res.unresolved.length ? `${res.unresolved.length} tenant${res.unresolved.length === 1 ? "" : "s"} could not be matched to a property: ${res.unresolved.map((u: { suite: string; tenantName: string }) => `${u.tenantName} (${u.suite})`).join(", ")}` : "",
-          res.untied.length ? `${res.untied.length} did not tie to Skyline's balance` : "",
-        ].filter(Boolean).join(" · ");
-        return { status: "done", entity: `As of ${longDate(res.asOf)} · ${res.tenants} tenants · ${res.properties.length} properties`, detail: notes || `${res.credits.count} credits totalling $${num(res.credits.total)}` };
-      },
-      report: (rows) => ({ stats: [
-        { value: String(rows.filter((r) => r.status === "done").length), label: "imported" },
-        { value: String(rows.filter((r) => r.status === "failed").length), label: "need a look" },
-      ] }),
-    });
-    await load();
-  }
+  const importFiles = useCreditBalanceImport(load);
 
   const asOf = data?.asOf ?? null;
   const rows = useMemo(() => {
@@ -124,27 +96,19 @@ export default function OpenCreditsPage() {
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
           <button className="btn primary" onClick={() => fileRef.current?.click()}><Upload {...ICON} /> Import Credit Balance report</button>
+          <InfoPopover align="left"><ImportInstructions variant="credit-balance" /></InfoPopover>
         </div>
       </header>
 
       {error && <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}
 
-      <section className="card" style={{ display: "grid", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 17, fontWeight: 800, flex: 1 }}>
-            {asOf ? <>Credit Balance report as of {longDate(asOf)}</> : "No Credit Balance report imported yet"}
-          </div>
-          <button className="btn sm" onClick={() => setSteps((v) => !v)}>
-            {steps ? <ChevronDown {...ICON} /> : <ChevronRight {...ICON} />} How to run it in Skyline
-          </button>
-        </div>
+      {data && (
         <div className="muted small">
           {asOf
-            ? <>Re-import whenever you run it — the newest report replaces what is here. Receipt Reconciliation reads these itemized credits too, for any tenant on the report.</>
-            : <>Import it to see each tenant&rsquo;s credits itemized — the laser statement only carries their total.</>}
+            ? <>Credit Balance report as of <b>{longDate(asOf)}</b> — re-import whenever you run it; the newest replaces what is here. Receipt Reconciliation reads these itemized credits too.</>
+            : <>No Credit Balance report imported yet — import one to see each tenant&rsquo;s credits itemized. The Skyline steps are behind the info button.</>}
         </div>
-        {(steps || !asOf) && <ImportInstructions variant="credit-balance" />}
-      </section>
+      )}
 
       {data && all.length > 0 && (
         <div className="pills">

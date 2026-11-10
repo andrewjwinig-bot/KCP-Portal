@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, ChevronRight, ChevronUp, TriangleAlert, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, TriangleAlert, Upload, X } from "lucide-react";
 
 // Receipt Reconciliation — a tenant paid an amount that doesn't line up with
 // their statement; work out what they MEANT, tell them how it will be applied,
@@ -20,6 +20,9 @@ import { Calendar } from "@/app/components/Calendar";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
 import { APPLICATION_LABEL, APPLICATION_ORDER, byHierarchy, creditUsage, renderReceiptEmail, type Account, type Explanation } from "@/lib/statements/receiptMatch";
 import { HoverCard } from "@/app/components/HoverCard";
+import { InfoPopover } from "@/app/components/InfoPopover";
+import { ImportInstructions } from "@/app/components/ImportInstructions";
+import { useCreditBalanceImport } from "../useCreditBalanceImport";
 import { SentEmailModal } from "../SentEmailModal";
 import { ago, srcOf } from "../Correspondence";
 import { KIND_LABEL, type CorrespondenceEntry } from "@/lib/statements/correspondence";
@@ -117,6 +120,12 @@ export default function ReceiptReconciliationPage() {
     if (!j?.ok) { setError(j?.error ?? "Could not load the statements."); return; }
     setPeriod(j.period); setPeriods(j.periods); setMonthDates(j.dates ?? null); setTenants(j.tenants); setReceipts(j.receipts); setSentEmails(j.sentEmails ?? []);
   }, []);
+  // The Credit Balance report, imported right here (owner: "tami should be
+  // able to import that file on Receipt Reconciliation page as well").
+  const creditFileRef = useRef<HTMLInputElement>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const importCredits = useCreditBalanceImport(useCallback(async () => { await loadList(period); setReloadKey((k) => k + 1); }, [loadList, period]));
+
   // ?period=&unit= (from the Receivables dashboard) opens straight on a tenant.
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -141,7 +150,7 @@ export default function ReceiptReconciliationPage() {
     }, 250);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period, unit, amountText, received, checkNo, effectivePlan, attach]);
+  }, [period, unit, amountText, received, checkNo, effectivePlan, attach, reloadKey]);
 
   // What we last sent this tenant — read before sending them another.
   const [history, setHistory] = useState<CorrespondenceEntry[]>([]);
@@ -272,6 +281,11 @@ export default function ReceiptReconciliationPage() {
             A payment that doesn&rsquo;t match the statement: find what the tenant meant, tell them how it will be applied, and apply it if they don&rsquo;t answer.
           </div>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input ref={creditFileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importCredits(f); }} />
+          <button className="btn" onClick={() => creditFileRef.current?.click()}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> Import Credit Balance report</button>
+          <InfoPopover align="left"><ImportInstructions variant="credit-balance" /></InfoPopover>
+        </div>
         <div className="pills" style={{ margin: 0 }}>
           <StatPill label="Ready to apply" value={counts.apply} accent={counts.apply ? "var(--c-15803d)" : undefined} />
           <StatPill label="Waiting on tenant" value={counts.waiting} accent={counts.waiting ? "var(--c-b45309)" : undefined} />
@@ -303,7 +317,7 @@ export default function ReceiptReconciliationPage() {
                   ? <>Skyline&rsquo;s file doesn&rsquo;t record when the report was run, so this is the latest it could be — the run may be earlier. </>
                   : <>This was imported before the portal read the export time — re-import the laser statement to capture when Skyline ran it. </>}
               {dataDates.source === "aging" && <>Read from the Credit Balance report, which itemizes each credit with its date. </>}
-              Anything posted since — a payment, a credit, a new charge — isn&rsquo;t shown here. <a className="text-link" href="/tenant-statements/credits">Import a newer Credit Balance report on Open Credits</a>. Check the tenant&rsquo;s <b>Occupant History</b> in Skyline for unposted items before you reconcile or email them.
+              Anything posted since — a payment, a credit, a new charge — isn&rsquo;t shown here; re-import the Credit Balance report above to pick it up. Every tenant with a credit: <a className="text-link" href="/tenant-statements/credits">Open Credits</a>. Check the tenant&rsquo;s <b>Occupant History</b> in Skyline for unposted items before you reconcile or email them.
             </div>
           </div>
         </div>

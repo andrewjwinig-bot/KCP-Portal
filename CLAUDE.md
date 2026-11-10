@@ -1451,6 +1451,10 @@ variant="credit-balance"`. Its title prints "Aging Report (Detailed)".
   applied — to next month's rent or the open charges; the table re-rendered
   on the server from the stored report, from Tami (`sendFromAr`), recorded as
   correspondence kind `credit-notice`.
+- **The report imports from BOTH pages** — Open Credits and Receipt
+  Reconciliation's header (`useCreditBalanceImport`, one flow) — and the
+  Skyline steps sit behind an ⓘ (`InfoPopover`, `app/components/`, shared with
+  the CAM recon's year-end exports), never spelled out on the page.
 
 # Management fees — the intercompany must tie exactly
 
