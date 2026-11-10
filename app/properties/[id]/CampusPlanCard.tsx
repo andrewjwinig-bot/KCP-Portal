@@ -60,7 +60,7 @@ export default function CampusPlanCard({ campus, style }: { campus: CampusView; 
                     stroke={hot ? "#0f172a" : mine ? "#0f172a" : "rgba(15,23,42,0.4)"} strokeWidth={hot ? 3 : mine ? 1.6 : 1} />
                 ))}
                 {b.onRoll && (
-                  <text x={b.cx} y={b.cy + 20} textAnchor="middle" fontSize={12} fontWeight={800} fill="#0f172a"
+                  <text x={b.cx} y={b.cy + 20} textAnchor="middle" fontSize={12} fontWeight={800} fill="var(--c-0f172a)"
                     stroke="#fff" strokeWidth={3} paintOrder="stroke" style={{ pointerEvents: "none" }}>
                     {Math.round(occupancyOf(b) * 100)}%
                   </text>

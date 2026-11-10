@@ -1,4 +1,5 @@
 "use client";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -217,8 +218,7 @@ export default function UnitDetailPage() {
           <Link
             href="/rentroll"
             style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--brand)", textDecoration: "none", marginTop: 4 }}
-          >
-            ← Rent roll
+          ><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />Rent roll
           </Link>
         </div>
       </main>
@@ -329,7 +329,7 @@ export default function UnitDetailPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           {hasFrom
             ? <Link href={fromParam!} style={backStyle}>{backLabel}</Link>
-            : <button type="button" onClick={goBack} style={backStyle}>← Back</button>}
+            : <button type="button" onClick={goBack} style={backStyle}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />Back</button>}
           {propUnits.length > 1 && (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               {prevUnit
@@ -354,13 +354,13 @@ export default function UnitDetailPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <code style={{
-            background: "#0b1220", color: "#e0f0ff",
+            background: "var(--c-0b1220)", color: "var(--c-e0f0ff)",
             padding: "2px 8px", borderRadius: 5,
             fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.06em",
           }}>{unit.unitRef}</code>
           <Link
             href={`/properties/${encodeURIComponent(propertyCode)}`}
-            style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}
+            style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none" }}
             onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
             onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
           >
@@ -409,8 +409,8 @@ export default function UnitDetailPage() {
             value={
               <>
                 {baseYearVal != null ? baseYearVal : "—"}
-                {reset && <sup style={{ fontSize: "var(--fs-10)", fontWeight: 800, color: "#b91c1c", lineHeight: 1 }}>※</sup>}
-                {snowExcl && <sup title={snowExclLabel ?? undefined} style={{ fontSize: "var(--fs-10)", fontWeight: 800, color: "#0b4a7d", lineHeight: 1, marginLeft: 1 }}>❄</sup>}
+                {reset && <sup style={{ fontSize: "var(--fs-10)", fontWeight: 800, color: "var(--c-b91c1c)", lineHeight: 1 }}>※</sup>}
+                {snowExcl && <sup title={snowExclLabel ?? undefined} style={{ fontSize: "var(--fs-10)", fontWeight: 800, color: "var(--c-0b4a7d)", lineHeight: 1, marginLeft: 1 }}>❄</sup>}
               </>
             }
             accent={reset ? "#b91c1c" : undefined}
@@ -531,7 +531,7 @@ export default function UnitDetailPage() {
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     padding: "9px 12px",
                     border: "1px solid var(--border)", borderRadius: 8,
-                    background: "#fafafa",
+                    background: "var(--c-fafafa)",
                   }}>
                     <span style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>{formatModalDate(esc.date)}</span>
                     <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>→</span>
@@ -550,7 +550,7 @@ export default function UnitDetailPage() {
           count={unitRequests.length}
           link={
             <AllowedLink href="/maintenance" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
-              Open Maintenance →
+              Open Maintenance<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
             </AllowedLink>
           }
         >
@@ -571,7 +571,7 @@ export default function UnitDetailPage() {
                       display: "flex", alignItems: "center", gap: 10,
                       padding: "9px 12px",
                       border: "1px solid var(--border)", borderRadius: 8,
-                      background: "#fafafa",
+                      background: "var(--c-fafafa)",
                       textDecoration: "none", color: "inherit",
                     }}
                   >

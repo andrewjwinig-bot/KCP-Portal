@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight, X } from "lucide-react";
 
 // Dashboard reminder for the annual Statement of Values run — mirrors the
 // payroll / commissions tiles. Ownership circulates statements to investors each
@@ -15,10 +16,10 @@ import { annualStatementReminderState, type ReminderTone } from "@/lib/ownership
 const DISMISS_KEY = "kcp:dash:annualStatement:dismissed";
 
 const TONE: Record<ReminderTone, { border: string; bg: string; dot: string }> = {
-  paid:    { border: "rgba(21,128,61,0.30)",  bg: "rgba(21,128,61,0.06)",  dot: "#15803d" },
-  soon:    { border: "rgba(217,119,6,0.30)",  bg: "rgba(217,119,6,0.06)",  dot: "#d97706" },
-  action:  { border: "rgba(220,38,38,0.35)",  bg: "rgba(220,38,38,0.06)",  dot: "#dc2626" },
-  neutral: { border: "rgba(15,23,42,0.12)",   bg: "rgba(15,23,42,0.025)",  dot: "#64748b" },
+  paid:    { border: "rgba(21,128,61,0.30)",  bg: "rgba(21,128,61,0.06)",  dot: "var(--c-15803d)" },
+  soon:    { border: "rgba(217,119,6,0.30)",  bg: "rgba(217,119,6,0.06)",  dot: "var(--c-d97706)" },
+  action:  { border: "rgba(220,38,38,0.35)",  bg: "rgba(220,38,38,0.06)",  dot: "var(--c-dc2626)" },
+  neutral: { border: "rgba(15,23,42,0.12)",   bg: "rgba(15,23,42,0.025)",  dot: "var(--c-64748b)" },
 };
 
 export default function AnnualStatementReminder({ standalone = false }: { standalone?: boolean }) {
@@ -56,8 +57,8 @@ export default function AnnualStatementReminder({ standalone = false }: { standa
         <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>{info.title}</div>
         <div className="muted small" style={{ marginTop: 2 }}>{info.sub}</div>
       </div>
-      <Link href="/investors?view=statement" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>Open →</Link>
-      <button onClick={dismiss} aria-label="Dismiss" title="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 15, lineHeight: 1, padding: 0, flexShrink: 0, alignSelf: "center" }}>×</button>
+      <Link href="/investors?view=statement" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
+      <button onClick={dismiss} aria-label="Dismiss" title="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 15, lineHeight: 1, padding: 0, flexShrink: 0, alignSelf: "center" }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
     </div>
   );
 }

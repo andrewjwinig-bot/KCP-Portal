@@ -1,5 +1,5 @@
 "use client";
-import { CircleCheck } from "lucide-react";
+import { CircleCheck, X } from "lucide-react";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -93,12 +93,12 @@ function leaseStatus(leaseTo: string | null | undefined): {
   const d = parseRentDate(leaseTo);
   if (!d) return { label: "No Exp", color: "var(--muted)", bg: "transparent", border: "var(--border)", days: null };
   const days = daysUntil(d);
-  if (days < 0)    return { label: "Expired",  color: "#dc2626", bg: "rgba(220,38,38,0.08)",   border: "rgba(220,38,38,0.25)",  days };
-  if (days <= 30)  return { label: `${days}d`, color: "#dc2626", bg: "rgba(220,38,38,0.08)",   border: "rgba(220,38,38,0.25)",  days };
-  if (days <= 60)  return { label: `${days}d`, color: "#ea580c", bg: "rgba(234,88,12,0.08)",   border: "rgba(234,88,12,0.25)",  days };
-  if (days <= 90)  return { label: `${days}d`, color: "#d97706", bg: "rgba(217,119,6,0.08)",   border: "rgba(217,119,6,0.25)",  days };
-  if (days <= 365) return { label: `${days}d`, color: "#0b4a7d", bg: "rgba(11,74,125,0.06)",   border: "rgba(11,74,125,0.18)",  days };
-  return { label: "OK", color: "#16a34a", bg: "rgba(22,163,74,0.07)", border: "rgba(22,163,74,0.2)", days };
+  if (days < 0)    return { label: "Expired",  color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)",   border: "rgba(220,38,38,0.25)",  days };
+  if (days <= 30)  return { label: `${days}d`, color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)",   border: "rgba(220,38,38,0.25)",  days };
+  if (days <= 60)  return { label: `${days}d`, color: "var(--c-ea580c)", bg: "rgba(234,88,12,0.08)",   border: "rgba(234,88,12,0.25)",  days };
+  if (days <= 90)  return { label: `${days}d`, color: "var(--c-d97706)", bg: "rgba(217,119,6,0.08)",   border: "rgba(217,119,6,0.25)",  days };
+  if (days <= 365) return { label: `${days}d`, color: "var(--c-0b4a7d)", bg: "rgba(11,74,125,0.06)",   border: "rgba(11,74,125,0.18)",  days };
+  return { label: "OK", color: "var(--c-16a34a)", bg: "rgba(22,163,74,0.07)", border: "rgba(22,163,74,0.2)", days };
 }
 
 function nextEscalation(unit: RentRollUnit): { date: string; amount: number } | null {
@@ -124,7 +124,7 @@ function ChangeColumn({ title, tone, rows, actions, leftBorder }: {
   title: string; tone: string; rows: ChangeRowT[]; actions: { label: string; href: string }[]; leftBorder?: boolean;
 }) {
   return (
-    <div style={{ padding: "12px 16px", ...(leftBorder ? { borderLeft: "1px solid rgba(11,74,125,0.16)" } : {}) }}>
+    <div style={{ padding: "12px 16px", ...(leftBorder ? { borderLeft: "1px solid var(--tint-brand-line, rgba(11,74,125,0.16))" } : {}) }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: tone }}>{title}</span>
         <span style={{ fontSize: "var(--fs-11)", fontWeight: 800, color: "#fff", background: tone, borderRadius: 999, padding: "1px 8px", minWidth: 20, textAlign: "center" }}>{rows.length}</span>
@@ -146,7 +146,7 @@ function ChangeColumn({ title, tone, rows, actions, leftBorder }: {
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
             {actions.map((a) => (
-              <AllowedLink key={a.href + a.label} href={a.href} style={{ fontWeight: 700, fontSize: "var(--fs-12-5)", color: "#0b4a7d", textDecoration: "none" }}>{a.label} →</AllowedLink>
+              <AllowedLink key={a.href + a.label} href={a.href} style={{ fontWeight: 700, fontSize: "var(--fs-12-5)", color: "var(--c-0b4a7d)", textDecoration: "none" }}>{a.label} →</AllowedLink>
             ))}
           </div>
         </>
@@ -192,11 +192,11 @@ const CATEGORY_OW_CODES          = new Set(["4900"]);
 type CategoryFilter = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
 
 const CATEGORY_OPTIONS: { label: CategoryFilter; color: string; activeColor: string }[] = [
-  { label: "All",              color: "var(--muted)",  activeColor: "#0f172a"  },
-  { label: "Office",           color: "#0b4a7d",       activeColor: "#0b4a7d"  },
-  { label: "Retail",           color: "#0d9488",       activeColor: "#0d9488"  },
-  { label: "Residential",      color: "#6d28d9",       activeColor: "#6d28d9"  },
-  { label: "The Office Works", color: "#475569",       activeColor: "#475569"  },
+  { label: "All",              color: "var(--muted)",  activeColor: "var(--c-0f172a)"  },
+  { label: "Office",           color: "var(--c-0b4a7d)",       activeColor: "var(--c-0b4a7d)"  },
+  { label: "Retail",           color: "var(--c-0d9488)",       activeColor: "var(--c-0d9488)"  },
+  { label: "Residential",      color: "var(--c-6d28d9)",       activeColor: "var(--c-6d28d9)"  },
+  { label: "The Office Works", color: "var(--c-475569)",       activeColor: "var(--c-475569)"  },
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -263,9 +263,9 @@ function ImportInstructionsButton({ nextMonth }: { nextMonth?: { year: number; m
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           width: 16, height: 16, padding: 0,
           fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
-          background: "rgba(11,74,125,0.10)",
-          color: "#0b4a7d",
-          border: "1px solid rgba(11,74,125,0.30)",
+          background: "var(--tint-brand-bg, rgba(11,74,125,0.10))",
+          color: "var(--c-0b4a7d)",
+          border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.30))",
           borderRadius: "50%",
           cursor: "pointer",
         }}
@@ -397,7 +397,7 @@ function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
           {value != null && value !== "" ? value : <span style={{ color: "var(--muted)" }}>—</span>}
         </span>
         {reset && (
-          <span title={resetTitleRO} style={{ fontSize: 9.5, fontWeight: 700, color: "#b91c1c", whiteSpace: "nowrap", lineHeight: 1.1, cursor: "help" }}>
+          <span title={resetTitleRO} style={{ fontSize: 9.5, fontWeight: 700, color: "var(--c-b91c1c)", whiteSpace: "nowrap", lineHeight: 1.1, cursor: "help" }}>
             {resetNote}
           </span>
         )}
@@ -455,7 +455,7 @@ function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
         }}
       />
       {reset && (
-        <span title={resetTitle} style={{ fontSize: 9.5, fontWeight: 700, color: "#b91c1c", whiteSpace: "nowrap", lineHeight: 1.1, cursor: "help" }}>
+        <span title={resetTitle} style={{ fontSize: 9.5, fontWeight: 700, color: "var(--c-b91c1c)", whiteSpace: "nowrap", lineHeight: 1.1, cursor: "help" }}>
           {resetNote}
         </span>
       )}
@@ -554,10 +554,10 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
               // after leaving), so the cell is called out in red.
               const billedVacant = (n: number | null | undefined) => effectiveVacant && !!n && Math.abs(n) >= 0.005;
               const vacantCell = (n: number | null | undefined): React.CSSProperties =>
-                billedVacant(n) ? { background: "rgba(220,38,38,0.14)", color: "#b91c1c", fontWeight: 700 } : {};
+                billedVacant(n) ? { background: "var(--tint-red-bg, rgba(220,38,38,0.14))", color: "var(--c-b91c1c)", fontWeight: 700 } : {};
               const charge = (n: number | null | undefined, what: string, text: string) =>
                 billedVacant(n)
-                  ? <HoverCard title="Charge on a vacant suite" rows={[{ label: what, value: text, color: "#b91c1c" }]}
+                  ? <HoverCard title="Charge on a vacant suite" rows={[{ label: what, value: text, color: "var(--c-b91c1c)" }]}
                       footer={{ label: "A vacant suite should bill nothing", value: "Check the rent roll" }}>{text}</HoverCard>
                   : text;
 
@@ -610,7 +610,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                   <td style={{ whiteSpace: "nowrap" }}>
                     <code style={{
                       fontSize: "var(--fs-12)", fontWeight: 700,
-                      color: "#0b4a7d",
+                      color: "var(--c-0b4a7d)",
                       whiteSpace: "nowrap",
                       textDecoration: "underline",
                       textUnderlineOffset: 2,
@@ -768,7 +768,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
               {/* Colored % pill */}
               <span style={{
                 padding: "3px 9px", borderRadius: 6,
-                background: `${occColor(occupancyPct)}1a`,
+                background: `color-mix(in srgb, ${occColor(occupancyPct)} 10%, transparent)`,
                 color: occColor(occupancyPct),
                 fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.04em",
                 fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
@@ -782,7 +782,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
               ]} footer={{ label: "Total", value: `${sqftFmt(prop.totalSqft)} sf` }}>
                 <div style={{
                   width: 110, height: 8, borderRadius: 999,
-                  background: "rgba(15,23,42,0.08)", overflow: "hidden", flexShrink: 0,
+                  background: "var(--tint-neutral-bg, rgba(15,23,42,0.08))", overflow: "hidden", flexShrink: 0,
                 }}>
                   <div style={{
                     width: `${occupancyPct}%`, height: "100%",
@@ -803,7 +803,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
               {sfMismatch && (
                 <AlertBadge
                   label={`SF ≠ GLA ${sfDeltaLabel}`}
-                  color="#b91c1c"
+                  color="var(--c-b91c1c)"
                   bg="rgba(220,38,38,0.08)"
                   border="rgba(220,38,38,0.28)"
                   title={`Roll ${sqftFmt(Math.round(prop.totalSqft))} SF vs GLA ${sqftFmt(gla)} SF — check the roll or the property master.`}
@@ -812,7 +812,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
               {expiringCount > 0 && (
                 <AlertBadge
                   label={`${expiringCount} exp${expiringCount > 1 ? "s" : ""} ≤90d`}
-                  color="#d97706"
+                  color="var(--c-d97706)"
                   bg="rgba(217,119,6,0.08)"
                   border="rgba(217,119,6,0.25)"
                 />
@@ -820,7 +820,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
               {escalatingCount > 0 && (
                 <AlertBadge
                   label={`${escalatingCount} esc ≤90d`}
-                  color="#0b4a7d"
+                  color="var(--c-0b4a7d)"
                   bg="rgba(11,74,125,0.08)"
                   border="rgba(11,74,125,0.25)"
                 />
@@ -870,7 +870,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
                   ({sqftFmt(prop.occupiedSqft)} / {sqftFmt(prop.totalSqft)} sf)
                 </span>
               </div>
-              <div style={{ height: 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+              <div style={{ height: 6, borderRadius: 999, background: "var(--tint-neutral-bg, rgba(15,23,42,0.08))", overflow: "hidden" }}>
                 <div style={{
                   height: "100%",
                   width: `${occupancyPct}%`,
@@ -1085,7 +1085,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                         const groupSqft = rows.reduce((s, r) => s + r.unit.sqft, 0);
                         return (
                           <>
-                            <tr key={`hdr-${label}`} style={{ background: "rgba(15,23,42,0.04)" }}>
+                            <tr key={`hdr-${label}`} style={{ background: "var(--tint-neutral-bg, rgba(15,23,42,0.04))" }}>
                               <td colSpan={3} style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", paddingTop: 6, paddingBottom: 6 }}>{label}</td>
                               <td style={{ textAlign: "right", fontSize: "var(--fs-11)", color: "var(--muted)", paddingTop: 6, paddingBottom: 6 }}>{rows.length} unit{rows.length !== 1 ? "s" : ""} · {sqftFmt(groupSqft)} sf</td>
                             </tr>
@@ -1095,7 +1095,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                               <tr key={`${label}-${i}`}
                                 onClick={() => router.push(`/units/${encodeURIComponent(unit.unitRef)}`)}
                                 title="Open the unit page"
-                                style={{ background: "rgba(15,23,42,0.012)", cursor: "pointer" }}
+                                style={{ background: "var(--tint-neutral-bg, rgba(15,23,42,0.012))", cursor: "pointer" }}
                                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
                                 <td style={{ fontSize: "var(--fs-13)", paddingLeft: 20 }}>{propName(propertyCode)}</td>
@@ -1104,7 +1104,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                                   {fp ? (
                                     <a href={blobSrc(fp.url)} target="_blank" rel="noreferrer" title={fp.name}
                                       onClick={(e) => e.stopPropagation()}
-                                      style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+                                      style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none" }}>
                                       {fp.contentType.startsWith("image/") ? (
                                         <img src={blobSrc(fp.url)} alt="" loading="lazy"
                                           style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
@@ -1153,7 +1153,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                   const esc    = nextEscalation(unit)!;
                   const change = esc.amount - unit.baseRent;
                   return (
-                    <tr key={i} style={{ background: "rgba(217,119,6,0.03)" }}>
+                    <tr key={i} style={{ background: "var(--tint-amber-bg, rgba(217,119,6,0.03))" }}>
                       <td style={{ fontSize: "var(--fs-13)" }}>
                         <div style={{ fontWeight: 600 }}>{propName(propertyCode)}</div>
                         <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>{propertyCode}</div>
@@ -1163,7 +1163,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                       <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{sqftFmt(unit.sqft)}</td>
                       <td style={{ fontSize: "var(--fs-13)" }}>
                         <div style={{ fontWeight: 600 }}>{formatDate(esc.date)}</div>
-                        <div style={{ fontSize: "var(--fs-11)", color: "#d97706" }}>{days}d away</div>
+                        <div style={{ fontSize: "var(--fs-11)", color: "var(--c-d97706)" }}>{days}d away</div>
                       </td>
                       <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{money(unit.baseRent)}</td>
                       <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 700 }}>{money(esc.amount)}</td>
@@ -1194,14 +1194,14 @@ const CHART_METRICS: { key: ChartMetric; label: string }[] = [
 // Stacked-segment definitions per metric — drives both the bars and the legend.
 const METRIC_SEGMENTS: Record<ChartMetric, { key: string; label: string; color: string }[]> = {
   occupancy: [
-    { key: "occ", label: "Occupied", color: "#16a34a" },
-    { key: "vac", label: "Vacant",   color: "#cbd5e1" },
+    { key: "occ", label: "Occupied", color: "var(--c-16a34a)" },
+    { key: "vac", label: "Vacant",   color: "var(--c-cbd5e1)" },
   ],
   rent: [
-    { key: "base",  label: "Base Rent", color: "#0b4a7d" },
-    { key: "cam",   label: "CAM",       color: "#0d9488" },
-    { key: "ret",   label: "RE Tax",    color: "#d97706" },
-    { key: "other", label: "Other",     color: "#94a3b8" },
+    { key: "base",  label: "Base Rent", color: "var(--c-0b4a7d)" },
+    { key: "cam",   label: "CAM",       color: "var(--c-0d9488)" },
+    { key: "ret",   label: "RE Tax",    color: "var(--c-d97706)" },
+    { key: "other", label: "Other",     color: "var(--c-94a3b8)" },
   ],
 };
 
@@ -1782,11 +1782,11 @@ export default function RentRollPage() {
           style={{
             display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
             marginBottom: 16, padding: "12px 16px", borderRadius: 10,
-            background: "rgba(22,163,74,0.10)", border: "1px solid rgba(22,163,74,0.5)",
-            color: "#15803d", fontWeight: 700,
+            background: "var(--tint-green-bg, rgba(22,163,74,0.10))", border: "1px solid var(--tint-green-line, rgba(22,163,74,0.5))",
+            color: "var(--c-15803d)", fontWeight: 700,
           }}
         >
-          <CircleCheck size={20} strokeWidth={1.75} color="#067647" aria-hidden style={{ flexShrink: 0 }} />
+          <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" aria-hidden style={{ flexShrink: 0 }} />
           <span style={{ flex: 1 }}>{importedFlash}</span>
           <span className="small" style={{ fontWeight: 600, opacity: 0.75 }}>Dismiss ✕</span>
         </div>
@@ -1814,12 +1814,12 @@ export default function RentRollPage() {
         style={{
           marginBottom: 24, position: "relative",
           transition: "border-color 0.15s, background 0.15s",
-          ...(dragging ? { borderColor: "#0b4a7d", background: "rgba(11,74,125,0.05)" } : {}),
+          ...(dragging ? { borderColor: "var(--c-0b4a7d)", background: "var(--tint-brand-bg, rgba(11,74,125,0.05))" } : {}),
         }}
       >
         {dragging && (
-          <div style={{ position: "absolute", inset: 0, zIndex: 5, borderRadius: 16, border: "2px dashed #0b4a7d", background: "rgba(11,74,125,0.06)", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-14)", fontWeight: 700, color: "#0b4a7d" }}>
+          <div style={{ position: "absolute", inset: 0, zIndex: 5, borderRadius: 16, border: "2px dashed #0b4a7d", background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--c-0b4a7d)" }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
               Drop the rent roll to import
             </div>
@@ -1883,7 +1883,7 @@ export default function RentRollPage() {
                 </button>
               </>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
+            <span style={{ background: "var(--tint-green-bg, rgba(22, 163, 74, 0.85))", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
         {reportMonth && Object.keys(carriedFrom).length > 0 && (() => {
@@ -1914,13 +1914,13 @@ export default function RentRollPage() {
           })()} />
         </p>
         <LastImported at={rentroll?.uploadedAt} by={rentroll?.uploadedBy} />
-        {uploadError && <div style={{ color: "#b42318", fontSize: "var(--fs-13)", marginTop: 6 }}>{uploadError}</div>}
-        {uploadNote && <div style={{ color: "#0b4a7d", fontSize: "var(--fs-13)", marginTop: 6 }}>{uploadNote}</div>}
+        {uploadError && <div style={{ color: "var(--c-b42318)", fontSize: "var(--fs-13)", marginTop: 6 }}>{uploadError}</div>}
+        {uploadNote && <div style={{ color: "var(--c-0b4a7d)", fontSize: "var(--fs-13)", marginTop: 6 }}>{uploadNote}</div>}
         {uploadChanges && (uploadChanges.newTenants.length > 0 || uploadChanges.vacated.length > 0) && (
-          <div style={{ marginTop: 12, border: "1px solid rgba(11,74,125,0.28)", borderRadius: 12, background: "var(--card)", overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderBottom: "1px solid rgba(11,74,125,0.18)", background: "rgba(11,74,125,0.05)" }}>
-              <span style={{ fontWeight: 800, color: "#0b4a7d", fontSize: "var(--fs-13)", letterSpacing: "0.02em" }}>Changes vs last roll</span>
-              <button onClick={() => setUploadChanges(null)} aria-label="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "#0b4a7d", fontSize: 18, fontWeight: 700, lineHeight: 1, padding: 0 }}>×</button>
+          <div style={{ marginTop: 12, border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.28))", borderRadius: 12, background: "var(--card)", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderBottom: "1px solid var(--tint-brand-line, rgba(11,74,125,0.18))", background: "var(--tint-brand-bg, rgba(11,74,125,0.05))" }}>
+              <span style={{ fontWeight: 800, color: "var(--c-0b4a7d)", fontSize: "var(--fs-13)", letterSpacing: "0.02em" }}>Changes vs last roll</span>
+              <button onClick={() => setUploadChanges(null)} aria-label="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--c-0b4a7d)", fontSize: 18, fontWeight: 700, lineHeight: 1, padding: 0 }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
               <ChangeColumn
@@ -1956,7 +1956,7 @@ export default function RentRollPage() {
                       background: active
                         ? label === "All"
                           ? "rgba(15,23,42,0.08)"
-                          : `${activeColor}18`
+                          : `color-mix(in srgb, ${activeColor} 9%, transparent)`
                         : "transparent",
                       color: active ? activeColor : "var(--muted)",
                       transition: "all 0.15s ease",

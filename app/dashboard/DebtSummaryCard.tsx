@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 import Link from "next/link";
 import {
@@ -36,8 +37,8 @@ export default function DebtSummaryCard({ order = -1 }: { order?: number }) {
         <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
           Debt Summary
         </div>
-        <Link href="/debt" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
-          Debt tracker →
+        <Link href="/debt" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none" }}>
+          Debt tracker<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
         </Link>
       </div>
 

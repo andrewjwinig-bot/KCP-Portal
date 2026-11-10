@@ -1,4 +1,5 @@
 "use client";
+import { Check, X } from "lucide-react";
 
 // The shared import modal — two states of one surface:
 //   A) uploading ("thinking"): progress ring, shimmer status, live file list.
@@ -139,7 +140,7 @@ function Row({ f, innerRef }: { f: ImportFile; innerRef?: React.Ref<HTMLDivEleme
           {f.entity && <span className="muted" style={{ marginLeft: 8 }}>{f.entity}{f.detail ? ` · ${f.detail}` : ""}</span>}
         </div>
         {f.note && <div style={{ fontSize: "var(--fs-11-5)", marginTop: 1, color: f.noteTone === "warn" ? "#b45309" : "var(--ok)" }}>{f.note}</div>}
-        {f.status === "failed" && f.error && <div style={{ fontSize: "var(--fs-11-5)", marginTop: 1, color: "#b91c1c" }}>{f.error}</div>}
+        {f.status === "failed" && f.error && <div style={{ fontSize: "var(--fs-11-5)", marginTop: 1, color: "var(--c-b91c1c)" }}>{f.error}</div>}
       </div>
       <div style={{ fontFamily: MONO, fontSize: "var(--fs-12)", color: statusColor(f.status), position: "relative", whiteSpace: "nowrap" }}>
         {f.status === "done" && f.count != null ? `${num(f.count)} ${f.countLabel ?? ""}`.trim()
@@ -152,8 +153,8 @@ function Row({ f, innerRef }: { f: ImportFile; innerRef?: React.Ref<HTMLDivEleme
 }
 
 function StatusDot({ status }: { status: ImportFile["status"] }) {
-  if (status === "done") return <span style={{ ...dotBase, background: "var(--ok)", color: "#fff" }}>✓</span>;
-  if (status === "failed") return <span style={{ ...dotBase, background: "#b91c1c", color: "#fff" }}>✕</span>;
+  if (status === "done") return <span style={{ ...dotBase, background: "var(--ok)", color: "#fff" }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>;
+  if (status === "failed") return <span style={{ ...dotBase, background: "var(--c-b91c1c)", color: "#fff" }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>;
   if (status === "reading") return <span className="imp-anim" style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid var(--import-blue-border)", borderTopColor: "var(--import-blue)", animation: "spin .8s linear infinite", flexShrink: 0 }} />;
   return <span style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid var(--border)", flexShrink: 0 }} />;
 }
@@ -171,7 +172,7 @@ function ReportState({ run, done, failed, total, onClose, onDismissAutoExplain }
         iconBg="var(--ok-circle)" iconBorder="var(--ok-border)" iconSize={44}
         title={<span style={{ color: allOk ? "var(--ok-head)" : "#b45309", fontSize: 18, fontWeight: 800 }}>{heading}</span>}
         subtitle={`Just now${run.by ? ` · by ${run.by}` : ""}`}
-        right={<button aria-label="Close" onClick={onClose} style={ghostIcon}>×</button>}
+        right={<button aria-label="Close" onClick={onClose} style={ghostIcon}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>}
       />
 
       {rep?.stats && rep.stats.length > 0 && (
@@ -200,7 +201,7 @@ function ReportState({ run, done, failed, total, onClose, onDismissAutoExplain }
       <div style={{ padding: "12px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
         {rep?.unlocks?.map((u) => (
           <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid var(--ok-border)", background: "var(--ok-bg)", borderRadius: 12, padding: "12px 15px" }}>
-            <span style={{ width: 28, height: 28, borderRadius: 8, background: "var(--ok)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>✓</span>
+            <span style={{ width: 28, height: 28, borderRadius: 8, background: "var(--ok)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 700, color: "var(--ok-head)" }}>{u.title}</div>
               <div className="muted" style={{ fontSize: "var(--fs-12-5)" }}>{u.subtitle}</div>
@@ -241,7 +242,7 @@ function AutoExplainCard({ state, outcome, spec, onDismiss }: { state: ImportRun
       <span className="imp-anim" style={{ animation: "impFloat 3.5s ease-in-out infinite", flexShrink: 0 }}><SparkleMark size={30} twinkle={running} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 700, color: "var(--ai-text)" }}>{spec?.title ?? "Explaining the flagged lines"}</div>
-        <div className="muted" style={{ fontSize: "var(--fs-12-5)" }}>{running ? "Reading the GL behind each line that looks off…" : doneState ? <span style={failed.length ? { color: "#b91c1c" } : undefined}>{doneText}</span> : (spec?.subtitle ?? "Reading the GL behind each line that looks off.")}</div>
+        <div className="muted" style={{ fontSize: "var(--fs-12-5)" }}>{running ? "Reading the GL behind each line that looks off…" : doneState ? <span style={failed.length ? { color: "var(--c-b91c1c)" } : undefined}>{doneText}</span> : (spec?.subtitle ?? "Reading the GL behind each line that looks off.")}</div>
       </div>
       {doneState && (
         <button onClick={onDismiss} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ai-hero-sub)", fontSize: "var(--fs-12-5)", fontWeight: 700, flexShrink: 0 }}>Dismiss</button>

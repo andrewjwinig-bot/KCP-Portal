@@ -1,5 +1,5 @@
 "use client";
-import { CircleCheck } from "lucide-react";
+import { ChevronRight, CircleCheck, X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import JSZip from "jszip";
@@ -115,14 +115,14 @@ function DonutChart({ data }: { data: PieSlice[] }) {
             style={{ cursor: "pointer", opacity: hovered !== null && hovered !== i ? 0.45 : 1, transition: "opacity 0.12s" }}
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />
         ))}
-        <text x={cx} y={cy - 16} textAnchor="middle" style={{ fontSize: "var(--fs-11)", fill: "#64748b", fontFamily: "inherit" }}>
+        <text x={cx} y={cy - 16} textAnchor="middle" style={{ fontSize: "var(--fs-11)", fill: "var(--c-64748b)", fontFamily: "inherit" }}>
           {trim(hov ? hov.label : "Total")}
         </text>
-        <text x={cx} y={cy + 5} textAnchor="middle" style={{ fontSize: "var(--fs-14)", fontWeight: 700, fill: "#0f172a", fontFamily: "inherit" }}>
+        <text x={cx} y={cy + 5} textAnchor="middle" style={{ fontSize: "var(--fs-14)", fontWeight: 700, fill: "var(--c-0f172a)", fontFamily: "inherit" }}>
           {hov ? toMoney(hov.value) : toMoney(total)}
         </text>
         {hov && (
-          <text x={cx} y={cy + 22} textAnchor="middle" style={{ fontSize: "var(--fs-12)", fill: "#64748b", fontFamily: "inherit" }}>
+          <text x={cx} y={cy + 22} textAnchor="middle" style={{ fontSize: "var(--fs-12)", fill: "var(--c-64748b)", fontFamily: "inherit" }}>
             {((hov.value / total) * 100).toFixed(1)}%
           </text>
         )}
@@ -714,13 +714,13 @@ export default function AllocatedInvoicerPage() {
       {/* ── Allocation tie-out — the split must add back up to the source GL ── */}
       {allocTie && (
         allocTie.ties ? (
-          <div className="card small" style={{ borderColor: "rgba(22,163,74,0.4)", background: "rgba(22,163,74,0.06)", color: "#15803d", fontWeight: 600 }}>
+          <div className="card small" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.4))", background: "var(--tint-green-bg, rgba(22,163,74,0.06))", color: "var(--c-15803d)", fontWeight: 600 }}>
             ✓ Allocation ties out — {toMoney(allocTie.sourceTotal)} of G&amp;A fully allocated across properties (every suffix’s shares sum to 100%).
           </div>
         ) : (
-          <div className="card" style={{ borderColor: "rgba(220,38,38,0.6)", background: "rgba(220,38,38,0.07)", padding: "14px 16px" }}>
-            <div style={{ fontWeight: 800, color: "#b91c1c" }}>⚠ Allocation does not tie to the source GL</div>
-            <div className="small" style={{ marginTop: 6, color: "#7f1d1d" }}>
+          <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.6))", background: "var(--tint-red-bg, rgba(220,38,38,0.07))", padding: "14px 16px" }}>
+            <div style={{ fontWeight: 800, color: "var(--c-b91c1c)" }}>⚠ Allocation does not tie to the source GL</div>
+            <div className="small" style={{ marginTop: 6, color: "var(--c-7f1d1d)" }}>
               {toMoney(Math.abs(allocTie.unallocated))} of G&amp;A {allocTie.unallocated >= 0 ? "never lands on any building" : "is over-allocated"} — a suffix’s property shares don’t sum to 100%. Fix the allocation percentages and re-import before sending.
             </div>
             <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
@@ -736,7 +736,7 @@ export default function AllocatedInvoicerPage() {
 
       {/* ── Prepared & awaiting review — Review & Send to AvidXchange ── */}
       {liveReview && (
-        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
+        <div className="card" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.5))", background: "var(--tint-green-bg, rgba(22,163,74,0.07))", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
           <div>
             <div style={{ fontWeight: 800, fontSize: 17 }}>
               {sendLabel(liveReview)} — ready to send
@@ -748,24 +748,24 @@ export default function AllocatedInvoicerPage() {
           </div>
           <button
             className="btn"
-            style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10 }}
+            style={{ background: "var(--c-16a34a)", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10 }}
             onClick={() => setReviewSend(liveReview)}
           >
-            Review &amp; Send to AvidXchange →
+            Review &amp; Send to AvidXchange<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
           </button>
         </div>
       )}
 
       {/* ── Everything held under $100 this month — nothing bills yet ── */}
       {allHeldThisMonth && (
-        <div className="card small" style={{ borderColor: "rgba(180,83,9,0.4)", background: "rgba(180,83,9,0.06)", color: "#92400e", fontWeight: 600 }}>
+        <div className="card small" style={{ borderColor: "var(--tint-amber-line, rgba(180,83,9,0.4))", background: "var(--tint-amber-bg, rgba(180,83,9,0.06))", color: "var(--c-92400e)", fontWeight: 600 }}>
           ⏳ {glResult?.periodText || statementMonth}: every allocation is under the ${CARRYOVER_THRESHOLD}-per-account threshold, so nothing bills to AvidXchange yet — the balances are held and carry forward until they cross ${CARRYOVER_THRESHOLD} (December posts everything). See the Allocation Preview below for the held detail.
         </div>
       )}
 
       {/* ── Already sent this month ── */}
       {!liveReview && !allHeldThisMonth && glResult && alreadyFinalized && (
-        <div className="card small" style={{ borderColor: "rgba(11,74,125,0.4)", background: "rgba(11,74,125,0.05)", color: "#0b4a7d", fontWeight: 600 }}>
+        <div className="card small" style={{ borderColor: "var(--tint-brand-line, rgba(11,74,125,0.4))", background: "var(--tint-brand-bg, rgba(11,74,125,0.05))", color: "var(--c-0b4a7d)", fontWeight: 600 }}>
           ✓ {glResult?.periodText || statementMonth} has already been reviewed and sent to AvidXchange. Its carryover is finalized — re-download the invoices from the Download menu if you need them.
         </div>
       )}
@@ -773,11 +773,11 @@ export default function AllocatedInvoicerPage() {
       {/* ── Ready-to-process hand-off from Operating Statements ── */}
       {/* Superseded by the "Review & Send" banner above once the run is staged. */}
       {pendingGl && !pendingDismissed && !glResult && !pendingGl.alreadyProcessed && !liveReview && (
-        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)" }}>
+        <div className="card" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.5))", background: "var(--tint-green-bg, rgba(22,163,74,0.07))" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <CircleCheck size={20} strokeWidth={1.75} color="#067647" aria-hidden style={{ flexShrink: 0 }} />
+            <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" aria-hidden style={{ flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontWeight: 800, color: "#15803d" }}>
+              <div style={{ fontWeight: 800, color: "var(--c-15803d)" }}>
                 {loadingPending
                   ? `Parsing ${pendingGl.statementMonth} 2000 G&A GL…`
                   : `${pendingGl.statementMonth} 2000 G&A GL is ready to process`}
@@ -790,7 +790,7 @@ export default function AllocatedInvoicerPage() {
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
               {!loadingPending && (
-                <button className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={loadPendingGl}>Load & generate →</button>
+                <button className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={loadPendingGl}>Load & generate<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
               )}
               <button className="btn" style={{ fontWeight: 700 }} onClick={() => setPendingDismissed(true)}>Dismiss</button>
             </div>
@@ -815,7 +815,7 @@ export default function AllocatedInvoicerPage() {
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 6 }}>
-          Pulled from the latest <a href="/financials/operating-statements" style={{ color: "#0b4a7d", fontWeight: 700 }}>Operating Statements</a> import.
+          Pulled from the latest <a href="/financials/operating-statements" style={{ color: "var(--c-0b4a7d)", fontWeight: 700 }}>Operating Statements</a> import.
         </p>
         {loadingPending ? (
           <div className="small muted" style={{ marginTop: 12 }}>Loading the imported 2000 G&amp;A GL…</div>
@@ -955,8 +955,8 @@ export default function AllocatedInvoicerPage() {
                 <b>Allocation Preview</b>
                 <div className="small muted" style={{ marginTop: 4 }}>
                   One invoice per billing property. Click <b>Billed</b> for its account breakdown or <b>Accrued</b> for the held detail; <b>⭳</b> downloads the invoice. Accounts:{" "}
-                  <span style={{ color: "#15803d", fontWeight: 700 }}>green = billing this period</span>,{" "}
-                  <span style={{ color: "#b91c1c", fontWeight: 700 }}>red = held under ${CARRYOVER_THRESHOLD} (accrued, carried forward{yearEnd ? " — December posts everything" : ""})</span>.
+                  <span style={{ color: "var(--c-15803d)", fontWeight: 700 }}>green = billing this period</span>,{" "}
+                  <span style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>red = held under ${CARRYOVER_THRESHOLD} (accrued, carried forward{yearEnd ? " — December posts everything" : ""})</span>.
                 </div>
               </div>
             </div>
@@ -1011,7 +1011,7 @@ export default function AllocatedInvoicerPage() {
                       </td>
                       <td style={{ textAlign: "right" }}>
                         {accrued > 0 ? (
-                          <button className="linkBtn" style={{ fontWeight: 700, color: "#9a3412" }} title="See the expenses being held" onClick={() => setHeldModal({ propName: `${prop.id} — ${prop.name}`, accounts: heldRow!.accounts })}>
+                          <button className="linkBtn" style={{ fontWeight: 700, color: "var(--c-9a3412)" }} title="See the expenses being held" onClick={() => setHeldModal({ propName: `${prop.id} — ${prop.name}`, accounts: heldRow!.accounts })}>
                             {toMoney(accrued)}
                           </button>
                         ) : <span className="muted">—</span>}
@@ -1061,7 +1061,7 @@ export default function AllocatedInvoicerPage() {
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button className="btn" style={{ padding: "4px 10px", fontWeight: 700 }} onClick={downloadAllocationPct}>⭳ Download %</button>
-                <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}>✕</button>
+                <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
               </div>
             </div>
             <div className="tableWrap" style={{ overflowY: "auto" }}>
@@ -1113,7 +1113,7 @@ export default function AllocatedInvoicerPage() {
                 <b style={{ fontSize: 15 }}>{txDetailModal.accountCode} — {txDetailModal.accountName}</b>
                 <div className="small muted" style={{ marginTop: 2 }}>{txDetailModal.txList.length} transaction{txDetailModal.txList.length !== 1 ? "s" : ""}</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setTxDetailModal(null)}>✕</button>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setTxDetailModal(null)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div className="tableWrap" style={{ overflowY: "auto" }}>
               <table>
@@ -1164,7 +1164,7 @@ export default function AllocatedInvoicerPage() {
                 <b style={{ fontSize: 15 }}>{allocPropModal.propId} — {allocPropModal.propName}</b>
                 <div className="small muted" style={{ marginTop: 2 }}>Account code breakdown</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setAllocPropModal(null)}>✕</button>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setAllocPropModal(null)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div className="tableWrap" style={{ overflowY: "auto" }}>
               <table>
@@ -1209,7 +1209,7 @@ export default function AllocatedInvoicerPage() {
                 <b style={{ fontSize: 15 }}>{heldModal.propName}</b>
                 <div className="small muted" style={{ marginTop: 2 }}>Expenses held under ${CARRYOVER_THRESHOLD} — carried forward until they cross the threshold.</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setHeldModal(null)}>✕</button>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setHeldModal(null)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div className="tableWrap" style={{ overflowY: "auto" }}>
               <table>

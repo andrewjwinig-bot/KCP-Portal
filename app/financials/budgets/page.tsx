@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, X } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -221,7 +222,7 @@ export default function BudgetsPage() {
             <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
               {liveStatus === "draft" ? (
                 <button onClick={() => setBudgetStatus("final")} disabled={statusSaving} className="btn"
-                  style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700, color: "#15803d", borderColor: "rgba(22,163,74,0.4)", background: "rgba(22,163,74,0.05)" }}>
+                  style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700, color: "var(--c-15803d)", borderColor: "var(--tint-green-line, rgba(22,163,74,0.4))", background: "var(--tint-green-bg, rgba(22,163,74,0.05))" }}>
                   {statusSaving ? "Saving…" : "Finalize budget"}
                 </button>
               ) : (
@@ -231,7 +232,7 @@ export default function BudgetsPage() {
                 </button>
               )}
               <button onClick={handleDelete} disabled={deleting} className="btn"
-                style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700, color: "#b91c1c", borderColor: "rgba(220,38,38,0.4)", background: "rgba(220,38,38,0.05)" }}>
+                style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700, color: "var(--c-b91c1c)", borderColor: "var(--tint-red-line, rgba(220,38,38,0.4))", background: "var(--tint-red-bg, rgba(220,38,38,0.05))" }}>
                 {deleting ? "Deleting…" : "Delete"}
               </button>
             </div>
@@ -245,15 +246,15 @@ export default function BudgetsPage() {
       </header>
 
       {error && (
-        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
-          <div style={{ fontWeight: 700, color: "#b91c1c" }}>Error</div>
+        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
+          <div style={{ fontWeight: 700, color: "var(--c-b91c1c)" }}>Error</div>
           <div className="muted small">{error}</div>
         </div>
       )}
 
       {uploadError && (
-        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
-          <div className="small" style={{ fontWeight: 700, color: "#b91c1c" }}>{uploadError}</div>
+        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
+          <div className="small" style={{ fontWeight: 700, color: "var(--c-b91c1c)" }}>{uploadError}</div>
         </div>
       )}
 
@@ -350,10 +351,10 @@ export default function BudgetsPage() {
 }
 
 const OCCUPANCY_TONES: Record<OccupancyDetailRow["category"], PillTone> = {
-  "in-place": { bg: "rgba(11,74,125,0.10)",  fg: "#0b4a7d", border: "rgba(11,74,125,0.30)" },
-  "renewal":  { bg: "rgba(202,138,4,0.12)",  fg: "#854d0e", border: "rgba(202,138,4,0.35)" },
-  "new":      { bg: "rgba(22,163,74,0.10)",  fg: "#15803d", border: "rgba(22,163,74,0.30)" },
-  "vacant":   { bg: "rgba(15,23,42,0.06)",   fg: "#475569", border: "rgba(15,23,42,0.15)" },
+  "in-place": { bg: "rgba(11,74,125,0.10)",  fg: "var(--c-0b4a7d)", border: "rgba(11,74,125,0.30)" },
+  "renewal":  { bg: "rgba(202,138,4,0.12)",  fg: "var(--c-854d0e)", border: "rgba(202,138,4,0.35)" },
+  "new":      { bg: "rgba(22,163,74,0.10)",  fg: "var(--c-15803d)", border: "rgba(22,163,74,0.30)" },
+  "vacant":   { bg: "rgba(15,23,42,0.06)",   fg: "var(--c-475569)", border: "rgba(15,23,42,0.15)" },
 };
 
 const OCCUPANCY_LABELS: Record<OccupancyDetailRow["category"], string> = {
@@ -473,7 +474,7 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
               const rows = grouped[cat];
               if (rows.length === 0) return [];
               return [
-                <tr key={`hdr-${cat}`} style={{ background: "rgba(15,23,42,0.04)" }}>
+                <tr key={`hdr-${cat}`} style={{ background: "var(--tint-neutral-bg, rgba(15,23,42,0.04))" }}>
                   <td colSpan={14} style={{
                     fontSize: "var(--fs-11)", fontWeight: 800, letterSpacing: "0.06em",
                     textTransform: "uppercase", color: "var(--muted)",
@@ -512,7 +513,7 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
                     </tr>
                   );
                 }),
-                <tr key={`sub-${cat}`} style={{ fontWeight: 700, background: "rgba(15,23,42,0.02)" }}>
+                <tr key={`sub-${cat}`} style={{ fontWeight: 700, background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }}>
                   <td style={{ color: "var(--muted)" }}>Subtotal — {OCCUPANCY_LABELS[cat]}</td>
                   {categoryTotals[cat].map((s, i) => (
                     <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
@@ -906,7 +907,7 @@ function BudgetTable({
                   className="btn primary"
                   style={{
                     fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700,
-                    background: "#b45309", borderColor: "#b45309", color: "white",
+                    background: "var(--c-b45309)", borderColor: "var(--c-b45309)", color: "white",
                   }}
                   title="Lock the budget — keeps every edit made during this reforecast"
                 >
@@ -919,8 +920,8 @@ function BudgetTable({
                   style={{
                     fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700,
                     background: "var(--card)",
-                    borderColor: "rgba(180,35,24,0.45)",
-                    color: "#b42318",
+                    borderColor: "var(--tint-red-line, rgba(180,35,24,0.45))",
+                    color: "var(--c-b42318)",
                   }}
                   title="Roll the budget back to the state it was in when Reforecast was clicked"
                 >
@@ -1020,13 +1021,13 @@ function BudgetTable({
             <div style={{
               padding: "10px 14px",
               borderBottom: "1px solid var(--border)",
-              background: "rgba(15,23,42,0.03)",
+              background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))",
               fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase",
             }}>
               {sec.name}
             </div>
             <div className="tableWrap">
-              <table style={{ tableLayout: "fixed", width: "100%" }}>
+              <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%" }}>
                 <BudgetTableColgroup />
                 <thead>
                   <tr>
@@ -1076,7 +1077,7 @@ function BudgetTable({
           padding: "8px 4px 0", borderTop: "1px dashed var(--border)",
           display: "flex", alignItems: "baseline", gap: 6,
         }}>
-          <sup style={{ color: "#0b4a7d", fontWeight: 800, fontSize: "var(--fs-11)" }}>*</sup>
+          <sup style={{ color: "var(--c-0b4a7d)", fontWeight: 800, fontSize: "var(--fs-11)" }}>*</sup>
           <span>
             Standard escalation — prior-year business plan grown by 3%.
           </span>
@@ -1109,7 +1110,7 @@ function GroupHeader({ label }: { label: string }) {
       fontWeight: 900,
       letterSpacing: "0.08em",
       textTransform: "uppercase",
-      color: "#0b4a7d",
+      color: "var(--c-0b4a7d)",
     }}>
       {label}
     </div>
@@ -1127,7 +1128,7 @@ function GLToggle({ show, onChange }: {
     letterSpacing: "0.04em", textTransform: "uppercase",
   };
   const active: React.CSSProperties = {
-    background: "#0b4a7d", color: "#fff", borderColor: "#0b4a7d",
+    background: "var(--c-0b4a7d)", color: "#fff", borderColor: "var(--c-0b4a7d)",
   };
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -1163,7 +1164,7 @@ function EmptyRowsToggle({ hide, onChange }: {
     letterSpacing: "0.04em", textTransform: "uppercase",
   };
   const active: React.CSSProperties = {
-    background: "#0b4a7d", color: "#fff", borderColor: "#0b4a7d",
+    background: "var(--c-0b4a7d)", color: "#fff", borderColor: "var(--c-0b4a7d)",
   };
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -1200,7 +1201,7 @@ function ViewToggle({ psf, onChange, disabled }: {
     letterSpacing: "0.04em", textTransform: "uppercase",
   };
   const active: React.CSSProperties = {
-    background: "#0b4a7d", color: "#fff", borderColor: "#0b4a7d",
+    background: "var(--c-0b4a7d)", color: "#fff", borderColor: "var(--c-0b4a7d)",
   };
   return (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -1321,9 +1322,9 @@ function TenantRecoveryChip({
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           minWidth: 18, height: 18, padding: "0 5px", marginLeft: 4,
           fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
-          background: "rgba(22,163,74,0.10)",
-          color: "#15803d",
-          border: "1px solid rgba(22,163,74,0.30)",
+          background: "var(--tint-green-bg, rgba(22,163,74,0.10))",
+          color: "var(--c-15803d)",
+          border: "1px solid var(--tint-green-line, rgba(22,163,74,0.30))",
           borderRadius: 4,
           cursor: "pointer",
           fontVariantNumeric: "tabular-nums",
@@ -1422,9 +1423,9 @@ function TenantRecoveryModal({
       >
         <div style={{
           padding: "8px 12px",
-          background: "rgba(202,138,4,0.14)",
-          color: "#854d0e",
-          border: "1px solid rgba(202,138,4,0.40)",
+          background: "var(--tint-amber-bg, rgba(202,138,4,0.14))",
+          color: "var(--c-854d0e)",
+          border: "1px solid var(--tint-amber-line, rgba(202,138,4,0.40))",
           borderRadius: 6,
           fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.04em",
           textTransform: "uppercase",
@@ -1434,7 +1435,7 @@ function TenantRecoveryModal({
             display: "inline-flex", alignItems: "center", justifyContent: "center",
             minWidth: 50, padding: "2px 8px",
             fontSize: "var(--fs-11)", fontWeight: 800,
-            background: "#ca8a04", color: "#fff",
+            background: "var(--c-ca8a04)", color: "#fff",
             borderRadius: 4, letterSpacing: "0.06em",
           }}>DRAFT</span>
           <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 500, fontSize: "var(--fs-12)" }}>
@@ -1460,7 +1461,7 @@ function TenantRecoveryModal({
         </div>
 
         {error && (
-          <div className="muted small" style={{ color: "#b91c1c" }}>{error}</div>
+          <div className="muted small" style={{ color: "var(--c-b91c1c)" }}>{error}</div>
         )}
         {!units && !error && (
           <div className="muted small">Loading rent roll…</div>
@@ -1502,7 +1503,7 @@ function TenantRecoveryModal({
                     </tr>
                   )}
                   {contributing.length > 0 && (
-                    <tr style={{ background: "rgba(15,23,42,0.04)", fontWeight: 800 }}>
+                    <tr style={{ background: "var(--tint-neutral-bg, rgba(15,23,42,0.04))", fontWeight: 800 }}>
                       <td colSpan={2}>TOTAL</td>
                       <td></td>
                       <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmt(totalMonthly)}</td>
@@ -1537,9 +1538,9 @@ function AllocationIcon({ allocations, currentPropertyCode }: {
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           minWidth: 18, height: 18, padding: "0 5px", marginLeft: 4,
           fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
-          background: "rgba(11,74,125,0.10)",
-          color: "#0b4a7d",
-          border: "1px solid rgba(11,74,125,0.30)",
+          background: "var(--tint-brand-bg, rgba(11,74,125,0.10))",
+          color: "var(--c-0b4a7d)",
+          border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.30))",
           borderRadius: 4,
           cursor: "pointer",
           fontVariantNumeric: "tabular-nums",
@@ -1655,7 +1656,7 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
               <div style={{
                 padding: "10px 14px",
                 borderBottom: "1px solid var(--border)",
-                background: "rgba(15,23,42,0.03)",
+                background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))",
                 display: "flex", alignItems: "baseline", justifyContent: "space-between",
                 gap: 12, flexWrap: "wrap",
               }}>
@@ -1684,7 +1685,7 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                 blue. Footer TOTAL row sums each month and the annual
                 for the tie-out check. */}
             <div className="tableWrap" style={{ marginTop: 0 }}>
-              <table style={{ tableLayout: "fixed", width: "100%" }}>
+              <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%" }}>
                 <colgroup>
                   <col style={{ width: 90 }} />
                   <col style={{ width: 64 }} />
@@ -1735,9 +1736,9 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                     const annualTotal = a.rows!.reduce((s, r) => s + r.total, 0);
                     return (
                       <tr style={{
-                        background: "rgba(11,74,125,0.10)",
-                        borderTop: "2px solid rgba(11,74,125,0.40)",
-                        fontWeight: 800, color: "#0b4a7d",
+                        background: "var(--tint-brand-bg, rgba(11,74,125,0.10))",
+                        borderTop: "2px solid var(--tint-brand-line, rgba(11,74,125,0.40))",
+                        fontWeight: 800, color: "var(--c-0b4a7d)",
                       }}>
                         <td>TOTAL</td>
                         <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>100%</td>
@@ -1781,7 +1782,7 @@ function CipIcon({ detail }: { detail: NonNullable<import("@/lib/financials/budg
           minWidth: 18, height: 18, padding: "0 5px", marginLeft: 4,
           fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
           background: "rgba(76,29,149,0.10)",
-          color: "#4c1d95",
+          color: "var(--c-4c1d95)",
           border: "1px solid rgba(76,29,149,0.30)",
           borderRadius: 4,
           cursor: "pointer",
@@ -1841,7 +1842,7 @@ function CipModal({ detail, onClose }: {
           <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: "var(--fs-13)", fontWeight: 700 }}>Close</button>
         </div>
         <div className="tableWrap" style={{ marginTop: 0 }}>
-          <table style={{ tableLayout: "fixed", width: "100%" }}>
+          <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%" }}>
             <colgroup>
               <col style={{ width: 220 }} />
               {MONTHS.map((m, i) => <col key={m} style={i % 2 === 0 ? { background: MONTH_TINT } : undefined} />)}
@@ -1918,9 +1919,9 @@ function RentIcon({ detail }: { detail: NonNullable<import("@/lib/financials/bud
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           minWidth: 18, height: 18, padding: "0 5px", marginLeft: 4,
           fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
-          background: "rgba(22,163,74,0.12)",
-          color: "#15803d",
-          border: "1px solid rgba(22,163,74,0.35)",
+          background: "var(--tint-green-bg, rgba(22,163,74,0.12))",
+          color: "var(--c-15803d)",
+          border: "1px solid var(--tint-green-line, rgba(22,163,74,0.35))",
           borderRadius: 4,
           cursor: "pointer",
           fontVariantNumeric: "tabular-nums",
@@ -2007,7 +2008,7 @@ function RentModal({ detail, onClose }: {
                     <span style={{
                       display: "inline-block", width: 12, height: 12,
                       background: RENT_CATEGORY_TINT[cat],
-                      border: "1px solid rgba(22,163,74,0.35)",
+                      border: "1px solid var(--tint-green-line, rgba(22,163,74,0.35))",
                       borderRadius: 2,
                     }} />
                     <span className="muted small">{RENT_CATEGORY_LABEL[cat]}: {fmt(dollars)} ({pctLabel})</span>
@@ -2019,7 +2020,7 @@ function RentModal({ detail, onClose }: {
           <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: "var(--fs-13)", fontWeight: 700 }}>Close</button>
         </div>
         <div className="tableWrap" style={{ marginTop: 0 }}>
-          <table style={{ tableLayout: "fixed", width: "100%" }}>
+          <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%" }}>
             {/* No MONTH_TINT here — the alternating column shading
                 muddies the certainty greens. The tinted cells on each
                 row carry the visual rhythm instead. */}
@@ -2145,9 +2146,9 @@ function OccupancyDetailIcon({ detail, property }: {
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           minWidth: 18, height: 18, padding: "0 5px",
           fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
-          background: "rgba(11,74,125,0.10)",
-          color: "#0b4a7d",
-          border: "1px solid rgba(11,74,125,0.30)",
+          background: "var(--tint-brand-bg, rgba(11,74,125,0.10))",
+          color: "var(--c-0b4a7d)",
+          border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.30))",
           borderRadius: 4,
           cursor: "pointer",
           fontVariantNumeric: "tabular-nums",
@@ -2235,7 +2236,7 @@ function OccupancyDetailModal({ detail, property, onClose }: {
           <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: "var(--fs-13)", fontWeight: 700 }}>Close</button>
         </div>
         <div className="tableWrap" style={{ marginTop: 0 }}>
-          <table style={{ tableLayout: "fixed", width: "100%" }}>
+          <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%" }}>
             <colgroup>
               <col style={{ width: 80 }} />
               <col style={{ width: 280 }} />
@@ -2321,7 +2322,7 @@ function LineNoteMarker({ text }: { text: string }) {
       <sup
         title={shortEscalationTooltip(text)}
         style={{
-          color: "#0b4a7d", fontWeight: 800, marginLeft: 3,
+          color: "var(--c-0b4a7d)", fontWeight: 800, marginLeft: 3,
           fontSize: "var(--fs-11)", cursor: "help",
         }}
       >
@@ -2340,9 +2341,9 @@ function LineNoteMarker({ text }: { text: string }) {
         fontSize: "var(--fs-10)", fontWeight: 800, fontStyle: "italic", lineHeight: 1,
         fontFamily: "Georgia, serif",
         borderRadius: "50%",
-        background: "rgba(11,74,125,0.10)",
-        color: "#0b4a7d",
-        border: "1px solid rgba(11,74,125,0.30)",
+        background: "var(--tint-brand-bg, rgba(11,74,125,0.10))",
+        color: "var(--c-0b4a7d)",
+        border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.30))",
         cursor: "help",
         verticalAlign: "middle",
       }}
@@ -2441,7 +2442,7 @@ function EditableMonthCell({
           textAlign: "right", fontVariantNumeric: "tabular-nums",
           fontSize: isSubtotal ? 13.5 : 12,
           border: "1px solid #b45309", borderRadius: 2,
-          background: "rgba(245,158,11,0.06)",
+          background: "var(--tint-amber-bg, rgba(245,158,11,0.06))",
         }}
       />
     </td>
@@ -2526,7 +2527,7 @@ function BudgetLineRow({
                   { label: "Sub-lines", value: money(subTotal) },
                   { label: "Line", value: money(line.total) },
                 ]}
-                footer={sumTies ? { label: "Ties to the line", value: money(line.total) } : { label: "Difference", value: money(subTotal - line.total), color: "#854d0e" }}>
+                footer={sumTies ? { label: "Ties to the line", value: money(line.total) } : { label: "Difference", value: money(subTotal - line.total), color: "var(--c-854d0e)" }}>
               <span
                 style={{
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -2748,20 +2749,20 @@ function SubtotalCard({ rollup, sqft, psf }: {
   return (
     <div className="card" style={{
       padding: 0,
-      borderColor: "#0b4a7d",
-      background: "rgba(11,74,125,0.04)",
+      borderColor: "var(--c-0b4a7d)",
+      background: "var(--tint-brand-bg, rgba(11,74,125,0.04))",
     }}>
       {/* margin-top: 0 overrides the default .tableWrap margin so the
           single subtotal row sits at the optical center of the card
           instead of getting pushed down by the wrapper's top margin. */}
       <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table style={{ tableLayout: "fixed", width: "100%" }}>
+        <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%" }}>
           <BudgetTableColgroup />
           <tbody>
             <tr style={{ fontWeight: 800 }}>
               <td style={{
                 fontSize: "var(--fs-13)", fontWeight: 900, letterSpacing: "0.04em",
-                textTransform: "uppercase", color: "#0b4a7d",
+                textTransform: "uppercase", color: "var(--c-0b4a7d)",
                 verticalAlign: "middle", borderBottom: "none",
               }}>
                 {rollup.name}
@@ -2857,7 +2858,7 @@ function ButtonMenu({
         aria-expanded={open}
       >
         {label}
-        <span aria-hidden style={{ fontSize: "var(--fs-10)", opacity: 0.75, lineHeight: 1 }}>▾</span>
+        <span aria-hidden style={{ fontSize: "var(--fs-10)", opacity: 0.75, lineHeight: 1 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
       </button>
       {open && (
         <div
@@ -3001,7 +3002,7 @@ function HeaderSelect({
           flexShrink: 0,
         }}
       >
-        ▾
+        <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
       </span>
       <select
         value={value}
@@ -3143,7 +3144,7 @@ function CreateBudgetDialog({
             <h2 style={{ margin: 0, fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em" }}>New Budget</h2>
             <p className="muted" style={{ margin: "4px 0 0", fontSize: "var(--fs-13)" }}>Revenue, recoveries, debt &amp; expenses autofill from your latest data.</p>
           </div>
-          <button onClick={onClose} className="btn" style={{ fontSize: 15, padding: "4px 11px" }}>✕</button>
+          <button onClick={onClose} className="btn" style={{ fontSize: 15, padding: "4px 11px" }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
         </div>
 
         <div style={{ display: "grid", gap: 16 }}>
@@ -3162,7 +3163,7 @@ function CreateBudgetDialog({
             </Field>
           </div>
 
-          <div style={{ borderRadius: 12, border: "1px solid var(--border)", background: "rgba(11,74,125,0.04)", padding: "14px 16px" }}>
+          <div style={{ borderRadius: 12, border: "1px solid var(--border)", background: "var(--tint-brand-bg, rgba(11,74,125,0.04))", padding: "14px 16px" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
               <div style={{ fontSize: "var(--fs-14)", fontWeight: 700 }}>Grow expenses by</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
@@ -3195,7 +3196,7 @@ function CreateBudgetDialog({
         </div>
 
         {error && (
-          <div style={{ marginTop: 12, color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600 }}>{error}</div>
+          <div style={{ marginTop: 12, color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600 }}>{error}</div>
         )}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>

@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 // Monthly Statements — import Skyline's tenant Statement report, review every
 // tenant's open balance, then publish the month to the tenant portal.
@@ -392,8 +393,8 @@ export default function TenantStatementsPage() {
       </header>
 
       {error && (
-        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
-          <div style={{ fontWeight: 700, color: "#b91c1c", marginBottom: 4 }}>Something went wrong</div>
+        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
+          <div style={{ fontWeight: 700, color: "var(--c-b91c1c)", marginBottom: 4 }}>Something went wrong</div>
           <div className="muted small">{error}</div>
         </div>
       )}
@@ -455,7 +456,7 @@ export default function TenantStatementsPage() {
               </div>
 
               {row.untied > 0 && (
-                <div style={{ borderRadius: 10, padding: "10px 13px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: "var(--fs-13)", color: "#b91c1c", fontWeight: 600, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ borderRadius: 10, padding: "10px 13px", background: "var(--tint-red-bg, rgba(220,38,38,0.06))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))", fontSize: "var(--fs-13)", color: "var(--c-b91c1c)", fontWeight: 600, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <span style={{ flex: 1, minWidth: 260 }}>
                     {row.untied} tenant{row.untied === 1 ? "'s charges don't" : "s' charges don't"} sum to the balance Skyline printed.
                     Those statements are flagged &ldquo;under review&rdquo; on the portal — fix the export and re-import before publishing.
@@ -547,8 +548,8 @@ export default function TenantStatementsPage() {
                 {onlyReview && (
                   <button type="button" onClick={() => setOnlyReview(false)}
                     style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-12-5)", fontWeight: 700,
-                      padding: "5px 10px", borderRadius: 999, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#b91c1c" }}>
-                    Only tenants to review <span aria-hidden style={{ opacity: 0.7 }}>✕</span>
+                      padding: "5px 10px", borderRadius: 999, border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))", background: "var(--tint-red-bg, rgba(220,38,38,0.08))", color: "var(--c-b91c1c)" }}>
+                    Only tenants to review <span aria-hidden style={{ opacity: 0.7 }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
                   </button>
                 )}
                 <div className="muted small" style={{ marginLeft: "auto" }}>
@@ -580,7 +581,7 @@ export default function TenantStatementsPage() {
                       return (
                         <Fragment key={t.unitRef}>
                           {band && g && (
-                            <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: i ? "2px solid var(--border)" : "none" }}>
+                            <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))", borderTop: i ? "2px solid var(--border)" : "none" }}>
                               {/* wraps rather than nowrap — a long centre name
                                   must not widen the table into a scroll */}
                               <td style={{ ...tdL, paddingTop: 10, paddingBottom: 10, whiteSpace: "normal" }} colSpan={2}>
@@ -764,7 +765,7 @@ function RecordPayment({ t, period, onDone }: { t: TenantRow; period: string; on
       {open && (
         <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, width: 430, maxWidth: "90vw",
           background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "0 16px 40px rgba(15,23,42,0.22)", padding: 16 }}>
-          <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>Payment we can&rsquo;t apply</div>
+          <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-0b4a7d)" }}>Payment we can&rsquo;t apply</div>
           <p className="muted small" style={{ marginTop: 4, marginBottom: 12 }}>
             Record what came in from <b>{t.tenantName}</b> and ask them which of their {t.charges.length} open charges it covers.
             They answer on their statement; you&rsquo;ll see the application here.
@@ -779,7 +780,7 @@ function RecordPayment({ t, period, onDone }: { t: TenantRow; period: string; on
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
               style={{ width: "100%", marginTop: 4, boxSizing: "border-box", resize: "vertical" }} />
           </label>
-          {msg && <div style={{ color: "#b45309", fontSize: "var(--fs-12-5)", fontWeight: 600, marginTop: 10 }}>{msg}</div>}
+          {msg && <div style={{ color: "var(--c-b45309)", fontSize: "var(--fs-12-5)", fontWeight: 600, marginTop: 10 }}>{msg}</div>}
           <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
             <button className="btn primary" disabled={busy} onClick={() => submit(true)} style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 700 }}>
               {busy ? "Sending…" : "Record and ask the tenant"}
@@ -857,7 +858,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
               <HoverCard title={t.declared.receivedAmount != null ? `Allocated ${money2(t.declared.amount)}` : `Paying ${money2(t.declared.amount)}`} width={290}
                 rows={[
                   ...(t.declared.receivedAmount != null
-                    ? [{ label: "Received", value: money2(t.declared.receivedAmount), color: "#b45309" }]
+                    ? [{ label: "Received", value: money2(t.declared.receivedAmount), color: "var(--c-b45309)" }]
                     : [{ label: "Reference", value: t.declared.reference }]),
                   { label: "Method", value: METHOD_LABEL[t.declared.method] },
                   { label: "Told us", value: new Date(t.declared.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) },
@@ -887,7 +888,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
         <td style={{ ...td, color: s.pastDueAmount > 0.005 ? "#b45309" : "var(--muted)", fontWeight: s.pastDueAmount > 0.005 ? 700 : 400 }}>
           {s.pastDueAmount > 0.005 ? (
             <HoverCard title="Past due" width={240}
-              rows={s.byAging.filter((b) => b.bucket !== "current").map((b) => ({ label: AGING_LABEL[b.bucket], value: money2(b.amount), color: "#b45309" }))}
+              rows={s.byAging.filter((b) => b.bucket !== "current").map((b) => ({ label: AGING_LABEL[b.bucket], value: money2(b.amount), color: "var(--c-b45309)" }))}
               footer={{ label: "Oldest charge", value: dateLabel(s.oldestISO) }}>
               {money2(s.pastDueAmount)}
             </HoverCard>
@@ -913,7 +914,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
       </tr>
       {open && (
         <tr>
-          <td colSpan={9} style={{ padding: "0 10px 14px", background: "rgba(11,74,125,0.03)", maxWidth: 0 }}>
+          <td colSpan={9} style={{ padding: "0 10px 14px", background: "var(--tint-brand-bg, rgba(11,74,125,0.03))", maxWidth: 0 }}>
             {linkInfo && (
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 10px 6px", flexWrap: "wrap" }}>
                 <div style={{ minWidth: 0 }}>
@@ -942,7 +943,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
             <div className="muted" style={{ fontSize: "var(--fs-11-5)", padding: "8px 10px 0" }}>
               {sort
                 ? <>Sorted by {sort.key === "charge" ? "description" : sort.key} — <button type="button" onClick={(e) => { e.stopPropagation(); setSort(null); }}
-                    style={{ padding: 0, border: "none", background: "none", font: "inherit", color: "#0b4a7d", fontWeight: 700, cursor: "pointer" }}>back to statement order</button></>
+                    style={{ padding: 0, border: "none", background: "none", font: "inherit", color: "var(--c-0b4a7d)", fontWeight: 700, cursor: "pointer" }}>back to statement order</button></>
                 : "In the order Skyline's statement prints them. Click a column to sort."}
             </div>
             {t.pendingPayment && (
@@ -958,9 +959,9 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
               </HoverCard>
             )}
             {t.pendingPayment ? (
-              <div style={{ margin: "10px 10px 14px", border: "1.5px solid rgba(217,119,6,0.45)", borderRadius: 10, background: "rgba(217,119,6,0.06)", padding: "12px 14px" }}>
+              <div style={{ margin: "10px 10px 14px", border: "1.5px solid var(--tint-amber-line, rgba(217,119,6,0.45))", borderRadius: 10, background: "var(--tint-amber-bg, rgba(217,119,6,0.06))", padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#b45309" }}>Payment we can&rsquo;t apply</span>
+                  <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-b45309)" }}>Payment we can&rsquo;t apply</span>
                   <span style={{ fontSize: 17, fontWeight: 800 }}>{money2(t.pendingPayment.amount)}</span>
                   <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>
                     {t.pendingPayment.paymentRef ? `${t.pendingPayment.paymentRef} · ` : ""}
@@ -975,9 +976,9 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
               </div>
             ) : null}
             {t.declared && (
-              <div style={{ margin: "10px 10px 14px", border: "1.5px solid rgba(22,163,74,0.4)", borderRadius: 10, background: "rgba(22,163,74,0.05)", padding: "12px 14px" }}>
+              <div style={{ margin: "10px 10px 14px", border: "1.5px solid var(--tint-green-line, rgba(22,163,74,0.4))", borderRadius: 10, background: "var(--tint-green-bg, rgba(22,163,74,0.05))", padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#15803d" }}>
+                  <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-15803d)" }}>
                     {t.declared.receivedAmount != null ? "Tenant allocated their payment" : "Tenant says they\u2019re paying"}
                   </span>
                   <span style={{ fontSize: 17, fontWeight: 800 }}>{money2(t.declared.amount)}</span>
@@ -986,8 +987,8 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
                     {" "}{new Date(t.declared.submittedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                   </span>
                   {t.declared.receivedAmount != null && Math.abs(t.declared.receivedAmount - t.declared.amount) >= 0.011 && (
-                    <span style={{ fontSize: "var(--fs-12-5)", fontWeight: 800, color: "#b45309", padding: "2px 8px", borderRadius: 999,
-                      background: "rgba(217,119,6,0.12)", border: "1px solid rgba(217,119,6,0.35)" }}>
+                    <span style={{ fontSize: "var(--fs-12-5)", fontWeight: 800, color: "var(--c-b45309)", padding: "2px 8px", borderRadius: 999,
+                      background: "var(--tint-amber-bg, rgba(217,119,6,0.12))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))" }}>
                       {money2(t.declared.receivedAmount - t.declared.amount)} of the {money2(t.declared.receivedAmount)} received is still unapplied
                     </span>
                   )}

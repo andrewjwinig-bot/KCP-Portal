@@ -39,9 +39,9 @@ const areaOf = (polys: string[]) => polys.reduce((t, poly) => {
   return t + Math.abs(a) / 2;
 }, 0);
 /** A leased suite paying no base rent — below the lowest step, so a deeper red (owner: not grey). */
-const NO_RENT = "#7f1d1d";
+const NO_RENT = "var(--c-7f1d1d)";
 /** The plain view's leased fill — quiet, so the vacancies are what reads. */
-const LEASED = "#cbd5e1";
+const LEASED = "var(--c-cbd5e1)";
 const termLeft = (m: number | null) =>
   m == null ? "" : m < 0 ? `ended ${-m} mo ago` : m < 12 ? `${m} mo left` : `${Math.floor(m / 12)} yr ${m % 12} mo left`;
 
@@ -272,7 +272,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
             const dim = focus && p?.key !== focus;
             const hot = hover?.s.id === s.id || hoverId === s.id;
             const shapeProps = s.amenity ? {
-              fill: "#e2e8f0", fillOpacity: 0.85, stroke: "rgba(15,23,42,0.35)", strokeWidth: 3 * (cur ? 0.6 : 1),
+              fill: "var(--c-e2e8f0)", fillOpacity: 0.85, stroke: "rgba(15,23,42,0.35)", strokeWidth: 3 * (cur ? 0.6 : 1),
             } : {
               fill: p ? p.fill : "transparent",
               // Lighter while hovered on a floor with interiors, so the offices read through.
@@ -294,7 +294,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
                   : (s.rects ?? []).map(([x, y, w, h], i) => <rect key={i} x={x} y={y} width={w} height={h} {...shapeProps} />)}
                 {s.amenity && (
                   <text x={s.cx} y={s.cy} textAnchor="middle" fontSize={fontFor({ ...s, label: s.amenity }) * 0.8} fontWeight={700}
-                    fill="#64748b" style={{ pointerEvents: "none" }}>{s.amenity}</text>
+                    fill="var(--c-64748b)" style={{ pointerEvents: "none" }}>{s.amenity}</text>
                 )}
                 {!s.shadow && (() => {
                   const fs = fontFor(s);

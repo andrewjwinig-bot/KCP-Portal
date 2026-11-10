@@ -89,10 +89,10 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, draftTyped, bad
           <tbody>
             {rows.map((r) => {
               const total = sum(r.months.map((v) => v ?? 0));
-              const rowStyle: React.CSSProperties = r.tone === "draft" ? { background: "rgba(22,163,74,0.08)" } : r.tone === "avg" ? { background: "rgba(11,74,125,0.05)" } : {};
+              const rowStyle: React.CSSProperties = r.tone === "draft" ? { background: "var(--tint-green-bg, rgba(22,163,74,0.08))" } : r.tone === "avg" ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.05))" } : {};
               const labelColor = r.tone === "draft" ? "#15803d" : r.tone === "avg" ? "var(--brand)" : r.tone === "budget" ? "var(--muted)" : "var(--text)";
               return (
-                <tr key={r.key} style={{ ...rowStyle, ...(r.tone === "avg" ? { borderTop: "2px solid rgba(11,74,125,0.3)" } : {}) }}>
+                <tr key={r.key} style={{ ...rowStyle, ...(r.tone === "avg" ? { borderTop: "2px solid var(--tint-brand-line, rgba(11,74,125,0.3))" } : {}) }}>
                   <td style={{ ...lab, color: labelColor, fontWeight: r.tone ? 700 : 600 }}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       {r.label}
@@ -135,7 +135,7 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, draftTyped, bad
                   })}
                   {r.tone === "draft" && onEdit ? (
                     <td className="os-cell" onClick={editAt !== 12 ? () => setEditAt(12) : undefined}
-                      style={{ ...cell, fontWeight: 800, color: "#15803d", cursor: "text", background: "var(--input-cell)", ...(editAt === 12 ? { padding: "2px 3px" } : {}) }}>
+                      style={{ ...cell, fontWeight: 800, color: "var(--c-15803d)", cursor: "text", background: "var(--input-cell)", ...(editAt === 12 ? { padding: "2px 3px" } : {}) }}>
                       {editAt === 12 ? (
                         <CellInput initial={total} onDone={(val) => {
                           if (val != null && Math.round(val) !== Math.round(total)) onEdit("all", val);

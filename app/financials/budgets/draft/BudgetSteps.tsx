@@ -36,9 +36,9 @@ type Step = {
 };
 
 const DOT: Record<StepState, { bg: string; ring: string }> = {
-  done:    { bg: "#15803d", ring: "rgba(22,163,74,0.25)" },
+  done:    { bg: "var(--c-15803d)", ring: "rgba(22,163,74,0.25)" },
   active:  { bg: "var(--brand)", ring: "rgba(11,74,125,0.22)" },
-  blocked: { bg: "#b45309", ring: "rgba(217,119,6,0.22)" },
+  blocked: { bg: "var(--c-b45309)", ring: "rgba(217,119,6,0.22)" },
   waiting: { bg: "var(--border)", ring: "transparent" },
 };
 
@@ -151,8 +151,8 @@ export function BudgetSteps({ year, category, refreshTick }: { year: number; cat
               title={`${NAME[o.owner] ?? o.owner} · ${year} budget`}
               rows={[
                 { label: "Assigned", value: String(o.total) },
-                { label: "Done", value: String(o.done), color: "#15803d" },
-                ...(o.open ? [{ label: "Still open", value: String(o.open), color: "#b45309" }] : []),
+                { label: "Done", value: String(o.done), color: "var(--c-15803d)" },
+                ...(o.open ? [{ label: "Still open", value: String(o.open), color: "var(--c-b45309)" }] : []),
               ]}
               footer={undefined}
             >

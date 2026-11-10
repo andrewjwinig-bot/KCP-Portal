@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 // PUBLISH TO BUDGETS — one quiet line on a book's roll-up tab (or a one-
 // property book's own tab): whether this book's draft is the budget of record
@@ -100,7 +101,7 @@ export function PublishCard({ book, draft }: { book: BudgetBook; draft: BudgetDr
         )}
       </span>
       {published && (
-        <a className="btn sm" href={`/financials/budgets?property=${encodeURIComponent(published.properties[0] ?? "")}&year=${year}`}>Open in Budgets →</a>
+        <a className="btn sm" href={`/financials/budgets?property=${encodeURIComponent(published.properties[0] ?? "")}&year=${year}`}>Open in Budgets<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></a>
       )}
       {status.canPublish && (
         <>
@@ -110,7 +111,7 @@ export function PublishCard({ book, draft }: { book: BudgetBook; draft: BudgetDr
           </button>
         </>
       )}
-      {error && <span className="small" style={{ color: "#b91c1c", width: "100%" }}>{error}</span>}
+      {error && <span className="small" style={{ color: "var(--c-b91c1c)", width: "100%" }}>{error}</span>}
     </div>
   );
 }

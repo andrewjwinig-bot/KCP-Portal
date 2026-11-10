@@ -1,4 +1,5 @@
 "use client";
+import { ChevronLeft } from "lucide-react";
 
 // Flags to Investigate — built for a REVIEW SESSION.
 //
@@ -359,7 +360,7 @@ export default function OperatingStatementsReviewPage() {
           <p className="muted small" style={{ margin: 0 }}>
             Work through one property at a time. Each row is a line that looks off that month — what posted, what was budgeted, and why it&rsquo;s on the list.{" "}
             <b>Dismiss</b> it once you&rsquo;ve checked it, or write a note — the goal is an empty list.{" "}
-            <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}>← Operating Statements</Link>
+            <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />Operating Statements</Link>
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -386,10 +387,10 @@ export default function OperatingStatementsReviewPage() {
         </div>
       </div>
 
-      {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>· {error}</div>}
+      {error && <div className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>· {error}</div>}
       {emailMsg && <div className="muted small">{emailMsg}</div>}
       {explainFailures.length > 0 && (
-        <div className="small" style={{ color: "#b91c1c" }}>
+        <div className="small" style={{ color: "var(--c-b91c1c)" }}>
           {explainFailures.length} could not be explained: {explainFailures.slice(0, 4).join("; ")}{explainFailures.length > 4 ? `; and ${explainFailures.length - 4} more` : ""}
         </div>
       )}
@@ -475,7 +476,7 @@ export default function OperatingStatementsReviewPage() {
                       <Fragment key={period}>
                         {/* The month band carries only what is true of the
                             month: how many items, and the way to its statement. */}
-                        <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: mi ? "2px solid var(--border)" : "none" }}>
+                        <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))", borderTop: mi ? "2px solid var(--border)" : "none" }}>
                           <td style={{ ...tdL, paddingTop: 10, paddingBottom: 10 }} colSpan={5}>
                             <span style={{ fontWeight: 800 }}>{MONTHS_LONG[period - 1]} {year}</span>
                             <span className="muted" style={{ fontSize: "var(--fs-12)", marginLeft: 10 }}>

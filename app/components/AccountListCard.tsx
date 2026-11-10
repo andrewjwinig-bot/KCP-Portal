@@ -39,7 +39,7 @@ export function AccountListCard({
   const numCell: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
 
   return (
-    <div className="card" style={{ borderColor: `${accent}66`, background: `${accent}0d`, padding: 0, overflow: "hidden" }}>
+    <div className="card" style={{ borderColor: `color-mix(in srgb, ${accent} 40%, transparent)`, background: `color-mix(in srgb, ${accent} 5%, transparent)`, padding: 0, overflow: "hidden" }}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

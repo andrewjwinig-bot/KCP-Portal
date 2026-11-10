@@ -17,6 +17,9 @@
      look renders exactly as before and the studio skin can raise the floor
      for readability without touching every page. */
   --sb-w-open: 220px;
+  /* Hand-typed page colours, tokenised so the new look can remap them
+     (each holds its original value here — classic is unchanged). */
+  --c-067647: #067647; --c-0b1220: #0b1220; --c-0b4a7d: #0b4a7d; --c-0d9488: #0d9488; --c-0e2238: #0e2238; --c-0f172a: #0f172a; --c-0f766e: #0f766e; --c-111827: #111827; --c-15803d: #15803d; --c-16a34a: #16a34a; --c-1a1a1a: #1a1a1a; --c-1a2238: #1a2238; --c-1d4ed8: #1d4ed8; --c-2563eb: #2563eb; --c-344054: #344054; --c-475467: #475467; --c-475569: #475569; --c-4c1d95: #4c1d95; --c-5a657a: #5a657a; --c-64748b: #64748b; --c-65a30d: #65a30d; --c-6d28d9: #6d28d9; --c-7c3d06: #7c3d06; --c-7c4a12: #7c4a12; --c-7f1d1d: #7f1d1d; --c-854d0e: #854d0e; --c-92400e: #92400e; --c-94a3b8: #94a3b8; --c-98a2b3: #98a2b3; --c-9a3412: #9a3412; --c-a15c00: #a15c00; --c-b42318: #b42318; --c-b45309: #b45309; --c-b54708: #b54708; --c-b91c1c: #b91c1c; --c-be185d: #be185d; --c-ca8a04: #ca8a04; --c-cbd5e1: #cbd5e1; --c-d97706: #d97706; --c-dc2626: #dc2626; --c-e0f0ff: #e0f0ff; --c-e2e8f0: #e2e8f0; --c-e6eef6: #e6eef6; --c-ea580c: #ea580c; --c-ede9ff: #ede9ff; --c-f2f4f7: #f2f4f7; --c-f87171: #f87171; --c-f8fafc: #f8fafc; --c-fafafa: #fafafa; --c-fca5a5: #fca5a5; --c-ffffff: #ffffff;
   --fs-9: 9px; --fs-10: 10px; --fs-10-5: 10.5px; --fs-11: 11px; --fs-11-5: 11.5px;
   --fs-12: 12px; --fs-12-5: 12.5px; --fs-13: 13px; --fs-13-5: 13.5px; --fs-14: 14px;
   --font-ui: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
@@ -1138,6 +1141,14 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
   --radius-card: 12px;
   --radius-ctl: 8px;
 
+  /* Status tints folded onto the system's calm surfaces (pages fall back to
+     their own rgba in the classic look). Neutral fills become one grey. */
+  --tint-red-bg: #fef3f2;   --tint-red-line: #fecdca;
+  --tint-amber-bg: #fffaeb; --tint-amber-line: #fedf89;
+  --tint-green-bg: #ecfdf3; --tint-green-line: #abefc6;
+  --tint-brand-bg: #eef3f8; --tint-brand-line: #b9ccdd;
+  --tint-neutral-bg: #f9fafb;
+
   /* Readable type floor. */
   --fs-9: 12px; --fs-10: 13px; --fs-10-5: 13.5px; --fs-11: 14px; --fs-11-5: 14px;
   --fs-12: 14.5px; --fs-12-5: 15px; --fs-13: 15.5px; --fs-13-5: 16px; --fs-14: 16px;
@@ -1156,6 +1167,9 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 
   /* Sidebar: white rail under a navy head, navy active row. */
   --sb-w-open: 252px;
+  /* Page colours folded onto the system: one red, one green, one amber,
+     navy for blue, the system greys and ink. Categorical colours stay. */
+  --c-067647: #067647; --c-0b1220: #101828; --c-0b4a7d: #0B4A7D; --c-0f172a: #101828; --c-111827: #101828; --c-15803d: #067647; --c-16a34a: #067647; --c-1a1a1a: #101828; --c-1d4ed8: #0B4A7D; --c-2563eb: #0B4A7D; --c-475467: #475467; --c-475569: #475467; --c-5a657a: #475467; --c-64748b: #475467; --c-7c3d06: #B54708; --c-7c4a12: #B54708; --c-7f1d1d: #B42318; --c-854d0e: #B54708; --c-92400e: #B54708; --c-94a3b8: #98A2B3; --c-98a2b3: #98A2B3; --c-9a3412: #B54708; --c-a15c00: #B54708; --c-b42318: #B42318; --c-b45309: #B54708; --c-b54708: #B54708; --c-b91c1c: #B42318; --c-ca8a04: #B54708; --c-cbd5e1: #D0D5DD; --c-d97706: #B54708; --c-dc2626: #B42318; --c-e2e8f0: #E4E7EC; --c-f8fafc: #F9FAFB; --c-fafafa: #F9FAFB;
   --sb-bg: #ffffff;
   --sb-text: #344054;
   --sb-line: #eaecf0;
@@ -1172,6 +1186,11 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 }
 /* Dark mode under the new look keeps working, just quieter. */
 [data-skin="studio"][data-theme="dark"] {
+  --tint-red-bg: rgba(240,68,56,0.12); --tint-red-line: rgba(240,68,56,0.35);
+  --tint-amber-bg: rgba(247,144,9,0.12); --tint-amber-line: rgba(247,144,9,0.35);
+  --tint-green-bg: rgba(23,178,106,0.12); --tint-green-line: rgba(23,178,106,0.35);
+  --tint-brand-bg: rgba(111,168,220,0.12); --tint-brand-line: rgba(111,168,220,0.35);
+  --tint-neutral-bg: rgba(255,255,255,0.03);
   --bg: #0b1220; --card: #111a2b; --text: #e6edf6; --muted: #b8c3d4;
   --border: rgba(255, 255, 255, 0.12); --hairline: rgba(255, 255, 255, 0.08);
   --shadow: none;
@@ -1399,3 +1418,20 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 }
 [data-skin="studio"] .sb-open .sb-link.sb-sub { padding-left: 22px !important; }
 [data-skin="studio"] .sb-rail .sb-group { padding: 11px 0 !important; }
+
+/* Wide month grids (budgets, reprojections, the full-year statement): twelve
+   months plus totals must fit a laptop, so they keep a slightly denser size —
+   still above the old 12px — and never truncate a line name to "Percentage R…". */
+[data-skin="studio"] .grid-dense {
+  --fs-10: 12px; --fs-10-5: 12.5px; --fs-11: 13px; --fs-11-5: 13px;
+  --fs-12: 13.5px; --fs-12-5: 14px; --fs-13: 14px; --fs-13-5: 14.5px; --fs-14: 14.5px;
+  font-size: 14px;
+  --grid-line: 19%; --grid-month: 5.15%; --grid-min: 1240px;
+}
+[data-skin="studio"] .grid-dense th:where(:not(.kcs *)),
+[data-skin="studio"] .grid-dense td:where(:not(.kcs *)) { padding-left: 6px; padding-right: 6px; }
+[data-skin="studio"] .grid-dense thead th:where(:not(.kcs *)) { font-size: 12.5px; letter-spacing: 0.04em; }
+
+/* Plain buttons and controls take the portal's font, not the browser's. */
+[data-skin="studio"] button, [data-skin="studio"] input, [data-skin="studio"] select,
+[data-skin="studio"] textarea, [data-skin="studio"] summary { font-family: inherit; }

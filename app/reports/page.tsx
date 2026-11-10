@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 // The Report Center — every report the portal produces, in one place, grouped
 // by what it is about. It is a landing page, not a second copy of the reports:
@@ -52,7 +53,7 @@ export default function ReportsPage() {
           <tbody>
             {groups.map((g, gi) => (
               <Fragment key={g.category}>
-                <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: gi ? "2px solid var(--border)" : "none" }}>
+                <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))", borderTop: gi ? "2px solid var(--border)" : "none" }}>
                   <td colSpan={3} style={{ ...tdL, paddingTop: 9, paddingBottom: 9 }}>
                     <span style={{ fontWeight: 800 }}>{g.category === "Custom" ? "Custom reports" : `${g.category} reports`}</span>
                     {g.rows.length > 0 && <span className="muted" style={{ fontSize: "var(--fs-12)", marginLeft: 8 }}>{g.rows.length}</span>}
@@ -70,7 +71,7 @@ export default function ReportsPage() {
                       </span>
                     </td>
                     <td style={td}>
-                      <a href={r.href} className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 12px", fontWeight: 700, textDecoration: "none" }}>Open →</a>
+                      <a href={r.href} className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 12px", fontWeight: 700, textDecoration: "none" }}>Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></a>
                     </td>
                   </tr>
                 ))}

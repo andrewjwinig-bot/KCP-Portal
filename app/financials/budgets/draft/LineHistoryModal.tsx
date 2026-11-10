@@ -75,7 +75,7 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
 
         <div style={{ padding: 18, overflowY: "auto" }}>
           {extra && <div style={{ marginBottom: 14 }}>{extra}</div>}
-          {failed && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>Could not read this line&rsquo;s history.</div>}
+          {failed && <div className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>Could not read this line&rsquo;s history.</div>}
           {!data && !failed && <HistoryLoading lastYear={year - 1} />}
 
           {data && ins && (

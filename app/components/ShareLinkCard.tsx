@@ -1,4 +1,5 @@
 "use client";
+import { Check, TriangleAlert } from "lucide-react";
 
 // The share-a-private-link DIALOG, in one place.
 //
@@ -23,7 +24,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-const BRAND = "#0b4a7d";
+const BRAND = "var(--c-0b4a7d)";
 
 /**
  * `confirmSend` when the send will MINT the link on its way out.
@@ -442,7 +443,7 @@ export function ShareLinkCard({
                 <div style={{ marginBottom: 16 }}>
                   <div style={SECTION}>Access PIN</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    <code style={{ fontSize: 26, fontWeight: 800, letterSpacing: "0.22em", color: BRAND, background: "rgba(11,74,125,0.08)", borderRadius: 10, padding: "7px 16px" }}>{l.pin}</code>
+                    <code style={{ fontSize: 26, fontWeight: 800, letterSpacing: "0.22em", color: BRAND, background: "var(--tint-brand-bg, rgba(11,74,125,0.08))", borderRadius: 10, padding: "7px 16px" }}>{l.pin}</code>
                     <button onClick={() => copy(l.pin!)} className="btn" style={{ fontSize: "var(--fs-13)", fontWeight: 700, padding: "8px 13px" }}>
                       {copied === l.pin ? "Copied ✓" : "Copy"}
                     </button>
@@ -450,7 +451,7 @@ export function ShareLinkCard({
                       <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
                         <button onClick={() => onManagePin(l.id, "reset")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: "var(--fs-12)", fontWeight: 700, cursor: "pointer", color: "var(--muted)" }}>Reset</button>
                         {pinOptional && (
-                          <button onClick={() => onManagePin(l.id, "remove")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: "var(--fs-12)", fontWeight: 700, cursor: "pointer", color: "#b91c1c" }}>Remove</button>
+                          <button onClick={() => onManagePin(l.id, "remove")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: "var(--fs-12)", fontWeight: 700, cursor: "pointer", color: "var(--c-b91c1c)" }}>Remove</button>
                         )}
                       </div>
                     )}
@@ -490,13 +491,13 @@ export function ShareLinkCard({
                   )}
                   {onRevoke && (
                     <button onClick={() => onRevoke(l.id)} disabled={busy} className="btn"
-                      style={{ fontSize: "var(--fs-12)", fontWeight: 700, padding: "7px 12px", color: "#b91c1c" }}>Revoke</button>
+                      style={{ fontSize: "var(--fs-12)", fontWeight: 700, padding: "7px 12px", color: "var(--c-b91c1c)" }}>Revoke</button>
                   )}
                 </div>
               </div>
 
               {sentTo && confirmSend === null && (
-                <div style={{ marginTop: 8, fontSize: "var(--fs-11-5)", fontWeight: 700, color: "#15803d" }}>✓ Emailed to {sentTo.join(", ")}</div>
+                <div style={{ marginTop: 8, fontSize: "var(--fs-11-5)", fontWeight: 700, color: "var(--c-15803d)" }}>✓ Emailed to {sentTo.join(", ")}</div>
               )}
             </div>
           ))}
@@ -526,20 +527,20 @@ export function ShareLinkCard({
                       saying "that worked". */}
                   {outcome.error ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b91c1c" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="13" /><line x1="12" y1="16.5" x2="12.01" y2="16.5" /></svg>
-                      <div style={{ fontSize: 14.5, fontWeight: 800, color: "#b91c1c" }}>Not sent</div>
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--c-b91c1c)" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="13" /><line x1="12" y1="16.5" x2="12.01" y2="16.5" /></svg>
+                      <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--c-b91c1c)" }}>Not sent</div>
                     </div>
                   ) : (
                     <div style={{ textAlign: "center", padding: "2px 0 4px" }}>
                       <div className="caughtup-mark" style={{ width: 54, height: 54 }}>
                         <span className="cu-halo" aria-hidden />
                         <svg width="54" height="54" viewBox="0 0 24 24" fill="none" aria-hidden>
-                          <circle cx="12" cy="12" r="10" fill="rgba(22,163,74,0.08)" stroke="#15803d" strokeWidth="1.6" className="sent-ring" />
-                          <path d="M7.4 12.4l3.1 3.1 6.2-6.6" fill="none" stroke="#15803d" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="sent-check" />
+                          <circle cx="12" cy="12" r="10" fill="rgba(22,163,74,0.08)" stroke="var(--c-15803d)" strokeWidth="1.6" className="sent-ring" />
+                          <path d="M7.4 12.4l3.1 3.1 6.2-6.6" fill="none" stroke="var(--c-15803d)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="sent-check" />
                         </svg>
                       </div>
                       <div className="caughtup-copy" style={{ marginTop: 9 }}>
-                        <div style={{ fontSize: 16.5, fontWeight: 800, color: "#15803d" }}>
+                        <div style={{ fontSize: 16.5, fontWeight: 800, color: "var(--c-15803d)" }}>
                           {outcome.sentTo.length
                             ? `Sent to ${outcome.sentTo.length === 1 ? subject || "them" : `${outcome.sentTo.length} recipients`}`
                             : "Link created — not emailed"}
@@ -563,17 +564,17 @@ export function ShareLinkCard({
                       rather than by going to look in an inbox. */}
                   {outcome.sentTo.length > 0 && (
                     <div className="caughtup-copy" style={{
-                      marginTop: 12, borderRadius: 9, border: "1px solid rgba(22,163,74,0.28)",
+                      marginTop: 12, borderRadius: 9, border: "1px solid var(--tint-green-line, rgba(22,163,74,0.28))",
                       background: "var(--card)", padding: "10px 12px", textAlign: "left",
                     }}>
                       {outcome.sentTo.map((r) => (
                         <div key={r} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "var(--fs-13)", fontWeight: 700, marginBottom: 3 }}>
-                          <span aria-hidden style={{ color: "#15803d" }}>✓</span>{r}
+                          <span aria-hidden style={{ color: "var(--c-15803d)" }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>{r}
                         </div>
                       ))}
                       {outcome.pinSentTo && (
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: "var(--fs-12-5)", marginTop: 7, paddingTop: 7, borderTop: "1px solid var(--border)", fontWeight: 600, color: outcome.pinSentTo.length ? "var(--text)" : "#b91c1c" }}>
-                          <span aria-hidden style={{ color: outcome.pinSentTo.length ? "#15803d" : "#b91c1c" }}>{outcome.pinSentTo.length ? "✓" : "⚠"}</span>
+                          <span aria-hidden style={{ color: outcome.pinSentTo.length ? "#15803d" : "#b91c1c" }}>{outcome.pinSentTo.length ? <Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
                           {outcome.pinSentTo.length
                             ? "Their access PIN went as its own separate email."
                             : "The PIN email did NOT go out — give them the PIN yourself, or they can't open the link."}
@@ -581,7 +582,7 @@ export function ShareLinkCard({
                       )}
                       {outcome.copiedTo && outcome.copiedTo.length > 0 && (
                         <div className="muted" style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: "var(--fs-12)", marginTop: 6 }}>
-                          <span aria-hidden style={{ color: "#15803d" }}>✓</span>
+                          <span aria-hidden style={{ color: "var(--c-15803d)" }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
                           <span>Blind copy of both emails to <b>{outcome.copiedTo.join(", ")}</b> — check that inbox to see exactly what they received.</span>
                         </div>
                       )}
@@ -603,8 +604,8 @@ export function ShareLinkCard({
                   {outcome.testMode && (
                     <div style={{
                       marginTop: 10, borderRadius: 9, padding: "10px 12px", textAlign: "left",
-                      border: "1.5px solid rgba(220,38,38,0.45)", background: "rgba(220,38,38,0.07)",
-                      fontSize: "var(--fs-12-5)", color: "#b91c1c", fontWeight: 600,
+                      border: "1.5px solid var(--tint-red-line, rgba(220,38,38,0.45))", background: "var(--tint-red-bg, rgba(220,38,38,0.07))",
+                      fontSize: "var(--fs-12-5)", color: "var(--c-b91c1c)", fontWeight: 600,
                     }}>
                       <b>Nothing was actually delivered.</b> Postmark is using its TEST token, which
                       accepts every message and sends none. Set a real <code>POSTMARK_SERVER_TOKEN</code>{" "}
@@ -620,8 +621,8 @@ export function ShareLinkCard({
               )}
 
               {!outcome && (
-                <div style={{ marginTop: 12, border: "1.5px solid rgba(180,83,9,0.45)", background: "rgba(180,83,9,0.07)", borderRadius: 10, padding: "13px 15px" }}>
-                  <div style={{ fontSize: "var(--fs-14)", fontWeight: 800, color: "#b45309", display: "flex", alignItems: "center", gap: 7 }}>
+                <div style={{ marginTop: 12, border: "1.5px solid var(--tint-amber-line, rgba(180,83,9,0.45))", background: "var(--tint-amber-bg, rgba(180,83,9,0.07))", borderRadius: 10, padding: "13px 15px" }}>
+                  <div style={{ fontSize: "var(--fs-14)", fontWeight: 800, color: "var(--c-b45309)", display: "flex", alignItems: "center", gap: 7 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                     This sends the email
                   </div>
@@ -681,7 +682,7 @@ export function ShareLinkCard({
                         })}
                       </div>
                       {picked.length === 0 && (
-                        <div style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, color: "#b91c1c", marginTop: 6 }}>
+                        <div style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, color: "var(--c-b91c1c)", marginTop: 6 }}>
                           Nobody is selected, so there is no one to send to.
                         </div>
                       )}
@@ -716,7 +717,7 @@ export function ShareLinkCard({
                         <div style={{ marginTop: 12 }}>
                           <div style={{ ...SECTION, marginBottom: 6 }}>The message</div>
                           {draftError ? (
-                            <div className="small" style={{ color: "#b91c1c" }}>
+                            <div className="small" style={{ color: "var(--c-b91c1c)" }}>
                               {draftError} You can still send — the standard message will be used.
                             </div>
                           ) : !draft ? (
@@ -807,7 +808,7 @@ export function ShareLinkCard({
                       )}
                     </div>
                   ) : (
-                    <p className="small" style={{ margin: "6px 0 10px", color: "#b91c1c" }}>
+                    <p className="small" style={{ margin: "6px 0 10px", color: "var(--c-b91c1c)" }}>
                       No email address on file. Copy the link above and send it yourself, or add an address first.
                     </p>
                   )}
@@ -844,7 +845,7 @@ export function ShareLinkCard({
                       opened after an await has lost its user activation and
                       the browser blocks it. So: create first, then send. */}
                   {draft && onOpenInMail && confirmSend === PENDING_LINK && (
-                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed rgba(180,83,9,0.35)" }}>
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--tint-amber-line, rgba(180,83,9,0.35))" }}>
                       <div style={{ ...SECTION, marginBottom: 7 }}>Or send it yourself</div>
                       <div className="muted" style={{ fontSize: "var(--fs-12-5)" }}>
                         Close this and choose <b>&ldquo;Just create the link&rdquo;</b> first — that is what
@@ -855,7 +856,7 @@ export function ShareLinkCard({
                   )}
 
                   {draft && onOpenInMail && confirmSend !== PENDING_LINK && (
-                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed rgba(180,83,9,0.35)" }}>
+                    <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--tint-amber-line, rgba(180,83,9,0.35))" }}>
                       <div style={{ ...SECTION, marginBottom: 7 }}>Or send it yourself</div>
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                         <button
@@ -955,7 +956,7 @@ export function ShareLinkCard({
             </>
           )}
 
-          {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700, marginTop: 10 }}>{error}</div>}
+          {error && <div className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700, marginTop: 10 }}>{error}</div>}
         </div>
       </div>
     </div>

@@ -29,9 +29,9 @@ const psf = (monthly: number, sf: number) => (sf > 0 ? `$${((monthly * 12) / sf)
 const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "right", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
 const td: React.CSSProperties = { padding: "9px 8px", fontSize: "var(--fs-13-5)", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
-const SUITE: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" };
+const SUITE: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", whiteSpace: "nowrap" };
 const DIVIDE = "2px solid var(--border)";
-const UP = "#b45309", DOWN = "#15803d";
+const UP = "var(--c-b45309)", DOWN = "#15803d";
 const tone = (n: number) => (n > 0.5 ? UP : n < -0.5 ? DOWN : "var(--muted)");
 const LABEL = { cam: "CAM", ins: "INS", ret: "RET" } as const;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -128,7 +128,7 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
       </div>
 
       {check.some((c) => c.over) && (
-        <div style={{ margin: "0 14px 10px", padding: "8px 12px", borderRadius: 8, fontSize: "var(--fs-13)", background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)" }}>
+        <div style={{ margin: "0 14px 10px", padding: "8px 12px", borderRadius: 8, fontSize: "var(--fs-13)", background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))" }}>
           {check.filter((c) => c.over).map((c) => (
             <div key={c.group}><b>{c.label} to review:</b> {money0(c.recovered)} a year against a {money0(c.pool)} budget pool ({pct0(c.ratio)}) — above what admin fees explain. Check the tenants&apos; shares and any estimate set by hand before importing.</div>
           ))}
@@ -394,7 +394,7 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
     );
   };
   return (
-    <tr style={e.jump ? { background: "rgba(217,119,6,0.06)" } : undefined}>
+    <tr style={e.jump ? { background: "var(--tint-amber-bg, rgba(217,119,6,0.06))" } : undefined}>
       <td style={{ ...td, textAlign: "left", whiteSpace: "normal", minWidth: 150 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <span style={{ fontWeight: 600 }}>{e.tenant || "(unnamed)"}</span>
@@ -411,7 +411,7 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
         return (
           <td key={p} style={{ ...td, ...(p === "cam" ? { borderLeft: DIVIDE } : {}),
             ...(off ? { fontStyle: "italic", color: "var(--muted)" } : {}),
-            ...(diff ? { background: "rgba(217,119,6,0.12)" } : {}) }}>
+            ...(diff ? { background: "var(--tint-amber-bg, rgba(217,119,6,0.12))" } : {}) }}>
             {v(n?.[p], e.sqft)}
           </td>
         );
@@ -507,7 +507,7 @@ function OverrideModal({ e, year, ry, propertyCode, queued, onClose, onSaved }: 
             <textarea value={note} onChange={(ev) => setNote(ev.target.value)} rows={3}
               placeholder="e.g. Taxes reassessed on appeal; phase the increase in over two years" />
           </label>
-          {err && <div className="small" style={{ color: "#b91c1c" }}>{err}</div>}
+          {err && <div className="small" style={{ color: "var(--c-b91c1c)" }}>{err}</div>}
         </div>
         <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", display: "flex", gap: 8, justifyContent: "flex-end" }}>
           {e.overridden && <button type="button" className="btn sm" disabled={busy} onClick={() => submit(true)}>Back to computed</button>}

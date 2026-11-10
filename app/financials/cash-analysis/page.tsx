@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 // Cash Sheet — the unified cash-management page (formerly "Cash Analysis"; the
 // old weekly Cash Sheet was merged in). Lists every property/entity bank account
@@ -51,7 +52,7 @@ const numCell: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "
 // Column headers wrap so long bucket labels ("Change in Escrows") don't force a wide column.
 const headWrap: React.CSSProperties = { textAlign: "right", whiteSpace: "normal", lineHeight: 1.15, verticalAlign: "bottom", minWidth: 58, padding: "9px 7px" };
 // Opening / Ending cash are the headline numbers — give them a prominent, tinted column.
-const keyCol: React.CSSProperties = { ...numCell, fontWeight: 800, fontSize: "var(--fs-14)", background: "rgba(11,74,125,0.06)" };
+const keyCol: React.CSSProperties = { ...numCell, fontWeight: 800, fontSize: "var(--fs-14)", background: "var(--tint-brand-bg, rgba(11,74,125,0.06))" };
 function periodDates(year: number, period: number, ytd: boolean) {
   const endDay = new Date(year, period, 0).getDate(); // last day of the period month
   const end = `${MONTHS[period - 1]} ${endDay}, ${year}`;
@@ -63,13 +64,13 @@ function periodDates(year: number, period: number, ytd: boolean) {
 }
 const groupHeaderCell: React.CSSProperties = {
   textAlign: "left", fontSize: "var(--fs-13)", fontWeight: 800, textTransform: "uppercase",
-  letterSpacing: "0.06em", color: "var(--text)", background: "rgba(15,23,42,0.04)",
+  letterSpacing: "0.06em", color: "var(--text)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.04))",
   padding: "10px 12px", borderTop: "2px solid var(--border)",
 };
 // Right-aligned subtotal cells on the collapsible group header row.
 const groupSubCell: React.CSSProperties = {
   ...numCell, fontWeight: 800, fontSize: "var(--fs-13)", color: "var(--text)",
-  background: "rgba(15,23,42,0.04)", padding: "10px 12px", borderTop: "2px solid var(--border)",
+  background: "var(--tint-neutral-bg, rgba(15,23,42,0.04))", padding: "10px 12px", borderTop: "2px solid var(--border)",
 };
 // A summary amount that opens its breakdown — looks like text, underlines on hover.
 const summaryBtn = { background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textDecoration: "none" };
@@ -90,7 +91,7 @@ function BankLinks({ accounts }: { accounts: BankAccount[] }) {
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 3 }}>
       {accounts.map((a, i) => (
         <a key={i} href={a.link} target="_blank" rel="noreferrer" title={`${a.bank} · ${a.label}`}
-          style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }}
+          style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }}
           onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
           onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>
           {a.bank} {a.last4}<span aria-hidden style={{ fontSize: "var(--fs-9)", opacity: 0.7 }}>↗</span>
@@ -460,7 +461,7 @@ function CashSheetPage() {
         className="card"
         {...(data?.canEdit ? apDrop.dropHandlers : {})}
         title={data?.canEdit ? "Import the AP Selection Report, or drag it onto this card" : undefined}
-        style={data?.canEdit && apDrop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "rgba(11,74,125,0.04)" } : undefined}
+        style={data?.canEdit && apDrop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" } : undefined}
       >
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -502,7 +503,7 @@ function CashSheetPage() {
             Import the weekly <b>AP Selection Report</b> (.xls, .xlsx, or .pdf) to fill bills paid.
           </p>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <div style={{ display: "inline-flex", border: "1px solid rgba(11,74,125,0.3)", borderRadius: 999, overflow: "hidden" }} title="How much detail to show for cash movement">
+            <div style={{ display: "inline-flex", border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.3))", borderRadius: 999, overflow: "hidden" }} title="How much detail to show for cash movement">
               {([["net", "Net"], ["io", "Cash In/Out"], ["detail", "Detail"]] as const).map(([v, label]) => (
                 <button key={v} type="button" onClick={() => setViewPersist(v)}
                   style={{ padding: "7px 12px", fontSize: "var(--fs-12)", fontWeight: 700, border: "none", cursor: "pointer", background: view === v ? "#0b4a7d" : "var(--card)", color: view === v ? "#fff" : "#0b4a7d" }}>
@@ -528,12 +529,12 @@ function CashSheetPage() {
         </p>
         <LastImported at={data?.lastImport?.at} by={data?.lastImport?.by} label="GL last imported" style={{ marginTop: 4, marginBottom: 0 }} />
         <LastImported at={data?.apImport?.at} by={data?.apImport?.by} label="AP Report last imported" />
-        {error && <div style={{ color: "#b42318", fontSize: "var(--fs-13)", marginTop: 6 }}>{error}</div>}
+        {error && <div style={{ color: "var(--c-b42318)", fontSize: "var(--fs-13)", marginTop: 6 }}>{error}</div>}
       </div>
 
       {laggingRows.length > 0 && (
         <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #d97706" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 800, color: "#b45309", fontSize: "var(--fs-14)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 800, color: "var(--c-b45309)", fontSize: "var(--fs-14)" }}>
             <span>⚠ Snapshot blends time periods</span><Badge>{laggingRows.length}</Badge>
           </div>
           <div className="muted small" style={{ marginBottom: 8 }}>
@@ -551,7 +552,7 @@ function CashSheetPage() {
 
       {debtMissingRows.length > 0 && (
         <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #dc2626" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 800, color: "#b91c1c", fontSize: "var(--fs-14)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 800, color: "var(--c-b91c1c)", fontSize: "var(--fs-14)" }}>
             <span>⚠ Mortgage P&amp;I not posted</span><Badge>{debtMissingRows.length}</Badge>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
@@ -589,7 +590,7 @@ function CashSheetPage() {
                 {showBillsCol && <th style={headWrap} title={`AvidXchange bills paid in ${MONTHS[period - 1]} — click a row for the weekly detail`}>Avid Bills<div style={{ fontWeight: 700, fontSize: "var(--fs-13)", color: "var(--text)", textTransform: "none" }}>{MONTHS[period - 1]}</div></th>}
                 {showReservesCol && <th style={headWrap} title="Budgeted Big Projects reserve set aside (from the budget; type to override)">Reserves</th>}
                 {netBridge && <th style={headWrap} title="Bills & reserves drawdown from Ending Cash to Est. Available Cash">To Available</th>}
-                {showEst && <th style={{ ...keyCol, textAlign: "center", background: "rgba(21,128,61,0.08)" }}>Avail. Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{lastBillWed ?? data?.estimateAsOf}</div></th>}
+                {showEst && <th style={{ ...keyCol, textAlign: "center", background: "var(--tint-green-bg, rgba(21,128,61,0.08))" }}>Avail. Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{lastBillWed ?? data?.estimateAsOf}</div></th>}
               </tr>
             </thead>
             <tbody>
@@ -603,7 +604,7 @@ function CashSheetPage() {
                 return (
                 <Fragment key={group}>
                   <tr onClick={() => toggleGroup(group)} style={{ cursor: "pointer" }} title={isCollapsed ? "Expand" : "Collapse"}>
-                    <td style={groupHeaderCell}><span style={{ display: "inline-block", width: 16, color: "var(--muted)" }}>{isCollapsed ? "▸" : "▾"}</span>{group}</td>
+                    <td style={groupHeaderCell}><span style={{ display: "inline-block", width: 16, color: "var(--muted)" }}>{isCollapsed ? <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>{group}</td>
                     <td style={groupSubCell}>{gt.hasOpening ? money0(gt.opening) : "—"}</td>
                     {view === "detail" ? visibleBuckets.map((b) => <td key={b.code} style={groupSubCell}>{gt.byBucket[b.code] ? money0(gt.byBucket[b.code]) : "—"}</td>)
                       : view === "io" ? (() => { const io = ioFrom(gt.byBucket); return [
@@ -614,17 +615,17 @@ function CashSheetPage() {
                     {showBillsCol && <td style={groupSubCell}>{gt.bills ? money0(gt.bills) : "—"}</td>}
                     {showReservesCol && <td style={groupSubCell}>{gt.reserves ? money0(gt.reserves) : "—"}</td>}
                     {netBridge && (() => { const br = bridgeVal(gt.est, gt.hasOpening ? gt.ending : null); return <td style={groupSubCell}>{br ? money0(br) : "—"}</td>; })()}
-                    {showEst && <td style={{ ...groupSubCell, background: "rgba(21,128,61,0.06)" }}>{money0(gt.est)}</td>}
+                    {showEst && <td style={{ ...groupSubCell, background: "var(--tint-green-bg, rgba(21,128,61,0.06))" }}>{money0(gt.est)}</td>}
                   </tr>
                   {!isCollapsed && rows.map((r) => laggingKeys.has(r.key) ? (
                     // Behind the snapshot month — blanked out; import its GL to include it.
-                    <tr key={r.key} style={{ background: "rgba(217,119,6,0.04)" }}>
+                    <tr key={r.key} style={{ background: "var(--tint-amber-bg, rgba(217,119,6,0.04))" }}>
                       <td style={{ textAlign: "left" }}>
                         <code style={{ fontSize: "var(--fs-12)" }}>{r.propertyCode}</code>
                         <span style={{ marginLeft: 8 }}>{r.name}</span>
                         <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => (!r.bankLast4 || a.last4 === r.bankLast4) && !r.excludeLast4?.includes(a.last4))} />
                       </td>
-                      <td colSpan={colCount - 1} className="muted small" style={{ fontStyle: "italic", color: "#b45309" }}>
+                      <td colSpan={colCount - 1} className="muted small" style={{ fontStyle: "italic", color: "var(--c-b45309)" }}>
                         Posted through {MONTHS[r.maxPeriod - 1]} — import the {MONTHS[glMonth - 1]} {year} GL to include this property in the snapshot.
                       </td>
                     </tr>
@@ -636,7 +637,7 @@ function CashSheetPage() {
                         {!r.manual && !r.readOnly && !r.sd ? (
                           <Link href={`/financials/operating-statements?key=${encodeURIComponent(r.key)}&year=${year}&period=${glMonth}`}
                             title="Open this entity's Operating Statement for this month"
-                            style={{ marginLeft: 8, color: "#0b4a7d", fontWeight: 600, textDecoration: "none" }}
+                            style={{ marginLeft: 8, color: "var(--c-0b4a7d)", fontWeight: 600, textDecoration: "none" }}
                             onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
                             onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>{r.name}</Link>
                         ) : <span style={{ marginLeft: 8 }}>{r.name}</span>}
@@ -691,7 +692,7 @@ function CashSheetPage() {
                         // amount as an amber estimate, flagged ⚠*; not in Net Change/Ending.
                         if (!v && b.code === 4 && r.debtMissing) {
                           return (
-                            <td key={b.code} style={{ ...numCell, color: "#b45309", fontWeight: 700 }}
+                            <td key={b.code} style={{ ...numCell, color: "var(--c-b45309)", fontWeight: 700 }}
                               title={`Estimated — scheduled mortgage P&I of ${money0(r.scheduledDebt)} has not posted to the GL yet. Shown for reference; not included in Net Change or Ending Cash until it posts.`}>
                               ⚠ {money0(-r.scheduledDebt)}*
                             </td>
@@ -789,13 +790,13 @@ function CashSheetPage() {
             </tbody>
             {data && grouped.length > 0 && (
               <tfoot>
-                <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "rgba(11,74,125,0.05)" }}>
+                <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800, background: "var(--tint-brand-bg, rgba(11,74,125,0.05))" }}>
                   <td style={{ textAlign: "left" }}>Portfolio Total</td>
                   <td style={keyCol}>{grand.hasOpening ? money0(grand.opening) : "—"}</td>
                   {view === "detail" ? visibleBuckets.map((b) => <td key={b.code} style={numCell}>{money0(grand.byBucket[b.code] ?? 0)}</td>)
                     : view === "io" ? [
-                        <td key="in" style={{ ...numCell, color: "#15803d" }}>{money0(grand.inflows)}</td>,
-                        <td key="out" style={{ ...numCell, color: "#b91c1c" }}>{money0(-grand.outflows)}</td>]
+                        <td key="in" style={{ ...numCell, color: "var(--c-15803d)" }}>{money0(grand.inflows)}</td>,
+                        <td key="out" style={{ ...numCell, color: "var(--c-b91c1c)" }}>{money0(-grand.outflows)}</td>]
                     : <td style={{ ...numCell, color: grand.net > 0 ? "#15803d" : grand.net < 0 ? "#b91c1c" : undefined }}>{money0(grand.net)}</td>}
                   <td style={{ ...keyCol, color: grand.net > 0 ? "#15803d" : grand.net < 0 ? "#b91c1c" : undefined }}
                     title={`Net change ${money0(grand.net)}`}>
@@ -804,7 +805,7 @@ function CashSheetPage() {
                   {showBillsCol && <td style={{ ...numCell, color: grand.bills ? "#b45309" : "var(--muted)" }}>{grand.bills ? money0(grand.bills) : "—"}</td>}
                   {showReservesCol && <td style={{ ...numCell, color: grand.reserves ? "#6d28d9" : "var(--muted)" }}>{grand.reserves ? money0(grand.reserves) : "—"}</td>}
                   {netBridge && (() => { const br = bridgeVal(estAvailTotal, grand.hasOpening ? grand.ending : null); return <td style={{ ...numCell, color: br ? "#b91c1c" : "var(--muted)" }}>{br ? money0(br) : "—"}</td>; })()}
-                  {showEst && <td style={{ ...keyCol, background: "rgba(21,128,61,0.10)" }}>{money0(estAvailTotal)}</td>}
+                  {showEst && <td style={{ ...keyCol, background: "var(--tint-green-bg, rgba(21,128,61,0.10))" }}>{money0(estAvailTotal)}</td>}
                 </tr>
               </tfoot>
             )}
@@ -820,7 +821,7 @@ function CashSheetPage() {
           ? <>click any bucket amount to see the GL accounts behind it; </>
           : <>click a <b>{view === "net" ? "Net Change" : "Cash In / Cash Out"}</b> amount for the category breakdown (each drillable to its GL accounts), or switch to <b>Detail</b> (top right) for all categories at once; </>}
         click a fund name (e.g. JV III) for its building breakdown; click an <b>Avid Bills</b> amount for the week-by-week detail. Override <b>Opening Cash</b> with a property&apos;s actual bank balance and the cell footnotes the GL value + variance, so the tie-out is right there without a separate column.
-        {debtMissingRows.length > 0 && <> <span style={{ color: "#b45309", fontWeight: 700 }}>⚠ amber Mortgage P&amp;I with an asterisk (*)</span> is the scheduled debt service — an estimate shown because the actual charge has not posted to the GL yet; it is not rolled into Net Change or Ending Cash.</>}
+        {debtMissingRows.length > 0 && <> <span style={{ color: "var(--c-b45309)", fontWeight: 700 }}>⚠ amber Mortgage P&amp;I with an asterisk (*)</span> is the scheduled debt service — an estimate shown because the actual charge has not posted to the GL yet; it is not rolled into Net Change or Ending Cash.</>}
       </p>
 
       {/* ── Accounts with activity but no bucket (collapsed, like Operating Statements) ── */}
@@ -839,7 +840,7 @@ function CashSheetPage() {
       <div>
         <button type="button" onClick={() => setShowCodeMap((s) => !s)} className="muted small"
           style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
-          <span>{showCodeMap ? "▾" : "▸"}</span> GL account → bucket map
+          <span>{showCodeMap ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span> GL account → bucket map
         </button>
         {showCodeMap && (
           <div className="card" style={{ marginTop: 8, padding: 16 }}>
@@ -902,14 +903,14 @@ function CashSheetPage() {
                   <tr><td style={{ textAlign: "left" }}>Daily rate × {interestModal.days} days</td><td style={numCell}>{(interestModal.rate / 365 * 100).toFixed(5)}% → {((Math.pow(1 + interestModal.rate / 365, interestModal.days) - 1) * 100).toFixed(4)}%</td></tr>
                   <tr style={interestModal.fee ? undefined : { borderTop: "1px solid var(--border)", fontWeight: 800 }}>
                     <td style={{ textAlign: "left" }}>Interest this month</td>
-                    <td style={{ ...numCell, color: "#15803d", fontWeight: interestModal.fee ? 400 : 800 }}>{money0(interestModal.amount)}</td>
+                    <td style={{ ...numCell, color: "var(--c-15803d)", fontWeight: interestModal.fee ? 400 : 800 }}>{money0(interestModal.amount)}</td>
                   </tr>
                   {!!interestModal.fee && (
                     <>
-                      <tr><td style={{ textAlign: "left" }}>Less: Paper Statement Charge</td><td style={{ ...numCell, color: "#b91c1c" }}>{money0(-interestModal.fee)}</td></tr>
+                      <tr><td style={{ textAlign: "left" }}>Less: Paper Statement Charge</td><td style={{ ...numCell, color: "var(--c-b91c1c)" }}>{money0(-interestModal.fee)}</td></tr>
                       <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
                         <td style={{ textAlign: "left" }}>Net to account</td>
-                        <td style={{ ...numCell, color: "#15803d" }}>{money0(interestModal.amount - interestModal.fee)}</td>
+                        <td style={{ ...numCell, color: "var(--c-15803d)" }}>{money0(interestModal.amount - interestModal.fee)}</td>
                       </tr>
                     </>
                   )}
@@ -995,12 +996,12 @@ function CashSheetPage() {
                 <table>
                   <tbody>
                     <tr><td style={{ textAlign: "left" }}>Ending Cash</td><td style={numCell}>{money0(ending)}</td></tr>
-                    {!!reserves && <tr><td style={{ textAlign: "left" }}>Less: Reserves set aside</td><td style={{ ...numCell, color: "#b91c1c" }}>{money0(-reserves)}</td></tr>}
-                    {!!bills && <tr><td style={{ textAlign: "left" }}>Less: Un-posted Avid bills ({r.estimate!.months} mo)</td><td style={{ ...numCell, color: "#b91c1c" }}>{money0(-bills)}</td></tr>}
+                    {!!reserves && <tr><td style={{ textAlign: "left" }}>Less: Reserves set aside</td><td style={{ ...numCell, color: "var(--c-b91c1c)" }}>{money0(-reserves)}</td></tr>}
+                    {!!bills && <tr><td style={{ textAlign: "left" }}>Less: Un-posted Avid bills ({r.estimate!.months} mo)</td><td style={{ ...numCell, color: "var(--c-b91c1c)" }}>{money0(-bills)}</td></tr>}
                     {!!carry && <tr><td style={{ textAlign: "left" }}>Posted-month carry-forward</td><td style={{ ...numCell, color: carry < 0 ? "#b91c1c" : "#15803d" }}>{money0(carry)}</td></tr>}
                     <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
                       <td style={{ textAlign: "left" }}>Est. Available Cash</td>
-                      <td style={{ ...numCell, color: "#15803d" }}>{money0(avail)}</td>
+                      <td style={{ ...numCell, color: "var(--c-15803d)" }}>{money0(avail)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1069,7 +1070,7 @@ function CashSheetPage() {
                   ))}
                   <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
                     <td style={{ textAlign: "left" }}>Total</td>
-                    <td style={{ ...numCell, color: "#b45309" }}>{money0(billsModal.total)}</td>
+                    <td style={{ ...numCell, color: "var(--c-b45309)" }}>{money0(billsModal.total)}</td>
                   </tr>
                 </tbody>
               </table>

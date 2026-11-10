@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 // The draft budget, laid out as a FULL-YEAR OPERATING STATEMENT.
 //
@@ -48,7 +49,7 @@ import { feeGroupOf } from "@/lib/financials/budgets/feeGroups";
 import { RATE_ACCOUNT, type VacancyUtilities } from "@/lib/financials/budgets/vacancyUtilities";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const COLOR_BRAND = "#0b4a7d";
+const COLOR_BRAND = "var(--c-0b4a7d)";
 // THE TABLE LOOKS LIKE THE OPERATING BUDGETS PAGE (app/financials/budgets/
 // page.tsx — `BudgetTableColgroup`, `BudgetLineRow`, `SubtotalCard`,
 // `GroupHeader`): a card per section under a brand group heading, the global
@@ -64,15 +65,15 @@ const COL_PCT = { line: 15, month: 5.5, budget: 7.6, reproj: 6.8, change: 4.6 };
 function Colgroup() {
   return (
     <colgroup>
-      <col style={{ width: `${COL_PCT.line}%` }} />
-      {MONTHS.map((m, i) => <col key={m} style={{ width: `${COL_PCT.month}%`, ...(i % 2 === 0 ? { background: MONTH_TINT } : {}) }} />)}
+      <col style={{ width: `var(--grid-line, ${COL_PCT.line}%)` }} />
+      {MONTHS.map((m, i) => <col key={m} style={{ width: `var(--grid-month, ${COL_PCT.month}%)`, ...(i % 2 === 0 ? { background: MONTH_TINT } : {}) }} />)}
       <col style={{ width: `${COL_PCT.budget}%` }} />
       <col style={{ width: `${COL_PCT.reproj}%` }} />
       <col style={{ width: `${COL_PCT.change}%` }} />
     </colgroup>
   );
 }
-const TABLE: React.CSSProperties = { tableLayout: "fixed", width: "100%", minWidth: 1090 };
+const TABLE: React.CSSProperties = { tableLayout: "fixed", width: "100%", minWidth: "var(--grid-min, 1090px)" };
 const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: "var(--fs-12)", whiteSpace: "nowrap", verticalAlign: "middle", paddingLeft: 6, paddingRight: 6 };
 const lab: React.CSSProperties = { textAlign: "left", verticalAlign: "middle", fontSize: "var(--fs-14)" };
 const headR: React.CSSProperties = { textAlign: "right", whiteSpace: "nowrap" };
@@ -105,7 +106,7 @@ export const growthOverTyped = (source: string, typed?: boolean[]) =>
 /** A negative figure on a revenue or expense line — almost always a miscoded
  *  credit or a typo, never a budget. Filled amber (the warn tone) to be fixed. */
 const NEGATIVE_BG = "rgba(217,119,6,0.18)";
-const NEGATIVE_FG = "#b45309";
+const NEGATIVE_FG = "var(--c-b45309)";
 /** Light blue = a cell you can type; bold blue text = a figure someone typed. */
 const INPUT_BG = "var(--input-cell)";
 const TYPED_FG = "var(--input-typed)";
@@ -255,8 +256,8 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
   const sub = variant === "sub";
   const subtotal = variant === "subtotal";
   const rowStyle: React.CSSProperties | undefined =
-    subtotal ? { background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }
-    : sub ? { background: "rgba(11,74,125,0.035)" }
+    subtotal ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", borderTop: "2px solid var(--tint-brand-line, rgba(11,74,125,0.30))" }
+    : sub ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.035))" }
     : undefined;
   const editable = !!rowKey && !!setEdit && !!onCommit;
   const cell = (v: number, key: string | number, extra?: React.CSSProperties, m?: number) => {
@@ -274,7 +275,7 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
     const mark = m != null && m < 12 && cellMark ? cellMark(m) : null;
     const shown = Math.abs(v) < 0.5 ? <span style={{ color: "var(--muted)" }}>–</span>
       : mark ? <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.15 }}>
-          {money0(v)}<span style={{ fontSize: 9.5, fontWeight: 700, color: "#b45309", textTransform: "uppercase", letterSpacing: "0.04em" }}>{mark}</span>
+          {money0(v)}<span style={{ fontSize: 9.5, fontWeight: 700, color: "var(--c-b45309)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{mark}</span>
         </span>
       : money0(v);
     return (
@@ -306,7 +307,7 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
         {toggle && (
           <button type="button" onClick={toggle.onToggle} aria-expanded={toggle.open} aria-label={toggle.open ? "Hide sub-lines" : "Show sub-lines"}
             style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, width: 14, flex: "0 0 14px", color: "var(--muted)", fontSize: "var(--fs-11)", lineHeight: 1 }}>
-            {toggle.open ? "▾" : "▸"}
+            {toggle.open ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
           </button>
         )}
         {!toggle && (variant === "line" || (sub && depth === 1)) && <span style={{ flex: "0 0 14px" }} />}
@@ -412,9 +413,9 @@ function RollupCard({ label, months, total, basis, favorableUp, tip }: {
   const good = Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
   const cell: React.CSSProperties = { ...num, fontSize: "var(--fs-13)", fontWeight: 800, borderBottom: "none" };
   return (
-    <div className="card" style={{ padding: 0, borderColor: COLOR_BRAND, background: "rgba(11,74,125,0.04)" }}>
+    <div className="card" style={{ padding: 0, borderColor: COLOR_BRAND, background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" }}>
       <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table style={TABLE}>
+        <table className="grid-dense" style={TABLE}>
           <Colgroup />
           <tbody>
             <tr>
@@ -559,7 +560,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
         return { v, off, row: {
           label: `${p.code} ${p.name}${off ? ` · ${off}` : ""}`,
           value: money0(v),
-          ...(off ? { color: "#b45309" } : v < 0 ? { color: "#b91c1c" } : {}),
+          ...(off ? { color: "var(--c-b45309)" } : v < 0 ? { color: "var(--c-b91c1c)" } : {}),
         } as TipRow };
       });
     if (!all.length) return null;
@@ -665,8 +666,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const inn = occSuites.filter((t) => pays(t, m) && !pays(t, m - 1));
     const out = occSuites.filter((t) => !pays(t, m) && pays(t, m - 1));
     return [
-      ...inn.map((t) => ({ label: `Starts · ${nameOf(t)}`, value: `+${sfFmt(t.sqft)} SF`, color: "#15803d" })),
-      ...out.map((t) => ({ label: `Ends · ${nameOf(t)}`, value: `−${sfFmt(t.sqft)} SF`, color: "#b91c1c" })),
+      ...inn.map((t) => ({ label: `Starts · ${nameOf(t)}`, value: `+${sfFmt(t.sqft)} SF`, color: "var(--c-15803d)" })),
+      ...out.map((t) => ({ label: `Ends · ${nameOf(t)}`, value: `−${sfFmt(t.sqft)} SF`, color: "var(--c-b91c1c)" })),
     ];
   };
   const rentHover = (m: number | null) => {
@@ -677,7 +678,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
       return { title: `Rental income · ${m == null ? "year" : MONTHS[m]}`, rows: byBuilding(list, amt), footer: { label: "Total", value: money0(list.reduce((a, t) => a + amt(t), 0)), color: COLOR_BRAND } };
     }
     const assumedIn = (t: (typeof recTenants)[number]) => (m == null ? t.assumed.some(Boolean) : !!t.assumed[m]);
-    const rows: TipRow[] = list.slice(0, TOP).map((t) => ({ label: `${nameOf(t)}${assumedTag(t, assumedIn(t))}`, value: money0(amt(t)), ...(assumedIn(t) ? { color: "#65a30d" } : {}) }));
+    const rows: TipRow[] = list.slice(0, TOP).map((t) => ({ label: `${nameOf(t)}${assumedTag(t, assumedIn(t))}`, value: money0(amt(t)), ...(assumedIn(t) ? { color: "var(--c-65a30d)" } : {}) }));
     const rest = list.slice(TOP);
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"}`, value: money0(rest.reduce((a, t) => a + amt(t), 0)), color: "var(--muted)" });
     const total = list.reduce((a, t) => a + amt(t), 0);
@@ -699,7 +700,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
         rows.push({
           label: `${bldgLabel(code)}${net ? ` · ${net > 0 ? "+" : "−"}${sfFmt(Math.abs(net))} SF` : ""}`,
           value: `${((o / tot) * 100).toFixed(1)}%`,
-          ...(net > 0 ? { color: "#15803d" } : net < 0 ? { color: "#b91c1c" } : {}),
+          ...(net > 0 ? { color: "var(--c-15803d)" } : net < 0 ? { color: "var(--c-b91c1c)" } : {}),
         });
       }
       return { title: `Occupancy · ${MONTHS[m]}`, rows, footer: { label: `${sfFmt(occAll)} of ${sfFmt(occTotalSf)} SF`, value: occTotalSf > 0 ? `${((occAll / occTotalSf) * 100).toFixed(1)}%` : "–", color: COLOR_BRAND } };
@@ -711,7 +712,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     // Occupancy by Suite on click has every suite).
     const rows: TipRow[] = [
       { label: `Occupied · ${occ.length} suite${occ.length === 1 ? "" : "s"}`, value: `${sfFmt(occSf)} SF` },
-      ...(vacant.length ? [{ label: `Vacant · ${vacant.length} suite${vacant.length === 1 ? "" : "s"}`, value: `${sfFmt(occTotalSf - occSf)} SF`, color: "#b45309" }] : []),
+      ...(vacant.length ? [{ label: `Vacant · ${vacant.length} suite${vacant.length === 1 ? "" : "s"}`, value: `${sfFmt(occTotalSf - occSf)} SF`, color: "var(--c-b45309)" }] : []),
     ];
     const mv = moves(m);
     rows.push(...mv.slice(0, 3));
@@ -725,7 +726,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     if (rollupProps) {
       const rows = byBuilding(recTenants, (t) => t[cat]?.[m] || 0);
       const inMay = atReconTotal(cat, m);
-      if (inMay) rows.push({ label: "Incl. at-recon true-up", value: money0(inMay), color: "#b45309" });
+      if (inMay) rows.push({ label: "Incl. at-recon true-up", value: money0(inMay), color: "var(--c-b45309)" });
       return { title: `${CATEGORY_LABEL[cat]} recoveries · ${MONTHS[m]}`, rows, footer: { label: "Annual Recovery Ratio", value: mk.ratioYear == null ? "–" : `${mk.ratioYear.toFixed(1)}%`, color: COLOR_BRAND } };
     }
     const top = mk.tenants.slice(0, TOP);
@@ -733,10 +734,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     // A tenant whose charge is collected only at reconciliation lands its year
     // here, in May (reconOnly.ts) — say so on its row and in the total.
     const atRecon = (unitRef: string) => m === RECON_MONTH ? recTenants.find((t) => t.unitRef === unitRef)?.atRecon?.[cat] ?? 0 : 0;
-    const rows: TipRow[] = top.map((t) => ({ label: `${t.tenant}${atRecon(t.unitRef) ? " · at recon" : ""}`, value: money0(t.amount), ...(atRecon(t.unitRef) ? { color: "#b45309" } : {}) }));
+    const rows: TipRow[] = top.map((t) => ({ label: `${t.tenant}${atRecon(t.unitRef) ? " · at recon" : ""}`, value: money0(t.amount), ...(atRecon(t.unitRef) ? { color: "var(--c-b45309)" } : {}) }));
     if (rest.length) rows.push({ label: `${rest.length} other tenant${rest.length === 1 ? "" : "s"} · click for all`, value: money0(rest.reduce((a, t) => a + t.amount, 0)), color: "var(--muted)" });
     const inMay = atReconTotal(cat, m);
-    if (inMay) rows.push({ label: "Incl. at-recon true-up", value: money0(inMay), color: "#b45309" });
+    if (inMay) rows.push({ label: "Incl. at-recon true-up", value: money0(inMay), color: "var(--c-b45309)" });
     // The YEAR's ratio only — a month's flat estimate against that month's
     // lumpy expense is timing, not a ratio (recoveryMakeup.ts).
     return {
@@ -792,7 +793,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const setSec = (o: boolean) => setToggled((t) => { const n = new Set(t); for (const k of secSubs) { if (o) n.add(k); else n.delete(k); } return n; });
     return (
       <div key={sec.name} className="card" style={{ padding: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))" }}>
           <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{abbrev(sec.name)}</span>
           {secSubs.length > 0 && (
             <button type="button" onClick={() => setSec(!secOpen)}
@@ -802,7 +803,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
           )}
         </div>
         <div className="tableWrap" style={{ marginTop: 0 }}>
-          <table style={TABLE}>
+          <table className="grid-dense" style={TABLE}>
             <Colgroup />
             {head}
             <tbody>
@@ -934,7 +935,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const negatives = negativeLines(draft);
   if (negatives.length) {
     body.push(
-      <div key="neg" className="card" style={{ padding: "9px 14px", borderLeft: `4px solid ${NEGATIVE_FG}`, background: "rgba(217,119,6,0.06)", fontSize: "var(--fs-13)" }}>
+      <div key="neg" className="card" style={{ padding: "9px 14px", borderLeft: `4px solid ${NEGATIVE_FG}`, background: "var(--tint-amber-bg, rgba(217,119,6,0.06))", fontSize: "var(--fs-13)" }}>
         <b style={{ color: NEGATIVE_FG }}>{negatives.length} line{negatives.length === 1 ? "" : "s"} go{negatives.length === 1 ? "es" : ""} negative</b>
         <span className="muted"> — a revenue or expense should not: </span>
         {negatives.slice(0, 8).map((n) => n.label).join(" · ")}{negatives.length > 8 ? ` · +${negatives.length - 8} more` : ""}
@@ -1003,7 +1004,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     body.push(
       <div key="top" className="card" style={{ padding: 0 }}>
         <div className="tableWrap" style={{ marginTop: 0 }}>
-          <table style={TABLE}>
+          <table className="grid-dense" style={TABLE}>
             <Colgroup />
             <thead>
               <tr>
@@ -1078,7 +1079,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const showDist = hasDist || distOn;
     body.push(
       <div key="cash" className="card" style={{ padding: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", flexWrap: "wrap" }}>
           {hasDist || !mayDist
             ? <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Distributions{!hasDist ? <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> · none this year</span> : null}</span>
             : <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>
@@ -1095,7 +1096,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
           </span>}
         </div>
         {showDist && <div className="tableWrap" style={{ marginTop: 0 }}>
-          <table style={TABLE}>
+          <table className="grid-dense" style={TABLE}>
             <Colgroup />
             <thead>
               <tr>

@@ -1,4 +1,5 @@
 "use client";
+import { ChevronLeft } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -43,8 +44,7 @@ export default function PropertyDetailPage() {
           <Link
             href="/properties"
             style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--brand)", textDecoration: "none", marginTop: 4 }}
-          >
-            ← Properties
+          ><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />Properties
           </Link>
         </div>
       </main>
@@ -57,8 +57,7 @@ export default function PropertyDetailPage() {
         <Link
           href="/properties"
           style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--muted)", textDecoration: "none", width: "fit-content" }}
-        >
-          ← Properties
+        ><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />Properties
         </Link>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
@@ -77,7 +76,7 @@ export default function PropertyDetailPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <code style={{
-            background: "#0b1220", color: "#e0f0ff",
+            background: "var(--c-0b1220)", color: "var(--c-e0f0ff)",
             padding: "2px 8px", borderRadius: 5,
             fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.06em",
           }}>{prop.id}</code>

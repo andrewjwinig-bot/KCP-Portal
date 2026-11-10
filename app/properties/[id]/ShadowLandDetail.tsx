@@ -11,7 +11,7 @@ import { entityValue, STATEMENT_AS_OF } from "@/lib/properties/entityValues";
 import { parcelCount, regionAcres, totalAcres, type ShadowProperty } from "@/lib/properties/shadowProperties";
 
 const acres = (n: number, d = 2) => n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: Math.max(d, 3) });
-const band: React.CSSProperties = { background: "rgba(180,83,9,0.07)", fontWeight: 800 };
+const band: React.CSSProperties = { background: "var(--tint-amber-bg, rgba(180,83,9,0.07))", fontWeight: 800 };
 
 export default function ShadowLandDetail({ prop }: { prop: ShadowProperty }) {
   const sov = entityValue(prop.id);
@@ -41,7 +41,7 @@ export default function ShadowLandDetail({ prop }: { prop: ShadowProperty }) {
             {prop.regions.map((r) => (
               <Fragment key={r.label}>
                 <tr style={band}>
-                  <td style={{ ...tdL, fontWeight: 800, color: "#b45309" }} colSpan={2}>
+                  <td style={{ ...tdL, fontWeight: 800, color: "var(--c-b45309)" }} colSpan={2}>
                     {r.label} <span className="muted small" style={{ fontWeight: 600, marginLeft: 6 }}>{r.parcels.length} parcel{r.parcels.length === 1 ? "" : "s"}</span>
                   </td>
                   <td style={{ ...td, fontWeight: 800 }}>{acres(regionAcres(r))}</td>

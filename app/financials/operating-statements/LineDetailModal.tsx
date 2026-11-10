@@ -14,14 +14,14 @@ import { driverIndexes } from "@/lib/financials/operating-statements/drivers";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] as const;
-const COLOR_BRAND = "#0b4a7d";
+const COLOR_BRAND = "var(--c-0b4a7d)";
 // Segmented two-button toggle, matching the Operating Budgets controls.
 const toggleBtn: React.CSSProperties = {
   fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px",
   border: "1px solid var(--border)", background: "var(--card)",
   color: "var(--text)", cursor: "pointer", letterSpacing: "0.04em", textTransform: "uppercase",
 };
-const toggleActive: React.CSSProperties = { background: "#0b4a7d", color: "#fff", borderColor: "#0b4a7d" };
+const toggleActive: React.CSSProperties = { background: "var(--c-0b4a7d)", color: "#fff", borderColor: "var(--c-0b4a7d)" };
 
 // ── GL transaction drill-down ────────────────────────────────────────────────
 
@@ -85,7 +85,7 @@ function RentRosterTable({ detail, throughMonth }: { detail: RentDetailClient; t
             const p = total > 0 ? (dollars / total) * 100 : 0;
             return (
               <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--fs-11)" }}>
-                <span style={{ display: "inline-block", width: 12, height: 12, background: RENT_TINT[cat], border: "1px solid rgba(22,163,74,0.35)", borderRadius: 2 }} />
+                <span style={{ display: "inline-block", width: 12, height: 12, background: RENT_TINT[cat], border: "1px solid var(--tint-green-line, rgba(22,163,74,0.35))", borderRadius: 2 }} />
                 <span className="muted small">{RENT_LABEL[cat]}: {fmt(dollars)} ({p >= 10 ? `${Math.round(p)}%` : `${p.toFixed(1)}%`})</span>
               </span>
             );
@@ -364,9 +364,9 @@ export function LineDetailModal({ viewKey, property, year, period, monthLabel, l
                     {shown.map((t, i) => {
                       const driver = driverIdx.has(i);
                       return (
-                      <tr key={i} style={driver ? { background: "rgba(180,83,9,0.10)" } : undefined}>
+                      <tr key={i} style={driver ? { background: "var(--tint-amber-bg, rgba(180,83,9,0.10))" } : undefined}>
                         <td style={{ ...tdc, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{fmtTxDate(t.date)}</td>
-                        <td style={tdc}>{driver && <span title="Major driver of this line" style={{ color: "#b45309", fontWeight: 800, marginRight: 5 }}>▲</span>}{t.description}</td>
+                        <td style={tdc}>{driver && <span title="Major driver of this line" style={{ color: "var(--c-b45309)", fontWeight: 800, marginRight: 5 }}>▲</span>}{t.description}</td>
                         {multi && <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.unit || "—"}</td>}
                         {multi && <td style={{ ...tdc, whiteSpace: "nowrap" }}>{t.tenant || <span className="muted">—</span>}</td>}
                         <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)" }}>{t.ref}</td>

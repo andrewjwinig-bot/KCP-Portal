@@ -88,7 +88,7 @@ export default function DisplayNameCard({ code, occupantName }: { code: string; 
         style={{ flex: "1 1 200px", maxWidth: 360 }}
       />
       <AutosaveStatus saving={saving} savedFlash={savedFlash} />
-      {error && <span style={{ color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600 }}>{error}</span>}
+      {error && <span style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600 }}>{error}</span>}
     </div>
   );
 }

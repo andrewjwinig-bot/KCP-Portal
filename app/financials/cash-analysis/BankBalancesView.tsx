@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 // Bank Balances — the bank-balance view (owner: "pivot from our more complex
 // cash sheet … current balance and then another column for reserves to show
@@ -84,9 +85,9 @@ function changeOf(rs: Row[]) {
 // a unit ref reads, muted 12px secondary text, totals at 700 under a 2px rule.
 const td: React.CSSProperties = { ...tdBase, fontSize: "var(--fs-13)" };
 const tdL: React.CSSProperties = { ...tdLBase, fontSize: "var(--fs-13)" };
-const band: React.CSSProperties = { background: "rgba(15,23,42,0.04)", borderTop: "1px solid var(--border)", cursor: "pointer" };
+const band: React.CSSProperties = { background: "var(--tint-neutral-bg, rgba(15,23,42,0.04))", borderTop: "1px solid var(--border)", cursor: "pointer" };
 const bandCell: React.CSSProperties = { ...td, fontWeight: 700 };
-const netCol: React.CSSProperties = { ...td, fontWeight: 600, background: "rgba(11,74,125,0.06)" };
+const netCol: React.CSSProperties = { ...td, fontWeight: 600, background: "var(--tint-brand-bg, rgba(11,74,125,0.06))" };
 const reserveInput: React.CSSProperties = { width: 110, fontSize: "var(--fs-13)", textAlign: "right", fontVariantNumeric: "tabular-nums", backgroundColor: "var(--input-cell)" };
 
 export default function BankBalancesView() {
@@ -202,7 +203,7 @@ export default function BankBalancesView() {
       </div>
 
       <div className="card" {...drop.dropHandlers}
-        style={drop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "rgba(11,74,125,0.04)" } : undefined}>
+        style={drop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" } : undefined}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div>
             <div style={{ fontWeight: 800, fontSize: 15 }}>Bank Balances</div>
@@ -235,8 +236,8 @@ export default function BankBalancesView() {
             ))}
           </div>
         )}
-        {notice && <div className="small" style={{ marginTop: 8, color: "#15803d", fontWeight: 600 }}>{notice}</div>}
-        {error && <div className="small" style={{ marginTop: 8, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+        {notice && <div className="small" style={{ marginTop: 8, color: "var(--c-15803d)", fontWeight: 600 }}>{notice}</div>}
+        {error && <div className="small" style={{ marginTop: 8, color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}
       </div>
 
       {data && (
@@ -256,7 +257,7 @@ export default function BankBalancesView() {
       )}
 
       {data && missing.length > 0 && data.byBank.length > 0 && (
-        <div className="small" style={{ color: "#b45309", fontWeight: 600 }}>
+        <div className="small" style={{ color: "var(--c-b45309)", fontWeight: 600 }}>
           No balance imported yet for {missing.map((r) => r.name).join(", ")}.
         </div>
       )}
@@ -280,7 +281,7 @@ export default function BankBalancesView() {
                   <Fragment key={g}>
                     <tr style={band} onClick={() => toggle(collapsed, g, setCollapsed)}>
                       <td style={{ ...tdL, fontWeight: 700, fontSize: "var(--fs-12)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-                        <span style={{ display: "inline-block", width: 14 }}>{isOpen ? "▾" : "▸"}</span>{g}
+                        <span style={{ display: "inline-block", width: 14 }}>{isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>{g}
                         <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, marginLeft: 8 }}>{gr.length} {gr.length === 1 ? "line" : "lines"}</span>
                       </td>
                       <td style={bandCell}>{money0(sum(gr, (r) => r.balance))}</td>
@@ -312,8 +313,8 @@ export default function BankBalancesView() {
                                 <HoverCard title={`${r.name} — accrued`} width={320}
                                   rows={[
                                     { label: `Statement · ${MONTHS[r.handsOff.anchor.month - 1]} ${r.handsOff.anchor.year}`, value: money2(r.handsOff.anchor.balance) },
-                                    { label: `+ Interest ${(r.handsOff.rate * 100).toFixed(2)}%`, value: money2((r.balance ?? 0) - r.handsOff.anchor.balance + r.handsOff.monthlyFee * monthsSince(r.handsOff.anchor)), color: "#15803d" },
-                                    ...(r.handsOff.monthlyFee ? [{ label: "− Bank charges", value: money2(-r.handsOff.monthlyFee * monthsSince(r.handsOff.anchor)), color: "#b91c1c" }] : []),
+                                    { label: `+ Interest ${(r.handsOff.rate * 100).toFixed(2)}%`, value: money2((r.balance ?? 0) - r.handsOff.anchor.balance + r.handsOff.monthlyFee * monthsSince(r.handsOff.anchor)), color: "var(--c-15803d)" },
+                                    ...(r.handsOff.monthlyFee ? [{ label: "− Bank charges", value: money2(-r.handsOff.monthlyFee * monthsSince(r.handsOff.anchor)), color: "var(--c-b91c1c)" }] : []),
                                   ]}
                                   footer={{ label: "Estimated today", value: money2(r.balance) }}>
                                   <span style={{ fontStyle: "italic" }}>{money0(r.balance)}</span>
@@ -334,7 +335,7 @@ export default function BankBalancesView() {
                                 <HoverCard title="Reserve"
                                   rows={[
                                     { label: "Budget Big Projects (this month + next 2)", value: money0(r.reservesAuto) },
-                                    ...(r.reservesOverridden ? [{ label: "Typed over", value: money0(r.reserves), color: "#0b4a7d" }] : []),
+                                    ...(r.reservesOverridden ? [{ label: "Typed over", value: money0(r.reserves), color: "var(--c-0b4a7d)" }] : []),
                                   ]}
                                   footer={{ label: "Blank it to go back to the budget", value: "" }}>
                                   <input value={draft[r.key] ?? (r.reserves ? Math.round(r.reserves).toLocaleString("en-US") : "")} placeholder="—"
@@ -360,7 +361,7 @@ export default function BankBalancesView() {
                             </td>
                           </tr>
                           {expanded && r.accounts.map((a) => (
-                            <tr key={a.id} style={{ background: "rgba(15,23,42,0.02)" }}>
+                            <tr key={a.id} style={{ background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }}>
                               <td style={{ ...tdL, paddingLeft: 40, fontSize: "var(--fs-12)" }}>
                                 {a.name}<span className="muted"> · {BANK_LABEL[a.bank] ?? a.bank} <code style={{ fontSize: "var(--fs-12)" }}>{a.last4}</code> · as of {dateLabel(a.asOf)}</span>
                               </td>

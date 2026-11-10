@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 // THE INVOICER'S FRONT PAGE, now that it runs itself (owner: "right now the
 // page as it is doesnt really do anything"). Allocated Expenses go to
@@ -62,7 +63,7 @@ type SendPreview = {
 const monthOfRow = (p: { period: string }) => { const r = p.period.match(/(\d{4}-\d{2})$/); return r ? r[1] : p.period; };
 const money = (n: number | null | undefined) => n == null ? "—" : "$" + (Math.round(n * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
-const GREEN = "#15803d";
+const GREEN = "var(--c-15803d)";
 const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth, onSent, toolbar }: {
@@ -203,7 +204,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                 style={{ marginTop: 4, padding: 0, border: "none", background: "none", cursor: "pointer", color: "var(--text)", fontSize: "var(--fs-13-5)", textAlign: "left" }}>
                 Sent {fmtDate(lastSent.sentAt)}{lastSent.sentBy ? ` by ${lastSent.sentBy}` : ""}{lastSent.batch ? ` in the ${lastSent.batch} batch` : ""}{lastSent.total != null ? <> · <b>{money(lastSent.total)}</b></> : null}
                 {lastSent.invoiceCount ? ` · ${lastSent.invoiceCount} invoice${lastSent.invoiceCount === 1 ? "" : "s"}` : ""}
-                <span style={{ color: "#0b4a7d", fontWeight: 700, marginLeft: 8 }}>View invoices →</span>
+                <span style={{ color: "var(--c-0b4a7d)", fontWeight: 700, marginLeft: 8 }}>View invoices<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
               </button>
             </div>
           </div>
@@ -214,7 +215,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
           </div>
         )}
         {staged.map((p) => (
-          <div key={p.period} style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8, background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div key={p.period} style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.08))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.30))", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <Pill tone={TONE_AMBER}>NOT SENT</Pill>
             <span style={{ fontSize: "var(--fs-13-5)", flex: 1, minWidth: 220 }}><b>{p.label}</b> was prepared ({money(p.total)}{p.invoiceCount ? `, ${p.invoiceCount} invoice${p.invoiceCount === 1 ? "" : "s"}` : ""}) but hasn&rsquo;t gone to AvidXchange.</span>
             {loadableMonth && periodKey(loadableMonth) === periodKey(p.period) && (
@@ -243,7 +244,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
               {balances.map((b) => [
                 <tr key={b.id} onClick={() => setOpenProp((p) => (p === b.id ? null : b.id))} style={{ cursor: "pointer" }}>
                   <td style={tdL}>
-                    <span className="muted" style={{ display: "inline-block", width: 14 }}>{openProp === b.id ? "▾" : "▸"}</span>
+                    <span className="muted" style={{ display: "inline-block", width: 14 }}>{openProp === b.id ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
                     <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{b.id}</code>{propName(b.id)}
                   </td>
                   <td style={td}>{b.accounts.length}</td>
@@ -251,7 +252,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                   <td style={{ ...td, fontWeight: 700 }}>{money(b.total)}</td>
                 </tr>,
                 ...(openProp === b.id ? b.accounts.map((a) => (
-                  <tr key={`${b.id}-${a.accountCode}`} style={{ background: "rgba(15,23,42,0.025)" }}>
+                  <tr key={`${b.id}-${a.accountCode}`} style={{ background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))" }}>
                     <td style={{ ...tdL, paddingLeft: 40 }}><code style={{ fontSize: "var(--fs-11-5)" }}>{a.accountCode}</code> {a.accountName}</td>
                     <td style={{ ...td, color: "var(--muted)" }}>{a.months.length} mo</td>
                     <td style={{ ...td, color: "var(--muted)" }}>{a.sinceMonth}</td>
@@ -328,7 +329,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                 sub={open.batch ? `in the ${open.batch} batch` : open.sentBy ?? undefined} />
             </div>
             {open.status === "not-sent" && (
-              <div style={{ margin: "12px 18px 0", padding: "10px 12px", borderRadius: 8, background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div style={{ margin: "12px 18px 0", padding: "10px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.08))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.30))", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <Pill tone={TONE_AMBER}>NOT SENT</Pill>
                 <span style={{ fontSize: "var(--fs-13-5)", flex: 1 }}>This month hasn&rsquo;t gone to AvidXchange.</span>
                 {sendBtn(open)}
@@ -364,9 +365,9 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                           )}
                           <td style={{ ...td, whiteSpace: "nowrap" }}>
                             {url ? <>
-                              <a href={url} target="_blank" rel="noreferrer" style={{ color: "#0b4a7d", fontWeight: 700 }}>View</a>
+                              <a href={url} target="_blank" rel="noreferrer" style={{ color: "var(--c-0b4a7d)", fontWeight: 700 }}>View</a>
                               <span className="muted"> · </span>
-                              <a href={`${url}&download=1`} style={{ color: "#0b4a7d", fontWeight: 700 }}>Download</a>
+                              <a href={`${url}&download=1`} style={{ color: "var(--c-0b4a7d)", fontWeight: 700 }}>Download</a>
                             </> : <span className="muted">—</span>}
                           </td>
                         </tr>
@@ -376,7 +377,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
               </table>
             </div>
             {open.reconstructed && (
-              <div className="small" style={{ margin: "4px 18px 16px", padding: "10px 12px", borderRadius: 8, background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)", lineHeight: 1.5 }}>
+              <div className="small" style={{ margin: "4px 18px 16px", padding: "10px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.08))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.30))", lineHeight: 1.5 }}>
                 <Pill tone={TONE_AMBER}>REBUILT FROM THE GL</Pill>{" "}
                 The exact invoices sent to AvidXchange for this month aren&rsquo;t on file. These were rebuilt{open.reconstructedAt ? ` on ${fmtDate(open.reconstructedAt)}` : ""} by replaying the GL from January
                 and are stamped as copies. A building that doesn&rsquo;t match the original run usually took a late posting since it was sent; the original invoice numbers can&rsquo;t be recovered.
@@ -406,7 +407,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
               <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>Allocated Expenses · {confirm.preview?.label || confirm.p.label}</div>
             </div>
             {confirm.error ? (
-              <div className="small" style={{ padding: "16px 18px", color: "#b91c1c", fontWeight: 700 }}>{confirm.error}</div>
+              <div className="small" style={{ padding: "16px 18px", color: "var(--c-b91c1c)", fontWeight: 700 }}>{confirm.error}</div>
             ) : !confirm.preview ? (
               <div className="muted small" style={{ padding: "16px 18px" }}>Working out what will be billed…</div>
             ) : confirm.preview.nothingToSend ? (

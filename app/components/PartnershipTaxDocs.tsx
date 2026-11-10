@@ -22,7 +22,7 @@ import { DocChip } from "@/app/components/DocChip";
 import { YearSelect } from "@/app/components/YearSelect";
 import { TAX_DOC_KINDS, type TaxDocKind } from "@/lib/investors/taxDocs";
 
-const TEAL = "#0f766e";
+const TEAL = "var(--c-0f766e)";
 const SECTION_LABEL: React.CSSProperties = {
   fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
@@ -97,7 +97,7 @@ export function PartnershipTaxDocs({ propertyCode, defaultOpen = false, collapsi
   const yearOptions = Array.from(new Set([...years, thisYear - 1, thisYear - 2])).sort((a, b) => b - a);
 
   return (
-    <div style={{ borderTop: "1px solid var(--border)", background: "rgba(15,23,42,0.02)" }} className="no-print">
+    <div style={{ borderTop: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }} className="no-print">
       {collapsible ? (
         <button type="button" onClick={() => setOpen((v) => !v)}
           style={{
@@ -124,7 +124,7 @@ export function PartnershipTaxDocs({ propertyCode, defaultOpen = false, collapsi
             <YearSelect value={year} years={yearOptions} onChange={setYear} small aria-label="Tax year" />
           </div>
 
-          {error && <div style={{ color: "#b91c1c", fontSize: "var(--fs-12-5)", fontWeight: 600, marginBottom: 9 }}>{error}</div>}
+          {error && <div style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-12-5)", fontWeight: 600, marginBottom: 9 }}>{error}</div>}
 
           <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(268px, 1fr))" }}>
             {TAX_DOC_KINDS.map((k) => {

@@ -1,4 +1,5 @@
 "use client";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Pro-rata Share Audit — every office tenant whose STIPULATED pro-rata share
 // (the CAMPrep lease share that drives the CAM / RET reconciliation) diverges
@@ -133,11 +134,11 @@ function ProRataAuditInner() {
             Office tenants whose stipulated CAMPrep share differs from their true square-foot share.
           </p>
         </div>
-        <Link href="/cam-recon" className="btn" style={{ flexShrink: 0, textDecoration: "none" }}>← CAM / RET Reconciliation</Link>
+        <Link href="/cam-recon" className="btn" style={{ flexShrink: 0, textDecoration: "none" }}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />CAM / RET Reconciliation</Link>
       </div>
 
       {error && (
-        <div className="card" style={{ marginTop: 16, borderColor: "rgba(220,38,38,0.4)", color: "#b91c1c" }}>{error}</div>
+        <div className="card" style={{ marginTop: 16, borderColor: "var(--tint-red-line, rgba(220,38,38,0.4))", color: "var(--c-b91c1c)" }}>{error}</div>
       )}
 
       {rows === null ? (
@@ -189,7 +190,7 @@ function ProRataAuditInner() {
                     const off = Math.abs(r.delta) > TOLERANCE;
                     return (
                       <tr key={`${r.propertyCode}-${r.unitRef}`}>
-                        <td className="small"><code style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code> {r.propertyName}</td>
+                        <td className="small"><code style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--c-0b4a7d)" }}>{r.propertyCode}</code> {r.propertyName}</td>
                         <td className="small">{r.suite}</td>
                         <td>{r.name}</td>
                         <td style={{ textAlign: "right" }}>{r.sqft.toLocaleString("en-US")}</td>
@@ -208,7 +209,7 @@ function ProRataAuditInner() {
                               className="btn"
                               style={{ padding: "4px 10px", fontSize: "var(--fs-12)", textDecoration: "none", whiteSpace: "nowrap" }}
                             >
-                              Open unit →
+                              Open unit<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
                             </Link>
                           </div>
                         </td>

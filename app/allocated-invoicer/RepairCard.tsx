@@ -41,10 +41,10 @@ export function RepairCard({ onApplied }: { onApplied?: () => void }) {
     } finally { setBusy(false); setConfirming(false); }
   }
 
-  if (msg?.ok) return <div className="card small" style={{ color: "#15803d", fontWeight: 700 }}>{msg.text}</div>;
+  if (msg?.ok) return <div className="card small" style={{ color: "var(--c-15803d)", fontWeight: 700 }}>{msg.text}</div>;
   if (!plan) return null;
   return (
-    <div className="card" style={{ padding: 0, borderColor: "rgba(217,119,6,0.45)" }}>
+    <div className="card" style={{ padding: 0, borderColor: "var(--tint-amber-line, rgba(217,119,6,0.45))" }}>
       <div style={{ padding: "14px 16px 4px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <Pill tone={TONE_AMBER}>REPAIR</Pill>
         <span style={{ fontSize: 16, fontWeight: 800 }}>The October 19 send</span>
@@ -78,7 +78,7 @@ export function RepairCard({ onApplied }: { onApplied?: () => void }) {
         </table>
       </div>
       <div style={{ padding: "10px 16px 14px", display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        {msg && !msg.ok && <span className="small" style={{ color: "#b91c1c", fontWeight: 700, marginRight: "auto" }}>{msg.text}</span>}
+        {msg && !msg.ok && <span className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700, marginRight: "auto" }}>{msg.text}</span>}
         {confirming ? (
           <>
             <span className="small" style={{ fontWeight: 600 }}>Rewrite the carryover ledger (backed up first)?</span>

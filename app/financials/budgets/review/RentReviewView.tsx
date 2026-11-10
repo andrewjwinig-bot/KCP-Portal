@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 // The Rent Roll Review itself — shared by the signed-in page and the emailed
 // link (`/budget-review/[token]`), which differ only in WHERE the data comes
@@ -80,7 +81,7 @@ export function RentReviewView({ api, headerExtra, initialGroup, onGroupChange }
     </div>
   ) : null;
 
-  if (error && !data) return <div className="card" style={{ color: "#b91c1c", fontWeight: 700 }}>{error}</div>;
+  if (error && !data) return <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>{error}</div>;
   if (!data) return <LoadingState status="Loading the rent rolls…" context="Every property's leasing calls and sign-off" columns={3} rows={5} />;
 
   const owner = { id: data.person.id, label: data.person.label.charAt(0) + data.person.label.slice(1).toLowerCase(), group: data.group };
@@ -120,7 +121,7 @@ export function RentReviewView({ api, headerExtra, initialGroup, onGroupChange }
         <StatPill label="Leasing calls made" value={`${doneCalls} / ${totalCalls}`} accent={totalCalls && doneCalls === totalCalls ? "#15803d" : undefined} />
       </div>
 
-      {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>{error}</div>}
+      {error && <div className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>{error}</div>}
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -141,8 +142,8 @@ export function RentReviewView({ api, headerExtra, initialGroup, onGroupChange }
                 <Fragment key={p.key}>
                   <tr onClick={() => setOpen(isOpen ? null : p.key)} style={{ cursor: "pointer", background: isOpen ? "rgba(11,74,125,0.06)" : undefined }}>
                     <td style={{ ...tdL, fontWeight: 700 }}>
-                      <span className="muted" style={{ marginRight: 6 }}>{isOpen ? "▾" : "▸"}</span>
-                      {p.name} <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", marginLeft: 6 }}>{p.code}</code>
+                      <span className="muted" style={{ marginRight: 6 }}>{isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
+                      {p.name} <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", marginLeft: 6 }}>{p.code}</code>
                     </td>
                     <td style={td}>
                       {p.total === 0 ? <span className="muted">None needed</span>
@@ -212,7 +213,7 @@ function PropertyReview({ api, row, year, owner, confirmed, changed, onChanged, 
       <RevenueByTenantCard embedded rows={draft.tenantRevenue ?? []} year={draft.budgetYear} fromSchedule={draft.leasing.fromSchedule}
         est={draft.reimbursementEstimate} tie={draft.recoveryTie ?? []} rentLine={draft.rentLineLabel}
         leasing={{ calls, owner, dealCapital: draft.leasing.dealCapital, onSave: save, error: saveError }} />
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "12px 14px", borderTop: "1px solid var(--border)", background: "rgba(15,23,42,0.025)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "12px 14px", borderTop: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))" }}>
         {confirmed ? (
           <>
             <Pill tone={TONE_GREEN}>✓ CONFIRMED BY {row.review!.by} · {stampOf(row.review!.at).toUpperCase()}</Pill>

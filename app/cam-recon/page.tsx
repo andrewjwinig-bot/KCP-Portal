@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 import QuarterlySend, { type QuarterSendRecord } from "./QuarterlySend";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -102,7 +103,7 @@ function HeaderSelect({
       <span style={{ fontSize: 22, fontWeight: 800, color: muted ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
         {displayLabel}
       </span>
-      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
+      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -525,10 +526,10 @@ export default function OfficeCamReconPage() {
           <h1 style={{ margin: 0 }}>CAM / RET Reconciliation</h1>
           <Link
             href="/cam-recon/pro-rata-audit"
-            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none", padding: "5px 12px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.3)", background: "rgba(11,74,125,0.06)", whiteSpace: "nowrap" }}
+            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none", padding: "5px 12px", borderRadius: 999, border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.3))", background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", whiteSpace: "nowrap" }}
             title="Audit stipulated pro-rata shares vs true SF share (office)"
           >
-            Pro-rata Audit →
+            Pro-rata Audit<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
           </Link>
         </div>
         <KormanWordmark />
@@ -657,14 +658,14 @@ export default function OfficeCamReconPage() {
       {!loading && warnings.length > 0 && (
         <div style={{
           padding: "12px 14px", borderRadius: 10,
-          background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.35)",
+          background: "var(--tint-red-bg, rgba(220,38,38,0.06))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))",
           display: "flex", flexDirection: "column", gap: 6,
         }}>
-          <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "#b91c1c" }}>
+          <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--c-b91c1c)" }}>
             {warnings.length} data {warnings.length === 1 ? "warning" : "warnings"} — review before billing
           </div>
           {warnings.map((w, i) => (
-            <div key={`${w.unitRef}-${i}`} style={{ fontSize: "var(--fs-12-5)", color: "#7f1d1d", lineHeight: 1.5 }}>
+            <div key={`${w.unitRef}-${i}`} style={{ fontSize: "var(--fs-12-5)", color: "var(--c-7f1d1d)", lineHeight: 1.5 }}>
               • {w.message}
             </div>
           ))}
@@ -716,7 +717,7 @@ function UnitChip({ unitRef, backTo }: { unitRef: string; backTo?: string }) {
   // monospace), 12px / 700, accent blue, underlined.
   return (
     <Link href={href} onClick={(e) => e.stopPropagation()} title="Open unit detail page" style={{ textDecoration: "none", whiteSpace: "nowrap" }}>
-      <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{unitRef}</code>
+      <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{unitRef}</code>
     </Link>
   );
 }
@@ -753,7 +754,7 @@ function OccCallout({ occPct, year, rcd, vacatedISO }: {
   if (vacatedISO) rows.push({ label: "Vacated", value: new Date(vacatedISO + "T00:00:00").toLocaleDateString("en-US") });
   rows.push({ label: `Occupied in ${year}`, value: pct(occPct, 1) });
   return (
-    <HoverCard title="Partial-year occupancy" rows={rows} width={240} style={{ fontSize: "var(--fs-11)", color: "#b45309", whiteSpace: "nowrap" }}>
+    <HoverCard title="Partial-year occupancy" rows={rows} width={240} style={{ fontSize: "var(--fs-11)", color: "var(--c-b45309)", whiteSpace: "nowrap" }}>
       {" "}({pct(occPct, 0)} occ)
     </HoverCard>
   );
@@ -796,9 +797,9 @@ function RetailBuildingSummary({ result, onPick, onEditEscrow, footer }: {
         <thead>
           <tr>
             <th colSpan={4} style={{ borderBottom: "1px solid var(--border)" }} />
-            <th colSpan={3} style={{ ...groupTh, color: "#0b4a7d", background: CAM_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>CAM</th>
-            <th colSpan={3} style={{ ...groupTh, color: "#0f766e", background: INS_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>INS</th>
-            <th colSpan={3} style={{ ...groupTh, color: "#854d0e", background: RET_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>RET</th>
+            <th colSpan={3} style={{ ...groupTh, color: "var(--c-0b4a7d)", background: CAM_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>CAM</th>
+            <th colSpan={3} style={{ ...groupTh, color: "var(--c-0f766e)", background: INS_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>INS</th>
+            <th colSpan={3} style={{ ...groupTh, color: "var(--c-854d0e)", background: RET_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>RET</th>
           </tr>
           <tr>
             <th style={{ ...th, textAlign: "left" }}>Unit</th>
@@ -829,14 +830,14 @@ function RetailBuildingSummary({ result, onPick, onEditEscrow, footer }: {
                 <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
                 <td style={{ ...td, textAlign: "left" }}>{t.name}</td>
                 <td colSpan={11} style={{ ...td, textAlign: "left" }}>
-                  <span style={{ color: "#0b4a7d", fontWeight: 700 }}>CAM / RET billed quarterly — open worksheet →</span>
+                  <span style={{ color: "var(--c-0b4a7d)", fontWeight: 700 }}>CAM / RET billed quarterly — open worksheet<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
                 </td>
               </tr>
             );
             return (
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer", ...(t.grossLease ? { opacity: 0.5 } : {}) }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-              <td style={{ ...td, textAlign: "left" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: "var(--fs-11)" }}> (Gross)</span> : t.capped ? <span style={{ fontSize: "var(--fs-11)", color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: "var(--fs-11)", color: "#b45309" }}> (own-parcel RET)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
+              <td style={{ ...td, textAlign: "left" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: "var(--fs-11)" }}> (Gross)</span> : t.capped ? <span style={{ fontSize: "var(--fs-11)", color: "var(--c-b45309)" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: "var(--fs-11)", color: "var(--c-b45309)" }}> (own-parcel RET)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
               <td style={td}>{pct(t.camPrs / 100)}</td>
               <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
               <td style={cam(true)}>{money0(t.camDue)}</td>
@@ -1023,7 +1024,7 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
             <th style={{ ...sth, textAlign: "left" }}>Acct</th>
             <th style={{ ...sth, textAlign: "left" }}>Eligible Expense</th>
             <th style={{ ...sth, borderLeft: "2px solid var(--border)" }}>YTD</th>
-            {QUARTERS.map((qq) => <th key={qq} style={{ ...sth, ...(qq === q ? { background: "rgba(11,74,125,0.06)" } : {}) }}>{qq}</th>)}
+            {QUARTERS.map((qq) => <th key={qq} style={{ ...sth, ...(qq === q ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.06))" } : {}) }}>{qq}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -1153,7 +1154,7 @@ function RetailFinalExpenseSummary({ data, property, year, onEdit, historyHref }
       <td style={std} onClick={(e) => e.stopPropagation()}><EditableMoney value={r.amount} onCommit={(v) => onEdit(k, v)} /></td>
       <td style={{ ...std, fontSize: "var(--fs-12)", width: 70 }}>
         {r.overridden
-          ? <button type="button" onClick={() => onEdit(k, null)} style={{ border: "none", background: "none", padding: 0, color: "#0b4a7d", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}>revert</button>
+          ? <button type="button" onClick={() => onEdit(k, null)} style={{ border: "none", background: "none", padding: 0, color: "var(--c-0b4a7d)", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}>revert</button>
           : <span className="muted">—</span>}
       </td>
       {years.map((y, i) => (
@@ -1170,8 +1171,8 @@ function RetailFinalExpenseSummary({ data, property, year, onEdit, historyHref }
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <PackageButton property={property} year={year} total={backup.total} />
           {historyHref && (
-            <Link href={historyHref} style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
-              Full Expense History →
+            <Link href={historyHref} style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none", whiteSpace: "nowrap" }}>
+              Full Expense History<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
             </Link>
           )}
         </div>
@@ -1254,7 +1255,7 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
                 <td style={noteTd}>
                   {ex.length > 0 ? (
                     <ul style={{ margin: 0, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 2 }}>
-                      {ex.map((e, i) => <li key={i} style={{ fontSize: "var(--fs-12)", color: "#7c4a12", lineHeight: 1.4 }}>{e}</li>)}
+                      {ex.map((e, i) => <li key={i} style={{ fontSize: "var(--fs-12)", color: "var(--c-7c4a12)", lineHeight: 1.4 }}>{e}</li>)}
                     </ul>
                   ) : <span style={{ color: "var(--muted)" }}>—</span>}
                 </td>
@@ -1365,8 +1366,8 @@ function ColumnSchedule({ rows, reconYear, total, footRows }: {
           {footRows?.map((c, i) => (
             <tr key={i} style={c.strong ? { fontWeight: 800 } : undefined}>
               <td style={std} />
-              <td style={{ ...std, textAlign: "left", ...(c.amber ? { color: "#b45309" } : {}) }}>{c.label}</td>
-              <td style={{ ...std, ...(c.amber ? { color: "#b45309" } : {}) }}>{money0(c.amount)}</td>
+              <td style={{ ...std, textAlign: "left", ...(c.amber ? { color: "var(--c-b45309)" } : {}) }}>{c.label}</td>
+              <td style={{ ...std, ...(c.amber ? { color: "var(--c-b45309)" } : {}) }}>{money0(c.amount)}</td>
             </tr>
           ))}
         </tfoot>
@@ -1397,7 +1398,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
           their own near-empty full-width cards. */}
       <div className="card" style={{ display: "flex", flexWrap: "wrap", gap: 28 }}>
         <div style={{ flex: "2 1 360px", minWidth: 300 }}>
-          <div style={{ ...CAT_LABEL, color: "#0b4a7d" }}>CAM</div>
+          <div style={{ ...CAT_LABEL, color: "var(--c-0b4a7d)" }}>CAM</div>
           <ColumnSchedule
             reconYear={reconYear}
             rows={t.camSchedule.map((l) => ({ acct: l.glAccount, label: l.label, amount: l.amount, billed: l.billed }))}
@@ -1423,7 +1424,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
           </div>
         </div>
         <div style={{ flex: "1 1 240px", minWidth: 230 }}>
-          <div style={{ ...CAT_LABEL, color: "#0f766e" }}>INS</div>
+          <div style={{ ...CAT_LABEL, color: "var(--c-0f766e)" }}>INS</div>
           <ColumnSchedule reconYear={reconYear} rows={[{ acct: "—", label: "Property Insurance", amount: t.insPool }]} />
           <div style={calcHead}>
             <BalanceRow label="Insurance Pool" value={money0(t.insPool)} />
@@ -1435,7 +1436,7 @@ function RetailTenantStatement({ t, reconYear, contact }: {
           </div>
         </div>
         <div style={{ flex: "1 1 240px", minWidth: 230 }}>
-          <div style={{ ...CAT_LABEL, color: "#854d0e" }}>RET</div>
+          <div style={{ ...CAT_LABEL, color: "var(--c-854d0e)" }}>RET</div>
           <ColumnSchedule reconYear={reconYear} rows={[{ acct: "6410-8502", label: "Real Estate Tax Pool", amount: t.retPool }]} />
           <div style={calcHead}>
             {t.flatRet != null ? (
@@ -1459,8 +1460,8 @@ function RetailTenantStatement({ t, reconYear, contact }: {
         <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>Statement to</span>
         {contact?.email
           ? <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, wordBreak: "break-all" }}>{contact.email}</span>
-          : <span style={{ fontSize: "var(--fs-13)", color: "#b91c1c", fontWeight: 600 }}>No CAM/RET recipient flagged — set one on the Contacts page</span>}
-        <a href={`/units/${encodeURIComponent(t.unitRef)}`} style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", marginLeft: "auto" }}>Edit contacts →</a>
+          : <span style={{ fontSize: "var(--fs-13)", color: "var(--c-b91c1c)", fontWeight: 600 }}>No CAM/RET recipient flagged — set one on the Contacts page</span>}
+        <a href={`/units/${encodeURIComponent(t.unitRef)}`} style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", marginLeft: "auto" }}>Edit contacts<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></a>
       </div>
     </div>
   );
@@ -1566,8 +1567,8 @@ function BuildingSummary({ result, onPick, onEditEscrow, footer }: {
           {/* Group header: identity columns, then the CAM and RET blocks */}
           <tr>
             <th colSpan={4} style={{ borderBottom: "1px solid var(--border)" }} />
-            <th colSpan={3} style={{ ...groupTh, color: "#0b4a7d", background: CAM_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>CAM</th>
-            <th colSpan={3} style={{ ...groupTh, color: "#854d0e", background: RET_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>RET</th>
+            <th colSpan={3} style={{ ...groupTh, color: "var(--c-0b4a7d)", background: CAM_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>CAM</th>
+            <th colSpan={3} style={{ ...groupTh, color: "var(--c-854d0e)", background: RET_TINT, borderLeft: BLOCK_SEP, borderBottom: "1px solid var(--border)" }}>RET</th>
           </tr>
           <tr>
             <th style={{ ...th, textAlign: "left" }}>Unit</th>
@@ -1587,7 +1588,7 @@ function BuildingSummary({ result, onPick, onEditEscrow, footer }: {
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
               <td style={{ ...td, textAlign: "left" }}>{t.name}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} /></td>
-              <td style={td}>{t.noBaseStop ? "NNN" : t.baseYear}{t.baseYearResetISO && <span title={`Base year reset ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}`} style={{ color: "#b45309", fontWeight: 800, marginLeft: 3, cursor: "help" }}>↺</span>}</td>
+              <td style={td}>{t.noBaseStop ? "NNN" : t.baseYear}{t.baseYearResetISO && <span title={`Base year reset ${new Date(t.baseYearResetISO + "T00:00:00").toLocaleDateString("en-US")}`} style={{ color: "var(--c-b45309)", fontWeight: 800, marginLeft: 3, cursor: "help" }}>↺</span>}</td>
               <td style={td}>{pct(t.proRataPct / 100)}</td>
               <td style={cam(true)}>{money0(t.opexAmountDue)}</td>
               <td style={cam()} onClick={(e) => e.stopPropagation()}>
@@ -1681,7 +1682,7 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, onPullGlF
               title={glDiffs.length === 0 ? "FINAL already matches the GL actuals" : `Set FINAL to the GL actual on ${glDiffs.length} line${glDiffs.length !== 1 ? "s" : ""}`}
               style={{
                 fontSize: "var(--fs-12)", fontWeight: 700, padding: "6px 12px", borderRadius: 999,
-                border: "1px solid rgba(11,74,125,0.35)",
+                border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.35))",
                 background: glDiffs.length === 0 ? "rgba(15,23,42,0.04)" : "rgba(11,74,125,0.08)",
                 color: glDiffs.length === 0 ? "var(--muted)" : "#0b4a7d",
                 cursor: pulling || glDiffs.length === 0 ? "default" : "pointer", whiteSpace: "nowrap",
@@ -1692,8 +1693,8 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, onPullGlF
           )}
           <PackageButton property={property} year={year} total={backup.total} />
           {historyHref && (
-            <Link href={historyHref} style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
-              Full Expense History →
+            <Link href={historyHref} style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none", whiteSpace: "nowrap" }}>
+              Full Expense History<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
             </Link>
           )}
         </div>
@@ -1757,7 +1758,7 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, onPullGlF
                   <>
                     <td style={{ ...td, ...(matchesTB ? { background: MATCH_BG } : {}) }}>{money0(r.tbDetail)}</td>
                     {hasGlActual && (
-                      <td style={{ ...td, color: "var(--muted)", ...(r.glActual != null && Math.round(r.glActual) !== Math.round(r.final) ? { background: "rgba(217,119,6,0.10)" } : {}) }}
+                      <td style={{ ...td, color: "var(--muted)", ...(r.glActual != null && Math.round(r.glActual) !== Math.round(r.final) ? { background: "var(--tint-amber-bg, rgba(217,119,6,0.10))" } : {}) }}
                         title={r.glActual != null && Math.round(r.glActual) !== Math.round(r.final) ? "Differs from FINAL — review" : undefined}>
                         {r.glActual != null ? money0(r.glActual) : "—"}
                       </td>
@@ -1798,8 +1799,8 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, onPullGlF
 
 // ── Recovery analysis by base year ───────────────────────────────────────────
 
-const REC_CAM = "#0b4a7d";
-const REC_RET = "#0d9488";
+const REC_CAM = "var(--c-0b4a7d)";
+const REC_RET = "var(--c-0d9488)";
 
 function RecoveryByBaseYear({ result }: { result: BuildingReconResult }) {
   const [hover, setHover] = useState<number | null>(null);
@@ -2014,7 +2015,7 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
       {/* Side-by-side reconciliation — CAM and RET calculations */}
       <div className="card" style={{ display: "flex", flexWrap: "wrap", gap: 28 }}>
         <div style={{ flex: "1 1 300px", minWidth: 280 }}>
-          <div style={{ ...CAT_LABEL, color: "#0b4a7d" }}>CAM</div>
+          <div style={{ ...CAT_LABEL, color: "var(--c-0b4a7d)" }}>CAM</div>
           <BalanceRow label="Net Increase Over Base Year" value={money0(t.opexNetIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
           {occLine && <BalanceRow label="× Occupancy % For The Year" value={occLabel} />}
@@ -2024,7 +2025,7 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
           <FinalBalanceRow label="Balance, Op Ex Costs Due" value={t.opexBalance} />
         </div>
         <div style={{ flex: "1 1 300px", minWidth: 280 }}>
-          <div style={{ ...CAT_LABEL, color: "#854d0e" }}>RET</div>
+          <div style={{ ...CAT_LABEL, color: "var(--c-854d0e)" }}>RET</div>
           <BalanceRow label="Net Increase Over Base Year" value={money0(t.retLine.netIncrease)} />
           <BalanceRow label="× Tenant Proportionate Share" value={pct(t.proRataPct / 100)} />
           {occLine && <BalanceRow label="× Occupancy % For The Year" value={occLabel} />}
@@ -2064,15 +2065,15 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
         {contact?.email ? (
           <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "var(--text)", wordBreak: "break-all" }}>{contact.email}</span>
         ) : (
-          <span style={{ fontSize: "var(--fs-13)", color: "#b91c1c", fontWeight: 600 }}>
+          <span style={{ fontSize: "var(--fs-13)", color: "var(--c-b91c1c)", fontWeight: 600 }}>
             No CAM/RET recipient flagged — set one on the Contacts page
           </span>
         )}
         <a
           href={`/units/${encodeURIComponent(t.unitRef)}`}
-          style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", marginLeft: "auto" }}
+          style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", marginLeft: "auto" }}
         >
-          Edit contacts →
+          Edit contacts<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
         </a>
       </div>
     </div>

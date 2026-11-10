@@ -17,7 +17,7 @@ import { EXCLUSION_REASONS, type ExclusionReason, type VendorExclusion } from "@
 import type { Ten99Entity, Ten99Vendor } from "@/lib/financials/ten99/register";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 
-const BRAND = "#0b4a7d";
+const BRAND = "var(--c-0b4a7d)";
 const SECTION_LABEL: React.CSSProperties = {
   fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
@@ -128,7 +128,7 @@ export default function Ten99Page() {
         the accountant&rsquo;s side; this is the payment side.
       </p>
 
-      {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "#b91c1c", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
+      {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
       {loading && <div className="card muted">Loading…</div>}
 
       {data && !loading && (
@@ -177,7 +177,7 @@ export default function Ten99Page() {
                   <div style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 800, fontSize: 16 }}>{e.name}</span>
                     {e.ein
-                      ? <code style={{ fontSize: "var(--fs-12)", background: "#0b1220", color: "#e0f0ff", padding: "2px 8px", borderRadius: 5, letterSpacing: "0.04em" }}>{e.ein}</code>
+                      ? <code style={{ fontSize: "var(--fs-12)", background: "var(--c-0b1220)", color: "var(--c-e0f0ff)", padding: "2px 8px", borderRadius: 5, letterSpacing: "0.04em" }}>{e.ein}</code>
                       : <Pill tone={TONE_AMBER}>NO EIN ON FILE</Pill>}
                     <HoverCard title="What rolls into this filer" width={300}
                       rows={[
@@ -229,7 +229,7 @@ export default function Ten99Page() {
                             </tr>
                             {open && (
                               <tr>
-                                <td colSpan={4} style={{ padding: "0 12px 12px", background: "rgba(11,74,125,0.04)" }}>
+                                <td colSpan={4} style={{ padding: "0 12px 12px", background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" }}>
                                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
                                     <thead>
                                       <tr>

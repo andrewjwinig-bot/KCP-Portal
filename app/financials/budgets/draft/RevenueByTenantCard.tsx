@@ -34,7 +34,7 @@ const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 70
 const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "right", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
 const td: React.CSSProperties = { padding: "9px 8px", fontSize: "var(--fs-13-5)", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
 /** The suite, as the Rent Roll writes it — a bold brand-coloured code. */
-const SUITE: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" };
+const SUITE: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", whiteSpace: "nowrap" };
 export const CONTRACTED_BG = "rgba(22,163,74,0.22)";
 export const ASSUMED_BG = "rgba(22,163,74,0.07)";
 const TOTAL_BORDER = "2px solid rgba(11,74,125,0.3)";
@@ -271,7 +271,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                         ...(other ? [{ label: unit === "usd" ? "Per SF" : "Dollars", value: other }] : []),
                         ...(gross ? [{ label: "Lease", value: "Gross — pays no recoveries" }] : []),
                       ],
-                      footer: made ? { label: "Leasing call", value: made, color: "#0b4a7d" } : { label: r.assumed[i] ? "Assumed" : "Lease in place", value: "" },
+                      footer: made ? { label: "Leasing call", value: made, color: "var(--c-0b4a7d)" } : { label: r.assumed[i] ? "Assumed" : "Lease in place", value: "" },
                     } : null;
                     return (
                       <td key={i} style={{ ...td, background: has ? (r.assumed[i] ? ASSUMED_BG : CONTRACTED_BG) : undefined, color: has ? "var(--text)" : "var(--muted)" }}>
@@ -291,7 +291,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
             {totalRow(
               <HoverCard title="Where it lands" width={340} help={false}
                 rows={parts.map((p) => ({ label: `${PART_LABEL[p]}${lineOf(p) ? ` → ${lineOf(p)}` : ""}`, value: money0(partTotals(p).reduce((a, b) => a + b, 0)) }))}
-                footer={{ label: "Total", value: money0(grandMonths.reduce((a, b) => a + b, 0)), color: "#0b4a7d" }}>
+                footer={{ label: "Total", value: money0(grandMonths.reduce((a, b) => a + b, 0)), color: "var(--c-0b4a7d)" }}>
                 <span>{view === "gross" ? "Gross revenue" : view === "recoveries" ? "Total recoveries" : `Total ${PART_LABEL[parts[0]]}`}{parts.length === 1 && lineOf(parts[0]) ? <span className="muted" style={{ fontWeight: 600, fontSize: "var(--fs-12)" }}> → {lineOf(parts[0])}</span> : null}</span>
               </HoverCard>,
               grandMonths, true, "grand", true,
@@ -300,7 +300,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
               const t = p === "rent" ? null : tie.find((x) => x.basis === p);
               if (!t || t.ties || sure !== "all") return null;
               return (
-                <tr key={`tie-${p}`}><td colSpan={17} style={{ ...td, textAlign: "left", paddingLeft: 22, color: "#b91c1c", fontWeight: 600 }}>
+                <tr key={`tie-${p}`}><td colSpan={17} style={{ ...td, textAlign: "left", paddingLeft: 22, color: "var(--c-b91c1c)", fontWeight: 600 }}>
                   {t.lines.length === 0
                     ? `This statement has no ${PART_LABEL[p]} recovery line, so ${money0(t.estimateTotal)} of tenant recoveries is not in the budget. Add the line to the property's statement mapping.`
                     : `${PART_LABEL[p]}: the budget lines carry ${money0(t.linesTotal)} against ${money0(t.estimateTotal)} from the tenants — a difference of ${money0(t.linesTotal - t.estimateTotal)}.`}
@@ -312,14 +312,14 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
       </div>
       <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", padding: "8px 14px", fontSize: "var(--fs-12)" }} className="muted">
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 14, height: 14, borderRadius: 3, background: CONTRACTED_BG, border: "1px solid rgba(22,163,74,0.35)" }} /> Lease in place
+          <span style={{ width: 14, height: 14, borderRadius: 3, background: CONTRACTED_BG, border: "1px solid var(--tint-green-line, rgba(22,163,74,0.35))" }} /> Lease in place
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 14, height: 14, borderRadius: 3, background: ASSUMED_BG, border: "1px dashed rgba(22,163,74,0.45)" }} /> Assumed (leasing decision)
+          <span style={{ width: 14, height: 14, borderRadius: 3, background: ASSUMED_BG, border: "1px dashed var(--tint-green-line, rgba(22,163,74,0.45))" }} /> Assumed (leasing decision)
         </span>
         <span>Dimmed = pays nothing this year. Click a tenant for their detail.</span>
       </div>
-      {leasing?.error && <div style={{ color: "#b91c1c", fontSize: "var(--fs-13)", padding: "0 14px 10px" }}>{leasing.error}</div>}
+      {leasing?.error && <div style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-13)", padding: "0 14px 10px" }}>{leasing.error}</div>}
       {leasing && (leasing.dealCapital.ti > 0 || leasing.dealCapital.lc > 0) && (
         <div className="muted small" style={{ padding: "9px 14px", borderTop: "1px solid var(--border)" }}>
           The leasing calls carry <b style={{ color: "var(--text)" }}>${Math.round(leasing.dealCapital.ti).toLocaleString("en-US")}</b> of TI and <b style={{ color: "var(--text)" }}>${Math.round(leasing.dealCapital.lc).toLocaleString("en-US")}</b> of leasing commissions, on the Capital lines in the month each new rent starts.

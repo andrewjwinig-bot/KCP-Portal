@@ -170,7 +170,7 @@ export default function BalanceSheetPage() {
           <TitleBlock data={data!} sheet={sheet} month={month} />
 
           {sheet.warnings.map((w, i) => (
-            <div key={i} className="card" style={{ borderColor: "rgba(217,119,6,0.4)", background: "rgba(217,119,6,0.06)" }}>
+            <div key={i} className="card" style={{ borderColor: "var(--tint-amber-line, rgba(217,119,6,0.4))", background: "var(--tint-amber-bg, rgba(217,119,6,0.06))" }}>
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <Pill tone={TONE_AMBER}>CHECK</Pill>
                 <div style={{ fontSize: "var(--fs-13)" }}>{w}</div>
@@ -371,7 +371,7 @@ function TieOutCard({ sheet }: { sheet: Sheet }) {
                   <td style={tdL}>{m.name || "—"}</td>
                   <td style={td}>{money0(m.computed)}</td>
                   <td style={td}>{money0(m.reported)}</td>
-                  <td style={{ ...td, color: "#b45309", fontWeight: 700 }}>{money0(m.diff)}</td>
+                  <td style={{ ...td, color: "var(--c-b45309)", fontWeight: 700 }}>{money0(m.diff)}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 // THE PROPERTY'S COMMAND CENTER, financial half (owner: "each property page
 // should be a dashboard … a graph of how were doing this year vs budget";
@@ -23,7 +24,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const ACTUAL = "var(--series-1)";
 const BUDGET = "var(--series-3)";
-const GOOD = "#15803d", BAD = "#b91c1c", WARN = "#b45309";
+const GOOD = "var(--c-15803d)", BAD = "#b91c1c", WARN = "#b45309";
 
 const money = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const compact = (n: number) => {
@@ -78,8 +79,8 @@ export default function PerformanceCard({ code, style }: { code: string; style?:
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <Link href={`/financials/operating-statements?key=${encodeURIComponent(perf.key)}`} className="btn sm" style={{ textDecoration: "none" }}>Operating statement →</Link>
-          <Link href={`/financials/reprojections?key=${encodeURIComponent(perf.key)}`} className="btn sm" style={{ textDecoration: "none" }}>Reprojection →</Link>
+          <Link href={`/financials/operating-statements?key=${encodeURIComponent(perf.key)}`} className="btn sm" style={{ textDecoration: "none" }}>Operating statement<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
+          <Link href={`/financials/reprojections?key=${encodeURIComponent(perf.key)}`} className="btn sm" style={{ textDecoration: "none" }}>Reprojection<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
         </div>
       </div>
 

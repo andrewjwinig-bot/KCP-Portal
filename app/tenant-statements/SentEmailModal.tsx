@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 // One email as it went to a tenant: the headers, the rendered body, what was
 // attached, and an .eml download that opens in Outlook as the record. Shared by
@@ -47,9 +48,9 @@ export function SentEmailModal({ src, onClose }: { src: string; onClose: () => v
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>Sent email{e ? ` — ${e.tenantName}` : ""}</div>
           {e?.testMode && <Pill tone={TONE_AMBER}>TEST MODE · NOT DELIVERED</Pill>}
-          <button className="btn sm" onClick={onClose} title="Close">✕</button>
+          <button className="btn sm" onClick={onClose} title="Close"><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
         </div>
-        {err ? <div className="small" style={{ color: "#b91c1c" }}>{err}</div> : !e ? <div className="muted small">Opening…</div> : (
+        {err ? <div className="small" style={{ color: "var(--c-b91c1c)" }}>{err}</div> : !e ? <div className="muted small">Opening…</div> : (
           <div style={{ display: "grid", gap: 4 }}>
             {row("Sent", <>{new Date(e.sentAt).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}{e.sentBy ? ` · by ${e.sentBy}` : ""}</>)}
             {e.from && row("From", e.from)}

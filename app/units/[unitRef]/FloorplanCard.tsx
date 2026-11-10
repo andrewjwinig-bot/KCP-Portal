@@ -118,8 +118,8 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
       {error && (
         <div style={{
           margin: "0 0 8px", padding: "8px 10px", borderRadius: 8,
-          background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
+          background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))",
+          color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
@@ -135,7 +135,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
                 style={{
                   width: "100%", maxHeight: 300, borderRadius: 10,
                   border: "1px solid var(--border)", display: "block",
-                  objectFit: "contain", background: "rgba(15,23,42,0.02)",
+                  objectFit: "contain", background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))",
                 }}
               />
             </a>
@@ -146,7 +146,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
                 target="_blank"
                 rel="noreferrer"
                 title={floorplan.name}
-                style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none",
+                style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
               >
                 {floorplan.name} ↗
@@ -163,7 +163,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
                         onClick={() => void setCrop(null)}>Show the whole sheet</button>
                     )}
                     <button type="button" className="linkBtn" disabled={busy} onClick={() => setCropping(false)}
-                      style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d" }}>Cancel</button>
+                      style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)" }}>Cancel</button>
                   </>
                 ) : (
                   <button type="button" className="btn" disabled={busy} style={{ fontSize: "var(--fs-12)", padding: "3px 10px" }}
@@ -183,7 +183,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
                     <span>Turned by hand · shown as on the website</span>
                     {floorplan.turn != null && (
                       <button type="button" className="linkBtn" disabled={busy} onClick={() => void setTurn(null)}
-                        style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d" }}>Auto</button>
+                        style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)" }}>Auto</button>
                     )}
                   </>
                 )}
@@ -194,7 +194,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
               href={blobSrc(floorplan.url)}
               target="_blank"
               rel="noreferrer"
-              style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#0b4a7d" }}
+              style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--c-0b4a7d)" }}
             >
               {floorplan.name}
             </a>
@@ -245,7 +245,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
           />
           {busy ? "Uploading…" : (
             <span>⭳ Floorplan — drop a file here or{" "}
-              <span style={{ color: "#2563eb", fontWeight: 600, textDecoration: "underline" }}>browse</span>
+              <span style={{ color: "var(--c-2563eb)", fontWeight: 600, textDecoration: "underline" }}>browse</span>
             </span>
           )}
         </div>

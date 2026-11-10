@@ -23,7 +23,7 @@ const inputStyle: React.CSSProperties = { width: "100%" };
 // A fixed tenant is shown read-only in the same pill shape as the controls.
 const readOnlyLook: React.CSSProperties = {
   width: "100%", padding: "7px 13px", fontSize: "var(--fs-13)", borderRadius: 999,
-  border: "1px solid var(--border)", background: "rgba(15,23,42,0.04)", color: "var(--text)",
+  border: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.04))", color: "var(--text)",
 };
 const labelStyle: React.CSSProperties = {
   fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em",
@@ -374,8 +374,8 @@ export default function DepositForm({
       {error && (
         <div style={{
           padding: "8px 10px", borderRadius: 8,
-          background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
+          background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))",
+          color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
@@ -412,12 +412,12 @@ export default function DepositForm({
                   style={{
                     width: "100%", maxHeight: 460, objectFit: "contain",
                     borderRadius: 10, border: "1px solid var(--border)",
-                    background: "rgba(15,23,42,0.03)", display: "block",
+                    background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", display: "block",
                   }} />
               </a>
             ) : (
               <a href={previewUrl} target="_blank" rel="noreferrer"
-                style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#0b4a7d" }}>View uploaded file</a>
+                style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--c-0b4a7d)" }}>View uploaded file</a>
             )}
             <div>
               <button type="button" onClick={removeImage} className="btn"
@@ -431,7 +431,7 @@ export default function DepositForm({
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: "16px", cursor: "pointer", textAlign: "center",
             border: "1.5px dashed var(--border)", borderRadius: 10,
-            background: "rgba(15,23,42,0.015)", fontSize: "var(--fs-13)", color: "var(--muted)",
+            background: "var(--tint-neutral-bg, rgba(15,23,42,0.015))", fontSize: "var(--fs-13)", color: "var(--muted)",
           }}
         >
           {extracting
@@ -458,8 +458,8 @@ export default function DepositForm({
       {dupMatch && (
         <div style={{
           padding: "8px 10px", borderRadius: 8,
-          background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)",
-          color: "#b45309", fontSize: "var(--fs-12)", fontWeight: 600,
+          background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))",
+          color: "var(--c-b45309)", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>
           ⚠ This tenant already has {dupMatch.checkNumber ? `check #${dupMatch.checkNumber}` : "a check"}
           {dupMatch.amount ? ` for $${dupMatch.amount.toLocaleString("en-US")}` : ""}
@@ -548,7 +548,7 @@ export default function DepositForm({
       {addedChecks.length > 0 && (
         <div style={{
           fontSize: "var(--fs-12)", color: "var(--muted)", padding: "8px 10px", borderRadius: 8,
-          background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.25)",
+          background: "var(--tint-green-bg, rgba(22,163,74,0.06))", border: "1px solid var(--tint-green-line, rgba(22,163,74,0.25))",
         }}>
           ✓ Added {addedChecks.length} check{addedChecks.length === 1 ? "" : "s"} for this tenant
           {" "}({addedChecks.map((c) => `${c.checkNumber ? `#${c.checkNumber} ` : ""}$${c.amount.toLocaleString("en-US")}`).join(", ")}).
@@ -581,8 +581,8 @@ export default function DepositForm({
         {editId && onDeleted && (
           <button type="button" onClick={del} disabled={saving}
             style={{
-              marginLeft: "auto", fontSize: "var(--fs-12)", fontWeight: 600, color: "#b91c1c",
-              background: "transparent", border: "1px solid rgba(220,38,38,0.35)",
+              marginLeft: "auto", fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-b91c1c)",
+              background: "transparent", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))",
               borderRadius: 8, padding: "7px 14px", cursor: "pointer", fontFamily: "inherit",
             }}>
             Delete

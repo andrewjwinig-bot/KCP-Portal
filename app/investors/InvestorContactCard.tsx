@@ -177,7 +177,7 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
                     // shift up onto the wrong address.
                     alsoName: f.alsoName.filter((_, n) => n !== i),
                   }))}
-                  style={{ fontSize: "var(--fs-12)", padding: "5px 10px", color: "#b91c1c" }}>Remove</button>
+                  style={{ fontSize: "var(--fs-12)", padding: "5px 10px", color: "var(--c-b91c1c)" }}>Remove</button>
               </div>
             ))}
             <div>
@@ -226,7 +226,7 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
           </span>
           {has && (
             <button type="button" className="btn" disabled={saving} onClick={clearIt}
-              style={{ fontSize: "var(--fs-12)", padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Clear</button>
+              style={{ fontSize: "var(--fs-12)", padding: "6px 12px", marginLeft: "auto", color: "var(--c-b91c1c)" }}>Clear</button>
           )}
         </div>
       </div>

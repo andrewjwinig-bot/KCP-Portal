@@ -1,5 +1,5 @@
 "use client";
-import { ChevronRight , X } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -539,7 +539,7 @@ function DashboardInner() {
                 type="button"
                 onClick={(e) => { e.stopPropagation(); router.push(`/cam-recon/interim?property=${propertyCode}&unitRef=${encodeURIComponent(unit.unitRef)}&year=${y}&asOf=${m}`); }}
                 title={vacated ? "Close out this vacated tenant — interim (as-of-month) CAM/RET statement" : "Generate this tenant's interim (as-of-month) CAM/RET statement"}
-                style={{ fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.35)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}
+                style={{ fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.35))", background: "var(--card)", color: "var(--c-0b4a7d)", cursor: "pointer" }}
               >
                 {vacated ? "Close out →" : "Statement →"}
               </button>
@@ -696,7 +696,7 @@ function DashboardInner() {
                   {sqftFmt(occupancy.occupied)} / {sqftFmt(occupancy.total)} sf ({sqftFmt(occupancy.vacant)} vacant)
                 </span>
               </div>
-              <div style={{ height: 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden", marginTop: 10 }}>
+              <div style={{ height: 6, borderRadius: 999, background: "var(--tint-neutral-bg, rgba(15,23,42,0.08))", overflow: "hidden", marginTop: 10 }}>
                 <div style={{ height: "100%", borderRadius: 999, width: `${occupancy.pct}%`, background: occupancy.pct >= 90 ? "#16a34a" : occupancy.pct >= 70 ? "#0b4a7d" : "#d97706" }} />
               </div>
               {occupancy.groups.length > 0 && (
@@ -713,7 +713,7 @@ function DashboardInner() {
                             <span style={{ marginLeft: 6 }}>{sqftFmt(g.occupied)} / {sqftFmt(g.total)} sf ({sqftFmt(g.vacant)} vacant)</span>
                           </span>
                         </div>
-                        <div style={{ height: 4, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+                        <div style={{ height: 4, borderRadius: 999, background: "var(--tint-neutral-bg, rgba(15,23,42,0.08))", overflow: "hidden" }}>
                           <div style={{ height: "100%", borderRadius: 999, width: `${pct}%`, background: color }} />
                         </div>
                       </div>
@@ -723,7 +723,7 @@ function DashboardInner() {
               )}
             </>
           ) : (
-            <div className="muted small">No rent roll uploaded yet. Upload one →</div>
+            <div className="muted small">No rent roll uploaded yet. Upload one<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></div>
           )}
         </Link>
         )}
@@ -779,7 +779,7 @@ function DashboardInner() {
                   <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>{rrFreshness.title}</div>
                   <div className="muted small" style={{ marginTop: 2 }}>{rrFreshness.message}</div>
                 </div>
-                <Link href="/rentroll" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/rentroll" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -810,7 +810,7 @@ function DashboardInner() {
                       : `${formatShortDate(nextPayroll.date)} · in ${nextPayroll.daysUntil} day${nextPayroll.daysUntil === 1 ? "" : "s"}`}
                   </div>
                 </div>
-                <Link href="/" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -841,7 +841,7 @@ function DashboardInner() {
                       : `Due ${formatShortDate(ccExpensesDue.date)} · in ${ccExpensesDue.daysUntil} day${ccExpensesDue.daysUntil === 1 ? "" : "s"}`}
                   </div>
                 </div>
-                <Link href="/expenses" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/expenses" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -891,7 +891,7 @@ function DashboardInner() {
                       : `${bankStmt.done}/${bankStmt.total} downloaded · due ${bankStmt.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
                   </div>
                 </div>
-                <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -933,7 +933,7 @@ function DashboardInner() {
                       : `${bankRec.recDone}/${bankRec.total} reconciled · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
                   </div>
                 </div>
-                <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -950,18 +950,18 @@ function DashboardInner() {
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
-                border: "1px solid rgba(11,74,125,0.35)",
-                background: "rgba(11,74,125,0.07)",
+                border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.35))",
+                background: "var(--tint-brand-bg, rgba(11,74,125,0.07))",
                 borderRadius: 8,
               }}>
-                <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "#0b4a7d" }} />
+                <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "var(--c-0b4a7d)" }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>Download ACH &amp; Incoming Wires</div>
                   <div className="muted small" style={{ marginTop: 2 }}>
                     Weekly · Mondays — download tenant ACH/wires and send to Tami.
                   </div>
                 </div>
-                <Link href="/tracker" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/tracker" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -1003,7 +1003,7 @@ function DashboardInner() {
                           <span style={{ marginLeft: 6, color: accent, fontWeight: 600 }}>({relative})</span>
                         </div>
                       </div>
-                      <Link href="/rentroll/leasing" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                      <Link href="/rentroll/leasing" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                         Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                       </Link>
                       <button
@@ -1022,7 +1022,7 @@ function DashboardInner() {
                           flexShrink: 0,
                         }}
                       >
-                        ×
+                        <X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
                       </button>
                     </div>
                   );
@@ -1066,12 +1066,12 @@ function DashboardInner() {
                   style={{
                     display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 320px", minWidth: 0,
                     padding: "10px 12px",
-                    border: "1px solid rgba(11,74,125,0.30)",
-                    background: "rgba(11,74,125,0.06)",
+                    border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.30))",
+                    background: "var(--tint-brand-bg, rgba(11,74,125,0.06))",
                     borderRadius: 8,
                   }}
                 >
-                  <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "#0b4a7d" }} />
+                  <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "var(--c-0b4a7d)" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>
                       {n.amount.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 })}
@@ -1082,7 +1082,7 @@ function DashboardInner() {
                       {n.description ? ` · ${n.description}` : ""}
                     </div>
                   </div>
-                  <Link href="/bank-transfers" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  <Link href="/bank-transfers" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                     Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                   </Link>
                   <DismissBtn onClick={() => dismissNotice(n.id)} />
@@ -1100,8 +1100,8 @@ function DashboardInner() {
                 Monthly Progress · {bankRecPeriodLabel(bankRec.period)}
               </div>
               {showBankRec && (
-                <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
-                  Open →
+                <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none" }}>
+                  Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
                 </Link>
               )}
             </div>
@@ -1109,13 +1109,13 @@ function DashboardInner() {
               <Donut
                 value={bankStmt.done}
                 total={bankStmt.total}
-                color="#0b4a7d"
+                color="var(--c-0b4a7d)"
                 label="Statements Downloaded"
               />
               <Donut
                 value={bankRec.recDone}
                 total={bankRec.total}
-                color="#16a34a"
+                color="var(--c-16a34a)"
                 label="Bank Recs Completed"
               />
             </div>
@@ -1126,7 +1126,7 @@ function DashboardInner() {
       {/* ── Monthly Review — folded in, below the tasks/action grid and above
            the vacating/expiring row (finance users only) ── */}
       {isPathAllowed(user.id, "/reports/monthly") && (
-        <div className="card" style={{ borderColor: "rgba(11,74,125,0.3)", background: "rgba(11,74,125,0.04)" }}>
+        <div className="card" style={{ borderColor: "var(--tint-brand-line, rgba(11,74,125,0.3))", background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" }}>
           <MonthlyReviewPanel embedded />
         </div>
       )}
@@ -1145,7 +1145,7 @@ function DashboardInner() {
             {expiringScope === "office" && <span className="muted small" style={{ marginLeft: 8, letterSpacing: 0, textTransform: "none" }}>· Office</span>}
             {expiringScope === "retail" && <span className="muted small" style={{ marginLeft: 8, letterSpacing: 0, textTransform: "none" }}>· Retail</span>}
           </div>
-          <Link href="/rentroll" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>Rent roll →</Link>
+          <Link href="/rentroll" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none" }}>Rent roll<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
         </div>
         {loading ? (
           <div className="muted small">Loading…</div>
@@ -1178,7 +1178,7 @@ function DashboardInner() {
                 {isDrew && recentlyVacated.length > 0 && (
                   <>
                     <tr>
-                      <td colSpan={9} style={{ padding: "10px 8px 4px", fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569" }}>
+                      <td colSpan={9} style={{ padding: "10px 8px 4px", fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--c-475569)" }}>
                         Recently vacated (last ~60 days) — run their close-out
                       </td>
                     </tr>
@@ -1212,7 +1212,7 @@ function DashboardInner() {
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Upcoming Filings (next 45 days)</div>
-          <Link href="/tracker/taxes" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>Filing tracker →</Link>
+          <Link href="/tracker/taxes" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none" }}>Filing tracker<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
         </div>
         {upcomingFilings.length === 0 ? (
           <div className="muted small">No filings due in the next 45 days. </div>
@@ -1275,7 +1275,7 @@ function DismissBtn({ onClick }: { onClick: () => void }) {
       style={{
         width: 28, height: 28, padding: 0, marginLeft: 2,
         borderRadius: 8, border: 0, background: "transparent",
-        color: "#98A2B3", cursor: "pointer",
+        color: "var(--c-98a2b3)", cursor: "pointer",
         display: "inline-flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0,
       }}

@@ -62,15 +62,15 @@ export function ImportInstructions({ stop, variant = "charges" }: { stop?: boole
     <div style={{ marginTop: 14 }}>
       <div style={LABEL}>Skyline Import Steps</div>
       {stop && (
-        <div style={{ marginTop: 8, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.4)", borderRadius: 8, padding: "9px 12px" }}>
-          <div style={{ color: "#b91c1c", fontWeight: 800, fontSize: "var(--fs-12-5)" }}>⚠ STOP the current year&rsquo;s charges BEFORE importing — otherwise tenants are double-charged.</div>
-          <div style={{ color: "#7f1d1d", fontSize: "var(--fs-12)", marginTop: 3 }}>Property Management → Additional Functions → Universal Charges → Stop CAM, INS &amp; RET.</div>
+        <div style={{ marginTop: 8, background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.4))", borderRadius: 8, padding: "9px 12px" }}>
+          <div style={{ color: "var(--c-b91c1c)", fontWeight: 800, fontSize: "var(--fs-12-5)" }}>⚠ STOP the current year&rsquo;s charges BEFORE importing — otherwise tenants are double-charged.</div>
+          <div style={{ color: "var(--c-7f1d1d)", fontSize: "var(--fs-12)", marginTop: 3 }}>Property Management → Additional Functions → Universal Charges → Stop CAM, INS &amp; RET.</div>
         </div>
       )}
       <ol style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: "var(--fs-12-5)", color: "var(--muted)", lineHeight: 1.7 }}>
         <li>Paste values into a blank workbook — <strong>do not paste headers</strong>.</li>
         <li>Clear all blank or $0 rows once pasted.</li>
-        {stop && <li><strong style={{ color: "#b91c1c" }}>Stop the current year&rsquo;s charges</strong> (Universal Charges → Stop CAM, INS &amp; RET) so they aren&rsquo;t charged twice.</li>}
+        {stop && <li><strong style={{ color: "var(--c-b91c1c)" }}>Stop the current year&rsquo;s charges</strong> (Universal Charges → Stop CAM, INS &amp; RET) so they aren&rsquo;t charged twice.</li>}
         <li>Upload new data — Skyline → Other Modules → Data Import → <strong>Unit Charges → Tenant Monthly Charges</strong>. Report Destination: <strong>Screen</strong>.</li>
       </ol>
     </div>

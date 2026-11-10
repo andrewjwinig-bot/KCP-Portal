@@ -1,4 +1,5 @@
 "use client";
+import { Check, X } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   TAX_TASKS, TAX_CATEGORIES, TaxCategory,
@@ -23,7 +24,7 @@ function renderStepText(text: string): React.ReactNode {
     if (/^[\w.-]+\.[a-z]{2,}(\/\S*)?$/i.test(inner)) {
       return (
         <a key={i} href={`https://${inner}`} target="_blank" rel="noopener noreferrer"
-          style={{ color: "#0b4a7d", fontWeight: 700, textDecoration: "underline" }}>
+          style={{ color: "var(--c-0b4a7d)", fontWeight: 700, textDecoration: "underline" }}>
           {inner}
         </a>
       );
@@ -47,7 +48,7 @@ function InstructionsModal({ task, onClose }: { task: TaxTask; onClose: () => vo
             </div>
             <button onClick={onClose}
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)", padding: "0 4px", lineHeight: 1 }}>
-              ✕
+              <X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
             </button>
           </div>
         </div>
@@ -193,13 +194,13 @@ export default function TaxTrackerPage() {
     if (done === undefined) done = isTaskEffectivelyDone(t, effective);
     const dateStr = `${MONTH_NAMES[t.dueMonth - 1]} ${t.dueDay}`;
     if (done)
-      return { label: "✓ Filed",                color: "#16a34a", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  };
+      return { label: "✓ Filed",                color: "var(--c-16a34a)", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  };
     if (isPastDate(viewYear, t.dueMonth, t.dueDay, today))
-      return { label: `Overdue · ${dateStr}`,   color: "#dc2626", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" };
+      return { label: `Overdue · ${dateStr}`,   color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" };
     if (isTodayDate(viewYear, t.dueMonth, t.dueDay, today))
-      return { label: "Due today",               color: "#ea580c", bg: "rgba(234,88,12,0.08)", border: "rgba(234,88,12,0.2)" };
+      return { label: "Due today",               color: "var(--c-ea580c)", bg: "rgba(234,88,12,0.08)", border: "rgba(234,88,12,0.2)" };
     if (isSoonDate(viewYear, t.dueMonth, t.dueDay, today))
-      return { label: `Due soon · ${dateStr}`,  color: "#d97706", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.2)"  };
+      return { label: `Due soon · ${dateStr}`,  color: "var(--c-d97706)", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.2)"  };
     return {
       label: dateStr,
       color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)",
@@ -230,9 +231,9 @@ export default function TaxTrackerPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 14 }}>
         {([
           { key: "all",       label: "Total",     value: total,         color: "var(--brand)", activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)",  clickable: false },
-          { key: "done",      label: "Filed",     value: done,          color: "#16a34a",      activeBg: "rgba(22,163,74,0.08)",  activeBorder: "rgba(22,163,74,0.35)", clickable: true  },
+          { key: "done",      label: "Filed",     value: done,          color: "var(--c-16a34a)",      activeBg: "rgba(22,163,74,0.08)",  activeBorder: "rgba(22,163,74,0.35)", clickable: true  },
           { key: "remaining", label: "Remaining", value: total - done,  color: "var(--text)",  activeBg: "rgba(0,0,0,0.05)",      activeBorder: "rgba(0,0,0,0.25)",     clickable: true  },
-          { key: "overdue",   label: "Overdue",   value: overdue,       color: "#dc2626",      activeBg: "rgba(220,38,38,0.08)",  activeBorder: "rgba(220,38,38,0.35)", clickable: true  },
+          { key: "overdue",   label: "Overdue",   value: overdue,       color: "var(--c-dc2626)",      activeBg: "rgba(220,38,38,0.08)",  activeBorder: "rgba(220,38,38,0.35)", clickable: true  },
           { key: "pct",       label: "Complete",  value: total > 0 ? `${Math.round((done / total) * 100)}%` : "—", color: "var(--muted)", activeBg: "", activeBorder: "", clickable: false },
         ] as const).map(tile => {
           const isActive = filterStatus === tile.key && tile.clickable;
@@ -249,7 +250,7 @@ export default function TaxTrackerPage() {
                 cursor: tile.clickable ? "pointer" : "default",
                 fontFamily: "inherit",
                 transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
-                boxShadow: isActive ? `0 0 0 3px ${tile.activeBorder}22` : "none",
+                boxShadow: isActive ? `0 0 0 3px color-mix(in srgb, ${tile.activeBorder} 13%, transparent)` : "none",
                 gap: 3,
               }}
             >
@@ -325,14 +326,14 @@ export default function TaxTrackerPage() {
 
         {/* Row 3: File path + active status badge */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0b4a7d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--c-0b4a7d)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
           </svg>
-          <span style={{ fontSize: "var(--fs-12)", color: "#0b4a7d", fontWeight: 600 }}>RET bills are saved at:</span>
+          <span style={{ fontSize: "var(--fs-12)", color: "var(--c-0b4a7d)", fontWeight: 600 }}>RET bills are saved at:</span>
           <code style={{
             fontFamily: "monospace", fontWeight: 700, fontSize: "var(--fs-11)",
-            color: "#0b4a7d", background: "rgba(11,74,125,0.08)",
-            border: "1px solid rgba(11,74,125,0.18)",
+            color: "var(--c-0b4a7d)", background: "var(--tint-brand-bg, rgba(11,74,125,0.08))",
+            border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.18))",
             borderRadius: 4, padding: "1px 7px",
           }}>
             Data\Shared\Real Estate Tax
@@ -345,7 +346,7 @@ export default function TaxTrackerPage() {
               }}>
                 ● {filterStatus === "done" ? "Filed" : filterStatus === "remaining" ? "Remaining" : "Overdue"} filter active
               </span>
-              ✕
+              <X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
             </button>
           )}
         </div>
@@ -390,7 +391,7 @@ export default function TaxTrackerPage() {
       {/* ── Flat property list ───────────────────────────────────────────── */}
       {byProperty.order.length === 0 ? (
         <div className="card" style={{ textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 36, marginBottom: 10 }}>✓</div>
+          <div style={{ fontSize: 36, marginBottom: 10 }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></div>
           <div style={{ fontWeight: 700, marginBottom: 4 }}>No filings match the current filter</div>
           <div className="muted small">Try clearing the filters above</div>
         </div>
@@ -542,7 +543,7 @@ export default function TaxTrackerPage() {
                               {autoSent ? (
                                 <span title="Delivered through the investor portal" style={{ marginLeft: "auto" }}><Pill tone={TONE_TEAL}>SENT</Pill></span>
                               ) : invChecked ? (
-                                <span style={{ fontSize: "var(--fs-10)", color: "#16a34a", fontWeight: 700, marginLeft: "auto" }}>✓</span>
+                                <span style={{ fontSize: "var(--fs-10)", color: "var(--c-16a34a)", fontWeight: 700, marginLeft: "auto" }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
                               ) : null}
                             </div>
                           );

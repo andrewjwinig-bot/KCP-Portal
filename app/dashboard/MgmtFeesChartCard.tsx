@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 // Alison's dashboard: the Management Fees report's "Actual vs Budget — by
 // month" chart (the SAME component), with the intercompany tie-out as one
@@ -32,8 +33,8 @@ export default function MgmtFeesChartCard({ order = 0 }: { order?: number }) {
         <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
           Management Fees · Actual vs Budget — by month
         </div>
-        <Link href="/financials/management-fees" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
-          Full report →
+        <Link href="/financials/management-fees" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none" }}>
+          Full report<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
         </Link>
       </div>
       {!data && !failed && <div className="muted small">Loading…</div>}

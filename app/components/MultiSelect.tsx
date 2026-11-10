@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { paletteTone, type PillTone } from "./Pill";
@@ -46,7 +47,7 @@ function Chip({
             fontSize: "var(--fs-12)", lineHeight: 1, opacity: 0.8,
           }}
         >
-          ✕
+          <X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
         </button>
       )}
     </span>
@@ -125,7 +126,7 @@ export function MultiSelect({
         <span style={{
           position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
           color: "var(--muted)", fontSize: "var(--fs-11)", pointerEvents: "none",
-        }}>▾</span>
+        }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
       </div>
 
       {open && (

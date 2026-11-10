@@ -151,8 +151,8 @@ export default function OfficeCamConfigCard({
       {error && (
         <div style={{
           margin: "8px 0", padding: "8px 10px", borderRadius: 8,
-          background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
+          background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))",
+          color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
@@ -197,7 +197,7 @@ export default function OfficeCamConfigCard({
                 { label: "Suite SF", value: unitSqft.toLocaleString() },
                 { label: "Building SF", value: buildingSqft.toLocaleString() },
               ]} footer={{ label: "True share", value: `${truePRS.toFixed(2)}%` }}
-                style={{ ...tileSubStyle, color: "#b45309", fontWeight: 700 }}>
+                style={{ ...tileSubStyle, color: "var(--c-b45309)", fontWeight: 700 }}>
                 ≠ true {truePRS.toFixed(2)}%
               </HoverCard>
             ) : (

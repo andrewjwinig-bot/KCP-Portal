@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight, X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
@@ -731,13 +732,13 @@ export default function Page() {
             </div>
           </div>
           {!tieOut.ties && (
-            <div className="small" style={{ marginTop: 8, color: "#b91c1c", fontWeight: 700 }}>
+            <div className="small" style={{ marginTop: 8, color: "var(--c-b91c1c)", fontWeight: 700 }}>
               {money(Math.abs(tieOut.unexplained))} of payroll isn’t allocated to any building and isn’t explained — fix the allocation before sending to Avid.
             </div>
           )}
           {tieOut.unmatched.length > 0 && (
             <div className="small" style={{ marginTop: 8 }}>
-              <b style={{ color: "#b91c1c" }}>Not matched to an allocation row ({tieOut.unmatched.length}) — their pay lands nowhere:</b>
+              <b style={{ color: "var(--c-b91c1c)" }}>Not matched to an allocation row ({tieOut.unmatched.length}) — their pay lands nowhere:</b>
               <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
                 {tieOut.unmatched.map((u) => <li key={u.name + (u.employeeId ?? "")}>{u.name}{u.employeeId ? ` (#${u.employeeId})` : ""} — <b>{money(u.amount)}</b> unallocated</li>)}
               </ul>
@@ -745,7 +746,7 @@ export default function Page() {
           )}
           {tieOut.offAllocation.filter((o) => !o.accepted).length > 0 && (
             <div className="small" style={{ marginTop: 8 }}>
-              <b style={{ color: "#b45309" }}>Allocation doesn’t sum to 100%:</b>
+              <b style={{ color: "var(--c-b45309)" }}>Allocation doesn’t sum to 100%:</b>
               <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
                 {tieOut.offAllocation.filter((o) => !o.accepted).map((o) => (
                   <li key={o.name}>{o.name} allocates {(o.pctSum * 100).toFixed(1)}% — {o.shortfall >= 0 ? "under" : "over"} by <b>{money(Math.abs(o.shortfall))}</b></li>
@@ -766,7 +767,7 @@ export default function Page() {
         const billing = invoices.filter((i: any) => (Number(i.total) || 0) > 0);
         const billTotal = billing.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0);
         return (
-          <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
+          <div className="card" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.5))", background: "var(--tint-green-bg, rgba(22,163,74,0.07))", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
             <div>
               <div style={{ fontWeight: 800, fontSize: 17 }}>
                 {payroll?.payDate ? `Payroll ${payroll.payDate}` : "Payroll"} — ready to send
@@ -777,11 +778,11 @@ export default function Page() {
             </div>
             <button
               className="btn"
-              style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10 }}
+              style={{ background: "var(--c-16a34a)", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10 }}
               disabled={!payroll || !!busy}
               onClick={reviewPayrollAndSend}
             >
-              Review &amp; Send to AvidXchange →
+              Review &amp; Send to AvidXchange<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
             </button>
           </div>
         );
@@ -830,7 +831,7 @@ export default function Page() {
                 {saving ? "Saving…" : "Save Pay Period"}
               </button>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Bi-Weekly</span>
+            <span style={{ background: "var(--tint-green-bg, rgba(22, 163, 74, 0.85))", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Bi-Weekly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
@@ -967,8 +968,8 @@ export default function Page() {
           <button className="btn" onClick={() => setShowEmpAllocModal(true)}>Allocations</button>
         </div>
 
-        {error && <div style={{ marginTop: 10, color: "#b42318", fontWeight: 800 }}>{error}</div>}
-        {busy && <div style={{ marginTop: 10, color: "#a15c00", fontWeight: 800 }}>{busy}</div>}
+        {error && <div style={{ marginTop: 10, color: "var(--c-b42318)", fontWeight: 800 }}>{error}</div>}
+        {busy && <div style={{ marginTop: 10, color: "var(--c-a15c00)", fontWeight: 800 }}>{busy}</div>}
 
         {invoicesOpen && (
           <>
@@ -1129,7 +1130,7 @@ export default function Page() {
                   <b style={{ fontSize: 15 }}>Employee Allocations</b>
                   <div className="small muted" style={{ marginTop: 2 }}>Allocations based on payroll allocation workbook.</div>
                 </div>
-                <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowEmpAllocModal(false)}>✕</button>
+                <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowEmpAllocModal(false)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
               </div>
               <div className="tableWrap" style={{ overflowY: "auto" }}>
                 <table>
@@ -1377,8 +1378,8 @@ export default function Page() {
                     <tbody>
                       {empModal.rows.map((r, i) => (
                         <tr key={i} style={r.isSubtotal ? { fontWeight: 700, borderTop: "1px solid #ccc" } : {}}>
-                          <td style={r.isSubtotal ? { color: "#0b4a7d" } : {}}>{r.isSubtotal ? "" : r.propertyKey}</td>
-                          <td style={r.isSubtotal ? { color: "#0b4a7d" } : { color: "#666" }}>{r.isSubtotal ? r.propertyName : toTitleCase(r.propertyName)}</td>
+                          <td style={r.isSubtotal ? { color: "var(--c-0b4a7d)" } : {}}>{r.isSubtotal ? "" : r.propertyKey}</td>
+                          <td style={r.isSubtotal ? { color: "var(--c-0b4a7d)" } : { color: "#666" }}>{r.isSubtotal ? r.propertyName : toTitleCase(r.propertyName)}</td>
                           <td style={{ textAlign: "right" }}>{r.allocPct ? fmtPct(r.allocPct) : ""}</td>
                           <td style={{ textAlign: "right" }}>{money(r.salary)}</td>
                           <td style={{ textAlign: "right" }}>{money(r.overtime)}</td>

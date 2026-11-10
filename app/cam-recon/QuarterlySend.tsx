@@ -109,7 +109,7 @@ export default function QuarterlySend({ billingKey, year, quarter, record, name,
                   <StatPill label="Tax" value={money0(preview.figures.retDue)} />
                 </div>
                 {!preview.ready && (
-                  <div className="small" style={{ margin: "12px 18px 0", color: "#b45309", fontWeight: 600 }}>
+                  <div className="small" style={{ margin: "12px 18px 0", color: "var(--c-b45309)", fontWeight: 600 }}>
                     The GL is posted through month {preview.maxPosted}; {quarter} ends in month {preview.lastMonth}. Sending now bills a quarter that isn&rsquo;t complete.
                   </div>
                 )}
@@ -119,7 +119,7 @@ export default function QuarterlySend({ billingKey, year, quarter, record, name,
                   </div>
                 )}
                 {sent && (
-                  <div className="small" style={{ margin: "12px 18px 0", color: "#b45309", fontWeight: 600 }}>
+                  <div className="small" style={{ margin: "12px 18px 0", color: "var(--c-b45309)", fontWeight: 600 }}>
                     This quarter was already sent{record?.sentAt ? ` on ${when(record.sentAt)}` : " by hand"} — this sends it again.
                   </div>
                 )}
@@ -140,7 +140,7 @@ export default function QuarterlySend({ billingKey, year, quarter, record, name,
                 </div>
               </>
             )}
-            {error && <div className="small" style={{ padding: "12px 18px 0", color: "#b91c1c", fontWeight: 700 }}>{error}</div>}
+            {error && <div className="small" style={{ padding: "12px 18px 0", color: "var(--c-b91c1c)", fontWeight: 700 }}>{error}</div>}
             <div style={{ padding: "14px 18px", display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button type="button" className="btn sm" disabled={sending} onClick={() => setOpen(false)}>Cancel</button>
               {preview && (

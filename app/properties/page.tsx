@@ -70,7 +70,7 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
         {/* Header row: id badge (left), type pill or entity pill (right) */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
           <code style={{
-            background: "#0b1220", color: "#e0f0ff",
+            background: "var(--c-0b1220)", color: "var(--c-e0f0ff)",
             padding: "2px 8px", borderRadius: 5,
             fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.06em",
           }}>{prop.id}</code>
@@ -166,10 +166,10 @@ export default function PropertiesPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
         {([
           { key: "all",         label: "Total",       value: LISTED.length, color: "var(--brand)",  activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)"  },
-          { key: "Office",      label: "Office",       value: typeCounts.Office,      color: "#0b4a7d",      activeBg: "rgba(11,74,125,0.09)",  activeBorder: "rgba(11,74,125,0.35)" },
-          { key: "Retail",      label: "Retail",       value: typeCounts.Retail,      color: "#0d9488",      activeBg: "rgba(13,148,136,0.09)", activeBorder: "rgba(13,148,136,0.35)"},
-          { key: "Residential", label: "Residential",  value: typeCounts.Residential, color: "#6d28d9",      activeBg: "rgba(109,40,217,0.09)", activeBorder: "rgba(109,40,217,0.35)"},
-          { key: "Land",        label: "Land",         value: typeCounts.Land,        color: "#b45309",      activeBg: "rgba(180,83,9,0.09)",   activeBorder: "rgba(180,83,9,0.35)"  },
+          { key: "Office",      label: "Office",       value: typeCounts.Office,      color: "var(--c-0b4a7d)",      activeBg: "rgba(11,74,125,0.09)",  activeBorder: "rgba(11,74,125,0.35)" },
+          { key: "Retail",      label: "Retail",       value: typeCounts.Retail,      color: "var(--c-0d9488)",      activeBg: "rgba(13,148,136,0.09)", activeBorder: "rgba(13,148,136,0.35)"},
+          { key: "Residential", label: "Residential",  value: typeCounts.Residential, color: "var(--c-6d28d9)",      activeBg: "rgba(109,40,217,0.09)", activeBorder: "rgba(109,40,217,0.35)"},
+          { key: "Land",        label: "Land",         value: typeCounts.Land,        color: "var(--c-b45309)",      activeBg: "rgba(180,83,9,0.09)",   activeBorder: "rgba(180,83,9,0.35)"  },
         ] as const).map(tile => {
           const isActive = typeFilter === tile.key;
           return (
@@ -185,7 +185,7 @@ export default function PropertiesPage() {
                 cursor: "pointer",
                 fontFamily: "inherit",
                 transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
-                boxShadow: isActive ? `0 0 0 3px ${tile.activeBorder}22` : "none",
+                boxShadow: isActive ? `0 0 0 3px color-mix(in srgb, ${tile.activeBorder} 13%, transparent)` : "none",
                 gap: 3,
               }}
             >

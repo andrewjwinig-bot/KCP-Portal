@@ -1,5 +1,5 @@
 "use client";
-import { CircleCheck } from "lucide-react";
+import { ChevronRight, CircleCheck, TriangleAlert } from "lucide-react";
 
 // Dashboard callout: what isn't posted to the GL yet across the portfolio.
 //
@@ -54,18 +54,18 @@ export default function NotPostedCard({ order = -1 }: { order?: number }) {
         <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
           Not Posted to the GL
         </div>
-        <Link href="/financials/operating-statements/review" style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
-          Flags to Investigate →
+        <Link href="/financials/operating-statements/review" style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none", whiteSpace: "nowrap" }}>
+          Flags to Investigate<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
         </Link>
       </div>
 
       {items.length === 0 ? (
-        <div className="small" style={{ display: "flex", alignItems: "center", gap: 8, color: "#15803d", fontWeight: 600 }}>
-          <CircleCheck size={18} strokeWidth={1.75} color="#067647" aria-hidden style={{ flexShrink: 0 }} /> Taxes, insurance, management fees and debt are all posted on the latest statements.
+        <div className="small" style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--c-15803d)", fontWeight: 600 }}>
+          <CircleCheck size={18} strokeWidth={1.75} color="var(--c-067647)" aria-hidden style={{ flexShrink: 0 }} /> Taxes, insurance, management fees and debt are all posted on the latest statements.
         </div>
       ) : (
         <>
-          <div className="small" style={{ marginBottom: 10, color: "#9a3412", fontWeight: 600 }}>
+          <div className="small" style={{ marginBottom: 10, color: "var(--c-9a3412)", fontWeight: 600 }}>
             {items.length} line{items.length === 1 ? "" : "s"} across {data!.propertiesWithIssues} propert{data!.propertiesWithIssues === 1 ? "y" : "ies"} — an obligation that gets billed either way still reads $0.
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -73,19 +73,19 @@ export default function NotPostedCard({ order = -1 }: { order?: number }) {
               <Link
                 key={`${it.key}::${it.section}::${it.line}`}
                 href={`/financials/operating-statements?key=${encodeURIComponent(it.key)}&year=${year}&period=${it.period}`}
-                style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, textDecoration: "none", color: "var(--text)", background: "rgba(180,83,9,0.05)" }}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, textDecoration: "none", color: "var(--text)", background: "var(--tint-amber-bg, rgba(180,83,9,0.05))" }}
               >
-                <span style={{ fontSize: "var(--fs-13)" }}>⚠️</span>
+                <span style={{ fontSize: "var(--fs-13)" }}><TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
                 <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "var(--fs-13)" }}>
                   <b style={{ fontWeight: 700 }}>{it.propertyCode}</b> · {it.line}
                   {it.type === "missing-debt" && <span className="muted"> (debt)</span>}
                 </span>
-                <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#9a3412", whiteSpace: "nowrap" }}>~{money0(it.expected)}</span>
+                <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-9a3412)", whiteSpace: "nowrap" }}>~{money0(it.expected)}</span>
               </Link>
             ))}
           </div>
           {items.length > TOP && (
-            <Link href="/financials/operating-statements/review" style={{ display: "inline-block", marginTop: 8, fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>
+            <Link href="/financials/operating-statements/review" style={{ display: "inline-block", marginTop: 8, fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none" }}>
               + {items.length - TOP} more →
             </Link>
           )}

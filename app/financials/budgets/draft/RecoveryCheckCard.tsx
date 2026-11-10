@@ -32,7 +32,7 @@ export function RecoveryCheckCard({ checks, year }: { checks: NonNullable<Budget
             { label: `${year} recoveries`, value: money0(c.recovered) },
             { label: `${year} budget pool`, value: money0(c.pool) },
             { label: "Review above", value: money0(c.ceiling) },
-            ...(c.over ? [{ label: "Above it by", value: money0(c.recovered - c.ceiling), color: "#b45309" }] : []),
+            ...(c.over ? [{ label: "Above it by", value: money0(c.recovered - c.ceiling), color: "var(--c-b45309)" }] : []),
           ]}>
             <span>{pct(c.ratio)}</span>
           </HoverCard>

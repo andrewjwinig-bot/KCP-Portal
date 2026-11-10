@@ -1,4 +1,5 @@
 "use client";
+import { TriangleAlert, X } from "lucide-react";
 
 // Interim ("as-of month") CAM/RET reconciliation — for a mid-year move-out.
 // Pick a building (office or retail) + tenant + as-of month; the statement
@@ -114,7 +115,7 @@ function Column({ title, lines, base, actual, net, due, escrow, balance, proRata
 }) {
   return (
     <div style={{ flex: 1, minWidth: 280 }}>
-      <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>{title}</div>
+      <div style={{ ...secLabel, color: "var(--c-0b4a7d)", marginBottom: 6 }}>{title}</div>
       <table style={{ width: "100%", fontSize: "var(--fs-12)", marginBottom: 8 }}>
         <thead>
           <tr style={{ color: "var(--muted)", textAlign: "left" }}>
@@ -268,7 +269,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 4 }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>CAM / RET Reconciliation <span style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "#0b4a7d" }}>· as of {MONTHS[r.asOfMonth - 1]} {meta.year}</span></div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>CAM / RET Reconciliation <span style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--c-0b4a7d)" }}>· as of {MONTHS[r.asOfMonth - 1]} {meta.year}</span></div>
           <div className="muted" style={{ fontSize: "var(--fs-14)", fontWeight: 600, marginTop: 2 }}>{r.name} <code style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -286,13 +287,13 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
         <span>· pro-rata</span>
         <PctInput value={pr} onChange={setPr} highlight={pr.trim() === ""} />
         <span>· occupied <b>{r.occupiedMonths}</b> of 12 months · {meta.sqft.toLocaleString()} sf</span>
-        <span style={{ marginLeft: "auto", color: "#b45309", fontWeight: 600 }}>Amber cells need your input · recomputes live</span>
+        <span style={{ marginLeft: "auto", color: "var(--c-b45309)", fontWeight: 600 }}>Amber cells need your input · recomputes live</span>
       </div>
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
         {/* CAM / Operating Expenses */}
         <div style={{ flex: 1, minWidth: 280 }}>
-          <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>CAM / Operating Expenses</div>
+          <div style={{ ...secLabel, color: "var(--c-0b4a7d)", marginBottom: 6 }}>CAM / Operating Expenses</div>
           <table style={{ width: "100%", fontSize: "var(--fs-12)", marginBottom: 8 }}>
             <thead>
               <tr style={{ color: "var(--muted)", textAlign: "left" }}>
@@ -334,7 +335,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
 
         {/* Real Estate Taxes */}
         <div style={{ flex: 1, minWidth: 280 }}>
-          <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Real Estate Taxes</div>
+          <div style={{ ...secLabel, color: "var(--c-0b4a7d)", marginBottom: 6 }}>Real Estate Taxes</div>
           <table style={{ width: "100%", fontSize: "var(--fs-12)", marginBottom: 8 }}>
             <thead>
               <tr style={{ color: "var(--muted)", textAlign: "left" }}>
@@ -754,7 +755,7 @@ export default function InterimReconPage() {
       <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "100%", maxWidth: 520, margin: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
           <div style={{ fontSize: 18, fontWeight: 800 }}>Send to {approver.first} for approval</div>
-          <button onClick={() => setConfirmSend(false)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)" }} aria-label="Close">×</button>
+          <button onClick={() => setConfirmSend(false)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)" }} aria-label="Close"><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
         </div>
         <div className="muted" style={{ fontSize: "var(--fs-13)", marginBottom: 12 }}>{meta.name} <code style={{ fontSize: "var(--fs-12)" }}>{meta.unitRef}</code></div>
         <div style={{ fontSize: "var(--fs-13)", display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 14px" }}>
@@ -762,9 +763,9 @@ export default function InterimReconPage() {
           <span className="muted">Attached</span><span>The Final Bill PDF — the same one Download PDF gives you</span>
           <span className="muted">Then</span><span>{approver.first} approves on this page, and the charges go to <strong>Tanya</strong> (trovkin@kormancommercial.com) to post to the tenant&rsquo;s account.</span>
         </div>
-        {modalUnposted > 0 && <div style={{ fontSize: "var(--fs-12-5)", marginTop: 12, color: "#b45309", fontWeight: 600 }}>GL posted through {MONTHS[meta.maxPosted - 1] ?? "—"} — {modalUnposted} occupied month{modalUnposted > 1 ? "s" : ""} still to post. The email says so; {approver.first} can approve once it posts.</div>}
-        {approval?.notifiedAt && <div style={{ fontSize: "var(--fs-12-5)", marginTop: 12, color: "#b45309", fontWeight: 600 }}>Already sent {fmtWhen(approval.notifiedAt)}{approval.notifiedBy ? ` by ${approval.notifiedBy}` : ""} — this sends it again.</div>}
-        {sendMsg && !sendMsg.ok && <div style={{ fontSize: "var(--fs-13)", marginTop: 10, fontWeight: 600, color: "#b91c1c" }}>{sendMsg.text}</div>}
+        {modalUnposted > 0 && <div style={{ fontSize: "var(--fs-12-5)", marginTop: 12, color: "var(--c-b45309)", fontWeight: 600 }}>GL posted through {MONTHS[meta.maxPosted - 1] ?? "—"} — {modalUnposted} occupied month{modalUnposted > 1 ? "s" : ""} still to post. The email says so; {approver.first} can approve once it posts.</div>}
+        {approval?.notifiedAt && <div style={{ fontSize: "var(--fs-12-5)", marginTop: 12, color: "var(--c-b45309)", fontWeight: 600 }}>Already sent {fmtWhen(approval.notifiedAt)}{approval.notifiedBy ? ` by ${approval.notifiedBy}` : ""} — this sends it again.</div>}
+        {sendMsg && !sendMsg.ok && <div style={{ fontSize: "var(--fs-13)", marginTop: 10, fontWeight: 600, color: "var(--c-b91c1c)" }}>{sendMsg.text}</div>}
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
           <button className="btn" onClick={() => setConfirmSend(false)} disabled={sending} style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 700 }}>Cancel</button>
           <button className="btn primary" onClick={sendForApproval} disabled={sending} style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 700 }}>
@@ -783,7 +784,7 @@ export default function InterimReconPage() {
         <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
           {sanity.findings.map((f, i) => (
             <li key={i} style={{ fontSize: "var(--fs-13)" }}>
-              {f.severity === "warn" && <span style={{ color: "#b45309", fontWeight: 700, marginRight: 4 }}>⚠</span>}
+              {f.severity === "warn" && <span style={{ color: "var(--c-b45309)", fontWeight: 700, marginRight: 4 }}><TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>}
               {f.note}
             </li>
           ))}
@@ -884,10 +885,10 @@ export default function InterimReconPage() {
             : <>Sent to {approver.first} for approval {fmtWhen(approval.notifiedAt)}{approval.notifiedBy ? ` by ${approval.notifiedBy}` : ""}</>}
         </div>
       )}
-      {sendMsg?.ok && <div style={{ fontSize: "var(--fs-13)", marginTop: 8, fontWeight: 600, color: "#15803d" }}>{sendMsg.text}</div>}
+      {sendMsg?.ok && <div style={{ fontSize: "var(--fs-13)", marginTop: 8, fontWeight: 600, color: "var(--c-15803d)" }}>{sendMsg.text}</div>}
       {finalizeMsg && <div style={{ fontSize: "var(--fs-13)", marginTop: 8, fontWeight: 600, color: finalizeDone ? "#15803d" : "#b91c1c" }}>{finalizeMsg}</div>}
       {confirmedGone && !meta.manual && unpostedMonths > 0 && approval?.status !== "approved" && (
-        <div style={{ fontSize: "var(--fs-12-5)", marginTop: 8, color: "#b45309", fontWeight: 600 }}>
+        <div style={{ fontSize: "var(--fs-12-5)", marginTop: 8, color: "var(--c-b45309)", fontWeight: 600 }}>
           The GL is posted through {MONTHS[meta.maxPosted - 1] ?? "—"} — {unpostedMonths} occupied month{unpostedMonths > 1 ? "s" : ""} still to post. You can send it to {approver.first} now; it can be approved once the GL is posted through the move-out month.
         </div>
       )}
@@ -911,11 +912,11 @@ export default function InterimReconPage() {
               {openAr ? "From their final Skyline Laser Statement." : <>Import the tenant&rsquo;s final Skyline <strong>Laser Statement</strong>, run for this tenant alone (a moved-out tenant is <code>{meta.unitRef}-FO</code>).</>}
               {openAr && openAr.charges?.length > 0 && (
                 <button className="btn-link" onClick={() => setShowCharges((v) => !v)}
-                  style={{ marginLeft: 6, background: "none", border: "none", padding: 0, color: "#0b4a7d", fontWeight: 700, cursor: "pointer", fontSize: "var(--fs-12)" }}>
+                  style={{ marginLeft: 6, background: "none", border: "none", padding: 0, color: "var(--c-0b4a7d)", fontWeight: 700, cursor: "pointer", fontSize: "var(--fs-12)" }}>
                   {showCharges ? "Hide charges" : `Show the ${openAr.charges.length} charges`}
                 </button>
               )}
-              {openAr?.nameMatched === false && <span style={{ color: "#b45309" }}> Filed under &ldquo;{openAr.tenantName}&rdquo; — check it is this tenant.</span>}
+              {openAr?.nameMatched === false && <span style={{ color: "var(--c-b45309)" }}> Filed under &ldquo;{openAr.tenantName}&rdquo; — check it is this tenant.</span>}
               {stmtMsg && <span style={{ fontWeight: 600, color: stmtMsg.ok ? "#15803d" : "#b91c1c" }}> {stmtMsg.text}</span>}
             </span>
             <input ref={stmtFileRef} type="file" accept=".xls,.xlsx" style={{ display: "none" }}
@@ -939,7 +940,7 @@ export default function InterimReconPage() {
               {openAr.charges.map((k, i) => (
                 <tr key={i} style={{ background: i % 2 ? "rgba(15,23,42,0.03)" : undefined }}>
                   <td style={{ padding: "3px 0", fontVariantNumeric: "tabular-nums" }}>{k.dateISO ? new Date(`${k.dateISO}T12:00:00`).toLocaleDateString("en-US") : ""}</td>
-                  <td style={{ padding: "3px 0" }}>{k.description}{k.escrow && <span title="Billed estimate, not paid — the reconciliation credits it as billed" style={{ color: "#b45309", fontWeight: 700 }}> †</span>}</td>
+                  <td style={{ padding: "3px 0" }}>{k.description}{k.escrow && <span title="Billed estimate, not paid — the reconciliation credits it as billed" style={{ color: "var(--c-b45309)", fontWeight: 700 }}> †</span>}</td>
                   <td style={{ padding: "3px 0", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(k.amount)}</td>
                 </tr>
               ))}
@@ -962,7 +963,7 @@ export default function InterimReconPage() {
               <span style={{ width: 150 }}><Calendar value={depDateIn} onChange={setDepDateIn} variant="card" placeholder="Check date" maxISO={new Date().toISOString().slice(0, 10)} /></span>
               <button className="btn sm primary" disabled={depSaving} onClick={saveDepositHere}>{depSaving ? "Saving…" : "Save"}</button>
               <button className="btn sm" disabled={depSaving} onClick={() => setDepEdit(false)}>Cancel</button>
-              {depErr && <span style={{ color: "#b91c1c", fontWeight: 600 }}>{depErr}</span>}
+              {depErr && <span style={{ color: "var(--c-b91c1c)", fontWeight: 600 }}>{depErr}</span>}
             </span>
           ) : (
             <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -972,7 +973,7 @@ export default function InterimReconPage() {
                   : !depositApplies
                     ? `${depositStatusLabel[deposit.status]} — not applied.`
                     : !(deposit.amount > 0)
-                      ? <span style={{ color: "#b45309", fontWeight: 600 }}>On file with no amount — enter it.</span>
+                      ? <span style={{ color: "var(--c-b45309)", fontWeight: 600 }}>On file with no amount — enter it.</span>
                       : null}
               </span>
               {(!deposit || depositApplies) && (
@@ -1065,14 +1066,14 @@ export default function InterimReconPage() {
         <p className="muted small" style={{ marginTop: 8, marginBottom: 0 }}>
           Recovers the tenant&apos;s pro-rata share of the YTD increase over a <b>prorated base year</b>, less the CAM/RET billed (rent-roll monthly estimate × occupied months). Expenses come live from the building&apos;s GL.
         </p>
-        {error && <div style={{ color: "#b42318", fontSize: "var(--fs-13)", marginTop: 8 }}>{error}</div>}
+        {error && <div style={{ color: "var(--c-b42318)", fontSize: "var(--fs-13)", marginTop: 8 }}>{error}</div>}
 
         {isManual && (
           <div style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
             {selectedKind === "office" ? (
               <>
                 <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-                  Manual tenant — office {property} · <span style={{ color: "#b45309" }}>amber fields need your input</span>; base year, pro-rata &amp; escrow are set on the statement and edit live.
+                  Manual tenant — office {property} · <span style={{ color: "var(--c-b45309)" }}>amber fields need your input</span>; base year, pro-rata &amp; escrow are set on the statement and edit live.
                 </div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
                   <Field label="Tenant name" wide><input style={{ ...inputStyle, ...needsStyle(draft.name.trim() === "") }} value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Reliant Care Solutions, LP" /></Field>
@@ -1089,7 +1090,7 @@ export default function InterimReconPage() {
             ) : (
               <>
                 <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-                  Manual tenant — retail {property} · <span style={{ color: "#b45309" }}>amber fields need your input</span>; expenses pull live from the building&apos;s GL.
+                  Manual tenant — retail {property} · <span style={{ color: "var(--c-b45309)" }}>amber fields need your input</span>; expenses pull live from the building&apos;s GL.
                 </div>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                   <Field label="Tenant name" wide><input style={{ ...inputStyle, ...needsStyle(draft.name.trim() === "") }} value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} placeholder="Acme Retail" /></Field>
@@ -1118,7 +1119,7 @@ export default function InterimReconPage() {
                 </div>
               </>
             )}
-            {manualMsg && <span style={{ fontSize: "var(--fs-13)", color: "#b42318" }}>{manualMsg}</span>}
+            {manualMsg && <span style={{ fontSize: "var(--fs-13)", color: "var(--c-b42318)" }}>{manualMsg}</span>}
           </div>
         )}
       </div>}
@@ -1136,7 +1137,7 @@ export default function InterimReconPage() {
               {/* A SUBSECTION of the Final Bill (owner: "final bill is the header …
                   cam would be a subsection"): smaller, brand-coloured, and
                   without the tenant name the Final Bill already carries. */}
-              <div style={{ fontSize: 17, fontWeight: 800, color: "#0b4a7d" }}>CAM / RET Reconciliation</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "var(--c-0b4a7d)" }}>CAM / RET Reconciliation</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {acctToggle}
@@ -1149,17 +1150,17 @@ export default function InterimReconPage() {
           {sanityCard}
 
           {r.unpostedMonths > 0 && (
-            <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(217,119,6,0.10)", border: "1px solid #d9770655", color: "#b45309", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>
+            <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid #d9770655", color: "var(--c-b45309)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>
               ⚠ {r.unpostedMonths} occupied month{r.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL (posted through {MONTHS[meta.maxPosted - 1] ?? "—"}). Expenses are computed through the latest posted month; re-run once the remaining month{r.unpostedMonths > 1 ? "s" : ""} post for the final figure.
             </div>
           )}
           {r.futureBaseYear && (
-            <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(21,128,61,0.08)", border: "1px solid #15803d55", color: "#15803d", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>
+            <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-green-bg, rgba(21,128,61,0.08))", border: "1px solid #15803d55", color: "var(--c-15803d)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>
               Base year is after {meta.year} — no recovery is due (the base stop hasn&apos;t been set yet).
             </div>
           )}
           {(r.dataWarnings ?? []).map((w, i) => (
-            <div key={i} style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(220,38,38,0.08)", border: "1px solid #dc262655", color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>⚠ {w}</div>
+            <div key={i} style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid #dc262655", color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>⚠ {w}</div>
           ))}
 
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
@@ -1185,7 +1186,7 @@ export default function InterimReconPage() {
               {/* A SUBSECTION of the Final Bill (owner: "final bill is the header …
                   cam would be a subsection"): smaller, brand-coloured, and
                   without the tenant name the Final Bill already carries. */}
-              <div style={{ fontSize: 17, fontWeight: 800, color: "#0b4a7d" }}>CAM / INS / RET Reconciliation</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: "var(--c-0b4a7d)" }}>CAM / INS / RET Reconciliation</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               {acctToggle}
@@ -1197,14 +1198,14 @@ export default function InterimReconPage() {
           </div>
           {sanityCard}
           {retail.unpostedMonths > 0 && (
-            <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(217,119,6,0.10)", border: "1px solid #d9770655", color: "#b45309", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>
+            <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid #d9770655", color: "var(--c-b45309)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>
               ⚠ {retail.unpostedMonths} occupied month{retail.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL (posted through {MONTHS[meta.maxPosted - 1] ?? "—"}). CAM is computed through the latest posted month; re-run once the rest post.
             </div>
           )}
           {retail.grossLease && <div className="muted small" style={{ marginBottom: 10 }}>Gross lease — no reconciliation is due.</div>}
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
             <div style={{ flex: 2, minWidth: 320 }}>
-              <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>CAM / Operating Expenses</div>
+              <div style={{ ...secLabel, color: "var(--c-0b4a7d)", marginBottom: 6 }}>CAM / Operating Expenses</div>
               <table style={{ width: "100%", fontSize: "var(--fs-12)", marginBottom: 8 }}>
                 <thead><tr style={{ color: "var(--muted)", textAlign: "left" }}>{showAcct && <th style={{ textAlign: "left", paddingRight: 6 }}>Acct</th>}<th style={{ textAlign: "left", width: "100%" }}>Expense</th><th style={numTd}>{MONTHS[retail.asOfMonth - 1].slice(0, 3)} YTD</th></tr></thead>
                 <tbody>
@@ -1225,13 +1226,13 @@ export default function InterimReconPage() {
               <FinalBalanceRow label="Balance, CAM Due" value={retail.camBalance} />
             </div>
             <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Insurance</div>
+              <div style={{ ...secLabel, color: "var(--c-0b4a7d)", marginBottom: 6 }}>Insurance</div>
               <BalanceRow label={`Property INS pool ×${retail.occupiedMonths}/12`} value={money(retail.insPool)} />
               <BalanceRow label={`× Share (${pct2(retail.insPrs)}%)`} value={money(retail.insDue)} strong />
               <BalanceRow label="Less: Billed" value={money(-retail.insEscrow)} />
               <FinalBalanceRow label="Balance, INS Due" value={retail.insBalance} />
               <div style={{ height: 14 }} />
-              <div style={{ ...secLabel, color: "#0b4a7d", marginBottom: 6 }}>Real Estate Taxes</div>
+              <div style={{ ...secLabel, color: "var(--c-0b4a7d)", marginBottom: 6 }}>Real Estate Taxes</div>
               <BalanceRow label={`RET pool ×${retail.occupiedMonths}/12`} value={money(retail.retPool)} />
               <BalanceRow label={`× Share (${pct2(retail.retPrs)}%)${retail.retDiscountPct ? ` − ${pct2(retail.retDiscountPct)}% disc` : ""}`} value={money(retail.retDue)} strong />
               <BalanceRow label={`Less: Billed (${money(meta.reTaxMonth)}/mo × ${retail.occupiedMonths})`} value={money(-retail.retEscrow)} />
