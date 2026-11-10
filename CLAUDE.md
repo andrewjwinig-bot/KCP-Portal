@@ -213,6 +213,18 @@ The user has flagged repeated drift in pill / chip / badge styling across new pa
   proper name: Payroll Budget, Management Fee, Debt Service, Rent Roll,
   Revenue by Tenant, Real Estate Taxes. The sentence around it stays sentence
   case ("This property's share of the 2010 LIK Payroll Budget").
+- **PHONE WIDTH (≤720px) lives in ONE block at the END of `globals.css`**
+  (owner: "audit and fix mobile view"). It must stay AFTER the base `.pills`
+  / `.pill` rules — the older 720px block near the top lost to them at equal
+  specificity, which is why tiles overlapped on every phone. There: KPI tile
+  rows (`.pills`) become a two-column grid (an odd last tile full width), a
+  figure scales (`clamp`) and never breaks mid-number while labels wrap, and
+  the page header's KORMAN | COMMERCIAL PROPERTIES wordmark (`.brand-wordmark`,
+  on every staff page header) is hidden — it squeezed the title into a
+  one-word column. A new page header with the wordmark takes that class; the
+  public tenant forms (`/service`, `/submit`, `/reserve`) keep theirs. The
+  AppShell clips sideways (`overflowX: hidden`), so a wide table must scroll
+  inside its own card (`overflowX: auto`), never widen the page.
 - When a section's purpose mirrors something on another page (a download menu, a hidden-accounts list, a KPI row, a tab+filter+table), copy that page's component/markup/spacing rather than approximating it inline.
 
 **The sidebar (`app/components/Sidebar.tsx`)**: within a group the order is
