@@ -35,3 +35,25 @@ describe("UI drift", () => {
     expect(offenders, `Use fontSize: "var(--fs-NN)" instead:\n${offenders.join("\n")}`).toEqual([]);
   });
 });
+
+// THE RATCHET. The rest of the old styling is still being swept page by page,
+// so these can't be zero yet — but they may never go UP. A new page that
+// reaches for an emoji tick, a text arrow, a hand-typed colour or a tinted
+// box fails here. When a sweep removes some, LOWER the number in the same
+// change so the gain is locked in.
+const RATCHET: { name: string; re: RegExp; max: number; fix: string }[] = [
+  { name: "emoji / glyph ticks", re: /✅|⚠️|⚠|🕗|📄|✓|✔|✕|×/g, max: 259, fix: "Lucide CircleCheck / TriangleAlert / X" },
+  { name: "text arrows", re: /→|←|▾|▸|▼|▶/g, max: 392, fix: "Lucide ChevronRight / ChevronDown, or .text-link" },
+  { name: "inline hex colours", re: /"#[0-9a-fA-F]{6}"/g, max: 1422, fix: "var(--brand) / var(--muted) / a tone in Pill.tsx" },
+  { name: "tinted rgba fills", re: /background: "rgba\(/g, max: 394, fix: "a hairline row with the status in words" },
+];
+
+describe("UI drift ratchet", () => {
+  const srcs = walk("app").map((path) => readFileSync(path, "utf8"));
+  for (const r of RATCHET) {
+    it(`${r.name} do not increase (max ${r.max})`, () => {
+      const n = srcs.reduce((sum, src) => sum + (src.match(r.re)?.length ?? 0), 0);
+      expect(n, `${r.name}: ${n} > ${r.max}. Use ${r.fix} instead (or lower the max if you removed some).`).toBeLessThanOrEqual(r.max);
+    });
+  }
+});
