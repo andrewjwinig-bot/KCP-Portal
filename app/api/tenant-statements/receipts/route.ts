@@ -141,8 +141,13 @@ export async function GET(req: NextRequest) {
     });
     draft = { ...parts, tableHtml: receiptTableHtml({ acct, plan, asOfISO: asOf }), signature: (await signer(st.propertyCode)).signature };
   }
+  // The Credit Balance report covering this tenant's property — when it is
+  // newer than the laser statement, it is the most recent data on the page.
+  const ag = await currentAging();
+  const agAsOf = ag.coverage[st.propertyCode] ?? null;
+  const agingRun = agAsOf ? { asOf: agAsOf, runAt: ag.tenants.find((t) => t.propertyCode === st.propertyCode && t.asOf === agAsOf)?.runAt ?? null } : null;
   return NextResponse.json({
-    ok: true, period, asOf, dates, source: found.dates.source, agingAsOf: found.agingAsOf,
+    ok: true, period, asOf, dates, aging: agingRun, source: found.dates.source, agingAsOf: found.agingAsOf,
     tenant: { unitRef: st.unitRef, tenantName: st.tenantName, propertyCode: st.propertyCode, propertyName: propertyName(st.propertyCode), suite: st.suite, tiesOut: st.tiesOut },
     account: acct, explanations, plan, recipients, draft, respondBy: respondByFrom(todayET()),
   });

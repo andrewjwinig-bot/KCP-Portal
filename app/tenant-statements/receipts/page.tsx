@@ -36,6 +36,7 @@ const longDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateStrin
 const todayISO = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
+type AgingRun = { asOf: string; runAt: string | null };
 type DataDates = { dataThrough: string | null; importedOn: string | null; stampRead?: boolean; source?: "aging" | "statement" };
 const etStamp = (iso: string, withTime: boolean) => new Date(iso).toLocaleString("en-US", {
   timeZone: "America/New_York", weekday: "long", month: "long", day: "numeric", year: "numeric", ...(withTime ? { hour: "numeric", minute: "2-digit" } : {}),
@@ -56,7 +57,7 @@ type SentEmail = {
   subject: string; messageId: string | null; testMode: boolean; attachmentName: string | null;
 };
 type Detail = {
-  period: string; asOf: string | null; dates: DataDates;
+  period: string; asOf: string | null; dates: DataDates; aging?: AgingRun | null;
   tenant: { unitRef: string; tenantName: string; propertyCode: string; propertyName: string; suite: string; tiesOut: boolean };
   account: Account; explanations: Explanation[]; plan: Explanation | null; recipients: string[];
   draft: { subject: string; opening: string; closing: string; tableHtml: string; signature?: EmailSignature } | null; respondBy: string;
@@ -82,6 +83,7 @@ export default function ReceiptReconciliationPage() {
   const [period, setPeriod] = useState<string | null>(null);
   const [periods, setPeriods] = useState<string[]>([]);
   const [monthDates, setMonthDates] = useState<DataDates | null>(null);
+  const [monthAging, setMonthAging] = useState<AgingRun | null>(null);
   const [tenants, setTenants] = useState<TenantRow[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [sentEmails, setSentEmails] = useState<SentEmail[]>([]);
@@ -110,6 +112,14 @@ export default function ReceiptReconciliationPage() {
   /** A saved draft re-opened: sending it replaces the draft, not a second record. */
   const [draftId, setDraftId] = useState<string | null>(null);
   const [openRow, setOpenRow] = useState<string | null>(null);
+  // The header tiles open their receipts: who was emailed, when, and the email.
+  const [statusFilter, setStatusFilter] = useState<Status | null>(null);
+  const receiptsRef = useRef<HTMLElement>(null);
+  const showStatus = (st: Status) => {
+    setStatusFilter((cur) => (cur === st ? null : st));
+    setOpenRow(null);
+    requestAnimationFrame(() => receiptsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
 
   const amount = Number(amountText.replace(/[$,\s]/g, ""));
   const validAmount = Number.isFinite(amount) && amount > 0;
@@ -119,7 +129,7 @@ export default function ReceiptReconciliationPage() {
     const r = await fetch(`/api/tenant-statements/receipts${p ? `?period=${p}` : ""}`, { cache: "no-store" }).catch(() => null);
     const j = r ? await r.json().catch(() => null) : null;
     if (!j?.ok) { setError(j?.error ?? "Could not load the statements."); return; }
-    setPeriod(j.period); setPeriods(j.periods); setMonthDates(j.dates ?? null); setTenants(j.tenants); setReceipts(j.receipts); setSentEmails(j.sentEmails ?? []);
+    setPeriod(j.period); setPeriods(j.periods); setMonthDates(j.dates ?? null); setMonthAging(j.aging ?? null); setTenants(j.tenants); setReceipts(j.receipts); setSentEmails(j.sentEmails ?? []);
   }, []);
   // The Credit Balance report, imported right here (owner: "tami should be
   // able to import that file on Receipt Reconciliation page as well").
@@ -203,6 +213,19 @@ export default function ReceiptReconciliationPage() {
   }, [detail, chSort, orderSeq]);
   /** The tenant's own data dates once one is picked, else the month's. */
   const dataDates: DataDates | null = detail?.dates ?? monthDates;
+  /** The newer of the laser statement and the Credit Balance report. */
+  const freshness = useMemo(() => {
+    const opts: { label: string; at: string; exact: boolean }[] = [];
+    const laserAt = dataDates?.dataThrough ?? dataDates?.importedOn;
+    if (laserAt) opts.push({ label: dataDates?.source === "aging" ? "Credit Balance report" : "laser statement", at: laserAt, exact: !!dataDates?.dataThrough });
+    const ag = detail ? detail.aging : monthAging;
+    if (ag) opts.push({ label: "Credit Balance report", at: ag.runAt ?? `${ag.asOf}T12:00:00`, exact: !!ag.runAt });
+    if (!opts.length) return null;
+    const best = opts.sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime())[0];
+    const dayOf = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
+    const days = Math.max(0, Math.round((Date.parse(dayOf(new Date())) - Date.parse(dayOf(new Date(best.at)))) / 86_400_000));
+    return { ...best, days };
+  }, [dataDates, detail, monthAging]);
   /** A payment is typed and read — show what it covers. */
   const applying = !!(detail && validAmount && plan);
   const appliedByIdx = useMemo(() => new Map((plan?.lines ?? []).map((l) => [l.idx, l])), [plan]);
@@ -288,37 +311,25 @@ export default function ReceiptReconciliationPage() {
           <InfoPopover align="left"><ImportInstructions variant="credit-balance" /></InfoPopover>
         </div>
         <div className="pills" style={{ margin: 0 }}>
-          <StatPill label="Ready to apply" value={counts.apply} accent={counts.apply ? "var(--c-15803d)" : undefined} />
-          <StatPill label="Waiting on tenant" value={counts.waiting} accent={counts.waiting ? "var(--c-b45309)" : undefined} />
+          <StatPill label="Ready to apply" value={counts.apply} accent={counts.apply ? "var(--c-15803d)" : undefined} onClick={counts.apply ? () => showStatus("apply") : undefined} hint="Show who was emailed and what" />
+          <StatPill label="Waiting on tenant" value={counts.waiting} accent={counts.waiting ? "var(--c-b45309)" : undefined} onClick={counts.waiting ? () => showStatus("waiting") : undefined} hint="Show who was emailed and what" />
         </div>
       </header>
 
       {error && <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
 
-      {/* The figures are only as current as the laser statement behind them —
-          a payment or charge keyed in Skyline since will not be here. The
-          tenant's own import date when one is picked, else the month's. */}
-      {dataDates && (dataDates.dataThrough || dataDates.importedOn) && (
+      {/* How current the page is: the NEWER of the laser statement and the
+          Credit Balance report (owner: "whichever was imported last should
+          be the most recent data"). Tight on purpose — one line, one action. */}
+      {freshness && (
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))", background: "var(--tint-amber-bg, rgba(217,119,6,0.08))", borderRadius: 12, padding: "12px 16px" }}>
-          <span aria-hidden style={{ fontSize: 18, lineHeight: 1.2, color: "var(--c-b45309)" }}><TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
+          <TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ marginTop: 3, flexShrink: 0 }} />
           <div style={{ display: "grid", gap: 2 }}>
-            {dataDates.dataThrough ? (
-              <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
-                Data through {etStamp(dataDates.dataThrough, true)}{detail ? ` for ${detail.tenant.tenantName}` : ""} — when Skyline ran the {dataDates.source === "aging" ? "Credit Balance report" : "laser statement"}.
-              </div>
-            ) : (
-              <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
-                Imported {etStamp(dataDates.importedOn!, false)}{detail ? ` for ${detail.tenant.tenantName}` : ""} — the data is at least this old.
-              </div>
-            )}
+            <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
+              Most recent data: the {freshness.label}, {freshness.exact ? "run" : "imported"} {etStamp(freshness.at, freshness.exact)} · {freshness.days === 0 ? "today" : `${freshness.days} day${freshness.days === 1 ? "" : "s"} old`}
+            </div>
             <div className="small">
-              {dataDates.dataThrough
-                ? <>Open items as posted in Skyline up to that moment{dataDates.importedOn ? <> (imported into the portal {etStamp(dataDates.importedOn, false)})</> : null}. </>
-                : dataDates.stampRead
-                  ? <>Skyline&rsquo;s file doesn&rsquo;t record when the report was run, so this is the latest it could be — the run may be earlier. </>
-                  : <>This was imported before the portal read the export time — re-import the laser statement to capture when Skyline ran it. </>}
-              {dataDates.source === "aging" && <>Read from the Credit Balance report, which itemizes each credit with its date. </>}
-              Anything posted since — a payment, a credit, a new charge — isn&rsquo;t shown here; re-import the Credit Balance report above to pick it up. Every tenant with a credit: <a className="text-link" href="/tenant-statements/credits">Open Credits</a>. Check the tenant&rsquo;s <b>Occupant History</b> in Skyline for unposted items before you reconcile or email them.
+              To get current, import a fresh Credit Balance report. Every tenant with a credit: <a className="text-link" href="/tenant-statements/credits">Open Credits</a>.
             </div>
           </div>
         </div>
@@ -599,8 +610,14 @@ export default function ReceiptReconciliationPage() {
       )}
 
       {/* ── Receipts in progress ─────────────────────────────────────── */}
-      <section className="card" style={{ padding: 0 }}>
-        <div style={{ padding: "14px 18px 6px", fontSize: 17, fontWeight: 800 }}>Receipts</div>
+      <section ref={receiptsRef} className="card" style={{ padding: 0, scrollMarginTop: 16 }}>
+        <div style={{ padding: "14px 18px 6px", display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Receipts</div>
+          {statusFilter && <>
+            <span className="muted small">Showing {STATUS_BAND[statusFilter]}</span>
+            <button className="btn sm" onClick={() => setStatusFilter(null)}>Show all</button>
+          </>}
+        </div>
         {!receipts.length ? <div className="muted small" style={{ padding: "6px 18px 16px" }}>None yet — work a payment above.</div> : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -608,7 +625,7 @@ export default function ReceiptReconciliationPage() {
                 <th style={thL}>Tenant</th><th style={thL}>Received</th><th style={th}>Paid</th><th style={thL}>Applied as</th><th style={thL}>Status</th><th style={thL} />
               </tr></thead>
               <tbody>
-                {STATUS_ORDER.map((s) => {
+                {STATUS_ORDER.filter((s) => !statusFilter || s === statusFilter).map((s) => {
                   const rows = receipts.filter((r) => r.status === s);
                   if (!rows.length) return null;
                   return (
@@ -619,7 +636,8 @@ export default function ReceiptReconciliationPage() {
                         return (
                           <Fragment key={r.id}>
                             <tr style={{ borderTop: "1px solid var(--border)", cursor: "pointer" }} onClick={() => setOpenRow(isOpen ? null : r.id)}>
-                              <td style={{ ...tdL, whiteSpace: "normal" }}><span className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span><b>{r.tenantName}</b> <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
+                              <td style={{ ...tdL, whiteSpace: "normal" }}><span className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span><b>{r.tenantName}</b> <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code>
+                                {r.email && <div className="muted small" style={{ marginTop: 2 }}>Emailed {new Date(r.email.sentAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.email.sentBy ? ` by ${r.email.sentBy}` : ""} to {r.email.to.join(", ")}</div>}</td>
                               <td style={tdL}>{dateLabel(r.receivedISO)}{r.checkNo ? <span className="muted small"> · #{r.checkNo}</span> : null}</td>
                               <td style={{ ...td, fontWeight: 700 }}>{money(r.amount)}</td>
                               <td style={{ ...tdL, whiteSpace: "normal" }}>{r.plan.title}</td>
@@ -629,6 +647,7 @@ export default function ReceiptReconciliationPage() {
                                 {r.status === "apply" && <div className="muted small" style={{ marginTop: 2 }}>{r.reply ? `tenant answered ${dateLabel(r.reply.at.slice(0, 10))}` : "no answer — applies as emailed"}</div>}
                               </td>
                               <td style={{ ...td, whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
+                                {(r.emailIds?.length ?? 0) > 0 && <><button className="btn sm" onClick={() => setViewing(r.emailIds![r.emailIds!.length - 1])}>View email</button>{" "}</>}
                                 {r.status === "waiting" && <button className="btn sm" onClick={() => answer(r)}>Tenant answered…</button>}
                                 {r.status === "draft" && <button className="btn sm" onClick={() => answer(r, true)}>Open</button>}{" "}
                                 {r.status === "apply" && <button className="btn sm primary" disabled={busy} onClick={() => act(r.id, "posted")}>Mark posted</button>}

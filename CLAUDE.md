@@ -1402,6 +1402,15 @@ charges"; `RESPOND_BUSINESS_DAYS`, `respondByFrom`); with no answer the record t
   closing (which now ends "Thank you,"), so an edit cannot drop it: the receipt
   email, the balance reminder, the open-credit notice and Drew's quarterly Wawa
   email. The drafts show it under the closing, not editable.
+- **THE DATA-AGE NOTE NAMES THE NEWEST IMPORT** (owner: "whichever was
+  imported last should be the most recent data"; `freshness` on the page): the
+  newer of the laser statement and the Credit Balance report covering the
+  property (`aging` on the month and tenant responses) — "Most recent data: the
+  Credit Balance report, run … · n days old", then one line: import a fresh
+  Credit Balance report to get current. Kept short (owner: "tighten it up").
+- **The Ready to apply / Waiting on tenant tiles open their receipts**
+  (filtered, scrolled to), and every emailed row says when, by whom and to
+  whom, with **View email** (the archived send).
 - The email step shows from the moment a tenant is picked (it drafts once a
   payment is typed), with **Copy email** for a suite with no email on file.
 - Records: `tenant-receipt-recs` (`receiptStore.ts`); API
