@@ -1519,6 +1519,9 @@ variant="credit-balance"`. Its title prints "Aging Report (Detailed)".
   notice, and the page says which source each comes from. It used to read the
   report alone and said "no report imported" while Receipt Reconciliation
   showed the same tenants' credits.
+- **A credit under $5 is not listed** (`MIN_OPEN_CREDIT`; owner: "we dont
+  need to bother emailing the tenant for something that small") — the page
+  says how many were left off. Receipt Reconciliation still applies them.
 - **The report imports from BOTH pages** — Open Credits and Receipt
   Reconciliation's header (`useCreditBalanceImport`, one flow; the SAME white `.btn` on both) — and the
   Skyline steps sit behind an ⓘ (`InfoPopover`, `app/components/`, shared with
