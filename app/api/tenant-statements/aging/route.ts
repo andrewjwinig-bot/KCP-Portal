@@ -12,7 +12,9 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { currentAging, importAging } from "@/lib/statements/agingStore";
-import { agingLookup, creditLinesOf, daysOpen, type CurrentAgingTenant } from "@/lib/statements/aging";
+import { agingLookup, creditLinesOf, daysOpen, laserCreditTenants, type CurrentAgingTenant, type OpenCreditTenant } from "@/lib/statements/aging";
+import { allRuns } from "@/lib/statements/store";
+import { laserDate } from "@/lib/statements/currentAccount";
 import { creditNoticeParts, creditNoticeTableHtml, creditTotals, nextMonthLabel, renderCreditNotice } from "@/lib/statements/creditNotice";
 import { allCorrespondence, newCorrespondenceId, recordTenantEmail } from "@/lib/statements/correspondenceStore";
 import { creditNotes } from "@/lib/statements/creditNoteStore";
@@ -33,9 +35,22 @@ async function who(): Promise<string | null> {
 }
 const money2 = (n: number) => `$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+/** Every tenant with a credit: the Credit Balance report where it covers the
+ *  property, else the newest laser statement — the same account Receipt
+ *  Reconciliation reads. */
+async function openCreditTenants(): Promise<{ tenants: OpenCreditTenant[]; coverage: Record<string, string>; laserPeriod: string | null; laserAsOf: string | null }> {
+  const [aging, runs] = await Promise.all([currentAging(), allRuns().catch(() => [])]);
+  const run = runs[0] ?? null;
+  const laser = run ? laserCreditTenants(run.statements, aging.coverage, (st) => laserDate(st, run.updatedAt)) : [];
+  const laserAsOf = laser.map((t) => t.asOf).sort().pop() ?? null;
+  return { tenants: [...aging.tenants, ...laser], coverage: aging.coverage, laserPeriod: laser.length ? run!.period : null, laserAsOf };
+}
+
 async function tenantOf(unit: string): Promise<CurrentAgingTenant | null> {
   const hit = agingLookup(await currentAging(), unit);
-  return hit.kind === "found" ? hit.tenant : null;
+  if (hit.kind === "found") return hit.tenant;
+  const ref = unit.trim().toUpperCase();
+  return (await openCreditTenants()).tenants.find((t) => t.unitRef.toUpperCase() === ref) ?? null;
 }
 
 async function draftFor(t: CurrentAgingTenant) {
@@ -53,7 +68,7 @@ export async function GET(req: NextRequest) {
     if (!t) return NextResponse.json({ error: "That tenant is not on the latest Credit Balance report." }, { status: 404 });
     return NextResponse.json({ ok: true, draft: await draftFor(t), recipients: await suiteRecipients(t.unitRef), totals: creditTotals(t.lines) });
   }
-  const [aging, corr, notes] = await Promise.all([currentAging(), allCorrespondence().catch(() => []), creditNotes().catch(() => ({}))]);
+  const [aging, corr, notes] = await Promise.all([openCreditTenants(), allCorrespondence().catch(() => []), creditNotes().catch(() => ({}))]);
   const tenants = aging.tenants
     .map((t) => {
       const credits = creditLinesOf(t);
@@ -64,7 +79,7 @@ export async function GET(req: NextRequest) {
       return {
         unitRef: t.unitRef, tenantName: t.tenantName, propertyCode: t.propertyCode, propertyName: propertyLabel(t.propertyCode),
         suite: t.suite, asOf: t.asOf, contact: t.contact, phone: t.phone, depositsHeld: t.depositsHeld, balanceDue: t.balanceDue,
-        tiesOut: t.tiesOut, lines: t.lines, ...totals,
+        tiesOut: t.tiesOut, lines: t.lines, ...totals, fromLaser: !!(t as OpenCreditTenant).fromLaser,
         oldestCredit: credits[0].dateISO, oldestDays: daysOpen(credits[0].dateISO, t.asOf),
         lastNotice: notice ? { sentAt: notice.sentAt, sentBy: notice.sentBy, id: notice.id, source: notice.source } : null,
         lastContact: mine[0] ? { sentAt: mine[0].sentAt, kind: mine[0].kind } : null,
@@ -73,7 +88,11 @@ export async function GET(req: NextRequest) {
     })
     .filter(Boolean);
   const asOf = Object.values(aging.coverage).sort().pop() ?? null;
-  return NextResponse.json({ ok: true, asOf, runAt: aging.tenants.find((t) => t.asOf === asOf)?.runAt ?? null, properties: Object.keys(aging.coverage).length, tenants });
+  return NextResponse.json({
+    ok: true, asOf, runAt: aging.tenants.find((t) => t.asOf === asOf && !(t as OpenCreditTenant).fromLaser)?.runAt ?? null, properties: Object.keys(aging.coverage).length, tenants,
+    // Tenants read off the laser statement (properties the Credit Balance report doesn't cover).
+    laser: aging.laserPeriod ? { period: aging.laserPeriod, asOf: aging.laserAsOf } : null,
+  });
 }
 
 export async function POST(req: NextRequest) {

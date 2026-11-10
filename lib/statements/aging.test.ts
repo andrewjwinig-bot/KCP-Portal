@@ -110,3 +110,22 @@ describe("Skyline Aging Report (Credit Balance) import", () => {
     expect(creditTotals(parsed.blocks[1].tenants[1].lines)).toEqual({ credit: 633, charges: 633, net: 0 });
   });
 });
+
+describe("Open Credits reads the laser statement where the report doesn't reach", () => {
+  const st = (unitRef: string, charges: { amount: number; description: string; dateISO: string | null }[]) => ({
+    unitRef, propertyCode: unitRef.split("-")[0], suite: unitRef.split("-")[1], tenantName: `T ${unitRef}`, tiesOut: true,
+    charges: charges.map((c) => ({ ...c, category: "other" as const, section: "prior" as const })),
+  }) as unknown as import("./types").TenantStatement;
+  it("lists a laser tenant with a credit, skips covered properties and tenants with none", async () => {
+    const { laserCreditTenants } = await import("./aging");
+    const out = laserCreditTenants([
+      st("4050-113", [{ amount: 1200, description: "Rent", dateISO: "2026-11-01" }, { amount: -1580.47, description: "Open Credits", dateISO: null }]),
+      st("4050-200", [{ amount: 900, description: "Rent", dateISO: "2026-11-01" }]),
+      st("2300-1817", [{ amount: -50, description: "Open Credits", dateISO: null }]),
+    ], { "2300": "2026-11-10" }, () => "2026-11-02");
+    expect(out.map((t) => t.unitRef)).toEqual(["4050-113"]);
+    expect(out[0].fromLaser).toBe(true);
+    expect(out[0].lines.find((l) => l.amount < 0)?.amount).toBe(-1580.47);
+    expect(out[0].asOf).toBe("2026-11-02");
+  });
+});
