@@ -149,7 +149,8 @@ export default function SiteHeader() {
               >
                 <div className="flex flex-col space-y-4">
                   <Link href="/service" target="_blank" rel="noopener noreferrer" className={side}><Wrench className="h-4 w-4 mr-2" /><span>Service Requests</span></Link>
-                  <Link href="/" target="_blank" rel="noopener noreferrer" className={side}><ExternalLink className="h-4 w-4 mr-2" /><span>Portal</span></Link>
+                  {/* The portal lives on its own host; "/" on kormancommercial.com is the website itself. */}
+                  <a href="https://portal.kormancommercial.com/login" target="_blank" rel="noopener noreferrer" className={side}><ExternalLink className="h-4 w-4 mr-2" /><span>Portal</span></a>
                   <a href="https://www.rentpayment.com/pay/login.html" target="_blank" rel="noopener noreferrer" className={side}><WalletMinimal className="h-4 w-4 mr-2" /><span>Pay Rent</span></a>
                   <a href="mailto:info@kormancommercial.com" className={side}><Mail className="h-4 w-4 mr-2" /><span>info@kormancommercial.com</span></a>
                   <a href="tel:2152445100" className={side}><Phone className="h-4 w-4 mr-2" /><span>215.244.5100</span></a>
