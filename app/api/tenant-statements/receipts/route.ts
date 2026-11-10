@@ -19,16 +19,11 @@
 // plan is never what a payment is applied against.
 
 import { NextRequest, NextResponse } from "next/server";
-import { jsPDF } from "jspdf";
-import { drawMonthlyStatement } from "@/lib/statements/monthlyStatementPdf";
 import { allRuns, getRun } from "@/lib/statements/store";
 import { accountOf, explainPayment, planById, receiptEmailParts, receiptTableHtml, renderReceiptEmail, respondByFrom, type Explanation } from "@/lib/statements/receiptMatch";
 import { allReceipts, deleteReceipt, getReceipt, receiptStatus, saveReceipt, todayET, type ReceiptRec } from "@/lib/statements/receiptStore";
-import { instructionsFor } from "@/lib/statements/payment";
-import { getOrEmptySuiteContacts } from "@/lib/suites/contactsStorage";
-import { camRecipientEmails } from "@/lib/suites/contacts";
-import { PROPERTY_DEFS } from "@/lib/properties/data";
-import { sendMailDetailed, VERIFIED_FROM, isMailConfigured } from "@/lib/mail";
+import { isMailConfigured } from "@/lib/mail";
+import { arSigner, propertyLabel, sendFromAr, statementPdf, suiteRecipients } from "@/lib/statements/tenantMail";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
 import { logAudit, auditIp } from "@/lib/audit";
@@ -40,11 +35,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const propertyName = (code: string) => {
-  const d = PROPERTY_DEFS.find((p) => p.id === code);
-  if (!d) return code;
-  return d.fundGroup ? `${d.name}, Neshaminy Interplex` : d.name;
-};
+const propertyName = propertyLabel;
 const money = (n: unknown) => { const v = Math.round(Number(n) * 100) / 100; return Number.isFinite(v) ? v : NaN; };
 const isISO = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
@@ -68,35 +59,8 @@ async function statementOf(period: string, unit: string): Promise<{ st: TenantSt
   return { st, dates, asOf: (dates.dataThrough ?? dates.importedOn)?.slice(0, 10) ?? null };
 }
 
-/** The tenant's statement of account for the month — the same branded PDF
- *  their portal serves — attached to the receipt email (owner: "attach the
- *  tenant's most recent laser statement"). */
-async function statementPdf(period: string, st: TenantStatement): Promise<{ name: string; content: Uint8Array; contentType: string }> {
-  const doc = new jsPDF({ unit: "pt", format: "letter" });
-  // The statement attached to Tami's email names HER as the contact, even if
-  // a stored Payment Instructions override still carries an older name.
-  const payment = { ...(await instructionsFor(st.propertyCode)), contactName: RECEIPT_FROM_NAME, contactEmail: RECEIPT_FROM };
-  drawMonthlyStatement(doc, st, { propLabel: `${st.propertyCode} — ${propertyName(st.propertyCode)}`, period, payment });
-  const safe = (s: string) => s.replace(/[^\w]+/g, "_");
-  return { name: `${safe(st.tenantName)}_${period}_Statement.pdf`, content: new Uint8Array(doc.output("arraybuffer")), contentType: "application/pdf" };
-}
-
-async function recipientsFor(unitRef: string): Promise<string[]> {
-  const rec = await getOrEmptySuiteContacts(unitRef.replace(/-FO$/i, ""));
-  return camRecipientEmails(rec.contacts).split(";").map((s) => s.trim()).filter(Boolean);
-}
-
-// Tami sends these and answers them (owner, 11/2026: "set it up to be from
-// ttomlinson@kormancommercial.com"): her address is the From, the Reply-To
-// and the blind copy, and she signs it. RECEIPT_FROM / RECEIPT_FROM_NAME
-// override without a deploy.
-const RECEIPT_FROM = (process.env.RECEIPT_FROM ?? "ttomlinson@kormancommercial.com").trim();
-const RECEIPT_FROM_NAME = (process.env.RECEIPT_FROM_NAME ?? "Tami Tomlinson").trim();
-
-async function signer(propertyCode: string) {
-  const ins = await instructionsFor(propertyCode);
-  return { name: RECEIPT_FROM_NAME, title: "Accounts Receivable", email: RECEIPT_FROM, phone: ins.contactPhone || undefined };
-}
+const recipientsFor = suiteRecipients;
+const signer = arSigner;
 
 async function who(): Promise<string | null> {
   const u = await budgetUser();
@@ -227,15 +191,7 @@ export async function POST(req: NextRequest) {
       // From Tami's own address. Postmark sends only from an address it has
       // verified, so if hers is refused the email still goes — from the
       // portal's verified sender, under her name, replies still to her.
-      let fromUsed = sig.email;
-      let fromHeader = `${sig.name}, Korman Commercial Properties <${sig.email}>`;
-      let sent = await sendMailDetailed({ ...msg, from: fromHeader });
-      if (!sent.ok && sig.email.toLowerCase() !== VERIFIED_FROM.toLowerCase()) {
-        console.warn(`[receipts] sending from ${sig.email} refused (${sent.error}) — retrying from ${VERIFIED_FROM}`);
-        fromUsed = VERIFIED_FROM;
-        fromHeader = `${sig.name}, Korman Commercial Properties <${VERIFIED_FROM}>`;
-        sent = await sendMailDetailed({ ...msg, from: fromHeader });
-      }
+      const { result: sent, fromHeader, fromUsed } = await sendFromAr(msg, sig);
       if (!sent.ok) return NextResponse.json({ error: `The email did not send: ${sent.error ?? "unknown error"}` }, { status: 502 });
       rec.respondByISO = respondByFrom(todayET());
       // The archive: the email EXACTLY as it went — kept on its own, so the
