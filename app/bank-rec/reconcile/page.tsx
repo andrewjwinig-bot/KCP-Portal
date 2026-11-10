@@ -1,4 +1,5 @@
 "use client";
+import { FilePath } from "@/app/components/FilePath";
 import { Check, ChevronDown, ChevronRight, CircleCheck } from "lucide-react";
 
 // Bank Recs — every bank account, every month, reconciled by the portal
@@ -204,7 +205,7 @@ export default function BankRecPage() {
               <div style={{ fontWeight: 700 }}>Drop the {periodLabel(period)} folder here</div>
               <div className="muted small" style={{ marginTop: 3 }}>
                 The bank statements, Marie&rsquo;s Skyline recs and Skyline&rsquo;s <b>Checking Account Report</b> (.xls) — from
-                {" "}<code style={{ fontSize: "var(--fs-12)" }}>!{period.slice(0, 4)} Year End / Bank Account Reconciliations / {period.slice(5)} {MONTHS[Number(period.slice(5)) - 1]} {period.slice(0, 4)}</code>.
+                <span style={{ display: "block", marginTop: 6, maxWidth: 640 }}><FilePath path={`!${period.slice(0, 4)} Year End\\Bank Account Reconciliations\\${period.slice(5)} ${MONTHS[Number(period.slice(5)) - 1]} ${period.slice(0, 4)}`} /></span>
                 Each file is matched by the account number inside it; names don&rsquo;t matter. Re-drop any time as the month fills in.
               </div>
             </div>

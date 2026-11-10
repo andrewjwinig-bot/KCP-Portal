@@ -202,6 +202,15 @@ without one), and a new import prompt anywhere takes the icon. The Credit Card
 (AmEx) and Payroll Register entries are a first pass — confirm the source
 system's menus with Harry and correct them there.
 
+**A FILE OR FOLDER PATH IS ALWAYS `FilePath`** (`app/components/FilePath.tsx`;
+owner: "file paths should have a format too"): a quiet chip with a folder icon,
+the path in navy mono, `{year}` filled in, any part still to choose
+(`<NN Month YYYY>`) in muted italics, and a Copy button so it pastes straight
+into Explorer. Never type a path into a sentence, bold it or put it in a bare
+`<code>`. In the import steps a path is the entry's `path` field
+(`{ label: "Save to" | "Find them in", value }`), never step text. Used by the
+steps popover, the GL import modal and the Bank Recs drop zone.
+
 # UI consistency — pills, badges, fonts, sizes
 
 The user has flagged repeated drift in pill / chip / badge styling across new pages. Do NOT re-invent chip styles inline. Always use the shared primitives:
