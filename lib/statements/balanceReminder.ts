@@ -5,6 +5,7 @@
 // figures a tenant reads are never typed.
 
 import type { Account } from "./receiptMatch";
+import { signatureHtml, signatureText, type EmailSignature } from "@/lib/emailSignature";
 
 export type ReminderInput = {
   tenantName: string;
@@ -39,7 +40,8 @@ export function reminderEmailParts(x: ReminderInput): { subject: string; opening
   const closing = [
     `If you have already sent payment, thank you — please reply with the date and check number so we can match it. If you have a question about any of these charges, just reply to this email.`,
     `If you are not the person who handles payments for your company, please forward this email to the appropriate person or department.`,
-    [`Thank you,`, x.signer.name, ...(x.signer.title ? [x.signer.title] : []), "Korman Commercial Properties", x.signer.email, ...(x.signer.phone ? [x.signer.phone] : [])].join("\n"),
+    // The signature (name, office, phone, logo) is added at render.
+    `Thank you,`,
   ].join("\n\n");
   return { subject, opening, closing };
 }
@@ -74,7 +76,7 @@ function reminderTableText(acct: Account, asOfISO: string | null): string {
 }
 
 /** The email as it sends — Tami's text escaped around the generated table. */
-export function renderReminderEmail(acct: Account, asOfISO: string | null, opening: string, closing: string): { html: string; text: string } {
-  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#111827;max-width:700px">${paras(opening)}${reminderTableHtml(acct, asOfISO)}${paras(closing)}</div>`;
-  return { html, text: `${opening}\n\n${reminderTableText(acct, asOfISO)}\n\n${closing}` };
+export function renderReminderEmail(acct: Account, asOfISO: string | null, opening: string, closing: string, sig?: EmailSignature): { html: string; text: string } {
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#111827;max-width:700px">${paras(opening)}${reminderTableHtml(acct, asOfISO)}${paras(closing)}${sig ? signatureHtml(sig) : ""}</div>`;
+  return { html, text: `${opening}\n\n${reminderTableText(acct, asOfISO)}\n\n${closing}${sig ? `\n${signatureText(sig)}` : ""}` };
 }

@@ -23,6 +23,7 @@ import { allRuns, getRun } from "@/lib/statements/store";
 import { accountOf, explainPayment, planById, receiptEmailParts, receiptTableHtml, renderReceiptEmail, respondByFrom, type Explanation } from "@/lib/statements/receiptMatch";
 import { allReceipts, deleteReceipt, getReceipt, receiptStatus, saveReceipt, todayET, type ReceiptRec } from "@/lib/statements/receiptStore";
 import { isMailConfigured } from "@/lib/mail";
+import type { EmailSignature } from "@/lib/emailSignature";
 import { arSigner, propertyLabel, sendFromAr, statementPdf, suiteRecipients } from "@/lib/statements/tenantMail";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
@@ -130,7 +131,7 @@ export async function GET(req: NextRequest) {
   const recipients = await recipientsFor(st.unitRef);
   const planId = q.get("plan");
   // The editable opening / closing, and the generated table between them.
-  let draft: { subject: string; opening: string; closing: string; tableHtml: string } | null = null;
+  let draft: { subject: string; opening: string; closing: string; tableHtml: string; signature: EmailSignature } | null = null;
   const plan = planId && Number.isFinite(amount) ? planById(acct, amount, planId, { currentMonth: period }) : explanations[0] ?? null;
   if (plan && Number.isFinite(amount)) {
     const received = isISO(q.get("received")) ? q.get("received")! : todayET();
@@ -138,7 +139,7 @@ export async function GET(req: NextRequest) {
       tenantName: st.tenantName, propertyName: propertyName(st.propertyCode), suite: st.suite, amount, receivedISO: received,
       checkNo: q.get("check") || null, asOfISO: asOf, acct, plan, attached: q.get("attach") !== "0", respondByISO: respondByFrom(todayET()), signer: await signer(st.propertyCode),
     });
-    draft = { ...parts, tableHtml: receiptTableHtml({ acct, plan, asOfISO: asOf }) };
+    draft = { ...parts, tableHtml: receiptTableHtml({ acct, plan, asOfISO: asOf }), signature: (await signer(st.propertyCode)).signature };
   }
   return NextResponse.json({
     ok: true, period, asOf, dates, source: found.dates.source, agingAsOf: found.agingAsOf,
@@ -185,8 +186,8 @@ export async function POST(req: NextRequest) {
       if (!subject || !opening.trim()) return NextResponse.json({ error: "The email has no subject or opening." }, { status: 400 });
       // The table is re-rendered HERE from the plan just re-derived — the
       // figures the tenant reads are never the client's.
-      const { html, text: body } = renderReceiptEmail({ acct, plan, asOfISO: found.asOf }, opening, closing);
       const sig = await signer(st.propertyCode);
+      const { html, text: body } = renderReceiptEmail({ acct, plan, asOfISO: found.asOf }, opening, closing, sig.signature);
       const attach = b?.attachStatement !== false;
       const msg = {
         to: to.join(", "), bcc: sig.email, subject, textBody: body, htmlBody: html, headers: [{ Name: "Reply-To", Value: sig.email }],

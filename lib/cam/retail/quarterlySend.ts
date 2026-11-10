@@ -97,7 +97,7 @@ export async function previewQuarter(key: string, year: number, q: Quarter) {
   return {
     key, year, quarter: q,
     to: def.sendTo, from: FROM, bcc: COPY_TO,
-    subject: email.subject, body: email.textBody, attachmentName: email.attachmentName,
+    subject: email.subject, body: email.textBody, html: email.htmlBody, attachmentName: email.attachmentName,
     figures,
     ready: quarterPosted(q, gl.maxPosted),
     maxPosted: gl.maxPosted,
@@ -154,6 +154,7 @@ export async function sendQuarter(
       bcc: COPY_TO,
       subject: p.subject,
       textBody: p.body,
+      htmlBody: p.html,
       attachments: [{ name: p.attachmentName, content: pdf, contentType: "application/pdf" }],
     });
   } catch (e) {

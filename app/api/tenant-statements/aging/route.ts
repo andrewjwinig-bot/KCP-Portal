@@ -16,6 +16,7 @@ import { agingLookup, creditLinesOf, daysOpen, type CurrentAgingTenant } from "@
 import { creditNoticeParts, creditNoticeTableHtml, creditTotals, nextMonthLabel, renderCreditNotice } from "@/lib/statements/creditNotice";
 import { allCorrespondence, newCorrespondenceId, recordTenantEmail } from "@/lib/statements/correspondenceStore";
 import { creditNotes } from "@/lib/statements/creditNoteStore";
+import { signatureHtml } from "@/lib/emailSignature";
 import { arSigner, propertyLabel, sendFromAr, suiteRecipients } from "@/lib/statements/tenantMail";
 import { isMailConfigured } from "@/lib/mail";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
@@ -42,7 +43,7 @@ async function draftFor(t: CurrentAgingTenant) {
     tenantName: t.tenantName, propertyName: propertyLabel(t.propertyCode), suite: t.suite, lines: t.lines,
     asOfISO: t.asOf, nextRentMonth: nextMonthLabel(t.asOf), signer: await arSigner(t.propertyCode),
   });
-  return { ...parts, tableHtml: creditNoticeTableHtml(t.lines, t.asOf) };
+  return { ...parts, tableHtml: creditNoticeTableHtml(t.lines, t.asOf), signatureHtml: signatureHtml((await arSigner(t.propertyCode)).signature) };
 }
 
 export async function GET(req: NextRequest) {
@@ -104,8 +105,8 @@ export async function POST(req: NextRequest) {
   if (!subject || !opening.trim()) return NextResponse.json({ error: "The email has no subject or opening." }, { status: 400 });
 
   // The table is re-rendered HERE from the stored report.
-  const { html, text } = renderCreditNotice(t.lines, t.asOf, opening, closing);
   const sig = await arSigner(t.propertyCode);
+  const { html, text } = renderCreditNotice(t.lines, t.asOf, opening, closing, sig.signature);
   const { result, fromHeader } = await sendFromAr({
     to: to.join(", "), bcc: sig.email, subject, textBody: text, htmlBody: html, headers: [{ Name: "Reply-To", Value: sig.email }],
   }, sig);

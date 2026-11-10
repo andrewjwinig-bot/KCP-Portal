@@ -11,6 +11,7 @@ import { camRecipientEmails } from "@/lib/suites/contacts";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { sendMailDetailed, VERIFIED_FROM, type MailMessage, type MailResult } from "@/lib/mail";
 import type { TenantStatement } from "./types";
+import { signatureFor } from "@/lib/emailSignature";
 
 // Tami sends these and answers them (owner, 11/2026: "set it up to be from
 // ttomlinson@kormancommercial.com"). RECEIPT_FROM / RECEIPT_FROM_NAME override
@@ -26,7 +27,9 @@ export function propertyLabel(code: string): string {
 
 export async function arSigner(propertyCode: string) {
   const ins = await instructionsFor(propertyCode);
-  return { name: RECEIPT_FROM_NAME, title: "Accounts Receivable", email: RECEIPT_FROM, phone: ins.contactPhone || undefined };
+  // `signature` is the block every one of her emails ends in (name, office,
+  // phone, logo) — added at render, after the editable closing.
+  return { name: RECEIPT_FROM_NAME, title: "Accounts Receivable", email: RECEIPT_FROM, phone: ins.contactPhone || undefined, signature: signatureFor(RECEIPT_FROM_NAME) };
 }
 
 export async function suiteRecipients(unitRef: string): Promise<string[]> {

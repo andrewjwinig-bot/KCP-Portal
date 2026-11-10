@@ -7,6 +7,7 @@
 
 import type { AgingLine } from "./parseAgingReport";
 import { daysOpen, lineLabel } from "./aging";
+import { signatureHtml, signatureText, type EmailSignature } from "@/lib/emailSignature";
 
 export type CreditNoticeInput = {
   tenantName: string;
@@ -56,7 +57,8 @@ export function creditNoticeParts(x: CreditNoticeInput): { subject: string; open
   const closing = [
     `How would you like the credit applied? We can apply it to your ${x.nextRentMonth} rent${t.charges > 0.005 ? " or to the open charges above" : ""} — just reply to this email and let us know. If you believe the credit is not correct, please reply and we will look into it.`,
     `If you are not the person who handles payments for your company, please forward this email to the appropriate person or department.`,
-    [`Thank you,`, x.signer.name, ...(x.signer.title ? [x.signer.title] : []), "Korman Commercial Properties", x.signer.email, ...(x.signer.phone ? [x.signer.phone] : [])].join("\n"),
+    // The signature (name, office, phone, logo) is added at render.
+    `Thank you,`,
   ].join("\n\n");
   return { subject, opening, closing };
 }
@@ -95,7 +97,7 @@ function tableText(lines: AgingLine[], asOfISO: string): string {
   ].join("\n");
 }
 
-export function renderCreditNotice(lines: AgingLine[], asOfISO: string, opening: string, closing: string): { html: string; text: string } {
-  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#111827;max-width:700px">${paras(opening)}${creditNoticeTableHtml(lines, asOfISO)}${paras(closing)}</div>`;
-  return { html, text: `${opening}\n\n${tableText(lines, asOfISO)}\n\n${closing}` };
+export function renderCreditNotice(lines: AgingLine[], asOfISO: string, opening: string, closing: string, sig?: EmailSignature): { html: string; text: string } {
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#111827;max-width:700px">${paras(opening)}${creditNoticeTableHtml(lines, asOfISO)}${paras(closing)}${sig ? signatureHtml(sig) : ""}</div>`;
+  return { html, text: `${opening}\n\n${tableText(lines, asOfISO)}\n\n${closing}${sig ? `\n${signatureText(sig)}` : ""}` };
 }

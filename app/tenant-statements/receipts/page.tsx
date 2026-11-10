@@ -18,6 +18,7 @@ import { createPortal } from "react-dom";
 import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
 import { Calendar } from "@/app/components/Calendar";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
+import { signatureHtml, type EmailSignature } from "@/lib/emailSignature";
 import { APPLICATION_LABEL, APPLICATION_ORDER, byHierarchy, creditUsage, renderReceiptEmail, type Account, type Explanation } from "@/lib/statements/receiptMatch";
 import { HoverCard } from "@/app/components/HoverCard";
 import { InfoPopover } from "@/app/components/InfoPopover";
@@ -58,7 +59,7 @@ type Detail = {
   period: string; asOf: string | null; dates: DataDates;
   tenant: { unitRef: string; tenantName: string; propertyCode: string; propertyName: string; suite: string; tiesOut: boolean };
   account: Account; explanations: Explanation[]; plan: Explanation | null; recipients: string[];
-  draft: { subject: string; opening: string; closing: string; tableHtml: string } | null; respondBy: string;
+  draft: { subject: string; opening: string; closing: string; tableHtml: string; signature?: EmailSignature } | null; respondBy: string;
 };
 
 const STATUS_PILL: Record<Status, React.ReactNode> = {
@@ -210,7 +211,7 @@ export default function ReceiptReconciliationPage() {
   /** Copy the email WITH its table — as HTML for Outlook, text as fallback. */
   async function copyEmail() {
     if (!detail || !plan) return;
-    const { html, text } = renderReceiptEmail({ acct: detail.account, plan, asOfISO: detail.asOf }, opening, closing);
+    const { html, text } = renderReceiptEmail({ acct: detail.account, plan, asOfISO: detail.asOf }, opening, closing, detail.draft?.signature);
     try {
       if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
         await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([`${subject}\n\n${text}`], { type: "text/plain" }) })]);
@@ -574,6 +575,11 @@ export default function ReceiptReconciliationPage() {
             )}
             <textarea value={closing} onChange={(e) => { setClosing(e.target.value); setEdited(true); }} aria-label="Closing" rows={Math.max(8, closing.split("\n").length + 4)}
               style={{ width: "100%", border: 0, borderRadius: 0, padding: "12px 14px", fontFamily: "inherit", fontSize: "var(--fs-13-5)", lineHeight: 1.55, resize: "vertical", background: "transparent" }} />
+            {/* The signature is added on send — shown as it goes, not editable. */}
+            {detail.draft?.signature && (
+              <div style={{ padding: "0 14px 12px", background: "var(--c-ffffff)", color: "var(--c-111827)" }}
+                dangerouslySetInnerHTML={{ __html: signatureHtml(detail.draft.signature) }} />
+            )}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div className="muted small">

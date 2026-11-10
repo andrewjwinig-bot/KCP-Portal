@@ -15,7 +15,11 @@ describe("Wawa quarterly CAM send", () => {
       "Hi Santiago,", "",
       "I hope you are doing well. Attached is the second quarter’s CAM and TAX amounts for store #97 in Lafayette Hill, PA.", "",
       "Thank you,", "Drew Winig",
+      "8 Neshaminy Interplex | Suite 400 | Trevose, PA 19053",
+      "C: 484.470.8655",
+      "Korman Commercial Properties",
     ].join("\n"));
+    expect(e.htmlBody).toContain("korman-signature.png");
     expect(e.subject).toContain("Q2 2026");
     expect(e.subject).toContain("Wawa Store #97");
     expect(e.attachmentName).toBe("Wawa_Store_97_Q2_2026_CAM_and_Tax.pdf");
