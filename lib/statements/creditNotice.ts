@@ -75,12 +75,12 @@ export function creditNoticeTableHtml(lines: AgingLine[], asOfISO: string): stri
   const body = rowsOf(lines).map((l) => {
     const credit = l.amount < 0;
     const days = daysOpen(l.dateISO, asOfISO);
-    return `<tr><td style="padding:7px 10px;border-bottom:1px solid ${LINE};color:${MUTED};white-space:nowrap">${esc(shortDate(l.dateISO))}</td><td style="padding:7px 10px;border-bottom:1px solid ${LINE}">${esc(lineLabel(l))}${credit ? ` <span style="color:${MUTED}">· credit</span>` : ""}</td><td style="padding:7px 10px;border-bottom:1px solid ${LINE};color:${MUTED};text-align:right;white-space:nowrap">${days === null ? "—" : `${days} days`}</td><td style="padding:7px 10px;border-bottom:1px solid ${LINE};text-align:right;white-space:nowrap;${credit ? `color:${GREEN}` : ""}">${credit ? `(${usd(l.amount)})` : usd(l.amount)}</td></tr>`;
+    return `<tr><td style="padding:7px 10px;border-bottom:1px solid ${LINE};color:${MUTED};white-space:nowrap">${esc(shortDate(l.dateISO))}</td><td style="padding:7px 10px;border-bottom:1px solid ${LINE};white-space:nowrap">${esc(lineLabel(l))}${credit ? ` <span style="color:${MUTED}">· credit</span>` : ""}</td><td style="padding:7px 10px;border-bottom:1px solid ${LINE};color:${MUTED};text-align:right;white-space:nowrap">${days === null ? "—" : `${days} days`}</td><td style="padding:7px 10px;border-bottom:1px solid ${LINE};text-align:right;white-space:nowrap;${credit ? `color:${GREEN}` : ""}">${credit ? `(${usd(l.amount)})` : usd(l.amount)}</td></tr>`;
   }).join("");
   const total = `<tr style="background:#f3f6f9"><td style="padding:8px 10px"></td><td style="padding:8px 10px;font-weight:800">${t.net < 0 ? "Credit balance" : "Balance due"}</td><td></td><td style="padding:8px 10px;text-align:right;font-weight:800;white-space:nowrap;${t.net < 0 ? `color:${GREEN}` : ""}">${t.net < 0 ? `(${usd(t.net)})` : usd(t.net)}</td></tr>`;
   return `<div style="margin:6px 0 18px">
 <div style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:${NAVY};margin:0 0 6px">Your account as of ${esc(shortDate(asOfISO))}</div>
-<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;max-width:640px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111827;border:1px solid ${LINE}">
+<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:auto;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111827;border:1px solid ${LINE}">
 <thead><tr>${th("Date")}${th("Item")}${th("Open", true)}${th("Amount", true)}</tr></thead>
 <tbody>${body}${total}</tbody></table>
 </div>`;

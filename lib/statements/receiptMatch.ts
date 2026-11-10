@@ -478,7 +478,7 @@ export function receiptTableHtml(x: Pick<ReceiptEmailInput, "acct" | "plan" | "a
   const m = (n: number) => (n ? usd(n) : "—");
   const body = rows.map((r) => {
     const applied = r.fromPayment > 0 || r.fromCredit > 0;
-    return `<tr style="${applied ? "background:#effaf3" : ""}">${td(esc(r.date), { color: MUTED })}${`<td style="padding:7px 10px;border-bottom:1px solid ${LINE}">${esc(r.description)}</td>`}${
+    return `<tr style="${applied ? "background:#effaf3" : ""}">${td(esc(r.date), { color: MUTED })}${`<td style="padding:7px 10px;border-bottom:1px solid ${LINE};white-space:nowrap">${esc(r.description)}</td>`}${
       td(r.isCredit ? `(${usd(-r.open)})` : usd(r.open), { right: true, color: r.isCredit ? GREEN : undefined })}${
       td(r.isCredit ? "" : m(r.fromPayment), { right: true, color: r.fromPayment ? GREEN : MUTED, bold: r.fromPayment > 0 })}${
       td(r.isCredit ? (r.fromCredit ? `${usd(r.fromCredit)} applied` : "—") : m(r.fromCredit), { right: true, color: r.fromCredit ? GREEN : MUTED, bold: !r.isCredit && r.fromCredit > 0 })}${
@@ -488,7 +488,7 @@ export function receiptTableHtml(x: Pick<ReceiptEmailInput, "acct" | "plan" | "a
   const summary = summaryLines(x.acct, x.plan).map((l) => `<li style="margin:0 0 4px">${esc(l)}</li>`).join("");
   return `<div style="margin:6px 0 18px">
 <div style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:${NAVY};margin:0 0 6px">Your account${x.asOfISO ? ` as of ${dateLabel(x.asOfISO)}` : ""} — and how we will apply your payment</div>
-<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;max-width:680px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111827;border:1px solid ${LINE}">
+<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:auto;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111827;border:1px solid ${LINE}">
 <thead><tr>${th("Date")}${th("Charge")}${th("Open", true)}${th("From your payment", true)}${th("From your credit", true)}${th("Still open", true)}</tr></thead>
 <tbody>${body}${tot}</tbody></table>
 <ul style="margin:10px 0 0;padding-left:18px;font-size:13px;color:#111827">${summary}</ul>
