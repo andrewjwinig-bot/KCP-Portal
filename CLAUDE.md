@@ -211,6 +211,14 @@ into Explorer. Never type a path into a sentence, bold it or put it in a bare
 (`{ label: "Save to" | "Find them in", value }`), never step text. Used by the
 steps popover, the GL import modal and the Bank Recs drop zone.
 
+**PICKING A TENANT / SUITE IS `UnitSelect`** (`app/components/UnitSelect.tsx`;
+owner: "suite should go first before tenant name and then the data $XXX should
+go at the end … just show the last part of the unit"): grouped under building
+headers ("3610 · Building 1, Neshaminy Interplex"), each option `104 · Tenant ·
+$1,234.56` — the suite WITHOUT its property code (`suiteOf`), the tenant, then
+the page's figure (negatives in parens); suites in suite order. Receipt
+Reconciliation and the Security Deposit form use it; a new tenant picker does too.
+
 # UI consistency — pills, badges, fonts, sizes
 
 The user has flagged repeated drift in pill / chip / badge styling across new pages. Do NOT re-invent chip styles inline. Always use the shared primitives:

@@ -157,11 +157,13 @@ export default function SecurityDepositsPage() {
   const unitOptions = useMemo<UnitOption[]>(() => {
     const out: UnitOption[] = [];
     const seen = new Set<string>(); // unitRef|company — avoid dup entries
+    const names = new Map((rentroll?.properties ?? []).map((p) => [p.propertyCode, p.reportedPropertyName] as const));
+    const group = (code: string) => (names.get(code) ? `${code} · ${names.get(code)}` : code);
     for (const p of rentroll?.properties ?? []) {
       if (scopeCodes && !scopeCodes.has(p.propertyCode)) continue;
       for (const u of p.units) {
         if (u.isVacant || !u.occupantName) continue;
-        out.push({ unitRef: u.unitRef, label: `${u.occupantName} — ${u.unitRef}`, propertyCode: p.propertyCode, tenantCompany: u.occupantName });
+        out.push({ unitRef: u.unitRef, label: `${u.occupantName} — ${u.unitRef}`, propertyCode: p.propertyCode, tenantCompany: u.occupantName, group: group(p.propertyCode) });
         seen.add(`${u.unitRef}|${u.occupantName.toLowerCase()}`);
       }
     }
@@ -170,7 +172,7 @@ export default function SecurityDepositsPage() {
     for (const t of pastTenants) {
       if (scopeCodes && !scopeCodes.has(t.propertyCode)) continue;
       if (seen.has(`${t.unitRef}|${t.name.toLowerCase()}`)) continue;
-      out.push({ unitRef: t.unitRef, label: `${t.name} — ${t.unitRef} (former)`, propertyCode: t.propertyCode, tenantCompany: t.name });
+      out.push({ unitRef: t.unitRef, label: `${t.name} — ${t.unitRef} (former)`, propertyCode: t.propertyCode, tenantCompany: t.name, group: group(t.propertyCode), former: true });
     }
     return out.sort((a, b) => a.label.localeCompare(b.label));
   }, [rentroll, scopeCodes, pastTenants]);
