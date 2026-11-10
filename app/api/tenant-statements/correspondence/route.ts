@@ -10,7 +10,7 @@
 //                                           statement), Bcc Tami, record it
 
 import { NextRequest, NextResponse } from "next/server";
-import { getRun } from "@/lib/statements/store";
+import { statementOf } from "@/lib/statements/currentAccount";
 import { accountOf } from "@/lib/statements/receiptMatch";
 import { summarize } from "@/lib/statements/summary";
 import { reminderEmailParts, reminderTableHtml, renderReminderEmail } from "@/lib/statements/balanceReminder";
@@ -30,14 +30,6 @@ export const revalidate = 0;
 async function who(): Promise<string | null> {
   const u = await budgetUser();
   return u ? USERS[u]?.label ?? u : null;
-}
-
-async function statementOf(period: string, unit: string) {
-  const run = await getRun(period);
-  const st = run?.statements.find((s) => s.unitRef.toUpperCase() === unit.toUpperCase()) ?? null;
-  if (!st) return null;
-  const asOf = (st.exportedAt ?? st.importedAt ?? run?.updatedAt ?? null)?.slice(0, 10) ?? null;
-  return { st, asOf };
 }
 
 const money2 = (n: number) => `$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

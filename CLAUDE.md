@@ -1405,6 +1405,53 @@ charges"; `RESPOND_BUSINESS_DAYS`, `respondByFrom`); with no answer the record t
   `tenantMail.ts` (`sendFromAr`, `statementPdf`, `arSigner`) the receipt
   email uses. Pinned by `correspondence.test.ts`.
 
+# Open credits — Skyline's Credit Balance report, itemized
+
+**The laser statement prints credits as ONE undated "Open Credits" total; the
+Credit Balance report itemizes them** (owner, 11/2026: "we dont know if its
+the credit from or charge or many. we also dont know how long its been open").
+Skyline: Property Management → Reports → Financial Reports → **Credit
+Balance**, Occupants to Include = **Any With Open Credits**, Preview, Export →
+**Microsoft Excel (97-2003) (.xls)** — the steps are `ImportInstructions
+variant="credit-balance"`. Its title prints "Aging Report (Detailed)".
+
+- **Parser** `lib/statements/parseAgingReport.ts` (pure, pinned by
+  `aging.test.ts` on a synthetic workbook — the real file holds tenant
+  contacts, never commit it). A tenant's lines are MULTI-LINE CELLS (codes,
+  descriptions, dates, one cell per aging bucket, top-aligned, trailing blanks
+  trimmed); every tenant must tie to Skyline's Balance Due. The run time is
+  EASTERN (`etOffset`).
+- **Only the FIRST property's header survives the export.** Every later
+  property is a run of tenants closed by "PROPERTY TOTALS", so
+  `resolveAgingProperties` places each block by VOTE — the codes where the
+  rent roll or a laser statement knows `<code>-<suite>` under the same name
+  (`sameName`, the report truncates at 30 characters). Never by position; an
+  unplaced block is reported on the import, not guessed.
+- **Run for "Any With Open Credits", so a tenant MISSING from it has no
+  credit — NOT no open items.** They keep the laser statement. Never read
+  absence as paid.
+- **Store** `tenant-aging`, one doc per as-of date (`agingStore.ts`); a
+  same-day re-import merges by property; `composeAging` takes each property
+  from its newest report.
+- **ONE reader for a tenant's account: `lib/statements/currentAccount.ts`**
+  (`statementOf`) — the aging lines (as a TenantStatement,
+  `statementFromAging`) wherever the report is at least as new as the laser
+  statement, else the laser statement. Receipt Reconciliation and the balance
+  reminder both read it, so every email lists the credits itemized with their
+  dates. A receipt records `agingAsOf`; its later re-derivation reads the
+  report it was sent on (`statementForReceipt`), or the laser statement alone.
+- **OPEN CREDITS** (`/tenant-statements/credits`, sidebar Invoicing → Open
+  Credits, Tami's page; `GET/POST /api/tenant-statements/aging`): import, tiles
+  (tenants, total, open 90+ days, not asked in 30 days), one table banded by
+  property — credits / charges / net / oldest credit (days open) / last asked —
+  each row expanding to its lines (code, date, description, days open), the
+  follow-up note (`creditNoteStore`, shared with the Open Credit tracker) and
+  "Work a payment". **Email** sends the open-credit notice (`creditNotice.ts`):
+  what the credit is and its date, any open charges, and how they want it
+  applied — to next month's rent or the open charges; the table re-rendered
+  on the server from the stored report, from Tami (`sendFromAr`), recorded as
+  correspondence kind `credit-notice`.
+
 # Management fees — the intercompany must tie exactly
 
 **No property or building pays an outside management fee. Every dollar goes to

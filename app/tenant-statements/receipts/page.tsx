@@ -32,7 +32,7 @@ const longDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateStrin
 const todayISO = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
-type DataDates = { dataThrough: string | null; importedOn: string | null; stampRead?: boolean };
+type DataDates = { dataThrough: string | null; importedOn: string | null; stampRead?: boolean; source?: "aging" | "statement" };
 const etStamp = (iso: string, withTime: boolean) => new Date(iso).toLocaleString("en-US", {
   timeZone: "America/New_York", weekday: "long", month: "long", day: "numeric", year: "numeric", ...(withTime ? { hour: "numeric", minute: "2-digit" } : {}),
 });
@@ -289,7 +289,7 @@ export default function ReceiptReconciliationPage() {
           <div style={{ display: "grid", gap: 2 }}>
             {dataDates.dataThrough ? (
               <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
-                Data through {etStamp(dataDates.dataThrough, true)}{detail ? ` for ${detail.tenant.tenantName}` : ""} — when Skyline ran the laser statement.
+                Data through {etStamp(dataDates.dataThrough, true)}{detail ? ` for ${detail.tenant.tenantName}` : ""} — when Skyline ran the {dataDates.source === "aging" ? "Credit Balance report" : "laser statement"}.
               </div>
             ) : (
               <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
@@ -302,7 +302,8 @@ export default function ReceiptReconciliationPage() {
                 : dataDates.stampRead
                   ? <>Skyline&rsquo;s file doesn&rsquo;t record when the report was run, so this is the latest it could be — the run may be earlier. </>
                   : <>This was imported before the portal read the export time — re-import the laser statement to capture when Skyline ran it. </>}
-              Anything posted since — a payment, a credit, a new charge — isn&rsquo;t shown here. Check the tenant&rsquo;s <b>Occupant History</b> in Skyline for unposted items before you reconcile or email them.
+              {dataDates.source === "aging" && <>Read from the Credit Balance report, which itemizes each credit with its date. </>}
+              Anything posted since — a payment, a credit, a new charge — isn&rsquo;t shown here. <a className="text-link" href="/tenant-statements/credits">Import a newer Credit Balance report on Open Credits</a>. Check the tenant&rsquo;s <b>Occupant History</b> in Skyline for unposted items before you reconcile or email them.
             </div>
           </div>
         </div>
@@ -481,7 +482,7 @@ export default function ReceiptReconciliationPage() {
                     {custom.on && applying && <td />}
                     <td style={tdL}>{dateLabel(cl.dateISO)}</td>
                     <td style={tdL}>{cl.description}</td>
-                    <td style={tdL}><span className="muted small">Credit</span></td>
+                    <td style={tdL}><span className="muted small">Credit{cl.dateISO && detail.asOf ? ` · open ${Math.max(0, Math.round((Date.parse(`${detail.asOf}T12:00:00Z`) - Date.parse(`${cl.dateISO}T12:00:00Z`)) / 86_400_000))} days` : ""}</span></td>
                     <td style={{ ...td, color: "var(--c-15803d)" }}>({money(cl.amount)})</td>
                     {applying && plan && (() => {
                       // How much of this credit the plan applies, and what is LEFT on account.

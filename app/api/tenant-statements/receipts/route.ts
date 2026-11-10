@@ -30,6 +30,9 @@ import { logAudit, auditIp } from "@/lib/audit";
 import type { TenantStatement } from "@/lib/statements/types";
 import { allSentEmails, getSentEmail, recordSentEmail, summarizeSent, type SentReceiptEmail } from "@/lib/statements/receiptEmailLog";
 import { toEml } from "@/lib/statements/receiptEml";
+import { currentAging } from "@/lib/statements/agingStore";
+import { agingLookup, statementFromAging } from "@/lib/statements/aging";
+import { laserDate, statementForReceipt, statementOf } from "@/lib/statements/currentAccount";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,18 +50,6 @@ async function latestPeriod(): Promise<string | null> {
 /** When the figures are true as of: Skyline's export time (the workbook's own
  *  stamp, `exportedAt`) — NOT the day it was imported into the portal, which
  *  can be days later. Imports before the stamp was read have only the import. */
-type DataDates = { dataThrough: string | null; importedOn: string | null; stampRead: boolean };
-
-async function statementOf(period: string, unit: string): Promise<{ st: TenantStatement; asOf: string | null; dates: DataDates } | null> {
-  const run = await getRun(period);
-  const st = run?.statements.find((s) => s.unitRef.toUpperCase() === unit.toUpperCase()) ?? null;
-  if (!st) return null;
-  // `exportedAt` undefined = imported before the stamp was read; null = the
-  // file itself records no creation time.
-  const dates: DataDates = { dataThrough: st.exportedAt ?? null, importedOn: st.importedAt ?? run?.updatedAt ?? null, stampRead: st.exportedAt !== undefined };
-  return { st, dates, asOf: (dates.dataThrough ?? dates.importedOn)?.slice(0, 10) ?? null };
-}
-
 const recipientsFor = suiteRecipients;
 const signer = arSigner;
 
@@ -94,11 +85,22 @@ export async function GET(req: NextRequest) {
   const unit = q.get("unit");
 
   if (!unit) {
-    const [run, runs, receipts, sentEmails] = await Promise.all([getRun(period), allRuns(), allReceipts(), allSentEmails()]);
+    const [run, runs, receipts, sentEmails, aging] = await Promise.all([getRun(period), allRuns(), allReceipts(), allSentEmails(), currentAging()]);
+    const laserUnits = new Set((run?.statements ?? []).map((s) => s.unitRef.toUpperCase()));
     const tenants = (run?.statements ?? []).map((s) => {
-      const a = accountOf(s);
-      return { unitRef: s.unitRef, tenantName: s.tenantName, propertyCode: s.propertyCode, propertyName: propertyName(s.propertyCode), gross: a.gross, credit: a.credit, net: a.net };
+      const hit = agingLookup(aging, s.unitRef, s.tenantName);
+      const fresh = hit.kind === "found" && hit.tenant.asOf >= laserDate(s, run?.updatedAt);
+      const a = accountOf(fresh && hit.kind === "found" ? statementFromAging(hit.tenant, s) : s);
+      return { unitRef: s.unitRef, tenantName: s.tenantName, propertyCode: s.propertyCode, propertyName: propertyName(s.propertyCode), gross: a.gross, credit: a.credit, net: a.net, source: fresh ? "aging" : "statement" };
     });
+    // On the aging report and not on that month's laser statement (a newer
+    // tenant, or one the laser run left off).
+    for (const t of aging.tenants) {
+      if (laserUnits.has(t.unitRef.toUpperCase()) || /-FO$/i.test(t.unitRef)) continue;
+      const a = accountOf(statementFromAging(t, null));
+      tenants.push({ unitRef: t.unitRef, tenantName: t.tenantName, propertyCode: t.propertyCode, propertyName: propertyName(t.propertyCode), gross: a.gross, credit: a.credit, net: a.net, source: "aging" });
+    }
+    const agingAsOf = Object.values(aging.coverage).sort().pop() ?? null;
     const now = new Date();
     return NextResponse.json({
       ok: true, period, periods: runs.map((r) => r.period).sort().reverse(), tenants,
@@ -108,6 +110,7 @@ export async function GET(req: NextRequest) {
         importedOn: (run?.statements ?? []).map((s) => s.importedAt ?? "").sort().pop() || run?.updatedAt || null,
         stampRead: (run?.statements ?? []).some((s) => s.exportedAt !== undefined),
       },
+      aging: agingAsOf ? { asOf: agingAsOf, runAt: aging.tenants.find((t) => t.asOf === agingAsOf)?.runAt ?? null, properties: Object.keys(aging.coverage).length } : null,
       receipts: receipts.map((r) => ({ ...r, status: receiptStatus(r, now) })),
       sentEmails,
     });
@@ -138,7 +141,7 @@ export async function GET(req: NextRequest) {
     draft = { ...parts, tableHtml: receiptTableHtml({ acct, plan, asOfISO: asOf }) };
   }
   return NextResponse.json({
-    ok: true, period, asOf, dates,
+    ok: true, period, asOf, dates, source: found.dates.source, agingAsOf: found.agingAsOf,
     tenant: { unitRef: st.unitRef, tenantName: st.tenantName, propertyCode: st.propertyCode, propertyName: propertyName(st.propertyCode), suite: st.suite, tiesOut: st.tiesOut },
     account: acct, explanations, plan, recipients, draft, respondBy: respondByFrom(todayET()),
   });
@@ -165,6 +168,7 @@ export async function POST(req: NextRequest) {
     const rec: ReceiptRec = {
       id: typeof b?.id === "string" && b.id ? b.id : `${todayET()}-${st.unitRef}-${Math.random().toString(36).slice(2, 7)}`,
       period, unitRef: st.unitRef, tenantName: st.tenantName, propertyCode: st.propertyCode,
+      ...(found.agingAsOf ? { agingAsOf: found.agingAsOf } : {}),
       amount, receivedISO, checkNo, plan, email: null, respondByISO: null, reply: null, confirmedAt: null, postedAt: null, postedBy: null,
       createdAt: now, createdBy: by,
     };
@@ -223,7 +227,7 @@ export async function POST(req: NextRequest) {
   if (action === "confirm") {
     // The tenant answered: re-derive the plan they asked for (or keep ours).
     if (b?.plan) {
-      const found = await statementOf(rec.period, rec.unitRef);
+      const found = await statementForReceipt(rec);
       if (!found) return NextResponse.json({ error: "The statement for that month is gone." }, { status: 404 });
       const plan = planById(accountOf(found.st), rec.amount, String(b.plan), { currentMonth: rec.period });
       if (!plan) return NextResponse.json({ error: "That application does not fit the statement." }, { status: 409 });

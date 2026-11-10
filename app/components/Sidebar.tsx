@@ -24,6 +24,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Leasing Activity":   "leasing-activity",
   "Monthly Statements": "tenant-statements",
   "Receipt Reconciliation": "tenant-statements",
+  "Open Credits": "tenant-statements",
   "Expense History":    "base-years",
   "Expense Trends":     "base-years",
   "CAM Reconciliation": "base-years",
@@ -417,6 +418,23 @@ const NAV = [
         <rect x="2" y="5" width="20" height="14" rx="2" />
         <line x1="2" y1="10" x2="22" y2="10" />
         <polyline points="8 15 10 17 14 13" />
+      </svg>
+    ),
+  },
+  {
+    // Every tenant carrying a credit, itemized from Skyline's Credit Balance
+    // report, and an email asking each how they want it applied.
+    label: "Open Credits",
+    href: "/tenant-statements/credits",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "invoicing",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M15 9.5c-.5-1-1.6-1.5-3-1.5-1.7 0-3 .8-3 2s1.3 1.7 3 2 3 .8 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3-1.5" />
+        <line x1="12" y1="6" x2="12" y2="8" /><line x1="12" y1="16" x2="12" y2="18" />
       </svg>
     ),
   },
