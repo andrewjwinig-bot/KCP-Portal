@@ -135,7 +135,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
                 style={{
                   width: "100%", maxHeight: 300, borderRadius: 10,
                   border: "1px solid var(--border)", display: "block",
-                  objectFit: "contain", background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))",
+                  objectFit: "contain", background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))",
                 }}
               />
             </a>
@@ -225,9 +225,9 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
           style={{
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: "20px 16px", cursor: busy ? "default" : "pointer",
-            border: `1.5px dashed ${drag ? "#2563eb" : "var(--border)"}`,
+            border: `1.5px dashed ${drag ? "var(--c-2563eb)" : "var(--border)"}`,
             borderRadius: 10,
-            background: drag ? "rgba(37,99,235,0.05)" : "rgba(15,23,42,0.015)",
+            background: drag ? "rgba(37,99,235,0.05)" : "var(--tint-neutral-faint, rgba(15,23,42,0.015))",
             fontSize: "var(--fs-13)", color: "var(--muted)", textAlign: "center",
             minHeight: 120,
           }}

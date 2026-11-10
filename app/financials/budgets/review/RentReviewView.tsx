@@ -117,8 +117,8 @@ export function RentReviewView({ api, headerExtra, initialGroup, onGroupChange }
       {tabs}
 
       <div className="pills">
-        <StatPill label="Properties confirmed" value={`${confirmed} / ${list.length}`} accent={list.length && confirmed === list.length ? "#15803d" : "#b45309"} />
-        <StatPill label="Leasing calls made" value={`${doneCalls} / ${totalCalls}`} accent={totalCalls && doneCalls === totalCalls ? "#15803d" : undefined} />
+        <StatPill label="Properties confirmed" value={`${confirmed} / ${list.length}`} accent={list.length && confirmed === list.length ? "var(--c-15803d)" : "var(--c-b45309)"} />
+        <StatPill label="Leasing calls made" value={`${doneCalls} / ${totalCalls}`} accent={totalCalls && doneCalls === totalCalls ? "var(--c-15803d)" : undefined} />
       </div>
 
       {error && <div className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>{error}</div>}
@@ -140,7 +140,7 @@ export function RentReviewView({ api, headerExtra, initialGroup, onGroupChange }
               const changed = !!p.review && !current(p);
               return (
                 <Fragment key={p.key}>
-                  <tr onClick={() => setOpen(isOpen ? null : p.key)} style={{ cursor: "pointer", background: isOpen ? "rgba(11,74,125,0.06)" : undefined }}>
+                  <tr onClick={() => setOpen(isOpen ? null : p.key)} style={{ cursor: "pointer", background: isOpen ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : undefined }}>
                     <td style={{ ...tdL, fontWeight: 700 }}>
                       <span className="muted" style={{ marginRight: 6 }}>{isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
                       {p.name} <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", marginLeft: 6 }}>{p.code}</code>
@@ -150,11 +150,11 @@ export function RentReviewView({ api, headerExtra, initialGroup, onGroupChange }
                         : <Pill tone={p.done === p.total ? TONE_GREEN : TONE_AMBER}>{p.done} OF {p.total} DECIDED</Pill>}
                     </td>
                     <td style={tdL}>
-                      {current(p) ? <Pill tone={TONE_GREEN}>✓ CONFIRMED BY {p.review!.by} · {stampOf(p.review!.at).toUpperCase()}</Pill>
+                      {current(p) ? <Pill tone={TONE_GREEN}>CONFIRMED BY {p.review!.by} · {stampOf(p.review!.at).toUpperCase()}</Pill>
                         : changed ? <Pill tone={TONE_AMBER}>CHANGED SINCE CONFIRMED</Pill>
                         : <Pill tone={TONE_NEUTRAL}>NOT CONFIRMED</Pill>}
                     </td>
-                    <td style={{ ...td, color: "var(--brand)", fontWeight: 700 }}>{isOpen ? "Close" : "Review →"}</td>
+                    <td style={{ ...td, color: "var(--brand)", fontWeight: 700 }}>{isOpen ? "Close" : "Review"}</td>
                   </tr>
                   {isOpen && (
                     <tr>
@@ -213,10 +213,10 @@ function PropertyReview({ api, row, year, owner, confirmed, changed, onChanged, 
       <RevenueByTenantCard embedded rows={draft.tenantRevenue ?? []} year={draft.budgetYear} fromSchedule={draft.leasing.fromSchedule}
         est={draft.reimbursementEstimate} tie={draft.recoveryTie ?? []} rentLine={draft.rentLineLabel}
         leasing={{ calls, owner, dealCapital: draft.leasing.dealCapital, onSave: save, error: saveError }} />
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "12px 14px", borderTop: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "12px 14px", borderTop: "1px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.025))" }}>
         {confirmed ? (
           <>
-            <Pill tone={TONE_GREEN}>✓ CONFIRMED BY {row.review!.by} · {stampOf(row.review!.at).toUpperCase()}</Pill>
+            <Pill tone={TONE_GREEN}>CONFIRMED BY {row.review!.by} · {stampOf(row.review!.at).toUpperCase()}</Pill>
             <button type="button" className="btn sm" onClick={() => onConfirm(false)}>Undo</button>
           </>
         ) : openCalls > 0 ? (
@@ -227,7 +227,7 @@ function PropertyReview({ api, row, year, owner, confirmed, changed, onChanged, 
         ) : (
           <>
             <button type="button" className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "6px 14px", fontWeight: 700 }} onClick={() => onConfirm(true)}>
-              ✓ Rent &amp; assumptions look good
+              Rent &amp; assumptions look good
             </button>
             <span className="muted small">{changed ? "A decision changed since this was confirmed — confirm again." : `Confirms this property's ${draft.budgetYear} rent and leasing calls for the budget.`}</span>
           </>

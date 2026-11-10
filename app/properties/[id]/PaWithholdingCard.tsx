@@ -124,7 +124,7 @@ export default function PaWithholdingCard({ code, style }: { code: string; style
           </div>
           <div className="pills" style={{ marginTop: 12 }}>
             <StatPill label="Distribution" value={money0(result.distribution)} />
-            <StatPill label="Withhold" value={money(result.totals.withholding)} sub={`${withheld} of ${result.rows.length} partners`} accent="#b45309" />
+            <StatPill label="Withhold" value={money(result.totals.withholding)} sub={`${withheld} of ${result.rows.length} partners`} accent="var(--c-b45309)" />
             <StatPill label="Net cash to partners" value={money(result.totals.net)} total />
           </div>
           {result.short.length > 0 && (
@@ -162,8 +162,8 @@ export default function PaWithholdingCard({ code, style }: { code: string; style
                       <td style={td}><MoneyInput value={r.paid} onCommit={(n) => setTax(r.id, "paid", n)} /></td>
                       <td style={td}><MoneyInput value={r.estimate} onCommit={(n) => setTax(r.id, "estimate", n)} /></td>
                       <td style={td}>{money(r.gross)}</td>
-                      <td style={{ ...td, fontWeight: quiet ? undefined : 700, color: quiet ? "var(--muted)" : "#b45309" }}>{quiet ? "—" : money(r.withholding)}</td>
-                      <td style={{ ...td, fontWeight: 700, color: result.short.includes(r.id) ? "#b91c1c" : undefined }}>{money(r.net)}</td>
+                      <td style={{ ...td, fontWeight: quiet ? undefined : 700, color: quiet ? "var(--muted)" : "var(--c-b45309)" }}>{quiet ? "—" : money(r.withholding)}</td>
+                      <td style={{ ...td, fontWeight: 700, color: result.short.includes(r.id) ? "var(--c-b91c1c)" : undefined }}>{money(r.net)}</td>
                     </tr>
                   );
                 })}

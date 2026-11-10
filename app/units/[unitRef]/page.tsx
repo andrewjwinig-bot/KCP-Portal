@@ -55,13 +55,13 @@ function isOfficeUnit(propertyCode: string): boolean {
 
 // Friendly back-link label for a known internal path (used with ?from=).
 function labelForPath(p: string): string {
-  if (p.startsWith("/cam-recon")) return "← CAM / RET Reconciliation";
-  if (p.startsWith("/units")) return "← All Units";
-  if (p.startsWith("/rentroll")) return "← Rent roll";
-  if (p.startsWith("/properties")) return "← Property";
-  if (p.startsWith("/maintenance")) return "← Maintenance";
-  if (p.startsWith("/reservations")) return "← Reservations";
-  return "← Back";
+  if (p.startsWith("/cam-recon")) return "CAM / RET Reconciliation";
+  if (p.startsWith("/units")) return "All Units";
+  if (p.startsWith("/rentroll")) return "Rent roll";
+  if (p.startsWith("/properties")) return "Property";
+  if (p.startsWith("/maintenance")) return "Maintenance";
+  if (p.startsWith("/reservations")) return "Reservations";
+  return "Back";
 }
 
 function parseRentDate(s: string | null | undefined): Date | null {
@@ -267,11 +267,11 @@ export default function UnitDetailPage() {
     daysToExpiry == null
       ? undefined
       : daysToExpiry < 0
-        ? "#b91c1c"
+        ? "var(--c-b91c1c)"
         : daysToExpiry <= 30
-          ? "#b91c1c"
+          ? "var(--c-b91c1c)"
           : daysToExpiry <= 90
-            ? "#b45309"
+            ? "var(--c-b45309)"
             : undefined;
 
   const daysToExpiryValue =
@@ -312,7 +312,7 @@ export default function UnitDetailPage() {
   // param so the back target stays correct as you step through tenants.
   const fromParam = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("from") : null;
   const hasFrom = !!fromParam && fromParam.startsWith("/") && !fromParam.startsWith("//");
-  const backLabel = hasFrom ? labelForPath(fromParam!) : "← Back";
+  const backLabel = hasFrom ? labelForPath(fromParam!) : "Back";
   const fromSuffix = fromParam ? `?from=${encodeURIComponent(fromParam)}` : "";
   const goBack = () => {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
@@ -379,7 +379,7 @@ export default function UnitDetailPage() {
           <StatPill
             label="Status"
             value={isAmenity ? "In-House" : "Vacant"}
-            accent={isAmenity ? "#0d9488" : "var(--muted)"}
+            accent={isAmenity ? "var(--c-0d9488)" : "var(--muted)"}
           />
         ) : isMaint ? null : (
           <>
@@ -413,7 +413,7 @@ export default function UnitDetailPage() {
                 {snowExcl && <sup title={snowExclLabel ?? undefined} style={{ fontSize: "var(--fs-10)", fontWeight: 800, color: "var(--c-0b4a7d)", lineHeight: 1, marginLeft: 1 }}>❄</sup>}
               </>
             }
-            accent={reset ? "#b91c1c" : undefined}
+            accent={reset ? "var(--c-b91c1c)" : undefined}
             sub={[
               reset ? `Reset ${fmtResetDate(reset.resetDate)}${reset.originalBaseYear != null ? ` (was ${reset.originalBaseYear})` : ""}` : null,
               snowExclLabel,
@@ -443,7 +443,7 @@ export default function UnitDetailPage() {
               }}>Lease Term</span>
               <span style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--text)" }}>
                 {formatModalDate(unit.leaseFrom)}
-                <span style={{ color: "var(--muted)", fontWeight: 500, margin: "0 8px" }}>→</span>
+                <span style={{ color: "var(--muted)", fontWeight: 500, margin: "0 8px" }}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
                 {formatModalDate(unit.leaseTo)}
               </span>
             </div>
@@ -534,7 +534,7 @@ export default function UnitDetailPage() {
                     background: "var(--c-fafafa)",
                   }}>
                     <span style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>{formatModalDate(esc.date)}</span>
-                    <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>→</span>
+                    <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
                     <span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>{money(esc.amount)}/mo</span>
                   </div>
                 ))}

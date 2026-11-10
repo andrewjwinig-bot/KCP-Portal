@@ -126,8 +126,8 @@ export default function ManagementFeesPage() {
 
           {/* 2010 tie-out — Σ property 6610 budgets should equal the LIK 2010 fee plan */}
           {tieOut && (
-            <div className="card" style={{ margin: 0, padding: "10px 14px", borderLeft: `4px solid ${tieOut.ok ? "#15803d" : "#d97706"}`, fontSize: "var(--fs-13)" }}>
-              <b style={{ color: tieOut.ok ? "#15803d" : "#b45309" }}>2010 tie-out — BUDGET{tieOut.ok ? " ✓" : " — gap"}:</b>{" "}
+            <div className="card" style={{ margin: 0, padding: "10px 14px", borderLeft: `4px solid ${tieOut.ok ? "var(--c-15803d)" : "var(--c-d97706)"}`, fontSize: "var(--fs-13)" }}>
+              <b style={{ color: tieOut.ok ? "var(--c-15803d)" : "var(--c-b45309)" }}>2010 tie-out — BUDGET{tieOut.ok ? " ✓" : " — gap"}:</b>{" "}
               property management-fee budgets (6610) sum to <b>{money(tieOut.bottomUp)}</b>; the LIK 2010 fee plan (4510) is <b>{money(tieOut.lik)}</b>.{" "}
               {tieOut.ok
                 ? "They tie."
@@ -163,7 +163,7 @@ export default function ManagementFeesPage() {
             const varCells = (reproj: number, budget: number, strong = false) => {
               const v = reproj - budget;
               const p = budget ? (v / budget) * 100 : null;
-              const tone = Math.abs(v) < 0.5 ? "var(--muted)" : v > 0 ? "#15803d" : "#b91c1c";
+              const tone = Math.abs(v) < 0.5 ? "var(--muted)" : v > 0 ? "var(--c-15803d)" : "var(--c-b91c1c)";
               return (
                 <>
                   <td style={{ ...gridTd, ...numTd, fontWeight: strong ? 800 : 700, borderLeft: "2px solid var(--border)", background: "var(--tint-brand-bg, rgba(11,74,125,0.05))" }}>{money(reproj)}</td>
@@ -178,7 +178,7 @@ export default function ManagementFeesPage() {
               const maxP = Math.max(0, ...rows.map((b) => b.maxPosted));
               return (
                 <tr style={band ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.06))" } : { borderTop: "2px solid var(--border)", background: "var(--tint-brand-bg, rgba(11,74,125,0.08))" }}>
-                  <td style={{ ...gridTd, fontWeight: 800, color: band ? "#0b4a7d" : undefined, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-12-5)", position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>{label}</td>
+                  <td style={{ ...gridTd, fontWeight: 800, color: band ? "var(--c-0b4a7d)" : undefined, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-12-5)", position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>{label}</td>
                   {months.map((v, m) => (
                     <td key={m} style={{ ...gridTd, ...numTd, fontWeight: 800, fontStyle: m + 1 > maxP ? "italic" : undefined, color: m + 1 > maxP ? "var(--muted)" : undefined }}>{money(v)}</td>
                   ))}
@@ -252,13 +252,13 @@ export default function ManagementFeesPage() {
           <p className="muted small" style={{ marginTop: -4, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {flaggedCount > 0 && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--c-b45309)", fontWeight: 700 }}>
-                <span style={{ width: 13, height: 13, borderRadius: 3, background: "var(--tint-amber-bg, rgba(217,119,6,0.25))", border: "1px solid #d97706" }} />
+                <span style={{ width: 13, height: 13, borderRadius: 3, background: "rgba(217,119,6,0.25)", border: "1px solid #d97706" }} />
                 {flaggedCount} month{flaggedCount === 1 ? "" : "s"} flagged — a fee is expected but missing; likely needs (re)posting.
               </span>
             )}
             {negativeCount > 0 && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--c-b91c1c)", fontWeight: 700 }}>
-                <span style={{ width: 13, height: 13, borderRadius: 3, background: "var(--tint-red-bg, rgba(220,38,38,0.25))", border: "1px solid #dc2626" }} />
+                <span style={{ width: 13, height: 13, borderRadius: 3, background: "rgba(220,38,38,0.25)", border: "1px solid #dc2626" }} />
                 {negativeCount} negative fee{negativeCount === 1 ? "" : "s"} — the 6610 netted to a credit (reversal / correction); verify the GL.
               </span>
             )}
@@ -331,7 +331,7 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
                         <td colSpan={4} style={{ padding: "0 13px 8px", borderBottom: "1px solid var(--border)" }}>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px" }}>
                             {m.leaseChanges.map((c, k) => (
-                              <span key={k} style={{ fontSize: "var(--fs-11-5)", fontWeight: 600, color: c.kind === "vacated" ? "#b91c1c" : "#15803d" }}>
+                              <span key={k} style={{ fontSize: "var(--fs-11-5)", fontWeight: 600, color: c.kind === "vacated" ? "var(--c-b91c1c)" : "var(--c-15803d)" }}>
                                 {c.kind === "vacated" ? "↘" : "↗"} {c.tenant} {c.kind} {c.kind === "vacated" ? "−" : "+"}{money(Math.abs(c.amount))}/mo
                               </span>
                             ))}
@@ -377,8 +377,8 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
 }) {
   const [open, setOpen] = useState(false);
   const ok = tie.clean && flags.length === 0 && tie.missingGl.length === 0;
-  const accent = ok ? "#15803d" : "#b45309";
-  const varColor = (v: number) => (Math.abs(v) <= 1 ? "var(--muted)" : v < 0 ? "#b91c1c" : "#b45309");
+  const accent = ok ? "var(--c-15803d)" : "var(--c-b45309)";
+  const varColor = (v: number) => (Math.abs(v) <= 1 ? "var(--muted)" : v < 0 ? "var(--c-b91c1c)" : "var(--c-b45309)");
   const FLAG_TEXT: Record<string, string> = {
     negative: "negative fee — a reversal is sitting where a charge should be",
     "no-fee": "no fee posted",
@@ -419,7 +419,7 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
                     <code style={{ fontSize: "var(--fs-12)" }}>{f.code}</code> {f.name}
                   </td>
                   <td style={{ padding: "4px 8px", whiteSpace: "nowrap", fontWeight: 700 }}>{MONTHS_LONG[f.month - 1]}</td>
-                  <td style={{ padding: "4px 8px", color: f.kind === "outlier" ? "#b45309" : "#b91c1c" }}>
+                  <td style={{ padding: "4px 8px", color: f.kind === "outlier" ? "var(--c-b45309)" : "var(--c-b91c1c)" }}>
                     {FLAG_TEXT[f.kind]}
                   </td>
                   <td style={{ padding: "4px 0 4px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
@@ -435,7 +435,7 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
 
       {/* What to do about it. */}
       {entry && entry.lines.length > 0 && entry.adjustment !== 0 && (
-        <div style={{ background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", borderRadius: 8, padding: "10px 12px" }}>
+        <div style={{ background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))", borderRadius: 8, padding: "10px 12px" }}>
           <div style={{ ...secLabel, marginBottom: 6 }}>Post this at 2010 for {MONTHS_LONG[entry.month - 1]} {year}</div>
           <table style={{ width: "100%", fontSize: "var(--fs-13)" }}>
             <tbody>

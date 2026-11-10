@@ -223,7 +223,7 @@ export default function RetailCommissionsPage() {
       const j = await r.json().catch(() => ({}));
       setSendNote(j?.avid
         ? { ok: !!j.ok, text: j.ok
-            ? `✓ ${entry.tenant} sent to AvidXchange as ${j.invoiceNumber} — GL import to Marie, ${toMoney(j.amount ?? 0)} to you for payroll.`
+            ? `${entry.tenant} sent to AvidXchange as ${j.invoiceNumber} — GL import to Marie, ${toMoney(j.amount ?? 0)} to you for payroll.`
             : `${entry.tenant} reached AvidXchange as ${j.invoiceNumber}, but ${j.reason ?? "a follow-up email did not go"}.` }
         : { ok: false, text: `${entry.tenant} was saved but NOT sent to AvidXchange: ${j?.reason ?? "send failed"}. Use Send to AvidXchange on the quarter to retry.` });
       refreshAvidSent();
@@ -377,7 +377,7 @@ export default function RetailCommissionsPage() {
                   <div style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     padding: "10px 14px",
-                    background: sentRecord ? "rgba(22,163,74,0.07)" : "rgba(11,74,125,0.05)",
+                    background: sentRecord ? "var(--tint-green-bg, rgba(22,163,74,0.07))" : "var(--tint-brand-bg, rgba(11,74,125,0.05))",
                     borderBottom: "1px solid var(--border)", gap: 12, flexWrap: "wrap",
                   }}>
                     <span style={{ fontWeight: 800, fontSize: "var(--fs-14)", display: "flex", alignItems: "center", gap: 8 }}>
@@ -643,7 +643,7 @@ export default function RetailCommissionsPage() {
           </button>
         </div>
         {sendNote && (
-          <div style={{ marginTop: 10, fontSize: "var(--fs-13)", fontWeight: 600, color: sendNote.ok ? "#15803d" : "#b45309" }}>{sendNote.text}</div>
+          <div style={{ marginTop: 10, fontSize: "var(--fs-13)", fontWeight: 600, color: sendNote.ok ? "var(--c-15803d)" : "var(--c-b45309)" }}>{sendNote.text}</div>
         )}
       </div>
 

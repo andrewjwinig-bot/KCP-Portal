@@ -123,9 +123,9 @@ export default function PortfolioOccupancyPanel({
                 style={{
                   padding: "5px 12px", borderRadius: 999, fontSize: "var(--fs-12)",
                   fontWeight: active ? 700 : 500, cursor: "pointer",
-                  border: `1.5px solid ${active ? "#0b4a7d" : "var(--border)"}`,
-                  background: active ? "rgba(11,74,125,0.10)" : "transparent",
-                  color: active ? "#0b4a7d" : "var(--muted)",
+                  border: `1.5px solid ${active ? "var(--c-0b4a7d)" : "var(--border)"}`,
+                  background: active ? "var(--tint-brand-bg, rgba(11,74,125,0.10))" : "transparent",
+                  color: active ? "var(--c-0b4a7d)" : "var(--muted)",
                   fontFamily: "inherit", transition: "all 0.15s ease",
                 }}
               >

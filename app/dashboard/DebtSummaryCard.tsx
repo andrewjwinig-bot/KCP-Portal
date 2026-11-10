@@ -73,7 +73,7 @@ function DebtTile({ loan, today }: { loan: Loan; today: string }) {
       onMouseEnter={(e) => {
         const el = e.currentTarget;
         el.style.boxShadow = "0 4px 14px rgba(15,23,42,0.08)";
-        el.style.borderColor = "rgba(11,74,125,0.35)";
+        el.style.borderColor = "var(--tint-brand-line, rgba(11,74,125,0.35))";
         el.style.transform = "translateY(-1px)";
       }}
       onMouseLeave={(e) => {

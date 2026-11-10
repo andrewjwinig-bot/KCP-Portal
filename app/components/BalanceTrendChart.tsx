@@ -12,7 +12,7 @@ import { tightScale } from "../../lib/charts/tightScale";
 
 export type TrendPoint = { date: string; value: number };
 
-const GOOD = "var(--c-15803d)", BAD = "#b91c1c";
+const GOOD = "var(--c-15803d)", BAD = "var(--c-b91c1c)";
 const money = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const compact = (n: number) => {
   const a = Math.abs(n), s = n < 0 ? "-" : "";

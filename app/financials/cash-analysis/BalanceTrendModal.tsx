@@ -72,7 +72,7 @@ export function BalanceTrendModal({ trend, metric, onMetric, operatingReserves, 
               <StatPill label={`Now · ${dateLabel(last.date)}`} value={money0(metric === "net" ? last.value - operatingReserves : last.value)} total
                 sub={metric === "net" ? `${money0(last.value)} operating − ${money0(operatingReserves)} reserves` : undefined} />
               <StatPill label={`Since ${dateLabel(first.date)}`} value={`${change >= 0 ? "+" : "−"}${money0(Math.abs(change))}`}
-                accent={change >= 0 ? "#15803d" : "#b91c1c"} sub={metric === "net" ? "Operating cash" : undefined} />
+                accent={change >= 0 ? "var(--c-15803d)" : "var(--c-b91c1c)"} sub={metric === "net" ? "Operating cash" : undefined} />
               <StatPill label="High" value={money0(vals[hiI])} sub={dateLabel(points[hiI].date)} />
               <StatPill label="Low" value={money0(vals[loI])} sub={dateLabel(points[loI].date)} />
             </div>

@@ -36,7 +36,7 @@ import { Pill, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
 
-// Buildings with interim (as-of-month) CAM/RET recon support — the "Statement →"
+// Buildings with interim (as-of-month) CAM/RET recon support — the "Statement"
 // button on a vacating tenant deep-links to it (office + retail).
 const OFFICE_INTERIM = new Set([
   "3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0", // office
@@ -541,7 +541,7 @@ function DashboardInner() {
                 title={vacated ? "Close out this vacated tenant — interim (as-of-month) CAM/RET statement" : "Generate this tenant's interim (as-of-month) CAM/RET statement"}
                 style={{ fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.35))", background: "var(--card)", color: "var(--c-0b4a7d)", cursor: "pointer" }}
               >
-                {vacated ? "Close out →" : "Statement →"}
+                {vacated ? "Close out" : "Statement"}
               </button>
             );
           })() : <span className="muted" style={{ fontSize: "var(--fs-12)" }}>—</span>}
@@ -682,7 +682,7 @@ function DashboardInner() {
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = ""; }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Portfolio Occupancy</div>
-            <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>→</span>
+            <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
           </div>
           {loading ? (
             <div className="muted small">Loading…</div>
@@ -773,7 +773,7 @@ function DashboardInner() {
               }}>
                 <span style={{
                   width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
-                  background: rrFreshness.status === "stale" ? "#d97706" : "#dc2626",
+                  background: rrFreshness.status === "stale" ? "var(--c-d97706)" : "var(--c-dc2626)",
                 }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>{rrFreshness.title}</div>
@@ -870,11 +870,11 @@ function DashboardInner() {
               }}>
                 <span style={{
                   width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
-                  background: bankStmt.status === "done" ? "#16a34a"
-                    : bankStmt.status === "overdue" ? "#b91c1c"
-                    : bankStmt.status === "today" ? "#dc2626"
-                    : bankStmt.status === "soon" ? "#d97706"
-                    : "#64748b",
+                  background: bankStmt.status === "done" ? "var(--c-16a34a)"
+                    : bankStmt.status === "overdue" ? "var(--c-b91c1c)"
+                    : bankStmt.status === "today" ? "var(--c-dc2626)"
+                    : bankStmt.status === "soon" ? "var(--c-d97706)"
+                    : "var(--c-64748b)",
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>
@@ -887,7 +887,7 @@ function DashboardInner() {
                   </div>
                   <div className="muted small" style={{ marginTop: 2 }}>
                     {bankStmt.status === "done"
-                      ? `All ${bankStmt.total} statements downloaded ✓`
+                      ? `All ${bankStmt.total} statements downloaded`
                       : `${bankStmt.done}/${bankStmt.total} downloaded · due ${bankStmt.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
                   </div>
                 </div>
@@ -912,11 +912,11 @@ function DashboardInner() {
               }}>
                 <span style={{
                   width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
-                  background: bankRec.status === "done" ? "#16a34a"
-                    : bankRec.status === "overdue" ? "#b91c1c"
-                    : bankRec.status === "today" ? "#dc2626"
-                    : bankRec.status === "soon" ? "#d97706"
-                    : "#64748b",
+                  background: bankRec.status === "done" ? "var(--c-16a34a)"
+                    : bankRec.status === "overdue" ? "var(--c-b91c1c)"
+                    : bankRec.status === "today" ? "var(--c-dc2626)"
+                    : bankRec.status === "soon" ? "var(--c-d97706)"
+                    : "var(--c-64748b)",
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>
@@ -929,7 +929,7 @@ function DashboardInner() {
                   </div>
                   <div className="muted small" style={{ marginTop: 2 }}>
                     {bankRec.recDone === bankRec.total
-                      ? `All ${bankRec.total} accounts reconciled ✓`
+                      ? `All ${bankRec.total} accounts reconciled`
                       : `${bankRec.recDone}/${bankRec.total} reconciled · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
                   </div>
                 </div>
@@ -1233,7 +1233,7 @@ function DashboardInner() {
                   const cat = TAX_CATEGORIES[task.category];
                   const overdue = days < 0;
                   const urgent = days >= 0 && days <= 14;
-                  const bg = overdue ? "rgba(220,38,38,0.10)" : urgent ? "rgba(220,38,38,0.06)" : "rgba(234,88,12,0.04)";
+                  const bg = overdue ? "var(--tint-red-bg, rgba(220,38,38,0.10))" : urgent ? "var(--tint-red-bg, rgba(220,38,38,0.06))" : "rgba(234,88,12,0.04)";
                   return (
                     <tr
                       key={`${task.id}-${due.getTime()}`}

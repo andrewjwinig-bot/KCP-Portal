@@ -409,7 +409,7 @@ function EntryCard({ entry }: { entry: HistoricalOpExEntry }) {
                   </td>
                   <td style={{
                     textAlign: "right", fontVariantNumeric: "tabular-nums",
-                    color: delta == null ? undefined : delta > 0.10 ? "#b91c1c" : delta < -0.10 ? "#15803d" : undefined,
+                    color: delta == null ? undefined : delta > 0.10 ? "var(--c-b91c1c)" : delta < -0.10 ? "var(--c-15803d)" : undefined,
                   }}>
                     {delta == null ? "—" : `${delta >= 0 ? "+" : ""}${(delta * 100).toFixed(1)}%`}
                   </td>

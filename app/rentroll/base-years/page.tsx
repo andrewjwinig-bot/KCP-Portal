@@ -935,19 +935,19 @@ function BaseYearBreakdown({
             <SummaryTile
               label={`Recoverable CAM (${latestYear})`}
               value={money(totals.cam)}
-              accent="#0b4a7d"
+              accent="var(--c-0b4a7d)"
               sub={`${camRecoveryPct.toFixed(1)}% of ${money(totals.latestOpEx)} CAM`}
             />
             <SummaryTile
               label={`Recoverable RET (${latestYear})`}
               value={money(totals.ret)}
-              accent="#0b4a7d"
+              accent="var(--c-0b4a7d)"
               sub={`${retRecoveryPct.toFixed(1)}% of ${money(totals.latestRet)} RET`}
             />
             <SummaryTile
               label="Total recoverable / yr"
               value={money(totals.total)}
-              accent="#16a34a"
+              accent="var(--c-16a34a)"
               bold
               sub={`${pctOfExpenses.toFixed(1)}% of ${money(latestExpenseTotal)} expenses`}
             />
@@ -1006,7 +1006,7 @@ function BaseYearBreakdown({
               <span style={{ textAlign: "right" }}>Total</span>
             </div>
             {groups.map((g) => {
-              const color = g.isNumeric ? colorForYear(g.year) : "#cbd5e1";
+              const color = g.isNumeric ? colorForYear(g.year) : "var(--c-cbd5e1)";
               const recSharePct = totals.total > 0 ? (g.total / totals.total) * 100 : 0;
               const tenantNames = g.tenants.map((t) => t.name).join(", ");
               const isHovered = hoverYear === g.year;
@@ -1023,7 +1023,7 @@ function BaseYearBreakdown({
                     fontSize: "var(--fs-12)",
                     padding: "6px 8px",
                     borderRadius: 6,
-                    background: isHovered ? "rgba(15,23,42,0.07)" : "rgba(15,23,42,0.03)",
+                    background: isHovered ? "rgba(15,23,42,0.07)" : "var(--tint-neutral-faint, rgba(15,23,42,0.03))",
                     border: isHovered ? `1px solid ${color}` : "1px solid transparent",
                     opacity: isOtherHovered ? 0.55 : 1,
                     cursor: "default",
@@ -1048,7 +1048,7 @@ function BaseYearBreakdown({
                   <span className="muted" style={{ fontVariantNumeric: "tabular-nums", textAlign: "right" }}>
                     {g.prsPct.toFixed(1)}%
                   </span>
-                  <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", fontWeight: 600, color: g.isNumeric && recSharePct > g.prsPct ? "#b45309" : "var(--text)" }}
+                  <span style={{ fontVariantNumeric: "tabular-nums", textAlign: "right", fontWeight: 600, color: g.isNumeric && recSharePct > g.prsPct ? "var(--c-b45309)" : "var(--text)" }}
                     title={g.isNumeric && recSharePct > g.prsPct ? "This cohort pulls more recoveries than its building share" : undefined}>
                     {g.isNumeric ? `${recSharePct.toFixed(1)}%` : "—"}
                   </span>
@@ -1072,14 +1072,14 @@ function BaseYearBreakdown({
           {hoverYear && (() => {
             const g = groups.find((x) => x.year === hoverYear);
             if (!g) return null;
-            const color = g.isNumeric ? colorForYear(g.year) : "#94a3b8";
+            const color = g.isNumeric ? colorForYear(g.year) : "var(--c-94a3b8)";
             return (
               <div style={{
                 marginTop: 16,
                 padding: "12px 14px",
                 borderRadius: 8,
                 border: `1px solid ${color}`,
-                background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))",
+                background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))",
                 boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
               }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
@@ -1122,7 +1122,7 @@ function BaseYearBreakdown({
                       fontSize: "var(--fs-12)",
                       padding: "4px 8px",
                       borderRadius: 6,
-                      background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))",
+                      background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))",
                     }}>
                       <HoverCard title={t.name} help={false} rows={[
                         { label: "Suite", value: t.unitRef },
@@ -1157,19 +1157,19 @@ function BaseYearBreakdown({
 // Stable color for a base year. Older years get warmer colors so they
 // visually pop as "carrying more recovery weight"; newer years stay cool.
 const YEAR_COLOR_PALETTE = [
-  "#3b82f6", // 0: newest — blue
-  "#14b8a6", // 1: teal
-  "#22c55e", // 2: green
-  "#84cc16", // 3: lime
-  "#eab308", // 4: yellow
-  "#f59e0b", // 5: amber
-  "#f97316", // 6: orange
-  "#ef4444", // 7: red
-  "#dc2626", // 8: darker red
-  "#991b1b", // 9+: deepest red
+  "var(--c-3b82f6)", // 0: newest — blue
+  "var(--c-14b8a6)", // 1: teal
+  "var(--c-22c55e)", // 2: green
+  "var(--c-84cc16)", // 3: lime
+  "var(--c-eab308)", // 4: yellow
+  "var(--c-f59e0b)", // 5: amber
+  "var(--c-f97316)", // 6: orange
+  "var(--c-ef4444)", // 7: red
+  "var(--c-dc2626)", // 8: darker red
+  "var(--c-991b1b)", // 9+: deepest red
 ];
 function colorForYear(year: string): string {
-  if (!/^\d+$/.test(year)) return "#94a3b8";
+  if (!/^\d+$/.test(year)) return "var(--c-94a3b8)";
   const y = Number(year);
   const now = new Date().getFullYear();
   const age = Math.max(0, now - y);
@@ -1277,7 +1277,7 @@ function SummaryTile({
       flex: "0 1 300px", minWidth: 220,
       padding: "10px 14px",
       borderRadius: 8,
-      background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))",
+      background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))",
       border: "1px solid var(--border)",
     }}>
       <div style={{

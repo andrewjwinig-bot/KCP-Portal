@@ -21,7 +21,7 @@ function monthKey(d: Date): string {
 
 // Priority dot color for personal to-dos (high shows a flag instead).
 function dotFor(p: Priority): string {
-  return p === "high" ? RED : p === "low" ? "#94a3b8" : BRAND;
+  return p === "high" ? RED : p === "low" ? "var(--c-94a3b8)" : BRAND;
 }
 
 // Unified date badge for a task row: "Today" / "Nd overdue" / "Wed, Jul 15".
@@ -163,7 +163,7 @@ export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwne
 
   // Merged weekly list: recurring occurrences + dated personal to-dos, by date.
   const weekList: Item[] = [
-    ...visibleRecurring.map((o) => ({ key: `rec-${o.id}`, label: o.label, date: o.date, dot: CATEGORIES[o.category]?.dot ?? "#64748b", flag: false, onToggle: () => toggleRecurring(o) })),
+    ...visibleRecurring.map((o) => ({ key: `rec-${o.id}`, label: o.label, date: o.date, dot: CATEGORIES[o.category]?.dot ?? "var(--c-64748b)", flag: false, onToggle: () => toggleRecurring(o) })),
     ...weekTodos.map((t) => ({ key: `todo-${t.id}`, label: t.text, date: parseDueDate(t.due), dot: dotFor(priorityOf(t)), flag: priorityOf(t) === "high", onToggle: () => toggleTodo(t) })),
   ].sort((a, b) => (a.date?.getTime() ?? 0) - (b.date?.getTime() ?? 0));
 
@@ -202,8 +202,8 @@ export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwne
         const outstanding = imports.filter((r) => !reminderSatisfied(r, importEvents[r.id]?.at, new Date(), importCoverage[r.id]));
         return (
           <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: outstanding.length ? "#b45309" : GREEN, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 9, height: 9, borderRadius: 999, background: outstanding.length ? "#b45309" : GREEN, flexShrink: 0 }} />
+            <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: outstanding.length ? "var(--c-b45309)" : GREEN, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 9, height: 9, borderRadius: 999, background: outstanding.length ? "var(--c-b45309)" : GREEN, flexShrink: 0 }} />
               Files to Import This Week{outstanding.length ? ` · ${outstanding.length} outstanding` : ""}
             </div>
             {outstanding.length === 0 ? (

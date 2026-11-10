@@ -22,7 +22,7 @@ export function RecoveryCheckCard({ checks, year }: { checks: NonNullable<Budget
   const over = checks.filter((p) => p.checks.some((c) => c.over)).length;
   const cells = (c?: GroupCheck) => {
     if (!c || !(c.pool > 0)) return <><td style={td}>–</td><td style={td}>–</td><td style={td}>–</td></>;
-    const color = c.over ? "#b45309" : undefined;
+    const color = c.over ? "var(--c-b45309)" : undefined;
     return (
       <>
         <td style={td}>{money0(c.recovered)}</td>

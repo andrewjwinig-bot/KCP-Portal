@@ -211,7 +211,7 @@ function DebtPageInner() {
           <StatPill label="Total Outstanding" value={money(portfolio.outstanding)} />
           <StatPill label="Loans" value={portfolio.count} />
           <StatPill label="Monthly Debt Service" value={money(portfolio.debtService)} />
-          <StatPill label="Interest (next 12 mo)" value={money(portfolio.annualInterest)} accent="#b45309" />
+          <StatPill label="Interest (next 12 mo)" value={money(portfolio.annualInterest)} accent="var(--c-b45309)" />
           <StatPill label="Wtd. Avg Rate" value={pct(portfolio.avgRate)} />
         </div>
       </div>
@@ -337,7 +337,7 @@ function DebtPageInner() {
 
 // Loan-group section header tones (mirrors the property page's category pills).
 function groupTone(group: LoanGroup): { bg: string; fg: string; border: string } {
-  if (group === "Business Parks") return { bg: "rgba(11,74,125,0.10)",  fg: "var(--c-0b4a7d)", border: "rgba(11,74,125,0.35)" };
+  if (group === "Business Parks") return { bg: "var(--tint-brand-bg, rgba(11,74,125,0.10))",  fg: "var(--c-0b4a7d)", border: "var(--tint-brand-line, rgba(11,74,125,0.35))" };
   if (group === "Shopping Centers") return { bg: "rgba(13,148,136,0.10)", fg: "var(--c-0d9488)", border: "rgba(13,148,136,0.35)" };
   return { bg: "rgba(124,58,237,0.10)", fg: "var(--c-6d28d9)", border: "rgba(124,58,237,0.30)" };
 }
@@ -388,7 +388,7 @@ function ScheduleModal({ loan, today, onClose }: { loan: Loan; today: string; on
         <div className="pills" style={{ marginTop: 4 }}>
           <StatPill label="Current Balance" value={money(summary.projectedBalance)} />
           <StatPill label="Monthly Principal" value={money2(summary.nextPayment?.principal ?? 0)} />
-          <StatPill label="Monthly Interest" value={money2(summary.nextPayment?.interest ?? 0)} accent="#b45309" />
+          <StatPill label="Monthly Interest" value={money2(summary.nextPayment?.interest ?? 0)} accent="var(--c-b45309)" />
           <StatPill label="Total Monthly Payment" value={money2(summary.monthlyDebtService)} />
         </div>
 

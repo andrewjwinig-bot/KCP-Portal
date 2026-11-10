@@ -49,7 +49,7 @@ function fmtVarPct(v: number | null, budget: number): string {
   const p = (v / Math.abs(budget)) * 100;
   return `${p > 0 ? "+" : ""}${p.toFixed(1)}%`;
 }
-export const varColor = (v: number | null) => (v == null ? "var(--muted)" : v >= 0 ? "#15803d" : "#b91c1c");
+export const varColor = (v: number | null) => (v == null ? "var(--muted)" : v >= 0 ? "var(--c-15803d)" : "var(--c-b91c1c)");
 
 // ── Budget-matching chrome ───────────────────────────────────────────────────
 export function HeaderSelect({ value, onChange, displayLabel, ariaLabel, muted, children }: {
@@ -151,7 +151,7 @@ export function ReprojTable({ data, view, noteFor, osHref, onDrill, onEdit }: { 
         <AccountListCard
           title="Unbudgeted Actuals — not in any reprojection line"
           description="GL accounts with activity that don't map to a budget/statement line — surfaced so the full-year reprojection isn't silently short."
-          accent="#b45309"
+          accent="var(--c-b45309)"
           rows={data.unbudgetedAccounts.map((r) => ({ account: r.account, name: r.name, amount: r.actualTotal }))}
           format={(n) => money(n)}
         />
@@ -229,7 +229,7 @@ function figureCells(t: Totals, view: ViewOpts, opts: { bold?: boolean; color?: 
       {cells.map((v, i) => opts.edit && !actuals && !psf && i >= through ? (
         <EditCell key={i} value={v} typed={!!opts.edit.overridden?.[i]}
           onSave={(nv) => opts.edit!.onSave(i, nv)}
-          style={{ ...td, borderLeft: i === through && through > 0 ? ACTUAL_EDGE : undefined, color: v < 0 ? "#b91c1c" : "var(--muted)" }}
+          style={{ ...td, borderLeft: i === through && through > 0 ? ACTUAL_EDGE : undefined, color: v < 0 ? "var(--c-b91c1c)" : "var(--muted)" }}
           tip={{ title: `${opts.edit.label} · ${MONTHS[i]}`, rows: [
             { label: "Budget", value: money(t.budget[i] ?? 0) },
             { label: "Reprojected (typed)", value: money(v) },
@@ -240,7 +240,7 @@ function figureCells(t: Totals, view: ViewOpts, opts: { bold?: boolean; color?: 
           ...td,
           fontWeight: opts.bold ? 800 : undefined,
           borderLeft: i === through && through > 0 ? ACTUAL_EDGE : undefined,
-          color: opts.color ?? (v < 0 ? "#b91c1c" : i < through ? "var(--text)" : "var(--muted)"),
+          color: opts.color ?? (v < 0 ? "var(--c-b91c1c)" : i < through ? "var(--text)" : "var(--muted)"),
         }}>{actuals && i >= through ? "" : money(v, psf, sqft)}</td>
       ))}
       <td {...totalClick} style={{ ...td, borderLeft: "1px solid var(--border)", fontSize: opts.bold ? 14 : 13, fontWeight: 900, color: opts.color ?? BRAND }}>{money(totalVal, psf, sqft)}</td>
@@ -284,7 +284,7 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
   if (lines.length === 0 && view.hideEmpty) return null;
   return (
     <div className="card" style={{ padding: 0 }}>
-      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</div>
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</div>
       <div className="tableWrap">
         <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
           <Colgroup through={view.through} mode={view.mode} plain={view.plain} />
@@ -331,7 +331,7 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
 
 function SubtotalCard({ label, t, view, strong }: { label: string; t: Totals; view: ViewOpts; strong?: boolean }) {
   return (
-    <div className="card" style={{ padding: 0, borderColor: BRAND, background: strong ? "rgba(11,74,125,0.06)" : "rgba(11,74,125,0.04)" }}>
+    <div className="card" style={{ padding: 0, borderColor: BRAND, background: strong ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : "var(--tint-brand-bg, rgba(11,74,125,0.04))" }}>
       <div className="tableWrap" style={{ marginTop: 0 }}>
         <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
           <Colgroup through={view.through} mode={view.mode} plain={view.plain} />

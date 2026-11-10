@@ -1,5 +1,5 @@
 "use client";
-import { Check, ChevronRight } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import InstructionWizard from "./InstructionWizard";
 import Link from "next/link";
@@ -294,13 +294,13 @@ export default function TrackerPage() {
     const d = effDay(t, viewYear, viewMonth);
     const name = dueName(t, viewYear, viewMonth);
     if (checked[t.id])
-      return { label: "✓ Done",    color: "var(--c-16a34a)", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  };
+      return { label: "Done",    color: "var(--c-16a34a)", bg: "var(--tint-green-bg, rgba(22,163,74,0.08))",  border: "var(--tint-green-line, rgba(22,163,74,0.2))"  };
     if (isCurrentMonth && isPast(d))
-      return { label: "Overdue",   color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" };
+      return { label: "Overdue",   color: "var(--c-dc2626)", bg: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "var(--tint-red-line, rgba(220,38,38,0.2))" };
     if (isCurrentMonth && d === today.getDate())
       return { label: "Due today", color: "var(--c-ea580c)", bg: "rgba(234,88,12,0.08)", border: "rgba(234,88,12,0.2)" };
     if (isCurrentMonth && d > today.getDate() && d - today.getDate() <= 3)
-      return { label: "Due soon",  color: "var(--c-d97706)", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.2)"  };
+      return { label: "Due soon",  color: "var(--c-d97706)", bg: "var(--tint-amber-bg, rgba(217,119,6,0.08))",  border: "var(--tint-amber-line, rgba(217,119,6,0.2))"  };
     return { label: `Due ${name}`, color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)" };
   }
 
@@ -400,7 +400,7 @@ export default function TrackerPage() {
           <div style={{
             height: "100%",
             width: `${(done / total) * 100}%`,
-            background: done === total ? "#16a34a" : "var(--brand)",
+            background: done === total ? "var(--c-16a34a)" : "var(--brand)",
             borderRadius: 999,
             transition: "width 0.3s ease",
           }} />
@@ -415,11 +415,11 @@ export default function TrackerPage() {
 
           {/* Month navigation — centered at top of calendar */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}>
-            <button className="btn" onClick={prevMonth} style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}>←</button>
+            <button className="btn" onClick={prevMonth} style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             <span style={{ fontWeight: 800, fontSize: "var(--fs-14)", minWidth: 120, textAlign: "center" }}>
               {MONTHS[viewMonth]} {viewYear}
             </span>
-            <button className="btn" onClick={nextMonth} style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}>→</button>
+            <button className="btn" onClick={nextMonth} style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             {!isCurrentMonth && (
               <button className="btn" onClick={() => { setViewYear(today.getFullYear()); setViewMonth(today.getMonth()); }} style={{ fontSize: "var(--fs-11)", padding: "5px 9px" }}>
                 Today
@@ -457,7 +457,7 @@ export default function TrackerPage() {
                     padding: "5px 2px 4px",
                     borderRadius: 7,
                     cursor: hasTasks ? "pointer" : "default",
-                    background: sel ? "var(--brand)" : tod ? "rgba(11,74,125,0.1)" : "transparent",
+                    background: sel ? "var(--brand)" : tod ? "var(--tint-brand-bg, rgba(11,74,125,0.1))" : "transparent",
                     color: sel ? "#fff" : tod ? "var(--brand)" : past && !hasTasks ? "var(--muted)" : "var(--text)",
                     fontWeight: tod ? 800 : 400,
                     fontSize: "var(--fs-13)",
@@ -472,7 +472,7 @@ export default function TrackerPage() {
                       {dayTasks.slice(0, 4).map(t => (
                         <div key={t.id} style={{
                           width: 5, height: 5, borderRadius: "50%",
-                          background: allDone ? "#16a34a" : checked[t.id] ? "#16a34a" : CATEGORIES[t.category].dot,
+                          background: allDone ? "var(--c-16a34a)" : checked[t.id] ? "var(--c-16a34a)" : CATEGORIES[t.category].dot,
                           opacity: checked[t.id] ? 0.45 : 1,
                         }} />
                       ))}
@@ -634,7 +634,7 @@ export default function TrackerPage() {
                       display: "flex", alignItems: "flex-start", gap: 12,
                       padding: "13px 16px",
                       borderBottom: idx < sortedVisible.length - 1 ? "1px solid var(--border)" : "none",
-                      background: isDone ? "rgba(22,163,74,0.025)" : isOver ? "rgba(220,38,38,0.025)" : "transparent",
+                      background: isDone ? "var(--tint-green-faint, rgba(22,163,74,0.025))" : isOver ? "var(--tint-red-faint, rgba(220,38,38,0.025))" : "transparent",
                     }}
                   >
                     <input
@@ -699,12 +699,12 @@ export default function TrackerPage() {
                                 display: "inline-flex", alignItems: "center", gap: 5,
                                 fontSize: "var(--fs-11)", fontWeight: 700, cursor: "pointer", flexShrink: 0,
                                 padding: "2px 8px", borderRadius: 999,
-                                background: all ? "rgba(22,163,74,0.12)" : "rgba(11,74,125,0.08)",
-                                color: all ? "#15803d" : "var(--brand)",
-                                border: `1px solid ${all ? "rgba(22,163,74,0.30)" : "rgba(11,74,125,0.22)"}`,
+                                background: all ? "var(--tint-green-bg, rgba(22,163,74,0.12))" : "var(--tint-brand-bg, rgba(11,74,125,0.08))",
+                                color: all ? "var(--c-15803d)" : "var(--brand)",
+                                border: `1px solid ${all ? "var(--tint-green-line, rgba(22,163,74,0.30))" : "var(--tint-brand-line, rgba(11,74,125,0.22))"}`,
                               }}
                             >
-                              {all ? "✓ steps done" : `${n}/${steps.length} steps`}
+                              {all ? "steps done" : `${n}/${steps.length} steps`}
                             </span>
                           );
                         })()}
@@ -787,13 +787,13 @@ export default function TrackerPage() {
 
                 const dateLabel = `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][task.dueMonth - 1]} ${task.dueDay}`;
                 const status = isDone
-                  ? { label: "✓ Filed",                color: "var(--c-16a34a)", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  }
+                  ? { label: "Filed",                color: "var(--c-16a34a)", bg: "var(--tint-green-bg, rgba(22,163,74,0.08))",  border: "var(--tint-green-line, rgba(22,163,74,0.2))"  }
                   : isOver
-                  ? { label: `Overdue · ${dateLabel}`, color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" }
+                  ? { label: `Overdue · ${dateLabel}`, color: "var(--c-dc2626)", bg: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "var(--tint-red-line, rgba(220,38,38,0.2))" }
                   : isToday
                   ? { label: "Due today",               color: "var(--c-ea580c)", bg: "rgba(234,88,12,0.08)", border: "rgba(234,88,12,0.2)" }
                   : isSoon
-                  ? { label: `Due soon · ${dateLabel}`,color: "var(--c-d97706)", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.2)"  }
+                  ? { label: `Due soon · ${dateLabel}`,color: "var(--c-d97706)", bg: "var(--tint-amber-bg, rgba(217,119,6,0.08))",  border: "var(--tint-amber-line, rgba(217,119,6,0.2))"  }
                   : { label: dateLabel,                  color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)" };
 
                 // K-1 toggle: check/uncheck all investors at once
@@ -821,7 +821,7 @@ export default function TrackerPage() {
                       display: "flex", alignItems: "flex-start", gap: 12,
                       padding: "11px 16px",
                       borderBottom: idx < taxTasksThisMonth.length - 1 ? "1px solid var(--border)" : "none",
-                      background: isDone ? "rgba(22,163,74,0.025)" : isOver ? "rgba(220,38,38,0.025)" : "transparent",
+                      background: isDone ? "var(--tint-green-faint, rgba(22,163,74,0.025))" : isOver ? "var(--tint-red-faint, rgba(220,38,38,0.025))" : "transparent",
                     }}
                   >
                     <input
@@ -926,7 +926,7 @@ export default function TrackerPage() {
                           ({stDone}/{stTotal})
                         </span>
                       </span>
-                      <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+                      <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
                     </button>
 
                     {open && (
@@ -935,7 +935,7 @@ export default function TrackerPage() {
                           const isDone = isMarieChecked(t.id, freq);
                           const progress = t.bankRecProgress ? bankProgress(t.bankRecProgress) : null;
                           const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
-                          const progressColor = t.bankRecProgress === "reconciled" ? "#16a34a" : "#0b4a7d";
+                          const progressColor = t.bankRecProgress === "reconciled" ? "var(--c-16a34a)" : "var(--c-0b4a7d)";
                           return (
                             <label
                               key={t.id}
@@ -1015,7 +1015,7 @@ export default function TrackerPage() {
                                       <div style={{
                                         height: "100%", borderRadius: 999,
                                         width: `${pct}%`,
-                                        background: progress.done === progress.total ? "#16a34a" : progressColor,
+                                        background: progress.done === progress.total ? "var(--c-16a34a)" : progressColor,
                                         transition: "width 0.3s ease",
                                       }} />
                                     </div>

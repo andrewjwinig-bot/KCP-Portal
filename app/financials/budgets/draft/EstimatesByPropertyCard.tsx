@@ -16,7 +16,7 @@ import type { TenantRevenueRow } from "@/lib/financials/budgets/draft";
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const signed = (n: number) => (Math.abs(n) < 0.5 ? "–" : `${n > 0 ? "+" : "−"}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`);
 const pctS = (n: number | null) => (n == null ? "new" : Math.abs(n) < 0.05 ? "0%" : `${n > 0 ? "+" : "−"}${Math.abs(n).toFixed(1)}%`);
-const UP = "var(--c-b45309)", DOWN = "#15803d";
+const UP = "var(--c-b45309)", DOWN = "var(--c-15803d)";
 const tone = (n: number) => (n > 0.5 ? UP : n < -0.5 ? DOWN : "var(--muted)");
 
 export function EstimatesByPropertyCard({ rows, properties, year, onOpen }: {

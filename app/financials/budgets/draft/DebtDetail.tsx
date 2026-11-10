@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 // DEBT SERVICE, FROM THE LOANS — the working behind the Interest and Mortgage
 // Amortization lines, which are LOCKED: they are the lender's terms run
@@ -31,7 +32,7 @@ export function DebtDetail({ debt, year }: { debt: Debt; year: number }) {
     <div style={{ display: "grid", gap: 16 }}>
       <div className="pills" style={{ alignItems: "stretch" }}>
         <StatPill label={`Balance Jan 1, ${year}`} value={usd(start)} sub={`${debt.loans.length} loan${debt.loans.length === 1 ? "" : "s"}${shared ? " · this building's share" : ""}`} />
-        <span style={op}>→</span>
+        <span style={op}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
         <StatPill label="Interest" value={usd(debt.interest)} sub="Interest line" />
         <span style={op}>+</span>
         <StatPill label="Principal" value={usd(debt.principal)} sub="Mortgage Amortization line" />
@@ -69,7 +70,7 @@ export function DebtDetail({ debt, year }: { debt: Debt; year: number }) {
                     )}
                   </td>
                   <td style={td}>{l.ratePct.toFixed(3)}%</td>
-                  <td style={{ ...td, color: l.refinanceAssumed ? "#b45309" : undefined }}>{l.maturityDate}</td>
+                  <td style={{ ...td, color: l.refinanceAssumed ? "var(--c-b45309)" : undefined }}>{l.maturityDate}</td>
                   <td style={td}>{usd(l.balanceStart)}</td>
                   <td style={td}>{usd(l.interest)}</td>
                   <td style={td}>{usd(l.principal)}</td>

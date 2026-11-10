@@ -115,8 +115,8 @@ export default function ExpenseHistoryPage() {
 
   const btnStyle = (red?: boolean): React.CSSProperties => ({
     fontSize: "var(--fs-13)", padding: "5px 14px", borderRadius: 7,
-    border: `1px solid ${red ? "#b42318" : "#1a1a1a"}`,
-    background: "transparent", color: red ? "#b42318" : "#1a1a1a",
+    border: `1px solid ${red ? "var(--c-b42318)" : "var(--c-1a1a1a)"}`,
+    background: "transparent", color: red ? "var(--c-b42318)" : "var(--c-1a1a1a)",
     cursor: "pointer", fontWeight: 500,
   });
 
@@ -150,7 +150,7 @@ export default function ExpenseHistoryPage() {
           const detail = details[s.id];
           return (
             <div key={s.id} style={{ border: "1px solid var(--border)", borderRadius: 12, marginBottom: 12, overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: isExpanded ? "rgba(11,74,125,0.04)" : "#fff" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: isExpanded ? "var(--tint-brand-bg, rgba(11,74,125,0.04))" : "#fff" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 700, fontSize: 15 }}>{s.periodText || s.statementMonth}</span>

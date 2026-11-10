@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 // 1099 Register — the worksheet handed to the accountants each January.
 //
@@ -213,11 +214,11 @@ export default function Ten99Page() {
                         const open = openVendor === key;
                         return (
                           <Fragment key={key}>
-                            <tr style={{ borderTop: "1px solid var(--border)", background: open ? "rgba(11,74,125,0.04)" : undefined }}>
+                            <tr style={{ borderTop: "1px solid var(--border)", background: open ? "var(--tint-brand-bg, rgba(11,74,125,0.04))" : undefined }}>
                               <td style={td}>
                                 <button type="button" onClick={() => setOpenVendor(open ? null : key)}
                                   style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-14)", fontWeight: 600, color: BRAND, textAlign: "left" }}>
-                                  {v.name} <span className="muted" style={{ fontWeight: 500 }}>{open ? "▲" : "▼"}</span>
+                                  {v.name} <span className="muted" style={{ fontWeight: 500 }}>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
                                 </button>
                               </td>
                               <td style={numTd}>{v.count}</td>
@@ -266,7 +267,7 @@ export default function Ten99Page() {
                   <div style={{ borderTop: "1px solid var(--border)", padding: "10px 16px" }}>
                     <button type="button" onClick={() => setShowBelow((s) => ({ ...s, [e.id]: !belowOpen }))}
                       style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", ...SECTION_LABEL }}>
-                      {belowOpen ? "▲" : "▼"} {e.below.length} vendor{e.below.length === 1 ? "" : "s"} below {money0(threshold)}
+                      {belowOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />} {e.below.length} vendor{e.below.length === 1 ? "" : "s"} below {money0(threshold)}
                     </button>
                     {belowOpen && (
                       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "var(--fs-13)" }}>
@@ -291,7 +292,7 @@ export default function Ten99Page() {
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
               <button type="button" onClick={() => setShowExcluded((v) => !v)}
                 style={{ width: "100%", background: "none", border: "none", padding: "13px 16px", cursor: "pointer", fontFamily: "inherit", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={SECTION_LABEL}>{showExcluded ? "▲" : "▼"} Marked not reportable · {excluded.length}</span>
+                <span style={SECTION_LABEL}>{showExcluded ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />} Marked not reportable · {excluded.length}</span>
                 <span className="muted small">Carried forward to every year</span>
               </button>
               {showExcluded && (

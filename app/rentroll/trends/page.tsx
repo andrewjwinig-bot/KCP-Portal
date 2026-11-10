@@ -11,11 +11,11 @@ import { PROPERTY_DEFS } from "../../../lib/properties/data";
 import { ChartTooltip, HoverBands } from "@/app/components/ChartTooltip";
 
 const COLORS: Record<GroupKey, string> = {
-  total: "#0b4a7d",
-  jv3:   "#d97706",
-  ni:    "#a16207",
-  sc:    "#16a34a",
-  kh:    "#7c3aed",
+  total: "var(--c-0b4a7d)",
+  jv3:   "var(--c-d97706)",
+  ni:    "var(--c-a16207)",
+  sc:    "var(--c-16a34a)",
+  kh:    "var(--c-7c3aed)",
 };
 
 const HORIZONS = [
@@ -243,9 +243,9 @@ export default function TrendsPage() {
           padding: "10px 14px",
           borderRadius: 8,
           fontSize: "var(--fs-13)",
-          background: uploadError ? "rgba(220,38,38,0.06)" : "rgba(22,163,74,0.06)",
-          border: `1px solid ${uploadError ? "rgba(220,38,38,0.3)" : "rgba(22,163,74,0.3)"}`,
-          color: uploadError ? "#b91c1c" : "#166534",
+          background: uploadError ? "var(--tint-red-bg, rgba(220,38,38,0.06))" : "var(--tint-green-bg, rgba(22,163,74,0.06))",
+          border: `1px solid ${uploadError ? "var(--tint-red-line, rgba(220,38,38,0.3))" : "var(--tint-green-line, rgba(22,163,74,0.3))"}`,
+          color: uploadError ? "var(--c-b91c1c)" : "var(--c-166534)",
         }}>
           {uploadError ?? uploadOk}
         </div>
@@ -469,7 +469,7 @@ export default function TrendsPage() {
                   </thead>
                   <tbody>
                     {allUnits.map(({ code, unit }, i) => (
-                      <tr key={i} style={{ background: unit.isVacant ? "rgba(15,23,42,0.025)" : undefined }}>
+                      <tr key={i} style={{ background: unit.isVacant ? "var(--tint-neutral-faint, rgba(15,23,42,0.025))" : undefined }}>
                         <td style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>{code}</td>
                         <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: "var(--fs-12)", whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
                         <td style={{ fontWeight: unit.isVacant ? 400 : 600, color: unit.isVacant ? "var(--muted)" : "var(--text)", fontStyle: unit.isVacant ? "italic" : "normal" }}>
@@ -558,7 +558,7 @@ function KpiTiles({ last, yoy }: { last: RentRollSnapshotSummary; yoy: RentRollS
           const isFlat = Math.abs(tile.delta) < 0.0001;
           if (!isFlat) {
             const positive = (isUp && tile.goodIfPositive) || (!isUp && !tile.goodIfPositive);
-            toneColor = positive ? "#16a34a" : "#dc2626";
+            toneColor = positive ? "var(--c-16a34a)" : "var(--c-dc2626)";
           }
         }
         return (
@@ -772,7 +772,7 @@ function BuildingSparklines({ snapshots }: { snapshots: RentRollSnapshotSummary[
               <Sparkline values={occ} height={36} color="var(--c-0b4a7d)" max={100} />
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--fs-11)", marginTop: 4 }}>
                 <span style={{ color: "var(--muted)" }}>{last ? `${last.pct.toFixed(1)}%` : "—"}</span>
-                <span style={{ color: trendDelta > 0.05 ? "#16a34a" : trendDelta < -0.05 ? "#dc2626" : "var(--muted)", fontWeight: 600 }}>
+                <span style={{ color: trendDelta > 0.05 ? "var(--c-16a34a)" : trendDelta < -0.05 ? "var(--c-dc2626)" : "var(--muted)", fontWeight: 600 }}>
                   {trendDelta === 0 ? "±0" : `${trendDelta > 0 ? "+" : ""}${trendDelta.toFixed(1)} pts`}
                 </span>
               </div>
@@ -784,7 +784,7 @@ function BuildingSparklines({ snapshots }: { snapshots: RentRollSnapshotSummary[
   );
 }
 
-function Sparkline({ values, height = 28, color = "#0b4a7d", max }: { values: number[]; height?: number; color?: string; max?: number }) {
+function Sparkline({ values, height = 28, color = "var(--c-0b4a7d)", max }: { values: number[]; height?: number; color?: string; max?: number }) {
   const W = 120;
   const m = max ?? Math.max(0.001, ...values);
   const xs = (i: number) => values.length <= 1 ? W / 2 : (i / (values.length - 1)) * W;

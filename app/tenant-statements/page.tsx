@@ -203,7 +203,7 @@ export default function TenantStatementsPage() {
           ? ` · ${mg.replaced} replaced, ${mg.carriedOver} kept`
           : mg && mg.replaced > 0 && mg.added === 0 ? ` · ${mg.replaced} replaced` : "") + paidOff;
         const note = untied
-          ? `⚠ ${untied} tenant${untied === 1 ? "" : "s"} don't reconcile — held back from the portal`
+          ? `${untied} tenant${untied === 1 ? "" : "s"} don't reconcile — held back from the portal`
           : j.autoPublished ? "every tenant ties out · published to the portal"
           : j.published ? "every tenant ties out · the month was already live"
           : "every tenant ties out · publish when you're ready";
@@ -437,21 +437,21 @@ export default function TenantStatementsPage() {
 
               <div className="pills" style={{ flexWrap: "wrap", justifyContent: "flex-start" }}>
                 <StatPill label="Open balance" value={money0(row.openBalance)} />
-                <StatPill label="Past due" value={money0(row.pastDue)} accent={row.pastDue > 0 ? "#b45309" : undefined} />
+                <StatPill label="Past due" value={money0(row.pastDue)} accent={row.pastDue > 0 ? "var(--c-b45309)" : undefined} />
                 <StatPill label="Tenants owing" value={row.tenantsOwing} sub={`of ${row.tenants}`} />
-                <StatPill label="To review" value={row.untied} accent={row.untied > 0 ? "#b91c1c" : undefined}
+                <StatPill label="To review" value={row.untied} accent={row.untied > 0 ? "var(--c-b91c1c)" : undefined}
                   sub={row.untied ? "don't tie to Skyline" : "all tie out"} />
                 {links && (
                   <StatPill label="Portal links shared" value={links.shared} sub={`${links.viewed} opened · of ${row.tenants}`}
-                    accent={links.shared === 0 ? "#b45309" : undefined} />
+                    accent={links.shared === 0 ? "var(--c-b45309)" : undefined} />
                 )}
                 {!!detail?.pendingPaymentCount && (
                   <StatPill label="Unapplied payments" value={money0(detail.pendingPaymentAmount)}
-                    sub={`${detail.pendingPaymentCount} waiting on the tenant`} accent="#b45309" />
+                    sub={`${detail.pendingPaymentCount} waiting on the tenant`} accent="var(--c-b45309)" />
                 )}
                 {!!detail?.declaredCount && (
                   <StatPill label="Payments declared" value={money0(detail.declaredAmount)}
-                    sub={`${detail.declaredCount} ${detail.declaredCount === 1 ? "tenant" : "tenants"} told us`} accent="#15803d" />
+                    sub={`${detail.declaredCount} ${detail.declaredCount === 1 ? "tenant" : "tenants"} told us`} accent="var(--c-15803d)" />
                 )}
               </div>
 
@@ -506,12 +506,12 @@ export default function TenantStatementsPage() {
                         <button key={g.code} type="button" onClick={() => setProperty(on ? "All" : g.code)}
                           title={on ? "Show all properties" : `Filter to ${g.code} — ${name}`}
                           style={{ cursor: "pointer", fontFamily: "inherit", textAlign: "left", padding: "11px 13px", borderRadius: 10,
-                            border: `1.5px solid ${on ? "rgba(11,74,125,0.5)" : "var(--border)"}`,
-                            background: on ? "rgba(11,74,125,0.06)" : "var(--card)" }}>
-                          <div style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: on ? "#0b4a7d" : "var(--text)" }}>{money0(g.open)}</div>
+                            border: `1.5px solid ${on ? "var(--tint-brand-line, rgba(11,74,125,0.5))" : "var(--border)"}`,
+                            background: on ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : "var(--card)" }}>
+                          <div style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: on ? "var(--c-0b4a7d)" : "var(--text)" }}>{money0(g.open)}</div>
                           <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.code}</div>
                           <div className="muted" style={{ fontSize: "var(--fs-11)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
-                          <div style={{ fontSize: "var(--fs-11)", marginTop: 3, color: g.pastDue > 0.005 ? "#b45309" : "var(--muted)", fontWeight: g.pastDue > 0.005 ? 700 : 500 }}>
+                          <div style={{ fontSize: "var(--fs-11)", marginTop: 3, color: g.pastDue > 0.005 ? "var(--c-b45309)" : "var(--muted)", fontWeight: g.pastDue > 0.005 ? 700 : 500 }}>
                             {g.pastDue > 0.005 ? `${money0(g.pastDue)} past due` : "nothing past due"}
                           </div>
                         </button>
@@ -592,7 +592,7 @@ export default function TenantStatementsPage() {
                               </td>
                               <td style={{ ...td, fontWeight: 700 }}>{money0(g.current)}</td>
                               <td style={{ ...td, fontWeight: 700 }}>{money0(g.prior)}</td>
-                              <td style={{ ...td, fontWeight: 700, color: g.pastDue > 0.005 ? "#b45309" : "var(--muted)" }}>{g.pastDue > 0.005 ? money0(g.pastDue) : "—"}</td>
+                              <td style={{ ...td, fontWeight: 700, color: g.pastDue > 0.005 ? "var(--c-b45309)" : "var(--muted)" }}>{g.pastDue > 0.005 ? money0(g.pastDue) : "—"}</td>
                               <td style={{ ...td, fontWeight: 800 }}>{money0(g.total)}</td>
                               <td colSpan={3} />
                             </tr>
@@ -647,11 +647,11 @@ function PeriodBar({ periods, active, onPick }: { periods: PeriodRow[]; active: 
         return (
           <button key={p.period} type="button" onClick={() => onPick(p.period)}
             style={{ flexShrink: 0, cursor: "pointer", fontFamily: "inherit", textAlign: "left", padding: "9px 14px", borderRadius: 10,
-              border: `1px solid ${on ? "rgba(11,74,125,0.45)" : "var(--border)"}`, background: on ? "rgba(11,74,125,0.07)" : "var(--card)" }}>
-            <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 800, color: on ? "#0b4a7d" : "var(--text)" }}>{periodLabel(p.period)}</div>
+              border: `1px solid ${on ? "var(--tint-brand-line, rgba(11,74,125,0.45))" : "var(--border)"}`, background: on ? "var(--tint-brand-bg, rgba(11,74,125,0.07))" : "var(--card)" }}>
+            <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 800, color: on ? "var(--c-0b4a7d)" : "var(--text)" }}>{periodLabel(p.period)}</div>
             <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
               {money0(p.openBalance)}
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: p.published ? "#15803d" : "rgba(15,23,42,0.25)" }} />
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: p.published ? "var(--c-15803d)" : "rgba(15,23,42,0.25)" }} />
               {p.published ? "live" : "draft"}
             </div>
           </button>
@@ -826,7 +826,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
   };
   return (
     <>
-      <tr onClick={onToggle} style={{ borderTop: "1px solid var(--border)", cursor: "pointer", background: open ? "rgba(11,74,125,0.04)" : undefined }}>
+      <tr onClick={onToggle} style={{ borderTop: "1px solid var(--border)", cursor: "pointer", background: open ? "var(--tint-brand-bg, rgba(11,74,125,0.04))" : undefined }}>
         <td style={tdL}><code style={{ fontSize: "var(--fs-12)" }}>{t.unitRef}</code></td>
         <td style={{ ...tdL, whiteSpace: "normal" }}>
           <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
@@ -849,7 +849,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
                   ...(t.pendingPayment.receivedOn ? [{ label: "Received", value: t.pendingPayment.receivedOn }] : []),
                   { label: "Tenant asked", value: t.pendingPayment.askedAt
                     ? `${new Date(t.pendingPayment.askedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · waiting`
-                    : "Not yet", color: t.pendingPayment.askedAt ? undefined : "#b45309" },
+                    : "Not yet", color: t.pendingPayment.askedAt ? undefined : "var(--c-b45309)" },
                 ]}>
                 <Pill tone={TONE_AMBER}>{`UNAPPLIED ${money0(t.pendingPayment.amount)}`}</Pill>
               </HoverCard>
@@ -885,7 +885,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
         </td>
         <td style={td}>{money2(s.currentCharges)}</td>
         <td style={td}>{money2(s.priorBalance)}</td>
-        <td style={{ ...td, color: s.pastDueAmount > 0.005 ? "#b45309" : "var(--muted)", fontWeight: s.pastDueAmount > 0.005 ? 700 : 400 }}>
+        <td style={{ ...td, color: s.pastDueAmount > 0.005 ? "var(--c-b45309)" : "var(--muted)", fontWeight: s.pastDueAmount > 0.005 ? 700 : 400 }}>
           {s.pastDueAmount > 0.005 ? (
             <HoverCard title="Past due" width={240}
               rows={s.byAging.filter((b) => b.bucket !== "current").map((b) => ({ label: AGING_LABEL[b.bucket], value: money2(b.amount), color: "var(--c-b45309)" }))}
@@ -894,7 +894,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
             </HoverCard>
           ) : "—"}
         </td>
-        <td style={{ ...td, fontWeight: 800, color: s.totalDue > 0.005 ? "#b45309" : s.totalDue < -0.005 ? "#15803d" : "var(--text)" }}>
+        <td style={{ ...td, fontWeight: 800, color: s.totalDue > 0.005 ? "var(--c-b45309)" : s.totalDue < -0.005 ? "var(--c-15803d)" : "var(--text)" }}>
           <HoverCard title={t.tenantName} width={270}
             rows={s.byCategory.map((c) => ({ label: `${CATEGORY_LABEL[c.category]} (${c.count})`, value: money2(c.amount) }))}
             footer={{ label: "Total due", value: money2(s.totalDue) }}>
@@ -914,7 +914,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
       </tr>
       {open && (
         <tr>
-          <td colSpan={9} style={{ padding: "0 10px 14px", background: "var(--tint-brand-bg, rgba(11,74,125,0.03))", maxWidth: 0 }}>
+          <td colSpan={9} style={{ padding: "0 10px 14px", background: "var(--tint-brand-faint, rgba(11,74,125,0.03))", maxWidth: 0 }}>
             {linkInfo && (
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 10px 6px", flexWrap: "wrap" }}>
                 <div style={{ minWidth: 0 }}>
@@ -953,7 +953,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
                   ...(t.pendingPayment.receivedOn ? [{ label: "Received", value: t.pendingPayment.receivedOn }] : []),
                   { label: "Tenant asked", value: t.pendingPayment.askedAt
                     ? `${new Date(t.pendingPayment.askedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · waiting`
-                    : "Not yet", color: t.pendingPayment.askedAt ? undefined : "#b45309" },
+                    : "Not yet", color: t.pendingPayment.askedAt ? undefined : "var(--c-b45309)" },
                 ]}>
                 <Pill tone={TONE_AMBER}>{`UNAPPLIED ${money0(t.pendingPayment.amount)}`}</Pill>
               </HoverCard>
@@ -1037,7 +1037,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
                     <td style={{ ...tdL, color: "var(--muted)", fontSize: "var(--fs-12-5)" }}>{dateLabel(c.dateISO)}</td>
                     <td style={{ ...tdL, whiteSpace: "normal" }}>{c.description}</td>
                     <td style={{ ...tdL, fontSize: "var(--fs-12-5)", color: "var(--muted)" }}>{CATEGORY_LABEL[c.category]}</td>
-                    <td style={{ ...td, color: c.amount < 0 ? "#15803d" : "var(--text)" }}>{money2(c.amount)}</td>
+                    <td style={{ ...td, color: c.amount < 0 ? "var(--c-15803d)" : "var(--text)" }}>{money2(c.amount)}</td>
                   </tr>
                 ))}
               </tbody>

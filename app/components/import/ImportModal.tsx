@@ -136,10 +136,10 @@ function Row({ f, innerRef }: { f: ImportFile; innerRef?: React.Ref<HTMLDivEleme
       <StatusDot status={f.status} />
       <div style={{ minWidth: 0, flex: 1, position: "relative" }}>
         <div style={{ fontSize: "var(--fs-13)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          <span style={{ fontFamily: MONO, color: f.status === "failed" ? "#b91c1c" : "var(--import-blue)" }}>{f.filename}</span>
+          <span style={{ fontFamily: MONO, color: f.status === "failed" ? "var(--c-b91c1c)" : "var(--import-blue)" }}>{f.filename}</span>
           {f.entity && <span className="muted" style={{ marginLeft: 8 }}>{f.entity}{f.detail ? ` · ${f.detail}` : ""}</span>}
         </div>
-        {f.note && <div style={{ fontSize: "var(--fs-11-5)", marginTop: 1, color: f.noteTone === "warn" ? "#b45309" : "var(--ok)" }}>{f.note}</div>}
+        {f.note && <div style={{ fontSize: "var(--fs-11-5)", marginTop: 1, color: f.noteTone === "warn" ? "var(--c-b45309)" : "var(--ok)" }}>{f.note}</div>}
         {f.status === "failed" && f.error && <div style={{ fontSize: "var(--fs-11-5)", marginTop: 1, color: "var(--c-b91c1c)" }}>{f.error}</div>}
       </div>
       <div style={{ fontFamily: MONO, fontSize: "var(--fs-12)", color: statusColor(f.status), position: "relative", whiteSpace: "nowrap" }}>
@@ -170,7 +170,7 @@ function ReportState({ run, done, failed, total, onClose, onDismissAutoExplain }
       <Header
         icon={<span className="imp-anim" style={{ animation: "impPop .5s ease both", fontSize: 20, color: "var(--ok)", fontWeight: 800 }}>{allOk ? "✓" : "!"}</span>}
         iconBg="var(--ok-circle)" iconBorder="var(--ok-border)" iconSize={44}
-        title={<span style={{ color: allOk ? "var(--ok-head)" : "#b45309", fontSize: 18, fontWeight: 800 }}>{heading}</span>}
+        title={<span style={{ color: allOk ? "var(--ok-head)" : "var(--c-b45309)", fontSize: 18, fontWeight: 800 }}>{heading}</span>}
         subtitle={`Just now${run.by ? ` · by ${run.by}` : ""}`}
         right={<button aria-label="Close" onClick={onClose} style={ghostIcon}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>}
       />
@@ -190,8 +190,8 @@ function ReportState({ run, done, failed, total, onClose, onDismissAutoExplain }
       <div style={{ overflowY: "auto", maxHeight: 196, padding: "0 18px" }}>
         {run.files.map((f, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid var(--import-strip-div)" }}>
-            <span style={{ color: f.status === "failed" ? "#b91c1c" : "var(--ok)", fontSize: "var(--fs-13)" }}>{f.status === "failed" ? "✕" : "✓"}</span>
-            <span style={{ fontFamily: MONO, fontSize: "var(--fs-12-5)", color: f.status === "failed" ? "#b91c1c" : "var(--import-blue)", width: 150, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.filename}</span>
+            <span style={{ color: f.status === "failed" ? "var(--c-b91c1c)" : "var(--ok)", fontSize: "var(--fs-13)" }}>{f.status === "failed" ? <X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
+            <span style={{ fontFamily: MONO, fontSize: "var(--fs-12-5)", color: f.status === "failed" ? "var(--c-b91c1c)" : "var(--import-blue)", width: 150, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.filename}</span>
             <span style={{ fontSize: "var(--fs-13)", flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.entity ?? (f.status === "failed" ? f.error : "")}</span>
             <span className="muted" style={{ fontFamily: MONO, fontSize: "var(--fs-12)" }}>{f.count != null ? num(f.count) : ""}</span>
           </div>
@@ -206,7 +206,7 @@ function ReportState({ run, done, failed, total, onClose, onDismissAutoExplain }
               <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 700, color: "var(--ok-head)" }}>{u.title}</div>
               <div className="muted" style={{ fontSize: "var(--fs-12-5)" }}>{u.subtitle}</div>
             </div>
-            <a href={u.href} className="btn primary" style={{ fontSize: "var(--fs-12-5)", padding: "7px 13px", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>{u.cta ?? "Open →"}</a>
+            <a href={u.href} className="btn primary" style={{ fontSize: "var(--fs-12-5)", padding: "7px 13px", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>{u.cta ?? "Open"}</a>
           </div>
         ))}
 
@@ -248,7 +248,7 @@ function AutoExplainCard({ state, outcome, spec, onDismiss }: { state: ImportRun
         <button onClick={onDismiss} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ai-hero-sub)", fontSize: "var(--fs-12-5)", fontWeight: 700, flexShrink: 0 }}>Dismiss</button>
       )}
       {running && <span className="imp-anim" style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--ai-border)", borderTopColor: "var(--ai)", animation: "spin .8s linear infinite", flexShrink: 0 }} />}
-      {doneState && <span style={{ color: failed.length ? "#b91c1c" : "var(--ai-text)", fontWeight: 800, flexShrink: 0 }}>{failed.length ? "!" : "✓"}</span>}
+      {doneState && <span style={{ color: failed.length ? "var(--c-b91c1c)" : "var(--ai-text)", fontWeight: 800, flexShrink: 0 }}>{failed.length ? "!" : "✓"}</span>}
     </div>
   );
 }
@@ -302,5 +302,5 @@ const dotBase: React.CSSProperties = { width: 18, height: 18, borderRadius: "50%
 const shimmer: React.CSSProperties = { background: "linear-gradient(90deg, var(--text) 30%, var(--import-blue) 50%, var(--text) 70%)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", animation: "kcpShimmer 2.2s linear infinite" };
 
 function statusColor(s: ImportFile["status"]): string {
-  return s === "done" ? "var(--ok)" : s === "reading" ? "var(--import-blue)" : s === "failed" ? "#b91c1c" : "var(--muted)";
+  return s === "done" ? "var(--ok)" : s === "reading" ? "var(--import-blue)" : s === "failed" ? "var(--c-b91c1c)" : "var(--muted)";
 }

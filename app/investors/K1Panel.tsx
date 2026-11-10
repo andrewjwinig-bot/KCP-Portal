@@ -347,10 +347,10 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
       style={{
         display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5,
         cursor: k1.busy ? "default" : "pointer", minWidth: 62,
-        border: `1.5px dashed ${dragOver ? TEAL : "rgba(220,38,38,0.45)"}`, borderRadius: 999,
+        border: `1.5px dashed ${dragOver ? TEAL : "var(--tint-red-line, rgba(220,38,38,0.45))"}`, borderRadius: 999,
         padding: "2px 9px",
-        background: dragOver ? "rgba(15,118,110,0.09)" : "rgba(220,38,38,0.08)",
-        color: dragOver ? TEAL : "#b91c1c", fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.02em",
+        background: dragOver ? "rgba(15,118,110,0.09)" : "var(--tint-red-bg, rgba(220,38,38,0.08))",
+        color: dragOver ? TEAL : "var(--c-b91c1c)", fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.02em",
         transition: "border-color .15s, background .15s, color .15s",
       }}
     >
@@ -789,7 +789,7 @@ export function K1ShareResults({ batch, onClose }: { batch: ShareBatch; onClose:
                 <td style={{ padding: "8px 12px" }}>
                   <div style={{ fontFamily: "ui-monospace, monospace", fontWeight: 800, letterSpacing: "0.12em" }}>{r.pin}</div>
                   {r.sentTo.length > 0 && (
-                    <div style={{ fontSize: "var(--fs-10-5)", fontWeight: 700, letterSpacing: "0.04em", marginTop: 2, color: r.pinSentTo?.length ? "#15803d" : "#b91c1c" }}>
+                    <div style={{ fontSize: "var(--fs-10-5)", fontWeight: 700, letterSpacing: "0.04em", marginTop: 2, color: r.pinSentTo?.length ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>
                       {r.pinSentTo?.length ? "EMAILED" : "NOT EMAILED"}
                     </div>
                   )}

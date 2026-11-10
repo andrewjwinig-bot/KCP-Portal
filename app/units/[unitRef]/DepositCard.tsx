@@ -146,7 +146,7 @@ export default function DepositCard({
               style={{
                 display: "flex", alignItems: "center", gap: 12,
                 padding: "10px 12px", border: "1px solid var(--border)",
-                borderRadius: 10, background: "var(--tint-neutral-bg, rgba(15,23,42,0.015))", cursor: "pointer",
+                borderRadius: 10, background: "var(--tint-neutral-faint, rgba(15,23,42,0.015))", cursor: "pointer",
                 opacity: d.refunded ? 0.7 : 1,
               }}>
               {d.checkImage && d.checkImage.contentType.startsWith("image/") && (

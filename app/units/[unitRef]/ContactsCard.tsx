@@ -237,7 +237,7 @@ export default function ContactsCard({
             <div key={c.id} style={{
               display: "flex", flexDirection: "column", gap: 8,
               padding: "12px", border: "1px solid var(--border)",
-              borderRadius: 10, background: "var(--tint-neutral-bg, rgba(15,23,42,0.015))",
+              borderRadius: 10, background: "var(--tint-neutral-faint, rgba(15,23,42,0.015))",
             }}>
               {c.source === "tenant" && (
                 <span style={{ alignSelf: "flex-start" }}><Pill tone={TONE_BLUE}>ADDED BY TENANT</Pill></span>

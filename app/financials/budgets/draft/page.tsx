@@ -601,7 +601,7 @@ function ReviewStatus({ year, propertyCode, calls, refreshTick }: { year: number
   return (
     <a href={href} style={{ textDecoration: "none" }}>
       {review && !changed
-        ? <Pill tone={TONE_GREEN}>✓ {review.by} · {new Date(review.at).toLocaleString("en-US", { month: "short", day: "numeric" }).toUpperCase()}</Pill>
+        ? <Pill tone={TONE_GREEN}>{review.by} · {new Date(review.at).toLocaleString("en-US", { month: "short", day: "numeric" }).toUpperCase()}</Pill>
         : <Pill tone={TONE_NEUTRAL}>{changed ? "CHANGED" : "NOT CONFIRMED"} →</Pill>}
     </a>
   );

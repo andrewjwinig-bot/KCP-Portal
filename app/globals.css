@@ -17,6 +17,8 @@
      look renders exactly as before and the studio skin can raise the floor
      for readability without touching every page. */
   --sb-w-open: 220px;
+  --c-0369a1: #0369a1; --c-059669: #059669; --c-06b6d4: #06b6d4; --c-0891b2: #0891b2; --c-0d6b4e: #0d6b4e; --c-0e7490: #0e7490; --c-14b8a6: #14b8a6; --c-155e75: #155e75; --c-166534: #166534; --c-1d6fa5: #1d6fa5; --c-22c55e: #22c55e; --c-3b82f6: #3b82f6; --c-4338ca: #4338ca; --c-4f46e5: #4f46e5; --c-7c3aed: #7c3aed; --c-84cc16: #84cc16; --c-9333ea: #9333ea; --c-991b1b: #991b1b; --c-a16207: #a16207; --c-a3e635: #a3e635; --c-d9622b: #d9622b; --c-db2777: #db2777; --c-dbe7f3: #dbe7f3; --c-e8893a: #e8893a; --c-eab308: #eab308; --c-ef4444: #ef4444; --c-f2b84b: #f2b84b; --c-f59e0b: #f59e0b; --c-f97316: #f97316;
+  --c-e5e7eb: #e5e7eb;
   /* Hand-typed page colours, tokenised so the new look can remap them
      (each holds its original value here — classic is unchanged). */
   --c-067647: #067647; --c-0b1220: #0b1220; --c-0b4a7d: #0b4a7d; --c-0d9488: #0d9488; --c-0e2238: #0e2238; --c-0f172a: #0f172a; --c-0f766e: #0f766e; --c-111827: #111827; --c-15803d: #15803d; --c-16a34a: #16a34a; --c-1a1a1a: #1a1a1a; --c-1a2238: #1a2238; --c-1d4ed8: #1d4ed8; --c-2563eb: #2563eb; --c-344054: #344054; --c-475467: #475467; --c-475569: #475569; --c-4c1d95: #4c1d95; --c-5a657a: #5a657a; --c-64748b: #64748b; --c-65a30d: #65a30d; --c-6d28d9: #6d28d9; --c-7c3d06: #7c3d06; --c-7c4a12: #7c4a12; --c-7f1d1d: #7f1d1d; --c-854d0e: #854d0e; --c-92400e: #92400e; --c-94a3b8: #94a3b8; --c-98a2b3: #98a2b3; --c-9a3412: #9a3412; --c-a15c00: #a15c00; --c-b42318: #b42318; --c-b45309: #b45309; --c-b54708: #b54708; --c-b91c1c: #b91c1c; --c-be185d: #be185d; --c-ca8a04: #ca8a04; --c-cbd5e1: #cbd5e1; --c-d97706: #d97706; --c-dc2626: #dc2626; --c-e0f0ff: #e0f0ff; --c-e2e8f0: #e2e8f0; --c-e6eef6: #e6eef6; --c-ea580c: #ea580c; --c-ede9ff: #ede9ff; --c-f2f4f7: #f2f4f7; --c-f87171: #f87171; --c-f8fafc: #f8fafc; --c-fafafa: #fafafa; --c-fca5a5: #fca5a5; --c-ffffff: #ffffff;
@@ -1148,6 +1150,9 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
   --tint-green-bg: #ecfdf3; --tint-green-line: #abefc6;
   --tint-brand-bg: #eef3f8; --tint-brand-line: #b9ccdd;
   --tint-neutral-bg: #f9fafb;
+  /* A barely-there row wash says status by colour; the new look says it in words. */
+  --tint-red-faint: transparent; --tint-amber-faint: transparent; --tint-green-faint: transparent;
+  --tint-brand-faint: transparent; --tint-neutral-faint: transparent;
 
   /* Readable type floor. */
   --fs-9: 12px; --fs-10: 13px; --fs-10-5: 13.5px; --fs-11: 14px; --fs-11-5: 14px;
@@ -1167,6 +1172,8 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 
   /* Sidebar: white rail under a navy head, navy active row. */
   --sb-w-open: 252px;
+  --c-0369a1: #0B4A7D; --c-059669: #067647; --c-0d6b4e: #067647; --c-166534: #067647; --c-1d6fa5: #0B4A7D; --c-22c55e: #067647; --c-3b82f6: #0B4A7D; --c-991b1b: #B42318; --c-a16207: #B54708; --c-eab308: #B54708; --c-ef4444: #B42318; --c-f2b84b: #B54708; --c-f59e0b: #B54708;
+  --c-e5e7eb: #E4E7EC;
   /* Page colours folded onto the system: one red, one green, one amber,
      navy for blue, the system greys and ink. Categorical colours stay. */
   --c-067647: #067647; --c-0b1220: #101828; --c-0b4a7d: #0B4A7D; --c-0f172a: #101828; --c-111827: #101828; --c-15803d: #067647; --c-16a34a: #067647; --c-1a1a1a: #101828; --c-1d4ed8: #0B4A7D; --c-2563eb: #0B4A7D; --c-475467: #475467; --c-475569: #475467; --c-5a657a: #475467; --c-64748b: #475467; --c-7c3d06: #B54708; --c-7c4a12: #B54708; --c-7f1d1d: #B42318; --c-854d0e: #B54708; --c-92400e: #B54708; --c-94a3b8: #98A2B3; --c-98a2b3: #98A2B3; --c-9a3412: #B54708; --c-a15c00: #B54708; --c-b42318: #B42318; --c-b45309: #B54708; --c-b54708: #B54708; --c-b91c1c: #B42318; --c-ca8a04: #B54708; --c-cbd5e1: #D0D5DD; --c-d97706: #B54708; --c-dc2626: #B42318; --c-e2e8f0: #E4E7EC; --c-f8fafc: #F9FAFB; --c-fafafa: #F9FAFB;
@@ -1435,3 +1442,21 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 /* Plain buttons and controls take the portal's font, not the browser's. */
 [data-skin="studio"] button, [data-skin="studio"] input, [data-skin="studio"] select,
 [data-skin="studio"] textarea, [data-skin="studio"] summary { font-family: inherit; }
+
+/* A stored document in a table row: one quiet chip that opens it. */
+.doc-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: var(--fs-12-5); font-weight: 600; color: var(--brand); background: var(--card); text-decoration: none; white-space: nowrap; }
+.doc-chip:hover { border-color: var(--brand); }
+
+/* A page that rounds a .btn inline still gets the system's control shape. */
+[data-skin="studio"] .btn { border-radius: var(--radius-ctl) !important; }
+
+/* KPI tiles are neutral: a tile says what a figure MEANS by colouring the
+   figure, never by tinting the whole tile (the result tile keeps its rule). */
+[data-skin="studio"] .pill:not(.pill-total) { background: var(--card) !important; border-color: var(--border) !important; }
+
+/* Property cards: no coloured rail or glow; a holding entity is dashed grey,
+   not purple; the code reads as a code (navy mono), not a black chip. */
+[data-skin="studio"] .prop-card { border-radius: var(--radius-card) !important; box-shadow: none !important; transform: none !important; }
+[data-skin="studio"] .prop-card:hover { border-color: var(--brand) !important; }
+[data-skin="studio"] .prop-card.prop-entity { border: 1.5px dashed #98a2b3 !important; background: var(--card) !important; }
+[data-skin="studio"] .code-chip { background: transparent !important; color: var(--brand) !important; padding: 0 !important; font-size: 15px !important; letter-spacing: 0 !important; }

@@ -1,5 +1,5 @@
 "use client";
-import { ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 
 // Master Monthly Review — a company-wide, graphical one-pager across leasing,
 // operations, and financials, grouped Business Parks / Shopping Centers / LIK /
@@ -90,13 +90,13 @@ function Delta({ now, prior, suffix = "pt" }: { now: number; prior: number | nul
   const d = now - prior;
   if (Math.abs(d) < 0.05) return <span className="muted small"> · flat</span>;
   const up = d > 0;
-  return <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: up ? GREEN : RED, marginLeft: 6 }}>{up ? "▲" : "▼"} {Math.abs(d).toFixed(1)}{suffix}</span>;
+  return <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: up ? GREEN : RED, marginLeft: 6 }}>{up ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />} {Math.abs(d).toFixed(1)}{suffix}</span>;
 }
 
 const GROUP_ACCENT: Record<string, string> = { bp: "#0b4a7d", sc: "#0d9488", lik: "#6d28d9", other: "#b45309" };
 
 /** The company Monthly Review. `embedded` renders it as a Dashboard section
- *  (compact header + a "Full view / Print →" link); standalone renders the full
+ *  (compact header + a "Full view / Print" link); standalone renders the full
  *  page header with a Print/PDF button and print styling. */
 export default function MonthlyReviewPanel({ embedded = false }: { embedded?: boolean }) {
   const canOpen = useCanOpen();
@@ -128,9 +128,9 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
 
   const stepper = (
     <div className="noprint" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      <button className="btn" onClick={() => step(-1)} style={{ padding: "6px 12px", fontWeight: 900 }}>←</button>
+      <button className="btn" onClick={() => step(-1)} style={{ padding: "6px 12px", fontWeight: 900 }}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
       <span style={{ fontWeight: 800, fontSize: "var(--fs-14)", minWidth: 120, textAlign: "center" }}>{MONTHS[month - 1]} {year}</span>
-      <button className="btn" onClick={() => step(1)} style={{ padding: "6px 12px", fontWeight: 900 }}>→</button>
+      <button className="btn" onClick={() => step(1)} style={{ padding: "6px 12px", fontWeight: 900 }}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
       {embedded ? (
         <Link href="/reports/monthly" className="btn" style={{ fontSize: "var(--fs-13)", padding: "6px 14px", fontWeight: 700, textDecoration: "none" }}>Full view / Print<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
       ) : (
@@ -345,7 +345,7 @@ function baseYear2(raw: number | string | null | undefined): string {
 // dashboard's close-outs) and is the only row offered a close-out. A lease
 // whose date has PASSED but whose tenant is still on the roll is PAST TERM — a
 // renewal not yet keyed, or a holdover — never a move-out (owner: "we cant
-// move tenants out who renew"). It used to read EXPIRED with "Close out →".
+// move tenants out who renew"). It used to read EXPIRED with "Close out".
 function LeaseMovement({ report, reconYear }: { report: Report; reconYear: number }) {
   // The statement / close-out lives on the CAM recon page — linked only for
   // those who can open it (Marie and Alison see this panel without it).
@@ -424,7 +424,7 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
         </td>
         <td style={{ textAlign: "right" }}>
           {canOpenRecon && <Link href={stmtHref(r)} className="noprint" style={{ color: "var(--c-0b4a7d)", fontWeight: 600, fontSize: "var(--fs-12)", textDecoration: "none", whiteSpace: "nowrap" }}>
-            {gone ? "Close out →" : "Statement →"}
+            {gone ? "Close out" : "Statement"}
           </Link>}
         </td>
       </tr>

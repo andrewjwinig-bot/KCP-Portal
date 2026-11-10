@@ -1,3 +1,4 @@
+import { ChevronRight } from "lucide-react";
 // Skyline steps shown alongside a Skyline hand-off. Two directions:
 //   variant "charges" (default) — pushing CAM/RET charges INTO Skyline (the
 //     year-end + estimate exports). `stop` adds the prominent "stop the current
@@ -20,7 +21,7 @@ export function ImportInstructions({ stop, variant = "charges" }: { stop?: boole
         <div style={LABEL}>Skyline Export Steps</div>
         <ol style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: "var(--fs-12-5)", color: "var(--muted)", lineHeight: 1.7 }}>
           <li>
-            Skyline → <strong>General Ledger</strong> → <strong>G/L Information</strong> → <strong>Budget Rent Increase Calculation</strong>.
+            Skyline → <strong>General Ledger</strong> <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> <strong>G/L Information</strong> <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> <strong>Budget Rent Increase Calculation</strong>.
             <div style={{ fontSize: "var(--fs-12)", marginTop: 2 }}>
               This report — not the rent roll. The rent roll carries <em>today&rsquo;s</em> rate, so it cannot know a step that has not happened yet; this one carries the scheduled charge for every month of the budget year.
             </div>
@@ -63,7 +64,7 @@ export function ImportInstructions({ stop, variant = "charges" }: { stop?: boole
       <div style={LABEL}>Skyline Import Steps</div>
       {stop && (
         <div style={{ marginTop: 8, background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.4))", borderRadius: 8, padding: "9px 12px" }}>
-          <div style={{ color: "var(--c-b91c1c)", fontWeight: 800, fontSize: "var(--fs-12-5)" }}>⚠ STOP the current year&rsquo;s charges BEFORE importing — otherwise tenants are double-charged.</div>
+          <div style={{ color: "var(--c-b91c1c)", fontWeight: 800, fontSize: "var(--fs-12-5)" }}>STOP the current year&rsquo;s charges BEFORE importing — otherwise tenants are double-charged.</div>
           <div style={{ color: "var(--c-7f1d1d)", fontSize: "var(--fs-12)", marginTop: 3 }}>Property Management → Additional Functions → Universal Charges → Stop CAM, INS &amp; RET.</div>
         </div>
       )}

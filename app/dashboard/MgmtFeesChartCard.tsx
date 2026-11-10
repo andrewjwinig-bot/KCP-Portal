@@ -45,7 +45,7 @@ export default function MgmtFeesChartCard({ order = 0 }: { order?: number }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <ChartLegend series={series} />
             {tie && tie.through > 0 && (
-              <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: tieOk ? "#15803d" : "#b45309" }}>
+              <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: tieOk ? "var(--c-15803d)" : "var(--c-b45309)" }}>
                 {tieOk
                   ? `Intercompany ties through ${MONTHS_LONG[tie.through - 1]}`
                   : `Intercompany doesn’t tie — ${money(tie.varianceYtd)} ${tie.varianceYtd > 0 ? "over" : "under"} through ${MONTHS_LONG[tie.through - 1]}`}

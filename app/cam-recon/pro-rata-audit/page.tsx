@@ -151,7 +151,7 @@ function ProRataAuditInner() {
             <div style={SECTION_LABEL}>Summary</div>
             <div className="pills">
               <StatPill label="Office tenants" value={totalTenants} />
-              <StatPill label="Diverge from true SF" value={mismatches.length} accent={mismatches.length ? "#b45309" : undefined} />
+              <StatPill label="Diverge from true SF" value={mismatches.length} accent={mismatches.length ? "var(--c-b45309)" : undefined} />
               <StatPill label="In line" value={totalTenants - mismatches.length} />
             </div>
             <p className="small muted" style={{ marginTop: 10 }}>
@@ -196,7 +196,7 @@ function ProRataAuditInner() {
                         <td style={{ textAlign: "right" }}>{r.sqft.toLocaleString("en-US")}</td>
                         <td style={{ textAlign: "right", fontWeight: 700 }}>{pct(r.stipulated)}</td>
                         <td style={{ textAlign: "right" }}>{pct(r.trueShare)}</td>
-                        <td style={{ textAlign: "right", fontWeight: 700, color: off ? "#b45309" : "var(--muted)" }}>
+                        <td style={{ textAlign: "right", fontWeight: 700, color: off ? "var(--c-b45309)" : "var(--muted)" }}>
                           {r.delta > 0 ? "+" : ""}{r.delta.toFixed(2)}
                         </td>
                         <td>

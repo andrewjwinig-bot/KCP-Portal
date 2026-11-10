@@ -434,7 +434,7 @@ export function ShareLinkCard({
                   <input readOnly value={l.url} onFocus={(e) => e.currentTarget.select()}
                     style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-13)" }} />
                   <button onClick={() => copy(l.url)} className="btn" style={{ fontSize: "var(--fs-13)", fontWeight: 700, padding: "8px 14px", flexShrink: 0 }}>
-                    {copied === l.url ? "Copied ✓" : "Copy"}
+                    {copied === l.url ? "Copied" : "Copy"}
                   </button>
                 </div>
               </div>
@@ -445,7 +445,7 @@ export function ShareLinkCard({
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <code style={{ fontSize: 26, fontWeight: 800, letterSpacing: "0.22em", color: BRAND, background: "var(--tint-brand-bg, rgba(11,74,125,0.08))", borderRadius: 10, padding: "7px 16px" }}>{l.pin}</code>
                     <button onClick={() => copy(l.pin!)} className="btn" style={{ fontSize: "var(--fs-13)", fontWeight: 700, padding: "8px 13px" }}>
-                      {copied === l.pin ? "Copied ✓" : "Copy"}
+                      {copied === l.pin ? "Copied" : "Copy"}
                     </button>
                     {onManagePin && (
                       <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
@@ -497,7 +497,7 @@ export function ShareLinkCard({
               </div>
 
               {sentTo && confirmSend === null && (
-                <div style={{ marginTop: 8, fontSize: "var(--fs-11-5)", fontWeight: 700, color: "var(--c-15803d)" }}>✓ Emailed to {sentTo.join(", ")}</div>
+                <div style={{ marginTop: 8, fontSize: "var(--fs-11-5)", fontWeight: 700, color: "var(--c-15803d)" }}>Emailed to {sentTo.join(", ")}</div>
               )}
             </div>
           ))}
@@ -518,7 +518,7 @@ export function ShareLinkCard({
                 <div className="send-outcome" style={{
                   marginTop: 12, borderRadius: 10, padding: "14px 15px",
                   border: outcome.error ? "1.5px solid rgba(220,38,38,0.45)" : "1.5px solid rgba(22,163,74,0.45)",
-                  background: outcome.error ? "rgba(220,38,38,0.06)" : "rgba(22,163,74,0.07)",
+                  background: outcome.error ? "var(--tint-red-bg, rgba(220,38,38,0.06))" : "var(--tint-green-bg, rgba(22,163,74,0.07))",
                 }}>
                   {/* Centred mark and headline. A send you cannot take back
                       deserves a confirmation that reads as an event rather
@@ -535,7 +535,7 @@ export function ShareLinkCard({
                       <div className="caughtup-mark" style={{ width: 54, height: 54 }}>
                         <span className="cu-halo" aria-hidden />
                         <svg width="54" height="54" viewBox="0 0 24 24" fill="none" aria-hidden>
-                          <circle cx="12" cy="12" r="10" fill="rgba(22,163,74,0.08)" stroke="var(--c-15803d)" strokeWidth="1.6" className="sent-ring" />
+                          <circle cx="12" cy="12" r="10" fill="var(--tint-green-bg, rgba(22,163,74,0.08))" stroke="var(--c-15803d)" strokeWidth="1.6" className="sent-ring" />
                           <path d="M7.4 12.4l3.1 3.1 6.2-6.6" fill="none" stroke="var(--c-15803d)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="sent-check" />
                         </svg>
                       </div>
@@ -573,8 +573,8 @@ export function ShareLinkCard({
                         </div>
                       ))}
                       {outcome.pinSentTo && (
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: "var(--fs-12-5)", marginTop: 7, paddingTop: 7, borderTop: "1px solid var(--border)", fontWeight: 600, color: outcome.pinSentTo.length ? "var(--text)" : "#b91c1c" }}>
-                          <span aria-hidden style={{ color: outcome.pinSentTo.length ? "#15803d" : "#b91c1c" }}>{outcome.pinSentTo.length ? <Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: "var(--fs-12-5)", marginTop: 7, paddingTop: 7, borderTop: "1px solid var(--border)", fontWeight: 600, color: outcome.pinSentTo.length ? "var(--text)" : "var(--c-b91c1c)" }}>
+                          <span aria-hidden style={{ color: outcome.pinSentTo.length ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>{outcome.pinSentTo.length ? <Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
                           {outcome.pinSentTo.length
                             ? "Their access PIN went as its own separate email."
                             : "The PIN email did NOT go out — give them the PIN yourself, or they can't open the link."}

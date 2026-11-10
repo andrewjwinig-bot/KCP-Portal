@@ -66,7 +66,7 @@ export function HistoryLoading({ lastYear, years = 5 }: { lastYear: number; year
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: "var(--fs-11-5)" }} className="muted">
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: "rgba(100,116,139,0.45)" }} /> Budget</span>
-        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: "var(--tint-brand-bg, rgba(11,74,125,0.7))" }} /> Actual</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: "rgba(11,74,125,0.7)" }} /> Actual</span>
       </div>
       <div style={{ textAlign: "center" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>

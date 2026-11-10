@@ -1,5 +1,5 @@
 "use client";
-import { CircleCheck, X } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleCheck, FileText, X } from "lucide-react";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -18,7 +18,7 @@ import { HoverCard } from "@/app/components/HoverCard";
 
 // Hand-off key: a successful rent-roll import stashes its success message here,
 // then hard-reloads the page; the mount effect reads it back to flash a
-// prominent "✓ imported" banner so the import is unmistakably visible.
+// prominent "imported" banner so the import is unmistakably visible.
 const RENTROLL_IMPORTED_KEY = "rentroll:justImported";
 
 // Public display-name (DBA) overrides for shopping-center tenants, provided to
@@ -58,9 +58,9 @@ function kSqft(n: number): string {
 }
 
 function occColor(pct: number): string {
-  if (pct >= 90) return "#16a34a";
-  if (pct >= 70) return "#0b4a7d";
-  return "#d97706";
+  if (pct >= 90) return "var(--c-16a34a)";
+  if (pct >= 70) return "var(--c-0b4a7d)";
+  return "var(--c-d97706)";
 }
 
 function parseRentDate(s: string | null | undefined): Date | null {
@@ -93,12 +93,12 @@ function leaseStatus(leaseTo: string | null | undefined): {
   const d = parseRentDate(leaseTo);
   if (!d) return { label: "No Exp", color: "var(--muted)", bg: "transparent", border: "var(--border)", days: null };
   const days = daysUntil(d);
-  if (days < 0)    return { label: "Expired",  color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)",   border: "rgba(220,38,38,0.25)",  days };
-  if (days <= 30)  return { label: `${days}d`, color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)",   border: "rgba(220,38,38,0.25)",  days };
+  if (days < 0)    return { label: "Expired",  color: "var(--c-dc2626)", bg: "var(--tint-red-bg, rgba(220,38,38,0.08))",   border: "var(--tint-red-line, rgba(220,38,38,0.25))",  days };
+  if (days <= 30)  return { label: `${days}d`, color: "var(--c-dc2626)", bg: "var(--tint-red-bg, rgba(220,38,38,0.08))",   border: "var(--tint-red-line, rgba(220,38,38,0.25))",  days };
   if (days <= 60)  return { label: `${days}d`, color: "var(--c-ea580c)", bg: "rgba(234,88,12,0.08)",   border: "rgba(234,88,12,0.25)",  days };
-  if (days <= 90)  return { label: `${days}d`, color: "var(--c-d97706)", bg: "rgba(217,119,6,0.08)",   border: "rgba(217,119,6,0.25)",  days };
-  if (days <= 365) return { label: `${days}d`, color: "var(--c-0b4a7d)", bg: "rgba(11,74,125,0.06)",   border: "rgba(11,74,125,0.18)",  days };
-  return { label: "OK", color: "var(--c-16a34a)", bg: "rgba(22,163,74,0.07)", border: "rgba(22,163,74,0.2)", days };
+  if (days <= 90)  return { label: `${days}d`, color: "var(--c-d97706)", bg: "var(--tint-amber-bg, rgba(217,119,6,0.08))",   border: "var(--tint-amber-line, rgba(217,119,6,0.25))",  days };
+  if (days <= 365) return { label: `${days}d`, color: "var(--c-0b4a7d)", bg: "var(--tint-brand-bg, rgba(11,74,125,0.06))",   border: "var(--tint-brand-line, rgba(11,74,125,0.18))",  days };
+  return { label: "OK", color: "var(--c-16a34a)", bg: "var(--tint-green-bg, rgba(22,163,74,0.07))", border: "var(--tint-green-line, rgba(22,163,74,0.2))", days };
 }
 
 function nextEscalation(unit: RentRollUnit): { date: string; amount: number } | null {
@@ -393,7 +393,7 @@ function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
   if (readOnly) {
     return (
       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-        <span style={{ fontSize: "var(--fs-12)", fontWeight: reset ? 700 : 500, color: reset ? "#b91c1c" : "var(--text)" }}>
+        <span style={{ fontSize: "var(--fs-12)", fontWeight: reset ? 700 : 500, color: reset ? "var(--c-b91c1c)" : "var(--text)" }}>
           {value != null && value !== "" ? value : <span style={{ color: "var(--muted)" }}>—</span>}
         </span>
         {reset && (
@@ -450,8 +450,8 @@ function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
           textAlign: "center",
           border: reset ? "1.5px solid rgba(220,38,38,0.55)" : "1px solid var(--border)",
           borderRadius: 6,
-          background: reset ? "rgba(220,38,38,0.08)" : "transparent",
-          color: reset ? "#b91c1c" : "var(--text)",
+          background: reset ? "var(--tint-red-bg, rgba(220,38,38,0.08))" : "transparent",
+          color: reset ? "var(--c-b91c1c)" : "var(--text)",
         }}
       />
       {reset && (
@@ -575,7 +575,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                     color: effectiveVacant
                       ? "var(--muted)"
                       : isAmenity
-                        ? "#0d9488"
+                        ? "var(--c-0d9488)"
                         : "var(--text)",
                   }}>
                     {effectiveVacant
@@ -804,8 +804,8 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
                 <AlertBadge
                   label={`SF ≠ GLA ${sfDeltaLabel}`}
                   color="var(--c-b91c1c)"
-                  bg="rgba(220,38,38,0.08)"
-                  border="rgba(220,38,38,0.28)"
+                  bg="var(--tint-red-bg, rgba(220,38,38,0.08))"
+                  border="var(--tint-red-line, rgba(220,38,38,0.28))"
                   title={`Roll ${sqftFmt(Math.round(prop.totalSqft))} SF vs GLA ${sqftFmt(gla)} SF — check the roll or the property master.`}
                 />
               )}
@@ -813,21 +813,21 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
                 <AlertBadge
                   label={`${expiringCount} exp${expiringCount > 1 ? "s" : ""} ≤90d`}
                   color="var(--c-d97706)"
-                  bg="rgba(217,119,6,0.08)"
-                  border="rgba(217,119,6,0.25)"
+                  bg="var(--tint-amber-bg, rgba(217,119,6,0.08))"
+                  border="var(--tint-amber-line, rgba(217,119,6,0.25))"
                 />
               )}
               {escalatingCount > 0 && (
                 <AlertBadge
                   label={`${escalatingCount} esc ≤90d`}
                   color="var(--c-0b4a7d)"
-                  bg="rgba(11,74,125,0.08)"
-                  border="rgba(11,74,125,0.25)"
+                  bg="var(--tint-brand-bg, rgba(11,74,125,0.08))"
+                  border="var(--tint-brand-line, rgba(11,74,125,0.25))"
                 />
               )}
             </div>
           </div>
-          <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0, marginRight: 26 }}>{open ? "▲" : "▼"}</span>
+          <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0, marginRight: 26 }}>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
         </div>
       </button>
       {/* This building's roll on its own, which is what a lender, a broker or
@@ -984,7 +984,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                   ? "Expired / Expiring within 90 Days"
                   : "Expiring within 90 Days"}
               </div>
-              <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0, marginLeft: 12 }}>{expOpen ? "▲" : "▼"}</span>
+              <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0, marginLeft: 12 }}>{expOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
             </div>
           </button>
           {expOpen && (
@@ -1007,7 +1007,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                     {expirations.map(({ propertyCode, unit, days }, i) => {
                       const status = leaseStatus(unit.leaseTo);
                       return (
-                        <tr key={i} style={{ background: days < 0 || days <= 30 ? "rgba(220,38,38,0.10)" : days <= 60 ? "rgba(234,88,12,0.10)" : "rgba(217,119,6,0.10)" }}>
+                        <tr key={i} style={{ background: days < 0 || days <= 30 ? "var(--tint-red-bg, rgba(220,38,38,0.10))" : days <= 60 ? "rgba(234,88,12,0.10)" : "var(--tint-amber-bg, rgba(217,119,6,0.10))" }}>
                           <td style={{ fontSize: "var(--fs-13)" }}>
                             <div style={{ fontWeight: 600 }}>{propName(propertyCode)}</div>
                             <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>{propertyCode}</div>
@@ -1047,7 +1047,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                 <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                   {vacancies.length} unit{vacancies.length !== 1 ? "s" : ""} · {sqftFmt(totalVacantSqft)} sf vacant
                 </span>
-                <span style={{ color: "var(--muted)", fontSize: 18 }}>{vacOpen ? "▲" : "▼"}</span>
+                <span style={{ color: "var(--muted)", fontSize: 18 }}>{vacOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
               </div>
             </div>
           </button>
@@ -1095,7 +1095,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                               <tr key={`${label}-${i}`}
                                 onClick={() => router.push(`/units/${encodeURIComponent(unit.unitRef)}`)}
                                 title="Open the unit page"
-                                style={{ background: "var(--tint-neutral-bg, rgba(15,23,42,0.012))", cursor: "pointer" }}
+                                style={{ background: "var(--tint-neutral-faint, rgba(15,23,42,0.012))", cursor: "pointer" }}
                                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
                                 <td style={{ fontSize: "var(--fs-13)", paddingLeft: 20 }}>{propName(propertyCode)}</td>
@@ -1108,7 +1108,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                                       {fp.contentType.startsWith("image/") ? (
                                         <img src={blobSrc(fp.url)} alt="" loading="lazy"
                                           style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
-                                      ) : "📄"}
+                                      ) : <FileText size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
                                       View
                                     </a>
                                   ) : (
@@ -1153,7 +1153,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                   const esc    = nextEscalation(unit)!;
                   const change = esc.amount - unit.baseRent;
                   return (
-                    <tr key={i} style={{ background: "var(--tint-amber-bg, rgba(217,119,6,0.03))" }}>
+                    <tr key={i} style={{ background: "var(--tint-amber-faint, rgba(217,119,6,0.03))" }}>
                       <td style={{ fontSize: "var(--fs-13)" }}>
                         <div style={{ fontWeight: 600 }}>{propName(propertyCode)}</div>
                         <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>{propertyCode}</div>
@@ -1167,7 +1167,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                       </td>
                       <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{money(unit.baseRent)}</td>
                       <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 700 }}>{money(esc.amount)}</td>
-                      <td style={{ textAlign: "right", fontSize: "var(--fs-13)", color: change >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
+                      <td style={{ textAlign: "right", fontSize: "var(--fs-13)", color: change >= 0 ? "var(--c-16a34a)" : "var(--c-dc2626)", fontWeight: 600 }}>
                         {change >= 0 ? "+" : ""}{money(change)}
                       </td>
                     </tr>
@@ -1304,9 +1304,9 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
                 style={{
                   padding: "5px 14px", borderRadius: 999, fontSize: "var(--fs-12)",
                   fontWeight: active ? 700 : 500, cursor: "pointer",
-                  border: `1.5px solid ${active ? "#0b4a7d" : "var(--border)"}`,
-                  background: active ? "rgba(11,74,125,0.10)" : "transparent",
-                  color: active ? "#0b4a7d" : "var(--muted)",
+                  border: `1.5px solid ${active ? "var(--c-0b4a7d)" : "var(--border)"}`,
+                  background: active ? "var(--tint-brand-bg, rgba(11,74,125,0.10))" : "transparent",
+                  color: active ? "var(--c-0b4a7d)" : "var(--muted)",
                   fontFamily: "inherit", transition: "all 0.15s ease",
                 }}
               >
@@ -1707,7 +1707,7 @@ export default function RentRollPage() {
       // banner off through sessionStorage, then hard-reload the page. On reload
       // the mount effects re-fetch the freshly-written current roll from scratch
       // (no all-$0 flash — the snapshot is already persisted) and the green
-      // "✓ imported" banner shows at the top.
+      // "imported" banner shows at the top.
       const changes = data.changes && (data.changes.newTenants?.length || data.changes.vacated?.length) ? data.changes : null;
       try { sessionStorage.setItem(RENTROLL_IMPORTED_KEY, JSON.stringify({ msg: successMsg, at: Date.now(), changes })); } catch { /* non-fatal */ }
       window.location.reload();
@@ -1788,7 +1788,7 @@ export default function RentRollPage() {
         >
           <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" aria-hidden style={{ flexShrink: 0 }} />
           <span style={{ flex: 1 }}>{importedFlash}</span>
-          <span className="small" style={{ fontWeight: 600, opacity: 0.75 }}>Dismiss ✕</span>
+          <span className="small" style={{ fontWeight: 600, opacity: 0.75 }}>Dismiss <X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
         </div>
       )}
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
@@ -1883,7 +1883,7 @@ export default function RentRollPage() {
                 </button>
               </>
             )}
-            <span style={{ background: "var(--tint-green-bg, rgba(22, 163, 74, 0.85))", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
+            <span className="muted" style={{ fontSize: "var(--fs-13)", fontWeight: 600, alignSelf: "center" }}>Monthly</span>
           </div>
         </div>
         {reportMonth && Object.keys(carriedFrom).length > 0 && (() => {
@@ -1924,11 +1924,11 @@ export default function RentRollPage() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
               <ChangeColumn
-                title="New tenants" tone="#15803d" rows={uploadChanges.newTenants}
+                title="New tenants" tone="var(--c-15803d)" rows={uploadChanges.newTenants}
                 actions={[{ label: "Log commissions", href: isPathAllowed(user.id, "/commissions") ? "/commissions" : "/commissions/retail" }, { label: "Log security deposits", href: "/deposits" }]}
               />
               <ChangeColumn
-                title="Vacated" tone="#b45309" rows={uploadChanges.vacated} leftBorder
+                title="Vacated" tone="var(--c-b45309)" rows={uploadChanges.vacated} leftBorder
                 actions={[{ label: "Return deposits", href: "/deposits" }, { label: "Close out", href: "/cam-recon/interim" }]}
               />
             </div>

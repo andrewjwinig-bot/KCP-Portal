@@ -65,7 +65,7 @@ export function LineChart({ series, fmt }: { series: Series[]; fmt: (v: number) 
   const footer: TipRow | undefined = variance == null ? undefined : {
     label: "Variance",
     value: `${variance >= 0 ? "+" : ""}${money(variance)}${variancePctVal != null ? ` (${variance >= 0 ? "+" : ""}${variancePctVal.toFixed(1)}%)` : ""}`,
-    color: variance >= 0 ? "#15803d" : "#b45309",
+    color: variance >= 0 ? "var(--c-15803d)" : "var(--c-b45309)",
   };
 
   return (

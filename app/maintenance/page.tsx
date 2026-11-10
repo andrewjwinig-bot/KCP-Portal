@@ -1,5 +1,5 @@
 "use client";
-import { ChevronRight, FileText, X } from "lucide-react";
+import { ChevronRight, FileText, Play, X } from "lucide-react";
 
 import { TabButton } from "@/app/components/TabButton";
 import { Calendar } from "@/app/components/Calendar";
@@ -361,35 +361,35 @@ function MaintenancePageInner() {
               <FilterTile
                 label="Active"
                 value={counts.active}
-                accent="#0b4a7d"
+                accent="var(--c-0b4a7d)"
                 active={noExtraFilters}
                 onClick={clearAll}
               />
               <FilterTile
                 label="High Priority"
                 value={counts.highOpen}
-                accent="#b91c1c"
+                accent="var(--c-b91c1c)"
                 active={priority === "High"}
                 onClick={selectHigh}
               />
               <FilterTile
                 label="Unassigned"
                 value={counts.unassigned}
-                accent="#b45309"
+                accent="var(--c-b45309)"
                 active={assignee === "Unassigned"}
                 onClick={selectUnassigned}
               />
               <FilterTile
                 label="New"
                 value={counts.newCount}
-                accent="#0b4a7d"
+                accent="var(--c-0b4a7d)"
                 active={statusFilter === "New"}
                 onClick={selectNew}
               />
               <FilterTile
                 label="In Progress"
                 value={counts.inProgress}
-                accent="#b45309"
+                accent="var(--c-b45309)"
                 active={statusFilter === "In Progress"}
                 onClick={selectInProgress}
               />
@@ -542,7 +542,7 @@ function MaintenancePageInner() {
                         {tab === "completed"
                           ? <span style={{ fontWeight: 500, color: "var(--muted)" }}>{formatDate(r.completedDate)}</span>
                           : age == null ? "—" : (
-                              <span style={{ color: age > 30 ? "#b91c1c" : age > 14 ? "#b45309" : "var(--text)" }}>
+                              <span style={{ color: age > 30 ? "var(--c-b91c1c)" : age > 14 ? "var(--c-b45309)" : "var(--text)" }}>
                                 {age}d
                               </span>
                             )}
@@ -556,7 +556,7 @@ function MaintenancePageInner() {
                         {companyOf(r) || <span className="muted small">—</span>}
                         {r.tenantResolved === false && (
                           <span title="Tenant name didn't match the rent roll — needs assignment" style={{ marginLeft: 6 }}><Pill tone={TONE_AMBER}>
-                            ⚠ Unmatched
+                            Unmatched
                           </Pill></span>
                         )}
                       </td>
@@ -671,7 +671,8 @@ function FilterTile({
   // hex → rgba(…, 0.10) for the active background tint
   function tint(hex: string, a: number): string {
     const m = /^#?([a-f0-9]{6})$/i.exec(hex);
-    if (!m) return hex;
+    // A colour token (var(--…)) can't be parsed; mix it instead.
+    if (!m) return `color-mix(in srgb, ${hex} ${Math.round(a * 100)}%, transparent)`;
     const n = parseInt(m[1], 16);
     return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
   }
@@ -905,7 +906,7 @@ function RequestModal({
                       className="btn"
                       style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, color: "var(--c-b45309)", borderColor: "var(--tint-amber-line, rgba(180,83,9,0.45))" }}
                     >
-                      ▶ Mark In Progress
+                      <Play size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> Mark In Progress
                     </button>
                   )}
                   <button
@@ -914,7 +915,7 @@ function RequestModal({
                     className="btn primary"
                     style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700 }}
                   >
-                    ✓ Mark Complete
+                    Mark Complete
                   </button>
                 </>
               ) : (
@@ -971,7 +972,7 @@ function RequestModal({
             padding: "16px 18px",
             border: "1px solid var(--border)",
             borderRadius: 10,
-            background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))",
+            background: "var(--tint-neutral-faint, rgba(15,23,42,0.025))",
           }}>
             <MetaCell label="Property" value={propertyOf(request)} />
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
@@ -981,7 +982,7 @@ function RequestModal({
               </span>
               {request.tenantResolved === false && (
                 <span title="The typed company name didn't match the rent roll — assign a tenant below." style={{ alignSelf: "flex-start", marginTop: 2 }}><Pill tone={TONE_AMBER}>
-                  ⚠ Needs assignment
+                  Needs assignment
                 </Pill></span>
               )}
               {!readOnly && tenantSuggestion && (
@@ -1055,9 +1056,9 @@ function RequestModal({
               <div style={{
                 display: "flex", flexWrap: "wrap", gap: 6,
                 padding: "6px 8px",
-                border: `${request.assignedToIds.length > 0 ? 1 : 1.5}px solid ${request.assignedToIds.length > 0 ? "var(--border)" : "rgba(180,83,9,0.55)"}`,
+                border: `${request.assignedToIds.length > 0 ? 1 : 1.5}px solid ${request.assignedToIds.length > 0 ? "var(--border)" : "var(--tint-amber-line, rgba(180,83,9,0.55))"}`,
                 borderRadius: 8,
-                background: request.assignedToIds.length > 0 ? "var(--card)" : "rgba(180,83,9,0.06)",
+                background: request.assignedToIds.length > 0 ? "var(--card)" : "var(--tint-amber-bg, rgba(180,83,9,0.06))",
               }}>
                 {STAFF.map((s) => {
                   const on = request.assignedToIds.includes(s.id);
@@ -1075,9 +1076,9 @@ function RequestModal({
                       style={{
                         fontSize: "var(--fs-12)", fontWeight: 700, padding: "4px 10px",
                         borderRadius: 999, cursor: busy || readOnly ? "default" : "pointer",
-                        border: `1px solid ${on ? "rgba(11,74,125,0.4)" : "var(--border)"}`,
-                        background: on ? "rgba(11,74,125,0.10)" : "transparent",
-                        color: on ? "#0b4a7d" : "var(--muted)",
+                        border: `1px solid ${on ? "var(--tint-brand-line, rgba(11,74,125,0.4))" : "var(--border)"}`,
+                        background: on ? "var(--tint-brand-bg, rgba(11,74,125,0.10))" : "transparent",
+                        color: on ? "var(--c-0b4a7d)" : "var(--muted)",
                         opacity: busy || readOnly ? 0.6 : 1,
                       }}
                     >
@@ -1088,7 +1089,7 @@ function RequestModal({
               </div>
               {request.assignedToIds.length === 0 && (
                 <span style={{ fontSize: "var(--fs-11)", color: "var(--c-b45309)", fontWeight: 600, marginTop: 4 }}>
-                  ⚠ Needs an assignee
+                  Needs an assignee
                 </span>
               )}
             </Field>
@@ -1107,8 +1108,8 @@ function RequestModal({
                     style={{
                       fontSize: "var(--fs-12)", fontWeight: 600, padding: "5px 12px", borderRadius: 999,
                       border: on ? "1px solid rgba(11,74,125,0.55)" : "1px solid var(--border)",
-                      background: on ? "rgba(11,74,125,0.10)" : "var(--card)",
-                      color: on ? "#0b4a7d" : "var(--muted)",
+                      background: on ? "var(--tint-brand-bg, rgba(11,74,125,0.10))" : "var(--card)",
+                      color: on ? "var(--c-0b4a7d)" : "var(--muted)",
                       cursor: busy ? "default" : "pointer",
                       fontFamily: "inherit",
                       transition: "background 0.12s, border-color 0.12s",
@@ -1162,7 +1163,7 @@ function RequestModal({
                 <div style={{
                   padding: "12px 14px",
                   border: "1px solid var(--border)", borderRadius: 10,
-                  background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))",
+                  background: "var(--tint-neutral-faint, rgba(15,23,42,0.025))",
                 }}>
                   <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
                     {submissionNote.authorName} · {new Date(submissionNote.createdAt).toLocaleString()}
@@ -1215,7 +1216,7 @@ function RequestModal({
                 <div key={n.id} style={{
                   padding: "12px 14px",
                   border: "1px solid var(--border)", borderRadius: 10,
-                  background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))",
+                  background: "var(--tint-neutral-faint, rgba(15,23,42,0.025))",
                 }}>
                   <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
                     {n.authorName} · {new Date(n.createdAt).toLocaleString()}
@@ -1276,7 +1277,7 @@ function RequestModal({
         <div style={{
           padding: "16px 32px 20px",
           borderTop: "1px solid var(--border)",
-          background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))",
+          background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))",
           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap",
         }}>
           <button
@@ -1386,7 +1387,7 @@ function TenantBillbackEditor({
     </div>
     {notifiedAt ? (
       <span className="small" style={{ color: "var(--c-15803d)", fontWeight: 600 }}>
-        ✓ Sent to AP (trovkin, cc Marie) · {new Date(notifiedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+        Sent to AP (trovkin, cc Marie) · {new Date(notifiedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
       </span>
     ) : (Number(value.amount) > 0 ? (
       <span className="small" style={{ color: "var(--muted)" }}>
@@ -1434,7 +1435,7 @@ function RowAssigneeSelect({
       style={{
         fontWeight: 600,
         minWidth: 110,
-        backgroundColor: request.assignedTo ? "rgba(11,74,125,0.06)" : "var(--card)",
+        backgroundColor: request.assignedTo ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : "var(--card)",
         color: request.assignedTo ? "var(--text)" : "var(--muted)",
       }}
     >
@@ -1684,7 +1685,7 @@ function AttachmentsSection({
               style={{
                 position: "relative",
                 border: "1px solid var(--border)", borderRadius: 8,
-                background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))",
+                background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))",
                 overflow: "hidden",
                 display: "flex", flexDirection: "column",
               }}

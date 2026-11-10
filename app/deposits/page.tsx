@@ -56,7 +56,7 @@ function heldTotal(checks: SecurityDeposit[]): number {
 
 const DupBadge = ({ title }: { title?: string }) => (
   <span title={title ?? "Looks like a duplicate of another check for this tenant — open each to compare, then delete the extra."} style={{ cursor: "help" }}><Pill tone={TONE_AMBER}>
-    ⚠ POSSIBLE DUPLICATE
+    POSSIBLE DUPLICATE
   </Pill></span>
 );
 
@@ -246,7 +246,7 @@ export default function SecurityDepositsPage() {
           padding: "10px 14px", borderRadius: 10, fontSize: "var(--fs-13)", fontWeight: 600,
           background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))", color: "var(--c-b45309)",
         }}>
-          ⚠ {dupIds.size} deposit{dupIds.size === 1 ? "" : "s"} look like possible duplicates (same tenant &amp; check # or amount/date).
+          {dupIds.size} deposit{dupIds.size === 1 ? "" : "s"} look like possible duplicates (same tenant &amp; check # or amount/date).
           They&apos;re flagged below — expand the tenant, open each check to compare, then delete the extra.
         </div>
       )}
@@ -345,7 +345,7 @@ export default function SecurityDepositsPage() {
                         </tr>
                         {isOpen && g.checks.map((d) => (
                           <tr key={d.id}
-                            style={{ cursor: "pointer", opacity: d.refunded ? 0.7 : 1, background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }}
+                            style={{ cursor: "pointer", opacity: d.refunded ? 0.7 : 1, background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))" }}
                             onClick={() => { setEditing(d); setAdding(false); }}
                             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>

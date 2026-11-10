@@ -142,7 +142,7 @@ export function PayrollBudget({ year }: { year: number }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {/* No header card (owner): only a first-year note or a failed save is worth a line. */}
       {(seeded || saving === "failed") && (
-        <div className="small" style={{ color: saving === "failed" ? "#b91c1c" : "var(--muted)" }}>
+        <div className="small" style={{ color: saving === "failed" ? "var(--c-b91c1c)" : "var(--muted)" }}>
           {saving === "failed" ? "Couldn't save — check your connection" : <><b>Starting from {doc.seededFrom ?? "last year"}</b> — key each employee&rsquo;s {year} pay over it.</>}
         </div>
       )}
@@ -364,7 +364,7 @@ export function PayrollBudget({ year }: { year: number }) {
             {doc.employees.map((e, i) => {
               const c = employeeCost(e, r);
               return (
-                <tr key={e.id} style={{ background: healthFor === e.id ? "rgba(11,74,125,0.07)" : undefined }}>
+                <tr key={e.id} style={{ background: healthFor === e.id ? "var(--tint-brand-bg, rgba(11,74,125,0.07))" : undefined }}>
                   <td style={{ ...tdL, color: "var(--muted)" }}>{i + 1}</td>
                   <td style={{ ...tdL, fontWeight: 600 }}>{e.name || <span className="muted">—</span>}</td>
                   {FRINGE.map((k) => (
@@ -462,7 +462,7 @@ export function PayrollBudget({ year }: { year: number }) {
                     <PctCell key={c.key} value={e.alloc?.[c.key] ?? 0} decimals={0} tip={tipFor(c.key as AllocKey, c.label)}
                       onSave={(v) => setEmp(e.id, { alloc: { ...e.alloc, [c.key as AllocKey]: v } })} />
                   ))}
-                  <td style={{ ...td, fontWeight: 800, color: Math.abs(tot - 100) > 0.05 ? "#b45309" : undefined }}>{allocView === "dollar" ? num0(Object.values(dollars).reduce((x, y) => x + y, 0)) : pct(tot, Number.isInteger(tot) ? 0 : 1)}</td>
+                  <td style={{ ...td, fontWeight: 800, color: Math.abs(tot - 100) > 0.05 ? "var(--c-b45309)" : undefined }}>{allocView === "dollar" ? num0(Object.values(dollars).reduce((x, y) => x + y, 0)) : pct(tot, Number.isInteger(tot) ? 0 : 1)}</td>
                 </tr>
               );
             })}
@@ -525,7 +525,7 @@ export function PayrollBudget({ year }: { year: number }) {
                 <tr style={totalRow}>
                   <td style={{ ...tdL, fontWeight: 800 }}>Total</td>
                   <td style={td}>{num0(sqTot)}</td><td style={td}>100%</td>
-                  <td style={{ ...td, color: Math.abs(altTot - 100) > 0.05 ? "#b45309" : undefined }}>{pct(altTot, 2)}</td>
+                  <td style={{ ...td, color: Math.abs(altTot - 100) > 0.05 ? "var(--c-b45309)" : undefined }}>{pct(altTot, 2)}</td>
                   <td style={td}>{num0(fa.office)}</td><td style={td}>{num0(fa.rows.reduce((s, b) => s + monthly10(b.office), 0))}</td>
                   <td style={td}>{num0(fa.maintenance)}</td><td style={td}>{num0(fa.rows.reduce((s, b) => s + monthly10(b.maintenance), 0))}</td>
                   <td style={td}>{num0(fa.marketing)}</td>

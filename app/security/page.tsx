@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 // Two-factor (TOTP) enrollment — admin tier first. Scan the QR (or type the
 // key) into Authy / Google Authenticator, then confirm a code to turn it on.
@@ -113,7 +114,7 @@ export default function SecurityPage() {
                 {" · "}
                 <a href="https://play.google.com/store/apps/details?id=com.authy.authy" target="_blank" rel="noreferrer">Android (Google Play)</a>
               </li>
-              <li>Open Authy → <b>＋ Add Account</b> → <b>Scan QR Code</b>.</li>
+              <li>Open Authy → <b>＋ Add Account</b> <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> <b>Scan QR Code</b>.</li>
               <li>Scan the QR code below. (No camera? Tap <b>Enter key manually</b> and type the key shown.)</li>
               <li>Authy now shows a 6-digit code for &ldquo;KCP Portal&rdquo; that changes every 30 seconds.</li>
               <li>Type that current code below and press <b>Confirm &amp; turn on</b>.</li>

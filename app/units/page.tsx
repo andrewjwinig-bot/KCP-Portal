@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronUp, FileText } from "lucide-react";
 import LoadingState from "@/app/components/LoadingState";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -39,11 +40,11 @@ function unitLabel(u: RentRollUnit): string {
 type Cat = "Office" | "Retail" | "Residential" | "The Office Works" | "Other";
 const CAT_ORDER: Cat[] = ["Office", "Retail", "Residential", "The Office Works", "Other"];
 const CAT_COLOR: Record<Cat, string> = {
-  Office: "#0b4a7d",
-  Retail: "#0d9488",
-  Residential: "#6d28d9",
-  "The Office Works": "#475569",
-  Other: "#94a3b8",
+  Office: "var(--c-0b4a7d)",
+  Retail: "var(--c-0d9488)",
+  Residential: "var(--c-6d28d9)",
+  "The Office Works": "var(--c-475569)",
+  Other: "var(--c-94a3b8)",
 };
 function categoryOf(code: string): Cat {
   const c = code.toUpperCase();
@@ -75,7 +76,7 @@ const catHeading: React.CSSProperties = {
 function specCell(v: string) {
   if (!v) return <span style={muted}>—</span>;
   const yes = v.toLowerCase() === "yes";
-  return <span style={{ color: yes ? "#15803d" : "var(--muted)", fontWeight: yes ? 600 : 400 }}>{v}</span>;
+  return <span style={{ color: yes ? "var(--c-15803d)" : "var(--muted)", fontWeight: yes ? 600 : 400 }}>{v}</span>;
 }
 
 // Optional, user-selectable columns (Unit + Occupant are always shown).
@@ -121,7 +122,7 @@ function UnitPropertyCard({ group, visibleCols, specs, renderCell, defaultOpen }
               {group.units.length} unit{group.units.length === 1 ? "" : "s"} · {totalSf.toLocaleString("en-US")} sf{withPlans ? ` · ${withPlans} floorplan${withPlans === 1 ? "" : "s"}` : ""}
             </span>
           </div>
-          <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+          <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
         </div>
       </button>
       {open && (
@@ -279,7 +280,7 @@ export default function UnitInfoIndexPage() {
                 {isImg ? (
                   <img src={blobSrc(fp.url)} alt="" loading="lazy"
                     style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
-                ) : "📄"}
+                ) : <FileText size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
                 View
               </a>
             ) : <span style={muted}>—</span>}
@@ -330,7 +331,7 @@ export default function UnitInfoIndexPage() {
               onClick={() => setColMenu((v) => !v)}
               style={{ fontSize: "var(--fs-13)", padding: "7px 12px", fontWeight: 600 }}
             >
-              Columns ▾
+              Columns <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
             </button>
             {colMenu && (
               <>

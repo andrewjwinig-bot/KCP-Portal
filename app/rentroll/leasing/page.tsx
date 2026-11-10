@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useMemo, useState } from "react";
@@ -302,7 +303,7 @@ function BaseYearResets({
             Pick an office tenant, record the reset date, and the base year is flipped to the current year. The rent roll cell will be highlighted with the reset date in a tooltip.
           </div>
         </div>
-        <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+        <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
       </button>
 
       {open && (
@@ -334,7 +335,7 @@ function BaseYearResets({
             padding: "8px 10px",
             border: "1px solid var(--border)",
             borderRadius: 6,
-            background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))",
+            background: "var(--tint-neutral-faint, rgba(15,23,42,0.025))",
             fontSize: "var(--fs-13)", fontWeight: 600,
             color: currentBaseYear == null ? "var(--muted)" : "var(--text)",
           }}>
@@ -564,7 +565,7 @@ function SnowBaseExclusions({
             Pull Snow Removal out of a tenant&rsquo;s base year — the snow base becomes $0, so they pay their full pro-rata share of each year&rsquo;s snow (all other base-year lines stay in effect). Recovers more of the variable, unpredictable snow spend. A footnote is added to their CAM statement.
           </div>
         </div>
-        <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+        <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
       </button>
 
       {open && (
@@ -585,7 +586,7 @@ function SnowBaseExclusions({
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={fieldLabel}>Current B/Y</span>
-          <div style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))", fontSize: "var(--fs-13)", fontWeight: 600, color: currentBaseYear == null ? "var(--muted)" : "var(--text)" }}>
+          <div style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--tint-neutral-faint, rgba(15,23,42,0.025))", fontSize: "var(--fs-13)", fontWeight: 600, color: currentBaseYear == null ? "var(--muted)" : "var(--text)" }}>
             {currentBaseYear ?? "—"}
           </div>
         </label>
@@ -722,7 +723,7 @@ function ResetImpactPanel({
           label="Total loss"
           value={fmt(total)}
           sub={fmtPsf(total)}
-          accent={total ? "#b91c1c" : undefined}
+          accent={total ? "var(--c-b91c1c)" : undefined}
         />
       </div>
       <div className="muted small" style={{ marginTop: 6 }}>
@@ -820,7 +821,7 @@ function SnowImpactPanel({
           value={fmt(basisSnow)}
         />
         <StatPill label="Recovers now" value={fmt(withoutExcl)} />
-        <StatPill label="Added recovery / yr" value={fmt(gain)} accent={gain > 0 ? "#15803d" : undefined} />
+        <StatPill label="Added recovery / yr" value={fmt(gain)} accent={gain > 0 ? "var(--c-15803d)" : undefined} />
       </div>
       <div className="muted small" style={{ marginTop: 6 }}>
         Excluding snow lifts {option.occupantName}&rsquo;s snow recovery from <b>{fmt(withoutExcl)}</b> to <b>{fmt(withExcl)}</b> —

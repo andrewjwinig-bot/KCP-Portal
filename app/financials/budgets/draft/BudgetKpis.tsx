@@ -30,7 +30,7 @@ export function BudgetKpis({ draft }: { draft: BudgetDraft }) {
     const pct = (d / Math.abs(x.was)) * 100;
     return `${pct >= 0 ? "+" : "−"}${Math.abs(pct).toFixed(1)}% ${ref}`;
   };
-  const tone = (n: number) => (n < 0 ? "#b91c1c" : undefined);
+  const tone = (n: number) => (n < 0 ? "var(--c-b91c1c)" : undefined);
 
   // NNN CHARGES PER SF (owner: "so we can quickly see how much each tenant will
   // pay in addition to their base rent"): the budget's recoverable pools —
@@ -55,7 +55,7 @@ export function BudgetKpis({ draft }: { draft: BudgetDraft }) {
         <StatPill label={office ? "Op Ex + RET / SF" : "NNN / SF"} value={psf(nnn.cam + nnn.ins + nnn.ret)}
           sub={`CAM ${psf(nnn.cam)} · RET ${psf(nnn.ret)}${office ? "" : ` · INS ${psf(nnn.ins)}`}`} />
       )}
-      <StatPill label="NOI" value={money0(noi.now)} sub={vs(noi)} accent={tone(noi.now) ?? "#15803d"} />
+      <StatPill label="NOI" value={money0(noi.now)} sub={vs(noi)} accent={tone(noi.now) ?? "var(--c-15803d)"} />
       <StatPill label="Net cash flow" value={money0(cf.now)} sub={`${vs(cf)} · after capital & debt`} accent={tone(cf.now)} />
     </div>
   );

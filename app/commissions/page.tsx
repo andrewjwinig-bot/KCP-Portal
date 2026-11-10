@@ -451,7 +451,7 @@ export default function CommissionsPage() {
                 <div key={quarter} style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", opacity: sentRecord ? 0.85 : 1 }}>
                   <div style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "10px 14px", background: sentRecord ? "rgba(22,163,74,0.07)" : "rgba(11,74,125,0.05)",
+                    padding: "10px 14px", background: sentRecord ? "var(--tint-green-bg, rgba(22,163,74,0.07))" : "var(--tint-brand-bg, rgba(11,74,125,0.05))",
                     borderBottom: "1px solid var(--border)", gap: 12, flexWrap: "wrap",
                   }}>
                     <span style={{ fontWeight: 800, fontSize: "var(--fs-14)", display: "flex", alignItems: "center", gap: 8 }}>
@@ -628,11 +628,11 @@ export default function CommissionsPage() {
         return (
           <div style={{
             padding: "10px 14px", borderRadius: 8, fontSize: "var(--fs-13)", lineHeight: 1.5,
-            border: `1px solid ${due ? "rgba(217,119,6,0.45)" : "var(--border)"}`,
-            background: due ? "rgba(217,119,6,0.08)" : "rgba(15,23,42,0.025)",
+            border: `1px solid ${due ? "var(--tint-amber-line, rgba(217,119,6,0.45))" : "var(--border)"}`,
+            background: due ? "var(--tint-amber-bg, rgba(217,119,6,0.08))" : "var(--tint-neutral-faint, rgba(15,23,42,0.025))",
             display: "flex", alignItems: "center", gap: 10,
           }}>
-            <span style={{ width: 9, height: 9, borderRadius: 999, flexShrink: 0, background: due ? "#d97706" : "#64748b" }} />
+            <span style={{ width: 9, height: 9, borderRadius: 999, flexShrink: 0, background: due ? "var(--c-d97706)" : "var(--c-64748b)" }} />
             <span>
               {due ? (
                 <><b>Time to submit.</b> Nancy&rsquo;s incentive compensation goes to Payroll at the end of each quarter — Q{qNum} ends {qEndStr} ({daysLeft} day{daysLeft === 1 ? "" : "s"} left).</>

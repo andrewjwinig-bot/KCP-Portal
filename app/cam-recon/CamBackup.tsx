@@ -47,7 +47,7 @@ export function BackupTrigger({ count, onClick }: { count: number; onClick: () =
   return (
     <button onClick={onClick} title={count ? `${count} backup file${count === 1 ? "" : "s"}` : "Attach backup"} style={{
       display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid var(--border)", borderRadius: 6,
-      padding: "2px 7px", background: count ? "rgba(11,74,125,0.08)" : "transparent", color: count ? BRAND : "var(--muted)",
+      padding: "2px 7px", background: count ? "var(--tint-brand-bg, rgba(11,74,125,0.08))" : "transparent", color: count ? BRAND : "var(--muted)",
       cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-12)", fontWeight: 700,
     }}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
@@ -94,7 +94,7 @@ export function MixedCamBackup({ retailProperty, officeProperty, year }: {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {rows.map((r) => (
-          <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }}>
+          <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700 }}>{r.title} portion</div>
               <div className="muted small">{r.b.total} file{r.b.total === 1 ? "" : "s"} attached</div>
@@ -218,7 +218,7 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
           style={{
             display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center",
             border: `2px dashed ${dragOver ? BRAND : "var(--border)"}`, borderRadius: 12, padding: "22px 16px",
-            cursor: busy ? "default" : "pointer", background: dragOver ? "rgba(11,74,125,0.07)" : "rgba(15,23,42,0.02)",
+            cursor: busy ? "default" : "pointer", background: dragOver ? "var(--tint-brand-bg, rgba(11,74,125,0.07))" : "var(--tint-neutral-faint, rgba(15,23,42,0.02))",
             transition: "border-color .15s, background .15s",
           }}
         >
@@ -262,7 +262,7 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
           {mine.length === 0 ? (
             <div className="muted small">No backup attached yet.</div>
           ) : mine.map((a) => (
-            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }}>
+            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))" }}>
               <a href={fileUrl(a)} target="_blank" rel="noopener noreferrer" style={{ flex: 1, minWidth: 0, textDecoration: "none", color: "var(--text)" }}>
                 <div style={{ fontWeight: 600, fontSize: "var(--fs-13)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
                 <div className="muted small">{fmtSize(a.size)} · {new Date(a.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}{a.uploadedBy ? ` · ${a.uploadedBy}` : ""}</div>

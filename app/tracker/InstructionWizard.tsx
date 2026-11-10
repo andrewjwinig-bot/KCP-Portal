@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeft, ChevronRight, TriangleAlert, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Circle, CircleCheck, TriangleAlert, X } from "lucide-react";
 
 // The guided run-through for a task's instructions.
 //
@@ -241,10 +241,10 @@ export default function InstructionWizard({
                       width: 26, height: 26, borderRadius: 999, cursor: "pointer",
                       fontSize: "var(--fs-11)", fontWeight: 800,
                       border: i === at ? `2px solid ${BRAND}` : "1px solid var(--border)",
-                      background: isDone(i) ? GREEN : i === at ? "rgba(11,74,125,0.10)" : "transparent",
+                      background: isDone(i) ? GREEN : i === at ? "var(--tint-brand-bg, rgba(11,74,125,0.10))" : "transparent",
                       color: isDone(i) ? "#fff" : i === at ? BRAND : "var(--muted)",
                     }}
-                  >{isDone(i) ? "✓" : i + 1}</button>
+                  >{isDone(i) ? <Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : i + 1}</button>
                 ))}
               </div>
             </div>
@@ -292,12 +292,12 @@ export default function InstructionWizard({
                   return at === steps.length - 1 ? (
                     <button type="button" className="btn" onClick={() => { setStep(at, true); onClose(); }}
                       style={{ padding: "8px 20px", fontWeight: 700, background: GREEN, color: "#fff", borderColor: GREEN }}>
-                      ✓ Finish
+                      Finish
                     </button>
                   ) : (
                     <button type="button" className="btn" onClick={doneAndNext}
                       style={{ padding: "8px 20px", fontWeight: 700 }}>
-                      {isDone(at) ? "Next →" : "Done — next →"}
+                      {isDone(at) ? "Next" : "Done — next"}
                     </button>
                   );
                 })()}
@@ -339,7 +339,7 @@ function StepHeader({ index, title, done, onToggle }: {
         width: 24, height: 24, borderRadius: "50%", flexShrink: 0,
         background: done ? GREEN : BRAND, color: "#fff",
         fontSize: done ? 13 : 12, fontWeight: 800, transition: "background 140ms ease",
-      }}>{done ? "✓" : index + 1}</span>
+      }}>{done ? <Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : index + 1}</span>
       <span style={{
         fontWeight: 800, fontSize: 15,
         color: done ? "var(--muted)" : "var(--text)",
@@ -430,9 +430,9 @@ function PathChip({ text, kind }: { text: string; kind: "screen" | "save" }) {
       style={{
         display: "inline-flex", alignItems: "center", textAlign: "left",
         fontSize: "var(--fs-12)", fontWeight: 700, cursor: "pointer",
-        color: isSave ? "#b45309" : BRAND,
-        background: isSave ? "rgba(180,83,9,0.06)" : "rgba(11,74,125,0.07)",
-        border: `1px solid ${isSave ? "rgba(180,83,9,0.25)" : "rgba(11,74,125,0.18)"}`,
+        color: isSave ? "var(--c-b45309)" : BRAND,
+        background: isSave ? "var(--tint-amber-bg, rgba(180,83,9,0.06))" : "var(--tint-brand-bg, rgba(11,74,125,0.07))",
+        border: `1px solid ${isSave ? "var(--tint-amber-line, rgba(180,83,9,0.25))" : "var(--tint-brand-line, rgba(11,74,125,0.18))"}`,
         borderRadius: 6, padding: "5px 10px", gap: 6, fontFamily: "monospace",
         maxWidth: "100%",
       }}
@@ -494,13 +494,13 @@ function StepBody({ step, runState, onToggleRun }: {
                     fontSize: "var(--fs-12)", fontWeight: 800, fontFamily: "monospace",
                     padding: "5px 11px", borderRadius: 999,
                     cursor: onToggleRun ? "pointer" : "default",
-                    border: `1px solid ${on ? GREEN : "rgba(11,74,125,0.28)"}`,
-                    background: on ? "rgba(22,163,74,0.10)" : "rgba(11,74,125,0.05)",
+                    border: `1px solid ${on ? GREEN : "var(--tint-brand-line, rgba(11,74,125,0.28))"}`,
+                    background: on ? "var(--tint-green-bg, rgba(22,163,74,0.10))" : "var(--tint-brand-bg, rgba(11,74,125,0.05))",
                     color: on ? GREEN_TEXT : BRAND,
                     transition: "background 140ms ease, border-color 140ms ease",
                   }}
                 >
-                  <span style={{ fontSize: "var(--fs-11)" }}>{on ? "✓" : "○"}</span>{r}
+                  <span style={{ fontSize: "var(--fs-11)" }}>{on ? <CircleCheck size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <Circle size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>{r}
                 </button>
               );
             })}
@@ -552,7 +552,7 @@ function StepBody({ step, runState, onToggleRun }: {
             <div key={row.field} style={{
               display: "flex", gap: 12, alignItems: "baseline",
               padding: "6px 11px", fontSize: "var(--fs-12-5)",
-              background: i % 2 ? "transparent" : "rgba(11,74,125,0.04)",
+              background: i % 2 ? "transparent" : "var(--tint-brand-bg, rgba(11,74,125,0.04))",
               borderTop: i ? "1px solid rgba(11,74,125,0.10)" : undefined,
             }}>
               <span style={{ flex: 1, minWidth: 0, color: "var(--muted)", fontWeight: 600 }}>{row.field}</span>

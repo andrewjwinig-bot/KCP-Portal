@@ -111,7 +111,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
       <div className="pills" style={{ marginBottom: 12 }}>
         <StatPill label={`${BASIS_LABEL[basis]} · ${window}`} value={money0(t.expected)} />
         <StatPill label="General ledger" value={money0(t.billed)} />
-        <StatPill label="Billing variance" value={money0(t.variance)} accent={Math.abs(t.variance) > 1 ? "#b91c1c" : "#15803d"} />
+        <StatPill label="Billing variance" value={money0(t.variance)} accent={Math.abs(t.variance) > 1 ? "var(--c-b91c1c)" : "var(--c-15803d)"} />
       </div>
 
       {Math.abs(data.unplacedBilled) > 1 && (
@@ -154,7 +154,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
                     rows={[
                       { label: `${BASIS_LABEL[basis]} · ${window}`, value: money0(r.expected) },
                       { label: "Billed to the GL", value: money0(r.billed) },
-                      { label: "Difference", value: money0(r.variance), color: r.variance < -1 ? "#b91c1c" : undefined },
+                      { label: "Difference", value: money0(r.variance), color: r.variance < -1 ? "var(--c-b91c1c)" : undefined },
                       { label: "Leased", value: r.leaseFrom || r.leaseTo ? `${r.monthsCovered} of ${r.monthsInScope} mo · to ${r.leaseTo ?? "—"}` : "Not on the rent roll" },
                     ]}
                     footer={r.caveats.length ? { label: "Note", value: r.caveats[0] } : undefined}

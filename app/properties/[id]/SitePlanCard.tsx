@@ -224,10 +224,10 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
         <StatPill label="Occupied" value={totalSf ? `${(((totalSf - vacantSf) / totalSf) * 100).toFixed(1)}%` : "—"} sub={`${totalSf.toLocaleString()} SF · ${all.length} suites`} />
         <StatPill label="Vacant SF" value={vacantSf.toLocaleString()} accent={vacantSf ? EXPIRY_COLOR.vacant : undefined}
           sub={`${vacantCount} suites`} />
-        <StatPill label="Expiring ≤ 12 mo" value={String(expiring.length)} accent={expiring.length ? "#b45309" : undefined}
+        <StatPill label="Expiring ≤ 12 mo" value={String(expiring.length)} accent={expiring.length ? "var(--c-b45309)" : undefined}
           sub={`${expiringSf.toLocaleString()} SF incl. past term`} />
         {plan.canSeeAr && (
-          <StatPill label="Past Due" value={money0(pastDue)} accent={pastDue >= 1 ? "#b91c1c" : undefined}
+          <StatPill label="Past Due" value={money0(pastDue)} accent={pastDue >= 1 ? "var(--c-b91c1c)" : undefined}
             sub={`${pastDueCount} ${pastDueCount === 1 ? "tenant" : "tenants"}`} />
         )}
         {(extraTiles ?? []).map((t) => <StatPill key={t.label} label={t.label} value={t.value} sub={t.sub} />)}
@@ -279,7 +279,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
               // Rent's steps are drawn near full strength: washed over the white plan
               // at 62% the colours read grey (owner: "dont have it be grey").
               fillOpacity: p ? (dim ? 0.12 : hot ? (meta.detailSrc ? 0.3 : 0.9) : mode === "rent" ? 0.85 : 0.62) : 0,
-              stroke: p ? (hot ? "#0f172a" : "rgba(15,23,42,0.55)") : "transparent",
+              stroke: p ? (hot ? "var(--c-0f172a)" : "rgba(15,23,42,0.55)") : "transparent",
               strokeWidth: (hot ? 8 : 3) * (cur ? 0.6 : 1),
             };
             return (
@@ -299,7 +299,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
                 {!s.shadow && (() => {
                   const fs = fontFor(s);
                   const textProps = {
-                    textAnchor: "middle" as const, fill: dim ? "rgba(15,23,42,0.35)" : "#0f172a", stroke: "#fff",
+                    textAnchor: "middle" as const, fill: dim ? "rgba(15,23,42,0.35)" : "var(--c-0f172a)", stroke: "#fff",
                     paintOrder: "stroke" as const, style: { pointerEvents: "none" as const },
                     transform: s.rot ? `rotate(${s.rot} ${s.cx} ${s.cy})` : undefined,
                   };
@@ -381,7 +381,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
               {rows.map(({ s, color, bucket: b }) => {
                 const vacant = s.status === "available";
                 return (
-                  <tr key={s.id} style={{ cursor: s.unitRefs.length ? "pointer" : "default", background: vacant ? "rgba(15,23,42,0.025)" : undefined }}
+                  <tr key={s.id} style={{ cursor: s.unitRefs.length ? "pointer" : "default", background: vacant ? "var(--tint-neutral-faint, rgba(15,23,42,0.025))" : undefined }}
                     onClick={() => open(s)}
                     onMouseEnter={() => setHoverId(s.id)} onMouseLeave={() => setHoverId(null)}>
                     <td style={{ ...tdL, fontWeight: vacant ? 400 : 600, fontStyle: vacant ? "italic" : "normal", color: vacant ? "var(--muted)" : "var(--text)" }}>
@@ -393,14 +393,14 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
                     <td style={td}>{s.sf ? s.sf.toLocaleString() : "—"}</td>
                     <td style={{ ...td, color: "var(--muted)" }}>{vacant ? "" : dateLabel(s.leaseFrom)}</td>
                     <td style={td}>{vacant ? "" : dateLabel(s.leaseTo)}</td>
-                    <td style={{ ...tdL, color: b === "expired" ? "#b91c1c" : b === "lt12" ? "#b45309" : "var(--muted)", whiteSpace: "nowrap" }}>
+                    <td style={{ ...tdL, color: b === "expired" ? "var(--c-b91c1c)" : b === "lt12" ? "var(--c-b45309)" : "var(--muted)", whiteSpace: "nowrap" }}>
                       {vacant ? "" : b === "expired" ? "Past term" : termLeft(monthsLeft(s.leaseTo, today))}
                     </td>
                     {plan.canSeeMoney && <td style={td}>{s.money ? money0(s.money.baseRent) : vacant ? "" : "—"}</td>}
                     {plan.canSeeMoney && <td style={td}>{s.money?.rentPsf ? money2(s.money.rentPsf) : vacant ? "" : "—"}</td>}
                     {plan.canSeeMoney && <td style={td}>{s.money?.gross ? money0(s.money.gross) : vacant ? "" : "—"}</td>}
                     {plan.canSeeAr && <td style={td}>{s.ar ? money0(s.ar.totalDue) : ""}</td>}
-                    {plan.canSeeAr && <td style={{ ...td, color: (s.ar?.pastDue ?? 0) >= 1 ? "#b91c1c" : undefined, fontWeight: (s.ar?.pastDue ?? 0) >= 1 ? 700 : undefined }}>{s.ar && s.ar.pastDue >= 1 ? money0(s.ar.pastDue) : ""}</td>}
+                    {plan.canSeeAr && <td style={{ ...td, color: (s.ar?.pastDue ?? 0) >= 1 ? "var(--c-b91c1c)" : undefined, fontWeight: (s.ar?.pastDue ?? 0) >= 1 ? 700 : undefined }}>{s.ar && s.ar.pastDue >= 1 ? money0(s.ar.pastDue) : ""}</td>}
                   </tr>
                 );
               })}
@@ -417,7 +417,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
                     {plan.canSeeMoney && <td style={{ ...td, fontWeight: 700 }}>{occSf ? money2((rent * 12) / occSf) : "—"}</td>}
                     {plan.canSeeMoney && <td style={{ ...td, fontWeight: 700 }}>{money0(t((s) => s.money?.gross ?? 0))}</td>}
                     {plan.canSeeAr && <td style={{ ...td, fontWeight: 700 }}>{money0(t((s) => s.ar?.totalDue ?? 0))}</td>}
-                    {plan.canSeeAr && <td style={{ ...td, fontWeight: 700, color: t((s) => s.ar?.pastDue ?? 0) >= 1 ? "#b91c1c" : undefined }}>{money0(t((s) => s.ar?.pastDue ?? 0))}</td>}
+                    {plan.canSeeAr && <td style={{ ...td, fontWeight: 700, color: t((s) => s.ar?.pastDue ?? 0) >= 1 ? "var(--c-b91c1c)" : undefined }}>{money0(t((s) => s.ar?.pastDue ?? 0))}</td>}
                   </tr>
                 </tfoot>
               );
@@ -443,7 +443,7 @@ function SuiteTip({ s, x, y, plan, today, accent }: { s: StaffSuite; x: number; 
     rows.push({
       label: "Expires",
       value: b === "expired" ? `${dateLabel(s.leaseTo)} · past term` : dateLabel(s.leaseTo),
-      color: b === "expired" ? "#b91c1c" : b === "lt12" ? "#b45309" : undefined,
+      color: b === "expired" ? "var(--c-b91c1c)" : b === "lt12" ? "var(--c-b45309)" : undefined,
       strong: true,
     });
     if (s.money) {

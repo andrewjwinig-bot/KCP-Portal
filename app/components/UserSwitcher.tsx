@@ -8,13 +8,13 @@ import { ALL_USERS, USERS, accessGroup, type AccessGroup, type UserId } from "..
 // (SERVICE: maint/greg/charles/jay) and the admin tier (admin/drew) read as
 // grouped at a glance. Add a color here when adding an access group.
 const GROUP_COLOR: Record<AccessGroup, string> = {
-  admin:      "#4338ca", // elevated admin tier
-  service:    "#7c3aed", // SERVICE clones
-  office:     "#0b4a7d", // Nancy
-  retail:     "#d97706", // Harry
-  operations: "#db2777", // Marie
-  executive:  "#0d9488", // Alison
-  accounting: "#0369a1", // Randy
+  admin:      "var(--c-4338ca)", // elevated admin tier
+  service:    "var(--c-7c3aed)", // SERVICE clones
+  office:     "var(--c-0b4a7d)", // Nancy
+  retail:     "var(--c-d97706)", // Harry
+  operations: "var(--c-db2777)", // Marie
+  executive:  "var(--c-0d9488)", // Alison
+  accounting: "var(--c-0369a1)", // Randy
 };
 const avatarColor = (id: UserId): string => GROUP_COLOR[accessGroup(id)];
 
@@ -175,12 +175,12 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
                   padding: "7px 9px",
                   borderRadius: 7,
                   border: "none",
-                  background: isActive ? "rgba(11,74,125,0.08)" : "transparent",
+                  background: isActive ? "var(--tint-brand-bg, rgba(11,74,125,0.08))" : "transparent",
                   color: "var(--c-0f172a)",
                   cursor: "pointer",
                   textAlign: "left",
                 }}
-                onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(15,23,42,0.05)"; }}
+                onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "var(--tint-neutral-bg, rgba(15,23,42,0.05))"; }}
                 onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
                 <Avatar id={id} size={24} />

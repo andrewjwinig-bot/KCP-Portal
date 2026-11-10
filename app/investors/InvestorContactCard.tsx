@@ -217,10 +217,10 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
             style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Done"}</button>
           <span aria-live="polite" style={{
             fontSize: "var(--fs-11-5)", fontWeight: 700,
-            color: status === "error" ? "#b91c1c" : status === "saved" ? "#15803d" : "var(--muted)",
+            color: status === "error" ? "var(--c-b91c1c)" : status === "saved" ? "var(--c-15803d)" : "var(--muted)",
           }}>
             {status === "saving" ? "Saving…"
-              : status === "saved" ? "Saved ✓"
+              : status === "saved" ? "Saved"
               : status === "error" ? "Couldn't save — check your connection"
               : "Saves as you type"}
           </span>

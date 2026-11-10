@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, X } from "lucide-react";
+import { ChevronDown, ChevronRight, X } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -316,7 +316,7 @@ export default function BudgetsPage() {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {summaries.map((s) => (
                 <button key={s.id} onClick={() => setSelectedId(s.id)} className="btn"
-                  style={{ fontSize: "var(--fs-12)", padding: "5px 11px", fontWeight: 700, borderColor: s.id === selectedId ? "#0b4a7d" : undefined }}>
+                  style={{ fontSize: "var(--fs-12)", padding: "5px 11px", fontWeight: 700, borderColor: s.id === selectedId ? "var(--c-0b4a7d)" : undefined }}>
                   {s.label} · {s.year}
                 </button>
               ))}
@@ -351,10 +351,10 @@ export default function BudgetsPage() {
 }
 
 const OCCUPANCY_TONES: Record<OccupancyDetailRow["category"], PillTone> = {
-  "in-place": { bg: "rgba(11,74,125,0.10)",  fg: "var(--c-0b4a7d)", border: "rgba(11,74,125,0.30)" },
-  "renewal":  { bg: "rgba(202,138,4,0.12)",  fg: "var(--c-854d0e)", border: "rgba(202,138,4,0.35)" },
-  "new":      { bg: "rgba(22,163,74,0.10)",  fg: "var(--c-15803d)", border: "rgba(22,163,74,0.30)" },
-  "vacant":   { bg: "rgba(15,23,42,0.06)",   fg: "var(--c-475569)", border: "rgba(15,23,42,0.15)" },
+  "in-place": { bg: "var(--tint-brand-bg, rgba(11,74,125,0.10))",  fg: "var(--c-0b4a7d)", border: "var(--tint-brand-line, rgba(11,74,125,0.30))" },
+  "renewal":  { bg: "var(--tint-amber-bg, rgba(202,138,4,0.12))",  fg: "var(--c-854d0e)", border: "var(--tint-amber-line, rgba(202,138,4,0.35))" },
+  "new":      { bg: "var(--tint-green-bg, rgba(22,163,74,0.10))",  fg: "var(--c-15803d)", border: "var(--tint-green-line, rgba(22,163,74,0.30))" },
+  "vacant":   { bg: "var(--tint-neutral-bg, rgba(15,23,42,0.06))",   fg: "var(--c-475569)", border: "rgba(15,23,42,0.15)" },
 };
 
 const OCCUPANCY_LABELS: Record<OccupancyDetailRow["category"], string> = {
@@ -435,7 +435,7 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
                     }}
                     aria-expanded={expanded}
                   >
-                    {expanded ? "▾ Hide tenant breakdown" : "▸ Show tenant breakdown"}
+                    {expanded ? <><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> Hide Tenant Breakdown</> : <><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> Show Tenant Breakdown</>}
                   </button>
                 )}
               </th>
@@ -513,7 +513,7 @@ function OccupancyPanel({ property }: { property: BudgetWorkbook["properties"][n
                     </tr>
                   );
                 }),
-                <tr key={`sub-${cat}`} style={{ fontWeight: 700, background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }}>
+                <tr key={`sub-${cat}`} style={{ fontWeight: 700, background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))" }}>
                   <td style={{ color: "var(--muted)" }}>Subtotal — {OCCUPANCY_LABELS[cat]}</td>
                   {categoryTotals[cat].map((s, i) => (
                     <td key={i} style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
@@ -758,13 +758,13 @@ function BudgetTable({
 
     type Pill = { key: string; label: string; value: string; accent?: string };
     const pills: Pill[] = [];
-    if (totalRev)  pills.push({ key: totalRev.name,  label: totalRev.name,  value: fmt(totalRev.total),  accent: totalRev.total  < 0 ? "#b91c1c" : undefined });
-    if (totalOpex) pills.push({ key: totalOpex.name, label: totalOpex.name, value: fmt(totalOpex.total), accent: totalOpex.total < 0 ? "#b91c1c" : undefined });
-    if (noi)       pills.push({ key: noi.name,       label: noi.name,       value: fmt(noi.total),       accent: noi.total       < 0 ? "#b91c1c" : undefined });
+    if (totalRev)  pills.push({ key: totalRev.name,  label: totalRev.name,  value: fmt(totalRev.total),  accent: totalRev.total  < 0 ? "var(--c-b91c1c)" : undefined });
+    if (totalOpex) pills.push({ key: totalOpex.name, label: totalOpex.name, value: fmt(totalOpex.total), accent: totalOpex.total < 0 ? "var(--c-b91c1c)" : undefined });
+    if (noi)       pills.push({ key: noi.name,       label: noi.name,       value: fmt(noi.total),       accent: noi.total       < 0 ? "var(--c-b91c1c)" : undefined });
     if (hasDebt && cfAfter) {
-      pills.push({ key: cfAfter.name, label: cfAfter.name, value: fmt(cfAfter.total), accent: cfAfter.total < 0 ? "#b91c1c" : undefined });
+      pills.push({ key: cfAfter.name, label: cfAfter.name, value: fmt(cfAfter.total), accent: cfAfter.total < 0 ? "var(--c-b91c1c)" : undefined });
     } else if (cfBefore) {
-      pills.push({ key: "CASH FLOW", label: "CASH FLOW", value: fmt(cfBefore.total), accent: cfBefore.total < 0 ? "#b91c1c" : undefined });
+      pills.push({ key: "CASH FLOW", label: "CASH FLOW", value: fmt(cfBefore.total), accent: cfBefore.total < 0 ? "var(--c-b91c1c)" : undefined });
     }
     pills.push({
       key: "EST_NNN_PSF",
@@ -960,7 +960,7 @@ function BudgetTable({
                         style={{
                           padding: "5px 11px", borderRadius: 999, fontSize: "var(--fs-12-5)", fontWeight: 700, cursor: "pointer",
                           border: active ? "1px solid #0b4a7d" : "1px solid var(--border)",
-                          background: active ? "#0b4a7d" : "var(--card)",
+                          background: active ? "var(--c-0b4a7d)" : "var(--card)",
                           color: active ? "#fff" : "var(--text)", whiteSpace: "nowrap",
                         }}>
                         {p.propertyCode === "CONSOLIDATED" ? "All" : p.propertyCode}
@@ -1021,7 +1021,7 @@ function BudgetTable({
             <div style={{
               padding: "10px 14px",
               borderBottom: "1px solid var(--border)",
-              background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))",
+              background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))",
               fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase",
             }}>
               {sec.name}
@@ -1656,7 +1656,7 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
               <div style={{
                 padding: "10px 14px",
                 borderBottom: "1px solid var(--border)",
-                background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))",
+                background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))",
                 display: "flex", alignItems: "baseline", justifyContent: "space-between",
                 gap: 12, flexWrap: "wrap",
               }}>
@@ -1705,13 +1705,13 @@ function AllocationModal({ allocations, currentPropertyCode, onClose }: {
                     const isMe = row.propertyCode.toUpperCase() === here;
                     return (
                       <tr key={row.propertyCode} style={{
-                        background: isMe ? "rgba(11,74,125,0.06)" : undefined,
+                        background: isMe ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : undefined,
                         opacity: isMe ? 1 : 0.55,
                         fontWeight: isMe ? 700 : 400,
                       }}>
                         <td style={{
                           fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
-                          color: isMe ? "#0b4a7d" : undefined,
+                          color: isMe ? "var(--c-0b4a7d)" : undefined,
                         }}>
                           {row.propertyCode}
                         </td>
@@ -2481,9 +2481,9 @@ function BudgetLineRow({
   const sumTies = hasSubLines && Math.abs(subTotal - line.total) <= 1;
 
   const rowStyle: React.CSSProperties = {
-    background: line.isSubtotal ? "rgba(11,74,125,0.06)" : undefined,
+    background: line.isSubtotal ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : undefined,
     fontWeight: line.isSubtotal ? 800 : 400,
-    color: isEmpty ? "var(--muted)" : line.isSubtotal ? "#0b4a7d" : undefined,
+    color: isEmpty ? "var(--muted)" : line.isSubtotal ? "var(--c-0b4a7d)" : undefined,
     opacity: isEmpty ? 0.55 : 1,
     cursor: hasSubLines ? "pointer" : undefined,
     borderTop: line.isSubtotal ? "2px solid rgba(11,74,125,0.30)" : undefined,
@@ -2533,9 +2533,9 @@ function BudgetLineRow({
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
                   minWidth: 18, height: 18, padding: "0 5px",
                   fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
-                  background: sumTies ? "rgba(22,163,74,0.12)" : "rgba(202,138,4,0.14)",
-                  color: sumTies ? "#15803d" : "#854d0e",
-                  border: `1px solid ${sumTies ? "rgba(22,163,74,0.35)" : "rgba(202,138,4,0.40)"}`,
+                  background: sumTies ? "var(--tint-green-bg, rgba(22,163,74,0.12))" : "var(--tint-amber-bg, rgba(202,138,4,0.14))",
+                  color: sumTies ? "var(--c-15803d)" : "var(--c-854d0e)",
+                  border: `1px solid ${sumTies ? "var(--tint-green-line, rgba(22,163,74,0.35))" : "var(--tint-amber-line, rgba(202,138,4,0.40))"}`,
                   borderRadius: 4,
                   fontVariantNumeric: "tabular-nums",
                 }}
@@ -2644,7 +2644,7 @@ function SubLineRow({
       <tr
         onClick={hasNested ? () => setExpanded((v) => !v) : undefined}
         style={{
-          background: line.isSubtotal ? "rgba(11,74,125,0.07)" : "rgba(11,74,125,0.035)",
+          background: line.isSubtotal ? "var(--tint-brand-bg, rgba(11,74,125,0.07))" : "var(--tint-brand-faint, rgba(11,74,125,0.035))",
           fontWeight: line.isSubtotal ? 700 : 400,
           color: "var(--text)",
           fontSize,
@@ -2654,7 +2654,7 @@ function SubLineRow({
         <td style={{
           paddingLeft: indent,
           borderLeft: "3px solid #0b4a7d",
-          color: line.isSubtotal ? "#0b4a7d" : undefined,
+          color: line.isSubtotal ? "var(--c-0b4a7d)" : undefined,
         }}>
           {showGL && line.glAccount && (
             <span className="muted small" style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", marginRight: 6 }}>
@@ -2771,7 +2771,7 @@ function SubtotalCard({ rollup, sqft, psf }: {
                 <td key={j} style={{
                   textAlign: "right", fontVariantNumeric: "tabular-nums",
                   fontSize: "var(--fs-13)", fontWeight: 800,
-                  color: m < 0 ? "#b91c1c" : undefined,
+                  color: m < 0 ? "var(--c-b91c1c)" : undefined,
                   verticalAlign: "middle", borderBottom: "none",
                 }}>
                   {fmtAmount(m, sqft, psf)}
@@ -2780,7 +2780,7 @@ function SubtotalCard({ rollup, sqft, psf }: {
               <td style={{
                 textAlign: "right", fontVariantNumeric: "tabular-nums",
                 fontSize: "var(--fs-14)", fontWeight: 900,
-                color: negative ? "#b91c1c" : "#0b4a7d",
+                color: negative ? "var(--c-b91c1c)" : "var(--c-0b4a7d)",
                 verticalAlign: "middle", borderBottom: "none",
               }}>
                 {fmtAmount(rollup.total, sqft, psf)}

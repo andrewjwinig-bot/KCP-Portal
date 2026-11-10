@@ -635,7 +635,7 @@ export function DraftLetterCard({ letter }: { letter: AiLetterSpec }) {
     <div style={{ border: "1px solid var(--amber-border)", borderRadius: 11, background: "var(--amber-letter-bg)", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 15px", background: "var(--amber-soft)", borderBottom: "1px solid var(--amber-border)" }}>
         <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--amber-text)", fontWeight: 700, display: "inline-flex", gap: 6, alignItems: "center" }}>
-          ⚠ Draft · review before sending
+          Draft · review before sending
         </span>
         <span style={{ fontSize: "var(--fs-12-5)", color: "var(--muted)", marginLeft: "auto" }}>{letter.kind}{letter.to ? ` · ${letter.to}` : ""}</span>
       </div>

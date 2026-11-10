@@ -105,19 +105,19 @@ export function Badge({ children, muted }: { children: React.ReactNode; muted?: 
       borderRadius: 999,
       fontSize: "var(--fs-11)",
       fontWeight: 700,
-      background: muted ? "rgba(15,23,42,0.06)" : "rgba(11,74,125,0.10)",
-      color: muted ? "var(--muted)" : "#0b4a7d",
+      background: muted ? "var(--tint-neutral-bg, rgba(15,23,42,0.06))" : "var(--tint-brand-bg, rgba(11,74,125,0.10))",
+      color: muted ? "var(--muted)" : "var(--c-0b4a7d)",
     }}>
       {children}
     </span>
   );
 }
 
-export const TONE_NEUTRAL: PillTone   = { bg: "rgba(15,23,42,0.06)",  fg: "var(--c-475569)", border: "rgba(15,23,42,0.15)" };
-export const TONE_BLUE: PillTone      = { bg: "rgba(11,74,125,0.10)", fg: "var(--c-0b4a7d)", border: "rgba(11,74,125,0.30)" };
-export const TONE_AMBER: PillTone     = { bg: "rgba(217,119,6,0.10)", fg: "var(--c-b45309)", border: "rgba(217,119,6,0.30)" };
-export const TONE_GREEN: PillTone     = { bg: "rgba(22,163,74,0.10)", fg: "var(--c-15803d)", border: "rgba(22,163,74,0.30)" };
-export const TONE_RED: PillTone       = { bg: "rgba(220,38,38,0.10)", fg: "var(--c-b91c1c)", border: "rgba(220,38,38,0.30)" };
+export const TONE_NEUTRAL: PillTone   = { bg: "var(--tint-neutral-bg, rgba(15,23,42,0.06))",  fg: "var(--c-475569)", border: "rgba(15,23,42,0.15)" };
+export const TONE_BLUE: PillTone      = { bg: "var(--tint-brand-bg, rgba(11,74,125,0.10))", fg: "var(--c-0b4a7d)", border: "var(--tint-brand-line, rgba(11,74,125,0.30))" };
+export const TONE_AMBER: PillTone     = { bg: "var(--tint-amber-bg, rgba(217,119,6,0.10))", fg: "var(--c-b45309)", border: "var(--tint-amber-line, rgba(217,119,6,0.30))" };
+export const TONE_GREEN: PillTone     = { bg: "var(--tint-green-bg, rgba(22,163,74,0.10))", fg: "var(--c-15803d)", border: "var(--tint-green-line, rgba(22,163,74,0.30))" };
+export const TONE_RED: PillTone       = { bg: "var(--tint-red-bg, rgba(220,38,38,0.10))", fg: "var(--c-b91c1c)", border: "var(--tint-red-line, rgba(220,38,38,0.30))" };
 export const TONE_TEAL: PillTone      = { bg: "rgba(13,148,136,0.10)", fg: "var(--c-0d9488)", border: "rgba(13,148,136,0.35)" };
 export const TONE_PURPLE: PillTone    = { bg: "rgba(124,58,237,0.10)", fg: "var(--c-6d28d9)", border: "rgba(124,58,237,0.30)" };
 export const TONE_PINK: PillTone      = { bg: "rgba(219,39,119,0.10)", fg: "var(--c-be185d)", border: "rgba(219,39,119,0.30)" };

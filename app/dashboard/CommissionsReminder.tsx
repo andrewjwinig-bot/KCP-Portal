@@ -21,10 +21,10 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "n
 const sameQ = (a: Parsed, b: Parsed) => !!a && !!b && a.quarter === b.quarter && a.year === b.year;
 
 const TONE: Record<Tone, { border: string; bg: string; dot: string }> = {
-  paid:    { border: "rgba(21,128,61,0.30)",  bg: "rgba(21,128,61,0.06)",  dot: "var(--c-15803d)" },
-  soon:    { border: "rgba(217,119,6,0.30)",  bg: "rgba(217,119,6,0.06)",  dot: "var(--c-d97706)" },
-  action:  { border: "rgba(220,38,38,0.35)",  bg: "rgba(220,38,38,0.06)",  dot: "var(--c-dc2626)" },
-  neutral: { border: "rgba(15,23,42,0.12)",   bg: "rgba(15,23,42,0.025)",  dot: "var(--c-64748b)" },
+  paid:    { border: "var(--tint-green-line, rgba(21,128,61,0.30))",  bg: "var(--tint-green-bg, rgba(21,128,61,0.06))",  dot: "var(--c-15803d)" },
+  soon:    { border: "var(--tint-amber-line, rgba(217,119,6,0.30))",  bg: "var(--tint-amber-bg, rgba(217,119,6,0.06))",  dot: "var(--c-d97706)" },
+  action:  { border: "var(--tint-red-line, rgba(220,38,38,0.35))",  bg: "var(--tint-red-bg, rgba(220,38,38,0.06))",  dot: "var(--c-dc2626)" },
+  neutral: { border: "rgba(15,23,42,0.12)",   bg: "var(--tint-neutral-faint, rgba(15,23,42,0.025))",  dot: "var(--c-64748b)" },
 };
 
 /** `href` is the commissions page THIS viewer can open — Harry has only the

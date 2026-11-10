@@ -17,7 +17,7 @@ const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 70
 const tab = (active: boolean): React.CSSProperties => ({
   fontSize: "var(--fs-12-5)", fontWeight: 700, padding: "5px 12px", borderRadius: 999,
   border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`,
-  background: active ? "rgba(11,74,125,0.10)" : "var(--card)",
+  background: active ? "var(--tint-brand-bg, rgba(11,74,125,0.10))" : "var(--card)",
   color: active ? "var(--brand)" : "var(--text)",
   cursor: "pointer", whiteSpace: "nowrap",
 });
