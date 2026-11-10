@@ -1,5 +1,6 @@
 "use client";
 
+import { UnitSelect } from "@/app/components/UnitSelect";
 import { useEffect, useRef, useState } from "react";
 import { Calendar } from "@/app/components/Calendar";
 import { upload as blobUpload } from "@vercel/blob/client";
@@ -15,6 +16,9 @@ export type UnitOption = {
   label: string;
   propertyCode: string;
   tenantCompany: string;
+  /** The building header in the dropdown — "3610 · Building 1, …". */
+  group?: string;
+  former?: boolean;
 };
 
 // The look of an input / select comes from globals.css (the program-wide
@@ -387,12 +391,8 @@ export default function DepositForm({
             {unit ? unit.label : fixedUnitRef}
           </div>
         ) : (
-          <select style={inputStyle} value={unitRef} onChange={(e) => setUnitRef(e.target.value)}>
-            <option value="">Select a tenant…</option>
-            {unitOptions.map((u) => (
-              <option key={u.unitRef} value={u.unitRef}>{u.label}</option>
-            ))}
-          </select>
+          <UnitSelect value={unitRef} onChange={setUnitRef}
+            units={unitOptions.map((u) => ({ unitRef: u.unitRef, tenant: u.tenantCompany, group: u.group ?? u.propertyCode, meta: u.former ? "Former tenant" : undefined }))} />
         )}
         {account && (
           <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: 2 }}>

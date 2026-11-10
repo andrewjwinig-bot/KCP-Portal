@@ -1,4 +1,5 @@
 "use client";
+import { UnitSelect } from "@/app/components/UnitSelect";
 import { ChevronDown, ChevronRight, ChevronUp, TriangleAlert, Upload, X } from "lucide-react";
 
 // Receipt Reconciliation — a tenant paid an amount that doesn't line up with
@@ -183,11 +184,6 @@ export default function ReceiptReconciliationPage() {
   const resetWork = () => { pickTenant(""); setAmountText(""); setCheckNo(""); setReceived(todayISO()); };
 
   // The tenant dropdown: grouped by property in statement order, A–Z within.
-  const byProperty = useMemo(() => {
-    const m = new Map<string, TenantRow[]>();
-    for (const t of tenants) { const k = `${t.propertyCode} · ${t.propertyName}`; m.set(k, [...(m.get(k) ?? []), t]); }
-    return [...m.entries()].map(([k, rows]) => [k, rows.sort((x, y) => x.tenantName.localeCompare(y.tenantName))] as const);
-  }, [tenants]);
 
   const plan = detail?.plan ?? null;
   // Each charge's place in THIS tenant's application sequence (1 = first to
@@ -357,14 +353,8 @@ export default function ReceiptReconciliationPage() {
                 {!answering && <button className="btn sm" onClick={() => pickTenant("")}>Change</button>}
               </div>
             ) : (
-              <select value="" onChange={(e) => { if (e.target.value) pickTenant(e.target.value); }} aria-label="Tenant" className="select-brand select-lg" style={{ width: "100%" }}>
-                <option value="">Select a tenant…</option>
-                {byProperty.map(([prop, rows]) => (
-                  <optgroup key={prop} label={prop}>
-                    {rows.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.tenantName} · {t.unitRef} — {money(t.net)}</option>)}
-                  </optgroup>
-                ))}
-              </select>
+              <UnitSelect brand value="" onChange={(u) => { if (u) pickTenant(u); }}
+                units={tenants.map((t) => ({ unitRef: t.unitRef, tenant: t.tenantName, group: `${t.propertyCode} · ${t.propertyName}`, meta: t.net < 0 ? `(${money(-t.net)})` : money(t.net) }))} />
             )}
           </label>
           <label style={{ display: "grid", gap: 4, flex: "0 0 160px" }}>
