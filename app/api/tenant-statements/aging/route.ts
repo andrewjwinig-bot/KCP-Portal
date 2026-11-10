@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { currentAging, importAging } from "@/lib/statements/agingStore";
-import { agingLookup, creditLinesOf, daysOpen, laserCreditTenants, type CurrentAgingTenant, type OpenCreditTenant } from "@/lib/statements/aging";
+import { agingLookup, creditLinesOf, daysOpen, laserCreditTenants, MIN_OPEN_CREDIT, type CurrentAgingTenant, type OpenCreditTenant } from "@/lib/statements/aging";
 import { allRuns } from "@/lib/statements/store";
 import { laserDate } from "@/lib/statements/currentAccount";
 import { creditNoticeParts, creditNoticeTableHtml, creditTotals, nextMonthLabel, renderCreditNotice } from "@/lib/statements/creditNotice";
@@ -69,11 +69,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, draft: await draftFor(t), recipients: await suiteRecipients(t.unitRef), totals: creditTotals(t.lines) });
   }
   const [aging, corr, notes] = await Promise.all([openCreditTenants(), allCorrespondence().catch(() => []), creditNotes().catch(() => ({}))]);
+  let small = 0;
   const tenants = aging.tenants
     .map((t) => {
       const credits = creditLinesOf(t);
       if (!credits.length) return null;
       const totals = creditTotals(t.lines);
+      if (totals.credit < MIN_OPEN_CREDIT) { small++; return null; } // not worth an email
       const mine = corr.filter((e) => e.unitRef.toUpperCase() === t.unitRef.toUpperCase());
       const notice = mine.find((e) => e.kind === "credit-notice") ?? null;
       return {
@@ -91,6 +93,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true, asOf, runAt: aging.tenants.find((t) => t.asOf === asOf && !(t as OpenCreditTenant).fromLaser)?.runAt ?? null, properties: Object.keys(aging.coverage).length, tenants,
     // Tenants read off the laser statement (properties the Credit Balance report doesn't cover).
+    small, minCredit: MIN_OPEN_CREDIT,
     laser: aging.laserPeriod ? { period: aging.laserPeriod, asOf: aging.laserAsOf } : null,
   });
 }

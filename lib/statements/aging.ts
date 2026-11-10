@@ -131,6 +131,10 @@ export function creditLinesOf(t: Pick<AgingTenant, "lines">): AgingLine[] {
  *  account Receipt Reconciliation reads, so the page never says "no credits"
  *  for a tenant the other page shows one for (owner: "it should read the same
  *  source data"). `fromLaser` marks them — their credits are not itemized. */
+/** A credit under this isn't worth an email (owner: "if an open credit is
+ *  less than $5 dont show it") — Open Credits leaves it off. */
+export const MIN_OPEN_CREDIT = 5;
+
 export type OpenCreditTenant = CurrentAgingTenant & { fromLaser?: boolean };
 
 export function laserCreditTenants(statements: TenantStatement[], coverage: Record<string, string>, asOfFor: (st: TenantStatement) => string): OpenCreditTenant[] {

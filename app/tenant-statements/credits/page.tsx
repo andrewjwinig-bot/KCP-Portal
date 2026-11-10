@@ -30,7 +30,7 @@ type Row = {
   /** Read off the laser statement — the report doesn't cover this property; its credits are one undated total. */
   fromLaser?: boolean;
 };
-type Data = { asOf: string | null; runAt: string | null; properties: number; tenants: Row[]; laser: { period: string; asOf: string } | null };
+type Data = { asOf: string | null; runAt: string | null; properties: number; tenants: Row[]; small?: number; minCredit?: number; laser: { period: string; asOf: string } | null };
 
 const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true, style: { verticalAlign: "-3px", flexShrink: 0 } } as const;
@@ -111,6 +111,7 @@ export default function OpenCreditsPage() {
           {asOf && <>Credit Balance Report as of <b>{longDate(asOf)}</b>, credits itemized with their dates. </>}
           {data.laser && <>{asOf ? "Properties it doesn\u2019t cover" : "Credits"} are from the <b>Laser Statement</b> as of {longDate(data.laser.asOf)}, where they print as one undated total. Import the Credit Balance Report to itemize them.</>}
           {!asOf && !data.laser && <>No Laser Statement or Credit Balance Report imported yet.</>}
+          {!!data.small && <> {data.small} credit{data.small === 1 ? "" : "s"} under ${data.minCredit ?? 5} not shown.</>}
         </div>
       )}
 
