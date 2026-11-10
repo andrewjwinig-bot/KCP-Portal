@@ -82,6 +82,9 @@ export default function OpenCreditsPage() {
 
   const all = data?.tenants ?? [];
   const totalCredit = all.reduce((a, t) => a + t.credit, 0);
+  const totalCharges = all.reduce((a, t) => a + t.charges, 0);
+  const totalNet = all.reduce((a, t) => a + t.net, 0);
+  const usd0 = (n: number) => (n < -0.5 ? `($${Math.round(-n).toLocaleString("en-US")})` : `$${Math.round(n).toLocaleString("en-US")}`);
   const notAsked = all.filter((t) => !t.lastNotice || daysSince(t.lastNotice.sentAt) >= ASK_AGAIN_DAYS).length;
   const old = all.filter((t) => (t.oldestDays ?? 0) >= OLD_DAYS);
   const oldTotal = old.reduce((a, t) => a + t.credit, 0);
@@ -118,7 +121,8 @@ export default function OpenCreditsPage() {
       {data && all.length > 0 && (
         <div className="pills">
           <StatPill label="Tenants with credits" value={all.length} />
-          <StatPill label="Total credits" value={`$${Math.round(totalCredit).toLocaleString("en-US")}`} />
+          {/* Net, not the credits alone: open charges eat into a credit (owner: "TOTAL CREDITS is misleading"). In parens = held for tenants. */}
+          <StatPill label="Net" value={usd0(totalNet)} sub={`Credits ${usd0(-totalCredit)} · Charges ${usd0(totalCharges)}`} accent={totalNet < -0.5 ? "var(--c-15803d)" : undefined} />
           <StatPill label={`Open ${OLD_DAYS}+ days`} value={`$${Math.round(oldTotal).toLocaleString("en-US")}`} sub={`${old.length} tenant${old.length === 1 ? "" : "s"}`} accent={old.length ? "var(--c-b45309)" : undefined} />
           <StatPill label="Not asked yet" value={notAsked} sub={`or ${ASK_AGAIN_DAYS}+ days ago`} accent={notAsked ? "var(--c-b45309)" : undefined} />
         </div>
@@ -150,7 +154,9 @@ export default function OpenCreditsPage() {
                     <tr style={{ background: "var(--tint-brand-bg)", borderTop: "2px solid var(--border)" }}>
                       <td style={{ ...tdL, fontWeight: 800, whiteSpace: "normal" }}><code>{code}</code> {ts[0].propertyName}</td>
                       <td style={{ ...td, fontWeight: 700, color: "var(--c-15803d)" }}>({num(ts.reduce((a, t) => a + t.credit, 0))})</td>
-                      <td style={td} colSpan={5} />
+                      <td style={{ ...td, fontWeight: 700 }}>{signed(ts.reduce((a, t) => a + t.charges, 0))}</td>
+                      <td style={{ ...td, fontWeight: 700 }}>{signed(ts.reduce((a, t) => a + t.net, 0))}</td>
+                      <td style={td} colSpan={3} />
                     </tr>
                     {ts.map((t) => {
                       const isOpen = open.has(t.unitRef);
@@ -196,6 +202,18 @@ export default function OpenCreditsPage() {
                   </Fragment>
                 ))}
                 {!rows.length && <tr><td colSpan={7} style={{ ...tdL, color: "var(--muted)" }}>Nothing in this view.</td></tr>}
+                {rows.length > 0 && (() => {
+                  const cr = rows.reduce((a, t) => a + t.credit, 0), ch = rows.reduce((a, t) => a + t.charges, 0), nt = rows.reduce((a, t) => a + t.net, 0);
+                  return (
+                    <tr style={{ borderTop: "2px solid var(--border)" }}>
+                      <td style={{ ...tdL, fontWeight: 800 }}>Total · {rows.length} tenant{rows.length === 1 ? "" : "s"}</td>
+                      <td style={{ ...td, fontWeight: 800, color: "var(--c-15803d)" }}>(${num(cr)})</td>
+                      <td style={{ ...td, fontWeight: 800 }}>${num(ch)}</td>
+                      <td style={{ ...td, fontWeight: 800 }}>{nt < -0.005 ? `($${num(nt)})` : `$${num(nt)}`}</td>
+                      <td style={td} colSpan={3} />
+                    </tr>
+                  );
+                })()}
               </tbody>
             </table>
           </div>
