@@ -65,10 +65,10 @@ export function OpenCreditsCard({ tracker, notes, applications, period, readOnly
         <div className="pills" style={{ flexWrap: "wrap", justifyContent: "flex-start", marginTop: 0 }}>
           <StatPill label="Open credits" value={money0(tracker.total)} sub={`${tracker.count} tenant${tracker.count === 1 ? "" : "s"}`} total />
           <StatPill label="More than they owe" value={money0(tracker.netCreditTotal)} sub={`${tracker.netCreditCount} we hold money for`}
-            accent={tracker.netCreditCount ? "#b45309" : undefined} />
-          <StatPill label="Applied, to key in Skyline" value={money0(applied)} sub={`${appliedCount} recorded`} accent={applied > 0 ? "#15803d" : undefined} />
+            accent={tracker.netCreditCount ? "var(--c-b45309)" : undefined} />
+          <StatPill label="Applied, to key in Skyline" value={money0(applied)} sub={`${appliedCount} recorded`} accent={applied > 0 ? "var(--c-15803d)" : undefined} />
           <StatPill label="Left to work" value={money0(tracker.total - applied)} sub={stale ? `${stale} open 3+ months` : "none older than 2 months"}
-            accent={stale ? "#b91c1c" : undefined} />
+            accent={stale ? "var(--c-b91c1c)" : undefined} />
         </div>
       </div>
 
@@ -102,12 +102,12 @@ export function OpenCreditsCard({ tracker, notes, applications, period, readOnly
                   const isOpen = open === k;
                   return (
                     <Fragment key={k}>
-                      <tr onClick={() => setOpen(isOpen ? null : k)} style={{ cursor: "pointer", borderTop: "1px solid var(--border)", background: isOpen ? "rgba(11,74,125,0.04)" : undefined }}>
+                      <tr onClick={() => setOpen(isOpen ? null : k)} style={{ cursor: "pointer", borderTop: "1px solid var(--border)", background: isOpen ? "var(--tint-brand-bg, rgba(11,74,125,0.04))" : undefined }}>
                         <td style={tdL}><span aria-hidden className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span><code style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
                         <td style={{ ...tdL, fontWeight: 600, whiteSpace: "normal" }}>{r.tenantName}</td>
                         <td style={{ ...td, fontWeight: 700, color: "var(--c-15803d)" }}>{money2(r.credit)}</td>
                         <td style={td}>{r.openCharges > 0.005 ? money2(r.openCharges) : <span className="muted">—</span>}</td>
-                        <td style={{ ...td, fontWeight: 700, color: r.net < -0.005 ? "#b45309" : undefined }}>
+                        <td style={{ ...td, fontWeight: 700, color: r.net < -0.005 ? "var(--c-b45309)" : undefined }}>
                           {r.net < -0.005 ? `(${money2(-r.net)})` : money2(r.net)}
                         </td>
                         <td style={td}>
@@ -126,7 +126,7 @@ export function OpenCreditsCard({ tracker, notes, applications, period, readOnly
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={8} style={{ padding: "4px 18px 16px", background: "var(--tint-brand-bg, rgba(11,74,125,0.03))", maxWidth: 0 }}>
+                          <td colSpan={8} style={{ padding: "4px 18px 16px", background: "var(--tint-brand-faint, rgba(11,74,125,0.03))", maxWidth: 0 }}>
                             <CreditDetail r={r} app={app ?? null} period={period} readOnly={readOnly} onChanged={onChanged} />
                           </td>
                         </tr>

@@ -11,9 +11,9 @@ import { STAFF } from "@/lib/maintenance/staff";
 type Window = "7" | "30" | "90" | "all";
 type Scope = "active" | "all";
 
-const ACCENT_BLUE   = "#0b4a7d";
-const ACCENT_AMBER  = "#b45309";
-const ACCENT_RED    = "#b91c1c";
+const ACCENT_BLUE   = "var(--c-0b4a7d)";
+const ACCENT_AMBER  = "var(--c-b45309)";
+const ACCENT_RED    = "var(--c-b91c1c)";
 
 const PALETTE = [
   "#7eb6e6", "#e7826b", "#7fd1c8", "#b4a8e0", "#f3b86e",

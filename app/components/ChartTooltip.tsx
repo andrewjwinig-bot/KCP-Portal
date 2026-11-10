@@ -62,7 +62,7 @@ export function HoverBands({
   return (
     <g>
       {active != null && (
-        <line x1={xAt(active)} x2={xAt(active)} y1={top} y2={top + height} stroke="rgba(11,74,125,0.30)" strokeWidth={1.25} strokeDasharray="3 3" pointerEvents="none" />
+        <line x1={xAt(active)} x2={xAt(active)} y1={top} y2={top + height} stroke="var(--tint-brand-line, rgba(11,74,125,0.30))" strokeWidth={1.25} strokeDasharray="3 3" pointerEvents="none" />
       )}
       {Array.from({ length: n }, (_, i) => (
         <rect key={i} x={Math.max(x0 - step / 2, xAt(i) - step / 2)} y={top} width={step} height={height} fill="transparent" style={{ cursor: "crosshair" }} onMouseEnter={() => onHover(i)} />

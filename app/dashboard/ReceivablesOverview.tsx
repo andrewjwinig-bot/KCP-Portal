@@ -114,8 +114,8 @@ export default function ReceivablesOverview() {
         <>
           <div className="pills" style={{ justifyContent: "flex-start", margin: 0 }}>
             <StatPill label="Open A/R" value={money0(totals.open)} sub={plural(owing.length, "tenant")} total />
-            <StatPill label="Past due" value={money0(totals.pastDue)} sub={plural(totals.pastDueCount, "tenant")} accent={totals.pastDue > 0.5 ? "#b91c1c" : undefined} />
-            <StatPill label="Open credits" value={money0(data.credits.total)} sub={plural(data.credits.count, "tenant")} accent={data.credits.count ? "#15803d" : undefined} />
+            <StatPill label="Past due" value={money0(totals.pastDue)} sub={plural(totals.pastDueCount, "tenant")} accent={totals.pastDue > 0.5 ? "var(--c-b91c1c)" : undefined} />
+            <StatPill label="Open credits" value={money0(data.credits.total)} sub={plural(data.credits.count, "tenant")} accent={data.credits.count ? "var(--c-15803d)" : undefined} />
             <StatPill label="Net credit" value={money0(data.credits.netCreditTotal)} sub={`${data.credits.netCreditCount} owed a refund or credit`} />
           </div>
 
@@ -146,7 +146,7 @@ export default function ReceivablesOverview() {
                             <td style={tdL}><span className="muted small">{propName.get(r.propertyCode) ?? r.propertyCode}</span></td>
                             <td style={{ ...td, fontWeight: 700, color: "var(--c-15803d)" }}>({money(r.credit)})</td>
                             <td style={td}>{r.openCharges > 0.005 ? money(r.openCharges) : <span className="muted">—</span>}</td>
-                            <td style={{ ...td, fontWeight: 700, color: r.net < -0.005 ? "#15803d" : undefined }}>{r.net < -0.005 ? `(${money(-r.net)})` : money(r.net)}</td>
+                            <td style={{ ...td, fontWeight: 700, color: r.net < -0.005 ? "var(--c-15803d)" : undefined }}>{r.net < -0.005 ? `(${money(-r.net)})` : money(r.net)}</td>
                             <td style={tdL}>{r.months >= 3 ? <Pill tone={TONE_AMBER}>{r.months} MONTHS</Pill> : <span className="muted small">{periodLabel(r.since)}</span>}</td>
                           </tr>
                         ))}
@@ -186,8 +186,8 @@ export default function ReceivablesOverview() {
                         <td style={tdL}><span className="muted small">{propName.get(t.propertyCode) ?? t.propertyCode}</span></td>
                         <td style={tdL}><span className="muted small">{dateLabel(t.summary.oldestISO)}</span></td>
                         <td style={td}>{t.summary.currentCharges > 0.005 ? money(t.summary.currentCharges) : <span className="muted">—</span>}</td>
-                        <td style={{ ...td, fontWeight: t.summary.pastDueAmount > 0.005 ? 700 : 400, color: t.summary.pastDueAmount > 0.005 ? "#b91c1c" : "var(--muted)" }}>{t.summary.pastDueAmount > 0.005 ? money(t.summary.pastDueAmount) : "—"}</td>
-                        <td style={{ ...td, color: t.summary.credits > 0.005 ? "#15803d" : "var(--muted)" }}>{t.summary.credits > 0.005 ? `(${money(t.summary.credits)})` : "—"}</td>
+                        <td style={{ ...td, fontWeight: t.summary.pastDueAmount > 0.005 ? 700 : 400, color: t.summary.pastDueAmount > 0.005 ? "var(--c-b91c1c)" : "var(--muted)" }}>{t.summary.pastDueAmount > 0.005 ? money(t.summary.pastDueAmount) : "—"}</td>
+                        <td style={{ ...td, color: t.summary.credits > 0.005 ? "var(--c-15803d)" : "var(--muted)" }}>{t.summary.credits > 0.005 ? `(${money(t.summary.credits)})` : "—"}</td>
                         <td style={{ ...td, fontWeight: 800 }}>{money(t.summary.totalDue)}</td>
                         <td style={{ ...tdL, whiteSpace: "nowrap" }}><LastContactCell contact={contactOf(t.unitRef)} owed={t.summary.totalDue} /></td>
                       </tr>

@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 // The rest of the partnership return — Client Copy, Government Copy, Estimated
 // Tax Vouchers, Partner K-1 Copy — kept with the property whose partnership
@@ -97,7 +98,7 @@ export function PartnershipTaxDocs({ propertyCode, defaultOpen = false, collapsi
   const yearOptions = Array.from(new Set([...years, thisYear - 1, thisYear - 2])).sort((a, b) => b - a);
 
   return (
-    <div style={{ borderTop: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }} className="no-print">
+    <div style={{ borderTop: "1px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))" }} className="no-print">
       {collapsible ? (
         <button type="button" onClick={() => setOpen((v) => !v)}
           style={{
@@ -106,7 +107,7 @@ export function PartnershipTaxDocs({ propertyCode, defaultOpen = false, collapsi
             fontFamily: "inherit", textAlign: "left",
           }}>
           <span style={{ display: "inline-flex", alignItems: "baseline", gap: 9, flexWrap: "wrap" }}>
-            <span style={{ ...SECTION_LABEL, color: TEAL }}>{open ? "▲" : "▼"} Partnership tax documents</span>
+            <span style={{ ...SECTION_LABEL, color: TEAL }}>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />} Partnership tax documents</span>
             <span className="muted small">Not circulated to investors</span>
           </span>
           {open ? null : <span className="muted small">{held ? `${held} on file` : ""}</span>}

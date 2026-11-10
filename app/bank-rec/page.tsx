@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -202,7 +203,7 @@ export default function BankAccTrackerPage() {
           style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}
           aria-label="Previous month"
         >
-          ←
+          <ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
         </button>
         <span style={{ fontWeight: 800, fontSize: 16, minWidth: 130, textAlign: "center" }}>
           {bankRecPeriodLabel(period)}
@@ -213,7 +214,7 @@ export default function BankAccTrackerPage() {
           style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}
           aria-label="Next month"
         >
-          →
+          <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
         </button>
         {!isCurrentPeriod && (
           <button
@@ -268,7 +269,7 @@ export default function BankAccTrackerPage() {
           <div style={{
             height: "100%",
             width: `${pct}%`,
-            background: doneTasks === totalTasks ? "#16a34a" : "var(--brand)",
+            background: doneTasks === totalTasks ? "var(--c-16a34a)" : "var(--brand)",
             borderRadius: 999,
             transition: "width 0.3s ease",
           }} />
@@ -303,7 +304,7 @@ export default function BankAccTrackerPage() {
                     <span style={{ fontWeight: 800, fontSize: "var(--fs-14)", letterSpacing: "0.02em" }}>{bank}</span>
                     <span className="muted small">{groupStmt}/{accounts.length} Stmts · {groupRec}/{accounts.length} Rec</span>
                   </span>
-                  <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+                  <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
                 </button>
 
                 {open && (
@@ -330,7 +331,7 @@ export default function BankAccTrackerPage() {
                           key={r.last4 + r.key}
                           style={{
                             borderTop: "1px solid var(--border)",
-                            background: allDone ? "rgba(22,163,74,0.05)" : hasStmt || hasRec ? "rgba(11,74,125,0.025)" : "transparent",
+                            background: allDone ? "var(--tint-green-bg, rgba(22,163,74,0.05))" : hasStmt || hasRec ? "var(--tint-brand-faint, rgba(11,74,125,0.025))" : "transparent",
                           }}
                         >
                           <td style={{ padding: "10px 14px", textAlign: "center" }}>

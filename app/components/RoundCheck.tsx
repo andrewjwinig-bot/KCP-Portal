@@ -24,8 +24,8 @@ export function RoundCheck({ done, onToggle, label, size = 22 }: {
       className="round-check"
       style={{
         flexShrink: 0, width: size, height: size, borderRadius: 999, padding: 0, cursor: "pointer",
-        border: `2px solid ${done ? "#067647" : "#98A2B3"}`,
-        background: done ? "#067647" : "transparent",
+        border: `2px solid ${done ? "var(--c-067647)" : "var(--c-98a2b3)"}`,
+        background: done ? "var(--c-067647)" : "transparent",
         display: "inline-flex", alignItems: "center", justifyContent: "center",
         transition: "background .12s, border-color .12s",
       }}

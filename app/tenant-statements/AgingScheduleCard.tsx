@@ -18,10 +18,10 @@ const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toL
 /** Severity, not category: blue for current, amber deepening to red with age. */
 const AGE_COLOR: Record<AgingBucket, string> = {
   current: "var(--series-1)",
-  d30: "#f2b84b",
-  d60: "#e8893a",
-  d90: "#d9622b",
-  d90plus: "#b91c1c",
+  d30: "var(--c-f2b84b)",
+  d60: "var(--c-e8893a)",
+  d90: "var(--c-d9622b)",
+  d90plus: "var(--c-b91c1c)",
 };
 
 function AgeBar({ row, height = 12 }: { row: AgingRow; height?: number }) {
@@ -89,13 +89,13 @@ export function AgingScheduleCard({ schedule, nameOf, active, onPick }: {
               return (
                 <tr key={r.propertyCode} onClick={() => onPick(on ? "All" : r.propertyCode)}
                   title={on ? "Show all properties" : "Filter the roster to this property"}
-                  style={{ cursor: "pointer", borderTop: "1px solid var(--border)", background: on ? "rgba(11,74,125,0.07)" : undefined }}>
+                  style={{ cursor: "pointer", borderTop: "1px solid var(--border)", background: on ? "var(--tint-brand-bg, rgba(11,74,125,0.07))" : undefined }}>
                   <td style={{ ...tdL, whiteSpace: "normal" }}>
                     <span style={{ fontWeight: 700 }}>{r.propertyCode}</span>{" "}
                     <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>{nameOf(r.propertyCode)}</span>
                   </td>
                   {AGING_ORDER.map((b) => (
-                    <td key={b} style={{ ...td, color: b !== "current" && r.buckets[b] > 0.005 ? (b === "d90plus" ? "#b91c1c" : "#b45309") : undefined,
+                    <td key={b} style={{ ...td, color: b !== "current" && r.buckets[b] > 0.005 ? (b === "d90plus" ? "var(--c-b91c1c)" : "var(--c-b45309)") : undefined,
                       fontWeight: b === "d90plus" && r.buckets[b] > 0.005 ? 700 : undefined }}>
                       {r.buckets[b] > 0.005 ? money0(r.buckets[b]) : <span className="muted">—</span>}
                     </td>

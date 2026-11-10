@@ -53,7 +53,7 @@ export function PayrollPoolsCard({ year, bookId, bookName, propertyCode, queued,
   const code = propertyCode.toUpperCase();
   return (
     <div id="payroll-pools" className="card" style={{ padding: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))" }}>
         <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Payroll total — {bookName}</span>
       </div>
       {err && <div className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700, padding: "8px 14px" }}>{err}</div>}

@@ -322,11 +322,11 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
           </div>
           <button type="button" className="btn sm" onClick={onClose}>Done</button>
         </div>
-        <div style={{ padding: "12px 18px", display: "flex", gap: 22, flexWrap: "wrap", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))" }}>
+        <div style={{ padding: "12px 18px", display: "flex", gap: 22, flexWrap: "wrap", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.025))" }}>
           {fact("SF", sqft > 0 ? sqft.toLocaleString() : "—")}
           {mode === "contracted" && fact("Rent", currentRent > 0 ? <>{money0(currentRent)}/mo{curPsf != null && <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}> · ${curPsf.toFixed(2)}/SF/yr</span>}</> : "—")}
           {mode === "inplace" && fact("Expiring rent", currentRent > 0 ? <>{money0(currentRent)}/mo{curPsf != null && <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}> · ${curPsf.toFixed(2)}/SF/yr</span>}</> : "—")}
-          {mode === "inplace" && fact("Expires", end ? <span style={{ color: holdover ? "#b45309" : undefined }}>{mmyy(end)}{holdover ? " (holdover)" : ""}</span> : "—")}
+          {mode === "inplace" && fact("Expires", end ? <span style={{ color: holdover ? "var(--c-b45309)" : undefined }}>{mmyy(end)}{holdover ? " (holdover)" : ""}</span> : "—")}
         </div>
         <div style={{ padding: "10px 18px 14px" }}>
           {field("Decision", (

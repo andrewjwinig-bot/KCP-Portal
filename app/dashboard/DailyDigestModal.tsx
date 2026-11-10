@@ -43,10 +43,10 @@ function CaughtUp() {
   // Brand blue among the greens so the burst belongs to this app rather than
   // being generic confetti.
   const sparks = [
-    { a: "0deg", d: "0.14s", c: "#15803d" }, { a: "45deg", d: "0.20s", c: "#0b4a7d" },
-    { a: "90deg", d: "0.16s", c: "#15803d" }, { a: "135deg", d: "0.23s", c: "#22c55e" },
-    { a: "180deg", d: "0.18s", c: "#0b4a7d" }, { a: "225deg", d: "0.15s", c: "#15803d" },
-    { a: "270deg", d: "0.22s", c: "#22c55e" }, { a: "315deg", d: "0.17s", c: "#15803d" },
+    { a: "0deg", d: "0.14s", c: "var(--c-15803d)" }, { a: "45deg", d: "0.20s", c: "var(--c-0b4a7d)" },
+    { a: "90deg", d: "0.16s", c: "var(--c-15803d)" }, { a: "135deg", d: "0.23s", c: "var(--c-22c55e)" },
+    { a: "180deg", d: "0.18s", c: "var(--c-0b4a7d)" }, { a: "225deg", d: "0.15s", c: "var(--c-15803d)" },
+    { a: "270deg", d: "0.22s", c: "var(--c-22c55e)" }, { a: "315deg", d: "0.17s", c: "var(--c-15803d)" },
   ];
 
   return (
@@ -58,7 +58,7 @@ function CaughtUp() {
             style={{ ["--a" as string]: s.a, ["--d" as string]: s.d, ["--cu-spark-color" as string]: s.c }} />
         ))}
         <svg width="72" height="72" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <circle cx="12" cy="12" r="10" fill="rgba(22,163,74,0.08)" stroke="var(--c-15803d)" strokeWidth="1.6" className="sent-ring" />
+          <circle cx="12" cy="12" r="10" fill="var(--tint-green-bg, rgba(22,163,74,0.08))" stroke="var(--c-15803d)" strokeWidth="1.6" className="sent-ring" />
           <path d="M7.4 12.4l3.1 3.1 6.2-6.6" fill="none" stroke="var(--c-15803d)" strokeWidth="2.2"
             strokeLinecap="round" strokeLinejoin="round" className="sent-check" />
         </svg>
@@ -203,13 +203,13 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
             </div>
             {openTasks.length === 0 ? (
               <div className="muted small" style={{ color: "var(--c-15803d)", fontWeight: 600, marginBottom: 14 }}>
-                ✓ All tasks this week are done.
+                All tasks this week are done.
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
                 {openTasks.map((o) => {
                   const isToday = o.date.toDateString() === todayKey;
-                  const dot = CATEGORIES[o.category]?.dot ?? "#64748b";
+                  const dot = CATEGORIES[o.category]?.dot ?? "var(--c-64748b)";
                   return (
                     <div key={o.id} style={{
                       display: "flex", alignItems: "center", gap: 10,

@@ -1,5 +1,5 @@
 "use client";
-import { ChevronRight, X } from "lucide-react";
+import { ChevronRight, FileText, FolderOpen, Plus, RefreshCw, X } from "lucide-react";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { upload as blobUpload } from "@vercel/blob/client";
@@ -34,6 +34,18 @@ function normalizeBank(name: string): string {
 
 function fmtMoney(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+}
+/** A figure in a table cell: no $ (the column says it's money), cents kept —
+ *  a transfer is an exact amount. */
+function fmtCell(n: number): string {
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+/** A tile figure: abbreviated ($686K, $1.2M). */
+function fmtTile(n: number): string {
+  const a = Math.abs(n);
+  if (a >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+  if (a >= 1e3) return `$${Math.round(n / 1e3).toLocaleString("en-US")}K`;
+  return `$${Math.round(n).toLocaleString("en-US")}`;
 }
 
 /** Split a stored From/To label into a property line + last4 line. Looks
@@ -226,9 +238,9 @@ export default function BankTransfersPage() {
 
       <div className="pills">
         <StatPill label="Transfers" value={filtered.length} />
-        <StatPill label="Total volume" value={fmtMoney(totalAmount)} />
-        <StatPill label="Account pairs" value={flows.length} />
-        <StatPill label="Missing PDF" value={missingPdf} accent={missingPdf > 0 ? "#b91c1c" : undefined} />
+        <StatPill label="Total Volume" value={fmtTile(totalAmount)} sub={fmtMoney(totalAmount)} />
+        <StatPill label="Account Pairs" value={flows.length} />
+        <StatPill label="Missing PDF" value={missingPdf} accent={missingPdf > 0 ? "var(--c-b91c1c, #b91c1c)" : undefined} />
       </div>
 
       <div className="card" style={{ padding: 0 }}>
@@ -258,7 +270,7 @@ export default function BankTransfersPage() {
                     <td><AccountCell label={f.from} /></td>
                     <td><AccountCell label={f.to} /></td>
                     <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{f.count}</td>
-                    <td style={{ textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtMoney(f.total)}</td>
+                    <td style={{ textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtCell(f.total)}</td>
                     <td className="muted small" style={{ whiteSpace: "nowrap" }}>{prettyDate(f.last)}</td>
                   </tr>
                 ))}
@@ -278,7 +290,7 @@ export default function BankTransfersPage() {
                 <th>To</th>
                 <th style={{ textAlign: "right" }}>Amount</th>
                 <th>Description</th>
-                <th style={{ width: 80 }}>PDF</th>
+                <th style={{ width: 150 }}>PDF</th>
               </tr>
             </thead>
             <tbody>
@@ -301,53 +313,30 @@ export default function BankTransfersPage() {
                   <td><AccountCell label={t.fromLabel} /></td>
                   <td><AccountCell label={t.toLabel} /></td>
                   <td style={{ textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                    {fmtMoney(t.amount)}
+                    {fmtCell(t.amount)}
                   </td>
                   <td className="muted small" style={{ maxWidth: 360, whiteSpace: "normal", wordBreak: "break-word" }}>
                     {t.description || "—"}
                   </td>
-                  <td>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
-                      {t.pdfUrl ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <a
-                            href={blobSrc(t.pdfUrl)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            title={t.pdfName || "View confirmation PDF"}
-                            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none" }}
-                          >View</a>
-                          <span className="muted" style={{ fontSize: "var(--fs-11)" }}>·</span>
-                          <a
-                            href={blobSrc(t.pdfUrl)}
-                            download={t.pdfName || `Transfer ${t.date}.pdf`}
-                            onClick={(e) => e.stopPropagation()}
-                            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none" }}
-                          >Download</a>
-                        </div>
-                      ) : t.pdfSaved && shareFolderUrl ? (
-                        <a
-                          href={shareFolderUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="muted small"
-                          style={{ textDecoration: "none" }}
-                        >In shared folder ↗</a>
-                      ) : (
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {/* One chip per row: the PDF, the shared folder, or Missing.
+                        Clicking the row opens the transfer to add or change it. */}
+                    {t.pdfUrl ? (
+                      <a href={blobSrc(t.pdfUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                        className="doc-chip" aria-label={`Open ${t.pdfName || "confirmation PDF"}`}>
+                        <FileText size={16} strokeWidth={1.75} aria-hidden />PDF
+                      </a>
+                    ) : t.pdfSaved && shareFolderUrl ? (
+                      <a href={shareFolderUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="doc-chip">
+                        <FolderOpen size={16} strokeWidth={1.75} aria-hidden />In Folder
+                      </a>
+                    ) : (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
                         <Pill tone={TONE_RED}>Missing</Pill>
-                      )}
-                      {canEdit && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setEditing(t); }}
-                          className="btn"
-                          style={{ fontSize: "var(--fs-12)", padding: "4px 10px" }}
-                        >
-                          {t.pdfUrl ? "Edit" : "Add PDF"}
-                        </button>
-                      )}
-                    </div>
+                        {canEdit && <button type="button" className="text-link" style={{ background: "none", border: 0, padding: 0, cursor: "pointer" }}
+                          onClick={(e) => { e.stopPropagation(); setEditing(t); }}>Add</button>}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -406,12 +395,9 @@ function SavedPrompt({ url, onClose }: { url: string; onClose: () => void }) {
               target="_blank"
               rel="noopener noreferrer"
               className="btn primary"
-              style={{
-                fontSize: "var(--fs-14)", padding: "10px 18px", fontWeight: 700, textDecoration: "none",
-                display: "inline-flex", alignItems: "center", gap: 8,
-              }}
+              style={{ textDecoration: "none" }}
             >
-              <FolderIcon /> Open SharePoint Folder
+              <FolderOpen size={16} strokeWidth={1.75} aria-hidden /> Open SharePoint Folder
             </a>
           ) : (
             <div className="muted small">
@@ -537,9 +523,9 @@ function Toolbar({
               type="button"
               onClick={onNewTransfer}
               className="btn primary"
-              style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700 }}
             >
-              + New Transfer
+              <Plus size={16} strokeWidth={1.75} aria-hidden />
+              New Transfer
             </button>
           )}
           <button
@@ -548,21 +534,8 @@ function Toolbar({
             disabled={loading}
             title="Reload bank transfers"
             className="btn"
-            style={{
-              fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700,
-              display: "inline-flex", alignItems: "center", gap: 6,
-            }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
-              style={{
-                animation: loading ? "spin 0.8s linear infinite" : undefined,
-              }}
-            >
-              <polyline points="23 4 23 10 17 10" />
-              <polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10" />
-              <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14" />
-            </svg>
+            <RefreshCw size={16} strokeWidth={1.75} aria-hidden style={{ animation: loading ? "spin 0.8s linear infinite" : undefined }} />
             {loading ? "Refreshing…" : "Refresh"}
           </button>
 
@@ -572,13 +545,10 @@ function Toolbar({
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn primary"
-                style={{
-                  fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700, textDecoration: "none",
-                  display: "inline-flex", alignItems: "center", gap: 8,
-                }}
+                className="btn"
+                style={{ textDecoration: "none" }}
               >
-                <FolderIcon /> Open SharePoint Folder
+                <FolderOpen size={16} strokeWidth={1.75} aria-hidden /> Open SharePoint Folder
               </a>
             ) : (
               <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>

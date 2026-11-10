@@ -111,7 +111,7 @@ export default function PastTenantsPage() {
           <tbody>
             {(filtered).map((t) => (
               <tr key={t.key} onClick={() => openDetail(t)} style={{ cursor: "pointer" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(11,74,125,0.04)")}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--tint-brand-bg, rgba(11,74,125,0.04))")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                 <td style={{ ...td, fontWeight: 600 }}>{t.name}</td>
                 <td style={td}><code style={{ fontSize: "var(--fs-12)" }}>{t.unitRef}</code></td>
@@ -192,12 +192,12 @@ function DetailModal({ tenancy, detail, loading, onClose }: { tenancy: PastTenan
 
             {/* Final move-out close-out */}
             {d.closeOut && (
-              <div style={{ marginBottom: 14, border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px", background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }}>
+              <div style={{ marginBottom: 14, border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px", background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))" }}>
                 <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Final Move-Out Close-Out · {d.closeOut.year}</div>
                 <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: "var(--fs-13)" }}>
-                  <span>Reconciliation: <b style={{ color: d.closeOut.balance >= 0 ? "#b45309" : "#15803d" }}>{money(Math.abs(d.closeOut.balance))} {d.closeOut.balance >= 0 ? "due" : "credit"}</b></span>
+                  <span>Reconciliation: <b style={{ color: d.closeOut.balance >= 0 ? "var(--c-b45309)" : "var(--c-15803d)" }}>{money(Math.abs(d.closeOut.balance))} {d.closeOut.balance >= 0 ? "due" : "credit"}</b></span>
                   {d.closeOut.deposit != null && <span className="muted">Deposit {money(d.closeOut.deposit)}</span>}
-                  {d.closeOut.net != null && <span>Net: <b style={{ color: d.closeOut.net >= 0 ? "#15803d" : "#b45309" }}>{money(Math.abs(d.closeOut.net))} {d.closeOut.net >= 0 ? "refund" : "still due"}</b></span>}
+                  {d.closeOut.net != null && <span>Net: <b style={{ color: d.closeOut.net >= 0 ? "var(--c-15803d)" : "var(--c-b45309)" }}>{money(Math.abs(d.closeOut.net))} {d.closeOut.net >= 0 ? "refund" : "still due"}</b></span>}
                   <span className="muted" style={{ marginLeft: "auto" }}>Finalized {d.closeOut.finalizedAt ? new Date(d.closeOut.finalizedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}{d.closeOut.finalizedBy ? ` · ${d.closeOut.finalizedBy}` : ""}</span>
                 </div>
               </div>

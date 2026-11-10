@@ -106,7 +106,7 @@ function SendLink({ group, year }: { group: "SC" | "BP"; year: number }) {
                 style={{ flex: "1 1 420px", minWidth: 0 }} />
               <button type="button" className="btn primary" style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}
                 onClick={() => { navigator.clipboard?.writeText(link.url ?? "").then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }).catch(() => {}); }}>
-                {copied ? "Copied ✓" : "Copy"}
+                {copied ? "Copied" : "Copy"}
               </button>
               <a className="btn" href={link.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--fs-13)", fontWeight: 700, textDecoration: "none" }}>
                 Open it as {person} sees it ↗

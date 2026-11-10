@@ -69,7 +69,7 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
       const j = await res.json();
       if (!res.ok || j.error) { setMsg((m) => ({ ...m, [c.key]: j.error ?? "Could not finalize." })); }
       else {
-        setMsg((m) => ({ ...m, [c.key]: j.emailed ? "✓ Approved — charges sent to Tanya" : "✓ Approved (email not configured)" }));
+        setMsg((m) => ({ ...m, [c.key]: j.emailed ? "Approved — charges sent to Tanya" : "Approved (email not configured)" }));
         load();
       }
     } catch (e) { setMsg((m) => ({ ...m, [c.key]: String(e) })); }
@@ -98,7 +98,7 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: waiting.length ? 14 : 4 }}>
           {ready.map((c) => {
             const owed = c.balance >= 0;
-            const done = (msg[c.key] ?? "").startsWith("✓");
+            const done = (msg[c.key] ?? "").startsWith("Approved");
             return (
               <div key={c.key} style={{ border: "1px solid var(--tint-green-line, rgba(22,163,74,0.30))", background: "var(--tint-green-bg, rgba(22,163,74,0.05))", borderRadius: 10, padding: "10px 12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -109,7 +109,7 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 8 }}>
                   <span style={{ fontSize: "var(--fs-13)" }}>
-                    Final: <b style={{ color: owed ? "#b45309" : "#15803d" }}>{money0(Math.abs(c.balance))} {owed ? "due" : "credit"}</b>
+                    Final: <b style={{ color: owed ? "var(--c-b45309)" : "var(--c-15803d)" }}>{money0(Math.abs(c.balance))} {owed ? "due" : "credit"}</b>
                   </span>
                   {c.deposit && c.deposit.net != null && (
                     <span className="muted" style={{ fontSize: "var(--fs-12)" }}>
@@ -124,12 +124,12 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
                       onClick={() => approve(c)}
                       style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }}
                     >
-                      {busy === c.key ? "Finalizing…" : done ? "✓ Finalized" : "Approve & finalize"}
+                      {busy === c.key ? "Finalizing…" : done ? "Finalized" : "Approve & finalize"}
                     </button>
                   </div>
                 </div>
                 {msg[c.key] && (
-                  <div style={{ fontSize: "var(--fs-12)", marginTop: 6, color: msg[c.key].startsWith("✓") ? "#15803d" : "#b91c1c", fontWeight: 600 }}>{msg[c.key]}</div>
+                  <div style={{ fontSize: "var(--fs-12)", marginTop: 6, color: msg[c.key].startsWith("Approved") ? "var(--c-15803d)" : "var(--c-b91c1c)", fontWeight: 600 }}>{msg[c.key]}</div>
                 )}
               </div>
             );

@@ -469,7 +469,7 @@ function ReservationModal({
           <div style={{
             display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             gap: 16, padding: "14px 18px", border: "1px solid var(--border)", borderRadius: 10,
-            background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))",
+            background: "var(--tint-neutral-faint, rgba(15,23,42,0.025))",
           }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
               <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Tenant</span>
@@ -524,7 +524,7 @@ function ReservationModal({
 
           {reservation.purpose && (
             <Section title="Purpose">
-              <div style={{ fontSize: "var(--fs-14)", whiteSpace: "pre-wrap", padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))" }}>
+              <div style={{ fontSize: "var(--fs-14)", whiteSpace: "pre-wrap", padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--tint-neutral-faint, rgba(15,23,42,0.025))" }}>
                 {reservation.purpose}
               </div>
             </Section>
@@ -547,7 +547,7 @@ function ReservationModal({
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {reservation.notes.length === 0 && <div className="muted small">No notes yet.</div>}
               {reservation.notes.map((n) => (
-                <div key={n.id} style={{ padding: "10px 14px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))" }}>
+                <div key={n.id} style={{ padding: "10px 14px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--tint-neutral-faint, rgba(15,23,42,0.025))" }}>
                   <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 700, marginBottom: 4 }}>
                     {n.author} · {new Date(n.createdAt).toLocaleString()}
                   </div>
@@ -575,7 +575,7 @@ function ReservationModal({
 
         <div style={{
           padding: "16px 32px 20px", borderTop: "1px solid var(--border)",
-          background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))",
+          background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))",
           display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap",
         }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -603,7 +603,7 @@ function ReservationModal({
             </button>
             {reservation.status !== "Approved" && (
               <button onClick={approve} disabled={busy} className="btn primary" style={{ fontSize: "var(--fs-14)", padding: "10px 22px", fontWeight: 700 }}>
-                {busy ? "Working…" : "✓ Approve"}
+                {busy ? "Working…" : "Approve"}
               </button>
             )}
           </div>

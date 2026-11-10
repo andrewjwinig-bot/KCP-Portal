@@ -1,5 +1,5 @@
 "use client";
-import { X } from "lucide-react";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
@@ -79,9 +79,9 @@ function noticeStatus(noticeDate: string | undefined | null): NoticeStatus {
   if (!d) return { days: null };
   const days = daysFromToday(d);
   if (days < 0)   return { days, bg: "rgba(220,38,38,0.18)", pastDue: true };
-  if (days <= 30) return { days, bg: "rgba(220,38,38,0.10)" };
+  if (days <= 30) return { days, bg: "var(--tint-red-bg, rgba(220,38,38,0.10))" };
   if (days <= 60) return { days, bg: "rgba(234,88,12,0.10)" };
-  if (days <= 90) return { days, bg: "rgba(217,119,6,0.10)" };
+  if (days <= 90) return { days, bg: "var(--tint-amber-bg, rgba(217,119,6,0.10))" };
   return { days };
 }
 
@@ -172,7 +172,7 @@ function BuildingMultiSelect({ value, onChange }: { value: string; onChange: (v:
                   borderRadius: 6,
                   fontSize: "var(--fs-13)",
                   cursor: "pointer",
-                  background: checked ? "rgba(11,74,125,0.08)" : "transparent",
+                  background: checked ? "var(--tint-brand-bg, rgba(11,74,125,0.08))" : "transparent",
                 }}
               >
                 <input type="checkbox" checked={checked} onChange={() => toggle(label)} />
@@ -282,7 +282,7 @@ function SectionHeader({ children, open, onToggle, count }: { children: React.Re
           <span style={{ fontSize: "var(--fs-13)", fontWeight: 500, color: "var(--muted)" }}>({count})</span>
         )}
       </span>
-      <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
+      <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
     </button>
   );
 }

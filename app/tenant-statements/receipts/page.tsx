@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, ChevronRight, TriangleAlert, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, TriangleAlert, X } from "lucide-react";
 
 // Receipt Reconciliation — a tenant paid an amount that doesn't line up with
 // their statement; work out what they MEANT, tell them how it will be applied,
@@ -273,8 +273,8 @@ export default function ReceiptReconciliationPage() {
           </div>
         </div>
         <div className="pills" style={{ margin: 0 }}>
-          <StatPill label="Ready to apply" value={counts.apply} accent={counts.apply ? "#15803d" : undefined} />
-          <StatPill label="Waiting on tenant" value={counts.waiting} accent={counts.waiting ? "#b45309" : undefined} />
+          <StatPill label="Ready to apply" value={counts.apply} accent={counts.apply ? "var(--c-15803d)" : undefined} />
+          <StatPill label="Waiting on tenant" value={counts.waiting} accent={counts.waiting ? "var(--c-b45309)" : undefined} />
         </div>
       </header>
 
@@ -358,9 +358,9 @@ export default function ReceiptReconciliationPage() {
           <>
             <div className="pills" style={{ justifyContent: "flex-start", margin: 0 }}>
               <StatPill label="Open charges" value={money(detail.account.gross)} sub={`${detail.account.charges.length} charge${detail.account.charges.length === 1 ? "" : "s"}`} />
-              <StatPill label="Open credit" value={detail.account.credit ? `(${money(detail.account.credit)})` : "—"} accent={detail.account.credit ? "#15803d" : undefined} />
+              <StatPill label="Open credit" value={detail.account.credit ? `(${money(detail.account.credit)})` : "—"} accent={detail.account.credit ? "var(--c-15803d)" : undefined} />
               <StatPill label="Net due" value={money(detail.account.net)} total />
-              {validAmount && <StatPill label="They paid" value={money(amount)} sub={amount === detail.account.net ? "exactly the balance" : `${money(amount - detail.account.net)} vs balance`} accent={Math.abs(amount - detail.account.net) < 0.005 ? "#15803d" : "#b45309"} />}
+              {validAmount && <StatPill label="They paid" value={money(amount)} sub={amount === detail.account.net ? "exactly the balance" : `${money(amount - detail.account.net)} vs balance`} accent={Math.abs(amount - detail.account.net) < 0.005 ? "var(--c-15803d)" : "var(--c-b45309)"} />}
             </div>
             {!detail.tenant.tiesOut && <div className="small" style={{ color: "var(--c-b45309)", fontWeight: 600 }}>This tenant&rsquo;s statement did not tie out on import — check the charges below against Skyline before sending.</div>}
           </>
@@ -383,10 +383,10 @@ export default function ReceiptReconciliationPage() {
                 return (
                   <button key={e.id} type="button" onClick={() => setPlanId(e.id)} style={{
                     textAlign: "left", cursor: "pointer", borderRadius: 12, padding: "10px 14px", display: "grid", gap: 4,
-                    border: `1.5px solid ${on ? "#0b4a7d" : "var(--border)"}`, background: on ? "rgba(11,74,125,0.05)" : "var(--card)",
+                    border: `1.5px solid ${on ? "var(--c-0b4a7d)" : "var(--border)"}`, background: on ? "var(--tint-brand-bg, rgba(11,74,125,0.05))" : "var(--card)",
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span aria-hidden style={{ width: 14, height: 14, borderRadius: 999, border: `2px solid ${on ? "#0b4a7d" : "var(--muted)"}`, background: on ? "radial-gradient(#0b4a7d 45%, transparent 50%)" : "transparent", flex: "none" }} />
+                      <span aria-hidden style={{ width: 14, height: 14, borderRadius: 999, border: `2px solid ${on ? "var(--c-0b4a7d)" : "var(--muted)"}`, background: on ? "radial-gradient(#0b4a7d 45%, transparent 50%)" : "transparent", flex: "none" }} />
                       <span style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>{e.title}</span>
                       {confidenceTone(e)}
                     </div>
@@ -458,19 +458,19 @@ export default function ReceiptReconciliationPage() {
                   const a = appliedByIdx.get(ch.idx);
                   const left = ch.amount - (a?.fromPayment ?? 0) - (a?.fromCredit ?? 0);
                   return (
-                    <tr key={ch.idx} style={{ borderTop: "1px solid var(--border)", background: a ? "rgba(22,163,74,0.06)" : undefined }}>
+                    <tr key={ch.idx} style={{ borderTop: "1px solid var(--border)", background: a ? "var(--tint-green-bg, rgba(22,163,74,0.06))" : undefined }}>
                       {custom.on && applying && <td style={tdL}><input type="checkbox" checked={custom.idx.has(ch.idx)} onChange={(e) => setCustom((c) => { const s = new Set(c.idx); if (e.target.checked) s.add(ch.idx); else s.delete(ch.idx); return { ...c, idx: s }; })} /></td>}
                       <td style={tdL}>{dateLabel(ch.dateISO)}</td>
                       <td style={{ ...tdL, whiteSpace: "normal" }}>{ch.description}</td>
                       <td style={{ ...tdL, whiteSpace: "nowrap" }}>
                         {/* THIS tenant's sequence: the order its charges take a payment under the master order. */}
-                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 22, height: 22, padding: "0 6px", borderRadius: 999, background: a ? "#15803d" : "rgba(11,74,125,0.10)", color: a ? "#fff" : "#0b4a7d", fontSize: "var(--fs-12)", fontWeight: 800, marginRight: 8 }}>{orderSeq.get(ch.idx)}</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 22, height: 22, padding: "0 6px", borderRadius: 999, background: a ? "var(--c-15803d)" : "var(--tint-brand-bg, rgba(11,74,125,0.10))", color: a ? "#fff" : "var(--c-0b4a7d)", fontSize: "var(--fs-12)", fontWeight: 800, marginRight: 8 }}>{orderSeq.get(ch.idx)}</span>
                         <span className="muted small">{APPLICATION_LABEL[ch.appClass]}</span>
                       </td>
                       <td style={td}>{money(ch.amount)}</td>
                       {applying && <>
-                      <td style={{ ...td, fontWeight: a?.fromPayment ? 700 : 400, color: a?.fromPayment ? "#15803d" : "var(--muted)" }}>{a?.fromPayment ? money(a.fromPayment) : "—"}</td>
-                      <td style={{ ...td, color: a?.fromCredit ? "#15803d" : "var(--muted)" }}>{a?.fromCredit ? money(a.fromCredit) : "—"}</td>
+                      <td style={{ ...td, fontWeight: a?.fromPayment ? 700 : 400, color: a?.fromPayment ? "var(--c-15803d)" : "var(--muted)" }}>{a?.fromPayment ? money(a.fromPayment) : "—"}</td>
+                      <td style={{ ...td, color: a?.fromCredit ? "var(--c-15803d)" : "var(--muted)" }}>{a?.fromCredit ? money(a.fromCredit) : "—"}</td>
                       <td style={{ ...td, color: left > 0.005 ? "var(--text)" : "var(--muted)" }}>{left > 0.005 ? money(left) : "—"}</td>
                       </>}
                     </tr>
@@ -488,8 +488,8 @@ export default function ReceiptReconciliationPage() {
                       const u = creditUsage(detail.account, plan.creditUsed)[i];
                       return <>
                         <td style={td} />
-                        <td style={{ ...td, fontWeight: u.used ? 700 : 400, color: u.used ? "#15803d" : "var(--muted)" }}>{u.used ? `${money(u.used)} applied` : "—"}</td>
-                        <td style={{ ...td, fontWeight: u.left ? 700 : 400, color: u.left ? "#15803d" : "var(--muted)" }}>{u.left ? `(${money(u.left)}) left` : "fully applied"}</td>
+                        <td style={{ ...td, fontWeight: u.used ? 700 : 400, color: u.used ? "var(--c-15803d)" : "var(--muted)" }}>{u.used ? `${money(u.used)} applied` : "—"}</td>
+                        <td style={{ ...td, fontWeight: u.left ? 700 : 400, color: u.left ? "var(--c-15803d)" : "var(--muted)" }}>{u.left ? `(${money(u.left)}) left` : "fully applied"}</td>
                       </>;
                     })()}
                   </tr>
@@ -505,8 +505,8 @@ export default function ReceiptReconciliationPage() {
                     const stillOpen = detail.account.gross - fromPay - fromCredit - (detail.account.credit - plan.creditUsed);
                     return <>
                       <td style={{ ...td, fontWeight: 800, color: "var(--c-15803d)" }}>{money(fromPay)}</td>
-                      <td style={{ ...td, fontWeight: 800, color: fromCredit ? "#15803d" : "var(--muted)" }}>{fromCredit ? money(fromCredit) : "—"}</td>
-                      <td style={{ ...td, fontWeight: 800, color: stillOpen < -0.005 ? "#15803d" : undefined }}>{stillOpen > 0.005 ? money(stillOpen) : stillOpen < -0.005 ? `(${money(-stillOpen)}) credit` : "—"}</td>
+                      <td style={{ ...td, fontWeight: 800, color: fromCredit ? "var(--c-15803d)" : "var(--muted)" }}>{fromCredit ? money(fromCredit) : "—"}</td>
+                      <td style={{ ...td, fontWeight: 800, color: stillOpen < -0.005 ? "var(--c-15803d)" : undefined }}>{stillOpen > 0.005 ? money(stillOpen) : stillOpen < -0.005 ? `(${money(-stillOpen)}) credit` : "—"}</td>
                     </>;
                   })()}
                 </tr>
@@ -565,7 +565,7 @@ export default function ReceiptReconciliationPage() {
               The standard wording, with this tenant&rsquo;s figures. Edit freely{edited && <> · <button className="btn sm" onClick={() => setEdited(false)}>Reset to standard wording</button></>}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn" onClick={() => copyEmail()}>{copied ? "Copied ✓" : "Copy email"}</button>
+              <button className="btn" onClick={() => copyEmail()}>{copied ? "Copied" : "Copy email"}</button>
               <button className="btn" disabled={busy} onClick={() => save("draft")}>Save draft</button>
               <button className="btn primary" disabled={busy || !to.length} onClick={() => setConfirming(true)} title={!to.length ? "No email on file for this suite" : undefined}>Send email…</button>
             </div>
@@ -616,7 +616,7 @@ export default function ReceiptReconciliationPage() {
                               </td>
                             </tr>
                             {isOpen && (
-                              <tr><td colSpan={6} style={{ padding: "4px 18px 16px", background: "var(--tint-brand-bg, rgba(11,74,125,0.025))", maxWidth: 0 }}>
+                              <tr><td colSpan={6} style={{ padding: "4px 18px 16px", background: "var(--tint-brand-faint, rgba(11,74,125,0.025))", maxWidth: 0 }}>
                                 <div style={{ display: "grid", gap: 8 }}>
                                   <div style={SECTION}>Key in Skyline</div>
                                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -746,7 +746,7 @@ type ChSortKey = "date" | "charge" | "order" | "open" | "pay" | "credit" | "left
 type ChSort = { key: ChSortKey; dir: 1 | -1 };
 /** Click a column: sort by it; click again: reverse. */
 const nextSort = (s: ChSort, key: ChSortKey): ChSort => (s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: key === "open" || key === "pay" || key === "credit" || key === "left" ? -1 : 1 });
-const sortMark = (s: ChSort, key: ChSortKey) => (s.key === key ? <span style={{ marginLeft: 4, fontSize: "var(--fs-10)" }}>{s.dir === 1 ? "▲" : "▼"}</span> : null);
+const sortMark = (s: ChSort, key: ChSortKey) => (s.key === key ? <span style={{ marginLeft: 4, fontSize: "var(--fs-10)" }}>{s.dir === 1 ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span> : null);
 function SortTh({ k, sort, setSort, left, children }: { k: ChSortKey; sort: ChSort; setSort: (f: (s: ChSort) => ChSort) => void; left?: boolean; children: React.ReactNode }) {
   return (
     <th style={{ ...(left ? thL : th), cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }} onClick={() => setSort((s) => nextSort(s, k))}>

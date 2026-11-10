@@ -53,7 +53,7 @@ export function DownloadMenu({ label = "Download", items, variant = "primary", d
         }}>
           {items.map((item, i) => {
             const itemStyle: React.CSSProperties = { display: "block", textAlign: "left", textDecoration: "none", background: "transparent", border: 0, borderRadius: 6, padding: "8px 10px", cursor: "pointer", width: "100%", fontFamily: "inherit" };
-            const onEnter = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.background = "rgba(15,23,42,0.05)"; };
+            const onEnter = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.background = "var(--tint-neutral-bg, rgba(15,23,42,0.05))"; };
             const onLeave = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.background = "transparent"; };
             const inner = (
               <>

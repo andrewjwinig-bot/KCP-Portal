@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { paletteTone, type PillTone } from "./Pill";
@@ -106,7 +106,7 @@ export function MultiSelect({
           display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
           minHeight: 38, padding: "5px 32px 5px 10px",
           border: "1px solid var(--border)", borderRadius: 8,
-          background: disabled ? "rgba(15,23,42,0.03)" : "var(--card)",
+          background: disabled ? "var(--tint-neutral-faint, rgba(15,23,42,0.03))" : "var(--card)",
           cursor: disabled ? "default" : "pointer",
           position: "relative",
         }}
@@ -165,17 +165,12 @@ export function MultiSelect({
                   background: "transparent", border: "none", textAlign: "left",
                   width: "100%",
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(15,23,42,0.04)"; }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--tint-neutral-bg, rgba(15,23,42,0.04))"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
               >
-                <span style={{
-                  width: 16, height: 16, flexShrink: 0, borderRadius: 4,
-                  border: `1.5px solid ${checked ? "#2563eb" : "var(--border)"}`,
-                  background: checked ? "#2563eb" : "transparent",
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  color: "#fff", fontSize: "var(--fs-11)", fontWeight: 900, lineHeight: 1,
-                }}>
-                  {checked ? "✓" : ""}
+                {/* The selection is marked with a navy check, as in every dropdown. */}
+                <span style={{ width: 18, height: 18, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", color: "var(--brand)" }}>
+                  {checked ? <Check size={18} strokeWidth={2} aria-hidden /> : null}
                 </span>
                 <Chip label={o} tone={toneFor(options, o)} />
               </button>

@@ -109,7 +109,7 @@ export function BudgetSteps({ year, category, refreshTick }: { year: number; cat
           <span style={{ fontSize: 15, fontWeight: 900 }}>{total > 0 && done === total ? "Complete" : `${total - done} left`}</span>
         </div>
         <div style={{ height: 5, borderRadius: 999, background: "var(--border)", overflow: "hidden", marginTop: 5, width: 150 }}>
-          <div style={{ width: `${pct}%`, height: "100%", background: done === total && total > 0 ? "#15803d" : "var(--brand)", transition: "width 220ms ease" }} />
+          <div style={{ width: `${pct}%`, height: "100%", background: done === total && total > 0 ? "var(--c-15803d)" : "var(--brand)", transition: "width 220ms ease" }} />
         </div>
       </div>
 
@@ -117,7 +117,7 @@ export function BudgetSteps({ year, category, refreshTick }: { year: number; cat
         {steps.map((st, i) => {
           const d = DOT[st.state];
           const chip = (
-            <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--border)", background: st.state === "active" ? "rgba(11,74,125,0.05)" : "transparent" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--border)", background: st.state === "active" ? "var(--tint-brand-bg, rgba(11,74,125,0.05))" : "transparent" }}>
               <span style={{ width: 9, height: 9, borderRadius: 999, background: d.bg, boxShadow: `0 0 0 3px ${d.ring}`, flex: "none" }} />
               <span style={{ fontSize: "var(--fs-12-5)", fontWeight: 800, color: st.state === "waiting" ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap" }}>
                 {i + 1}. {st.title}
@@ -131,7 +131,7 @@ export function BudgetSteps({ year, category, refreshTick }: { year: number; cat
               <HoverCard title={`${i + 1}. ${st.title}`}
                 rows={[
                   { label: "Who", value: st.who },
-                  ...(st.total > 0 ? [{ label: "Done", value: `${st.done} of ${st.total}`, color: st.done === st.total ? "#15803d" : undefined }] : []),
+                  ...(st.total > 0 ? [{ label: "Done", value: `${st.done} of ${st.total}`, color: st.done === st.total ? "var(--c-15803d)" : undefined }] : []),
                 ]}
                 footer={st.note ? { label: "Note", value: st.note } : undefined}>
                 {st.href && st.state !== "waiting"

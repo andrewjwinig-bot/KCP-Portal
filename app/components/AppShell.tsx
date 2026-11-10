@@ -7,6 +7,7 @@ import GlobalSearch from "./GlobalSearch";
 import { useUser } from "./UserProvider";
 import { isPathAllowed } from "../../lib/users";
 import { applySkin, isSkinReviewer, readSkin } from "./SkinToggle";
+import TitleTips from "./TitleTips";
 
 // Routes that render without the portal chrome (no sidebar, no auth gate).
 // These are exempt from the site-cookie check in middleware too, so anyone
@@ -20,6 +21,7 @@ export default function AppShell({ children, website = false }: { children: Reac
   const pathname = usePathname();
   const router = useRouter();
   const { user, hydrated, loggedInUser } = useUser();
+  const [tipsOn, setTipsOn] = useState(false);
   // Public pages render without the internal app chrome (no staff sidebar, no
   // auth gate). The tenant statement/portal links carry their OWN tenant-facing
   // sidebar, so they must never inherit the internal one.
@@ -36,6 +38,7 @@ export default function AppShell({ children, website = false }: { children: Reac
     // Remember it so the pre-paint script draws the right look next load.
     try { if (reviewer) localStorage.setItem("kcp:skin", skin); else localStorage.removeItem("kcp:skin"); } catch { /* ignore */ }
     applySkin(skin, isPublic);
+    setTipsOn(skin === "studio" && !isPublic);
   }, [isPublic, hydrated, loggedInUser]);
 
   // Auto-collapse the sidebar to a hidden drawer on narrow viewports.
@@ -63,6 +66,7 @@ export default function AppShell({ children, website = false }: { children: Reac
 
   return (
     <div style={{ paddingLeft: sidebarW, transition: "padding-left 0.2s ease", minHeight: "100vh", overflowX: "hidden" }}>
+      <TitleTips enabled={tipsOn} />
       {isNarrow && (
         <button
           type="button"

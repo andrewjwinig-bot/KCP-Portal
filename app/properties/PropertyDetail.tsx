@@ -216,16 +216,16 @@ export function K1InvestorRow({
           border: "1px solid var(--border)",
           borderRadius: 8,
           marginBottom: 4,
-          background: done ? "rgba(22,163,74,0.04)" : "#fafafa",
+          background: done ? "var(--tint-green-bg, rgba(22,163,74,0.04))" : "var(--c-fafafa)",
           cursor: hasDetail ? "pointer" : "default",
         }}
       >
         {showK1Check && (
           <span style={{
             width: 16, height: 16, borderRadius: 4,
-            background: done ? "rgba(22,163,74,0.15)" : "var(--border)",
+            background: done ? "var(--tint-green-bg, rgba(22,163,74,0.15))" : "var(--border)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "var(--fs-10)", color: done ? "#16a34a" : "transparent",
+            fontSize: "var(--fs-10)", color: done ? "var(--c-16a34a)" : "transparent",
             flexShrink: 0,
           }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
         )}
@@ -239,7 +239,7 @@ export function K1InvestorRow({
           }}>{inv.vendorCode}</span>
         )}
         <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: "var(--fs-14)", fontWeight: done ? 700 : 500, color: done ? "#16a34a" : "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: "var(--fs-14)", fontWeight: done ? 700 : 500, color: done ? "var(--c-16a34a)" : "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {inv.name}
           </span>
           {hasDetail && (
@@ -359,9 +359,9 @@ export function OwnerSubRow({
         {showK1Check && (
           <span style={{
             width: 13, height: 13, borderRadius: 3,
-            background: done ? "rgba(22,163,74,0.18)" : "var(--border)",
+            background: done ? "var(--tint-green-line, rgba(22,163,74,0.18))" : "var(--border)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "var(--fs-9)", color: done ? "#16a34a" : "transparent",
+            fontSize: "var(--fs-9)", color: done ? "var(--c-16a34a)" : "transparent",
             flexShrink: 0,
           }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
         )}
@@ -664,10 +664,10 @@ export function PropertyDetailBody({
 
   function filingStatus(t: TaxTask) {
     const done = isTaskEffectivelyDone(t, effectiveChecked);
-    if (done) return { label: "Filed", color: "var(--c-16a34a)", bg: "rgba(22,163,74,0.08)", border: "rgba(22,163,74,0.2)" };
+    if (done) return { label: "Filed", color: "var(--c-16a34a)", bg: "var(--tint-green-bg, rgba(22,163,74,0.08))", border: "var(--tint-green-line, rgba(22,163,74,0.2))" };
     const due = new Date(today.getFullYear(), t.dueMonth - 1, t.dueDay);
     due.setHours(23, 59, 59);
-    if (due < today) return { label: "Overdue", color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" };
+    if (due < today) return { label: "Overdue", color: "var(--c-dc2626)", bg: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "var(--tint-red-line, rgba(220,38,38,0.2))" };
     return { label: "Pending", color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)" };
   }
 
@@ -868,11 +868,11 @@ export function PropertyDetailBody({
                   <div key={acct} style={{
                     flex: 1, textAlign: "center",
                     padding: "8px 8px 7px",
-                    border: `1.5px solid ${alloc[acct] > 0 ? "rgba(11,74,125,0.28)" : "var(--border)"}`,
+                    border: `1.5px solid ${alloc[acct] > 0 ? "var(--tint-brand-line, rgba(11,74,125,0.28))" : "var(--border)"}`,
                     borderRadius: 8,
-                    background: alloc[acct] > 0 ? "rgba(11,74,125,0.05)" : "#fafafa",
+                    background: alloc[acct] > 0 ? "var(--tint-brand-bg, rgba(11,74,125,0.05))" : "var(--c-fafafa)",
                   }}>
-                    <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1, color: alloc[acct] > 0 ? "#0b4a7d" : "var(--muted)" }}>
+                    <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1, color: alloc[acct] > 0 ? "var(--c-0b4a7d)" : "var(--muted)" }}>
                       {pct(alloc[acct])}
                     </div>
                     <div style={{ fontSize: "var(--fs-10)", fontWeight: 700, color: "var(--muted)", marginTop: 4 }}>
@@ -1011,9 +1011,9 @@ export function PropertyDetailBody({
                     style={{
                       display: "flex", alignItems: "center", gap: 8,
                       padding: "9px 12px",
-                      border: `1px solid ${t.instructionSteps ? "rgba(220,38,38,0.35)" : "var(--border)"}`,
+                      border: `1px solid ${t.instructionSteps ? "var(--tint-red-line, rgba(220,38,38,0.35))" : "var(--border)"}`,
                       borderRadius: 8,
-                      background: t.instructionSteps ? "rgba(220,38,38,0.03)" : "#fafafa",
+                      background: t.instructionSteps ? "var(--tint-red-faint, rgba(220,38,38,0.03))" : "var(--c-fafafa)",
                       cursor: t.instructionSteps ? "pointer" : "default",
                     }}
                   >
@@ -1110,7 +1110,7 @@ export function PropertyDetailBody({
                         color: effectiveVacant
                           ? "var(--muted)"
                           : isAmenity
-                            ? "#0d9488"
+                            ? "var(--c-0d9488)"
                             : "var(--text)",
                         fontStyle: effectiveVacant ? "italic" : "normal",
                       }}>

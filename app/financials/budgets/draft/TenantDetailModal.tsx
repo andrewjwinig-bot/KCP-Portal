@@ -92,7 +92,7 @@ export function TenantDetailModal({ r, est, year, onClose }: {
                         <td style={{ ...tdL, fontWeight: 600 }}>{LABEL[p]}</td>
                         <td style={{ ...td, color: "var(--muted)" }}>{now != null ? `${usd(now)}/mo` : "—"}</td>
                         <td style={td}>{next ? `${usd(next)}/mo` : "—"}</td>
-                        <td style={{ ...td, color: chg == null ? "var(--muted)" : chg > 0.05 ? "#b45309" : chg < -0.05 ? "#15803d" : "var(--muted)" }}>
+                        <td style={{ ...td, color: chg == null ? "var(--muted)" : chg > 0.05 ? "var(--c-b45309)" : chg < -0.05 ? "var(--c-15803d)" : "var(--muted)" }}>
                           {chg == null ? "—" : `${chg >= 0 ? "+" : "−"}${Math.abs(chg).toFixed(1)}%`}
                         </td>
                         <td style={{ ...td, fontWeight: 700 }}>{usd(y)}</td>

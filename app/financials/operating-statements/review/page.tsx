@@ -1,5 +1,5 @@
 "use client";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Flags to Investigate — built for a REVIEW SESSION.
 //
@@ -407,7 +407,7 @@ export default function OperatingStatementsReviewPage() {
           {/* THE ONE CONTROL THE PAGE IS DRIVEN BY — the property — plus the
               two buttons that make it a walk-through rather than a lookup. */}
           <div className="card" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <button className="btn" disabled={idx <= 0} onClick={() => idx > 0 && choose(flat[idx - 1].key)} title="Previous property">←</button>
+            <button className="btn" disabled={idx <= 0} onClick={() => idx > 0 && choose(flat[idx - 1].key)} title="Previous property"><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             <Select value={propKey ?? ""} onChange={choose} aria-label="Property" style={{ flex: "0 1 auto", minWidth: 0, maxWidth: "100%" }}>
               {ordered.map((g) => (
                 <optgroup key={g.group} label={g.group}>
@@ -418,7 +418,7 @@ export default function OperatingStatementsReviewPage() {
                 </optgroup>
               ))}
             </Select>
-            <button className="btn" disabled={idx < 0 || idx >= flat.length - 1} onClick={() => idx < flat.length - 1 && choose(flat[idx + 1].key)} title="Next property">→</button>
+            <button className="btn" disabled={idx < 0 || idx >= flat.length - 1} onClick={() => idx < flat.length - 1 && choose(flat[idx + 1].key)} title="Next property"><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             <span className="muted small">Property {idx + 1} of {flat.length}{prop ? ` · posted through ${prop.latestMonthLabel}` : ""}</span>
             <span style={{ marginLeft: "auto" }} />
             {availableMonths.length > 1 && (
@@ -440,9 +440,9 @@ export default function OperatingStatementsReviewPage() {
           </div>
 
           <div className="pills" style={{ justifyContent: "flex-start" }}>
-            <StatPill label="Open here" value={openHere} accent={openHere ? "#b45309" : "#15803d"} />
-            <StatPill label="Not posted" value={missingHere} accent={missingHere ? "#b91c1c" : undefined} />
-            <StatPill label="Dismissed this session" value={resolved.size} accent={resolved.size ? "#15803d" : undefined} />
+            <StatPill label="Open here" value={openHere} accent={openHere ? "var(--c-b45309)" : "var(--c-15803d)"} />
+            <StatPill label="Not posted" value={missingHere} accent={missingHere ? "var(--c-b91c1c)" : undefined} />
+            <StatPill label="Dismissed this session" value={resolved.size} accent={resolved.size ? "var(--c-15803d)" : undefined} />
             <StatPill label="Portfolio open" value={portfolioOpen - resolved.size} sub={`${flat.filter((p) => openCount(p) > 0).length} properties`} />
           </div>
 
@@ -530,7 +530,7 @@ function ItemRow({ it, resolved, busy, editing, onEdit, onSaveNote, onResolve, h
   onResolve: (dismissed: boolean) => void; href: string;
 }) {
   const missing = it.kind === "missing";
-  const varColor = it.variance == null ? undefined : it.variance >= 0 ? "#15803d" : "#b91c1c";
+  const varColor = it.variance == null ? undefined : it.variance >= 0 ? "var(--c-15803d)" : "var(--c-b91c1c)";
   return (
     <tr style={{ borderTop: "1px solid var(--border)", opacity: resolved ? 0.45 : 1, verticalAlign: "top" }}>
       <td style={{ ...tdL, whiteSpace: "normal", minWidth: 180 }}>

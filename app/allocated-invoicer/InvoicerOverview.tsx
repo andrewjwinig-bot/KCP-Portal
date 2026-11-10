@@ -189,7 +189,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
       <RecoverCard onApplied={() => { loadHistory(); onSent?.(); }} />
       <SeptemberCheckCard />
       {/* 1 — WAS IT SENT */}
-      <div className="card" style={{ padding: "18px 20px", borderColor: lastSent ? "rgba(22,163,74,0.45)" : undefined, background: lastSent ? "rgba(22,163,74,0.06)" : undefined }}>
+      <div className="card" style={{ padding: "18px 20px", borderColor: lastSent ? "var(--tint-green-line, rgba(22,163,74,0.45))" : undefined, background: lastSent ? "var(--tint-green-bg, rgba(22,163,74,0.06))" : undefined }}>
         {periods === null ? (
           <div className="muted small">Loading…</div>
         ) : lastSent ? (
@@ -225,7 +225,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
           </div>
         ))}
         {sendMsg && (
-          <div className="small" style={{ marginTop: 10, fontWeight: 700, color: sendMsg.ok ? GREEN : "#b91c1c" }}>{sendMsg.text}</div>
+          <div className="small" style={{ marginTop: 10, fontWeight: 700, color: sendMsg.ok ? GREEN : "var(--c-b91c1c)" }}>{sendMsg.text}</div>
         )}
       </div>
 
@@ -252,7 +252,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                   <td style={{ ...td, fontWeight: 700 }}>{money(b.total)}</td>
                 </tr>,
                 ...(openProp === b.id ? b.accounts.map((a) => (
-                  <tr key={`${b.id}-${a.accountCode}`} style={{ background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))" }}>
+                  <tr key={`${b.id}-${a.accountCode}`} style={{ background: "var(--tint-neutral-faint, rgba(15,23,42,0.025))" }}>
                     <td style={{ ...tdL, paddingLeft: 40 }}><code style={{ fontSize: "var(--fs-11-5)" }}>{a.accountCode}</code> {a.accountName}</td>
                     <td style={{ ...td, color: "var(--muted)" }}>{a.months.length} mo</td>
                     <td style={{ ...td, color: "var(--muted)" }}>{a.sinceMonth}</td>
@@ -283,7 +283,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
           )}
           {toolbar}
         </div>
-        {rebuildMsg && <div className="small" style={{ padding: "0 14px 10px", fontWeight: 700, color: rebuildMsg.ok ? GREEN : "#b91c1c" }}>{rebuildMsg.text}</div>}
+        {rebuildMsg && <div className="small" style={{ padding: "0 14px 10px", fontWeight: 700, color: rebuildMsg.ok ? GREEN : "var(--c-b91c1c)" }}>{rebuildMsg.text}</div>}
         {periods && periods.length > 0 ? (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={thL}>Month</th><th style={thL}>Sent to AvidXchange</th><th style={th}>Invoices</th><th style={th}>Total</th></tr></thead>

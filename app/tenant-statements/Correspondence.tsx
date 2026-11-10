@@ -54,7 +54,7 @@ export function LastContactCell({ contact, owed }: { contact: LastContact | null
       ]}
       footer={{ label: "On file", value: `${contact.count} email${contact.count === 1 ? "" : "s"}` }}>
       <span style={{ display: "inline-grid", lineHeight: 1.25 }}>
-        <span style={{ fontWeight: 600, fontSize: "var(--fs-12-5)", color: stale ? "#b45309" : undefined }}>{shortDate(e.sentAt)} · {ago(e.sentAt)}</span>
+        <span style={{ fontWeight: 600, fontSize: "var(--fs-12-5)", color: stale ? "var(--c-b45309)" : undefined }}>{shortDate(e.sentAt)} · {ago(e.sentAt)}</span>
         <span className="muted" style={{ fontSize: "var(--fs-11-5)" }}>{KIND_LABEL[e.kind]}</span>
       </span>
     </HoverCard>

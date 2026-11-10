@@ -3,7 +3,7 @@ import { CircleCheck, FileText, X } from "lucide-react";
 
 // Shared "Review before send to AvidXchange" gate + success confirmation, used
 // by all three invoicers (Allocated, Credit Card, Payroll) so the review popup
-// and the "✓ Sent" confirmation look and behave the same everywhere.
+// and the "Sent" confirmation look and behave the same everywhere.
 //
 // The review modal is purely presentational — each page wires its own onConfirm
 // (the allocated flow re-sends server-side from a staged GL; CC/payroll POST

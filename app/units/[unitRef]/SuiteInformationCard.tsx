@@ -76,9 +76,9 @@ function UploadBox({
       style={{
         display: "flex", alignItems: "center", justifyContent: "center",
         padding: "20px 16px", cursor: busy ? "default" : "pointer",
-        border: `1.5px dashed ${drag ? "#2563eb" : "var(--border)"}`,
+        border: `1.5px dashed ${drag ? "var(--c-2563eb)" : "var(--border)"}`,
         borderRadius: 10,
-        background: drag ? "rgba(37,99,235,0.05)" : "rgba(15,23,42,0.015)",
+        background: drag ? "rgba(37,99,235,0.05)" : "var(--tint-neutral-faint, rgba(15,23,42,0.015))",
         fontSize: "var(--fs-13)", color: "var(--muted)", textAlign: "center",
       }}
     >
@@ -296,7 +296,7 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
                     <div key={a.id} style={{
                       display: "flex", alignItems: "center", gap: 8,
                       padding: "6px 10px", border: "1px solid var(--border)",
-                      borderRadius: 8, background: "var(--tint-neutral-bg, rgba(15,23,42,0.015))",
+                      borderRadius: 8, background: "var(--tint-neutral-faint, rgba(15,23,42,0.015))",
                     }}>
                       <a href={blobSrc(a.url)} target="_blank" rel="noreferrer"
                         style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-13)", fontWeight: 600,

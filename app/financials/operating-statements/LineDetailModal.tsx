@@ -1,4 +1,5 @@
 "use client";
+import { ChevronUp } from "lucide-react";
 
 // The GL drill-down behind a statement line — one month's (or the year to
 // date's) transactions, the tenants they belong to, and the budget behind it.
@@ -346,11 +347,11 @@ export function LineDetailModal({ viewKey, property, year, period, monthLabel, l
                           const active = tenantFilter === g.groupKey;
                           return (
                           <tr key={g.groupKey} onClick={() => setTenantFilter(active ? null : g.groupKey)} className="os-cell"
-                            style={{ cursor: "pointer", background: active ? "rgba(11,74,125,0.10)" : undefined }}>
+                            style={{ cursor: "pointer", background: active ? "var(--tint-brand-bg, rgba(11,74,125,0.10))" : undefined }}>
                             <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{g.unit || "—"}</td>
                             <td style={{ ...tdc, fontWeight: active ? 800 : undefined }}>{g.tenant || <span className="muted">{g.unit ? "— (no current tenant)" : "— (unmatched)"}</span>}</td>
                             <td style={{ ...tdc, textAlign: "right", fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>{g.count}</td>
-                            <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: active ? 800 : undefined, color: g.amount < 0 ? "#b91c1c" : undefined }}>{money2(g.amount)}</td>
+                            <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: active ? 800 : undefined, color: g.amount < 0 ? "var(--c-b91c1c)" : undefined }}>{money2(g.amount)}</td>
                           </tr>
                         );})}
                       </tbody>
@@ -366,12 +367,12 @@ export function LineDetailModal({ viewKey, property, year, period, monthLabel, l
                       return (
                       <tr key={i} style={driver ? { background: "var(--tint-amber-bg, rgba(180,83,9,0.10))" } : undefined}>
                         <td style={{ ...tdc, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{fmtTxDate(t.date)}</td>
-                        <td style={tdc}>{driver && <span title="Major driver of this line" style={{ color: "var(--c-b45309)", fontWeight: 800, marginRight: 5 }}>▲</span>}{t.description}</td>
+                        <td style={tdc}>{driver && <span title="Major driver of this line" style={{ color: "var(--c-b45309)", fontWeight: 800, marginRight: 5 }}><ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>}{t.description}</td>
                         {multi && <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.unit || "—"}</td>}
                         {multi && <td style={{ ...tdc, whiteSpace: "nowrap" }}>{t.tenant || <span className="muted">—</span>}</td>}
                         <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)" }}>{t.ref}</td>
                         <td style={{ ...tdc, whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{t.account}</td>
-                        <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: driver ? 800 : undefined, color: t.amount < 0 ? "#b91c1c" : undefined }}>{money2(t.amount)}</td>
+                        <td style={{ ...tdc, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontWeight: driver ? 800 : undefined, color: t.amount < 0 ? "var(--c-b91c1c)" : undefined }}>{money2(t.amount)}</td>
                       </tr>
                     );})}
                   </tbody>

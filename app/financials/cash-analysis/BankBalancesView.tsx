@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 
 // Bank Balances — the bank-balance view (owner: "pivot from our more complex
 // cash sheet … current balance and then another column for reserves to show
@@ -56,7 +56,7 @@ const shortDate = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toL
 function ChangeCell({ change, prior, priorAsOf, now, bold }: { change: number | null; prior: number | null; priorAsOf: string | null; now: number | null; bold?: boolean }) {
   if (change == null) return <span className="muted">—</span>;
   const rounded = Math.round(change);
-  const color = rounded > 0 ? "#15803d" : rounded < 0 ? "#b91c1c" : "var(--muted)";
+  const color = rounded > 0 ? "var(--c-15803d)" : rounded < 0 ? "var(--c-b91c1c)" : "var(--muted)";
   const arrow = rounded > 0 ? "▲ " : rounded < 0 ? "▼ " : "";
   const pct = prior ? (change / Math.abs(prior)) * 100 : null;
   return (
@@ -243,7 +243,7 @@ export default function BankBalancesView() {
       {data && (
         <div className="pills">
           <StatPill label="Cash in bank" value={money0(totalCash)} onClick={() => setTrendOpen("cash")} hint="Cash in bank over time"
-            sub={wow.change != null ? `${wow.change >= 0 ? "▲" : "▼"} ${money0(Math.abs(wow.change))} since ${shortDate(wow.priorAsOf)}` : undefined} />
+            sub={wow.change != null ? `${wow.change >= 0 ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />} ${money0(Math.abs(wow.change))} since ${shortDate(wow.priorAsOf)}` : undefined} />
           <StatPill label="Security deposits" value={money0(restricted)} sub="Tenants' money" onClick={() => setTrendOpen("deposits")} hint="Security deposits over time" />
           <StatPill label="Reserves" value={money0(reserves)} sub={handsOff ? `Big Projects · incl. ${money0(handsOff)} hands off` : "Big Projects, next 3 months"} />
           <StatPill label="Net available" value={money0(net)} total onClick={() => setTrendOpen("net")} hint="Net available over time" />
@@ -298,7 +298,7 @@ export default function BankBalancesView() {
                         <Fragment key={r.key}>
                           <tr style={{ borderTop: "1px solid var(--border)", opacity: r.balance == null ? 0.55 : 1 }}>
                             <td style={{ ...tdL, fontWeight: 600, cursor: multi ? "pointer" : undefined }} onClick={multi ? () => toggle(open, r.key, setOpen) : undefined}>
-                              <span style={{ display: "inline-block", width: 14, color: "var(--muted)" }}>{multi ? (expanded ? "▾" : "▸") : ""}</span>{r.name}
+                              <span style={{ display: "inline-block", width: 14, color: "var(--muted)" }}>{multi ? (expanded ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />) : ""}</span>{r.name}
                               <span style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 2, paddingLeft: 14, fontWeight: 400 }} onClick={(e) => e.stopPropagation()}>
                                 {r.accounts.map((a) => (
                                   <a key={a.id} href={a.link ?? undefined} target="_blank" rel="noreferrer"
@@ -361,7 +361,7 @@ export default function BankBalancesView() {
                             </td>
                           </tr>
                           {expanded && r.accounts.map((a) => (
-                            <tr key={a.id} style={{ background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }}>
+                            <tr key={a.id} style={{ background: "var(--tint-neutral-faint, rgba(15,23,42,0.02))" }}>
                               <td style={{ ...tdL, paddingLeft: 40, fontSize: "var(--fs-12)" }}>
                                 {a.name}<span className="muted"> · {BANK_LABEL[a.bank] ?? a.bank} <code style={{ fontSize: "var(--fs-12)" }}>{a.last4}</code> · as of {dateLabel(a.asOf)}</span>
                               </td>

@@ -88,7 +88,7 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
             {showSteps && <ImportInstructions variant="budget-rent" />}
 
             {msg && (
-              <div className="small" style={{ fontWeight: 700, color: failed ? "#b91c1c" : "var(--muted)" }}>{msg}</div>
+              <div className="small" style={{ fontWeight: 700, color: failed ? "var(--c-b91c1c)" : "var(--muted)" }}>{msg}</div>
             )}
 
             {!rec && !busy && (

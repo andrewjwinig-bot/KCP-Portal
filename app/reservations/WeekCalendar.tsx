@@ -148,14 +148,14 @@ export default function WeekCalendar({
             <div key={iso} style={{
               padding: "8px 4px", textAlign: "center",
               borderLeft: "1px solid var(--border)",
-              background: isToday ? "rgba(11,74,125,0.06)" : undefined,
+              background: isToday ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : undefined,
             }}>
               <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.04em", color: "var(--muted)" }}>
                 {DAY_LABELS[d.getDay()]}
               </div>
               <div style={{
                 fontSize: 16, fontWeight: 800,
-                color: isToday ? "#0b4a7d" : "var(--text)",
+                color: isToday ? "var(--c-0b4a7d)" : "var(--text)",
               }}>{d.getDate()}</div>
             </div>
           );
@@ -184,7 +184,7 @@ export default function WeekCalendar({
             <div key={iso} style={{
               position: "relative", height: BODY_H,
               borderLeft: "1px solid var(--border)",
-              background: isToday ? "rgba(11,74,125,0.03)" : undefined,
+              background: isToday ? "var(--tint-brand-faint, rgba(11,74,125,0.03))" : undefined,
             }}>
               {/* Hour lines */}
               {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (

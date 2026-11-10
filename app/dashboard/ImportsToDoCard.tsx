@@ -71,10 +71,10 @@ const STATUS_WORD: Record<ReminderStatus, string> = {
   overdue: "Overdue", due: "Due", "not-yet-due": "Not due yet", done: "Imported",
 };
 const EDGE: Record<ReminderStatus, { border: string; bg: string }> = {
-  overdue:       { border: "rgba(220,38,38,0.40)",  bg: "rgba(220,38,38,0.06)" },
-  due:           { border: "rgba(217,119,6,0.35)",  bg: "rgba(217,119,6,0.05)" },
-  "not-yet-due": { border: "rgba(15,23,42,0.12)",   bg: "rgba(15,23,42,0.025)" },
-  done:          { border: "rgba(22,163,74,0.30)",  bg: "rgba(22,163,74,0.05)" },
+  overdue:       { border: "var(--tint-red-line, rgba(220,38,38,0.40))",  bg: "var(--tint-red-bg, rgba(220,38,38,0.06))" },
+  due:           { border: "var(--tint-amber-line, rgba(217,119,6,0.35))",  bg: "var(--tint-amber-bg, rgba(217,119,6,0.05))" },
+  "not-yet-due": { border: "rgba(15,23,42,0.12)",   bg: "var(--tint-neutral-faint, rgba(15,23,42,0.025))" },
+  done:          { border: "var(--tint-green-line, rgba(22,163,74,0.30))",  bg: "var(--tint-green-bg, rgba(22,163,74,0.05))" },
 };
 
 function Row({
@@ -126,10 +126,10 @@ function Row({
     }}>
       {done
         ? <CircleCheck size={20} strokeWidth={1.75} color={DOT.done} aria-hidden style={{ flexShrink: 0 }} />
-        : <Circle size={20} strokeWidth={1.75} color={status === "not-yet-due" ? "#98A2B3" : DOT[status]} aria-hidden style={{ flexShrink: 0 }} />}
+        : <Circle size={20} strokeWidth={1.75} color={status === "not-yet-due" ? "var(--c-98a2b3)" : DOT[status]} aria-hidden style={{ flexShrink: 0 }} />}
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* The TITLE is the link. A row whose whole point is "go here" does
-            not need a separate "Open →" to say so — and the bold text is the
+            not need a separate "Open" to say so — and the bold text is the
             biggest, most obvious thing to click. */}
         <Link href={link} style={{ fontWeight: 700, fontSize: "var(--fs-14)", color: "inherit", textDecoration: "none" }}
           className="row-link">{title}</Link>

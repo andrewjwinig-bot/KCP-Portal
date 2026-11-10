@@ -116,7 +116,7 @@ export function HistoryBars({ years, forecast, budget }: {
               ...(hb.budget != null ? [{ label: "Budget", value: money0(hb.budget), color: "var(--muted)" }] : []),
               ...(avg != null ? [{ label: "Average", value: money0(avg), color: "var(--series-2)" }] : []),
             ]}
-            footer={hb.next && avg ? { label: "vs average", value: `${hb.value! - avg > 0 ? "+" : ""}${money0(hb.value! - avg)}`, color: "var(--text)" } : variance == null ? undefined : { label: "vs budget", value: `${variance > 0 ? "+" : ""}${money0(variance)}`, color: variance > 0 ? "#b91c1c" : "#15803d" }} />
+            footer={hb.next && avg ? { label: "vs average", value: `${hb.value! - avg > 0 ? "+" : ""}${money0(hb.value! - avg)}`, color: "var(--text)" } : variance == null ? undefined : { label: "vs budget", value: `${variance > 0 ? "+" : ""}${money0(variance)}`, color: variance > 0 ? "var(--c-b91c1c)" : "var(--c-15803d)" }} />
         )}
       </svg>
       <div className="muted" style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: "var(--fs-12)", marginTop: 4 }}>

@@ -124,7 +124,7 @@ export function SendAllModal({
               <div style={{
                 height: "100%", borderRadius: 999,
                 width: `${Math.round((results.length / Math.max(1, rows.length)) * 100)}%`,
-                background: failed.length ? "#b45309" : "#15803d",
+                background: failed.length ? "var(--c-b45309)" : "var(--c-15803d)",
                 transition: "width .3s ease",
               }} />
             </div>
@@ -232,10 +232,10 @@ function Note({ tone, title, children }: { tone: "amber" | "neutral"; title: str
   return (
     <div style={{
       borderRadius: 9, padding: "9px 12px", fontSize: "var(--fs-12-5)", lineHeight: 1.5,
-      background: amber ? "rgba(217,119,6,0.08)" : "rgba(15,23,42,0.035)",
-      border: `1px solid ${amber ? "rgba(217,119,6,0.35)" : "var(--border)"}`,
+      background: amber ? "var(--tint-amber-bg, rgba(217,119,6,0.08))" : "var(--tint-neutral-faint, rgba(15,23,42,0.035))",
+      border: `1px solid ${amber ? "var(--tint-amber-line, rgba(217,119,6,0.35))" : "var(--border)"}`,
     }}>
-      <div style={{ fontWeight: 700, color: amber ? "#b45309" : "var(--text)" }}>{title}</div>
+      <div style={{ fontWeight: 700, color: amber ? "var(--c-b45309)" : "var(--text)" }}>{title}</div>
       <div className="muted" style={{ marginTop: 2 }}>{children}</div>
     </div>
   );

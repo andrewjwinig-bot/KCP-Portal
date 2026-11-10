@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 // Balance Sheet — the statement of financial position for one partnership,
 // derived from its own general ledger.
@@ -181,9 +182,9 @@ export default function BalanceSheetPage() {
           <div className="pills">
             <StatPill label="Total assets" value={money0(sheet.totalAssets)} />
             <StatPill label="Total liabilities" value={money0(sheet.totalLiabilities)} />
-            <StatPill label="Partners' capital" value={money0(sheet.totalEquity)} accent={sheet.totalEquity < 0 ? "#b91c1c" : undefined}
+            <StatPill label="Partners' capital" value={money0(sheet.totalEquity)} accent={sheet.totalEquity < 0 ? "var(--c-b91c1c)" : undefined}
               sub={sheet.totalEquity < 0 ? "deficit" : undefined} />
-            <StatPill label={`Net income — ${year}`} value={money0(sheet.netIncome)} accent={sheet.netIncome < 0 ? "#b91c1c" : "#15803d"} />
+            <StatPill label={`Net income — ${year}`} value={money0(sheet.netIncome)} accent={sheet.netIncome < 0 ? "var(--c-b91c1c)" : "var(--c-15803d)"} />
           </div>
 
           <ProofCard sheet={sheet} />
@@ -227,7 +228,7 @@ export default function BalanceSheetPage() {
                 "These carry a balance but no rule recognises them, so they are excluded — which is exactly why the sheet above is out of balance. " +
                 "Assign each one and it lands in that section permanently, for this property."
               }
-              accent="#b45309"
+              accent="var(--c-b45309)"
               amountLabel="Balance"
               defaultOpen
               rows={sheet.unclassified.map((a) => ({ account: a.code, name: a.name, amount: a.signed }))}
@@ -282,8 +283,8 @@ function ProofCard({ sheet }: { sheet: Sheet }) {
     <div
       className="card"
       style={{
-        borderColor: ok ? "rgba(22,163,74,0.35)" : "rgba(220,38,38,0.4)",
-        background: ok ? "rgba(22,163,74,0.05)" : "rgba(220,38,38,0.05)",
+        borderColor: ok ? "var(--tint-green-line, rgba(22,163,74,0.35))" : "var(--tint-red-line, rgba(220,38,38,0.4))",
+        background: ok ? "var(--tint-green-bg, rgba(22,163,74,0.05))" : "var(--tint-red-bg, rgba(220,38,38,0.05))",
         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap",
       }}
     >
@@ -294,7 +295,7 @@ function ProofCard({ sheet }: { sheet: Sheet }) {
           rows={[
             { label: "Total assets", value: moneyFull(sheet.proof.assets) },
             { label: "Liabilities + capital", value: moneyFull(sheet.proof.liabilitiesAndEquity) },
-            { label: "Difference", value: moneyFull(sheet.proof.difference), color: ok ? "#15803d" : "#b91c1c" },
+            { label: "Difference", value: moneyFull(sheet.proof.difference), color: ok ? "var(--c-15803d)" : "var(--c-b91c1c)" },
           ]}
           footer={{
             label: "",
@@ -342,8 +343,8 @@ function TieOutCard({ sheet }: { sheet: Sheet }) {
     <div
       className="card"
       style={{
-        borderColor: ok ? "rgba(22,163,74,0.35)" : "rgba(217,119,6,0.4)",
-        background: ok ? "rgba(22,163,74,0.05)" : "rgba(217,119,6,0.06)",
+        borderColor: ok ? "var(--tint-green-line, rgba(22,163,74,0.35))" : "var(--tint-amber-line, rgba(217,119,6,0.4))",
+        background: ok ? "var(--tint-green-bg, rgba(22,163,74,0.05))" : "var(--tint-amber-bg, rgba(217,119,6,0.06))",
         display: "grid", gap: ok ? 0 : 10,
       }}
     >
@@ -410,7 +411,7 @@ function SectionCard({
             {extraRow && (
               <tr>
                 <td style={tdL}>{extraRow.label}</td>
-                <td style={{ ...td, color: extraRow.amount < 0 ? "#b91c1c" : undefined }}>{money0(extraRow.amount)}</td>
+                <td style={{ ...td, color: extraRow.amount < 0 ? "var(--c-b91c1c)" : undefined }}>{money0(extraRow.amount)}</td>
               </tr>
             )}
             <tr style={{ borderTop: "2px solid var(--border)" }}>
@@ -429,7 +430,7 @@ function GroupRows({ group, open, toggle }: { group: GroupRow; open: boolean; to
     <>
       <tr style={{ cursor: "pointer" }} onClick={toggle}>
         <td style={{ ...tdL, fontWeight: group.contra ? 400 : 600, fontStyle: group.contra ? "italic" : undefined }}>
-          <span className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{open ? "▲" : "▼"}</span>
+          <span className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
           {group.label}
           <span className="muted small" style={{ marginLeft: 6 }}>({group.accounts.length})</span>
         </td>

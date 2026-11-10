@@ -67,7 +67,7 @@ function changeCell(prev: number, next: number) {
   if (c == null) return <span style={{ color: "var(--muted)" }}>—</span>;
   if (c === Infinity) return <span style={{ color: "var(--c-b45309)", fontWeight: 700 }}>new</span>;
   const spike = Math.abs(c) >= SPIKE;
-  return <span style={{ color: spike ? "#b91c1c" : c < 0 ? "#15803d" : "var(--text)", fontWeight: spike ? 800 : 500 }}>{c >= 0 ? "+" : ""}{(c * 100).toFixed(0)}%</span>;
+  return <span style={{ color: spike ? "var(--c-b91c1c)" : c < 0 ? "var(--c-15803d)" : "var(--text)", fontWeight: spike ? 800 : 500 }}>{c >= 0 ? "+" : ""}{(c * 100).toFixed(0)}%</span>;
 }
 
 export default function CamEstimatesPage() {

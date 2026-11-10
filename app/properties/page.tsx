@@ -32,6 +32,7 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
 
   return (
     <div
+      className={`prop-card${isEntity ? " prop-entity" : ""}`}
       style={{
         display: "flex", flexDirection: "column",
         minHeight: 110,
@@ -69,7 +70,7 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
       >
         {/* Header row: id badge (left), type pill or entity pill (right) */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-          <code style={{
+          <code className="code-chip" style={{
             background: "var(--c-0b1220)", color: "var(--c-e0f0ff)",
             padding: "2px 8px", borderRadius: 5,
             fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.06em",

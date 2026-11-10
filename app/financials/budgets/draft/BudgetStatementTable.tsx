@@ -257,7 +257,7 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
   const subtotal = variant === "subtotal";
   const rowStyle: React.CSSProperties | undefined =
     subtotal ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", borderTop: "2px solid var(--tint-brand-line, rgba(11,74,125,0.30))" }
-    : sub ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.035))" }
+    : sub ? { background: "var(--tint-brand-faint, rgba(11,74,125,0.035))" }
     : undefined;
   const editable = !!rowKey && !!setEdit && !!onCommit;
   const cell = (v: number, key: string | number, extra?: React.CSSProperties, m?: number) => {
@@ -345,7 +345,7 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
           </HoverCard>
         </td>
       ) : cell(basis, "b", { color: "var(--muted)" })}
-      <td style={{ ...num, ...(subtotal ? { fontWeight: 800 } : {}), color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
+      <td style={{ ...num, ...(subtotal ? { fontWeight: 800 } : {}), color: good == null ? "var(--muted)" : good ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>
         {pct == null ? (change == null || Math.abs(change) < 0.5 ? "–" : money0(change)) : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
       </td>
     </tr>
@@ -381,7 +381,7 @@ function StatRow({ label, months, total, basis, change, changeGood, onLabel, tot
       })}
       <td style={{ ...num, fontSize: "var(--fs-13)", fontWeight: 700, ...totalStyle }}>{total}</td>
       <td style={{ ...num, color: "var(--muted)" }}>{basis}</td>
-      <td style={{ ...num, color: changeGood == null ? "var(--muted)" : changeGood ? "#15803d" : "#b91c1c" }}>{change}</td>
+      <td style={{ ...num, color: changeGood == null ? "var(--muted)" : changeGood ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>{change}</td>
     </tr>
   );
 }
@@ -420,10 +420,10 @@ function RollupCard({ label, months, total, basis, favorableUp, tip }: {
           <tbody>
             <tr>
               <td style={{ ...lab, fontSize: "var(--fs-13)", fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND, borderBottom: "none" }}>{label}</td>
-              {months.map((m, i) => <td key={i} style={{ ...cell, color: m < 0 ? "#b91c1c" : undefined }}>{hov(i, money0(m))}</td>)}
-              <td style={{ ...cell, fontSize: "var(--fs-14)", fontWeight: 900, color: total < 0 ? "#b91c1c" : COLOR_BRAND }}>{hov(null, money0(total))}</td>
+              {months.map((m, i) => <td key={i} style={{ ...cell, color: m < 0 ? "var(--c-b91c1c)" : undefined }}>{hov(i, money0(m))}</td>)}
+              <td style={{ ...cell, fontSize: "var(--fs-14)", fontWeight: 900, color: total < 0 ? "var(--c-b91c1c)" : COLOR_BRAND }}>{hov(null, money0(total))}</td>
               <td style={{ ...cell, fontWeight: 600, fontSize: "var(--fs-12)", color: "var(--muted)" }}>{money0(basis)}</td>
-              <td style={{ ...cell, fontSize: "var(--fs-12)", color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
+              <td style={{ ...cell, fontSize: "var(--fs-12)", color: good == null ? "var(--muted)" : good ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>
                 {pct == null ? "–" : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
               </td>
             </tr>
@@ -573,7 +573,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const total = [...split.values()].reduce((a, x) => a + val(x.months), 0);
     return {
       title: `${title} · ${m == null ? draft.budgetYear : MONTHS[m]}`, rows,
-      footer: { label: flagged ? `Total · ${flagged} to look at` : "Total", value: money0(total), color: flagged ? "#b45309" : COLOR_BRAND },
+      footer: { label: flagged ? `Total · ${flagged} to look at` : "Total", value: money0(total), color: flagged ? "var(--c-b45309)" : COLOR_BRAND },
     };
   };
   /** A hover lists the TOP FIVE and folds the rest into one row (owner: hovers
@@ -793,12 +793,12 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const setSec = (o: boolean) => setToggled((t) => { const n = new Set(t); for (const k of secSubs) { if (o) n.add(k); else n.delete(k); } return n; });
     return (
       <div key={sec.name} className="card" style={{ padding: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))" }}>
           <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{abbrev(sec.name)}</span>
           {secSubs.length > 0 && (
             <button type="button" onClick={() => setSec(!secOpen)}
               style={{ border: "none", background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: "var(--fs-11)", fontWeight: 700, padding: 0, letterSpacing: "0.04em", textTransform: "uppercase" }}>
-              {secOpen ? "▾ Hide sub-lines" : "▸ Show sub-lines"}
+              {secOpen ? <><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> Hide Sub-Lines</> : <><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> Show Sub-Lines</>}
             </button>
           )}
         </div>
@@ -992,11 +992,11 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
         <td style={{ ...lab, fontWeight: 800, color: COLOR_BRAND, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Projected Bank Balance</td>
         {cash.balance.map((v, i) => {
           const t = balTip(i);
-          return <td key={i} style={{ ...num, fontSize: "var(--fs-13)", fontWeight: 700, color: v < 0 ? "#b91c1c" : COLOR_BRAND }}><HoverCard title={t.title} rows={t.rows} footer={t.footer} width={300}><span>{bal(v)}</span></HoverCard></td>;
+          return <td key={i} style={{ ...num, fontSize: "var(--fs-13)", fontWeight: 700, color: v < 0 ? "var(--c-b91c1c)" : COLOR_BRAND }}><HoverCard title={t.title} rows={t.rows} footer={t.footer} width={300}><span>{bal(v)}</span></HoverCard></td>;
         })}
-        <td style={{ ...num, fontSize: "var(--fs-13)", fontWeight: 800, color: end < 0 ? "#b91c1c" : COLOR_BRAND }}>{bal(end)}</td>
+        <td style={{ ...num, fontSize: "var(--fs-13)", fontWeight: 800, color: end < 0 ? "var(--c-b91c1c)" : COLOR_BRAND }}>{bal(end)}</td>
         <td style={{ ...num, color: "var(--muted)" }}>{bal(cash.opening)}</td>
-        <td style={{ ...num, color: end >= cash.opening ? "#15803d" : "#b91c1c" }}>{`${end >= cash.opening ? "+" : "−"}${bal(Math.abs(end - cash.opening))}`}</td>
+        <td style={{ ...num, color: end >= cash.opening ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>{`${end >= cash.opening ? "+" : "−"}${bal(Math.abs(end - cash.opening))}`}</td>
       </tr>,
     );
   }
@@ -1079,7 +1079,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     const showDist = hasDist || distOn;
     body.push(
       <div key="cash" className="card" style={{ padding: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))", flexWrap: "wrap" }}>
           {hasDist || !mayDist
             ? <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Distributions{!hasDist ? <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> · none this year</span> : null}</span>
             : <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>

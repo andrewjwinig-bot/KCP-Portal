@@ -23,9 +23,9 @@ export function CommissionSectionHeading({
   tone: "blue" | "green";
   subtitle?: string;
 }) {
-  const accent = tone === "green" ? "#15803d" : "#0b4a7d";
-  const bg     = tone === "green" ? "rgba(22,163,74,0.10)" : "rgba(11,74,125,0.08)";
-  const border = tone === "green" ? "rgba(22,163,74,0.30)" : "rgba(11,74,125,0.25)";
+  const accent = tone === "green" ? "var(--c-15803d)" : "var(--c-0b4a7d)";
+  const bg     = tone === "green" ? "var(--tint-green-bg, rgba(22,163,74,0.10))" : "var(--tint-brand-bg, rgba(11,74,125,0.08))";
+  const border = tone === "green" ? "var(--tint-green-line, rgba(22,163,74,0.30))" : "var(--tint-brand-line, rgba(11,74,125,0.25))";
   return (
     <div style={{
       padding: "10px 14px",
@@ -292,9 +292,9 @@ function SendResult({ result, preview, kind }: {
 
   return (
     <>
-      <div style={{ padding: "14px 18px 0", fontSize: 16, fontWeight: 800, color: result.ok ? "#15803d" : "#b91c1c" }}>
+      <div style={{ padding: "14px 18px 0", fontSize: 16, fontWeight: 800, color: result.ok ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>
         {result.ok
-          ? `✓ ${result.count} invoice${result.count === 1 ? "" : "s"} · ${toMoney(result.total)} sent to AvidXchange`
+          ? `${result.count} invoice${result.count === 1 ? "" : "s"} · ${toMoney(result.total)} sent to AvidXchange`
           : `✗ ${result.reason ?? "Not everything went"}`}
       </div>
       <div style={{ padding: "10px 18px 0" }}>

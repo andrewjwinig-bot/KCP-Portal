@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -80,7 +81,7 @@ export default function CamStatementHistory({
               textDecoration: "none",
             }}
           >
-            {y} Statement <span aria-hidden style={{ fontSize: 15 }}>→</span>
+            {y} Statement <span aria-hidden style={{ fontSize: 15 }}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
           </Link>
         ))}
       </div>

@@ -22,7 +22,7 @@ const SECTION_LABEL: React.CSSProperties = {
 const PALETTE = [
   "#0b4a7d", "#d97706", "#16a34a", "#7c3aed", "#db2777", "#0d9488",
   "#b91c1c", "#a16207", "#2563eb", "#65a30d", "#c026d3", "#0891b2",
-  "#9333ea", "#ea580c",
+  "var(--c-9333ea)", "var(--c-ea580c)",
 ];
 
 function moneyShort(n: number): string {

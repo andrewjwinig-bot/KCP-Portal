@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { HoverCard } from "@/app/components/HoverCard";
@@ -1274,7 +1275,7 @@ export default function InvestorInfoPage() {
           aria-expanded={open}
           style={{
             borderTop: "1px solid var(--border)", cursor: "pointer",
-            background: open ? "rgba(11,74,125,0.05)" : undefined,
+            background: open ? "var(--tint-brand-bg, rgba(11,74,125,0.05))" : undefined,
           }}
         >
           <td style={tdL}>
@@ -1298,7 +1299,7 @@ export default function InvestorInfoPage() {
           <td style={{ ...td, color: "var(--muted)" }}>{h.owners.length}</td>
           <td style={td}>{hasVal ? money0(pv!.ye) : <span style={{ color: "var(--muted)" }}>&mdash;</span>}</td>
           <td style={{ ...td, fontWeight: 700 }}>{hasVal ? money0(pv!.est) : <span style={{ color: "var(--muted)", fontWeight: 400 }}>&mdash;</span>}</td>
-          <td style={{ ...td, color: "var(--muted)", width: 30, paddingLeft: 0 }} aria-hidden>{open ? "▲" : "▼"}</td>
+          <td style={{ ...td, color: "var(--muted)", width: 30, paddingLeft: 0 }} aria-hidden>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</td>
         </tr>
         {open && (
           <tr>
@@ -1306,7 +1307,7 @@ export default function InvestorInfoPage() {
                 table's intrinsic width: without it a wide detail table (0800's
                 is ~1700px) stretches the roster above it off the card instead
                 of scrolling inside its own wrapper. */}
-            <td colSpan={6} style={{ padding: 0, maxWidth: 0, background: "var(--tint-brand-bg, rgba(11,74,125,0.03))", borderTop: "1px solid var(--border)" }}>
+            <td colSpan={6} style={{ padding: 0, maxWidth: 0, background: "var(--tint-brand-faint, rgba(11,74,125,0.03))", borderTop: "1px solid var(--border)" }}>
           {showK1 && k1 && <K1Header k1={k1} />}
           {showK1 && k1reg.batch?.key === h.propertyCode && (
             <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
@@ -1513,7 +1514,7 @@ export default function InvestorInfoPage() {
                 {propertyBlocks.map((b) =>
                   b.kind === "prop" ? renderHoldingRows(b.h) : (
                     <tr key={b.key} style={{
-                      background: b.sub ? "rgba(11,74,125,0.035)" : TYPE_STYLE[b.type].bg,
+                      background: b.sub ? "var(--tint-brand-faint, rgba(11,74,125,0.035))" : TYPE_STYLE[b.type].bg,
                       borderTop: "2px solid var(--border)",
                     }}>
                       <td style={{ ...tdL, paddingTop: 9, paddingBottom: 9, whiteSpace: "normal" }} colSpan={2}>
@@ -1638,9 +1639,9 @@ export default function InvestorInfoPage() {
             className="btn"
             style={{
               fontSize: "var(--fs-12-5)", fontWeight: 700,
-              background: onlyMissingEmail ? "rgba(220,38,38,0.10)" : undefined,
-              color: onlyMissingEmail ? "#b91c1c" : undefined,
-              borderColor: onlyMissingEmail ? "rgba(220,38,38,0.35)" : undefined,
+              background: onlyMissingEmail ? "var(--tint-red-bg, rgba(220,38,38,0.10))" : undefined,
+              color: onlyMissingEmail ? "var(--c-b91c1c)" : undefined,
+              borderColor: onlyMissingEmail ? "var(--tint-red-line, rgba(220,38,38,0.35))" : undefined,
             }}
           >
             {onlyMissingEmail ? "\u2715 " : ""}{missingEmailKeys.size} investor{missingEmailKeys.size === 1 ? "" : "s"} with no email on file
@@ -1727,7 +1728,7 @@ export default function InvestorInfoPage() {
                         aria-expanded={open}
                         style={{
                           borderTop: "1px solid var(--border)", cursor: "pointer",
-                          background: open ? "rgba(11,74,125,0.05)" : undefined,
+                          background: open ? "var(--tint-brand-bg, rgba(11,74,125,0.05))" : undefined,
                         }}
                       >
                         <td style={{ ...tdL, whiteSpace: "normal" }}>
@@ -1794,11 +1795,11 @@ export default function InvestorInfoPage() {
 
                           </span>
                         </td>
-                        <td style={{ ...td, color: "var(--muted)", width: 30, paddingLeft: 0 }} aria-hidden>{open ? "▲" : "▼"}</td>
+                        <td style={{ ...td, color: "var(--muted)", width: 30, paddingLeft: 0 }} aria-hidden>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</td>
                       </tr>
                       {open && (
                         <tr>
-                          <td colSpan={canK1 ? 9 : 7} style={{ padding: 0, background: "var(--tint-brand-bg, rgba(11,74,125,0.03))", borderTop: "1px solid var(--border)" }}>
+                          <td colSpan={canK1 ? 9 : 7} style={{ padding: 0, background: "var(--tint-brand-faint, rgba(11,74,125,0.03))", borderTop: "1px solid var(--border)" }}>
                       {/* The hub. An investor's details belong on the investor,
                           not spread over the Statement of Values tab and the
                           inside of a share popover. */}
@@ -2420,8 +2421,8 @@ function DeltaTag({ base, now }: { base: number; now: number }) {
   const pct = (d / base) * 100;
   const up = d > 0;
   return (
-    <span style={{ marginLeft: 6, fontSize: "var(--fs-10)", fontWeight: 700, color: up ? "#15803d" : "#b91c1c" }}>
-      {up ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%
+    <span style={{ marginLeft: 6, fontSize: "var(--fs-10)", fontWeight: 700, color: up ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>
+      {up ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />} {Math.abs(pct).toFixed(1)}%
     </span>
   );
 }
@@ -2461,7 +2462,7 @@ function SendStatementButton({ beneficiary, email }: { beneficiary: string; emai
   if (!email) {
     return <span className="muted small" title="Add an email to this owner's contact to enable sending" style={{ alignSelf: "center" }}>No email on file</span>;
   }
-  if (state === "sent") return <span className="small" style={{ alignSelf: "center", color: "var(--c-15803d)", fontWeight: 600 }}>✓ {msg}</span>;
+  if (state === "sent") return <span className="small" style={{ alignSelf: "center", color: "var(--c-15803d)", fontWeight: 600 }}>{msg}</span>;
   if (state === "confirm" || state === "sending") {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -2660,7 +2661,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
                             style={{ marginLeft: 8, background: "transparent", border: "none", padding: 0, color: "var(--brand)", fontSize: "var(--fs-11)", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
                         )}
                       </td>
-                      <td style={{ ...numTd, color: (e.noi ?? 0) < 0 ? "#b91c1c" : undefined }}>{e.noi == null ? "—" : money0(e.noi)}</td>
+                      <td style={{ ...numTd, color: (e.noi ?? 0) < 0 ? "var(--c-b91c1c)" : undefined }}>{e.noi == null ? "—" : money0(e.noi)}</td>
                       <td style={numTd}>{e.capRate == null ? "—" : (e.capRate * 100).toFixed(2) + "%"}</td>
                       <td style={numTd}>{money0(e.indicatedValue)}</td>
                       <td style={numTd}>{e.debtBalance ? money0(e.debtBalance) : "—"}</td>
@@ -2683,7 +2684,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
                 })}
               </tbody>
               <tfoot>
-                <tr style={{ borderTop: "2px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))" }}>
+                <tr style={{ borderTop: "2px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))" }}>
                   <td style={{ padding: "12px 16px", fontWeight: 800 }} colSpan={2}>TOTAL</td>
                   <td style={{ ...numTd, fontWeight: 800 }}>{money0(sum((e) => e.noi))}</td>
                   <td style={numTd}>—</td>
@@ -2760,7 +2761,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
               })}
             </tbody>
             <tfoot>
-              <tr style={{ borderTop: "2px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))" }}>
+              <tr style={{ borderTop: "2px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))" }}>
                 <td style={{ padding: "12px 16px", fontWeight: 800 }} colSpan={3}>TOTAL — {lines.length} {lines.length === 1 ? "entity" : "entities"}</td>
                 <td style={numTd}>—</td>
                 <td style={{ ...numTd, fontWeight: 900 }}>{money0(total)}</td>

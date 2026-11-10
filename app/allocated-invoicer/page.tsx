@@ -1,5 +1,5 @@
 "use client";
-import { ChevronRight, CircleCheck, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, CircleCheck, X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import JSZip from "jszip";
@@ -715,11 +715,11 @@ export default function AllocatedInvoicerPage() {
       {allocTie && (
         allocTie.ties ? (
           <div className="card small" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.4))", background: "var(--tint-green-bg, rgba(22,163,74,0.06))", color: "var(--c-15803d)", fontWeight: 600 }}>
-            ✓ Allocation ties out — {toMoney(allocTie.sourceTotal)} of G&amp;A fully allocated across properties (every suffix’s shares sum to 100%).
+            Allocation ties out — {toMoney(allocTie.sourceTotal)} of G&amp;A fully allocated across properties (every suffix’s shares sum to 100%).
           </div>
         ) : (
           <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.6))", background: "var(--tint-red-bg, rgba(220,38,38,0.07))", padding: "14px 16px" }}>
-            <div style={{ fontWeight: 800, color: "var(--c-b91c1c)" }}>⚠ Allocation does not tie to the source GL</div>
+            <div style={{ fontWeight: 800, color: "var(--c-b91c1c)" }}>Allocation does not tie to the source GL</div>
             <div className="small" style={{ marginTop: 6, color: "var(--c-7f1d1d)" }}>
               {toMoney(Math.abs(allocTie.unallocated))} of G&amp;A {allocTie.unallocated >= 0 ? "never lands on any building" : "is over-allocated"} — a suffix’s property shares don’t sum to 100%. Fix the allocation percentages and re-import before sending.
             </div>
@@ -766,7 +766,7 @@ export default function AllocatedInvoicerPage() {
       {/* ── Already sent this month ── */}
       {!liveReview && !allHeldThisMonth && glResult && alreadyFinalized && (
         <div className="card small" style={{ borderColor: "var(--tint-brand-line, rgba(11,74,125,0.4))", background: "var(--tint-brand-bg, rgba(11,74,125,0.05))", color: "var(--c-0b4a7d)", fontWeight: 600 }}>
-          ✓ {glResult?.periodText || statementMonth} has already been reviewed and sent to AvidXchange. Its carryover is finalized — re-download the invoices from the Download menu if you need them.
+          {glResult?.periodText || statementMonth} has already been reviewed and sent to AvidXchange. Its carryover is finalized — re-download the invoices from the Download menu if you need them.
         </div>
       )}
 
@@ -845,7 +845,7 @@ export default function AllocatedInvoicerPage() {
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setChartsOpen((o) => !o)} title={chartsOpen ? "Collapse" : "Expand"}>
-              {chartsOpen ? "▲" : "▼"}
+              {chartsOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
             </button>
             <b>Charts</b>
           </div>
@@ -871,7 +871,7 @@ export default function AllocatedInvoicerPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setTxOpen((o) => !o)} title={txOpen ? "Collapse" : "Expand"}>
-                {txOpen ? "▲" : "▼"}
+                {txOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
               </button>
               <div>
                 <b>GL Transaction Breakdown</b>
@@ -949,7 +949,7 @@ export default function AllocatedInvoicerPage() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
-                {allocPreviewOpen ? "▲" : "▼"}
+                {allocPreviewOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
               </button>
               <div>
                 <b>Allocation Preview</b>
@@ -1036,7 +1036,7 @@ export default function AllocatedInvoicerPage() {
                 <tr>
                   <td colSpan={2}>Total</td>
                   <td style={{ textAlign: "right" }}>{toMoney(grandBillingTotal)}</td>
-                  <td style={{ textAlign: "right", color: heldGrandTotal > 0 ? "#9a3412" : undefined }}>{heldGrandTotal > 0 ? toMoney(heldGrandTotal) : "—"}</td>
+                  <td style={{ textAlign: "right", color: heldGrandTotal > 0 ? "var(--c-9a3412)" : undefined }}>{heldGrandTotal > 0 ? toMoney(heldGrandTotal) : "—"}</td>
                   <td />
                 </tr>
               </tfoot>

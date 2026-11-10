@@ -24,7 +24,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const ACTUAL = "var(--series-1)";
 const BUDGET = "var(--series-3)";
-const GOOD = "var(--c-15803d)", BAD = "#b91c1c", WARN = "#b45309";
+const GOOD = "var(--c-15803d)", BAD = "var(--c-b91c1c)", WARN = "var(--c-b45309)";
 
 const money = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const compact = (n: number) => {

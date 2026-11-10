@@ -99,9 +99,9 @@ function BalanceRow({ label, value, strong }: { label: string; value: string; st
 }
 function FinalBalanceRow({ label, value }: { label: string; value: number }) {
   const owed = value > 0.5; const credit = value < -0.5;
-  const bg = owed ? "rgba(217,119,6,0.12)" : credit ? "rgba(21,128,61,0.12)" : "rgba(15,23,42,0.04)";
-  const fg = owed ? "#b45309" : credit ? "#15803d" : "var(--text)";
-  const border = owed ? "#d97706" : credit ? "#15803d" : "var(--border)";
+  const bg = owed ? "var(--tint-amber-bg, rgba(217,119,6,0.12))" : credit ? "var(--tint-green-bg, rgba(21,128,61,0.12))" : "var(--tint-neutral-bg, rgba(15,23,42,0.04))";
+  const fg = owed ? "var(--c-b45309)" : credit ? "var(--c-15803d)" : "var(--text)";
+  const border = owed ? "var(--c-d97706)" : credit ? "var(--c-15803d)" : "var(--border)";
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, padding: "8px 12px", borderRadius: 8, background: bg, border: `1.5px solid ${border}`, fontWeight: 800 }}>
       <span>{label}</span><span style={{ color: fg, fontVariantNumeric: "tabular-nums" }}>{money(value)}{credit ? " (credit)" : owed ? " (due)" : ""}</span>
@@ -133,7 +133,7 @@ function Column({ title, lines, base, actual, net, due, escrow, balance, proRata
               <td>{l.label}</td>
               <td style={numTd}>{money(l.baseCost)}</td>
               <td style={numTd}>{money(l.actual)}</td>
-              <td style={{ ...numTd, color: l.netIncrease > 0 ? "#15803d" : "var(--muted)" }}>{money(l.netIncrease)}</td>
+              <td style={{ ...numTd, color: l.netIncrease > 0 ? "var(--c-15803d)" : "var(--muted)" }}>{money(l.netIncrease)}</td>
             </tr>
           ))}
           <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}>
@@ -154,7 +154,7 @@ function Column({ title, lines, base, actual, net, due, escrow, balance, proRata
 
 // Amber treatment for an essential manual cell that's still empty — guides the
 // user to the values that aren't populated from elsewhere.
-const NEEDS = { border: "#d97706", bg: "rgba(217,119,6,0.07)" };
+const NEEDS = { border: "var(--c-d97706)", bg: "var(--tint-amber-bg, rgba(217,119,6,0.07))" };
 function needsStyle(empty: boolean): React.CSSProperties {
   return empty ? { borderColor: NEEDS.border, background: NEEDS.bg } : {};
 }
@@ -313,7 +313,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
                   <td style={numTd}>
                     <MoneyInput value={l.actualStr} onChange={(raw) => setActualOv((o) => ({ ...o, [l.glAccount]: raw }))} />
                   </td>
-                  <td style={{ ...numTd, color: l.net > 0 ? "#15803d" : "var(--muted)" }}>{money(l.net)}</td>
+                  <td style={{ ...numTd, color: l.net > 0 ? "var(--c-15803d)" : "var(--muted)" }}>{money(l.net)}</td>
                 </tr>
               ))}
               <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}>
@@ -354,7 +354,7 @@ function EditableOfficeStatement({ r, meta, baseYears, onBaseYear }: {
                 <td style={numTd}>
                   <MoneyInput value={retActualStr} onChange={setRetActualOv} />
                 </td>
-                <td style={{ ...numTd, color: retNet > 0 ? "#15803d" : "var(--muted)" }}>{money(retNet)}</td>
+                <td style={{ ...numTd, color: retNet > 0 ? "var(--c-15803d)" : "var(--muted)" }}>{money(retNet)}</td>
               </tr>
               <tr style={{ fontWeight: 800, borderTop: "1px solid var(--border)" }}>
                 <td /><td>Total</td>
@@ -745,7 +745,7 @@ export default function InterimReconPage() {
       });
       const j = await res.json();
       if (!res.ok || j.error) setSendMsg({ ok: false, text: j.error ?? "Could not send." });
-      else { setApproval(j.entry); setSendMsg({ ok: true, text: `✓ Sent to ${j.approver} for approval.` }); setConfirmSend(false); }
+      else { setApproval(j.entry); setSendMsg({ ok: true, text: `Sent to ${j.approver} for approval.` }); setConfirmSend(false); }
     } catch (e) { setSendMsg({ ok: false, text: String(e) }); } finally { setSending(false); }
   }, [meta]);
   const fmtWhen = (iso?: string | null) => iso ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
@@ -776,9 +776,9 @@ export default function InterimReconPage() {
     </div>
   );
   const sanityCard = sanity && (
-    <div className="card" style={{ borderColor: sanity.ok ? "rgba(21,128,61,0.4)" : "rgba(180,83,9,0.45)", background: sanity.ok ? "rgba(22,163,74,0.05)" : "rgba(217,119,6,0.06)" }}>
-      <div style={{ fontWeight: 800, color: sanity.ok ? "#15803d" : "#b45309", marginBottom: sanity.findings.length ? 8 : 0 }}>
-        {sanity.ok ? "✓ Looks reasonable — nothing flagged" : `⚠ ${sanity.findings.length} thing${sanity.findings.length === 1 ? "" : "s"} to check before sending`}
+    <div className="card" style={{ borderColor: sanity.ok ? "var(--tint-green-line, rgba(21,128,61,0.4))" : "var(--tint-amber-line, rgba(180,83,9,0.45))", background: sanity.ok ? "var(--tint-green-bg, rgba(22,163,74,0.05))" : "var(--tint-amber-bg, rgba(217,119,6,0.06))" }}>
+      <div style={{ fontWeight: 800, color: sanity.ok ? "var(--c-15803d)" : "var(--c-b45309)", marginBottom: sanity.findings.length ? 8 : 0 }}>
+        {sanity.ok ? "Looks reasonable — nothing flagged" : `${sanity.findings.length} thing${sanity.findings.length === 1 ? "" : "s"} to check before sending`}
       </div>
       {sanity.findings.length > 0 && (
         <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -830,10 +830,10 @@ export default function InterimReconPage() {
       });
       const j = await res.json();
       if (!res.ok || j.error) setFinalizeMsg(j.error ?? "Could not finalize.");
-      else setFinalizeMsg(j.emailed ? `✓ Approved — the charges were sent to Tanya (${j.chargesTo}) to post.` : "✓ Approved (email not configured — nothing was sent to Tanya).");
+      else setFinalizeMsg(j.emailed ? `Approved — the charges were sent to Tanya (${j.chargesTo}) to post.` : "Approved (email not configured — nothing was sent to Tanya).");
     } catch (e) { setFinalizeMsg(String(e)); } finally { setFinalizing(false); }
   }, [meta]);
-  const finalizeDone = (finalizeMsg ?? "").startsWith("✓");
+  const finalizeDone = (finalizeMsg ?? "").startsWith("Approved");
 
   // THE FINAL BILL — ONE card, at the top, answer first (owner: "i dont even
   // know what the number is theres too much going on"). The tenant's last
@@ -873,7 +873,7 @@ export default function InterimReconPage() {
             <button className={approval?.notifiedAt ? "btn primary" : "btn"} onClick={approveFinalize} disabled={!canFinalize || finalizing || finalizeDone || approval?.status === "approved"}
               title="Approve the Final Bill — the charges go to Tanya to post to the tenant's account"
               style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 700 }}>
-              {finalizing ? "Approving…" : finalizeDone || approval?.status === "approved" ? "✓ Approved" : "Approve & finalize"}
+              {finalizing ? "Approving…" : finalizeDone || approval?.status === "approved" ? "Approved" : "Approve & finalize"}
             </button>
           )}
         </div>
@@ -886,7 +886,7 @@ export default function InterimReconPage() {
         </div>
       )}
       {sendMsg?.ok && <div style={{ fontSize: "var(--fs-13)", marginTop: 8, fontWeight: 600, color: "var(--c-15803d)" }}>{sendMsg.text}</div>}
-      {finalizeMsg && <div style={{ fontSize: "var(--fs-13)", marginTop: 8, fontWeight: 600, color: finalizeDone ? "#15803d" : "#b91c1c" }}>{finalizeMsg}</div>}
+      {finalizeMsg && <div style={{ fontSize: "var(--fs-13)", marginTop: 8, fontWeight: 600, color: finalizeDone ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>{finalizeMsg}</div>}
       {confirmedGone && !meta.manual && unpostedMonths > 0 && approval?.status !== "approved" && (
         <div style={{ fontSize: "var(--fs-12-5)", marginTop: 8, color: "var(--c-b45309)", fontWeight: 600 }}>
           The GL is posted through {MONTHS[meta.maxPosted - 1] ?? "—"} — {unpostedMonths} occupied month{unpostedMonths > 1 ? "s" : ""} still to post. You can send it to {approver.first} now; it can be approved once the GL is posted through the move-out month.
@@ -917,7 +917,7 @@ export default function InterimReconPage() {
                 </button>
               )}
               {openAr?.nameMatched === false && <span style={{ color: "var(--c-b45309)" }}> Filed under &ldquo;{openAr.tenantName}&rdquo; — check it is this tenant.</span>}
-              {stmtMsg && <span style={{ fontWeight: 600, color: stmtMsg.ok ? "#15803d" : "#b91c1c" }}> {stmtMsg.text}</span>}
+              {stmtMsg && <span style={{ fontWeight: 600, color: stmtMsg.ok ? "var(--c-15803d)" : "var(--c-b91c1c)" }}> {stmtMsg.text}</span>}
             </span>
             <input ref={stmtFileRef} type="file" accept=".xls,.xlsx" style={{ display: "none" }}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) importFinalStatement(f); }} />
@@ -938,7 +938,7 @@ export default function InterimReconPage() {
             </thead>
             <tbody>
               {openAr.charges.map((k, i) => (
-                <tr key={i} style={{ background: i % 2 ? "rgba(15,23,42,0.03)" : undefined }}>
+                <tr key={i} style={{ background: i % 2 ? "var(--tint-neutral-faint, rgba(15,23,42,0.03))" : undefined }}>
                   <td style={{ padding: "3px 0", fontVariantNumeric: "tabular-nums" }}>{k.dateISO ? new Date(`${k.dateISO}T12:00:00`).toLocaleDateString("en-US") : ""}</td>
                   <td style={{ padding: "3px 0" }}>{k.description}{k.escrow && <span title="Billed estimate, not paid — the reconciliation credits it as billed" style={{ color: "var(--c-b45309)", fontWeight: 700 }}> †</span>}</td>
                   <td style={{ padding: "3px 0", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(k.amount)}</td>
@@ -1151,7 +1151,7 @@ export default function InterimReconPage() {
 
           {r.unpostedMonths > 0 && (
             <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid #d9770655", color: "var(--c-b45309)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>
-              ⚠ {r.unpostedMonths} occupied month{r.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL (posted through {MONTHS[meta.maxPosted - 1] ?? "—"}). Expenses are computed through the latest posted month; re-run once the remaining month{r.unpostedMonths > 1 ? "s" : ""} post for the final figure.
+              {r.unpostedMonths} occupied month{r.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL (posted through {MONTHS[meta.maxPosted - 1] ?? "—"}). Expenses are computed through the latest posted month; re-run once the remaining month{r.unpostedMonths > 1 ? "s" : ""} post for the final figure.
             </div>
           )}
           {r.futureBaseYear && (
@@ -1160,7 +1160,7 @@ export default function InterimReconPage() {
             </div>
           )}
           {(r.dataWarnings ?? []).map((w, i) => (
-            <div key={i} style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid #dc262655", color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>⚠ {w}</div>
+            <div key={i} style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid #dc262655", color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>{w}</div>
           ))}
 
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
@@ -1199,7 +1199,7 @@ export default function InterimReconPage() {
           {sanityCard}
           {retail.unpostedMonths > 0 && (
             <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid #d9770655", color: "var(--c-b45309)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>
-              ⚠ {retail.unpostedMonths} occupied month{retail.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL (posted through {MONTHS[meta.maxPosted - 1] ?? "—"}). CAM is computed through the latest posted month; re-run once the rest post.
+              {retail.unpostedMonths} occupied month{retail.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL (posted through {MONTHS[meta.maxPosted - 1] ?? "—"}). CAM is computed through the latest posted month; re-run once the rest post.
             </div>
           )}
           {retail.grossLease && <div className="muted small" style={{ marginBottom: 10 }}>Gross lease — no reconciliation is due.</div>}

@@ -61,10 +61,10 @@ function sf(n: number): string {
 }
 
 const TONE: Record<Insight["tone"], { bar: string; bg: string }> = {
-  neutral: { bar: "var(--c-0b4a7d)", bg: "rgba(11,74,125,0.04)"  },
-  good:    { bar: "var(--c-16a34a)", bg: "rgba(22,163,74,0.05)"  },
-  warn:    { bar: "var(--c-d97706)", bg: "rgba(217,119,6,0.05)"  },
-  alert:   { bar: "var(--c-dc2626)", bg: "rgba(220,38,38,0.05)"  },
+  neutral: { bar: "var(--c-0b4a7d)", bg: "var(--tint-brand-bg, rgba(11,74,125,0.04))"  },
+  good:    { bar: "var(--c-16a34a)", bg: "var(--tint-green-bg, rgba(22,163,74,0.05))"  },
+  warn:    { bar: "var(--c-d97706)", bg: "var(--tint-amber-bg, rgba(217,119,6,0.05))"  },
+  alert:   { bar: "var(--c-dc2626)", bg: "var(--tint-red-bg, rgba(220,38,38,0.05))"  },
 };
 
 export default function Insights({

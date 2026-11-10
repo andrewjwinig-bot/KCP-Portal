@@ -15,7 +15,7 @@ function fmt(iso: string): string {
 }
 
 const tone = (event: string): string =>
-  event.endsWith(".fail") ? "#b91c1c" : event.endsWith(".success") || event.startsWith("login") ? "#15803d" : "var(--text)";
+  event.endsWith(".fail") ? "var(--c-b91c1c)" : event.endsWith(".success") || event.startsWith("login") ? "var(--c-15803d)" : "var(--text)";
 
 export default function AuditPage() {
   const [events, setEvents] = useState<AuditEvent[] | null>(null);

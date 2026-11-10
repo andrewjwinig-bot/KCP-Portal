@@ -1,5 +1,5 @@
 "use client";
-import { Check, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   TAX_TASKS, TAX_CATEGORIES, TaxCategory,
@@ -194,13 +194,13 @@ export default function TaxTrackerPage() {
     if (done === undefined) done = isTaskEffectivelyDone(t, effective);
     const dateStr = `${MONTH_NAMES[t.dueMonth - 1]} ${t.dueDay}`;
     if (done)
-      return { label: "✓ Filed",                color: "var(--c-16a34a)", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  };
+      return { label: "Filed",                color: "var(--c-16a34a)", bg: "var(--tint-green-bg, rgba(22,163,74,0.08))",  border: "var(--tint-green-line, rgba(22,163,74,0.2))"  };
     if (isPastDate(viewYear, t.dueMonth, t.dueDay, today))
-      return { label: `Overdue · ${dateStr}`,   color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" };
+      return { label: `Overdue · ${dateStr}`,   color: "var(--c-dc2626)", bg: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "var(--tint-red-line, rgba(220,38,38,0.2))" };
     if (isTodayDate(viewYear, t.dueMonth, t.dueDay, today))
       return { label: "Due today",               color: "var(--c-ea580c)", bg: "rgba(234,88,12,0.08)", border: "rgba(234,88,12,0.2)" };
     if (isSoonDate(viewYear, t.dueMonth, t.dueDay, today))
-      return { label: `Due soon · ${dateStr}`,  color: "var(--c-d97706)", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.2)"  };
+      return { label: `Due soon · ${dateStr}`,  color: "var(--c-d97706)", bg: "var(--tint-amber-bg, rgba(217,119,6,0.08))",  border: "var(--tint-amber-line, rgba(217,119,6,0.2))"  };
     return {
       label: dateStr,
       color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)",
@@ -254,7 +254,7 @@ export default function TaxTrackerPage() {
                 gap: 3,
               }}
             >
-              <span style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: isActive ? tile.color : (tile.key === "overdue" && overdue > 0 ? "#dc2626" : "var(--text)") }}>
+              <span style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: isActive ? tile.color : (tile.key === "overdue" && overdue > 0 ? "var(--c-dc2626)" : "var(--text)") }}>
                 {tile.value}
               </span>
               <span style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: isActive ? tile.color : "var(--muted)", letterSpacing: "0.02em" }}>
@@ -270,7 +270,7 @@ export default function TaxTrackerPage() {
         <div style={{ height: 5, background: "var(--border)", borderRadius: 999, marginBottom: 16, overflow: "hidden" }}>
           <div style={{
             height: "100%", width: `${(done / total) * 100}%`,
-            background: done === total ? "#16a34a" : "var(--brand)",
+            background: done === total ? "var(--c-16a34a)" : "var(--brand)",
             borderRadius: 999, transition: "width 0.3s ease",
           }} />
         </div>
@@ -283,9 +283,9 @@ export default function TaxTrackerPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 12 }}>
           <div style={{ fontSize: "var(--fs-10)", fontWeight: 800, color: "var(--muted)", letterSpacing: "0.08em" }}>YEAR</div>
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <button className="btn" onClick={() => setViewYear(y => y - 1)} style={{ padding: "4px 9px", fontWeight: 900 }}>←</button>
+            <button className="btn" onClick={() => setViewYear(y => y - 1)} style={{ padding: "4px 9px", fontWeight: 900 }}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             <span style={{ fontWeight: 800, fontSize: 15, minWidth: 40, textAlign: "center" }}>{viewYear}</span>
-            <button className="btn" onClick={() => setViewYear(y => y + 1)} style={{ padding: "4px 9px", fontWeight: 900 }}>→</button>
+            <button className="btn" onClick={() => setViewYear(y => y + 1)} style={{ padding: "4px 9px", fontWeight: 900 }}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             {viewYear !== today.getFullYear() && (
               <button className="btn" onClick={() => setViewYear(today.getFullYear())} style={{ fontSize: "var(--fs-11)", padding: "4px 9px" }}>
                 Today
@@ -307,7 +307,7 @@ export default function TaxTrackerPage() {
                 padding: "4px 11px",
                 border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`,
                 borderRadius: 999, cursor: "pointer",
-                background: active ? "rgba(11,74,125,0.08)" : "transparent",
+                background: active ? "var(--tint-brand-bg, rgba(11,74,125,0.08))" : "transparent",
                 fontFamily: "inherit", fontSize: "var(--fs-12)", fontWeight: active ? 700 : 500,
                 color: active ? "var(--brand)" : "var(--text)",
                 transition: "border-color 0.12s, background 0.12s",
@@ -342,7 +342,7 @@ export default function TaxTrackerPage() {
             <button className="btn" onClick={() => setFilterStatus("all")} style={{ marginLeft: "auto", fontSize: "var(--fs-11)", padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{
                 fontSize: "var(--fs-10)", fontWeight: 700,
-                color: filterStatus === "done" ? "#16a34a" : filterStatus === "overdue" ? "#dc2626" : "var(--text)",
+                color: filterStatus === "done" ? "var(--c-16a34a)" : filterStatus === "overdue" ? "var(--c-dc2626)" : "var(--text)",
               }}>
                 ● {filterStatus === "done" ? "Filed" : filterStatus === "remaining" ? "Remaining" : "Overdue"} filter active
               </span>
@@ -410,7 +410,7 @@ export default function TaxTrackerPage() {
                 <div style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   padding: "9px 18px",
-                  background: allFiled ? "rgba(22,163,74,0.04)" : "rgba(0,0,0,0.025)",
+                  background: allFiled ? "var(--tint-green-bg, rgba(22,163,74,0.04))" : "rgba(0,0,0,0.025)",
                   borderBottom: "1px solid var(--border)",
                 }}>
                   <span style={{
@@ -452,7 +452,7 @@ export default function TaxTrackerPage() {
                           style={{
                             display: "flex", alignItems: "center", gap: 12,
                             padding: "10px 18px 10px 34px",
-                            background: isDone ? "rgba(22,163,74,0.025)" : isOver ? "rgba(220,38,38,0.025)" : "transparent",
+                            background: isDone ? "var(--tint-green-faint, rgba(22,163,74,0.025))" : isOver ? "var(--tint-red-faint, rgba(220,38,38,0.025))" : "transparent",
                             cursor: "pointer",
                           }}
                           onClick={toggleExpand}
@@ -513,7 +513,7 @@ export default function TaxTrackerPage() {
                                 display: "flex", alignItems: "center", gap: 10,
                                 padding: "7px 18px 7px 58px",
                                 borderTop: "1px solid var(--border)",
-                                background: invChecked ? "rgba(22,163,74,0.02)" : "rgba(15,118,110,0.02)",
+                                background: invChecked ? "var(--tint-green-faint, rgba(22,163,74,0.02))" : "rgba(15,118,110,0.02)",
                               }}
                             >
                               <input
@@ -560,7 +560,7 @@ export default function TaxTrackerPage() {
                         display: "flex", alignItems: "flex-start", gap: 12,
                         padding: "10px 18px 10px 34px",
                         borderBottom: isLast ? "none" : "1px solid var(--border)",
-                        background: isDone ? "rgba(22,163,74,0.025)" : isOver ? "rgba(220,38,38,0.025)" : "transparent",
+                        background: isDone ? "var(--tint-green-faint, rgba(22,163,74,0.025))" : isOver ? "var(--tint-red-faint, rgba(220,38,38,0.025))" : "transparent",
                       }}
                     >
                       <input
@@ -625,9 +625,9 @@ export default function TaxTrackerPage() {
                                   {p.method && (
                                     <span style={{
                                       fontFamily: "inherit", fontWeight: 700,
-                                      color: p.method === "Liberty Bank" ? "#0d6b4e"
-                                           : p.method === "Check"        ? "#b45309"
-                                           : "#0b4a7d",
+                                      color: p.method === "Liberty Bank" ? "var(--c-0d6b4e)"
+                                           : p.method === "Check"        ? "var(--c-b45309)"
+                                           : "var(--c-0b4a7d)",
                                     }}>
                                       {p.method} ·
                                     </span>

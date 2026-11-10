@@ -150,18 +150,18 @@ function Row({
     }}>
       <span style={{
         width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
-        background: saved ? "#16a34a" : "#64748b",
+        background: saved ? "var(--c-16a34a)" : "var(--c-64748b)",
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>
-          {/* Click the title, not an "Open →" beside it. */}
+          {/* Click the title, not an "Open" beside it. */}
           <Link href={href} style={{ color: "inherit", textDecoration: "none" }} className="row-link">{title}</Link>
           {!loading && (
             <span style={{
               marginLeft: 8, fontSize: "var(--fs-10)", fontWeight: 700, padding: "2px 7px", borderRadius: 999,
               letterSpacing: "0.04em",
-              background: saved ? "rgba(22,163,74,0.15)" : "rgba(100,116,139,0.15)",
-              color: saved ? "#15803d" : "#475569",
+              background: saved ? "var(--tint-green-bg, rgba(22,163,74,0.15))" : "rgba(100,116,139,0.15)",
+              color: saved ? "var(--c-15803d)" : "var(--c-475569)",
             }}>
               {/* The PERIOD, not "SAVED". The dot and the green border already
                   say it is saved; which month is done is the thing you cannot

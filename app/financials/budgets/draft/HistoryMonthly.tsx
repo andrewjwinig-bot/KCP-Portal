@@ -90,7 +90,7 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, draftTyped, bad
             {rows.map((r) => {
               const total = sum(r.months.map((v) => v ?? 0));
               const rowStyle: React.CSSProperties = r.tone === "draft" ? { background: "var(--tint-green-bg, rgba(22,163,74,0.08))" } : r.tone === "avg" ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.05))" } : {};
-              const labelColor = r.tone === "draft" ? "#15803d" : r.tone === "avg" ? "var(--brand)" : r.tone === "budget" ? "var(--muted)" : "var(--text)";
+              const labelColor = r.tone === "draft" ? "var(--c-15803d)" : r.tone === "avg" ? "var(--brand)" : r.tone === "budget" ? "var(--muted)" : "var(--text)";
               return (
                 <tr key={r.key} style={{ ...rowStyle, ...(r.tone === "avg" ? { borderTop: "2px solid var(--tint-brand-line, rgba(11,74,125,0.3))" } : {}) }}>
                   <td style={{ ...lab, color: labelColor, fontWeight: r.tone ? 700 : 600 }}>
@@ -146,7 +146,7 @@ export function HistoryMonthly({ years, budgetYear, draftMonths, draftTyped, bad
                   ) : (
                   <td className={r.glYear != null ? "os-cell" : undefined}
                     onClick={r.glYear != null ? () => setOpen({ year: r.glYear!, period: r.projectedFrom != null ? Math.max(1, r.projectedFrom) : 12, scope: "ytd" }) : undefined}
-                    style={{ ...cell, fontWeight: 800, cursor: r.glYear != null ? "pointer" : undefined, color: r.tone === "draft" ? "#15803d" : undefined }}>
+                    style={{ ...cell, fontWeight: 800, cursor: r.glYear != null ? "pointer" : undefined, color: r.tone === "draft" ? "var(--c-15803d)" : undefined }}>
                     {money0(total)}
                   </td>
                   )}

@@ -111,7 +111,7 @@ export function ExpenseInputsPanel({ year, bookId, only, embedded = false, onSav
       {!embedded && (
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
           <div className="pills" style={{ justifyContent: "flex-start" }}>
-            <StatPill label="Entered" value={`${entered} / ${all.length}`} accent={all.length && entered === all.length ? "#15803d" : "#b45309"} />
+            <StatPill label="Entered" value={`${entered} / ${all.length}`} accent={all.length && entered === all.length ? "var(--c-15803d)" : "var(--c-b45309)"} />
           </div>
           <label className="muted small" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
             <input type="checkbox" checked={onlyOpen} onChange={(e) => setOnlyOpen(e.target.checked)} />

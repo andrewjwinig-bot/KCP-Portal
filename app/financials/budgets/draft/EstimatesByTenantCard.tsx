@@ -31,7 +31,7 @@ const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "r
 const td: React.CSSProperties = { padding: "9px 8px", fontSize: "var(--fs-13-5)", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
 const SUITE: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", whiteSpace: "nowrap" };
 const DIVIDE = "2px solid var(--border)";
-const UP = "var(--c-b45309)", DOWN = "#15803d";
+const UP = "var(--c-b45309)", DOWN = "var(--c-15803d)";
 const tone = (n: number) => (n > 0.5 ? UP : n < -0.5 ? DOWN : "var(--muted)");
 const LABEL = { cam: "CAM", ins: "INS", ret: "RET" } as const;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -77,7 +77,7 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
   };
   const seg = (active: boolean): React.CSSProperties => ({
     fontSize: "var(--fs-12)", fontWeight: 700, padding: "4px 10px", borderRadius: 999, cursor: "pointer",
-    border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`, background: active ? "rgba(11,74,125,0.10)" : "var(--card)",
+    border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`, background: active ? "var(--tint-brand-bg, rgba(11,74,125,0.10))" : "var(--card)",
     color: active ? "var(--brand)" : "var(--text)",
   });
 
@@ -202,7 +202,7 @@ function CheckRow({ check, ry, year }: { check: GroupCheck[]; ry: number | null;
     const pool = w.reduce((s, c) => s + c.pool, 0);
     return pool > 0 ? w.reduce((s, c) => s + c.reconRatio! * c.pool, 0) / pool : null;
   })();
-  const color = (c?: GroupCheck) => (!c ? undefined : c.over ? UP : "#15803d");
+  const color = (c?: GroupCheck) => (!c ? undefined : c.over ? UP : "var(--c-15803d)");
   const cell = (c: GroupCheck | undefined, span: number, first = false) => (
     <td colSpan={span} style={{ ...td, borderTop: "1px dashed var(--border)", ...(first ? { borderLeft: DIVIDE } : {}), textAlign: span > 1 ? "center" : "right" }}>
       {c ? (

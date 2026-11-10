@@ -506,7 +506,7 @@ function CashSheetPage() {
             <div style={{ display: "inline-flex", border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.3))", borderRadius: 999, overflow: "hidden" }} title="How much detail to show for cash movement">
               {([["net", "Net"], ["io", "Cash In/Out"], ["detail", "Detail"]] as const).map(([v, label]) => (
                 <button key={v} type="button" onClick={() => setViewPersist(v)}
-                  style={{ padding: "7px 12px", fontSize: "var(--fs-12)", fontWeight: 700, border: "none", cursor: "pointer", background: view === v ? "#0b4a7d" : "var(--card)", color: view === v ? "#fff" : "#0b4a7d" }}>
+                  style={{ padding: "7px 12px", fontSize: "var(--fs-12)", fontWeight: 700, border: "none", cursor: "pointer", background: view === v ? "var(--c-0b4a7d)" : "var(--card)", color: view === v ? "#fff" : "var(--c-0b4a7d)" }}>
                   {label}
                 </button>
               ))}
@@ -535,7 +535,7 @@ function CashSheetPage() {
       {laggingRows.length > 0 && (
         <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #d97706" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 800, color: "var(--c-b45309)", fontSize: "var(--fs-14)" }}>
-            <span>⚠ Snapshot blends time periods</span><Badge>{laggingRows.length}</Badge>
+            <span>Snapshot blends time periods</span><Badge>{laggingRows.length}</Badge>
           </div>
           <div className="muted small" style={{ marginBottom: 8 }}>
             Their GL isn&apos;t posted through <b>{MONTHS[glMonth - 1]} {year}</b> yet (the latest month the rest of the portfolio is on). Import their {MONTHS[glMonth - 1]} {year} GL so the whole sheet is one point in time.
@@ -553,7 +553,7 @@ function CashSheetPage() {
       {debtMissingRows.length > 0 && (
         <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #dc2626" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 800, color: "var(--c-b91c1c)", fontSize: "var(--fs-14)" }}>
-            <span>⚠ Mortgage P&amp;I not posted</span><Badge>{debtMissingRows.length}</Badge>
+            <span>Mortgage P&amp;I not posted</span><Badge>{debtMissingRows.length}</Badge>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
             {debtMissingRows.map((r) => (
@@ -570,10 +570,10 @@ function CashSheetPage() {
 
       <div className="pills" style={{ justifyContent: "flex-start" }}>
         <StatPill label={`Opening Cash · ${glDates.openShort}`} value={grand.hasOpening ? money0(grand.opening) : "—"} />
-        <StatPill label="Total Cash Inflows" value={money0(grand.inflows)} accent="#15803d" />
-        <StatPill label="Total Cash Outflows" value={money0(grand.outflows)} accent="#b91c1c" />
-        <StatPill label={`Ending Cash · ${glDates.endShort}`} value={grand.hasOpening ? money0(grand.ending) : "—"} accent="#0b4a7d" />
-        <StatPill label="Est. Available Cash" value={money0(estAvailTotal)} accent="#15803d" />
+        <StatPill label="Total Cash Inflows" value={money0(grand.inflows)} accent="var(--c-15803d)" />
+        <StatPill label="Total Cash Outflows" value={money0(grand.outflows)} accent="var(--c-b91c1c)" />
+        <StatPill label={`Ending Cash · ${glDates.endShort}`} value={grand.hasOpening ? money0(grand.ending) : "—"} accent="var(--c-0b4a7d)" />
+        <StatPill label="Est. Available Cash" value={money0(estAvailTotal)} accent="var(--c-15803d)" />
       </div>
 
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -665,7 +665,7 @@ function CashSheetPage() {
                             onChange={(e) => setManualDraft((d) => ({ ...d, [r.key]: e.target.value }))}
                             onBlur={() => saveManual(r, manualDraft[r.key] ?? "")}
                             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: "var(--fs-14)", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.startingCash == null ? undefined : r.startingCash >= 0 ? "#15803d" : "#b91c1c" }}
+                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: "var(--fs-14)", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.startingCash == null ? undefined : r.startingCash >= 0 ? "var(--c-15803d)" : "var(--c-b91c1c)" }}
                             className="cs-edit"
                           />
                         ) : data?.canEditOpening && !r.manual ? (
@@ -676,13 +676,13 @@ function CashSheetPage() {
                             onChange={(e) => setOpenDraft((d) => ({ ...d, [r.key]: e.target.value }))}
                             onBlur={() => { if ((openDraft[r.key] ?? "") !== "") saveOpening(r, openDraft[r.key]); else if (r.openingOverridden) saveOpening(r, ""); }}
                             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: "var(--fs-14)", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.openingOverridden ? "#b45309" : "inherit" }}
+                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: "var(--fs-14)", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.openingOverridden ? "var(--c-b45309)" : "inherit" }}
                             className="cs-edit"
                           />
                         ) : money0(r.startingCash)}
                         {!r.manual && r.openingOverridden && r.glOpening != null && r.startingCash != null && (
                           <div title="Starting cash overridden with the actual bank balance" style={{ fontWeight: 600, fontSize: "var(--fs-10)", textTransform: "none", color: "var(--muted)" }}>
-                            actual · GL {money0(r.glOpening)} · <span style={{ color: Math.abs(r.startingCash - r.glOpening) < 1 ? "#15803d" : "#b45309" }}>{Math.abs(r.startingCash - r.glOpening) < 1 ? "ties" : `${money0(r.startingCash - r.glOpening)} vs GL`}</span>
+                            actual · GL {money0(r.glOpening)} · <span style={{ color: Math.abs(r.startingCash - r.glOpening) < 1 ? "var(--c-15803d)" : "var(--c-b45309)" }}>{Math.abs(r.startingCash - r.glOpening) < 1 ? "ties" : `${money0(r.startingCash - r.glOpening)} vs GL`}</span>
                           </div>
                         )}
                       </td>
@@ -694,7 +694,7 @@ function CashSheetPage() {
                           return (
                             <td key={b.code} style={{ ...numCell, color: "var(--c-b45309)", fontWeight: 700 }}
                               title={`Estimated — scheduled mortgage P&I of ${money0(r.scheduledDebt)} has not posted to the GL yet. Shown for reference; not included in Net Change or Ending Cash until it posts.`}>
-                              ⚠ {money0(-r.scheduledDebt)}*
+                              {money0(-r.scheduledDebt)}*
                             </td>
                           );
                         }
@@ -703,7 +703,7 @@ function CashSheetPage() {
                         // properties' GLs — click for the per-property breakdown (each drillable).
                         if (b.code === 8 && r.sd) {
                           return (
-                            <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : "#15803d" }}>
+                            <td key={b.code} style={{ ...numCell, color: v < 0 ? "var(--c-b91c1c)" : "var(--c-15803d)" }}>
                               {r.sdBreakdown?.length ? (
                                 <button type="button" onClick={() => setSdModal({ name: r.name, rows: r.sdBreakdown! })}
                                   title="Net tenant-deposit movement — click for the per-property breakdown" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{money0(v)}</button>
@@ -714,7 +714,7 @@ function CashSheetPage() {
                         // Interest-bearing account: Receipts is the accrued interest — click for the rate calc, not a GL drill.
                         const isInterest = b.code === 1 && r.interest;
                         return (
-                          <td key={b.code} style={{ ...numCell, color: v < 0 ? "#b91c1c" : "#15803d" }}>
+                          <td key={b.code} style={{ ...numCell, color: v < 0 ? "var(--c-b91c1c)" : "var(--c-15803d)" }}>
                             <button type="button"
                               onClick={() => isInterest ? setInterestModal({ name: r.name, opening: r.interest!.opening, rate: r.interest!.rate, amount: r.interest!.amount, fee: r.interest!.fee, days: r.interest!.days }) : openDrill(r, b.code, b.label)}
                               title={isInterest ? "Show the interest calculation" : "Show the GL accounts behind this"}
@@ -727,18 +727,18 @@ function CashSheetPage() {
                         );
                       })}
                       {view === "io" && (() => { const io = ioFrom(r.byBucket); return (<>
-                        <td style={{ ...numCell, color: io.cin ? "#15803d" : "var(--muted)" }}>{io.cin ? <button type="button" onClick={() => setBucketModal({ row: r, filter: "in" })} title="Cash in — click for the category breakdown" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{money0(io.cin)}</button> : "—"}</td>
-                        <td style={{ ...numCell, color: io.cout ? "#b91c1c" : "var(--muted)" }}>{io.cout ? <button type="button" onClick={() => setBucketModal({ row: r, filter: "out" })} title="Cash out — click for the category breakdown" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{money0(-io.cout)}</button> : "—"}</td>
+                        <td style={{ ...numCell, color: io.cin ? "var(--c-15803d)" : "var(--muted)" }}>{io.cin ? <button type="button" onClick={() => setBucketModal({ row: r, filter: "in" })} title="Cash in — click for the category breakdown" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{money0(io.cin)}</button> : "—"}</td>
+                        <td style={{ ...numCell, color: io.cout ? "var(--c-b91c1c)" : "var(--muted)" }}>{io.cout ? <button type="button" onClick={() => setBucketModal({ row: r, filter: "out" })} title="Cash out — click for the category breakdown" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{money0(-io.cout)}</button> : "—"}</td>
                       </>); })()}
                       {view === "net" && (() => { const io = ioFrom(r.byBucket); return (
-                        <td style={{ ...numCell, color: io.net > 0 ? "#15803d" : io.net < 0 ? "#b91c1c" : "var(--muted)" }}>{io.net ? <button type="button" onClick={() => setBucketModal({ row: r, filter: "all" })} title="Net cash movement — click for the category breakdown" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{money0(io.net)}</button> : "—"}</td>
+                        <td style={{ ...numCell, color: io.net > 0 ? "var(--c-15803d)" : io.net < 0 ? "var(--c-b91c1c)" : "var(--muted)" }}>{io.net ? <button type="button" onClick={() => setBucketModal({ row: r, filter: "all" })} title="Net cash movement — click for the category breakdown" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{money0(io.net)}</button> : "—"}</td>
                       ); })()}
-                      <td style={{ ...keyCol, background: showEst ? undefined : lowCashBg(r.endingCash), color: r.startingCash == null || r.endingCash == null ? undefined : r.netChange > 0 ? "#15803d" : r.netChange < 0 ? "#b91c1c" : undefined }}
+                      <td style={{ ...keyCol, background: showEst ? undefined : lowCashBg(r.endingCash), color: r.startingCash == null || r.endingCash == null ? undefined : r.netChange > 0 ? "var(--c-15803d)" : r.netChange < 0 ? "var(--c-b91c1c)" : undefined }}
                         title={`Net change ${money0(r.netChange)}${r.startingCash != null ? ` (Opening ${money0(r.startingCash)})` : ""}${!showEst && (r.endingCash ?? Infinity) < 5000 ? " · low cash (<$5K)" : ""}`}>
                         {money0(r.endingCash)}
                       </td>
                       {showBillsCol && (
-                        <td style={{ ...numCell, color: r.billsMTD ? "#b45309" : "var(--muted)" }}
+                        <td style={{ ...numCell, color: r.billsMTD ? "var(--c-b45309)" : "var(--muted)" }}
                           title={r.billsMTD ? "AvidXchange bills paid this month — click for the weekly detail" : "No bills recorded this month"}>
                           {r.billsMTD && r.weeklyBills ? (
                             <button type="button" onClick={() => setBillsModal({ name: r.name, weekly: r.weeklyBills!, total: r.billsMTD! })}
@@ -760,14 +760,14 @@ function CashSheetPage() {
                               onChange={(e) => setReservesDraft((d) => ({ ...d, [r.key]: e.target.value }))}
                               onBlur={() => { if ((reservesDraft[r.key] ?? "") !== "") saveReserves(r.key, reservesDraft[r.key]); else if (r.reservesOverridden) saveReserves(r.key, ""); }}
                               onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                              style={{ width: 90, textAlign: "right", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 4px", background: "transparent", color: r.reservesOverridden ? "#6d28d9" : "inherit" }}
+                              style={{ width: 90, textAlign: "right", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 4px", background: "transparent", color: r.reservesOverridden ? "var(--c-6d28d9)" : "inherit" }}
                               className="cs-edit"
                             />
                           ) : (r.reserves ? money0(r.reserves) : <span className="muted">—</span>)}
                         </td>
                       )}
                       {netBridge && (() => { const br = bridgeVal(estAvail(r), r.endingCash); return (
-                        <td style={{ ...numCell, color: br ? "#b91c1c" : "var(--muted)" }}>
+                        <td style={{ ...numCell, color: br ? "var(--c-b91c1c)" : "var(--muted)" }}>
                           {br ? (
                             <button type="button" onClick={() => setBridgeModal({ row: r })}
                               title="Reserves + un-posted bills that bridge Ending Cash to Est. Available — click for the breakdown"
@@ -776,7 +776,7 @@ function CashSheetPage() {
                         </td>
                       ); })()}
                       {showEst && (
-                        <td style={{ ...keyCol, background: lowCashBg(estAvail(r)) ?? "rgba(21,128,61,0.08)" }}
+                        <td style={{ ...keyCol, background: lowCashBg(estAvail(r)) ?? "var(--tint-green-bg, rgba(21,128,61,0.08))" }}
                           title={`${r.estimate ? `From ${MONTHS[r.latestGLMonth - 1]} GL ending ${money0(r.estimate.latestEnding)}: − bills ${money0(r.estimate.bills)} (${r.estimate.months} un-posted mo)` : "GL is current"}${r.reserves ? ` − reserves ${money0(r.reserves)}` : ""}${(estAvail(r) ?? Infinity) < 5000 ? " · low cash (<$5K)" : ""}`}>
                           {estAvail(r) != null ? (r.estimate ? money0(estAvail(r)) : <span className="muted">{money0(estAvail(r))}</span>) : "—"}
                         </td>
@@ -797,14 +797,14 @@ function CashSheetPage() {
                     : view === "io" ? [
                         <td key="in" style={{ ...numCell, color: "var(--c-15803d)" }}>{money0(grand.inflows)}</td>,
                         <td key="out" style={{ ...numCell, color: "var(--c-b91c1c)" }}>{money0(-grand.outflows)}</td>]
-                    : <td style={{ ...numCell, color: grand.net > 0 ? "#15803d" : grand.net < 0 ? "#b91c1c" : undefined }}>{money0(grand.net)}</td>}
-                  <td style={{ ...keyCol, color: grand.net > 0 ? "#15803d" : grand.net < 0 ? "#b91c1c" : undefined }}
+                    : <td style={{ ...numCell, color: grand.net > 0 ? "var(--c-15803d)" : grand.net < 0 ? "var(--c-b91c1c)" : undefined }}>{money0(grand.net)}</td>}
+                  <td style={{ ...keyCol, color: grand.net > 0 ? "var(--c-15803d)" : grand.net < 0 ? "var(--c-b91c1c)" : undefined }}
                     title={`Net change ${money0(grand.net)}`}>
                     {grand.hasOpening ? money0(grand.ending) : "—"}
                   </td>
-                  {showBillsCol && <td style={{ ...numCell, color: grand.bills ? "#b45309" : "var(--muted)" }}>{grand.bills ? money0(grand.bills) : "—"}</td>}
-                  {showReservesCol && <td style={{ ...numCell, color: grand.reserves ? "#6d28d9" : "var(--muted)" }}>{grand.reserves ? money0(grand.reserves) : "—"}</td>}
-                  {netBridge && (() => { const br = bridgeVal(estAvailTotal, grand.hasOpening ? grand.ending : null); return <td style={{ ...numCell, color: br ? "#b91c1c" : "var(--muted)" }}>{br ? money0(br) : "—"}</td>; })()}
+                  {showBillsCol && <td style={{ ...numCell, color: grand.bills ? "var(--c-b45309)" : "var(--muted)" }}>{grand.bills ? money0(grand.bills) : "—"}</td>}
+                  {showReservesCol && <td style={{ ...numCell, color: grand.reserves ? "var(--c-6d28d9)" : "var(--muted)" }}>{grand.reserves ? money0(grand.reserves) : "—"}</td>}
+                  {netBridge && (() => { const br = bridgeVal(estAvailTotal, grand.hasOpening ? grand.ending : null); return <td style={{ ...numCell, color: br ? "var(--c-b91c1c)" : "var(--muted)" }}>{br ? money0(br) : "—"}</td>; })()}
                   {showEst && <td style={{ ...keyCol, background: "var(--tint-green-bg, rgba(21,128,61,0.10))" }}>{money0(estAvailTotal)}</td>}
                 </tr>
               </tfoot>
@@ -829,7 +829,7 @@ function CashSheetPage() {
         <AccountListCard
           title="Accounts not mapped to a bucket"
           description="GL accounts with activity this period that aren't assigned to a cash-flow bucket, so they're excluded from Net Change. Add them to the account → bucket map below so the tie-out stays complete."
-          accent="#b45309"
+          accent="var(--c-b45309)"
           amountLabel="Activity"
           rows={data!.unmapped!.map((u) => ({ account: u.account, name: `${u.key} · ${u.name}`, amount: u.amount }))}
           format={(n) => (Math.abs(n) < 0.5 ? "$0" : `${n < 0 ? "-" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`)}
@@ -958,7 +958,7 @@ function CashSheetPage() {
                                 title={sdBucket ? "Show the per-property breakdown" : "Show the GL accounts behind this"} style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{x.label}</button>
                             ) : x.label}
                           </td>
-                          <td style={{ ...numCell, color: x.amount < 0 ? "#b91c1c" : "#15803d" }}>{money0(x.amount)}</td>
+                          <td style={{ ...numCell, color: x.amount < 0 ? "var(--c-b91c1c)" : "var(--c-15803d)" }}>{money0(x.amount)}</td>
                         </tr>
                       );
                     })}
@@ -966,7 +966,7 @@ function CashSheetPage() {
                   <tfoot>
                     <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
                       <td style={{ textAlign: "left" }}>{heading}</td>
-                      <td style={{ ...numCell, color: total < 0 ? "#b91c1c" : "#15803d" }}>{money0(total)}</td>
+                      <td style={{ ...numCell, color: total < 0 ? "var(--c-b91c1c)" : "var(--c-15803d)" }}>{money0(total)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -998,7 +998,7 @@ function CashSheetPage() {
                     <tr><td style={{ textAlign: "left" }}>Ending Cash</td><td style={numCell}>{money0(ending)}</td></tr>
                     {!!reserves && <tr><td style={{ textAlign: "left" }}>Less: Reserves set aside</td><td style={{ ...numCell, color: "var(--c-b91c1c)" }}>{money0(-reserves)}</td></tr>}
                     {!!bills && <tr><td style={{ textAlign: "left" }}>Less: Un-posted Avid bills ({r.estimate!.months} mo)</td><td style={{ ...numCell, color: "var(--c-b91c1c)" }}>{money0(-bills)}</td></tr>}
-                    {!!carry && <tr><td style={{ textAlign: "left" }}>Posted-month carry-forward</td><td style={{ ...numCell, color: carry < 0 ? "#b91c1c" : "#15803d" }}>{money0(carry)}</td></tr>}
+                    {!!carry && <tr><td style={{ textAlign: "left" }}>Posted-month carry-forward</td><td style={{ ...numCell, color: carry < 0 ? "var(--c-b91c1c)" : "var(--c-15803d)" }}>{money0(carry)}</td></tr>}
                     <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
                       <td style={{ textAlign: "left" }}>Est. Available Cash</td>
                       <td style={{ ...numCell, color: "var(--c-15803d)" }}>{money0(avail)}</td>
@@ -1033,7 +1033,7 @@ function CashSheetPage() {
                         <button type="button" onClick={() => { setSdModal(null); runDrill(p.key, p.name, 8, "Security Deposits"); }}
                           title="Show the GL accounts behind this" style={summaryBtn} onMouseEnter={ulOn} onMouseLeave={ulOff}>{p.name}</button>
                       </td>
-                      <td style={{ ...numCell, color: p.amount < 0 ? "#b91c1c" : "#15803d" }}>{money0(p.amount)}</td>
+                      <td style={{ ...numCell, color: p.amount < 0 ? "var(--c-b91c1c)" : "var(--c-15803d)" }}>{money0(p.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1065,7 +1065,7 @@ function CashSheetPage() {
                   {billsModal.weekly.map((w) => (
                     <tr key={w.wednesday}>
                       <td style={{ textAlign: "left" }}>{weekOfLabel(w.wednesday)}</td>
-                      <td style={{ ...numCell, color: w.amount ? "#b45309" : "var(--muted)" }}>{w.amount ? money0(w.amount) : "—"}</td>
+                      <td style={{ ...numCell, color: w.amount ? "var(--c-b45309)" : "var(--muted)" }}>{w.amount ? money0(w.amount) : "—"}</td>
                     </tr>
                   ))}
                   <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
@@ -1104,7 +1104,7 @@ function CashSheetPage() {
                     <tr key={br.key}>
                       <td style={{ textAlign: "left", whiteSpace: "nowrap" }}><code style={{ fontSize: "var(--fs-12)" }}>{br.key}</code> {br.name}</td>
                       <td style={numCell}>{money0(br.startingCash)}</td>
-                      {visibleBuckets.map((b) => <td key={b.code} style={{ ...numCell, color: (br.byBucket[b.code] ?? 0) < 0 ? "#b91c1c" : (br.byBucket[b.code] ?? 0) > 0 ? "#15803d" : "var(--muted)" }}>{br.byBucket[b.code] ? money0(br.byBucket[b.code]) : "—"}</td>)}
+                      {visibleBuckets.map((b) => <td key={b.code} style={{ ...numCell, color: (br.byBucket[b.code] ?? 0) < 0 ? "var(--c-b91c1c)" : (br.byBucket[b.code] ?? 0) > 0 ? "var(--c-15803d)" : "var(--muted)" }}>{br.byBucket[b.code] ? money0(br.byBucket[b.code]) : "—"}</td>)}
                       <td style={{ ...numCell, fontWeight: 700 }}>{money0(br.netChange)}</td>
                       <td style={{ ...numCell, fontWeight: 700 }}>{money0(br.endingCash)}</td>
                     </tr>
@@ -1138,13 +1138,13 @@ function CashSheetPage() {
                       <tr key={a.account}>
                         <td style={{ textAlign: "left" }}><code style={{ fontSize: "var(--fs-12)" }}>{a.account}</code></td>
                         <td style={{ textAlign: "left" }}>{a.name || <span className="muted">—</span>}</td>
-                        <td style={{ ...numCell, color: a.amount < 0 ? "#b91c1c" : "#15803d" }}>{money0(a.amount)}</td>
+                        <td style={{ ...numCell, color: a.amount < 0 ? "var(--c-b91c1c)" : "var(--c-15803d)" }}>{money0(a.amount)}</td>
                       </tr>
                     ))}
                     <tr style={{ borderTop: "1px solid var(--border)", fontWeight: 800 }}>
                       <td style={{ textAlign: "left" }}>Total</td>
                       <td />
-                      <td style={{ ...numCell, color: drillData.total < 0 ? "#b91c1c" : "#15803d" }}>{money0(drillData.total)}</td>
+                      <td style={{ ...numCell, color: drillData.total < 0 ? "var(--c-b91c1c)" : "var(--c-15803d)" }}>{money0(drillData.total)}</td>
                     </tr>
                   </tbody>
                 </table>

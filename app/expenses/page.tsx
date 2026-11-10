@@ -1,5 +1,5 @@
 "use client";
-import { X } from "lucide-react";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
@@ -1264,7 +1264,7 @@ export default function ExpensesPage() {
             disabled={ccBuilding}
             onClick={reviewCcAndSend}
           >
-            {ccBuilding ? "Preparing…" : "Review & Send to AvidXchange →"}
+            {ccBuilding ? "Preparing…" : "Review & Send to AvidXchange"}
           </button>
         </div>
       )}
@@ -1316,7 +1316,7 @@ export default function ExpensesPage() {
                 {saving ? "Saving…" : "Save to History"}
               </button>
             )}
-            <span style={{ background: "var(--tint-green-bg, rgba(22, 163, 74, 0.85))", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
+            <span className="muted" style={{ fontSize: "var(--fs-13)", fontWeight: 600, alignSelf: "center" }}>Monthly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
@@ -1341,7 +1341,7 @@ export default function ExpensesPage() {
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setChartsOpen((o) => !o)} title={chartsOpen ? "Collapse" : "Expand"}>
-              {chartsOpen ? "▲" : "▼"}
+              {chartsOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
             </button>
             <b>Charts</b>
           </div>
@@ -1370,7 +1370,7 @@ export default function ExpensesPage() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {!isMaint && (
               <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setCodeTransOpen((o) => !o)} title={codeTransOpen ? "Collapse" : "Expand"}>
-                {codeTransOpen ? "▲" : "▼"}
+                {codeTransOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
               </button>
             )}
             <div>
@@ -1539,7 +1539,7 @@ export default function ExpensesPage() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
-              {allocPreviewOpen ? "▲" : "▼"}
+              {allocPreviewOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
             </button>
             <div>
               <b>Allocation Preview</b>
@@ -1628,7 +1628,7 @@ export default function ExpensesPage() {
                   <tr>
                     <td colSpan={2}>Total</td>
                     <td style={{ textAlign: "right" }}>{toMoney(ccBillTotal)}</td>
-                    <td style={{ textAlign: "right", color: ccHeldTotal > 0 ? "#b91c1c" : undefined }}>{ccHeldTotal > 0 ? toMoney(ccHeldTotal) : "—"}</td>
+                    <td style={{ textAlign: "right", color: ccHeldTotal > 0 ? "var(--c-b91c1c)" : undefined }}>{ccHeldTotal > 0 ? toMoney(ccHeldTotal) : "—"}</td>
                   </tr>
                 </tfoot>
               )}
@@ -1677,9 +1677,9 @@ export default function ExpensesPage() {
               className="btn"
               onClick={finalizeMonthAction}
               disabled={finalizing || alreadyFinalized || !statementMonth}
-              style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700, background: alreadyFinalized ? undefined : "rgba(22,163,74,0.9)", color: alreadyFinalized ? undefined : "#fff", border: "1px solid transparent" }}
+              style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700, background: alreadyFinalized ? undefined : "var(--tint-green-line, rgba(22,163,74,0.9))", color: alreadyFinalized ? undefined : "#fff", border: "1px solid transparent" }}
             >
-              {finalizing ? "Finalizing…" : alreadyFinalized ? `✓ ${statementMonth} finalized` : "Finalize Month & Update Carryover"}
+              {finalizing ? "Finalizing…" : alreadyFinalized ? `${statementMonth} finalized` : "Finalize Month & Update Carryover"}
             </button>
             <span className="small muted" style={{ maxWidth: 560 }}>
               {alreadyFinalized

@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 // Collapsible list of GL accounts that fall outside the statement/reprojection
 // lines — shared by Operating Statements ("Non-operating accounts") and
@@ -55,7 +56,7 @@ export function AccountListCard({
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: accent, fontVariantNumeric: "tabular-nums" }}>{format(total)}</span>
-          <span style={{ color: accent, fontSize: "var(--fs-14)" }}>{open ? "▲" : "▼"}</span>
+          <span style={{ color: accent, fontSize: "var(--fs-14)" }}>{open ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
         </span>
       </button>
 

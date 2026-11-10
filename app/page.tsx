@@ -1,5 +1,5 @@
 "use client";
-import { ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
@@ -721,10 +721,10 @@ export default function Page() {
 
       {/* ── Payroll tie-out — does the allocation add back up to the register? ── */}
       {tieOut && invoices.length > 0 && (
-        <div className="card" style={{ padding: "14px 16px", borderColor: tieOut.ties ? "rgba(22,163,74,0.45)" : "rgba(220,38,38,0.6)", background: tieOut.ties ? "rgba(22,163,74,0.06)" : "rgba(220,38,38,0.07)" }}>
+        <div className="card" style={{ padding: "14px 16px", borderColor: tieOut.ties ? "var(--tint-green-line, rgba(22,163,74,0.45))" : "var(--tint-red-line, rgba(220,38,38,0.6))", background: tieOut.ties ? "var(--tint-green-bg, rgba(22,163,74,0.06))" : "var(--tint-red-bg, rgba(220,38,38,0.07))" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ fontWeight: 800, fontSize: 15, color: tieOut.ties ? "#15803d" : "#b91c1c" }}>
-              {tieOut.ties ? "✓ Allocation ties to the register" : "⚠ Allocation does not tie to the register"}
+            <div style={{ fontWeight: 800, fontSize: 15, color: tieOut.ties ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>
+              {tieOut.ties ? "Allocation ties to the register" : "Allocation does not tie to the register"}
             </div>
             <div className="muted small">
               Register <b style={{ color: "var(--fg)" }}>{money(tieOut.sourceTotal)}</b> · Allocated <b style={{ color: "var(--fg)" }}>{money(tieOut.allocatedTotal)}</b>
@@ -831,7 +831,7 @@ export default function Page() {
                 {saving ? "Saving…" : "Save Pay Period"}
               </button>
             )}
-            <span style={{ background: "var(--tint-green-bg, rgba(22, 163, 74, 0.85))", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Bi-Weekly</span>
+            <span className="muted" style={{ fontSize: "var(--fs-13)", fontWeight: 600, alignSelf: "center" }}>Bi-Weekly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
@@ -864,7 +864,7 @@ export default function Page() {
               onClick={() => setEmployeesOpen((o) => !o)}
               title={employeesOpen ? "Collapse" : "Expand"}
             >
-              {employeesOpen ? "▲" : "▼"}
+              {employeesOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
             </button>
             <div>
               <b>Employees</b>
@@ -956,7 +956,7 @@ export default function Page() {
               onClick={() => setInvoicesOpen((o) => !o)}
               title={invoicesOpen ? "Collapse" : "Expand"}
             >
-              {invoicesOpen ? "▲" : "▼"}
+              {invoicesOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
             </button>
             <div>
               <b>Allocation Preview</b>
@@ -1334,7 +1334,7 @@ export default function Page() {
                   style={{
                     borderRadius: 0, padding: "5px 16px", fontSize: "var(--fs-13)", fontWeight: empTab === tab ? 700 : 400,
                     borderBottom: empTab === tab ? "2px solid #0b4a7d" : "2px solid transparent",
-                    marginBottom: -2, color: empTab === tab ? "#0b4a7d" : undefined,
+                    marginBottom: -2, color: empTab === tab ? "var(--c-0b4a7d)" : undefined,
                   }}
                   onClick={() => {
                     setEmpTab(tab);

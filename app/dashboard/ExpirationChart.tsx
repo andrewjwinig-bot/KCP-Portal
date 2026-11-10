@@ -21,32 +21,32 @@ const RESIDENTIAL_CODES = new Set(["9800", "9820", "9840", "9860"]);
 
 // Stable color per building so codes stay visually distinct in the stack.
 const BUILDING_COLOR: Record<string, string> = {
-  "3610": "#0b4a7d",
-  "3620": "#1d6fa5",
-  "3640": "#3b82f6",
-  "4050": "#14b8a6",
-  "4060": "#0d9488",
-  "4070": "#0f766e",
-  "4080": "#059669",
-  "40A0": "#84cc16",
-  "40B0": "#a3e635",
-  "40C0": "#65a30d",
-  "1100": "#0b4a7d",
-  "1500": "#2563eb",
-  "2300": "#0d9488",
-  "4500": "#16a34a",
-  "5600": "#84cc16",
-  "7010": "#d97706",
-  "7200": "#ea580c",
-  "7300": "#dc2626",
-  "8200": "#db2777",
-  "9200": "#7c3aed",
-  "9510": "#4f46e5",
-  "9800": "#0891b2",
-  "9820": "#0e7490",
-  "9840": "#155e75",
-  "9860": "#06b6d4",
-  "4900": "#475569",
+  "3610": "var(--c-0b4a7d)",
+  "3620": "var(--c-1d6fa5)",
+  "3640": "var(--c-3b82f6)",
+  "4050": "var(--c-14b8a6)",
+  "4060": "var(--c-0d9488)",
+  "4070": "var(--c-0f766e)",
+  "4080": "var(--c-059669)",
+  "40A0": "var(--c-84cc16)",
+  "40B0": "var(--c-a3e635)",
+  "40C0": "var(--c-65a30d)",
+  "1100": "var(--c-0b4a7d)",
+  "1500": "var(--c-2563eb)",
+  "2300": "var(--c-0d9488)",
+  "4500": "var(--c-16a34a)",
+  "5600": "var(--c-84cc16)",
+  "7010": "var(--c-d97706)",
+  "7200": "var(--c-ea580c)",
+  "7300": "var(--c-dc2626)",
+  "8200": "var(--c-db2777)",
+  "9200": "var(--c-7c3aed)",
+  "9510": "var(--c-4f46e5)",
+  "9800": "var(--c-0891b2)",
+  "9820": "var(--c-0e7490)",
+  "9840": "var(--c-155e75)",
+  "9860": "var(--c-06b6d4)",
+  "4900": "var(--c-475569)",
 };
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -281,9 +281,9 @@ export default function ExpirationChart({
               style={{
                 padding: "5px 12px", borderRadius: 999, fontSize: "var(--fs-12)",
                 fontWeight: active ? 700 : 500, cursor: "pointer",
-                border: `1.5px solid ${active ? "#0b4a7d" : "var(--border)"}`,
-                background: active ? "rgba(11,74,125,0.10)" : "transparent",
-                color: active ? "#0b4a7d" : "var(--muted)",
+                border: `1.5px solid ${active ? "var(--c-0b4a7d)" : "var(--border)"}`,
+                background: active ? "var(--tint-brand-bg, rgba(11,74,125,0.10))" : "transparent",
+                color: active ? "var(--c-0b4a7d)" : "var(--muted)",
                 fontFamily: "inherit", transition: "all 0.15s ease", whiteSpace: "nowrap",
               }}
             >
@@ -333,7 +333,7 @@ export default function ExpirationChart({
                           }}
                           style={{
                             height: segH,
-                            background: BUILDING_COLOR[code] ?? "#94a3b8",
+                            background: BUILDING_COLOR[code] ?? "var(--c-94a3b8)",
                             cursor: "pointer",
                             filter: hover && !isHovered ? "brightness(0.85)" : "none",
                             transition: "filter 0.12s",
@@ -382,7 +382,7 @@ export default function ExpirationChart({
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, marginBottom: 4 }}>
-                  <span style={{ width: 8, height: 8, background: BUILDING_COLOR[hover.building] ?? "#94a3b8", borderRadius: 2 }} />
+                  <span style={{ width: 8, height: 8, background: BUILDING_COLOR[hover.building] ?? "var(--c-94a3b8)", borderRadius: 2 }} />
                   <span>{hover.building} · {hover.buildingName}</span>
                 </div>
                 <div style={{ opacity: 0.88 }}>{hover.periodLabel}</div>
@@ -400,7 +400,7 @@ export default function ExpirationChart({
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
             {buildings.map((code) => (
               <div key={code} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-11)" }}>
-                <span style={{ width: 12, height: 12, background: BUILDING_COLOR[code] ?? "#94a3b8", borderRadius: 3 }} />
+                <span style={{ width: 12, height: 12, background: BUILDING_COLOR[code] ?? "var(--c-94a3b8)", borderRadius: 3 }} />
                 <span style={{ fontWeight: 600 }}>{code}</span>
               </div>
             ))}

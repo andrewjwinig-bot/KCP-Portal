@@ -126,7 +126,7 @@ export function PropertyBreakdownModal({ label, section, year, rows, onClose }: 
                 <tbody>
                   {sorted.map((x) => (
                     <tr key={x.code} onMouseEnter={() => setActive(colorOf.get(x.code) === OTHER ? "__other" : x.code)} onMouseLeave={() => setActive(null)}
-                      style={{ background: hoverRow?.code === x.code || picked === x.code ? "rgba(11,74,125,0.05)" : undefined, opacity: picked && picked !== x.code ? 0.5 : 1 }}>
+                      style={{ background: hoverRow?.code === x.code || picked === x.code ? "var(--tint-brand-bg, rgba(11,74,125,0.05))" : undefined, opacity: picked && picked !== x.code ? 0.5 : 1 }}>
                       <td style={{ ...td, textAlign: "left" }}>
                         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                           <span style={{ width: 10, height: 10, borderRadius: 3, background: colorOf.get(x.code) ?? "transparent", border: colorOf.get(x.code) ? "none" : "1px solid var(--border)", flex: "0 0 auto" }} />

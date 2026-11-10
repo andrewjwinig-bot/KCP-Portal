@@ -55,9 +55,9 @@ export default function CampusPlanCard({ campus, style }: { campus: CampusView; 
                 tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter") router.push(`/properties/${encodeURIComponent(b.code)}`); }}
                 aria-label={`${b.name}, ${pct(occupancyOf(b))} leased`}>
                 {b.pts.map((p, i) => (
-                  <polygon key={i} points={p} fill={b.onRoll ? band.color : "#94a3b8"}
+                  <polygon key={i} points={p} fill={b.onRoll ? band.color : "var(--c-94a3b8)"}
                     fillOpacity={hot ? 0.9 : mine ? 0.72 : 0.35}
-                    stroke={hot ? "#0f172a" : mine ? "#0f172a" : "rgba(15,23,42,0.4)"} strokeWidth={hot ? 3 : mine ? 1.6 : 1} />
+                    stroke={hot ? "var(--c-0f172a)" : mine ? "var(--c-0f172a)" : "rgba(15,23,42,0.4)"} strokeWidth={hot ? 3 : mine ? 1.6 : 1} />
                 ))}
                 {b.onRoll && (
                   <text x={b.cx} y={b.cy + 20} textAnchor="middle" fontSize={12} fontWeight={800} fill="var(--c-0f172a)"
@@ -97,10 +97,10 @@ function BuildingTip({ b, x, y, campus }: { b: CampusBuildingFigures; x: number;
       : []),
   ];
   const footer = campus.canSeeAr && b.onRoll
-    ? { label: "Past due", value: money0(b.pastDue ?? 0), color: (b.pastDue ?? 0) >= 1 ? "#b91c1c" : "#15803d" }
+    ? { label: "Past due", value: money0(b.pastDue ?? 0), color: (b.pastDue ?? 0) >= 1 ? "var(--c-b91c1c)" : "var(--c-15803d)" }
     : null;
   return (
     <PlanTip title={b.name} subtitle={`${b.fund ?? "Neshaminy Interplex"} · ${b.sf.toLocaleString()} SF`} rows={rows} footer={footer}
-      accent={b.onRoll ? occBand(b).color : "#94a3b8"} x={x} y={y} />
+      accent={b.onRoll ? occBand(b).color : "var(--c-94a3b8)"} x={x} y={y} />
   );
 }

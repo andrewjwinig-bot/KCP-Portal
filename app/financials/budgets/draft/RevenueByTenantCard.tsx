@@ -148,7 +148,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
       ? { ...td, fontWeight: 800, borderTop: top ? TOTAL_BORDER : undefined }
       : { ...td, fontSize: "var(--fs-12)", padding: "4px 8px", color: "var(--muted)", fontWeight: 600, borderTop: top ? TOTAL_BORDER : undefined };
     return (
-      <tr key={key} style={{ background: strong ? "rgba(11,74,125,0.06)" : undefined }}>
+      <tr key={key} style={{ background: strong ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : undefined }}>
         <td colSpan={2} style={{ ...cell, textAlign: "left" }}>{label}</td>
         <td style={cell}>{totalSf > 0 ? totalSf.toLocaleString() : "–"}</td>
         {months.map((v, i) => <td key={i} style={cell}>{monthShown(v, totalSf)}</td>)}
@@ -171,7 +171,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
                 rows={tie.map((t) => ({
                   label: PART_LABEL[t.basis],
                   value: t.lines.length ? `${money0(t.estimateTotal)} → ${money0(t.linesTotal)}` : `${money0(t.estimateTotal)} → no line`,
-                  color: t.ties ? "#15803d" : "#b91c1c",
+                  color: t.ties ? "var(--c-15803d)" : "var(--c-b91c1c)",
                 }))}
                 footer={{ label: "Every month", value: "See the rows below" }}>
                 <Pill tone={tiesTone(false)}>DOESN&rsquo;T TIE</Pill>

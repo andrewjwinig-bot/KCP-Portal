@@ -412,7 +412,7 @@ export default function DepositForm({
                   style={{
                     width: "100%", maxHeight: 460, objectFit: "contain",
                     borderRadius: 10, border: "1px solid var(--border)",
-                    background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", display: "block",
+                    background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))", display: "block",
                   }} />
               </a>
             ) : (
@@ -431,7 +431,7 @@ export default function DepositForm({
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: "16px", cursor: "pointer", textAlign: "center",
             border: "1.5px dashed var(--border)", borderRadius: 10,
-            background: "var(--tint-neutral-bg, rgba(15,23,42,0.015))", fontSize: "var(--fs-13)", color: "var(--muted)",
+            background: "var(--tint-neutral-faint, rgba(15,23,42,0.015))", fontSize: "var(--fs-13)", color: "var(--muted)",
           }}
         >
           {extracting
@@ -461,7 +461,7 @@ export default function DepositForm({
           background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))",
           color: "var(--c-b45309)", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>
-          ⚠ This tenant already has {dupMatch.checkNumber ? `check #${dupMatch.checkNumber}` : "a check"}
+          This tenant already has {dupMatch.checkNumber ? `check #${dupMatch.checkNumber}` : "a check"}
           {dupMatch.amount ? ` for $${dupMatch.amount.toLocaleString("en-US")}` : ""}
           {dupMatch.checkDate ? ` dated ${dupMatch.checkDate}` : ""} on file. If it&apos;s the same check, don&apos;t enter it twice.
         </div>
@@ -550,7 +550,7 @@ export default function DepositForm({
           fontSize: "var(--fs-12)", color: "var(--muted)", padding: "8px 10px", borderRadius: 8,
           background: "var(--tint-green-bg, rgba(22,163,74,0.06))", border: "1px solid var(--tint-green-line, rgba(22,163,74,0.25))",
         }}>
-          ✓ Added {addedChecks.length} check{addedChecks.length === 1 ? "" : "s"} for this tenant
+          Added {addedChecks.length} check{addedChecks.length === 1 ? "" : "s"} for this tenant
           {" "}({addedChecks.map((c) => `${c.checkNumber ? `#${c.checkNumber} ` : ""}$${c.amount.toLocaleString("en-US")}`).join(", ")}).
           {" "}Enter the next check, or finish below.
         </div>
@@ -569,11 +569,11 @@ export default function DepositForm({
             + Add another check
           </button>
         )}
-        <span style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: autoStatus === "error" ? "#b91c1c" : "var(--muted)" }}>
+        <span style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: autoStatus === "error" ? "var(--c-b91c1c)" : "var(--muted)" }}>
           {autoStatus === "saving" || autoStatus === "pending"
             ? "Saving…"
             : autoStatus === "saved"
-              ? "✓ Saved automatically"
+              ? "Saved automatically"
               : autoStatus === "error"
                 ? "Auto-save failed — click Done to retry"
                 : ""}

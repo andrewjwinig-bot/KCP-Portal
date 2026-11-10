@@ -72,7 +72,7 @@ function money0(v: number | null): string {
 
 function varColor(v: number | null): string {
   if (v == null || Math.abs(v) < 0.5) return "var(--muted)";
-  return v > 0 ? "#15803d" : "#b91c1c";
+  return v > 0 ? "var(--c-15803d)" : "var(--c-b91c1c)";
 }
 
 // Big-label dropdown (label + chevron over an invisible native select) — the
@@ -495,7 +495,7 @@ export default function OperatingStatementsPage() {
             : undefined;
         // Fold the on-import "things to check" into the note.
         const note = npCount > 0
-          ? `${baseNote ? baseNote + " · " : ""}⚠ ${npCount} line${npCount === 1 ? "" : "s"} not posted`
+          ? `${baseNote ? baseNote + " · " : ""}${npCount} line${npCount === 1 ? "" : "s"} not posted`
           : baseNote;
         return {
           status: "done" as const,
@@ -526,15 +526,15 @@ export default function OperatingStatementsPage() {
           ],
           unlocks: [
             ...(notPostedTotal > 0
-              ? [{ id: "notposted", title: `${notPostedTotal} line${notPostedTotal === 1 ? "" : "s"} not posted`, subtitle: "A budgeted or scheduled figure still reads $0 — post it or confirm it doesn't apply.", href: "/financials/operating-statements/review", cta: "Review →" }]
+              ? [{ id: "notposted", title: `${notPostedTotal} line${notPostedTotal === 1 ? "" : "s"} not posted`, subtitle: "A budgeted or scheduled figure still reads $0 — post it or confirm it doesn't apply.", href: "/financials/operating-statements/review", cta: "Review" }]
               : []),
             ...(alloc
               // Sent on its own (owner) — the card says so; a held one says why.
               ? [alloc.autoSent
-                ? { id: "alloc", title: `Allocated invoices sent to AvidXchange — $${Math.round(alloc.total ?? 0).toLocaleString("en-US")}`, subtitle: `${alloc.invoiceCount ?? 0} invoices across ${(alloc.byProperty?.length ?? 0)} properties, one email each. Nothing else to do.`, href: "/allocated-invoicer", cta: "View →" }
-                : { id: "alloc", title: `Allocated invoices prepared — $${Math.round(alloc.total ?? 0).toLocaleString("en-US")}`, subtitle: `${alloc.invoiceCount ?? 0} invoices across ${(alloc.byProperty?.length ?? 0)} properties — not sent${alloc.autoHeld ? `: ${alloc.autoHeld}.` : ". Tomorrow morning's run retries the send."}`, href: "/allocated-invoicer", cta: "Review & Send →" }]
+                ? { id: "alloc", title: `Allocated invoices sent to AvidXchange — $${Math.round(alloc.total ?? 0).toLocaleString("en-US")}`, subtitle: `${alloc.invoiceCount ?? 0} invoices across ${(alloc.byProperty?.length ?? 0)} properties, one email each. Nothing else to do.`, href: "/allocated-invoicer", cta: "View" }
+                : { id: "alloc", title: `Allocated invoices prepared — $${Math.round(alloc.total ?? 0).toLocaleString("en-US")}`, subtitle: `${alloc.invoiceCount ?? 0} invoices across ${(alloc.byProperty?.length ?? 0)} properties — not sent${alloc.autoHeld ? `: ${alloc.autoHeld}.` : ". Tomorrow morning's run retries the send."}`, href: "/allocated-invoicer", cta: "Review & Send" }]
               : raws.some((r) => r.allocatedGlReady)
-                ? [{ id: "alloc", title: "Allocated Invoicer", subtitle: "Ready to bill properties for this period.", href: "/allocated-invoicer", cta: "Go to Invoicer →" }]
+                ? [{ id: "alloc", title: "Allocated Invoicer", subtitle: "Ready to bill properties for this period.", href: "/allocated-invoicer", cta: "Go to Invoicer" }]
                 : []),
           ],
           autoExplain: targets.length
@@ -886,7 +886,7 @@ export default function OperatingStatementsPage() {
               display: "flex", alignItems: "center", gap: 10,
               borderRadius: 10, padding: glDrop.dragging ? "4px 6px" : 0,
               outline: glDrop.dragging ? "2px dashed var(--brand)" : "none", outlineOffset: 2,
-              background: glDrop.dragging ? "rgba(11,74,125,0.06)" : "transparent",
+              background: glDrop.dragging ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : "transparent",
               transition: "background .15s",
             }}
           >
@@ -948,11 +948,11 @@ export default function OperatingStatementsPage() {
           const mPct = varPct(noi.periodVariance, noi.periodBudget);
           const yPct = varPct(noi.ytdVariance, noi.ytdBudget);
           const mon = MONTHS[statement.period - 1];
-          const pctAccent = (v: number | null) => (v == null ? undefined : v >= 0 ? "#15803d" : "#b91c1c");
+          const pctAccent = (v: number | null) => (v == null ? undefined : v >= 0 ? "var(--c-15803d)" : "var(--c-b91c1c)");
           return (
             <>
               <div className="pills" style={{ marginTop: 12 }}>
-                {operatingCash != null && <StatPill label={`Starting Cash · ${mon} (Per GL)`} value={`$${money0(operatingCash)}`} accent="#0b4a7d" />}
+                {operatingCash != null && <StatPill label={`Starting Cash · ${mon} (Per GL)`} value={`$${money0(operatingCash)}`} accent="var(--c-0b4a7d)" />}
                 <StatPill label={`Net Operating Income · ${mon} vs Budget`} value={fmtVarValueNode(noi.periodVariance, mPct)} accent={pctAccent(mPct)} />
                 <StatPill label="Net Operating Income · YTD vs Budget" value={fmtVarValueNode(noi.ytdVariance, yPct)} accent={pctAccent(yPct)} />
                 {/* ONE number, and it is the one you work from: how many lines
@@ -978,8 +978,8 @@ export default function OperatingStatementsPage() {
                     </Pill></div>
                   </HoverCard>
                 )}
-                <ClickablePill active={flagFilter === "flagged"} activeColor="#b45309" onClick={() => setFlagFilter((f) => (f === "flagged" ? null : "flagged"))} title={openItems ? `Click to show only the ${openItems} line${openItems === 1 ? "" : "s"} still to investigate in ${mon}` : `Nothing open in ${mon}`}>
-                  <StatPill label={`Items to Investigate · ${mon}`} value={openItems} accent={openItems > 0 ? "#b45309" : "#15803d"} />
+                <ClickablePill active={flagFilter === "flagged"} activeColor="var(--c-b45309)" onClick={() => setFlagFilter((f) => (f === "flagged" ? null : "flagged"))} title={openItems ? `Click to show only the ${openItems} line${openItems === 1 ? "" : "s"} still to investigate in ${mon}` : `Nothing open in ${mon}`}>
+                  <StatPill label={`Items to Investigate · ${mon}`} value={openItems} accent={openItems > 0 ? "var(--c-b45309)" : "var(--c-15803d)"} />
                 </ClickablePill>
               </div>
               {analyzing && (
@@ -1070,7 +1070,7 @@ export default function OperatingStatementsPage() {
       {!loading && statement && debtCheck?.missing && !isFullYear
         && statement.sections.some((sec) => sec.role === "debt-service" && sec.lines.some((l) => l.expectedMissing && !dismissedFlags.has(lineKeyOf(sec.name, l.label)))) && (
         <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))", color: "var(--c-b91c1c)", fontSize: "var(--fs-13)", fontWeight: 600 }}>
-          ⚠ Debt service not posted — scheduled P&amp;I is <b>${money0(debtCheck.scheduled)}/mo</b>. Post the mortgage charge.
+          Debt service not posted — scheduled P&amp;I is <b>${money0(debtCheck.scheduled)}/mo</b>. Post the mortgage charge.
         </div>
       )}
       {!loading && statement && isFullYear && fullYear && (
@@ -1187,7 +1187,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
           <AccountListCard
             title="Revenue & Expense Accounts on No Line — Not in NOI"
             description="These are income or expense accounts (4000 and up) that no statement line picks up, so they are left out of every total above. Each one needs a line on the mapping."
-            accent="#b91c1c"
+            accent="var(--c-b91c1c)"
             defaultOpen
             rows={s.unmappedAccounts.filter((u) => u.pl).map((u) => ({ account: u.account, name: u.name, amount: u.ytdActual }))}
             format={(n) => (Math.abs(n) < 0.5 ? "$0" : `${n < 0 ? "-" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`)}
@@ -1198,7 +1198,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
         <AccountListCard
           title="Non-operating accounts — not on the operating statement"
           description="Balance-sheet & offset accounts carrying a YTD balance but no P&L line — e.g. Prepaid Insurance (the offset to Insurance expense), Cash, depreciation, deferred costs. Expected here."
-          accent="#b45309"
+          accent="var(--c-b45309)"
           rows={s.unmappedAccounts.filter((u) => !u.pl).map((u) => ({ account: u.account, name: u.name, amount: u.ytdActual }))}
           format={(n) => (Math.abs(n) < 0.5 ? "$0" : `${n < 0 ? "-" : ""}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`)}
         />
@@ -1214,7 +1214,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
   if (flagFilter) {
     const matchSecs = s.sections.filter((sec) => sec.lines.some((l) => carriesInvestigateMark(sec.name, l, dismissedFlags)));
     const count = matchSecs.reduce((n, sec) => n + sec.lines.filter((l) => carriesInvestigateMark(sec.name, l, dismissedFlags)).length, 0);
-    const color = "#b45309";
+    const color = "var(--c-b45309)";
     const word = "still to investigate";
     return (
       <>
@@ -1295,7 +1295,7 @@ function FYRow({ label, monthly, cols, total, budget, variance, varMode, showBud
   const rowStyle: React.CSSProperties | undefined =
     variant === "subtotal" ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", borderTop: "2px solid var(--tint-brand-line, rgba(11,74,125,0.30))" }
     : variant === "rollupStrong" ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.06))" }
-    : variant === "rollup" ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.035))" }
+    : variant === "rollup" ? { background: "var(--tint-brand-faint, rgba(11,74,125,0.035))" }
     : undefined;
   const num = (v: number | null, key: string | number, extra?: React.CSSProperties, onClick?: () => void) => {
     const clickable = !!onClick && v != null && Math.abs(v) >= 0.5;
@@ -1372,7 +1372,7 @@ function FullYearTable({ fy, year, viewKey, propertyCode, view, budgetYear, budg
     return (
       <Fragment key={sec.name}>
         <tr>
-          <td colSpan={colSpan} style={{ padding: "8px 12px", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
+          <td colSpan={colSpan} style={{ padding: "8px 12px", background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
         </tr>
         {lines.map((l) => {
           const sign: 1 | -1 = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
@@ -1452,8 +1452,8 @@ function CoverageModal({ coverage, onClose, onPick }: { coverage: Coverage[]; on
   const fullCount = rows.reduce((n, r) => n + years.filter((y) => (r.years[y] ?? 0) >= 12).length, 0);
   const cellFor = (months: number) =>
     !months ? { bg: "transparent", fg: "var(--muted)", text: "—" }
-    : months >= 12 ? { bg: "rgba(21,128,61,0.14)", fg: "var(--c-15803d)", text: "✓ Full" }
-    : { bg: "rgba(180,83,9,0.14)", fg: "var(--c-b45309)", text: `${months} mo` };
+    : months >= 12 ? { bg: "var(--tint-green-bg, rgba(21,128,61,0.14))", fg: "var(--c-15803d)", text: "Full" }
+    : { bg: "var(--tint-amber-bg, rgba(180,83,9,0.14))", fg: "var(--c-b45309)", text: `${months} mo` };
   const cs: React.CSSProperties = { padding: "6px 10px", textAlign: "center", fontSize: "var(--fs-13)", fontVariantNumeric: "tabular-nums", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
   const stickyL: React.CSSProperties = { position: "sticky", left: 0, background: "var(--card)" };
   return (
@@ -1518,7 +1518,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       {/* Neutral section header bar, matching the Budgets page. */}
-      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
         {sec.name}
       </div>
       <div className="tableWrap" style={{ marginTop: 0 }}>
@@ -1570,7 +1570,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
 
 function RollupCard({ label, t, view, strong }: { label: string; t: StatementTotals; view: ViewOpts; strong?: boolean }) {
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: COLOR_BRAND, background: strong ? "rgba(11,74,125,0.06)" : "rgba(11,74,125,0.035)" }}>
+    <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: COLOR_BRAND, background: strong ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : "var(--tint-brand-faint, rgba(11,74,125,0.035))" }}>
       <div className="tableWrap" style={{ marginTop: 0 }}>
         <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
           <StatementColgroup />

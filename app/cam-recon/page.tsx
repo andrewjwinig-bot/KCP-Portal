@@ -989,7 +989,7 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
     field === "cam" ? manual.camCosts[label!]?.[q] != null : manual.retCosts[q] != null;
   // Eligible-cost cell: GL value by default, manual override shown in purple.
   const costCell = (val: number, isOv: boolean, onCommit: (v: number) => void) => (
-    <td style={{ ...std, color: isOv ? "#6d28d9" : undefined }}><EditableMoney value={val} onCommit={onCommit} /></td>
+    <td style={{ ...std, color: isOv ? "var(--c-6d28d9)" : undefined }}><EditableMoney value={val} onCommit={onCommit} /></td>
   );
 
   // Per-quarter statement figures (the billed quarter).
@@ -1683,12 +1683,12 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, onPullGlF
               style={{
                 fontSize: "var(--fs-12)", fontWeight: 700, padding: "6px 12px", borderRadius: 999,
                 border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.35))",
-                background: glDiffs.length === 0 ? "rgba(15,23,42,0.04)" : "rgba(11,74,125,0.08)",
-                color: glDiffs.length === 0 ? "var(--muted)" : "#0b4a7d",
+                background: glDiffs.length === 0 ? "var(--tint-neutral-bg, rgba(15,23,42,0.04))" : "var(--tint-brand-bg, rgba(11,74,125,0.08))",
+                color: glDiffs.length === 0 ? "var(--muted)" : "var(--c-0b4a7d)",
                 cursor: pulling || glDiffs.length === 0 ? "default" : "pointer", whiteSpace: "nowrap",
               }}
             >
-              {pulling ? "Pulling…" : glDiffs.length === 0 ? "✓ FINAL = GL actuals" : `Pull FINAL from GL actuals (${glDiffs.length})`}
+              {pulling ? "Pulling…" : glDiffs.length === 0 ? "FINAL = GL actuals" : `Pull FINAL from GL actuals (${glDiffs.length})`}
             </button>
           )}
           <PackageButton property={property} year={year} total={backup.total} />
@@ -1764,7 +1764,7 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, onPullGlF
                       </td>
                     )}
                     <td style={td}><EditableMoney value={r.excelAvid} whole bg={matchesAvid ? MATCH_BG : EDIT_BG} onCommit={(v) => onEdit(r.account, "excelAvid", v)} /></td>
-                    <td style={{ ...td, color: Math.abs(r.variance) < 0.5 ? "var(--muted)" : r.variance < 0 ? "#b91c1c" : "#15803d" }}>{money0(r.variance)}</td>
+                    <td style={{ ...td, color: Math.abs(r.variance) < 0.5 ? "var(--muted)" : r.variance < 0 ? "var(--c-b91c1c)" : "var(--c-15803d)" }}>{money0(r.variance)}</td>
                     <td style={{ ...td, fontWeight: 700 }}><EditableMoney value={r.final} whole onCommit={(v) => onEdit(r.account, "final", v)} /></td>
                     <td style={{ ...td, textAlign: "left" }}><EditableText value={r.description} placeholder="—" onCommit={(v) => onEdit(r.account, "description", v)} /></td>
                   </>
