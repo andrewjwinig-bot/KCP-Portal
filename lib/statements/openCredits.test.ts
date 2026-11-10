@@ -17,6 +17,7 @@ describe("open credit tracker", () => {
     st("1100-34", [ch("2026-10-01", 900), ch(null, -586.78, "Open Credits")]),
     st("3640-300", [ch(null, -250, "Open Credits")]),
     st("4500-1", [ch("2026-10-01", 1000)]),
+    st("4500-2", [ch(null, -4.99, "Open Credits")]),
   ]);
   const sep = run("2026-09", [st("1100-34", [ch(null, -586.78, "Open Credits")]), st("3640-300", [ch("2026-09-01", 50)])]);
   const aug = run("2026-08", [st("1100-34", [ch(null, -10, "Open Credits")])]);
@@ -31,6 +32,8 @@ describe("open credit tracker", () => {
     // 3640-300 had no credit in September — the run starts this month.
     expect(t.groups[0].rows[0]).toMatchObject({ since: "2026-10", months: 1, net: -250 });
     expect(t.netCreditTotal).toBe(250);
+    // Under $5 is left off, counted.
+    expect(t.small).toBe(1);
   });
 
   it("files former occupants on their own", () => {

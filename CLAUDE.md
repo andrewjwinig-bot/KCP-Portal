@@ -1522,8 +1522,9 @@ variant="credit-balance"`. Its title prints "Aging Report (Detailed)".
 - **A credit under $5 is not listed** (`MIN_OPEN_CREDIT`; owner: "we dont
   need to bother emailing the tenant for something that small") — the page
   says how many were left off. Receipt Reconciliation still applies them.
-  Tami's dashboard ("Tenants with open credits" and its tiles) leaves them off
-  too.
+  Tami's dashboard ("Tenants with open credits" and its tiles) and the Open
+  Credit tracker on Monthly Statements (`openCredits`, counted in `small`)
+  leave them off too.
 - **Harry, Alison and Nancy VIEW Open Credits** (owner; `OPEN_CREDITS_PAGE`
   on their profiles, the `open-credits` nav key): the list, the lines, the
   last email — no import, Email or note (`canWorkCredits` = the Monthly
