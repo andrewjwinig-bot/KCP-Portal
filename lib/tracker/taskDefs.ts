@@ -389,7 +389,7 @@ export const TASK_DEFS: TaskDef[] = [
   // rather than the only one.
   {
     id: "m-stmts",
-    label: "Tenant Monthly Statements",
+    label: "Laser Statements",
     category: "routine",
     dueDay: 5,
     link: "/tenant-statements",
