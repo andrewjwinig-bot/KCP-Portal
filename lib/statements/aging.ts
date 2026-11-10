@@ -124,3 +124,28 @@ export function daysOpen(dateISO: string | null, asOf: string): number | null {
 export function creditLinesOf(t: Pick<AgingTenant, "lines">): AgingLine[] {
   return t.lines.filter((l) => l.amount < -0.005).sort((a, b) => (a.dateISO ?? "").localeCompare(b.dateISO ?? ""));
 }
+
+/** A property the Credit Balance report does not cover still has credits —
+ *  on the laser statement, as one undated "Open Credits" total (plus any dated
+ *  negative line). The Open Credits page lists those tenants from it, the same
+ *  account Receipt Reconciliation reads, so the page never says "no credits"
+ *  for a tenant the other page shows one for (owner: "it should read the same
+ *  source data"). `fromLaser` marks them — their credits are not itemized. */
+export type OpenCreditTenant = CurrentAgingTenant & { fromLaser?: boolean };
+
+export function laserCreditTenants(statements: TenantStatement[], coverage: Record<string, string>, asOfFor: (st: TenantStatement) => string): OpenCreditTenant[] {
+  const out: OpenCreditTenant[] = [];
+  for (const st of statements) {
+    if (coverage[st.propertyCode]) continue; // the Credit Balance report is the newer, itemized truth there
+    if (!st.charges.some((c) => c.amount < -0.005)) continue;
+    const lines: AgingLine[] = st.charges
+      .filter((c) => Math.abs(c.amount) > 0.005)
+      .map((c) => ({ code: "", description: c.description, dateISO: c.dateISO, amount: r2(c.amount), bucket: 0, category: c.category }));
+    out.push({
+      unitRef: st.unitRef, propertyCode: st.propertyCode, suite: st.suite, tenantName: st.tenantName, unitType: /-FO$/i.test(st.unitRef) ? "FO" : "CURR",
+      contact: null, phone: null, depositsHeld: 0, balanceDue: r2(lines.reduce((a, l) => a + l.amount, 0)), lines, tiesOut: st.tiesOut,
+      asOf: asOfFor(st), runAt: st.exportedAt ?? null, fromLaser: true,
+    });
+  }
+  return out;
+}

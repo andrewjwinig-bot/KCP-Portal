@@ -1503,8 +1503,16 @@ variant="credit-balance"`. Its title prints "Aging Report (Detailed)".
   applied — to next month's rent or the open charges; the table re-rendered
   on the server from the stored report, from Tami (`sendFromAr`), recorded as
   correspondence kind `credit-notice`.
+- **OPEN CREDITS READS THE SAME ACCOUNT RECEIPT RECONCILIATION DOES** (owner:
+  "it should read the same source data"; `laserCreditTenants` in `aging.ts`):
+  the Credit Balance report where it covers a property, else the NEWEST LASER
+  STATEMENT — every tenant there with a credit is listed (`fromLaser`, "Not
+  dated · laser statement", the credit one undated total), can be emailed the
+  notice, and the page says which source each comes from. It used to read the
+  report alone and said "no report imported" while Receipt Reconciliation
+  showed the same tenants' credits.
 - **The report imports from BOTH pages** — Open Credits and Receipt
-  Reconciliation's header (`useCreditBalanceImport`, one flow) — and the
+  Reconciliation's header (`useCreditBalanceImport`, one flow; the SAME white `.btn` on both) — and the
   Skyline steps sit behind an ⓘ (`InfoPopover`, `app/components/`, shared with
   the CAM recon's year-end exports), never spelled out on the page.
 

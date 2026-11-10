@@ -27,8 +27,10 @@ type Row = {
   lastNotice: { sentAt: string; sentBy: string | null; id: string; source: string } | null;
   lastContact: { sentAt: string; kind: string } | null;
   note: { text: string; by: string | null; at: string } | null;
+  /** Read off the laser statement — the report doesn't cover this property; its credits are one undated total. */
+  fromLaser?: boolean;
 };
-type Data = { asOf: string | null; runAt: string | null; properties: number; tenants: Row[] };
+type Data = { asOf: string | null; runAt: string | null; properties: number; tenants: Row[]; laser: { period: string; asOf: string } | null };
 
 const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true, style: { verticalAlign: "-3px", flexShrink: 0 } } as const;
@@ -95,7 +97,7 @@ export default function OpenCreditsPage() {
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
-          <button className="btn primary" onClick={() => fileRef.current?.click()}><Upload {...ICON} /> Import Credit Balance report</button>
+          <button className="btn" onClick={() => fileRef.current?.click()}><Upload {...ICON} /> Import Credit Balance report</button>
           <InfoPopover align="left"><ImportInstructions variant="credit-balance" /></InfoPopover>
         </div>
       </header>
@@ -104,9 +106,11 @@ export default function OpenCreditsPage() {
 
       {data && (
         <div className="muted small">
-          {asOf
-            ? <>Credit Balance report as of <b>{longDate(asOf)}</b> — re-import whenever you run it; the newest replaces what is here. Receipt Reconciliation reads these itemized credits too.</>
-            : <>No Credit Balance report imported yet — import one to see each tenant&rsquo;s credits itemized. The Skyline steps are behind the info button.</>}
+          {/* The same account Receipt Reconciliation reads: the Credit Balance
+              report where it covers a property, else the laser statement. */}
+          {asOf && <>Credit Balance report as of <b>{longDate(asOf)}</b>, credits itemized with their dates. </>}
+          {data.laser && <>{asOf ? "Properties it doesn\u2019t cover" : "Credits"} are from the <b>laser statement</b> as of {longDate(data.laser.asOf)}, where they print as one undated total. Import the Credit Balance report to itemize them.</>}
+          {!asOf && !data.laser && <>No laser statement or Credit Balance report imported yet.</>}
         </div>
       )}
 
@@ -166,7 +170,7 @@ export default function OpenCreditsPage() {
                             <td style={td}>{signed(t.charges)}</td>
                             <td style={{ ...td, fontWeight: 700 }}>{signed(t.net)}</td>
                             <td style={tdL}>
-                              {shortDate(t.oldestCredit)}
+                              {t.fromLaser && !t.oldestCredit ? <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>Not dated · laser statement</span> : shortDate(t.oldestCredit)}
                               {t.oldestDays !== null && <span style={{ marginLeft: 6, fontSize: "var(--fs-12-5)", color: t.oldestDays >= OLD_DAYS ? "var(--c-b45309)" : "var(--muted)", fontWeight: t.oldestDays >= OLD_DAYS ? 700 : 400 }}>{t.oldestDays} days</span>}
                             </td>
                             <td style={tdL}>
@@ -196,7 +200,7 @@ export default function OpenCreditsPage() {
           </div>
         </section>
       )}
-      {data && asOf && !all.length && <div className="card muted">No tenant on the latest report carries a credit.</div>}
+      {data && (asOf || data.laser) && !all.length && <div className="card muted">No tenant carries a credit.</div>}
 
       {emailing && <CreditNoticeModal row={emailing} onClose={() => setEmailing(null)} onSent={() => { setEmailing(null); load(); }} />}
       {viewing && <SentEmailModal src={viewing} onClose={() => setViewing(null)} />}

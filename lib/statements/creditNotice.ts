@@ -44,13 +44,16 @@ export function creditNoticeParts(x: CreditNoticeInput): { subject: string; open
   const t = creditTotals(x.lines);
   const credits = x.lines.filter((l) => l.amount < 0);
   const subject = `Credit on your account — ${x.propertyName}, Suite ${x.suite}: ${usd(t.credit)}`;
-  const what = credits.length === 1
+  // The laser statement's undated "Open Credits" total says nothing about
+  // where the credit came from — leave the sentence out rather than say it.
+  const aggregate = credits.length === 1 && !credits[0].dateISO && /^open credits?$/i.test(lineLabel(credits[0]).trim());
+  const what = aggregate ? "" : credits.length === 1
     ? `It is from ${lineLabel(credits[0]).replace(/\s+/g, " ")}${credits[0].dateISO ? `, dated ${longDate(credits[0].dateISO)}` : ""}.`
     : `It is made up of the ${credits.length} credits listed below.`;
   const opening = [
     `Hello ${x.tenantName},`,
     [
-      `Our records show a credit of ${usd(t.credit)} on your account for ${x.propertyName}, Suite ${x.suite}, as of ${longDate(x.asOfISO)}. ${what}`,
+      `Our records show a credit of ${usd(t.credit)} on your account for ${x.propertyName}, Suite ${x.suite}, as of ${longDate(x.asOfISO)}.${what ? ` ${what}` : ""}`,
       t.charges > 0.005 ? `You also have ${usd(t.charges)} of open charges, so your net balance is ${t.net < 0 ? `a credit of ${usd(t.net)}` : usd(t.net)}.` : "",
     ].filter(Boolean).join(" "),
   ].join("\n\n");
