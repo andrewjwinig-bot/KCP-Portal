@@ -303,7 +303,7 @@ export default function ReceiptReconciliationPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input ref={creditFileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importCredits(f); }} />
-          <button className="btn" onClick={() => creditFileRef.current?.click()}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> Import Credit Balance Report</button>
+          <button className="btn import" onClick={() => creditFileRef.current?.click()}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> Import Credit Balance Report</button>
           <InfoPopover align="left"><ImportInstructions variant="credit-balance" /></InfoPopover>
         </div>
         <div className="pills" style={{ margin: 0 }}>

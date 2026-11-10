@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, ChevronRight, X } from "lucide-react";
+import { ChevronDown, ChevronRight, X, Upload } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -276,10 +276,9 @@ export default function BudgetsPage() {
             <button
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
-              className="btn primary"
-              style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}
+              className="btn import"
             >
-              {uploading ? "Uploading…" : "Upload Budget"}
+              <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{uploading ? "Importing" : "Import Budget"}
             </button>
           )}
         </div>

@@ -1,4 +1,5 @@
 "use client";
+import { Upload } from "lucide-react";
 
 // Step one of budget season: import next year's contracted rent.
 //
@@ -74,8 +75,8 @@ export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, 
           <button type="button" className="btn sm" onClick={() => setShowSteps((s) => !s)}>
             {showSteps ? "Hide steps" : "Skyline steps"}
           </button>
-          <button type="button" className="btn sm primary" disabled={busy} onClick={() => fileRef.current?.click()}>
-            {busy ? "Importing…" : rec ? "Re-import rent schedule" : "Import rent schedule"}
+          <button type="button" className="btn sm import" disabled={busy} onClick={() => fileRef.current?.click()}>
+            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{busy ? "Importing" : rec ? "Re-import Rent Schedule" : "Import Rent Schedule"}
           </button>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" style={{ display: "none" }}
             onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); }} />

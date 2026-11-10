@@ -106,7 +106,7 @@ export default function OpenCreditsPage() {
         </div>
         {canWork && <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
-          <button className="btn" onClick={() => fileRef.current?.click()}><Upload {...ICON} /> Import Credit Balance Report</button>
+          <button className="btn import" onClick={() => fileRef.current?.click()}><Upload {...ICON} /> Import Credit Balance Report</button>
           <InfoPopover align="left"><ImportInstructions variant="credit-balance" /></InfoPopover>
         </div>}
       </header>

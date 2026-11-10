@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, ChevronUp, CircleCheck, FileText, X } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleCheck, FileText, X, Upload } from "lucide-react";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -355,7 +355,7 @@ function ImportInstructionsModal({ onClose, nextMonth }: { onClose: () => void; 
           <div style={sectionLabelStyle}>2. Import Rent Roll into Portal</div>
           <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: "var(--fs-14)" }}>
             <li>
-              Select <b>Import</b> in the upper left of the Rent Roll page.
+              Select <b>Import Rent Roll</b> at the top of the Rent Roll page.
             </li>
             <li>
               Select the saved Excel file from above and hit <b>Open</b>.
@@ -1835,12 +1835,12 @@ export default function RentRollPage() {
               onChange={handleFileChange}
             />
             <button
-              className="btn"
+              className="btn import"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              style={{ whiteSpace: "nowrap", fontSize: "var(--fs-13)", padding: "8px 16px" }}
+              style={{ whiteSpace: "nowrap" }}
             >
-              {uploading ? "Uploading…" : "Import"}
+              <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{uploading ? "Importing" : "Import Rent Roll"}
             </button>
             <button
               className="btn"
@@ -1900,7 +1900,7 @@ export default function RentRollPage() {
           );
         })()}
         <p className="muted small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
-          <span>Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx) — click Import or drag the file onto this card.</span>
+          <span>Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx) — click Import Rent Roll or drag the file onto this card.</span>
           <ImportInstructionsButton nextMonth={(() => {
             // Next month to import = the month after the latest snapshot (or the
             // current calendar month when nothing has been imported yet).

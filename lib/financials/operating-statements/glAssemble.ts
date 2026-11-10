@@ -85,6 +85,28 @@ export function postedThrough(g: { coverageEnd?: number; maxPeriodInFile: number
   return g.coverageEnd ?? g.maxPeriodInFile;
 }
 
+/** The month (1–12) a property is CLOSED through, for the "time to post"
+ *  reminders: `postedThrough`, but never a month that had not ENDED when the
+ *  newest file of that year was imported. A GL exported on Oct 21 with a
+ *  January–October range reads "through October", and that silenced every
+ *  reminder for October (1100, 11/2026) — October cannot be closed on the 21st.
+ *  Judged in Eastern time. A past year's file imported later is not capped. */
+export function closedThrough(
+  g: { coverageEnd?: number; maxPeriodInFile: number },
+  year: number,
+  files: { uploadedAt?: string }[],
+): number {
+  const posted = postedThrough(g);
+  const newest = files.map((f) => f.uploadedAt ?? "").filter(Boolean).sort().pop();
+  if (!newest) return posted;
+  const at = new Date(newest);
+  if (Number.isNaN(at.getTime())) return posted;
+  const [y, m] = at.toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number);
+  if (y > year) return posted;
+  if (y < year) return 0;
+  return Math.min(posted, m - 1);
+}
+
 /** The last month (1–12) a full GL carries ANY activity — at least
  *  `maxPeriodInFile`. A quiet property (0900: January, then nothing until
  *  September) reads "actuals through January" by the contiguous rule, and a
