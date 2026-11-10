@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseSkylineStatements, periodOf } from "@/lib/statements/parseSkylineStatements";
+import { periodOf } from "@/lib/statements/parseSkylineStatements";
+import { parseStatementFile } from "@/lib/statements/parseStatementFile";
 import { mergeIntoPeriod } from "@/lib/statements/store";
 import { pickTenantStatement } from "@/lib/cam/moveout/openAr";
 import { tenantOpenAr } from "@/lib/cam/moveout/deposit";
@@ -28,8 +29,8 @@ export async function POST(req: NextRequest) {
   if (!unitRef) return NextResponse.json({ error: "unitRef required" }, { status: 400 });
 
   let parsed;
-  try { parsed = parseSkylineStatements(Buffer.from(await file.arrayBuffer())); }
-  catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Could not read that workbook." }, { status: 400 }); }
+  try { parsed = await parseStatementFile(Buffer.from(await file.arrayBuffer())); }
+  catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "Could not read that file." }, { status: 400 }); }
 
   const roll = await resolveCurrentRentroll().catch(() => null);
   const now = roll?.properties.flatMap((p) => p.units).find((u) => u.unitRef === unitRef && !u.isVacant);
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       error: parsed.statements.length
         ? `That file has no statement for ${unitRef}${name ? ` (${name})` : ""}. Run Skyline's Laser Statement for this tenant alone — a moved-out tenant is listed as ${unitRef}-FO.`
-        : "No tenant statements found. Export Skyline's Laser Statement to Excel and upload that file unmodified.",
+        : "No tenant statements found. Upload Skyline's Laser Statement — the PDF or the Excel export — as it was saved.",
     }, { status: 400 });
   }
 

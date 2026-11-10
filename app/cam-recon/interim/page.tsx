@@ -919,7 +919,7 @@ export default function InterimReconPage() {
               {openAr?.nameMatched === false && <span style={{ color: "var(--c-b45309)" }}> Filed under &ldquo;{openAr.tenantName}&rdquo; — check it is this tenant.</span>}
               {stmtMsg && <span style={{ fontWeight: 600, color: stmtMsg.ok ? "var(--c-15803d)" : "var(--c-b91c1c)" }}> {stmtMsg.text}</span>}
             </span>
-            <input ref={stmtFileRef} type="file" accept=".xls,.xlsx" style={{ display: "none" }}
+            <input ref={stmtFileRef} type="file" accept=".pdf,.xls,.xlsx" style={{ display: "none" }}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) importFinalStatement(f); }} />
             <button className={openAr ? "btn sm" : "btn sm primary"} disabled={stmtBusy} onClick={() => stmtFileRef.current?.click()}>
               {stmtBusy ? "Importing…" : openAr ? "Re-import" : "Import final statement"}

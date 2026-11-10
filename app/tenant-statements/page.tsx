@@ -185,8 +185,8 @@ export default function TenantStatementsPage() {
     setError(null);
     await startImport({
       kind: "tenant-statements",
-      title: (n) => `Importing ${n} Skyline statement export${n === 1 ? "" : "s"}`,
-      subtitle: "Skyline Laser Statement · .xls / .xlsx · you can keep working while this runs",
+      title: (n) => `Importing ${n} Laser Statement${n === 1 ? "" : "s"}`,
+      subtitle: "Skyline Laser Statement · PDF or Excel · you can keep working while this runs",
       files,
       by: user.label,
       concurrency: 1,
@@ -372,7 +372,7 @@ export default function TenantStatementsPage() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple style={{ display: "none" }}
+          <input ref={fileRef} type="file" accept=".pdf,.xls,.xlsx" multiple style={{ display: "none" }}
             onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void processFiles(f); }} />
           <button className="btn" onClick={() => setShowPayment((v) => !v)} style={{ fontSize: "var(--fs-13)", padding: "6px 12px" }}>
             Payment Instructions

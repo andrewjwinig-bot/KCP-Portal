@@ -59,6 +59,15 @@ export type MergeStats = {
   cleared: number;
 };
 
+/** The properties an upload covers WHOLE — two or more of its tenants. A
+ *  single-tenant file is a RE-RUN (Tanya saves one tenant's PDF beside the
+ *  building's), and must never read every other tenant there as paid in full. */
+export function wholeExportProperties(statements: TenantStatement[]): string[] {
+  const n = new Map<string, number>();
+  for (const s of statements) n.set(s.propertyCode.toUpperCase(), (n.get(s.propertyCode.toUpperCase()) ?? 0) + 1);
+  return [...n].filter(([, c]) => c >= 2).map(([p]) => p);
+}
+
 /**
  * Merge an upload into a month's existing statements.
  *
@@ -74,7 +83,7 @@ export type MergeStats = {
 export function mergeStatements(
   existing: TenantStatement[],
   incoming: TenantStatement[],
-  opts: { clearAbsentInProperties?: boolean; stamp?: { importedAt: string; sourceFile: string; exportedAt?: string | null } } = {},
+  opts: { clearAbsentInProperties?: boolean | string[]; stamp?: { importedAt: string; sourceFile: string; exportedAt?: string | null } } = {},
 ): { statements: TenantStatement[]; stats: MergeStats } {
   const prior = new Map(existing.map((s) => [s.unitRef, s]));
   const byUnit = new Map<string, TenantStatement>(prior);
@@ -104,7 +113,10 @@ export function mergeStatements(
   // its own because a full run leaves them off.
   let cleared = 0;
   if (opts.clearAbsentInProperties) {
-    const covered = new Set(incoming.map((s) => s.propertyCode.toUpperCase()));
+    // A list names the properties the upload covers WHOLE; `true` = every one it carries.
+    const covered = new Set(Array.isArray(opts.clearAbsentInProperties)
+      ? opts.clearAbsentInProperties.map((c) => c.toUpperCase())
+      : incoming.map((s) => s.propertyCode.toUpperCase()));
     const isFormer = (s: TenantStatement) => /-FO$/i.test(s.unitRef) || /-FO$/i.test(s.skylineUnitRef ?? "");
     for (const was of existing) {
       if (touched.has(was.unitRef) || !covered.has(was.propertyCode.toUpperCase()) || isFormer(was)) continue;
@@ -132,7 +144,7 @@ export async function mergeIntoPeriod(
   period: string,
   statements: TenantStatement[],
   source: StatementSource,
-  opts: { clearAbsentInProperties?: boolean } = {},
+  opts: { clearAbsentInProperties?: boolean | string[] } = {},
 ): Promise<{ run: StatementRun; stats: MergeStats }> {
   if (!PERIOD_RE.test(period)) throw new Error(`Invalid statement period "${period}".`);
   const now = new Date().toISOString();

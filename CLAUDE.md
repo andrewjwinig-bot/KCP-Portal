@@ -1210,6 +1210,21 @@ how-to-pay instructions. Sources of truth:
   real import: the evidence against it is that 53 of 67 tenants in the sample
   export carry September charges (194 rows) in the prior section. It also means
   the portal reflects the last import, so re-import to pick up payments.
+- **THE LASER STATEMENT IMPORTS AS PDF TOO** (owner: "read PDFs so i dont
+  need to rerun them as excel files"): the PDFs Tanya saves in
+  `Billings and Statements\<year> Billing and Statements\<NN Month>\Laser
+  Statements` (a building group per file, plus one-tenant re-runs).
+  `parseStatementFile` tells PDF from Excel by content; `parseLaserPdf.ts`
+  (pure, `laserRowsFromPages`) lays each printed line by POSITION (`pdfPages` in
+  `pdfText.ts`) into the Excel export's column slots and runs the SAME
+  `statementsFromRows`, plus a check against the Total Amount Due each
+  statement printed. A continued page ("See the next page") carries on under the
+  same unit. Crystal stamps no creation date, so "data through" is the import.
+  **A one-tenant file is a RE-RUN and clears no one** (`wholeExportProperties`:
+  only a property with 2+ tenants in the upload reads its absent tenants as paid
+  in full). Pinned by `parseLaserPdf.test.ts` (synthetic pages — the real PDFs
+  carry tenant contacts). NEXT: read the folder itself once the SharePoint app
+  registration exists.
 - **Unit refs are stored in the app's canonical form** — Skyline's `-CU` charge
   suffix stripped (`2300-1817-CU` → `2300-1817`), matching the rent roll, the
   recon rosters and the portal token. `skylineUnitRef` keeps the raw value. If a
