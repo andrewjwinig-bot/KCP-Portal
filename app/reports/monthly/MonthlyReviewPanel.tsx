@@ -346,7 +346,7 @@ function baseYear2(raw: number | string | null | undefined): string {
 // whose date has PASSED but whose tenant is still on the roll is PAST TERM — a
 // renewal not yet keyed, or a holdover — never a move-out (owner: "we cant
 // move tenants out who renew"). It used to read EXPIRED with "Close out".
-function LeaseMovement({ report, reconYear }: { report: Report; reconYear: number }) {
+export function LeaseMovement({ report, reconYear, scopeLabel }: { report: Pick<Report, "expirations" | "vacated" | "rentRollMonth">; reconYear: number; scopeLabel?: string }) {
   // The statement / close-out lives on the CAM recon page — linked only for
   // those who can open it (Marie and Alison see this panel without it).
   const canOpenRecon = useCanOpen()("/cam-recon/interim");
@@ -436,7 +436,7 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
         <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-0b4a7d)" }}>
-          Vacating &amp; Expiring <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>· recently vacated (60d) + expiring (60d)</span>
+          Vacating &amp; Expiring <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>· {scopeLabel ? `${scopeLabel} · ` : ""}recently vacated (60d) + expiring (60d)</span>
         </div>
         <Link href="/rentroll/leasing" className="noprint muted small" style={{ color: "var(--c-0b4a7d)", fontWeight: 600, textDecoration: "none" }}>Leasing activity<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
       </div>

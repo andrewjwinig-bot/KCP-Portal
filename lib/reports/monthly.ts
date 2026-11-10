@@ -90,6 +90,34 @@ function occupiedUnits(r: RentRollData): Map<string, { occupantName: string; sqf
   return map;
 }
 
+/**
+ * Recently vacated (last 60 days) and leases ending in the window (past term
+ * in the last 60 days … expiring in the next 60) off the CURRENT rent roll —
+ * the Monthly Review's Vacating & Expiring section on its own, so the leasing
+ * dashboards (Nancy, Harry) carry it without the review's financials. Same
+ * rules as `buildMonthlyReport` below.
+ */
+export async function currentLeaseMovement(now: Date): Promise<{
+  rentRollMonth: string | null; year: number; vacated: LeaseChange[]; expirations: Expiration[];
+}> {
+  const history = ((await listJSON(HISTORY_PREFIX, { fresh: true })) as RentRollData[]) ?? [];
+  const roll = composeCurrentRoll(history);
+  const rentRollMonth = roll ? monthKeyOf(roll) : null;
+  const upTo = rentRollMonth ?? "9999-12";
+  const vacated: LeaseChange[] = confirmedMoveouts(history.filter((h) => monthKeyOf(h) <= upTo), now, 60)
+    .map((v) => ({ propertyCode: v.propertyCode, group: groupOf(v.propertyCode), unitRef: v.unitRef, tenant: v.occupantName,
+      sqft: v.sqft ?? 0, leaseTo: v.leaseTo, goneAsOf: v.goneAsOf }));
+  const expirations: Expiration[] = [];
+  for (const prop of roll?.properties ?? []) for (const u of prop.units ?? []) {
+    if (u.isVacant || u.amenity || !u.occupantName || !u.leaseTo) continue;
+    const d = parseUSDate(u.leaseTo); if (!d) continue;
+    const days = Math.round((d.getTime() - now.getTime()) / 86400000);
+    if (days >= -60 && days <= 60) expirations.push({ propertyCode: prop.propertyCode, group: groupOf(prop.propertyCode), unitRef: u.unitRef, tenant: u.occupantName, sqft: u.sqft ?? 0, leaseTo: u.leaseTo, days });
+  }
+  expirations.sort((a, b) => a.days - b.days);
+  return { rentRollMonth, year: now.getFullYear(), vacated, expirations };
+}
+
 export async function buildMonthlyReport(year: number, month: number, now: Date): Promise<MonthlyReport> {
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
 
