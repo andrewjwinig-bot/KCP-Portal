@@ -459,7 +459,7 @@ export function AnalyzingBar({ label, done, total, sub }: { label: string; done?
 // instruction the model can act on, not as a dismissal.
 export function ClarifyCard({ clarify, onPick }: { clarify: AiClarifySpec; onPick: (answer: string) => void }) {
   return (
-    <div style={{ border: "1px solid var(--ai-border-card)", borderLeft: "3px solid var(--ai)", borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
+    <div style={{ border: "1px solid var(--ai-border-card)",  borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
         <InlineSparkle />
         <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>One quick thing</span>
@@ -518,7 +518,7 @@ export function AnswerCard({
   onLinkClick?: () => void;
 }) {
   return (
-    <div style={{ border: "1px solid var(--ai-border-card)", borderLeft: "3px solid var(--ai)", borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
+    <div style={{ border: "1px solid var(--ai-border-card)",  borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
         <InlineSparkle />
         <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>Assistant</span>
@@ -694,7 +694,7 @@ export function MemoryStrip({ prefs, onForget }: { prefs: string[]; onForget?: (
 export function ThinkingCard({ status, rows }: { status: string; rows?: (string | null)[] }) {
   const bars: (string | null)[] = rows && rows.length ? rows : [null, null, null, null];
   return (
-    <div style={{ border: "1px solid var(--ai-border-card)", borderLeft: "3px solid var(--ai)", borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
+    <div style={{ border: "1px solid var(--ai-border-card)",  borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <InlineSparkle twinkle />
         <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>Assistant</span>

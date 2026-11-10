@@ -557,7 +557,7 @@ export default function BudgetDraftPage() {
               onlyKeys={histLine.poolKeys} queued={queued} onSaved={() => setRefreshTick((n) => n + 1)} />
           ) : hLine?.source === "loans" && draft?.debt?.loans.length ? (
             // Debt service: the loans' schedule, the same working the line's ⓘ opens.
-            <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--brand)", borderRadius: 10, padding: "10px 14px 14px" }}>
+            <div style={{ border: "1px solid var(--border)",  borderRadius: 10, padding: "10px 14px 14px" }}>
               <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>How it is figured</div>
               <div style={{ fontSize: 15, fontWeight: 800, margin: "2px 0 10px" }}>{draft.budgetYear} Debt Service from the Loans</div>
               <DebtDetail debt={draft.debt} year={draft.budgetYear} />
@@ -565,7 +565,7 @@ export default function BudgetDraftPage() {
           ) : hLine?.inputSource ? (
             // A provided figure (real estate taxes off the public record): the
             // SAME working the line's pill opens, here where the line is read.
-            <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--brand)", borderRadius: 10, padding: "10px 14px 14px" }}>
+            <div style={{ border: "1px solid var(--border)",  borderRadius: 10, padding: "10px 14px 14px" }}>
               <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>How it is figured</div>
               <div style={{ fontSize: 15, fontWeight: 800, margin: "2px 0 6px" }}>{hLine.inputSource.title}</div>
               <SourceDetail source={hLine.inputSource} />

@@ -55,7 +55,7 @@ export default function ReceivablesOverview() {
     (async () => {
       const list = await fetch("/api/tenant-statements", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
       const period: string | undefined = list?.periods?.[0]?.period;
-      if (!period) { if (alive) setError("No laser statement has been imported yet."); return; }
+      if (!period) { if (alive) setError("No Laser Statement has been imported yet."); return; }
       const j = await fetch(`/api/tenant-statements/${period}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null);
       if (!alive) return;
       if (!j?.ok) setError(j?.error ?? "Could not load the statements.");
@@ -75,7 +75,7 @@ export default function ReceivablesOverview() {
       const at = (u: string) => contacts[u.toUpperCase()]?.last.sentAt ?? "";
       sorted.sort((a, b) => at(a.unitRef).localeCompare(at(b.unitRef)) || b.summary.totalDue - a.summary.totalDue);
     }
-    return sorted; // "property" keeps the laser statement's own (property) order
+    return sorted; // "property" keeps the Laser Statement's own (property) order
   }, [data, arSort, contacts]);
   const followUps = useMemo(() => owing.filter((t) => needsFollowUp(t.summary.totalDue, contacts[t.unitRef.toUpperCase()])).length, [owing, contacts]);
   const credits = useMemo(() => (data?.credits.groups ?? []).flatMap((g) => g.rows.map((r) => ({ ...r, group: g.group }))), [data]);
@@ -96,9 +96,9 @@ export default function ReceivablesOverview() {
         <div>
           <h1 style={{ margin: 0 }}>Receivables</h1>
           <div className="muted small" style={{ marginTop: 6 }}>
-            {data ? <>{periodLabel(data.period)} laser statement{dataThrough.exported
+            {data ? <>{periodLabel(data.period)} Laser Statement{dataThrough.exported
               ? <> · data through {new Date(dataThrough.exported).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</>
-              : dataThrough.imported ? <> · imported {new Date(dataThrough.imported).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric" })}</> : null} — open items only</> : "Open credits and open A/R from the latest laser statement."}
+              : dataThrough.imported ? <> · imported {new Date(dataThrough.imported).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric" })}</> : null} — open items only</> : "Open credits and open A/R from the latest Laser Statement."}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

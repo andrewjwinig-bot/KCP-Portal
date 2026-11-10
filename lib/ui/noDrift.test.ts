@@ -45,6 +45,10 @@ const RATCHET: { name: string; re: RegExp; max: number; fix: string }[] = [
   { name: "emoji / glyph ticks", re: /✅|⚠️|⚠|🕗|📄|✓|✔|✕|×/g, max: 112, fix: "Lucide CircleCheck / TriangleAlert / X" },
   { name: "text arrows", re: /→|←|▾|▸|▼|▶/g, max: 209, fix: "Lucide ChevronRight / ChevronDown, or .text-link" },
   { name: "inline hex colours", re: /"#[0-9a-fA-F]{6}"/g, max: 189, fix: "var(--brand) / var(--muted) / a tone in Pill.tsx" },
+  // A thick coloured bar down one side or across the top (owner: "i hate that
+  // thicker line … when theres one thick line on the side i do not like it").
+  // Left: the plan hover's colour rail and the reservation calendar's events.
+  { name: "thick side / top rails", re: /border(Left|Top): ?["`][3-9]px/g, max: 2, fix: "the 1px border, an icon and the status in words" },
   { name: "tinted rgba fills", re: /background: "rgba\(/g, max: 126, fix: "a hairline row with the status in words" },
 ];
 

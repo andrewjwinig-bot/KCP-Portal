@@ -161,8 +161,8 @@ export default function InsurancePage() {
         in the broker&rsquo;s own layout, ready to send. Nothing to upload.
       </p>
 
-      {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
-      {notice && <div className="card" style={{ borderLeft: "4px solid #15803d", color: "var(--c-15803d)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{notice}</div>}
+      {error && <div className="card" style={{  color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
+      {notice && <div className="card" style={{  color: "var(--c-15803d)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{notice}</div>}
       {loading && !data && <div className="card muted">Loading…</div>}
 
       {data && !data.stored && (
@@ -238,7 +238,7 @@ export default function InsurancePage() {
           </div>
 
           {(unmatched.length > 0 || shared.length > 0) && (
-            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: "var(--fs-13)" }}>
+            <div className="card" style={{  fontSize: "var(--fs-13)" }}>
               {unmatched.length > 0 && (
                 <div><b>{unmatched.length} location{unmatched.length === 1 ? "" : "s"} match no property</b> and {unmatched.length === 1 ? "is" : "are"} left as the form has {unmatched.length === 1 ? "it" : "them"}: {unmatched.map((r) => r.address || r.locationName).join("; ")}.</div>
               )}

@@ -153,7 +153,7 @@ function CategoryTiles({ st }: { st: MonthlyStatement }) {
               footer={{ label: lines.length > 5 ? `Total (${lines.length} charges)` : "Total", value: money2(c.amount) }}
               style={{ display: "block" }}
             >
-              <div style={{ border: "1px solid var(--border)", borderLeft: `3px solid ${CATEGORY_COLOR[c.category]}`, borderRadius: 12, padding: "13px 15px", background: "var(--card)", boxShadow: "var(--shadow)", height: "100%", boxSizing: "border-box" }}>
+              <div style={{ border: "1px solid var(--border)",  borderRadius: 12, padding: "13px 15px", background: "var(--card)", boxShadow: "var(--shadow)", height: "100%", boxSizing: "border-box" }}>
                 <div style={{ fontSize: 20, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: c.amount < 0 ? GREEN : "var(--text)" }}>{money2(c.amount)}</div>
                 <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 2 }}>
                   {CATEGORY_LABEL[c.category]} · {c.count} {c.count === 1 ? "charge" : "charges"}

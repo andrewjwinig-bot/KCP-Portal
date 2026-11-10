@@ -1619,7 +1619,7 @@ export default function InvestorInfoPage() {
       {/* A batch that failed outright — no results panel renders in that case,
           so without this the button would simply stop and say nothing. */}
       {view === "investor" && k1reg.errorAll && (
-        <div className="card no-print" style={{ borderLeft: "3px solid #b91c1c", background: "var(--tint-red-bg, rgba(220,38,38,0.05))", color: "var(--c-b91c1c)", fontSize: "var(--fs-13)", fontWeight: 700 }}>
+        <div className="card no-print" style={{  background: "var(--tint-red-bg, rgba(220,38,38,0.05))", color: "var(--c-b91c1c)", fontSize: "var(--fs-13)", fontWeight: 700 }}>
           {k1reg.errorAll}
         </div>
       )}
@@ -2560,7 +2560,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
           const missing = ownerNames.filter((n) => { const c = resolveContact(n); return !c || (!c.address && !c.email); });
           if (missing.length === 0) return null;
           return (
-            <div className="card no-print" style={{ borderLeft: "3px solid #d97706", background: "var(--tint-amber-bg, rgba(217,119,6,0.05))" }}>
+            <div className="card no-print" style={{  background: "var(--tint-amber-bg, rgba(217,119,6,0.05))" }}>
               <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, marginBottom: 4 }}>
                 {missing.length} of {ownerNames.length} owners have no send-to contact
               </div>
@@ -2583,7 +2583,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
             .filter((x) => x.r.nonresident);
           if (nonres.length === 0) return null;
           return (
-            <div className="card no-print" style={{ borderLeft: "3px solid #b45309", background: "var(--tint-amber-bg, rgba(217,119,6,0.04))" }}>
+            <div className="card no-print" style={{  background: "var(--tint-amber-bg, rgba(217,119,6,0.04))" }}>
               <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, marginBottom: 4 }}>
                 {nonres.length} nonresident owner{nonres.length === 1 ? "" : "s"} — potential PA withholding
               </div>

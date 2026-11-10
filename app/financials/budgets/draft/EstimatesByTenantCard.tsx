@@ -473,7 +473,7 @@ function OverrideModal({ e, year, ry, propertyCode, queued, onClose, onSaved }: 
   const body = (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "80px 16px", overflowY: "auto" }}>
       <div onClick={(ev) => ev.stopPropagation()} role="dialog" aria-label="Set estimate"
-        style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 560, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+        style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 560, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
           <div style={secLabel}>{year} monthly estimate · set by hand</div>
           <div style={{ fontSize: 17, fontWeight: 800, marginTop: 2 }}>{e.tenant} · <code style={SUITE}>{e.unitRef}</code></div>

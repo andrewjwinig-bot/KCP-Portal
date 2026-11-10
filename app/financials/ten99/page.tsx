@@ -129,7 +129,7 @@ export default function Ten99Page() {
         the accountant&rsquo;s side; this is the payment side.
       </p>
 
-      {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
+      {error && <div className="card" style={{  color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
       {loading && <div className="card muted">Loading…</div>}
 
       {data && !loading && (
@@ -145,7 +145,7 @@ export default function Ten99Page() {
               register is empty because the GL isn't there — not because nobody
               was paid. Say which, rather than showing a confident empty list. */}
           {totals.scanned === 0 && (
-            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: "var(--fs-13)" }}>
+            <div className="card" style={{  fontSize: "var(--fs-13)" }}>
               <b>No cash disbursements found for {data.year}.</b>{" "}
               {data.years.length === 0
                 ? "No general ledgers have been uploaded yet — import them on Operating Statements first."
@@ -154,7 +154,7 @@ export default function Ten99Page() {
           )}
 
           {totals.unnamed > 0 && (
-            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: "var(--fs-13)" }}>
+            <div className="card" style={{  fontSize: "var(--fs-13)" }}>
               <b>{totals.unnamed} payment{totals.unnamed === 1 ? " carries" : "s carry"} no vendor name</b> in the
               ledger and can&rsquo;t be attributed — {totals.unnamed === 1 ? "it is" : "they are"} counted in the
               scanned total but appear on no vendor&rsquo;s row. Worth a look if a vendor you expect is missing.
@@ -162,7 +162,7 @@ export default function Ten99Page() {
           )}
 
           {missingEin.length > 0 && (
-            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: "var(--fs-13)" }}>
+            <div className="card" style={{  fontSize: "var(--fs-13)" }}>
               <b>{missingEin.length} {missingEin.length === 1 ? "entity has" : "entities have"} no EIN on file</b> —{" "}
               {missingEin.map((e) => e.name).join(", ")}. The vendors are still listed; add the EIN on Property Info
               so the workbook carries it.

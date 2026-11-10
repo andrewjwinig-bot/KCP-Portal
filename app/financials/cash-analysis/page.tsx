@@ -533,7 +533,7 @@ function CashSheetPage() {
       </div>
 
       {laggingRows.length > 0 && (
-        <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #d97706" }}>
+        <div className="card" style={{ padding: "12px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 800, color: "var(--c-b45309)", fontSize: "var(--fs-14)" }}>
             <span>Snapshot blends time periods</span><Badge>{laggingRows.length}</Badge>
           </div>
@@ -551,7 +551,7 @@ function CashSheetPage() {
       )}
 
       {debtMissingRows.length > 0 && (
-        <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #dc2626" }}>
+        <div className="card" style={{ padding: "12px 16px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 800, color: "var(--c-b91c1c)", fontSize: "var(--fs-14)" }}>
             <span>Mortgage P&amp;I not posted</span><Badge>{debtMissingRows.length}</Badge>
           </div>

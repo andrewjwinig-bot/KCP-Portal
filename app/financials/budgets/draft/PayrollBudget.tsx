@@ -288,7 +288,7 @@ export function PayrollBudget({ year }: { year: number }) {
         return createPortal(
           <div onClick={() => setBuildingFor(null)} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
             <div onClick={(ev) => ev.stopPropagation()} role="dialog" aria-label="Employees allocated"
-              style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 900, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+              style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 900, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
               <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
                 <div>
                   <div style={secLabel}>{year} Payroll budget · {buildingFor.label}</div>
@@ -344,7 +344,7 @@ export function PayrollBudget({ year }: { year: number }) {
       {healthFor !== null && typeof document !== "undefined" && createPortal(
         <div onClick={() => setHealthFor(null)} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "60px 16px", overflowY: "auto" }}>
           <div onClick={(ev) => ev.stopPropagation()} role="dialog" aria-label="Health benefits"
-            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 1280, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
+            style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 1280, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
             <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
               <div>
                 <div style={secLabel}>{year} Payroll budget · Medical column</div>
