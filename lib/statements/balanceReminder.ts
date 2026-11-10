@@ -55,11 +55,11 @@ function rowsOf(acct: Account): Row[] {
 export function reminderTableHtml(acct: Account, asOfISO: string | null): string {
   const NAVY = "#0b4a7d", GREEN = "#15803d", LINE = "#d9dee5", MUTED = "#6b7280";
   const th = (t: string, right = false) => `<th style="padding:8px 10px;text-align:${right ? "right" : "left"};font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#ffffff;background:${NAVY}">${t}</th>`;
-  const body = rowsOf(acct).map((r) => `<tr><td style="padding:7px 10px;border-bottom:1px solid ${LINE};color:${MUTED};white-space:nowrap">${esc(r.date)}</td><td style="padding:7px 10px;border-bottom:1px solid ${LINE}">${esc(r.description)}</td><td style="padding:7px 10px;border-bottom:1px solid ${LINE};text-align:right;white-space:nowrap;${r.credit ? `color:${GREEN}` : ""}">${r.credit ? `(${usd(r.amount)})` : usd(r.amount)}</td></tr>`).join("");
+  const body = rowsOf(acct).map((r) => `<tr><td style="padding:7px 10px;border-bottom:1px solid ${LINE};color:${MUTED};white-space:nowrap">${esc(r.date)}</td><td style="padding:7px 10px;border-bottom:1px solid ${LINE};white-space:nowrap">${esc(r.description)}</td><td style="padding:7px 10px;border-bottom:1px solid ${LINE};text-align:right;white-space:nowrap;${r.credit ? `color:${GREEN}` : ""}">${r.credit ? `(${usd(r.amount)})` : usd(r.amount)}</td></tr>`).join("");
   const total = `<tr style="background:#f3f6f9"><td style="padding:8px 10px"></td><td style="padding:8px 10px;font-weight:800">Balance due</td><td style="padding:8px 10px;text-align:right;font-weight:800;white-space:nowrap">${acct.net < 0 ? `(${usd(acct.net)}) credit` : usd(acct.net)}</td></tr>`;
   return `<div style="margin:6px 0 18px">
 <div style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:${NAVY};margin:0 0 6px">Your open charges${asOfISO ? ` as of ${shortDate(asOfISO)}` : ""}</div>
-<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;max-width:620px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111827;border:1px solid ${LINE}">
+<table role="presentation" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:auto;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#111827;border:1px solid ${LINE}">
 <thead><tr>${th("Date")}${th("Charge")}${th("Amount", true)}</tr></thead>
 <tbody>${body}${total}</tbody></table>
 </div>`;
