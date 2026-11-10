@@ -6,6 +6,7 @@ import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { deliverInvoicesToAvid } from "@/lib/invoicing/avidDelivery";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
+import { saveSentInvoiceArchive, codeOfLabel } from "@/lib/invoicing/sentInvoiceArchive";
 
 // The review-before-send gate's release step for the Credit Card and Payroll
 // invoicers. AvidXchange can't open a ZIP and takes one invoice per email, so
@@ -97,6 +98,21 @@ export async function POST(req: Request) {
       archiveZip: body.archiveZipBase64 ? Buffer.from(body.archiveZipBase64, "base64") : null,
       privacyNote: body.source === "payroll",
     });
+
+    // Keep the PDFs exactly as sent — Expense History lists and opens them.
+    // A sent month can't be rebuilt faithfully (its carryover is consumed and
+    // the receipts merged into each PDF live nowhere else).
+    if (result.avidSent + result.alreadySent > 0) {
+      const codes = body.byProperty.map((b) => String(b.code));
+      const amountOf = new Map(body.byProperty.map((b) => [String(b.code), Number(b.amount)]));
+      await saveSentInvoiceArchive({
+        source: body.source, period: body.period, sentAt, sentBy: sender ? USERS[sender]?.label ?? sender : null,
+        invoices: body.invoices.map((inv) => {
+          const code = codeOfLabel(inv.propertyLabel, codes);
+          return { fileName: inv.fileName, propertyLabel: inv.propertyLabel, code, amount: code ? amountOf.get(code) ?? null : null, pdfBase64: inv.contentBase64 };
+        }),
+      }).catch((e) => console.warn(`[avid-send] invoice archive for ${body.source} ${body.period} not saved:`, e?.message ?? e));
+    }
 
     // Only mark the period done once everything's out, so a retry after a
     // partial failure re-sends just the invoices that didn't go.
