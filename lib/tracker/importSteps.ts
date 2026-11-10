@@ -53,6 +53,8 @@ export const IMPORT_STEPS: Record<string, ImportSteps> = {
   "imp-stmts": {
     title: "Laser Statement (tenant open charges)",
     where: ["Skyline", "Laser Statement"],
+    // Where Tanya files them each month (PDFs today).
+    path: { label: "Find them in", value: "Data\\Shared\\Properties\\Billings and Statements\\{year} Billing and Statements\\<NN Month>\\Laser Statements" },
     steps: [
       "Run the Laser Statement for the month, across the buildings being billed — on the 1st or 2nd, before payments come in.",
       "Report Destination: Excel. Save the .xls it produces.",

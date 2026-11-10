@@ -88,8 +88,9 @@ export const IMPORT_REMINDERS: ImportReminder[] = [
   // OPEN-ITEMS report read as of WHEN IT IS RUN, so it is THIS month's, not
   // last month's, and the portal shows whatever the last import said: a tenant
   // who has paid keeps showing the charge until it is re-run. Due with the
-  // tracker's own "Tenant Monthly Statements" task on the 5th.
-  { id: "imp-stmts", label: "Tenant Monthly Statements", cadence: "monthly", when: "By the 5th",
+  // tracker's own "Laser Statements" task on the 5th (Skyline's name for the
+  // report — owner).
+  { id: "imp-stmts", label: "Laser Statements", cadence: "monthly", when: "By the 5th",
     link: "/tenant-statements", feeds: "Tenant portal open A/R + statement PDFs",
     periodIs: "current-month", dueFromDay: 5 },
 ];
