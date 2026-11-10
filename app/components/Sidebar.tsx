@@ -8,6 +8,7 @@ import { accessGroup, NO_REPORT_CENTER } from "@/lib/users";
 import { useUser } from "./UserProvider";
 import UserSwitcher from "./UserSwitcher";
 import ThemeToggle from "./ThemeToggle";
+import SkinToggle from "./SkinToggle";
 import NotificationsToggle from "./NotificationsToggle";
 import { GlobalSearchTrigger } from "./GlobalSearch";
 
@@ -927,14 +928,14 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         left: 0,
         height: "100vh",
         width: W,
-        background: "#1e4976",
-        color: "#e0f0ff",
+        background: "var(--sb-bg)",
+        color: "var(--sb-text)",
         display: "flex",
         flexDirection: "column",
         transition: "width 0.2s ease",
         zIndex: isNarrow ? 90 : 40,
         overflow: "hidden",
-        borderRight: "1px solid rgba(255,255,255,0.07)",
+        borderRight: "1px solid var(--sb-line)",
       }}
     >
       {/* User switcher + toggle button */}
@@ -945,7 +946,8 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
           gap: 8,
           justifyContent: open ? "space-between" : "center",
           padding: open ? "14px 12px 14px 12px" : "14px 0",
-          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          borderBottom: "1px solid var(--sb-head-line)",
+          background: "var(--sb-head-bg)",
           flexShrink: 0,
         }}
       >
@@ -956,7 +958,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
           style={{
             background: "none",
             border: "none",
-            color: "#bfdbfe",
+            color: "var(--sb-head-icon)",
             cursor: "pointer",
             padding: 4,
             borderRadius: 6,
@@ -980,7 +982,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
 
       {/* App label */}
       {open && (
-        <div style={{ padding: "12px 16px 8px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#93c5fd", flexShrink: 0 }}>
+        <div style={{ padding: "12px 16px 8px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--sb-label)", flexShrink: 0 }}>
           Tools
         </div>
       )}
@@ -1045,7 +1047,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                   marginLeft: open ? (inGroup ? 12 : 0) + (item.indent ? 16 : 0) : 0,
                   justifyContent: open ? "flex-start" : "center",
                   borderRadius: 8,
-                  color: active ? "#fff" : "#e0f0ff",
+                  color: active ? "var(--sb-active-text)" : "var(--sb-text)",
                   textDecoration: "none",
                   fontSize: 14,
                   fontWeight: active ? 700 : 500,
@@ -1053,13 +1055,13 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                   transition: "background 0.15s",
                   whiteSpace: "nowrap",
                   position: "relative",
-                  background: active ? "rgba(255,255,255,0.18)" : "transparent",
+                  background: active ? "var(--sb-active-bg)" : "transparent",
                 }}
                 onMouseEnter={(e) => {
-                  if (!active) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)";
+                  if (!active) (e.currentTarget as HTMLElement).style.background = "var(--sb-hover)";
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background = active ? "rgba(255,255,255,0.18)" : "transparent";
+                  (e.currentTarget as HTMLElement).style.background = active ? "var(--sb-active-bg)" : "transparent";
                 }}
               >
                 <span style={{ flexShrink: 0, ...(hideIcon ? { width: 22, height: 22 } : {}) }}>{hideIcon ? null : item.icon}</span>
@@ -1135,7 +1137,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                     padding: open ? "9px 10px" : "9px 0",
                     justifyContent: open ? "flex-start" : "center",
                     borderRadius: 8,
-                    color: "#bfdbfe",
+                    color: "var(--sb-group-text)",
                     border: "none",
                     fontFamily: "inherit",
                     fontSize: 13,
@@ -1145,13 +1147,13 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                     cursor: "pointer",
                     transition: "background 0.15s",
                     whiteSpace: "nowrap",
-                    background: "rgba(255,255,255,0.04)",
+                    background: "var(--sb-group-bg)",
                     textAlign: "left",
                     width: "100%",
                     position: "relative",
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.10)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--sb-group-hover)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--sb-group-bg)"; }}
                 >
                   <span style={{ flexShrink: 0 }}>{meta.icon}</span>
                   {open && (
@@ -1196,7 +1198,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
       {/* Bottom row — Sign Out + theme/notification toggles (only when expanded) */}
       <div style={{
         padding: open ? "10px 8px 14px" : "10px 6px 14px",
-        borderTop: "1px solid rgba(255,255,255,0.07)",
+        borderTop: "1px solid var(--sb-line)",
         flexShrink: 0,
         display: "flex",
         alignItems: "center",
@@ -1218,14 +1220,14 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
             justifyContent: open ? "flex-start" : "center",
             borderRadius: 8,
             background: "transparent",
-            color: "#e0f0ff",
+            color: "var(--sb-text)",
             border: "none",
             fontSize: 14,
             fontWeight: 500,
             cursor: "pointer",
             whiteSpace: "nowrap",
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.12)"; }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--sb-hover)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
         >
           <span style={{ flexShrink: 0, display: "flex" }}>
@@ -1240,6 +1242,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         {open && (
           <div style={{ display: "flex", gap: 6 }}>
             <NotificationsToggle />
+            <SkinToggle />
             <ThemeToggle />
           </div>
         )}

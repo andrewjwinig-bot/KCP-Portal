@@ -6,6 +6,7 @@ import Sidebar from "./Sidebar";
 import GlobalSearch from "./GlobalSearch";
 import { useUser } from "./UserProvider";
 import { isPathAllowed } from "../../lib/users";
+import { applySkin, readSkin } from "./SkinToggle";
 
 // Routes that render without the portal chrome (no sidebar, no auth gate).
 // These are exempt from the site-cookie check in middleware too, so anyone
@@ -23,6 +24,12 @@ export default function AppShell({ children, website = false }: { children: Reac
   // auth gate). The tenant statement/portal links carry their OWN tenant-facing
   // sidebar, so they must never inherit the internal one.
   const isPublic = website || PUBLIC_PATHS.has(pathname) || pathname.startsWith("/statement/") || pathname.startsWith("/portal/") || pathname.startsWith("/investor/") || pathname.startsWith("/budget-review/") || pathname.startsWith("/commissions-review/") || pathname.startsWith("/centers/") || pathname === "/site" || pathname.startsWith("/site/");
+
+  // The new look applies to staff pages only — never the public website,
+  // tenant portal or forms, even when a staff member opens one.
+  useEffect(() => {
+    applySkin(readSkin(), isPublic);
+  }, [isPublic]);
 
   // Auto-collapse the sidebar to a hidden drawer on narrow viewports.
   useEffect(() => {

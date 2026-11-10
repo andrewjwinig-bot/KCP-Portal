@@ -1,4 +1,20 @@
 :root {
+  /* Sidebar tokens — classic values reproduce the original navy rail exactly. */
+  --sb-bg: #1e4976;
+  --sb-text: #e0f0ff;
+  --sb-line: rgba(255,255,255,0.07);
+  --sb-active-bg: rgba(255,255,255,0.18);
+  --sb-active-text: #fff;
+  --sb-hover: rgba(255,255,255,0.12);
+  --sb-label: #93c5fd;
+  --sb-group-text: #bfdbfe;
+  --sb-group-bg: rgba(255,255,255,0.04);
+  --sb-group-hover: rgba(255,255,255,0.10);
+  --sb-head-bg: transparent;
+  --sb-head-line: rgba(255,255,255,0.07);
+  --sb-head-icon: #bfdbfe;
+  --font-ui: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  --font-num: inherit;
   --bg: #fff;
   --text: #0b1220;
   --muted: #5d6b82;
@@ -244,7 +260,7 @@ html, body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  font-family: var(--font-ui);
 }
 
 main:where(:not(.kcs *)) {
@@ -1078,4 +1094,114 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
    * screen instead. Labels and sub-lines wrap. */
   .pill b { font-size: clamp(15px, 4.8vw, 22px); white-space: nowrap; }
   .pill span { overflow-wrap: anywhere; }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   STUDIO SKIN — the refreshed look (opt-in while it is being tested).
+   Turned on by data-skin="studio" on <html> (the sidebar's ◐ switch, or
+   ?skin=studio / ?skin=classic). Tokens and element baselines only: every
+   page keeps its markup, so turning it off restores the original exactly.
+   Grey canvas + white cards, a light sidebar under a brand-navy head,
+   Hanken Grotesk for text, Bricolage Grotesque for headline figures,
+   8px controls and 12px cards. Never reaches the public website (.kcs) or
+   the designed pages, which ship their own styles.
+   ═══════════════════════════════════════════════════════════════════════ */
+[data-skin="studio"] {
+  --bg: #f4f6f9;
+  --page-text: var(--text);
+  --border: rgba(15, 23, 42, 0.11);
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 14px -6px rgba(15, 23, 42, 0.06);
+  --font-ui: "Hanken Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-num: "Bricolage Grotesque", "Hanken Grotesk", sans-serif;
+  --radius-card: 12px;
+  --radius-ctl: 8px;
+
+  --sb-bg: #ffffff;
+  --sb-text: #4a576c;
+  --sb-line: rgba(15, 23, 42, 0.09);
+  --sb-active-bg: color-mix(in srgb, #0b4a7d 11%, #ffffff);
+  --sb-active-text: #0b4a7d;
+  --sb-hover: #f1f4f8;
+  --sb-label: #8a96aa;
+  --sb-group-text: #0b1220;
+  --sb-group-bg: transparent;
+  --sb-group-hover: #f1f4f8;
+  --sb-head-bg: #0b4a7d;
+  --sb-head-line: transparent;
+  --sb-head-icon: #ffffff;
+}
+[data-skin="studio"][data-theme="dark"] {
+  --bg: #0b1220;
+  --border: rgba(255, 255, 255, 0.12);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --sb-bg: #111a2b;
+  --sb-text: #b8c3d4;
+  --sb-line: rgba(255, 255, 255, 0.08);
+  --sb-active-bg: rgba(96, 165, 250, 0.16);
+  --sb-active-text: #e6edf6;
+  --sb-hover: rgba(255, 255, 255, 0.06);
+  --sb-label: #7d8aa0;
+  --sb-group-text: #e6edf6;
+  --sb-group-hover: rgba(255, 255, 255, 0.08);
+  --sb-head-bg: #0b4a7d;
+}
+
+[data-skin="studio"] body { -webkit-font-smoothing: antialiased; font-size: 14.5px; }
+
+/* Cards: quieter shadow, tighter radius. */
+[data-skin="studio"] .card { border-radius: var(--radius-card); box-shadow: var(--shadow); }
+
+/* Page titles: the showcase's compact, confident headline instead of 54px. */
+[data-skin="studio"] h1:where(:not(.kcs *)) {
+  font-family: var(--font-num);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+[data-skin="studio"] h2:where(:not(.kcs *)),
+[data-skin="studio"] h3:where(:not(.kcs *)) { letter-spacing: -0.01em; }
+
+/* KPI tiles (StatPill): white tiles, figures in the display face. */
+[data-skin="studio"] .pill {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 13px 15px;
+}
+[data-skin="studio"] .pill b {
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-size: 27px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+[data-skin="studio"] .pill span {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+[data-skin="studio"] .pill-total {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 5%, var(--card));
+}
+
+/* Buttons and form controls: one 8px shape across the toolbar. */
+[data-skin="studio"] .btn { border-radius: var(--radius-ctl); background: var(--card); }
+[data-skin="studio"] .btn.primary { background: var(--brand); }
+[data-skin="studio"] .btn.primary:hover { background: var(--brand2); }
+[data-skin="studio"] select:where(:not(.kcs *)),
+[data-skin="studio"] input:where(:not(.kcs *)):not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+[data-skin="studio"] textarea:where(:not(.kcs *)) { border-radius: var(--radius-ctl); }
+
+/* Tables: uppercase micro-headers, tabular figures. */
+[data-skin="studio"] table:where(:not(.kcs *)) { font-variant-numeric: tabular-nums; }
+[data-skin="studio"] thead th:where(:not(.kcs *)) {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
