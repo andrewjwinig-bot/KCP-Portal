@@ -105,6 +105,53 @@ each tenant opens in Receipt Reconciliation (`?period=&unit=`). Pinned by
   budget, no draft and no loan in the Debt Tracker — that is by design, not a
   missing loan. Don't flag them as debt-tracker gaps.
 
+# THE NEW LOOK — the portal's one design system (read before ANY UI work)
+
+Owner, 11/2026: "every page needs a big cleanup and needs to work together";
+"restrained and meaningful". The reference is the design canvas "KCP Portal —
+Cohesive Dashboard & Style System" (claude.ai artifact 825e41d9-…). It is live
+for Drew + admin only (`SKIN_REVIEWERS` in `app/components/SkinToggle.tsx`)
+until he approves it for everyone; build EVERY new or touched UI to it.
+
+- **Color**: navy `#0B4A7D` is the ONLY accent. Green `#067647` / red
+  `#B42318` / amber `#B54708` mean done / wrong / needs attention and nothing
+  else. Neutrals: canvas `#F4F6F9`, border `#E4E7EC`, hairline `#EAECF0`
+  (`var(--hairline)`), ink `#101828`, secondary `#475467`. Violet is AI only.
+  No tinted boxes to say status — say it in WORDS in the row's meta column.
+- **Type**: Hanken Grotesk; codes (unit refs, GL accounts) in `<code>` — navy
+  IBM Plex Mono. Text floor 14px for older readers: small inline sizes are
+  written `fontSize: "var(--fs-12)"` (tokens `--fs-9`…`--fs-14`), NEVER a bare
+  number under 15 — `lib/ui/noDrift.test.ts` fails the build on one.
+  Page title 44px, card titles 17px, tile figures 32px.
+- **Shapes**: cards 12px radius, 1px border, no glow. Controls (buttons,
+  dropdowns, inputs) 8px, 42–44px tall — never pills. `.btn` / `.btn.sm` /
+  `.btn.primary` from globals; never restyle a button inline.
+- **Checks**: ONE check — `RoundCheck` (`app/components/RoundCheck.tsx`): grey
+  circle open, green filled with a white tick done. Native checkboxes are
+  drawn the same way by globals. Never hand-build a square checkbox.
+- **Lists**: hairline rows (`className="task-row"`, `padding 11px 2px`,
+  `borderBottom 1px var(--hairline)`), icon or check on the left, title
+  14–16px/600, meta + status on the right. No boxed, tinted rows.
+- **Icons**: Lucide only (`lucide-react`), `strokeWidth={1.75}`, sizes
+  16 / 20 / 24. NO emoji (✅ ⚠️ 📄 🕗) and NO text arrows or glyphs (→ ▾ ▸ ×)
+  in UI — `CircleCheck`, `TriangleAlert`, `ChevronRight`, `ChevronDown`, `X`.
+  A link that goes somewhere is `className="text-link"` + `ChevronRight`.
+- **Hovers**: always `HoverCard` / `TipCard` (charts: `ChartTooltip`, which
+  draws the same card). Sizes come from `--tip-*`; never a native `title=` on
+  a figure.
+- **Tables**: `th`/`td` from `tableStyles.ts`; 14px caps grey headers, ~48px
+  rows, figures right-aligned and tabular, totals bold under a 2px rule; only
+  the variance column is coloured, past the $500 floor. Money: no $ in cells,
+  $ on totals and tiles, negatives in (parens), zero as an em dash.
+- **One Export menu** per page (`DownloadMenu`), expand by clicking the row,
+  row actions as a PDF chip + a ⋯ menu.
+- **Writing**: buttons say what happens ("Send $18,327 to AvidXchange");
+  errors in plain English; one word per status; names in Title Case ("Harry",
+  not "HARRY").
+- **The ratchet** (`lib/ui/noDrift.test.ts`): counts of emoji, text arrows,
+  inline hex colours and tinted fills may only go DOWN. When a sweep removes
+  some, lower the baseline in that test in the same change.
+
 # UI consistency — pills, badges, fonts, sizes
 
 The user has flagged repeated drift in pill / chip / badge styling across new pages. Do NOT re-invent chip styles inline. Always use the shared primitives:
