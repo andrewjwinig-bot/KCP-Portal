@@ -9,6 +9,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronRight, Info, X } from "lucide-react";
+import { FilePath } from "@/app/components/FilePath";
 import { importStepsFor } from "@/lib/tracker/importSteps";
 
 export function ImportStepsButton({ id, size = 16 }: { id: string; size?: number }) {
@@ -77,6 +78,7 @@ export function ImportStepsButton({ id, size = 16 }: { id: string; size?: number
           <ol style={{ margin: "10px 0 0", paddingLeft: 20, display: "grid", gap: 6 }}>
             {steps.steps.map((s, i) => <li key={i}>{s}</li>)}
           </ol>
+          {steps.path && <div style={{ marginTop: 10 }}><FilePath label={steps.path.label} path={steps.path.value} /></div>}
           {steps.note && <div style={{ marginTop: 10, color: "var(--muted)", fontSize: "var(--fs-13)" }}>{steps.note}</div>}
           <a href={steps.importAt.href} className="text-link" style={{ display: "inline-flex", alignItems: "center", gap: 2, marginTop: 10, fontWeight: 600 }}>
             Import on {steps.importAt.label}<ChevronRight size={16} strokeWidth={1.75} />

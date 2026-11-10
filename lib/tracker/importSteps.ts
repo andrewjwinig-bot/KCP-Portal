@@ -16,6 +16,9 @@ export type ImportSteps = {
   steps: string[];
   /** Where it goes in the portal. */
   importAt: { label: string; href: string };
+  /** A folder the file is saved to or found in — drawn by `FilePath`, never
+   *  typed into a step. `{year}` is filled with this year. */
+  path?: { label: string; value: string };
   /** One line worth knowing before you start. */
   note?: string;
 };
@@ -30,9 +33,10 @@ export const IMPORT_STEPS: Record<string, ImportSteps> = {
       "Set Beginning Date and End Date to the month being imported (the first to the last day).",
       "Run it for the property (or every property you are importing).",
       XLS,
-      "Save to Data\\Accounting\\<year> Year End\\Reports to Eisner\\Monthly GLs. The file name does not matter.",
+      "Save it to the Monthly GLs folder below. The file name does not matter.",
       "In the portal: Operating Statements, Upload GL, and pick the files.",
     ],
+    path: { label: "Save to", value: "Data\\Accounting\\{year} Year End\\Reports to Eisner\\Monthly GLs" },
     importAt: { label: "Operating Statements", href: "/financials/operating-statements" },
     note: "Importing 2000's GL sends the Allocated Expenses to AvidXchange on its own.",
   },
@@ -88,7 +92,8 @@ export const IMPORT_STEPS: Record<string, ImportSteps> = {
   },
   bankrec: {
     title: "Bank Reconciliation files",
-    where: ["SharePoint", "Accounting", "<year> Year End", "Bank Account Reconciliations", "<NN Month YYYY>"],
+    where: ["SharePoint", "Accounting", "Bank Account Reconciliations"],
+    path: { label: "Find them in", value: "!{year} Year End\\Bank Account Reconciliations\\<NN Month YYYY>\\<Bank>" },
     steps: [
       "The month's bank statements (Chase, M&T, Liberty PDFs) — Marie files them by bank.",
       "Skyline's Checking Account Report (.xls) for the month.",
