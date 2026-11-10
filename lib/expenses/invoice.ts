@@ -608,6 +608,10 @@ export type BuildReimbursementPdfArgs = {
   invoiceId?: string;
   lines: ReimbursementLine[]; // per-property (or per-group) subtotals making up the total
   total: number;
+  /** The part of `total` charged to properties held under the $100 floor this
+   *  month — repaid now, billed to the property in a later batch, never repaid
+   *  again. Printed as a note under the table. */
+  heldTotal?: number;
 };
 
 export function buildReimbursementInvoicePdf(args: BuildReimbursementPdfArgs): Blob {
@@ -669,6 +673,16 @@ export function buildReimbursementInvoicePdf(args: BuildReimbursementPdfArgs): B
     doc.text(truncate(l.label, 64), sumXLabel + 8, y + 15);
     doc.setTextColor(0, 0, 0); doc.text(toMoney(l.amount), sumXTotal + sumColTotal - 8, y + 15, { align: "right" });
     y += rowH;
+  }
+  const held = Number(args.heldTotal || 0);
+  if (held > 0) {
+    if (y + 40 > pageH - 120) { doc.addPage(); y = margin; }
+    doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(80, 80, 80);
+    doc.text(
+      `Includes ${toMoney(held)} of this statement's charges at properties held under $100. Those are billed to the property in a later batch as a prior balance and are not reimbursed again. Billed to properties this batch: ${toMoney(args.total - held)} of this statement's charges.`,
+      margin, y + 16, { maxWidth: contentW },
+    );
+    doc.setTextColor(0, 0, 0);
   }
 
   // Footer: payable-to + TOTAL box

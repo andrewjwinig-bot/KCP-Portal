@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
 import { useUser } from "../../components/UserProvider";
 import { Pill, TONE_NEUTRAL, TONE_TEAL } from "@/app/components/Pill";
+import { InvoicesPanel } from "./InvoicesPanel";
 
 type SavedTx = {
   date: string;
@@ -134,7 +135,7 @@ export default function ExpenseHistoryPage() {
       <div className="card">
         <b style={{ fontSize: 15 }}>Statement History</b>
         <div className="small muted" style={{ marginTop: 4, marginBottom: 16 }}>
-          Every statement is logged here automatically when its invoices are generated on the Expense Coder page — re-generating a month updates its entry. You can also archive one manually with &ldquo;Save to History.&rdquo;
+          Every statement is logged here automatically when its invoices are generated on the Expense Coder page — re-generating a month updates its entry. Open one for the invoices sent to AvidXchange (each PDF as sent) and its charges.
         </div>
 
         {loading && <LoadingState card={false} status="Loading saved statements…" rows={4} />}
@@ -169,6 +170,10 @@ export default function ExpenseHistoryPage() {
 
               {isExpanded && (
                 <div style={{ borderTop: "1px solid var(--border)", overflowX: "auto" }}>
+                  {!isMaint && /^\d{4}-\d{2}/.test(s.statementMonth || "") && (
+                    <div style={{ borderBottom: "1px solid var(--border)" }}><InvoicesPanel period={s.statementMonth} /></div>
+                  )}
+                  {detail && visibleTx(detail.tx).length > 0 && <div style={{ padding: "14px 16px 0" }}><b style={{ fontSize: 15 }}>Charges</b></div>}
                   {!detail ? (
                     <div className="small muted" style={{ padding: 14 }}>Loading…</div>
                   ) : visibleTx(detail.tx).length === 0 ? (

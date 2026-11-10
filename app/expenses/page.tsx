@@ -822,10 +822,22 @@ export default function ExpensesPage() {
 
   // Harry's reimbursement (full statement total, per-property lines) — reused by
   // the reimbursement invoice PDF and the TOP SHEET note.
+  // He is repaid what HIS CARD paid on THIS statement — every charge, held
+  // properties included, once. A property held under the $100 floor is billed
+  // to the property later as a prior balance, and that prior balance is NEVER
+  // in a later reimbursement (only `invoiceGroups`, this statement's own
+  // charges, are). So nothing is repaid twice; the held part is LIK's to
+  // collect from the property, tracked by the carryover ledger. Each held line
+  // says so, and the invoice states the split.
   function reimbursementForBatch() {
-    const lines = invoiceGroups.map((ig) => ({ label: `${ig.propId} · ${propName(ig.propId)}`, amount: ig.total }));
+    const heldIds = new Set(decoratedGroups.filter((g) => !g.billed).map((g) => g.propId));
+    const lines = invoiceGroups.map((ig) => ({
+      label: `${ig.propId} · ${propName(ig.propId)}${heldIds.has(ig.propId) ? " · held, bills property next batch" : ""}`,
+      amount: ig.total,
+    }));
     const total = Math.round(invoiceGroups.reduce((a, ig) => a + ig.total, 0) * 100) / 100;
-    return { lines, total };
+    const held = Math.round(invoiceGroups.filter((ig) => heldIds.has(ig.propId)).reduce((a, ig) => a + ig.total, 0) * 100) / 100;
+    return { lines, total, held };
   }
   const periodCompactStr = (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined;
 
@@ -948,6 +960,7 @@ export default function ExpensesPage() {
         invoiceId: makeInvoiceId("REIMB", statementMonth),
         lines: reimb.lines,
         total: reimb.total,
+        heldTotal: reimb.held,
       });
       const reimbFileName = `${filenameMonth} - REIMBURSEMENT - Harry Feldman.pdf`;
       zip.file(reimbFileName, reimbBlob);
