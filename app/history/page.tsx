@@ -85,7 +85,7 @@ export default function HistoryPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
@@ -124,19 +124,19 @@ export default function HistoryPage() {
                   <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                     <button
                       onClick={() => toggleExpand(p.id)}
-                      style={{ fontSize: 13, padding: "5px 14px", borderRadius: 7, border: "1px solid #1a1a1a", background: "transparent", color: "#1a1a1a", cursor: "pointer", fontWeight: 500 }}
+                      style={{ fontSize: "var(--fs-13)", padding: "5px 14px", borderRadius: 7, border: "1px solid #1a1a1a", background: "transparent", color: "#1a1a1a", cursor: "pointer", fontWeight: 500 }}
                     >
                       {isExpanded ? "Close" : "View"}
                     </button>
                     <button
                       onClick={() => router.push(`/?load=${p.id}`)}
-                      style={{ fontSize: 13, padding: "5px 14px", borderRadius: 7, border: "1px solid #1a1a1a", background: "transparent", color: "#1a1a1a", cursor: "pointer", fontWeight: 500 }}
+                      style={{ fontSize: "var(--fs-13)", padding: "5px 14px", borderRadius: 7, border: "1px solid #1a1a1a", background: "transparent", color: "#1a1a1a", cursor: "pointer", fontWeight: 500 }}
                     >
                       Load
                     </button>
                     <button
                       onClick={() => deletePeriod(p.id)}
-                      style={{ fontSize: 13, padding: "5px 14px", borderRadius: 7, border: "1px solid #b42318", background: "transparent", color: "#b42318", cursor: "pointer", fontWeight: 500 }}
+                      style={{ fontSize: "var(--fs-13)", padding: "5px 14px", borderRadius: 7, border: "1px solid #b42318", background: "transparent", color: "#b42318", cursor: "pointer", fontWeight: 500 }}
                     >
                       Delete
                     </button>

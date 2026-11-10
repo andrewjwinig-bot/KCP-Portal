@@ -257,7 +257,7 @@ export default function SubmitPage() {
                   padding: "9px 16px",
                   border: `1px solid ${LINE_DARK}`,
                   background: "transparent", color: NAVY,
-                  fontSize: 12, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
+                  fontSize: "var(--fs-12)", fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
                   cursor: "pointer", marginTop: 8, alignSelf: "flex-start",
                 }}>
                   Choose Photos
@@ -284,7 +284,7 @@ export default function SubmitPage() {
                   style={{
                     background: NAVY_DEEP, color: "#fff",
                     border: "none", padding: "16px 48px",
-                    fontSize: 14, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+                    fontSize: "var(--fs-14)", fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
                     fontFamily: "inherit",
                     cursor: submitting ? "not-allowed" : "pointer",
                     opacity: submitting ? 0.7 : 1,
@@ -342,7 +342,7 @@ function KormanFooter() {
       padding: "28px 24px 36px",
       display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
       color: MUTED,
-      fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase",
+      fontSize: "var(--fs-11)", letterSpacing: "0.14em", textTransform: "uppercase",
     }}>
       <a href={SITE_URL} aria-label="Korman Commercial Properties home" style={{ display: "inline-flex", textDecoration: "none", color: "inherit" }}>
         <Wordmark color={NAVY} small />
@@ -396,7 +396,7 @@ function Row({ children }: { children: React.ReactNode }) {
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <label style={{ fontSize: 13, fontWeight: 500, color: NAVY }}>
+      <label style={{ fontSize: "var(--fs-13)", fontWeight: 500, color: NAVY }}>
         {label}{required && <span style={{ color: RED, marginLeft: 2 }}>*</span>}
       </label>
       {children}
@@ -475,7 +475,7 @@ const underlineInputStyle: React.CSSProperties = {
 
 const hintStyle: React.CSSProperties = {
   display: "block",
-  fontSize: 12,
+  fontSize: "var(--fs-12)",
   color: MUTED,
   marginTop: 6,
   lineHeight: 1.5,
@@ -490,7 +490,7 @@ function caretSvg() {
 function ErrorBox({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      fontSize: 13, color: RED, fontWeight: 600,
+      fontSize: "var(--fs-13)", color: RED, fontWeight: 600,
       padding: "10px 14px",
       background: "rgba(220,38,38,0.04)",
       border: `1px solid rgba(220,38,38,0.30)`,
@@ -503,7 +503,7 @@ function ErrorBox({ children }: { children: React.ReactNode }) {
 function InfoBox({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      fontSize: 13, color: NAVY, fontWeight: 500,
+      fontSize: "var(--fs-13)", color: NAVY, fontWeight: 500,
       padding: "10px 14px",
       background: "rgba(14,34,56,0.04)",
       border: `1px solid ${LINE_DARK}`,
@@ -531,7 +531,7 @@ function SuccessPanel({ id, onAnother }: { id: string; onAnother: () => void }) 
         <h2 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 28, fontWeight: 300, color: NAVY }}>
           Request Submitted
         </h2>
-        <p style={{ marginTop: 10, color: MUTED, lineHeight: 1.6, fontSize: 14 }}>
+        <p style={{ marginTop: 10, color: MUTED, lineHeight: 1.6, fontSize: "var(--fs-14)" }}>
           Thanks — your request was received and the service team has been notified.
           They&apos;ll reach out if they need more information.
         </p>
@@ -544,7 +544,7 @@ function SuccessPanel({ id, onAnother }: { id: string; onAnother: () => void }) 
           background: "transparent", color: NAVY,
           border: `1px solid ${NAVY}`,
           padding: "12px 28px",
-          fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+          fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
           fontFamily: "inherit",
           cursor: "pointer",
         }}

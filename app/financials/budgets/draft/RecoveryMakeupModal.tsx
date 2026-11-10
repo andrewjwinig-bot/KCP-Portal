@@ -11,9 +11,9 @@ import { CATEGORY_LABEL, type RecoveryMakeup } from "@/lib/financials/budgets/re
 
 const money0 = (n: number) => `${n < 0 ? "(" : ""}$${Math.round(Math.abs(n)).toLocaleString("en-US")}${n < 0 ? ")" : ""}`;
 const pct = (n: number | null) => (n == null ? "–" : `${n.toFixed(1)}%`);
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "right", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
-const td: React.CSSProperties = { padding: "8px 8px", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
+const td: React.CSSProperties = { padding: "8px 8px", fontSize: "var(--fs-13)", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
 
 export function RecoveryMakeupModal({ makeup: mk, month, year, onClose }: { makeup: RecoveryMakeup; month: string; year: number; onClose: () => void }) {
   useEffect(() => {

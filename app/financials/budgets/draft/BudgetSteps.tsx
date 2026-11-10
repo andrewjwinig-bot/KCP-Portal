@@ -16,7 +16,7 @@ import { HoverCard } from "@/app/components/HoverCard";
 import { ownerProgress } from "@/lib/financials/budgets/deriveContributions";
 import type { Contribution, ContributionKind } from "@/lib/financials/budgets/contributors";
 
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const NAME: Record<string, string> = { harry: "Harry", nancy: "Nancy", greg: "Greg", drew: "Drew", admin: "Admin" };
 
 type StepState = "done" | "active" | "blocked" | "waiting";
@@ -119,15 +119,15 @@ export function BudgetSteps({ year, category, refreshTick }: { year: number; cat
           const chip = (
             <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--border)", background: st.state === "active" ? "rgba(11,74,125,0.05)" : "transparent" }}>
               <span style={{ width: 9, height: 9, borderRadius: 999, background: d.bg, boxShadow: `0 0 0 3px ${d.ring}`, flex: "none" }} />
-              <span style={{ fontSize: 12.5, fontWeight: 800, color: st.state === "waiting" ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: "var(--fs-12-5)", fontWeight: 800, color: st.state === "waiting" ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap" }}>
                 {i + 1}. {st.title}
               </span>
-              {st.total > 0 && <span className="muted" style={{ fontSize: 11.5, fontWeight: 700 }}>{st.done}/{st.total}</span>}
+              {st.total > 0 && <span className="muted" style={{ fontSize: "var(--fs-11-5)", fontWeight: 700 }}>{st.done}/{st.total}</span>}
             </div>
           );
           return (
             <Fragment key={st.id}>
-              {i > 0 && <span className="muted" style={{ fontSize: 11 }}>›</span>}
+              {i > 0 && <span className="muted" style={{ fontSize: "var(--fs-11)" }}>›</span>}
               <HoverCard title={`${i + 1}. ${st.title}`}
                 rows={[
                   { label: "Who", value: st.who },

@@ -84,7 +84,7 @@ export default function Insights({
     <div style={{ gridColumn: "1 / -1" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
         <Pill tone={TONE_BLUE}>BRIEFING</Pill>
-        <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{insights.length}</span>
+        <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", fontWeight: 600 }}>{insights.length}</span>
         <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
@@ -114,9 +114,9 @@ export default function Insights({
               }}
             >
               <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1 }}>{ins.metric}</div>
-              <div style={{ fontSize: 13, color: "var(--text)", marginTop: 4, lineHeight: 1.35 }}>{ins.body}</div>
+              <div style={{ fontSize: "var(--fs-13)", color: "var(--text)", marginTop: 4, lineHeight: 1.35 }}>{ins.body}</div>
               {ins.cta && (
-                <div style={{ fontSize: 11, color: t.bar, fontWeight: 700, marginTop: 8, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                <div style={{ fontSize: "var(--fs-11)", color: t.bar, fontWeight: 700, marginTop: 8, letterSpacing: "0.04em", textTransform: "uppercase" }}>
                   {ins.cta} →
                 </div>
               )}

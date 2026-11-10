@@ -61,11 +61,11 @@ export default function PendingReservationsCard({ order = 0 }: { order?: number 
   return (
     <div className="card" style={{ gridColumn: "1 / -1", order }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", display: "flex", alignItems: "center" }}>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", display: "flex", alignItems: "center" }}>
           Pending Reservations
           <Badge>{pending.length}</Badge>
         </div>
-        <Link href="/reservations" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
+        <Link href="/reservations" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
           Open Reservations →
         </Link>
       </div>
@@ -81,10 +81,10 @@ export default function PendingReservationsCard({ order = 0 }: { order?: number 
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: "var(--fs-14)", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {r.roomLabel} · {r.tenantCompany}
               </div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>
+              <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                 {[
                   `${prettyDate(r.date)} · ${prettyTime(r.startTime)}–${prettyTime(r.endTime)}`,
                   `${r.contactFirstName} ${r.contactLastName}`.trim(),
@@ -93,7 +93,7 @@ export default function PendingReservationsCard({ order = 0 }: { order?: number 
               </div>
             </div>
             <Pill tone={reservationStatusTone("Pending")}>Pending</Pill>
-            <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: "var(--brand)" }}>Review →</span>
+            <span style={{ flexShrink: 0, fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)" }}>Review →</span>
           </Link>
         ))}
       </div>

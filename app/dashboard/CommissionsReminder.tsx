@@ -100,10 +100,10 @@ export default function CommissionsReminder({ standalone = false, href = "/commi
     }}>
       <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: t.dot }} />
       <div style={{ flex: 1 }}>
-        <div style={{ fontWeight: 600, fontSize: 14 }}>{info.title}</div>
+        <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>{info.title}</div>
         <div className="muted small" style={{ marginTop: 2 }}>{info.sub}</div>
       </div>
-      <Link href={href} style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>Open →</Link>
+      <Link href={href} style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>Open →</Link>
       <button onClick={dismiss} aria-label="Dismiss" title="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 15, lineHeight: 1, padding: 0, flexShrink: 0, alignSelf: "center" }}>×</button>
     </div>
   );

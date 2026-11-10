@@ -22,11 +22,11 @@ export type UnitOption = {
 const inputStyle: React.CSSProperties = { width: "100%" };
 // A fixed tenant is shown read-only in the same pill shape as the controls.
 const readOnlyLook: React.CSSProperties = {
-  width: "100%", padding: "7px 13px", fontSize: 13, borderRadius: 999,
+  width: "100%", padding: "7px 13px", fontSize: "var(--fs-13)", borderRadius: 999,
   border: "1px solid var(--border)", background: "rgba(15,23,42,0.04)", color: "var(--text)",
 };
 const labelStyle: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+  fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em",
   textTransform: "uppercase", color: "var(--muted)",
 };
 
@@ -375,7 +375,7 @@ export default function DepositForm({
         <div style={{
           padding: "8px 10px", borderRadius: 8,
           background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: 12, fontWeight: 600,
+          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
@@ -395,7 +395,7 @@ export default function DepositForm({
           </select>
         )}
         {account && (
-          <span style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+          <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: 2 }}>
             Account: <strong>{DEPOSIT_ACCOUNTS[account].bank}</strong> — {DEPOSIT_ACCOUNTS[account].label}
           </span>
         )}
@@ -417,11 +417,11 @@ export default function DepositForm({
               </a>
             ) : (
               <a href={previewUrl} target="_blank" rel="noreferrer"
-                style={{ fontSize: 13, fontWeight: 600, color: "#0b4a7d" }}>View uploaded file</a>
+                style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#0b4a7d" }}>View uploaded file</a>
             )}
             <div>
               <button type="button" onClick={removeImage} className="btn"
-                style={{ fontSize: 12, padding: "5px 12px", fontWeight: 600 }}>Remove image</button>
+                style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 600 }}>Remove image</button>
             </div>
           </div>
         )}
@@ -431,7 +431,7 @@ export default function DepositForm({
             display: "flex", alignItems: "center", justifyContent: "center",
             padding: "16px", cursor: "pointer", textAlign: "center",
             border: "1.5px dashed var(--border)", borderRadius: 10,
-            background: "rgba(15,23,42,0.015)", fontSize: 13, color: "var(--muted)",
+            background: "rgba(15,23,42,0.015)", fontSize: "var(--fs-13)", color: "var(--muted)",
           }}
         >
           {extracting
@@ -451,7 +451,7 @@ export default function DepositForm({
           }}
         />
         {extractNote && (
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>{extractNote}</span>
+          <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>{extractNote}</span>
         )}
       </div>
 
@@ -459,7 +459,7 @@ export default function DepositForm({
         <div style={{
           padding: "8px 10px", borderRadius: 8,
           background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)",
-          color: "#b45309", fontSize: 12, fontWeight: 600,
+          color: "#b45309", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>
           ⚠ This tenant already has {dupMatch.checkNumber ? `check #${dupMatch.checkNumber}` : "a check"}
           {dupMatch.amount ? ` for $${dupMatch.amount.toLocaleString("en-US")}` : ""}
@@ -501,7 +501,7 @@ export default function DepositForm({
               onChange={(e) => setRefunded(e.target.checked)}
               style={{ width: 16, height: 16, cursor: "pointer" }}
             />
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Refunded to tenant</span>
+            <span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>Refunded to tenant</span>
           </label>
           <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
             <input
@@ -510,7 +510,7 @@ export default function DepositForm({
               onChange={(e) => setTenantDefaulted(e.target.checked)}
               style={{ width: 16, height: 16, cursor: "pointer" }}
             />
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Tenant Defaulted</span>
+            <span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>Tenant Defaulted</span>
           </label>
           <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
             <input
@@ -519,7 +519,7 @@ export default function DepositForm({
               onChange={(e) => setPartialRefund(e.target.checked)}
               style={{ width: 16, height: 16, cursor: "pointer" }}
             />
-            <span style={{ fontSize: 13, fontWeight: 700 }}>Partial Refund</span>
+            <span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>Partial Refund</span>
           </label>
         </div>
         {refunded && (
@@ -547,7 +547,7 @@ export default function DepositForm({
       {/* Running tally of checks added this session (multi-check deposits). */}
       {addedChecks.length > 0 && (
         <div style={{
-          fontSize: 12, color: "var(--muted)", padding: "8px 10px", borderRadius: 8,
+          fontSize: "var(--fs-12)", color: "var(--muted)", padding: "8px 10px", borderRadius: 8,
           background: "rgba(22,163,74,0.06)", border: "1px solid rgba(22,163,74,0.25)",
         }}>
           ✓ Added {addedChecks.length} check{addedChecks.length === 1 ? "" : "s"} for this tenant
@@ -559,17 +559,17 @@ export default function DepositForm({
       {/* Actions — changes save automatically; the button just closes. */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <button type="button" onClick={() => save(false)} disabled={saving || extracting}
-          className="btn primary" style={{ fontSize: 13, padding: "8px 18px", fontWeight: 700 }}>
+          className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 18px", fontWeight: 700 }}>
           {saving ? "Saving…" : "Done"}
         </button>
         {onCheckAdded && (
           <button type="button" onClick={() => save(true)} disabled={saving || extracting}
-            className="btn" style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}
+            className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700 }}
             title="Save this check and add another for the same tenant">
             + Add another check
           </button>
         )}
-        <span style={{ fontSize: 12, fontWeight: 600, color: autoStatus === "error" ? "#b91c1c" : "var(--muted)" }}>
+        <span style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: autoStatus === "error" ? "#b91c1c" : "var(--muted)" }}>
           {autoStatus === "saving" || autoStatus === "pending"
             ? "Saving…"
             : autoStatus === "saved"
@@ -581,7 +581,7 @@ export default function DepositForm({
         {editId && onDeleted && (
           <button type="button" onClick={del} disabled={saving}
             style={{
-              marginLeft: "auto", fontSize: 12, fontWeight: 600, color: "#b91c1c",
+              marginLeft: "auto", fontSize: "var(--fs-12)", fontWeight: 600, color: "#b91c1c",
               background: "transparent", border: "1px solid rgba(220,38,38,0.35)",
               borderRadius: 8, padding: "7px 14px", cursor: "pointer", fontFamily: "inherit",
             }}>

@@ -48,7 +48,7 @@ function pct1(n: number): string {
 }
 
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: "var(--fs-11)",
   fontWeight: 700,
   textTransform: "uppercase",
   letterSpacing: "0.06em",
@@ -61,7 +61,7 @@ const selectStyle: React.CSSProperties = {
   border: "1px solid var(--border)",
   background: "var(--card)",
   color: "var(--text)",
-  fontSize: 14,
+  fontSize: "var(--fs-14)",
   fontWeight: 700,
 };
 
@@ -72,7 +72,7 @@ function HeaderSelect({ value, onChange, displayLabel, ariaLabel, children }: {
   return (
     <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
       <span style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{displayLabel}</span>
-      <span aria-hidden style={{ fontSize: 11, lineHeight: 1, color: "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
+      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
       <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={ariaLabel}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}>
         {children}
@@ -327,7 +327,7 @@ function RetailHistoryCard({ property, hist, recon }: {
   const totals = Object.fromEntries(years.map((y) => [String(y), lineRows.reduce((a, [label]) => a + (lineAt(label, y) ?? 0), 0)]));
 
   const num: React.CSSProperties = { textAlign: "right", padding: "6px 12px", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
-  const head: React.CSSProperties = { ...num, fontSize: 12, fontWeight: 800, color: "var(--muted)", borderBottom: "1px solid var(--border)" };
+  const head: React.CSSProperties = { ...num, fontSize: "var(--fs-12)", fontWeight: 800, color: "var(--muted)", borderBottom: "1px solid var(--border)" };
   return (
     <div className="card" style={{ marginTop: 16, overflowX: "auto" }}>
       <div style={{ fontSize: 15, fontWeight: 800 }}>{property} — {RETAIL_NAME.get(property.toUpperCase()) ?? ""}</div>
@@ -335,7 +335,7 @@ function RetailHistoryCard({ property, hist, recon }: {
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, minWidth: 480 }}>
         <thead>
           <tr>
-            <th style={{ textAlign: "left", padding: "6px 12px", borderBottom: "1px solid var(--border)", fontSize: 12, fontWeight: 800, color: "var(--muted)" }}>Expense</th>
+            <th style={{ textAlign: "left", padding: "6px 12px", borderBottom: "1px solid var(--border)", fontSize: "var(--fs-12)", fontWeight: 800, color: "var(--muted)" }}>Expense</th>
             {years.map((y) => <th key={y} style={head}>{y}</th>)}
           </tr>
         </thead>
@@ -431,7 +431,7 @@ function SummaryTable({ expenses, budget2026 }: {
               onClick={() => setMode(val)}
               style={{
                 padding: "6px 12px",
-                fontSize: 13,
+                fontSize: "var(--fs-13)",
                 background: mode === val ? "var(--brand)" : undefined,
                 color: mode === val ? "#fff" : undefined,
                 borderColor: mode === val ? "var(--brand)" : undefined,
@@ -520,7 +520,7 @@ function CollapseHeader({
         gap: 6,
       }}
     >
-      <span style={{ fontSize: 13 }}>{open ? "▾" : "▸"}</span>
+      <span style={{ fontSize: "var(--fs-13)" }}>{open ? "▾" : "▸"}</span>
       {title}
     </button>
   );
@@ -587,7 +587,7 @@ function ExpenseHistory({
                 onClick={() => setPsf(val)}
                 style={{
                   padding: "6px 12px",
-                  fontSize: 13,
+                  fontSize: "var(--fs-13)",
                   background: psf === val ? "var(--brand)" : undefined,
                   color: psf === val ? "#fff" : undefined,
                   borderColor: psf === val ? "var(--brand)" : undefined,
@@ -992,7 +992,7 @@ function BaseYearBreakdown({
               display: "grid",
               gridTemplateColumns: "20px minmax(0, 1.4fr) 70px 70px 110px 110px 90px",
               gap: 10, alignItems: "center",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+              fontSize: "var(--fs-10)", fontWeight: 700, letterSpacing: "0.04em",
               textTransform: "uppercase", color: "var(--muted)",
               padding: "0 8px",
             }}>
@@ -1019,7 +1019,7 @@ function BaseYearBreakdown({
                     display: "grid",
                     gridTemplateColumns: "20px minmax(0, 1.4fr) 70px 70px 110px 110px 90px",
                     gap: 10, alignItems: "center",
-                    fontSize: 12,
+                    fontSize: "var(--fs-12)",
                     padding: "6px 8px",
                     borderRadius: 6,
                     background: isHovered ? "rgba(15,23,42,0.07)" : "rgba(15,23,42,0.03)",
@@ -1103,7 +1103,7 @@ function BaseYearBreakdown({
                     display: "grid",
                     gridTemplateColumns: "minmax(0, 1.6fr) 60px 80px 80px 90px",
                     gap: 10, alignItems: "center",
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
+                    fontSize: "var(--fs-10)", fontWeight: 700, letterSpacing: "0.04em",
                     textTransform: "uppercase", color: "var(--muted)",
                     padding: "0 8px",
                   }}>
@@ -1118,7 +1118,7 @@ function BaseYearBreakdown({
                       display: "grid",
                       gridTemplateColumns: "minmax(0, 1.6fr) 60px 80px 80px 90px",
                       gap: 10, alignItems: "center",
-                      fontSize: 12,
+                      fontSize: "var(--fs-12)",
                       padding: "4px 8px",
                       borderRadius: 6,
                       background: "rgba(15,23,42,0.03)",
@@ -1198,7 +1198,7 @@ function RecoveryBar({
       <div style={{ minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 6, flexWrap: "wrap" }}>
           <div>
-            <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text)" }}>{label}</span>
+            <span style={{ fontSize: "var(--fs-13)", fontWeight: 800, color: "var(--text)" }}>{label}</span>
             <span className="muted small" style={{ marginLeft: 8, fontVariantNumeric: "tabular-nums" }}>
               {latestYear ?? "—"} · {money(recovered)} recovered of {money(total)}
             </span>
@@ -1250,7 +1250,7 @@ function RecoveryBar({
         }}>
           {recoveryPct.toFixed(1)}%
         </div>
-        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginTop: 4 }}>
+        <div style={{ fontSize: "var(--fs-10)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginTop: 4 }}>
           of {label} recovered
         </div>
       </div>
@@ -1280,7 +1280,7 @@ function SummaryTile({
       border: "1px solid var(--border)",
     }}>
       <div style={{
-        fontSize: 10, fontWeight: 700, letterSpacing: "0.06em",
+        fontSize: "var(--fs-10)", fontWeight: 700, letterSpacing: "0.06em",
         textTransform: "uppercase", color: "var(--muted)",
       }}>{label}</div>
       <div style={{

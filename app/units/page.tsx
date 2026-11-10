@@ -59,11 +59,11 @@ const FROM = "?from=/units";
 const COLS_KEY = "unit-info-columns";
 
 const th: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em",
+  fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em",
   color: "var(--muted)", textAlign: "left", padding: "0 10px 7px",
 };
 const td: React.CSSProperties = {
-  fontSize: 13, padding: "8px 10px", borderTop: "1px solid var(--border)", verticalAlign: "middle",
+  fontSize: "var(--fs-13)", padding: "8px 10px", borderTop: "1px solid var(--border)", verticalAlign: "middle",
 };
 const muted: React.CSSProperties = { color: "var(--muted)" };
 const catHeading: React.CSSProperties = {
@@ -114,10 +114,10 @@ function UnitPropertyCard({ group, visibleCols, specs, renderCell, defaultOpen }
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <code style={{ fontSize: 12, color: "var(--muted)" }}>{group.code}</code>
+              <code style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>{group.code}</code>
               <span style={{ fontWeight: 700, fontSize: 16 }}>{group.name}</span>
             </div>
-            <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", whiteSpace: "nowrap" }}>
               {group.units.length} unit{group.units.length === 1 ? "" : "s"} · {totalSf.toLocaleString("en-US")} sf{withPlans ? ` · ${withPlans} floorplan${withPlans === 1 ? "" : "s"}` : ""}
             </span>
           </div>
@@ -148,7 +148,7 @@ function UnitPropertyCard({ group, visibleCols, specs, renderCell, defaultOpen }
                   return (
                     <tr key={u.unitRef} onClick={() => router.push(`/units/${encodeURIComponent(u.unitRef)}${FROM}`)} style={{ cursor: "pointer" }}>
                       <td style={{ ...td, whiteSpace: "nowrap" }}>
-                        <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{u.unitRef}</code>
+                        <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{u.unitRef}</code>
                       </td>
                       <td style={{ ...td, overflow: "hidden" }}>
                         <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
@@ -275,7 +275,7 @@ export default function UnitInfoIndexPage() {
           <td style={td} onClick={(e) => e.stopPropagation()}>
             {fp ? (
               <a href={blobSrc(fp.url)} target="_blank" rel="noreferrer" title={fp.name}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
                 {isImg ? (
                   <img src={blobSrc(fp.url)} alt="" loading="lazy"
                     style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
@@ -301,11 +301,11 @@ export default function UnitInfoIndexPage() {
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div>
             <h1 style={{ margin: 0 }}>Unit Info</h1>
-            <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>
+            <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: 2 }}>
               Floorplans &amp; physical suite specs — tenant &amp; lease details live on the Rent Roll.
             </div>
           </div>
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+          <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
             {loading
               ? "Loading…"
               : `${total} unit${total === 1 ? "" : "s"} · ${byCategory.reduce((n, c) => n + c.groups.length, 0)} propert${byCategory.reduce((n, c) => n + c.groups.length, 0) === 1 ? "y" : "ies"}${withPlans ? ` · ${withPlans} with floorplan` : ""}`}
@@ -319,7 +319,7 @@ export default function UnitInfoIndexPage() {
             placeholder="Search by tenant, unit, or property…"
             style={{ flex: "1 1 260px", maxWidth: 420 }}
           />
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-13)", color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}>
             <input type="checkbox" checked={vacantOnly} onChange={(e) => setVacantOnly(e.target.checked)} />
             Vacant only
           </label>
@@ -328,7 +328,7 @@ export default function UnitInfoIndexPage() {
               type="button"
               className="btn"
               onClick={() => setColMenu((v) => !v)}
-              style={{ fontSize: 13, padding: "7px 12px", fontWeight: 600 }}
+              style={{ fontSize: "var(--fs-13)", padding: "7px 12px", fontWeight: 600 }}
             >
               Columns ▾
             </button>
@@ -343,7 +343,7 @@ export default function UnitInfoIndexPage() {
                   {COLUMNS.map((c) => (
                     <label key={c.key} style={{
                       display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
-                      fontSize: 13, cursor: "pointer", borderRadius: 6, whiteSpace: "nowrap",
+                      fontSize: "var(--fs-13)", cursor: "pointer", borderRadius: 6, whiteSpace: "nowrap",
                     }}>
                       <input type="checkbox" checked={cols.has(c.key)} onChange={() => toggleCol(c.key)} />
                       {c.label}
@@ -359,18 +359,18 @@ export default function UnitInfoIndexPage() {
       {loading ? (
         <LoadingState status="Loading units…" rows={5} />
       ) : !data ? (
-        <div className="card" style={{ fontSize: 13, color: "var(--muted)" }}>
+        <div className="card" style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>
           No rent roll imported yet. Import one on the <a href="/rentroll" style={{ fontWeight: 600, color: "#0b4a7d" }}>Rent Roll</a> page.
         </div>
       ) : byCategory.length === 0 ? (
-        <div className="card" style={{ fontSize: 13, color: "var(--muted)" }}>No units match your filters.</div>
+        <div className="card" style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>No units match your filters.</div>
       ) : (
         byCategory.map(({ cat, groups: catGroups, units }) => (
           <Fragment key={cat}>
             <div style={catHeading}>
               <span style={{ width: 9, height: 9, borderRadius: 999, background: CAT_COLOR[cat], display: "inline-block" }} />
               {cat}
-              <span style={{ fontWeight: 600, color: "var(--muted)", fontSize: 12 }}>
+              <span style={{ fontWeight: 600, color: "var(--muted)", fontSize: "var(--fs-12)" }}>
                 {units} unit{units === 1 ? "" : "s"} · {catGroups.length} propert{catGroups.length === 1 ? "y" : "ies"}
               </span>
             </div>

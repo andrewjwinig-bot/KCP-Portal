@@ -25,7 +25,7 @@ import { th, td, thL, tdL } from "@/app/components/tableStyles";
 
 const CARD_TITLE: React.CSSProperties = { fontSize: 15, fontWeight: 800, letterSpacing: "0.01em", color: "var(--text)" };
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -173,7 +173,7 @@ export default function BalanceSheetPage() {
             <div key={i} className="card" style={{ borderColor: "rgba(217,119,6,0.4)", background: "rgba(217,119,6,0.06)" }}>
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                 <Pill tone={TONE_AMBER}>CHECK</Pill>
-                <div style={{ fontSize: 13 }}>{w}</div>
+                <div style={{ fontSize: "var(--fs-13)" }}>{w}</div>
               </div>
             </div>
           ))}
@@ -262,8 +262,8 @@ function TitleBlock({ data, sheet, month }: { data: Payload; sheet: Sheet; month
   return (
     <div className="card" style={{ textAlign: "center", display: "grid", gap: 2 }}>
       <div style={{ fontSize: 18, fontWeight: 900 }}>{p?.entityName ?? p?.name ?? sheet.key}</div>
-      {p?.name && p.name !== p.entityName && <div className="muted" style={{ fontSize: 13 }}>{p.name}</div>}
-      <div style={{ fontSize: 14, fontWeight: 700, marginTop: 4 }}>Balance Sheet</div>
+      {p?.name && p.name !== p.entityName && <div className="muted" style={{ fontSize: "var(--fs-13)" }}>{p.name}</div>}
+      <div style={{ fontSize: "var(--fs-14)", fontWeight: 700, marginTop: 4 }}>Balance Sheet</div>
       <div className="muted small">As of {asOf}</div>
       {p?.ein && <div className="muted small" style={{ marginTop: 2 }}>EIN {p.ein}</div>}
     </div>
@@ -303,14 +303,14 @@ function ProofCard({ sheet }: { sheet: Sheet }) {
               : "Gap = accounts to assign below",
           }}
         >
-          <span style={{ fontSize: 13 }}>
+          <span style={{ fontSize: "var(--fs-13)" }}>
             {ok
               ? "Assets equal liabilities plus partners' capital, to the penny."
               : `Assets and liabilities plus capital differ by $${moneyFull(Math.abs(sheet.proof.difference))}.`}
           </span>
         </HoverCard>
       </div>
-      <div style={{ fontSize: 13, fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>
+      <div style={{ fontSize: "var(--fs-13)", fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>
         {money0(sheet.proof.assets)} <span className="muted" style={{ fontWeight: 400 }}>vs</span> {money0(sheet.proof.liabilitiesAndEquity)}
       </div>
     </div>
@@ -329,7 +329,7 @@ function TieOutCard({ sheet }: { sheet: Sheet }) {
     return (
       <div className="card" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <Pill tone={TONE_NEUTRAL}>NOT CHECKED</Pill>
-        <div style={{ fontSize: 13 }} className="muted">
+        <div style={{ fontSize: "var(--fs-13)" }} className="muted">
           This GL upload carries no printed ending balances to check against, or the sheet is dated
           mid-year — where the ledger's year-end column is not the figure shown, so disagreement
           would be correct.
@@ -349,7 +349,7 @@ function TieOutCard({ sheet }: { sheet: Sheet }) {
     >
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <Pill tone={ok ? TONE_GREEN : TONE_AMBER}>{ok ? "TIES TO THE LEDGER" : `${t.mismatches.length} DO NOT TIE`}</Pill>
-        <div style={{ fontSize: 13 }}>
+        <div style={{ fontSize: "var(--fs-13)" }}>
           {ok
             ? `All ${t.checked} account balances equal the ending balance the general ledger prints for them.`
             : `${t.mismatches.length} of ${t.checked} account balances differ from the ledger's own printed ending balance.`}
@@ -367,7 +367,7 @@ function TieOutCard({ sheet }: { sheet: Sheet }) {
             <tbody>
               {t.mismatches.map((m) => (
                 <tr key={m.code}>
-                  <td style={tdL}><code style={{ fontSize: 12 }}>{m.code}</code></td>
+                  <td style={tdL}><code style={{ fontSize: "var(--fs-12)" }}>{m.code}</code></td>
                   <td style={tdL}>{m.name || "—"}</td>
                   <td style={td}>{money0(m.computed)}</td>
                   <td style={td}>{money0(m.reported)}</td>
@@ -429,7 +429,7 @@ function GroupRows({ group, open, toggle }: { group: GroupRow; open: boolean; to
     <>
       <tr style={{ cursor: "pointer" }} onClick={toggle}>
         <td style={{ ...tdL, fontWeight: group.contra ? 400 : 600, fontStyle: group.contra ? "italic" : undefined }}>
-          <span className="muted" style={{ fontSize: 10, marginRight: 6 }}>{open ? "▲" : "▼"}</span>
+          <span className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{open ? "▲" : "▼"}</span>
           {group.label}
           <span className="muted small" style={{ marginLeft: 6 }}>({group.accounts.length})</span>
         </td>
@@ -437,11 +437,11 @@ function GroupRows({ group, open, toggle }: { group: GroupRow; open: boolean; to
       </tr>
       {open && group.accounts.map((a) => (
         <tr key={a.code} style={{ background: "var(--bg-subtle, rgba(15,23,42,0.02))" }}>
-          <td style={{ ...tdL, paddingLeft: 28, fontSize: 13 }}>
-            <code style={{ fontSize: 12 }}>{a.code}</code>
+          <td style={{ ...tdL, paddingLeft: 28, fontSize: "var(--fs-13)" }}>
+            <code style={{ fontSize: "var(--fs-12)" }}>{a.code}</code>
             <span className="muted" style={{ marginLeft: 8 }}>{a.name || "—"}</span>
           </td>
-          <td style={{ ...td, fontSize: 13 }}>{money0(a.amount)}</td>
+          <td style={{ ...td, fontSize: "var(--fs-13)" }}>{money0(a.amount)}</td>
         </tr>
       ))}
     </>

@@ -50,7 +50,7 @@ function LoginForm() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
         />
-        {error && <div style={{ color: "#b42318", fontSize: 13 }}>{error}</div>}
+        {error && <div style={{ color: "#b42318", fontSize: "var(--fs-13)" }}>{error}</div>}
         <button type="submit" className="btn" disabled={busy || !password}>
           {busy ? "Signing in…" : "Sign in"}
         </button>

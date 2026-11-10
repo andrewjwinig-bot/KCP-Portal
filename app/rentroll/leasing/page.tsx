@@ -128,7 +128,7 @@ export default function LeasingActivityPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
@@ -145,7 +145,7 @@ export default function LeasingActivityPage() {
                 style={{
                   background: generatingReport ? "rgba(11,74,125,0.4)" : "rgba(11,74,125,0.85)",
                   color: "#fff", borderRadius: 999, padding: "8px 16px",
-                  fontSize: 13, fontWeight: 700, border: "1px solid transparent",
+                  fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent",
                   display: "inline-flex", alignItems: "center",
                   cursor: generatingReport || !rentroll ? "default" : "pointer",
                   whiteSpace: "nowrap",
@@ -335,7 +335,7 @@ function BaseYearResets({
             border: "1px solid var(--border)",
             borderRadius: 6,
             background: "rgba(15,23,42,0.025)",
-            fontSize: 13, fontWeight: 600,
+            fontSize: "var(--fs-13)", fontWeight: 600,
             color: currentBaseYear == null ? "var(--muted)" : "var(--text)",
           }}>
             {currentBaseYear ?? "—"}
@@ -379,12 +379,12 @@ function BaseYearResets({
           onClick={save}
           disabled={saving || !selectedUnitRef}
           className="btn primary"
-          style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}
+          style={{ fontSize: "var(--fs-13)", padding: "9px 14px", fontWeight: 700 }}
         >
           {saving ? "Saving…" : "Record reset"}
         </button>
       </div>
-      {error && <div style={{ marginTop: 8, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      {error && <div style={{ marginTop: 8, fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
       </fieldset>
 
       {/* Reset impact for the selected tenant */}
@@ -394,9 +394,9 @@ function BaseYearResets({
 
       {/* Table */}
       <div style={{ marginTop: 16, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
           <thead>
-            <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+            <tr style={{ color: "var(--muted)", fontSize: "var(--fs-11)", letterSpacing: "0.04em", textAlign: "left" }}>
               <th style={{ padding: "8px 10px", fontWeight: 700 }}>PROP</th>
               <th style={{ padding: "8px 10px", fontWeight: 700 }}>UNIT</th>
               <th style={{ padding: "8px 10px", fontWeight: 700 }}>TENANT</th>
@@ -414,10 +414,10 @@ function BaseYearResets({
               <tr key={r.unitRef} style={{ borderTop: "1px solid var(--border)" }}>
                 <td style={{ padding: "10px 10px" }}>
                   {r.propertyCode ? (
-                    <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code>
+                    <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code>
                   ) : <span className="muted small">—</span>}
                 </td>
-                <td style={{ padding: "10px 10px" }}><code style={{ fontSize: 12 }}>{r.unitRef}</code></td>
+                <td style={{ padding: "10px 10px" }}><code style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
                 <td style={{ padding: "10px 10px", fontWeight: 600 }}>{r.occupantName || <span className="muted small">—</span>}</td>
                 <td style={{ padding: "10px 10px", color: "var(--muted)" }}>{r.originalBaseYear ?? "—"}</td>
                 <td style={{ padding: "10px 10px", fontWeight: 600 }}>{r.newBaseYear}</td>
@@ -430,7 +430,7 @@ function BaseYearResets({
                       onClick={() => remove(r.unitRef)}
                       style={{
                         background: "transparent", border: "1px solid rgba(220,38,38,0.35)",
-                        color: "#b91c1c", fontSize: 12, fontWeight: 600,
+                        color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
                         padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit",
                       }}
                     >Remove</button>
@@ -585,7 +585,7 @@ function SnowBaseExclusions({
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={fieldLabel}>Current B/Y</span>
-          <div style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 6, background: "rgba(15,23,42,0.025)", fontSize: 13, fontWeight: 600, color: currentBaseYear == null ? "var(--muted)" : "var(--text)" }}>
+          <div style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 6, background: "rgba(15,23,42,0.025)", fontSize: "var(--fs-13)", fontWeight: 600, color: currentBaseYear == null ? "var(--muted)" : "var(--text)" }}>
             {currentBaseYear ?? "—"}
           </div>
         </label>
@@ -604,7 +604,7 @@ function SnowBaseExclusions({
           <span style={fieldLabel}>Notes (optional)</span>
           <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="e.g. High-snow recovery strategy" />
         </label>
-        <button type="button" onClick={save} disabled={saving || !selectedUnitRef} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700 }}>
+        <button type="button" onClick={save} disabled={saving || !selectedUnitRef} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "9px 14px", fontWeight: 700 }}>
           {saving ? "Saving…" : "Exclude snow"}
         </button>
       </div>
@@ -624,13 +624,13 @@ function SnowBaseExclusions({
           </div>
         </>
       )}
-      {error && <div style={{ marginTop: 8, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      {error && <div style={{ marginTop: 8, fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
       </fieldset>
 
       <div style={{ marginTop: 16, overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
           <thead>
-            <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+            <tr style={{ color: "var(--muted)", fontSize: "var(--fs-11)", letterSpacing: "0.04em", textAlign: "left" }}>
               <th style={{ padding: "8px 10px", fontWeight: 700 }}>PROP</th>
               <th style={{ padding: "8px 10px", fontWeight: 700 }}>UNIT</th>
               <th style={{ padding: "8px 10px", fontWeight: 700 }}>TENANT</th>
@@ -645,15 +645,15 @@ function SnowBaseExclusions({
               <tr><td colSpan={7} className="muted small" style={{ padding: 14 }}>No snow base-year exclusions recorded yet.</td></tr>
             ) : rows.map((r) => (
               <tr key={r.unitRef} style={{ borderTop: "1px solid var(--border)" }}>
-                <td style={{ padding: "10px 10px" }}>{r.propertyCode ? <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code> : <span className="muted small">—</span>}</td>
-                <td style={{ padding: "10px 10px" }}><code style={{ fontSize: 12 }}>{r.unitRef}</code></td>
+                <td style={{ padding: "10px 10px" }}>{r.propertyCode ? <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code> : <span className="muted small">—</span>}</td>
+                <td style={{ padding: "10px 10px" }}><code style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
                 <td style={{ padding: "10px 10px", fontWeight: 600 }}>{r.occupantName || <span className="muted small">—</span>}</td>
                 <td style={{ padding: "10px 10px", color: "var(--muted)" }}>{r.baseYear ?? "—"}</td>
                 <td style={{ padding: "10px 10px", whiteSpace: "nowrap" }}>{MONTH_NAMES[Math.min(12, Math.max(1, r.effectiveMonth)) - 1]} {r.effectiveYear}</td>
                 <td style={{ padding: "10px 10px" }}>{r.notes || <span className="muted small">—</span>}</td>
                 <td style={{ padding: "10px 10px" }}>
                   {canEdit && (
-                    <button type="button" onClick={() => remove(r.unitRef)} style={{ background: "transparent", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: 12, fontWeight: 600, padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>Remove</button>
+                    <button type="button" onClick={() => remove(r.unitRef)} style={{ background: "transparent", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600, padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>Remove</button>
                   )}
                 </td>
               </tr>
@@ -834,6 +834,6 @@ function SnowImpactPanel({
 }
 
 const fieldLabel: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)",
 };
 

@@ -51,7 +51,7 @@ const numCell: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "
 // Column headers wrap so long bucket labels ("Change in Escrows") don't force a wide column.
 const headWrap: React.CSSProperties = { textAlign: "right", whiteSpace: "normal", lineHeight: 1.15, verticalAlign: "bottom", minWidth: 58, padding: "9px 7px" };
 // Opening / Ending cash are the headline numbers — give them a prominent, tinted column.
-const keyCol: React.CSSProperties = { ...numCell, fontWeight: 800, fontSize: 14, background: "rgba(11,74,125,0.06)" };
+const keyCol: React.CSSProperties = { ...numCell, fontWeight: 800, fontSize: "var(--fs-14)", background: "rgba(11,74,125,0.06)" };
 function periodDates(year: number, period: number, ytd: boolean) {
   const endDay = new Date(year, period, 0).getDate(); // last day of the period month
   const end = `${MONTHS[period - 1]} ${endDay}, ${year}`;
@@ -62,13 +62,13 @@ function periodDates(year: number, period: number, ytd: boolean) {
   return { open, end, range: `${open} – ${end}`, openShort, endShort };
 }
 const groupHeaderCell: React.CSSProperties = {
-  textAlign: "left", fontSize: 13, fontWeight: 800, textTransform: "uppercase",
+  textAlign: "left", fontSize: "var(--fs-13)", fontWeight: 800, textTransform: "uppercase",
   letterSpacing: "0.06em", color: "var(--text)", background: "rgba(15,23,42,0.04)",
   padding: "10px 12px", borderTop: "2px solid var(--border)",
 };
 // Right-aligned subtotal cells on the collapsible group header row.
 const groupSubCell: React.CSSProperties = {
-  ...numCell, fontWeight: 800, fontSize: 13, color: "var(--text)",
+  ...numCell, fontWeight: 800, fontSize: "var(--fs-13)", color: "var(--text)",
   background: "rgba(15,23,42,0.04)", padding: "10px 12px", borderTop: "2px solid var(--border)",
 };
 // A summary amount that opens its breakdown — looks like text, underlines on hover.
@@ -90,10 +90,10 @@ function BankLinks({ accounts }: { accounts: BankAccount[] }) {
     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 3 }}>
       {accounts.map((a, i) => (
         <a key={i} href={a.link} target="_blank" rel="noreferrer" title={`${a.bank} · ${a.label}`}
-          style={{ fontSize: 11, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }}
+          style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3 }}
           onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
           onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}>
-          {a.bank} {a.last4}<span aria-hidden style={{ fontSize: 9, opacity: 0.7 }}>↗</span>
+          {a.bank} {a.last4}<span aria-hidden style={{ fontSize: "var(--fs-9)", opacity: 0.7 }}>↗</span>
         </a>
       ))}
     </div>
@@ -466,7 +466,7 @@ function CashSheetPage() {
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {data?.canEdit && (
               <>
-                <button className="btn" onClick={() => apRef.current?.click()} style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px" }} title="Import the weekly AP Selection Report (.xls, .xlsx, or .pdf) — or drag it onto this card">
+                <button className="btn" onClick={() => apRef.current?.click()} style={{ whiteSpace: "nowrap", fontSize: "var(--fs-13)", padding: "8px 16px" }} title="Import the weekly AP Selection Report (.xls, .xlsx, or .pdf) — or drag it onto this card">
                   {apDrop.dragging ? "Drop to import" : "Import"}
                 </button>
                 <input ref={apRef} type="file" accept=".xls,.xlsx,.pdf" multiple style={{ display: "none" }} onChange={onApUpload} />
@@ -482,7 +482,7 @@ function CashSheetPage() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            {!ytd && glMonth !== period && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>{MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</span>}
+            {!ytd && glMonth !== period && <span style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--muted)" }}>{MONTHS[glMonth - 1]} GL actuals + {MONTHS[period - 1]} bills</span>}
             <select
               value={`${year}-${period}`}
               onChange={(e) => { const [y, m] = e.target.value.split("-").map(Number); setYear(y); setPeriod(m); }}
@@ -492,7 +492,7 @@ function CashSheetPage() {
                 <option key={`${y}-${m}`} value={`${y}-${m}`}>{MONTHS[m - 1]} {y}</option>
               ))}
             </select>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-13)", fontWeight: 600 }}>
               <input type="checkbox" checked={ytd} onChange={(e) => setYtd(e.target.checked)} /> YTD
             </label>
           </div>
@@ -505,7 +505,7 @@ function CashSheetPage() {
             <div style={{ display: "inline-flex", border: "1px solid rgba(11,74,125,0.3)", borderRadius: 999, overflow: "hidden" }} title="How much detail to show for cash movement">
               {([["net", "Net"], ["io", "Cash In/Out"], ["detail", "Detail"]] as const).map(([v, label]) => (
                 <button key={v} type="button" onClick={() => setViewPersist(v)}
-                  style={{ padding: "7px 12px", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer", background: view === v ? "#0b4a7d" : "var(--card)", color: view === v ? "#fff" : "#0b4a7d" }}>
+                  style={{ padding: "7px 12px", fontSize: "var(--fs-12)", fontWeight: 700, border: "none", cursor: "pointer", background: view === v ? "#0b4a7d" : "var(--card)", color: view === v ? "#fff" : "#0b4a7d" }}>
                   {label}
                 </button>
               ))}
@@ -528,12 +528,12 @@ function CashSheetPage() {
         </p>
         <LastImported at={data?.lastImport?.at} by={data?.lastImport?.by} label="GL last imported" style={{ marginTop: 4, marginBottom: 0 }} />
         <LastImported at={data?.apImport?.at} by={data?.apImport?.by} label="AP Report last imported" />
-        {error && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{error}</div>}
+        {error && <div style={{ color: "#b42318", fontSize: "var(--fs-13)", marginTop: 6 }}>{error}</div>}
       </div>
 
       {laggingRows.length > 0 && (
         <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #d97706" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 800, color: "#b45309", fontSize: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 800, color: "#b45309", fontSize: "var(--fs-14)" }}>
             <span>⚠ Snapshot blends time periods</span><Badge>{laggingRows.length}</Badge>
           </div>
           <div className="muted small" style={{ marginBottom: 8 }}>
@@ -551,7 +551,7 @@ function CashSheetPage() {
 
       {debtMissingRows.length > 0 && (
         <div className="card" style={{ padding: "12px 16px", borderLeft: "3px solid #dc2626" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 800, color: "#b91c1c", fontSize: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 800, color: "#b91c1c", fontSize: "var(--fs-14)" }}>
             <span>⚠ Mortgage P&amp;I not posted</span><Badge>{debtMissingRows.length}</Badge>
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
@@ -586,7 +586,7 @@ function CashSheetPage() {
                   : view === "io" ? [<th key="in" style={headWrap}>Cash In</th>, <th key="out" style={headWrap}>Cash Out</th>]
                   : <th style={headWrap}>Net Change</th>}
                 <th style={{ ...keyCol, textAlign: "center" }}>Ending Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{glDates.endShort}</div></th>
-                {showBillsCol && <th style={headWrap} title={`AvidXchange bills paid in ${MONTHS[period - 1]} — click a row for the weekly detail`}>Avid Bills<div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", textTransform: "none" }}>{MONTHS[period - 1]}</div></th>}
+                {showBillsCol && <th style={headWrap} title={`AvidXchange bills paid in ${MONTHS[period - 1]} — click a row for the weekly detail`}>Avid Bills<div style={{ fontWeight: 700, fontSize: "var(--fs-13)", color: "var(--text)", textTransform: "none" }}>{MONTHS[period - 1]}</div></th>}
                 {showReservesCol && <th style={headWrap} title="Budgeted Big Projects reserve set aside (from the budget; type to override)">Reserves</th>}
                 {netBridge && <th style={headWrap} title="Bills & reserves drawdown from Ending Cash to Est. Available Cash">To Available</th>}
                 {showEst && <th style={{ ...keyCol, textAlign: "center", background: "rgba(21,128,61,0.08)" }}>Avail. Cash<div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", textTransform: "none", marginTop: 1 }}>{lastBillWed ?? data?.estimateAsOf}</div></th>}
@@ -620,7 +620,7 @@ function CashSheetPage() {
                     // Behind the snapshot month — blanked out; import its GL to include it.
                     <tr key={r.key} style={{ background: "rgba(217,119,6,0.04)" }}>
                       <td style={{ textAlign: "left" }}>
-                        <code style={{ fontSize: 12 }}>{r.propertyCode}</code>
+                        <code style={{ fontSize: "var(--fs-12)" }}>{r.propertyCode}</code>
                         <span style={{ marginLeft: 8 }}>{r.name}</span>
                         <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => (!r.bankLast4 || a.last4 === r.bankLast4) && !r.excludeLast4?.includes(a.last4))} />
                       </td>
@@ -632,7 +632,7 @@ function CashSheetPage() {
                     <Fragment key={r.key}>
                     <tr title={r.period < r.maxPeriod ? "" : undefined}>
                       <td style={{ textAlign: "left" }}>
-                        <code style={{ fontSize: 12 }}>{r.propertyCode}</code>
+                        <code style={{ fontSize: "var(--fs-12)" }}>{r.propertyCode}</code>
                         {!r.manual && !r.readOnly && !r.sd ? (
                           <Link href={`/financials/operating-statements?key=${encodeURIComponent(r.key)}&year=${year}&period=${glMonth}`}
                             title="Open this entity's Operating Statement for this month"
@@ -644,7 +644,7 @@ function CashSheetPage() {
                         {r.isFund && r.breakdown?.length ? (
                           <button type="button" onClick={() => setBreakdown({ name: r.name, rows: r.breakdown! })}
                             title="Show the buildings behind this fund account"
-                            style={{ marginLeft: 6, background: "none", border: "none", padding: 0, font: "inherit", color: "var(--muted)", fontWeight: 700, cursor: "pointer", fontSize: 10 }}>▤ {r.breakdown.length}</button>
+                            style={{ marginLeft: 6, background: "none", border: "none", padding: 0, font: "inherit", color: "var(--muted)", fontWeight: 700, cursor: "pointer", fontSize: "var(--fs-10)" }}>▤ {r.breakdown.length}</button>
                         ) : null}
                         <BankLinks accounts={(r.bankCodes ? bankAccountsForCodes(r.bankCodes) : r.isFund && r.breakdown?.length ? bankAccountsForCodes(r.breakdown.map((b) => b.key)) : bankAccountsForCodes([r.propertyCode, r.key])).filter((a) => (!r.bankLast4 || a.last4 === r.bankLast4) && !r.excludeLast4?.includes(a.last4))} />
                       </td>
@@ -653,7 +653,7 @@ function CashSheetPage() {
                           <input
                             inputMode="decimal" readOnly tabIndex={-1}
                             value={r.startingCash != null ? money0(r.startingCash) : "—"}
-                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: 14, fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: "inherit", cursor: "default" }}
+                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: "var(--fs-14)", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: "inherit", cursor: "default" }}
                             className="cs-edit"
                           />
                         ) : data?.canEditOpening && r.manual ? (
@@ -664,7 +664,7 @@ function CashSheetPage() {
                             onChange={(e) => setManualDraft((d) => ({ ...d, [r.key]: e.target.value }))}
                             onBlur={() => saveManual(r, manualDraft[r.key] ?? "")}
                             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: 14, fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.startingCash == null ? undefined : r.startingCash >= 0 ? "#15803d" : "#b91c1c" }}
+                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: "var(--fs-14)", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.startingCash == null ? undefined : r.startingCash >= 0 ? "#15803d" : "#b91c1c" }}
                             className="cs-edit"
                           />
                         ) : data?.canEditOpening && !r.manual ? (
@@ -675,12 +675,12 @@ function CashSheetPage() {
                             onChange={(e) => setOpenDraft((d) => ({ ...d, [r.key]: e.target.value }))}
                             onBlur={() => { if ((openDraft[r.key] ?? "") !== "") saveOpening(r, openDraft[r.key]); else if (r.openingOverridden) saveOpening(r, ""); }}
                             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: 14, fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.openingOverridden ? "#b45309" : "inherit" }}
+                            style={{ width: 96, textAlign: "right", fontWeight: 800, fontSize: "var(--fs-14)", fontVariantNumeric: "tabular-nums", border: "1px solid transparent", borderRadius: 6, padding: "2px 6px", background: "transparent", color: r.openingOverridden ? "#b45309" : "inherit" }}
                             className="cs-edit"
                           />
                         ) : money0(r.startingCash)}
                         {!r.manual && r.openingOverridden && r.glOpening != null && r.startingCash != null && (
-                          <div title="Starting cash overridden with the actual bank balance" style={{ fontWeight: 600, fontSize: 10, textTransform: "none", color: "var(--muted)" }}>
+                          <div title="Starting cash overridden with the actual bank balance" style={{ fontWeight: 600, fontSize: "var(--fs-10)", textTransform: "none", color: "var(--muted)" }}>
                             actual · GL {money0(r.glOpening)} · <span style={{ color: Math.abs(r.startingCash - r.glOpening) < 1 ? "#15803d" : "#b45309" }}>{Math.abs(r.startingCash - r.glOpening) < 1 ? "ties" : `${money0(r.startingCash - r.glOpening)} vs GL`}</span>
                           </div>
                         )}
@@ -860,11 +860,11 @@ function CashSheetPage() {
                         <td style={{ textAlign: "left", whiteSpace: "nowrap", fontWeight: 700, paddingTop: 8 }}>{b.code}. {b.label}</td>
                         <td style={{ textAlign: "left", paddingTop: 8 }}>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 8px" }}>
-                            {exact.map((a) => <code key={a} style={{ fontSize: 11 }}>{a}</code>)}
+                            {exact.map((a) => <code key={a} style={{ fontSize: "var(--fs-11)" }}>{a}</code>)}
                           </div>
                           {prefix.length > 0 && (
                             <div className="muted small" style={{ marginTop: 6 }}>
-                              Prefix fallback (any unlisted account starting with): {prefix.map((p, i) => <span key={p}>{i > 0 ? " · " : ""}<code style={{ fontSize: 11 }}>{p}</code></span>)}
+                              Prefix fallback (any unlisted account starting with): {prefix.map((p, i) => <span key={p}>{i > 0 ? " · " : ""}<code style={{ fontSize: "var(--fs-11)" }}>{p}</code></span>)}
                             </div>
                           )}
                         </td>
@@ -1101,7 +1101,7 @@ function CashSheetPage() {
                 <tbody>
                   {breakdown.rows.map((br) => (
                     <tr key={br.key}>
-                      <td style={{ textAlign: "left", whiteSpace: "nowrap" }}><code style={{ fontSize: 12 }}>{br.key}</code> {br.name}</td>
+                      <td style={{ textAlign: "left", whiteSpace: "nowrap" }}><code style={{ fontSize: "var(--fs-12)" }}>{br.key}</code> {br.name}</td>
                       <td style={numCell}>{money0(br.startingCash)}</td>
                       {visibleBuckets.map((b) => <td key={b.code} style={{ ...numCell, color: (br.byBucket[b.code] ?? 0) < 0 ? "#b91c1c" : (br.byBucket[b.code] ?? 0) > 0 ? "#15803d" : "var(--muted)" }}>{br.byBucket[b.code] ? money0(br.byBucket[b.code]) : "—"}</td>)}
                       <td style={{ ...numCell, fontWeight: 700 }}>{money0(br.netChange)}</td>
@@ -1135,7 +1135,7 @@ function CashSheetPage() {
                   <tbody>
                     {drillData.accounts.map((a) => (
                       <tr key={a.account}>
-                        <td style={{ textAlign: "left" }}><code style={{ fontSize: 12 }}>{a.account}</code></td>
+                        <td style={{ textAlign: "left" }}><code style={{ fontSize: "var(--fs-12)" }}>{a.account}</code></td>
                         <td style={{ textAlign: "left" }}>{a.name || <span className="muted">—</span>}</td>
                         <td style={{ ...numCell, color: a.amount < 0 ? "#b91c1c" : "#15803d" }}>{money0(a.amount)}</td>
                       </tr>

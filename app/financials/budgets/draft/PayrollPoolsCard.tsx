@@ -54,7 +54,7 @@ export function PayrollPoolsCard({ year, bookId, bookName, propertyCode, queued,
   return (
     <div id="payroll-pools" className="card" style={{ padding: 0 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
-        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Payroll total — {bookName}</span>
+        <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Payroll total — {bookName}</span>
       </div>
       {err && <div className="small" style={{ color: "#b91c1c", fontWeight: 700, padding: "8px 14px" }}>{err}</div>}
       <div className="tableWrap" style={{ marginTop: 0 }}>
@@ -81,14 +81,14 @@ export function PayrollPoolsCard({ year, bookId, bookName, propertyCode, queued,
                           footer={{ label: "Shares", value: `from the ${data.basisYear} budget` }}>
                           <span style={{ fontWeight: 600, borderBottom: "1px dotted var(--muted)", cursor: "default" }}>{b.label}</span>
                         </HoverCard>
-                        <code style={{ fontSize: 11.5, color: "var(--muted)" }}>{b.gl}</code>
+                        <code style={{ fontSize: "var(--fs-11-5)", color: "var(--muted)" }}>{b.gl}</code>
                         {b.entered
                           ? <Pill tone={TONE_GREEN}>ENTERED{b.by ? ` · ${b.by}` : ""}</Pill>
                           : <Pill tone={TONE_NEUTRAL}>{data.basisYear} +3% — NOT ENTERED</Pill>}
                       </span>
                     </td>
                     <td style={{ ...num, color: "var(--muted)" }}>{money0(b.priorTotal)}</td>
-                    <td style={{ ...num, fontWeight: 800, fontSize: 14 }}>
+                    <td style={{ ...num, fontWeight: 800, fontSize: "var(--fs-14)" }}>
                       {data.canEdit ? <TotalInput value={b.annual} onSave={(v) => save(b.key, v)} label={`${b.label} ${data.year} total`} /> : money0(b.annual)}
                     </td>
                     <td style={num}>{mine ? pct(mine.sharePct) : "—"}</td>

@@ -65,7 +65,7 @@ export function RepairCard({ onApplied }: { onApplied?: () => void }) {
           <tbody>
             {plan.restore.map((r) => (
               <tr key={r.code}>
-                <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{r.code}</code>{r.name}</td>
+                <td style={tdL}><code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{r.code}</code>{r.name}</td>
                 <td style={td}>{r.accounts.length}</td>
                 <td style={td}>
                   <HoverCard title={`${r.name} — held through August`} rows={r.accounts.map((a) => ({ label: `${a.code} ${a.name}`, value: money(a.amount) }))} footer={{ label: "Total", value: money(r.amount) }}>

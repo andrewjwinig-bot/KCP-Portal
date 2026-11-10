@@ -7,7 +7,7 @@ const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box"
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+      fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em",
       textTransform: "uppercase", color: "var(--muted)",
     }}>{children}</div>
   );
@@ -77,7 +77,7 @@ export default function ShareFolderCard({
   }
 
   if (inline) {
-    const linkBtn = { fontSize: 12, fontWeight: 600, color: "var(--brand)", background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 0 } as const;
+    const linkBtn = { fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--brand)", background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", padding: 0 } as const;
     if (loading) return null;
     if (editing) return (
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -86,7 +86,7 @@ export default function ShareFolderCard({
         <button type="button" onClick={save} disabled={saving} className="btn primary sm">{saving ? "Saving…" : "Save"}</button>
         <button type="button" onClick={() => { setEditing(false); setError(null); }} disabled={saving} className="btn sm">Cancel</button>
         {url && <button type="button" onClick={() => { setDraft(""); save(); }} disabled={saving} style={{ ...linkBtn, color: "#b91c1c" }}>Remove</button>}
-        {error && <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>{error}</span>}
+        {error && <span style={{ color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600 }}>{error}</span>}
       </div>
     );
     return (
@@ -113,7 +113,7 @@ export default function ShareFolderCard({
             type="button"
             onClick={() => { setDraft(url); setEditing(true); setError(null); }}
             style={{
-              fontSize: 11, fontWeight: 600, color: "var(--brand)",
+              fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)",
               background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit",
             }}
           >
@@ -126,12 +126,12 @@ export default function ShareFolderCard({
         <div style={{
           margin: "8px 0", padding: "8px 10px", borderRadius: 8,
           background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: 12, fontWeight: 600,
+          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
       {loading ? (
-        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>Loading…</div>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 8 }}>Loading…</div>
       ) : editing ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
           <input
@@ -143,17 +143,17 @@ export default function ShareFolderCard({
           />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button type="button" onClick={save} disabled={saving}
-              className="btn primary" style={{ fontSize: 13, padding: "7px 16px", fontWeight: 700 }}>
+              className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "7px 16px", fontWeight: 700 }}>
               {saving ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={() => { setEditing(false); setError(null); }} disabled={saving}
-              className="btn" style={{ fontSize: 13, padding: "7px 14px", fontWeight: 600 }}>
+              className="btn" style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 600 }}>
               Cancel
             </button>
             {url && (
               <button type="button" onClick={() => { setDraft(""); save(); }} disabled={saving}
                 style={{
-                  marginLeft: "auto", fontSize: 12, fontWeight: 600, color: "#b91c1c",
+                  marginLeft: "auto", fontSize: "var(--fs-12)", fontWeight: 600, color: "#b91c1c",
                   background: "transparent", border: "1px solid rgba(220,38,38,0.35)",
                   borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit",
                 }}>
@@ -170,7 +170,7 @@ export default function ShareFolderCard({
             rel="noopener noreferrer"
             className="btn primary"
             style={{
-              fontSize: 13, padding: "8px 16px", fontWeight: 700, textDecoration: "none",
+              fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700, textDecoration: "none",
               display: "inline-flex", alignItems: "center", gap: 8,
             }}
           >
@@ -178,7 +178,7 @@ export default function ShareFolderCard({
           </a>
         </div>
       ) : (
-        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 8 }}>
           No SharePoint folder linked yet.
         </div>
       )}

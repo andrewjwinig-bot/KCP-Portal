@@ -16,7 +16,7 @@ import { historyComments } from "@/lib/financials/budgets/historyComments";
 import type { LineHistory } from "@/lib/financials/budgets/lineHistory";
 import type { LineInsight, LineShape } from "@/lib/financials/budgets/lineInsight";
 
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 const SHAPE: Record<LineShape, { tone: PillTone; text: string; what: string }> = {
   steady:   { tone: TONE_GREEN,   text: "STEADY",   what: "Holds close year to year — a contract." },
@@ -68,7 +68,7 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
           <div>
             <div style={secLabel}>Line history · {propertyCode}</div>
             <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{label}</div>
-            <code className="muted" style={{ fontSize: 12 }}>{mask}</code>
+            <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{mask}</code>
           </div>
           <button type="button" className="btn sm" onClick={onClose}>Close</button>
         </div>
@@ -88,7 +88,7 @@ export function LineHistoryModal({ viewKey, propertyCode, label, mask, sign, yea
               {comments.length > 0 && (
                 <div className="card" style={{ marginTop: 14, padding: "12px 14px" }}>
                   <div style={secLabel}>Comments</div>
-                  <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: 14, lineHeight: 1.65 }}>
+                  <ul style={{ margin: "6px 0 0", paddingLeft: 18, fontSize: "var(--fs-14)", lineHeight: 1.65 }}>
                     {comments.map((n, i) => <li key={i}>{n}</li>)}
                   </ul>
                 </div>

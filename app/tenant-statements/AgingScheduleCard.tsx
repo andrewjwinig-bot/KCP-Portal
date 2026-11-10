@@ -26,7 +26,7 @@ const AGE_COLOR: Record<AgingBucket, string> = {
 
 function AgeBar({ row, height = 12 }: { row: AgingRow; height?: number }) {
   const total = row.charges;
-  if (total < 0.005) return <div className="muted" style={{ fontSize: 12 }}>—</div>;
+  if (total < 0.005) return <div className="muted" style={{ fontSize: "var(--fs-12)" }}>—</div>;
   return (
     <HoverCard title={row.propertyCode === "Total" ? "All properties" : row.propertyCode}
       rows={AGING_ORDER.filter((b) => row.buckets[b] > 0.005).map((b) => ({
@@ -62,7 +62,7 @@ export function AgingScheduleCard({ schedule, nameOf, active, onPick }: {
           </div>
         </div>
         <AgeBar row={t} height={22} />
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12 }}>
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: "var(--fs-12)" }}>
           {AGING_ORDER.map((b) => (
             <span key={b} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               <span aria-hidden style={{ width: 10, height: 10, borderRadius: 2, background: AGE_COLOR[b] }} />
@@ -92,7 +92,7 @@ export function AgingScheduleCard({ schedule, nameOf, active, onPick }: {
                   style={{ cursor: "pointer", borderTop: "1px solid var(--border)", background: on ? "rgba(11,74,125,0.07)" : undefined }}>
                   <td style={{ ...tdL, whiteSpace: "normal" }}>
                     <span style={{ fontWeight: 700 }}>{r.propertyCode}</span>{" "}
-                    <span className="muted" style={{ fontSize: 12.5 }}>{nameOf(r.propertyCode)}</span>
+                    <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>{nameOf(r.propertyCode)}</span>
                   </td>
                   {AGING_ORDER.map((b) => (
                     <td key={b} style={{ ...td, color: b !== "current" && r.buckets[b] > 0.005 ? (b === "d90plus" ? "#b91c1c" : "#b45309") : undefined,

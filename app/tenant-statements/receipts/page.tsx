@@ -29,7 +29,7 @@ const money = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("
 const dateLabel = (iso: string | null) => (iso ? `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}/${iso.slice(2, 4)}` : "—");
 const longDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 const todayISO = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-const SECTION: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 type DataDates = { dataThrough: string | null; importedOn: string | null; stampRead?: boolean };
 const etStamp = (iso: string, withTime: boolean) => new Date(iso).toLocaleString("en-US", {
@@ -277,7 +277,7 @@ export default function ReceiptReconciliationPage() {
         </div>
       </header>
 
-      {error && <div className="card" style={{ color: "#b91c1c", fontWeight: 600, fontSize: 13 }}>{error}</div>}
+      {error && <div className="card" style={{ color: "#b91c1c", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
 
       {/* The figures are only as current as the laser statement behind them —
           a payment or charge keyed in Skyline since will not be here. The
@@ -325,7 +325,7 @@ export default function ReceiptReconciliationPage() {
             {unit && detail ? (
               <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 36 }}>
                 <span style={{ fontWeight: 700 }}>{detail.tenant.tenantName}</span>
-                <code className="muted" style={{ fontSize: 12 }}>{detail.tenant.unitRef}</code>
+                <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{detail.tenant.unitRef}</code>
                 {!answering && <button className="btn sm" onClick={() => pickTenant("")}>Change</button>}
               </div>
             ) : (
@@ -386,7 +386,7 @@ export default function ReceiptReconciliationPage() {
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span aria-hidden style={{ width: 14, height: 14, borderRadius: 999, border: `2px solid ${on ? "#0b4a7d" : "var(--muted)"}`, background: on ? "radial-gradient(#0b4a7d 45%, transparent 50%)" : "transparent", flex: "none" }} />
-                      <span style={{ fontWeight: 700, fontSize: 14 }}>{e.title}</span>
+                      <span style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>{e.title}</span>
                       {confidenceTone(e)}
                     </div>
                     <div className="small" style={{ color: "var(--text)", marginLeft: 22 }}>{e.why}</div>
@@ -437,7 +437,7 @@ export default function ReceiptReconciliationPage() {
                 <SortTh k="charge" sort={chSort} setSort={setChSort} left>Charge</SortTh>
                 <th style={{ ...thL, cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => setChSort((x) => nextSort(x, "order"))}>
                   <HoverCard title="Master order of application" width={300} rows={[]} body={
-                    <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12.5, lineHeight: 1.6, textTransform: "none", letterSpacing: 0, fontWeight: 500 }}>
+                    <ol style={{ margin: 0, paddingLeft: 20, fontSize: "var(--fs-12-5)", lineHeight: 1.6, textTransform: "none", letterSpacing: 0, fontWeight: 500 }}>
                       {APPLICATION_ORDER.map((x) => <li key={x.key}>{x.label}{x.code ? <span className="muted"> · {x.code}</span> : null}</li>)}
                       <li style={{ listStyle: "none", marginLeft: -20, marginTop: 4 }} className="muted">Oldest first within each.</li>
                     </ol>
@@ -463,7 +463,7 @@ export default function ReceiptReconciliationPage() {
                       <td style={{ ...tdL, whiteSpace: "normal" }}>{ch.description}</td>
                       <td style={{ ...tdL, whiteSpace: "nowrap" }}>
                         {/* THIS tenant's sequence: the order its charges take a payment under the master order. */}
-                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 22, height: 22, padding: "0 6px", borderRadius: 999, background: a ? "#15803d" : "rgba(11,74,125,0.10)", color: a ? "#fff" : "#0b4a7d", fontSize: 12, fontWeight: 800, marginRight: 8 }}>{orderSeq.get(ch.idx)}</span>
+                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 22, height: 22, padding: "0 6px", borderRadius: 999, background: a ? "#15803d" : "rgba(11,74,125,0.10)", color: a ? "#fff" : "#0b4a7d", fontSize: "var(--fs-12)", fontWeight: 800, marginRight: 8 }}>{orderSeq.get(ch.idx)}</span>
                         <span className="muted small">{APPLICATION_LABEL[ch.appClass]}</span>
                       </td>
                       <td style={td}>{money(ch.amount)}</td>
@@ -549,7 +549,7 @@ export default function ReceiptReconciliationPage() {
             <input value={subject} onChange={(e) => { setSubject(e.target.value); setEdited(true); }} aria-label="Subject"
               style={{ width: "100%", border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, padding: "10px 14px", fontWeight: 700, background: "transparent" }} />
             <textarea value={opening} onChange={(e) => { setOpening(e.target.value); setEdited(true); }} aria-label="Opening" rows={Math.max(5, opening.split("\n").length + 1)}
-              style={{ width: "100%", border: 0, borderRadius: 0, padding: "12px 14px", fontFamily: "inherit", fontSize: 13.5, lineHeight: 1.55, resize: "vertical", background: "transparent" }} />
+              style={{ width: "100%", border: 0, borderRadius: 0, padding: "12px 14px", fontFamily: "inherit", fontSize: "var(--fs-13-5)", lineHeight: 1.55, resize: "vertical", background: "transparent" }} />
             {/* The table is generated from the plan (the server re-renders it
                 on send) — what the tenant reads, exactly; not editable. */}
             {detail.draft && (
@@ -557,7 +557,7 @@ export default function ReceiptReconciliationPage() {
                 dangerouslySetInnerHTML={{ __html: detail.draft.tableHtml }} />
             )}
             <textarea value={closing} onChange={(e) => { setClosing(e.target.value); setEdited(true); }} aria-label="Closing" rows={Math.max(8, closing.split("\n").length + 4)}
-              style={{ width: "100%", border: 0, borderRadius: 0, padding: "12px 14px", fontFamily: "inherit", fontSize: 13.5, lineHeight: 1.55, resize: "vertical", background: "transparent" }} />
+              style={{ width: "100%", border: 0, borderRadius: 0, padding: "12px 14px", fontFamily: "inherit", fontSize: "var(--fs-13-5)", lineHeight: 1.55, resize: "vertical", background: "transparent" }} />
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div className="muted small">
@@ -591,13 +591,13 @@ export default function ReceiptReconciliationPage() {
                   if (!rows.length) return null;
                   return (
                     <Fragment key={s}>
-                      <tr style={{ background: "rgba(11,74,125,0.07)" }}><td colSpan={6} style={{ ...tdL, fontWeight: 800 }}>{STATUS_BAND[s]} <span className="muted" style={{ fontWeight: 500, fontSize: 12 }}>· {rows.length}</span></td></tr>
+                      <tr style={{ background: "rgba(11,74,125,0.07)" }}><td colSpan={6} style={{ ...tdL, fontWeight: 800 }}>{STATUS_BAND[s]} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}>· {rows.length}</span></td></tr>
                       {rows.map((r) => {
                         const isOpen = openRow === r.id;
                         return (
                           <Fragment key={r.id}>
                             <tr style={{ borderTop: "1px solid var(--border)", cursor: "pointer" }} onClick={() => setOpenRow(isOpen ? null : r.id)}>
-                              <td style={{ ...tdL, whiteSpace: "normal" }}><span className="muted" style={{ fontSize: 10, marginRight: 6 }}>{isOpen ? "▾" : "▸"}</span><b>{r.tenantName}</b> <code className="muted" style={{ fontSize: 12 }}>{r.unitRef}</code></td>
+                              <td style={{ ...tdL, whiteSpace: "normal" }}><span className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? "▾" : "▸"}</span><b>{r.tenantName}</b> <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
                               <td style={tdL}>{dateLabel(r.receivedISO)}{r.checkNo ? <span className="muted small"> · #{r.checkNo}</span> : null}</td>
                               <td style={{ ...td, fontWeight: 700 }}>{money(r.amount)}</td>
                               <td style={{ ...tdL, whiteSpace: "normal" }}>{r.plan.title}</td>
@@ -672,7 +672,7 @@ export default function ReceiptReconciliationPage() {
                 }).map((e) => (
                   <tr key={e.id} style={{ borderTop: "1px solid var(--border)", cursor: "pointer" }} onClick={() => setViewing(e.id)}>
                     <td style={tdL}>{new Date(e.sentAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}{e.sentBy ? <span className="muted small"> · {e.sentBy}</span> : null}</td>
-                    <td style={{ ...tdL, whiteSpace: "normal" }}><b>{e.tenantName}</b> <code className="muted" style={{ fontSize: 12 }}>{e.unitRef}</code></td>
+                    <td style={{ ...tdL, whiteSpace: "normal" }}><b>{e.tenantName}</b> <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{e.unitRef}</code></td>
                     <td style={{ ...td, fontWeight: 700 }}>{money(e.amount)}</td>
                     <td style={{ ...tdL, whiteSpace: "normal" }} className="small">{e.to.join(", ")}</td>
                     <td style={tdL}>{e.respondByISO ? longDate(e.respondByISO) : "—"}</td>
@@ -745,7 +745,7 @@ type ChSortKey = "date" | "charge" | "order" | "open" | "pay" | "credit" | "left
 type ChSort = { key: ChSortKey; dir: 1 | -1 };
 /** Click a column: sort by it; click again: reverse. */
 const nextSort = (s: ChSort, key: ChSortKey): ChSort => (s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: key === "open" || key === "pay" || key === "credit" || key === "left" ? -1 : 1 });
-const sortMark = (s: ChSort, key: ChSortKey) => (s.key === key ? <span style={{ marginLeft: 4, fontSize: 10 }}>{s.dir === 1 ? "▲" : "▼"}</span> : null);
+const sortMark = (s: ChSort, key: ChSortKey) => (s.key === key ? <span style={{ marginLeft: 4, fontSize: "var(--fs-10)" }}>{s.dir === 1 ? "▲" : "▼"}</span> : null);
 function SortTh({ k, sort, setSort, left, children }: { k: ChSortKey; sort: ChSort; setSort: (f: (s: ChSort) => ChSort) => void; left?: boolean; children: React.ReactNode }) {
   return (
     <th style={{ ...(left ? thL : th), cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }} onClick={() => setSort((s) => nextSort(s, k))}>

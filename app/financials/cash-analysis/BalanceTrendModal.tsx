@@ -25,7 +25,7 @@ const METRICS: { key: TrendMetric; label: string; color: string }[] = [
 
 const money0 = (n: number) => { const v = Math.round(n); const s = Math.abs(v).toLocaleString("en-US"); return v < 0 ? `($${s})` : `$${s}`; };
 const dateLabel = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" };
 
 export function BalanceTrendModal({ trend, metric, onMetric, operatingReserves, onClose }: {
   trend: PortfolioPoint[];

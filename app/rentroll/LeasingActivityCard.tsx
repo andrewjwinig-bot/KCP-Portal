@@ -169,7 +169,7 @@ function BuildingMultiSelect({ value, onChange }: { value: string; onChange: (v:
                   gap: 8,
                   padding: "6px 8px",
                   borderRadius: 6,
-                  fontSize: 13,
+                  fontSize: "var(--fs-13)",
                   cursor: "pointer",
                   background: checked ? "rgba(11,74,125,0.08)" : "transparent",
                 }}
@@ -194,7 +194,7 @@ const inputStyle: React.CSSProperties = { width: "100%" };
 const pickerLook: React.CSSProperties = {
   width: "100%",
   padding: "4px 13px",
-  fontSize: 13,
+  fontSize: "var(--fs-13)",
   borderRadius: 999,
   border: "1px solid var(--border)",
   background: "var(--card)",
@@ -216,7 +216,7 @@ function DeleteBtn({ onClick }: { onClick: () => void }) {
         background: "rgba(180,35,24,0.08)",
         color: "#b42318",
         cursor: "pointer",
-        fontSize: 14,
+        fontSize: "var(--fs-14)",
         lineHeight: 1,
         fontWeight: 700,
         display: "inline-flex",
@@ -234,7 +234,7 @@ function AddBtn({ onClick, label }: { onClick: () => void; label: string }) {
     <button
       onClick={onClick}
       style={{
-        fontSize: 13,
+        fontSize: "var(--fs-13)",
         padding: "8px 16px",
         borderRadius: 999,
         border: "1.5px solid rgba(11,74,125,0.3)",
@@ -278,7 +278,7 @@ function SectionHeader({ children, open, onToggle, count }: { children: React.Re
       <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
         <span style={{ fontSize: 17, fontWeight: 700, color: "var(--text)" }}>{children}</span>
         {count != null && (
-          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>({count})</span>
+          <span style={{ fontSize: "var(--fs-13)", fontWeight: 500, color: "var(--muted)" }}>({count})</span>
         )}
       </span>
       <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
@@ -562,10 +562,10 @@ export default function LeasingActivityCard({
                     {opts.map((o) => <option key={o.unitRef} value={o.unitRef}>{o.label}</option>)}
                   </select>
                 </td>
-                <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{v.building || "—"}</span></td>
-                <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{v.unitRef || "—"}</span></td>
-                <td style={tdReadRight}><span style={{ fontSize: 14 }}>{v.sqft ? v.sqft.toLocaleString() : "—"}</span></td>
-                <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{v.expirationDate || "—"}</span></td>
+                <td style={tdReadCenter}><span style={{ fontSize: "var(--fs-14)" }}>{v.building || "—"}</span></td>
+                <td style={tdReadCenter}><span style={{ fontSize: "var(--fs-14)" }}>{v.unitRef || "—"}</span></td>
+                <td style={tdReadRight}><span style={{ fontSize: "var(--fs-14)" }}>{v.sqft ? v.sqft.toLocaleString() : "—"}</span></td>
+                <td style={tdReadLeft}><span style={{ fontSize: "var(--fs-14)" }}>{v.expirationDate || "—"}</span></td>
                 <td><DeleteBtn onClick={() => update("tenantsVacating", (r) => r.filter(x => x.id !== v.id))} /></td>
               </tr>
             ))}
@@ -634,8 +634,8 @@ export default function LeasingActivityCard({
                     <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>PAST DUE</Pill></span>
                   )}
                 </td>
-                <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{o.building || "—"}</span></td>
-                <td style={tdReadRight}><span style={{ fontSize: 14 }}>{o.sqft ? o.sqft.toLocaleString() : "—"}</span></td>
+                <td style={tdReadCenter}><span style={{ fontSize: "var(--fs-14)" }}>{o.building || "—"}</span></td>
+                <td style={tdReadRight}><span style={{ fontSize: "var(--fs-14)" }}>{o.sqft ? o.sqft.toLocaleString() : "—"}</span></td>
                 <td>
                   <input style={inputStyle} placeholder="5 years / 6 mos." value={o.term} onChange={(e) => update("optionsToRenew", (r) => r.map(x => x.id === o.id ? { ...x, term: e.target.value } : x))} />
                 </td>
@@ -733,7 +733,7 @@ function ExpirationsSection({ rentroll, comments, onChange }: {
 
   const renderBucket = (b: Bucket) => (
     <div key={b.label}>
-      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>{b.label}</div>
+      <div style={{ fontSize: "var(--fs-14)", fontWeight: 700, marginBottom: 6 }}>{b.label}</div>
       {b.rows.length === 0 ? (
         <div className="muted small">No tenants in this window.</div>
       ) : (
@@ -760,10 +760,10 @@ function ExpirationsSection({ rentroll, comments, onChange }: {
                 const c = comments[r.unitRef] ?? {};
                 return (
                   <tr key={r.unitRef}>
-                    <td><span style={{ fontSize: 14, fontWeight: 600 }}>{r.tenant}</span></td>
-                    <td style={tdReadRight}><span style={{ fontSize: 14 }}>{r.sqft.toLocaleString()}</span></td>
-                    <td style={tdReadLeft}><span style={{ fontSize: 14 }}>{r.expires}</span></td>
-                    <td style={tdReadCenter}><span style={{ fontSize: 14 }}>{r.building}</span></td>
+                    <td><span style={{ fontSize: "var(--fs-14)", fontWeight: 600 }}>{r.tenant}</span></td>
+                    <td style={tdReadRight}><span style={{ fontSize: "var(--fs-14)" }}>{r.sqft.toLocaleString()}</span></td>
+                    <td style={tdReadLeft}><span style={{ fontSize: "var(--fs-14)" }}>{r.expires}</span></td>
+                    <td style={tdReadCenter}><span style={{ fontSize: "var(--fs-14)" }}>{r.building}</span></td>
                     <td>
                       <input
                         style={inputStyle}
@@ -789,7 +789,7 @@ function ExpirationsSection({ rentroll, comments, onChange }: {
       </div>
       {hasOfficeWorks && (
         <div style={{ display: "flex", flexDirection: "column", gap: 18, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
-          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+          <div style={{ fontSize: "var(--fs-13)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
             The Office Works — Lease Expirations
           </div>
           {officeWorksBuckets.map(renderBucket)}

@@ -93,12 +93,12 @@ function PinGate({ token, onUnlocked }: { token: string; onUnlocked: () => void 
         </div>
         <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 19, color: BRAND, letterSpacing: "-0.5px" }}>KORMAN</div>
         <h1 style={{ fontSize: 22, lineHeight: 1.15, margin: "12px 0 6px" }}>Enter your access PIN</h1>
-        <p className="muted" style={{ fontSize: 14, marginBottom: 18 }}>
+        <p className="muted" style={{ fontSize: "var(--fs-14)", marginBottom: 18 }}>
           Your Schedule K-1 is protected. Enter the 6-digit PIN we sent you separately.
         </p>
         <input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoFocus placeholder="••••••"
           style={{ width: "100%", boxSizing: "border-box", textAlign: "center", fontSize: 26, letterSpacing: "0.4em", fontWeight: 800, padding: "12px 10px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--bg, #fff)", color: "var(--text)", outline: "none", fontFamily: "inherit" }} />
-        {err && <div style={{ color: "#b91c1c", fontSize: 13, fontWeight: 600, marginTop: 12 }}>{err}</div>}
+        {err && <div style={{ color: "#b91c1c", fontSize: "var(--fs-13)", fontWeight: 600, marginTop: 12 }}>{err}</div>}
         <button type="submit" disabled={busy || !pin.trim()} style={{ marginTop: 18, width: "100%", background: BRAND, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: busy || !pin.trim() ? "default" : "pointer", opacity: busy || !pin.trim() ? 0.6 : 1, fontFamily: "inherit" }}>
           {busy ? "Checking…" : "View my K-1"}
         </button>
@@ -143,7 +143,7 @@ function Documents({ token }: { token: string }) {
           <div style={{
             marginBottom: 18, borderRadius: 10, padding: "11px 14px",
             background: "rgba(180,83,9,0.09)", border: "1px solid rgba(180,83,9,0.4)",
-            color: "#7c3d06", fontSize: 13, lineHeight: 1.55,
+            color: "#7c3d06", fontSize: "var(--fs-13)", lineHeight: 1.55,
           }}>
             {data.previewOwner ? (
               <>
@@ -172,14 +172,14 @@ function Documents({ token }: { token: string }) {
           {data.owner.name}
         </div>
         {data.documents.length < 2 && data.owner.heldAs && data.owner.heldAs !== data.owner.name && (
-          <div className="muted" style={{ fontSize: 14, marginTop: 2, fontStyle: "italic" }}>{data.owner.heldAs}</div>
+          <div className="muted" style={{ fontSize: "var(--fs-14)", marginTop: 2, fontStyle: "italic" }}>{data.owner.heldAs}</div>
         )}
         {/* The link belongs to the INVESTOR, not to a partnership, so this
             describes the documents it actually carries. It used to name
             `link.propertyCode` — where the link happened to be minted — which
             labelled a lone K-1 with the wrong partnership whenever the two
             differed. */}
-        <div className="muted" style={{ fontSize: 14, marginTop: 3 }}>
+        <div className="muted" style={{ fontSize: "var(--fs-14)", marginTop: 3 }}>
           {(data.propertyCount ?? 0) > 1
             ? `${data.propertyCount} partnerships · every K-1 you hold with us is below`
             : data.documents[0]
@@ -188,7 +188,7 @@ function Documents({ token }: { token: string }) {
         </div>
 
         {data.documents.length === 0 ? (
-          <div style={{ marginTop: 28, border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: 14 }}>
+          <div style={{ marginTop: 28, border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: "var(--fs-14)" }}>
             No K-1 has been published for you yet.
           </div>
         ) : (
@@ -201,11 +201,11 @@ function Documents({ token }: { token: string }) {
               something: with a single K-1 the Download button IS the button. */}
           {data.documents.length > 1 && (
             <div style={{ marginTop: 22, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-              <span className="muted" style={{ fontSize: 13 }}>
+              <span className="muted" style={{ fontSize: "var(--fs-13)" }}>
                 {data.documents.length} documents
               </span>
               <a href={`/api/investor/${token}/all`}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 9, padding: "10px 16px", fontSize: 13.5, fontWeight: 700 }}>
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 9, padding: "10px 16px", fontSize: "var(--fs-13-5)", fontWeight: 700 }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                 Download all {data.documents.length} (.zip)
               </a>
@@ -220,18 +220,18 @@ function Documents({ token }: { token: string }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 16 }}>
                     {d.propertyName}
-                    <span className="muted" style={{ fontWeight: 500, fontSize: 13 }}> · {d.taxYear} {taxFormFor(d.propertyCode)}</span>
+                    <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-13)" }}> · {d.taxYear} {taxFormFor(d.propertyCode)}</span>
                   </div>
                   {d.heldAs && (
-                    <div style={{ fontSize: 12.5, marginTop: 2, fontStyle: "italic", color: BRAND }}>{d.heldAs}</div>
+                    <div style={{ fontSize: "var(--fs-12-5)", marginTop: 2, fontStyle: "italic", color: BRAND }}>{d.heldAs}</div>
                   )}
-                  <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>
+                  <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 2 }}>
                     PDF · {kb(d.size)}
                     {d.publishedAt ? ` · available since ${new Date(d.publishedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : ""}
                   </div>
                 </div>
                 <a href={`/api/investor/${token}/file?id=${d.id}`}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 7, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 9, padding: "9px 15px", fontSize: 13.5, fontWeight: 700 }}>
+                  style={{ display: "inline-flex", alignItems: "center", gap: 7, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 9, padding: "9px 15px", fontSize: "var(--fs-13-5)", fontWeight: 700 }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                   Download
                 </a>
@@ -241,7 +241,7 @@ function Documents({ token }: { token: string }) {
           </>
         )}
 
-        <p className="muted" style={{ fontSize: 12.5, marginTop: 22, lineHeight: 1.6 }}>
+        <p className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 22, lineHeight: 1.6 }}>
           This link is private to you and your access is logged. Please don&rsquo;t forward it — if you need a copy sent
           to your accountant, reply to the email and we&rsquo;ll arrange it. Questions on anything here should go to your
           tax adviser; we can&rsquo;t give tax advice.

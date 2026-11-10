@@ -21,7 +21,7 @@ import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { SentEmailModal } from "./SentEmailModal";
 import { daysSince, FOLLOW_UP_DAYS, KIND_LABEL, type CorrespondenceEntry, type LastContact } from "@/lib/statements/correspondence";
 
-const SECTION: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const money = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" });
 const fullStamp = (iso: string) => new Date(iso).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
@@ -39,7 +39,7 @@ export function LastContactCell({ contact, owed }: { contact: LastContact | null
   const stale = needsFollowUp(owed, contact);
   if (!contact) {
     return owed > 0.005
-      ? <span style={{ color: "#b45309", fontWeight: 600, fontSize: 12.5 }}>Never emailed</span>
+      ? <span style={{ color: "#b45309", fontWeight: 600, fontSize: "var(--fs-12-5)" }}>Never emailed</span>
       : <span className="muted">—</span>;
   }
   const e = contact.last;
@@ -53,8 +53,8 @@ export function LastContactCell({ contact, owed }: { contact: LastContact | null
       ]}
       footer={{ label: "On file", value: `${contact.count} email${contact.count === 1 ? "" : "s"}` }}>
       <span style={{ display: "inline-grid", lineHeight: 1.25 }}>
-        <span style={{ fontWeight: 600, fontSize: 12.5, color: stale ? "#b45309" : undefined }}>{shortDate(e.sentAt)} · {ago(e.sentAt)}</span>
-        <span className="muted" style={{ fontSize: 11.5 }}>{KIND_LABEL[e.kind]}</span>
+        <span style={{ fontWeight: 600, fontSize: "var(--fs-12-5)", color: stale ? "#b45309" : undefined }}>{shortDate(e.sentAt)} · {ago(e.sentAt)}</span>
+        <span className="muted" style={{ fontSize: "var(--fs-11-5)" }}>{KIND_LABEL[e.kind]}</span>
       </span>
     </HoverCard>
   );
@@ -78,11 +78,11 @@ export function CorrespondencePanel({ unitRef, period, tenantName, owed, nonce, 
     <div style={{ padding: "12px 10px 4px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
         <div style={SECTION}>Correspondence</div>
-        <span className="muted" style={{ fontSize: 12.5 }}>
+        <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>
           {entries == null ? "Loading…" : entries.length ? `${entries.length} email${entries.length === 1 ? "" : "s"} on file` : "Nothing sent to this suite from the portal yet."}
         </span>
         {owed > 0.005 && (
-          <button className="btn" style={{ marginLeft: "auto", fontSize: 12, padding: "4px 10px" }} onClick={(e) => { e.stopPropagation(); setReminding(true); }}>
+          <button className="btn" style={{ marginLeft: "auto", fontSize: "var(--fs-12)", padding: "4px 10px" }} onClick={(e) => { e.stopPropagation(); setReminding(true); }}>
             Send balance reminder…
           </button>
         )}
@@ -94,11 +94,11 @@ export function CorrespondencePanel({ unitRef, period, tenantName, owed, nonce, 
           </tr></thead>
           <tbody>{entries.map((e) => (
             <tr key={`${e.source}:${e.id}`} style={{ borderTop: "1px solid var(--border)" }}>
-              <td style={tdL}>{fullStamp(e.sentAt)}{e.sentBy ? <div className="muted" style={{ fontSize: 11.5 }}>{e.sentBy}</div> : null}</td>
+              <td style={tdL}>{fullStamp(e.sentAt)}{e.sentBy ? <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>{e.sentBy}</div> : null}</td>
               <td style={{ ...tdL, whiteSpace: "normal" }}>{KIND_LABEL[e.kind]}{e.testMode ? <> <Pill tone={TONE_AMBER}>TEST</Pill></> : null}
-                {e.summary ? <div className="muted" style={{ fontSize: 11.5 }}>{e.summary}</div> : null}</td>
+                {e.summary ? <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>{e.summary}</div> : null}</td>
               <td style={{ ...tdL, whiteSpace: "normal" }}>{e.subject}</td>
-              <td style={{ ...tdL, whiteSpace: "normal", fontSize: 12.5 }}>{e.to.join(", ")}</td>
+              <td style={{ ...tdL, whiteSpace: "normal", fontSize: "var(--fs-12-5)" }}>{e.to.join(", ")}</td>
               <td style={{ ...td, whiteSpace: "nowrap" }}><button className="btn sm" onClick={(ev) => { ev.stopPropagation(); setViewing(e); }}>View</button></td>
             </tr>
           ))}</tbody>
@@ -148,7 +148,7 @@ export function ReminderModal({ unitRef, period, tenantName, onClose, onSent }: 
   }
 
   if (typeof document === "undefined") return null;
-  const box: React.CSSProperties = { width: "100%", fontSize: 14, lineHeight: 1.5 };
+  const box: React.CSSProperties = { width: "100%", fontSize: "var(--fs-14)", lineHeight: 1.5 };
   return createPortal(
     <div role="dialog" aria-modal="true" onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "grid", placeItems: "center", zIndex: 1000, padding: 16 }}>
       <div className="card" onClick={(e) => e.stopPropagation()} style={{ width: "min(760px, 100%)", maxHeight: "92vh", overflowY: "auto", display: "grid", gap: 12 }}>

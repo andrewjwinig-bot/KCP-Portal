@@ -74,7 +74,7 @@ export function InlineSparkle({ twinkle = false, style }: { twinkle?: boolean; s
     <span
       aria-hidden
       className={twinkle ? "kcp-twinkle" : undefined}
-      style={{ color: "var(--ai)", fontSize: 14, animation: twinkle ? "kcpTwinkle 1.4s ease-in-out infinite" : undefined, ...style }}
+      style={{ color: "var(--ai)", fontSize: "var(--fs-14)", animation: twinkle ? "kcpTwinkle 1.4s ease-in-out infinite" : undefined, ...style }}
     >
       ✦
     </span>
@@ -91,7 +91,7 @@ export function GradientSparkle({ style }: { style?: React.CSSProperties }) {
         WebkitBackgroundClip: "text",
         backgroundClip: "text",
         color: "transparent",
-        fontSize: 14,
+        fontSize: "var(--fs-14)",
         ...style,
       }}
     >
@@ -281,7 +281,7 @@ export function AnswerActions({
   const outline: React.CSSProperties = {
     all: "unset",
     cursor: "pointer",
-    fontSize: 12.5,
+    fontSize: "var(--fs-12-5)",
     color: "var(--muted)",
     border: "1px solid var(--kbd-border)",
     borderRadius: 7,
@@ -290,8 +290,8 @@ export function AnswerActions({
   return (
     <>
       <button type="button" onClick={onTeach} title="Teach the assistant a standing preference from this answer"
-        style={{ all: "unset", cursor: "pointer", fontSize: 12.5, color: "var(--ai-text)", background: "var(--ai-soft)", border: "1px solid var(--ai-border)", borderRadius: 7, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 6 }}>
-        <InlineSparkle style={{ fontSize: 12.5 }} /> Teach it
+        style={{ all: "unset", cursor: "pointer", fontSize: "var(--fs-12-5)", color: "var(--ai-text)", background: "var(--ai-soft)", border: "1px solid var(--ai-border)", borderRadius: 7, padding: "5px 11px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <InlineSparkle style={{ fontSize: "var(--fs-12-5)" }} /> Teach it
       </button>
       <button type="button" onClick={onExport} style={outline}>{compact ? "Export" : "Export PDF"}</button>
       <button type="button"
@@ -347,18 +347,18 @@ export function AiTable({ spec }: { spec: AiTableSpec }) {
     } finally { setBusy(false); }
   }
 
-  const th: React.CSSProperties = { textAlign: "right", fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px", whiteSpace: "nowrap", position: "sticky", top: 0, background: "var(--ai-modal)" };
-  const td: React.CSSProperties = { textAlign: "right", fontSize: 12.5, padding: "5px 10px", borderTop: "1px solid var(--ai-border-soft)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
+  const th: React.CSSProperties = { textAlign: "right", fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px", whiteSpace: "nowrap", position: "sticky", top: 0, background: "var(--ai-modal)" };
+  const td: React.CSSProperties = { textAlign: "right", fontSize: "var(--fs-12-5)", padding: "5px 10px", borderTop: "1px solid var(--ai-border-soft)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
 
   return (
     <div style={{ marginBottom: 14, border: "1px solid var(--ai-border-soft)", borderRadius: 9, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 11px", borderBottom: "1px solid var(--ai-border-soft)" }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text)" }}>{spec.title}</div>
-          {spec.subtitle && <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{spec.subtitle}</div>}
+          <div style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, color: "var(--text)" }}>{spec.title}</div>
+          {spec.subtitle && <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 2 }}>{spec.subtitle}</div>}
         </div>
         <button type="button" onClick={() => void download()} disabled={busy} className="btn"
-          style={{ fontSize: 11.5, fontWeight: 700, padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
+          style={{ fontSize: "var(--fs-11-5)", fontWeight: 700, padding: "4px 10px", flexShrink: 0, whiteSpace: "nowrap" }}>
           {busy ? "…" : "⤓ Excel"}
         </button>
       </div>
@@ -380,7 +380,7 @@ export function AiTable({ spec }: { spec: AiTableSpec }) {
       </div>
       {(spec.notes ?? []).length > 0 && (
         <div style={{ padding: "8px 11px", borderTop: "1px solid var(--ai-border-soft)" }}>
-          {spec.notes!.map((n, i) => <div key={i} className="muted" style={{ fontSize: 11.5, lineHeight: 1.45 }}>{n}</div>)}
+          {spec.notes!.map((n, i) => <div key={i} className="muted" style={{ fontSize: "var(--fs-11-5)", lineHeight: 1.45 }}>{n}</div>)}
         </div>
       )}
     </div>
@@ -417,7 +417,7 @@ export function AnalyzingBar({ label, done, total, sub }: { label: string; done?
           <span
             className="kcp-shimmer"
             style={{
-              fontSize: 13.5, fontWeight: 700,
+              fontSize: "var(--fs-13-5)", fontWeight: 700,
               background: "var(--ai-shimmer)", backgroundSize: "200% 100%",
               WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
               animation: "kcpShimmer 1.9s linear infinite", display: "inline-block",
@@ -426,7 +426,7 @@ export function AnalyzingBar({ label, done, total, sub }: { label: string; done?
             {label}
           </span>
           {determinate && (
-            <span className="muted" style={{ fontSize: 12, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{done} of {total}</span>
+            <span className="muted" style={{ fontSize: "var(--fs-12)", fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>{done} of {total}</span>
           )}
           <span style={{ marginLeft: "auto", display: "inline-flex", gap: 4, alignItems: "center", flexShrink: 0 }}>
             {[0, 0.18, 0.36].map((d) => (
@@ -441,7 +441,7 @@ export function AnalyzingBar({ label, done, total, sub }: { label: string; done?
             <div className="imp-anim" style={{ position: "absolute", top: 0, bottom: 0, width: "30%", background: "var(--ai-sparkle)", borderRadius: 999, animation: "kcpProg 1.25s ease-in-out infinite" }} />
           )}
         </div>
-        {sub && <div className="muted" style={{ fontSize: 11.5, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</div>}
+        {sub && <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</div>}
       </div>
     </div>
   );
@@ -461,18 +461,18 @@ export function ClarifyCard({ clarify, onPick }: { clarify: AiClarifySpec; onPic
     <div style={{ border: "1px solid var(--ai-border-card)", borderLeft: "3px solid var(--ai)", borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
         <InlineSparkle />
-        <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>One quick thing</span>
+        <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>One quick thing</span>
       </div>
       <div style={{ fontSize: 16, lineHeight: 1.5, color: "var(--text)", fontWeight: 500, marginBottom: 13 }}>{clarify.question}</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 9 }}>
         {clarify.options.map((o) => (
           <button key={o} type="button" onClick={() => onPick(o)}
-            style={{ all: "unset", cursor: "pointer", padding: "8px 13px", borderRadius: 999, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", color: "var(--ai-text)", fontSize: 13, fontWeight: 600 }}>
+            style={{ all: "unset", cursor: "pointer", padding: "8px 13px", borderRadius: 999, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", color: "var(--ai-text)", fontSize: "var(--fs-13)", fontWeight: 600 }}>
             {o}
           </button>
         ))}
         <button type="button" onClick={() => onPick("You decide — pick the most sensible reading, state which one you used, and go.")}
-          style={{ all: "unset", cursor: "pointer", padding: "8px 13px", borderRadius: 999, border: "1px dashed var(--ai-border)", background: "transparent", color: "var(--muted)", fontSize: 13, fontWeight: 600 }}>
+          style={{ all: "unset", cursor: "pointer", padding: "8px 13px", borderRadius: 999, border: "1px dashed var(--ai-border)", background: "transparent", color: "var(--muted)", fontSize: "var(--fs-13)", fontWeight: 600 }}>
           You decide
         </button>
       </div>
@@ -484,10 +484,10 @@ export function ClarifyCard({ clarify, onPick }: { clarify: AiClarifySpec; onPic
 export function FollowupChips({ items, onPick }: { items: string[]; onPick: (q: string) => void }) {
   return (
     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 7, marginTop: 10 }}>
-      <span style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", fontWeight: 700, marginRight: 2 }}>Ask next</span>
+      <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", fontWeight: 700, marginRight: 2 }}>Ask next</span>
       {items.map((q) => (
         <button key={q} type="button" onClick={() => onPick(q)}
-          style={{ all: "unset", cursor: "pointer", padding: "6px 11px", borderRadius: 999, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", color: "var(--ai-text)", fontSize: 12.5, fontWeight: 600 }}>
+          style={{ all: "unset", cursor: "pointer", padding: "6px 11px", borderRadius: 999, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", color: "var(--ai-text)", fontSize: "var(--fs-12-5)", fontWeight: 600 }}>
           {q}
         </button>
       ))}
@@ -520,8 +520,8 @@ export function AnswerCard({
     <div style={{ border: "1px solid var(--ai-border-card)", borderLeft: "3px solid var(--ai)", borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
         <InlineSparkle />
-        <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>Assistant</span>
-        {contextTag && <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: 11, color: "var(--muted)" }}>{contextTag}</span>}
+        <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>Assistant</span>
+        {contextTag && <span style={{ marginLeft: "auto", fontFamily: MONO, fontSize: "var(--fs-11)", color: "var(--muted)" }}>{contextTag}</span>}
       </div>
       <div style={{ fontSize: 16, lineHeight: 1.5, color: "var(--text)", fontWeight: 500, marginBottom: chart || table || links.length ? 14 : 0 }}>
         {renderAiMarkdown(answer)}
@@ -568,11 +568,11 @@ export function HeroAnswerCard({
     <div style={{ border: "1px solid var(--ai-border-card)", borderRadius: 12, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", overflow: "hidden" }}>
       <div style={{ display: "flex", gap: 16, padding: "16px 17px" }}>
         <div style={{ flex: "0 0 auto", borderRight: "1px solid var(--ai-border-soft)", paddingRight: 16 }}>
-          <div style={{ fontSize: 10.5, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600, display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
-            <InlineSparkle style={{ fontSize: 12 }} /> {metricLabel}
+          <div style={{ fontSize: "var(--fs-10-5)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600, display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
+            <InlineSparkle style={{ fontSize: "var(--fs-12)" }} /> {metricLabel}
           </div>
           <div style={{ fontFamily: MONO, fontSize: 32, fontWeight: 500, color: "var(--ai-hero-metric)", lineHeight: 1 }}>{metric}</div>
-          {metricSub && <div style={{ fontSize: 12, color: "var(--ai-hero-sub)", marginTop: 6, whiteSpace: "pre-line" }}>{metricSub}</div>}
+          {metricSub && <div style={{ fontSize: "var(--fs-12)", color: "var(--ai-hero-sub)", marginTop: 6, whiteSpace: "pre-line" }}>{metricSub}</div>}
         </div>
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ fontSize: 15, lineHeight: 1.5, color: "var(--text)", fontWeight: 500 }}>{renderAiMarkdown(answer)}</div>
@@ -581,7 +581,7 @@ export function HeroAnswerCard({
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "11px 17px", borderTop: "1px solid var(--ai-border-soft)", background: "var(--ai-tint-panel-2)" }}>
         {links.map((l, i) => (
-          <a key={i} href={l.href} onClick={onLinkClick} style={{ fontSize: 12.5, color: "var(--search-blue)", background: "var(--search-blue-tint)", borderRadius: 7, padding: "5px 10px", textDecoration: "none" }}>
+          <a key={i} href={l.href} onClick={onLinkClick} style={{ fontSize: "var(--fs-12-5)", color: "var(--search-blue)", background: "var(--search-blue-tint)", borderRadius: 7, padding: "5px 10px", textDecoration: "none" }}>
             {l.label} ↗
           </a>
         ))}
@@ -599,7 +599,7 @@ export function PageLinks({ links, onLinkClick }: { links: { label: string; href
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 13 }}>
       {links.map((l, i) => (
         <a key={i} href={l.href} onClick={onLinkClick}
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--search-blue)", background: "var(--search-blue-tint)", borderRadius: 7, padding: "5px 10px", textDecoration: "none" }}>
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12-5)", color: "var(--search-blue)", background: "var(--search-blue-tint)", borderRadius: 7, padding: "5px 10px", textDecoration: "none" }}>
           {l.label} <span style={{ opacity: 0.5 }}>↗</span>
         </a>
       ))}
@@ -629,17 +629,17 @@ export function DraftLetterCard({ letter }: { letter: AiLetterSpec }) {
     URL.revokeObjectURL(url);
   };
   const mailto = `mailto:${encodeURIComponent(letter.to || "")}?subject=${encodeURIComponent(letter.subject || letter.kind)}&body=${encodeURIComponent(letter.body)}`;
-  const outline: React.CSSProperties = { all: "unset", cursor: "pointer", fontSize: 12.5, color: "var(--muted)", border: "1px solid var(--kbd-border)", borderRadius: 7, padding: "6px 12px" };
+  const outline: React.CSSProperties = { all: "unset", cursor: "pointer", fontSize: "var(--fs-12-5)", color: "var(--muted)", border: "1px solid var(--kbd-border)", borderRadius: 7, padding: "6px 12px" };
   return (
     <div style={{ border: "1px solid var(--amber-border)", borderRadius: 11, background: "var(--amber-letter-bg)", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 15px", background: "var(--amber-soft)", borderBottom: "1px solid var(--amber-border)" }}>
-        <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--amber-text)", fontWeight: 700, display: "inline-flex", gap: 6, alignItems: "center" }}>
+        <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--amber-text)", fontWeight: 700, display: "inline-flex", gap: 6, alignItems: "center" }}>
           ⚠ Draft · review before sending
         </span>
-        <span style={{ fontSize: 12.5, color: "var(--muted)", marginLeft: "auto" }}>{letter.kind}{letter.to ? ` · ${letter.to}` : ""}</span>
+        <span style={{ fontSize: "var(--fs-12-5)", color: "var(--muted)", marginLeft: "auto" }}>{letter.kind}{letter.to ? ` · ${letter.to}` : ""}</span>
       </div>
       <div style={{ padding: "14px 15px" }}>
-        <div style={{ position: "relative", fontSize: 12.5, lineHeight: 1.65, color: "var(--text)", background: "var(--amber-preview-bg)", border: "1px solid var(--amber-preview-border)", borderRadius: 8, padding: "12px 13px", maxHeight: 96, overflow: "hidden", whiteSpace: "pre-wrap" }}>
+        <div style={{ position: "relative", fontSize: "var(--fs-12-5)", lineHeight: 1.65, color: "var(--text)", background: "var(--amber-preview-bg)", border: "1px solid var(--amber-preview-border)", borderRadius: 8, padding: "12px 13px", maxHeight: 96, overflow: "hidden", whiteSpace: "pre-wrap" }}>
           {(letter.to || letter.subject) && (
             <div style={{ color: "var(--muted)", marginBottom: 6 }}>
               {letter.to && <div><b>To:</b> {letter.to}</div>}
@@ -650,11 +650,11 @@ export function DraftLetterCard({ letter }: { letter: AiLetterSpec }) {
           <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 30, background: "linear-gradient(180deg, rgba(0,0,0,0), var(--amber-preview-bg))" }} />
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <a href={mailto} style={{ all: "unset", cursor: "pointer", fontSize: 12.5, color: "var(--amber-on-solid)", background: "var(--amber-primary)", borderRadius: 7, padding: "6px 13px", fontWeight: 600 }}>Email tenant</a>
+          <a href={mailto} style={{ all: "unset", cursor: "pointer", fontSize: "var(--fs-12-5)", color: "var(--amber-on-solid)", background: "var(--amber-primary)", borderRadius: 7, padding: "6px 13px", fontWeight: 600 }}>Email tenant</a>
           <button type="button" onClick={download} style={outline}>Download</button>
           <button type="button" onClick={copy} style={outline}>{copied ? "Copied" : "Copy"}</button>
         </div>
-        <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 8, fontStyle: "italic" }}>
+        <div style={{ fontSize: "var(--fs-10)", color: "var(--muted)", marginTop: 8, fontStyle: "italic" }}>
           Draft — review and send yourself. Bracketed [placeholders] need your input; nothing is sent automatically.
         </div>
       </div>
@@ -669,15 +669,15 @@ export function MemoryStrip({ prefs, onForget }: { prefs: string[]; onForget?: (
   if (!prefs.length) return null;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap", padding: "11px 18px", borderTop: "1px solid var(--kbd-border)", background: "var(--footer-bg, var(--card))" }}>
-      <span style={{ fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
-        <InlineSparkle style={{ fontSize: 12 }} /> Remembers
+      <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 5 }}>
+        <InlineSparkle style={{ fontSize: "var(--fs-12)" }} /> Remembers
       </span>
       {prefs.map((p) => (
-        <span key={p} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)", background: "var(--card)", border: "1px solid var(--kbd-border)", borderRadius: 20, padding: "3px 6px 3px 10px" }}>
+        <span key={p} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", color: "var(--muted)", background: "var(--card)", border: "1px solid var(--kbd-border)", borderRadius: 20, padding: "3px 6px 3px 10px" }}>
           {p}
           {onForget && (
             <button type="button" onClick={() => onForget(p)} aria-label="Forget" title="Forget this"
-              style={{ all: "unset", cursor: "pointer", color: "var(--muted)", fontSize: 13, lineHeight: 1, opacity: 0.55 }}>×</button>
+              style={{ all: "unset", cursor: "pointer", color: "var(--muted)", fontSize: "var(--fs-13)", lineHeight: 1, opacity: 0.55 }}>×</button>
           )}
         </span>
       ))}
@@ -696,7 +696,7 @@ export function ThinkingCard({ status, rows }: { status: string; rows?: (string 
     <div style={{ border: "1px solid var(--ai-border-card)", borderLeft: "3px solid var(--ai)", borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <InlineSparkle twinkle />
-        <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>Assistant</span>
+        <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>Assistant</span>
         <span style={{ marginLeft: "auto", display: "inline-flex", gap: 4, alignItems: "center" }}>
           {[0, 0.18, 0.36].map((d) => (
             <span key={d} className="kcp-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--ai)", animation: "kcpDot 1.2s ease-in-out infinite", animationDelay: `${d}s` }} />
@@ -723,7 +723,7 @@ export function ThinkingCard({ status, rows }: { status: string; rows?: (string 
       <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
         {bars.map((label, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            {label != null && <div style={{ width: 118, fontSize: 12, color: "var(--muted)" }}>{label}</div>}
+            {label != null && <div style={{ width: 118, fontSize: "var(--fs-12)", color: "var(--muted)" }}>{label}</div>}
             <div style={{ flex: 1, height: 20, borderRadius: 5, background: "var(--ai-chart-track-think)", position: "relative", overflow: "hidden" }}>
               <div className="kcp-scan" style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: "38%", background: "linear-gradient(90deg, transparent, var(--ai-chart-scan), transparent)", animation: "kcpScan 1.3s linear infinite", animationDelay: `${i * 0.15}s` }} />
             </div>

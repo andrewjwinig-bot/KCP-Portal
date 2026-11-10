@@ -31,7 +31,7 @@ function variancePct(actual: number, budget: number): number | null {
 }
 
 const numTd: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 export default function ManagementFeesPage() {
   const now = new Date();
@@ -125,7 +125,7 @@ export default function ManagementFeesPage() {
 
           {/* 2010 tie-out — Σ property 6610 budgets should equal the LIK 2010 fee plan */}
           {tieOut && (
-            <div className="card" style={{ margin: 0, padding: "10px 14px", borderLeft: `4px solid ${tieOut.ok ? "#15803d" : "#d97706"}`, fontSize: 13 }}>
+            <div className="card" style={{ margin: 0, padding: "10px 14px", borderLeft: `4px solid ${tieOut.ok ? "#15803d" : "#d97706"}`, fontSize: "var(--fs-13)" }}>
               <b style={{ color: tieOut.ok ? "#15803d" : "#b45309" }}>2010 tie-out — BUDGET{tieOut.ok ? " ✓" : " — gap"}:</b>{" "}
               property management-fee budgets (6610) sum to <b>{money(tieOut.bottomUp)}</b>; the LIK 2010 fee plan (4510) is <b>{money(tieOut.lik)}</b>.{" "}
               {tieOut.ok
@@ -177,7 +177,7 @@ export default function ManagementFeesPage() {
               const maxP = Math.max(0, ...rows.map((b) => b.maxPosted));
               return (
                 <tr style={band ? { background: "rgba(11,74,125,0.06)" } : { borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.08)" }}>
-                  <td style={{ ...gridTd, fontWeight: 800, color: band ? "#0b4a7d" : undefined, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 12.5, position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>{label}</td>
+                  <td style={{ ...gridTd, fontWeight: 800, color: band ? "#0b4a7d" : undefined, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-12-5)", position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>{label}</td>
                   {months.map((v, m) => (
                     <td key={m} style={{ ...gridTd, ...numTd, fontWeight: 800, fontStyle: m + 1 > maxP ? "italic" : undefined, color: m + 1 > maxP ? "var(--muted)" : undefined }}>{money(v)}</td>
                   ))}
@@ -187,7 +187,7 @@ export default function ManagementFeesPage() {
             };
             return (
               <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-                <table style={{ borderCollapse: "collapse", fontSize: 14, minWidth: "100%" }}>
+                <table style={{ borderCollapse: "collapse", fontSize: "var(--fs-14)", minWidth: "100%" }}>
                   <thead>
                     <tr>
                       <th style={{ ...gridTh, textAlign: "left", position: "sticky", left: 0, background: "var(--card)", zIndex: 2 }}>Building</th>
@@ -271,8 +271,8 @@ export default function ManagementFeesPage() {
   );
 }
 
-const gridTh: React.CSSProperties = { padding: "8px 13px", fontSize: 12.5, fontWeight: 700, color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
-const gridTd: React.CSSProperties = { padding: "8px 13px", fontSize: 14, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
+const gridTh: React.CSSProperties = { padding: "8px 13px", fontSize: "var(--fs-12-5)", fontWeight: 700, color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
+const gridTd: React.CSSProperties = { padding: "8px 13px", fontSize: "var(--fs-14)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
 
 function BuildingModal({ code, year, onClose }: { code: string; year: number; onClose: () => void }) {
   const [detail, setDetail] = useState<MgmtFeeDetail | null>(null);
@@ -289,10 +289,10 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "6vh 16px 16px", overflowY: "auto" }}>
       <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "100%", maxWidth: 640, margin: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 4 }}>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>{detail?.name ?? code} <code style={{ fontSize: 13 }}>{code}</code></div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>{detail?.name ?? code} <code style={{ fontSize: "var(--fs-13)" }}>{code}</code></div>
           <button onClick={onClose} aria-label="Close" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 22, color: "var(--muted)" }}>×</button>
         </div>
-        <div className="muted" style={{ fontSize: 13, marginBottom: 12 }}>Management fee vs gross revenue &amp; budget · {year}</div>
+        <div className="muted" style={{ fontSize: "var(--fs-13)", marginBottom: 12 }}>Management fee vs gross revenue &amp; budget · {year}</div>
 
         {loading && <div className="muted">Loading…</div>}
         {detail && !loading && (
@@ -304,7 +304,7 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
               <StatPill label="YTD Budget" value={money(detail.ytd.budget)}
                 sub={(() => { const v = variancePct(detail.ytd.fee, detail.ytd.budget); return v == null ? undefined : `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`; })()} />
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
               <thead>
                 <tr>
                   <th style={{ ...gridTh, textAlign: "left" }}>Month</th>
@@ -330,7 +330,7 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
                         <td colSpan={4} style={{ padding: "0 13px 8px", borderBottom: "1px solid var(--border)" }}>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px" }}>
                             {m.leaseChanges.map((c, k) => (
-                              <span key={k} style={{ fontSize: 11.5, fontWeight: 600, color: c.kind === "vacated" ? "#b91c1c" : "#15803d" }}>
+                              <span key={k} style={{ fontSize: "var(--fs-11-5)", fontWeight: 600, color: c.kind === "vacated" ? "#b91c1c" : "#15803d" }}>
                                 {c.kind === "vacated" ? "↘" : "↗"} {c.tenant} {c.kind} {c.kind === "vacated" ? "−" : "+"}{money(Math.abs(c.amount))}/mo
                               </span>
                             ))}
@@ -399,7 +399,7 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
       </div>
 
       {tie.missingGl.length > 0 && (
-        <div style={{ fontSize: 13, color: "#b91c1c" }}>
+        <div style={{ fontSize: "var(--fs-13)", color: "#b91c1c" }}>
           <b>Incomplete \u2014 check this first.</b> {tie.missingGl.join(", ")} {tie.missingGl.length === 1 ? "has" : "have"} no
           general ledger loaded for {year}, so {tie.missingGl.length === 1 ? "its fee is" : "their fees are"} missing from the
           comparison. Upload {tie.missingGl.length === 1 ? "it" : "them"} before treating anything below as an error.
@@ -410,12 +410,12 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
       {flags.length > 0 && (
         <div style={{ display: "grid", gap: 6 }}>
           <div style={{ ...secLabel, color: "#b91c1c" }}>Buildings to check ({flags.length})</div>
-          <table style={{ width: "100%", fontSize: 13 }}>
+          <table style={{ width: "100%", fontSize: "var(--fs-13)" }}>
             <tbody>
               {flags.map((f) => (
                 <tr key={`${f.code}-${f.month}-${f.kind}`}>
                   <td style={{ padding: "4px 8px 4px 0", whiteSpace: "nowrap" }}>
-                    <code style={{ fontSize: 12 }}>{f.code}</code> {f.name}
+                    <code style={{ fontSize: "var(--fs-12)" }}>{f.code}</code> {f.name}
                   </td>
                   <td style={{ padding: "4px 8px", whiteSpace: "nowrap", fontWeight: 700 }}>{MONTHS_LONG[f.month - 1]}</td>
                   <td style={{ padding: "4px 8px", color: f.kind === "outlier" ? "#b45309" : "#b91c1c" }}>
@@ -436,7 +436,7 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
       {entry && entry.lines.length > 0 && entry.adjustment !== 0 && (
         <div style={{ background: "rgba(15,23,42,0.03)", borderRadius: 8, padding: "10px 12px" }}>
           <div style={{ ...secLabel, marginBottom: 6 }}>Post this at 2010 for {MONTHS_LONG[entry.month - 1]} {year}</div>
-          <table style={{ width: "100%", fontSize: 13 }}>
+          <table style={{ width: "100%", fontSize: "var(--fs-13)" }}>
             <tbody>
               {entry.lines.map((l) => (
                 <tr key={l.label}>
@@ -465,14 +465,14 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
 
       {open && (
         <div style={{ display: "grid", gap: 14, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-          <div className="muted" style={{ fontSize: 12 }}>
+          <div className="muted" style={{ fontSize: "var(--fs-12)" }}>
             Account <b>6610</b> is the fee each building expenses; account <b>4510</b> is the revenue 2010 books.
             No property pays an outside management fee, so they are two sides of one transaction and must be equal.
             The buildings post automatically; 2010 is two hand-keyed entries a month, which is why they drift.
           </div>
 
           {tie.missed.length > 0 && (
-            <div style={{ fontSize: 13, color: "#b91c1c" }}>
+            <div style={{ fontSize: "var(--fs-13)", color: "#b91c1c" }}>
               <b>No entry posted at 2010 in {tie.missed.map((m) => MONTHS_LONG[m - 1]).join(", ")}.</b>
             </div>
           )}
@@ -480,7 +480,7 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
           {groups && groups.length > 1 && (
             <div style={{ display: "grid", gap: 4 }}>
               <div style={secLabel}>Which entry the gap belongs to</div>
-              <table style={{ width: "100%", fontSize: 13 }}>
+              <table style={{ width: "100%", fontSize: "var(--fs-13)" }}>
                 <tbody>
                   {groups.map((g) => (
                     <tr key={g.key}>
@@ -499,12 +499,12 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
 
           <div style={{ overflowX: "auto" }}>
             <div style={secLabel}>Month by month</div>
-            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
+            <div className="muted" style={{ fontSize: "var(--fs-12)", marginBottom: 4 }}>
               The <b>Running</b> column is the explanation. A gap that swings and returns toward zero is
               timing — 2010&apos;s entry landing in the wrong month. A gap that keeps growing in one
               direction is a real difference in the amounts.
             </div>
-            <table style={{ width: "100%", fontSize: 13 }}>
+            <table style={{ width: "100%", fontSize: "var(--fs-13)" }}>
               <thead>
                 <tr>
                   <th style={{ textAlign: "left", padding: "6px 8px" }}>Month</th>

@@ -130,7 +130,7 @@ export default function LoadingState({ status, context, rows = 3, columns = 3, s
             <div style={{ width: 120, height: 3, borderRadius: 2, background: "var(--load-building-border)" }} />
           </div>
           <div style={{ fontSize: 15, fontWeight: 600, color: "var(--load-status)" }}>{status}</div>
-          {context && <div style={{ fontSize: 13, color: "var(--load-context)" }}>{context}</div>}
+          {context && <div style={{ fontSize: "var(--fs-13)", color: "var(--load-context)" }}>{context}</div>}
         </div>
 
         {/* Skeleton table — previews the shape so the layout doesn't jump */}

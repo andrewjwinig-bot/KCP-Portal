@@ -58,7 +58,7 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
   return (
     <div className="card" style={{ order }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
           AP Outbox — sent to AvidXchange
         </div>
       </div>
@@ -68,8 +68,8 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
         return (
           <Row key={`unsent-${u.source}`} href={hrefFor(u.source)}
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", marginBottom: 4, borderRadius: 8, textDecoration: "none", color: "var(--text)", background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)" }}>
-            <span style={{ fontSize: 13 }}>⚠️</span>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
+            <span style={{ fontSize: "var(--fs-13)" }}>⚠️</span>
+            <span style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-13)" }}>
               <b style={{ fontWeight: 700 }}>{u.label}</b>{u.period ? ` · ${u.period}` : ""}
               <span style={{ color: "#b45309", fontWeight: 700 }}> · not sent to AvidXchange</span>
               <span className="muted"> — generated {when(u.at)}{u.by ? ` by ${u.by}` : ""}</span>
@@ -92,13 +92,13 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
               href={hrefFor(s.source)}
               style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", borderRadius: 8, textDecoration: "none", color: "var(--text)", background: "rgba(22,163,74,0.05)" }}
             >
-              <span style={{ fontSize: 13 }}>{s.partial ? "🕗" : "✅"}</span>
-              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
+              <span style={{ fontSize: "var(--fs-13)" }}>{s.partial ? "🕗" : "✅"}</span>
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "var(--fs-13)" }}>
                 <b style={{ fontWeight: 700 }}>{s.label}</b> · {s.period}
                 <span className="muted"> · {s.invoiceCount} invoice{s.invoiceCount === 1 ? "" : "s"}</span>
               </span>
-              <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{money0(s.total)}</span>
-              <span className="muted" style={{ fontSize: 11, whiteSpace: "nowrap", minWidth: 96, textAlign: "right" }}>
+              <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, whiteSpace: "nowrap" }}>{money0(s.total)}</span>
+              <span className="muted" style={{ fontSize: "var(--fs-11)", whiteSpace: "nowrap", minWidth: 96, textAlign: "right" }}>
                 {when(s.sentAt)}{s.sentBy ? ` · ${s.sentBy}` : ""}
               </span>
             </Row>

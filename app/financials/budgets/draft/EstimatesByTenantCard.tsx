@@ -26,10 +26,10 @@ const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toL
 const signed = (n: number) => (Math.abs(n) < 0.5 ? "–" : `${n > 0 ? "+" : "−"}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`);
 const pctS = (n: number | null) => (n == null ? "new" : Math.abs(n) < 0.05 ? "0%" : `${n > 0 ? "+" : "−"}${Math.abs(n).toFixed(1)}%`);
 const psf = (monthly: number, sf: number) => (sf > 0 ? `$${((monthly * 12) / sf).toFixed(2)}` : "–");
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "right", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
-const td: React.CSSProperties = { padding: "9px 8px", fontSize: 13.5, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
-const SUITE: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" };
+const td: React.CSSProperties = { padding: "9px 8px", fontSize: "var(--fs-13-5)", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
+const SUITE: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" };
 const DIVIDE = "2px solid var(--border)";
 const UP = "#b45309", DOWN = "#15803d";
 const tone = (n: number) => (n > 0.5 ? UP : n < -0.5 ? DOWN : "var(--muted)");
@@ -76,7 +76,7 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
     URL.revokeObjectURL(url);
   };
   const seg = (active: boolean): React.CSSProperties => ({
-    fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 999, cursor: "pointer",
+    fontSize: "var(--fs-12)", fontWeight: 700, padding: "4px 10px", borderRadius: 999, cursor: "pointer",
     border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`, background: active ? "rgba(11,74,125,0.10)" : "var(--card)",
     color: active ? "var(--brand)" : "var(--text)",
   });
@@ -128,7 +128,7 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
       </div>
 
       {check.some((c) => c.over) && (
-        <div style={{ margin: "0 14px 10px", padding: "8px 12px", borderRadius: 8, fontSize: 13, background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)" }}>
+        <div style={{ margin: "0 14px 10px", padding: "8px 12px", borderRadius: 8, fontSize: "var(--fs-13)", background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)" }}>
           {check.filter((c) => c.over).map((c) => (
             <div key={c.group}><b>{c.label} to review:</b> {money0(c.recovered)} a year against a {money0(c.pool)} budget pool ({pct0(c.ratio)}) — above what admin fees explain. Check the tenants&apos; shares and any estimate set by hand before importing.</div>
           ))}
@@ -314,7 +314,7 @@ function CamWorksheet({ b, year, ry, final }: { b: NonNullable<Extract<NonNullab
   const lines = b.lines ?? [];
   const num: React.CSSProperties = { textAlign: "right", padding: "1px 0 1px 10px", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
   const lab: React.CSSProperties = { padding: "1px 0", whiteSpace: "nowrap" };
-  const head: React.CSSProperties = { ...num, fontSize: 10.5, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" };
+  const head: React.CSSProperties = { ...num, fontSize: "var(--fs-10-5)", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" };
   const n0 = (v: number | null) => (v == null ? "–" : money0(v));
   const billed = lines.filter((l) => l.billed);
   const tot = (k: "actual" | "budget") => billed.reduce((a, l) => a + l[k], 0);
@@ -324,7 +324,7 @@ function CamWorksheet({ b, year, ry, final }: { b: NonNullable<Extract<NonNullab
       <td style={{ ...num, fontWeight: strong ? 800 : 700, color }}>{value}</td></tr>
   );
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-12)" }}>
       <thead><tr><th style={{ ...head, textAlign: "left", padding: 0 }}>Common area maintenance</th>
         <th style={head}>{year} budget</th></tr></thead>
       <tbody>
@@ -350,7 +350,7 @@ function CamWorksheet({ b, year, ry, final }: { b: NonNullable<Extract<NonNullab
         {b.adminPct ? kv(`Administrative fee ${b.adminPct}%${adminEx.length ? ` († excluded — on ${money0(b.adminBase ?? 0)})` : ""}`, money0(b.admin)) : null}
         {kv("Total tenant expense / budget", money0(b.year), true)}
         {Math.abs(final - b.year) >= 1 && kv("After the recovery-ratio check", money0(final), false, UP)}
-        {lines.some((l) => l.from === "ratio") && <tr><td colSpan={2} style={{ ...lab, color: "var(--muted)", fontSize: 11, paddingTop: 4 }}>* no budget line found — grown at the pool&apos;s rate</td></tr>}
+        {lines.some((l) => l.from === "ratio") && <tr><td colSpan={2} style={{ ...lab, color: "var(--muted)", fontSize: "var(--fs-11)", paddingTop: 4 }}>* no budget line found — grown at the pool&apos;s rate</td></tr>}
       </tbody>
     </table>
   );
@@ -385,7 +385,7 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
           ...(over ? { color: "var(--input-typed)", fontWeight: 800 } : {}) }}>
         {(() => {
           const body = p !== "total" && e.annual?.[p]
-            ? <span className="muted" style={{ fontStyle: "italic", fontSize: 12, fontWeight: 400, lineHeight: 1.25, display: "inline-block" }}>at recon<br />{money0(e.annual[p]!)} in May</span>
+            ? <span className="muted" style={{ fontStyle: "italic", fontSize: "var(--fs-12)", fontWeight: 400, lineHeight: 1.25, display: "inline-block" }}>at recon<br />{money0(e.annual[p]!)} in May</span>
             : <>{v(e.next[p], e.sqft)}</>;
           const tip = p !== "total" ? calcTip(e, p, year, ry) : null;
           return tip ? <HoverCard title={`${e.tenant || "—"} · ${LABEL[p]} ${year}`} width={tip.width ?? 320} rows={tip.rows} body={tip.body} footer={tip.footer}>{body}</HoverCard> : body;
@@ -424,7 +424,7 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
       {nextCell("cam")}{nextCell("ins")}{nextCell("ret")}{nextCell("total")}
       <td style={{ ...td, borderLeft: DIVIDE, fontWeight: 700, color: tone(e.change) }}>{e.jump ? `▲ ${signed(e.change)}` : signed(e.change)}</td>
       <td style={{ ...td, color: tone(e.change) }}>{e.jump ? <Pill tone={TONE_AMBER}>{pctS(e.changePct)}</Pill> : pctS(e.changePct)}</td>
-      <td style={{ ...td, textAlign: "left", whiteSpace: "normal", minWidth: 200, maxWidth: 260, fontSize: 12.5 }}>
+      <td style={{ ...td, textAlign: "left", whiteSpace: "normal", minWidth: 200, maxWidth: 260, fontSize: "var(--fs-12-5)" }}>
         <HoverCard title={`${e.tenant || "—"} · ${e.unitRef} · why`} width={400} rows={whyRows(e, ry, year)}
           footer={{ label: `${year} vs today, a month`, value: `${signed(e.change)} (${pctS(e.changePct)})`, color: tone(e.change) }}>
           <span>{e.reason}</span>

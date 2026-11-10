@@ -29,7 +29,7 @@ const dateLabel = (iso: string | null) => {
   const [y, m, d] = iso.split("-").map(Number);
   return `${m}/${d}/${String(y).slice(2)}`;
 };
-const SECTION: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 export function OpenCreditsCard({ tracker, notes, applications, period, readOnly, onChanged }: {
   tracker: OpenCreditTracker;
@@ -90,7 +90,7 @@ export function OpenCreditsCard({ tracker, notes, applications, period, readOnly
               <Fragment key={g.group}>
                 <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: gi ? "2px solid var(--border)" : "none" }}>
                   <td style={{ ...tdL, fontWeight: 800 }} colSpan={2}>
-                    {g.group} <span className="muted" style={{ fontWeight: 500, fontSize: 12 }}>· {g.count} tenant{g.count === 1 ? "" : "s"}</span>
+                    {g.group} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}>· {g.count} tenant{g.count === 1 ? "" : "s"}</span>
                   </td>
                   <td style={{ ...td, fontWeight: 800 }}>{money2(g.credit)}</td>
                   <td colSpan={5} />
@@ -102,7 +102,7 @@ export function OpenCreditsCard({ tracker, notes, applications, period, readOnly
                   return (
                     <Fragment key={k}>
                       <tr onClick={() => setOpen(isOpen ? null : k)} style={{ cursor: "pointer", borderTop: "1px solid var(--border)", background: isOpen ? "rgba(11,74,125,0.04)" : undefined }}>
-                        <td style={tdL}><span aria-hidden className="muted" style={{ fontSize: 10, marginRight: 6 }}>{isOpen ? "▾" : "▸"}</span><code style={{ fontSize: 12 }}>{r.unitRef}</code></td>
+                        <td style={tdL}><span aria-hidden className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? "▾" : "▸"}</span><code style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
                         <td style={{ ...tdL, fontWeight: 600, whiteSpace: "normal" }}>{r.tenantName}</td>
                         <td style={{ ...td, fontWeight: 700, color: "#15803d" }}>{money2(r.credit)}</td>
                         <td style={td}>{r.openCharges > 0.005 ? money2(r.openCharges) : <span className="muted">—</span>}</td>
@@ -112,14 +112,14 @@ export function OpenCreditsCard({ tracker, notes, applications, period, readOnly
                         <td style={td}>
                           {r.months >= 3
                             ? <Pill tone={TONE_AMBER}>{monthLabel(r.since)} · {r.months} MO</Pill>
-                            : <span className="muted" style={{ fontSize: 12.5 }}>{monthLabel(r.since)}</span>}
+                            : <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>{monthLabel(r.since)}</span>}
                         </td>
                         <td style={td}>
                           {app ? <Pill tone={TONE_GREEN}>{money0(app.applied)} APPLIED</Pill>
                             : r.openCharges > 0.005 ? <Pill tone={TONE_NEUTRAL}>NOT APPLIED</Pill>
-                            : <span className="muted" style={{ fontSize: 12 }}>nothing open</span>}
+                            : <span className="muted" style={{ fontSize: "var(--fs-12)" }}>nothing open</span>}
                         </td>
-                        <td style={{ ...tdL, whiteSpace: "normal", maxWidth: 260, fontSize: 13 }} onClick={(e) => e.stopPropagation()}>
+                        <td style={{ ...tdL, whiteSpace: "normal", maxWidth: 260, fontSize: "var(--fs-13)" }} onClick={(e) => e.stopPropagation()}>
                           <NoteCell unitRef={r.unitRef} note={notes[k] ?? null} readOnly={readOnly} />
                         </td>
                       </tr>
@@ -168,11 +168,11 @@ function NoteCell({ unitRef, note, readOnly }: { unitRef: string; note: CreditNo
     <div>
       <input value={text} onChange={(e) => setText(e.target.value)} onBlur={save}
         onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-        placeholder="Add a follow-up…" style={{ width: "100%", fontSize: 12.5 }} />
-      {state === "saving" && <div className="muted" style={{ fontSize: 11 }}>Saving…</div>}
-      {state === "error" && <div style={{ fontSize: 11, color: "#b91c1c" }}>Didn&rsquo;t save — try again</div>}
+        placeholder="Add a follow-up…" style={{ width: "100%", fontSize: "var(--fs-12-5)" }} />
+      {state === "saving" && <div className="muted" style={{ fontSize: "var(--fs-11)" }}>Saving…</div>}
+      {state === "error" && <div style={{ fontSize: "var(--fs-11)", color: "#b91c1c" }}>Didn&rsquo;t save — try again</div>}
       {!state && note && text === saved && note.by && (
-        <div className="muted" style={{ fontSize: 11 }}>{note.by} · {new Date(note.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
+        <div className="muted" style={{ fontSize: "var(--fs-11)" }}>{note.by} · {new Date(note.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
       )}
     </div>
   );
@@ -203,15 +203,15 @@ function CreditDetail({ r, app, period, readOnly, onChanged }: {
           <tbody>
             {r.lines.map((l, i) => (
               <tr key={i} style={{ borderTop: i ? "1px solid var(--border)" : "none" }}>
-                <td style={{ ...tdL, fontSize: 13, padding: "5px 8px" }}>{dateLabel(l.dateISO)}</td>
-                <td style={{ ...tdL, fontSize: 13, padding: "5px 8px", whiteSpace: "normal" }}>{l.description}</td>
-                <td style={{ ...td, fontSize: 13, padding: "5px 8px", color: "#15803d", fontWeight: 600 }}>{money2(l.amount)}</td>
+                <td style={{ ...tdL, fontSize: "var(--fs-13)", padding: "5px 8px" }}>{dateLabel(l.dateISO)}</td>
+                <td style={{ ...tdL, fontSize: "var(--fs-13)", padding: "5px 8px", whiteSpace: "normal" }}>{l.description}</td>
+                <td style={{ ...td, fontSize: "var(--fs-13)", padding: "5px 8px", color: "#15803d", fontWeight: 600 }}>{money2(l.amount)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {onlyAggregate && (
-          <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+          <div className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 6 }}>
             Skyline prints this credit as one total. The CAM / RET / INS split and what caused it are in the tenant&rsquo;s ledger in Skyline — note it under Follow-up.
           </div>
         )}
@@ -222,18 +222,18 @@ function CreditDetail({ r, app, period, readOnly, onChanged }: {
         {app ? (
           <div style={{ marginTop: 6 }}>
             <AppliedTable lines={app.lines} />
-            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+            <div className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 6 }}>
               Recorded {app.by ? `by ${app.by} ` : ""}{new Date(app.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}.
               Key these in Skyline; the next laser statement shows the credit {app.applied >= r.credit - 0.005 ? "gone" : `down to ${money2(r.credit - app.applied)}`}.
             </div>
             {!readOnly && <button className="btn sm" style={{ marginTop: 8 }} disabled={busy} onClick={undo}>{busy ? "Undoing…" : "Undo"}</button>}
           </div>
         ) : r.openCharges < 0.005 ? (
-          <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+          <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 6 }}>
             No open charges to apply it to — this is money we hold for the tenant. Refund it or let the next charges take it.
           </div>
         ) : readOnly ? (
-          <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>Not applied yet.</div>
+          <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 6 }}>Not applied yet.</div>
         ) : applying ? (
           <ApplyPanel r={r} period={period} onDone={() => { setApplying(false); onChanged(); }} onCancel={() => setApplying(false)} />
         ) : (
@@ -243,7 +243,7 @@ function CreditDetail({ r, app, period, readOnly, onChanged }: {
             </button>
           </div>
         )}
-        {error && <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 6 }}>{error}</div>}
+        {error && <div style={{ fontSize: "var(--fs-12)", color: "#b91c1c", marginTop: 6 }}>{error}</div>}
       </div>
     </div>
   );
@@ -259,10 +259,10 @@ function AppliedTable({ lines }: { lines: AppliedLine[] }) {
       <tbody>
         {lines.map((l) => (
           <tr key={l.idx} style={{ borderTop: "1px solid var(--border)" }}>
-            <td style={{ ...tdL, fontSize: 13, padding: "5px 8px", whiteSpace: "normal" }}>{l.description}</td>
-            <td style={{ ...tdL, fontSize: 13, padding: "5px 8px" }}>{dateLabel(l.dateISO)}</td>
-            <td style={{ ...td, fontSize: 13, padding: "5px 8px" }}>{money2(l.open)}</td>
-            <td style={{ ...td, fontSize: 13, padding: "5px 8px", fontWeight: 700 }}>{money2(l.applied)}{l.applied < l.open - 0.005 ? " (part)" : ""}</td>
+            <td style={{ ...tdL, fontSize: "var(--fs-13)", padding: "5px 8px", whiteSpace: "normal" }}>{l.description}</td>
+            <td style={{ ...tdL, fontSize: "var(--fs-13)", padding: "5px 8px" }}>{dateLabel(l.dateISO)}</td>
+            <td style={{ ...td, fontSize: "var(--fs-13)", padding: "5px 8px" }}>{money2(l.open)}</td>
+            <td style={{ ...td, fontSize: "var(--fs-13)", padding: "5px 8px", fontWeight: 700 }}>{money2(l.applied)}{l.applied < l.open - 0.005 ? " (part)" : ""}</td>
           </tr>
         ))}
         <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
@@ -327,10 +327,10 @@ function ApplyPanel({ r, period, onDone, onCancel }: { r: OpenCredit; period: st
             return (
               <tr key={c.idx} style={{ borderTop: "1px solid var(--border)", opacity: on ? 1 : 0.6 }}>
                 <td style={{ ...tdL, padding: "5px 8px" }}><input type="checkbox" checked={on} onChange={() => toggle(c.idx)} aria-label={`Apply to ${c.description}`} /></td>
-                <td style={{ ...tdL, fontSize: 13, padding: "5px 8px", whiteSpace: "normal" }}>{c.description}</td>
-                <td style={{ ...tdL, fontSize: 13, padding: "5px 8px" }}>{dateLabel(c.dateISO)}</td>
-                <td style={{ ...td, fontSize: 13, padding: "5px 8px" }}>{money2(c.amount)}</td>
-                <td style={{ ...td, fontSize: 13, padding: "5px 8px", fontWeight: a ? 700 : 400 }}>{a ? money2(a) : <span className="muted">—</span>}</td>
+                <td style={{ ...tdL, fontSize: "var(--fs-13)", padding: "5px 8px", whiteSpace: "normal" }}>{c.description}</td>
+                <td style={{ ...tdL, fontSize: "var(--fs-13)", padding: "5px 8px" }}>{dateLabel(c.dateISO)}</td>
+                <td style={{ ...td, fontSize: "var(--fs-13)", padding: "5px 8px" }}>{money2(c.amount)}</td>
+                <td style={{ ...td, fontSize: "var(--fs-13)", padding: "5px 8px", fontWeight: a ? 700 : 400 }}>{a ? money2(a) : <span className="muted">—</span>}</td>
               </tr>
             );
           })}
@@ -342,12 +342,12 @@ function ApplyPanel({ r, period, onDone, onCancel }: { r: OpenCredit; period: st
           {plan.remaining > 0.005 && <Pill tone={TONE_AMBER}>{money2(plan.remaining)} STAYS ON ACCOUNT</Pill>}
         </div>
       )}
-      <div className="muted" style={{ fontSize: 12 }}>Oldest first; the last charge takes part of the credit if it runs out. This records it here — key the same entries in Skyline.</div>
+      <div className="muted" style={{ fontSize: "var(--fs-12)" }}>Oldest first; the last charge takes part of the credit if it runs out. This records it here — key the same entries in Skyline.</div>
       <div style={{ display: "flex", gap: 8 }}>
         <button className="btn primary sm" disabled={busy || !plan || plan.applied < 0.005} onClick={record}>{busy ? "Recording…" : `Record ${plan ? money2(plan.applied) : ""} applied`}</button>
         <button className="btn sm" onClick={onCancel} disabled={busy}>Cancel</button>
       </div>
-      {error && <div style={{ fontSize: 12, color: "#b91c1c" }}>{error}</div>}
+      {error && <div style={{ fontSize: "var(--fs-12)", color: "#b91c1c" }}>{error}</div>}
     </div>
   );
 }

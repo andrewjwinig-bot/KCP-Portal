@@ -30,11 +30,11 @@ const money0 = (n: number) => (n < 0 ? "-" : "") + Math.abs(Math.round(n)).toLoc
 /** Dollars per square foot, to the cent: "$24.50". */
 const psf$ = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toFixed(2);
 const pct = (n: number) => `${(+n).toFixed(2).replace(/\.?0+$/, "")}%`;
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "right", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
-const td: React.CSSProperties = { padding: "9px 8px", fontSize: 13.5, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
+const td: React.CSSProperties = { padding: "9px 8px", fontSize: "var(--fs-13-5)", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
 /** The suite, as the Rent Roll writes it — a bold brand-coloured code. */
-const SUITE: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" };
+const SUITE: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap" };
 export const CONTRACTED_BG = "rgba(22,163,74,0.22)";
 export const ASSUMED_BG = "rgba(22,163,74,0.07)";
 const TOTAL_BORDER = "2px solid rgba(11,74,125,0.3)";
@@ -146,7 +146,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
   const totalRow = (label: React.ReactNode, months: number[], strong: boolean, key: string, top = false) => {
     const cell: React.CSSProperties = strong
       ? { ...td, fontWeight: 800, borderTop: top ? TOTAL_BORDER : undefined }
-      : { ...td, fontSize: 12, padding: "4px 8px", color: "var(--muted)", fontWeight: 600, borderTop: top ? TOTAL_BORDER : undefined };
+      : { ...td, fontSize: "var(--fs-12)", padding: "4px 8px", color: "var(--muted)", fontWeight: 600, borderTop: top ? TOTAL_BORDER : undefined };
     return (
       <tr key={key} style={{ background: strong ? "rgba(11,74,125,0.06)" : undefined }}>
         <td colSpan={2} style={{ ...cell, textAlign: "left" }}>{label}</td>
@@ -183,7 +183,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
             {fromSchedule ? "Rent from the rent schedule" : "Rent from today's rent roll"}{est ? ` · recoveries on the ${est.reconYear} CAM methodology` : ""}. Hover a month for $/SF and the leasing call.
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "var(--fs-12)", flexWrap: "wrap" }}>
           {leasing && calls.length > 0 && (
             <button type="button" className={toDecide ? "btn sm primary" : "btn sm"} onClick={() => setToDecide((t) => !t)} aria-pressed={toDecide}>To decide · {calls.length - decided.length}</button>
           )}
@@ -292,7 +292,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
               <HoverCard title="Where it lands" width={340} help={false}
                 rows={parts.map((p) => ({ label: `${PART_LABEL[p]}${lineOf(p) ? ` → ${lineOf(p)}` : ""}`, value: money0(partTotals(p).reduce((a, b) => a + b, 0)) }))}
                 footer={{ label: "Total", value: money0(grandMonths.reduce((a, b) => a + b, 0)), color: "#0b4a7d" }}>
-                <span>{view === "gross" ? "Gross revenue" : view === "recoveries" ? "Total recoveries" : `Total ${PART_LABEL[parts[0]]}`}{parts.length === 1 && lineOf(parts[0]) ? <span className="muted" style={{ fontWeight: 600, fontSize: 12 }}> → {lineOf(parts[0])}</span> : null}</span>
+                <span>{view === "gross" ? "Gross revenue" : view === "recoveries" ? "Total recoveries" : `Total ${PART_LABEL[parts[0]]}`}{parts.length === 1 && lineOf(parts[0]) ? <span className="muted" style={{ fontWeight: 600, fontSize: "var(--fs-12)" }}> → {lineOf(parts[0])}</span> : null}</span>
               </HoverCard>,
               grandMonths, true, "grand", true,
             )}
@@ -310,7 +310,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
           </tbody>
         </table>
       </div>
-      <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", padding: "8px 14px", fontSize: 12 }} className="muted">
+      <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", padding: "8px 14px", fontSize: "var(--fs-12)" }} className="muted">
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
           <span style={{ width: 14, height: 14, borderRadius: 3, background: CONTRACTED_BG, border: "1px solid rgba(22,163,74,0.35)" }} /> Lease in place
         </span>
@@ -319,7 +319,7 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
         </span>
         <span>Dimmed = pays nothing this year. Click a tenant for their detail.</span>
       </div>
-      {leasing?.error && <div style={{ color: "#b91c1c", fontSize: 13, padding: "0 14px 10px" }}>{leasing.error}</div>}
+      {leasing?.error && <div style={{ color: "#b91c1c", fontSize: "var(--fs-13)", padding: "0 14px 10px" }}>{leasing.error}</div>}
       {leasing && (leasing.dealCapital.ti > 0 || leasing.dealCapital.lc > 0) && (
         <div className="muted small" style={{ padding: "9px 14px", borderTop: "1px solid var(--border)" }}>
           The leasing calls carry <b style={{ color: "var(--text)" }}>${Math.round(leasing.dealCapital.ti).toLocaleString("en-US")}</b> of TI and <b style={{ color: "var(--text)" }}>${Math.round(leasing.dealCapital.lc).toLocaleString("en-US")}</b> of leasing commissions, on the Capital lines in the month each new rent starts.

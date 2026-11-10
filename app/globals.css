@@ -13,6 +13,12 @@
   --sb-head-bg: transparent;
   --sb-head-line: rgba(255,255,255,0.07);
   --sb-head-icon: #bfdbfe;
+  /* Type tokens: inline sizes across the pages read these, so the classic
+     look renders exactly as before and the studio skin can raise the floor
+     for readability without touching every page. */
+  --sb-w-open: 220px;
+  --fs-9: 9px; --fs-10: 10px; --fs-10-5: 10.5px; --fs-11: 11px; --fs-11-5: 11.5px;
+  --fs-12: 12px; --fs-12-5: 12.5px; --fs-13: 13px; --fs-13-5: 13.5px; --fs-14: 14px;
   --font-ui: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
   --font-num: inherit;
   --bg: #fff;
@@ -1098,110 +1104,277 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 
 
 /* ═══════════════════════════════════════════════════════════════════════
-   STUDIO SKIN — the refreshed look (opt-in while it is being tested).
-   Turned on by data-skin="studio" on <html> (the sidebar's ◐ switch, or
-   ?skin=studio / ?skin=classic). Tokens and element baselines only: every
-   page keeps its markup, so turning it off restores the original exactly.
-   Grey canvas + white cards, a light sidebar under a brand-navy head,
-   Hanken Grotesk for text, Bricolage Grotesque for headline figures,
-   8px controls and 12px cards. Never reaches the public website (.kcs) or
-   the designed pages, which ship their own styles.
+   STUDIO SKIN — the portal's new look (the default; "classic" stays one
+   click away in the sidebar while it is reviewed).
+   Set by data-skin="studio" on <html>. Never reaches the public website
+   (.kcs), the designed centre pages or the tenant/investor portals.
+
+   The rules (from the design canvas, "one look, everywhere"):
+   - Navy #0B4A7D is the ONLY accent. Green / red / amber carry meaning only.
+   - Neutrals: #F4F6F9 canvas, #E4E7EC border, #EAECF0 hairline,
+     #101828 ink, #475467 secondary text.
+   - Hanken Grotesk for everything; codes in IBM Plex Mono, navy.
+   - Text floor 14px (older readers): every small inline size on the pages
+     reads a --fs-* token, raised here.
+   - Cards 12px, controls 8px, one 1px border, almost no shadow.
+   - Tables: 14px caps grey headers, ~48px rows, tabular figures.
    ═══════════════════════════════════════════════════════════════════════ */
 [data-skin="studio"] {
   --bg: #f4f6f9;
+  --card: #ffffff;
+  --text: #101828;
+  --muted: #475467;
   --page-text: var(--text);
-  --border: rgba(15, 23, 42, 0.11);
-  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 14px -6px rgba(15, 23, 42, 0.06);
+  --page-muted: var(--muted);
+  --border: #e4e7ec;
+  --hairline: #eaecf0;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --brand: #0b4a7d;
+  --brand2: #093d68;
+  --ok: #067647; --bad: #b42318; --warn: #b54708;
   --font-ui: "Hanken Grotesk", "Helvetica Neue", Arial, sans-serif;
-  --font-num: "Bricolage Grotesque", "Hanken Grotesk", sans-serif;
+  --font-num: "Hanken Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --font-code: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --radius-card: 12px;
   --radius-ctl: 8px;
 
+  /* Readable type floor. */
+  --fs-9: 12px; --fs-10: 13px; --fs-10-5: 13.5px; --fs-11: 14px; --fs-11-5: 14px;
+  --fs-12: 14.5px; --fs-12-5: 15px; --fs-13: 15.5px; --fs-13-5: 16px; --fs-14: 16px;
+
+  /* The master hover: big, bold, readable. */
+  --tip-title: 20px; --tip-row: 17px; --tip-footer: 18px; --tip-scale: 1.3;
+
+  /* Series — navy leads, then one warm, then calm. */
+  --series-1: #0b4a7d; --series-2: #e07b39; --series-3: #6fa8dc;
+  --series-4: #8e6bb8; --series-5: #c9a227; --series-6: #4e8f8b;
+  --series-other: #b9c0cc;
+
+  /* Dropdown chevron in the secondary grey. */
+  --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5l4.5 4.5 4.5-4.5' fill='none' stroke='%23475467' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --select-chevron-brand: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5l4.5 4.5 4.5-4.5' fill='none' stroke='%230b4a7d' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
+  /* Sidebar: white rail under a navy head, navy active row. */
+  --sb-w-open: 252px;
   --sb-bg: #ffffff;
-  --sb-text: #4a576c;
-  --sb-line: rgba(15, 23, 42, 0.09);
-  --sb-active-bg: color-mix(in srgb, #0b4a7d 11%, #ffffff);
+  --sb-text: #344054;
+  --sb-line: #eaecf0;
+  --sb-active-bg: #eaf1f8;
   --sb-active-text: #0b4a7d;
-  --sb-hover: #f1f4f8;
-  --sb-label: #8a96aa;
-  --sb-group-text: #0b1220;
+  --sb-hover: #f2f4f7;
+  --sb-label: #667085;
+  --sb-group-text: #101828;
   --sb-group-bg: transparent;
-  --sb-group-hover: #f1f4f8;
+  --sb-group-hover: #f2f4f7;
   --sb-head-bg: #0b4a7d;
   --sb-head-line: transparent;
   --sb-head-icon: #ffffff;
 }
+/* Dark mode under the new look keeps working, just quieter. */
 [data-skin="studio"][data-theme="dark"] {
-  --bg: #0b1220;
-  --border: rgba(255, 255, 255, 0.12);
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --sb-bg: #111a2b;
-  --sb-text: #b8c3d4;
-  --sb-line: rgba(255, 255, 255, 0.08);
-  --sb-active-bg: rgba(96, 165, 250, 0.16);
-  --sb-active-text: #e6edf6;
-  --sb-hover: rgba(255, 255, 255, 0.06);
-  --sb-label: #7d8aa0;
-  --sb-group-text: #e6edf6;
-  --sb-group-hover: rgba(255, 255, 255, 0.08);
-  --sb-head-bg: #0b4a7d;
+  --bg: #0b1220; --card: #111a2b; --text: #e6edf6; --muted: #b8c3d4;
+  --border: rgba(255, 255, 255, 0.12); --hairline: rgba(255, 255, 255, 0.08);
+  --shadow: none;
+  --sb-bg: #111a2b; --sb-text: #b8c3d4; --sb-line: rgba(255, 255, 255, 0.08);
+  --sb-active-bg: rgba(111, 168, 220, 0.16); --sb-active-text: #e6edf6;
+  --sb-hover: rgba(255, 255, 255, 0.06); --sb-label: #8a96aa;
+  --sb-group-text: #e6edf6; --sb-group-hover: rgba(255, 255, 255, 0.08);
 }
 
-[data-skin="studio"] body { -webkit-font-smoothing: antialiased; font-size: 14.5px; }
+[data-skin="studio"] body {
+  -webkit-font-smoothing: antialiased;
+  font-size: 16px;
+  line-height: 1.45;
+}
+[data-skin="studio"] .small { font-size: 14px; }
 
-/* Cards: quieter shadow, tighter radius. */
-[data-skin="studio"] .card { border-radius: var(--radius-card); box-shadow: var(--shadow); }
-
-/* Page titles: the showcase's compact, confident headline instead of 54px. */
+/* Page title: kept big, one standard. */
 [data-skin="studio"] h1:where(:not(.kcs *)) {
-  font-family: var(--font-num);
-  font-size: 34px;
-  font-weight: 700;
+  font-family: var(--font-ui);
+  font-size: 44px;
+  font-weight: 800;
   letter-spacing: -0.03em;
-  line-height: 1.08;
+  line-height: 1.05;
 }
-[data-skin="studio"] h2:where(:not(.kcs *)),
-[data-skin="studio"] h3:where(:not(.kcs *)) { letter-spacing: -0.01em; }
+[data-skin="studio"] h2:where(:not(.kcs *)) { font-size: 22px; font-weight: 800; letter-spacing: -0.015em; }
+[data-skin="studio"] h3:where(:not(.kcs *)) { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+@media (max-width: 720px) {
+  [data-skin="studio"] h1:where(:not(.kcs *)) { font-size: 32px; }
+}
 
-/* KPI tiles (StatPill): white tiles, figures in the display face. */
+/* Cards: one radius, one border, no glow. */
+[data-skin="studio"] .card {
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 20px 22px;
+}
+
+/* KPI tiles (StatPill): left-aligned label over a 32px figure. */
+[data-skin="studio"] .pills { gap: 14px; justify-content: flex-start; }
 [data-skin="studio"] .pill {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  padding: 13px 15px;
+  padding: 15px 18px;
+  align-items: flex-start;
+  text-align: left;
+  gap: 6px;
 }
+/* Label above the figure; a sub-line stays below it. */
+[data-skin="studio"] .pill > span:first-of-type { order: -1; }
 [data-skin="studio"] .pill b {
-  font-family: var(--font-num);
-  font-weight: 700;
-  font-size: 27px;
+  font-family: var(--font-ui);
+  font-size: 32px;
+  font-weight: 800;
   letter-spacing: -0.02em;
+  line-height: 1.05;
   font-variant-numeric: tabular-nums;
 }
 [data-skin="studio"] .pill span {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: normal;
+}
+[data-skin="studio"] .pill > span:first-of-type {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--muted);
 }
 [data-skin="studio"] .pill-total {
   border-color: var(--brand);
-  background: color-mix(in srgb, var(--brand) 5%, var(--card));
+  background: var(--card);
+  box-shadow: inset 0 3px 0 var(--brand);
 }
 
-/* Buttons and form controls: one 8px shape across the toolbar. */
-[data-skin="studio"] .btn { border-radius: var(--radius-ctl); background: var(--card); }
-[data-skin="studio"] .btn.primary { background: var(--brand); }
-[data-skin="studio"] .btn.primary:hover { background: var(--brand2); }
-[data-skin="studio"] select:where(:not(.kcs *)),
-[data-skin="studio"] input:where(:not(.kcs *)):not([type="checkbox"]):not([type="radio"]):not([type="range"]),
-[data-skin="studio"] textarea:where(:not(.kcs *)) { border-radius: var(--radius-ctl); }
-
-/* Tables: uppercase micro-headers, tabular figures. */
-[data-skin="studio"] table:where(:not(.kcs *)) { font-variant-numeric: tabular-nums; }
-[data-skin="studio"] thead th:where(:not(.kcs *)) {
-  font-size: 10.5px;
+/* Buttons: one 8px shape, 44px tall, sentence weight. */
+[data-skin="studio"] .btn {
+  border-radius: var(--radius-ctl);
+  border: 1px solid #d0d5dd;
+  background: var(--card);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  min-height: 44px;
+  padding: 10px 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  line-height: 1.2;
+}
+[data-skin="studio"] .btn:hover:not(:disabled) { background: #f9fafb; border-color: #98a2b3; }
+[data-skin="studio"] .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+[data-skin="studio"] .btn.primary:hover:not(:disabled) { background: var(--brand2); border-color: var(--brand2); }
+[data-skin="studio"] .btn.sm { min-height: 36px; padding: 6px 12px; font-size: 14px; }
+[data-skin="studio"] .btn.large { min-height: 48px; padding: 12px 22px; font-size: 16px; border-radius: var(--radius-ctl); }
+[data-skin="studio"] .btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+[data-skin="studio"][data-theme="dark"] .btn:not(.primary) { background: #1d2939; border-color: rgba(255,255,255,0.16); color: var(--text); }
+
+/* Form controls: 8px corners (not pills), 44px tall, 15px text. */
+[data-skin="studio"] select:where(:not(.kcs *)),
+[data-skin="studio"] input[type="text"]:where(:not(.kcs *)),
+[data-skin="studio"] input[type="search"]:where(:not(.kcs *)),
+[data-skin="studio"] input[type="email"]:where(:not(.kcs *)),
+[data-skin="studio"] input[type="number"]:where(:not(.kcs *)),
+[data-skin="studio"] input[type="tel"]:where(:not(.kcs *)),
+[data-skin="studio"] input[type="url"]:where(:not(.kcs *)),
+[data-skin="studio"] input[type="password"]:where(:not(.kcs *)),
+[data-skin="studio"] input:not([type]):where(:not(.kcs *)) {
+  border-radius: var(--radius-ctl);
+  border: 1px solid #d0d5dd;
+  font-size: 15px;
+  min-height: 42px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+[data-skin="studio"] select:where(:not(.kcs *)) { padding-left: 13px; padding-right: 36px; background-position: right 13px center; font-weight: 500; }
+[data-skin="studio"] select.select-brand { border-color: var(--brand); color: var(--brand); font-weight: 700; }
+[data-skin="studio"] select.select-sm,
+[data-skin="studio"] .select-sm { min-height: 36px; padding-top: 6px; padding-bottom: 6px; font-size: 14px; }
+[data-skin="studio"] textarea:where(:not(.kcs *)) { border-radius: var(--radius-ctl); border: 1px solid #d0d5dd; font-size: 15px; line-height: 1.5; }
+/* In a table a control is a cell: dense again. */
+[data-skin="studio"] td input:where(:not(.kcs *)), [data-skin="studio"] td select:where(:not(.kcs *)),
+[data-skin="studio"] th input:where(:not(.kcs *)), [data-skin="studio"] th select:where(:not(.kcs *)) {
+  min-height: 0; padding-top: 5px; padding-bottom: 5px; font-size: 14.5px;
+}
+
+/* Tables: caps grey headers, roomy rows, tabular figures, hairlines. */
+[data-skin="studio"] table:where(:not(.kcs *)) { font-variant-numeric: tabular-nums; font-size: 15.5px; }
+[data-skin="studio"] th:where(:not(.kcs *)),
+[data-skin="studio"] td:where(:not(.kcs *)) {
+  border-bottom: 1px solid var(--hairline);
+  padding: 13px 12px;
+  vertical-align: middle;
+}
+[data-skin="studio"] thead th:where(:not(.kcs *)) {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding-top: 11px;
+  padding-bottom: 11px;
+  white-space: nowrap;
 }
+[data-skin="studio"] tfoot td:where(:not(.kcs *)) { font-weight: 800; border-top: 2px solid var(--text); border-bottom: 0; }
+[data-skin="studio"] tbody tr:hover:where(:not(.kcs *)) { background: #f5f8fb; }
+[data-skin="studio"][data-theme="dark"] tbody tr:hover:where(:not(.kcs *)) { background: rgba(255,255,255,0.04); }
+
+/* Codes (unit refs, GL accounts): navy mono. */
+[data-skin="studio"] code:where(:not(.kcs *)) {
+  font-family: var(--font-code);
+  font-size: 0.92em;
+  font-weight: 500;
+  color: var(--brand);
+  background: transparent;
+  padding: 0;
+}
+[data-skin="studio"][data-theme="dark"] code:where(:not(.kcs *)) { color: #9cc3e8; }
+
+/* Pop-ups: one radius, a real header rule, readable title. */
+[data-skin="studio"] .modal { border-radius: var(--radius-card); }
+[data-skin="studio"] .modalTitle { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; }
+[data-skin="studio"] .modalHeader { border-bottom: 1px solid var(--hairline); }
+
+/* Links styled as buttons read as links. */
+[data-skin="studio"] .linkBtn { font-weight: 600; color: var(--brand); }
+
+/* Status tags: quiet, one shape. */
+[data-skin="studio"] .tag { border-radius: 999px; font-size: 13px; font-weight: 700; padding: 2px 9px; }
+
+/* Checkboxes and radios in the accent. */
+[data-skin="studio"] input[type="checkbox"], [data-skin="studio"] input[type="radio"] {
+  accent-color: var(--brand); width: 18px; height: 18px;
+}
+
+/* Phone width, new look: two tiles to a row, figures that fit. */
+@media (max-width: 720px) {
+  [data-skin="studio"] .pill { padding: 12px 12px; }
+  [data-skin="studio"] .pill b { font-size: clamp(18px, 5.6vw, 26px); white-space: nowrap; }
+  [data-skin="studio"] .card { padding: 14px; }
+}
+
+/* Sidebar, new look: text only when open (icons on the collapsed rail),
+   18px section headings in Title Case, 17px pages, the real logo on navy. */
+[data-skin="studio"] .sb-logo { display: block !important; }
+[data-skin="studio"] .sb-open .sb-icon { display: none !important; }
+[data-skin="studio"] .sb-open .sb-group {
+  font-size: 18px !important;
+  font-weight: 800 !important;
+  text-transform: none !important;
+  letter-spacing: -0.005em !important;
+  padding: 12px 12px 6px !important;
+  margin-top: 6px;
+}
+[data-skin="studio"] .sb-open .sb-link {
+  font-size: 17px !important;
+  padding: 9px 12px !important;
+  margin-left: 0 !important;
+}
+[data-skin="studio"] .sb-open .sb-link.sb-sub { padding-left: 22px !important; }
+[data-skin="studio"] .sb-open .sb-link.sb-active { box-shadow: inset 3px 0 0 var(--brand); }
+[data-skin="studio"] .sb-rail .sb-group { padding: 11px 0 !important; }

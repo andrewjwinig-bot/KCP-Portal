@@ -72,8 +72,8 @@ export default function PerformanceCard({ code, style }: { code: string; style?:
     <div className="card" style={{ ...style }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>{perf.year} Performance</div>
-          <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
+          <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>{perf.year} Performance</div>
+          <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 4 }}>
             {through ? `Actual through ${MONTHS_LONG[n - 1]} · against budget` : "No actuals posted yet this year"}
           </div>
         </div>
@@ -111,7 +111,7 @@ function PerfCharts({ perf, bank, through }: { perf: PropertyPerformance; bank: 
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "12px 16px 14px", marginTop: 16 }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div className="muted" style={{ fontSize: 13 }}>{cur.sub}</div>
+        <div className="muted" style={{ fontSize: "var(--fs-13)" }}>{cur.sub}</div>
         <div style={{ display: "flex", borderBottom: "1px solid var(--border)" }}>
           {tabs.map((t) => <TabButton key={t.key} active={cur.key === t.key} onClick={() => setTab(t.key)}>{t.label}</TabButton>)}
         </div>
@@ -128,8 +128,8 @@ function PerfCharts({ perf, bank, through }: { perf: PropertyPerformance; bank: 
 function ChartPanel({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px", minWidth: 0 }}>
-      <div style={{ fontSize: 14, fontWeight: 800 }}>{title}</div>
-      <div className="muted" style={{ fontSize: 12, marginBottom: 6 }}>{sub}</div>
+      <div style={{ fontSize: "var(--fs-14)", fontWeight: 800 }}>{title}</div>
+      <div className="muted" style={{ fontSize: "var(--fs-12)", marginBottom: 6 }}>{sub}</div>
       {children}
     </div>
   );
@@ -205,16 +205,16 @@ function VarianceDrivers({ lines, through }: { lines: PerfLine[]; through: strin
   const max = Math.max(...top.map((l) => Math.abs(l.variance)));
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "12px 14px", marginTop: 18 }}>
-      <div style={{ fontSize: 14, fontWeight: 800 }}>What&apos;s Driving the Variance</div>
-      <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>Year to date through {through} · largest first · green is favorable</div>
+      <div style={{ fontSize: "var(--fs-14)", fontWeight: 800 }}>What&apos;s Driving the Variance</div>
+      <div className="muted" style={{ fontSize: "var(--fs-12)", marginBottom: 10 }}>Year to date through {through} · largest first · green is favorable</div>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(140px, 220px) 1fr", rowGap: 8, columnGap: 14, alignItems: "center" }}>
         {top.map((l) => {
           const w = (Math.abs(l.variance) / max) * 40; // leaves room for the figure
           const good = l.variance >= 0;
           return (
             <React.Fragment key={`${l.section}::${l.label}`}>
-              <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {l.label}<span className="muted" style={{ fontWeight: 500, fontSize: 11, marginLeft: 6 }}>{l.kind === "revenue" ? "revenue" : "expense"}</span>
+              <div style={{ fontSize: "var(--fs-13)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {l.label}<span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-11)", marginLeft: 6 }}>{l.kind === "revenue" ? "revenue" : "expense"}</span>
               </div>
               <HoverCard title={`${l.label} · YTD`} help={false} rows={[
                 { label: "Actual", value: money(l.ytdActual) },
@@ -228,7 +228,7 @@ function VarianceDrivers({ lines, through }: { lines: PerfLine[]; through: strin
                     left: good ? "50%" : `${50 - w}%`, background: good ? GOOD : BAD, opacity: 0.85,
                   }} />
                   <span style={{
-                    position: "absolute", top: 2, fontSize: 12, fontWeight: 700, color: good ? GOOD : BAD, whiteSpace: "nowrap",
+                    position: "absolute", top: 2, fontSize: "var(--fs-12)", fontWeight: 700, color: good ? GOOD : BAD, whiteSpace: "nowrap",
                     ...(good ? { left: `calc(${50 + w}% + 6px)` } : { right: `calc(${50 + w}% + 6px)` }),
                   }}>{good ? "+" : "−"}{compact(Math.abs(l.variance))}</span>
                 </div>

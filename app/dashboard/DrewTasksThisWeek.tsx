@@ -55,7 +55,7 @@ function TaskRow({ item, now }: { item: Item; now: Date }) {
       ) : (
         <span style={{ width: 9, height: 9, borderRadius: 999, background: item.dot, flexShrink: 0 }} />
       )}
-      <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, wordBreak: "break-word" }}>{item.label}</div>
+      <div style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-13)", fontWeight: 600, wordBreak: "break-word" }}>{item.label}</div>
       {b && <div className="small" style={{ flexShrink: 0, color: b.color, fontWeight: b.bold ? 700 : 400 }}>{b.text}</div>}
       <input type="checkbox" checked={false} onChange={item.onToggle} style={{ width: 16, height: 16, flexShrink: 0, cursor: "pointer" }} />
     </label>
@@ -185,15 +185,15 @@ export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwne
   return (
     <div className="card" style={{ order: -1 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
           Tasks This Week{doneCount > 0 && <span style={{ marginLeft: 8, color: GREEN, letterSpacing: 0 }}>· {doneCount} done</span>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={() => setModalOpen(true)} className="btn primary" style={{ fontSize: 12, fontWeight: 700, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <button onClick={() => setModalOpen(true)} className="btn primary" style={{ fontSize: "var(--fs-12)", fontWeight: 700, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 5 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
             New task
           </button>
-          {trackerLink && <Link href="/tracker" style={{ fontSize: 12, fontWeight: 600, color: BRAND, textDecoration: "none" }}>Tracker →</Link>}
+          {trackerLink && <Link href="/tracker" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: BRAND, textDecoration: "none" }}>Tracker →</Link>}
         </div>
       </div>
 
@@ -213,7 +213,7 @@ export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwne
         const outstanding = imports.filter((r) => !reminderSatisfied(r, importEvents[r.id]?.at, new Date(), importCoverage[r.id]));
         return (
           <div style={{ marginTop: 14 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: outstanding.length ? "#b45309" : GREEN, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: outstanding.length ? "#b45309" : GREEN, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 9, height: 9, borderRadius: 999, background: outstanding.length ? "#b45309" : GREEN, flexShrink: 0 }} />
               Files to Import This Week{outstanding.length ? ` · ${outstanding.length} outstanding` : ""}
             </div>
@@ -225,10 +225,10 @@ export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwne
                   <Link key={r.id} href={r.link} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(180,83,9,0.28)", background: "rgba(180,83,9,0.06)", textDecoration: "none", color: "inherit" }}>
                     <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#7c3d06" }}>{r.label}</div>
+                      <div style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#7c3d06" }}>{r.label}</div>
                       <div className="muted small" style={{ marginTop: 1 }}>feeds {r.feeds}</div>
                     </div>
-                    <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: "#b45309" }}>{r.when}</div>
+                    <div style={{ flexShrink: 0, fontSize: "var(--fs-12)", fontWeight: 700, color: "#b45309" }}>{r.when}</div>
                   </Link>
                 ))}
               </div>
@@ -239,7 +239,7 @@ export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwne
 
       {openTaskItems.length > 0 && (
         <div style={{ marginTop: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
+          <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
             Open Tasks <span style={{ fontWeight: 400, textTransform: "none" }}>· no due date</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

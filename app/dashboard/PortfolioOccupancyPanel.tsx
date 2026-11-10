@@ -108,7 +108,7 @@ export default function PortfolioOccupancyPanel({
   return (
     <div className="card" style={{ gridColumn: "1 / -1", order }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
           Portfolio Occupancy
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -120,7 +120,7 @@ export default function PortfolioOccupancyPanel({
                 type="button"
                 onClick={() => setScope(s)}
                 style={{
-                  padding: "5px 12px", borderRadius: 999, fontSize: 12,
+                  padding: "5px 12px", borderRadius: 999, fontSize: "var(--fs-12)",
                   fontWeight: active ? 700 : 500, cursor: "pointer",
                   border: `1.5px solid ${active ? "#0b4a7d" : "var(--border)"}`,
                   background: active ? "rgba(11,74,125,0.10)" : "transparent",
@@ -132,7 +132,7 @@ export default function PortfolioOccupancyPanel({
               </button>
             );
           })}
-          <Link href="/rentroll" style={{ fontSize: 12, fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
+          <Link href="/rentroll" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
             Rent roll →
           </Link>
         </div>
@@ -147,7 +147,7 @@ export default function PortfolioOccupancyPanel({
           <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
             <div style={{ display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: 46, fontWeight: 900, lineHeight: 1, color: occColor(pct) }}>{pct.toFixed(1)}%</span>
-              <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginTop: 5 }}>
+              <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginTop: 5 }}>
                 Occupied
               </span>
             </div>
@@ -156,7 +156,7 @@ export default function PortfolioOccupancyPanel({
                 <div style={{ width: `${pct}%`, background: occColor(pct) }} />
                 <div style={{ flex: 1, background: "rgba(15,23,42,0.07)" }} />
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--muted)", marginTop: 7 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: 7 }}>
                 <span><b style={{ color: "var(--text)" }}>{sqftFmt(totalOcc)}</b> occupied</span>
                 <span><b style={{ color: "var(--text)" }}>{sqftFmt(totalVac)}</b> vacant</span>
                 <span><b style={{ color: "var(--text)" }}>{sqftFmt(totalSf)}</b> total sf</span>
@@ -183,7 +183,7 @@ export default function PortfolioOccupancyPanel({
                   help={false}
                   style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 0 }}
                 >
-                  <span style={{ fontSize: 13, fontWeight: 800, color }}>{bpct.toFixed(1)}%</span>
+                  <span style={{ fontSize: "var(--fs-13)", fontWeight: 800, color }}>{bpct.toFixed(1)}%</span>
                   <div style={{
                     width: 38, height: BAR_H, borderRadius: "5px 5px 0 0",
                     border: "1px solid rgba(15,23,42,0.12)", background: "rgba(15,23,42,0.05)",
@@ -191,10 +191,10 @@ export default function PortfolioOccupancyPanel({
                   }}>
                     <div style={{ height: (bpct / 100) * BAR_H, background: color }} />
                   </div>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text)", textAlign: "center", lineHeight: 1.2 }}>
+                  <span style={{ fontSize: "var(--fs-10)", fontWeight: 700, color: "var(--text)", textAlign: "center", lineHeight: 1.2 }}>
                     {b.label}
                   </span>
-                  <span style={{ fontSize: 9, fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: "var(--fs-9)", fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap" }}>
                     {kSqft(b.occupied)}/{kSqft(b.total)} sf
                   </span>
                 </HoverCard>

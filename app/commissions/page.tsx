@@ -429,7 +429,7 @@ export default function CommissionsPage() {
     ...inputStyle, backgroundColor: "rgba(15,23,42,0.04)", color: "var(--muted)",
   };
   const labelStyle: React.CSSProperties = {
-    fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.04em",
+    fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.04em",
     textTransform: "uppercase", marginBottom: 4, display: "block",
   };
 
@@ -453,7 +453,7 @@ export default function CommissionsPage() {
                     padding: "10px 14px", background: sentRecord ? "rgba(22,163,74,0.07)" : "rgba(11,74,125,0.05)",
                     borderBottom: "1px solid var(--border)", gap: 12, flexWrap: "wrap",
                   }}>
-                    <span style={{ fontWeight: 800, fontSize: 14, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontWeight: 800, fontSize: "var(--fs-14)", display: "flex", alignItems: "center", gap: 8 }}>
                       {quarter}
                       {sentRecord && (
                         <Pill tone={TONE_GREEN}>SENT TO AVIDXCHANGE · {sentDateLabel}</Pill>
@@ -510,9 +510,9 @@ export default function CommissionsPage() {
                         now (early, or as a reminder). */}
                     {!sentRecord && <SendToAvidBillButton quarterLabel={quarter} kind="office" onSent={refreshAvidSent} />}
                   </div>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
                     <thead>
-                      <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                      <tr style={{ color: "var(--muted)", fontSize: "var(--fs-11)", letterSpacing: "0.04em", textAlign: "left" }}>
                         <th style={{ padding: "8px 12px", fontWeight: 700 }}>TENANT</th>
                         <th style={{ padding: "8px 12px", fontWeight: 700 }}>BUILDING</th>
                         <th style={{ padding: "8px 12px", fontWeight: 700 }}>SUITE</th>
@@ -546,15 +546,15 @@ export default function CommissionsPage() {
                             <button
                               className="btn"
                               onClick={() => downloadCommissionInvoice(e, (Number(e.incentiveAmount) || 0) * MARKUP)}
-                              style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}
+                              style={{ padding: "4px 8px", fontSize: "var(--fs-11)", marginRight: 6 }}
                               title="Download AvidBill invoice for this commission"
                             >Invoice</button>
                             {sentAtById.has(e.id) ? (<>
                               {/* A sent commission can be CORRECTED (owner) — Edit, never delete. */}
-                              <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }} title="Correct this commission — it stays as sent to AvidXchange">Edit</button>
+                              <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: "var(--fs-11)", marginRight: 6 }} title="Correct this commission — it stays as sent to AvidXchange">Edit</button>
                               <span className="muted small" title="Sent to AvidXchange — kept as sent">Sent {formatSentDate(sentAtById.get(e.id)!)}</span>
                             </>) : (<>
-                            <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: 11, marginRight: 6 }}>Edit</button>
+                            <button className="btn" onClick={() => editEntry(e)} style={{ padding: "4px 8px", fontSize: "var(--fs-11)", marginRight: 6 }}>Edit</button>
                             <button
                               onClick={() => deleteEntry(e.id)}
                               title="Delete row"
@@ -566,7 +566,7 @@ export default function CommissionsPage() {
                                 background: "rgba(180,35,24,0.08)",
                                 color: "#b42318",
                                 cursor: "pointer",
-                                fontSize: 14, lineHeight: 1, fontWeight: 700,
+                                fontSize: "var(--fs-14)", lineHeight: 1, fontWeight: 700,
                                 display: "inline-flex", alignItems: "center", justifyContent: "center",
                               }}
                             >×</button>
@@ -610,7 +610,7 @@ export default function CommissionsPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
             <div>COMMERCIAL</div><div>PROPERTIES</div>
           </div>
         </div>
@@ -626,7 +626,7 @@ export default function CommissionsPage() {
         const qEndStr = `${qEnd.getMonth() + 1}/${qEnd.getDate()}/${qEnd.getFullYear()}`;
         return (
           <div style={{
-            padding: "10px 14px", borderRadius: 8, fontSize: 13, lineHeight: 1.5,
+            padding: "10px 14px", borderRadius: 8, fontSize: "var(--fs-13)", lineHeight: 1.5,
             border: `1px solid ${due ? "rgba(217,119,6,0.45)" : "var(--border)"}`,
             background: due ? "rgba(217,119,6,0.08)" : "rgba(15,23,42,0.025)",
             display: "flex", alignItems: "center", gap: 10,
@@ -647,7 +647,7 @@ export default function CommissionsPage() {
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
           <b style={{ fontSize: 17 }}>{form.id ? "Edit Commission Entry" : "New Commission Entry"}</b>
-          {error && <span style={{ color: "#b91c1c", fontSize: 12 }}>{error}</span>}
+          {error && <span style={{ color: "#b91c1c", fontSize: "var(--fs-12)" }}>{error}</span>}
         </div>
 
         {/* Explicit fractional columns so the inputs stretch to fill the full row
@@ -763,7 +763,7 @@ export default function CommissionsPage() {
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
               {[6, 12, 24, 36, 48, 60].map((m) => (
                 <button key={m} type="button" className="btn sm" onClick={() => applyTermMonths(m)}
-                  style={{ padding: "2px 8px", fontSize: 11, fontWeight: 700, ...(termMonthsNum === m ? { background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" } : {}) }}>
+                  style={{ padding: "2px 8px", fontSize: "var(--fs-11)", fontWeight: 700, ...(termMonthsNum === m ? { background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" } : {}) }}>
                   {formatTerm(m / 12)}
                 </button>
               ))}
@@ -795,7 +795,7 @@ export default function CommissionsPage() {
                 style={{ ...lockedStyle, width: 160, textAlign: "right", fontWeight: 700, fontSize: 15 }}
               />
               {isCalculatedExact ? (
-                <span style={{ fontSize: 14, color: "var(--text)" }}>
+                <span style={{ fontSize: "var(--fs-14)", color: "var(--text)" }}>
                   {Math.abs(tier!.years * 12 - termMonthsNum) > 0.5 && (
                     <span className="muted small" style={{ marginRight: 8 }}>{formatTerm(termMonthsNum / 12)} earns the {formatTerm(tier!.years)} rate</span>
                   )}
@@ -823,7 +823,7 @@ export default function CommissionsPage() {
         </div>
 
         {/* Standard rates footnote */}
-        <p className="muted small" style={{ marginTop: 12, marginBottom: 0, fontSize: 11, lineHeight: 1.6 }}>
+        <p className="muted small" style={{ marginTop: 12, marginBottom: 0, fontSize: "var(--fs-11)", lineHeight: 1.6 }}>
           <span style={{ fontWeight: 700, marginRight: 6 }}>Standard Rates / SF:</span>
           {INCENTIVE_TIERS.map((r, i) => (
             <span key={r.years}>

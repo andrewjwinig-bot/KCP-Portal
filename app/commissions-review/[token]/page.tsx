@@ -88,7 +88,7 @@ export default function CommissionReviewPage() {
         {review && (
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+              <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
                 Leasing Commissions · Review before AvidXchange
               </div>
               <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{review.quarterLabel}</div>

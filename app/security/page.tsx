@@ -61,13 +61,13 @@ export default function SecurityPage() {
     } finally { setBusy(false); }
   }
 
-  const step: React.CSSProperties = { fontSize: 14, lineHeight: 1.6 };
+  const step: React.CSSProperties = { fontSize: "var(--fs-14)", lineHeight: 1.6 };
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 640 }}>
       <h1>Security</h1>
 
       {status?.required && !status?.enabled && !status?.disabled && (
-        <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", fontSize: 14, fontWeight: 600, color: "#b45309" }}>
+        <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", fontSize: "var(--fs-14)", fontWeight: 600, color: "#b45309" }}>
           Two-factor authentication is required for your account. Set it up below to continue using the portal.
         </div>
       )}
@@ -92,15 +92,15 @@ export default function SecurityPage() {
         {msg && <div className="small" style={{ color: "#15803d", fontWeight: 700 }}>{msg}</div>}
 
         {!enroll && !status?.enabled && (
-          <button className="btn primary" disabled={busy} onClick={startEnroll} style={{ alignSelf: "flex-start", fontSize: 14, padding: "9px 16px", fontWeight: 700 }}>
+          <button className="btn primary" disabled={busy} onClick={startEnroll} style={{ alignSelf: "flex-start", fontSize: "var(--fs-14)", padding: "9px 16px", fontWeight: 700 }}>
             Set up two-factor authentication
           </button>
         )}
 
         {!enroll && status?.enabled && (
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button className="btn" disabled={busy} onClick={startEnroll} style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Re-enroll (new device)</button>
-            <button className="btn" disabled={busy} onClick={disable} style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, borderColor: "rgba(180,35,24,0.45)", color: "#b42318" }}>Turn off</button>
+            <button className="btn" disabled={busy} onClick={startEnroll} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>Re-enroll (new device)</button>
+            <button className="btn" disabled={busy} onClick={disable} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, borderColor: "rgba(180,35,24,0.45)", color: "#b42318" }}>Turn off</button>
           </div>
         )}
 
@@ -123,14 +123,14 @@ export default function SecurityPage() {
               <img src={enroll.qrDataUrl} alt="2FA QR code" width={180} height={180} style={{ border: "1px solid var(--border)", borderRadius: 8 }} />
               <div>
                 <div className="muted small" style={{ fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>Manual key</div>
-                <code style={{ fontSize: 14, letterSpacing: 1 }}>{enroll.manualKey}</code>
+                <code style={{ fontSize: "var(--fs-14)", letterSpacing: 1 }}>{enroll.manualKey}</code>
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 inputMode="numeric" placeholder="123456" autoFocus
                 style={{ fontSize: 18, letterSpacing: 4, width: 130, textAlign: "center" }} />
-              <button className="btn primary" disabled={busy || code.length !== 6} onClick={confirm} style={{ fontSize: 14, padding: "9px 16px", fontWeight: 700 }}>Confirm & turn on</button>
+              <button className="btn primary" disabled={busy || code.length !== 6} onClick={confirm} style={{ fontSize: "var(--fs-14)", padding: "9px 16px", fontWeight: 700 }}>Confirm & turn on</button>
             </div>
           </div>
         )}
@@ -145,7 +145,7 @@ export default function SecurityPage() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {reqUsers.map((u) => (
-              <label key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
+              <label key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "var(--fs-14)", cursor: "pointer" }}>
                 <input type="checkbox" checked={u.required} onChange={(e) => toggleRequired(u.id, e.target.checked)} />
                 <span style={{ fontWeight: 600 }}>{u.label}</span>
                 <span className="muted small">{u.id}</span>

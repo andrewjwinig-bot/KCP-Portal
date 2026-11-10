@@ -85,7 +85,7 @@ function HeaderSelect({
   return (
     <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
       <span style={{ fontSize: muted ? 20 : 24, fontWeight: 800, color: muted ? "var(--muted)" : "inherit", whiteSpace: "nowrap" }}>{displayLabel}</span>
-      <span style={{ color: "var(--muted)", fontSize: 14 }}>▾</span>
+      <span style={{ color: "var(--muted)", fontSize: "var(--fs-14)" }}>▾</span>
       <select
         aria-label={ariaLabel}
         value={value}
@@ -102,13 +102,13 @@ const COLOR_BRAND = "#0b4a7d";
 const GROUP_DIV = "1px solid var(--border)"; // vertical divider between Period / YTD / Annual / Notes
 
 // Roomier, budget-matching cell metrics (larger font, more padding).
-const numStyle: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 14, padding: "9px 12px", whiteSpace: "nowrap", verticalAlign: "middle" };
-const labelStyle: React.CSSProperties = { textAlign: "left", fontSize: 14, padding: "9px 12px", verticalAlign: "middle" };
-const headStyle: React.CSSProperties = { fontSize: 12, fontWeight: 800, color: "var(--muted)", padding: "8px 12px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom" };
+const numStyle: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: "var(--fs-14)", padding: "9px 12px", whiteSpace: "nowrap", verticalAlign: "middle" };
+const labelStyle: React.CSSProperties = { textAlign: "left", fontSize: "var(--fs-14)", padding: "9px 12px", verticalAlign: "middle" };
+const headStyle: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 800, color: "var(--muted)", padding: "8px 12px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom" };
 // Tighter metrics for the 12-month Full-Year grid (many columns → less padding).
-const fyNumStyle: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13, padding: "6px 8px", whiteSpace: "nowrap", verticalAlign: "middle" };
-const fyLabelStyle: React.CSSProperties = { textAlign: "left", fontSize: 13, padding: "6px 10px", verticalAlign: "middle" };
-const fyHeadStyle: React.CSSProperties = { fontSize: 11, fontWeight: 800, color: "var(--muted)", padding: "6px 8px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom" };
+const fyNumStyle: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: "var(--fs-13)", padding: "6px 8px", whiteSpace: "nowrap", verticalAlign: "middle" };
+const fyLabelStyle: React.CSSProperties = { textAlign: "left", fontSize: "var(--fs-13)", padding: "6px 10px", verticalAlign: "middle" };
+const fyHeadStyle: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 800, color: "var(--muted)", padding: "6px 8px", whiteSpace: "nowrap", textAlign: "right", verticalAlign: "bottom" };
 
 function fmtPct(v: number | null): string {
   if (v == null) return "—";
@@ -250,7 +250,7 @@ function investigateCount(s: PropertyStatement, dismissed: Set<string>): number 
 
 // Segmented two-button toggle, matching the Operating Budgets controls.
 const toggleBtn: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, padding: "4px 10px",
+  fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px",
   border: "1px solid var(--border)", background: "var(--card)",
   color: "var(--text)", cursor: "pointer", letterSpacing: "0.04em", textTransform: "uppercase",
 };
@@ -299,12 +299,12 @@ function ViewMenu({ psf, setPsf, psfDisabled, varMode, setVarMode, hideEmpty, se
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="btn"
-        style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
+        style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         Display
-        <span aria-hidden style={{ fontSize: 10, opacity: 0.75, lineHeight: 1 }}>▾</span>
+        <span aria-hidden style={{ fontSize: "var(--fs-10)", opacity: 0.75, lineHeight: 1 }}>▾</span>
       </button>
       {open && (
         <div role="menu" style={{
@@ -799,7 +799,7 @@ export default function OperatingStatementsPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
@@ -826,7 +826,7 @@ export default function OperatingStatementsPage() {
                 Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
               </div>
             </div>
-            <button className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, flexShrink: 0 }} onClick={() => fileRef.current?.click()}>
+            <button className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, flexShrink: 0 }} onClick={() => fileRef.current?.click()}>
               {"Upload GL"}
             </button>
           </div>
@@ -845,7 +845,7 @@ export default function OperatingStatementsPage() {
                 This is the same 2000 G&amp;A GL the Allocated Expense Invoicer runs on. Generate the property invoices there, then send.
               </div>
             </div>
-            <a href="/allocated-invoicer" className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>
+            <a href="/allocated-invoicer" className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>
               Go to Allocated Invoicer →
             </a>
           </div>
@@ -889,7 +889,7 @@ export default function OperatingStatementsPage() {
               transition: "background .15s",
             }}
           >
-            <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property. You can also drag files onto this bar." style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }} onClick={() => fileRef.current?.click()}>
+            <button className="btn primary" title="Upload one or more GL files — each file's header identifies its property. You can also drag files onto this bar." style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }} onClick={() => fileRef.current?.click()}>
               {glDrop.dragging ? "Drop to import" : "Upload GL"}
             </button>
             <label className="small muted" title="Skip storing per-transaction detail — keeps the monthly totals that power every statement, budget-vs-actual and YoY comparison. Ideal for bulk-backfilling prior years cheaply; the only thing you lose is the line-level transaction drill-down for that import." style={{ display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", cursor: "pointer" }}>
@@ -993,17 +993,17 @@ export default function OperatingStatementsPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <button type="button" className="btn ai" disabled={analyzing} onClick={analyzeFlagged}
                     title="Use AI to explain each flagged line and auto-fill its note (from budget detail + GL transactions)"
-                    style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
+                    style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700 }}>
                     {analyzing ? "Analyzing…" : "✨ Auto-explain flagged lines"}
                   </button>
                   <button type="button" className="btn" disabled={clearing || analyzing} onClick={clearAiNotes}
                     title="Delete every auto-explain note on this month so it can be explained from scratch — notes you wrote or edited yourself are kept"
-                    style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
+                    style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700 }}>
                     {clearing ? "Clearing…" : "Clear AI notes"}
                   </button>
                   <button type="button" className="btn ai" disabled={briefing} onClick={generateBrief}
                     title="Generate a short AI monthly brief — how this property is tracking vs budget, the drivers, and what to watch"
-                    style={{ fontSize: 12, padding: "5px 12px", fontWeight: 700 }}>
+                    style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700 }}>
                     {briefing ? "Writing…" : brief ? "✨ Regenerate brief" : "✨ Monthly brief"}
                   </button>
                   {analyzeMsg && !analyzing && (
@@ -1042,12 +1042,12 @@ export default function OperatingStatementsPage() {
       {!loading && statement && brief && !isFullYear && (
         <div className="card" style={{ borderColor: "rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.05)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#6d28d9", display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#6d28d9", display: "flex", alignItems: "center", gap: 6 }}>
               ✨ Monthly Brief · {cur?.name} · {MONTHS[(briefPeriod || 1) - 1]} {year}
             </div>
             <span className="muted small" style={{ fontStyle: "italic" }}>AI-generated · review before relying on it</span>
           </div>
-          <div style={{ fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{brief}</div>
+          <div style={{ fontSize: "var(--fs-14)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{brief}</div>
         </div>
       )}
 
@@ -1068,7 +1068,7 @@ export default function OperatingStatementsPage() {
           apply" the ! on the line records. */}
       {!loading && statement && debtCheck?.missing && !isFullYear
         && statement.sections.some((sec) => sec.role === "debt-service" && sec.lines.some((l) => l.expectedMissing && !dismissedFlags.has(lineKeyOf(sec.name, l.label)))) && (
-        <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>
+        <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: "var(--fs-13)", fontWeight: 600 }}>
           ⚠ Debt service not posted — scheduled P&amp;I is <b>${money0(debtCheck.scheduled)}/mo</b>. Post the mortgage charge.
         </div>
       )}
@@ -1177,7 +1177,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
   const footerCard = (
     <div className="card">
       {budgetFallback && budgetYear != null && (
-        <div style={{ marginBottom: 10, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
+        <div style={{ marginBottom: 10, fontSize: "var(--fs-12)", color: "#b45309", fontWeight: 600 }}>
           Budget &amp; Variance are hidden — no {s.year} budget is loaded for this property (the nearest is {budgetYear}, and comparing to a different year would be misleading). Import the {s.year} budget to compare.
         </div>
       )}
@@ -1221,7 +1221,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
           <span style={{ fontWeight: 700, color }}>
             Showing {count} line{count === 1 ? "" : "s"} {word} — dismiss the &ldquo;?&rdquo; on a line once you have confirmed it is right
           </span>
-          <button type="button" className="btn" onClick={onClearFilter} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>Clear filter</button>
+          <button type="button" className="btn" onClick={onClearFilter} style={{ fontSize: "var(--fs-13)", padding: "6px 12px", fontWeight: 700 }}>Clear filter</button>
         </div>
         {matchSecs.length === 0
           ? <div className="card"><div className="muted small">Nothing left to investigate this month.</div></div>
@@ -1311,7 +1311,7 @@ function FYRow({ label, monthly, cols, total, budget, variance, varMode, showBud
     <tr style={rowStyle}>
       <td style={{ ...fyLabelStyle, ...(bold ? { fontWeight: 800, color: COLOR_BRAND } : {}), ...(upper ? { textTransform: "uppercase", letterSpacing: "0.04em" } : {}) }}>
         {label}
-        {showGL && mask && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{mask}</div>}
+        {showGL && mask && <div className="muted" style={{ fontSize: "var(--fs-11)", fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{mask}</div>}
       </td>
       {monthly.slice(0, cols).map((m, i) => num(m, i, i === 0 ? { borderLeft: GROUP_DIV } : undefined, drill ? () => drill(i + 1, "month", MONTHS[i]) : undefined))}
       {num(total, "total", { borderLeft: GROUP_DIV, color: COLOR_BRAND, fontWeight: 800 }, drill ? () => drill(cols, "ytd", MONTHS[cols - 1]) : undefined)}
@@ -1363,7 +1363,7 @@ function FullYearTable({ fy, year, viewKey, propertyCode, view, budgetYear, budg
 
   const groupRow = (label: string) => (
     <tr key={`g-${label}`}>
-      <td colSpan={colSpan} style={{ padding: "12px 12px 6px", borderBottom: `2px solid ${COLOR_BRAND}`, fontSize: 14, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: COLOR_BRAND }}>{label}</td>
+      <td colSpan={colSpan} style={{ padding: "12px 12px 6px", borderBottom: `2px solid ${COLOR_BRAND}`, fontSize: "var(--fs-14)", fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: COLOR_BRAND }}>{label}</td>
     </tr>
   );
   const sectionRows = (sec: FYSection, hideSubtotal?: boolean) => {
@@ -1371,7 +1371,7 @@ function FullYearTable({ fy, year, viewKey, propertyCode, view, budgetYear, budg
     return (
       <Fragment key={sec.name}>
         <tr>
-          <td colSpan={colSpan} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
+          <td colSpan={colSpan} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
         </tr>
         {lines.map((l) => {
           const sign: 1 | -1 = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
@@ -1429,7 +1429,7 @@ function FullYearTable({ fy, year, viewKey, propertyCode, view, budgetYear, budg
       </div>
       <div style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
         {budgetFallback && budgetYear != null && (
-          <div style={{ marginBottom: 6, fontSize: 12, color: "#b45309", fontWeight: 600 }}>
+          <div style={{ marginBottom: 6, fontSize: "var(--fs-12)", color: "#b45309", fontWeight: 600 }}>
             Budget &amp; Variance are hidden — no {year} budget is loaded for this property (nearest is {budgetYear}). Import the {year} budget to compare.
           </div>
         )}
@@ -1453,7 +1453,7 @@ function CoverageModal({ coverage, onClose, onPick }: { coverage: Coverage[]; on
     !months ? { bg: "transparent", fg: "var(--muted)", text: "—" }
     : months >= 12 ? { bg: "rgba(21,128,61,0.14)", fg: "#15803d", text: "✓ Full" }
     : { bg: "rgba(180,83,9,0.14)", fg: "#b45309", text: `${months} mo` };
-  const cs: React.CSSProperties = { padding: "6px 10px", textAlign: "center", fontSize: 13, fontVariantNumeric: "tabular-nums", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
+  const cs: React.CSSProperties = { padding: "6px 10px", textAlign: "center", fontSize: "var(--fs-13)", fontVariantNumeric: "tabular-nums", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
   const stickyL: React.CSSProperties = { position: "sticky", left: 0, background: "var(--card)" };
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 50, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "5vh 16px", overflow: "auto" }}>
@@ -1463,7 +1463,7 @@ function CoverageModal({ coverage, onClose, onPick }: { coverage: Coverage[]; on
             <div style={{ fontWeight: 800, fontSize: 16 }}>GL Import Coverage</div>
             <div className="muted small">{fullCount} property-year{fullCount === 1 ? "" : "s"} fully imported · <span style={{ color: "#15803d", fontWeight: 700 }}>green</span> = 12 months, <span style={{ color: "#b45309", fontWeight: 700 }}>amber</span> = partial, blank = not imported. Click a cell to open it.</div>
           </div>
-          <button className="btn" onClick={onClose} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>Close</button>
+          <button className="btn" onClick={onClose} style={{ fontSize: "var(--fs-13)", padding: "6px 12px", fontWeight: 700 }}>Close</button>
         </div>
         {years.length === 0 ? (
           <div className="muted small" style={{ padding: 20 }}>No GLs imported yet.</div>
@@ -1481,7 +1481,7 @@ function CoverageModal({ coverage, onClose, onPick }: { coverage: Coverage[]; on
                   <tr key={r.key}>
                     <td style={{ ...cs, ...stickyL, textAlign: "left" }}>
                       <span style={{ fontWeight: 700 }}>{r.propertyCode}</span> <span className="muted">{r.name}</span>
-                      {r.isFund && <span className="muted" style={{ fontSize: 10, marginLeft: 4 }}>(fund)</span>}
+                      {r.isFund && <span className="muted" style={{ fontSize: "var(--fs-10)", marginLeft: 4 }}>(fund)</span>}
                     </td>
                     {years.map((y) => {
                       const months = r.years[y] ?? 0;
@@ -1517,7 +1517,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       {/* Neutral section header bar, matching the Budgets page. */}
-      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
         {sec.name}
       </div>
       <div className="tableWrap" style={{ marginTop: 0 }}>
@@ -1534,7 +1534,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
                       type="button"
                       onClick={() => nf.onDismissFlag(lineKeyOf(sec.name, l.label))}
                       title={`Looks off this month — ${l.flags.join("; ")}. Click to dismiss once you've confirmed it's correct.`}
-                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.45)", color: "#b45309", fontSize: 10, fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
+                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.45)", color: "#b45309", fontSize: "var(--fs-10)", fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
                     >?</button>
                   ) : null}
                   {/* A not-posted known obligation: the ⚠ in its cells says
@@ -1544,10 +1544,10 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
                       type="button"
                       onClick={() => nf.onDismissFlag(lineKeyOf(sec.name, l.label))}
                       title="Not posted — click to dismiss once you've confirmed it doesn't apply this month"
-                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "rgba(185,28,28,0.10)", border: "1px solid rgba(185,28,28,0.45)", color: "#b91c1c", fontSize: 10, fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
+                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "rgba(185,28,28,0.10)", border: "1px solid rgba(185,28,28,0.45)", color: "#b91c1c", fontSize: "var(--fs-10)", fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
                     >!</button>
                   ) : null}
-                  {view.showGL && <div className="muted" style={{ fontSize: 11, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
+                  {view.showGL && <div className="muted" style={{ fontSize: "var(--fs-11)", fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
                 {figureCells(l, { psf: view.psf, sqft: view.sqft, varMode: view.varMode, flag: thresh, drill: (tab, scope) => onOpenDetail(sec, l, tab, scope), expectedMissing: nf.dismissedFlags.has(lineKeyOf(sec.name, l.label)) ? null : l.expectedMissing, fullyFunded: l.fullyFundedYtd })}
                 <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
@@ -1555,7 +1555,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
             ))}
             {!hideSubtotal && !filterClass && (
               <tr style={{ background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }}>
-                <td style={{ ...labelStyle, fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 }}>{subtotalLabel(sec)}</td>
+                <td style={{ ...labelStyle, fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-13-5)" }}>{subtotalLabel(sec)}</td>
                 {figureCells(sec.subtotal, { bold: true, color: COLOR_BRAND, psf: view.psf, sqft: view.sqft, varMode: view.varMode })}
                 <td style={{ borderLeft: GROUP_DIV }} />
               </tr>
@@ -1618,7 +1618,7 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
   const paidIcon = (
     <span aria-label={paidMonthLabel ? `Paid in ${paidMonthLabel}` : "Paid year to date"} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 }}>
       <span style={{ fontSize: 16 }}>✅</span>
-      {paidMonthLabel && <span style={{ fontSize: 9, fontWeight: 700 }}>paid {paidMonthLabel}</span>}
+      {paidMonthLabel && <span style={{ fontSize: "var(--fs-9)", fontWeight: 700 }}>paid {paidMonthLabel}</span>}
     </span>
   );
   const base: React.CSSProperties = { ...numStyle, ...(bold ? { fontWeight: 800 } : {}), ...(color ? { color } : {}), ...(noBorder ? { borderBottom: "none" } : {}) };
@@ -1648,7 +1648,7 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
       : {};
   return (
     <>
-      <td {...click("gl", "month", t.periodActual)} title={missPeriod ? missTitle : paidPeriod ? paidTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missPeriod ? (anticipated ? { ...missStyle, textAlign: "right", fontSize: undefined } : missStyle) : paidPeriod ? paidStyle : {}) }}>{missPeriod ? (anticipated ? <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1 }}><span style={{ fontSize: 13, fontWeight: 700 }}>{amt(t.periodActual)}</span><span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.04em" }}>NOT POSTED · EST.</span></span> : missIcon) : paidPeriod ? paidIcon : amt(t.periodActual)}</td>
+      <td {...click("gl", "month", t.periodActual)} title={missPeriod ? missTitle : paidPeriod ? paidTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missPeriod ? (anticipated ? { ...missStyle, textAlign: "right", fontSize: undefined } : missStyle) : paidPeriod ? paidStyle : {}) }}>{missPeriod ? (anticipated ? <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1 }}><span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>{amt(t.periodActual)}</span><span style={{ fontSize: "var(--fs-9)", fontWeight: 700, letterSpacing: "0.04em" }}>NOT POSTED · EST.</span></span> : missIcon) : paidPeriod ? paidIcon : amt(t.periodActual)}</td>
       <td {...click("budget", "month", t.periodBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
       <td style={paidPeriod ? { ...base, color: "#15803d" } : structuralPeriod ? neutral : varCell(varMode === "dollar" ? t.periodVariance : pV, mFlag)} title={paidPeriod ? paidTitle : structuralPeriod ? "Nothing posted this month — the variance is the whole budget, so the percentage is 100% by arithmetic rather than by coming in under." : undefined}>{varText(t.periodVariance, pV)}</td>
       <td {...click("gl", "ytd", t.ytdActual)} title={missYtd ? missTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missYtd ? missStyle : {}) }}>{missYtd ? missIcon : amt(t.ytdActual)}</td>
@@ -1683,7 +1683,7 @@ function NoteCell({ lineKey, notes, noteSources, noteMeta, editorLabel, onSaveNo
         title={value ? (isAi ? "AI-generated note" : "Note") : "Add a note"}
         style={{
           width: "100%", textAlign: "left", border: "1px solid transparent", borderRadius: 6,
-          background: "transparent", font: "inherit", fontSize: 13, padding: "4px 6px",
+          background: "transparent", font: "inherit", fontSize: "var(--fs-13)", padding: "4px 6px",
           color: value ? "var(--text)" : "var(--muted)", cursor: "pointer",
           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block",
         }}
@@ -1782,7 +1782,7 @@ function ImportInstructionsButton({ year, nextPeriod }: { year: number; nextPeri
         aria-label="Import instructions"
         style={{
           display: "inline-flex", alignItems: "center", justifyContent: "center",
-          width: 16, height: 16, padding: 0, fontSize: 10, fontWeight: 800, lineHeight: 1,
+          width: 16, height: 16, padding: 0, fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
           background: "rgba(11,74,125,0.10)", color: "#0b4a7d",
           border: "1px solid rgba(11,74,125,0.30)", borderRadius: "50%", cursor: "pointer",
         }}
@@ -1801,7 +1801,7 @@ function ImportInstructionsModal({ onClose, year, nextPeriod }: { onClose: () =>
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   const sectionLabelStyle: React.CSSProperties = {
-    fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)",
+    fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)",
   };
   return (
     <div
@@ -1824,13 +1824,13 @@ function ImportInstructionsModal({ onClose, year, nextPeriod }: { onClose: () =>
             <div style={sectionLabelStyle}>Detailed General Ledger Import Instructions</div>
             <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>Export from Skyline → Import here</div>
           </div>
-          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>Close</button>
+          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: "var(--fs-13)", fontWeight: 700 }}>Close</button>
         </div>
 
         {/* Step 1: Skyline export */}
         <div>
           <div style={sectionLabelStyle}>1. Export Detailed General Ledger from Skyline</div>
-          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: "var(--fs-14)" }}>
             <li>Skyline: <b>General Ledger → Reports → Detailed General Ledger</b>.</li>
             <li>{(() => {
               const start = new Date(year, nextPeriod - 1, 1);  // first day of the next month to import
@@ -1847,7 +1847,7 @@ function ImportInstructionsModal({ onClose, year, nextPeriod }: { onClose: () =>
         {/* Step 2: Portal import */}
         <div>
           <div style={sectionLabelStyle}>2. Import Detailed General Ledger into Portal</div>
-          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: "var(--fs-14)" }}>
             <li>Select <b>Upload GL</b> in the upper right of the Operating Statements page.</li>
             <li>Select the saved Excel file from above and hit <b>Open</b>.</li>
           </ol>

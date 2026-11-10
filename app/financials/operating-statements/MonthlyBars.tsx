@@ -240,11 +240,11 @@ export function MonthlyBars({ txns, period, year, selectedMonth, onSelectMonth, 
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 9px", borderRadius: 999,
                   border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`, background: active ? "rgba(11,74,125,0.08)" : "transparent",
-                  color: "var(--text)", fontSize: 12, fontWeight: active ? 800 : 600, cursor: l.key === OTHER ? "default" : "pointer", opacity: dim ? 0.5 : 1, fontFamily: "inherit",
+                  color: "var(--text)", fontSize: "var(--fs-12)", fontWeight: active ? 800 : 600, cursor: l.key === OTHER ? "default" : "pointer", opacity: dim ? 0.5 : 1, fontFamily: "inherit",
                 }}>
                 <span style={{ width: 9, height: 9, borderRadius: 3, background: colorOf(l.key), flexShrink: 0 }} />
-                <span style={{ fontSize: 12 }}>{clip(l.label, 34)}</span>
-                <span style={{ fontSize: 12, color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{whole(l.total)}</span>
+                <span style={{ fontSize: "var(--fs-12)" }}>{clip(l.label, 34)}</span>
+                <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>{whole(l.total)}</span>
               </button>
             );
           })}

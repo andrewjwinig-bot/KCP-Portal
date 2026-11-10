@@ -72,7 +72,7 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
           <code style={{
             background: "#0b1220", color: "#e0f0ff",
             padding: "2px 8px", borderRadius: 5,
-            fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
+            fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.06em",
           }}>{prop.id}</code>
           {shadow ? (
             <Pill tone={TONE_NEUTRAL}>NOT MANAGED</Pill>
@@ -93,26 +93,26 @@ function PropertyCard({ prop, onClick }: { prop: PropertyDef; onClick: () => voi
         {(() => {
           const owner = soleOwnerName(prop.id);
           return owner && owner.replace(/\.$/, "") !== prop.name
-            ? <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.3, marginBottom: 2 }}>{owner}</div>
+            ? <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", lineHeight: 1.3, marginBottom: 2 }}>{owner}</div>
             : null;
         })()}
 
 
         {/* Address / city */}
         {(prop.address || prop.city) && (
-          <div style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.4, marginTop: "auto", paddingTop: 8 }}>
+          <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", lineHeight: 1.4, marginTop: "auto", paddingTop: 8 }}>
             {prop.address
               ? `${prop.address}, ${prop.city ?? ""}`
               : prop.city}
           </div>
         )}
         {shadow && (
-          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: "auto", paddingTop: 8 }}>
+          <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: "auto", paddingTop: 8 }}>
             {totalAcres(prop).toFixed(2)} acres · {prop.regions.map((r) => r.label.split(" — ")[0]).join(", ")}
           </div>
         )}
         {!shadow && prop.notes && !prop.address && !prop.city && (
-          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: "auto", paddingTop: 8 }}>{prop.notes}</div>
+          <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: "auto", paddingTop: 8 }}>{prop.notes}</div>
         )}
       </button>
 
@@ -158,7 +158,7 @@ export default function PropertiesPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </div>
 
@@ -192,7 +192,7 @@ export default function PropertiesPage() {
               <span style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: isActive ? tile.color : "var(--text)" }}>
                 {tile.value}
               </span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: isActive ? tile.color : "var(--muted)", letterSpacing: "0.02em" }}>
+              <span style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: isActive ? tile.color : "var(--muted)", letterSpacing: "0.02em" }}>
                 {tile.label}
               </span>
             </button>
@@ -238,12 +238,12 @@ export default function PropertiesPage() {
                   display: "flex", alignItems: "center", gap: 10, marginBottom: 12,
                 }}>
                   <span style={{
-                    fontSize: 14, fontWeight: 800, letterSpacing: "0.06em",
+                    fontSize: "var(--fs-14)", fontWeight: 800, letterSpacing: "0.06em",
                     textTransform: "uppercase", color: ts.text,
                     background: ts.bg, border: `1px solid ${ts.border}`,
                     padding: "5px 14px", borderRadius: 999,
                   }}>{type}</span>
-                  <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{group.length}</span>
+                  <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", fontWeight: 600 }}>{group.length}</span>
                   <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
                 </div>
 
@@ -252,13 +252,13 @@ export default function PropertiesPage() {
                     {officeFundSubsections.map(({ fund, props }) => (
                       <div key={fund}>
                         <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
-                          <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                          <span style={{ fontSize: "var(--fs-11)", fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                             Fund
                           </span>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
+                          <span style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--text)" }}>
                             {FUND_LABEL[fund]}
                           </span>
-                          <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                          <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 600 }}>
                             · {fund} · {props.length}
                           </span>
                         </div>
@@ -272,7 +272,7 @@ export default function PropertiesPage() {
                     {officeUnaffiliated.length > 0 && (
                       <div>
                         {officeFundSubsections.length > 0 && (
-                          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
+                          <div style={{ fontSize: "var(--fs-11)", fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }}>
                             Other
                           </div>
                         )}

@@ -61,7 +61,7 @@ export function EstimatesByPropertyCard({ rows, properties, year, onOpen }: {
           <tbody>
             {list.map((x) => (
               <tr key={x.code} onClick={() => onOpen(x.code)} style={{ cursor: "pointer" }}>
-                <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)" }}>{x.code}</code> <span style={{ fontWeight: 600 }}>{x.name}</span></td>
+                <td style={tdL}><code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)" }}>{x.code}</code> <span style={{ fontWeight: 600 }}>{x.name}</span></td>
                 <td style={{ ...td, color: "var(--muted)" }}>{x.tenants}</td>
                 <td style={td}>{money0(x.now)}</td>
                 <td style={{ ...td, fontWeight: 700 }}>{money0(x.next)}</td>

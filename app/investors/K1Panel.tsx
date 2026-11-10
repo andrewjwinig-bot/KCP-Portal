@@ -30,7 +30,7 @@ import { mailtoUrl } from "@/lib/investors/k1ShareEmail";
 const BRAND = "#0b4a7d";
 const TEAL = "#0f766e";
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 
 const kb = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
@@ -62,7 +62,7 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
         <YearSelect value={k1.year} years={k1.years} onChange={k1.setYear} small aria-label="Tax year" />
       </div>
 
-      {k1.error && <div style={{ marginTop: 10, color: "#b91c1c", fontSize: 12.5, fontWeight: 600 }}>{k1.error}</div>}
+      {k1.error && <div style={{ marginTop: 10, color: "#b91c1c", fontSize: "var(--fs-12-5)", fontWeight: 600 }}>{k1.error}</div>}
 
       {/* K-1s left behind by a roster change. They belong to no row, so without
           this they are invisible AND undeletable — a PDF carrying a taxpayer ID
@@ -71,22 +71,22 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
           them, while rows underneath still said MISSING. */}
       {k1.orphans.length > 0 && (
         <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.35)" }} className="no-print">
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#b45309" }}>
+          <div style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, color: "#b45309" }}>
             {k1.orphans.length} uploaded K-1{k1.orphans.length === 1 ? "" : "s"} no longer match a partner on this roster
           </div>
-          <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>
+          <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 3 }}>
             They were dropped on a row that has since changed or been removed, so nobody can see them —
             not the investor, not the roster above. Re-upload each onto the right partner, then delete it here.
           </div>
           <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
             {k1.orphans.map((o) => (
-              <div key={o.id} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, fontSize: 12 }}>
+              <div key={o.id} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, fontSize: "var(--fs-12)" }}>
                 <span style={{ minWidth: 0 }}>
                   <strong>{o.ownerName}</strong>
                   <span className="muted"> · {o.taxYear} · {o.filename}</span>
                 </span>
                 <button type="button" className="linkBtn" onClick={() => k1.removeOrphan(o)}
-                  style={{ fontSize: 11.5, fontWeight: 700, color: "#b91c1c", whiteSpace: "nowrap" }}>
+                  style={{ fontSize: "var(--fs-11-5)", fontWeight: 700, color: "#b91c1c", whiteSpace: "nowrap" }}>
                   Delete
                 </button>
               </div>
@@ -96,7 +96,7 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
       )}
 
       {k1.data && k1.data.blockers.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: 12.5, color: "#b91c1c", fontWeight: 600 }}>
+        <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: "var(--fs-12-5)", color: "#b91c1c", fontWeight: 600 }}>
           {k1.data.blockers.map((b, i) => <div key={i} style={{ marginTop: i ? 4 : 0 }}>{b}</div>)}
         </div>
       )}
@@ -118,7 +118,7 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
         </span>
         <button className="btn" disabled={k1.busy || selectable.length === 0}
           onClick={() => k1.setSelected(allChosen ? [] : selectable)}
-          style={{ fontSize: 12, padding: "5px 10px", fontWeight: 700, marginLeft: "auto" }}>
+          style={{ fontSize: "var(--fs-12)", padding: "5px 10px", fontWeight: 700, marginLeft: "auto" }}>
           {allChosen ? "Clear selection" : `Select all ${selectable.length || ""}`.trim()}
         </button>
         <button className="btn primary" disabled={k1.busy || chosen.length === 0}
@@ -131,7 +131,7 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
               k1.share(chosen, true);
             }
           }}
-          style={{ fontSize: 12, padding: "5px 11px", fontWeight: 700 }}>
+          style={{ fontSize: "var(--fs-12)", padding: "5px 11px", fontWeight: 700 }}>
           Email {chosen.length || ""} selected
         </button>
         {/* NOT a step before emailing — that prerequisite is gone, and Email
@@ -141,7 +141,7 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
             address on file, which is currently most of them. */}
         <button className="btn" disabled={k1.busy || chosen.length === 0} onClick={() => k1.share(chosen, false)}
           title="Creates the links and sends no email — copy them and send them yourself. Use this for investors with no address on file."
-          style={{ fontSize: 12, padding: "5px 10px" }}>
+          style={{ fontSize: "var(--fs-12)", padding: "5px 10px" }}>
           Create links, don&rsquo;t email
         </button>
       </div>
@@ -211,7 +211,7 @@ function AlsoRecipients({ also }: { also: string[] | undefined }) {
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
         {list.map((a) => (
           <span key={a} style={{
-            fontSize: 11.5, fontWeight: 600, padding: "2px 8px", borderRadius: 999,
+            fontSize: "var(--fs-11-5)", fontWeight: 600, padding: "2px 8px", borderRadius: 999,
             background: "rgba(11,74,125,0.08)", color: "#0b4a7d",
             border: "1px solid rgba(11,74,125,0.25)", maxWidth: 230,
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
@@ -259,7 +259,7 @@ export function K1EmailCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         style={{
           background: "rgba(220,38,38,0.08)", border: "1.5px dashed rgba(220,38,38,0.45)",
           borderRadius: 999, padding: "2px 9px", cursor: "pointer", fontFamily: "inherit",
-          fontSize: 11, fontWeight: 700, color: "#b91c1c",
+          fontSize: "var(--fs-11)", fontWeight: 700, color: "#b91c1c",
         }}>
         ADD EMAIL
       </button>
@@ -276,7 +276,7 @@ export function K1EmailCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
       <button type="button" onClick={() => { setDraft(owner.email ?? ""); setEditing(true); }} disabled={k1.busy}
         style={{
           background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit",
-          fontSize: 12.5, color: "var(--text)", textAlign: "left", maxWidth: 230,
+          fontSize: "var(--fs-12-5)", color: "var(--text)", textAlign: "left", maxWidth: 230,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block",
           // A guessed address is the one worth a second look before sending.
           borderBottom: owner.emailSource === "trustee-directory" ? "1px dotted #b45309" : "none",
@@ -293,7 +293,7 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
   const doc = k1.docFor(owner.id);
 
   if (k1.uploading === owner.id) {
-    return <span style={{ display: "inline-block", minWidth: 62, fontSize: 12, fontWeight: 700, color: TEAL }}>Uploading…</span>;
+    return <span style={{ display: "inline-block", minWidth: 62, fontSize: "var(--fs-12)", fontWeight: 700, color: TEAL }}>Uploading…</span>;
   }
 
   if (doc) {
@@ -350,7 +350,7 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
         border: `1.5px dashed ${dragOver ? TEAL : "rgba(220,38,38,0.45)"}`, borderRadius: 999,
         padding: "2px 9px",
         background: dragOver ? "rgba(15,118,110,0.09)" : "rgba(220,38,38,0.08)",
-        color: dragOver ? TEAL : "#b91c1c", fontSize: 11, fontWeight: 700, letterSpacing: "0.02em",
+        color: dragOver ? TEAL : "#b91c1c", fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.02em",
         transition: "border-color .15s, background .15s, color .15s",
       }}
     >
@@ -364,7 +364,7 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
   return (
     <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
       {cell}
-      <span style={{ fontSize: 11, lineHeight: 1.45, color: "#b91c1c", fontWeight: 600, maxWidth: 280, textAlign: "right", whiteSpace: "normal" }}>
+      <span style={{ fontSize: "var(--fs-11)", lineHeight: 1.45, color: "#b91c1c", fontWeight: 600, maxWidth: 280, textAlign: "right", whiteSpace: "normal" }}>
         {failed}
       </span>
     </span>
@@ -639,14 +639,14 @@ function InlineEmail({ value, busy, onSave }: { value: string | null; busy: bool
   if (!value) {
     return (
       <button type="button" onClick={() => { setDraft(""); setEditing(true); }} disabled={busy}
-        style={{ background: "rgba(220,38,38,0.08)", border: "1.5px dashed rgba(220,38,38,0.45)", borderRadius: 999, padding: "2px 9px", cursor: "pointer", fontFamily: "inherit", fontSize: 11, fontWeight: 700, color: "#b91c1c" }}>
+        style={{ background: "rgba(220,38,38,0.08)", border: "1.5px dashed rgba(220,38,38,0.45)", borderRadius: 999, padding: "2px 9px", cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-11)", fontWeight: 700, color: "#b91c1c" }}>
         ADD EMAIL
       </button>
     );
   }
   return (
     <button type="button" onClick={() => { setDraft(value); setEditing(true); }} disabled={busy}
-      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, color: "var(--text)", textAlign: "left" }}>
+      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-12-5)", color: "var(--text)", textAlign: "left" }}>
       {value}
     </button>
   );
@@ -744,32 +744,32 @@ export function K1ShareResults({ batch, onClose }: { batch: ShareBatch; onClose:
               : <>Every investor has their own link and their own PIN. Nothing was emailed, so <b>send both yourself</b> — and keep the PIN out of the email carrying the link.</>}
           </div>
         </div>
-        <button className="btn" onClick={onClose} style={{ fontSize: 12, padding: "5px 11px" }}>Done</button>
+        <button className="btn" onClick={onClose} style={{ fontSize: "var(--fs-12)", padding: "5px 11px" }}>Done</button>
       </div>
 
       {failed.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: 12.5, color: "#b91c1c" }}>
+        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: "var(--fs-12-5)", color: "#b91c1c" }}>
           <b>{failed.length} could not be sent.</b> {failed.map((r) => r.error).join(" ")}
         </div>
       )}
       {unsent.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.35)", fontSize: 12.5, color: "#7c3d06" }}>
+        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.35)", fontSize: "var(--fs-12-5)", color: "#7c3d06" }}>
           <b>{unsent.length} link{unsent.length === 1 ? "" : "s"} created but not emailed.</b>{" "}
           {[...new Set(unsent.map((r) => r.mailError))].join(" ")}
         </div>
       )}
 
       {pinStuck.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: 12.5, color: "#b91c1c" }}>
+        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: "var(--fs-12-5)", color: "#b91c1c" }}>
           <b>{pinStuck.length} PIN{pinStuck.length === 1 ? "" : "s"} did not go out</b> — {pinStuck.map((r) => r.ownerName).join(", ")}{" "}
           {pinStuck.length === 1 ? "has" : "have"} the link but cannot open it. Give them the PIN from the table below.
         </div>
       )}
 
       <div style={{ marginTop: 11, border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
           <thead>
-            <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+            <tr style={{ color: "var(--muted)", fontSize: "var(--fs-11)", letterSpacing: "0.04em", textAlign: "left" }}>
               <th style={{ padding: "8px 12px", fontWeight: 700 }}>INVESTOR</th>
               <th style={{ padding: "8px 12px", fontWeight: 700 }}>EMAILED TO</th>
               <th style={{ padding: "8px 12px", fontWeight: 700, width: 110 }}>PIN</th>
@@ -781,22 +781,22 @@ export function K1ShareResults({ batch, onClose }: { batch: ShareBatch; onClose:
               <tr key={r.ownerId} style={{ borderTop: "1px solid var(--border)" }}>
                 <td style={{ padding: "8px 12px" }}>
                   <div style={{ fontWeight: 600 }}>{r.ownerName}</div>
-                  <div className="muted" style={{ fontSize: 11.5 }}>{r.heldAs ?? "Held personally"}</div>
+                  <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>{r.heldAs ?? "Held personally"}</div>
                 </td>
-                <td style={{ padding: "8px 12px", color: "var(--muted)", fontSize: 12.5 }}>
+                <td style={{ padding: "8px 12px", color: "var(--muted)", fontSize: "var(--fs-12-5)" }}>
                   {r.sentTo.length ? r.sentTo.join(", ") : <em>not emailed</em>}
                 </td>
                 <td style={{ padding: "8px 12px" }}>
                   <div style={{ fontFamily: "ui-monospace, monospace", fontWeight: 800, letterSpacing: "0.12em" }}>{r.pin}</div>
                   {r.sentTo.length > 0 && (
-                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", marginTop: 2, color: r.pinSentTo?.length ? "#15803d" : "#b91c1c" }}>
+                    <div style={{ fontSize: "var(--fs-10-5)", fontWeight: 700, letterSpacing: "0.04em", marginTop: 2, color: r.pinSentTo?.length ? "#15803d" : "#b91c1c" }}>
                       {r.pinSentTo?.length ? "EMAILED" : "NOT EMAILED"}
                     </div>
                   )}
                 </td>
                 <td style={{ padding: "8px 12px", textAlign: "right" }}>
                   <button className="btn" onClick={() => r.url && navigator.clipboard?.writeText(r.url)}
-                    style={{ fontSize: 11.5, padding: "3px 9px" }}>Copy</button>
+                    style={{ fontSize: "var(--fs-11-5)", padding: "3px 9px" }}>Copy</button>
                 </td>
               </tr>
             ))}
@@ -804,7 +804,7 @@ export function K1ShareResults({ batch, onClose }: { batch: ShareBatch; onClose:
         </table>
       </div>
 
-      <button className="btn" style={{ fontSize: 11.5, padding: "4px 10px", marginTop: 9 }}
+      <button className="btn" style={{ fontSize: "var(--fs-11-5)", padding: "4px 10px", marginTop: 9 }}
         onClick={() => navigator.clipboard?.writeText(
           ok.map((r) => `${r.ownerName}\t${r.heldAs ?? "Held personally"}\t${r.pin}`).join("\n"))}>
         Copy all PINs

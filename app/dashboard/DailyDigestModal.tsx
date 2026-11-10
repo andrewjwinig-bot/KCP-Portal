@@ -197,7 +197,7 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
         ) : (
           <>
             {/* ── Tasks ── */}
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
+            <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
               Tasks This Week{openTasks.length > 0 && <span style={{ letterSpacing: 0 }}> · {openTasks.length} open</span>}
             </div>
             {openTasks.length === 0 ? (
@@ -218,7 +218,7 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
                       background: isToday ? "rgba(11,74,125,0.06)" : "rgba(15,23,42,0.025)",
                     }}>
                       <span style={{ width: 9, height: 9, borderRadius: 999, background: dot, flexShrink: 0 }} />
-                      <div style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600 }}>{o.label}</div>
+                      <div style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-13)", fontWeight: 600 }}>{o.label}</div>
                       <div className="muted small" style={{ flexShrink: 0, fontWeight: isToday ? 700 : 400 }}>
                         {isToday ? "Today" : o.date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                       </div>
@@ -231,7 +231,7 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
             {/* ── Files to import ── */}
             {openImports.length > 0 && (
               <>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#b45309", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#b45309", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
                   Files to Import This Week{openImports.length > 1 ? ` · ${openImports.length} outstanding` : ""}
                 </div>
@@ -246,10 +246,10 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
                     }}>
                       <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#7c3d06" }}>{r.label}</div>
+                        <div style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#7c3d06" }}>{r.label}</div>
                         <div className="muted small" style={{ marginTop: 1 }}>feeds {r.feeds}</div>
                       </div>
-                      <div style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: "#b45309" }}>{r.when}</div>
+                      <div style={{ flexShrink: 0, fontSize: "var(--fs-12)", fontWeight: 700, color: "#b45309" }}>{r.when}</div>
                     </Link>
                   ))}
                 </div>
@@ -259,14 +259,14 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
         )}
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16 }}>
-          <Link href="/tracker" onClick={dismiss} style={{ fontSize: 13, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+          <Link href="/tracker" onClick={dismiss} style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
             Open Tracker →
           </Link>
           <button
             onClick={dismiss}
             style={{
               border: "none", borderRadius: 8, padding: "9px 18px",
-              background: "#0b4a7d", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+              background: "#0b4a7d", color: "#fff", fontSize: "var(--fs-13)", fontWeight: 700, cursor: "pointer",
             }}
           >
             Got it

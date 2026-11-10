@@ -82,12 +82,12 @@ function changeOf(rs: Row[]) {
 // The Rent Roll's table type (owner: "more like the rent roll … font size and
 // styles"): 13px cells, the name at 600, account numbers as 12px <code> the way
 // a unit ref reads, muted 12px secondary text, totals at 700 under a 2px rule.
-const td: React.CSSProperties = { ...tdBase, fontSize: 13 };
-const tdL: React.CSSProperties = { ...tdLBase, fontSize: 13 };
+const td: React.CSSProperties = { ...tdBase, fontSize: "var(--fs-13)" };
+const tdL: React.CSSProperties = { ...tdLBase, fontSize: "var(--fs-13)" };
 const band: React.CSSProperties = { background: "rgba(15,23,42,0.04)", borderTop: "1px solid var(--border)", cursor: "pointer" };
 const bandCell: React.CSSProperties = { ...td, fontWeight: 700 };
 const netCol: React.CSSProperties = { ...td, fontWeight: 600, background: "rgba(11,74,125,0.06)" };
-const reserveInput: React.CSSProperties = { width: 110, fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums", backgroundColor: "var(--input-cell)" };
+const reserveInput: React.CSSProperties = { width: 110, fontSize: "var(--fs-13)", textAlign: "right", fontVariantNumeric: "tabular-nums", backgroundColor: "var(--input-cell)" };
 
 export default function BankBalancesView() {
   const [data, setData] = useState<View | null>(null);
@@ -279,7 +279,7 @@ export default function BankBalancesView() {
                 return (
                   <Fragment key={g}>
                     <tr style={band} onClick={() => toggle(collapsed, g, setCollapsed)}>
-                      <td style={{ ...tdL, fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                      <td style={{ ...tdL, fontWeight: 700, fontSize: "var(--fs-12)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
                         <span style={{ display: "inline-block", width: 14 }}>{isOpen ? "▾" : "▸"}</span>{g}
                         <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0, marginLeft: 8 }}>{gr.length} {gr.length === 1 ? "line" : "lines"}</span>
                       </td>
@@ -301,8 +301,8 @@ export default function BankBalancesView() {
                               <span style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 2, paddingLeft: 14, fontWeight: 400 }} onClick={(e) => e.stopPropagation()}>
                                 {r.accounts.map((a) => (
                                   <a key={a.id} href={a.link ?? undefined} target="_blank" rel="noreferrer"
-                                    style={{ fontSize: 12, color: "var(--muted)", textDecoration: "none" }}>
-                                    {BANK_LABEL[a.bank] ?? a.bank} <code style={{ fontSize: 12 }}>{a.last4}</code>{a.link ? <span aria-hidden style={{ fontSize: 10, opacity: 0.7 }}> ↗</span> : null}
+                                    style={{ fontSize: "var(--fs-12)", color: "var(--muted)", textDecoration: "none" }}>
+                                    {BANK_LABEL[a.bank] ?? a.bank} <code style={{ fontSize: "var(--fs-12)" }}>{a.last4}</code>{a.link ? <span aria-hidden style={{ fontSize: "var(--fs-10)", opacity: 0.7 }}> ↗</span> : null}
                                   </a>
                                 ))}
                               </span>
@@ -361,10 +361,10 @@ export default function BankBalancesView() {
                           </tr>
                           {expanded && r.accounts.map((a) => (
                             <tr key={a.id} style={{ background: "rgba(15,23,42,0.02)" }}>
-                              <td style={{ ...tdL, paddingLeft: 40, fontSize: 12 }}>
-                                {a.name}<span className="muted"> · {BANK_LABEL[a.bank] ?? a.bank} <code style={{ fontSize: 12 }}>{a.last4}</code> · as of {dateLabel(a.asOf)}</span>
+                              <td style={{ ...tdL, paddingLeft: 40, fontSize: "var(--fs-12)" }}>
+                                {a.name}<span className="muted"> · {BANK_LABEL[a.bank] ?? a.bank} <code style={{ fontSize: "var(--fs-12)" }}>{a.last4}</code> · as of {dateLabel(a.asOf)}</span>
                               </td>
-                              <td style={{ ...td, fontSize: 12 }}>
+                              <td style={{ ...td, fontSize: "var(--fs-12)" }}>
                                 {a.balance != null && a.available != null && Math.abs(a.available - a.balance) >= 0.01 ? (
                                   <HoverCard title={`${BANK_LABEL[a.bank] ?? a.bank} ${a.last4}`}
                                     rows={[{ label: "Balance", value: money2(a.balance) }, { label: "Available", value: money2(a.available) }]}
@@ -373,7 +373,7 @@ export default function BankBalancesView() {
                                   </HoverCard>
                                 ) : money2(a.balance)}
                               </td>
-                              <td style={{ ...td, fontSize: 12 }}>
+                              <td style={{ ...td, fontSize: "var(--fs-12)" }}>
                                 <ChangeCell change={a.balance != null && a.prior ? a.balance - a.prior.balance : null} prior={a.prior?.balance ?? null} now={a.balance} priorAsOf={a.prior?.asOf ?? null} />
                               </td>
                               <td style={td} /><td style={td} /><td style={td} />
@@ -386,7 +386,7 @@ export default function BankBalancesView() {
                 );
               })}
               <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 700 }}>
-                <td style={{ ...tdL, fontSize: 12, color: "var(--muted)" }}>Total</td>
+                <td style={{ ...tdL, fontSize: "var(--fs-12)", color: "var(--muted)" }}>Total</td>
                 <td style={{ ...td, fontWeight: 700 }}>{money0(totalCash)}</td>
                 <td style={td}><ChangeCell change={wow.change} prior={wow.prior} now={wow.now} priorAsOf={wow.priorAsOf} bold /></td>
                 <td style={{ ...td, fontWeight: 700 }}>{money0(reserves + restricted)}</td>

@@ -17,7 +17,7 @@ const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "Ju
 const COLOR_BRAND = "#0b4a7d";
 // Segmented two-button toggle, matching the Operating Budgets controls.
 const toggleBtn: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, padding: "4px 10px",
+  fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px",
   border: "1px solid var(--border)", background: "var(--card)",
   color: "var(--text)", cursor: "pointer", letterSpacing: "0.04em", textTransform: "uppercase",
 };
@@ -68,13 +68,13 @@ function RentRosterTable({ detail, throughMonth }: { detail: RentDetailClient; t
   const total = detail.entries.reduce((s, e) => s + ytd(e), 0);
   const totalByCategory = (cat: RentCat) =>
     detail.entries.reduce((s, e) => { let d = 0; for (let j = 0; j < m; j++) if ((e.monthCategories?.[j] ?? e.category) === cat) d += e.months[j] ?? 0; return s + d; }, 0);
-  const cell: React.CSSProperties = { padding: "5px 8px", fontSize: 11.5, fontVariantNumeric: "tabular-nums", borderTop: "1px solid var(--border)" };
-  const hcell: React.CSSProperties = { padding: "5px 8px", fontSize: 10.5, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" };
+  const cell: React.CSSProperties = { padding: "5px 8px", fontSize: "var(--fs-11-5)", fontVariantNumeric: "tabular-nums", borderTop: "1px solid var(--border)" };
+  const hcell: React.CSSProperties = { padding: "5px 8px", fontSize: "var(--fs-10-5)", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", textAlign: "right" };
   const minW = m >= 10 ? 1040 : Math.max(560, 220 + m * 70);
   return (
     <div style={{ padding: "12px 4px 0" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+        <div style={{ fontSize: "var(--fs-11)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
           Rental Summary by Month — {ordered.length} suite{ordered.length === 1 ? "" : "s"} · {fmt(total)} {m < 12 ? `through ${shownMonths[m - 1]}` : "annual"}
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
@@ -84,7 +84,7 @@ function RentRosterTable({ detail, throughMonth }: { detail: RentDetailClient; t
             if (dollars === 0) return null;
             const p = total > 0 ? (dollars / total) * 100 : 0;
             return (
-              <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}>
+              <span key={cat} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--fs-11)" }}>
                 <span style={{ display: "inline-block", width: 12, height: 12, background: RENT_TINT[cat], border: "1px solid rgba(22,163,74,0.35)", borderRadius: 2 }} />
                 <span className="muted small">{RENT_LABEL[cat]}: {fmt(dollars)} ({p >= 10 ? `${Math.round(p)}%` : `${p.toFixed(1)}%`})</span>
               </span>
@@ -127,7 +127,7 @@ function RentRosterTable({ detail, throughMonth }: { detail: RentDetailClient; t
               );
             })}
             <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
-              <td colSpan={2} style={{ ...cell, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 10.5 }}>Total</td>
+              <td colSpan={2} style={{ ...cell, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-10-5)" }}>Total</td>
               {monthlyTotals.map((mv, j) => <td key={j} style={{ ...cell, textAlign: "right", fontWeight: 800 }}>{fmt(mv)}</td>)}
               <td style={{ ...cell, textAlign: "right", fontWeight: 900 }}>{fmt(total)}</td>
             </tr>
@@ -176,10 +176,10 @@ export function LineDetailModal({ viewKey, property, year, period, monthLabel, l
     }
   }, [tab, effScope, viewKey, property, year, period, line.mask, line.sign]);
 
-  const th: React.CSSProperties = { textAlign: "left", fontSize: 11, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px", position: "sticky", top: 0, background: "var(--card)" };
-  const tdc: React.CSSProperties = { padding: "6px 10px", fontSize: 13, borderTop: "1px solid var(--border)", verticalAlign: "top" };
+  const th: React.CSSProperties = { textAlign: "left", fontSize: "var(--fs-11)", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px", position: "sticky", top: 0, background: "var(--card)" };
+  const tdc: React.CSSProperties = { padding: "6px 10px", fontSize: "var(--fs-13)", borderTop: "1px solid var(--border)", verticalAlign: "top" };
   const seg = (active: boolean): React.CSSProperties => ({ ...toggleBtn, ...(active ? toggleActive : {}) });
-  const tabBtn = (active: boolean): React.CSSProperties => ({ fontSize: 13, fontWeight: 700, padding: "6px 12px", border: "none", borderBottom: `2px solid ${active ? COLOR_BRAND : "transparent"}`, background: "none", color: active ? COLOR_BRAND : "var(--muted)", cursor: "pointer" });
+  const tabBtn = (active: boolean): React.CSSProperties => ({ fontSize: "var(--fs-13)", fontWeight: 700, padding: "6px 12px", border: "none", borderBottom: `2px solid ${active ? COLOR_BRAND : "transparent"}`, background: "none", color: active ? COLOR_BRAND : "var(--muted)", cursor: "pointer" });
   const scopeWord = effScope === "month" ? monthLabel : effScope === "annual" ? "Annual" : `YTD through ${monthLabel}`;
 
   const budAmt = (r: BudRow) => effScope === "month" ? r.month : effScope === "annual" ? r.annual : r.ytd;
@@ -208,9 +208,9 @@ export function LineDetailModal({ viewKey, property, year, period, monthLabel, l
         <div style={{ padding: "16px 18px 0", borderBottom: "1px solid var(--border)" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Line Detail</div>
+              <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Line Detail</div>
               <div style={{ fontSize: 17, fontWeight: 800 }}>{line.label}</div>
-              <div className="muted small" style={{ marginTop: 2 }}><code style={{ fontSize: 11 }}>{line.mask}</code></div>
+              <div className="muted small" style={{ marginTop: 2 }}><code style={{ fontSize: "var(--fs-11)" }}>{line.mask}</code></div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
@@ -218,7 +218,7 @@ export function LineDetailModal({ viewKey, property, year, period, monthLabel, l
                 <button type="button" onClick={() => setScope("ytd")} style={{ ...seg(effScope === "ytd"), borderLeft: "none", ...(tab === "gl" ? { borderRadius: "0 6px 6px 0" } : {}) }}>YTD</button>
                 {tab === "budget" && <button type="button" onClick={() => setScope("annual")} style={{ ...seg(effScope === "annual"), borderLeft: "none", borderRadius: "0 6px 6px 0" }}>Annual</button>}
               </div>
-              <button type="button" className="btn" onClick={onClose} style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>Close</button>
+              <button type="button" className="btn" onClick={onClose} style={{ padding: "6px 12px", fontSize: "var(--fs-13)", fontWeight: 700 }}>Close</button>
             </div>
           </div>
           <div style={{ display: "flex", gap: 4, marginTop: 10 }}>
@@ -307,11 +307,11 @@ export function LineDetailModal({ viewKey, property, year, period, monthLabel, l
                 {showBars && (
                   <div style={{ padding: "10px 10px 4px", borderBottom: "1px solid var(--border)" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
+                      <div style={{ fontSize: "var(--fs-11)", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
                         By month · click a month{glGroups.length >= 2 ? " or a vendor" : ""} to filter the charges below
                       </div>
                       {(monthFilter || tenantFilter) && (
-                        <button type="button" onClick={() => { setMonthFilter(null); setTenantFilter(null); }} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>
+                        <button type="button" onClick={() => { setMonthFilter(null); setTenantFilter(null); }} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: "var(--fs-12)" }}>
                           {[monthFilter ? MONTHS_LONG[monthFilter - 1] : null, activeTenantName].filter(Boolean).join(" · ")} · Clear ✕
                         </button>
                       )}
@@ -329,10 +329,10 @@ export function LineDetailModal({ viewKey, property, year, period, monthLabel, l
                 {(showRentCheck || (summarizes && !showBars)) && (
                   <div style={{ padding: "10px 10px 0" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 6 }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
+                      <div style={{ fontSize: "var(--fs-11)", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>
                         {showRentCheck ? "By suite — the rent roll vs. what was billed" : "By tenant / unit — click to isolate"}
                       </div>
-                      {summarizes && !showRentCheck && tenantFilter && <button type="button" onClick={() => setTenantFilter(null)} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: 12 }}>Clear ✕</button>}
+                      {summarizes && !showRentCheck && tenantFilter && <button type="button" onClick={() => setTenantFilter(null)} style={{ ...tabBtn(false), padding: "2px 8px", fontSize: "var(--fs-12)" }}>Clear ✕</button>}
                     </div>
                     {showRentCheck ? (
                       <RentCheckTable viewKey={viewKey} property={property} year={year} period={period}

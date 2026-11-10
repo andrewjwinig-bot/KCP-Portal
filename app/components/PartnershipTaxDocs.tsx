@@ -24,7 +24,7 @@ import { TAX_DOC_KINDS, type TaxDocKind } from "@/lib/investors/taxDocs";
 
 const TEAL = "#0f766e";
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 
 type Doc = {
@@ -124,7 +124,7 @@ export function PartnershipTaxDocs({ propertyCode, defaultOpen = false, collapsi
             <YearSelect value={year} years={yearOptions} onChange={setYear} small aria-label="Tax year" />
           </div>
 
-          {error && <div style={{ color: "#b91c1c", fontSize: 12.5, fontWeight: 600, marginBottom: 9 }}>{error}</div>}
+          {error && <div style={{ color: "#b91c1c", fontSize: "var(--fs-12-5)", fontWeight: 600, marginBottom: 9 }}>{error}</div>}
 
           <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(268px, 1fr))" }}>
             {TAX_DOC_KINDS.map((k) => {
@@ -136,11 +136,11 @@ export function PartnershipTaxDocs({ propertyCode, defaultOpen = false, collapsi
                   padding: "10px 12px", display: "flex", alignItems: "center", gap: 10,
                 }}>
                   <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{k.label}</div>
-                    <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>{k.note}</div>
+                    <div style={{ fontWeight: 700, fontSize: "var(--fs-13)" }}>{k.label}</div>
+                    <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 1 }}>{k.note}</div>
                   </div>
                   {isBusy ? (
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: TEAL }}>Working…</span>
+                    <span style={{ fontSize: "var(--fs-11-5)", fontWeight: 700, color: TEAL }}>Working…</span>
                   ) : doc ? (
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                       <DocChip
@@ -177,7 +177,7 @@ export function PartnershipTaxDocs({ propertyCode, defaultOpen = false, collapsi
                         display: "inline-flex", alignItems: "center", justifyContent: "center",
                         cursor: "pointer", flexShrink: 0, minWidth: 78,
                         border: `1.5px dashed ${dragKind === k.id ? TEAL : "var(--border)"}`, borderRadius: 999,
-                        padding: "2px 10px", fontSize: 11, fontWeight: 700,
+                        padding: "2px 10px", fontSize: "var(--fs-11)", fontWeight: 700,
                         background: dragKind === k.id ? "rgba(15,118,110,0.09)" : "transparent",
                         color: dragKind === k.id ? TEAL : "var(--muted)",
                         transition: "border-color .15s, background .15s, color .15s",
@@ -192,7 +192,7 @@ export function PartnershipTaxDocs({ propertyCode, defaultOpen = false, collapsi
             })}
           </div>
 
-          <div className="muted" style={{ fontSize: 11.5, marginTop: 10 }}>
+          <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 10 }}>
             Re-uploading a document replaces the one on file — a revised return supersedes the old one.
           </div>
         </div>

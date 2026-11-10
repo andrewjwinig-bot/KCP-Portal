@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 
-const SEC_LABEL: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" };
+const SEC_LABEL: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" };
 
 /** Section header used to separate Pending vs. Paid commission
  *  quarters on /commissions and /commissions/retail. Tone-tagged so
@@ -38,7 +38,7 @@ export function CommissionSectionHeading({
       flexWrap: "wrap",
     }}>
       <span style={{
-        fontSize: 13, fontWeight: 800,
+        fontSize: "var(--fs-13)", fontWeight: 800,
         letterSpacing: "0.06em", textTransform: "uppercase",
         color: accent,
       }}>
@@ -191,7 +191,7 @@ export function SendToAvidBillButton({ quarterLabel, kind, onSent }: { quarterLa
                       <tbody>
                         {preview.invoices.map((i) => (
                           <tr key={i.invoiceNumber + i.tenant}>
-                            <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)" }}>{i.invoiceNumber}</code></td>
+                            <td style={tdL}><code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)" }}>{i.invoiceNumber}</code></td>
                             <td style={tdL}>{i.tenant || "—"}</td>
                             <td style={td}>{toMoney(i.commission)}</td>
                             <td style={{ ...td, fontWeight: 700 }}>{toMoney(i.amount)}</td>
@@ -317,7 +317,7 @@ function SendResult({ result, preview, kind }: {
             <tbody>
               {preview.invoices.map((i) => (
                 <tr key={i.invoiceNumber + i.tenant}>
-                  <td style={tdL}><span style={{ color: "#15803d", fontWeight: 800, marginRight: 6 }}>✓</span><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)" }}>{i.invoiceNumber}</code></td>
+                  <td style={tdL}><span style={{ color: "#15803d", fontWeight: 800, marginRight: 6 }}>✓</span><code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)" }}>{i.invoiceNumber}</code></td>
                   <td style={tdL}>{i.tenant || "—"}</td>
                   <td style={td}>{toMoney(i.amount)}</td>
                 </tr>

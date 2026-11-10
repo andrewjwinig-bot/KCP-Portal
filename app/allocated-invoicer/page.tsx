@@ -114,14 +114,14 @@ function DonutChart({ data }: { data: PieSlice[] }) {
             style={{ cursor: "pointer", opacity: hovered !== null && hovered !== i ? 0.45 : 1, transition: "opacity 0.12s" }}
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />
         ))}
-        <text x={cx} y={cy - 16} textAnchor="middle" style={{ fontSize: 11, fill: "#64748b", fontFamily: "inherit" }}>
+        <text x={cx} y={cy - 16} textAnchor="middle" style={{ fontSize: "var(--fs-11)", fill: "#64748b", fontFamily: "inherit" }}>
           {trim(hov ? hov.label : "Total")}
         </text>
-        <text x={cx} y={cy + 5} textAnchor="middle" style={{ fontSize: 14, fontWeight: 700, fill: "#0f172a", fontFamily: "inherit" }}>
+        <text x={cx} y={cy + 5} textAnchor="middle" style={{ fontSize: "var(--fs-14)", fontWeight: 700, fill: "#0f172a", fontFamily: "inherit" }}>
           {hov ? toMoney(hov.value) : toMoney(total)}
         </text>
         {hov && (
-          <text x={cx} y={cy + 22} textAnchor="middle" style={{ fontSize: 12, fill: "#64748b", fontFamily: "inherit" }}>
+          <text x={cx} y={cy + 22} textAnchor="middle" style={{ fontSize: "var(--fs-12)", fill: "#64748b", fontFamily: "inherit" }}>
             {((hov.value / total) * 100).toFixed(1)}%
           </text>
         )}
@@ -129,7 +129,7 @@ function DonutChart({ data }: { data: PieSlice[] }) {
       <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto" }}>
         {slices.map((s, i) => (
           <div key={s.label} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
-            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "default",
+            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", cursor: "default",
               opacity: hovered !== null && hovered !== i ? 0.45 : 1, transition: "opacity 0.12s" }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flexShrink: 0 }} />
             <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.label}</span>
@@ -691,7 +691,7 @@ export default function AllocatedInvoicerPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
@@ -843,7 +843,7 @@ export default function AllocatedInvoicerPage() {
       {glResult && allocationRows.length > 0 && (
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setChartsOpen((o) => !o)} title={chartsOpen ? "Collapse" : "Expand"}>
+            <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setChartsOpen((o) => !o)} title={chartsOpen ? "Collapse" : "Expand"}>
               {chartsOpen ? "▲" : "▼"}
             </button>
             <b>Charts</b>
@@ -851,12 +851,12 @@ export default function AllocatedInvoicerPage() {
           {chartsOpen && (
             <div style={{ display: "flex", gap: 40, marginTop: 20, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 340 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Property</div>
+                <div style={{ fontWeight: 700, fontSize: "var(--fs-13)", marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Property</div>
                 <DonutChart data={chartDataByProperty} />
               </div>
               <div style={{ width: 1, background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
               <div style={{ flex: 1, minWidth: 340 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Account</div>
+                <div style={{ fontWeight: 700, fontSize: "var(--fs-13)", marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Account</div>
                 <DonutChart data={chartDataByAccount} />
               </div>
             </div>
@@ -869,7 +869,7 @@ export default function AllocatedInvoicerPage() {
         <div className="card">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setTxOpen((o) => !o)} title={txOpen ? "Collapse" : "Expand"}>
+              <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setTxOpen((o) => !o)} title={txOpen ? "Collapse" : "Expand"}>
                 {txOpen ? "▲" : "▼"}
               </button>
               <div>
@@ -882,7 +882,7 @@ export default function AllocatedInvoicerPage() {
                 <button
                   key={f}
                   className="btn"
-                  style={{ fontSize: 12, padding: "5px 10px", background: acctFilter === f ? "var(--navy)" : undefined, color: acctFilter === f ? "#fff" : undefined }}
+                  style={{ fontSize: "var(--fs-12)", padding: "5px 10px", background: acctFilter === f ? "var(--navy)" : undefined, color: acctFilter === f ? "#fff" : undefined }}
                   onClick={() => setAcctFilter(f)}
                 >
                   {f === "all" ? "All" : f}
@@ -931,7 +931,7 @@ export default function AllocatedInvoicerPage() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={2} className="muted" style={{ fontWeight: 400, fontSize: 12 }}>{groupedTx.length} accounts · {filteredTx.length} transactions</td>
+                  <td colSpan={2} className="muted" style={{ fontWeight: 400, fontSize: "var(--fs-12)" }}>{groupedTx.length} accounts · {filteredTx.length} transactions</td>
                   <td style={{ textAlign: "right" }}>{toMoney(txTotals.debit)}</td>
                   {anyCredit && <td style={{ textAlign: "right" }}>{toMoney(txTotals.credit)}</td>}
                   <td style={{ textAlign: "right" }}>{toMoney(txTotals.net)}</td>
@@ -947,7 +947,7 @@ export default function AllocatedInvoicerPage() {
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
+              <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
                 {allocPreviewOpen ? "▲" : "▼"}
               </button>
               <div>

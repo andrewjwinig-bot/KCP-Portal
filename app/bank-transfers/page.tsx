@@ -197,7 +197,7 @@ export default function BankTransfersPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
             <div>COMMERCIAL</div><div>PROPERTIES</div>
           </div>
         </div>
@@ -315,14 +315,14 @@ export default function BankTransfersPage() {
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             title={t.pdfName || "View confirmation PDF"}
-                            style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
                           >View</a>
-                          <span className="muted" style={{ fontSize: 11 }}>·</span>
+                          <span className="muted" style={{ fontSize: "var(--fs-11)" }}>·</span>
                           <a
                             href={blobSrc(t.pdfUrl)}
                             download={t.pdfName || `Transfer ${t.date}.pdf`}
                             onClick={(e) => e.stopPropagation()}
-                            style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
                           >Download</a>
                         </div>
                       ) : t.pdfSaved && shareFolderUrl ? (
@@ -341,7 +341,7 @@ export default function BankTransfersPage() {
                         <button
                           onClick={(e) => { e.stopPropagation(); setEditing(t); }}
                           className="btn"
-                          style={{ fontSize: 12, padding: "4px 10px" }}
+                          style={{ fontSize: "var(--fs-12)", padding: "4px 10px" }}
                         >
                           {t.pdfUrl ? "Edit" : "Add PDF"}
                         </button>
@@ -406,7 +406,7 @@ function SavedPrompt({ url, onClose }: { url: string; onClose: () => void }) {
               rel="noopener noreferrer"
               className="btn primary"
               style={{
-                fontSize: 14, padding: "10px 18px", fontWeight: 700, textDecoration: "none",
+                fontSize: "var(--fs-14)", padding: "10px 18px", fontWeight: 700, textDecoration: "none",
                 display: "inline-flex", alignItems: "center", gap: 8,
               }}
             >
@@ -420,7 +420,7 @@ function SavedPrompt({ url, onClose }: { url: string; onClose: () => void }) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
-          <button onClick={onClose} className="btn" style={{ fontSize: 13, padding: "8px 16px" }}>
+          <button onClick={onClose} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 16px" }}>
             Close
           </button>
         </div>
@@ -498,7 +498,7 @@ function Toolbar({
             <div style={{
               padding: "8px 10px", borderRadius: 8,
               background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-              color: "#b91c1c", fontSize: 12, fontWeight: 600,
+              color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
             }}>{error}</div>
           )}
           <input
@@ -510,17 +510,17 @@ function Toolbar({
           />
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button type="button" onClick={() => save(draft.trim())} disabled={saving}
-              className="btn primary" style={{ fontSize: 13, padding: "7px 16px", fontWeight: 700 }}>
+              className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "7px 16px", fontWeight: 700 }}>
               {saving ? "Saving…" : "Save"}
             </button>
             <button type="button" onClick={() => { setEditing(false); setError(null); }} disabled={saving}
-              className="btn" style={{ fontSize: 13, padding: "7px 14px", fontWeight: 600 }}>
+              className="btn" style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 600 }}>
               Cancel
             </button>
             {url && (
               <button type="button" onClick={() => save("")} disabled={saving}
                 style={{
-                  marginLeft: "auto", fontSize: 12, fontWeight: 600, color: "#b91c1c",
+                  marginLeft: "auto", fontSize: "var(--fs-12)", fontWeight: 600, color: "#b91c1c",
                   background: "transparent", border: "1px solid rgba(220,38,38,0.35)",
                   borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit",
                 }}>
@@ -536,7 +536,7 @@ function Toolbar({
               type="button"
               onClick={onNewTransfer}
               className="btn primary"
-              style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}
+              style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700 }}
             >
               + New Transfer
             </button>
@@ -548,7 +548,7 @@ function Toolbar({
             title="Reload bank transfers"
             className="btn"
             style={{
-              fontSize: 13, padding: "8px 14px", fontWeight: 700,
+              fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700,
               display: "inline-flex", alignItems: "center", gap: 6,
             }}
           >
@@ -573,14 +573,14 @@ function Toolbar({
                 rel="noopener noreferrer"
                 className="btn primary"
                 style={{
-                  fontSize: 13, padding: "8px 16px", fontWeight: 700, textDecoration: "none",
+                  fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700, textDecoration: "none",
                   display: "inline-flex", alignItems: "center", gap: 8,
                 }}
               >
                 <FolderIcon /> Open SharePoint Folder
               </a>
             ) : (
-              <span style={{ fontSize: 13, color: "var(--muted)" }}>
+              <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>
                 No SharePoint folder linked yet.
               </span>
             )}
@@ -591,7 +591,7 @@ function Toolbar({
               onChange={(e) => onSearchChange(e.target.value)}
               style={{ minWidth: 260 }}
             />
-            <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", whiteSpace: "nowrap" }}>
               {loading ? "Loading…" : `${resultsCount} of ${totalCount}`}
             </span>
           </div>
@@ -723,7 +723,7 @@ function EditModal({
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>
             {item ? "Edit transfer" : "New transfer"}
           </h2>
-          <button onClick={onClose} className="btn" style={{ fontSize: 13, padding: "4px 10px" }}>✕</button>
+          <button onClick={onClose} className="btn" style={{ fontSize: "var(--fs-13)", padding: "4px 10px" }}>✕</button>
         </div>
 
         <div style={{ display: "grid", gap: 14 }}>
@@ -778,21 +778,21 @@ function EditModal({
             <div style={{ display: "grid", gap: 8 }}>
               {pdfUrl && !pendingFile ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <a href={blobSrc(pdfUrl)} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>
+                  <a href={blobSrc(pdfUrl)} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>
                     View current ↗
                   </a>
                   <span className="muted small" style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pdfName}</span>
-                  <button type="button" className="btn" style={{ fontSize: 12, padding: "4px 10px", color: "#b91c1c" }}
+                  <button type="button" className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 10px", color: "#b91c1c" }}
                     onClick={() => { setPdfUrl(undefined); setPdfName(undefined); }}>Remove</button>
                 </div>
               ) : pendingFile ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{pendingFile.name}</span>
+                  <span style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>{pendingFile.name}</span>
                   <span className="muted small">{(pendingFile.size / 1024).toFixed(0)} KB · uploads on Save</span>
-                  <button type="button" className="btn" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => setPendingFile(null)}>Clear</button>
+                  <button type="button" className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 10px" }} onClick={() => setPendingFile(null)}>Clear</button>
                 </div>
               ) : (
-                <label className="btn" style={{ fontSize: 13, padding: "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, width: "fit-content" }}>
+                <label className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, width: "fit-content" }}>
                   <span>Choose PDF…</span>
                   <input type="file" accept="application/pdf" style={{ display: "none" }}
                     onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
@@ -825,17 +825,17 @@ function EditModal({
                 onClick={() => onDelete(item.id)}
                 disabled={saving}
                 className="btn"
-                style={{ fontSize: 13, padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }}
+                style={{ fontSize: "var(--fs-13)", padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }}
               >
                 Delete
               </button>
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={onClose} disabled={saving} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>
+            <button onClick={onClose} disabled={saving} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}>
               Cancel
             </button>
-            <button onClick={handleSave} disabled={saving} className="btn primary" style={{ fontSize: 13, padding: "8px 18px" }}>
+            <button onClick={handleSave} disabled={saving} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 18px" }}>
               {saving ? "Saving…" : "Save"}
             </button>
           </div>
@@ -884,7 +884,7 @@ function AccountSelect({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+      <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
         {label}
       </span>
       {children}

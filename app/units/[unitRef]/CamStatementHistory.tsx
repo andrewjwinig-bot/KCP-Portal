@@ -51,7 +51,7 @@ export default function CamStatementHistory({
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <span
         style={{
-          fontSize: 11,
+          fontSize: "var(--fs-11)",
           fontWeight: 700,
           textTransform: "uppercase",
           letterSpacing: "0.06em",
@@ -70,7 +70,7 @@ export default function CamStatementHistory({
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
-              fontSize: 14,
+              fontSize: "var(--fs-14)",
               fontWeight: 700,
               padding: "11px 18px",
               borderRadius: 10,

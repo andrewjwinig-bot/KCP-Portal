@@ -15,7 +15,7 @@ import { HoverCard } from "@/app/components/HoverCard";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import type { InPlaceRevenueRecord } from "@/lib/financials/budgets/inPlaceStore";
 
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 export function InPlaceRevenueCard({ year, category, propertyCode, editorLabel, children }: {
   year: number; category: string; propertyCode: string | null; editorLabel: string;

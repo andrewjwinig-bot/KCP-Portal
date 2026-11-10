@@ -83,7 +83,7 @@ export default function DrewSavedStatus({ rows = ["payroll", "cc", "alloc"] }: {
 
   return (
     <div className="card" style={{ order: -1 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 12 }}>
+      <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 12 }}>
         {TITLE[rows.join(",")] ?? "Payroll, CC & Allocated Expenses"}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -154,12 +154,12 @@ function Row({
         background: saved ? "#16a34a" : "#64748b",
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14 }}>
+        <div style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>
           {/* Click the title, not an "Open →" beside it. */}
           <Link href={href} style={{ color: "inherit", textDecoration: "none" }} className="row-link">{title}</Link>
           {!loading && (
             <span style={{
-              marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999,
+              marginLeft: 8, fontSize: "var(--fs-10)", fontWeight: 700, padding: "2px 7px", borderRadius: 999,
               letterSpacing: "0.04em",
               background: saved ? "rgba(22,163,74,0.15)" : "rgba(100,116,139,0.15)",
               color: saved ? "#15803d" : "#475569",

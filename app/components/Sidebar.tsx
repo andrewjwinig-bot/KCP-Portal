@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
 import { openThisWeekCount, type Todo } from "@/lib/todos/types";
@@ -771,6 +772,13 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
   // collapsed. Default for a fresh visitor is "all groups collapsed" so
   // the sidebar reads as a tidy summary on first login; users expand
   // what they want and that state persists.
+  // Collapsed rail: hovering a section opens a flyout naming it, with its pages.
+  const [flyout, setFlyout] = useState<{ gid: string; top: number } | null>(null);
+  const flyoutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepFlyout = () => { if (flyoutTimer.current) clearTimeout(flyoutTimer.current); };
+  const dropFlyout = () => { keepFlyout(); flyoutTimer.current = setTimeout(() => setFlyout(null), 160); };
+  useEffect(() => { if (open) setFlyout(null); }, [open]);
+  const kidsByGroup: Record<string, (typeof NAV)[number][]> = {};
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(Object.keys(GROUPS)));
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -795,7 +803,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
-  const W = isNarrow ? (open ? 260 : 0) : (open ? 220 : 60);
+  const W = isNarrow ? (open ? 260 : 0) : (open ? "var(--sb-w-open)" : 60);
 
   // Pending reservation count → badge on the Reservations nav item.
   const canSeeReservations = user.navKeys.has("all") || user.navKeys.has("reservations");
@@ -922,6 +930,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
 
   return (
     <div
+      className={open ? "sb sb-open" : "sb sb-rail"}
       style={{
         position: "fixed",
         top: 0,
@@ -951,7 +960,13 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
           flexShrink: 0,
         }}
       >
-        {open && <UserSwitcher collapsed={false} />}
+        {open && (
+          <div className="sb-head-main" style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, flex: 1 }}>
+            {/* The real Korman logo — shown by the new look only. */}
+            <img className="sb-logo" src="/site/Korman_CORPORATE_logo_WHT.png" alt="Korman Commercial Properties" style={{ display: "none", height: 17, width: "auto", maxWidth: "100%" }} />
+            <UserSwitcher collapsed={false} />
+          </div>
+        )}
         <button
           onClick={onToggle}
           title={open ? "Collapse sidebar" : "Expand sidebar"}
@@ -982,7 +997,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
 
       {/* App label */}
       {open && (
-        <div style={{ padding: "12px 16px 8px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--sb-label)", flexShrink: 0 }}>
+        <div style={{ padding: "12px 16px 8px", fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--sb-label)", flexShrink: 0 }}>
           Tools
         </div>
       )}
@@ -1033,6 +1048,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
             return (
               <a
                 key={item.label}
+                className={`sb-link${isSubPage ? " sb-sub" : ""}${active ? " sb-active" : ""}`}
                 href={item.href}
                 target={item.external ? "_blank" : undefined}
                 rel={item.external ? "noopener noreferrer" : undefined}
@@ -1049,7 +1065,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                   borderRadius: 8,
                   color: active ? "var(--sb-active-text)" : "var(--sb-text)",
                   textDecoration: "none",
-                  fontSize: 14,
+                  fontSize: "var(--fs-14)",
                   fontWeight: active ? 700 : 500,
                   cursor: "pointer",
                   transition: "background 0.15s",
@@ -1064,15 +1080,15 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                   (e.currentTarget as HTMLElement).style.background = active ? "var(--sb-active-bg)" : "transparent";
                 }}
               >
-                <span style={{ flexShrink: 0, ...(hideIcon ? { width: 22, height: 22 } : {}) }}>{hideIcon ? null : item.icon}</span>
+                <span className="sb-icon" style={{ flexShrink: 0, ...(hideIcon ? { width: 22, height: 22 } : {}) }}>{hideIcon ? null : item.icon}</span>
                 {open && (
-                  <span>
+                  <span className="sb-label">
                     {item.label}
                     {item.href === "/rentroll/trends" && (
                       <span style={{
                         color: "#f87171",
                         fontWeight: 800,
-                        fontSize: 10,
+                        fontSize: "var(--fs-10)",
                         marginLeft: 6,
                         letterSpacing: "0.06em",
                       }}>DRAFT</span>
@@ -1083,7 +1099,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                   <span style={{
                     marginLeft: "auto", minWidth: 18, height: 18, padding: "0 5px",
                     borderRadius: 999, background: "#dc2626", color: "#fff",
-                    fontSize: 10, fontWeight: 800, lineHeight: 1,
+                    fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>{badge}</span>
                 )}
@@ -1092,7 +1108,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                     position: "absolute", top: 3, right: 6,
                     minWidth: 15, height: 15, padding: "0 3px",
                     borderRadius: 999, background: "#dc2626", color: "#fff",
-                    fontSize: 9, fontWeight: 800, lineHeight: 1,
+                    fontSize: "var(--fs-9)", fontWeight: 800, lineHeight: 1,
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>{badge}</span>
                 )}
@@ -1116,6 +1132,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                   return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
                 });
               }
+              kidsByGroup[gid] = children;
               const expanded = !collapsedGroups.has(gid);
               // Sum child badges and roll up onto the group header when
               // collapsed, so a pending Request / Reservation isn't
@@ -1125,9 +1142,17 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
               out.push(
                 <button
                   key={`group-${gid}`}
+                  className="sb-group"
                   type="button"
                   onClick={() => toggleGroup(gid)}
-                  title={meta.label}
+                  title={open ? meta.label : undefined}
+                  onMouseOver={(e) => {
+                    if (open) return;
+                    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                    keepFlyout();
+                    setFlyout({ gid, top: r.top });
+                  }}
+                  onMouseOut={() => { if (!open) dropFlyout(); }}
                   style={{
                     // Pin the Security group to the bottom of the nav, by Sign Out.
                     ...(gid === "security" ? { marginTop: "auto" } : {}),
@@ -1140,7 +1165,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                     color: "var(--sb-group-text)",
                     border: "none",
                     fontFamily: "inherit",
-                    fontSize: 13,
+                    fontSize: "var(--fs-13)",
                     fontWeight: 700,
                     textTransform: "uppercase",
                     letterSpacing: "0.05em",
@@ -1155,15 +1180,15 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--sb-group-hover)"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--sb-group-bg)"; }}
                 >
-                  <span style={{ flexShrink: 0 }}>{meta.icon}</span>
+                  <span className="sb-icon" style={{ flexShrink: 0 }}>{meta.icon}</span>
                   {open && (
                     <>
-                      <span style={{ flex: 1 }}>{meta.label}</span>
+                      <span className="sb-group-label" style={{ flex: 1 }}>{meta.label}</span>
                       {showGroupBadge && (
                         <span style={{
                           minWidth: 18, height: 18, padding: "0 5px",
                           borderRadius: 999, background: "#dc2626", color: "#fff",
-                          fontSize: 10, fontWeight: 800, lineHeight: 1,
+                          fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
                           display: "flex", alignItems: "center", justifyContent: "center",
                         }}>{childBadgeSum}</span>
                       )}
@@ -1178,7 +1203,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                       position: "absolute", top: 3, right: 6,
                       minWidth: 15, height: 15, padding: "0 3px",
                       borderRadius: 999, background: "#dc2626", color: "#fff",
-                      fontSize: 9, fontWeight: 800, lineHeight: 1,
+                      fontSize: "var(--fs-9)", fontWeight: 800, lineHeight: 1,
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>{childBadgeSum}</span>
                   )}
@@ -1194,6 +1219,31 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
           return out;
         })()}
       </nav>
+
+      {!open && flyout && GROUPS[flyout.gid] && typeof document !== "undefined" && createPortal(
+        <div
+          className="sb-flyout"
+          onMouseEnter={keepFlyout}
+          onMouseLeave={dropFlyout}
+          style={{
+            position: "fixed", left: 64, top: Math.max(8, Math.min(flyout.top - 8, window.innerHeight - 80)), zIndex: 200,
+            minWidth: 240, maxWidth: 320, maxHeight: "calc(100vh - 16px)", overflowY: "auto",
+            background: "var(--card)", color: "var(--text)", border: "1px solid var(--border)", borderRadius: 12,
+            boxShadow: "0 12px 32px rgba(16,24,40,0.18)", padding: "14px 10px 10px",
+          }}
+        >
+          <div style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.01em", padding: "0 10px 8px" }}>{GROUPS[flyout.gid].label}</div>
+          {(kidsByGroup[flyout.gid] ?? []).map((child) => (
+            <a key={child.label} href={child.href} style={{
+              display: "block", padding: "9px 10px", borderRadius: 8, fontSize: 17,
+              fontWeight: isActive(child) ? 700 : 500, textDecoration: "none",
+              color: isActive(child) ? "var(--brand)" : "var(--text)",
+              background: isActive(child) ? "var(--sb-active-bg)" : "transparent",
+            }}>{child.label}</a>
+          ))}
+        </div>,
+        document.body,
+      )}
 
       {/* Bottom row — Sign Out + theme/notification toggles (only when expanded) */}
       <div style={{
@@ -1222,7 +1272,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
             background: "transparent",
             color: "var(--sb-text)",
             border: "none",
-            fontSize: 14,
+            fontSize: "var(--fs-14)",
             fontWeight: 500,
             cursor: "pointer",
             whiteSpace: "nowrap",

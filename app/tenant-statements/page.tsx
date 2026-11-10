@@ -36,13 +36,13 @@ const dateLabel = (iso: string | null) => {
 };
 
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 const th: React.CSSProperties = {
-  textAlign: "right", padding: "6px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+  textAlign: "right", padding: "6px 10px", fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase",
   letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
 };
-const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: 14, whiteSpace: "nowrap" };
+const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: "var(--fs-14)", whiteSpace: "nowrap" };
 const thL: React.CSSProperties = { ...th, textAlign: "left" };
 const tdL: React.CSSProperties = { ...td, textAlign: "left" };
 
@@ -373,7 +373,7 @@ export default function TenantStatementsPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple style={{ display: "none" }}
             onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void processFiles(f); }} />
-          <button className="btn" onClick={() => setShowPayment((v) => !v)} style={{ fontSize: 13, padding: "6px 12px" }}>
+          <button className="btn" onClick={() => setShowPayment((v) => !v)} style={{ fontSize: "var(--fs-13)", padding: "6px 12px" }}>
             Payment Instructions
           </button>
           {row && (
@@ -385,7 +385,7 @@ export default function TenantStatementsPage() {
               ]}
             />
           )}
-          <button className="btn primary" onClick={() => fileRef.current?.click()} style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>
+          <button className="btn primary" onClick={() => fileRef.current?.click()} style={{ fontSize: "var(--fs-13)", padding: "6px 12px", fontWeight: 700 }}>
             Import Skyline Statements
           </button>
         </div>
@@ -428,7 +428,7 @@ export default function TenantStatementsPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   <Pill tone={row.published ? TONE_GREEN : TONE_NEUTRAL}>{row.published ? "VISIBLE TO TENANTS" : "NOT PUBLISHED"}</Pill>
                   <button className={row.published ? "btn" : "btn primary"} disabled={busy} onClick={togglePublish}
-                    style={{ fontSize: 13, padding: "6px 12px", fontWeight: 700 }}>
+                    style={{ fontSize: "var(--fs-13)", padding: "6px 12px", fontWeight: 700 }}>
                     {busy ? "Saving…" : row.published ? "Unpublish" : "Publish to portal"}
                   </button>
                 </div>
@@ -455,13 +455,13 @@ export default function TenantStatementsPage() {
               </div>
 
               {row.untied > 0 && (
-                <div style={{ borderRadius: 10, padding: "10px 13px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: 13, color: "#b91c1c", fontWeight: 600, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ borderRadius: 10, padding: "10px 13px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: "var(--fs-13)", color: "#b91c1c", fontWeight: 600, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   <span style={{ flex: 1, minWidth: 260 }}>
                     {row.untied} tenant{row.untied === 1 ? "'s charges don't" : "s' charges don't"} sum to the balance Skyline printed.
                     Those statements are flagged &ldquo;under review&rdquo; on the portal — fix the export and re-import before publishing.
                   </span>
                   <button className="btn" onClick={() => { setOnlyReview((v) => !v); setProperty("All"); }}
-                    style={{ fontSize: 12.5, padding: "5px 11px", fontWeight: 700, flexShrink: 0 }}>
+                    style={{ fontSize: "var(--fs-12-5)", padding: "5px 11px", fontWeight: 700, flexShrink: 0 }}>
                     {onlyReview ? "Show all tenants" : `Show the ${row.untied}`}
                   </button>
                 </div>
@@ -471,8 +471,8 @@ export default function TenantStatementsPage() {
                 <div style={SECTION_LABEL}>Files imported</div>
                 <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
                   {row.sources.map((s, i) => (
-                    <div key={`${s.filename}-${i}`} className="muted" style={{ fontSize: 12.5 }}>
-                      <code style={{ fontSize: 12 }}>{s.filename}</code> · {s.tenantCount} tenants ·
+                    <div key={`${s.filename}-${i}`} className="muted" style={{ fontSize: "var(--fs-12-5)" }}>
+                      <code style={{ fontSize: "var(--fs-12)" }}>{s.filename}</code> · {s.tenantCount} tenants ·
                       {" "}{new Date(s.importedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                       {s.importedBy ? ` · ${s.importedBy}` : ""}
                     </div>
@@ -508,9 +508,9 @@ export default function TenantStatementsPage() {
                             border: `1.5px solid ${on ? "rgba(11,74,125,0.5)" : "var(--border)"}`,
                             background: on ? "rgba(11,74,125,0.06)" : "var(--card)" }}>
                           <div style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: on ? "#0b4a7d" : "var(--text)" }}>{money0(g.open)}</div>
-                          <div style={{ fontSize: 12, fontWeight: 700, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.code}</div>
-                          <div className="muted" style={{ fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
-                          <div style={{ fontSize: 11, marginTop: 3, color: g.pastDue > 0.005 ? "#b45309" : "var(--muted)", fontWeight: g.pastDue > 0.005 ? 700 : 500 }}>
+                          <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.code}</div>
+                          <div className="muted" style={{ fontSize: "var(--fs-11)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+                          <div style={{ fontSize: "var(--fs-11)", marginTop: 3, color: g.pastDue > 0.005 ? "#b45309" : "var(--muted)", fontWeight: g.pastDue > 0.005 ? 700 : 500 }}>
                             {g.pastDue > 0.005 ? `${money0(g.pastDue)} past due` : "nothing past due"}
                           </div>
                         </button>
@@ -527,15 +527,15 @@ export default function TenantStatementsPage() {
                 </select>
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tenant or unit…"
                   style={{ minWidth: 220, flex: "1 1 220px" }} />
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-13)", cursor: "pointer" }}>
                   <input type="checkbox" checked={onlyOwing} onChange={(e) => setOnlyOwing(e.target.checked)} />
                   Only tenants with a balance
                 </label>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-13)", cursor: "pointer" }}>
                   <input type="checkbox" checked={onlyUnshared} onChange={(e) => setOnlyUnshared(e.target.checked)} />
                   Not shared yet
                 </label>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-13)", cursor: "pointer" }}
                   title="Owes, and nothing emailed from the portal in the last 30 days">
                   <input type="checkbox" checked={onlyFollowUp} onChange={(e) => setOnlyFollowUp(e.target.checked)} />
                   Needs follow-up
@@ -546,7 +546,7 @@ export default function TenantStatementsPage() {
                 </select>
                 {onlyReview && (
                   <button type="button" onClick={() => setOnlyReview(false)}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 700,
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-12-5)", fontWeight: 700,
                       padding: "5px 10px", borderRadius: 999, border: "1px solid rgba(220,38,38,0.3)", background: "rgba(220,38,38,0.08)", color: "#b91c1c" }}>
                     Only tenants to review <span aria-hidden style={{ opacity: 0.7 }}>✕</span>
                   </button>
@@ -587,7 +587,7 @@ export default function TenantStatementsPage() {
                                 <div style={{ fontWeight: 800 }}>
                                   {t.propertyCode} — {detail.properties.find((x) => x.code === t.propertyCode)?.name ?? t.propertyCode}
                                 </div>
-                                <div className="muted" style={{ fontSize: 11.5 }}>{g.tenants} {g.tenants === 1 ? "tenant" : "tenants"}</div>
+                                <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>{g.tenants} {g.tenants === 1 ? "tenant" : "tenants"}</div>
                               </td>
                               <td style={{ ...td, fontWeight: 700 }}>{money0(g.current)}</td>
                               <td style={{ ...td, fontWeight: 700 }}>{money0(g.prior)}</td>
@@ -647,8 +647,8 @@ function PeriodBar({ periods, active, onPick }: { periods: PeriodRow[]; active: 
           <button key={p.period} type="button" onClick={() => onPick(p.period)}
             style={{ flexShrink: 0, cursor: "pointer", fontFamily: "inherit", textAlign: "left", padding: "9px 14px", borderRadius: 10,
               border: `1px solid ${on ? "rgba(11,74,125,0.45)" : "var(--border)"}`, background: on ? "rgba(11,74,125,0.07)" : "var(--card)" }}>
-            <div style={{ fontSize: 13.5, fontWeight: 800, color: on ? "#0b4a7d" : "var(--text)" }}>{periodLabel(p.period)}</div>
-            <div className="muted" style={{ fontSize: 11.5, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 800, color: on ? "#0b4a7d" : "var(--text)" }}>{periodLabel(p.period)}</div>
+            <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
               {money0(p.openBalance)}
               <span style={{ width: 6, height: 6, borderRadius: 999, background: p.published ? "#15803d" : "rgba(15,23,42,0.25)" }} />
               {p.published ? "live" : "draft"}
@@ -758,13 +758,13 @@ function RecordPayment({ t, period, onDone }: { t: TenantRow; period: string; on
 
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
-      <button className="btn" onClick={() => setOpen((o) => !o)} style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>
+      <button className="btn" onClick={() => setOpen((o) => !o)} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>
         Record a payment
       </button>
       {open && (
         <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, width: 430, maxWidth: "90vw",
           background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "0 16px 40px rgba(15,23,42,0.22)", padding: 16 }}>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>Payment we can&rsquo;t apply</div>
+          <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>Payment we can&rsquo;t apply</div>
           <p className="muted small" style={{ marginTop: 4, marginBottom: 12 }}>
             Record what came in from <b>{t.tenantName}</b> and ask them which of their {t.charges.length} open charges it covers.
             They answer on their statement; you&rsquo;ll see the application here.
@@ -779,15 +779,15 @@ function RecordPayment({ t, period, onDone }: { t: TenantRow; period: string; on
             <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
               style={{ width: "100%", marginTop: 4, boxSizing: "border-box", resize: "vertical" }} />
           </label>
-          {msg && <div style={{ color: "#b45309", fontSize: 12.5, fontWeight: 600, marginTop: 10 }}>{msg}</div>}
+          {msg && <div style={{ color: "#b45309", fontSize: "var(--fs-12-5)", fontWeight: 600, marginTop: 10 }}>{msg}</div>}
           <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-            <button className="btn primary" disabled={busy} onClick={() => submit(true)} style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>
+            <button className="btn primary" disabled={busy} onClick={() => submit(true)} style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 700 }}>
               {busy ? "Sending…" : "Record and ask the tenant"}
             </button>
-            <button className="btn" disabled={busy} onClick={() => submit(false)} style={{ fontSize: 13, padding: "7px 14px" }}>
+            <button className="btn" disabled={busy} onClick={() => submit(false)} style={{ fontSize: "var(--fs-13)", padding: "7px 14px" }}>
               Record only
             </button>
-            <button className="btn" onClick={() => setOpen(false)} style={{ fontSize: 13, padding: "7px 14px", marginLeft: "auto" }}>Cancel</button>
+            <button className="btn" onClick={() => setOpen(false)} style={{ fontSize: "var(--fs-13)", padding: "7px 14px", marginLeft: "auto" }}>Cancel</button>
           </div>
         </div>
       )}
@@ -817,7 +817,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
         title={active ? "Sort the other way, then back to statement order" : `Sort by ${label.toLowerCase()}`}
         aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}>
         {label}
-        <span aria-hidden style={{ marginLeft: 4, opacity: active ? 0.85 : 0.25, fontSize: 9 }}>
+        <span aria-hidden style={{ marginLeft: 4, opacity: active ? 0.85 : 0.25, fontSize: "var(--fs-9)" }}>
           {active ? (sort!.dir === "asc" ? "\u25b2" : "\u25bc") : "\u25b4\u25be"}
         </span>
       </th>
@@ -826,7 +826,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
   return (
     <>
       <tr onClick={onToggle} style={{ borderTop: "1px solid var(--border)", cursor: "pointer", background: open ? "rgba(11,74,125,0.04)" : undefined }}>
-        <td style={tdL}><code style={{ fontSize: 12 }}>{t.unitRef}</code></td>
+        <td style={tdL}><code style={{ fontSize: "var(--fs-12)" }}>{t.unitRef}</code></td>
         <td style={{ ...tdL, whiteSpace: "normal" }}>
           <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
             {t.tenantName}
@@ -880,7 +880,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
               </HoverCard>
             )}
           </div>
-          <div className="muted" style={{ fontSize: 11.5 }}>{t.charges.length} open {t.charges.length === 1 ? "charge" : "charges"}</div>
+          <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>{t.charges.length} open {t.charges.length === 1 ? "charge" : "charges"}</div>
         </td>
         <td style={td}>{money2(s.currentCharges)}</td>
         <td style={td}>{money2(s.priorBalance)}</td>
@@ -902,7 +902,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
         </td>
         <td style={td}>
           <a href={`/api/tenant-statements/${period}/pdf?unitRef=${encodeURIComponent(t.unitRef)}`} onClick={(e) => e.stopPropagation()}
-            className="btn" style={{ fontSize: 12, padding: "4px 10px", textDecoration: "none" }}>PDF</a>
+            className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 10px", textDecoration: "none" }}>PDF</a>
         </td>
         <td style={{ ...tdL, whiteSpace: "nowrap" }}><LastContactCell contact={contact} owed={s.totalDue} /></td>
         {/* Minting, copying, emailing and revoking a tenant's portal link — the
@@ -918,7 +918,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 10px 6px", flexWrap: "wrap" }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={SECTION_LABEL}>Tenant portal</div>
-                  <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>
+                  <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 3 }}>
                     {linkInfo.link
                       ? <>Shared {new Date(linkInfo.link.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                           {linkInfo.link.createdBy ? ` by ${linkInfo.link.createdBy}` : ""} ·{" "}
@@ -939,7 +939,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
             )}
             <CorrespondencePanel unitRef={t.unitRef} period={period} tenantName={t.tenantName} owed={s.totalDue}
               nonce={contactNonce} onSent={onContactChange} />
-            <div className="muted" style={{ fontSize: 11.5, padding: "8px 10px 0" }}>
+            <div className="muted" style={{ fontSize: "var(--fs-11-5)", padding: "8px 10px 0" }}>
               {sort
                 ? <>Sorted by {sort.key === "charge" ? "description" : sort.key} — <button type="button" onClick={(e) => { e.stopPropagation(); setSort(null); }}
                     style={{ padding: 0, border: "none", background: "none", font: "inherit", color: "#0b4a7d", fontWeight: 700, cursor: "pointer" }}>back to statement order</button></>
@@ -960,16 +960,16 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
             {t.pendingPayment ? (
               <div style={{ margin: "10px 10px 14px", border: "1.5px solid rgba(217,119,6,0.45)", borderRadius: 10, background: "rgba(217,119,6,0.06)", padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#b45309" }}>Payment we can&rsquo;t apply</span>
+                  <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#b45309" }}>Payment we can&rsquo;t apply</span>
                   <span style={{ fontSize: 17, fontWeight: 800 }}>{money2(t.pendingPayment.amount)}</span>
-                  <span className="muted" style={{ fontSize: 12.5 }}>
+                  <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>
                     {t.pendingPayment.paymentRef ? `${t.pendingPayment.paymentRef} · ` : ""}
                     {t.pendingPayment.receivedOn ? `received ${t.pendingPayment.receivedOn} · ` : ""}
                     {t.pendingPayment.askedAt
                       ? `asked ${t.pendingPayment.askedTo.join(", ")}`
                       : "not sent to the tenant yet"}
                   </span>
-                  <button className="btn" style={{ fontSize: 12, padding: "4px 10px", marginLeft: "auto" }}
+                  <button className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 10px", marginLeft: "auto" }}
                     onClick={() => onCloseRequest(t.pendingPayment!.id)}>Close it</button>
                 </div>
               </div>
@@ -977,16 +977,16 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
             {t.declared && (
               <div style={{ margin: "10px 10px 14px", border: "1.5px solid rgba(22,163,74,0.4)", borderRadius: 10, background: "rgba(22,163,74,0.05)", padding: "12px 14px" }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#15803d" }}>
+                  <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#15803d" }}>
                     {t.declared.receivedAmount != null ? "Tenant allocated their payment" : "Tenant says they\u2019re paying"}
                   </span>
                   <span style={{ fontSize: 17, fontWeight: 800 }}>{money2(t.declared.amount)}</span>
-                  <span className="muted" style={{ fontSize: 12.5 }}>
-                    by {METHOD_LABEL[t.declared.method]} · ref <code style={{ fontSize: 12, fontWeight: 700 }}>{t.declared.reference}</code> ·
+                  <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>
+                    by {METHOD_LABEL[t.declared.method]} · ref <code style={{ fontSize: "var(--fs-12)", fontWeight: 700 }}>{t.declared.reference}</code> ·
                     {" "}{new Date(t.declared.submittedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                   </span>
                   {t.declared.receivedAmount != null && Math.abs(t.declared.receivedAmount - t.declared.amount) >= 0.011 && (
-                    <span style={{ fontSize: 12.5, fontWeight: 800, color: "#b45309", padding: "2px 8px", borderRadius: 999,
+                    <span style={{ fontSize: "var(--fs-12-5)", fontWeight: 800, color: "#b45309", padding: "2px 8px", borderRadius: 999,
                       background: "rgba(217,119,6,0.12)", border: "1px solid rgba(217,119,6,0.35)" }}>
                       {money2(t.declared.receivedAmount - t.declared.amount)} of the {money2(t.declared.receivedAmount)} received is still unapplied
                     </span>
@@ -996,7 +996,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
                   <div>
                     <div style={SECTION_LABEL}>Apply to</div>
                     {t.declared.paying.map((l, i) => (
-                      <div key={i} style={{ display: "flex", gap: 10, fontSize: 13, padding: "3px 0" }}>
+                      <div key={i} style={{ display: "flex", gap: 10, fontSize: "var(--fs-13)", padding: "3px 0" }}>
                         <span className="muted" style={{ width: 92, flexShrink: 0 }}>{dateLabel(l.dateISO)}</span>
                         <span style={{ flex: 1, minWidth: 0 }}>{l.description}</span>
                         <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{money2(l.amount)}</span>
@@ -1007,7 +1007,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
                     <div>
                       <div style={SECTION_LABEL}>Not paying — {money2(t.declared.statementTotal - t.declared.amount)} left open</div>
                       {t.declared.holding.map((l, i) => (
-                        <div key={i} style={{ display: "flex", gap: 10, fontSize: 13, padding: "3px 0", color: "var(--muted)" }}>
+                        <div key={i} style={{ display: "flex", gap: 10, fontSize: "var(--fs-13)", padding: "3px 0", color: "var(--muted)" }}>
                           <span style={{ width: 92, flexShrink: 0 }}>{dateLabel(l.dateISO)}</span>
                           <span style={{ flex: 1, minWidth: 0 }}>{l.description}</span>
                           <span style={{ fontVariantNumeric: "tabular-nums" }}>{money2(l.amount)}</span>
@@ -1017,7 +1017,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
                   )}
                 </div>
                 {t.declared.note && (
-                  <div style={{ marginTop: 10, fontSize: 13, fontStyle: "italic", color: "var(--muted)" }}>&ldquo;{t.declared.note}&rdquo;</div>
+                  <div style={{ marginTop: 10, fontSize: "var(--fs-13)", fontStyle: "italic", color: "var(--muted)" }}>&ldquo;{t.declared.note}&rdquo;</div>
                 )}
               </div>
             )}
@@ -1033,9 +1033,9 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
               <tbody>
                 {charges.map((c, i) => (
                   <tr key={`${c.dateISO}-${c.description}-${i}`} style={{ borderTop: "1px solid var(--border)" }}>
-                    <td style={{ ...tdL, color: "var(--muted)", fontSize: 12.5 }}>{dateLabel(c.dateISO)}</td>
+                    <td style={{ ...tdL, color: "var(--muted)", fontSize: "var(--fs-12-5)" }}>{dateLabel(c.dateISO)}</td>
                     <td style={{ ...tdL, whiteSpace: "normal" }}>{c.description}</td>
-                    <td style={{ ...tdL, fontSize: 12.5, color: "var(--muted)" }}>{CATEGORY_LABEL[c.category]}</td>
+                    <td style={{ ...tdL, fontSize: "var(--fs-12-5)", color: "var(--muted)" }}>{CATEGORY_LABEL[c.category]}</td>
                     <td style={{ ...td, color: c.amount < 0 ? "#15803d" : "var(--text)" }}>{money2(c.amount)}</td>
                   </tr>
                 ))}
@@ -1125,7 +1125,7 @@ function PaymentCard({ properties, onClose, by }: { properties: { code: string; 
             <option value="default">All properties</option>
             {properties.map((p) => <option key={p.code} value={p.code}>{p.code} — {p.name}</option>)}
           </select>
-          <button className="btn" onClick={onClose} style={{ fontSize: 13, padding: "6px 12px" }}>Close</button>
+          <button className="btn" onClick={onClose} style={{ fontSize: "var(--fs-13)", padding: "6px 12px" }}>Close</button>
         </div>
       </div>
 
@@ -1147,9 +1147,9 @@ function PaymentCard({ properties, onClose, by }: { properties: { code: string; 
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <button className="btn primary" disabled={busy} onClick={() => void save({ ...draft, remitTo: draft.remitTo.filter((l) => l.trim()) })}
-              style={{ fontSize: 13, padding: "7px 14px", fontWeight: 700 }}>{busy ? "Saving…" : "Save"}</button>
+              style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 700 }}>{busy ? "Saving…" : "Save"}</button>
             {overrides[key] && (
-              <button className="btn" disabled={busy} onClick={() => void save(null)} style={{ fontSize: 13, padding: "7px 14px" }}>
+              <button className="btn" disabled={busy} onClick={() => void save(null)} style={{ fontSize: "var(--fs-13)", padding: "7px 14px" }}>
                 Reset {key === "default" ? "to built-in defaults" : "to the shared instructions"}
               </button>
             )}

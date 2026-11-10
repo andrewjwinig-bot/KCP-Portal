@@ -12,10 +12,10 @@
 import { Pill, TONE_NEUTRAL } from "@/app/components/Pill";
 import { budgetBooks, bookProperties, type BudgetBook } from "@/lib/financials/budgets/books";
 
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 const tab = (active: boolean): React.CSSProperties => ({
-  fontSize: 12.5, fontWeight: 700, padding: "5px 12px", borderRadius: 999,
+  fontSize: "var(--fs-12-5)", fontWeight: 700, padding: "5px 12px", borderRadius: 999,
   border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`,
   background: active ? "rgba(11,74,125,0.10)" : "var(--card)",
   color: active ? "var(--brand)" : "var(--text)",

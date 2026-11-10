@@ -15,7 +15,7 @@ import type { CSSProperties } from "react";
 export const th: CSSProperties = {
   textAlign: "right",
   padding: "7px 12px",
-  fontSize: 11,
+  fontSize: "var(--fs-11)",
   fontWeight: 700,
   textTransform: "uppercase",
   letterSpacing: "0.04em",
@@ -27,7 +27,7 @@ export const th: CSSProperties = {
 export const td: CSSProperties = {
   textAlign: "right",
   padding: "9px 12px",
-  fontSize: 14,
+  fontSize: "var(--fs-14)",
   whiteSpace: "nowrap",
   fontVariantNumeric: "tabular-nums",
 };

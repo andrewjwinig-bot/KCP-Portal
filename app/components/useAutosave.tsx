@@ -82,7 +82,7 @@ export function useAutosave<T>(opts: {
 /** Compact pill that renders the autosave status next to a card's title. */
 export function AutosaveStatus({ saving, savedFlash }: { saving: boolean; savedFlash: boolean }) {
   return (
-    <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", minHeight: 14 }}>
+    <span style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--muted)", minHeight: 14 }}>
       {saving ? "Saving…" : savedFlash ? <span style={{ color: "#15803d" }}>✓ Saved</span> : ""}
     </span>
   );

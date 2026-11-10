@@ -119,12 +119,12 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
         <div style={{
           margin: "0 0 8px", padding: "8px 10px", borderRadius: 8,
           background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: 12, fontWeight: 600,
+          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
       {loading ? (
-        <div style={{ fontSize: 13, color: "var(--muted)" }}>Loading…</div>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>Loading…</div>
       ) : floorplan ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {floorplan.contentType.startsWith("image/") ? (
@@ -146,7 +146,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
                 target="_blank"
                 rel="noreferrer"
                 title={floorplan.name}
-                style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none",
+                style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
               >
                 {floorplan.name} ↗
@@ -154,28 +154,28 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
               <FloorplanPdf src={blobSrc(floorplan.url)} turn={chosenTurn(unitRef, floorplan) ?? null}
                 crop={floorplan.crop ?? null} editing={cropping}
                 onTurn={(t) => setShownAuto(t as Turn)} onCrop={(c) => void setCrop(c)} />
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: 12, color: "var(--muted)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                 {cropping ? (
                   <>
                     <span style={{ fontWeight: 600, color: "var(--text)" }}>Drag a box around the suite</span>
                     {floorplan.crop && (
-                      <button type="button" className="btn" disabled={busy} style={{ fontSize: 12, padding: "3px 10px" }}
+                      <button type="button" className="btn" disabled={busy} style={{ fontSize: "var(--fs-12)", padding: "3px 10px" }}
                         onClick={() => void setCrop(null)}>Show the whole sheet</button>
                     )}
                     <button type="button" className="linkBtn" disabled={busy} onClick={() => setCropping(false)}
-                      style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d" }}>Cancel</button>
+                      style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d" }}>Cancel</button>
                   </>
                 ) : (
-                  <button type="button" className="btn" disabled={busy} style={{ fontSize: 12, padding: "3px 10px" }}
+                  <button type="button" className="btn" disabled={busy} style={{ fontSize: "var(--fs-12)", padding: "3px 10px" }}
                     title="The website shows this part of the sheet, large; the whole PDF stays a click away"
                     onClick={() => setCropping(true)}>{floorplan.crop ? "Re-crop" : "Crop to the suite"}</button>
                 )}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                 <button type="button" className="btn" disabled={busy} title="Rotate left" aria-label="Rotate left"
-                  style={{ fontSize: 13, padding: "3px 10px" }} onClick={() => void setTurn(nextTurn(-90))}>↺</button>
+                  style={{ fontSize: "var(--fs-13)", padding: "3px 10px" }} onClick={() => void setTurn(nextTurn(-90))}>↺</button>
                 <button type="button" className="btn" disabled={busy} title="Rotate right" aria-label="Rotate right"
-                  style={{ fontSize: 13, padding: "3px 10px" }} onClick={() => void setTurn(nextTurn(90))}>↻</button>
+                  style={{ fontSize: "var(--fs-13)", padding: "3px 10px" }} onClick={() => void setTurn(nextTurn(90))}>↻</button>
                 {chosenTurn(unitRef, floorplan) == null ? (
                   <span>Turned automatically · shown as on the website</span>
                 ) : (
@@ -183,7 +183,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
                     <span>Turned by hand · shown as on the website</span>
                     {floorplan.turn != null && (
                       <button type="button" className="linkBtn" disabled={busy} onClick={() => void setTurn(null)}
-                        style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d" }}>Auto</button>
+                        style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d" }}>Auto</button>
                     )}
                   </>
                 )}
@@ -194,7 +194,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
               href={blobSrc(floorplan.url)}
               target="_blank"
               rel="noreferrer"
-              style={{ fontSize: 13, fontWeight: 600, color: "#0b4a7d" }}
+              style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#0b4a7d" }}
             >
               {floorplan.name}
             </a>
@@ -205,7 +205,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
               onClick={remove}
               disabled={busy}
               className="btn"
-              style={{ fontSize: 12, padding: "5px 12px", fontWeight: 600 }}
+              style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 600 }}
             >
               {busy ? "Removing…" : "Remove floorplan"}
             </button>
@@ -228,7 +228,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
             border: `1.5px dashed ${drag ? "#2563eb" : "var(--border)"}`,
             borderRadius: 10,
             background: drag ? "rgba(37,99,235,0.05)" : "rgba(15,23,42,0.015)",
-            fontSize: 13, color: "var(--muted)", textAlign: "center",
+            fontSize: "var(--fs-13)", color: "var(--muted)", textAlign: "center",
             minHeight: 120,
           }}
         >

@@ -17,7 +17,7 @@ import type { ExpenseInput } from "@/lib/financials/budgets/expenseInputs";
 
 type Source = NonNullable<ExpenseInput["source"]>;
 
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const usd = (n: number | null | undefined) => (n == null ? "–" : `$${Math.round(n).toLocaleString("en-US")}`);
 
 /** The ⓘ on a line whose figure was provided (the city's notice) or keyed —
@@ -168,11 +168,11 @@ function SourceHoverBody({ source }: { source: Source }) {
   const bills = source.bills ?? [];
   const parcels = source.parcels ?? [];
   const gross = Math.round((f.assessed * f.mills) / 1000);
-  const cell: React.CSSProperties = { padding: "3px 0", fontSize: 12.5, fontVariantNumeric: "tabular-nums" };
+  const cell: React.CSSProperties = { padding: "3px 0", fontSize: "var(--fs-12-5)", fontVariantNumeric: "tabular-nums" };
   const outOfCam = parcels.filter((p) => !p.recoverable);
   return (
     <div style={{ display: "grid", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", rowGap: 3, fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto", rowGap: 3, fontSize: "var(--fs-13)", fontVariantNumeric: "tabular-nums" }}>
         <span className="muted">Assessed value · {parcels.length} parcel{parcels.length === 1 ? "" : "s"}</span><b style={{ textAlign: "right" }}>{usd(f.assessed)}</b>
         <span className="muted">× Millage</span><b style={{ textAlign: "right" }}>{f.mills.toFixed(3)}</b>
         {f.discountPct ? (<>

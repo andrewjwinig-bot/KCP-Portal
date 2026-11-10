@@ -37,7 +37,7 @@ export type SendAllRow = {
 };
 
 const LABEL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+  fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em",
   textTransform: "uppercase", color: "var(--muted)",
 };
 
@@ -110,7 +110,7 @@ export function SendAllModal({
                 ? `Sending — ${results.length} of ${rows.length}`
                 : `Email ${rows.length} investor${rows.length === 1 ? "" : "s"}`}
           </div>
-          <div className="muted" style={{ fontSize: 13, marginTop: 4, lineHeight: 1.5 }}>
+          <div className="muted" style={{ fontSize: "var(--fs-13)", marginTop: 4, lineHeight: 1.5 }}>
             {done
               ? (failed.length
                   ? "Every failure is listed below with its reason. The ones that went are done — re-sending only those that failed is safe."
@@ -169,13 +169,13 @@ export function SendAllModal({
           <div style={LABEL}>{started ? "Results" : "Goes to"}</div>
         </div>
         <div style={{ maxHeight: 280, overflowY: "auto", padding: "6px 18px 0" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.ownerId} style={{ borderTop: "1px solid var(--border)" }}>
                   <td style={{ padding: "8px 0", verticalAlign: "top" }}>
                     <div style={{ fontWeight: 700 }}>{r.name}</div>
-                    <div className="muted" style={{ fontSize: 12, marginTop: 1, wordBreak: "break-all" }}>
+                    <div className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 1, wordBreak: "break-all" }}>
                       {r.email}
                       {r.alsoEmail.map((e) => <span key={e}> · cc {e}</span>)}
                     </div>
@@ -191,19 +191,19 @@ export function SendAllModal({
 
         <div style={{ padding: "14px 18px 16px", borderTop: "1px solid var(--border)", marginTop: 12 }}>
           {!started && (
-            <div className="muted" style={{ fontSize: 12, lineHeight: 1.5, marginBottom: 10 }}>
+            <div className="muted" style={{ fontSize: "var(--fs-12)", lineHeight: 1.5, marginBottom: 10 }}>
               <b>This cannot be undone.</b> An investor cannot be un-emailed. Revoking a link afterwards
               stops it opening, but the message has gone.
             </div>
           )}
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
             {done ? (
-              <button type="button" className="btn primary" onClick={onClose} style={{ fontSize: 13, fontWeight: 700 }}>
+              <button type="button" className="btn primary" onClick={onClose} style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>
                 Done
               </button>
             ) : (
               <>
-                <button type="button" className="btn" onClick={onClose} disabled={busy} style={{ fontSize: 13, fontWeight: 700 }}>
+                <button type="button" className="btn" onClick={onClose} disabled={busy} style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>
                   Cancel
                 </button>
                 <button
@@ -211,7 +211,7 @@ export function SendAllModal({
                   className="btn primary"
                   disabled={busy}
                   onClick={() => onSend(rows.map((r) => r.ownerId))}
-                  style={{ fontSize: 13, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}
+                  style={{ fontSize: "var(--fs-13)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 5L2 7" /></svg>
                   {busy ? "Sending…" : `Send to ${rows.length}`}
@@ -231,7 +231,7 @@ function Note({ tone, title, children }: { tone: "amber" | "neutral"; title: str
   const amber = tone === "amber";
   return (
     <div style={{
-      borderRadius: 9, padding: "9px 12px", fontSize: 12.5, lineHeight: 1.5,
+      borderRadius: 9, padding: "9px 12px", fontSize: "var(--fs-12-5)", lineHeight: 1.5,
       background: amber ? "rgba(217,119,6,0.08)" : "rgba(15,23,42,0.035)",
       border: `1px solid ${amber ? "rgba(217,119,6,0.35)" : "var(--border)"}`,
     }}>
@@ -254,14 +254,14 @@ function RowStatus({ started, result, k1s }: { started: boolean; result?: ShareR
     return <Pill tone={TONE_NEUTRAL}>{k1s} K-1{k1s === 1 ? "" : "s"}</Pill>;
   }
   if (!result) {
-    return <span className="muted" style={{ fontSize: 11.5 }}>waiting…</span>;
+    return <span className="muted" style={{ fontSize: "var(--fs-11-5)" }}>waiting…</span>;
   }
   const why = result.error ?? result.mailError;
   if (why) {
     return (
       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
         <Pill tone={TONE_RED}>FAILED</Pill>
-        <span style={{ fontSize: 11, color: "#b91c1c", maxWidth: 260, whiteSpace: "normal", textAlign: "right" }}>{why}</span>
+        <span style={{ fontSize: "var(--fs-11)", color: "#b91c1c", maxWidth: 260, whiteSpace: "normal", textAlign: "right" }}>{why}</span>
       </span>
     );
   }
@@ -269,7 +269,7 @@ function RowStatus({ started, result, k1s }: { started: boolean; result?: ShareR
     return (
       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
         <Pill tone={TONE_AMBER}>NO PIN</Pill>
-        <span style={{ fontSize: 11, color: "#b45309" }}>{result.pinError ?? "PIN email did not go"}</span>
+        <span style={{ fontSize: "var(--fs-11)", color: "#b45309" }}>{result.pinError ?? "PIN email did not go"}</span>
       </span>
     );
   }

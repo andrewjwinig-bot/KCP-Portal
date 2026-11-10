@@ -20,7 +20,7 @@ const LABEL: Record<"rent" | Rec, string> = { rent: "Base Rent", cam: "CAM", ins
 const usd = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const pct = (n: number) => `${(+n).toFixed(2).replace(/\.?0+$/, "")}%`;
 const sum = (a: number[]) => a.reduce((x, y) => x + (y || 0), 0);
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 };
 
 export function TenantDetailModal({ r, est, year, onClose }: {
   r: TenantRevenueRow; est?: ReimbursementEstimate; year: number; onClose: () => void;
@@ -53,8 +53,8 @@ export function TenantDetailModal({ r, est, year, onClose }: {
         style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 720, boxShadow: "0 20px 60px rgba(0,0,0,0.35)", borderTop: "3px solid var(--brand)" }}>
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-              <code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)" }}>{r.unitRef}</code>
+            <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+              <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)" }}>{r.unitRef}</code>
               {r.sqft > 0 ? ` · ${Math.round(r.sqft).toLocaleString("en-US")} SF` : ""}
             </div>
             <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>

@@ -119,7 +119,7 @@ export function HistoryBars({ years, forecast, budget }: {
             footer={hb.next && avg ? { label: "vs average", value: `${hb.value! - avg > 0 ? "+" : ""}${money0(hb.value! - avg)}`, color: "var(--text)" } : variance == null ? undefined : { label: "vs budget", value: `${variance > 0 ? "+" : ""}${money0(variance)}`, color: variance > 0 ? "#b91c1c" : "#15803d" }} />
         )}
       </svg>
-      <div className="muted" style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 12, marginTop: 4 }}>
+      <div className="muted" style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: "var(--fs-12)", marginTop: 4 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 2, background: "var(--series-1)" }} /> Actual</span>
         {bars.some((b) => b.projected) && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 2, background: "var(--series-1)", opacity: 0.35, outline: "1.5px dashed var(--series-1)" }} /> Reprojected (actual to date + budget for the rest)</span>}
         {bars.some((b) => b.budget != null && Math.abs(b.budget) >= 0.5) && <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 3, borderRadius: 2, background: "var(--muted)" }} /> Budget</span>}

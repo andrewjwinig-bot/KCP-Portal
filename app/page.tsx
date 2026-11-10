@@ -714,7 +714,7 @@ export default function Page() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
@@ -800,13 +800,13 @@ export default function Page() {
             <button
               className="btn"
               onClick={() => fileInputRef.current?.click()}
-              style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              style={{ fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
             >
               Choose Payroll File…
             </button>
             <button
               className="btn"
-              style={{ borderRadius: 999, fontWeight: 700, fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              style={{ borderRadius: 999, fontWeight: 700, fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
               onClick={() => {
                 if (fileInputRef.current) fileInputRef.current.value = "";
                 setPayroll(null);
@@ -825,12 +825,12 @@ export default function Page() {
                 className="btn"
                 disabled={saving}
                 onClick={savePeriod}
-                style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+                style={{ fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
               >
                 {saving ? "Saving…" : "Save Pay Period"}
               </button>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Bi-Weekly</span>
+            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Bi-Weekly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
@@ -859,7 +859,7 @@ export default function Page() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               className="btn"
-              style={{ padding: "2px 8px", fontSize: 13 }}
+              style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }}
               onClick={() => setEmployeesOpen((o) => !o)}
               title={employeesOpen ? "Collapse" : "Expand"}
             >
@@ -951,7 +951,7 @@ export default function Page() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               className="btn"
-              style={{ padding: "2px 8px", fontSize: 13 }}
+              style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }}
               onClick={() => setInvoicesOpen((o) => !o)}
               title={invoicesOpen ? "Collapse" : "Expand"}
             >
@@ -1094,7 +1094,7 @@ export default function Page() {
               <button
                 key={r.propertyKey}
                 className="btn"
-                style={{ fontSize: 12, padding: "5px 10px" }}
+                style={{ fontSize: "var(--fs-12)", padding: "5px 10px" }}
                 onClick={() => downloadSinglePdf(r)}
                 title={r.invoiceNumber ? `Invoice ${r.invoiceNumber}` : undefined}
               >
@@ -1146,7 +1146,7 @@ export default function Page() {
                     {matched.map(({ entry, emp }) => (
                       <tr key={entry.displayName}>
                         <td style={{ whiteSpace: "nowrap" }}>{entry.displayName}</td>
-                        <td className="muted" style={{ fontSize: 12 }}>{entry.note}</td>
+                        <td className="muted" style={{ fontSize: "var(--fs-12)" }}>{entry.note}</td>
                         {hasData && allKeys.map((k) => {
                           const v = emp?.allocations[k];
                           const pct = v == null ? null : v <= 1 ? v * 100 : v;
@@ -1310,7 +1310,7 @@ export default function Page() {
                 <div className="modalTitle">
                   {toTitleCase(empModal.employee.name)}
                   {empModal.employee.employeeNumber && (
-                    <span className="muted" style={{ fontSize: 13, fontWeight: 400, marginLeft: 8 }}>
+                    <span className="muted" style={{ fontSize: "var(--fs-13)", fontWeight: 400, marginLeft: 8 }}>
                       Employee #{empModal.employee.employeeNumber}
                     </span>
                   )}
@@ -1331,7 +1331,7 @@ export default function Page() {
                   key={tab}
                   className="btn"
                   style={{
-                    borderRadius: 0, padding: "5px 16px", fontSize: 13, fontWeight: empTab === tab ? 700 : 400,
+                    borderRadius: 0, padding: "5px 16px", fontSize: "var(--fs-13)", fontWeight: empTab === tab ? 700 : 400,
                     borderBottom: empTab === tab ? "2px solid #0b4a7d" : "2px solid transparent",
                     marginBottom: -2, color: empTab === tab ? "#0b4a7d" : undefined,
                   }}
@@ -1350,7 +1350,7 @@ export default function Page() {
             {empTab === "breakdown" ? (
               <>
                 {empModal.employee.exclusions?.length ? (
-                  <div style={{ margin: "10px 0 6px", fontSize: 12, color: "#555" }}>
+                  <div style={{ margin: "10px 0 6px", fontSize: "var(--fs-12)", color: "#555" }}>
                     {empModal.employee.exclusions.map((exc, i) => (
                       <div key={i}>* Salary does not include <b>{money(exc.amount)}</b> in {exc.label} paid during this period.</div>
                     ))}

@@ -55,14 +55,14 @@ export default function ReportsPage() {
                 <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: gi ? "2px solid var(--border)" : "none" }}>
                   <td colSpan={3} style={{ ...tdL, paddingTop: 9, paddingBottom: 9 }}>
                     <span style={{ fontWeight: 800 }}>{g.category === "Custom" ? "Custom reports" : `${g.category} reports`}</span>
-                    {g.rows.length > 0 && <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>{g.rows.length}</span>}
+                    {g.rows.length > 0 && <span className="muted" style={{ fontSize: "var(--fs-12)", marginLeft: 8 }}>{g.rows.length}</span>}
                   </td>
                 </tr>
                 {g.rows.map((r) => (
                   <tr key={r.id} style={{ borderTop: "1px solid var(--border)" }}>
                     <td style={{ ...tdL, whiteSpace: "normal" }}>
                       <a href={r.href} style={{ fontWeight: 700, color: "var(--text)", textDecoration: "none" }}>{r.name}</a>
-                      <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>{r.description}</div>
+                      <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 2 }}>{r.description}</div>
                     </td>
                     <td style={{ ...tdL, whiteSpace: "nowrap" }}>
                       <span style={{ display: "inline-flex", gap: 4 }}>
@@ -70,7 +70,7 @@ export default function ReportsPage() {
                       </span>
                     </td>
                     <td style={td}>
-                      <a href={r.href} className="btn" style={{ fontSize: 12, padding: "4px 12px", fontWeight: 700, textDecoration: "none" }}>Open →</a>
+                      <a href={r.href} className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 12px", fontWeight: 700, textDecoration: "none" }}>Open →</a>
                     </td>
                   </tr>
                 ))}

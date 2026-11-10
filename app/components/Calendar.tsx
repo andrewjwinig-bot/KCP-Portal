@@ -142,7 +142,7 @@ export function Calendar({
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
             <button type="button" onClick={() => (pickMode ? stepYear(-1) : prevMonth())} style={navBtnStyle} aria-label={pickMode ? "Previous year" : "Previous month"}>‹</button>
             <button type="button" onClick={() => setPickMode((v) => !v)} title="Jump to month / year"
-              style={{ fontSize: 14, fontWeight: 700, color: NAVY, background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", padding: "2px 8px", borderRadius: 4 }}>
+              style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: NAVY, background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit", padding: "2px 8px", borderRadius: 4 }}>
               {pickMode ? viewMonth.getFullYear() : monthLabel}
             </button>
             <button type="button" onClick={() => (pickMode ? stepYear(1) : nextMonth())} style={navBtnStyle} aria-label={pickMode ? "Next year" : "Next month"}>›</button>
@@ -159,7 +159,7 @@ export function Calendar({
                     disabled={disabled}
                     onClick={() => { setViewMonth(new Date(viewMonth.getFullYear(), i, 1)); setPickMode(false); }}
                     style={{
-                      fontFamily: "inherit", fontSize: 13, padding: "8px 0", borderRadius: 4,
+                      fontFamily: "inherit", fontSize: "var(--fs-13)", padding: "8px 0", borderRadius: 4,
                       border: `1px solid ${isCurrent ? NAVY : LINE}`,
                       background: isCurrent ? NAVY : "transparent",
                       color: isCurrent ? "#fff" : disabled ? "rgba(14,34,56,0.25)" : TEXT,
@@ -177,7 +177,7 @@ export function Calendar({
               <div
                 key={i}
                 style={{
-                  fontSize: 11, fontWeight: 600, textAlign: "center", padding: "4px 0",
+                  fontSize: "var(--fs-11)", fontWeight: 600, textAlign: "center", padding: "4px 0",
                   color: disableWeekends && (i === 0 || i === 6) ? MUTED : NAVY,
                 }}
               >
@@ -200,7 +200,7 @@ export function Calendar({
                   onClick={() => { onChange(iso); setOpen(false); }}
                   style={{
                     fontFamily: "inherit",
-                    fontSize: 13,
+                    fontSize: "var(--fs-13)",
                     padding: "6px 0",
                     border: "none",
                     background: isSelected ? NAVY : "transparent",
@@ -222,7 +222,7 @@ export function Calendar({
           </div>
           )}
           {!pickMode && (disableWeekends || min || max) && (
-            <div style={{ fontSize: 11, color: MUTED, marginTop: 10, lineHeight: 1.5 }}>
+            <div style={{ fontSize: "var(--fs-11)", color: MUTED, marginTop: 10, lineHeight: 1.5 }}>
               {disableWeekends ? "Weekends are unavailable. " : ""}
               {min || max ? `Pick a date${min ? ` from ${fmtShort(min)}` : ""}${max ? ` through ${fmtShort(max)}` : ""}.` : ""}
             </div>
@@ -286,7 +286,7 @@ const cardTriggerStyle: React.CSSProperties = {
   borderRadius: 6,
   background: "var(--card)",
   fontFamily: "inherit",
-  fontSize: 13,
+  fontSize: "var(--fs-13)",
   outline: "none",
   textAlign: "left",
   cursor: "pointer",

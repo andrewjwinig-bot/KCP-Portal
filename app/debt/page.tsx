@@ -51,7 +51,7 @@ function monthYearShort(iso: string): string {
 }
 
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: "var(--fs-11)",
   fontWeight: 700,
   textTransform: "uppercase",
   letterSpacing: "0.06em",
@@ -248,14 +248,14 @@ function DebtPageInner() {
                       }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <span style={{
-                            fontSize: 13, fontWeight: 800, letterSpacing: "0.06em",
+                            fontSize: "var(--fs-13)", fontWeight: 800, letterSpacing: "0.06em",
                             textTransform: "uppercase",
                             color: groupTone(group).fg,
                             background: groupTone(group).bg,
                             border: `1px solid ${groupTone(group).border}`,
                             padding: "4px 12px", borderRadius: 999,
                           }}>{group}</span>
-                          <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>{rows.length}</span>
+                          <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", fontWeight: 600 }}>{rows.length}</span>
                           <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
                         </div>
                       </td>
@@ -297,7 +297,7 @@ function DebtPageInner() {
                             <button
                               className="btn"
                               onClick={() => setEditLoan(l)}
-                              style={{ padding: "5px 12px", fontSize: 13 }}
+                              style={{ padding: "5px 12px", fontSize: "var(--fs-13)" }}
                             >
                               Edit
                             </button>
@@ -399,7 +399,7 @@ function ScheduleModal({ loan, today, onClose }: { loan: Loan; today: string; on
               className="linkBtn"
               style={{ ...SECTION_LABEL, display: "flex", gap: 8, alignItems: "center", cursor: "pointer", padding: 0 }}
             >
-              <span style={{ fontSize: 11, width: 12, display: "inline-block" }}>{allocOpen ? "▾" : "▸"}</span>
+              <span style={{ fontSize: "var(--fs-11)", width: 12, display: "inline-block" }}>{allocOpen ? "▾" : "▸"}</span>
               <span>Monthly Debt Service by Building</span>
               <Pill tone={TONE_NEUTRAL}>{buildingAlloc.length} buildings</Pill>
               <Pill tone={allocBasis === "GL" ? TONE_NEUTRAL : TONE_AMBER}>
@@ -425,7 +425,7 @@ function ScheduleModal({ loan, today, onClose }: { loan: Loan; today: string; on
                       {buildingAlloc.map((b) => (
                         <tr key={b.id}>
                           <td style={{ fontWeight: 600 }}>
-                            <span style={{ fontFamily: "monospace", fontSize: 12, color: "var(--muted)", marginRight: 6 }}>{b.id}</span>
+                            <span style={{ fontFamily: "monospace", fontSize: "var(--fs-12)", color: "var(--muted)", marginRight: 6 }}>{b.id}</span>
                             {b.name}
                           </td>
                           <td style={{ textAlign: "right" }}>{b.sqft.toLocaleString("en-US")}</td>
@@ -662,7 +662,7 @@ function LoanForm({
             onChange={(e) => set("interestOnly", e.target.checked)}
             style={{ width: 16, height: 16, cursor: "pointer" }}
           />
-          <span style={{ fontWeight: 700, fontSize: 14 }}>
+          <span style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>
             Interest-only — pay monthly interest, no principal reduction
           </span>
         </label>

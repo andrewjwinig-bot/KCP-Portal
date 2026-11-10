@@ -60,8 +60,8 @@ const DownloadIcon = ({ size = 15 }: { size?: number }) => (
 // line with 7 invoices no longer balloons its row and breaks the table's rhythm.
 function BackupCell({ backup, fileUrl, zipUrl, label }: { backup: Backup[]; fileUrl: (id: string) => string; zipUrl?: (ids: string[], name: string) => string; label?: string }) {
   const [open, setOpen] = useState(false);
-  if (backup.length === 0) return <span className="muted" style={{ fontSize: 12 }}>—</span>;
-  const chip: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--border)", borderRadius: 6, padding: "3px 9px", fontSize: 12, fontWeight: 600, color: BRAND, textDecoration: "none", background: "rgba(11,74,125,0.05)", cursor: "pointer", fontFamily: "inherit" };
+  if (backup.length === 0) return <span className="muted" style={{ fontSize: "var(--fs-12)" }}>—</span>;
+  const chip: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 5, border: "1px solid var(--border)", borderRadius: 6, padding: "3px 9px", fontSize: "var(--fs-12)", fontWeight: 600, color: BRAND, textDecoration: "none", background: "rgba(11,74,125,0.05)", cursor: "pointer", fontFamily: "inherit" };
   if (backup.length === 1) {
     const b = backup[0];
     return (
@@ -77,7 +77,7 @@ function BackupCell({ backup, fileUrl, zipUrl, label }: { backup: Backup[]; file
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <button onClick={() => setOpen((o) => !o)} style={chip} aria-expanded={open}>
-          <Clip /> {backup.length} invoices <span style={{ fontSize: 9 }}>{open ? "▲" : "▼"}</span>
+          <Clip /> {backup.length} invoices <span style={{ fontSize: "var(--fs-9)" }}>{open ? "▲" : "▼"}</span>
         </button>
         {/* Grab the whole line's invoices in one .zip — no need to expand + click each. */}
         {zipHref && (
@@ -91,7 +91,7 @@ function BackupCell({ backup, fileUrl, zipUrl, label }: { backup: Backup[]; file
         <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 5 }}>
           {backup.map((b) => (
             <a key={b.id} href={fileUrl(b.id)} target="_blank" rel="noopener noreferrer" title={`${b.name} · ${fmtSize(b.size)}`}
-              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: BRAND, textDecoration: "none", maxWidth: "100%" }}>
+              style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", color: BRAND, textDecoration: "none", maxWidth: "100%" }}>
               <span style={{ flexShrink: 0, display: "inline-flex" }}><Clip /></span>
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</span>
             </a>
@@ -121,9 +121,9 @@ export function TenantStatementView({ token, data, header = true }: { token: str
 
   const Card = ({ label, due, escrow, balance }: { label: string; due: number; escrow: number; balance: number }) => (
     <div style={{ flex: 1, minWidth: 180, border: "1px solid var(--border)", borderRadius: 14, padding: "15px 17px", background: "var(--card)", boxShadow: "var(--shadow)" }}>
-      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>{label}</div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: 13 }}><span className="muted">Your share</span><span style={{ fontWeight: 600 }}>{money(due)}</span></div>
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}><span className="muted">Paid (escrow)</span><span>{money(-escrow)}</span></div>
+      <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>{label}</div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, fontSize: "var(--fs-13)" }}><span className="muted">Your share</span><span style={{ fontWeight: 600 }}>{money(due)}</span></div>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--fs-13)" }}><span className="muted">Paid (escrow)</span><span>{money(-escrow)}</span></div>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--border)", fontWeight: 800 }}>
         <span>{balance >= 0 ? "Balance due" : "Credit"}</span>
         <span style={{ color: balance > 0.5 ? "#b45309" : balance < -0.5 ? "#15803d" : "var(--text)" }}>{money2(Math.abs(balance))}</span>
@@ -146,13 +146,13 @@ export function TenantStatementView({ token, data, header = true }: { token: str
       <div style={{ minWidth: 440 }}>
       {/* Section bar: title + column heads, like the PDF's tinted band */}
       <div style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "baseline", gap: 0, background: "rgba(11,74,125,0.09)", borderBottom: "1px solid var(--border)", padding: "9px 14px" }}>
-        <div style={{ gridColumn: "1 / 3", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>{title}</div>
-        <div style={{ textAlign: "right", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>Amount</div>
-        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)", paddingLeft: 4 }}>Invoices</div>
+        <div style={{ gridColumn: "1 / 3", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>{title}</div>
+        <div style={{ textAlign: "right", fontSize: "var(--fs-10-5)", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)" }}>Amount</div>
+        <div style={{ fontSize: "var(--fs-10-5)", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--muted)", paddingLeft: 4 }}>Invoices</div>
       </div>
       {rows.map((r, i) => (
-        <div key={r.label + i} style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "start", borderTop: i === 0 ? "none" : "1px solid var(--border)", background: i % 2 === 1 ? "rgba(15,23,42,0.02)" : undefined, fontSize: 14 }}>
-          <div style={{ padding: acctPad, color: "var(--muted)", fontSize: 12, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{r.acct ?? ""}</div>
+        <div key={r.label + i} style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "start", borderTop: i === 0 ? "none" : "1px solid var(--border)", background: i % 2 === 1 ? "rgba(15,23,42,0.02)" : undefined, fontSize: "var(--fs-14)" }}>
+          <div style={{ padding: acctPad, color: "var(--muted)", fontSize: "var(--fs-12)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{r.acct ?? ""}</div>
           <div style={{ padding: cellPad, fontWeight: r.bold ? 700 : 400 }}>{r.label}</div>
           <div style={{ padding: cellPad, textAlign: "right", fontVariantNumeric: "tabular-nums", fontWeight: r.bold ? 700 : 400 }}>{money(r.amount)}</div>
           <div style={{ padding: cellPad, paddingLeft: 4 }}><BackupCell backup={r.backup} fileUrl={fileUrl} zipUrl={zipUrl} label={r.label} /></div>
@@ -211,11 +211,11 @@ export function TenantStatementView({ token, data, header = true }: { token: str
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</div>
               <div style={{ width: 1, height: 34, background: "rgba(255,255,255,0.45)" }} />
-              <div style={{ fontSize: 10, letterSpacing: "0.16em", lineHeight: 1.55 }}>COMMERCIAL<br />PROPERTIES</div>
+              <div style={{ fontSize: "var(--fs-10)", letterSpacing: "0.16em", lineHeight: 1.55 }}>COMMERCIAL<br />PROPERTIES</div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontWeight: 800, fontSize: 16 }}>CAM / RET Reconciliation</div>
-              <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>{data.year} Year-End Statement</div>
+              <div style={{ fontSize: "var(--fs-12-5)", opacity: 0.85, marginTop: 2 }}>{data.year} Year-End Statement</div>
             </div>
           </div>
 
@@ -223,8 +223,8 @@ export function TenantStatementView({ token, data, header = true }: { token: str
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap", borderBottom: `2px solid ${BRAND}`, padding: "16px 2px 14px", marginTop: 4 }}>
             <div>
               <h1 style={{ margin: 0, fontSize: 22 }}>{t.name}</h1>
-              <div className="muted" style={{ fontSize: 13.5, marginTop: 3 }}>{data.propertyName} · Suite {t.suite}</div>
-              <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>{metaParts.join("   ·   ")}</div>
+              <div className="muted" style={{ fontSize: "var(--fs-13-5)", marginTop: 3 }}>{data.propertyName} · Suite {t.suite}</div>
+              <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 4 }}>{metaParts.join("   ·   ")}</div>
             </div>
             <Actions />
           </div>
@@ -244,7 +244,7 @@ export function TenantStatementView({ token, data, header = true }: { token: str
       </section>
 
       <section style={{ marginTop: 26 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>Supporting Detail</div>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>Supporting Detail</div>
         <Schedule
           title="Schedule of Operating Expenses"
           rows={[
@@ -253,7 +253,7 @@ export function TenantStatementView({ token, data, header = true }: { token: str
           ]}
           totalLabel="Total Operating Expenses"
         />
-        <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>Amounts shown are the property totals; your statement above bills your share. Invoices available on any line above, or upon request.</p>
+        <p className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 8 }}>Amounts shown are the property totals; your statement above bills your share. Invoices available on any line above, or upon request.</p>
       </section>
 
       {/* Real estate taxes — its own section, mirroring the PDF. */}
@@ -264,8 +264,8 @@ export function TenantStatementView({ token, data, header = true }: { token: str
       {/* Net true-up — the bottom line, below the schedules. */}
       <div style={{ marginTop: 22, border: `1.5px solid ${theme}`, background: calloutBg, borderRadius: 14, padding: "17px 22px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", boxShadow: "var(--shadow)" }}>
         <div>
-          <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: "0.05em", textTransform: "uppercase", color: theme }}>{credit ? "Net credit to you" : due ? "Net balance due" : "Settled — nothing due"}</div>
-          <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>CAM {money(t.camBalance)}{data.ins ? ` · INS ${money(t.insBalance)}` : ""} · RET {money(t.retBalance)}</div>
+          <div style={{ fontWeight: 800, fontSize: "var(--fs-14)", letterSpacing: "0.05em", textTransform: "uppercase", color: theme }}>{credit ? "Net credit to you" : due ? "Net balance due" : "Settled — nothing due"}</div>
+          <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 3 }}>CAM {money(t.camBalance)}{data.ins ? ` · INS ${money(t.insBalance)}` : ""} · RET {money(t.retBalance)}</div>
         </div>
         <span style={{ fontWeight: 900, fontSize: 28, color: theme }}>{money2(Math.abs(totalBalance))}</span>
       </div>
@@ -274,16 +274,16 @@ export function TenantStatementView({ token, data, header = true }: { token: str
         <section style={{ marginTop: 22 }}>
           <button onClick={() => setEscrowOpen((o) => !o)} style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "inherit" }}>
             <h2 style={{ fontSize: 16, margin: 0 }}>Your Escrow Payments</h2>
-            <span className="muted" style={{ fontSize: 13 }}>{money(camEscrowTotal + retEscrowTotal)} across {data.escrowMonthly.length} months</span>
+            <span className="muted" style={{ fontSize: "var(--fs-13)" }}>{money(camEscrowTotal + retEscrowTotal)} across {data.escrowMonthly.length} months</span>
             <span style={{ color: "var(--muted)" }}>{escrowOpen ? "▲" : "▼"}</span>
           </button>
           {escrowOpen && (
             <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden", marginTop: 8 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-14)" }}>
                 <thead><tr style={{ background: "rgba(11,74,125,0.05)", textAlign: "left" }}>
-                  <th style={{ padding: "8px 14px", fontSize: 11, color: "var(--muted)" }}>MONTH</th>
-                  <th style={{ padding: "8px 14px", fontSize: 11, color: "var(--muted)", textAlign: "right" }}>CAM</th>
-                  <th style={{ padding: "8px 14px", fontSize: 11, color: "var(--muted)", textAlign: "right" }}>RET</th>
+                  <th style={{ padding: "8px 14px", fontSize: "var(--fs-11)", color: "var(--muted)" }}>MONTH</th>
+                  <th style={{ padding: "8px 14px", fontSize: "var(--fs-11)", color: "var(--muted)", textAlign: "right" }}>CAM</th>
+                  <th style={{ padding: "8px 14px", fontSize: "var(--fs-11)", color: "var(--muted)", textAlign: "right" }}>RET</th>
                 </tr></thead>
                 <tbody>
                   {data.escrowMonthly.map((m) => (
@@ -307,7 +307,7 @@ export function TenantStatementView({ token, data, header = true }: { token: str
 
       {data.notes.length > 0 && (
         <section style={{ marginTop: 22 }}>
-          {data.notes.map((n, i) => <p key={i} className="muted" style={{ fontSize: 12.5, margin: "4px 0" }}>* {n}</p>)}
+          {data.notes.map((n, i) => <p key={i} className="muted" style={{ fontSize: "var(--fs-12-5)", margin: "4px 0" }}>* {n}</p>)}
         </section>
       )}
     </div>

@@ -88,7 +88,7 @@ export function TaskModal({ initial, onClose, onSave }: {
     } catch (e: any) { setErr(e?.message ?? "Failed to save"); setBusy(false); }
   }
 
-  const label: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "block" };
+  const label: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "block" };
 
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(15,23,42,0.5)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "8vh 16px", overflow: "auto" }}>
@@ -113,8 +113,8 @@ export function TaskModal({ initial, onClose, onSave }: {
               <label style={label}>Due date <span style={{ textTransform: "none", fontWeight: 400 }}>(optional)</span></label>
               <Calendar variant="card" value={due} onChange={setDue} />
               <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-                <button onClick={() => setDue(endOfWeekISO(now))} title="Due by the end of this week" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700, color: BRAND }}>This week</button>
-                {due && <button onClick={() => setDue("")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>Clear</button>}
+                <button onClick={() => setDue(endOfWeekISO(now))} title="Due by the end of this week" style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-12)", fontWeight: 700, color: BRAND }}>This week</button>
+                {due && <button onClick={() => setDue("")} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--muted)" }}>Clear</button>}
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 150 }}>
@@ -133,7 +133,7 @@ export function TaskModal({ initial, onClose, onSave }: {
                 const c = PRIORITY_META[p].color;
                 return (
                   <button key={p} onClick={() => setPriority(p)} style={{
-                    padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", border: "none",
+                    padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, cursor: "pointer", border: "none",
                     fontFamily: "inherit", borderLeft: p !== "high" ? "1px solid var(--border)" : "none",
                     background: active ? (p === "normal" ? "var(--brand)" : c) : "transparent",
                     color: active ? "#fff" : "var(--text)",
@@ -232,7 +232,7 @@ export default function MyTasks({ compact = false, title }: { compact?: boolean;
         <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setModal({ edit: t })}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <PriorityFlag p={p} />
-            <span style={{ fontSize: 13, fontWeight: 600, textDecoration: t.done ? "line-through" : "none", color: t.done ? "var(--muted)" : "var(--text)", wordBreak: "break-word" }}>{t.text}</span>
+            <span style={{ fontSize: "var(--fs-13)", fontWeight: 600, textDecoration: t.done ? "line-through" : "none", color: t.done ? "var(--muted)" : "var(--text)", wordBreak: "break-word" }}>{t.text}</span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: t.note && !compact ? 2 : 0 }}>
             {t.repeat && t.repeat !== "none" && (
@@ -269,10 +269,10 @@ export default function MyTasks({ compact = false, title }: { compact?: boolean;
       {/* Header: title + New button */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {title && <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>{title}</span>}
+          {title && <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>{title}</span>}
           {openCount > 0 && <span className="small muted" style={{ fontWeight: 700 }}>{openCount}</span>}
         </div>
-        <button className="btn primary" onClick={() => setModal({})} style={{ fontSize: 12, fontWeight: 700, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 5 }}>
+        <button className="btn primary" onClick={() => setModal({})} style={{ fontSize: "var(--fs-12)", fontWeight: 700, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 5 }}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
           New task
         </button>
@@ -292,7 +292,7 @@ export default function MyTasks({ compact = false, title }: { compact?: boolean;
             return (
               <div key={key}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: accent }}>{label}</span>
+                  <span style={{ fontSize: "var(--fs-11)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: accent }}>{label}</span>
                   <span className="small muted" style={{ fontWeight: 700 }}>{items.length}</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -308,7 +308,7 @@ export default function MyTasks({ compact = false, title }: { compact?: boolean;
             <div>
               <button onClick={() => setShowDone((s) => !s)} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", gap: 8, marginBottom: 6, color: "var(--muted)", fontFamily: "inherit" }}>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showDone ? "rotate(90deg)" : "none", transition: "transform .15s" }}><polyline points="9 6 15 12 9 18" /></svg>
-                <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Done</span>
+                <span style={{ fontSize: "var(--fs-11)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Done</span>
                 <span className="small" style={{ fontWeight: 700 }}>{buckets.done.length}</span>
               </button>
               {showDone && <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{buckets.done.map((t) => <Row key={t.id} t={t} />)}</div>}

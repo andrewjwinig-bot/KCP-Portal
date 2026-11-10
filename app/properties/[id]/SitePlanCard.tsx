@@ -204,8 +204,8 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
     <div className="card" style={{ padding: 0, overflow: "hidden", ...style }}>
       <div style={{ padding: "16px 20px 0", display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>{plan.floors ? "Floor Plans" : "Site Plan"}</div>
-          <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
+          <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>{plan.floors ? "Floor Plans" : "Site Plan"}</div>
+          <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 4 }}>
             Live from the rent roll{plan.rollImportedAt ? ` imported ${new Date(plan.rollImportedAt).toLocaleDateString("en-US")}` : ""} · hover a suite for its lease, click for the unit
           </div>
         </div>
@@ -240,7 +240,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
             const on = f.floor === cur?.floor;
             return (
               <button key={f.floor} type="button" onClick={() => { setFloor(f.floor); setHover(null); }}
-                className={on ? "btn primary" : "btn"} style={{ fontSize: 12, padding: "5px 12px" }}>
+                className={on ? "btn primary" : "btn"} style={{ fontSize: "var(--fs-12)", padding: "5px 12px" }}>
                 {f.label}<span style={{ opacity: 0.7, fontWeight: 500, marginLeft: 6 }}>{n ? `${n} suite${n === 1 ? "" : "s"}` : "not mapped"}</span>
               </button>
             );
@@ -333,7 +333,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 20px 16px", alignItems: "center" }}>
         {/* Say what the colours MEAN — the view switch sits far off at the top right,
             and a yellow suite read as a rent when it was a lease date. */}
-        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginRight: 2 }}>
+        <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginRight: 2 }}>
           {mode === "plain" ? "Leased / vacant" : mode === "expiry" ? "Colored by lease expiry" : mode === "rent" ? "Colored by base rent $/SF · red lowest → green highest" : "Colored by open A/R"}
         </span>
         {legend.map((l) => (
@@ -341,7 +341,7 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
             style={{
               display: "inline-flex", alignItems: "center", gap: 7, padding: "4px 10px", borderRadius: 999, cursor: "pointer",
               border: `1px solid ${focus === l.key ? "var(--text)" : "var(--border)"}`, background: "var(--card)",
-              fontSize: 12, fontWeight: 600, color: "var(--text)", opacity: focus && focus !== l.key ? 0.5 : 1,
+              fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--text)", opacity: focus && focus !== l.key ? 0.5 : 1,
             }}>
             <span style={{ width: 10, height: 10, borderRadius: 3, background: l.color }} />
             {l.label}
@@ -352,10 +352,10 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
 
       <div style={{ borderTop: "1px solid var(--border)", padding: "12px 20px 16px" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>Rent Roll</div>
-          <span className="muted" style={{ fontSize: 12 }}>
+          <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>Rent Roll</div>
+          <span className="muted" style={{ fontSize: "var(--fs-12)" }}>
             {focusLabel ? <>{rows.length} of {all.length} suites · {focusLabel} · <button type="button" className="linkish" onClick={() => setFocus(null)}
-              style={{ background: "none", border: 0, padding: 0, color: "var(--brand)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>show all</button></>
+              style={{ background: "none", border: 0, padding: 0, color: "var(--brand)", cursor: "pointer", fontSize: "var(--fs-12)", fontWeight: 600 }}>show all</button></>
               : <>{all.length} suites · {eff.key === "order" ? "rent roll order" : "sorted"} · click a legend entry to narrow, a column to sort</>}
           </span>
         </div>
@@ -387,9 +387,9 @@ export default function SitePlanCard({ code, style, extraTiles, onLoaded }: {
                     <td style={{ ...tdL, fontWeight: vacant ? 400 : 600, fontStyle: vacant ? "italic" : "normal", color: vacant ? "var(--muted)" : "var(--text)" }}>
                       <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 3, background: color, marginRight: 8 }} />
                       {vacant ? "Vacant" : s.tenant}
-                      {(s as StaffSuite & { notDrawn?: boolean }).notDrawn && <span className="muted" style={{ fontSize: 11, fontWeight: 500, fontStyle: "normal", marginLeft: 6 }}>not on the plan</span>}
+                      {(s as StaffSuite & { notDrawn?: boolean }).notDrawn && <span className="muted" style={{ fontSize: "var(--fs-11)", fontWeight: 500, fontStyle: "normal", marginLeft: 6 }}>not on the plan</span>}
                     </td>
-                    <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", whiteSpace: "nowrap" }}>{s.unitRefs.join(" + ") || s.id}</code></td>
+                    <td style={tdL}><code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)", whiteSpace: "nowrap" }}>{s.unitRefs.join(" + ") || s.id}</code></td>
                     <td style={td}>{s.sf ? s.sf.toLocaleString() : "—"}</td>
                     <td style={{ ...td, color: "var(--muted)" }}>{vacant ? "" : dateLabel(s.leaseFrom)}</td>
                     <td style={td}>{vacant ? "" : dateLabel(s.leaseTo)}</td>

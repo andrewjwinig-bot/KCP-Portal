@@ -34,8 +34,8 @@ export default function AuditPage() {
     return s.includes(q.toLowerCase());
   });
 
-  const th: React.CSSProperties = { textAlign: "left", fontSize: 11, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "8px 10px", borderBottom: "1px solid var(--border)" };
-  const td: React.CSSProperties = { padding: "7px 10px", fontSize: 13, borderBottom: "1px solid rgba(15,23,42,0.06)", whiteSpace: "nowrap" };
+  const th: React.CSSProperties = { textAlign: "left", fontSize: "var(--fs-11)", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "8px 10px", borderBottom: "1px solid var(--border)" };
+  const td: React.CSSProperties = { padding: "7px 10px", fontSize: "var(--fs-13)", borderBottom: "1px solid rgba(15,23,42,0.06)", whiteSpace: "nowrap" };
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>

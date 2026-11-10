@@ -23,7 +23,7 @@ const money = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const dateLabel = (iso: string | null) => (iso ? `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}/${iso.slice(2, 4)}` : "—");
-const SECTION: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 type Tenant = {
   unitRef: string; tenantName: string; propertyCode: string; suite: string;
@@ -121,7 +121,7 @@ export default function ReceivablesOverview() {
           {/* ── Open credits ── */}
           <section className="card" style={{ padding: 0 }}>
             <div style={{ padding: "14px 18px 6px", display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>Tenants with open credits <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>· {credits.length}</span></div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>Tenants with open credits <span className="muted" style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>· {credits.length}</span></div>
               <div className="muted small">Apply them to bring tenants current — click a tenant to work it in Receipt Reconciliation.</div>
             </div>
             {!credits.length ? <div className="muted small" style={{ padding: "6px 18px 16px" }}>No tenant carries a credit on this statement.</div> : (
@@ -134,13 +134,13 @@ export default function ReceivablesOverview() {
                     {data.credits.groups.map((g) => (
                       <Fragment key={g.group}>
                         <tr style={{ background: "rgba(11,74,125,0.07)" }}>
-                          <td colSpan={6} style={{ ...tdL, fontWeight: 800 }}>{g.group} <span className="muted" style={{ fontWeight: 500, fontSize: 12 }}>· {g.count} · {money0(g.credit)}</span></td>
+                          <td colSpan={6} style={{ ...tdL, fontWeight: 800 }}>{g.group} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}>· {g.count} · {money0(g.credit)}</span></td>
                         </tr>
                         {g.rows.map((r) => (
                           <tr key={r.unitRef} style={{ borderTop: "1px solid var(--border)" }}>
                             <td style={{ ...tdL, whiteSpace: "normal" }}>
                               <Link href={receiptLink(data.period, r.unitRef)} style={{ fontWeight: 600, color: "inherit" }}>{r.tenantName}</Link>{" "}
-                              <code className="muted" style={{ fontSize: 12 }}>{r.unitRef}</code>
+                              <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code>
                             </td>
                             <td style={tdL}><span className="muted small">{propName.get(r.propertyCode) ?? r.propertyCode}</span></td>
                             <td style={{ ...td, fontWeight: 700, color: "#15803d" }}>({money(r.credit)})</td>
@@ -160,7 +160,7 @@ export default function ReceivablesOverview() {
           {/* ── Open A/R ── */}
           <section className="card" style={{ padding: 0 }}>
             <div style={{ padding: "14px 18px 6px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>Tenants with open A/R <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>· {owing.length}</span>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>Tenants with open A/R <span className="muted" style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>· {owing.length}</span>
                 {followUps > 0 && <span style={{ marginLeft: 8 }}><Pill tone={TONE_AMBER}>{`${followUps} ${followUps === 1 ? "NEEDS" : "NEED"} FOLLOW-UP`}</Pill></span>}</div>
               <select className="select-sm" value={arSort} onChange={(e) => setArSort(e.target.value as typeof arSort)} aria-label="Sort">
                 <option value="pastDue">Most past due first</option>
@@ -180,7 +180,7 @@ export default function ReceivablesOverview() {
                       <tr key={t.unitRef} style={{ borderTop: "1px solid var(--border)" }}>
                         <td style={{ ...tdL, whiteSpace: "normal" }}>
                           <Link href={receiptLink(data.period, t.unitRef)} style={{ fontWeight: 600, color: "inherit" }}>{t.tenantName}</Link>{" "}
-                          <code className="muted" style={{ fontSize: 12 }}>{t.unitRef}</code>
+                          <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{t.unitRef}</code>
                         </td>
                         <td style={tdL}><span className="muted small">{propName.get(t.propertyCode) ?? t.propertyCode}</span></td>
                         <td style={tdL}><span className="muted small">{dateLabel(t.summary.oldestISO)}</span></td>

@@ -323,13 +323,13 @@ export default function TrackerPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </div>
 
       {/* ── Owner filter (Drew / Marie / Both) ─────────────────────────── */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em" }}>VIEW</span>
+        <span style={{ fontSize: "var(--fs-11)", fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em" }}>VIEW</span>
         <div role="tablist" aria-label="Owner filter" style={{
           display: "inline-flex", border: "1px solid var(--border)", borderRadius: 999, overflow: "hidden", background: "var(--card)",
         }}>
@@ -343,7 +343,7 @@ export default function TrackerPage() {
                 onClick={() => setOwnerFilter(f.id)}
                 style={{
                   padding: "6px 14px",
-                  fontSize: 12, fontWeight: 700,
+                  fontSize: "var(--fs-12)", fontWeight: 700,
                   background: active ? "var(--brand)" : "transparent",
                   color: active ? "#fff" : "var(--text)",
                   border: "none", cursor: "pointer", fontFamily: "inherit",
@@ -355,7 +355,7 @@ export default function TrackerPage() {
           })}
         </div>
         {showMarie && marieError && (
-          <span style={{ color: "#b91c1c", fontSize: 12, fontWeight: 600 }}>· {marieError}</span>
+          <span style={{ color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600 }}>· {marieError}</span>
         )}
       </div>
 
@@ -414,13 +414,13 @@ export default function TrackerPage() {
 
           {/* Month navigation — centered at top of calendar */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}>
-            <button className="btn" onClick={prevMonth} style={{ padding: "5px 12px", fontWeight: 900, fontSize: 14 }}>←</button>
-            <span style={{ fontWeight: 800, fontSize: 14, minWidth: 120, textAlign: "center" }}>
+            <button className="btn" onClick={prevMonth} style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}>←</button>
+            <span style={{ fontWeight: 800, fontSize: "var(--fs-14)", minWidth: 120, textAlign: "center" }}>
               {MONTHS[viewMonth]} {viewYear}
             </span>
-            <button className="btn" onClick={nextMonth} style={{ padding: "5px 12px", fontWeight: 900, fontSize: 14 }}>→</button>
+            <button className="btn" onClick={nextMonth} style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}>→</button>
             {!isCurrentMonth && (
-              <button className="btn" onClick={() => { setViewYear(today.getFullYear()); setViewMonth(today.getMonth()); }} style={{ fontSize: 11, padding: "5px 9px" }}>
+              <button className="btn" onClick={() => { setViewYear(today.getFullYear()); setViewMonth(today.getMonth()); }} style={{ fontSize: "var(--fs-11)", padding: "5px 9px" }}>
                 Today
               </button>
             )}
@@ -429,7 +429,7 @@ export default function TrackerPage() {
           {/* Weekday headers */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 4 }}>
             {WEEKDAYS.map(d => (
-              <div key={d} style={{ textAlign: "center", fontSize: 10, fontWeight: 800, color: "var(--muted)", padding: "2px 0", letterSpacing: "0.04em" }}>
+              <div key={d} style={{ textAlign: "center", fontSize: "var(--fs-10)", fontWeight: 800, color: "var(--muted)", padding: "2px 0", letterSpacing: "0.04em" }}>
                 {d}
               </div>
             ))}
@@ -459,7 +459,7 @@ export default function TrackerPage() {
                     background: sel ? "var(--brand)" : tod ? "rgba(11,74,125,0.1)" : "transparent",
                     color: sel ? "#fff" : tod ? "var(--brand)" : past && !hasTasks ? "var(--muted)" : "var(--text)",
                     fontWeight: tod ? 800 : 400,
-                    fontSize: 13,
+                    fontSize: "var(--fs-13)",
                     border: tod && !sel ? "1.5px solid var(--brand)" : "1.5px solid transparent",
                     opacity: past && !hasTasks && !tod ? 0.4 : 1,
                     transition: "background 0.1s",
@@ -485,7 +485,7 @@ export default function TrackerPage() {
           <hr />
 
           {/* Category filter */}
-          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", marginBottom: 8 }}>
+          <div style={{ fontSize: "var(--fs-11)", fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em", marginBottom: 8 }}>
             FILTER BY CATEGORY
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -506,7 +506,7 @@ export default function TrackerPage() {
                     border: `1px solid ${active ? cat.border : "transparent"}`,
                     borderRadius: 6, padding: "5px 8px",
                     cursor: "pointer", fontFamily: "inherit",
-                    fontSize: 12, fontWeight: active ? 700 : 500,
+                    fontSize: "var(--fs-12)", fontWeight: active ? 700 : 500,
                     color: active ? cat.text : "var(--text)",
                     textAlign: "left",
                   }}
@@ -515,7 +515,7 @@ export default function TrackerPage() {
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: cat.dot, display: "inline-block", flexShrink: 0 }} />
                     {cat.label}
                   </span>
-                  <span style={{ fontSize: 11, color: active ? cat.text : "var(--muted)", fontWeight: 700 }}>
+                  <span style={{ fontSize: "var(--fs-11)", color: active ? cat.text : "var(--muted)", fontWeight: 700 }}>
                     {catDone}/{count}
                   </span>
                 </button>
@@ -527,7 +527,7 @@ export default function TrackerPage() {
             <button
               className="btn"
               onClick={() => { setSelDay(null); setFilterCat("all"); }}
-              style={{ width: "100%", marginTop: 10, fontSize: 12 }}
+              style={{ width: "100%", marginTop: 10, fontSize: "var(--fs-12)" }}
             >
               Clear filter
             </button>
@@ -539,7 +539,7 @@ export default function TrackerPage() {
 
           {/* Active filter label */}
           {(selDay !== null || filterCat !== "all") && (
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)" }}>
+            <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "var(--muted)" }}>
               {selDay !== null
                 ? `Tasks due ${MONTHS[viewMonth]} ${selDay}${filterCat !== "all" ? ` · ${CATEGORIES[filterCat].label}` : ""}`
                 : `Filtered: ${CATEGORIES[filterCat as Category].label}`}
@@ -571,7 +571,7 @@ export default function TrackerPage() {
                       style={{ width: 16, height: 16, flexShrink: 0, opacity: 0.25, cursor: "default" }}
                     />
                     <span style={{
-                      fontSize: 10, fontWeight: 800, letterSpacing: "0.05em",
+                      fontSize: "var(--fs-10)", fontWeight: 800, letterSpacing: "0.05em",
                       color: catDef.text, background: "var(--card)",
                       border: `1px solid ${catDef.border}`,
                       padding: "2px 6px", borderRadius: 999, flexShrink: 0,
@@ -580,7 +580,7 @@ export default function TrackerPage() {
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontWeight: 700, fontSize: 14, color: catDef.text }}>
+                        <span style={{ fontWeight: 700, fontSize: "var(--fs-14)", color: catDef.text }}>
                           {task.label}
                         </span>
                         {task.link && (
@@ -590,7 +590,7 @@ export default function TrackerPage() {
                             rel="noopener noreferrer"
                             style={{
                               display: "inline-flex", alignItems: "center", gap: 3,
-                              fontSize: 11, fontWeight: 700,
+                              fontSize: "var(--fs-11)", fontWeight: 700,
                               color: catDef.text, background: "var(--card)",
                               border: `1px solid ${catDef.border}`,
                               borderRadius: 5, padding: "2px 7px",
@@ -602,11 +602,11 @@ export default function TrackerPage() {
                         )}
                       </div>
                       {task.notes && (
-                        <div style={{ fontSize: 12, color: catDef.text, opacity: 0.7, marginTop: 2 }}>{task.notes}</div>
+                        <div style={{ fontSize: "var(--fs-12)", color: catDef.text, opacity: 0.7, marginTop: 2 }}>{task.notes}</div>
                       )}
                     </div>
                     <span style={{
-                      fontSize: 11, fontWeight: 800,
+                      fontSize: "var(--fs-11)", fontWeight: 800,
                       color: catDef.text, background: "var(--card)",
                       border: `1px solid ${catDef.border}`,
                       padding: "3px 9px", borderRadius: 999,
@@ -645,7 +645,7 @@ export default function TrackerPage() {
 
                     {/* Frequency pill */}
                     <span style={{
-                      fontSize: 10, fontWeight: 800, letterSpacing: "0.05em",
+                      fontSize: "var(--fs-10)", fontWeight: 800, letterSpacing: "0.05em",
                       color: catDef.text, background: catDef.bg,
                       border: `1px solid ${catDef.border}`,
                       padding: "2px 6px", borderRadius: 999,
@@ -661,7 +661,7 @@ export default function TrackerPage() {
                           onClick={() => hasDetail && setDetailTask(task)}
                           title={hasDetail ? "Click for instructions" : undefined}
                           style={{
-                            fontWeight: 600, fontSize: 14,
+                            fontWeight: 600, fontSize: "var(--fs-14)",
                             color: isDone ? "var(--muted)" : "var(--text)",
                             textDecoration: isDone ? "line-through" : "none",
                             cursor: hasDetail ? "pointer" : "default",
@@ -673,7 +673,7 @@ export default function TrackerPage() {
                               display: "inline-flex", alignItems: "center", justifyContent: "center",
                               width: 16, height: 16, borderRadius: "50%",
                               background: catDef.bg, border: `1px solid ${catDef.border}`,
-                              color: catDef.text, fontSize: 10, fontWeight: 800,
+                              color: catDef.text, fontSize: "var(--fs-10)", fontWeight: 800,
                               marginLeft: 6, verticalAlign: "middle",
                               flexShrink: 0,
                             }}>i</span>
@@ -696,7 +696,7 @@ export default function TrackerPage() {
                               title={all ? "All steps done — waiting on the GL imports" : `Resume at step ${n + 1}`}
                               style={{
                                 display: "inline-flex", alignItems: "center", gap: 5,
-                                fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0,
+                                fontSize: "var(--fs-11)", fontWeight: 700, cursor: "pointer", flexShrink: 0,
                                 padding: "2px 8px", borderRadius: 999,
                                 background: all ? "rgba(22,163,74,0.12)" : "rgba(11,74,125,0.08)",
                                 color: all ? "#15803d" : "var(--brand)",
@@ -713,7 +713,7 @@ export default function TrackerPage() {
                             title={`Open ${task.label}`}
                             style={{
                               display: "inline-flex", alignItems: "center", gap: 3,
-                              fontSize: 11, fontWeight: 700,
+                              fontSize: "var(--fs-11)", fontWeight: 700,
                               color: catDef.text, background: catDef.bg,
                               border: `1px solid ${catDef.border}`,
                               borderRadius: 5, padding: "2px 7px",
@@ -751,17 +751,17 @@ export default function TrackerPage() {
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{
-                    fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
+                    fontSize: "var(--fs-9)", fontWeight: 800, letterSpacing: "0.05em",
                     color: TAX_CATEGORIES.ret.text, background: TAX_CATEGORIES.ret.bg,
                     border: `1px solid ${TAX_CATEGORIES.ret.border}`,
                     padding: "2px 6px", borderRadius: 999,
                   }}>TAX</span>
-                  <span style={{ fontWeight: 800, fontSize: 13 }}>Tax Filings Due This Month</span>
+                  <span style={{ fontWeight: 800, fontSize: "var(--fs-13)" }}>Tax Filings Due This Month</span>
                 </div>
                 <Link
                   href="/tracker/taxes"
                   style={{
-                    fontSize: 11, fontWeight: 700,
+                    fontSize: "var(--fs-11)", fontWeight: 700,
                     color: "var(--brand)", background: "rgba(11,74,125,0.07)",
                     border: "1px solid rgba(11,74,125,0.18)",
                     borderRadius: 5, padding: "3px 9px",
@@ -830,7 +830,7 @@ export default function TrackerPage() {
                       style={{ marginTop: 3, width: 16, height: 16, accentColor: cat.dot, flexShrink: 0, cursor: "pointer" }}
                     />
                     <span style={{
-                      fontSize: 10, fontWeight: 800, letterSpacing: "0.05em",
+                      fontSize: "var(--fs-10)", fontWeight: 800, letterSpacing: "0.05em",
                       color: cat.text, background: cat.bg,
                       border: `1px solid ${cat.border}`,
                       padding: "2px 6px", borderRadius: 999,
@@ -841,7 +841,7 @@ export default function TrackerPage() {
                     </span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <span style={{
-                        fontWeight: 600, fontSize: 14,
+                        fontWeight: 600, fontSize: "var(--fs-14)",
                         color: isDone ? "var(--muted)" : "var(--text)",
                         textDecoration: isDone ? "line-through" : "none",
                       }}>
@@ -921,7 +921,7 @@ export default function TrackerPage() {
                     >
                       <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
                         <span style={{ fontSize: 16, fontWeight: 700 }}>{FREQUENCY_LABELS[freq]}</span>
-                        <span style={{ fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>
+                        <span style={{ fontSize: "var(--fs-13)", fontWeight: 500, color: "var(--muted)" }}>
                           ({stDone}/{stTotal})
                         </span>
                       </span>
@@ -961,7 +961,7 @@ export default function TrackerPage() {
                                       type="button"
                                       onClick={(e) => { e.preventDefault(); setDetailTask({ label: t.title, instructions: t.detail }); }}
                                       style={{
-                                        fontSize: 14, fontWeight: 600, textAlign: "left",
+                                        fontSize: "var(--fs-14)", fontWeight: 600, textAlign: "left",
                                         color: isDone ? "var(--muted)" : "var(--text)",
                                         textDecoration: isDone ? "line-through" : "none",
                                         background: "none", border: "none", padding: 0, cursor: "pointer",
@@ -969,11 +969,11 @@ export default function TrackerPage() {
                                       }}
                                     >
                                       <span style={{ borderBottom: "1px dotted var(--muted)" }}>{t.title}</span>
-                                      <span style={{ fontSize: 12, color: "var(--brand)", fontWeight: 700 }}>ⓘ</span>
+                                      <span style={{ fontSize: "var(--fs-12)", color: "var(--brand)", fontWeight: 700 }}>ⓘ</span>
                                     </button>
                                   ) : (
                                     <span style={{
-                                      fontSize: 14, fontWeight: 600,
+                                      fontSize: "var(--fs-14)", fontWeight: 600,
                                       color: isDone ? "var(--muted)" : "var(--text)",
                                       textDecoration: isDone ? "line-through" : "none",
                                     }}>
@@ -986,7 +986,7 @@ export default function TrackerPage() {
                                       onClick={(e) => e.stopPropagation()}
                                       style={{
                                         display: "inline-flex", alignItems: "center", gap: 3,
-                                        fontSize: 11, fontWeight: 700,
+                                        fontSize: "var(--fs-11)", fontWeight: 700,
                                         color: "var(--brand)", background: "rgba(11,74,125,0.08)",
                                         border: "1px solid rgba(11,74,125,0.22)",
                                         borderRadius: 5, padding: "2px 8px",
@@ -1004,7 +1004,7 @@ export default function TrackerPage() {
                                 )}
                                 {progress && (
                                   <div style={{ marginTop: 8 }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--fs-11)", color: "var(--muted)", marginBottom: 4 }}>
                                       <span style={{ fontWeight: 600 }}>
                                         {progress.done}/{progress.total} {t.bankRecProgress === "reconciled" ? "reconciled" : "downloaded"}
                                       </span>

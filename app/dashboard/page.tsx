@@ -107,10 +107,10 @@ function Donut({ value, total, color, label }: { value: number; total: number; c
           fontFamily: "inherit",
         }}>
           <span style={{ fontSize: 20, fontWeight: 900, color, lineHeight: 1 }}>{pctLabel}%</span>
-          <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>{value}/{total}</span>
+          <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 600, marginTop: 2 }}>{value}/{total}</span>
         </div>
       </div>
-      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text)", textAlign: "center" }}>{label}</span>
+      <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--text)", textAlign: "center" }}>{label}</span>
     </div>
   );
 }
@@ -514,15 +514,15 @@ function DashboardInner() {
             <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>VACATING</Pill></span>
           )}
         </td>
-        <td style={{ fontSize: 13, color: "var(--muted)" }}>{propLabel(propertyCode)}</td>
-        <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
-        <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
-        <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{unit.leaseTo}</td>
-        <td style={{ textAlign: "center", fontSize: 13 }}>{baseYear2(tenantMeta[unit.unitRef]?.baseYear)}</td>
-        <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: vacated ? "#64748b" : overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
+        <td style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>{propLabel(propertyCode)}</td>
+        <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: "var(--fs-12)", whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
+        <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{sqftFmt(unit.sqft)}</td>
+        <td style={{ fontSize: "var(--fs-13)", whiteSpace: "nowrap" }}>{unit.leaseTo}</td>
+        <td style={{ textAlign: "center", fontSize: "var(--fs-13)" }}>{baseYear2(tenantMeta[unit.unitRef]?.baseYear)}</td>
+        <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 600, color: vacated ? "#64748b" : overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
           {vacated ? "gone" : overdue ? `${Math.abs(days)} ago` : `${days}`}
         </td>
-        <td style={{ textAlign: "right", fontSize: 13, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}
+        <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}
           title={depositOwed[unit.unitRef] ? "Security deposit held / owed back to the tenant" : "No security deposit on file"}>
           {depositOwed[unit.unitRef]
             ? "$" + Math.round(depositOwed[unit.unitRef]).toLocaleString("en-US")
@@ -538,12 +538,12 @@ function DashboardInner() {
                 type="button"
                 onClick={(e) => { e.stopPropagation(); router.push(`/cam-recon/interim?property=${propertyCode}&unitRef=${encodeURIComponent(unit.unitRef)}&year=${y}&asOf=${m}`); }}
                 title={vacated ? "Close out this vacated tenant — interim (as-of-month) CAM/RET statement" : "Generate this tenant's interim (as-of-month) CAM/RET statement"}
-                style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.35)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}
+                style={{ fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.35)", background: "var(--card)", color: "#0b4a7d", cursor: "pointer" }}
               >
                 {vacated ? "Close out →" : "Statement →"}
               </button>
             );
-          })() : <span className="muted" style={{ fontSize: 12 }}>—</span>}
+          })() : <span className="muted" style={{ fontSize: "var(--fs-12)" }}>—</span>}
         </td>
       </tr>
     );
@@ -658,7 +658,7 @@ function DashboardInner() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
@@ -680,8 +680,8 @@ function DashboardInner() {
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = ""; }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Portfolio Occupancy</div>
-            <span style={{ fontSize: 12, color: "var(--muted)" }}>→</span>
+            <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Portfolio Occupancy</div>
+            <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>→</span>
           </div>
           {loading ? (
             <div className="muted small">Loading…</div>
@@ -691,7 +691,7 @@ function DashboardInner() {
                 <span style={{ fontSize: 38, fontWeight: 900, lineHeight: 1, color: occupancy.pct >= 90 ? "#16a34a" : occupancy.pct >= 70 ? "#0b4a7d" : "#d97706" }}>
                   {occupancy.pct.toFixed(1)}%
                 </span>
-                <span style={{ fontSize: 13, color: "var(--muted)" }}>
+                <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>
                   {sqftFmt(occupancy.occupied)} / {sqftFmt(occupancy.total)} sf ({sqftFmt(occupancy.vacant)} vacant)
                 </span>
               </div>
@@ -706,8 +706,8 @@ function DashboardInner() {
                     return (
                       <div key={g.label}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
-                          <span style={{ fontSize: 13, fontWeight: 600 }}>{g.label}</span>
-                          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                          <span style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>{g.label}</span>
+                          <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                             <span style={{ fontWeight: 700, color }}>{pct.toFixed(1)}%</span>
                             <span style={{ marginLeft: 6 }}>{sqftFmt(g.occupied)} / {sqftFmt(g.total)} sf ({sqftFmt(g.vacant)} vacant)</span>
                           </span>
@@ -747,7 +747,7 @@ function DashboardInner() {
              Drew uses the Tasks This Week card instead. ── */}
         {!isAlison && !isDrew && (
         <div className="card" style={{ gridColumn: "1 / -1", order: -5 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>Action Items</div>
+          <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>Action Items</div>
           {loading ? (
             <div className="muted small">Loading…</div>
           ) : (
@@ -776,10 +776,10 @@ function DashboardInner() {
                   background: rrFreshness.status === "stale" ? "#d97706" : "#dc2626",
                 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{rrFreshness.title}</div>
+                  <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>{rrFreshness.title}</div>
                   <div className="muted small" style={{ marginTop: 2 }}>{rrFreshness.message}</div>
                 </div>
-                <Link href="/rentroll" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/rentroll" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -804,14 +804,14 @@ function DashboardInner() {
                   background: nextPayroll.status === "today" ? "#0b4a7d" : nextPayroll.status === "soon" ? "#d97706" : "#64748b",
                 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>Next payroll</div>
+                  <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>Next payroll</div>
                   <div className="muted small" style={{ marginTop: 2 }}>
                     {nextPayroll.status === "today"
                       ? `Today, ${formatShortDate(nextPayroll.date)} — process payroll.`
                       : `${formatShortDate(nextPayroll.date)} · in ${nextPayroll.daysUntil} day${nextPayroll.daysUntil === 1 ? "" : "s"}`}
                   </div>
                 </div>
-                <Link href="/" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -836,14 +836,14 @@ function DashboardInner() {
                   background: ccExpensesDue.status === "today" ? "#dc2626" : ccExpensesDue.status === "soon" ? "#d97706" : "#64748b",
                 }} />
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>Submit CC Expenses</div>
+                  <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>Submit CC Expenses</div>
                   <div className="muted small" style={{ marginTop: 2 }}>
                     {ccExpensesDue.status === "today"
                       ? `Due today, ${formatShortDate(ccExpensesDue.date)} — submit credit card expenses.`
                       : `Due ${formatShortDate(ccExpensesDue.date)} · in ${ccExpensesDue.daysUntil} day${ccExpensesDue.daysUntil === 1 ? "" : "s"}`}
                   </div>
                 </div>
-                <Link href="/expenses" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/expenses" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -888,7 +888,7 @@ function DashboardInner() {
                     : "#64748b",
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                  <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>
                     Download Bank Statements — {bankRecPeriodLabel(bankStmt.period)}
                     {bankStmt.status === "overdue" && (
                       <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>
@@ -902,7 +902,7 @@ function DashboardInner() {
                       : `${bankStmt.done}/${bankStmt.total} downloaded · due ${bankStmt.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
                   </div>
                 </div>
-                <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -939,7 +939,7 @@ function DashboardInner() {
                     : "#64748b",
                 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>
+                  <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>
                     Reconcile Bank Statements — {bankRecPeriodLabel(bankRec.period)}
                     {bankRec.status === "overdue" && (
                       <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>
@@ -953,7 +953,7 @@ function DashboardInner() {
                       : `${bankRec.recDone}/${bankRec.total} reconciled · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
                   </div>
                 </div>
-                <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -976,12 +976,12 @@ function DashboardInner() {
               }}>
                 <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "#0b4a7d" }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>Download ACH &amp; Incoming Wires</div>
+                  <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>Download ACH &amp; Incoming Wires</div>
                   <div className="muted small" style={{ marginTop: 2 }}>
                     Weekly · Mondays — download tenant ACH/wires and send to Tami.
                   </div>
                 </div>
-                <Link href="/tracker" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                <Link href="/tracker" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                   Open →
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
@@ -1011,7 +1011,7 @@ function DashboardInner() {
                     >
                       <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: accent }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>
+                        <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>
                           Exercise Option Notice Date — {n.tenant || "(no tenant)"}
                           {overdue && (
                             <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>PAST DUE</Pill></span>
@@ -1023,7 +1023,7 @@ function DashboardInner() {
                           <span style={{ marginLeft: 6, color: accent, fontWeight: 600 }}>({relative})</span>
                         </div>
                       </div>
-                      <Link href="/rentroll/leasing" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                      <Link href="/rentroll/leasing" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                         Open →
                       </Link>
                       <button
@@ -1037,7 +1037,7 @@ function DashboardInner() {
                           background: "rgba(255,255,255,0.6)",
                           color: "var(--muted)",
                           cursor: "pointer",
-                          fontSize: 13, lineHeight: 1, fontWeight: 700,
+                          fontSize: "var(--fs-13)", lineHeight: 1, fontWeight: 700,
                           display: "inline-flex", alignItems: "center", justifyContent: "center",
                           flexShrink: 0,
                         }}
@@ -1076,7 +1076,7 @@ function DashboardInner() {
              drew / harry / marie. Each card is dismissible. ── */}
         {showBankTransferNotices && bankTransferNotices.some((n) => !dismissedNotices.has(n.id)) && (
           <div className="card" style={{ gridColumn: "1 / -1", order: -4 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
+            <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
               New Bank Transfers
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -1093,7 +1093,7 @@ function DashboardInner() {
                 >
                   <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "#0b4a7d" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>
                       {n.amount.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 })}
                       <span style={{ color: "var(--muted)", fontWeight: 500 }}> · {n.from} → {n.to}</span>
                     </div>
@@ -1102,7 +1102,7 @@ function DashboardInner() {
                       {n.description ? ` · ${n.description}` : ""}
                     </div>
                   </div>
-                  <Link href="/bank-transfers" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
+                  <Link href="/bank-transfers" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
                     Open →
                   </Link>
                   <DismissBtn onClick={() => dismissNotice(n.id)} />
@@ -1116,11 +1116,11 @@ function DashboardInner() {
         {showBankDonuts && (
           <div className="card" style={{ order: isMarie ? -1 : 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+              <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
                 Monthly Progress · {bankRecPeriodLabel(bankRec.period)}
               </div>
               {showBankRec && (
-                <Link href="/bank-rec" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+                <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
                   Open →
                 </Link>
               )}
@@ -1160,12 +1160,12 @@ function DashboardInner() {
       {showExpiring && !isPathAllowed(user.id, "/reports/monthly") && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+          <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
             {isDrew ? "Vacating Tenants (next 60 days)" : "Leases Expiring (next 60 days)"}
             {expiringScope === "office" && <span className="muted small" style={{ marginLeft: 8, letterSpacing: 0, textTransform: "none" }}>· Office</span>}
             {expiringScope === "retail" && <span className="muted small" style={{ marginLeft: 8, letterSpacing: 0, textTransform: "none" }}>· Retail</span>}
           </div>
-          <Link href="/rentroll" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>Rent roll →</Link>
+          <Link href="/rentroll" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>Rent roll →</Link>
         </div>
         {loading ? (
           <div className="muted small">Loading…</div>
@@ -1198,7 +1198,7 @@ function DashboardInner() {
                 {isDrew && recentlyVacated.length > 0 && (
                   <>
                     <tr>
-                      <td colSpan={9} style={{ padding: "10px 8px 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569" }}>
+                      <td colSpan={9} style={{ padding: "10px 8px 4px", fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#475569" }}>
                         Recently vacated (last ~60 days) — run their close-out
                       </td>
                     </tr>
@@ -1231,8 +1231,8 @@ function DashboardInner() {
       {(isAdmin || isMarie) && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Upcoming Filings (next 45 days)</div>
-          <Link href="/tracker/taxes" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>Filing tracker →</Link>
+          <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Upcoming Filings (next 45 days)</div>
+          <Link href="/tracker/taxes" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>Filing tracker →</Link>
         </div>
         {upcomingFilings.length === 0 ? (
           <div className="muted small">No filings due in the next 45 days. </div>
@@ -1263,14 +1263,14 @@ function DashboardInner() {
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
                     >
                       <td style={{ fontWeight: 600 }}>{task.entity}</td>
-                      <td style={{ fontSize: 13 }}>{filingLabel(task)}</td>
+                      <td style={{ fontSize: "var(--fs-13)" }}>{filingLabel(task)}</td>
                       <td>
                         <Pill tone={{ bg: cat.bg, fg: cat.text, border: cat.border }}>
                           {task.pillOverride ?? cat.pill}
                         </Pill>
                       </td>
-                      <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{formatShortDate(due)}</td>
-                      <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, color: overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
+                      <td style={{ fontSize: "var(--fs-13)", whiteSpace: "nowrap" }}>{formatShortDate(due)}</td>
+                      <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 600, color: overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#b45309" }}>
                         {overdue ? `${Math.abs(days)} ago` : `${days}`}
                       </td>
                     </tr>
@@ -1299,7 +1299,7 @@ function DismissBtn({ onClick }: { onClick: () => void }) {
         background: "rgba(255,255,255,0.6)",
         color: "var(--muted)",
         cursor: "pointer",
-        fontSize: 13, lineHeight: 1, fontWeight: 700,
+        fontSize: "var(--fs-13)", lineHeight: 1, fontWeight: 700,
         display: "inline-flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0,
       }}

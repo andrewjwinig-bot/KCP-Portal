@@ -180,12 +180,12 @@ export default function ContactsCard({
         <div style={{
           margin: "8px 0", padding: "8px 10px", borderRadius: 8,
           background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: 12, fontWeight: 600,
+          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
       {loading ? (
-        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>Loading…</div>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 8 }}>Loading…</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
           {/* ── Suggested from maintenance & reservations ── */}
@@ -195,7 +195,7 @@ export default function ContactsCard({
               padding: "10px 12px", borderRadius: 8,
               border: "1px dashed var(--border)", background: "rgba(37,99,235,0.03)",
             }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+              <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
                 Suggested from maintenance &amp; reservations
               </span>
               {openSuggestions.map((s) => (
@@ -205,10 +205,10 @@ export default function ContactsCard({
                   borderRadius: 8, background: "var(--card)",
                 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {s.name || s.email || s.phone}
                     </div>
-                    <div style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {[s.email, s.phone].filter(Boolean).join(" · ") || "—"}
                     </div>
                   </div>
@@ -219,7 +219,7 @@ export default function ContactsCard({
                     type="button"
                     onClick={() => addFromSuggestion(s)}
                     className="btn"
-                    style={{ flexShrink: 0, fontSize: 12, padding: "5px 12px", fontWeight: 600 }}
+                    style={{ flexShrink: 0, fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 600 }}
                   >+ Add</button>
                 </div>
               ))}
@@ -228,7 +228,7 @@ export default function ContactsCard({
 
           {/* ── Saved contacts ── */}
           {contacts && contacts.length === 0 && openSuggestions.length === 0 && (
-            <div style={{ fontSize: 13, color: "var(--muted)" }}>
+            <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>
               No contacts recorded for this suite yet.
             </div>
           )}
@@ -268,7 +268,7 @@ export default function ContactsCard({
                 <label
                   title="Sends the CAM/RET year-end statement to this contact"
                   style={{
-                    display: "flex", alignItems: "center", gap: 8, fontSize: 13,
+                    display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-13)",
                     cursor: c.email ? "pointer" : "not-allowed", opacity: c.email ? 1 : 0.5,
                   }}
                 >
@@ -285,7 +285,7 @@ export default function ContactsCard({
                   )}
                 </label>
                 <button type="button" onClick={() => removeContact(c.id)}
-                  className="btn" style={{ fontSize: 12, padding: "5px 12px", fontWeight: 600 }}>
+                  className="btn" style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 600 }}>
                   Remove contact
                 </button>
               </div>
@@ -294,7 +294,7 @@ export default function ContactsCard({
 
           <div>
             <button type="button" onClick={addContact}
-              className="btn" style={{ fontSize: 13, padding: "7px 14px", fontWeight: 600 }}>
+              className="btn" style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 600 }}>
               + Add contact
             </button>
           </div>
@@ -315,7 +315,7 @@ function ContactField({
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, gridColumn: span2 ? "1 / -1" : undefined }}>
-      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+      <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
         {label}
       </span>
       {children}

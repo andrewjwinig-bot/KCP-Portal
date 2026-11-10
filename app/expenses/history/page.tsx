@@ -114,7 +114,7 @@ export default function ExpenseHistoryPage() {
   }
 
   const btnStyle = (red?: boolean): React.CSSProperties => ({
-    fontSize: 13, padding: "5px 14px", borderRadius: 7,
+    fontSize: "var(--fs-13)", padding: "5px 14px", borderRadius: 7,
     border: `1px solid ${red ? "#b42318" : "#1a1a1a"}`,
     background: "transparent", color: red ? "#b42318" : "#1a1a1a",
     cursor: "pointer", fontWeight: 500,
@@ -127,7 +127,7 @@ export default function ExpenseHistoryPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
@@ -174,7 +174,7 @@ export default function ExpenseHistoryPage() {
                   ) : visibleTx(detail.tx).length === 0 ? (
                     <div className="small muted" style={{ padding: 14 }}>No transactions.</div>
                   ) : (
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 900 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)", minWidth: 900 }}>
                       <thead>
                         <tr>
                           {["Date", "Card Member", "Description", "Invoice Description", "Category", "Property", "Suite", "Amount"].map((h) => (

@@ -73,8 +73,8 @@ function Colgroup() {
   );
 }
 const TABLE: React.CSSProperties = { tableLayout: "fixed", width: "100%", minWidth: 1090 };
-const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12, whiteSpace: "nowrap", verticalAlign: "middle", paddingLeft: 6, paddingRight: 6 };
-const lab: React.CSSProperties = { textAlign: "left", verticalAlign: "middle", fontSize: 14 };
+const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: "var(--fs-12)", whiteSpace: "nowrap", verticalAlign: "middle", paddingLeft: 6, paddingRight: 6 };
+const lab: React.CSSProperties = { textAlign: "left", verticalAlign: "middle", fontSize: "var(--fs-14)" };
 const headR: React.CSSProperties = { textAlign: "right", whiteSpace: "nowrap" };
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
@@ -263,7 +263,7 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
     const open = editable && m != null && edit?.row === rowKey && edit?.m === m;
     const isTyped = m != null && m < 12 && !!typed?.[m];
     const style: React.CSSProperties = {
-      ...num, ...(subtotal ? { fontWeight: 800, fontSize: 13.5, color: COLOR_BRAND } : {}), ...extra,
+      ...num, ...(subtotal ? { fontWeight: 800, fontSize: "var(--fs-13-5)", color: COLOR_BRAND } : {}), ...extra,
       ...(editable && m != null ? { cursor: "text", background: INPUT_BG } : {}),
       ...(isTyped ? { color: TYPED_FG, fontWeight: 800 } : {}),
       ...(flagNegative && key !== "b" && v < -0.5 ? { background: NEGATIVE_BG, color: NEGATIVE_FG, fontWeight: 800 } : {}),
@@ -300,12 +300,12 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
   const good = change == null || Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
   return (
     <tr style={rowStyle}>
-      <td style={{ ...lab, ...(subtotal ? { fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: 13.5 } : {}), ...(sub ? { borderLeft: `3px solid ${COLOR_BRAND}`, paddingLeft: depth > 1 ? 46 : 26, fontSize: depth > 1 ? 11.5 : 12, ...(depth > 1 ? { color: "var(--muted)" } : {}) } : {}), whiteSpace: "nowrap", overflow: "hidden" }}>
+      <td style={{ ...lab, ...(subtotal ? { fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-13-5)" } : {}), ...(sub ? { borderLeft: `3px solid ${COLOR_BRAND}`, paddingLeft: depth > 1 ? 46 : 26, fontSize: depth > 1 ? 11.5 : 12, ...(depth > 1 ? { color: "var(--muted)" } : {}) } : {}), whiteSpace: "nowrap", overflow: "hidden" }}>
         {/* The name and its source pill on ONE line, so every row is one row tall. */}
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         {toggle && (
           <button type="button" onClick={toggle.onToggle} aria-expanded={toggle.open} aria-label={toggle.open ? "Hide sub-lines" : "Show sub-lines"}
-            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, width: 14, flex: "0 0 14px", color: "var(--muted)", fontSize: 11, lineHeight: 1 }}>
+            style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0, width: 14, flex: "0 0 14px", color: "var(--muted)", fontSize: "var(--fs-11)", lineHeight: 1 }}>
             {toggle.open ? "▾" : "▸"}
           </button>
         )}
@@ -324,19 +324,19 @@ function Row({ icon, extra, label, months, total, basis, variant = "line", badge
           <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: "auto", flex: "0 0 auto" }}>
             {onAccept && (
               <button type="button" onClick={onAccept} className="btn" aria-label={`Accept ${label} as shown`}
-                style={{ fontSize: 11, fontWeight: 700, padding: "1px 8px" }}>Accept</button>
+                style={{ fontSize: "var(--fs-11)", fontWeight: 700, padding: "1px 8px" }}>Accept</button>
             )}
             {badge && <Pill tone={badge.tone}>{badge.text}</Pill>}
             {onReset && typed?.some(Boolean) && (
               <button type="button" onClick={onReset} title="Reset typed months" aria-label="Reset typed months"
-                style={{ border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 13, padding: 0, lineHeight: 1 }}>↺</button>
+                style={{ border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: "var(--fs-13)", padding: 0, lineHeight: 1 }}>↺</button>
             )}
           </span>
         )}
         </div>
       </td>
       {months.map((m, i) => cell(m, i, undefined, i))}
-      {cell(total, "t", subtotal ? { fontSize: 14, fontWeight: 800 } : { fontSize: 14, fontWeight: 600 }, editable || totalHover ? 12 : undefined)}
+      {cell(total, "t", subtotal ? { fontSize: "var(--fs-14)", fontWeight: 800 } : { fontSize: "var(--fs-14)", fontWeight: 600 }, editable || totalHover ? 12 : undefined)}
       {basis == null ? <td style={num} /> : priorYear ? (
         <td style={{ ...num, color: "var(--muted)", fontStyle: "italic" }}>
           <HoverCard title={`${priorYear} budget`} width={260} rows={[]} footer={{ label: "Items have no reprojection", value: money0(basis) }}>
@@ -373,12 +373,12 @@ function StatRow({ label, months, total, basis, change, changeGood, onLabel, tot
       {months.map((m, i) => {
         const tip = m && monthTip ? monthTip(i) : null;
         return (
-          <td key={i} style={{ ...num, fontSize: 13 }}>
+          <td key={i} style={{ ...num, fontSize: "var(--fs-13)" }}>
             {tip ? <HoverCard title={tip.title} rows={tip.rows} footer={tip.footer} width={300}><span>{m}</span></HoverCard> : m}
           </td>
         );
       })}
-      <td style={{ ...num, fontSize: 13, fontWeight: 700, ...totalStyle }}>{total}</td>
+      <td style={{ ...num, fontSize: "var(--fs-13)", fontWeight: 700, ...totalStyle }}>{total}</td>
       <td style={{ ...num, color: "var(--muted)" }}>{basis}</td>
       <td style={{ ...num, color: changeGood == null ? "var(--muted)" : changeGood ? "#15803d" : "#b91c1c" }}>{change}</td>
     </tr>
@@ -410,7 +410,7 @@ function RollupCard({ label, months, total, basis, favorableUp, tip }: {
   const change = total - basis;
   const pct = Math.abs(basis) < 0.5 ? null : (change / Math.abs(basis)) * 100;
   const good = Math.abs(change) < 0.5 ? null : (change > 0) === favorableUp;
-  const cell: React.CSSProperties = { ...num, fontSize: 13, fontWeight: 800, borderBottom: "none" };
+  const cell: React.CSSProperties = { ...num, fontSize: "var(--fs-13)", fontWeight: 800, borderBottom: "none" };
   return (
     <div className="card" style={{ padding: 0, borderColor: COLOR_BRAND, background: "rgba(11,74,125,0.04)" }}>
       <div className="tableWrap" style={{ marginTop: 0 }}>
@@ -418,11 +418,11 @@ function RollupCard({ label, months, total, basis, favorableUp, tip }: {
           <Colgroup />
           <tbody>
             <tr>
-              <td style={{ ...lab, fontSize: 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND, borderBottom: "none" }}>{label}</td>
+              <td style={{ ...lab, fontSize: "var(--fs-13)", fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND, borderBottom: "none" }}>{label}</td>
               {months.map((m, i) => <td key={i} style={{ ...cell, color: m < 0 ? "#b91c1c" : undefined }}>{hov(i, money0(m))}</td>)}
-              <td style={{ ...cell, fontSize: 14, fontWeight: 900, color: total < 0 ? "#b91c1c" : COLOR_BRAND }}>{hov(null, money0(total))}</td>
-              <td style={{ ...cell, fontWeight: 600, fontSize: 12, color: "var(--muted)" }}>{money0(basis)}</td>
-              <td style={{ ...cell, fontSize: 12, color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
+              <td style={{ ...cell, fontSize: "var(--fs-14)", fontWeight: 900, color: total < 0 ? "#b91c1c" : COLOR_BRAND }}>{hov(null, money0(total))}</td>
+              <td style={{ ...cell, fontWeight: 600, fontSize: "var(--fs-12)", color: "var(--muted)" }}>{money0(basis)}</td>
+              <td style={{ ...cell, fontSize: "var(--fs-12)", color: good == null ? "var(--muted)" : good ? "#15803d" : "#b91c1c" }}>
                 {pct == null ? "–" : `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`}
               </td>
             </tr>
@@ -793,10 +793,10 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
     return (
       <div key={sec.name} className="card" style={{ padding: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
-          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{abbrev(sec.name)}</span>
+          <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{abbrev(sec.name)}</span>
           {secSubs.length > 0 && (
             <button type="button" onClick={() => setSec(!secOpen)}
-              style={{ border: "none", background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: 0, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              style={{ border: "none", background: "transparent", color: "var(--brand)", cursor: "pointer", fontSize: "var(--fs-11)", fontWeight: 700, padding: 0, letterSpacing: "0.04em", textTransform: "uppercase" }}>
               {secOpen ? "▾ Hide sub-lines" : "▸ Show sub-lines"}
             </button>
           )}
@@ -934,7 +934,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const negatives = negativeLines(draft);
   if (negatives.length) {
     body.push(
-      <div key="neg" className="card" style={{ padding: "9px 14px", borderLeft: `4px solid ${NEGATIVE_FG}`, background: "rgba(217,119,6,0.06)", fontSize: 13 }}>
+      <div key="neg" className="card" style={{ padding: "9px 14px", borderLeft: `4px solid ${NEGATIVE_FG}`, background: "rgba(217,119,6,0.06)", fontSize: "var(--fs-13)" }}>
         <b style={{ color: NEGATIVE_FG }}>{negatives.length} line{negatives.length === 1 ? "" : "s"} go{negatives.length === 1 ? "es" : ""} negative</b>
         <span className="muted"> — a revenue or expense should not: </span>
         {negatives.slice(0, 8).map((n) => n.label).join(" · ")}{negatives.length > 8 ? ` · +${negatives.length - 8} more` : ""}
@@ -991,9 +991,9 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
         <td style={{ ...lab, fontWeight: 800, color: COLOR_BRAND, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Projected Bank Balance</td>
         {cash.balance.map((v, i) => {
           const t = balTip(i);
-          return <td key={i} style={{ ...num, fontSize: 13, fontWeight: 700, color: v < 0 ? "#b91c1c" : COLOR_BRAND }}><HoverCard title={t.title} rows={t.rows} footer={t.footer} width={300}><span>{bal(v)}</span></HoverCard></td>;
+          return <td key={i} style={{ ...num, fontSize: "var(--fs-13)", fontWeight: 700, color: v < 0 ? "#b91c1c" : COLOR_BRAND }}><HoverCard title={t.title} rows={t.rows} footer={t.footer} width={300}><span>{bal(v)}</span></HoverCard></td>;
         })}
-        <td style={{ ...num, fontSize: 13, fontWeight: 800, color: end < 0 ? "#b91c1c" : COLOR_BRAND }}>{bal(end)}</td>
+        <td style={{ ...num, fontSize: "var(--fs-13)", fontWeight: 800, color: end < 0 ? "#b91c1c" : COLOR_BRAND }}>{bal(end)}</td>
         <td style={{ ...num, color: "var(--muted)" }}>{bal(cash.opening)}</td>
         <td style={{ ...num, color: end >= cash.opening ? "#15803d" : "#b91c1c" }}>{`${end >= cash.opening ? "+" : "−"}${bal(Math.abs(end - cash.opening))}`}</td>
       </tr>,
@@ -1080,8 +1080,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
       <div key="cash" className="card" style={{ padding: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", flexWrap: "wrap" }}>
           {hasDist || !mayDist
-            ? <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Distributions{!hasDist ? <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> · none this year</span> : null}</span>
-            : <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>
+            ? <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>Distributions{!hasDist ? <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> · none this year</span> : null}</span>
+            : <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}>
                 <input type="checkbox" checked={distOn} onChange={(e) => setDistOn(e.target.checked)} />
                 Distributions{!distOn ? <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}> · none this year</span> : null}
               </label>}
@@ -1090,8 +1090,8 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
             <span>· {cash.openingTyped ? "typed" : glNote}</span>
             {mayDist && (openingEdit
               ? <span style={{ width: 110 }}><CellInput initial={cash.opening} blankIsZero={false} onDone={(v) => { setOpeningEdit(false); if (v !== undefined && (v === null ? cash.openingTyped : Math.round(v) !== Math.round(cash.opening))) onEdit!(distSec, distLine(OPENING_LABEL), 0, v); }} /></span>
-              : <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} onClick={() => setOpeningEdit(true)}>Edit</button>)}
-            {mayDist && cash.openingTyped && !openingEdit && <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: 11 }} title={cash.bank ? "Back to the bank balance" : "Back to the GL"} onClick={() => onEdit!(distSec, distLine(OPENING_LABEL), 0, null)}>↺</button>}
+              : <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: "var(--fs-11)" }} onClick={() => setOpeningEdit(true)}>Edit</button>)}
+            {mayDist && cash.openingTyped && !openingEdit && <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: "var(--fs-11)" }} title={cash.bank ? "Back to the bank balance" : "Back to the GL"} onClick={() => onEdit!(distSec, distLine(OPENING_LABEL), 0, null)}>↺</button>}
           </span>}
         </div>
         {showDist && <div className="tableWrap" style={{ marginTop: 0 }}>

@@ -198,7 +198,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply, onUndo }: {
           given stays traceable after it reaches the budget (owner). */}
       {applied.length > 0 && (
         <div style={{ overflowX: "auto", borderTop: "1px solid var(--border)" }}>
-          <div style={{ padding: "10px 14px 4px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+          <div style={{ padding: "10px 14px 4px", fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
             Applied raises · {money0(applied.reduce((s, r) => s + (r.salaryAfter - r.salaryBefore), 0))} added to {doc.year} salaries
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -267,7 +267,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply, onUndo }: {
                     return (
                       <tr key={`${g}-${r.label}`}>
                         <td style={tdL}>
-                          {r.code && <code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{r.code}</code>}
+                          {r.code && <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{r.code}</code>}
                           {label(r)}
                         </td>
                         <td style={{ ...td, color: UP, fontWeight: 700 }}>{signed(r.delta)}</td>

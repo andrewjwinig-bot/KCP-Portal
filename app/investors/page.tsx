@@ -344,10 +344,10 @@ function InvestorEmailCell({ resolved }: { resolved: OwnerEmail[] | null }) {
         { label: "Source", value: withEmail[0].emailNote || withEmail[0].emailSource },
       ]}
     >
-      <span style={{ display: "inline-flex", alignItems: "baseline", gap: 6, fontSize: 12.5 }}>
+      <span style={{ display: "inline-flex", alignItems: "baseline", gap: 6, fontSize: "var(--fs-12-5)" }}>
         <span style={{ wordBreak: "break-all" }}>{unique[0]}</span>
-        {unique.length > 1 && <span className="muted" style={{ fontSize: 11 }}>+{unique.length - 1}</span>}
-        {extra.length > 0 && <span className="muted" style={{ fontSize: 11 }}>+{extra.length} cc</span>}
+        {unique.length > 1 && <span className="muted" style={{ fontSize: "var(--fs-11)" }}>+{unique.length - 1}</span>}
+        {extra.length > 0 && <span className="muted" style={{ fontSize: "var(--fs-11)" }}>+{extra.length} cc</span>}
       </span>
     </HoverCard>
   );
@@ -1054,7 +1054,7 @@ export default function InvestorInfoPage() {
             <td style={{ padding: "12px 16px", ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }}>
               {ent.vendorCode ? (
                 <span style={{
-                  fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", padding: "2px 8px",
+                  fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.04em", padding: "2px 8px",
                   borderRadius: 999, background: "rgba(15,23,42,0.05)", color: "var(--text)",
                   border: "1px solid var(--border)", display: "inline-block",
                 }}>{ent.vendorCode}</span>
@@ -1062,13 +1062,13 @@ export default function InvestorInfoPage() {
             </td>
             <td style={{ padding: "12px 16px" }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                <span aria-hidden style={{ color: "#0b4a7d", fontSize: 10, width: 10, flexShrink: 0, display: "inline-block" }}>{secOpen ? "\u25BC" : "\u25B6"}</span>
+                <span aria-hidden style={{ color: "#0b4a7d", fontSize: "var(--fs-10)", width: 10, flexShrink: 0, display: "inline-block" }}>{secOpen ? "\u25BC" : "\u25B6"}</span>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ ...INVESTOR_NAME, textTransform: "uppercase", letterSpacing: "0.02em" }}>{ent.name}</span>
                     <BandCountPill>{sec.owners.length} INVESTORS</BandCountPill>
                   </div>
-                  <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+                  <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 2 }}>
                     Their K-1 comes from {ent.name}
                   </div>
                 </div>
@@ -1105,14 +1105,14 @@ export default function InvestorInfoPage() {
             {showK1 && <td className="no-print" style={GROUP_RAIL} />}
             <td style={{ padding: "8px 16px", ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }} />
             <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>{sub.name}</div>
-              <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>
+              <div style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>{sub.name}</div>
+              <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 1 }}>
                 {sub.detailedName ? `${sub.detailedName} · ` : ""}{pct(ownershipFor(sub))} of {ent.name}
               </div>
             </td>
-            <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(eff)}</td>
-            {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(eff, pv!.ye)}</td>}
-            {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(eff, pv!.est)}</td>}
+            <td style={{ padding: "8px 16px", textAlign: "right", fontSize: "var(--fs-12)" }}>{pct(eff)}</td>
+            {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: "var(--fs-12)", fontVariantNumeric: "tabular-nums" }}>{share(eff, pv!.ye)}</td>}
+            {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: "var(--fs-12)", fontVariantNumeric: "tabular-nums" }}>{share(eff, pv!.est)}</td>}
             {showK1 && <td className="no-print" colSpan={2} />}
           </tr>
         );
@@ -1138,7 +1138,7 @@ export default function InvestorInfoPage() {
                       <td style={{ padding: "12px 16px", ...VENDOR_COL }}>
                         {inv.vendorCode ? (
                           <span style={{
-                            fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+                            fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.04em",
                             padding: "2px 8px", borderRadius: 999,
                             background: "rgba(15,23,42,0.05)", color: "var(--text)",
                             border: "1px solid var(--border)",
@@ -1192,10 +1192,10 @@ export default function InvestorInfoPage() {
                       </td>
                     )}
                     {showK1 && !k1 && <td className="no-print" style={GROUP_RAIL} />}
-                    <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 11, ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }}>—</td>
+                    <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: "var(--fs-11)", ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }}>—</td>
                     <td style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                        <span aria-hidden style={{ color: "#0b4a7d", fontSize: 10, width: 10, display: "inline-block" }}>{gOpen ? "\u25BC" : "\u25B6"}</span>
+                        <span aria-hidden style={{ color: "#0b4a7d", fontSize: "var(--fs-10)", width: 10, display: "inline-block" }}>{gOpen ? "\u25BC" : "\u25B6"}</span>
                         <span style={INVESTOR_NAME}>{g.name}</span>
                         <BandCountPill>{g.owners.length} STAKES</BandCountPill>
                       </div>
@@ -1238,23 +1238,23 @@ export default function InvestorInfoPage() {
                       <td style={{ padding: "8px 16px", paddingLeft: 36, ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }}>
                         {inv.vendorCode ? (
                           <span style={{
-                            fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
+                            fontSize: "var(--fs-10)", fontWeight: 600, letterSpacing: "0.04em",
                             padding: "1px 7px", borderRadius: 999,
                             background: "rgba(15,23,42,0.05)", color: "var(--text)",
                             border: "1px solid var(--border)",
                             display: "inline-block",
                           }}>{inv.vendorCode}</span>
                         ) : (
-                          <span style={{ color: "var(--muted)", fontSize: 11 }}>—</span>
+                          <span style={{ color: "var(--muted)", fontSize: "var(--fs-11)" }}>—</span>
                         )}
                       </td>
-                      <td style={{ padding: "8px 16px", fontSize: 12, color: "var(--muted)" }}>
+                      <td style={{ padding: "8px 16px", fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                         {inv.detailedName || <span style={{ fontStyle: "italic" }}>(direct)</span>}
                       </td>
 
-                      <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(ownershipFor(inv))}</td>
-                      {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.ye)}</td>}
-                      {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.est)}</td>}
+                      <td style={{ padding: "8px 16px", textAlign: "right", fontSize: "var(--fs-12)" }}>{pct(ownershipFor(inv))}</td>
+                      {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: "var(--fs-12)", fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.ye)}</td>}
+                      {hasVal && <td style={{ padding: "8px 16px", textAlign: "right", fontSize: "var(--fs-12)", fontVariantNumeric: "tabular-nums" }}>{share(ownershipFor(inv), pv!.est)}</td>}
                       {showK1 && k1 && (
                         <td style={{ padding: "8px 16px" }} className="no-print">
                           {k1.ownerFor(inv.id) && <K1Cell owner={k1.ownerFor(inv.id)!} k1={k1} />}
@@ -1281,7 +1281,7 @@ export default function InvestorInfoPage() {
             <code style={{
               background: "#0b1220", color: "#e0f0ff",
               padding: "2px 8px", borderRadius: 5,
-              fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
+              fontSize: "var(--fs-12)", fontWeight: 600, letterSpacing: "0.06em",
             }}>{h.propertyCode}</code>
           </td>
           <td style={{ ...tdL, whiteSpace: "normal" }}>
@@ -1312,9 +1312,9 @@ export default function InvestorInfoPage() {
             <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
           )}
           <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)", ...(showK1 ? { minWidth: 1180 } : null) }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-14)", borderTop: "1px solid var(--border)", ...(showK1 ? { minWidth: 1180 } : null) }}>
             <thead>
-              <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+              <tr style={{ color: "var(--muted)", fontSize: "var(--fs-11)", letterSpacing: "0.04em", textAlign: "left" }}>
                 {showK1 && <th style={{ ...k1Th, width: 34, paddingRight: 0 }} className="no-print" aria-label="Select" />}
                 <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap", ...VENDOR_COL }}>VENDOR CODE</th>
                 <th style={{ padding: "10px 16px", fontWeight: 700, ...(showK1 ? { minWidth: 190 } : null) }}>OWNER</th>
@@ -1342,8 +1342,8 @@ export default function InvestorInfoPage() {
                   <tr key={`band-${sec.key}`} style={{ background: GROUP_ROW_BG, borderTop: "2px solid var(--border)" }}>
                     {showK1 && <td className="no-print" style={GROUP_RAIL} />}
                     <td style={{ padding: "10px 16px", ...(showK1 ? null : GROUP_RAIL) }} colSpan={2}>
-                      <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>{sec.label}</span>
-                      <span className="muted" style={{ fontSize: 11.5, marginLeft: 8 }}>{sec.owners.length} investors</span>
+                      <span style={{ fontSize: "var(--fs-11-5)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>{sec.label}</span>
+                      <span className="muted" style={{ fontSize: "var(--fs-11-5)", marginLeft: 8 }}>{sec.owners.length} investors</span>
                     </td>
                     <td style={{ padding: "10px 16px", textAlign: "right", fontWeight: 800 }}>{pct(sec.frac)}</td>
                     {hasVal && <td style={{ padding: "10px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{share(sec.frac, pv!.ye)}</td>}
@@ -1361,7 +1361,7 @@ export default function InvestorInfoPage() {
               <tfoot>
                 <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
                   {showK1 && <td className="no-print" />}
-                  <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: 11, textTransform: "uppercase", color: "var(--muted)" }} colSpan={3}>Property total</td>
+                  <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: "var(--fs-11)", textTransform: "uppercase", color: "var(--muted)" }} colSpan={3}>Property total</td>
                   <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800 }}>100.0%</td>
                   <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(pv!.ye)}</td>
                   <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(pv!.est)}</td>
@@ -1374,7 +1374,7 @@ export default function InvestorInfoPage() {
           <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <span className="muted small">Year-end as of {asOfLong()} · Estimated {estAsOfLabel}.</span>
             {hasVal && (
-              <button type="button" className="btn no-print" style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }} onClick={() => exportPropertySoV(h)}>⤓ Excel</button>
+              <button type="button" className="btn no-print" style={{ fontSize: "var(--fs-12)", padding: "5px 10px", fontWeight: 600 }} onClick={() => exportPropertySoV(h)}>⤓ Excel</button>
             )}
           </div>
           {/* The rest of the return, which arrives with the K-1 batch. Staff
@@ -1400,7 +1400,7 @@ export default function InvestorInfoPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
             <div>COMMERCIAL</div><div>PROPERTIES</div>
           </div>
         </div>
@@ -1425,7 +1425,7 @@ export default function InvestorInfoPage() {
                   role="tab"
                   aria-selected={active}
                   style={{
-                    padding: "6px 14px", fontSize: 12, fontWeight: 700,
+                    padding: "6px 14px", fontSize: "var(--fs-12)", fontWeight: 700,
                     background: active ? "var(--brand)" : "transparent",
                     color: active ? "#fff" : "var(--text)",
                     border: "none", cursor: "pointer", fontFamily: "inherit",
@@ -1462,7 +1462,7 @@ export default function InvestorInfoPage() {
                     disabled={k1reg.busyAll}
                     onClick={() => setSendAllOpen(true)}
                     title={`Email a K-1 link to all ${sendableInvestors.length} investors with an address on file`}
-                    style={{ fontSize: 12, fontWeight: 700 }}
+                    style={{ fontSize: "var(--fs-12)", fontWeight: 700 }}
                   >
                     {k1reg.busyAll ? "Sending…" : `Email all ${sendableInvestors.length}`}
                   </button>
@@ -1472,7 +1472,7 @@ export default function InvestorInfoPage() {
                   onClick={exportToExcel}
                   className="btn"
                   title="Download ownership data as an Excel workbook"
-                  style={{ fontSize: 12 }}
+                  style={{ fontSize: "var(--fs-12)" }}
                 >
                   Export Excel
                 </button>
@@ -1481,7 +1481,7 @@ export default function InvestorInfoPage() {
                   onClick={() => window.print()}
                   className="btn"
                   title="Print or Save as PDF"
-                  style={{ fontSize: 12 }}
+                  style={{ fontSize: "var(--fs-12)" }}
                 >
                   Print / PDF
                 </button>
@@ -1523,7 +1523,7 @@ export default function InvestorInfoPage() {
                           color: b.sub ? "var(--muted)" : TYPE_STYLE[b.type].text,
                           paddingLeft: b.sub ? 14 : 0,
                         }}>{b.label}</span>
-                        <span className="muted" style={{ fontSize: 11.5, marginLeft: 8 }}>
+                        <span className="muted" style={{ fontSize: "var(--fs-11-5)", marginLeft: 8 }}>
                           {b.count} {b.count === 1 ? "property" : "properties"}
                         </span>
                       </td>
@@ -1564,7 +1564,7 @@ export default function InvestorInfoPage() {
       {view === "property" && (
         <div style={{ display: "grid", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+            <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
               Entity values
             </span>
             <DownloadMenu
@@ -1618,7 +1618,7 @@ export default function InvestorInfoPage() {
       {/* A batch that failed outright — no results panel renders in that case,
           so without this the button would simply stop and say nothing. */}
       {view === "investor" && k1reg.errorAll && (
-        <div className="card no-print" style={{ borderLeft: "3px solid #b91c1c", background: "rgba(220,38,38,0.05)", color: "#b91c1c", fontSize: 13, fontWeight: 700 }}>
+        <div className="card no-print" style={{ borderLeft: "3px solid #b91c1c", background: "rgba(220,38,38,0.05)", color: "#b91c1c", fontSize: "var(--fs-13)", fontWeight: 700 }}>
           {k1reg.errorAll}
         </div>
       )}
@@ -1637,7 +1637,7 @@ export default function InvestorInfoPage() {
             aria-pressed={onlyMissingEmail}
             className="btn"
             style={{
-              fontSize: 12.5, fontWeight: 700,
+              fontSize: "var(--fs-12-5)", fontWeight: 700,
               background: onlyMissingEmail ? "rgba(220,38,38,0.10)" : undefined,
               color: onlyMissingEmail ? "#b91c1c" : undefined,
               borderColor: onlyMissingEmail ? "rgba(220,38,38,0.35)" : undefined,
@@ -1713,10 +1713,10 @@ export default function InvestorInfoPage() {
                       {startsEntities && (
                         <tr style={{ background: GROUP_ROW_BG, borderTop: "2px solid var(--border)" }}>
                           <td colSpan={canK1 ? 9 : 7} style={{ padding: "9px 16px" }}>
-                            <span style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>
+                            <span style={{ fontSize: "var(--fs-11-5)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>
                               Misc — companies &amp; trusts
                             </span>
-                            <span className="muted" style={{ fontSize: 11.5, marginLeft: 8 }}>
+                            <span className="muted" style={{ fontSize: "var(--fs-11-5)", marginLeft: 8 }}>
                               Each files its own return; the people behind it are on its own roster.
                             </span>
                           </td>
@@ -1842,9 +1842,9 @@ export default function InvestorInfoPage() {
                           onSave={saveContact}
                         />
                       </div>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14, borderTop: "1px solid var(--border)" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-14)", borderTop: "1px solid var(--border)" }}>
                         <thead>
-                          <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                          <tr style={{ color: "var(--muted)", fontSize: "var(--fs-11)", letterSpacing: "0.04em", textAlign: "left" }}>
                             <th style={{ padding: "10px 16px", fontWeight: 700, width: 70 }}>PROP</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700 }}>PROPERTY</th>
                             <th style={{ padding: "10px 16px", fontWeight: 700, width: 140, whiteSpace: "nowrap", ...VENDOR_COL }}>VENDOR CODE</th>
@@ -1882,9 +1882,9 @@ export default function InvestorInfoPage() {
                                     onClick={() => toggleGroup(subKey)}
                                     aria-expanded={subOpen}
                                     className="linkBtn no-print"
-                                    style={{ marginTop: 4, fontSize: 11.5, fontWeight: 700, color: "#0b4a7d", display: "inline-flex", alignItems: "center", gap: 6 }}
+                                    style={{ marginTop: 4, fontSize: "var(--fs-11-5)", fontWeight: 700, color: "#0b4a7d", display: "inline-flex", alignItems: "center", gap: 6 }}
                                   >
-                                    <span aria-hidden style={{ fontSize: 9 }}>{subOpen ? "\u25BC" : "\u25B6"}</span>
+                                    <span aria-hidden style={{ fontSize: "var(--fs-9)" }}>{subOpen ? "\u25BC" : "\u25B6"}</span>
                                     {subs.length} investors in {r.investor.name}
                                   </button>
                                 )}
@@ -1892,7 +1892,7 @@ export default function InvestorInfoPage() {
                               <td style={{ padding: "12px 16px", ...VENDOR_COL }}>
                                 {r.investor.vendorCode ? (
                                   <span style={{
-                                    fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+                                    fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.04em",
                                     padding: "2px 8px", borderRadius: 999,
                                     background: "rgba(15,23,42,0.05)", color: "var(--text)",
                                     border: "1px solid var(--border)",
@@ -1902,7 +1902,7 @@ export default function InvestorInfoPage() {
                                   <span style={{ color: "var(--muted)" }}>—</span>
                                 )}
                               </td>
-                              <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: 12.5 }}>
+                              <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: "var(--fs-12-5)" }}>
                                 {[r.investor.address, r.investor.city, r.investor.state, r.investor.zip].filter(Boolean).join(", ") || "—"}
                               </td>
                               <td style={{ padding: "12px 16px", textAlign: "right" }}>{pct(ifrac)}</td>
@@ -1924,16 +1924,16 @@ export default function InvestorInfoPage() {
                                 >
                                   <td style={{ padding: "8px 16px" }} />
                                   <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 600 }}>{sub.name}</div>
-                                    <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}>
+                                    <div style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>{sub.name}</div>
+                                    <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 1 }}>
                                       {sub.detailedName ? `${sub.detailedName} · ` : ""}{pct(ownershipFor(sub))} of {r.investor.name}
                                     </div>
                                   </td>
                                   <td style={{ padding: "8px 16px" }} />
                                   <td style={{ padding: "8px 16px" }} />
-                                  <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12 }}>{pct(eff)}</td>
-                                  <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{ipv ? money0(eff * ipv.ye) : "—"}</td>
-                                  <td style={{ padding: "8px 16px", textAlign: "right", fontSize: 12, fontVariantNumeric: "tabular-nums" }}>{ipv ? money0(eff * ipv.est) : "—"}</td>
+                                  <td style={{ padding: "8px 16px", textAlign: "right", fontSize: "var(--fs-12)" }}>{pct(eff)}</td>
+                                  <td style={{ padding: "8px 16px", textAlign: "right", fontSize: "var(--fs-12)", fontVariantNumeric: "tabular-nums" }}>{ipv ? money0(eff * ipv.ye) : "—"}</td>
+                                  <td style={{ padding: "8px 16px", textAlign: "right", fontSize: "var(--fs-12)", fontVariantNumeric: "tabular-nums" }}>{ipv ? money0(eff * ipv.est) : "—"}</td>
                                   {inv && <td className="no-print" colSpan={2} />}
                                 </tr>
                               );
@@ -1943,7 +1943,7 @@ export default function InvestorInfoPage() {
                         </tbody>
                         <tfoot>
                           <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
-                            <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: 11, textTransform: "uppercase", color: "var(--muted)" }} colSpan={4}>Total across {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</td>
+                            <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: "var(--fs-11)", textTransform: "uppercase", color: "var(--muted)" }} colSpan={4}>Total across {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</td>
                             <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(agg.rows.reduce((s, r) => { const p = propValue(r.holding.propertyCode); return s + (p ? (ownershipFor(r.investor) ?? 0) * p.ye : 0); }, 0))}</td>
                             <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(agg.rows.reduce((s, r) => { const p = propValue(r.holding.propertyCode); return s + (p ? (ownershipFor(r.investor) ?? 0) * p.est : 0); }, 0))}</td>
                             {inv && <td className="no-print" colSpan={2} />}
@@ -1952,16 +1952,16 @@ export default function InvestorInfoPage() {
                       </table>
                       <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                         <span className="muted small">Year-end as of {asOfLong()} · Estimated {estAsOfLabel}.</span>
-                        <button type="button" className="btn no-print" style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }} onClick={() => exportInvestorSoV(agg)}>⤓ Excel</button>
+                        <button type="button" className="btn no-print" style={{ fontSize: "var(--fs-12)", padding: "5px 10px", fontWeight: 600 }} onClick={() => exportInvestorSoV(agg)}>⤓ Excel</button>
                       </div>
                       {inv && k1reg.batch?.key === `inv:${agg.name}` && (
                         <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
                       )}
                       {inv?.error && (
-                        <div style={{ padding: "8px 16px", color: "#b91c1c", fontSize: 12.5, fontWeight: 600 }} className="no-print">{inv.error}</div>
+                        <div style={{ padding: "8px 16px", color: "#b91c1c", fontSize: "var(--fs-12-5)", fontWeight: 600 }} className="no-print">{inv.error}</div>
                       )}
                       {inv && (
-                        <div className="muted no-print" style={{ padding: "0 16px 10px", fontSize: 11.5 }}>
+                        <div className="muted no-print" style={{ padding: "0 16px 10px", fontSize: "var(--fs-11-5)" }}>
                           K-1s are uploaded on the property — they arrive as one batch per partnership. Sending here
                           re-sends that investor&rsquo;s own link.
                         </div>
@@ -2103,7 +2103,7 @@ function InvestorStructureBlock({ investorName, structure, canEdit }: { investor
             }}
           >
             <Chevron open={structureOpen} />
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+            <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
               {structure.title}
             </span>
             <span className="muted small">{structure.entries.length}</span>
@@ -2112,7 +2112,7 @@ function InvestorStructureBlock({ investorName, structure, canEdit }: { investor
             type="button"
             onClick={downloadStructure}
             className="btn"
-            style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }}
+            style={{ fontSize: "var(--fs-12)", padding: "5px 10px", fontWeight: 600 }}
           >⤓ Excel</button>
         </div>
         {structureOpen && structure.subtitle && (
@@ -2120,9 +2120,9 @@ function InvestorStructureBlock({ investorName, structure, canEdit }: { investor
         )}
         {structureOpen && (
         <div style={{ marginTop: 12, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
             <thead>
-              <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+              <tr style={{ color: "var(--muted)", fontSize: "var(--fs-11)", letterSpacing: "0.04em", textAlign: "left" }}>
                 <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top" }}>ENTITY / TRUST</th>
                 <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 180, whiteSpace: "nowrap" }}>TYPE</th>
                 <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 200 }}>ROLE</th>
@@ -2175,7 +2175,7 @@ function InvestorStructureBlock({ investorName, structure, canEdit }: { investor
               }}
             >
               <Chevron open={directoryOpen} />
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+              <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
                 {structure.directory.title}
               </span>
               <span className="muted small">{dirRows.length}</span>
@@ -2186,14 +2186,14 @@ function InvestorStructureBlock({ investorName, structure, canEdit }: { investor
                   type="button"
                   onClick={() => { setDirectoryOpen(true); setEditRow("__new__"); }}
                   className="btn"
-                  style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }}
+                  style={{ fontSize: "var(--fs-12)", padding: "5px 10px", fontWeight: 600 }}
                 >+ Add trustee</button>
               )}
               <button
                 type="button"
                 onClick={downloadDirectory}
                 className="btn"
-                style={{ fontSize: 12, padding: "5px 10px", fontWeight: 600 }}
+                style={{ fontSize: "var(--fs-12)", padding: "5px 10px", fontWeight: 600 }}
               >⤓ Excel</button>
             </div>
           </div>
@@ -2208,9 +2208,9 @@ function InvestorStructureBlock({ investorName, structure, canEdit }: { investor
                 onDelete={editRow !== "__new__" ? async () => { const name = dirRows.find((r) => normInvestorKey(r.name) === editRow)?.name ?? editRow; const ok = await saveTrustee(name, { name, deleted: true } as TrusteeRowOverride); if (ok) setEditRow(null); return ok; } : undefined}
               />
             )}
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
               <thead>
-                <tr style={{ color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em", textAlign: "left" }}>
+                <tr style={{ color: "var(--muted)", fontSize: "var(--fs-11)", letterSpacing: "0.04em", textAlign: "left" }}>
                   <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 180 }}>NAME</th>
                   <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top" }}>ADDRESS</th>
                   <th style={{ padding: "8px 10px", fontWeight: 700, verticalAlign: "top", width: 110, whiteSpace: "nowrap" }}>SERVING INDIVIDUALLY?</th>
@@ -2231,7 +2231,7 @@ function InvestorStructureBlock({ investorName, structure, canEdit }: { investor
                         )}
                         {canEdit && (
                           <button type="button" className="no-print" onClick={() => setEditRow(normInvestorKey(r.name))}
-                            style={{ display: "block", marginTop: 4, background: "transparent", border: "none", padding: 0, color: "var(--brand)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
+                            style={{ display: "block", marginTop: 4, background: "transparent", border: "none", padding: 0, color: "var(--brand)", fontSize: "var(--fs-11)", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
                         )}
                       </td>
                       <td style={{ padding: "10px 10px", verticalAlign: "top", lineHeight: 1.4 }}>
@@ -2278,7 +2278,7 @@ function TrusteeEditor({ row, onSave, onCancel, onDelete }: {
   const [saving, setSaving] = useState(false);
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF((p) => ({ ...p, [k]: e.target.value }));
   const inp: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
-  const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: 3 };
+  const lbl: React.CSSProperties = { fontSize: "var(--fs-10)", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: 3 };
   const field = (label: string, k: keyof typeof f, wide = false) => (
     <div style={{ gridColumn: wide ? "1 / -1" : undefined }}>
       <label style={lbl}>{label}</label>
@@ -2296,7 +2296,7 @@ function TrusteeEditor({ row, onSave, onCancel, onDelete }: {
 
   return (
     <div className="no-print" style={{ marginBottom: 14, padding: 14, border: "1px dashed var(--border)", borderRadius: 8 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
+      <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
         {row ? `Edit trustee · ${row.name}` : "Add trustee"}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
@@ -2320,10 +2320,10 @@ function TrusteeEditor({ row, onSave, onCancel, onDelete }: {
         </div>
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
-        <button type="button" className="btn primary" disabled={saving || !f.name.trim()} onClick={commit} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
-        <button type="button" className="btn" disabled={saving} onClick={onCancel} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+        <button type="button" className="btn primary" disabled={saving || !f.name.trim()} onClick={commit} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
+        <button type="button" className="btn" disabled={saving} onClick={onCancel} style={{ fontSize: "var(--fs-12)", padding: "6px 12px" }}>Cancel</button>
         {onDelete && (
-          <button type="button" className="btn" disabled={saving} onClick={() => { void onDelete(); }} style={{ fontSize: 12, padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Remove</button>
+          <button type="button" className="btn" disabled={saving} onClick={() => { void onDelete(); }} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Remove</button>
         )}
       </div>
     </div>
@@ -2355,7 +2355,7 @@ function EntityEditor({ entity, hasOverride, onSave, onCancel, onReset }: {
   const parse = (v: string): number | null => { const t = v.replace(/[$,\s]/g, ""); if (t === "") return null; const n = Number(t); return Number.isFinite(n) ? n : null; };
 
   const inp: React.CSSProperties = { width: "100%", boxSizing: "border-box", textAlign: "right", fontVariantNumeric: "tabular-nums" };
-  const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: 3 };
+  const lbl: React.CSSProperties = { fontSize: "var(--fs-10)", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)", display: "block", marginBottom: 3 };
   const moneyField = (label: string, k: keyof typeof f) => (
     <div><label style={lbl}>{label}</label><input inputMode="decimal" value={f[k]} onChange={set(k)} style={inp} /></div>
   );
@@ -2382,8 +2382,8 @@ function EntityEditor({ entity, hasOverride, onSave, onCancel, onReset }: {
 
   return (
     <div className="no-print" style={{ padding: 14, border: "1px dashed var(--border)", borderRadius: 8 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
-        Edit entity · <code style={{ fontSize: 11 }}>{entity.entity}</code>
+      <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
+        Edit entity · <code style={{ fontSize: "var(--fs-11)" }}>{entity.entity}</code>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
         <div style={{ gridColumn: "1 / 3" }}><label style={lbl}>Name</label><input value={f.name} onChange={set("name")} style={{ ...inp, textAlign: "left" }} /></div>
@@ -2398,16 +2398,16 @@ function EntityEditor({ entity, hasOverride, onSave, onCancel, onReset }: {
           <input inputMode="decimal" value={f.equityValue} onChange={set("equityValue")} style={inp} />
           {Math.round(suggestedEquity) !== Math.round(parse(f.equityValue) ?? 0) && (
             <button type="button" onClick={() => setF((p) => ({ ...p, equityValue: String(Math.round(suggestedEquity)) }))}
-              className="small" style={{ marginTop: 3, background: "transparent", border: "none", padding: 0, color: "var(--brand)", cursor: "pointer", fontFamily: "inherit", fontSize: 11 }}>
+              className="small" style={{ marginTop: 3, background: "transparent", border: "none", padding: 0, color: "var(--brand)", cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-11)" }}>
               = {money0(suggestedEquity)} (indicated − debt + cash − future cap)
             </button>
           )}
         </div>
       </div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
-        <button type="button" className="btn primary" disabled={saving || !f.name.trim()} onClick={commit} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
-        <button type="button" className="btn" disabled={saving} onClick={onCancel} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
-        {hasOverride && <button type="button" className="btn" disabled={saving} onClick={() => { void onReset(); }} style={{ fontSize: 12, padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Reset to seed</button>}
+        <button type="button" className="btn primary" disabled={saving || !f.name.trim()} onClick={commit} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
+        <button type="button" className="btn" disabled={saving} onClick={onCancel} style={{ fontSize: "var(--fs-12)", padding: "6px 12px" }}>Cancel</button>
+        {hasOverride && <button type="button" className="btn" disabled={saving} onClick={() => { void onReset(); }} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Reset to seed</button>}
       </div>
     </div>
   );
@@ -2420,7 +2420,7 @@ function DeltaTag({ base, now }: { base: number; now: number }) {
   const pct = (d / base) * 100;
   const up = d > 0;
   return (
-    <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: up ? "#15803d" : "#b91c1c" }}>
+    <span style={{ marginLeft: 6, fontSize: "var(--fs-10)", fontWeight: 700, color: up ? "#15803d" : "#b91c1c" }}>
       {up ? "▲" : "▼"} {Math.abs(pct).toFixed(1)}%
     </span>
   );
@@ -2466,14 +2466,14 @@ function SendStatementButton({ beneficiary, email }: { beneficiary: string; emai
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <span className="small" style={{ color: "var(--muted)" }}>Email to {email}?</span>
-        <button type="button" className="btn primary" disabled={state === "sending"} onClick={send} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{state === "sending" ? "Sending…" : "Send"}</button>
-        <button type="button" className="btn" disabled={state === "sending"} onClick={() => setState("idle")} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+        <button type="button" className="btn primary" disabled={state === "sending"} onClick={send} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }}>{state === "sending" ? "Sending…" : "Send"}</button>
+        <button type="button" className="btn" disabled={state === "sending"} onClick={() => setState("idle")} style={{ fontSize: "var(--fs-12)", padding: "6px 12px" }}>Cancel</button>
       </span>
     );
   }
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      <button type="button" className="btn" onClick={() => setState("confirm")} title={`Email ${beneficiary}'s statement`} style={{ fontSize: 12, padding: "8px 14px", fontWeight: 700 }}>Email to owner</button>
+      <button type="button" className="btn" onClick={() => setState("confirm")} title={`Email ${beneficiary}'s statement`} style={{ fontSize: "var(--fs-12)", padding: "8px 14px", fontWeight: 700 }}>Email to owner</button>
       {state === "error" && <span className="small" style={{ color: "#b91c1c" }}>{msg}</span>}
     </span>
   );
@@ -2504,7 +2504,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
       <code style={{
         background: "#0b1220", color: "#e0f0ff",
         padding: "1px 6px", borderRadius: 4,
-        fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+        fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.04em",
       }}>{code}</code>
     ) : null;
 
@@ -2560,14 +2560,14 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
           if (missing.length === 0) return null;
           return (
             <div className="card no-print" style={{ borderLeft: "3px solid #d97706", background: "rgba(217,119,6,0.05)" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
+              <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, marginBottom: 4 }}>
                 {missing.length} of {ownerNames.length} owners have no send-to contact
               </div>
               <div className="muted small" style={{ marginBottom: 8 }}>Add a mailing address or email before the annual mailing so each statement is ready to send.{canEdit ? " Click a name to add it." : ""}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {missing.map((n) => (
                   <button key={n} type="button" onClick={() => onPickOwner(n)}
-                    style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(217,119,6,0.3)", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
+                    style={{ fontSize: "var(--fs-11)", fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(217,119,6,0.3)", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
                     {n}
                   </button>
                 ))}
@@ -2583,7 +2583,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
           if (nonres.length === 0) return null;
           return (
             <div className="card no-print" style={{ borderLeft: "3px solid #b45309", background: "rgba(217,119,6,0.04)" }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
+              <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, marginBottom: 4 }}>
                 {nonres.length} nonresident owner{nonres.length === 1 ? "" : "s"} — potential PA withholding
               </div>
               <div className="muted small" style={{ marginBottom: 8 }}>
@@ -2593,7 +2593,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
                 {nonres.map(({ n, r }) => (
                   <button key={n} type="button" onClick={() => onPickOwner(n)}
                     title={r.label}
-                    style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.35)", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
+                    style={{ fontSize: "var(--fs-11)", fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.35)", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
                     {n} <span style={{ color: "#b45309" }}>· {r.state ?? r.country}</span>
                   </button>
                 ))}
@@ -2610,15 +2610,15 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
             </div>
             {editing ? (
               <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }} className="no-print">
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--muted)" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                   Est. as of
                   <Calendar variant="card" value={asOfDraft} onChange={setAsOfDraft} />
                 </span>
-                <button type="button" className="btn primary" disabled={saving} onClick={commit} style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
-                <button type="button" className="btn" disabled={saving} onClick={() => setEditing(false)} style={{ fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+                <button type="button" className="btn primary" disabled={saving} onClick={commit} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
+                <button type="button" className="btn" disabled={saving} onClick={() => setEditing(false)} style={{ fontSize: "var(--fs-12)", padding: "6px 12px" }}>Cancel</button>
               </div>
             ) : canEdit ? (
-              <button type="button" className="btn no-print" onClick={beginEdit} style={{ fontSize: 12, padding: "6px 12px" }}>Edit estimates</button>
+              <button type="button" className="btn no-print" onClick={beginEdit} style={{ fontSize: "var(--fs-12)", padding: "6px 12px" }}>Edit estimates</button>
             ) : null}
           </div>
           {editEntity && (
@@ -2633,7 +2633,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
             </div>
           )}
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)", borderTop: "1px solid var(--border)" }}>
               <thead>
                 <tr>
                   <th style={colHead}>ENTITY</th>
@@ -2654,10 +2654,10 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
                       <td style={{ padding: "10px 16px" }}>{codeChip(e.propertyCode ?? e.entity)}</td>
                       <td style={{ padding: "10px 16px", fontWeight: 600 }}>
                         <span>{e.name}</span>
-                        {entityOverrides[e.entity] && <span title="Edited" style={{ marginLeft: 6, color: "#d97706", fontSize: 11 }}>✎</span>}
+                        {entityOverrides[e.entity] && <span title="Edited" style={{ marginLeft: 6, color: "#d97706", fontSize: "var(--fs-11)" }}>✎</span>}
                         {canEdit && !editing && (
                           <button type="button" className="no-print" onClick={() => setEditEntity(e.entity)}
-                            style={{ marginLeft: 8, background: "transparent", border: "none", padding: 0, color: "var(--brand)", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
+                            style={{ marginLeft: 8, background: "transparent", border: "none", padding: 0, color: "var(--brand)", fontSize: "var(--fs-11)", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
                         )}
                       </td>
                       <td style={{ ...numTd, color: (e.noi ?? 0) < 0 ? "#b91c1c" : undefined }}>{e.noi == null ? "—" : money0(e.noi)}</td>
@@ -2727,7 +2727,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
           </div>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, borderTop: "1px solid var(--border)" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)", borderTop: "1px solid var(--border)" }}>
             <thead>
               <tr>
                 <th style={colHead}>ENTITY</th>

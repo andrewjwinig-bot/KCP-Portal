@@ -97,11 +97,11 @@ export default function DepositCard({
         <SectionLabel>Security Deposit</SectionLabel>
         {!showForm && (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Link href="/deposits" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
+            <Link href="/deposits" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
               All deposits →
             </Link>
             <button type="button" className="btn" onClick={() => { setAdding(true); setEditing(null); }}
-              style={{ fontSize: 12, padding: "6px 12px", fontWeight: 600 }}>
+              style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 600 }}>
               + Add deposit
             </button>
           </div>
@@ -121,7 +121,7 @@ export default function DepositCard({
           />
         </div>
       ) : loading ? (
-        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>Loading…</div>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 8 }}>Loading…</div>
       ) : (deposits && deposits.length > 0) ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
           {deposits.length > 1 && (() => {
@@ -132,7 +132,7 @@ export default function DepositCard({
                 padding: "8px 12px", borderRadius: 10,
                 background: "rgba(11,74,125,0.06)", border: "1px solid rgba(11,74,125,0.18)",
               }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>
+                <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--muted)" }}>
                   Total held · {deposits.length} checks
                 </span>
                 <span style={{ fontSize: 16, fontWeight: 800 }}>{money(held)}</span>
@@ -155,9 +155,9 @@ export default function DepositCard({
                 </a>
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ fontSize: "var(--fs-14)", fontWeight: 700, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span>{d.amount ? money(d.amount) : "—"}</span>
-                  <span style={{ fontSize: 12, fontWeight: 500, color: "var(--muted)" }}>
+                  <span style={{ fontSize: "var(--fs-12)", fontWeight: 500, color: "var(--muted)" }}>
                     {d.checkNumber ? `Check #${d.checkNumber}` : ""}
                   </span>
                   {d.refunded && (
@@ -166,19 +166,19 @@ export default function DepositCard({
                     </Pill>
                   )}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                   {prettyDate(d.checkDate)} · {DEPOSIT_ACCOUNTS[depositAccountOf(d)].bank}
                 </div>
               </div>
               {d.checkImage && !d.checkImage.contentType.startsWith("image/") && (
                 <a href={blobSrc(d.checkImage.url)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
-                  style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d" }}>View file</a>
+                  style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d" }}>View file</a>
               )}
             </div>
           ))}
         </div>
       ) : (
-        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 8 }}>
           No security deposit recorded for this suite yet.
         </div>
       )}

@@ -39,7 +39,7 @@ import type { LeasingCall, SavePayload } from "./LeasingDecision";
 const GROWTH = 3;
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 function sourceBadge(source: DraftSource, growthPct: number, feePct?: number): { tone: PillTone; text: string } | null {
   switch (source) {
@@ -558,7 +558,7 @@ export default function BudgetDraftPage() {
           ) : hLine?.source === "loans" && draft?.debt?.loans.length ? (
             // Debt service: the loans' schedule, the same working the line's ⓘ opens.
             <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--brand)", borderRadius: 10, padding: "10px 14px 14px" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>How it is figured</div>
+              <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>How it is figured</div>
               <div style={{ fontSize: 15, fontWeight: 800, margin: "2px 0 10px" }}>{draft.budgetYear} Debt Service from the Loans</div>
               <DebtDetail debt={draft.debt} year={draft.budgetYear} />
             </div>
@@ -566,7 +566,7 @@ export default function BudgetDraftPage() {
             // A provided figure (real estate taxes off the public record): the
             // SAME working the line's pill opens, here where the line is read.
             <div style={{ border: "1px solid var(--border)", borderTop: "3px solid var(--brand)", borderRadius: 10, padding: "10px 14px 14px" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>How it is figured</div>
+              <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>How it is figured</div>
               <div style={{ fontSize: 15, fontWeight: 800, margin: "2px 0 6px" }}>{hLine.inputSource.title}</div>
               <SourceDetail source={hLine.inputSource} />
             </div>
@@ -617,6 +617,6 @@ function leasingCalls(leasing: NonNullable<BudgetDraft["leasing"]>): LeasingCall
   ];
 }
 
-const thS: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" };
+const thS: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)" };
 const tdL: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "left", whiteSpace: "nowrap" };
 const tdR: React.CSSProperties = { padding: "8px 14px", borderBottom: "1px solid var(--border)", textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };

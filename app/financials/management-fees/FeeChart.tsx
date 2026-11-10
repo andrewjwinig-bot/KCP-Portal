@@ -110,7 +110,7 @@ export function ChartLegend({ series }: { series: Series[] }) {
   return (
     <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 6 }}>
       {series.map((s) => (
-        <span key={s.label} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600 }}>
+        <span key={s.label} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", fontWeight: 600 }}>
           <span style={{ width: 14, height: 0, borderTop: `2.5px ${s.dashed ? "dashed" : "solid"} ${s.color}` }} />
           {s.label}
         </span>

@@ -125,7 +125,7 @@ export default function FloorplanPdf({ src, turn, crop, editing = false, maxHeig
         )}
       </div>
       {state !== "ok" && (
-        <span style={{ fontSize: 12, color: "var(--muted)" }}>{state === "loading" ? "Drawing the floor plan…" : "Couldn't draw the PDF — open it above."}</span>
+        <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>{state === "loading" ? "Drawing the floor plan…" : "Couldn't draw the PDF — open it above."}</span>
       )}
     </div>
   );

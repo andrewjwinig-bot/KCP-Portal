@@ -20,7 +20,7 @@ import AllowedLink from "@/app/components/AllowedLink";
 type Debt = NonNullable<BudgetDraft["debt"]>;
 
 const usd = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 export function DebtDetail({ debt, year }: { debt: Debt; year: number }) {
   const start = debt.loans.reduce((s, l) => s + l.balanceStart * (l.share ?? 1), 0);
@@ -62,7 +62,7 @@ export function DebtDetail({ debt, year }: { debt: Debt; year: number }) {
                     {l.interestOnly && <span style={{ marginLeft: 6 }}><Pill tone={TONE_NEUTRAL}>Interest Only</Pill></span>}
                     {l.refinanceAssumed && <span style={{ marginLeft: 6 }}><Pill tone={TONE_AMBER}>Refinance Assumed</Pill></span>}
                     {l.share != null && (
-                      <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+                      <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 2 }}>
                         The fund&rsquo;s loan — this building carries {(l.share * 100).toFixed(1)}% of its interest and principal
                         {debt.fundShare?.basis === "sqft" ? " (by square footage — no prior budget to follow)" : ", as last year's budget allocated it"}; balances are the whole loan.
                       </div>

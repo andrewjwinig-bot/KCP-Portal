@@ -13,9 +13,10 @@ export type Skin = "classic" | "studio";
 
 export function readSkin(): Skin {
   try {
-    return localStorage.getItem(SKIN_KEY) === "studio" ? "studio" : "classic";
+    // The new look is the default; "classic" only when someone switched back.
+    return localStorage.getItem(SKIN_KEY) === "classic" ? "classic" : "studio";
   } catch {
-    return "classic";
+    return "studio";
   }
 }
 
@@ -28,7 +29,7 @@ export function applySkin(skin: Skin, isPublic = false) {
 }
 
 export default function SkinToggle() {
-  const [skin, setSkin] = useState<Skin>("classic");
+  const [skin, setSkin] = useState<Skin>("studio");
 
   useEffect(() => {
     setSkin(readSkin());

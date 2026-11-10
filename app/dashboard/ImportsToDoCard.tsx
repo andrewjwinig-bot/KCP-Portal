@@ -40,7 +40,7 @@ export default function ImportsToDoCard({ owner }: { owner?: TaskOwner } = {}) {
 
   return (
     <div className="card" style={{ order: -1 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 12 }}>
+      <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 12 }}>
         Data Imports
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -129,7 +129,7 @@ function Row({
         {/* The TITLE is the link. A row whose whole point is "go here" does
             not need a separate "Open →" to say so — and the bold text is the
             biggest, most obvious thing to click. */}
-        <Link href={link} style={{ fontWeight: 700, fontSize: 14, color: "inherit", textDecoration: "none" }}
+        <Link href={link} style={{ fontWeight: 700, fontSize: "var(--fs-14)", color: "inherit", textDecoration: "none" }}
           className="row-link">{title}</Link>
         {/* A count only means something when there is more than one thing to
             import (the GL's properties); a single statement run is in or not. */}
@@ -150,7 +150,7 @@ function Row({
             footer={coverage.behind.length ? { label: "Waiting on", value: coverage.behind.join(", ") } : undefined}
           >
             <span style={{
-              marginLeft: 8, fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999,
+              marginLeft: 8, fontSize: "var(--fs-10)", fontWeight: 700, padding: "2px 7px", borderRadius: 999,
               letterSpacing: "0.04em", whiteSpace: "nowrap", cursor: "default",
               background: EDGE[status].border, color: DOT[status],
             }}>{coverage.done}/{coverage.total}</span>

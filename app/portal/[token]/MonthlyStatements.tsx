@@ -63,7 +63,7 @@ const dateLabel = (iso: string | null) => {
 };
 
 const SectionLabel = ({ children }: { children: React.ReactNode }) => (
-  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", margin: "0 0 12px" }}>{children}</div>
+  <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", margin: "0 0 12px" }}>{children}</div>
 );
 
 /** The headline: what's owed, split into this month vs. what's carried over. */
@@ -79,10 +79,10 @@ export function BalanceCallout({ st, token }: { st: MonthlyStatement; token: str
       display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, flexWrap: "wrap",
     }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tone }}>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: tone }}>
           {settled ? "Your account is current" : credit ? "Credit on account" : "Total amount due"}
         </div>
-        <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
+        <div className="muted" style={{ fontSize: "var(--fs-13)", marginTop: 6 }}>
           {settled ? "Nothing is currently open on your account." : (
             <>
               This month <strong style={{ color: "var(--text)" }}>{money2(st.summary.currentCharges)}</strong>
@@ -94,11 +94,11 @@ export function BalanceCallout({ st, token }: { st: MonthlyStatement; token: str
         {/* The single most important caveat: this lists what's STILL OPEN. A
             tenant who has paid must understand why their rent isn't here,
             rather than assuming we forgot to bill them. */}
-        <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+        <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 6 }}>
           Unpaid charges only{st.asOfLabel ? `, as of ${st.asOfLabel}` : ""}. Anything already paid has come off.
         </div>
         {st.summary.credits > 0.005 && (
-          <div style={{ fontSize: 12.5, marginTop: 4, color: GREEN, fontWeight: 600 }}>Includes {money2(st.summary.credits)} of credits already applied.</div>
+          <div style={{ fontSize: "var(--fs-12-5)", marginTop: 4, color: GREEN, fontWeight: 600 }}>Includes {money2(st.summary.credits)} of credits already applied.</div>
         )}
       </div>
       <div style={{ textAlign: "right" }}>
@@ -126,7 +126,7 @@ function AgingStrip({ st }: { st: MonthlyStatement }) {
         {st.summary.byAging.map((b, i) => (
           <div key={b.bucket} style={{ flex: "1 1 auto", minWidth: 118, padding: "12px 16px", borderLeft: i ? "1px solid var(--border)" : "none" }}>
             <div style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: b.bucket === "current" ? "var(--text)" : AMBER }}>{money(b.amount)}</div>
-            <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{AGING_LABEL[b.bucket]}</div>
+            <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 2 }}>{AGING_LABEL[b.bucket]}</div>
           </div>
         ))}
       </div>
@@ -155,7 +155,7 @@ function CategoryTiles({ st }: { st: MonthlyStatement }) {
             >
               <div style={{ border: "1px solid var(--border)", borderLeft: `3px solid ${CATEGORY_COLOR[c.category]}`, borderRadius: 12, padding: "13px 15px", background: "var(--card)", boxShadow: "var(--shadow)", height: "100%", boxSizing: "border-box" }}>
                 <div style={{ fontSize: 20, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: c.amount < 0 ? GREEN : "var(--text)" }}>{money2(c.amount)}</div>
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+                <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 2 }}>
                   {CATEGORY_LABEL[c.category]} · {c.count} {c.count === 1 ? "charge" : "charges"}
                 </div>
               </div>
@@ -193,7 +193,7 @@ function ChargeTable({ st, hasRecon, onOpenRecon, selected, onToggle, onToggleAl
                 </div>
               )}
               {["Date", "Charge", "Type", "Amount"].map((h, i) => (
-                <div key={h} style={{ padding: "0 14px", fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: i === 1 ? BRAND : "var(--muted)", textAlign: i === 3 ? "right" : "left" }}>{h}</div>
+                <div key={h} style={{ padding: "0 14px", fontSize: "var(--fs-10-5)", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", color: i === 1 ? BRAND : "var(--muted)", textAlign: i === 3 ? "right" : "left" }}>{h}</div>
               ))}
             </div>
             {st.charges.map((c, i) => {
@@ -203,7 +203,7 @@ function ChargeTable({ st, hasRecon, onOpenRecon, selected, onToggle, onToggleAl
                 <div key={`${c.dateISO}-${c.description}-${i}`}
                   onClick={pickable ? () => onToggle(i) : undefined}
                   style={{ display: "grid", gridTemplateColumns: GRID, alignItems: "baseline", borderTop: i === 0 ? "none" : "1px solid var(--border)",
-                    background: i % 2 === 1 ? "rgba(15,23,42,0.02)" : undefined, fontSize: 14,
+                    background: i % 2 === 1 ? "rgba(15,23,42,0.02)" : undefined, fontSize: "var(--fs-14)",
                     cursor: pickable ? "pointer" : undefined, opacity: on ? 1 : 0.45 }}>
                   {pickable && (
                     <div style={{ padding: "9px 0 9px 14px" }}>
@@ -211,17 +211,17 @@ function ChargeTable({ st, hasRecon, onOpenRecon, selected, onToggle, onToggleAl
                         aria-label={`Pay ${c.description}`} style={{ cursor: "pointer" }} />
                     </div>
                   )}
-                  <div style={{ padding: pad, color: "var(--muted)", fontSize: 12.5, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{dateLabel(c.dateISO)}</div>
+                  <div style={{ padding: pad, color: "var(--muted)", fontSize: "var(--fs-12-5)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{dateLabel(c.dateISO)}</div>
                   <div style={{ padding: pad }}>
                     {c.description}
                     {linkYear && (
                       <button type="button" onClick={() => onOpenRecon(linkYear)}
-                        style={{ marginLeft: 8, padding: 0, border: "none", background: "none", font: "inherit", fontSize: 11.5, fontWeight: 700, color: BRAND, cursor: "pointer", whiteSpace: "nowrap" }}>
+                        style={{ marginLeft: 8, padding: 0, border: "none", background: "none", font: "inherit", fontSize: "var(--fs-11-5)", fontWeight: 700, color: BRAND, cursor: "pointer", whiteSpace: "nowrap" }}>
                         View {linkYear} reconciliation &rarr;
                       </button>
                     )}
                   </div>
-                  <div style={{ padding: pad, fontSize: 12, color: CATEGORY_COLOR[c.category], fontWeight: 700 }}>{CATEGORY_LABEL[c.category]}</div>
+                  <div style={{ padding: pad, fontSize: "var(--fs-12)", color: CATEGORY_COLOR[c.category], fontWeight: 700 }}>{CATEGORY_LABEL[c.category]}</div>
                   <div style={{ padding: pad, textAlign: "right", fontVariantNumeric: "tabular-nums", color: c.amount < 0 ? GREEN : "var(--text)", fontWeight: c.amount < 0 ? 700 : 400 }}>{money2(c.amount)}</div>
                 </div>
               );
@@ -233,7 +233,7 @@ function ChargeTable({ st, hasRecon, onOpenRecon, selected, onToggle, onToggleAl
           </div>
         </div>
       </div>
-      <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.55 }}>
+      <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 8, lineHeight: 1.55 }}>
         This lists charges that are still open{st.asOfLabel ? ` as of ${st.asOfLabel}` : ""} — a charge you&rsquo;ve already
         paid won&rsquo;t appear here. Payments made after that date aren&rsquo;t reflected yet.
       </div>
@@ -248,8 +248,8 @@ export function HowToPay({ payment, unitRef, reference }: { payment: PaymentInst
       <div style={{ width: 34, height: 34, flexShrink: 0, borderRadius: 9, background: "rgba(11,74,125,0.09)", color: BRAND, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{icon}</svg>
       </div>
-      <div style={{ minWidth: 0, fontSize: 13.5, lineHeight: 1.55 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>{title}</div>
+      <div style={{ minWidth: 0, fontSize: "var(--fs-13-5)", lineHeight: 1.55 }}>
+        <div style={{ fontWeight: 700, fontSize: "var(--fs-13)", marginBottom: 3 }}>{title}</div>
         <div className="muted">{children}</div>
       </div>
     </div>
@@ -258,7 +258,7 @@ export function HowToPay({ payment, unitRef, reference }: { payment: PaymentInst
     <section style={{ marginTop: 26 }}>
       <SectionLabel>How to pay</SectionLabel>
       <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "var(--card)", boxShadow: "var(--shadow)" }}>
-        <div style={{ background: "rgba(11,74,125,0.09)", padding: "9px 18px", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>
+        <div style={{ background: "rgba(11,74,125,0.09)", padding: "9px 18px", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>
           Reference {reference ? `${unitRef} · ${reference}` : unitRef} on every payment
         </div>
         <Row icon={<><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></>} title="By check">
@@ -276,7 +276,7 @@ export function HowToPay({ payment, unitRef, reference }: { payment: PaymentInst
           </Row>
         )}
         {payment.note && (
-          <div style={{ borderTop: "1px solid var(--border)", padding: "12px 18px", fontSize: 12.5, fontStyle: "italic", color: "var(--muted)", background: "rgba(15,23,42,0.015)" }}>{payment.note}</div>
+          <div style={{ borderTop: "1px solid var(--border)", padding: "12px 18px", fontSize: "var(--fs-12-5)", fontStyle: "italic", color: "var(--muted)", background: "rgba(15,23,42,0.015)" }}>{payment.note}</div>
         )}
       </div>
     </section>
@@ -348,12 +348,12 @@ function DeclarePayment({ token, st, selected, total, onDone, request }: {
       <div style={{ border: `1.5px solid ${BRAND}`, borderRadius: 14, background: "var(--card)", boxShadow: "var(--shadow)", overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", padding: "16px 18px", background: "rgba(11,74,125,0.05)" }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 700 }}>
+            <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 700 }}>
               {request
                 ? (matched ? "That accounts for your whole payment" : `Selected ${selected.size} of ${st.charges.length} charges`)
                 : full ? "Paying your balance in full" : `Paying ${selected.size} of ${st.charges.length} charges`}
             </div>
-            <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>
+            <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 3 }}>
               {request
                 ? matched
                   ? "Confirm and we'll apply it to exactly these charges."
@@ -368,16 +368,16 @@ function DeclarePayment({ token, st, selected, total, onDone, request }: {
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 28, fontWeight: 900, lineHeight: 1.05, fontVariantNumeric: "tabular-nums",
               color: request ? (matched ? GREEN : AMBER) : BRAND }}>{money2(total)}</div>
-            <div className="muted" style={{ fontSize: 11.5 }}>{request ? `of ${money2(request.amount)} received` : "you\u2019re paying"}</div>
+            <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>{request ? `of ${money2(request.amount)} received` : "you\u2019re paying"}</div>
           </div>
         </div>
         <div style={{ padding: "16px 18px", display: "grid", gap: 12 }}>
           {!request && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            <span className="muted" style={{ fontSize: 12.5 }}>Sending by</span>
+            <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>Sending by</span>
             {(["check", "ach", "other"] as const).map((m) => (
               <button key={m} type="button" onClick={() => setMethod(m)}
-                style={{ cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 700, padding: "6px 12px", borderRadius: 999,
+                style={{ cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-12-5)", fontWeight: 700, padding: "6px 12px", borderRadius: 999,
                   border: `1px solid ${method === m ? BRAND : "var(--border)"}`,
                   background: method === m ? "rgba(11,74,125,0.08)" : "transparent",
                   color: method === m ? BRAND : "var(--muted)" }}>
@@ -388,15 +388,15 @@ function DeclarePayment({ token, st, selected, total, onDone, request }: {
           )}
           <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 2000))} rows={2}
             placeholder="Anything we should know? (optional)"
-            style={{ width: "100%", boxSizing: "border-box", fontSize: 13.5, padding: "9px 11px", fontFamily: "inherit", resize: "vertical", border: "1px solid var(--border)", borderRadius: 9, background: "var(--bg, #fff)", color: "var(--text)" }} />
-          {err && <div style={{ color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>{err}</div>}
+            style={{ width: "100%", boxSizing: "border-box", fontSize: "var(--fs-13-5)", padding: "9px 11px", fontFamily: "inherit", resize: "vertical", border: "1px solid var(--border)", borderRadius: 9, background: "var(--bg, #fff)", color: "var(--text)" }} />
+          {err && <div style={{ color: "#b91c1c", fontSize: "var(--fs-13)", fontWeight: 600 }}>{err}</div>}
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <button type="button" onClick={submit} disabled={busy || selected.size === 0}
-              style={{ background: BRAND, color: "#fff", border: "none", borderRadius: 9, padding: "11px 18px", fontSize: 14, fontWeight: 700,
+              style={{ background: BRAND, color: "#fff", border: "none", borderRadius: 9, padding: "11px 18px", fontSize: "var(--fs-14)", fontWeight: 700,
                 cursor: busy || selected.size === 0 ? "default" : "pointer", opacity: busy || selected.size === 0 ? 0.6 : 1, fontFamily: "inherit" }}>
               {busy ? "Sending…" : request ? "Confirm how to apply it" : "Confirm what I'm paying"}
             </button>
-            <span className="muted" style={{ fontSize: 12, maxWidth: 420 }}>
+            <span className="muted" style={{ fontSize: "var(--fs-12)", maxWidth: 420 }}>
               {request
                 ? "This only tells us where to apply the payment we already have — you won't be charged again."
                 : "This tells us how to apply your payment — it doesn't charge you anything."}
@@ -417,23 +417,23 @@ function DeclaredPayment({ r, onRevise }: { r: Remittance; onRevise: () => void 
       <div style={{ border: `1.5px solid ${GREEN}`, borderRadius: 14, background: "rgba(21,128,61,0.05)", overflow: "hidden" }}>
         <div style={{ padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, fontWeight: 800, color: GREEN }}>
+            <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 800, color: GREEN }}>
               Thanks — we know how to apply this{full ? "" : ` (${r.paying.length} of ${r.paying.length + r.holding.length} charges)`}
             </div>
-            <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+            <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 4 }}>
               {money2(r.amount)} by {METHOD_LABEL[r.method]}, sent {new Date(r.submittedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}.
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Write this on your check</div>
+            <div className="muted" style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Write this on your check</div>
             <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "0.08em", color: GREEN, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{r.reference}</div>
           </div>
         </div>
         <div style={{ borderTop: "1px solid rgba(21,128,61,0.25)", padding: "12px 18px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span className="muted" style={{ fontSize: 12.5, flex: 1, minWidth: 240 }}>
+          <span className="muted" style={{ fontSize: "var(--fs-12-5)", flex: 1, minWidth: 240 }}>
             Paying something different? Update your selection and tell us again.
           </span>
-          <button type="button" onClick={onRevise} className="btn" style={{ fontSize: 12.5, padding: "6px 12px", fontWeight: 700 }}>Change this</button>
+          <button type="button" onClick={onRevise} className="btn" style={{ fontSize: "var(--fs-12-5)", padding: "6px 12px", fontWeight: 700 }}>Change this</button>
         </div>
       </div>
     </section>
@@ -499,15 +499,15 @@ export function MonthlyStatementDetail({ token, st, payment, reconYears, onOpenR
           <div style={{ fontSize: 14.5, fontWeight: 800, color: BRAND }}>
             We received your payment of {money2(request.amount)}{request.paymentRef ? ` (${request.paymentRef})` : ""} — thank you.
           </div>
-          <div className="muted" style={{ fontSize: 13, marginTop: 5, lineHeight: 1.55 }}>
+          <div className="muted" style={{ fontSize: "var(--fs-13)", marginTop: 5, lineHeight: 1.55 }}>
             It didn&rsquo;t say which charges it covers, and we&rsquo;d rather apply it where you intended than guess.
             Tick the charges below that this payment should pay.
           </div>
-          {request.note && <div className="muted" style={{ fontSize: 12.5, marginTop: 6, fontStyle: "italic" }}>{request.note}</div>}
+          {request.note && <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 6, fontStyle: "italic" }}>{request.note}</div>}
         </div>
       )}
       {st.underReview && (
-        <div style={{ marginBottom: 16, borderRadius: 12, padding: "12px 16px", background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", color: AMBER, fontSize: 13.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ marginBottom: 16, borderRadius: 12, padding: "12px 16px", background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", color: AMBER, fontSize: "var(--fs-13-5)", fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
           <span>We&rsquo;re reviewing this statement — please contact us before remitting.</span>
         </div>

@@ -83,9 +83,9 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
       .then((r) => r.json()).then(setData).catch(() => setData(null)).finally(() => setLoading(false));
   }, [viewKey, property, year, period, scope, mask, sign, version, label]);
 
-  const th: React.CSSProperties = { textAlign: "left", fontSize: 11, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px", position: "sticky", top: 0, background: "var(--card)" };
+  const th: React.CSSProperties = { textAlign: "left", fontSize: "var(--fs-11)", fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em", padding: "6px 10px", position: "sticky", top: 0, background: "var(--card)" };
   const thR: React.CSSProperties = { ...th, textAlign: "right" };
-  const td: React.CSSProperties = { padding: "6px 10px", fontSize: 13, borderTop: "1px solid var(--border)" };
+  const td: React.CSSProperties = { padding: "6px 10px", fontSize: "var(--fs-13)", borderTop: "1px solid var(--border)" };
   const tdR: React.CSSProperties = { ...td, textAlign: "right", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" };
 
   if (loading) return <div className="muted small" style={{ padding: 18 }}>Loading…</div>;
@@ -142,7 +142,7 @@ export function RentCheckTable({ viewKey, property, year, period, scope, mask, s
               const vacant = !r.tenant;
               return (
               <tr key={r.unitRef} style={vacant ? { opacity: 0.55 } : undefined}>
-                <td style={{ ...td, whiteSpace: "nowrap" }}><code style={{ fontSize: 12 }}>{r.unitRef}</code></td>
+                <td style={{ ...td, whiteSpace: "nowrap" }}><code style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
                 <td style={td}>{r.tenant || <span className="muted" style={{ fontWeight: 700, letterSpacing: "0.04em" }}>VACANT</span>}</td>
                 {hasRef && <td style={{ ...td, whiteSpace: "nowrap", color: "var(--muted)" }}>{refByUnit?.[r.unitRef] || "—"}</td>}
                 <td style={{ ...tdR, color: "var(--muted)" }}>{r.sqft ? r.sqft.toLocaleString("en-US") : "—"}</td>

@@ -65,7 +65,7 @@ export function RecoveryCheckCard({ checks, year }: { checks: NonNullable<Budget
           <tbody>
             {checks.map((p) => (
               <tr key={p.code}>
-                <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)" }}>{p.code}</code> <span style={{ fontWeight: 600 }}>{p.name}</span></td>
+                <td style={tdL}><code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)" }}>{p.code}</code> <span style={{ fontWeight: 600 }}>{p.name}</span></td>
                 {cells(p.checks.find((c) => c.group === "camIns"))}
                 {cells(p.checks.find((c) => c.group === "ret"))}
               </tr>
