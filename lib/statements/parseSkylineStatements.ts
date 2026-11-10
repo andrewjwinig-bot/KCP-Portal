@@ -166,7 +166,16 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
   const sheetName = wb.SheetNames[0];
   if (!sheetName) throw new Error("The workbook has no sheets.");
   const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], { header: 1, raw: true, defval: null });
+  return { ...statementsFromRows(rows), exportedAt: workbookStamp(wb) };
+}
 
+/** The columns a statement row is read from — the Excel export's positions.
+ *  The PDF reader (`parseLaserPdf.ts`) lays each printed line into the same
+ *  slots, so both formats run through ONE reader and one tie-out. */
+export const STATEMENT_COLS = { date: COL_DATE, desc: COL_DESC, amount: COL_AMOUNT, unitRef: COL_UNITREF, balance: COL_BALANCE } as const;
+
+/** Rows of a Laser Statement (Excel's grid, or a PDF laid into it) → tenants. */
+export function statementsFromRows(rows: unknown[][]): Omit<ParsedStatements, "exportedAt"> {
   const byUnit = new Map<string, TenantStatement>();
   const closed = new Set<string>();
   const order: string[] = [];
@@ -295,7 +304,7 @@ export function parseSkylineStatements(buf: ArrayBuffer | Buffer): ParsedStateme
     statements.push(rec);
   }
 
-  return { statements, period: periodOf(statements), mismatched, exportedAt: workbookStamp(wb) };
+  return { statements, period: periodOf(statements), mismatched };
 }
 
 /** The statement month — the newest charge date across the export. */

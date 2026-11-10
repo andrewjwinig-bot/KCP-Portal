@@ -56,3 +56,39 @@ export async function pdfText(data: Buffer | Uint8Array): Promise<string> {
     await parser.destroy().catch(() => {});
   }
 }
+
+/** One piece of text on a page, at its position (PDF points, origin bottom-left). */
+export type PdfItem = { x: number; y: number; s: string };
+
+/** Every page's text WITH POSITIONS — for a report whose meaning is its layout
+ *  (the Laser Statement: date, description, amount and balance are columns).
+ *  pdf-parse flattens a page to lines; pdfjs (which it is built on) gives each
+ *  piece of text where it sits. Also returns the document's creation date. */
+export async function pdfPages(data: Buffer | Uint8Array): Promise<{ pages: PdfItem[][]; created: string | null }> {
+  ensureDomMatrix();
+  await ensureWorker();
+  // @ts-ignore — pdfjs-dist ships with pdf-parse; its legacy build runs on Node.
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(data), isEvalSupported: false }).promise;
+  try {
+    const pages: PdfItem[][] = [];
+    for (let p = 1; p <= doc.numPages; p++) {
+      const page = await doc.getPage(p);
+      const tc = await page.getTextContent();
+      pages.push(
+        (tc.items as { str?: string; transform?: number[] }[])
+          .filter((i) => typeof i.str === "string" && i.str.trim() && i.transform)
+          .map((i) => ({ x: i.transform![4], y: i.transform![5], s: i.str!.trim() })),
+      );
+    }
+    let created: string | null = null;
+    try {
+      const info = (await doc.getMetadata()).info as { CreationDate?: string };
+      const m = info?.CreationDate?.match(/^D:(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?/);
+      if (m) created = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4] ?? "00"}:${m[5] ?? "00"}:${m[6] ?? "00"}`).toISOString();
+    } catch { /* no metadata */ }
+    return { pages, created };
+  } finally {
+    await doc.destroy().catch(() => {});
+  }
+}

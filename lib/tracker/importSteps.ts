@@ -56,12 +56,11 @@ export const IMPORT_STEPS: Record<string, ImportSteps> = {
     // Where Tanya files them each month (PDFs today).
     path: { label: "Find them in", value: "Data\\Shared\\Properties\\Billings and Statements\\{year} Billing and Statements\\<NN Month>\\Laser Statements" },
     steps: [
-      "Run the Laser Statement for the month, across the buildings being billed — on the 1st or 2nd, before payments come in.",
-      "Report Destination: Excel. Save the .xls it produces.",
-      "In the portal: Monthly Statements, Import, and upload it unmodified. Several files (shopping centres and business parks separately) merge into one month.",
+      "Tanya saves the month's Laser Statements as PDFs in the folder below — or run the Laser Statement in Skyline to Excel.",
+      "In the portal: Monthly Statements, Import, and select every PDF in the folder at once. They merge into one month; a one-tenant re-run updates only that tenant.",
     ],
     importAt: { label: "Monthly Statements", href: "/tenant-statements" },
-    note: "Don't delete rows or re-sort — every tenant is checked against the balance Skyline printed.",
+    note: "Upload the files as saved — every tenant is checked against the Total Amount Due Skyline printed.",
   },
   "imp-bank": {
     title: "Bank Balances",

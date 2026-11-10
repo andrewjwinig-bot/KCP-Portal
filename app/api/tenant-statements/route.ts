@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseSkylineStatements } from "@/lib/statements/parseSkylineStatements";
+import { parseStatementFile } from "@/lib/statements/parseStatementFile";
+import { wholeExportProperties } from "@/lib/statements/store";
 import { recordImport } from "@/lib/tracker/importEvents";
 import { allRuns, mergeIntoPeriod, PERIOD_RE, setPublished, shouldAutoPublish } from "@/lib/statements/store";
 import { summarize } from "@/lib/statements/summary";
@@ -67,13 +68,13 @@ export async function POST(req: NextRequest) {
 
   let parsed;
   try {
-    parsed = parseSkylineStatements(Buffer.from(await file.arrayBuffer()));
+    parsed = await parseStatementFile(Buffer.from(await file.arrayBuffer()));
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not read that workbook." }, { status: 400 });
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not read that file." }, { status: 400 });
   }
   if (parsed.statements.length === 0) {
     return NextResponse.json(
-      { error: "No tenant statements found. Export Skyline's Laser Statement to Excel and upload that file unmodified." },
+      { error: "No tenant statements found. Upload Skyline's Laser Statement — the PDF or the Excel export — as it was saved." },
       { status: 400 },
     );
   }
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
     exportedAt: parsed.exportedAt,
     importedBy: uploadedBy,
     tenantCount: parsed.statements.length,
-  }, { clearAbsentInProperties: true });
+  }, { clearAbsentInProperties: wholeExportProperties(parsed.statements) });
   let run = merge.run;
 
   // Judged on the WHOLE merged month, not just this file — a second export

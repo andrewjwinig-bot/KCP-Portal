@@ -67,10 +67,9 @@ export function ImportInstructions({ stop, variant = "charges" }: { stop?: boole
       <div style={{ marginTop: 14 }}>
         <div style={LABEL}>Skyline Export Steps</div>
         <ol style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: "var(--fs-12-5)", color: "var(--muted)", lineHeight: 1.7 }}>
-          <li>Run Skyline&rsquo;s <strong>Laser Statement</strong> for the month, across the buildings you&rsquo;re billing.</li>
-          <li>Report Destination: <strong>Excel</strong> — save the .xls it produces.</li>
-          <li>Upload it here <strong>unmodified</strong>. Don&rsquo;t delete rows, re-sort, or paste into a new sheet: the parser reads Skyline&rsquo;s own layout and reconciles every tenant to the balance Skyline printed.</li>
-          <li>Upload as many files as you need — by group, or shopping centers and business parks separately. Each one merges into the same month; a tenant in two files keeps the later one.</li>
+          <li>Use the <strong>Laser Statement PDFs</strong> Tanya saves each month (in Billings and Statements, under the month, Laser Statements), or run Skyline&rsquo;s Laser Statement to <strong>Excel</strong>.</li>
+          <li>Upload them here <strong>as saved</strong> — select every PDF in the folder at once. Each tenant is checked against the Total Amount Due Skyline printed.</li>
+          <li>Each file merges into the same month; a tenant in two files keeps the later one. A one-tenant re-run updates only that tenant.</li>
           <li>Nothing to publish: once <strong>every tenant ties out</strong> (their charges add up to the balance Skyline printed), the month goes to the tenant portal on its own. A tenant that doesn&rsquo;t carries a <strong>REVIEW</strong> pill and holds the month back — re-run and re-import that tenant to clear it.</li>
         </ol>
       </div>
