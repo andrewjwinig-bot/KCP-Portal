@@ -1053,3 +1053,29 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 .send-progress > span { position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 999px; background: var(--brand); animation: send-progress-sweep 1.3s ease-in-out infinite; }
 @keyframes send-progress-sweep { 0% { left: -35%; } 100% { left: 100%; } }
 @media (prefers-reduced-motion: reduce) { .send-progress > span { animation: none; left: 0; width: 100%; opacity: 0.5; } }
+
+/* Phone width — AFTER the base rules so it wins at equal specificity
+ * (the 720px block near the top is overridden by .pills / .pill below it). */
+@media (max-width: 720px) {
+  /* The KORMAN | COMMERCIAL PROPERTIES wordmark beside a page title: on a
+   * phone it squeezed the title into a one-word column. The sidebar and the
+   * browser already say whose portal this is. */
+  .brand-wordmark { display: none !important; }
+  /* KPI tiles: a row of five can't fit 390px — they overlapped each other's
+   * figures. Two to a row, text allowed to wrap, an odd last tile full width. */
+  .pills {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+  .pills > .pill:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .pill {
+    white-space: normal;
+    text-align: center;
+    padding: 10px 8px;
+  }
+  /* A figure never breaks mid-number ("$46,861,69 / 0"); it scales with the
+   * screen instead. Labels and sub-lines wrap. */
+  .pill b { font-size: clamp(15px, 4.8vw, 22px); white-space: nowrap; }
+  .pill span { overflow-wrap: anywhere; }
+}
