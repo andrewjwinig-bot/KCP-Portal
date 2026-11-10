@@ -963,7 +963,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         {open && (
           <div className="sb-head-main" style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, flex: 1 }}>
             {/* The real Korman logo — shown by the new look only. */}
-            <img className="sb-logo" src="/site/Korman_CORPORATE_logo_WHT.png" alt="Korman Commercial Properties" style={{ display: "none", height: 17, width: "auto", maxWidth: "100%" }} />
+            <img className="sb-logo" src="/site/Korman_CORPORATE_logo_WHT.png" alt="Korman Commercial Properties" width={1391} height={172} style={{ display: "none", height: 20, width: "auto", maxWidth: "100%", alignSelf: "flex-start", objectFit: "contain", flexShrink: 0 }} />
             <UserSwitcher collapsed={false} />
           </div>
         )}

@@ -11,6 +11,7 @@
 //     guide line. Points enlarge on the active index in each chart.
 
 import React from "react";
+import { TipCard } from "./HoverCard";
 
 export type TipRow = { label: string; value: string; color?: string };
 
@@ -28,34 +29,15 @@ export function ChartTooltip({
   footer?: TipRow;
   width?: number;
 }) {
-  const rowH = 19;
-  const boxH = 30 + rows.length * rowH + (footer ? rowH + 6 : 0);
-  const boxX = x + 16 + width > chartW - 6 ? x - 16 - width : x + 16;
+  // Drawn as the master hover card (TipCard) inside the SVG, so a chart's
+  // hover reads exactly like every other hover in the portal.
+  const w = width * 1.45;
+  const boxX = x + 16 + w > chartW - 6 ? Math.max(4, x - 16 - w) : x + 16;
   const boxY = Math.max(4, y);
-  const rowBase = boxY + 30;
-
   return (
-    <g pointerEvents="none" style={{ filter: "drop-shadow(0 4px 14px rgba(15,23,42,0.20))" }}>
-      <rect x={boxX} y={boxY} width={width} height={boxH} rx={9} fill="var(--card)" stroke="var(--border)" strokeWidth={1} />
-      <text x={boxX + 13} y={boxY + 20} fontSize={12.5} fontWeight={800} fill="var(--text)">{title}</text>
-      {rows.map((r, k) => {
-        const cy = rowBase + k * rowH + rowH / 2;
-        return (
-          <g key={k}>
-            {r.color && <circle cx={boxX + 17} cy={cy} r={4.5} fill={r.color} />}
-            <text x={boxX + (r.color ? 28 : 13)} y={cy + 4} fontSize={12} fill="var(--muted)">{r.label}</text>
-            <text x={boxX + width - 13} y={cy + 4} fontSize={12.5} fontWeight={700} fill="var(--text)" textAnchor="end">{r.value}</text>
-          </g>
-        );
-      })}
-      {footer && (
-        <g>
-          <line x1={boxX + 13} x2={boxX + width - 13} y1={rowBase + rows.length * rowH + 2} y2={rowBase + rows.length * rowH + 2} stroke="var(--border)" />
-          <text x={boxX + 13} y={rowBase + rows.length * rowH + rowH} fontSize={12} fill="var(--muted)">{footer.label}</text>
-          <text x={boxX + width - 13} y={rowBase + rows.length * rowH + rowH} fontSize={12.5} fontWeight={800} textAnchor="end" fill={footer.color ?? "var(--text)"}>{footer.value}</text>
-        </g>
-      )}
-    </g>
+    <foreignObject x={boxX} y={boxY} width={w} height={60 + (rows.length + (footer ? 2 : 0)) * 34} pointerEvents="none" style={{ overflow: "visible" }}>
+      <TipCard title={title} rows={rows} footer={footer} width={w} style={{ width: "100%" }} />
+    </foreignObject>
   );
 }
 

@@ -34,8 +34,11 @@ export function HoverCard({
   const hide = () => setRect(null);
 
   // Prefer above the trigger; flip below when there isn't room near the top.
-  const below = rect ? rect.top < 200 : false;
-  const cx = rect ? Math.min(Math.max(rect.left + rect.width / 2, width / 2 + 8), (typeof window !== "undefined" ? window.innerWidth : 1200) - width / 2 - 8) : 0;
+  // The new look draws the card larger (--tip-scale); place it by its real width.
+  const scale = typeof document !== "undefined" ? (parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--tip-scale")) || 1) : 1;
+  const w = width * scale;
+  const below = rect ? rect.top < 200 * scale : false;
+  const cx = rect ? Math.min(Math.max(rect.left + rect.width / 2, w / 2 + 8), (typeof window !== "undefined" ? window.innerWidth : 1200) - w / 2 - 8) : 0;
 
   return (
     <span ref={ref} onMouseEnter={show} onMouseMove={show} onMouseLeave={hide} style={{ ...(help ? { cursor: "help" } : null), ...style }}>

@@ -1,4 +1,5 @@
 "use client";
+import { CircleCheck, Clock, TriangleAlert } from "lucide-react";
 
 // Dashboard "AP Outbox" — a timestamped audit trail of every batch released to
 // AvidXchange (Allocated, Credit Card, Payroll, Commissions): when, by whom, how many
@@ -59,48 +60,53 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
     <div className="card" style={{ order }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
         <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
-          AP Outbox — sent to AvidXchange
+          AP Outbox · Sent to AvidXchange
         </div>
       </div>
 
       {unsent.map((u) => {
         const Row = (hrefFor(u.source) ? Link : "div") as any;
         return (
-          <Row key={`unsent-${u.source}`} href={hrefFor(u.source)}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", marginBottom: 4, borderRadius: 8, textDecoration: "none", color: "var(--text)", background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)" }}>
-            <span style={{ fontSize: "var(--fs-13)" }}>⚠️</span>
-            <span style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-13)" }}>
-              <b style={{ fontWeight: 700 }}>{u.label}</b>{u.period ? ` · ${u.period}` : ""}
-              <span style={{ color: "#b45309", fontWeight: 700 }}> · not sent to AvidXchange</span>
-              <span className="muted"> — generated {when(u.at)}{u.by ? ` by ${u.by}` : ""}</span>
+          <Row key={`unsent-${u.source}`} href={hrefFor(u.source)} className="outbox-row"
+            style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 2px", borderBottom: "1px solid var(--hairline, var(--border))", textDecoration: "none", color: "var(--text)" }}>
+            <TriangleAlert size={18} strokeWidth={1.75} color="#B54708" aria-label="Not sent" style={{ flexShrink: 0, marginTop: 1 }} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: "var(--fs-14)", fontWeight: 700 }}>{u.label}{u.period ? ` · ${u.period}` : ""}</span>
+              <span style={{ display: "block", fontSize: "var(--fs-12-5)", color: "#B54708", fontWeight: 600 }}>Not sent to AvidXchange</span>
+              <span style={{ display: "block", fontSize: "var(--fs-12-5)", color: "var(--muted)" }}>Generated {when(u.at)}{u.by ? ` · ${titleName(u.by)}` : ""}</span>
             </span>
           </Row>
         );
       })}
 
       {rows.length === 0 && unsent.length === 0 ? (
-        <div className="small muted" style={{ fontWeight: 600 }}>
-          Nothing sent to AvidXchange yet — the last batch released from each invoicer will show here with a timestamp.
+        <div className="small muted">
+          Nothing sent to AvidXchange yet. Each invoicer's last batch will show here once it goes out.
         </div>
       ) : rows.length === 0 ? null : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
           {rows.slice(0, TOP).map((s) => {
             const Row = (hrefFor(s.source) ? Link : "div") as any;
             return (
             <Row
               key={`${s.source}-${s.period}`}
               href={hrefFor(s.source)}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", borderRadius: 8, textDecoration: "none", color: "var(--text)", background: "rgba(22,163,74,0.05)" }}
+              className="outbox-row"
+              style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 2px", borderBottom: "1px solid var(--hairline, var(--border))", textDecoration: "none", color: "var(--text)" }}
             >
-              <span style={{ fontSize: "var(--fs-13)" }}>{s.partial ? "🕗" : "✅"}</span>
-              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "var(--fs-13)" }}>
-                <b style={{ fontWeight: 700 }}>{s.label}</b> · {s.period}
-                <span className="muted"> · {s.invoiceCount} invoice{s.invoiceCount === 1 ? "" : "s"}</span>
+              {s.partial
+                ? <Clock size={18} strokeWidth={1.75} color="#B54708" aria-label="Partly sent" style={{ flexShrink: 0, marginTop: 1 }} />
+                : <CircleCheck size={18} strokeWidth={1.75} color="#067647" aria-label="Sent" style={{ flexShrink: 0, marginTop: 1 }} />}
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: "block", fontSize: "var(--fs-14)", fontWeight: 700 }}>{s.label}</span>
+                <span style={{ display: "block", fontSize: "var(--fs-12-5)", color: "var(--muted)" }}>
+                  {s.period} · {s.invoiceCount} invoice{s.invoiceCount === 1 ? "" : "s"}
+                </span>
+                <span style={{ display: "block", fontSize: "var(--fs-12-5)", color: "var(--muted)" }}>
+                  Sent {when(s.sentAt)}{s.sentBy ? ` · ${titleName(s.sentBy)}` : ""}
+                </span>
               </span>
-              <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, whiteSpace: "nowrap" }}>{money0(s.total)}</span>
-              <span className="muted" style={{ fontSize: "var(--fs-11)", whiteSpace: "nowrap", minWidth: 96, textAlign: "right" }}>
-                {when(s.sentAt)}{s.sentBy ? ` · ${s.sentBy}` : ""}
-              </span>
+              <span style={{ fontSize: "var(--fs-14)", fontWeight: 700, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>{money0(s.total)}</span>
             </Row>
             );
           })}
@@ -108,4 +114,9 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
       )}
     </div>
   );
+}
+
+/** "HARRY" / "harry" / "DREW (auto)" → "Harry" / "Drew (auto)". */
+function titleName(n: string): string {
+  return n.replace(/\b([A-Za-z])([A-Za-z]*)/g, (_m, a: string, b: string) => a.toUpperCase() + b.toLowerCase());
 }
