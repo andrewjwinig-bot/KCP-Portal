@@ -6,7 +6,7 @@ import Sidebar from "./Sidebar";
 import GlobalSearch from "./GlobalSearch";
 import { useUser } from "./UserProvider";
 import { isPathAllowed } from "../../lib/users";
-import { applySkin, readSkin } from "./SkinToggle";
+import { applySkin, isSkinReviewer, readSkin } from "./SkinToggle";
 
 // Routes that render without the portal chrome (no sidebar, no auth gate).
 // These are exempt from the site-cookie check in middleware too, so anyone
@@ -19,7 +19,7 @@ export default function AppShell({ children, website = false }: { children: Reac
   const sidebarW = isNarrow ? 0 : open ? "var(--sb-w-open)" : 60;
   const pathname = usePathname();
   const router = useRouter();
-  const { user, hydrated } = useUser();
+  const { user, hydrated, loggedInUser } = useUser();
   // Public pages render without the internal app chrome (no staff sidebar, no
   // auth gate). The tenant statement/portal links carry their OWN tenant-facing
   // sidebar, so they must never inherit the internal one.
@@ -27,9 +27,16 @@ export default function AppShell({ children, website = false }: { children: Reac
 
   // The new look applies to staff pages only — never the public website,
   // tenant portal or forms, even when a staff member opens one.
+  // While it is under review only the reviewers get it (see SKIN_REVIEWERS);
+  // until we know who is signed in, keep whatever the pre-paint script set.
   useEffect(() => {
-    applySkin(readSkin(), isPublic);
-  }, [isPublic]);
+    if (!hydrated) return;
+    const reviewer = isSkinReviewer(loggedInUser);
+    const skin = readSkin(reviewer);
+    // Remember it so the pre-paint script draws the right look next load.
+    try { if (reviewer) localStorage.setItem("kcp:skin", skin); else localStorage.removeItem("kcp:skin"); } catch { /* ignore */ }
+    applySkin(skin, isPublic);
+  }, [isPublic, hydrated, loggedInUser]);
 
   // Auto-collapse the sidebar to a hidden drawer on narrow viewports.
   useEffect(() => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useUser } from "./UserProvider";
 
 /**
  * The portal's look: "classic" (the original navy rail) or "studio" (the
@@ -11,7 +12,16 @@ import { useEffect, useState } from "react";
 export const SKIN_KEY = "kcp:skin";
 export type Skin = "classic" | "studio";
 
-export function readSkin(): Skin {
+/** Who sees the new look while it is under review (owner: "just for me to
+ *  review and approve before rolling out to everybody"). Everyone else gets
+ *  the classic look and no switch. To roll out: return true for everyone. */
+export const SKIN_REVIEWERS = new Set(["drew", "admin"]);
+export function isSkinReviewer(loggedInUser: string | null | undefined): boolean {
+  return !!loggedInUser && SKIN_REVIEWERS.has(loggedInUser);
+}
+
+export function readSkin(reviewer = true): Skin {
+  if (!reviewer) return "classic";
   try {
     // The new look is the default; "classic" only when someone switched back.
     return localStorage.getItem(SKIN_KEY) === "classic" ? "classic" : "studio";
@@ -29,6 +39,7 @@ export function applySkin(skin: Skin, isPublic = false) {
 }
 
 export default function SkinToggle() {
+  const { loggedInUser, hydrated } = useUser();
   const [skin, setSkin] = useState<Skin>("studio");
 
   useEffect(() => {
@@ -41,6 +52,8 @@ export default function SkinToggle() {
     applySkin(next);
     try { localStorage.setItem(SKIN_KEY, next); } catch { /* ignore */ }
   }
+
+  if (!hydrated || !isSkinReviewer(loggedInUser)) return null;
 
   return (
     <button

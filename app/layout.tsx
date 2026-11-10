@@ -41,7 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             ?skin=studio / ?skin=classic sets it. Public pages stay classic. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var q=new URLSearchParams(location.search).get('skin');if(q==='studio'||q==='classic')localStorage.setItem('kcp:skin',q);if(localStorage.getItem('kcp:skin')==='classic')return;var h=location.hostname;if(!/^portal\\.|vercel\\.app$|^localhost$|^127\\./.test(h))return;if(/^\\/(site|centers|portal|statement|investor|budget-review|commissions-review|office-works|submit|service|reserve|login)(\\/|$)/.test(location.pathname))return;document.documentElement.dataset.skin='studio';}catch(e){}})();`,
+            __html: `(function(){try{var q=new URLSearchParams(location.search).get('skin');if(q==='studio'||q==='classic')localStorage.setItem('kcp:skin',q);if(localStorage.getItem('kcp:skin')!=='studio')return;var h=location.hostname;if(!/^portal\\.|vercel\\.app$|^localhost$|^127\\./.test(h))return;if(/^\\/(site|centers|portal|statement|investor|budget-review|commissions-review|office-works|submit|service|reserve|login)(\\/|$)/.test(location.pathname))return;document.documentElement.dataset.skin='studio';}catch(e){}})();`,
           }}
         />
       </head>
