@@ -32,6 +32,7 @@ import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
 import MonthlyReviewPanel from "../reports/monthly/MonthlyReviewPanel";
 import DebtSummaryCard from "./DebtSummaryCard";
 import MgmtFeesChartCard from "./MgmtFeesChartCard";
+import MonthCloseCard from "./MonthCloseCard";
 import { Pill, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
@@ -1045,6 +1046,8 @@ function DashboardInner() {
             batch once it reaches AvidXchange, and flags it if it was generated
             but never sent. */}
         {user.id === "harry" && <DrewSavedStatus rows={["payroll", "cc"]} />}
+        {/* Month-end close — Drew + admin while he reviews it (/close). */}
+        {(user.id === "drew" || isAdmin) && <MonthCloseCard />}
         {(user.id === "drew" || user.id === "harry" || isAdmin) && <ImportsToDoCard owner={user.id === "harry" ? "harry" : user.id === "drew" ? "drew" : undefined} />}
         {/* Not Harry: the statements it reports on (and links to) are not his. */}
         {(user.id === "drew" || isAdmin) && <NotPostedCard order={-1} />}

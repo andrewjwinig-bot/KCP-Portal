@@ -154,6 +154,25 @@ until he approves it for everyone; build EVERY new or touched UI to it.
   inline hex colours and tinted fills may only go DOWN. When a sweep removes
   some, lower the baseline in that test in the same change.
 
+# Month-End Close — /close (Drew + admin while he reviews it)
+
+Owner, 11/2026: "i like the closing checklist … i like to know when i need to
+import which files … pending close out progress as well". `/close?month=`
+(default last month, Eastern) and a **Month Close** card on Drew's dashboard
+(`MonthCloseCard.tsx`). NOTHING IS KEYED: `buildMonthClose`
+(`lib/close/monthClose.ts`) reads the GL schedule (`outstandingGlUploads` as of
+the 25th of the month after — names each property still owed), the rent-roll
+history, the next month's laser statement, the bank-rec run, the AvidXchange
+send log (Allocated, Credit Card, Payroll by pay date — 2 needed —, Commissions
+at a quarter end; a `partial` send is not a send) and the move-out queue
+(`closeOutStage`: waiting on the GL → ready, send to Nancy / Harry → with them →
+approved, charges to Tanya). Flags to Investigate is counted by the PAGE from
+the review route (its sweep is too slow for this read) and only counts as clear
+once every GL is in. Sign-off (`month-close/<YYYY-MM>`) opens when nothing is
+left and the server re-checks before stamping. Pure parts in
+`monthCloseMath.ts`, pinned by its test. Next: it becomes the first piece of
+the per-person work queue (canvas board "Work Queue").
+
 # UI consistency — pills, badges, fonts, sizes
 
 The user has flagged repeated drift in pill / chip / badge styling across new pages. Do NOT re-invent chip styles inline. Always use the shared primitives:
