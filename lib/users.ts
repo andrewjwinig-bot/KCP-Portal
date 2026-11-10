@@ -127,6 +127,8 @@ export const USERS: Record<UserId, UserDef> = {
       "/cam-recon",
       "/reports",
       "/insurance",
+      // Month-end close checklist (owner, 11/2026) — Drew only while he reviews it.
+      "/close",
       "/audit",
       "/security",
     ],
@@ -441,6 +443,7 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   ["/api/bank-transfers", "/bank-transfers"],
   ["/api/debt", "/debt"],
   ["/api/insurance", "/insurance"],
+  ["/api/close", "/close"],
 ];
 // Cross-cutting endpoints under a sensitive prefix that must stay open (used by
 // global search / dashboard for everyone). Aggregate, low-detail.
