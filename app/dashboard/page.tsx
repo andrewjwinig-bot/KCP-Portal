@@ -33,6 +33,7 @@ import MonthlyReviewPanel from "../reports/monthly/MonthlyReviewPanel";
 import DebtSummaryCard from "./DebtSummaryCard";
 import MgmtFeesChartCard from "./MgmtFeesChartCard";
 import MonthCloseCard from "./MonthCloseCard";
+import LeaseMovementCard from "./LeaseMovementCard";
 import { Pill, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 
 function sqftFmt(n: number) { return n.toLocaleString(); }
@@ -1140,7 +1141,12 @@ function DashboardInner() {
            expired + expiring), so this standalone card would be redundant.
            Personas without the panel (Nancy · office, Harry · retail, maint)
            still get their scoped Leases Expiring list here. ── */}
-      {showExpiring && !isPathAllowed(user.id, "/reports/monthly") && (
+      {/* Nancy and Harry get the Monthly Review's Vacating & Expiring table
+          itself (owner: Nancy the office tenants, Harry all tenants). */}
+      {(user.id === "nancy" || user.id === "harry") && !isPathAllowed(user.id, "/reports/monthly") && (
+        <LeaseMovementCard scope={user.id === "nancy" ? "office" : "all"} />
+      )}
+      {showExpiring && !isPathAllowed(user.id, "/reports/monthly") && user.id !== "nancy" && user.id !== "harry" && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
           <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
