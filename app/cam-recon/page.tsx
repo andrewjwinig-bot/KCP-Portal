@@ -21,6 +21,7 @@ import { drawRetailStatement as drawRetailStatementShared } from "@/lib/cam/reta
 import type { RetailBuildingResult, RetailTenantResult } from "@/lib/cam/retail/types";
 import type { PropertyAllocation } from "@/lib/cam/retail/allocation";
 import { retailYearEndRows } from "@/lib/cam/retail/exports";
+import { InfoPopover } from "@/app/components/InfoPopover";
 import {
   QUARTERS,
   QUARTERLY_BILLINGS,
@@ -719,26 +720,6 @@ function UnitChip({ unitRef, backTo }: { unitRef: string; backTo?: string }) {
     <Link href={href} onClick={(e) => e.stopPropagation()} title="Open unit detail page" style={{ textDecoration: "none", whiteSpace: "nowrap" }}>
       <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{unitRef}</code>
     </Link>
-  );
-}
-
-// Info (ⓘ) button that reveals the Skyline import steps in a small popover —
-// keeps the year-end export buttons clean in the header.
-function InfoPopover({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <span style={{ position: "relative", display: "inline-flex" }}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Import steps" title="Skyline import steps"
-        style={{ width: 22, height: 22, borderRadius: 999, border: "1px solid var(--border)", background: "var(--card)", color: "var(--muted)", cursor: "pointer", fontSize: "var(--fs-13)", fontWeight: 800, lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>i</button>
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
-          <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 50, width: 380, maxWidth: "90vw", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, padding: "12px 16px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)" }}>
-            {children}
-          </div>
-        </>
-      )}
-    </span>
   );
 }
 
