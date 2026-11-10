@@ -254,7 +254,7 @@ function Detail({ t, onView, onNote }: { t: Row; onView: (src: string) => void; 
   );
 }
 
-type Draft = { subject: string; opening: string; closing: string; tableHtml: string };
+type Draft = { subject: string; opening: string; closing: string; tableHtml: string; signatureHtml?: string };
 
 function CreditNoticeModal({ row, onClose, onSent }: { row: Row; onClose: () => void; onSent: () => void }) {
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -314,6 +314,8 @@ function CreditNoticeModal({ row, onClose, onSent }: { row: Row; onClose: () => 
             {/* Generated on the server from the stored report — not typeable. */}
             <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10, background: "#fff", color: "var(--c-111827)", overflowX: "auto" }} dangerouslySetInnerHTML={{ __html: draft.tableHtml }} />
             <textarea rows={8} value={draft.closing} onChange={(e) => setDraft({ ...draft, closing: e.target.value })} style={box} />
+            {/* The signature is added on send — shown here as it goes, not editable. */}
+            {draft.signatureHtml && <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10, background: "var(--c-ffffff)", color: "var(--c-111827)" }} dangerouslySetInnerHTML={{ __html: draft.signatureHtml }} />}
             <div className="muted small">From Tami Tomlinson (Accounts Receivable); replies come back to her and she gets a blind copy. The email is saved to this tenant&rsquo;s correspondence as sent.</div>
             {err && <div className="small" style={{ color: "var(--c-b91c1c)" }}>{err}</div>}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>

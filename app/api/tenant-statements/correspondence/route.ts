@@ -16,6 +16,7 @@ import { summarize } from "@/lib/statements/summary";
 import { reminderEmailParts, reminderTableHtml, renderReminderEmail } from "@/lib/statements/balanceReminder";
 import { lastContactByUnit } from "@/lib/statements/correspondence";
 import { allCorrespondence, correspondenceForUnit, fullEmail, newCorrespondenceId, recordTenantEmail } from "@/lib/statements/correspondenceStore";
+import { signatureHtml } from "@/lib/emailSignature";
 import { arSigner, propertyLabel, sendFromAr, statementPdf, suiteRecipients } from "@/lib/statements/tenantMail";
 import { toEml } from "@/lib/statements/receiptEml";
 import { isMailConfigured } from "@/lib/mail";
@@ -74,7 +75,7 @@ export async function GET(req: NextRequest) {
       tenantName: st.tenantName, propertyName: propertyLabel(st.propertyCode), suite: st.suite, acct,
       pastDue: summarize(st, period).pastDueAmount, asOfISO: asOf, attached: q.get("attach") !== "0", signer: await arSigner(st.propertyCode),
     });
-    return NextResponse.json({ ok: true, draft: { ...parts, tableHtml: reminderTableHtml(acct, asOf) }, recipients: await suiteRecipients(st.unitRef), balance: acct.net });
+    return NextResponse.json({ ok: true, draft: { ...parts, tableHtml: reminderTableHtml(acct, asOf), signatureHtml: signatureHtml((await arSigner(st.propertyCode)).signature) }, recipients: await suiteRecipients(st.unitRef), balance: acct.net });
   }
 
   const unit = q.get("unit");
@@ -100,8 +101,8 @@ export async function POST(req: NextRequest) {
   if (!subject || !opening.trim()) return NextResponse.json({ error: "The email has no subject or opening." }, { status: 400 });
 
   // The table is re-rendered HERE from the stored statement.
-  const { html, text } = renderReminderEmail(acct, asOf, opening, closing);
   const sig = await arSigner(st.propertyCode);
+  const { html, text } = renderReminderEmail(acct, asOf, opening, closing, sig.signature);
   const att = b?.attachStatement !== false ? await statementPdf(period, st) : null;
   const { result, fromHeader } = await sendFromAr({
     to: to.join(", "), bcc: sig.email, subject, textBody: text, htmlBody: html,

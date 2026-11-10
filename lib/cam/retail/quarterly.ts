@@ -8,6 +8,8 @@
 // the YTD balance auto-backs-out the billed/paid YTD (due YTD − billed YTD).
 // Pure + client-safe; storage lives in quarterlyStore.ts.
 
+import { signatureFor, signatureHtml, signatureText } from "@/lib/emailSignature";
+
 export const QUARTERS = ["Q1", "Q2", "Q3", "Q4"] as const;
 export type Quarter = typeof QUARTERS[number];
 
@@ -252,16 +254,14 @@ const ORDINAL: Record<Quarter, string> = { Q1: "first", Q2: "second", Q3: "third
 export function quarterlyEmail(def: QuarterlyBillingDef, q: Quarter, year: number, signer: string) {
   const first = def.sendTo.split("@")[0].split(/[._]/)[0];
   const hello = first ? first[0].toUpperCase() + first.slice(1).toLowerCase() : "";
+  const sig = signatureFor(signer);
+  const paras = [`Hi ${hello},`, `I hope you are doing well. Attached is the ${ORDINAL[q]} quarter’s CAM and TAX amounts for ${def.storePhrase}.`, "Thank you,"];
+  const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return {
     subject: `${q} ${year} CAM and Tax — ${def.storeName}, Lafayette Hill, PA`,
-    textBody: [
-      `Hi ${hello},`,
-      "",
-      `I hope you are doing well. Attached is the ${ORDINAL[q]} quarter’s CAM and TAX amounts for ${def.storePhrase}.`,
-      "",
-      "Thank you,",
-      signer,
-    ].join("\n"),
+    // Signed with the company signature (name, office, phone, logo).
+    textBody: [paras[0], "", paras[1], "", paras[2], signatureText(sig)].join("\n"),
+    htmlBody: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#111827">${paras.map((p) => `<p style="margin:0 0 14px">${esc(p)}</p>`).join("")}${signatureHtml(sig)}</div>`,
     attachmentName: `${def.storeName.replace(/[^A-Za-z0-9]+/g, "_")}_${q}_${year}_CAM_and_Tax.pdf`,
   };
 }

@@ -111,7 +111,7 @@ export function CorrespondencePanel({ unitRef, period, tenantName, owed, nonce, 
   );
 }
 
-type Draft = { subject: string; opening: string; closing: string; tableHtml: string };
+type Draft = { subject: string; opening: string; closing: string; tableHtml: string; signatureHtml?: string };
 
 export function ReminderModal({ unitRef, period, tenantName, onClose, onSent }: {
   unitRef: string; period: string; tenantName: string; onClose: () => void; onSent: () => void;
@@ -177,6 +177,8 @@ export function ReminderModal({ unitRef, period, tenantName, onClose, onSent }: 
             {/* Generated on the server from the stored statement — not typeable. */}
             <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10, background: "#fff", color: "var(--c-111827)", overflowX: "auto" }} dangerouslySetInnerHTML={{ __html: draft.tableHtml }} />
             <textarea rows={9} value={draft.closing} onChange={(e) => setDraft({ ...draft, closing: e.target.value })} style={box} />
+            {/* The signature is added on send — shown here as it goes, not editable. */}
+            {draft.signatureHtml && <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10, background: "var(--c-ffffff)", color: "var(--c-111827)" }} dangerouslySetInnerHTML={{ __html: draft.signatureHtml }} />}
             <label className="small" style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="checkbox" checked={attach} onChange={(e) => setAttach(e.target.checked)} />
               Attach the {period} statement (PDF) · <a href={`/api/tenant-statements/receipts?period=${period}&unit=${encodeURIComponent(unitRef)}&pdf=1`} target="_blank" rel="noreferrer">preview</a>

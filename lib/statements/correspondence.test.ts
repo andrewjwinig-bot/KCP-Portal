@@ -61,7 +61,7 @@ describe("balance reminder", () => {
     expect(p.opening).toContain("$2,000.00 of it is past due");
     expect(p.opening).toContain("your statement is attached");
     expect(p.closing).toContain("please forward this email");
-    expect(p.closing).toContain("Tami Tomlinson");
+    expect(p.closing.trim().endsWith("Thank you,")).toBe(true);
   });
 
   it("builds the table from the account — credits in parens, total the net — and escapes", () => {

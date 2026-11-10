@@ -1383,6 +1383,16 @@ charges"; `RESPOND_BUSINESS_DAYS`, `respondByFrom`); with no answer the record t
   recent laser statement"): the month's statement of account as a PDF — the
   SAME `drawMonthlyStatement` the tenant portal serves — attached by default
   (a checkbox turns it off; `?pdf=1` previews it), and the email says so.
+- **EVERY TENANT EMAIL ENDS IN THE COMPANY SIGNATURE** (owner: "add the right
+  email signatures. replace the name and phone"; `lib/emailSignature.ts`):
+  name (bold), "8 Neshaminy Interplex | Suite 400 | Trevose, PA 19053", the
+  sender's phone (Tami `P: 215.638.1050`, Drew `C: 484.470.8655` —
+  `SIGNATURES`), and the KORMAN | COMMERCIAL PROPERTIES logo as a hosted PNG
+  (`public/site/email/korman-signature.png`, served from kormancommercial.com —
+  mail clients don't draw SVG). It is appended AT RENDER after the editable
+  closing (which now ends "Thank you,"), so an edit cannot drop it: the receipt
+  email, the balance reminder, the open-credit notice and Drew's quarterly Wawa
+  email. The drafts show it under the closing, not editable.
 - The email step shows from the moment a tenant is picked (it drafts once a
   payment is typed), with **Copy email** for a suite with no email on file.
 - Records: `tenant-receipt-recs` (`receiptStore.ts`); API

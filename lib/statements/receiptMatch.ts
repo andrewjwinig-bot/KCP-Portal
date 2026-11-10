@@ -19,6 +19,7 @@
 
 import type { ChargeCategory, StatementCharge, TenantStatement } from "./types";
 import { CATEGORY_LABEL } from "./types";
+import { signatureFor, signatureHtml, signatureText, type EmailSignature } from "@/lib/emailSignature";
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const c = (n: number) => Math.round(n * 100);
@@ -417,8 +418,8 @@ export function receiptEmailParts(x: ReceiptEmailInput): ReceiptEmailParts {
     ``,
     `If you are not the person who makes payment allocation decisions for your company, please forward this email to the appropriate person or department.`,
     ``,
+    // The signature (name, office, phone, logo) is added at render.
     `Thank you,`,
-    x.signer.name, ...(x.signer.title ? [x.signer.title] : []), "Korman Commercial Properties", x.signer.email, ...(x.signer.phone ? [x.signer.phone] : []),
   ].join("\n");
   return { subject: `Your payment of ${usd(x.amount)} — ${x.propertyName}, Suite ${x.suite}`, opening, closing };
 }
@@ -515,16 +516,16 @@ function receiptTableText(x: Pick<ReceiptEmailInput, "acct" | "plan" | "asOfISO"
 
 /** Put an email together from the (edited) opening and closing and the
  *  generated table: HTML and its plain-text twin. */
-export function renderReceiptEmail(x: Pick<ReceiptEmailInput, "acct" | "plan" | "asOfISO">, opening: string, closing: string): { html: string; text: string } {
-  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#111827;max-width:700px">${paras(opening)}${receiptTableHtml(x)}${paras(closing)}</div>`;
-  const text = `${opening}\n\n${receiptTableText(x)}\n\n${closing}`;
+export function renderReceiptEmail(x: Pick<ReceiptEmailInput, "acct" | "plan" | "asOfISO">, opening: string, closing: string, sig?: EmailSignature): { html: string; text: string } {
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#111827;max-width:700px">${paras(opening)}${receiptTableHtml(x)}${paras(closing)}${sig ? signatureHtml(sig) : ""}</div>`;
+  const text = `${opening}\n\n${receiptTableText(x)}\n\n${closing}${sig ? `\n${signatureText(sig)}` : ""}`;
   return { html, text };
 }
 
 /** Subject + the whole plain-text body — the parts with no edits. */
 export function composeReceiptEmail(x: ReceiptEmailInput): { subject: string; body: string; html: string } {
   const p = receiptEmailParts(x);
-  const r = renderReceiptEmail(x, p.opening, p.closing);
+  const r = renderReceiptEmail(x, p.opening, p.closing, signatureFor(x.signer.name));
   return { subject: p.subject, body: r.text, html: r.html };
 }
 
