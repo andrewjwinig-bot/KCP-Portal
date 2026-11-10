@@ -174,6 +174,14 @@ export async function buildMonthClose(month: string): Promise<MonthClose> {
           meta: st.text,
           href: `/cam-recon/interim?property=${encodeURIComponent(c.property)}&unitRef=${encodeURIComponent(c.unitRef)}&year=${c.year}`,
           tone: st.tone,
+          who: st.who,
+          trail: [
+            { text: "Moved out on the rent roll", at: c.detectedAt },
+            c.readyAt ? { text: "GL posted · final bill ready", at: c.readyAt } : null,
+            c.notifiedAt ? { text: `Sent for approval${c.notifiedBy ? ` by ${c.notifiedBy}` : ""}`, at: c.notifiedAt } : null,
+            c.approvedAt ? { text: `Approved${c.approvedBy ? ` by ${c.approvedBy}` : ""}`, at: c.approvedAt } : null,
+            c.chargesSentAt ? { text: `Charges sent to ${c.chargesSentTo ?? "Tanya"}`, at: c.chargesSentAt } : null,
+          ].filter((x): x is { text: string; at: string } => !!x && !!x.at),
         };
       }),
   }];

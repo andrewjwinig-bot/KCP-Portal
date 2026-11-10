@@ -1,7 +1,13 @@
 // Pure pieces of the month-end close (`monthClose.ts`) — pinned by
 // `monthCloseMath.test.ts`. Client-safe.
 
-export type CloseDetail = { text: string; meta?: string; href?: string; tone?: "red" | "amber" | "neutral" };
+export type CloseDetail = {
+  text: string; meta?: string; href?: string; tone?: "red" | "amber" | "neutral";
+  /** Whose move it is now — "Drew", "Nancy", "Tanya", "GL" (waiting on an import). */
+  who?: string;
+  /** What has happened so far, oldest first — the dashboard's trail. */
+  trail?: { text: string; at: string }[];
+};
 export type CloseItem = {
   id: string;
   label: string;
@@ -93,15 +99,15 @@ const d = (iso: string | null | undefined) => {
 
 /** Where a close-out stands, in words, and how soon it needs someone:
  *  rank 0 is Drew's to do now, higher is with someone else or waiting. */
-export function closeOutStage(c: CloseOutLike): { text: string; rank: number; tone: "red" | "amber" | "neutral" } {
+export function closeOutStage(c: CloseOutLike): { text: string; rank: number; tone: "red" | "amber" | "neutral"; who: string } {
   const approver = c.kind === "retail" ? "Harry" : "Nancy";
   if (c.status === "approved") {
     return c.chargesSentAt
-      ? { text: `Charges sent ${d(c.chargesSentAt)}`, rank: 4, tone: "neutral" }
-      : { text: `Approved ${d(c.approvedAt)} · charges not sent to Tanya`, rank: 0, tone: "red" };
+      ? { text: `Charges sent ${d(c.chargesSentAt)}`, rank: 4, tone: "neutral", who: "Tanya" }
+      : { text: `Approved ${d(c.approvedAt)} · charges not sent to Tanya`, rank: 0, tone: "red", who: "Drew" };
   }
-  if (c.notifiedAt) return { text: `With ${approver} since ${d(c.notifiedAt)}`, rank: 2, tone: "neutral" };
-  if (c.status === "ready") return { text: `Ready · send to ${approver}`, rank: 0, tone: "amber" };
+  if (c.notifiedAt) return { text: `With ${approver} since ${d(c.notifiedAt)}`, rank: 2, tone: "neutral", who: approver };
+  if (c.status === "ready") return { text: `Ready · send to ${approver}`, rank: 0, tone: "amber", who: "Drew" };
   const owed = Math.max(1, Math.min(12, c.vacateMonth));
-  return { text: `Waiting on the ${MON[owed - 1]} GL · posted through ${c.maxPosted ? MON[c.maxPosted - 1] : "—"}`, rank: 3, tone: "neutral" };
+  return { text: `Waiting on the ${MON[owed - 1]} GL · posted through ${c.maxPosted ? MON[c.maxPosted - 1] : "—"}`, rank: 3, tone: "neutral", who: "GL" };
 }

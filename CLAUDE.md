@@ -173,6 +173,19 @@ left and the server re-checks before stamping. Pure parts in
 `monthCloseMath.ts`, pinned by its test. Next: it becomes the first piece of
 the per-person work queue (canvas board "Work Queue").
 
+**DREW'S DASHBOARD IS THE WORK QUEUE in the new look** (`app/dashboard/
+WorkQueue.tsx`; owner: "left is what i see vs right when is what you
+promised"). Drew + admin, ONLY while the skin is on (`useStudioSkin`) — classic
+brings the old cards back. Greeting, Needs me / Waiting on others / Everyone /
+Done tabs, Overdue · Today · This week · Later, a detail panel (what's left,
+the close-out trail) and the Month Close card on the right. It replaces Tasks
+This Week, Data Imports, the Month Close card and Pending Close-Outs for him;
+the rest of the dashboard follows. Items come from the tracker tasks + to-dos,
+the import reminders (a weekly import that is also a task is listed once), the
+close (bank recs, Avid sends, close-outs by `who`), unsent AvidXchange batches
+and the month's flags. Approve / Send back / comments in place need the shared
+queue store — until then a row opens the page that does it.
+
 # UI consistency — pills, badges, fonts, sizes
 
 The user has flagged repeated drift in pill / chip / badge styling across new pages. Do NOT re-invent chip styles inline. Always use the shared primitives:
