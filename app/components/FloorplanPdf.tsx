@@ -120,7 +120,7 @@ export default function FloorplanPdf({ src, turn, crop, editing = false, maxHeig
         {shown && (
           <div style={{
             position: "absolute", left: `${shown.x * 100}%`, top: `${shown.y * 100}%`, width: `${shown.w * 100}%`, height: `${shown.h * 100}%`,
-            border: "2px solid #0b4a7d", background: "rgba(11,74,125,0.08)", boxShadow: "0 0 0 9999px rgba(15,23,42,0.28)", pointerEvents: "none",
+            border: "2px solid #0b4a7d", background: "var(--tint-brand-bg, rgba(11,74,125,0.08))", boxShadow: "0 0 0 9999px rgba(15,23,42,0.28)", pointerEvents: "none",
           }} />
         )}
       </div>

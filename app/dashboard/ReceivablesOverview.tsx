@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 // Tami's dashboard — the receivables, and nothing else (owner, 11/2026: "can
 // tamis dashboard just show tenants with open credits and tenants with open AR
@@ -102,7 +103,7 @@ export default function ReceivablesOverview() {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Link className="btn" href="/tenant-statements" style={{ textDecoration: "none" }}>Monthly Statements</Link>
-          <Link className="btn primary" href="/tenant-statements/receipts" style={{ textDecoration: "none" }}>Receipt Reconciliation →</Link>
+          <Link className="btn primary" href="/tenant-statements/receipts" style={{ textDecoration: "none" }}>Receipt Reconciliation<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
         </div>
       </header>
 
@@ -133,7 +134,7 @@ export default function ReceivablesOverview() {
                   <tbody>
                     {data.credits.groups.map((g) => (
                       <Fragment key={g.group}>
-                        <tr style={{ background: "rgba(11,74,125,0.07)" }}>
+                        <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))" }}>
                           <td colSpan={6} style={{ ...tdL, fontWeight: 800 }}>{g.group} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}>· {g.count} · {money0(g.credit)}</span></td>
                         </tr>
                         {g.rows.map((r) => (
@@ -143,7 +144,7 @@ export default function ReceivablesOverview() {
                               <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code>
                             </td>
                             <td style={tdL}><span className="muted small">{propName.get(r.propertyCode) ?? r.propertyCode}</span></td>
-                            <td style={{ ...td, fontWeight: 700, color: "#15803d" }}>({money(r.credit)})</td>
+                            <td style={{ ...td, fontWeight: 700, color: "var(--c-15803d)" }}>({money(r.credit)})</td>
                             <td style={td}>{r.openCharges > 0.005 ? money(r.openCharges) : <span className="muted">—</span>}</td>
                             <td style={{ ...td, fontWeight: 700, color: r.net < -0.005 ? "#15803d" : undefined }}>{r.net < -0.005 ? `(${money(-r.net)})` : money(r.net)}</td>
                             <td style={tdL}>{r.months >= 3 ? <Pill tone={TONE_AMBER}>{r.months} MONTHS</Pill> : <span className="muted small">{periodLabel(r.since)}</span>}</td>
@@ -193,7 +194,7 @@ export default function ReceivablesOverview() {
                     ))}
                     <tr style={{ borderTop: "2px solid var(--border)" }}>
                       <td style={{ ...tdL, fontWeight: 800 }} colSpan={4}>Total · {plural(owing.length, "tenant")}</td>
-                      <td style={{ ...td, fontWeight: 800, color: "#b91c1c" }}>{money(totals.pastDue)}</td>
+                      <td style={{ ...td, fontWeight: 800, color: "var(--c-b91c1c)" }}>{money(totals.pastDue)}</td>
                       <td style={td} />
                       <td style={{ ...td, fontWeight: 800 }}>{money(totals.open)}</td>
                       <td />

@@ -43,11 +43,11 @@ export default function ExpenseTrendsPage() {
     if (!expenses) return [];
     const at = (rec: Record<string, number>, y: number) => rec[String(y)] ?? null;
     return [
-      { label: "CAM (Op Ex 95%)", color: "#0b4a7d", values: years.map((y) => at(expenses.opExGrossedUp, y)) },
-      { label: "RE Taxes", color: "#d97706", values: years.map((y) => at(expenses.ret, y)) },
+      { label: "CAM (Op Ex 95%)", color: "var(--c-0b4a7d)", values: years.map((y) => at(expenses.opExGrossedUp, y)) },
+      { label: "RE Taxes", color: "var(--c-d97706)", values: years.map((y) => at(expenses.ret, y)) },
       {
         label: "Total (CAM + RET)",
-        color: "#16a34a",
+        color: "var(--c-16a34a)",
         values: years.map((y) => {
           const og = expenses.opExGrossedUp[String(y)];
           return og != null ? og + (expenses.ret[String(y)] ?? 0) : null;
@@ -70,7 +70,7 @@ export default function ExpenseTrendsPage() {
     return [
       {
         label: "Avg. Occupancy",
-        color: "#0d9488",
+        color: "var(--c-0d9488)",
         values: years.map((y) => expenses.occupancyPct[String(y)] ?? null),
       },
     ];

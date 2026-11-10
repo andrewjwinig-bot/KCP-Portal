@@ -74,9 +74,9 @@ export default function CamStatementHistory({
               fontWeight: 700,
               padding: "11px 18px",
               borderRadius: 10,
-              border: "1px solid rgba(11,74,125,0.3)",
-              background: "rgba(11,74,125,0.06)",
-              color: "#0b4a7d",
+              border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.3))",
+              background: "var(--tint-brand-bg, rgba(11,74,125,0.06))",
+              color: "var(--c-0b4a7d)",
               textDecoration: "none",
             }}
           >

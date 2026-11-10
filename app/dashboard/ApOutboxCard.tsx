@@ -69,10 +69,10 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
         return (
           <Row key={`unsent-${u.source}`} href={hrefFor(u.source)} className="outbox-row"
             style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 2px", borderBottom: "1px solid var(--hairline, var(--border))", textDecoration: "none", color: "var(--text)" }}>
-            <TriangleAlert size={18} strokeWidth={1.75} color="#B54708" aria-label="Not sent" style={{ flexShrink: 0, marginTop: 1 }} />
+            <TriangleAlert size={18} strokeWidth={1.75} color="var(--c-b54708)" aria-label="Not sent" style={{ flexShrink: 0, marginTop: 1 }} />
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: "block", fontSize: "var(--fs-14)", fontWeight: 700 }}>{u.label}{u.period ? ` · ${u.period}` : ""}</span>
-              <span style={{ display: "block", fontSize: "var(--fs-12-5)", color: "#B54708", fontWeight: 600 }}>Not sent to AvidXchange</span>
+              <span style={{ display: "block", fontSize: "var(--fs-12-5)", color: "var(--c-b54708)", fontWeight: 600 }}>Not sent to AvidXchange</span>
               <span style={{ display: "block", fontSize: "var(--fs-12-5)", color: "var(--muted)" }}>Generated {when(u.at)}{u.by ? ` · ${titleName(u.by)}` : ""}</span>
             </span>
           </Row>
@@ -95,8 +95,8 @@ export default function ApOutboxCard({ order = -1 }: { order?: number }) {
               style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 2px", borderBottom: "1px solid var(--hairline, var(--border))", textDecoration: "none", color: "var(--text)" }}
             >
               {s.partial
-                ? <Clock size={18} strokeWidth={1.75} color="#B54708" aria-label="Partly sent" style={{ flexShrink: 0, marginTop: 1 }} />
-                : <CircleCheck size={18} strokeWidth={1.75} color="#067647" aria-label="Sent" style={{ flexShrink: 0, marginTop: 1 }} />}
+                ? <Clock size={18} strokeWidth={1.75} color="var(--c-b54708)" aria-label="Partly sent" style={{ flexShrink: 0, marginTop: 1 }} />
+                : <CircleCheck size={18} strokeWidth={1.75} color="var(--c-067647)" aria-label="Sent" style={{ flexShrink: 0, marginTop: 1 }} />}
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ display: "block", fontSize: "var(--fs-14)", fontWeight: 700 }}>{s.label}</span>
                 <span style={{ display: "block", fontSize: "var(--fs-12-5)", color: "var(--muted)" }}>

@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import type { BuildingReconResult } from "@/lib/cam/office/types";
@@ -34,7 +35,7 @@ function HeaderSelect({ value, onChange, displayLabel, ariaLabel, muted = false,
   return (
     <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
       <span style={{ fontSize: 22, fontWeight: 800, color: muted ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{displayLabel}</span>
-      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
+      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
       <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={ariaLabel}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}>
         {children}
@@ -64,7 +65,7 @@ function pctChange(prev: number, next: number): number | null {
 function changeCell(prev: number, next: number) {
   const c = pctChange(prev, next);
   if (c == null) return <span style={{ color: "var(--muted)" }}>—</span>;
-  if (c === Infinity) return <span style={{ color: "#b45309", fontWeight: 700 }}>new</span>;
+  if (c === Infinity) return <span style={{ color: "var(--c-b45309)", fontWeight: 700 }}>new</span>;
   const spike = Math.abs(c) >= SPIKE;
   return <span style={{ color: spike ? "#b91c1c" : c < 0 ? "#15803d" : "var(--text)", fontWeight: spike ? 800 : 500 }}>{c >= 0 ? "+" : ""}{(c * 100).toFixed(0)}%</span>;
 }
@@ -162,7 +163,7 @@ export default function CamEstimatesPage() {
                     <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>
                       {t.noBaseStop ? "NNN" : t.baseYear}
                       {t.baseYearResetISO && (
-                        <span title={`Base year reset ${t.baseYearResetISO}`} style={{ color: "#b45309" }}> ↺</span>
+                        <span title={`Base year reset ${t.baseYearResetISO}`} style={{ color: "var(--c-b45309)" }}> ↺</span>
                       )}
                     </td>
                     <td style={td}>{money0(t.camMonthly)}</td>

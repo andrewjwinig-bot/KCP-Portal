@@ -975,7 +975,7 @@ export default function GlobalSearch() {
         </div>
       ))}
       {chat.loading && <ThinkingCard status={chat.status || "Reading live portal data…"} />}
-      {chat.error && <div style={{ color: "#b91c1c", fontSize: "var(--fs-13)" }}>{chat.error}</div>}
+      {chat.error && <div style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-13)" }}>{chat.error}</div>}
     </div>
   );
 
@@ -1170,7 +1170,7 @@ export function GlobalSearchTrigger({ collapsed }: { collapsed: boolean }) {
         background: "linear-gradient(#191c33, #191c33) padding-box, linear-gradient(120deg, #8B6CFF, #C25BF0) border-box",
         boxShadow: restGlow,
         borderRadius: 10,
-        color: "#EDE9FF", cursor: "pointer",
+        color: "var(--c-ede9ff)", cursor: "pointer",
         fontFamily: "inherit", fontSize: "var(--fs-13)", fontWeight: 600, letterSpacing: "0.02em",
         transition: "box-shadow 0.18s ease",
       }}

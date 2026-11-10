@@ -388,8 +388,8 @@ export default function CamConfigCard({
       {error && (
         <div style={{
           margin: "8px 0", padding: "8px 10px", borderRadius: 8,
-          background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
+          background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))",
+          color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
@@ -555,7 +555,7 @@ export default function CamConfigCard({
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{
-                  fontSize: 22, fontWeight: 900, color: "#0b4a7d",
+                  fontSize: 22, fontWeight: 900, color: "var(--c-0b4a7d)",
                   fontVariantNumeric: "tabular-nums",
                 }}>
                   {capAmount.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}
@@ -636,9 +636,9 @@ export default function CamConfigCard({
             {isStale && (
               <div style={{
                 marginTop: 10, padding: "8px 10px", borderRadius: 6,
-                background: "rgba(220,38,38,0.06)",
-                border: "1px solid rgba(220,38,38,0.35)",
-                color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
+                background: "var(--tint-red-bg, rgba(220,38,38,0.06))",
+                border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))",
+                color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
               }}>
                 Prior year is {cap.priorYear} — for a {currentYear} reconciliation the cap should be based on {currentYear - 1} controllable. Update before billing.
               </div>
@@ -695,7 +695,7 @@ export default function CamConfigCard({
                     type="button"
                     disabled={isGross}
                     onClick={() => update({ camExcludedLines: [...lineOptions] })}
-                    style={{ fontSize: "var(--fs-12)", fontWeight: 600, padding: "3px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "#0b4a7d", cursor: isGross ? "not-allowed" : "pointer", opacity: isGross ? 0.5 : 1 }}
+                    style={{ fontSize: "var(--fs-12)", fontWeight: 600, padding: "3px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "var(--c-0b4a7d)", cursor: isGross ? "not-allowed" : "pointer", opacity: isGross ? 0.5 : 1 }}
                   >
                     Exclude all CAM
                   </button>

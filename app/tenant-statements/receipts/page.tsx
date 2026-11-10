@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight, TriangleAlert, X } from "lucide-react";
 
 // Receipt Reconciliation — a tenant paid an amount that doesn't line up with
 // their statement; work out what they MEANT, tell them how it will be applied,
@@ -277,21 +278,21 @@ export default function ReceiptReconciliationPage() {
         </div>
       </header>
 
-      {error && <div className="card" style={{ color: "#b91c1c", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
+      {error && <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
 
       {/* The figures are only as current as the laser statement behind them —
           a payment or charge keyed in Skyline since will not be here. The
           tenant's own import date when one is picked, else the month's. */}
       {dataDates && (dataDates.dataThrough || dataDates.importedOn) && (
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", border: "1px solid rgba(217,119,6,0.35)", background: "rgba(217,119,6,0.08)", borderRadius: 12, padding: "12px 16px" }}>
-          <span aria-hidden style={{ fontSize: 18, lineHeight: 1.2, color: "#b45309" }}>⚠</span>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))", background: "var(--tint-amber-bg, rgba(217,119,6,0.08))", borderRadius: 12, padding: "12px 16px" }}>
+          <span aria-hidden style={{ fontSize: 18, lineHeight: 1.2, color: "var(--c-b45309)" }}><TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
           <div style={{ display: "grid", gap: 2 }}>
             {dataDates.dataThrough ? (
-              <div style={{ fontWeight: 800, color: "#b45309" }}>
+              <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
                 Data through {etStamp(dataDates.dataThrough, true)}{detail ? ` for ${detail.tenant.tenantName}` : ""} — when Skyline ran the laser statement.
               </div>
             ) : (
-              <div style={{ fontWeight: 800, color: "#b45309" }}>
+              <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
                 Imported {etStamp(dataDates.importedOn!, false)}{detail ? ` for ${detail.tenant.tenantName}` : ""} — the data is at least this old.
               </div>
             )}
@@ -314,7 +315,7 @@ export default function ReceiptReconciliationPage() {
           {(unit || answering) && <button className="btn sm" onClick={resetWork}>Clear</button>}
         </div>
         {answering && (
-          <div className="small" style={{ background: "rgba(11,74,125,0.06)", border: "1px solid rgba(11,74,125,0.2)", borderRadius: 10, padding: "8px 12px" }}>
+          <div className="small" style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.2))", borderRadius: 10, padding: "8px 12px" }}>
             Pick the application they asked for (or keep ours), add what they said, and confirm. Nothing is emailed.
           </div>
         )}
@@ -361,7 +362,7 @@ export default function ReceiptReconciliationPage() {
               <StatPill label="Net due" value={money(detail.account.net)} total />
               {validAmount && <StatPill label="They paid" value={money(amount)} sub={amount === detail.account.net ? "exactly the balance" : `${money(amount - detail.account.net)} vs balance`} accent={Math.abs(amount - detail.account.net) < 0.005 ? "#15803d" : "#b45309"} />}
             </div>
-            {!detail.tenant.tiesOut && <div className="small" style={{ color: "#b45309", fontWeight: 600 }}>This tenant&rsquo;s statement did not tie out on import — check the charges below against Skyline before sending.</div>}
+            {!detail.tenant.tiesOut && <div className="small" style={{ color: "var(--c-b45309)", fontWeight: 600 }}>This tenant&rsquo;s statement did not tie out on import — check the charges below against Skyline before sending.</div>}
           </>
         )}
       </section>
@@ -481,7 +482,7 @@ export default function ReceiptReconciliationPage() {
                     <td style={tdL}>{dateLabel(cl.dateISO)}</td>
                     <td style={tdL}>{cl.description}</td>
                     <td style={tdL}><span className="muted small">Credit</span></td>
-                    <td style={{ ...td, color: "#15803d" }}>({money(cl.amount)})</td>
+                    <td style={{ ...td, color: "var(--c-15803d)" }}>({money(cl.amount)})</td>
                     {applying && plan && (() => {
                       // How much of this credit the plan applies, and what is LEFT on account.
                       const u = creditUsage(detail.account, plan.creditUsed)[i];
@@ -503,7 +504,7 @@ export default function ReceiptReconciliationPage() {
                     // Nets the credit left on account — negative = a credit the account keeps.
                     const stillOpen = detail.account.gross - fromPay - fromCredit - (detail.account.credit - plan.creditUsed);
                     return <>
-                      <td style={{ ...td, fontWeight: 800, color: "#15803d" }}>{money(fromPay)}</td>
+                      <td style={{ ...td, fontWeight: 800, color: "var(--c-15803d)" }}>{money(fromPay)}</td>
                       <td style={{ ...td, fontWeight: 800, color: fromCredit ? "#15803d" : "var(--muted)" }}>{fromCredit ? money(fromCredit) : "—"}</td>
                       <td style={{ ...td, fontWeight: 800, color: stillOpen < -0.005 ? "#15803d" : undefined }}>{stillOpen > 0.005 ? money(stillOpen) : stillOpen < -0.005 ? `(${money(-stillOpen)}) credit` : "—"}</td>
                     </>;
@@ -538,7 +539,7 @@ export default function ReceiptReconciliationPage() {
                 <input type="checkbox" checked={!excluded.has(e.toLowerCase())} onChange={(ev) => setExcluded((s) => { const n = new Set(s); if (ev.target.checked) n.delete(e.toLowerCase()); else n.add(e.toLowerCase()); return n; })} />
                 {e}
               </label>
-            )) : <div className="small" style={{ color: "#b45309", fontWeight: 600 }}>No email on file for this suite — add a contact on the <a href={`/units/${detail.tenant.unitRef}`}>unit page</a>, or save it as a draft.</div>}
+            )) : <div className="small" style={{ color: "var(--c-b45309)", fontWeight: 600 }}>No email on file for this suite — add a contact on the <a href={`/units/${detail.tenant.unitRef}`}>unit page</a>, or save it as a draft.</div>}
           </div>
           <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <input type="checkbox" checked={attach} onChange={(e) => setAttach(e.target.checked)} />
@@ -553,7 +554,7 @@ export default function ReceiptReconciliationPage() {
             {/* The table is generated from the plan (the server re-renders it
                 on send) — what the tenant reads, exactly; not editable. */}
             {detail.draft && (
-              <div style={{ padding: "0 14px", background: "#ffffff", color: "#111827", overflowX: "auto" }} title="Generated from the charges above — not editable"
+              <div style={{ padding: "0 14px", background: "var(--c-ffffff)", color: "var(--c-111827)", overflowX: "auto" }} title="Generated from the charges above — not editable"
                 dangerouslySetInnerHTML={{ __html: detail.draft.tableHtml }} />
             )}
             <textarea value={closing} onChange={(e) => { setClosing(e.target.value); setEdited(true); }} aria-label="Closing" rows={Math.max(8, closing.split("\n").length + 4)}
@@ -591,13 +592,13 @@ export default function ReceiptReconciliationPage() {
                   if (!rows.length) return null;
                   return (
                     <Fragment key={s}>
-                      <tr style={{ background: "rgba(11,74,125,0.07)" }}><td colSpan={6} style={{ ...tdL, fontWeight: 800 }}>{STATUS_BAND[s]} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}>· {rows.length}</span></td></tr>
+                      <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))" }}><td colSpan={6} style={{ ...tdL, fontWeight: 800 }}>{STATUS_BAND[s]} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}>· {rows.length}</span></td></tr>
                       {rows.map((r) => {
                         const isOpen = openRow === r.id;
                         return (
                           <Fragment key={r.id}>
                             <tr style={{ borderTop: "1px solid var(--border)", cursor: "pointer" }} onClick={() => setOpenRow(isOpen ? null : r.id)}>
-                              <td style={{ ...tdL, whiteSpace: "normal" }}><span className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? "▾" : "▸"}</span><b>{r.tenantName}</b> <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
+                              <td style={{ ...tdL, whiteSpace: "normal" }}><span className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span><b>{r.tenantName}</b> <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
                               <td style={tdL}>{dateLabel(r.receivedISO)}{r.checkNo ? <span className="muted small"> · #{r.checkNo}</span> : null}</td>
                               <td style={{ ...td, fontWeight: 700 }}>{money(r.amount)}</td>
                               <td style={{ ...tdL, whiteSpace: "normal" }}>{r.plan.title}</td>
@@ -611,11 +612,11 @@ export default function ReceiptReconciliationPage() {
                                 {r.status === "draft" && <button className="btn sm" onClick={() => answer(r, true)}>Open</button>}{" "}
                                 {r.status === "apply" && <button className="btn sm primary" disabled={busy} onClick={() => act(r.id, "posted")}>Mark posted</button>}
                                 {r.status === "posted" && <button className="btn sm" disabled={busy} onClick={() => act(r.id, "unposted")}>Undo</button>}
-                                {r.status !== "posted" && <> <button className="btn sm" onClick={() => remove(r.id)} title="Delete">✕</button></>}
+                                {r.status !== "posted" && <> <button className="btn sm" onClick={() => remove(r.id)} title="Delete"><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button></>}
                               </td>
                             </tr>
                             {isOpen && (
-                              <tr><td colSpan={6} style={{ padding: "4px 18px 16px", background: "rgba(11,74,125,0.025)", maxWidth: 0 }}>
+                              <tr><td colSpan={6} style={{ padding: "4px 18px 16px", background: "var(--tint-brand-bg, rgba(11,74,125,0.025))", maxWidth: 0 }}>
                                 <div style={{ display: "grid", gap: 8 }}>
                                   <div style={SECTION}>Key in Skyline</div>
                                   <table style={{ width: "100%", borderCollapse: "collapse" }}>

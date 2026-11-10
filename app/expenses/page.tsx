@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
@@ -215,14 +216,14 @@ function DonutChart({ data }: { data: PieSlice[] }) {
             style={{ cursor: "pointer", opacity: hovered !== null && hovered !== i ? 0.45 : 1, transition: "opacity 0.12s" }}
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />
         ))}
-        <text x={cx} y={cy - 16} textAnchor="middle" style={{ fontSize: "var(--fs-11)", fill: "#64748b", fontFamily: "inherit" }}>
+        <text x={cx} y={cy - 16} textAnchor="middle" style={{ fontSize: "var(--fs-11)", fill: "var(--c-64748b)", fontFamily: "inherit" }}>
           {trim(hov ? hov.label : "Total")}
         </text>
-        <text x={cx} y={cy + 5} textAnchor="middle" style={{ fontSize: "var(--fs-14)", fontWeight: 700, fill: "#0f172a", fontFamily: "inherit" }}>
+        <text x={cx} y={cy + 5} textAnchor="middle" style={{ fontSize: "var(--fs-14)", fontWeight: 700, fill: "var(--c-0f172a)", fontFamily: "inherit" }}>
           {hov ? toMoney(hov.value) : toMoney(total)}
         </text>
         {hov && (
-          <text x={cx} y={cy + 22} textAnchor="middle" style={{ fontSize: "var(--fs-12)", fill: "#64748b", fontFamily: "inherit" }}>
+          <text x={cx} y={cy + 22} textAnchor="middle" style={{ fontSize: "var(--fs-12)", fill: "var(--c-64748b)", fontFamily: "inherit" }}>
             {((hov.value / total) * 100).toFixed(1)}%
           </text>
         )}
@@ -731,7 +732,7 @@ export default function ExpensesPage() {
       value,
       color: PIE_COLORS[i % PIE_COLORS.length],
     }));
-    if (uncodedAmt > 0) result.push({ label: "Uncoded", value: uncodedAmt, color: "#fca5a5" });
+    if (uncodedAmt > 0) result.push({ label: "Uncoded", value: uncodedAmt, color: "var(--c-fca5a5)" });
     return result;
   }, [tx, properties]);
 
@@ -747,7 +748,7 @@ export default function ExpensesPage() {
       value,
       color: PIE_COLORS[i % PIE_COLORS.length],
     }));
-    if (uncodedAmt > 0) result.push({ label: "Uncoded", value: uncodedAmt, color: "#fca5a5" });
+    if (uncodedAmt > 0) result.push({ label: "Uncoded", value: uncodedAmt, color: "var(--c-fca5a5)" });
     return result;
   }, [tx]);
 
@@ -1247,7 +1248,7 @@ export default function ExpensesPage() {
 
       {/* ── Review & Send to AvidXchange — prominent, up top (mirrors Allocated) ── */}
       {!isMaint && billingGroups.length > 0 && !alreadyFinalized && (
-        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
+        <div className="card" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.5))", background: "var(--tint-green-bg, rgba(22,163,74,0.07))", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
           <div>
             <div style={{ fontWeight: 800, fontSize: 17 }}>
               {statementMonth || statementPeriodText || "Credit card expenses"} — ready to send
@@ -1259,7 +1260,7 @@ export default function ExpensesPage() {
           </div>
           <button
             className="btn"
-            style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10, opacity: ccBuilding ? 0.75 : 1 }}
+            style={{ background: "var(--c-16a34a)", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10, opacity: ccBuilding ? 0.75 : 1 }}
             disabled={ccBuilding}
             onClick={reviewCcAndSend}
           >
@@ -1277,7 +1278,7 @@ export default function ExpensesPage() {
         className="card"
         {...ccDrop.dropHandlers}
         title="Choose a statement file, or drag it onto this card"
-        style={ccDrop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "rgba(11,74,125,0.04)" } : undefined}
+        style={ccDrop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" } : undefined}
       >
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1315,7 +1316,7 @@ export default function ExpensesPage() {
                 {saving ? "Saving…" : "Save to History"}
               </button>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
+            <span style={{ background: "var(--tint-green-bg, rgba(22, 163, 74, 0.85))", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
@@ -1331,7 +1332,7 @@ export default function ExpensesPage() {
           </div>
         )}
         {statementPeriodText && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Period:</b> {statementPeriodText}</div>}
-        {saveError && <div style={{ color: "#b42318", fontSize: "var(--fs-13)", marginTop: 6 }}>{saveError}</div>}
+        {saveError && <div style={{ color: "var(--c-b42318)", fontSize: "var(--fs-13)", marginTop: 6 }}>{saveError}</div>}
       </div>
       )}
 
@@ -1398,7 +1399,7 @@ export default function ExpensesPage() {
               {(() => {
                 const sortIcon = (col: string) => tableSortCol === col ? (tableSortDir === "asc" ? " ↑" : " ↓") : <span style={{ opacity: 0.35, fontSize: "var(--fs-10)" }}> ⇅</span>;
                 const thBase: React.CSSProperties = { ...stickyThStyle, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" };
-                const filterTh: React.CSSProperties = { ...stickyThStyle, top: 38, padding: "4px 6px", borderBottom: "1px solid var(--border)", background: "#f8fafc" };
+                const filterTh: React.CSSProperties = { ...stickyThStyle, top: 38, padding: "4px 6px", borderBottom: "1px solid var(--border)", background: "var(--c-f8fafc)" };
                 const filterInput: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
                 return (
                   <>
@@ -1499,7 +1500,7 @@ export default function ExpensesPage() {
                               title="Remove attachment"
                               onClick={() => removeAttachment(t.id)}
                               style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "var(--fs-14)", padding: "0 2px", lineHeight: 1 }}
-                            >✕</button>
+                            ><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
                           </div>
                         ) : (
                           <>
@@ -1544,8 +1545,8 @@ export default function ExpensesPage() {
               <b>Allocation Preview</b>
               <div className="small muted" style={{ marginTop: 4 }}>
                 One invoice per property. Click <b>Billed</b> for its category breakdown or <b>Accrued</b> for the held detail. Categories:{" "}
-                <span style={{ color: "#15803d", fontWeight: 700 }}>green = billing this period</span>,{" "}
-                <span style={{ color: "#b91c1c", fontWeight: 700 }}>red = held under ${CARRYOVER_THRESHOLD} (accrued, carried forward{yearEnd ? " — December posts everything" : ""})</span>.
+                <span style={{ color: "var(--c-15803d)", fontWeight: 700 }}>green = billing this period</span>,{" "}
+                <span style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>red = held under ${CARRYOVER_THRESHOLD} (accrued, carried forward{yearEnd ? " — December posts everything" : ""})</span>.
               </div>
             </div>
           </div>
@@ -1602,7 +1603,7 @@ export default function ExpensesPage() {
                       </td>
                       <td style={{ textAlign: "right" }}>
                         {held ? (
-                          <button className="linkBtn" style={{ fontWeight: 700, color: "#b91c1c" }} title="See the category breakdown of this held balance" onClick={() => {
+                          <button className="linkBtn" style={{ fontWeight: 700, color: "var(--c-b91c1c)" }} title="See the category breakdown of this held balance" onClick={() => {
                             const byCat = new Map<string, HeldCatRow>();
                             const add = (category: string, amount: number) => {
                               const c = byCat.get(category) ?? { category: category || "—", amount: 0, count: 0 };
@@ -1698,7 +1699,7 @@ export default function ExpensesPage() {
                 <b style={{ fontSize: 15 }}>{allocPropModal.propId} — {allocPropModal.name}</b>
                 <div className="small muted" style={{ marginTop: 2 }}>Click a category to see transactions</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setAllocPropModal(null)}>✕</button>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setAllocPropModal(null)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div className="tableWrap" style={{ overflowY: "auto" }}>
               <table>
@@ -1745,12 +1746,12 @@ export default function ExpensesPage() {
                 <b style={{ fontSize: 15 }}>{drillModal.propId} — {propName(drillModal.propId)}</b>
                 <div className="small muted" style={{ marginTop: 2 }}>{drillModal.category}</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setDrillModal(null)}>✕</button>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setDrillModal(null)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div style={{ overflowY: "auto", borderRadius: 8, border: "1px solid var(--border)" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
                 <thead>
-                  <tr style={{ background: "#f8fafc" }}>
+                  <tr style={{ background: "var(--c-f8fafc)" }}>
                     <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>Date</th>
                     <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Description</th>
                     <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Invoice Description</th>
@@ -1770,7 +1771,7 @@ export default function ExpensesPage() {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr style={{ background: "#f8fafc" }}>
+                  <tr style={{ background: "var(--c-f8fafc)" }}>
                     <td colSpan={drillModal.category === "TI" ? 4 : 3} style={{ padding: "8px 10px", fontWeight: 700, fontSize: "var(--fs-13)" }}>Total ({drillModal.items.length} items)</td>
                     <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{toMoney(drillModal.items.reduce((a: number, t: any) => a + Number(t.amount), 0))}</td>
                   </tr>
@@ -1790,7 +1791,7 @@ export default function ExpensesPage() {
                 <b style={{ fontSize: 15 }}>{heldDetailModal.propId} — {heldDetailModal.name}</b>
                 <div className="small muted" style={{ marginTop: 2 }}>Category breakdown of the accrued balance of {toMoney(heldDetailModal.accrued)} (this month + carried forward) — held until it crosses ${CARRYOVER_THRESHOLD}.</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setHeldDetailModal(null)}>✕</button>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setHeldDetailModal(null)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div className="tableWrap" style={{ overflowY: "auto" }}>
               <table>
@@ -1832,7 +1833,7 @@ export default function ExpensesPage() {
                 <b style={{ fontSize: 15 }}>Allocation Percentages</b>
                 <div className="small muted" style={{ marginTop: 2 }}>Allocations based on property square feet.</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}>✕</button>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div className="tableWrap" style={{ overflowY: "auto" }}>
               <table>

@@ -179,8 +179,8 @@ export default function ContactsCard({
       {error && (
         <div style={{
           margin: "8px 0", padding: "8px 10px", borderRadius: 8,
-          background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
+          background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))",
+          color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
@@ -237,7 +237,7 @@ export default function ContactsCard({
             <div key={c.id} style={{
               display: "flex", flexDirection: "column", gap: 8,
               padding: "12px", border: "1px solid var(--border)",
-              borderRadius: 10, background: "rgba(15,23,42,0.015)",
+              borderRadius: 10, background: "var(--tint-neutral-bg, rgba(15,23,42,0.015))",
             }}>
               {c.source === "tenant" && (
                 <span style={{ alignSelf: "flex-start" }}><Pill tone={TONE_BLUE}>ADDED BY TENANT</Pill></span>

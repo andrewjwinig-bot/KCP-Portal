@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 // Master Monthly Review — a company-wide, graphical one-pager across leasing,
 // operations, and financials, grouped Business Parks / Shopping Centers / LIK /
@@ -13,10 +14,10 @@ import { useCanOpen } from "@/app/components/useCanOpen";
 import LoadingState from "@/app/components/LoadingState";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const BRAND = "#0b4a7d";
-const GREEN = "#15803d";
-const RED = "#b91c1c";
-const AMBER = "#b45309";
+const BRAND = "var(--c-0b4a7d)";
+const GREEN = "var(--c-15803d)";
+const RED = "var(--c-b91c1c)";
+const AMBER = "var(--c-b45309)";
 
 type GroupMetrics = {
   key: string; label: string;
@@ -55,7 +56,7 @@ function OccBar({ pct }: { pct: number }) {
   const p = Math.max(0, Math.min(100, pct));
   const color = p >= 95 ? GREEN : p >= 85 ? BRAND : AMBER;
   return (
-    <div style={{ position: "relative", height: 22, borderRadius: 6, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+    <div style={{ position: "relative", height: 22, borderRadius: 6, background: "var(--tint-neutral-bg, rgba(15,23,42,0.08))", overflow: "hidden" }}>
       <div style={{ position: "absolute", inset: 0, width: `${p}%`, background: color, borderRadius: 6, transition: "width .3s" }} />
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", paddingLeft: 8, fontSize: "var(--fs-12)", fontWeight: 800, color: p > 55 ? "#fff" : "var(--text)" }}>{p.toFixed(1)}%</div>
     </div>
@@ -70,7 +71,7 @@ function NoiBars({ actual, budget }: { actual: number | null; budget: number | n
   const Bar = ({ v, label, color }: { v: number; label: string; color: string }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <span className="muted" style={{ fontSize: "var(--fs-10)", width: 42, flexShrink: 0 }}>{label}</span>
-      <div style={{ flex: 1, height: 10, borderRadius: 4, background: "rgba(15,23,42,0.06)", overflow: "hidden" }}>
+      <div style={{ flex: 1, height: 10, borderRadius: 4, background: "var(--tint-neutral-bg, rgba(15,23,42,0.06))", overflow: "hidden" }}>
         <div style={{ width: `${(Math.abs(v) / max) * 100}%`, height: "100%", background: color, borderRadius: 4 }} />
       </div>
       <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, width: 52, textAlign: "right", flexShrink: 0 }}>{moneyK(v)}</span>
@@ -131,7 +132,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
       <span style={{ fontWeight: 800, fontSize: "var(--fs-14)", minWidth: 120, textAlign: "center" }}>{MONTHS[month - 1]} {year}</span>
       <button className="btn" onClick={() => step(1)} style={{ padding: "6px 12px", fontWeight: 900 }}>→</button>
       {embedded ? (
-        <Link href="/reports/monthly" className="btn" style={{ fontSize: "var(--fs-13)", padding: "6px 14px", fontWeight: 700, textDecoration: "none" }}>Full view / Print →</Link>
+        <Link href="/reports/monthly" className="btn" style={{ fontSize: "var(--fs-13)", padding: "6px 14px", fontWeight: 700, textDecoration: "none" }}>Full view / Print<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
       ) : (
         <button className="btn primary" onClick={() => window.print()} style={{ fontSize: "var(--fs-13)", padding: "6px 14px", fontWeight: 700 }}>Print / PDF</button>
       )}
@@ -163,7 +164,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
 
       {header}
 
-      {error && <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", color: RED, fontWeight: 700 }}>{error}</div>}
+      {error && <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", color: RED, fontWeight: 700 }}>{error}</div>}
       {loading && !report && (
         <LoadingState status="Assembling the company snapshot…" context={`${MONTHS[month - 1]} ${year} · occupancy, NOI, leasing & service`} columns={3} rows={4} />
       )}
@@ -195,7 +196,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
                     <span style={{ fontWeight: 800, color: noiVar >= 0 ? GREEN : RED }}>{noiVar >= 0 ? "+" : ""}{money(noiVar)} {p.noiBudget ? `(${((noiVar / Math.abs(p.noiBudget)) * 100).toFixed(1)}%)` : ""}</span>
                   </div>
                 )}
-                {canOpen("/financials/operating-statements/review") && <Link href="/financials/operating-statements/review" className="noprint muted small" style={{ color: BRAND, fontWeight: 600, textDecoration: "none" }}>Flags to Investigate →</Link>}
+                {canOpen("/financials/operating-statements/review") && <Link href="/financials/operating-statements/review" className="noprint muted small" style={{ color: BRAND, fontWeight: 600, textDecoration: "none" }}>Flags to Investigate<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>}
               </div>
             </div>
 
@@ -256,7 +257,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
 
           {/* ── Upcoming & seasonal ── */}
           {report.upcoming.length > 0 && (
-            <div className="card" style={{ background: "rgba(11,74,125,0.04)", borderColor: "rgba(11,74,125,0.25)" }}>
+            <div className="card" style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.04))", borderColor: "var(--tint-brand-line, rgba(11,74,125,0.25))" }}>
               <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND, marginBottom: 10 }}>Upcoming — for our discussion</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {report.upcoming.map((u, i) => (
@@ -422,7 +423,7 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
           {dep(r.unitRef)}
         </td>
         <td style={{ textAlign: "right" }}>
-          {canOpenRecon && <Link href={stmtHref(r)} className="noprint" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-12)", textDecoration: "none", whiteSpace: "nowrap" }}>
+          {canOpenRecon && <Link href={stmtHref(r)} className="noprint" style={{ color: "var(--c-0b4a7d)", fontWeight: 600, fontSize: "var(--fs-12)", textDecoration: "none", whiteSpace: "nowrap" }}>
             {gone ? "Close out →" : "Statement →"}
           </Link>}
         </td>
@@ -434,10 +435,10 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
   return (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-        <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-0b4a7d)" }}>
           Vacating &amp; Expiring <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>· recently vacated (60d) + expiring (60d)</span>
         </div>
-        <Link href="/rentroll/leasing" className="noprint muted small" style={{ color: "#0b4a7d", fontWeight: 600, textDecoration: "none" }}>Leasing activity →</Link>
+        <Link href="/rentroll/leasing" className="noprint muted small" style={{ color: "var(--c-0b4a7d)", fontWeight: 600, textDecoration: "none" }}>Leasing activity<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
       </div>
       {total === 0 ? (
         <div className="muted small">No tenants vacating, recently vacated, or expiring in the window.</div>

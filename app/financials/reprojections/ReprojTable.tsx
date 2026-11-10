@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown } from "lucide-react";
 
 // The Reprojections grid — section cards, subtotal cards and the group
 // headings — shared by Reprojections and the T-12 so the two read as one
@@ -10,7 +11,7 @@ import { AccountListCard } from "@/app/components/AccountListCard";
 import { HoverCard } from "@/app/components/HoverCard";
 
 export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
-export const BRAND = "#0b4a7d";
+export const BRAND = "var(--c-0b4a7d)";
 const MONTH_TINT = "rgba(15,23,42,0.035)";
 export const ACTUAL_TINT = "rgba(21,128,61,0.10)";
 const ACTUAL_EDGE = "2px solid rgba(21,128,61,0.5)";
@@ -57,7 +58,7 @@ export function HeaderSelect({ value, onChange, displayLabel, ariaLabel, muted, 
   return (
     <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
       <span style={{ fontSize: 22, fontWeight: 800, color: muted ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{displayLabel}</span>
-      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
+      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
       <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={ariaLabel}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}>
         {children}
@@ -283,9 +284,9 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
   if (lines.length === 0 && view.hideEmpty) return null;
   return (
     <div className="card" style={{ padding: 0 }}>
-      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</div>
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</div>
       <div className="tableWrap">
-        <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
+        <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
           <Colgroup through={view.through} mode={view.mode} plain={view.plain} />
           <thead><HeaderRow through={view.through} mode={view.mode} labels={view.labels} totalLabel={view.totalLabel} /></thead>
           <tbody>
@@ -316,7 +317,7 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
               </tr>
             );})}
             {!hideSubtotal && (
-              <tr style={{ background: "rgba(11,74,125,0.06)" }}>
+              <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.06))" }}>
                 <td style={{ fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: BRAND, fontSize: "var(--fs-12-5)" }}>{sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`}</td>
                 {figureCells(sec.subtotal, view, { bold: true, color: BRAND })}
               </tr>
@@ -332,7 +333,7 @@ function SubtotalCard({ label, t, view, strong }: { label: string; t: Totals; vi
   return (
     <div className="card" style={{ padding: 0, borderColor: BRAND, background: strong ? "rgba(11,74,125,0.06)" : "rgba(11,74,125,0.04)" }}>
       <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
+        <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
           <Colgroup through={view.through} mode={view.mode} plain={view.plain} />
           <tbody>
             <tr style={{ fontWeight: 800 }}>

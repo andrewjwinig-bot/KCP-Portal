@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 // What September 2026's invoices billed, split (`/api/allocation/september-check`):
 // September's own charges, balances carried in from earlier months, and the
@@ -23,12 +24,12 @@ export function SeptemberCheckCard() {
     fetch("/api/allocation/september-check", { cache: "no-store" }).then((r) => r.json())
       .then((j) => { if (j?.rows) setData(j as Check); else if (j?.error) setErr(j.error); }).catch(() => {});
   }, []);
-  if (err) return <div className="card small" style={{ color: "#b91c1c", fontWeight: 600 }}>September check: {err}</div>;
+  if (err) return <div className="card small" style={{ color: "var(--c-b91c1c)", fontWeight: 600 }}>September check: {err}</div>;
   if (!data) return null;
   return (
     <div className="card" style={{ padding: 0, borderColor: data.from2025 > 0 ? "rgba(217,119,6,0.45)" : undefined }}>
       <div style={{ padding: "14px 16px 4px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", cursor: "pointer" }} onClick={() => setOpen(!open)}>
-        <span style={{ width: 12, color: "var(--muted)" }}>{open ? "▾" : "▸"}</span>
+        <span style={{ width: 12, color: "var(--muted)" }}>{open ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
         <span style={{ fontSize: 16, fontWeight: 800 }}>September 2026 — What Was Billed</span>
         {data.from2025 > 0 && <Pill tone={TONE_AMBER}>{money(data.from2025)} FROM 2025</Pill>}
       </div>

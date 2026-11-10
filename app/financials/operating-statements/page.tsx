@@ -1,5 +1,5 @@
 "use client";
-import { CircleCheck } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, TriangleAlert } from "lucide-react";
 
 // Operating Statements — the actuals twin of Operating Budgets. Upload a
 // property's Skyline GL export; the page renders the Comparative Income
@@ -86,7 +86,7 @@ function HeaderSelect({
   return (
     <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
       <span style={{ fontSize: muted ? 20 : 24, fontWeight: 800, color: muted ? "var(--muted)" : "inherit", whiteSpace: "nowrap" }}>{displayLabel}</span>
-      <span style={{ color: "var(--muted)", fontSize: "var(--fs-14)" }}>▾</span>
+      <span style={{ color: "var(--muted)", fontSize: "var(--fs-14)" }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
       <select
         aria-label={ariaLabel}
         value={value}
@@ -99,7 +99,7 @@ function HeaderSelect({
   );
 }
 
-const COLOR_BRAND = "#0b4a7d";
+const COLOR_BRAND = "var(--c-0b4a7d)";
 const GROUP_DIV = "1px solid var(--border)"; // vertical divider between Period / YTD / Annual / Notes
 
 // Roomier, budget-matching cell metrics (larger font, more padding).
@@ -255,7 +255,7 @@ const toggleBtn: React.CSSProperties = {
   border: "1px solid var(--border)", background: "var(--card)",
   color: "var(--text)", cursor: "pointer", letterSpacing: "0.04em", textTransform: "uppercase",
 };
-const toggleActive: React.CSSProperties = { background: "#0b4a7d", color: "#fff", borderColor: "#0b4a7d" };
+const toggleActive: React.CSSProperties = { background: "var(--c-0b4a7d)", color: "#fff", borderColor: "var(--c-0b4a7d)" };
 const toggleLabel: React.CSSProperties = { fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" };
 
 // A single segmented two-button control. Rendered as a labeled row (label left,
@@ -305,7 +305,7 @@ function ViewMenu({ psf, setPsf, psfDisabled, varMode, setVarMode, hideEmpty, se
         aria-expanded={open}
       >
         Display
-        <span aria-hidden style={{ fontSize: "var(--fs-10)", opacity: 0.75, lineHeight: 1 }}>▾</span>
+        <span aria-hidden style={{ fontSize: "var(--fs-10)", opacity: 0.75, lineHeight: 1 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
       </button>
       {open && (
         <div role="menu" style={{
@@ -805,18 +805,18 @@ export default function OperatingStatementsPage() {
       </header>
 
       {error && (
-        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
-          <div style={{ fontWeight: 700, color: "#b91c1c" }}>Error</div>
+        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
+          <div style={{ fontWeight: 700, color: "var(--c-b91c1c)" }}>Error</div>
           <div className="muted small">{error}</div>
         </div>
       )}
 
       {behindPosting && (
-        <div className="card" style={{ borderColor: "rgba(180,83,9,0.45)", background: "rgba(217,119,6,0.08)" }}>
+        <div className="card" style={{ borderColor: "var(--tint-amber-line, rgba(180,83,9,0.45))", background: "var(--tint-amber-bg, rgba(217,119,6,0.08))" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <span style={{ fontSize: 20 }}>⏰</span>
             <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontWeight: 800, color: "#b45309" }}>
+              <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
                 Time to post {MONTHS[expectedPost.period - 1]} {expectedPost.year}
               </div>
               <div className="muted small" style={{ marginTop: 2 }}>
@@ -835,11 +835,11 @@ export default function OperatingStatementsPage() {
       )}
 
       {isGandA && pendingAlloc && !pendingAlloc.alreadyProcessed && (
-        <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)" }}>
+        <div className="card" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.5))", background: "var(--tint-green-bg, rgba(22,163,74,0.07))" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <span style={{ fontSize: 20 }}>🧾</span>
             <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontWeight: 800, color: "#15803d" }}>
+              <div style={{ fontWeight: 800, color: "var(--c-15803d)" }}>
                 Allocated invoices for {pendingAlloc.statementMonth} are ready to process
               </div>
               <div className="muted small" style={{ marginTop: 2 }}>
@@ -847,7 +847,7 @@ export default function OperatingStatementsPage() {
               </div>
             </div>
             <a href="/allocated-invoicer" className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>
-              Go to Allocated Invoicer →
+              Go to Allocated Invoicer<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
             </a>
           </div>
         </div>
@@ -968,8 +968,8 @@ export default function OperatingStatementsPage() {
                     title="General ledger tie-out"
                     rows={[
                       { label: "Accounts checked", value: String(glTieOut.checked) },
-                      { label: "Reconciled", value: String(glTieOut.reconciled), color: "#15803d" },
-                      ...(glTieOut.mismatches ? [{ label: "Do not reconcile", value: String(glTieOut.mismatches), color: "#b91c1c" }] : []),
+                      { label: "Reconciled", value: String(glTieOut.reconciled), color: "var(--c-15803d)" },
+                      ...(glTieOut.mismatches ? [{ label: "Do not reconcile", value: String(glTieOut.mismatches), color: "var(--c-b91c1c)" }] : []),
                     ]}
                     footer={{ label: "Checks", value: "monthly nets vs ending balance" }}
                   >
@@ -1008,7 +1008,7 @@ export default function OperatingStatementsPage() {
                     {briefing ? "Writing…" : brief ? "✨ Regenerate brief" : "✨ Monthly brief"}
                   </button>
                   {analyzeMsg && !analyzing && (
-                    <span className="small" style={analyzeFailed ? { color: "#b91c1c", fontWeight: 700 } : { color: "var(--muted)" }}>{analyzeMsg}</span>
+                    <span className="small" style={analyzeFailed ? { color: "var(--c-b91c1c)", fontWeight: 700 } : { color: "var(--muted)" }}>{analyzeMsg}</span>
                   )}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }} className="muted small">
@@ -1043,7 +1043,7 @@ export default function OperatingStatementsPage() {
       {!loading && statement && brief && !isFullYear && (
         <div className="card" style={{ borderColor: "rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.05)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
-            <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#6d28d9", display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-6d28d9)", display: "flex", alignItems: "center", gap: 6 }}>
               ✨ Monthly Brief · {cur?.name} · {MONTHS[(briefPeriod || 1) - 1]} {year}
             </div>
             <span className="muted small" style={{ fontStyle: "italic" }}>AI-generated · review before relying on it</span>
@@ -1069,7 +1069,7 @@ export default function OperatingStatementsPage() {
           apply" the ! on the line records. */}
       {!loading && statement && debtCheck?.missing && !isFullYear
         && statement.sections.some((sec) => sec.role === "debt-service" && sec.lines.some((l) => l.expectedMissing && !dismissedFlags.has(lineKeyOf(sec.name, l.label)))) && (
-        <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: "var(--fs-13)", fontWeight: 600 }}>
+        <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))", color: "var(--c-b91c1c)", fontSize: "var(--fs-13)", fontWeight: 600 }}>
           ⚠ Debt service not posted — scheduled P&amp;I is <b>${money0(debtCheck.scheduled)}/mo</b>. Post the mortgage charge.
         </div>
       )}
@@ -1084,9 +1084,9 @@ export default function OperatingStatementsPage() {
         const mon = MONTHS[statement.period - 1];
         return (
           <p className="small muted" style={{ margin: "2px 2px 0", lineHeight: 1.5 }}>
-            <b style={{ color: "#b45309" }}>G&amp;A memo (not in totals):</b> this property&rsquo;s share of the 2000 G&amp;A pool is
+            <b style={{ color: "var(--c-b45309)" }}>G&amp;A memo (not in totals):</b> this property&rsquo;s share of the 2000 G&amp;A pool is
             {" "}<b>${money0(allocatedGA.periodShare)}</b> for {mon} (<b>${money0(allocatedGA.ytdShare)}</b> YTD) — {(allocatedGA.pct * 100).toFixed(2)}% of the pool.
-            {" "}Pending until the <a href="/allocated-invoicer" style={{ color: "#0b4a7d", fontWeight: 600 }}>allocated invoice</a> posts to this property&rsquo;s GL.
+            {" "}Pending until the <a href="/allocated-invoicer" style={{ color: "var(--c-0b4a7d)", fontWeight: 600 }}>allocated invoice</a> posts to this property&rsquo;s GL.
           </p>
         );
       })()}
@@ -1178,7 +1178,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
   const footerCard = (
     <div className="card">
       {budgetFallback && budgetYear != null && (
-        <div style={{ marginBottom: 10, fontSize: "var(--fs-12)", color: "#b45309", fontWeight: 600 }}>
+        <div style={{ marginBottom: 10, fontSize: "var(--fs-12)", color: "var(--c-b45309)", fontWeight: 600 }}>
           Budget &amp; Variance are hidden — no {s.year} budget is loaded for this property (the nearest is {budgetYear}, and comparing to a different year would be misleading). Import the {s.year} budget to compare.
         </div>
       )}
@@ -1218,7 +1218,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
     const word = "still to investigate";
     return (
       <>
-        <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", borderColor: color, background: "rgba(180,83,9,0.05)" }}>
+        <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", borderColor: color, background: "var(--tint-amber-bg, rgba(180,83,9,0.05))" }}>
           <span style={{ fontWeight: 700, color }}>
             Showing {count} line{count === 1 ? "" : "s"} {word} — dismiss the &ldquo;?&rdquo; on a line once you have confirmed it is right
           </span>
@@ -1293,9 +1293,9 @@ function FYRow({ label, monthly, cols, total, budget, variance, varMode, showBud
   const bold = variant !== "line";
   const upper = variant === "rollup" || variant === "rollupStrong";
   const rowStyle: React.CSSProperties | undefined =
-    variant === "subtotal" ? { background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }
-    : variant === "rollupStrong" ? { background: "rgba(11,74,125,0.06)" }
-    : variant === "rollup" ? { background: "rgba(11,74,125,0.035)" }
+    variant === "subtotal" ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", borderTop: "2px solid var(--tint-brand-line, rgba(11,74,125,0.30))" }
+    : variant === "rollupStrong" ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.06))" }
+    : variant === "rollup" ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.035))" }
     : undefined;
   const num = (v: number | null, key: string | number, extra?: React.CSSProperties, onClick?: () => void) => {
     const clickable = !!onClick && v != null && Math.abs(v) >= 0.5;
@@ -1372,7 +1372,7 @@ function FullYearTable({ fy, year, viewKey, propertyCode, view, budgetYear, budg
     return (
       <Fragment key={sec.name}>
         <tr>
-          <td colSpan={colSpan} style={{ padding: "8px 12px", background: "rgba(15,23,42,0.03)", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
+          <td colSpan={colSpan} style={{ padding: "8px 12px", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</td>
         </tr>
         {lines.map((l) => {
           const sign: 1 | -1 = sec.role === "revenue" || sec.role === "reimbursement" ? -1 : 1;
@@ -1413,7 +1413,7 @@ function FullYearTable({ fy, year, viewKey, propertyCode, view, budgetYear, budg
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table style={{ width: "100%", minWidth: 320 + (cols + 1 + (showBudget ? 2 : 0)) * 72, borderCollapse: "collapse" }}>
+        <table className="grid-dense" style={{ width: "100%", minWidth: 320 + (cols + 1 + (showBudget ? 2 : 0)) * 72, borderCollapse: "collapse" }}>
           <thead>
             <tr>
               <th style={{ ...fyHeadStyle, textAlign: "left" }}>Line</th>
@@ -1430,7 +1430,7 @@ function FullYearTable({ fy, year, viewKey, propertyCode, view, budgetYear, budg
       </div>
       <div style={{ padding: "10px 14px", borderTop: "1px solid var(--border)" }}>
         {budgetFallback && budgetYear != null && (
-          <div style={{ marginBottom: 6, fontSize: "var(--fs-12)", color: "#b45309", fontWeight: 600 }}>
+          <div style={{ marginBottom: 6, fontSize: "var(--fs-12)", color: "var(--c-b45309)", fontWeight: 600 }}>
             Budget &amp; Variance are hidden — no {year} budget is loaded for this property (nearest is {budgetYear}). Import the {year} budget to compare.
           </div>
         )}
@@ -1452,8 +1452,8 @@ function CoverageModal({ coverage, onClose, onPick }: { coverage: Coverage[]; on
   const fullCount = rows.reduce((n, r) => n + years.filter((y) => (r.years[y] ?? 0) >= 12).length, 0);
   const cellFor = (months: number) =>
     !months ? { bg: "transparent", fg: "var(--muted)", text: "—" }
-    : months >= 12 ? { bg: "rgba(21,128,61,0.14)", fg: "#15803d", text: "✓ Full" }
-    : { bg: "rgba(180,83,9,0.14)", fg: "#b45309", text: `${months} mo` };
+    : months >= 12 ? { bg: "rgba(21,128,61,0.14)", fg: "var(--c-15803d)", text: "✓ Full" }
+    : { bg: "rgba(180,83,9,0.14)", fg: "var(--c-b45309)", text: `${months} mo` };
   const cs: React.CSSProperties = { padding: "6px 10px", textAlign: "center", fontSize: "var(--fs-13)", fontVariantNumeric: "tabular-nums", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
   const stickyL: React.CSSProperties = { position: "sticky", left: 0, background: "var(--card)" };
   return (
@@ -1462,7 +1462,7 @@ function CoverageModal({ coverage, onClose, onPick }: { coverage: Coverage[]; on
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div>
             <div style={{ fontWeight: 800, fontSize: 16 }}>GL Import Coverage</div>
-            <div className="muted small">{fullCount} property-year{fullCount === 1 ? "" : "s"} fully imported · <span style={{ color: "#15803d", fontWeight: 700 }}>green</span> = 12 months, <span style={{ color: "#b45309", fontWeight: 700 }}>amber</span> = partial, blank = not imported. Click a cell to open it.</div>
+            <div className="muted small">{fullCount} property-year{fullCount === 1 ? "" : "s"} fully imported · <span style={{ color: "var(--c-15803d)", fontWeight: 700 }}>green</span> = 12 months, <span style={{ color: "var(--c-b45309)", fontWeight: 700 }}>amber</span> = partial, blank = not imported. Click a cell to open it.</div>
           </div>
           <button className="btn" onClick={onClose} style={{ fontSize: "var(--fs-13)", padding: "6px 12px", fontWeight: 700 }}>Close</button>
         </div>
@@ -1470,7 +1470,7 @@ function CoverageModal({ coverage, onClose, onPick }: { coverage: Coverage[]; on
           <div className="muted small" style={{ padding: 20 }}>No GLs imported yet.</div>
         ) : (
           <div className="tableWrap" style={{ marginTop: 10, overflow: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 320 + years.length * 72 }}>
+            <table className="grid-dense" style={{ width: "100%", borderCollapse: "collapse", minWidth: 320 + years.length * 72 }}>
               <thead>
                 <tr>
                   <th style={{ ...cs, ...stickyL, textAlign: "left", fontWeight: 800, zIndex: 1 }}>Property</th>
@@ -1518,11 +1518,11 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       {/* Neutral section header bar, matching the Budgets page. */}
-      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
         {sec.name}
       </div>
       <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
+        <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
           <StatementColgroup />
           <thead><HeaderRow monthLabel={monthLabel} varMode={view.varMode} /></thead>
           <tbody>
@@ -1535,7 +1535,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
                       type="button"
                       onClick={() => nf.onDismissFlag(lineKeyOf(sec.name, l.label))}
                       title={`Looks off this month — ${l.flags.join("; ")}. Click to dismiss once you've confirmed it's correct.`}
-                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "rgba(180,83,9,0.12)", border: "1px solid rgba(180,83,9,0.45)", color: "#b45309", fontSize: "var(--fs-10)", fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
+                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "var(--tint-amber-bg, rgba(180,83,9,0.12))", border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.45))", color: "var(--c-b45309)", fontSize: "var(--fs-10)", fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
                     >?</button>
                   ) : null}
                   {/* A not-posted known obligation: the ⚠ in its cells says
@@ -1545,7 +1545,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
                       type="button"
                       onClick={() => nf.onDismissFlag(lineKeyOf(sec.name, l.label))}
                       title="Not posted — click to dismiss once you've confirmed it doesn't apply this month"
-                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "rgba(185,28,28,0.10)", border: "1px solid rgba(185,28,28,0.45)", color: "#b91c1c", fontSize: "var(--fs-10)", fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
+                      style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 16, height: 16, borderRadius: "50%", background: "var(--tint-red-bg, rgba(185,28,28,0.10))", border: "1px solid var(--tint-red-line, rgba(185,28,28,0.45))", color: "var(--c-b91c1c)", fontSize: "var(--fs-10)", fontWeight: 800, cursor: "pointer", verticalAlign: "middle", padding: 0, fontFamily: "inherit" }}
                     >!</button>
                   ) : null}
                   {view.showGL && <div className="muted" style={{ fontSize: "var(--fs-11)", fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
@@ -1555,7 +1555,7 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
               </tr>
             ))}
             {!hideSubtotal && !filterClass && (
-              <tr style={{ background: "rgba(11,74,125,0.06)", borderTop: "2px solid rgba(11,74,125,0.30)" }}>
+              <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", borderTop: "2px solid var(--tint-brand-line, rgba(11,74,125,0.30))" }}>
                 <td style={{ ...labelStyle, fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-13-5)" }}>{subtotalLabel(sec)}</td>
                 {figureCells(sec.subtotal, { bold: true, color: COLOR_BRAND, psf: view.psf, sqft: view.sqft, varMode: view.varMode })}
                 <td style={{ borderLeft: GROUP_DIV }} />
@@ -1572,7 +1572,7 @@ function RollupCard({ label, t, view, strong }: { label: string; t: StatementTot
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: COLOR_BRAND, background: strong ? "rgba(11,74,125,0.06)" : "rgba(11,74,125,0.035)" }}>
       <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
+        <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
           <StatementColgroup />
           <tbody>
             <tr>
@@ -1604,21 +1604,21 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
       ? `Debt service isn't posted — the Debt Tracker schedules ~${money0(expectedMissing.expected)}/mo P&I on this property. This $0 is unposted, not final.`
       : `Nothing posted year-to-date, but this line is budgeted ~${money0(expectedMissing.expected)}. Looks unposted — not a complete $0.`
     : undefined;
-  const missStyle: React.CSSProperties = { background: "rgba(180,83,9,0.10)", color: "#b45309", textAlign: "center", fontSize: 18, lineHeight: 1 };
+  const missStyle: React.CSSProperties = { background: "var(--tint-amber-bg, rgba(180,83,9,0.10))", color: "var(--c-b45309)", textAlign: "center", fontSize: 18, lineHeight: 1 };
   const missPeriod = marksPeriodUnposted(expectedMissing, t.periodActual, t.periodBudget);
   const missYtd = marksYtdUnposted(expectedMissing, t.ytdActual);
-  const missIcon = <span aria-label="Not posted to the GL">⚠️</span>;
+  const missIcon = <span aria-label="Not posted to the GL"><TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>;
   // Green reassurance on a $0 month whose full-year budget is already booked YTD
   // (front-loaded taxes/insurance) — an expected $0, not a shortfall.
   const paidPeriod = !!fullyFunded && Math.abs(t.periodActual) < 0.5;
-  const paidStyle: React.CSSProperties = { background: "rgba(21,128,61,0.10)", color: "#15803d", textAlign: "center", fontSize: 18, lineHeight: 1 };
+  const paidStyle: React.CSSProperties = { background: "var(--tint-green-bg, rgba(21,128,61,0.10))", color: "var(--c-15803d)", textAlign: "center", fontSize: 18, lineHeight: 1 };
   const paidMonthLabel = fullyFunded?.paidPeriod ? MONTHS[fullyFunded.paidPeriod - 1] : null;
   const paidTitle = fullyFunded
     ? `Already paid${paidMonthLabel ? ` in ${paidMonthLabel}` : ""} — the full-year budget (${money0(fullyFunded.annualBudget)}) is booked year-to-date (${money0(fullyFunded.ytdActual)}). A $0 this month is expected (e.g. taxes / insurance paid up front), not a shortfall.`
     : undefined;
   const paidIcon = (
     <span aria-label={paidMonthLabel ? `Paid in ${paidMonthLabel}` : "Paid year to date"} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 }}>
-      <CircleCheck size={20} strokeWidth={1.75} color="#067647" aria-hidden style={{ flexShrink: 0 }} />
+      <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" aria-hidden style={{ flexShrink: 0 }} />
       {paidMonthLabel && <span style={{ fontSize: "var(--fs-9)", fontWeight: 700 }}>paid {paidMonthLabel}</span>}
     </span>
   );
@@ -1651,7 +1651,7 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
     <>
       <td {...click("gl", "month", t.periodActual)} title={missPeriod ? missTitle : paidPeriod ? paidTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missPeriod ? (anticipated ? { ...missStyle, textAlign: "right", fontSize: undefined } : missStyle) : paidPeriod ? paidStyle : {}) }}>{missPeriod ? (anticipated ? <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.1 }}><span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>{amt(t.periodActual)}</span><span style={{ fontSize: "var(--fs-9)", fontWeight: 700, letterSpacing: "0.04em" }}>NOT POSTED · EST.</span></span> : missIcon) : paidPeriod ? paidIcon : amt(t.periodActual)}</td>
       <td {...click("budget", "month", t.periodBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.periodBudget)}</td>
-      <td style={paidPeriod ? { ...base, color: "#15803d" } : structuralPeriod ? neutral : varCell(varMode === "dollar" ? t.periodVariance : pV, mFlag)} title={paidPeriod ? paidTitle : structuralPeriod ? "Nothing posted this month — the variance is the whole budget, so the percentage is 100% by arithmetic rather than by coming in under." : undefined}>{varText(t.periodVariance, pV)}</td>
+      <td style={paidPeriod ? { ...base, color: "var(--c-15803d)" } : structuralPeriod ? neutral : varCell(varMode === "dollar" ? t.periodVariance : pV, mFlag)} title={paidPeriod ? paidTitle : structuralPeriod ? "Nothing posted this month — the variance is the whole budget, so the percentage is 100% by arithmetic rather than by coming in under." : undefined}>{varText(t.periodVariance, pV)}</td>
       <td {...click("gl", "ytd", t.ytdActual)} title={missYtd ? missTitle : undefined} style={{ ...base, borderLeft: GROUP_DIV, ...(missYtd ? missStyle : {}) }}>{missYtd ? missIcon : amt(t.ytdActual)}</td>
       <td {...click("budget", "ytd", t.ytdBudget)} style={{ ...base, color: color ?? "var(--muted)" }}>{amt(t.ytdBudget)}</td>
       <td style={structuralYtd ? neutral : varCell(varMode === "dollar" ? t.ytdVariance : yV, yFlag)} title={structuralYtd ? "Nothing posted year-to-date — the variance is the whole budget, so the percentage is 100% by arithmetic rather than by coming in under." : undefined}>{varText(t.ytdVariance, yV)}</td>
@@ -1784,8 +1784,8 @@ function ImportInstructionsButton({ year, nextPeriod }: { year: number; nextPeri
         style={{
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           width: 16, height: 16, padding: 0, fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
-          background: "rgba(11,74,125,0.10)", color: "#0b4a7d",
-          border: "1px solid rgba(11,74,125,0.30)", borderRadius: "50%", cursor: "pointer",
+          background: "var(--tint-brand-bg, rgba(11,74,125,0.10))", color: "var(--c-0b4a7d)",
+          border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.30))", borderRadius: "50%", cursor: "pointer",
         }}
       >
         i

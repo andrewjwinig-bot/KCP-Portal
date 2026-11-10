@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 // THE RAISE PLAN — the year's raises tested against a POOL, before any of them
 // touches the budget. Each raise is a % or $ of salary, or a one-time bonus;
@@ -31,10 +32,10 @@ import type { BuildingContext } from "@/lib/financials/budgets/payrollContext";
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const signed = (n: number) => (Math.abs(n) < 0.5 ? "–" : `${n > 0 ? "+" : "−"}$${Math.abs(Math.round(n)).toLocaleString("en-US")}`);
-const UP = "#b45309";
+const UP = "var(--c-b45309)";
 const NAME = new Map(PROPERTY_DEFS.map((p) => [p.id, p.name]));
 const KIND_LABEL: Record<RaiseTest["kind"], string> = { pct: "Raise %", dollar: "Raise $", bonus: "Bonus $" };
-const band: React.CSSProperties = { background: "rgba(11,74,125,0.07)", fontWeight: 800 };
+const band: React.CSSProperties = { background: "var(--tint-brand-bg, rgba(11,74,125,0.07))", fontWeight: 800 };
 const topRule: React.CSSProperties = { borderTop: "2px solid var(--border)" };
 
 /** A number box that commits on blur / Enter — typing "3." never fights the parse. */
@@ -173,7 +174,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply, onUndo }: {
                       <HoverCard title={`${emp?.name ?? ""} · cost / yr`} rows={[
                         { label: t.kind === "bonus" ? "Bonus" : "Raise", value: money0(oe.pay) },
                         { label: "Taxes & 401(k)", value: money0(oe.cost - oe.pay) },
-                        ...(oe.cost - ownNet >= 0.5 ? [{ label: "Back from tenants", value: `−${money0(oe.cost - ownNet)}`, color: "#15803d" }] : []),
+                        ...(oe.cost - ownNet >= 0.5 ? [{ label: "Back from tenants", value: `−${money0(oe.cost - ownNet)}`, color: "var(--c-15803d)" }] : []),
                       ]} footer={{ label: oe.cost - ownNet >= 0.5 ? "Net of recoveries" : "Cost / yr", value: money0(ownNet) }}>{money0(ownNet)}</HoverCard>
                     ) : "–"}
                   </td>
@@ -182,7 +183,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply, onUndo }: {
                       <button type="button" className="btn sm" title="Set the salary in the budget and take this off the plan"
                         onClick={() => { if (window.confirm(`Set ${emp!.name}'s ${doc.year} salary to ${money0(oe.after.salary)}?`)) onApply(i, t.employeeId, oe.after.salary); }}>Apply</button>
                     )}{" "}
-                    <button type="button" className="btn sm" aria-label="Remove raise" onClick={() => onPlan({ ...plan, raises: plan.raises.filter((_, j) => j !== i) })}>✕</button>
+                    <button type="button" className="btn sm" aria-label="Remove raise" onClick={() => onPlan({ ...plan, raises: plan.raises.filter((_, j) => j !== i) })}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
                   </td>
                 </tr>
               );
@@ -279,7 +280,7 @@ export function RaisePlanCard({ doc, context, onPlan, onApply, onUndo }: {
                                 { label: "Change", value: signed(r.delta) },
                                 { label: `Maint. Salaries ${GROUP_GL.maintenance}`, value: signed(r.deltaMaintenance) },
                                 { label: "Budgeted recovery rate", value: `${((k?.recoveryRate ?? 0) * 100).toFixed(0)}%` },
-                                { label: "Back from tenants", value: money0(back), color: "#15803d" },
+                                { label: "Back from tenants", value: money0(back), color: "var(--c-15803d)" },
                               ]} footer={{ label: "Net cost", value: signed(net(r)), color: UP }}>{signed(net(r))}</HoverCard>
                             ) : signed(net(r))}
                           </td>

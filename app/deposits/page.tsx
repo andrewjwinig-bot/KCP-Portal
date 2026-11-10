@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
 import { useEffect, useMemo, useState, Fragment } from "react";
@@ -223,7 +224,7 @@ export default function SecurityDepositsPage() {
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Security Deposits</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <AllowedLink href="/tenants/past" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-13)" }}>Past Tenants →</AllowedLink>
+          <AllowedLink href="/tenants/past" style={{ color: "var(--c-0b4a7d)", fontWeight: 600, fontSize: "var(--fs-13)" }}>Past Tenants<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></AllowedLink>
           <button className="btn primary" onClick={startGlobalAdd}
             style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700 }}>
             + Add Deposit
@@ -243,7 +244,7 @@ export default function SecurityDepositsPage() {
       {!loading && dupIds.size > 0 && (
         <div style={{
           padding: "10px 14px", borderRadius: 10, fontSize: "var(--fs-13)", fontWeight: 600,
-          background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)", color: "#b45309",
+          background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))", color: "var(--c-b45309)",
         }}>
           ⚠ {dupIds.size} deposit{dupIds.size === 1 ? "" : "s"} look like possible duplicates (same tenant &amp; check # or amount/date).
           They&apos;re flagged below — expand the tenant, open each check to compare, then delete the extra.
@@ -331,7 +332,7 @@ export default function SecurityDepositsPage() {
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
                           <td style={{ fontWeight: 600 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                              <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)", width: 10, display: "inline-block" }}>{isOpen ? "▾" : "▸"}</span>
+                              <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)", width: 10, display: "inline-block" }}>{isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
                               <span>{g.tenant || "—"}</span>
                               {allRefunded && <RefundedBadge date="" />}
                               {hasDup && <DupBadge title="This tenant has checks that look like duplicates — expand to review and delete the extra." />}
@@ -344,7 +345,7 @@ export default function SecurityDepositsPage() {
                         </tr>
                         {isOpen && g.checks.map((d) => (
                           <tr key={d.id}
-                            style={{ cursor: "pointer", opacity: d.refunded ? 0.7 : 1, background: "rgba(15,23,42,0.02)" }}
+                            style={{ cursor: "pointer", opacity: d.refunded ? 0.7 : 1, background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }}
                             onClick={() => { setEditing(d); setAdding(false); }}
                             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
@@ -401,7 +402,7 @@ export default function SecurityDepositsPage() {
         Deposits are filed by property automatically — NI LLC buildings to
         Liberty x7448, The Office Works&apos; tenants to their own section, everything
         else to Liberty x7216.{" "}
-        <Link href="/rentroll" style={{ color: "var(--brand)" }}>Rent roll →</Link>
+        <Link href="/rentroll" style={{ color: "var(--brand)" }}>Rent roll<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
       </div>
     </main>
   );

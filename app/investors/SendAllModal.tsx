@@ -120,7 +120,7 @@ export function SendAllModal({
                 : `${docs} K-1${docs === 1 ? "" : "s"} become readable. Each investor gets their own link and their own PIN, as two separate emails.`}
           </div>
           {started && (
-            <div style={{ height: 6, borderRadius: 999, background: "rgba(15,23,42,0.08)", marginTop: 10, overflow: "hidden" }}>
+            <div style={{ height: 6, borderRadius: 999, background: "var(--tint-neutral-bg, rgba(15,23,42,0.08))", marginTop: 10, overflow: "hidden" }}>
               <div style={{
                 height: "100%", borderRadius: 999,
                 width: `${Math.round((results.length / Math.max(1, rows.length)) * 100)}%`,
@@ -261,7 +261,7 @@ function RowStatus({ started, result, k1s }: { started: boolean; result?: ShareR
     return (
       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
         <Pill tone={TONE_RED}>FAILED</Pill>
-        <span style={{ fontSize: "var(--fs-11)", color: "#b91c1c", maxWidth: 260, whiteSpace: "normal", textAlign: "right" }}>{why}</span>
+        <span style={{ fontSize: "var(--fs-11)", color: "var(--c-b91c1c)", maxWidth: 260, whiteSpace: "normal", textAlign: "right" }}>{why}</span>
       </span>
     );
   }
@@ -269,7 +269,7 @@ function RowStatus({ started, result, k1s }: { started: boolean; result?: ShareR
     return (
       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
         <Pill tone={TONE_AMBER}>NO PIN</Pill>
-        <span style={{ fontSize: "var(--fs-11)", color: "#b45309" }}>{result.pinError ?? "PIN email did not go"}</span>
+        <span style={{ fontSize: "var(--fs-11)", color: "var(--c-b45309)" }}>{result.pinError ?? "PIN email did not go"}</span>
       </span>
     );
   }

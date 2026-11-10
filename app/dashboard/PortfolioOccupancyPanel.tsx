@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 // Full-width portfolio occupancy panel: a bold headline rate, a thick
 // occupied-vs-vacant bar, and a vertical bar chart underneath. Supports
@@ -133,7 +134,7 @@ export default function PortfolioOccupancyPanel({
             );
           })}
           <Link href="/rentroll" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
-            Rent roll →
+            Rent roll<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
           </Link>
         </div>
       </div>
@@ -154,7 +155,7 @@ export default function PortfolioOccupancyPanel({
             <div style={{ flex: 1, minWidth: 240 }}>
               <div style={{ display: "flex", height: 28, borderRadius: 8, overflow: "hidden", border: "1px solid rgba(15,23,42,0.12)" }}>
                 <div style={{ width: `${pct}%`, background: occColor(pct) }} />
-                <div style={{ flex: 1, background: "rgba(15,23,42,0.07)" }} />
+                <div style={{ flex: 1, background: "var(--tint-neutral-bg, rgba(15,23,42,0.07))" }} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: 7 }}>
                 <span><b style={{ color: "var(--text)" }}>{sqftFmt(totalOcc)}</b> occupied</span>
@@ -186,7 +187,7 @@ export default function PortfolioOccupancyPanel({
                   <span style={{ fontSize: "var(--fs-13)", fontWeight: 800, color }}>{bpct.toFixed(1)}%</span>
                   <div style={{
                     width: 38, height: BAR_H, borderRadius: "5px 5px 0 0",
-                    border: "1px solid rgba(15,23,42,0.12)", background: "rgba(15,23,42,0.05)",
+                    border: "1px solid rgba(15,23,42,0.12)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.05))",
                     display: "flex", flexDirection: "column-reverse", overflow: "hidden",
                   }}>
                     <div style={{ height: (bpct / 100) * BAR_H, background: color }} />

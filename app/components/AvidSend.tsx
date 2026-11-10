@@ -1,5 +1,5 @@
 "use client";
-import { CircleCheck, FileText } from "lucide-react";
+import { CircleCheck, FileText, X } from "lucide-react";
 
 // Shared "Review before send to AvidXchange" gate + success confirmation, used
 // by all three invoicers (Allocated, Credit Card, Payroll) so the review popup
@@ -75,16 +75,16 @@ export function AvidReviewModal(props: {
       <div style={overlay}>
         <div className="card" style={{ maxWidth: 460, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", padding: "34px 24px", gap: 4 }} onClick={(e) => e.stopPropagation()}>
           <div style={{ position: "relative", width: 92, height: 92, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px dashed rgba(22,163,74,0.45)", animation: "impHalo 9s linear infinite" }} />
-            <div style={{ position: "absolute", inset: 8, borderRadius: "50%", border: "3px solid rgba(22,163,74,0.15)", borderTopColor: "#16a34a", animation: "spin .9s linear infinite" }} />
+            <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px dashed var(--tint-green-line, rgba(22,163,74,0.45))", animation: "impHalo 9s linear infinite" }} />
+            <div style={{ position: "absolute", inset: 8, borderRadius: "50%", border: "3px solid var(--tint-green-line, rgba(22,163,74,0.15))", borderTopColor: "var(--c-16a34a)", animation: "spin .9s linear infinite" }} />
             <span style={{ fontSize: 34, animation: "impFloat 3.2s ease-in-out infinite" }}>📤</span>
           </div>
           <b style={{ fontSize: 17 }}>Sending to AvidXchange…</b>
           <div className="small muted" style={{ maxWidth: 320 }}>
             {count ? <>{count} invoice{count === 1 ? "" : "s"} — one email each — plus the team summary.</> : "Delivering the invoices."} This can take a moment; please keep this open.
           </div>
-          <div style={{ marginTop: 16, width: "80%", height: 6, borderRadius: 999, background: "rgba(22,163,74,0.12)", overflow: "hidden", position: "relative" }}>
-            <div className="imp-anim" style={{ position: "absolute", top: 0, bottom: 0, width: "35%", borderRadius: 999, background: "#16a34a", animation: "impBar 1.3s ease-in-out infinite" }} />
+          <div style={{ marginTop: 16, width: "80%", height: 6, borderRadius: 999, background: "var(--tint-green-bg, rgba(22,163,74,0.12))", overflow: "hidden", position: "relative" }}>
+            <div className="imp-anim" style={{ position: "absolute", top: 0, bottom: 0, width: "35%", borderRadius: 999, background: "var(--c-16a34a)", animation: "impBar 1.3s ease-in-out infinite" }} />
           </div>
         </div>
       </div>
@@ -98,7 +98,7 @@ export function AvidReviewModal(props: {
             <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Review before sending</div>
             <b style={{ fontSize: 17 }}>{title} — {period}</b>
           </div>
-          <button className="btn" style={{ padding: "4px 10px" }} disabled={sending} onClick={onCancel}>✕</button>
+          <button className="btn" style={{ padding: "4px 10px" }} disabled={sending} onClick={onCancel}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
         </div>
         <div className="small muted" style={{ marginBottom: 10 }}>
           Confirm the per-building allocation below. On send, {count ? <><b>{count}</b> invoice{count === 1 ? "" : "s"} </> : null}
@@ -106,7 +106,7 @@ export function AvidReviewModal(props: {
           go to <b>AvidXchange</b> (<code style={{ fontSize: "var(--fs-11)" }}>kormancommercial@avidbill.com</code>) for processing, cc Marie, Drew &amp; Harry. Nothing has been sent yet.
         </div>
         {note && (
-          <div className="small" style={{ marginBottom: 10, padding: "7px 10px", borderRadius: 8, background: "rgba(11,74,125,0.06)", border: "1px solid rgba(11,74,125,0.25)", color: "#0b4a7d", fontWeight: 600 }}>
+          <div className="small" style={{ marginBottom: 10, padding: "7px 10px", borderRadius: 8, background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.25))", color: "var(--c-0b4a7d)", fontWeight: 600 }}>
             {note}
           </div>
         )}
@@ -123,7 +123,7 @@ export function AvidReviewModal(props: {
           <button className="btn" disabled={sending} onClick={onCancel}>Cancel</button>
           <button
             className="btn"
-            style={{ background: "#16a34a", color: "#fff", borderColor: "transparent", fontWeight: 700, whiteSpace: "nowrap", opacity: sending ? 0.75 : 1 }}
+            style={{ background: "var(--c-16a34a)", color: "#fff", borderColor: "transparent", fontWeight: 700, whiteSpace: "nowrap", opacity: sending ? 0.75 : 1 }}
             disabled={sending || byProperty.length === 0}
             onClick={onConfirm}
           >
@@ -158,7 +158,7 @@ export function AvidSuccessModal(props: {
     <div style={overlay} onClick={onClose}>
       <div className="card" style={{ maxWidth: 520, width: "100%", maxHeight: "88vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ textAlign: "center", marginBottom: 8 }}>
-          <div style={{ display: "flex", justifyContent: "center" }}>{mailSent ? <CircleCheck size={44} strokeWidth={1.5} color="#067647" aria-hidden /> : <FileText size={44} strokeWidth={1.5} color="#475467" aria-hidden />}</div>
+          <div style={{ display: "flex", justifyContent: "center" }}>{mailSent ? <CircleCheck size={44} strokeWidth={1.5} color="var(--c-067647)" aria-hidden /> : <FileText size={44} strokeWidth={1.5} color="var(--c-475467)" aria-hidden />}</div>
           <b style={{ fontSize: 18, display: "block", marginTop: 8 }}>
             {mailSent ? "Sent to AvidXchange" : "Prepared — mail not configured"}
           </b>

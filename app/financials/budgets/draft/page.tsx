@@ -428,7 +428,7 @@ export default function BudgetDraftPage() {
       )}
 
       {missingBasis && !loading && (
-        <div className="card" style={{ borderColor: "rgba(217,119,6,0.5)", background: "rgba(217,119,6,0.07)", color: "#b45309" }}>
+        <div className="card" style={{ borderColor: "var(--tint-amber-line, rgba(217,119,6,0.5))", background: "var(--tint-amber-bg, rgba(217,119,6,0.07))", color: "var(--c-b45309)" }}>
           No {year - 1} reprojection is available for {label?.propertyCode ?? key} yet — import its {year - 1} GL so the draft has an expense baseline to grow from.
         </div>
       )}
@@ -451,7 +451,7 @@ export default function BudgetDraftPage() {
               ? <>The sum of {draft.consolidated.properties.length} properties — click a line for its split by property · edit on each property&rsquo;s own tab</>
               : <>Click any month or the Budget total to type it · <b>Accept</b> keeps a keyed line as shown</>}</span>
           </div>
-          {editError && <div className="card" style={{ color: "#b91c1c", borderColor: "rgba(185,28,28,0.4)" }}>{editError}</div>}
+          {editError && <div className="card" style={{ color: "var(--c-b91c1c)", borderColor: "var(--tint-red-line, rgba(185,28,28,0.4))" }}>{editError}</div>}
           <BudgetStatementTable
             draft={draft}
             onEdit={draft.lineEditScope && !draft.consolidated ? editLine : undefined}

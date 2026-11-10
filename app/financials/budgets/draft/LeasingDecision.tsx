@@ -322,7 +322,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
           </div>
           <button type="button" className="btn sm" onClick={onClose}>Done</button>
         </div>
-        <div style={{ padding: "12px 18px", display: "flex", gap: 22, flexWrap: "wrap", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.025)" }}>
+        <div style={{ padding: "12px 18px", display: "flex", gap: 22, flexWrap: "wrap", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))" }}>
           {fact("SF", sqft > 0 ? sqft.toLocaleString() : "—")}
           {mode === "contracted" && fact("Rent", currentRent > 0 ? <>{money0(currentRent)}/mo{curPsf != null && <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}> · ${curPsf.toFixed(2)}/SF/yr</span>}</> : "—")}
           {mode === "inplace" && fact("Expiring rent", currentRent > 0 ? <>{money0(currentRent)}/mo{curPsf != null && <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}> · ${curPsf.toFixed(2)}/SF/yr</span>}</> : "—")}
@@ -409,7 +409,7 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
             return field("Internal comm.", <span style={{ fontWeight: 700 }}>{internal > 0 ? money0(internal) : "—"}</span>,
               group === "SC" ? "$1.00/SF · to 6620-8501" : group === "BP" ? (internal > 0 ? "by term · to 6620-8501" : "set a term") : "none for this property");
           })()}
-          {error && <div role="alert" style={{ marginTop: 10, color: "#b91c1c", fontSize: "var(--fs-13)", fontWeight: 700 }}>Not saved — {error}</div>}
+          {error && <div role="alert" style={{ marginTop: 10, color: "var(--c-b91c1c)", fontSize: "var(--fs-13)", fontWeight: 700 }}>Not saved — {error}</div>}
           <div style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: tone.bg, border: `1px solid ${tone.border}`, fontSize: "var(--fs-13)" }}>
             <b>In {budgetYear}:</b> {effect}
             {saving > 0 ? <span className="muted"> · Saving…</span> : assumption?.updatedAt && (

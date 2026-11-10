@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 // The pill on a line whose figure was PROVIDED rather than estimated — a tax
 // read off the city's certified assessments. Hover for the working in brief;
@@ -76,7 +77,7 @@ export function SourceDetail({ source }: { source: Source }) {
           {f ? (
             <div className="pills" style={{ alignItems: "stretch" }}>
               <StatPill label="Assessed value" value={usd(f.assessed)} sub={`${parcels.length} parcel${parcels.length === 1 ? "" : "s"}`} />
-              <span style={op}>×</span>
+              <span style={op}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
               <StatPill label="Millage" value={f.mills.toFixed(3)} sub={`${bills.length} bill${bills.length === 1 ? "" : "s"}`} />
               {f.discountPct ? (<>
                 <span style={op}>−</span>
@@ -177,7 +178,7 @@ function SourceHoverBody({ source }: { source: Source }) {
         <span className="muted">× Millage</span><b style={{ textAlign: "right" }}>{f.mills.toFixed(3)}</b>
         {f.discountPct ? (<>
           <span className="muted">Gross tax</span><span style={{ textAlign: "right" }}>{usd(gross)}</span>
-          <span className="muted">− Early-pay discount {f.discountPct}%</span><span style={{ textAlign: "right", color: "#15803d" }}>−{usd(gross - f.tax)}</span>
+          <span className="muted">− Early-pay discount {f.discountPct}%</span><span style={{ textAlign: "right", color: "var(--c-15803d)" }}>−{usd(gross - f.tax)}</span>
         </>) : null}
       </div>
       {bills.length > 0 && (
@@ -195,7 +196,7 @@ function SourceHoverBody({ source }: { source: Source }) {
               <tr key={b.label} style={{ borderTop: "1px solid var(--border)" }}>
                 <td style={{ ...cell, fontWeight: 600 }}>
                   {b.label}
-                  {b.levies.some((l) => !l.adopted) && <span style={{ color: "#b45309", fontWeight: 700 }}> · est. rate</span>}
+                  {b.levies.some((l) => !l.adopted) && <span style={{ color: "var(--c-b45309)", fontWeight: 700 }}> · est. rate</span>}
                 </td>
                 <td style={cell}>{b.month}</td>
                 <td style={{ ...cell, textAlign: "right" }}>{b.mills.toFixed(3)}</td>
@@ -206,7 +207,7 @@ function SourceHoverBody({ source }: { source: Source }) {
         </table>
       )}
       {outOfCam.length > 0 && (
-        <div className="small" style={{ color: "#b45309" }}>
+        <div className="small" style={{ color: "var(--c-b45309)" }}>
           Not in CAM: {outOfCam.map((p) => p.label).join(", ")} — kept out of the RET recovery pool.
         </div>
       )}

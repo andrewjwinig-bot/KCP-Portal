@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 // A tenant's correspondence on the Monthly Statements roster (owner, 11/2026:
 // "see on the tenants page if they have open charges what our last
@@ -39,7 +40,7 @@ export function LastContactCell({ contact, owed }: { contact: LastContact | null
   const stale = needsFollowUp(owed, contact);
   if (!contact) {
     return owed > 0.005
-      ? <span style={{ color: "#b45309", fontWeight: 600, fontSize: "var(--fs-12-5)" }}>Never emailed</span>
+      ? <span style={{ color: "var(--c-b45309)", fontWeight: 600, fontSize: "var(--fs-12-5)" }}>Never emailed</span>
       : <span className="muted">—</span>;
   }
   const e = contact.last;
@@ -154,9 +155,9 @@ export function ReminderModal({ unitRef, period, tenantName, onClose, onSent }: 
       <div className="card" onClick={(e) => e.stopPropagation()} style={{ width: "min(760px, 100%)", maxHeight: "92vh", overflowY: "auto", display: "grid", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>Balance reminder — {tenantName}</div>
-          <button className="btn sm" onClick={onClose} title="Close">✕</button>
+          <button className="btn sm" onClick={onClose} title="Close"><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
         </div>
-        {!draft ? <div className={err ? "small" : "muted small"} style={err ? { color: "#b91c1c" } : undefined}>{err ?? "Drafting…"}</div> : (
+        {!draft ? <div className={err ? "small" : "muted small"} style={err ? { color: "var(--c-b91c1c)" } : undefined}>{err ?? "Drafting…"}</div> : (
           <>
             <div className="pills" style={{ justifyContent: "flex-start", margin: 0 }}>
               <StatPill label="Open balance" value={money(balance)} />
@@ -168,20 +169,20 @@ export function ReminderModal({ unitRef, period, tenantName, onClose, onSent }: 
                 <label key={r} className="small" style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input type="checkbox" checked={!excluded.has(r)} onChange={() => setExcluded((s) => { const n = new Set(s); if (n.has(r)) n.delete(r); else n.add(r); return n; })} />{r}
                 </label>
-              )) : <div className="small" style={{ color: "#b45309", fontWeight: 600 }}>No email on file for this suite — add a contact on the <a href={`/units/${unitRef}`}>unit page</a>.</div>}
+              )) : <div className="small" style={{ color: "var(--c-b45309)", fontWeight: 600 }}>No email on file for this suite — add a contact on the <a href={`/units/${unitRef}`}>unit page</a>.</div>}
             </div>
             <div style={{ display: "grid", gap: 4 }}><span style={SECTION}>Subject</span>
               <input value={draft.subject} onChange={(e) => setDraft({ ...draft, subject: e.target.value })} style={box} /></div>
             <textarea rows={6} value={draft.opening} onChange={(e) => setDraft({ ...draft, opening: e.target.value })} style={box} />
             {/* Generated on the server from the stored statement — not typeable. */}
-            <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10, background: "#fff", color: "#111827", overflowX: "auto" }} dangerouslySetInnerHTML={{ __html: draft.tableHtml }} />
+            <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10, background: "#fff", color: "var(--c-111827)", overflowX: "auto" }} dangerouslySetInnerHTML={{ __html: draft.tableHtml }} />
             <textarea rows={9} value={draft.closing} onChange={(e) => setDraft({ ...draft, closing: e.target.value })} style={box} />
             <label className="small" style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <input type="checkbox" checked={attach} onChange={(e) => setAttach(e.target.checked)} />
               Attach the {period} statement (PDF) · <a href={`/api/tenant-statements/receipts?period=${period}&unit=${encodeURIComponent(unitRef)}&pdf=1`} target="_blank" rel="noreferrer">preview</a>
             </label>
             <div className="muted small">From Tami Tomlinson (Accounts Receivable); replies come back to her and she gets a blind copy. The email is saved to this tenant&rsquo;s correspondence as sent.</div>
-            {err && <div className="small" style={{ color: "#b91c1c" }}>{err}</div>}
+            {err && <div className="small" style={{ color: "var(--c-b91c1c)" }}>{err}</div>}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button className="btn" onClick={onClose} disabled={busy}>Cancel</button>
               <button className="btn primary" onClick={send} disabled={busy || !to.length}>{busy ? "Sending…" : `Send to ${to.length} recipient${to.length === 1 ? "" : "s"}`}</button>

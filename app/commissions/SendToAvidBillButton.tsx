@@ -1,4 +1,5 @@
 "use client";
+import { Check } from "lucide-react";
 
 import { useState } from "react";
 import { createPortal } from "react-dom";
@@ -317,7 +318,7 @@ function SendResult({ result, preview, kind }: {
             <tbody>
               {preview.invoices.map((i) => (
                 <tr key={i.invoiceNumber + i.tenant}>
-                  <td style={tdL}><span style={{ color: "#15803d", fontWeight: 800, marginRight: 6 }}>✓</span><code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)" }}>{i.invoiceNumber}</code></td>
+                  <td style={tdL}><span style={{ color: "var(--c-15803d)", fontWeight: 800, marginRight: 6 }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span><code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)" }}>{i.invoiceNumber}</code></td>
                   <td style={tdL}>{i.tenant || "—"}</td>
                   <td style={td}>{toMoney(i.amount)}</td>
                 </tr>

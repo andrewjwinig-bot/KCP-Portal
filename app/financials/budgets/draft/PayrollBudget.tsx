@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 // THE 2010 LIK PAYROLL BUDGET — the owner's payroll workbook, as four tables
 // in its own order: pay & taxes, health benefits, the allocation %, and where
@@ -129,7 +130,7 @@ export function PayrollBudget({ year }: { year: number }) {
 
   const a = useMemo(() => (doc ? allocatePayroll(doc) : null), [doc]);
 
-  if (error) return <div className="card" style={{ color: "#b91c1c" }}>{error}</div>;
+  if (error) return <div className="card" style={{ color: "var(--c-b91c1c)" }}>{error}</div>;
   if (!doc || !a) return <LoadingState status={`Loading the ${year} payroll budget…`} columns={4} rows={6} />;
   const r = doc.rates;
   const setRate = (k: keyof Rates, v: number) => update((d) => ({ ...d, rates: { ...d.rates, [k]: v } }));
@@ -251,7 +252,7 @@ export function PayrollBudget({ year }: { year: number }) {
                   <td style={{ ...td, fontWeight: 800 }}>{num0(c.gross)}</td>
                   <td style={td}>
                     <button type="button" className="btn sm" aria-label={`Remove ${e.name}`}
-                      onClick={() => { if (window.confirm(`Remove ${e.name || "this employee"} from the ${year} payroll budget?`)) update((d) => ({ ...d, employees: d.employees.filter((x) => x.id !== e.id) })); }}>✕</button>
+                      onClick={() => { if (window.confirm(`Remove ${e.name || "this employee"} from the ${year} payroll budget?`)) update((d) => ({ ...d, employees: d.employees.filter((x) => x.id !== e.id) })); }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
                   </td>
                 </tr>
               );
@@ -406,7 +407,7 @@ export function PayrollBudget({ year }: { year: number }) {
           ))}
         </div>
         {off100.length > 0 && (
-          <HoverCard title="Allocations that don't total 100%" rows={off100.map((e) => ({ label: e.name || "(unnamed)", value: pct(e.allocTotal, 1), color: "#b45309" }))}>
+          <HoverCard title="Allocations that don't total 100%" rows={off100.map((e) => ({ label: e.name || "(unnamed)", value: pct(e.allocTotal, 1), color: "var(--c-b45309)" }))}>
             <Pill tone={TONE_AMBER}>{off100.length} not 100%</Pill>
           </HoverCard>
         )}

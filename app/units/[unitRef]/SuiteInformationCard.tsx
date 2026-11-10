@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 import { useEffect, useRef, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
@@ -93,7 +94,7 @@ function UploadBox({
         }}
       />
       {busy ? "Uploading…" : (
-        <span>⭳ {label} — drop a file here or <span style={{ color: "#2563eb", fontWeight: 600, textDecoration: "underline" }}>browse</span></span>
+        <span>⭳ {label} — drop a file here or <span style={{ color: "var(--c-2563eb)", fontWeight: 600, textDecoration: "underline" }}>browse</span></span>
       )}
     </div>
   );
@@ -222,8 +223,8 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
         {error && (
           <div style={{
             margin: "8px 0", padding: "8px 10px", borderRadius: 8,
-            background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-            color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
+            background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))",
+            color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
           }}>{error}</div>
         )}
 
@@ -295,11 +296,11 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
                     <div key={a.id} style={{
                       display: "flex", alignItems: "center", gap: 8,
                       padding: "6px 10px", border: "1px solid var(--border)",
-                      borderRadius: 8, background: "rgba(15,23,42,0.015)",
+                      borderRadius: 8, background: "var(--tint-neutral-bg, rgba(15,23,42,0.015))",
                     }}>
                       <a href={blobSrc(a.url)} target="_blank" rel="noreferrer"
                         style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-13)", fontWeight: 600,
-                          color: "#0b4a7d", textDecoration: "none",
+                          color: "var(--c-0b4a7d)", textDecoration: "none",
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {a.name}
                       </a>
@@ -309,7 +310,7 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
                       <button type="button" onClick={() => removeFile("attachment", a.id)}
                         aria-label={`Remove ${a.name}`}
                         style={{ background: "transparent", border: "none", cursor: "pointer",
-                          color: "var(--muted)", fontSize: "var(--fs-13)", flexShrink: 0 }}>✕</button>
+                          color: "var(--muted)", fontSize: "var(--fs-13)", flexShrink: 0 }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
                     </div>
                   ))}
                 </div>

@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 // Management Fees — each building's management fee (GL account 6610), pulled
 // straight from the posted GL each month and compared to budget. A portfolio
@@ -165,7 +166,7 @@ export default function ManagementFeesPage() {
               const tone = Math.abs(v) < 0.5 ? "var(--muted)" : v > 0 ? "#15803d" : "#b91c1c";
               return (
                 <>
-                  <td style={{ ...gridTd, ...numTd, fontWeight: strong ? 800 : 700, borderLeft: "2px solid var(--border)", background: "rgba(11,74,125,0.05)" }}>{money(reproj)}</td>
+                  <td style={{ ...gridTd, ...numTd, fontWeight: strong ? 800 : 700, borderLeft: "2px solid var(--border)", background: "var(--tint-brand-bg, rgba(11,74,125,0.05))" }}>{money(reproj)}</td>
                   <td style={{ ...gridTd, ...numTd, fontWeight: strong ? 800 : 400, color: "var(--muted)" }}>{money(budget)}</td>
                   <td style={{ ...gridTd, ...numTd, fontWeight: strong ? 800 : 600, color: tone }}>{Math.abs(v) < 0.5 ? "—" : `${v > 0 ? "+" : "−"}${money(Math.abs(v))}`}</td>
                   <td style={{ ...gridTd, ...numTd, color: tone }}>{p == null || Math.abs(v) < 0.5 ? "" : `${p > 0 ? "+" : ""}${p.toFixed(1)}%`}</td>
@@ -176,7 +177,7 @@ export default function ManagementFeesPage() {
               const months = add(rows.map(reprojMonths));
               const maxP = Math.max(0, ...rows.map((b) => b.maxPosted));
               return (
-                <tr style={band ? { background: "rgba(11,74,125,0.06)" } : { borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.08)" }}>
+                <tr style={band ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.06))" } : { borderTop: "2px solid var(--border)", background: "var(--tint-brand-bg, rgba(11,74,125,0.08))" }}>
                   <td style={{ ...gridTd, fontWeight: 800, color: band ? "#0b4a7d" : undefined, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-12-5)", position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>{label}</td>
                   {months.map((v, m) => (
                     <td key={m} style={{ ...gridTd, ...numTd, fontWeight: 800, fontStyle: m + 1 > maxP ? "italic" : undefined, color: m + 1 > maxP ? "var(--muted)" : undefined }}>{money(v)}</td>
@@ -192,7 +193,7 @@ export default function ManagementFeesPage() {
                     <tr>
                       <th style={{ ...gridTh, textAlign: "left", position: "sticky", left: 0, background: "var(--card)", zIndex: 2 }}>Building</th>
                       {MONTHS.map((mo) => <th key={mo} style={{ ...gridTh, textAlign: "right" }}>{mo}</th>)}
-                      <th style={{ ...gridTh, textAlign: "right", color: "#0b4a7d", borderLeft: "2px solid var(--border)" }}>{year} Reproj.</th>
+                      <th style={{ ...gridTh, textAlign: "right", color: "var(--c-0b4a7d)", borderLeft: "2px solid var(--border)" }}>{year} Reproj.</th>
                       <th style={{ ...gridTh, textAlign: "right" }}>Budget</th>
                       <th style={{ ...gridTh, textAlign: "right" }}>vs Budget</th>
                       <th style={{ ...gridTh, textAlign: "right" }}>%</th>
@@ -210,7 +211,7 @@ export default function ManagementFeesPage() {
                               <tr key={b.code}>
                                 <td onClick={() => setOpenCode(b.code)}
                                   style={{ ...gridTd, position: "sticky", left: 0, background: "var(--card)", zIndex: 1, cursor: "pointer" }}>
-                                  <code style={{ fontWeight: 700, color: "#0b4a7d" }}>{b.code}</code>{" "}
+                                  <code style={{ fontWeight: 700, color: "var(--c-0b4a7d)" }}>{b.code}</code>{" "}
                                   <span className="os-line-name" style={{ fontWeight: 600 }}>{b.name}</span>
                                 </td>
                                 {MONTHS.map((_, m) => {
@@ -227,9 +228,9 @@ export default function ManagementFeesPage() {
                                     <td key={m}
                                       style={{ ...gridTd, ...numTd,
                                         ...(negative
-                                          ? { background: "rgba(220,38,38,0.15)", color: "#b91c1c", fontWeight: 700 }
+                                          ? { background: "var(--tint-red-bg, rgba(220,38,38,0.15))", color: "var(--c-b91c1c)", fontWeight: 700 }
                                           : missing
-                                            ? { background: "rgba(217,119,6,0.15)", color: "#b45309", fontWeight: 700 }
+                                            ? { background: "var(--tint-amber-bg, rgba(217,119,6,0.15))", color: "var(--c-b45309)", fontWeight: 700 }
                                             : posted ? { color: b.feeMonthly[m] ? "var(--text)" : "var(--muted)" } : { color: "var(--muted)", fontStyle: "italic" }) }}>
                                       {flag ? <HoverCard title={flag.title} rows={[]} footer={{ label: `${MONTHS[m]} · ${b.code}`, value: flag.text }} width={300}>{shown}</HoverCard> : shown}
                                     </td>
@@ -250,14 +251,14 @@ export default function ManagementFeesPage() {
           })()}
           <p className="muted small" style={{ marginTop: -4, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {flaggedCount > 0 && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#b45309", fontWeight: 700 }}>
-                <span style={{ width: 13, height: 13, borderRadius: 3, background: "rgba(217,119,6,0.25)", border: "1px solid #d97706" }} />
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--c-b45309)", fontWeight: 700 }}>
+                <span style={{ width: 13, height: 13, borderRadius: 3, background: "var(--tint-amber-bg, rgba(217,119,6,0.25))", border: "1px solid #d97706" }} />
                 {flaggedCount} month{flaggedCount === 1 ? "" : "s"} flagged — a fee is expected but missing; likely needs (re)posting.
               </span>
             )}
             {negativeCount > 0 && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#b91c1c", fontWeight: 700 }}>
-                <span style={{ width: 13, height: 13, borderRadius: 3, background: "rgba(220,38,38,0.25)", border: "1px solid #dc2626" }} />
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--c-b91c1c)", fontWeight: 700 }}>
+                <span style={{ width: 13, height: 13, borderRadius: 3, background: "var(--tint-red-bg, rgba(220,38,38,0.25))", border: "1px solid #dc2626" }} />
                 {negativeCount} negative fee{negativeCount === 1 ? "" : "s"} — the 6610 netted to a credit (reversal / correction); verify the GL.
               </span>
             )}
@@ -290,7 +291,7 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
       <div onClick={(e) => e.stopPropagation()} className="card" style={{ width: "100%", maxWidth: 640, margin: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 4 }}>
           <div style={{ fontSize: 18, fontWeight: 800 }}>{detail?.name ?? code} <code style={{ fontSize: "var(--fs-13)" }}>{code}</code></div>
-          <button onClick={onClose} aria-label="Close" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 22, color: "var(--muted)" }}>×</button>
+          <button onClick={onClose} aria-label="Close" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 22, color: "var(--muted)" }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
         </div>
         <div className="muted" style={{ fontSize: "var(--fs-13)", marginBottom: 12 }}>Management fee vs gross revenue &amp; budget · {year}</div>
 
@@ -319,7 +320,7 @@ function BuildingModal({ code, year, onClose }: { code: string; year: number; on
                   <Fragment key={m.month}>
                     <tr>
                       <td style={gridTd}>{MONTHS[m.month - 1]}</td>
-                      <td style={{ ...gridTd, ...numTd, ...(m.fee < 0 ? { color: "#b91c1c", fontWeight: 700 } : null) }}>{money(m.fee)}</td>
+                      <td style={{ ...gridTd, ...numTd, ...(m.fee < 0 ? { color: "var(--c-b91c1c)", fontWeight: 700 } : null) }}>{money(m.fee)}</td>
                       <td style={{ ...gridTd, ...numTd }}>{money(m.revenue)}</td>
                       <td style={{ ...gridTd, ...numTd, fontWeight: 700 }}>{pct1(m.feePctOfRevenue)}</td>
                       <td style={{ ...gridTd, ...numTd, color: "var(--muted)" }}>{money(m.budget)}</td>
@@ -399,7 +400,7 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
       </div>
 
       {tie.missingGl.length > 0 && (
-        <div style={{ fontSize: "var(--fs-13)", color: "#b91c1c" }}>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--c-b91c1c)" }}>
           <b>Incomplete \u2014 check this first.</b> {tie.missingGl.join(", ")} {tie.missingGl.length === 1 ? "has" : "have"} no
           general ledger loaded for {year}, so {tie.missingGl.length === 1 ? "its fee is" : "their fees are"} missing from the
           comparison. Upload {tie.missingGl.length === 1 ? "it" : "them"} before treating anything below as an error.
@@ -409,7 +410,7 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
       {/* Which building to look at. The only per-building answer possible. */}
       {flags.length > 0 && (
         <div style={{ display: "grid", gap: 6 }}>
-          <div style={{ ...secLabel, color: "#b91c1c" }}>Buildings to check ({flags.length})</div>
+          <div style={{ ...secLabel, color: "var(--c-b91c1c)" }}>Buildings to check ({flags.length})</div>
           <table style={{ width: "100%", fontSize: "var(--fs-13)" }}>
             <tbody>
               {flags.map((f) => (
@@ -434,7 +435,7 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
 
       {/* What to do about it. */}
       {entry && entry.lines.length > 0 && entry.adjustment !== 0 && (
-        <div style={{ background: "rgba(15,23,42,0.03)", borderRadius: 8, padding: "10px 12px" }}>
+        <div style={{ background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))", borderRadius: 8, padding: "10px 12px" }}>
           <div style={{ ...secLabel, marginBottom: 6 }}>Post this at 2010 for {MONTHS_LONG[entry.month - 1]} {year}</div>
           <table style={{ width: "100%", fontSize: "var(--fs-13)" }}>
             <tbody>
@@ -472,7 +473,7 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
           </div>
 
           {tie.missed.length > 0 && (
-            <div style={{ fontSize: "var(--fs-13)", color: "#b91c1c" }}>
+            <div style={{ fontSize: "var(--fs-13)", color: "var(--c-b91c1c)" }}>
               <b>No entry posted at 2010 in {tie.missed.map((m) => MONTHS_LONG[m - 1]).join(", ")}.</b>
             </div>
           )}
@@ -488,7 +489,7 @@ function IntercompanyCard({ tie, entry, groups, flags, year }: {
                       <td style={{ padding: "4px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(g.tie.buildingsYtd)}</td>
                       <td style={{ padding: "4px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{money(g.tie.likYtd)}</td>
                       <td style={{ padding: "4px 0 4px 8px", textAlign: "right", fontVariantNumeric: "tabular-nums", color: varColor(g.tie.varianceYtd) }}>
-                        {g.tie.clean ? <span style={{ color: "#15803d", fontWeight: 700 }}>ties</span> : money(g.tie.varianceYtd)}
+                        {g.tie.clean ? <span style={{ color: "var(--c-15803d)", fontWeight: 700 }}>ties</span> : money(g.tie.varianceYtd)}
                       </td>
                     </tr>
                   ))}

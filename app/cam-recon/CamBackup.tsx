@@ -7,8 +7,8 @@
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import { upload as blobUpload } from "@vercel/blob/client";
 
-const BRAND = "#0b4a7d";
-const RED = "#b91c1c";
+const BRAND = "var(--c-0b4a7d)";
+const RED = "var(--c-b91c1c)";
 const RING_C = 2 * Math.PI * 24; // progress-ring circumference (r=24)
 // Shimmer sweep for the "Uploading…" label — matches the import modal's status.
 const SHIMMER: CSSProperties = {
@@ -94,7 +94,7 @@ export function MixedCamBackup({ retailProperty, officeProperty, year }: {
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {rows.map((r) => (
-          <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, background: "rgba(15,23,42,0.02)" }}>
+          <div key={r.key} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700 }}>{r.title} portion</div>
               <div className="muted small">{r.b.total} file{r.b.total === 1 ? "" : "s"} attached</div>
@@ -262,7 +262,7 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
           {mine.length === 0 ? (
             <div className="muted small">No backup attached yet.</div>
           ) : mine.map((a) => (
-            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, background: "rgba(15,23,42,0.02)" }}>
+            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))" }}>
               <a href={fileUrl(a)} target="_blank" rel="noopener noreferrer" style={{ flex: 1, minWidth: 0, textDecoration: "none", color: "var(--text)" }}>
                 <div style={{ fontWeight: 600, fontSize: "var(--fs-13)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
                 <div className="muted small">{fmtSize(a.size)} · {new Date(a.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}{a.uploadedBy ? ` · ${a.uploadedBy}` : ""}</div>

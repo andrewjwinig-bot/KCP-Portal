@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -353,7 +354,7 @@ export default function RetailCommissionsPage() {
   const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
   // A read-only field (an existing tenant's details) reads as locked.
   const lockedStyle: React.CSSProperties = {
-    ...inputStyle, backgroundColor: "rgba(15,23,42,0.04)", color: "var(--muted)",
+    ...inputStyle, backgroundColor: "var(--tint-neutral-bg, rgba(15,23,42,0.04))", color: "var(--muted)",
   };
   const labelStyle: React.CSSProperties = {
     fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.04em",
@@ -465,10 +466,10 @@ export default function RetailCommissionsPage() {
                             <button onClick={() => deleteEntry(e.id)} title="Delete row" aria-label="Delete row"
                               style={{
                                 width: 20, height: 20, padding: 0, borderRadius: 4,
-                                border: "1px solid rgba(180,35,24,0.45)", background: "rgba(180,35,24,0.08)",
-                                color: "#b42318", cursor: "pointer", fontSize: "var(--fs-14)", lineHeight: 1, fontWeight: 700,
+                                border: "1px solid var(--tint-red-line, rgba(180,35,24,0.45))", background: "var(--tint-red-bg, rgba(180,35,24,0.08))",
+                                color: "var(--c-b42318)", cursor: "pointer", fontSize: "var(--fs-14)", lineHeight: 1, fontWeight: 700,
                                 display: "inline-flex", alignItems: "center", justifyContent: "center",
-                              }}>×</button>
+                              }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
                             </>)}
                           </td>
                         </tr>
@@ -519,7 +520,7 @@ export default function RetailCommissionsPage() {
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
           <b style={{ fontSize: 17 }}>{form.id ? "Edit Commission Entry" : "New Commission Entry"}</b>
-          {error && <span style={{ color: "#b91c1c", fontSize: "var(--fs-12)" }}>{error}</span>}
+          {error && <span style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-12)" }}>{error}</span>}
         </div>
 
         <div style={{
@@ -614,7 +615,7 @@ export default function RetailCommissionsPage() {
               <span style={{ fontSize: "var(--fs-13)", color: "var(--text)" }}>
                 <span style={{ color: "var(--muted)", marginRight: 8 }}>=</span>
                 <span style={{ fontWeight: 600 }}>{(Number(form.sqft) || 0).toLocaleString()} sf</span>
-                <span style={{ color: "var(--muted)", margin: "0 6px" }}>×</span>
+                <span style={{ color: "var(--muted)", margin: "0 6px" }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
                 <span style={{ fontWeight: 600 }}>${RETAIL_COMMISSION_PER_SQFT.toFixed(2)}/sf</span>
               </span>
             </div>

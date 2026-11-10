@@ -1,4 +1,5 @@
 "use client";
+import { ChevronLeft, ChevronRight, TriangleAlert, X } from "lucide-react";
 
 // The guided run-through for a task's instructions.
 //
@@ -34,8 +35,8 @@ import type { InstructionStep, TaskInstructions } from "@/lib/tracker/taskDefs";
 export type WizardTask = { id?: string; label: string; instructions?: TaskInstructions };
 
 const BRAND = "var(--brand)";
-const GREEN = "#16a34a";
-const GREEN_TEXT = "#15803d";
+const GREEN = "var(--c-16a34a)";
+const GREEN_TEXT = "var(--c-15803d)";
 
 export default function InstructionWizard({
   task,
@@ -176,12 +177,12 @@ export default function InstructionWizard({
                 background: "none", border: "none", cursor: "pointer", color: "var(--muted)",
                 fontSize: 22, lineHeight: 1, padding: "0 0 0 16px", flexShrink: 0, fontWeight: 300,
               }}
-            >×</button>
+            ><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
           </div>
 
           {trackable && (
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12, flexWrap: "wrap" }}>
-              <div style={{ flex: "0 0 150px", height: 6, borderRadius: 999, background: "rgba(15,23,42,0.10)", overflow: "hidden" }}>
+              <div style={{ flex: "0 0 150px", height: 6, borderRadius: 999, background: "var(--tint-neutral-bg, rgba(15,23,42,0.10))", overflow: "hidden" }}>
                 <div style={{
                   width: `${(doneCount / steps.length) * 100}%`, height: "100%", borderRadius: 999,
                   background: allDone ? GREEN : BRAND, transition: "width 160ms ease",
@@ -260,8 +261,7 @@ export default function InstructionWizard({
             <>
               <button type="button" className="btn" onClick={() => setAt(Math.max(0, at - 1))}
                 disabled={at === 0}
-                style={{ padding: "8px 16px", fontWeight: 700, opacity: at === 0 ? 0.4 : 1 }}>
-                ← Back
+                style={{ padding: "8px 16px", fontWeight: 700, opacity: at === 0 ? 0.4 : 1 }}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />Back
               </button>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
                 {allDone && completedBy && (
@@ -279,12 +279,12 @@ export default function InstructionWizard({
                     // you work out why.
                     return (
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "#b45309" }}>
+                        <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--c-b45309)" }}>
                           {open.length} left: {open.join(", ")}
                         </span>
                         {at < steps.length - 1 && (
                           <button type="button" className="btn" onClick={() => setAt(at + 1)}
-                            style={{ padding: "8px 16px", fontWeight: 700 }}>Skip ahead →</button>
+                            style={{ padding: "8px 16px", fontWeight: 700 }}>Skip ahead<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
                         )}
                       </div>
                     );
@@ -546,7 +546,7 @@ function StepBody({ step, runState, onToggleRun }: {
       {step.settings && step.settings.length > 0 && (
         <div style={{
           marginTop: 12, marginLeft: 8, borderRadius: 8, overflow: "hidden",
-          border: "1px solid rgba(11,74,125,0.20)",
+          border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.20))",
         }}>
           {step.settings.map((row, i) => (
             <div key={row.field} style={{
@@ -580,21 +580,21 @@ function StepBody({ step, runState, onToggleRun }: {
             style={{
               display: "inline-flex", alignItems: "center", gap: 6,
               background: "none", border: "none", padding: 0, cursor: "pointer",
-              fontSize: "var(--fs-12)", fontWeight: 700, color: "#b45309",
+              fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-b45309)",
             }}
           >
-            <span style={{ fontSize: "var(--fs-10)", transform: showFix ? "rotate(90deg)" : "none", transition: "transform 140ms ease", display: "inline-block" }}>▶</span>
+            <span style={{ fontSize: "var(--fs-10)", transform: showFix ? "rotate(90deg)" : "none", transition: "transform 140ms ease", display: "inline-block" }}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
             If it reports errors
           </button>
           {showFix && (
             <div style={{
               marginTop: 8, padding: "10px 12px", borderRadius: 8,
-              background: "rgba(180,83,9,0.05)", border: "1px solid rgba(180,83,9,0.22)",
+              background: "var(--tint-amber-bg, rgba(180,83,9,0.05))", border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.22))",
               display: "flex", flexDirection: "column", gap: 6,
             }}>
               {step.troubleshooting.map((t, i) => (
                 <div key={i} style={{ display: "flex", gap: 9, fontSize: "var(--fs-12-5)", lineHeight: 1.5 }}>
-                  <span style={{ color: "#b45309", fontWeight: 900, flexShrink: 0 }}>·</span>
+                  <span style={{ color: "var(--c-b45309)", fontWeight: 900, flexShrink: 0 }}>·</span>
                   <span>{t}</span>
                 </div>
               ))}
@@ -613,8 +613,8 @@ function StepBody({ step, runState, onToggleRun }: {
               rel="noopener noreferrer"
               style={{
                 display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--fs-12)", fontWeight: 700,
-                color: BRAND, background: "rgba(11,74,125,0.07)",
-                border: "1px solid rgba(11,74,125,0.25)", borderRadius: 6, padding: "5px 10px",
+                color: BRAND, background: "var(--tint-brand-bg, rgba(11,74,125,0.07))",
+                border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.25))", borderRadius: 6, padding: "5px 10px",
                 textDecoration: "none",
               }}
             >
@@ -634,11 +634,11 @@ function StepBody({ step, runState, onToggleRun }: {
         // for a second.
         <div style={{
           marginTop: 12, padding: "9px 12px", borderRadius: 8,
-          background: "rgba(220,38,38,0.07)", border: "1px solid rgba(220,38,38,0.30)",
-          fontSize: "var(--fs-12-5)", fontWeight: 700, color: "#b91c1c",
+          background: "var(--tint-red-bg, rgba(220,38,38,0.07))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.30))",
+          fontSize: "var(--fs-12-5)", fontWeight: 700, color: "var(--c-b91c1c)",
           display: "flex", gap: 8, alignItems: "flex-start", lineHeight: 1.45,
         }}>
-          <span style={{ flexShrink: 0 }}>⚠</span>
+          <span style={{ flexShrink: 0 }}><TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
           {step.note}
         </div>
       ) : (

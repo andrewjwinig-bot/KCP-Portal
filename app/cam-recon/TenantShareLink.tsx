@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ShareLinkCard } from "@/app/components/ShareLinkCard";
 
-const BRAND = "#0b4a7d";
+const BRAND = "var(--c-0b4a7d)";
 
 type Link = { id: string; url: string; createdAt: string; createdBy?: string; viewCount: number; lastViewedAt?: string | null; expiresAt?: string | null; pin?: string | null };
 

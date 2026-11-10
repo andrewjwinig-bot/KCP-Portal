@@ -308,7 +308,7 @@ function BaseYearResets({
       {open && (
       <>
       {!canEditBaseYear && (
-        <div className="muted small" style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)" }}>
+        <div className="muted small" style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "var(--tint-neutral-bg, rgba(15,23,42,0.04))", border: "1px solid var(--border)" }}>
           Read-only view. Only Nancy can record base-year resets.
         </div>
       )}
@@ -334,7 +334,7 @@ function BaseYearResets({
             padding: "8px 10px",
             border: "1px solid var(--border)",
             borderRadius: 6,
-            background: "rgba(15,23,42,0.025)",
+            background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))",
             fontSize: "var(--fs-13)", fontWeight: 600,
             color: currentBaseYear == null ? "var(--muted)" : "var(--text)",
           }}>
@@ -384,7 +384,7 @@ function BaseYearResets({
           {saving ? "Saving…" : "Record reset"}
         </button>
       </div>
-      {error && <div style={{ marginTop: 8, fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      {error && <div style={{ marginTop: 8, fontSize: "var(--fs-12)", color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}
       </fieldset>
 
       {/* Reset impact for the selected tenant */}
@@ -414,7 +414,7 @@ function BaseYearResets({
               <tr key={r.unitRef} style={{ borderTop: "1px solid var(--border)" }}>
                 <td style={{ padding: "10px 10px" }}>
                   {r.propertyCode ? (
-                    <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code>
+                    <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)" }}>{r.propertyCode}</code>
                   ) : <span className="muted small">—</span>}
                 </td>
                 <td style={{ padding: "10px 10px" }}><code style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
@@ -429,8 +429,8 @@ function BaseYearResets({
                       type="button"
                       onClick={() => remove(r.unitRef)}
                       style={{
-                        background: "transparent", border: "1px solid rgba(220,38,38,0.35)",
-                        color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
+                        background: "transparent", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))",
+                        color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
                         padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit",
                       }}
                     >Remove</button>
@@ -570,7 +570,7 @@ function SnowBaseExclusions({
       {open && (
       <>
       {!canEdit && (
-        <div className="muted small" style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)" }}>
+        <div className="muted small" style={{ marginTop: 12, padding: "8px 12px", borderRadius: 6, background: "var(--tint-neutral-bg, rgba(15,23,42,0.04))", border: "1px solid var(--border)" }}>
           Read-only view. Only Nancy can record snow base-year exclusions.
         </div>
       )}
@@ -585,7 +585,7 @@ function SnowBaseExclusions({
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={fieldLabel}>Current B/Y</span>
-          <div style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 6, background: "rgba(15,23,42,0.025)", fontSize: "var(--fs-13)", fontWeight: 600, color: currentBaseYear == null ? "var(--muted)" : "var(--text)" }}>
+          <div style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 6, background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))", fontSize: "var(--fs-13)", fontWeight: 600, color: currentBaseYear == null ? "var(--muted)" : "var(--text)" }}>
             {currentBaseYear ?? "—"}
           </div>
         </label>
@@ -618,13 +618,13 @@ function SnowBaseExclusions({
             firstYearPct={firstYearPct}
             snowData={snowData}
           />
-          <div className="small" style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: "rgba(11,74,125,0.05)", border: "1px solid rgba(11,74,125,0.18)", color: "var(--text)" }}>
+          <div className="small" style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: "var(--tint-brand-bg, rgba(11,74,125,0.05))", border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.18))", color: "var(--text)" }}>
             From <b>{MONTH_NAMES[effMonth - 1]} {effYear}</b>, {selectedOption.occupantName}&rsquo;s Snow Removal base year is treated as <b>$0</b> — they recover their full pro-rata share of snow.
             {" "}In {effYear} it&rsquo;s prorated to <b>~{firstYearPct}%</b> of the exclusion (snow from {MONTH_NAMES[effMonth - 1]}&ndash;December); every {effYear + 1}+ reconciliation is 100%.
           </div>
         </>
       )}
-      {error && <div style={{ marginTop: 8, fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      {error && <div style={{ marginTop: 8, fontSize: "var(--fs-12)", color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}
       </fieldset>
 
       <div style={{ marginTop: 16, overflowX: "auto" }}>
@@ -645,7 +645,7 @@ function SnowBaseExclusions({
               <tr><td colSpan={7} className="muted small" style={{ padding: 14 }}>No snow base-year exclusions recorded yet.</td></tr>
             ) : rows.map((r) => (
               <tr key={r.unitRef} style={{ borderTop: "1px solid var(--border)" }}>
-                <td style={{ padding: "10px 10px" }}>{r.propertyCode ? <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code> : <span className="muted small">—</span>}</td>
+                <td style={{ padding: "10px 10px" }}>{r.propertyCode ? <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)" }}>{r.propertyCode}</code> : <span className="muted small">—</span>}</td>
                 <td style={{ padding: "10px 10px" }}><code style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
                 <td style={{ padding: "10px 10px", fontWeight: 600 }}>{r.occupantName || <span className="muted small">—</span>}</td>
                 <td style={{ padding: "10px 10px", color: "var(--muted)" }}>{r.baseYear ?? "—"}</td>
@@ -653,7 +653,7 @@ function SnowBaseExclusions({
                 <td style={{ padding: "10px 10px" }}>{r.notes || <span className="muted small">—</span>}</td>
                 <td style={{ padding: "10px 10px" }}>
                   {canEdit && (
-                    <button type="button" onClick={() => remove(r.unitRef)} style={{ background: "transparent", border: "1px solid rgba(220,38,38,0.35)", color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600, padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>Remove</button>
+                    <button type="button" onClick={() => remove(r.unitRef)} style={{ background: "transparent", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))", color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600, padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>Remove</button>
                   )}
                 </td>
               </tr>

@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 // Dashboard card listing reservation requests still awaiting a decision.
 // Renders nothing when the queue is clear. Each row deep-links into the
@@ -66,7 +67,7 @@ export default function PendingReservationsCard({ order = 0 }: { order?: number 
           <Badge>{pending.length}</Badge>
         </div>
         <Link href="/reservations" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
-          Open Reservations →
+          Open Reservations<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
         </Link>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -77,7 +78,7 @@ export default function PendingReservationsCard({ order = 0 }: { order?: number 
             style={{
               display: "flex", alignItems: "center", gap: 10,
               padding: "9px 12px", border: "1px solid var(--border)", borderRadius: 8,
-              background: "#fafafa", textDecoration: "none", color: "inherit",
+              background: "var(--c-fafafa)", textDecoration: "none", color: "inherit",
             }}
           >
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -93,7 +94,7 @@ export default function PendingReservationsCard({ order = 0 }: { order?: number 
               </div>
             </div>
             <Pill tone={reservationStatusTone("Pending")}>Pending</Pill>
-            <span style={{ flexShrink: 0, fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)" }}>Review →</span>
+            <span style={{ flexShrink: 0, fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)" }}>Review<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
           </Link>
         ))}
       </div>

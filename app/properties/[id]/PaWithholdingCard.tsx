@@ -112,7 +112,7 @@ export default function PaWithholdingCard({ code, style }: { code: string; style
         </div>
       </div>
 
-      {error && <div style={{ marginTop: 10, fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      {error && <div style={{ marginTop: 10, fontSize: "var(--fs-12)", color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}
       {!result ? (
         !error && <div style={{ marginTop: 12, fontSize: "var(--fs-13)", color: "var(--muted)" }}>Loading…</div>
       ) : (
@@ -128,7 +128,7 @@ export default function PaWithholdingCard({ code, style }: { code: string; style
             <StatPill label="Net cash to partners" value={money(result.totals.net)} total />
           </div>
           {result.short.length > 0 && (
-            <div style={{ marginTop: 10, fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>
+            <div style={{ marginTop: 10, fontSize: "var(--fs-12)", color: "var(--c-b91c1c)", fontWeight: 600 }}>
               {result.short.length} partner{result.short.length === 1 ? "'s" : "s'"} withholding is more than their distribution — the rest carries to the next one.
             </div>
           )}
@@ -174,7 +174,7 @@ export default function PaWithholdingCard({ code, style }: { code: string; style
                   <td style={{ ...td, fontWeight: 700, borderTop: "2px solid var(--border)" }}>{money(result.totals.paid)}</td>
                   <td style={{ ...td, fontWeight: 700, borderTop: "2px solid var(--border)" }}>{money(result.totals.estimate)}</td>
                   <td style={{ ...td, fontWeight: 700, borderTop: "2px solid var(--border)" }}>{money(result.totals.gross)}</td>
-                  <td style={{ ...td, fontWeight: 700, borderTop: "2px solid var(--border)", color: "#b45309" }}>{money(result.totals.withholding)}</td>
+                  <td style={{ ...td, fontWeight: 700, borderTop: "2px solid var(--border)", color: "var(--c-b45309)" }}>{money(result.totals.withholding)}</td>
                   <td style={{ ...td, fontWeight: 700, borderTop: "2px solid var(--border)" }}>{money(result.totals.net)}</td>
                 </tr>
               </tbody>

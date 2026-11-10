@@ -148,7 +148,7 @@ function UnitPropertyCard({ group, visibleCols, specs, renderCell, defaultOpen }
                   return (
                     <tr key={u.unitRef} onClick={() => router.push(`/units/${encodeURIComponent(u.unitRef)}${FROM}`)} style={{ cursor: "pointer" }}>
                       <td style={{ ...td, whiteSpace: "nowrap" }}>
-                        <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{u.unitRef}</code>
+                        <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{u.unitRef}</code>
                       </td>
                       <td style={{ ...td, overflow: "hidden" }}>
                         <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
@@ -275,7 +275,7 @@ export default function UnitInfoIndexPage() {
           <td style={td} onClick={(e) => e.stopPropagation()}>
             {fp ? (
               <a href={blobSrc(fp.url)} target="_blank" rel="noreferrer" title={fp.name}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none" }}>
                 {isImg ? (
                   <img src={blobSrc(fp.url)} alt="" loading="lazy"
                     style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
@@ -360,7 +360,7 @@ export default function UnitInfoIndexPage() {
         <LoadingState status="Loading units…" rows={5} />
       ) : !data ? (
         <div className="card" style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>
-          No rent roll imported yet. Import one on the <a href="/rentroll" style={{ fontWeight: 600, color: "#0b4a7d" }}>Rent Roll</a> page.
+          No rent roll imported yet. Import one on the <a href="/rentroll" style={{ fontWeight: 600, color: "var(--c-0b4a7d)" }}>Rent Roll</a> page.
         </div>
       ) : byCategory.length === 0 ? (
         <div className="card" style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>No units match your filters.</div>

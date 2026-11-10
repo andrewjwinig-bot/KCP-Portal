@@ -90,7 +90,7 @@ export function ExpenseInputsPanel({ year, bookId, only, embedded = false, onSav
             {/* The property band — left out when the master page already
                 names the one property on screen. */}
             {(!embedded || p.missingBasis) && (
-              <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: pi ? "2px solid var(--border)" : "none" }}>
+              <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))", borderTop: pi ? "2px solid var(--border)" : "none" }}>
                 <td style={{ ...tdL, paddingTop: 10, paddingBottom: 10, whiteSpace: "normal" }} colSpan={14}>
                   {!embedded && <span style={{ fontWeight: 800 }}>{p.code} — {p.name}</span>}
                   {p.missingBasis && <span className="muted" style={{ fontSize: "var(--fs-12)", marginLeft: embedded ? 0 : 10 }}>no {data?.basisYear} GL or budget loaded — nothing to measure against yet</span>}
@@ -120,7 +120,7 @@ export function ExpenseInputsPanel({ year, bookId, only, embedded = false, onSav
         </div>
       )}
 
-      {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700, padding: embedded ? "8px 14px" : 0 }}>· {error}</div>}
+      {error && <div className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700, padding: embedded ? "8px 14px" : 0 }}>· {error}</div>}
 
       {loading && !data ? (
         embedded ? <div className="muted small" style={{ padding: 14 }}>Loading this year&rsquo;s figures…</div>
@@ -288,7 +288,7 @@ function ItemizedRows({ code, row, basisYear, year, onSave }: {
           <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>
             {OWNER[row.kind]}{row.editable ? " · budget each item by month, or type its total" : " · read-only"} · contracts and recurring carried from {basisYear} +3%, Big Projects from $0
           </div>
-          {err && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>{err}</div>}
+          {err && <div className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>{err}</div>}
         </td>
         {row.months.map((v, i) => <td key={i} style={{ ...td, fontWeight: 700 }}>{num(v)}</td>)}
         <td style={{ ...td, fontWeight: 800 }}>{money0(sum(row.months))}</td>
@@ -338,7 +338,7 @@ function ItemRow({ depth, name, months, typed, prior, note, basisYear, year, edi
     <tr>
       {label}
       {months.map((v, i) => (
-        <td key={i} style={{ ...td, paddingLeft: 3, paddingRight: 3, ...(typed?.[i] ? { background: "rgba(11,74,125,0.09)" } : {}) }}>
+        <td key={i} style={{ ...td, paddingLeft: 3, paddingRight: 3, ...(typed?.[i] ? { background: "var(--tint-brand-bg, rgba(11,74,125,0.09))" } : {}) }}>
           {editable ? (
             <input value={cells[i]} inputMode="numeric" aria-label={`${name} ${MONTHS[i]} ${year}`} style={cellIn}
               onChange={(e) => setCells(cells.map((x, j) => (j === i ? e.target.value : x)))}

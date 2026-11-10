@@ -58,7 +58,7 @@ export function DocChip({
         }}
       >
         <Pill tone={tone}>{label}</Pill>
-        {icon && <span style={{ display: "inline-flex", color: "#0b4a7d" }}><DocIcon /></span>}
+        {icon && <span style={{ display: "inline-flex", color: "var(--c-0b4a7d)" }}><DocIcon /></span>}
       </a>
     </HoverCard>
   );

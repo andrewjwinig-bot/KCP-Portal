@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight, X } from "lucide-react";
 
 // Dashboard reminder for leasing commissions — mirrors the payroll / CC-expenses
 // tiles. Surfaces the quarterly commission cycle so it isn't forgotten:
@@ -20,10 +21,10 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "n
 const sameQ = (a: Parsed, b: Parsed) => !!a && !!b && a.quarter === b.quarter && a.year === b.year;
 
 const TONE: Record<Tone, { border: string; bg: string; dot: string }> = {
-  paid:    { border: "rgba(21,128,61,0.30)",  bg: "rgba(21,128,61,0.06)",  dot: "#15803d" },
-  soon:    { border: "rgba(217,119,6,0.30)",  bg: "rgba(217,119,6,0.06)",  dot: "#d97706" },
-  action:  { border: "rgba(220,38,38,0.35)",  bg: "rgba(220,38,38,0.06)",  dot: "#dc2626" },
-  neutral: { border: "rgba(15,23,42,0.12)",   bg: "rgba(15,23,42,0.025)",  dot: "#64748b" },
+  paid:    { border: "rgba(21,128,61,0.30)",  bg: "rgba(21,128,61,0.06)",  dot: "var(--c-15803d)" },
+  soon:    { border: "rgba(217,119,6,0.30)",  bg: "rgba(217,119,6,0.06)",  dot: "var(--c-d97706)" },
+  action:  { border: "rgba(220,38,38,0.35)",  bg: "rgba(220,38,38,0.06)",  dot: "var(--c-dc2626)" },
+  neutral: { border: "rgba(15,23,42,0.12)",   bg: "rgba(15,23,42,0.025)",  dot: "var(--c-64748b)" },
 };
 
 /** `href` is the commissions page THIS viewer can open — Harry has only the
@@ -103,8 +104,8 @@ export default function CommissionsReminder({ standalone = false, href = "/commi
         <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>{info.title}</div>
         <div className="muted small" style={{ marginTop: 2 }}>{info.sub}</div>
       </div>
-      <Link href={href} style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>Open →</Link>
-      <button onClick={dismiss} aria-label="Dismiss" title="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 15, lineHeight: 1, padding: 0, flexShrink: 0, alignSelf: "center" }}>×</button>
+      <Link href={href} style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
+      <button onClick={dismiss} aria-label="Dismiss" title="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 15, lineHeight: 1, padding: 0, flexShrink: 0, alignSelf: "center" }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
     </div>
   );
 }

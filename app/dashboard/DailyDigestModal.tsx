@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight, X } from "lucide-react";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -57,14 +58,14 @@ function CaughtUp() {
             style={{ ["--a" as string]: s.a, ["--d" as string]: s.d, ["--cu-spark-color" as string]: s.c }} />
         ))}
         <svg width="72" height="72" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <circle cx="12" cy="12" r="10" fill="rgba(22,163,74,0.08)" stroke="#15803d" strokeWidth="1.6" className="sent-ring" />
-          <path d="M7.4 12.4l3.1 3.1 6.2-6.6" fill="none" stroke="#15803d" strokeWidth="2.2"
+          <circle cx="12" cy="12" r="10" fill="rgba(22,163,74,0.08)" stroke="var(--c-15803d)" strokeWidth="1.6" className="sent-ring" />
+          <path d="M7.4 12.4l3.1 3.1 6.2-6.6" fill="none" stroke="var(--c-15803d)" strokeWidth="2.2"
             strokeLinecap="round" strokeLinejoin="round" className="sent-check" />
         </svg>
       </div>
 
       <div className="caughtup-copy" style={{ marginTop: 12 }}>
-        <div style={{ fontSize: 17, fontWeight: 800, color: "#15803d" }}>You&rsquo;re all caught up</div>
+        <div style={{ fontSize: 17, fontWeight: 800, color: "var(--c-15803d)" }}>You&rsquo;re all caught up</div>
         <div className="muted small" style={{ marginTop: 4, lineHeight: 1.5 }}>
           Nothing due this week — every task is done and every file is imported.
         </div>
@@ -183,7 +184,7 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
             style={{ border: "none", background: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)", lineHeight: 1 }}
             aria-label="Close"
           >
-            ×
+            <X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
           </button>
         </div>
         {/* The subtitle promised "tasks due and files to import" even when
@@ -201,7 +202,7 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
               Tasks This Week{openTasks.length > 0 && <span style={{ letterSpacing: 0 }}> · {openTasks.length} open</span>}
             </div>
             {openTasks.length === 0 ? (
-              <div className="muted small" style={{ color: "#15803d", fontWeight: 600, marginBottom: 14 }}>
+              <div className="muted small" style={{ color: "var(--c-15803d)", fontWeight: 600, marginBottom: 14 }}>
                 ✓ All tasks this week are done.
               </div>
             ) : (
@@ -230,8 +231,8 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
             {/* ── Files to import ── */}
             {openImports.length > 0 && (
               <>
-                <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#b45309", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
+                <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--c-b45309)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 9, height: 9, borderRadius: 999, background: "var(--c-b45309)", flexShrink: 0 }} />
                   Files to Import This Week{openImports.length > 1 ? ` · ${openImports.length} outstanding` : ""}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
@@ -239,16 +240,16 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
                     <Link key={r.id} href={r.link} onClick={dismiss} style={{
                       display: "flex", alignItems: "center", gap: 10,
                       padding: "8px 10px", borderRadius: 8,
-                      border: "1px solid rgba(180,83,9,0.28)",
-                      background: "rgba(180,83,9,0.06)",
+                      border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.28))",
+                      background: "var(--tint-amber-bg, rgba(180,83,9,0.06))",
                       textDecoration: "none", color: "inherit",
                     }}>
-                      <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
+                      <span style={{ width: 9, height: 9, borderRadius: 999, background: "var(--c-b45309)", flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#7c3d06" }}>{r.label}</div>
+                        <div style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--c-7c3d06)" }}>{r.label}</div>
                         <div className="muted small" style={{ marginTop: 1 }}>feeds {r.feeds}</div>
                       </div>
-                      <div style={{ flexShrink: 0, fontSize: "var(--fs-12)", fontWeight: 700, color: "#b45309" }}>{r.when}</div>
+                      <div style={{ flexShrink: 0, fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-b45309)" }}>{r.when}</div>
                     </Link>
                   ))}
                 </div>
@@ -258,14 +259,14 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
         )}
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16 }}>
-          <Link href="/tracker" onClick={dismiss} style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
-            Open Tracker →
+          <Link href="/tracker" onClick={dismiss} style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none" }}>
+            Open Tracker<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
           </Link>
           <button
             onClick={dismiss}
             style={{
               border: "none", borderRadius: 8, padding: "9px 18px",
-              background: "#0b4a7d", color: "#fff", fontSize: "var(--fs-13)", fontWeight: 700, cursor: "pointer",
+              background: "var(--c-0b4a7d)", color: "#fff", fontSize: "var(--fs-13)", fontWeight: 700, cursor: "pointer",
             }}
           >
             Got it

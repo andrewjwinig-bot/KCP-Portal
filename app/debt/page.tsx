@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -198,7 +199,7 @@ function DebtPageInner() {
       </div>
 
       {error && (
-        <div className="card" style={{ marginTop: 16, borderColor: "rgba(220,38,38,0.4)", color: "#b91c1c" }}>
+        <div className="card" style={{ marginTop: 16, borderColor: "var(--tint-red-line, rgba(220,38,38,0.4))", color: "var(--c-b91c1c)" }}>
           {error}
         </div>
       )}
@@ -336,9 +337,9 @@ function DebtPageInner() {
 
 // Loan-group section header tones (mirrors the property page's category pills).
 function groupTone(group: LoanGroup): { bg: string; fg: string; border: string } {
-  if (group === "Business Parks") return { bg: "rgba(11,74,125,0.10)",  fg: "#0b4a7d", border: "rgba(11,74,125,0.35)" };
-  if (group === "Shopping Centers") return { bg: "rgba(13,148,136,0.10)", fg: "#0d9488", border: "rgba(13,148,136,0.35)" };
-  return { bg: "rgba(124,58,237,0.10)", fg: "#6d28d9", border: "rgba(124,58,237,0.30)" };
+  if (group === "Business Parks") return { bg: "rgba(11,74,125,0.10)",  fg: "var(--c-0b4a7d)", border: "rgba(11,74,125,0.35)" };
+  if (group === "Shopping Centers") return { bg: "rgba(13,148,136,0.10)", fg: "var(--c-0d9488)", border: "rgba(13,148,136,0.35)" };
+  return { bg: "rgba(124,58,237,0.10)", fg: "var(--c-6d28d9)", border: "rgba(124,58,237,0.30)" };
 }
 
 // ── amortization schedule modal ──────────────────────────────────────────────
@@ -399,7 +400,7 @@ function ScheduleModal({ loan, today, onClose }: { loan: Loan; today: string; on
               className="linkBtn"
               style={{ ...SECTION_LABEL, display: "flex", gap: 8, alignItems: "center", cursor: "pointer", padding: 0 }}
             >
-              <span style={{ fontSize: "var(--fs-11)", width: 12, display: "inline-block" }}>{allocOpen ? "▾" : "▸"}</span>
+              <span style={{ fontSize: "var(--fs-11)", width: 12, display: "inline-block" }}>{allocOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
               <span>Monthly Debt Service by Building</span>
               <Pill tone={TONE_NEUTRAL}>{buildingAlloc.length} buildings</Pill>
               <Pill tone={allocBasis === "GL" ? TONE_NEUTRAL : TONE_AMBER}>
@@ -683,7 +684,7 @@ function LoanForm({
               className="btn"
               onClick={() => onDelete(draft.id)}
               disabled={saving}
-              style={{ color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }}
+              style={{ color: "var(--c-b91c1c)", borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))" }}
             >
               Delete
             </button>

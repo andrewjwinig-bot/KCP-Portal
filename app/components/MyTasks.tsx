@@ -24,15 +24,15 @@ import {
   startOfDay,
 } from "@/lib/todos/types";
 
-const BRAND = "#0b4a7d";
-const RED = "#b91c1c";
-const AMBER = "#b45309";
-const GREEN = "#15803d";
+const BRAND = "var(--c-0b4a7d)";
+const RED = "var(--c-b91c1c)";
+const AMBER = "var(--c-b45309)";
+const GREEN = "var(--c-15803d)";
 
 const PRIORITY_META: Record<Priority, { label: string; color: string }> = {
   high: { label: "High", color: RED },
   normal: { label: "Normal", color: "var(--muted)" },
-  low: { label: "Low", color: "#94a3b8" },
+  low: { label: "Low", color: "var(--c-94a3b8)" },
 };
 
 const inputStyle: React.CSSProperties = { boxSizing: "border-box" };

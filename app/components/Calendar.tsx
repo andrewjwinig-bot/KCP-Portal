@@ -33,11 +33,11 @@ export type CalendarProps = {
 
 const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const NAVY = "#0e2238";
+const NAVY = "var(--c-0e2238)";
 const LINE = "rgba(14,34,56,0.18)";
 const LINE_DARK = "rgba(14,34,56,0.55)";
-const TEXT = "#1a2238";
-const MUTED = "#5a657a";
+const TEXT = "var(--c-1a2238)";
+const MUTED = "var(--c-5a657a)";
 
 export function Calendar({
   value,

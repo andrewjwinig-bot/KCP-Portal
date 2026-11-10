@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight, X } from "lucide-react";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { upload as blobUpload } from "@vercel/blob/client";
@@ -217,8 +218,8 @@ export default function BankTransfersPage() {
       />
 
       {error && (
-        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
-          <div style={{ fontWeight: 700, color: "#b91c1c", marginBottom: 4 }}>Couldn&apos;t load bank transfers</div>
+        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
+          <div style={{ fontWeight: 700, color: "var(--c-b91c1c)", marginBottom: 4 }}>Couldn&apos;t load bank transfers</div>
           <div className="muted small">{error}</div>
         </div>
       )}
@@ -236,7 +237,7 @@ export default function BankTransfersPage() {
           style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left", color: "var(--text)" }}
         >
           <span style={{ fontWeight: 700 }}>Cash Flow Between Accounts <span className="muted small" style={{ fontWeight: 500 }}>· total moved from one account to another{search ? " (filtered)" : ""}</span></span>
-          <span className="muted" style={{ transform: showFlows ? "rotate(90deg)" : undefined, transition: "transform 0.15s" }}>▶</span>
+          <span className="muted" style={{ transform: showFlows ? "rotate(90deg)" : undefined, transition: "transform 0.15s" }}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
         </button>
         {showFlows && (
           <div className="tableWrap" style={{ borderTop: "1px solid var(--border)" }}>
@@ -315,14 +316,14 @@ export default function BankTransfersPage() {
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
                             title={t.pdfName || "View confirmation PDF"}
-                            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none" }}
                           >View</a>
                           <span className="muted" style={{ fontSize: "var(--fs-11)" }}>·</span>
                           <a
                             href={blobSrc(t.pdfUrl)}
                             download={t.pdfName || `Transfer ${t.date}.pdf`}
                             onClick={(e) => e.stopPropagation()}
-                            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none" }}
                           >Download</a>
                         </div>
                       ) : t.pdfSaved && shareFolderUrl ? (
@@ -497,8 +498,8 @@ function Toolbar({
           {error && (
             <div style={{
               padding: "8px 10px", borderRadius: 8,
-              background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-              color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
+              background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))",
+              color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
             }}>{error}</div>
           )}
           <input
@@ -520,8 +521,8 @@ function Toolbar({
             {url && (
               <button type="button" onClick={() => save("")} disabled={saving}
                 style={{
-                  marginLeft: "auto", fontSize: "var(--fs-12)", fontWeight: 600, color: "#b91c1c",
-                  background: "transparent", border: "1px solid rgba(220,38,38,0.35)",
+                  marginLeft: "auto", fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-b91c1c)",
+                  background: "transparent", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))",
                   borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit",
                 }}>
                 Remove
@@ -723,7 +724,7 @@ function EditModal({
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>
             {item ? "Edit transfer" : "New transfer"}
           </h2>
-          <button onClick={onClose} className="btn" style={{ fontSize: "var(--fs-13)", padding: "4px 10px" }}>✕</button>
+          <button onClick={onClose} className="btn" style={{ fontSize: "var(--fs-13)", padding: "4px 10px" }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
         </div>
 
         <div style={{ display: "grid", gap: 14 }}>
@@ -778,11 +779,11 @@ function EditModal({
             <div style={{ display: "grid", gap: 8 }}>
               {pdfUrl && !pendingFile ? (
                 <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <a href={blobSrc(pdfUrl)} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>
+                  <a href={blobSrc(pdfUrl)} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none" }}>
                     View current ↗
                   </a>
                   <span className="muted small" style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pdfName}</span>
-                  <button type="button" className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 10px", color: "#b91c1c" }}
+                  <button type="button" className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 10px", color: "var(--c-b91c1c)" }}
                     onClick={() => { setPdfUrl(undefined); setPdfName(undefined); }}>Remove</button>
                 </div>
               ) : pendingFile ? (
@@ -799,11 +800,11 @@ function EditModal({
                 </label>
               )}
               {uploadPct !== null && (
-                <div style={{ height: 4, borderRadius: 999, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${Math.round(uploadPct * 100)}%`, background: "#0b4a7d" }} />
+                <div style={{ height: 4, borderRadius: 999, background: "var(--tint-neutral-bg, rgba(15,23,42,0.08))", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.round(uploadPct * 100)}%`, background: "var(--c-0b4a7d)" }} />
                 </div>
               )}
-              {uploadErr && <div className="small" style={{ color: "#b91c1c" }}>{uploadErr}</div>}
+              {uploadErr && <div className="small" style={{ color: "var(--c-b91c1c)" }}>{uploadErr}</div>}
               <div className="muted small">Attached to the confirmation email and viewable from the log. Files are stored privately.</div>
             </div>
           </Field>
@@ -825,7 +826,7 @@ function EditModal({
                 onClick={() => onDelete(item.id)}
                 disabled={saving}
                 className="btn"
-                style={{ fontSize: "var(--fs-13)", padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }}
+                style={{ fontSize: "var(--fs-13)", padding: "8px 14px", color: "var(--c-b91c1c)", borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))" }}
               >
                 Delete
               </button>

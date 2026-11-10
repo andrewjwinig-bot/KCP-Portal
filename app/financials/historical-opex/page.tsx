@@ -101,12 +101,12 @@ function Sparkline({ years, values, width = 320, height = 56 }: {
       <line x1={3} y1={yPos(min)} x2={width - 3} y2={yPos(min)} stroke="rgba(15,23,42,0.06)" strokeWidth={1} />
       <line x1={3} y1={yPos(max)} x2={width - 3} y2={yPos(max)} stroke="rgba(15,23,42,0.06)" strokeWidth={1} />
       {segments.map((d, i) => (
-        <path key={i} d={d} fill="none" stroke="#0b4a7d" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <path key={i} d={d} fill="none" stroke="var(--c-0b4a7d)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
       ))}
       {/* Year dots */}
       {years.map((y, i) =>
         values[i] > 0 ? (
-          <circle key={y} cx={x(y)} cy={yPos(values[i])} r={2} fill="#0b4a7d" />
+          <circle key={y} cx={x(y)} cy={yPos(values[i])} r={2} fill="var(--c-0b4a7d)" />
         ) : (
           <circle key={y} cx={x(y)} cy={height / 2} r={1.5} fill="rgba(15,23,42,0.25)" />
         ),
@@ -156,8 +156,8 @@ export default function HistoricalOpExPage() {
       </div>
 
       {error && (
-        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
-          <div style={{ fontWeight: 700, color: "#b91c1c" }}>Error</div>
+        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
+          <div style={{ fontWeight: 700, color: "var(--c-b91c1c)" }}>Error</div>
           <div className="muted small">{error}</div>
         </div>
       )}
@@ -269,7 +269,7 @@ function SummaryTable({ entries, budget }: { entries: HistoricalOpExEntry[]; bud
         <thead>
           <tr>
             <th style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid var(--border)" }} />
-            {byr && <th colSpan={3} style={{ textAlign: "center", padding: "4px 10px", fontSize: "var(--fs-13)", fontWeight: 800, borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)", background: budTint, color: "#0b4a7d" }}>{byr} Budget</th>}
+            {byr && <th colSpan={3} style={{ textAlign: "center", padding: "4px 10px", fontSize: "var(--fs-13)", fontWeight: 800, borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)", background: budTint, color: "var(--c-0b4a7d)" }}>{byr} Budget</th>}
             {shown.map((y) => (
               <th key={y} colSpan={3} style={{ textAlign: "center", padding: "4px 10px", fontSize: "var(--fs-13)", fontWeight: 800, borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>{y}</th>
             ))}

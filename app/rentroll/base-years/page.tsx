@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useMemo, useState } from "react";
@@ -72,7 +73,7 @@ function HeaderSelect({ value, onChange, displayLabel, ariaLabel, children }: {
   return (
     <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
       <span style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{displayLabel}</span>
-      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
+      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: "var(--text)", opacity: 0.6, flexShrink: 0 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
       <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={ariaLabel}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}>
         {children}
@@ -520,7 +521,7 @@ function CollapseHeader({
         gap: 6,
       }}
     >
-      <span style={{ fontSize: "var(--fs-13)" }}>{open ? "▾" : "▸"}</span>
+      <span style={{ fontSize: "var(--fs-13)" }}>{open ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
       {title}
     </button>
   );
@@ -1078,7 +1079,7 @@ function BaseYearBreakdown({
                 padding: "12px 14px",
                 borderRadius: 8,
                 border: `1px solid ${color}`,
-                background: "rgba(15,23,42,0.02)",
+                background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))",
                 boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
               }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
@@ -1121,7 +1122,7 @@ function BaseYearBreakdown({
                       fontSize: "var(--fs-12)",
                       padding: "4px 8px",
                       borderRadius: 6,
-                      background: "rgba(15,23,42,0.03)",
+                      background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))",
                     }}>
                       <HoverCard title={t.name} help={false} rows={[
                         { label: "Suite", value: t.unitRef },
@@ -1207,7 +1208,7 @@ function RecoveryBar({
         <div
           style={{
             display: "flex", width: "100%", height: 22, borderRadius: 6, overflow: "hidden",
-            background: "rgba(15,23,42,0.06)", border: "1px solid var(--border)",
+            background: "var(--tint-neutral-bg, rgba(15,23,42,0.06))", border: "1px solid var(--border)",
           }}
           onMouseLeave={() => onHover(null)}
         >
@@ -1276,7 +1277,7 @@ function SummaryTile({
       flex: "0 1 300px", minWidth: 220,
       padding: "10px 14px",
       borderRadius: 8,
-      background: "rgba(15,23,42,0.03)",
+      background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))",
       border: "1px solid var(--border)",
     }}>
       <div style={{

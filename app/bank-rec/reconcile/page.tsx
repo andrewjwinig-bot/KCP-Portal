@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 // Bank Recs — every bank account, every month, reconciled by the portal
 // (owner: "build an automated bank rec to let me know if all are in balance
@@ -221,7 +222,7 @@ export default function BankRecPage() {
         {data && (
           <div className="muted small" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             <span>{data.files.filter((f) => f.kind === "stmt").length} statements · {data.files.filter((f) => f.kind.startsWith("rec")).length} Skyline recs on file</span>
-            <span>{data.report ? <>Checking Account Report as of {data.report.asOf ? dateLabel(data.report.asOf) : "?"}</> : <b style={{ color: "#b45309" }}>No Checking Account Report for {periodLabel(period)} yet</b>}</span>
+            <span>{data.report ? <>Checking Account Report as of {data.report.asOf ? dateLabel(data.report.asOf) : "?"}</> : <b style={{ color: "var(--c-b45309)" }}>No Checking Account Report for {periodLabel(period)} yet</b>}</span>
             {r && <span>Last run {new Date(r.computedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.by ? ` · ${r.by}` : ""}</span>}
           </div>
         )}
@@ -240,7 +241,7 @@ export default function BankRecPage() {
           </div>
         )}
         {busy && <div className="muted small">{busy}</div>}
-        {error && <div style={{ color: "#b91c1c", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
+        {error && <div style={{ color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
       </div>
 
       {reconciling && <ReconcilingCard period={period} accounts={[...new Set((data?.files ?? []).map((f) => f.last4).filter(Boolean) as string[])].sort()} />}
@@ -278,7 +279,7 @@ export default function BankRecPage() {
                   if (!rows.length) return null;
                   return (
                     <Fragment key={bank}>
-                      <tr style={{ background: "rgba(11,74,125,0.07)" }}>
+                      <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))" }}>
                         <td style={{ ...tdL, fontWeight: 800 }} colSpan={7}>{BANK_LABEL[bank]} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}>· {rows.length} accounts</span></td>
                       </tr>
                       {rows.map((a) => {
@@ -289,7 +290,7 @@ export default function BankRecPage() {
                           <Fragment key={a.last4}>
                             <tr onClick={() => setOpen(isOpen ? null : a.last4)} style={{ cursor: "pointer", borderTop: "1px solid var(--border)", background: isOpen ? "rgba(11,74,125,0.04)" : undefined }}>
                               <td style={{ ...tdL, whiteSpace: "normal" }}>
-                                <span aria-hidden className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? "▾" : "▸"}</span>
+                                <span aria-hidden className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span>
                                 <span style={{ fontWeight: 600 }}>{a.name}</span>{" "}
                                 <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{a.last4}</code>
                                 {rc?.issues.length && rc.status !== "ok" ? <div className={rc.status === "incomplete" ? "muted" : undefined} style={{ fontSize: "var(--fs-12)", color: rc.status === "out" ? "#b91c1c" : rc.status === "incomplete" ? undefined : "#b45309", marginTop: 2, marginLeft: 16 }}>{rc.issues[0]}</div> : null}
@@ -302,7 +303,7 @@ export default function BankRecPage() {
                               <td style={tdL}>{marieCell(a)}</td>
                             </tr>
                             {isOpen && (
-                              <tr><td colSpan={7} style={{ padding: "6px 18px 18px", background: "rgba(11,74,125,0.025)", maxWidth: 0 }}>
+                              <tr><td colSpan={7} style={{ padding: "6px 18px 18px", background: "var(--tint-brand-bg, rgba(11,74,125,0.025))", maxWidth: 0 }}>
                                 <AccountDetail a={a} period={period} signed={signed} resolvedById={resolvedById} onResolve={resolve} />
                               </td></tr>
                             )}
@@ -552,7 +553,7 @@ function GlCard({ gl, period }: { gl: GlCheck[]; period: string }) {
                     <td style={{ ...tdL, whiteSpace: "normal", fontSize: "var(--fs-12-5)" }} className="muted">{g.note ?? (bad ? `${g.glOnly.length + g.skylineOnly.length} lines don't match — open` : "")}</td>
                   </tr>
                   {isOpen && (
-                    <tr><td colSpan={5} style={{ padding: "6px 18px 16px", maxWidth: 0, background: "rgba(11,74,125,0.025)" }}>
+                    <tr><td colSpan={5} style={{ padding: "6px 18px 16px", maxWidth: 0, background: "var(--tint-brand-bg, rgba(11,74,125,0.025))" }}>
                       {g.glOnly.length > 0 && <ItemTable title={`On the GL, not in Skyline's register (${shortPeriod(period)})`} head={["Date", "Ref", "Vendor / Description", "Account", "Amount"]}
                         rows={g.glOnly.map((x) => [dateLabel(x.dateISO), x.ref, x.description, x.code, money(x.amount)])} />}
                       {g.skylineOnly.length > 0 && <ItemTable title="In Skyline's register, not on the GL" head={["Date", "Ref", "Description", "Checking", "Amount"]}
@@ -599,15 +600,15 @@ function ReconcilingCard({ period, accounts }: { period: string; accounts: strin
         @keyframes brPop { 0% { transform: scale(.92); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
       `}</style>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span aria-hidden style={{ width: 22, height: 22, borderRadius: 999, border: "3px solid #dbe7f3", borderTopColor: "#0b4a7d", animation: "brSpin .8s linear infinite", flex: "none" }} />
+        <span aria-hidden style={{ width: 22, height: 22, borderRadius: 999, border: "3px solid #dbe7f3", borderTopColor: "var(--c-0b4a7d)", animation: "brSpin .8s linear infinite", flex: "none" }} />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: "#0b4a7d" }}>Reconciling every account for {periodLabel(period)}</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: "var(--c-0b4a7d)" }}>Reconciling every account for {periodLabel(period)}</div>
           <div className="muted small">{accounts.length ? `${accounts.length} accounts on file` : "Every account on file"} · usually under a minute — keep this page open</div>
         </div>
         <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700, color: "var(--muted)", fontSize: "var(--fs-13)" }}>{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}</div>
       </div>
 
-      <div style={{ position: "relative", height: 4, borderRadius: 999, background: "#e6eef6", overflow: "hidden" }}>
+      <div style={{ position: "relative", height: 4, borderRadius: 999, background: "var(--c-e6eef6)", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, width: "40%", background: "linear-gradient(90deg, transparent, #0b4a7d, transparent)", animation: "brScan 1.4s ease-in-out infinite" }} />
       </div>
 
@@ -635,7 +636,7 @@ function ReconcilingCard({ period, accounts }: { period: string; accounts: strin
           return (
             <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "var(--fs-13)", color: done ? "var(--text)" : now ? "#0b4a7d" : "var(--muted)", fontWeight: now ? 700 : 500, opacity: done || now ? 1 : 0.55 }}>
               <span aria-hidden style={{ width: 16, textAlign: "center", color: done ? "#15803d" : "#0b4a7d", fontWeight: 800 }}>
-                {done ? "✓" : now ? <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 999, background: "#0b4a7d", animation: "brPulse 1s ease-in-out infinite" }} /> : "·"}
+                {done ? "✓" : now ? <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 999, background: "var(--c-0b4a7d)", animation: "brPulse 1s ease-in-out infinite" }} /> : "·"}
               </span>
               {label}{now && i === REC_STAGES.length - 1 && t > 30 ? " — big month, still going" : ""}
             </div>
@@ -662,8 +663,8 @@ function MarieDiff({ vs, file }: { vs: NonNullable<NonNullable<AccountRow["skyli
   const off = (x: { marie: number | null; portal: number | null }) => x.marie != null && x.portal != null && Math.round(x.marie * 100) !== Math.round(x.portal * 100);
   const row = (it: OpenItem) => [dateLabel(it.dateISO), it.ref || "—", it.description, money(it.amount)];
   return (
-    <div style={{ border: "1px solid #f3d19c", background: "rgba(245,158,11,0.06)", borderRadius: 10, padding: "12px 14px", display: "grid", gap: 10 }}>
-      <div style={{ ...SECTION, color: "#b45309" }}>Against Marie&rsquo;s rec <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 500 }}>· {file}</span></div>
+    <div style={{ border: "1px solid #f3d19c", background: "var(--tint-amber-bg, rgba(245,158,11,0.06))", borderRadius: 10, padding: "12px 14px", display: "grid", gap: 10 }}>
+      <div style={{ ...SECTION, color: "var(--c-b45309)" }}>Against Marie&rsquo;s rec <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 500 }}>· {file}</span></div>
       {(off(vs.statement) || off(vs.checkBook)) && (
         <ItemTable title="" head={["", "Marie", "Portal", "Difference"]} rows={[
           ...(off(vs.statement) ? [["Statement balance", money(vs.statement.marie), money(vs.statement.portal), money((vs.statement.portal ?? 0) - (vs.statement.marie ?? 0))]] : []),

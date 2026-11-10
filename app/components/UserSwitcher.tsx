@@ -176,7 +176,7 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
                   borderRadius: 7,
                   border: "none",
                   background: isActive ? "rgba(11,74,125,0.08)" : "transparent",
-                  color: "#0f172a",
+                  color: "var(--c-0f172a)",
                   cursor: "pointer",
                   textAlign: "left",
                 }}
@@ -186,7 +186,7 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
                 <Avatar id={id} size={24} />
                 <span style={{ flex: 1, fontSize: "var(--fs-13)", fontWeight: 600 }}>{USERS[id].label}</span>
                 {isActive && (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0b4a7d" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--c-0b4a7d)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 )}

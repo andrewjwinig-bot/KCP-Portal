@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -98,7 +99,7 @@ export default function DepositCard({
         {!showForm && (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <Link href="/deposits" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
-              All deposits →
+              All deposits<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
             </Link>
             <button type="button" className="btn" onClick={() => { setAdding(true); setEditing(null); }}
               style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 600 }}>
@@ -130,7 +131,7 @@ export default function DepositCard({
               <div style={{
                 display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10,
                 padding: "8px 12px", borderRadius: 10,
-                background: "rgba(11,74,125,0.06)", border: "1px solid rgba(11,74,125,0.18)",
+                background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.18))",
               }}>
                 <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--muted)" }}>
                   Total held · {deposits.length} checks
@@ -145,7 +146,7 @@ export default function DepositCard({
               style={{
                 display: "flex", alignItems: "center", gap: 12,
                 padding: "10px 12px", border: "1px solid var(--border)",
-                borderRadius: 10, background: "rgba(15,23,42,0.015)", cursor: "pointer",
+                borderRadius: 10, background: "var(--tint-neutral-bg, rgba(15,23,42,0.015))", cursor: "pointer",
                 opacity: d.refunded ? 0.7 : 1,
               }}>
               {d.checkImage && d.checkImage.contentType.startsWith("image/") && (
@@ -172,7 +173,7 @@ export default function DepositCard({
               </div>
               {d.checkImage && !d.checkImage.contentType.startsWith("image/") && (
                 <a href={blobSrc(d.checkImage.url)} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
-                  style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d" }}>View file</a>
+                  style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)" }}>View file</a>
               )}
             </div>
           ))}

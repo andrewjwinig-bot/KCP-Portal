@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 // ── Reusable AI visual language ───────────────────────────────────────────
 // The shared primitives for "there is AI here" — the violet accent ramp, the
@@ -677,7 +678,7 @@ export function MemoryStrip({ prefs, onForget }: { prefs: string[]; onForget?: (
           {p}
           {onForget && (
             <button type="button" onClick={() => onForget(p)} aria-label="Forget" title="Forget this"
-              style={{ all: "unset", cursor: "pointer", color: "var(--muted)", fontSize: "var(--fs-13)", lineHeight: 1, opacity: 0.55 }}>×</button>
+              style={{ all: "unset", cursor: "pointer", color: "var(--muted)", fontSize: "var(--fs-13)", lineHeight: 1, opacity: 0.55 }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
           )}
         </span>
       ))}

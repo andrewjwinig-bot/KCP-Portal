@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight, X } from "lucide-react";
 
 import { TabButton } from "@/app/components/TabButton";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -135,7 +136,7 @@ function ReservationsPageInner() {
             style={{ fontSize: "var(--fs-13)", padding: "6px 12px", textDecoration: "none" }}
             title="Open the public conference-room reservation form in a new tab"
           >
-            Reservation Form →
+            Reservation Form<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
           </a>
           <a
             href="/service"
@@ -145,14 +146,14 @@ function ReservationsPageInner() {
             style={{ fontSize: "var(--fs-13)", padding: "6px 12px", textDecoration: "none" }}
             title="Open the tenant Service Request landing in a new tab"
           >
-            Tenant Flow →
+            Tenant Flow<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
           </a>
         </div>
       </header>
 
       {error && (
-        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
-          <div style={{ fontWeight: 700, color: "#b91c1c", marginBottom: 4 }}>Couldn&apos;t load reservations</div>
+        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
+          <div style={{ fontWeight: 700, color: "var(--c-b91c1c)", marginBottom: 4 }}>Couldn&apos;t load reservations</div>
           <div className="muted small">{error}</div>
         </div>
       )}
@@ -452,7 +453,7 @@ function ReservationModal({
               </h2>
               <div className="muted small" style={{ marginTop: 4 }}>{reservation.propertyName} · {reservation.id}</div>
             </div>
-            <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 18, lineHeight: 1, color: "var(--muted)", flexShrink: 0 }}>×</button>
+            <button onClick={onClose} aria-label="Close" style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 18, lineHeight: 1, color: "var(--muted)", flexShrink: 0 }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
             <Pill tone={ss}>{reservation.status}</Pill>
@@ -468,7 +469,7 @@ function ReservationModal({
           <div style={{
             display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             gap: 16, padding: "14px 18px", border: "1px solid var(--border)", borderRadius: 10,
-            background: "rgba(15,23,42,0.025)",
+            background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))",
           }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
               <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Tenant</span>
@@ -484,7 +485,7 @@ function ReservationModal({
                   style={{
                     marginTop: 4, padding: "4px 8px", cursor: "pointer",
                     border: "1px solid rgba(37,99,235,0.45)", borderRadius: 6,
-                    background: "rgba(37,99,235,0.08)", color: "#1d4ed8",
+                    background: "rgba(37,99,235,0.08)", color: "var(--c-1d4ed8)",
                     fontFamily: "inherit", fontSize: "var(--fs-12)", fontWeight: 700,
                     textAlign: "left", lineHeight: 1.35,
                   }}
@@ -523,7 +524,7 @@ function ReservationModal({
 
           {reservation.purpose && (
             <Section title="Purpose">
-              <div style={{ fontSize: "var(--fs-14)", whiteSpace: "pre-wrap", padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 10, background: "rgba(15,23,42,0.025)" }}>
+              <div style={{ fontSize: "var(--fs-14)", whiteSpace: "pre-wrap", padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))" }}>
                 {reservation.purpose}
               </div>
             </Section>
@@ -535,7 +536,7 @@ function ReservationModal({
                 {sameDay.map((b) => (
                   <li key={b.id}>
                     {b.roomLabel} · {prettyTime(b.startTime)}–{prettyTime(b.endTime)} · {b.tenantCompany}
-                    {b.status === "Pending" && <span style={{ marginLeft: 6, color: "#b45309", fontWeight: 600 }}>(pending)</span>}
+                    {b.status === "Pending" && <span style={{ marginLeft: 6, color: "var(--c-b45309)", fontWeight: 600 }}>(pending)</span>}
                   </li>
                 ))}
               </ul>
@@ -546,7 +547,7 @@ function ReservationModal({
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {reservation.notes.length === 0 && <div className="muted small">No notes yet.</div>}
               {reservation.notes.map((n) => (
-                <div key={n.id} style={{ padding: "10px 14px", border: "1px solid var(--border)", borderRadius: 10, background: "rgba(15,23,42,0.025)" }}>
+                <div key={n.id} style={{ padding: "10px 14px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--tint-neutral-bg, rgba(15,23,42,0.025))" }}>
                   <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 700, marginBottom: 4 }}>
                     {n.author} · {new Date(n.createdAt).toLocaleString()}
                   </div>
@@ -569,12 +570,12 @@ function ReservationModal({
             </div>
           )}
 
-          {error && <div style={{ fontSize: "var(--fs-13)", color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+          {error && <div style={{ fontSize: "var(--fs-13)", color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}
         </div>
 
         <div style={{
           padding: "16px 32px 20px", borderTop: "1px solid var(--border)",
-          background: "rgba(15,23,42,0.02)",
+          background: "var(--tint-neutral-bg, rgba(15,23,42,0.02))",
           display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap",
         }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -588,11 +589,11 @@ function ReservationModal({
               ⤓ .ics
             </button>
             {reservation.status !== "Declined" && (
-              <button onClick={() => setStatus("Declined")} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }}>
+              <button onClick={() => setStatus("Declined")} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", color: "var(--c-b91c1c)", borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))" }}>
                 Decline
               </button>
             )}
-            <button onClick={remove} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }} title="Delete this reservation">
+            <button onClick={remove} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", color: "var(--c-b91c1c)", borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))" }} title="Delete this reservation">
               🗑 Delete
             </button>
           </div>
@@ -655,15 +656,15 @@ function EmailComposer({
 
   return (
     <div style={{
-      padding: 14, border: "1px solid rgba(11,74,125,0.40)", borderRadius: 10,
-      background: "rgba(11,74,125,0.04)",
+      padding: 14, border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.40))", borderRadius: 10,
+      background: "var(--tint-brand-bg, rgba(11,74,125,0.04))",
       display: "flex", flexDirection: "column", gap: 10,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#0b4a7d" }}>
+        <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--c-0b4a7d)" }}>
           {mode === "modify" ? "Modify — propose alternates" : "Email tenant"} — {reservation.contactEmail}
         </span>
-        <button onClick={onCancel} disabled={busy} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "var(--fs-14)" }}>×</button>
+        <button onClick={onCancel} disabled={busy} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "var(--fs-14)" }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
       </div>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>From</span>
@@ -674,7 +675,7 @@ function EmailComposer({
         value={text} onChange={(e) => setText(e.target.value)} rows={12}
         style={{ width: "100%", minHeight: 220, resize: "vertical", lineHeight: 1.5 }}
       />
-      {error && <div style={{ fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      {error && <div style={{ fontSize: "var(--fs-12)", color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button onClick={onCancel} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}>Cancel</button>
         <button onClick={send} disabled={busy} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 16px" }}>

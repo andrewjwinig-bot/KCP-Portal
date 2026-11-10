@@ -154,7 +154,7 @@ function Row({
             <span style={{
               marginLeft: 8, fontSize: "var(--fs-10)", fontWeight: 700, padding: "2px 7px", borderRadius: 999,
               letterSpacing: "0.04em", whiteSpace: "nowrap", cursor: "default",
-              background: "#F2F4F7", color: "#344054",
+              background: "var(--c-f2f4f7)", color: "var(--c-344054)",
             }}>{coverage.done}/{coverage.total}</span>
           </HoverCard>
         )}

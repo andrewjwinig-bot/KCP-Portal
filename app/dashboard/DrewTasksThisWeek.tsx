@@ -9,9 +9,9 @@ import { importsForWeek, reminderSatisfied, type ImportReminder, type ImportEven
 import { TaskModal } from "../components/MyTasks";
 import { type Priority, type Repeat, type Todo, openBucketOf, parseDueDate, priorityOf, startOfDay } from "@/lib/todos/types";
 
-const BRAND = "#0b4a7d";
-const RED = "#b91c1c";
-const GREEN = "#15803d";
+const BRAND = "var(--c-0b4a7d)";
+const RED = "var(--c-b91c1c)";
+const GREEN = "var(--c-15803d)";
 
 // Mirrors the tracker page's per-month localStorage key, so checking a task
 // off here keeps it in sync with the Task Tracker on the same browser.
@@ -211,13 +211,13 @@ export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwne
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {outstanding.map((r) => (
-                  <Link key={r.id} href={r.link} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(180,83,9,0.28)", background: "rgba(180,83,9,0.06)", textDecoration: "none", color: "inherit" }}>
-                    <span style={{ width: 9, height: 9, borderRadius: 999, background: "#b45309", flexShrink: 0 }} />
+                  <Link key={r.id} href={r.link} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.28))", background: "var(--tint-amber-bg, rgba(180,83,9,0.06))", textDecoration: "none", color: "inherit" }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 999, background: "var(--c-b45309)", flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#7c3d06" }}>{r.label}</div>
+                      <div style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--c-7c3d06)" }}>{r.label}</div>
                       <div className="muted small" style={{ marginTop: 1 }}>feeds {r.feeds}</div>
                     </div>
-                    <div style={{ flexShrink: 0, fontSize: "var(--fs-12)", fontWeight: 700, color: "#b45309" }}>{r.when}</div>
+                    <div style={{ flexShrink: 0, fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-b45309)" }}>{r.when}</div>
                   </Link>
                 ))}
               </div>

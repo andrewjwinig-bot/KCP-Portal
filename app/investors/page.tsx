@@ -1055,14 +1055,14 @@ export default function InvestorInfoPage() {
               {ent.vendorCode ? (
                 <span style={{
                   fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.04em", padding: "2px 8px",
-                  borderRadius: 999, background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                  borderRadius: 999, background: "var(--tint-neutral-bg, rgba(15,23,42,0.05))", color: "var(--text)",
                   border: "1px solid var(--border)", display: "inline-block",
                 }}>{ent.vendorCode}</span>
               ) : <span style={{ color: "var(--muted)" }}>&mdash;</span>}
             </td>
             <td style={{ padding: "12px 16px" }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                <span aria-hidden style={{ color: "#0b4a7d", fontSize: "var(--fs-10)", width: 10, flexShrink: 0, display: "inline-block" }}>{secOpen ? "\u25BC" : "\u25B6"}</span>
+                <span aria-hidden style={{ color: "var(--c-0b4a7d)", fontSize: "var(--fs-10)", width: 10, flexShrink: 0, display: "inline-block" }}>{secOpen ? "\u25BC" : "\u25B6"}</span>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ ...INVESTOR_NAME, textTransform: "uppercase", letterSpacing: "0.02em" }}>{ent.name}</span>
@@ -1101,7 +1101,7 @@ export default function InvestorInfoPage() {
           // Always rendered; `.screen-collapsed` hides it on screen only, so a
           // printed ownership schedule still lists every partner behind the
           // entity — the same rule the multi-stake interests follow.
-          <tr key={sub.id} className={secOpen ? undefined : "screen-collapsed"} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: GROUP_SUB_BG }}>
+          <tr key={sub.id} className={secOpen ? undefined : "screen-collapsed"} style={{ borderTop: "1px solid var(--tint-brand-line, rgba(11,74,125,0.08))", background: GROUP_SUB_BG }}>
             {showK1 && <td className="no-print" style={GROUP_RAIL} />}
             <td style={{ padding: "8px 16px", ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }} />
             <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
@@ -1140,7 +1140,7 @@ export default function InvestorInfoPage() {
                           <span style={{
                             fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.04em",
                             padding: "2px 8px", borderRadius: 999,
-                            background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                            background: "var(--tint-neutral-bg, rgba(15,23,42,0.05))", color: "var(--text)",
                             border: "1px solid var(--border)",
                             display: "inline-block",
                           }}>{inv.vendorCode}</span>
@@ -1195,7 +1195,7 @@ export default function InvestorInfoPage() {
                     <td style={{ padding: "12px 16px", color: "var(--muted)", fontSize: "var(--fs-11)", ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }}>—</td>
                     <td style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                        <span aria-hidden style={{ color: "#0b4a7d", fontSize: "var(--fs-10)", width: 10, display: "inline-block" }}>{gOpen ? "\u25BC" : "\u25B6"}</span>
+                        <span aria-hidden style={{ color: "var(--c-0b4a7d)", fontSize: "var(--fs-10)", width: 10, display: "inline-block" }}>{gOpen ? "\u25BC" : "\u25B6"}</span>
                         <span style={INVESTOR_NAME}>{g.name}</span>
                         <BandCountPill>{g.owners.length} STAKES</BandCountPill>
                       </div>
@@ -1233,14 +1233,14 @@ export default function InvestorInfoPage() {
                     // Rendered whether or not the block is open — `.screen-collapsed`
                     // hides it on screen only, so Print / PDF still produces the
                     // full schedule, one row per interest.
-                    <tr key={inv.id} className={gOpen ? undefined : "screen-collapsed"} style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : GROUP_SUB_BG }}>
+                    <tr key={inv.id} className={gOpen ? undefined : "screen-collapsed"} style={{ borderTop: "1px solid var(--tint-brand-line, rgba(11,74,125,0.08))", background: k1?.uploading === inv.id ? "rgba(15,118,110,0.06)" : GROUP_SUB_BG }}>
                       {showK1 && <td className="no-print" style={GROUP_RAIL} />}
                       <td style={{ padding: "8px 16px", paddingLeft: 36, ...(showK1 ? null : GROUP_RAIL), ...VENDOR_COL }}>
                         {inv.vendorCode ? (
                           <span style={{
                             fontSize: "var(--fs-10)", fontWeight: 600, letterSpacing: "0.04em",
                             padding: "1px 7px", borderRadius: 999,
-                            background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                            background: "var(--tint-neutral-bg, rgba(15,23,42,0.05))", color: "var(--text)",
                             border: "1px solid var(--border)",
                             display: "inline-block",
                           }}>{inv.vendorCode}</span>
@@ -1279,7 +1279,7 @@ export default function InvestorInfoPage() {
         >
           <td style={tdL}>
             <code style={{
-              background: "#0b1220", color: "#e0f0ff",
+              background: "var(--c-0b1220)", color: "var(--c-e0f0ff)",
               padding: "2px 8px", borderRadius: 5,
               fontSize: "var(--fs-12)", fontWeight: 600, letterSpacing: "0.06em",
             }}>{h.propertyCode}</code>
@@ -1306,7 +1306,7 @@ export default function InvestorInfoPage() {
                 table's intrinsic width: without it a wide detail table (0800's
                 is ~1700px) stretches the roster above it off the card instead
                 of scrolling inside its own wrapper. */}
-            <td colSpan={6} style={{ padding: 0, maxWidth: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
+            <td colSpan={6} style={{ padding: 0, maxWidth: 0, background: "var(--tint-brand-bg, rgba(11,74,125,0.03))", borderTop: "1px solid var(--border)" }}>
           {showK1 && k1 && <K1Header k1={k1} />}
           {showK1 && k1reg.batch?.key === h.propertyCode && (
             <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
@@ -1342,7 +1342,7 @@ export default function InvestorInfoPage() {
                   <tr key={`band-${sec.key}`} style={{ background: GROUP_ROW_BG, borderTop: "2px solid var(--border)" }}>
                     {showK1 && <td className="no-print" style={GROUP_RAIL} />}
                     <td style={{ padding: "10px 16px", ...(showK1 ? null : GROUP_RAIL) }} colSpan={2}>
-                      <span style={{ fontSize: "var(--fs-11-5)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>{sec.label}</span>
+                      <span style={{ fontSize: "var(--fs-11-5)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-0b4a7d)" }}>{sec.label}</span>
                       <span className="muted" style={{ fontSize: "var(--fs-11-5)", marginLeft: 8 }}>{sec.owners.length} investors</span>
                     </td>
                     <td style={{ padding: "10px 16px", textAlign: "right", fontWeight: 800 }}>{pct(sec.frac)}</td>
@@ -1359,7 +1359,7 @@ export default function InvestorInfoPage() {
             </tbody>
             {hasVal && (
               <tfoot>
-                <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
+                <tr style={{ borderTop: "2px solid var(--border)", background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" }}>
                   {showK1 && <td className="no-print" />}
                   <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: "var(--fs-11)", textTransform: "uppercase", color: "var(--muted)" }} colSpan={3}>Property total</td>
                   <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800 }}>100.0%</td>
@@ -1538,7 +1538,7 @@ export default function InvestorInfoPage() {
                 )}
               </tbody>
               <tfoot>
-                <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
+                <tr style={{ borderTop: "2px solid var(--border)", background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" }}>
                   <td style={{ ...tdL, fontWeight: 800 }} colSpan={2}>
                     Portfolio total — {filteredHoldings.length} {filteredHoldings.length === 1 ? "property" : "properties"}
                   </td>
@@ -1618,7 +1618,7 @@ export default function InvestorInfoPage() {
       {/* A batch that failed outright — no results panel renders in that case,
           so without this the button would simply stop and say nothing. */}
       {view === "investor" && k1reg.errorAll && (
-        <div className="card no-print" style={{ borderLeft: "3px solid #b91c1c", background: "rgba(220,38,38,0.05)", color: "#b91c1c", fontSize: "var(--fs-13)", fontWeight: 700 }}>
+        <div className="card no-print" style={{ borderLeft: "3px solid #b91c1c", background: "var(--tint-red-bg, rgba(220,38,38,0.05))", color: "var(--c-b91c1c)", fontSize: "var(--fs-13)", fontWeight: 700 }}>
           {k1reg.errorAll}
         </div>
       )}
@@ -1713,7 +1713,7 @@ export default function InvestorInfoPage() {
                       {startsEntities && (
                         <tr style={{ background: GROUP_ROW_BG, borderTop: "2px solid var(--border)" }}>
                           <td colSpan={canK1 ? 9 : 7} style={{ padding: "9px 16px" }}>
-                            <span style={{ fontSize: "var(--fs-11-5)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>
+                            <span style={{ fontSize: "var(--fs-11-5)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-0b4a7d)" }}>
                               Misc — companies &amp; trusts
                             </span>
                             <span className="muted" style={{ fontSize: "var(--fs-11-5)", marginLeft: 8 }}>
@@ -1769,7 +1769,7 @@ export default function InvestorInfoPage() {
                               onClick={() => goToOwnerStatement(agg.name, agg.key)}
                               title={`${agg.name}'s Statement of Values`}
                               aria-label={`${agg.name}'s Statement of Values`}
-                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "#0b4a7d", display: "inline-flex" }}
+                              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--c-0b4a7d)", display: "inline-flex" }}
                             >
                               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="9" y1="13" x2="15" y2="13" /><line x1="9" y1="17" x2="13" y2="17" /></svg>
                             </button>
@@ -1798,7 +1798,7 @@ export default function InvestorInfoPage() {
                       </tr>
                       {open && (
                         <tr>
-                          <td colSpan={canK1 ? 9 : 7} style={{ padding: 0, background: "rgba(11,74,125,0.03)", borderTop: "1px solid var(--border)" }}>
+                          <td colSpan={canK1 ? 9 : 7} style={{ padding: 0, background: "var(--tint-brand-bg, rgba(11,74,125,0.03))", borderTop: "1px solid var(--border)" }}>
                       {/* The hub. An investor's details belong on the investor,
                           not spread over the Statement of Values tab and the
                           inside of a share popover. */}
@@ -1882,7 +1882,7 @@ export default function InvestorInfoPage() {
                                     onClick={() => toggleGroup(subKey)}
                                     aria-expanded={subOpen}
                                     className="linkBtn no-print"
-                                    style={{ marginTop: 4, fontSize: "var(--fs-11-5)", fontWeight: 700, color: "#0b4a7d", display: "inline-flex", alignItems: "center", gap: 6 }}
+                                    style={{ marginTop: 4, fontSize: "var(--fs-11-5)", fontWeight: 700, color: "var(--c-0b4a7d)", display: "inline-flex", alignItems: "center", gap: 6 }}
                                   >
                                     <span aria-hidden style={{ fontSize: "var(--fs-9)" }}>{subOpen ? "\u25BC" : "\u25B6"}</span>
                                     {subs.length} investors in {r.investor.name}
@@ -1894,7 +1894,7 @@ export default function InvestorInfoPage() {
                                   <span style={{
                                     fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.04em",
                                     padding: "2px 8px", borderRadius: 999,
-                                    background: "rgba(15,23,42,0.05)", color: "var(--text)",
+                                    background: "var(--tint-neutral-bg, rgba(15,23,42,0.05))", color: "var(--text)",
                                     border: "1px solid var(--border)",
                                     display: "inline-block",
                                   }}>{r.investor.vendorCode}</span>
@@ -1920,7 +1920,7 @@ export default function InvestorInfoPage() {
                                 <tr
                                   key={`${i}-${sub.id}`}
                                   className={subOpen ? undefined : "screen-collapsed"}
-                                  style={{ borderTop: "1px solid rgba(11,74,125,0.08)", background: GROUP_SUB_BG }}
+                                  style={{ borderTop: "1px solid var(--tint-brand-line, rgba(11,74,125,0.08))", background: GROUP_SUB_BG }}
                                 >
                                   <td style={{ padding: "8px 16px" }} />
                                   <td style={{ padding: "8px 16px", paddingLeft: 36 }}>
@@ -1942,7 +1942,7 @@ export default function InvestorInfoPage() {
                           })}
                         </tbody>
                         <tfoot>
-                          <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
+                          <tr style={{ borderTop: "2px solid var(--border)", background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" }}>
                             <td style={{ padding: "12px 16px", fontWeight: 800, letterSpacing: "0.04em", fontSize: "var(--fs-11)", textTransform: "uppercase", color: "var(--muted)" }} colSpan={4}>Total across {agg.rows.length} {agg.rows.length === 1 ? "property" : "properties"}</td>
                             <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(agg.rows.reduce((s, r) => { const p = propValue(r.holding.propertyCode); return s + (p ? (ownershipFor(r.investor) ?? 0) * p.ye : 0); }, 0))}</td>
                             <td style={{ padding: "12px 16px", textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money0(agg.rows.reduce((s, r) => { const p = propValue(r.holding.propertyCode); return s + (p ? (ownershipFor(r.investor) ?? 0) * p.est : 0); }, 0))}</td>
@@ -1958,7 +1958,7 @@ export default function InvestorInfoPage() {
                         <K1ShareResults batch={k1reg.batch} onClose={k1reg.clearBatch} />
                       )}
                       {inv?.error && (
-                        <div style={{ padding: "8px 16px", color: "#b91c1c", fontSize: "var(--fs-12-5)", fontWeight: 600 }} className="no-print">{inv.error}</div>
+                        <div style={{ padding: "8px 16px", color: "var(--c-b91c1c)", fontSize: "var(--fs-12-5)", fontWeight: 600 }} className="no-print">{inv.error}</div>
                       )}
                       {inv && (
                         <div className="muted no-print" style={{ padding: "0 16px 10px", fontSize: "var(--fs-11-5)" }}>
@@ -1975,7 +1975,7 @@ export default function InvestorInfoPage() {
                 })}
               </tbody>
               <tfoot>
-                <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(11,74,125,0.04)" }}>
+                <tr style={{ borderTop: "2px solid var(--border)", background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" }}>
                   <td style={{ ...tdL, fontWeight: 800 }}>
                     {filteredInvestors.length} {filteredInvestors.length === 1 ? "investor" : "investors"}
                   </td>
@@ -2323,7 +2323,7 @@ function TrusteeEditor({ row, onSave, onCancel, onDelete }: {
         <button type="button" className="btn primary" disabled={saving || !f.name.trim()} onClick={commit} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
         <button type="button" className="btn" disabled={saving} onClick={onCancel} style={{ fontSize: "var(--fs-12)", padding: "6px 12px" }}>Cancel</button>
         {onDelete && (
-          <button type="button" className="btn" disabled={saving} onClick={() => { void onDelete(); }} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Remove</button>
+          <button type="button" className="btn" disabled={saving} onClick={() => { void onDelete(); }} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", marginLeft: "auto", color: "var(--c-b91c1c)" }}>Remove</button>
         )}
       </div>
     </div>
@@ -2407,7 +2407,7 @@ function EntityEditor({ entity, hasOverride, onSave, onCancel, onReset }: {
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}>
         <button type="button" className="btn primary" disabled={saving || !f.name.trim()} onClick={commit} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Save"}</button>
         <button type="button" className="btn" disabled={saving} onClick={onCancel} style={{ fontSize: "var(--fs-12)", padding: "6px 12px" }}>Cancel</button>
-        {hasOverride && <button type="button" className="btn" disabled={saving} onClick={() => { void onReset(); }} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Reset to seed</button>}
+        {hasOverride && <button type="button" className="btn" disabled={saving} onClick={() => { void onReset(); }} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", marginLeft: "auto", color: "var(--c-b91c1c)" }}>Reset to seed</button>}
       </div>
     </div>
   );
@@ -2461,7 +2461,7 @@ function SendStatementButton({ beneficiary, email }: { beneficiary: string; emai
   if (!email) {
     return <span className="muted small" title="Add an email to this owner's contact to enable sending" style={{ alignSelf: "center" }}>No email on file</span>;
   }
-  if (state === "sent") return <span className="small" style={{ alignSelf: "center", color: "#15803d", fontWeight: 600 }}>✓ {msg}</span>;
+  if (state === "sent") return <span className="small" style={{ alignSelf: "center", color: "var(--c-15803d)", fontWeight: 600 }}>✓ {msg}</span>;
   if (state === "confirm" || state === "sending") {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -2474,7 +2474,7 @@ function SendStatementButton({ beneficiary, email }: { beneficiary: string; emai
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
       <button type="button" className="btn" onClick={() => setState("confirm")} title={`Email ${beneficiary}'s statement`} style={{ fontSize: "var(--fs-12)", padding: "8px 14px", fontWeight: 700 }}>Email to owner</button>
-      {state === "error" && <span className="small" style={{ color: "#b91c1c" }}>{msg}</span>}
+      {state === "error" && <span className="small" style={{ color: "var(--c-b91c1c)" }}>{msg}</span>}
     </span>
   );
 }
@@ -2502,7 +2502,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
   const codeChip = (code?: string) =>
     code ? (
       <code style={{
-        background: "#0b1220", color: "#e0f0ff",
+        background: "var(--c-0b1220)", color: "var(--c-e0f0ff)",
         padding: "1px 6px", borderRadius: 4,
         fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.04em",
       }}>{code}</code>
@@ -2559,7 +2559,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
           const missing = ownerNames.filter((n) => { const c = resolveContact(n); return !c || (!c.address && !c.email); });
           if (missing.length === 0) return null;
           return (
-            <div className="card no-print" style={{ borderLeft: "3px solid #d97706", background: "rgba(217,119,6,0.05)" }}>
+            <div className="card no-print" style={{ borderLeft: "3px solid #d97706", background: "var(--tint-amber-bg, rgba(217,119,6,0.05))" }}>
               <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, marginBottom: 4 }}>
                 {missing.length} of {ownerNames.length} owners have no send-to contact
               </div>
@@ -2567,7 +2567,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {missing.map((n) => (
                   <button key={n} type="button" onClick={() => onPickOwner(n)}
-                    style={{ fontSize: "var(--fs-11)", fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(217,119,6,0.3)", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
+                    style={{ fontSize: "var(--fs-11)", fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.3))", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
                     {n}
                   </button>
                 ))}
@@ -2582,7 +2582,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
             .filter((x) => x.r.nonresident);
           if (nonres.length === 0) return null;
           return (
-            <div className="card no-print" style={{ borderLeft: "3px solid #b45309", background: "rgba(217,119,6,0.04)" }}>
+            <div className="card no-print" style={{ borderLeft: "3px solid #b45309", background: "var(--tint-amber-bg, rgba(217,119,6,0.04))" }}>
               <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, marginBottom: 4 }}>
                 {nonres.length} nonresident owner{nonres.length === 1 ? "" : "s"} — potential PA withholding
               </div>
@@ -2593,8 +2593,8 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
                 {nonres.map(({ n, r }) => (
                   <button key={n} type="button" onClick={() => onPickOwner(n)}
                     title={r.label}
-                    style={{ fontSize: "var(--fs-11)", fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid rgba(180,83,9,0.35)", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
-                    {n} <span style={{ color: "#b45309" }}>· {r.state ?? r.country}</span>
+                    style={{ fontSize: "var(--fs-11)", fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.35))", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
+                    {n} <span style={{ color: "var(--c-b45309)" }}>· {r.state ?? r.country}</span>
                   </button>
                 ))}
               </div>
@@ -2654,7 +2654,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
                       <td style={{ padding: "10px 16px" }}>{codeChip(e.propertyCode ?? e.entity)}</td>
                       <td style={{ padding: "10px 16px", fontWeight: 600 }}>
                         <span>{e.name}</span>
-                        {entityOverrides[e.entity] && <span title="Edited" style={{ marginLeft: 6, color: "#d97706", fontSize: "var(--fs-11)" }}>✎</span>}
+                        {entityOverrides[e.entity] && <span title="Edited" style={{ marginLeft: 6, color: "var(--c-d97706)", fontSize: "var(--fs-11)" }}>✎</span>}
                         {canEdit && !editing && (
                           <button type="button" className="no-print" onClick={() => setEditEntity(e.entity)}
                             style={{ marginLeft: 8, background: "transparent", border: "none", padding: 0, color: "var(--brand)", fontSize: "var(--fs-11)", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Edit</button>
@@ -2683,7 +2683,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
                 })}
               </tbody>
               <tfoot>
-                <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
+                <tr style={{ borderTop: "2px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))" }}>
                   <td style={{ padding: "12px 16px", fontWeight: 800 }} colSpan={2}>TOTAL</td>
                   <td style={{ ...numTd, fontWeight: 800 }}>{money0(sum((e) => e.noi))}</td>
                   <td style={numTd}>—</td>
@@ -2760,7 +2760,7 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
               })}
             </tbody>
             <tfoot>
-              <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(15,23,42,0.03)" }}>
+              <tr style={{ borderTop: "2px solid var(--border)", background: "var(--tint-neutral-bg, rgba(15,23,42,0.03))" }}>
                 <td style={{ padding: "12px 16px", fontWeight: 800 }} colSpan={3}>TOTAL — {lines.length} {lines.length === 1 ? "entity" : "entities"}</td>
                 <td style={numTd}>—</td>
                 <td style={{ ...numTd, fontWeight: 900 }}>{money0(total)}</td>

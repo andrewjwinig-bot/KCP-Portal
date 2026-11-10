@@ -32,7 +32,7 @@ function AgeBar({ row, height = 12 }: { row: AgingRow; height?: number }) {
       rows={AGING_ORDER.filter((b) => row.buckets[b] > 0.005).map((b) => ({
         label: AGING_LABEL[b], value: `${money0(row.buckets[b])} · ${Math.round((row.buckets[b] / total) * 100)}%`, color: AGE_COLOR[b],
       }))}
-      footer={row.credits > 0.005 ? { label: "Open credits", value: `-${money0(row.credits)}`, color: "#15803d" } : undefined}
+      footer={row.credits > 0.005 ? { label: "Open credits", value: `-${money0(row.credits)}`, color: "var(--c-15803d)" } : undefined}
       style={{ display: "block" }}>
       <div style={{ display: "flex", height, borderRadius: 4, overflow: "hidden", background: "var(--border)", minWidth: 120 }}>
         {AGING_ORDER.map((b) => row.buckets[b] > 0.005 && (
@@ -101,7 +101,7 @@ export function AgingScheduleCard({ schedule, nameOf, active, onPick }: {
                     </td>
                   ))}
                   <td style={{ ...td, fontWeight: 700 }}>{money0(r.charges)}</td>
-                  <td style={{ ...td, color: "#15803d" }}>{r.credits > 0.005 ? `-${money0(r.credits)}` : <span className="muted">—</span>}</td>
+                  <td style={{ ...td, color: "var(--c-15803d)" }}>{r.credits > 0.005 ? `-${money0(r.credits)}` : <span className="muted">—</span>}</td>
                   <td style={{ ...td, fontWeight: 700 }}>{money0(r.net)}</td>
                   <td style={tdL}><AgeBar row={r} /></td>
                 </tr>
@@ -113,7 +113,7 @@ export function AgingScheduleCard({ schedule, nameOf, active, onPick }: {
               <td style={tdL}>Total</td>
               {AGING_ORDER.map((b) => <td key={b} style={td}>{money0(t.buckets[b])}</td>)}
               <td style={td}>{money0(t.charges)}</td>
-              <td style={{ ...td, color: "#15803d" }}>{t.credits > 0.005 ? `-${money0(t.credits)}` : "—"}</td>
+              <td style={{ ...td, color: "var(--c-15803d)" }}>{t.credits > 0.005 ? `-${money0(t.credits)}` : "—"}</td>
               <td style={td}>{money0(t.net)}</td>
               <td />
             </tr>

@@ -167,7 +167,7 @@ export default function MaintenanceOverview() {
       </header>
 
       {error && (
-        <div className="card" style={{ borderColor: "rgba(220,38,38,0.35)", background: "rgba(220,38,38,0.04)" }}>
+        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
           <div style={{ fontWeight: 700, color: ACCENT_RED, marginBottom: 4 }}>Couldn&apos;t load requests</div>
           <div className="muted small">{error}</div>
         </div>
@@ -338,7 +338,7 @@ function HorizontalBars({ rows, accent }: { rows: SliceRow[]; accent: string }) 
               </span>
               <span style={{ color: accent, fontWeight: 700 }}>{r.n}</span>
             </div>
-            <div style={{ height: 6, borderRadius: 999, background: "rgba(15,23,42,0.06)", overflow: "hidden" }}>
+            <div style={{ height: 6, borderRadius: 999, background: "var(--tint-neutral-bg, rgba(15,23,42,0.06))", overflow: "hidden" }}>
               <div style={{ height: "100%", width: `${pct}%`, background: accent, borderRadius: 999 }} />
             </div>
           </div>

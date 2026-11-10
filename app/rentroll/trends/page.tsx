@@ -1,4 +1,5 @@
 "use client";
+import { ChevronLeft } from "lucide-react";
 import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useMemo, useState } from "react";
@@ -186,8 +187,8 @@ export default function TrendsPage() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <h1 style={{ margin: 0 }}>Rent Roll Trend <span style={{ color: "#dc2626" }}>&ndash; DRAFT</span></h1>
-          <Link href="/rentroll" style={{ fontSize: "var(--fs-13)", color: "#0b4a7d", textDecoration: "none" }}>← Rent roll</Link>
+          <h1 style={{ margin: 0 }}>Rent Roll Trend <span style={{ color: "var(--c-dc2626)" }}>&ndash; DRAFT</span></h1>
+          <Link href="/rentroll" style={{ fontSize: "var(--fs-13)", color: "var(--c-0b4a7d)", textDecoration: "none" }}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />Rent roll</Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <label
@@ -265,7 +266,7 @@ export default function TrendsPage() {
                   style={{
                     fontSize: "var(--fs-12)", padding: "5px 12px", borderRadius: 999,
                     border: `1.5px solid ${active ? COLORS[k] : "var(--border)"}`,
-                    background: active ? `${COLORS[k]}14` : "transparent",
+                    background: active ? `color-mix(in srgb, ${COLORS[k]} 8%, transparent)` : "transparent",
                     color: active ? COLORS[k] : "var(--muted)",
                     cursor: "pointer", fontWeight: 600, display: "flex", alignItems: "center", gap: 6,
                   }}
@@ -417,7 +418,7 @@ export default function TrendsPage() {
                       <button
                         onClick={() => deleteSnapshot(s.month)}
                         title="Delete this snapshot"
-                        style={{ fontSize: "var(--fs-11)", padding: "3px 9px", borderRadius: 6, border: "1px solid #b42318", background: "transparent", color: "#b42318", cursor: "pointer" }}
+                        style={{ fontSize: "var(--fs-11)", padding: "3px 9px", borderRadius: 6, border: "1px solid #b42318", background: "transparent", color: "var(--c-b42318)", cursor: "pointer" }}
                       >
                         Delete
                       </button>
@@ -704,9 +705,9 @@ function ExpirationsChart({ snapshots, activeGroups }: { snapshots: RentRollSnap
             const dim = hover != null && hover !== i;
             return (
               <g key={s.month} opacity={dim ? 0.4 : 1}>
-                <rect x={x} y={baseY - h90} width={barWidth} height={h90} fill="#dc2626" />
-                <rect x={x} y={baseY - h90 - h180} width={barWidth} height={h180} fill="#d97706" />
-                <rect x={x} y={baseY - h90 - h180 - h365} width={barWidth} height={h365} fill="#0b4a7d" />
+                <rect x={x} y={baseY - h90} width={barWidth} height={h90} fill="var(--c-dc2626)" />
+                <rect x={x} y={baseY - h90 - h180} width={barWidth} height={h180} fill="var(--c-d97706)" />
+                <rect x={x} y={baseY - h90 - h180 - h365} width={barWidth} height={h365} fill="var(--c-0b4a7d)" />
                 <text x={cx} y={H - padB + 14} fontSize={9} fontWeight={hover === i ? 800 : 400} fill={hover === i ? "var(--text)" : "var(--muted)"} textAnchor="middle">{fmtMonth(s.month)}</text>
               </g>
             );
@@ -719,18 +720,18 @@ function ExpirationsChart({ snapshots, activeGroups }: { snapshots: RentRollSnap
           return (
             <ChartTooltip x={cxAt(hover)} y={padT} chartW={W} title={fmtMonth(snapshots[hover].month)}
               rows={[
-                { label: "≤ 90 days", color: "#dc2626", value: String(t.expiring90) },
-                { label: "90 – 180 days", color: "#d97706", value: String(t.expiring180 - t.expiring90) },
-                { label: "180 – 365 days", color: "#0b4a7d", value: String(t.expiring365 - t.expiring180) },
+                { label: "≤ 90 days", color: "var(--c-dc2626)", value: String(t.expiring90) },
+                { label: "90 – 180 days", color: "var(--c-d97706)", value: String(t.expiring180 - t.expiring90) },
+                { label: "180 – 365 days", color: "var(--c-0b4a7d)", value: String(t.expiring365 - t.expiring180) },
               ]}
               footer={{ label: "Total ≤ 365 days", value: String(t.expiring365) }} />
           );
         })()}
       </svg>
       <div style={{ display: "flex", gap: 14, fontSize: "var(--fs-11)", marginTop: 8, color: "var(--muted)" }}>
-        <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#dc2626", borderRadius: 2, marginRight: 4 }} />≤ 90 d</span>
-        <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#d97706", borderRadius: 2, marginRight: 4 }} />90 – 180 d</span>
-        <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#0b4a7d", borderRadius: 2, marginRight: 4 }} />180 – 365 d</span>
+        <span><span style={{ display: "inline-block", width: 10, height: 10, background: "var(--c-dc2626)", borderRadius: 2, marginRight: 4 }} />≤ 90 d</span>
+        <span><span style={{ display: "inline-block", width: 10, height: 10, background: "var(--c-d97706)", borderRadius: 2, marginRight: 4 }} />90 – 180 d</span>
+        <span><span style={{ display: "inline-block", width: 10, height: 10, background: "var(--c-0b4a7d)", borderRadius: 2, marginRight: 4 }} />180 – 365 d</span>
       </div>
     </div>
   );
@@ -768,7 +769,7 @@ function BuildingSparklines({ snapshots }: { snapshots: RentRollSnapshotSummary[
                 <span style={{ fontWeight: 700, fontSize: "var(--fs-13)" }}>{code}</span>
                 <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nameFor(code)}</span>
               </div>
-              <Sparkline values={occ} height={36} color="#0b4a7d" max={100} />
+              <Sparkline values={occ} height={36} color="var(--c-0b4a7d)" max={100} />
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--fs-11)", marginTop: 4 }}>
                 <span style={{ color: "var(--muted)" }}>{last ? `${last.pct.toFixed(1)}%` : "—"}</span>
                 <span style={{ color: trendDelta > 0.05 ? "#16a34a" : trendDelta < -0.05 ? "#dc2626" : "var(--muted)", fontWeight: 600 }}>

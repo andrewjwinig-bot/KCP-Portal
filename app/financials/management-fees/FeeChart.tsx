@@ -128,8 +128,8 @@ export function feeChartSeries(data: MgmtFeeData | null): Series[] {
   const usingLik = !!portfolio.likPlanMonthly;
   const budgetMonthly = portfolio.likPlanMonthly ?? portfolio.budgetBottomUpMonthly;
   return [
-    { label: "Actual", role: "actual", color: "#0b4a7d", values: portfolio.actualMonthly.map((v, i) => (i < completeThrough ? v : null)) },
-    { label: usingLik ? "LIK Fee Plan" : "Budget (bottom-up)", role: "budget", color: "#16a34a", values: budgetMonthly.map((v) => v), dashed: true },
+    { label: "Actual", role: "actual", color: "var(--c-0b4a7d)", values: portfolio.actualMonthly.map((v, i) => (i < completeThrough ? v : null)) },
+    { label: usingLik ? "LIK Fee Plan" : "Budget (bottom-up)", role: "budget", color: "var(--c-16a34a)", values: budgetMonthly.map((v) => v), dashed: true },
   ];
 }
 

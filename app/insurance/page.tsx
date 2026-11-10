@@ -161,15 +161,15 @@ export default function InsurancePage() {
         in the broker&rsquo;s own layout, ready to send. Nothing to upload.
       </p>
 
-      {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "#b91c1c", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
-      {notice && <div className="card" style={{ borderLeft: "4px solid #15803d", color: "#15803d", fontWeight: 600, fontSize: "var(--fs-13)" }}>{notice}</div>}
+      {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
+      {notice && <div className="card" style={{ borderLeft: "4px solid #15803d", color: "var(--c-15803d)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{notice}</div>}
       {loading && !data && <div className="card muted">Loading…</div>}
 
       {data && !data.stored && (
         <div className="card" {...drop.dropHandlers}
           style={{
             textAlign: "center", padding: "36px 20px",
-            ...(drop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "rgba(11,74,125,0.04)" } : null),
+            ...(drop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" } : null),
           }}>
           <div style={{ fontWeight: 700, marginBottom: 6 }}>{drop.dragging ? "Drop to import" : "The broker's form isn't available"}</div>
           <div className="muted small">Drag the broker&rsquo;s .xlsx here to use it as the form.</div>
@@ -188,7 +188,7 @@ export default function InsurancePage() {
           <input ref={fileRef} type="file" accept=".xlsx" style={{ display: "none" }}
             onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void upload(f); }} />
           <div className="card" {...drop.dropHandlers}
-            style={drop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "rgba(11,74,125,0.04)" } : undefined}>
+            style={drop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" } : undefined}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div>
                 <div style={{ fontWeight: 800 }}>{data.stored.fileName}</div>
@@ -299,7 +299,7 @@ export default function InsurancePage() {
                           <HoverCard title={LABEL[c.key]} width={300}
                             rows={[
                               { label: "Form had", value: show(c.key, cell.sheet) },
-                              { label: "Writes", value: show(c.key, cell.next), color: "#1d4ed8" },
+                              { label: "Writes", value: show(c.key, cell.next), color: "var(--c-1d4ed8)" },
                               { label: "Source", value: cell.source ?? "—" },
                             ]}
                             footer={num && typeof cell.sheet === "number" && typeof cell.next === "number"

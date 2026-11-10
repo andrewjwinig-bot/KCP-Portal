@@ -42,10 +42,10 @@ describe("UI drift", () => {
 // box fails here. When a sweep removes some, LOWER the number in the same
 // change so the gain is locked in.
 const RATCHET: { name: string; re: RegExp; max: number; fix: string }[] = [
-  { name: "emoji / glyph ticks", re: /✅|⚠️|⚠|🕗|📄|✓|✔|✕|×/g, max: 259, fix: "Lucide CircleCheck / TriangleAlert / X" },
-  { name: "text arrows", re: /→|←|▾|▸|▼|▶/g, max: 392, fix: "Lucide ChevronRight / ChevronDown, or .text-link" },
-  { name: "inline hex colours", re: /"#[0-9a-fA-F]{6}"/g, max: 1422, fix: "var(--brand) / var(--muted) / a tone in Pill.tsx" },
-  { name: "tinted rgba fills", re: /background: "rgba\(/g, max: 394, fix: "a hairline row with the status in words" },
+  { name: "emoji / glyph ticks", re: /✅|⚠️|⚠|🕗|📄|✓|✔|✕|×/g, max: 190, fix: "Lucide CircleCheck / TriangleAlert / X" },
+  { name: "text arrows", re: /→|←|▾|▸|▼|▶/g, max: 290, fix: "Lucide ChevronRight / ChevronDown, or .text-link" },
+  { name: "inline hex colours", re: /"#[0-9a-fA-F]{6}"/g, max: 691, fix: "var(--brand) / var(--muted) / a tone in Pill.tsx" },
+  { name: "tinted rgba fills", re: /background: "rgba\(/g, max: 123, fix: "a hairline row with the status in words" },
 ];
 
 describe("UI drift ratchet", () => {

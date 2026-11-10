@@ -1,4 +1,5 @@
 "use client";
+import { Check, ChevronRight, X } from "lucide-react";
 
 import SitePlanCard from "./[id]/SitePlanCard";
 import PerformanceCard from "./[id]/PerformanceCard";
@@ -132,9 +133,9 @@ export function FloorplanViewer({ propId, propName }: { propId: string; propName
         style={{
           display: "inline-flex", alignItems: "center", gap: 6,
           padding: "6px 14px", borderRadius: 8,
-          border: "1.5px solid rgba(11,74,125,0.3)",
-          background: "rgba(11,74,125,0.06)",
-          color: "#0b4a7d", fontSize: "var(--fs-13)", fontWeight: 600,
+          border: "1.5px solid var(--tint-brand-line, rgba(11,74,125,0.3))",
+          background: "var(--tint-brand-bg, rgba(11,74,125,0.06))",
+          color: "var(--c-0b4a7d)", fontSize: "var(--fs-13)", fontWeight: 600,
           cursor: "pointer",
         }}
       >
@@ -171,7 +172,7 @@ export function FloorplanViewer({ propId, propName }: { propId: string; propName
               <button
                 onClick={() => setOpen(false)}
                 style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--muted)", padding: "0 4px" }}
-              >✕</button>
+              ><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div style={{ overflowY: "auto", padding: 16 }}>
               <FloorplanImage src={src} alt={`${propName} floorplan`} rotate90={rotate90} />
@@ -226,13 +227,13 @@ export function K1InvestorRow({
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: "var(--fs-10)", color: done ? "#16a34a" : "transparent",
             flexShrink: 0,
-          }}>✓</span>
+          }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
         )}
         {inv.vendorCode && (
           <span style={{
             fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.04em",
             padding: "2px 7px", borderRadius: 999,
-            background: "rgba(15,23,42,0.05)", color: "var(--text)",
+            background: "var(--tint-neutral-bg, rgba(15,23,42,0.05))", color: "var(--text)",
             border: "1px solid var(--border)",
             flexShrink: 0,
           }}>{inv.vendorCode}</span>
@@ -282,7 +283,7 @@ export function K1InvestorRow({
               <button
                 onClick={() => setPopupOpen(false)}
                 style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--muted)", lineHeight: 1, padding: 2 }}
-              >✕</button>
+              ><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
 
             {inv.address && (
@@ -313,7 +314,7 @@ export function K1InvestorRow({
             {ownership != null && (
               <div>
                 <div style={{ fontWeight: 600, fontSize: "var(--fs-11)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Ownership %</div>
-                <div style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "#fafafa", textAlign: "center" }}>
+                <div style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--c-fafafa)", textAlign: "center" }}>
                   <div style={{ fontSize: 18, fontWeight: 700 }}>{pctFmt(ownership)}</div>
                 </div>
               </div>
@@ -362,13 +363,13 @@ export function OwnerSubRow({
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: "var(--fs-9)", color: done ? "#16a34a" : "transparent",
             flexShrink: 0,
-          }}>✓</span>
+          }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
         )}
         {inv.vendorCode && (
           <span style={{
             fontSize: "var(--fs-10)", fontWeight: 600, letterSpacing: "0.04em",
             padding: "1px 6px", borderRadius: 999,
-            background: "rgba(15,23,42,0.05)", color: "var(--text)",
+            background: "var(--tint-neutral-bg, rgba(15,23,42,0.05))", color: "var(--text)",
             border: "1px solid var(--border)",
             flexShrink: 0,
           }}>{inv.vendorCode}</span>
@@ -416,7 +417,7 @@ export function OwnerSubRow({
               <button
                 onClick={() => setPopupOpen(false)}
                 style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--muted)", lineHeight: 1, padding: 2 }}
-              >✕</button>
+              ><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
 
             {inv.address && (
@@ -447,7 +448,7 @@ export function OwnerSubRow({
             {ownership != null && (
               <div>
                 <div style={{ fontWeight: 600, fontSize: "var(--fs-11)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Ownership %</div>
-                <div style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "#fafafa", textAlign: "center" }}>
+                <div style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "var(--c-fafafa)", textAlign: "center" }}>
                   <div style={{ fontSize: 18, fontWeight: 700 }}>{pctFmt(ownership)}</div>
                 </div>
               </div>
@@ -663,10 +664,10 @@ export function PropertyDetailBody({
 
   function filingStatus(t: TaxTask) {
     const done = isTaskEffectivelyDone(t, effectiveChecked);
-    if (done) return { label: "Filed", color: "#16a34a", bg: "rgba(22,163,74,0.08)", border: "rgba(22,163,74,0.2)" };
+    if (done) return { label: "Filed", color: "var(--c-16a34a)", bg: "rgba(22,163,74,0.08)", border: "rgba(22,163,74,0.2)" };
     const due = new Date(today.getFullYear(), t.dueMonth - 1, t.dueDay);
     due.setHours(23, 59, 59);
-    if (due < today) return { label: "Overdue", color: "#dc2626", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" };
+    if (due < today) return { label: "Overdue", color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" };
     return { label: "Pending", color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)" };
   }
 
@@ -749,8 +750,8 @@ export function PropertyDetailBody({
                     <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Ownership Entity</div>
                     <div style={{
                       padding: "8px 12px",
-                      background: "rgba(11,74,125,0.04)",
-                      border: "1px solid rgba(11,74,125,0.12)",
+                      background: "var(--tint-brand-bg, rgba(11,74,125,0.04))",
+                      border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.12))",
                       borderRadius: 8,
                       fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--text)",
                     }}>{prop.ownerEntity}</div>
@@ -761,8 +762,8 @@ export function PropertyDetailBody({
                     <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>{prop.einLabel ?? "EIN"}</div>
                     <div style={{
                       padding: "8px 12px",
-                      background: "rgba(11,74,125,0.04)",
-                      border: "1px solid rgba(11,74,125,0.12)",
+                      background: "var(--tint-brand-bg, rgba(11,74,125,0.04))",
+                      border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.12))",
                       borderRadius: 8,
                       fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--text)",
                     }}>{prop.ein}</div>
@@ -773,8 +774,8 @@ export function PropertyDetailBody({
                     <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>{prop.ein2Label ?? "EIN (2)"}</div>
                     <div style={{
                       padding: "8px 12px",
-                      background: "rgba(11,74,125,0.04)",
-                      border: "1px solid rgba(11,74,125,0.12)",
+                      background: "var(--tint-brand-bg, rgba(11,74,125,0.04))",
+                      border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.12))",
                       borderRadius: 8,
                       fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--text)",
                     }}>{prop.ein2}</div>
@@ -788,14 +789,14 @@ export function PropertyDetailBody({
                         <div key={i} style={{
                           display: "flex", alignItems: "center", justifyContent: "space-between",
                           padding: "8px 12px",
-                          background: "rgba(11,74,125,0.04)",
-                          border: "1px solid rgba(11,74,125,0.12)",
+                          background: "var(--tint-brand-bg, rgba(11,74,125,0.04))",
+                          border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.12))",
                           borderRadius: 8,
                           gap: 10,
                         }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <a href={acct.link} target="_blank" rel="noreferrer"
-                              style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                              style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none" }}
                               onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
                               onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
                             >{acct.bank} {acct.last4}</a>
@@ -816,18 +817,18 @@ export function PropertyDetailBody({
                     <div key={i} style={{
                       display: "flex", alignItems: "center", justifyContent: "space-between",
                       padding: "8px 12px",
-                      background: "rgba(11,74,125,0.04)",
-                      border: "1px solid rgba(11,74,125,0.12)",
+                      background: "var(--tint-brand-bg, rgba(11,74,125,0.04))",
+                      border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.12))",
                       borderRadius: 8,
                       gap: 10,
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         {p.link
-                          ? <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                          ? <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none" }}
                               onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
                               onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
                             >{p.number}</a>
-                          : <code style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "#0b4a7d" }}>{p.number}</code>
+                          : <code style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--c-0b4a7d)" }}>{p.number}</code>
                         }
                         {p.label && <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)", fontWeight: 500 }}>{p.label}</span>}
                       </div>
@@ -855,7 +856,7 @@ export function PropertyDetailBody({
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)" }}>Portfolio PRS %</span>
                 <AllowedLink href="/allocated-invoicer" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
-                  Open Allocated Invoicer →
+                  Open Allocated Invoicer<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
                 </AllowedLink>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
@@ -902,7 +903,7 @@ export function PropertyDetailBody({
             count={ownershipEntry.owners.length}
             link={
               <AllowedLink href="/investors" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
-                Open Investor Info →
+                Open Investor Info<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
               </AllowedLink>
             }
           >
@@ -939,7 +940,7 @@ export function PropertyDetailBody({
                     padding: "8px 12px",
                     border: "1px solid var(--border)",
                     borderRadius: 8,
-                    background: "#fafafa",
+                    background: "var(--c-fafafa)",
                     marginBottom: 4,
                   }}>
                     <span style={{ fontSize: "var(--fs-14)", fontWeight: 700 }}>{g.owners[0].name}</span>
@@ -970,7 +971,7 @@ export function PropertyDetailBody({
               );
             })}
             {ownershipTotal > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 12px", borderRadius: 8, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)", marginTop: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 12px", borderRadius: 8, background: "var(--tint-neutral-bg, rgba(15,23,42,0.04))", border: "1px solid var(--border)", marginTop: 4 }}>
                 <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--muted)" }}>Total</span>
                 <span style={{ fontSize: "var(--fs-12)", fontWeight: 700 }}>{`${(ownershipTotal * 100).toFixed(4)}%`}</span>
               </div>
@@ -995,7 +996,7 @@ export function PropertyDetailBody({
             count={filingTasks.length}
             link={
               <AllowedLink href="/tracker/taxes" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
-                Open Filing Tracker →
+                Open Filing Tracker<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
               </AllowedLink>
             }
           >
@@ -1030,7 +1031,7 @@ export function PropertyDetailBody({
                       <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--fs-14)", fontWeight: 700, lineHeight: 1.3 }}>
                         {filingLabel(t)}
                         {t.instructionSteps && (
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--c-dc2626)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                           </svg>
                         )}
@@ -1121,7 +1122,7 @@ export function PropertyDetailBody({
                         )}
                       </td>
                       <td style={{ whiteSpace: "nowrap" }}>
-                        <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{u.unitRef}</code>
+                        <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{u.unitRef}</code>
                       </td>
                       <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{u.sqft ? u.sqft.toLocaleString() : "—"}</td>
                       <td style={{ fontSize: "var(--fs-13)", color: "var(--muted)", whiteSpace: "nowrap" }}>{formatModalDate(u.leaseFrom)}</td>
@@ -1146,7 +1147,7 @@ export function PropertyDetailBody({
             count={propRequests.length}
             link={
               <AllowedLink href={`/maintenance?property=${encodeURIComponent(prop.name)}`} style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
-                Open Maintenance →
+                Open Maintenance<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
               </AllowedLink>
             }
           >
@@ -1172,7 +1173,7 @@ export function PropertyDetailBody({
                         display: "flex", alignItems: "center", gap: 10,
                         padding: "9px 12px",
                         border: "1px solid var(--border)", borderRadius: 8,
-                        background: "#fafafa",
+                        background: "var(--c-fafafa)",
                         textDecoration: "none", color: "inherit",
                       }}
                     >
@@ -1212,7 +1213,7 @@ export function PropertyDetailBody({
             onClick={e => e.stopPropagation()}
             style={{
               background: "var(--card)", borderRadius: 14,
-              border: "1.5px solid rgba(220,38,38,0.3)",
+              border: "1.5px solid var(--tint-red-line, rgba(220,38,38,0.3))",
               padding: "24px 28px",
               width: 500, maxWidth: "calc(100vw - 40px)",
               maxHeight: "80vh", overflowY: "auto",
@@ -1223,7 +1224,7 @@ export function PropertyDetailBody({
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--c-dc2626)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                     <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
                   </svg>
                   <span style={{ fontSize: 16, fontWeight: 700 }}>{filingLabel(instructionsTask)}</span>
@@ -1236,7 +1237,7 @@ export function PropertyDetailBody({
               <button
                 onClick={() => setInstructionsTask(null)}
                 style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--muted)", lineHeight: 1, padding: 2, flexShrink: 0 }}
-              >✕</button>
+              ><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
 
             <div>
@@ -1251,7 +1252,7 @@ export function PropertyDetailBody({
                         Email{" "}
                         <a
                           href={`mailto:${step.slice(6).trim()}`}
-                          style={{ color: "#0b4a7d", fontWeight: 600, textDecoration: "underline" }}
+                          style={{ color: "var(--c-0b4a7d)", fontWeight: 600, textDecoration: "underline" }}
                         >
                           {step.slice(6).trim()}
                         </a>
@@ -1433,7 +1434,7 @@ function BuildingFacts({
               className="btn"
               style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}
             >Cancel</button>
-            {error && <span style={{ fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>{error}</span>}
+            {error && <span style={{ fontSize: "var(--fs-12)", color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</span>}
           </div>
         </div>
       ) : (

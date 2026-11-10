@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight } from "lucide-react";
 
 // Dashboard "Move-Out Close-Outs" — the auto-staged queue behind the hands-off
 // move-out flow. The daily watcher parks each departing tenant here:
@@ -89,7 +90,7 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
     <div className="card" style={{ order }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
         <div style={SECTION}>Pending Close-Outs</div>
-        <Link href="/cam-recon/interim" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-12)" }}>Open →</Link>
+        <Link href="/cam-recon/interim" style={{ color: "var(--c-0b4a7d)", fontWeight: 600, fontSize: "var(--fs-12)" }}>Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
       </div>
 
       {/* READY — one click to finalize. */}
@@ -99,7 +100,7 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
             const owed = c.balance >= 0;
             const done = (msg[c.key] ?? "").startsWith("✓");
             return (
-              <div key={c.key} style={{ border: "1px solid rgba(22,163,74,0.30)", background: "rgba(22,163,74,0.05)", borderRadius: 10, padding: "10px 12px" }}>
+              <div key={c.key} style={{ border: "1px solid var(--tint-green-line, rgba(22,163,74,0.30))", background: "var(--tint-green-bg, rgba(22,163,74,0.05))", borderRadius: 10, padding: "10px 12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <Pill tone={TONE_GREEN}>Ready</Pill>
                   <span style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>{c.name}</span>
@@ -116,7 +117,7 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
                     </span>
                   )}
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-                    <Link href={interimHref(c)} style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-12)" }}>Review</Link>
+                    <Link href={interimHref(c)} style={{ color: "var(--c-0b4a7d)", fontWeight: 600, fontSize: "var(--fs-12)" }}>Review</Link>
                     <button
                       className="btn primary"
                       disabled={busy === c.key || done}

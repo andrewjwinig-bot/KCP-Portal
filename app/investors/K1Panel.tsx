@@ -27,8 +27,8 @@ import type { K1Interest, K1Owner, K1Slice, ShareBatch } from "./useK1";
 import { sendState, sendStateTone } from "./sendState";
 import { mailtoUrl } from "@/lib/investors/k1ShareEmail";
 
-const BRAND = "#0b4a7d";
-const TEAL = "#0f766e";
+const BRAND = "var(--c-0b4a7d)";
+const TEAL = "var(--c-0f766e)";
 const SECTION_LABEL: React.CSSProperties = {
   fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
@@ -62,7 +62,7 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
         <YearSelect value={k1.year} years={k1.years} onChange={k1.setYear} small aria-label="Tax year" />
       </div>
 
-      {k1.error && <div style={{ marginTop: 10, color: "#b91c1c", fontSize: "var(--fs-12-5)", fontWeight: 600 }}>{k1.error}</div>}
+      {k1.error && <div style={{ marginTop: 10, color: "var(--c-b91c1c)", fontSize: "var(--fs-12-5)", fontWeight: 600 }}>{k1.error}</div>}
 
       {/* K-1s left behind by a roster change. They belong to no row, so without
           this they are invisible AND undeletable — a PDF carrying a taxpayer ID
@@ -70,8 +70,8 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
           above read "28/15" at 0800: more K-1s in than partners to receive
           them, while rows underneath still said MISSING. */}
       {k1.orphans.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.35)" }} className="no-print">
-          <div style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, color: "#b45309" }}>
+        <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "var(--tint-amber-bg, rgba(217,119,6,0.07))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))" }} className="no-print">
+          <div style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, color: "var(--c-b45309)" }}>
             {k1.orphans.length} uploaded K-1{k1.orphans.length === 1 ? "" : "s"} no longer match a partner on this roster
           </div>
           <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 3 }}>
@@ -86,7 +86,7 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
                   <span className="muted"> · {o.taxYear} · {o.filename}</span>
                 </span>
                 <button type="button" className="linkBtn" onClick={() => k1.removeOrphan(o)}
-                  style={{ fontSize: "var(--fs-11-5)", fontWeight: 700, color: "#b91c1c", whiteSpace: "nowrap" }}>
+                  style={{ fontSize: "var(--fs-11-5)", fontWeight: 700, color: "var(--c-b91c1c)", whiteSpace: "nowrap" }}>
                   Delete
                 </button>
               </div>
@@ -96,7 +96,7 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
       )}
 
       {k1.data && k1.data.blockers.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: "var(--fs-12-5)", color: "#b91c1c", fontWeight: 600 }}>
+        <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "var(--tint-red-bg, rgba(220,38,38,0.06))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))", fontSize: "var(--fs-12-5)", color: "var(--c-b91c1c)", fontWeight: 600 }}>
           {k1.data.blockers.map((b, i) => <div key={i} style={{ marginTop: i ? 4 : 0 }}>{b}</div>)}
         </div>
       )}
@@ -113,7 +113,7 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
               ? `${selectable.length} investor${selectable.length === 1 ? "" : "s"} ready to send`
               : `${chosen.length} selected`}
           {k1.selectedWithoutEmail.length > 0 && (
-            <span style={{ color: "#b91c1c", fontWeight: 700 }}> · {k1.selectedWithoutEmail.length} with no email</span>
+            <span style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}> · {k1.selectedWithoutEmail.length} with no email</span>
           )}
         </span>
         <button className="btn" disabled={k1.busy || selectable.length === 0}
@@ -212,8 +212,8 @@ function AlsoRecipients({ also }: { also: string[] | undefined }) {
         {list.map((a) => (
           <span key={a} style={{
             fontSize: "var(--fs-11-5)", fontWeight: 600, padding: "2px 8px", borderRadius: 999,
-            background: "rgba(11,74,125,0.08)", color: "#0b4a7d",
-            border: "1px solid rgba(11,74,125,0.25)", maxWidth: 230,
+            background: "var(--tint-brand-bg, rgba(11,74,125,0.08))", color: "var(--c-0b4a7d)",
+            border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.25))", maxWidth: 230,
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
           }}>+ {a}</span>
         ))}
@@ -257,9 +257,9 @@ export function K1EmailCell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
       <button type="button" onClick={() => { setDraft(""); setEditing(true); }} disabled={k1.busy}
         title={`Add an email for ${owner.name}`}
         style={{
-          background: "rgba(220,38,38,0.08)", border: "1.5px dashed rgba(220,38,38,0.45)",
+          background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1.5px dashed var(--tint-red-line, rgba(220,38,38,0.45))",
           borderRadius: 999, padding: "2px 9px", cursor: "pointer", fontFamily: "inherit",
-          fontSize: "var(--fs-11)", fontWeight: 700, color: "#b91c1c",
+          fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--c-b91c1c)",
         }}>
         ADD EMAIL
       </button>
@@ -364,7 +364,7 @@ export function K1Cell({ owner, k1 }: { owner: K1Owner; k1: K1Slice }) {
   return (
     <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 3 }}>
       {cell}
-      <span style={{ fontSize: "var(--fs-11)", lineHeight: 1.45, color: "#b91c1c", fontWeight: 600, maxWidth: 280, textAlign: "right", whiteSpace: "normal" }}>
+      <span style={{ fontSize: "var(--fs-11)", lineHeight: 1.45, color: "var(--c-b91c1c)", fontWeight: 600, maxWidth: 280, textAlign: "right", whiteSpace: "normal" }}>
         {failed}
       </span>
     </span>
@@ -434,7 +434,7 @@ function SendPill({ link, name }: { link: PortalLink; name: string }) {
     if (manual) rows.push({ label: "Sent by", value: "Hand (Outlook)" });
     rows.push(manual ? { label: "PIN", value: "By hand" }
       : link.pinSentAt ? { label: "PIN", value: "Sent separately" }
-      : { label: "PIN", value: "NOT SENT — give it to them", color: "#b91c1c" });
+      : { label: "PIN", value: "NOT SENT — give it to them", color: "var(--c-b91c1c)" });
     if ((link.sendCount ?? 0) > 1) rows.push({ label: "Times sent", value: String(link.sendCount) });
   } else {
     rows.push({ label: "Link created", value: sentStampFull(link.createdAt) });
@@ -639,7 +639,7 @@ function InlineEmail({ value, busy, onSave }: { value: string | null; busy: bool
   if (!value) {
     return (
       <button type="button" onClick={() => { setDraft(""); setEditing(true); }} disabled={busy}
-        style={{ background: "rgba(220,38,38,0.08)", border: "1.5px dashed rgba(220,38,38,0.45)", borderRadius: 999, padding: "2px 9px", cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-11)", fontWeight: 700, color: "#b91c1c" }}>
+        style={{ background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1.5px dashed var(--tint-red-line, rgba(220,38,38,0.45))", borderRadius: 999, padding: "2px 9px", cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--c-b91c1c)" }}>
         ADD EMAIL
       </button>
     );
@@ -731,7 +731,7 @@ export function K1ShareResults({ batch, onClose }: { batch: ShareBatch; onClose:
   const emailed = ok.filter((r) => r.sentTo.length).length;
 
   return (
-    <div style={{ borderTop: "1px solid var(--border)", background: "rgba(11,74,125,0.04)", padding: "13px 16px 15px" }}>
+    <div style={{ borderTop: "1px solid var(--border)", background: "var(--tint-brand-bg, rgba(11,74,125,0.04))", padding: "13px 16px 15px" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div>
           <div style={{ ...SECTION_LABEL, color: BRAND }}>
@@ -748,19 +748,19 @@ export function K1ShareResults({ batch, onClose }: { batch: ShareBatch; onClose:
       </div>
 
       {failed.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: "var(--fs-12-5)", color: "#b91c1c" }}>
+        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "var(--tint-red-bg, rgba(220,38,38,0.06))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))", fontSize: "var(--fs-12-5)", color: "var(--c-b91c1c)" }}>
           <b>{failed.length} could not be sent.</b> {failed.map((r) => r.error).join(" ")}
         </div>
       )}
       {unsent.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "rgba(217,119,6,0.07)", border: "1px solid rgba(217,119,6,0.35)", fontSize: "var(--fs-12-5)", color: "#7c3d06" }}>
+        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "var(--tint-amber-bg, rgba(217,119,6,0.07))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))", fontSize: "var(--fs-12-5)", color: "var(--c-7c3d06)" }}>
           <b>{unsent.length} link{unsent.length === 1 ? "" : "s"} created but not emailed.</b>{" "}
           {[...new Set(unsent.map((r) => r.mailError))].join(" ")}
         </div>
       )}
 
       {pinStuck.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.3)", fontSize: "var(--fs-12-5)", color: "#b91c1c" }}>
+        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "var(--tint-red-bg, rgba(220,38,38,0.06))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))", fontSize: "var(--fs-12-5)", color: "var(--c-b91c1c)" }}>
           <b>{pinStuck.length} PIN{pinStuck.length === 1 ? "" : "s"} did not go out</b> — {pinStuck.map((r) => r.ownerName).join(", ")}{" "}
           {pinStuck.length === 1 ? "has" : "have"} the link but cannot open it. Give them the PIN from the table below.
         </div>

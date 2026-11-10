@@ -93,9 +93,9 @@ export function NoteDialog({ label, section, note, onSave, onClose }: {
             onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save(text); }}
             style={{ width: "100%", resize: "vertical" }} />
           {note && <div className="muted small">Last edited by {note.by} · {stamp(note.at)}</div>}
-          {err && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>{err}</div>}
+          {err && <div className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>{err}</div>}
           <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-            <span>{note && <button type="button" className="btn sm" disabled={busy} onClick={() => save("")} style={{ color: "#b91c1c" }}>Remove note</button>}</span>
+            <span>{note && <button type="button" className="btn sm" disabled={busy} onClick={() => save("")} style={{ color: "var(--c-b91c1c)" }}>Remove note</button>}</span>
             <button type="button" className="btn sm primary" disabled={busy || text.trim() === (note?.text ?? "")} onClick={() => save(text)}>
               {busy ? "Saving…" : "Save note"}
             </button>

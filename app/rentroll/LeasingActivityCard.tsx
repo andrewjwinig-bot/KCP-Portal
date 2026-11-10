@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { RentRollData } from "../../lib/rentroll/parseRentRollExcel";
@@ -212,9 +213,9 @@ function DeleteBtn({ onClick }: { onClick: () => void }) {
         height: 20,
         padding: 0,
         borderRadius: 4,
-        border: "1px solid rgba(180,35,24,0.45)",
-        background: "rgba(180,35,24,0.08)",
-        color: "#b42318",
+        border: "1px solid var(--tint-red-line, rgba(180,35,24,0.45))",
+        background: "var(--tint-red-bg, rgba(180,35,24,0.08))",
+        color: "var(--c-b42318)",
         cursor: "pointer",
         fontSize: "var(--fs-14)",
         lineHeight: 1,
@@ -224,7 +225,7 @@ function DeleteBtn({ onClick }: { onClick: () => void }) {
         justifyContent: "center",
       }}
     >
-      ×
+      <X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
     </button>
   );
 }
@@ -237,9 +238,9 @@ function AddBtn({ onClick, label }: { onClick: () => void; label: string }) {
         fontSize: "var(--fs-13)",
         padding: "8px 16px",
         borderRadius: 999,
-        border: "1.5px solid rgba(11,74,125,0.3)",
-        background: "rgba(11,74,125,0.06)",
-        color: "#0b4a7d",
+        border: "1.5px solid var(--tint-brand-line, rgba(11,74,125,0.3))",
+        background: "var(--tint-brand-bg, rgba(11,74,125,0.06))",
+        color: "var(--c-0b4a7d)",
         cursor: "pointer",
         fontWeight: 600,
         marginTop: 10,
@@ -394,7 +395,7 @@ export default function LeasingActivityCard({
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <b style={{ fontSize: 18 }}>Leasing Activity</b>
         {headerSlot ?? (
-          error ? <span className="muted small" style={{ color: "#b91c1c" }}>{error}</span> : null
+          error ? <span className="muted small" style={{ color: "var(--c-b91c1c)" }}>{error}</span> : null
         )}
       </div>
       <p className="muted small" style={{ marginTop: 6 }}>

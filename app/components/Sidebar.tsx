@@ -1086,7 +1086,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                     {item.label}
                     {item.href === "/rentroll/trends" && (
                       <span style={{
-                        color: "#f87171",
+                        color: "var(--c-f87171)",
                         fontWeight: 800,
                         fontSize: "var(--fs-10)",
                         marginLeft: 6,
@@ -1098,7 +1098,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                 {open && badge > 0 && (
                   <span style={{
                     marginLeft: "auto", minWidth: 18, height: 18, padding: "0 5px",
-                    borderRadius: 999, background: "#dc2626", color: "#fff",
+                    borderRadius: 999, background: "var(--c-dc2626)", color: "#fff",
                     fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>{badge}</span>
@@ -1107,7 +1107,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                   <span style={{
                     position: "absolute", top: 3, right: 6,
                     minWidth: 15, height: 15, padding: "0 3px",
-                    borderRadius: 999, background: "#dc2626", color: "#fff",
+                    borderRadius: 999, background: "var(--c-dc2626)", color: "#fff",
                     fontSize: "var(--fs-9)", fontWeight: 800, lineHeight: 1,
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>{badge}</span>
@@ -1187,7 +1187,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                       {showGroupBadge && (
                         <span style={{
                           minWidth: 18, height: 18, padding: "0 5px",
-                          borderRadius: 999, background: "#dc2626", color: "#fff",
+                          borderRadius: 999, background: "var(--c-dc2626)", color: "#fff",
                           fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
                           display: "flex", alignItems: "center", justifyContent: "center",
                         }}>{childBadgeSum}</span>
@@ -1202,7 +1202,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                     <span style={{
                       position: "absolute", top: 3, right: 6,
                       minWidth: 15, height: 15, padding: "0 3px",
-                      borderRadius: 999, background: "#dc2626", color: "#fff",
+                      borderRadius: 999, background: "var(--c-dc2626)", color: "#fff",
                       fontSize: "var(--fs-9)", fontWeight: 800, lineHeight: 1,
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>{childBadgeSum}</span>

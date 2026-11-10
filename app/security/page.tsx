@@ -67,7 +67,7 @@ export default function SecurityPage() {
       <h1>Security</h1>
 
       {status?.required && !status?.enabled && !status?.disabled && (
-        <div style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", fontSize: "var(--fs-14)", fontWeight: 600, color: "#b45309" }}>
+        <div style={{ padding: "10px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(180,83,9,0.08))", border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.35))", fontSize: "var(--fs-14)", fontWeight: 600, color: "var(--c-b45309)" }}>
           Two-factor authentication is required for your account. Set it up below to continue using the portal.
         </div>
       )}
@@ -84,12 +84,12 @@ export default function SecurityPage() {
         </div>
 
         {status?.disabled && (
-          <div className="muted small" style={{ padding: "8px 10px", background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.3)", borderRadius: 8 }}>
+          <div className="muted small" style={{ padding: "8px 10px", background: "var(--tint-amber-bg, rgba(180,83,9,0.08))", border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.3))", borderRadius: 8 }}>
             2FA is globally disabled via the <code>SITE_2FA_DISABLED</code> env var — enrollment won&apos;t be enforced until that&apos;s removed.
           </div>
         )}
 
-        {msg && <div className="small" style={{ color: "#15803d", fontWeight: 700 }}>{msg}</div>}
+        {msg && <div className="small" style={{ color: "var(--c-15803d)", fontWeight: 700 }}>{msg}</div>}
 
         {!enroll && !status?.enabled && (
           <button className="btn primary" disabled={busy} onClick={startEnroll} style={{ alignSelf: "flex-start", fontSize: "var(--fs-14)", padding: "9px 16px", fontWeight: 700 }}>
@@ -100,7 +100,7 @@ export default function SecurityPage() {
         {!enroll && status?.enabled && (
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="btn" disabled={busy} onClick={startEnroll} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>Re-enroll (new device)</button>
-            <button className="btn" disabled={busy} onClick={disable} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, borderColor: "rgba(180,35,24,0.45)", color: "#b42318" }}>Turn off</button>
+            <button className="btn" disabled={busy} onClick={disable} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, borderColor: "var(--tint-red-line, rgba(180,35,24,0.45))", color: "var(--c-b42318)" }}>Turn off</button>
           </div>
         )}
 

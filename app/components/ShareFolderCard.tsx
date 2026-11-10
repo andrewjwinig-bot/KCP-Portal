@@ -85,8 +85,8 @@ export default function ShareFolderCard({
           onChange={(e) => setDraft(e.target.value)} autoFocus />
         <button type="button" onClick={save} disabled={saving} className="btn primary sm">{saving ? "Saving…" : "Save"}</button>
         <button type="button" onClick={() => { setEditing(false); setError(null); }} disabled={saving} className="btn sm">Cancel</button>
-        {url && <button type="button" onClick={() => { setDraft(""); save(); }} disabled={saving} style={{ ...linkBtn, color: "#b91c1c" }}>Remove</button>}
-        {error && <span style={{ color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600 }}>{error}</span>}
+        {url && <button type="button" onClick={() => { setDraft(""); save(); }} disabled={saving} style={{ ...linkBtn, color: "var(--c-b91c1c)" }}>Remove</button>}
+        {error && <span style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600 }}>{error}</span>}
       </div>
     );
     return (
@@ -125,8 +125,8 @@ export default function ShareFolderCard({
       {error && (
         <div style={{
           margin: "8px 0", padding: "8px 10px", borderRadius: 8,
-          background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
+          background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))",
+          color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
@@ -153,8 +153,8 @@ export default function ShareFolderCard({
             {url && (
               <button type="button" onClick={() => { setDraft(""); save(); }} disabled={saving}
                 style={{
-                  marginLeft: "auto", fontSize: "var(--fs-12)", fontWeight: 600, color: "#b91c1c",
-                  background: "transparent", border: "1px solid rgba(220,38,38,0.35)",
+                  marginLeft: "auto", fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-b91c1c)",
+                  background: "transparent", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))",
                   borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit",
                 }}>
                 Remove

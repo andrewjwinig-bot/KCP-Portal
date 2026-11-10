@@ -1,4 +1,5 @@
 "use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 // OPEN CREDIT TRACKER — the team's "Open Credits" spreadsheet, kept by the
 // portal (owner: "call out the open credits at the top so we can easily see an
@@ -88,7 +89,7 @@ export function OpenCreditsCard({ tracker, notes, applications, period, readOnly
           <tbody>
             {tracker.groups.map((g, gi) => (
               <Fragment key={g.group}>
-                <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: gi ? "2px solid var(--border)" : "none" }}>
+                <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))", borderTop: gi ? "2px solid var(--border)" : "none" }}>
                   <td style={{ ...tdL, fontWeight: 800 }} colSpan={2}>
                     {g.group} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}>· {g.count} tenant{g.count === 1 ? "" : "s"}</span>
                   </td>
@@ -102,9 +103,9 @@ export function OpenCreditsCard({ tracker, notes, applications, period, readOnly
                   return (
                     <Fragment key={k}>
                       <tr onClick={() => setOpen(isOpen ? null : k)} style={{ cursor: "pointer", borderTop: "1px solid var(--border)", background: isOpen ? "rgba(11,74,125,0.04)" : undefined }}>
-                        <td style={tdL}><span aria-hidden className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? "▾" : "▸"}</span><code style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
+                        <td style={tdL}><span aria-hidden className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span><code style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code></td>
                         <td style={{ ...tdL, fontWeight: 600, whiteSpace: "normal" }}>{r.tenantName}</td>
-                        <td style={{ ...td, fontWeight: 700, color: "#15803d" }}>{money2(r.credit)}</td>
+                        <td style={{ ...td, fontWeight: 700, color: "var(--c-15803d)" }}>{money2(r.credit)}</td>
                         <td style={td}>{r.openCharges > 0.005 ? money2(r.openCharges) : <span className="muted">—</span>}</td>
                         <td style={{ ...td, fontWeight: 700, color: r.net < -0.005 ? "#b45309" : undefined }}>
                           {r.net < -0.005 ? `(${money2(-r.net)})` : money2(r.net)}
@@ -125,7 +126,7 @@ export function OpenCreditsCard({ tracker, notes, applications, period, readOnly
                       </tr>
                       {isOpen && (
                         <tr>
-                          <td colSpan={8} style={{ padding: "4px 18px 16px", background: "rgba(11,74,125,0.03)", maxWidth: 0 }}>
+                          <td colSpan={8} style={{ padding: "4px 18px 16px", background: "var(--tint-brand-bg, rgba(11,74,125,0.03))", maxWidth: 0 }}>
                             <CreditDetail r={r} app={app ?? null} period={period} readOnly={readOnly} onChanged={onChanged} />
                           </td>
                         </tr>
@@ -170,7 +171,7 @@ function NoteCell({ unitRef, note, readOnly }: { unitRef: string; note: CreditNo
         onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
         placeholder="Add a follow-up…" style={{ width: "100%", fontSize: "var(--fs-12-5)" }} />
       {state === "saving" && <div className="muted" style={{ fontSize: "var(--fs-11)" }}>Saving…</div>}
-      {state === "error" && <div style={{ fontSize: "var(--fs-11)", color: "#b91c1c" }}>Didn&rsquo;t save — try again</div>}
+      {state === "error" && <div style={{ fontSize: "var(--fs-11)", color: "var(--c-b91c1c)" }}>Didn&rsquo;t save — try again</div>}
       {!state && note && text === saved && note.by && (
         <div className="muted" style={{ fontSize: "var(--fs-11)" }}>{note.by} · {new Date(note.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>
       )}
@@ -205,7 +206,7 @@ function CreditDetail({ r, app, period, readOnly, onChanged }: {
               <tr key={i} style={{ borderTop: i ? "1px solid var(--border)" : "none" }}>
                 <td style={{ ...tdL, fontSize: "var(--fs-13)", padding: "5px 8px" }}>{dateLabel(l.dateISO)}</td>
                 <td style={{ ...tdL, fontSize: "var(--fs-13)", padding: "5px 8px", whiteSpace: "normal" }}>{l.description}</td>
-                <td style={{ ...td, fontSize: "var(--fs-13)", padding: "5px 8px", color: "#15803d", fontWeight: 600 }}>{money2(l.amount)}</td>
+                <td style={{ ...td, fontSize: "var(--fs-13)", padding: "5px 8px", color: "var(--c-15803d)", fontWeight: 600 }}>{money2(l.amount)}</td>
               </tr>
             ))}
           </tbody>
@@ -243,7 +244,7 @@ function CreditDetail({ r, app, period, readOnly, onChanged }: {
             </button>
           </div>
         )}
-        {error && <div style={{ fontSize: "var(--fs-12)", color: "#b91c1c", marginTop: 6 }}>{error}</div>}
+        {error && <div style={{ fontSize: "var(--fs-12)", color: "var(--c-b91c1c)", marginTop: 6 }}>{error}</div>}
       </div>
     </div>
   );
@@ -347,7 +348,7 @@ function ApplyPanel({ r, period, onDone, onCancel }: { r: OpenCredit; period: st
         <button className="btn primary sm" disabled={busy || !plan || plan.applied < 0.005} onClick={record}>{busy ? "Recording…" : `Record ${plan ? money2(plan.applied) : ""} applied`}</button>
         <button className="btn sm" onClick={onCancel} disabled={busy}>Cancel</button>
       </div>
-      {error && <div style={{ fontSize: "var(--fs-12)", color: "#b91c1c" }}>{error}</div>}
+      {error && <div style={{ fontSize: "var(--fs-12)", color: "var(--c-b91c1c)" }}>{error}</div>}
     </div>
   );
 }

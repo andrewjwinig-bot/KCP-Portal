@@ -89,7 +89,7 @@ function SendLink({ group, year }: { group: "SC" | "BP"; year: number }) {
   };
 
   return (
-    <div className="card" style={{ borderColor: "rgba(11,74,125,0.35)", background: "rgba(11,74,125,0.04)", display: "flex", flexDirection: "column", gap: 8 }}>
+    <div className="card" style={{ borderColor: "var(--tint-brand-line, rgba(11,74,125,0.35))", background: "var(--tint-brand-bg, rgba(11,74,125,0.04))", display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
         Link to send {person}
       </div>
@@ -114,11 +114,11 @@ function SendLink({ group, year }: { group: "SC" | "BP"; year: number }) {
             </div>
             <div className="muted" style={{ fontSize: "var(--fs-12)", display: "flex", gap: 12, alignItems: "center" }}>
               <span>{link.viewCount ? `Opened ${link.viewCount}×${link.lastViewedAt ? ` · last ${new Date(link.lastViewedAt).toLocaleDateString("en-US")}` : ""}` : "Not opened yet"}</span>
-              <button type="button" onClick={revoke} style={{ background: "none", border: "none", padding: 0, color: "#b91c1c", fontWeight: 700, fontSize: "var(--fs-12)", cursor: "pointer" }}>Revoke</button>
+              <button type="button" onClick={revoke} style={{ background: "none", border: "none", padding: 0, color: "var(--c-b91c1c)", fontWeight: 700, fontSize: "var(--fs-12)", cursor: "pointer" }}>Revoke</button>
             </div>
           </>
         )}
-      {error && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>{error}</div>}
+      {error && <div className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>{error}</div>}
     </div>
   );
 }

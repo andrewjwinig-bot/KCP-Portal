@@ -1,4 +1,5 @@
 "use client";
+import { X } from "lucide-react";
 
 // Dashboard "New Tenants on the Website" — Harry's prompt to describe a tenant
 // the public center page does not know yet (a new lease or a turnover on a
@@ -55,7 +56,7 @@ export default function NewTenantsCard({ order = -1 }: { order?: number }) {
               {p.center} · Suite {p.suite} · {p.sf.toLocaleString("en-US")} SF
             </span>
             <span style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-              <a href={`/centers/${p.slug}`} target="_blank" rel="noopener" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-12)" }}>View page ↗</a>
+              <a href={`/centers/${p.slug}`} target="_blank" rel="noopener" style={{ color: "var(--c-0b4a7d)", fontWeight: 600, fontSize: "var(--fs-12)" }}>View page ↗</a>
               <button className="btn primary" style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }} onClick={() => setOpen(p)}>Add details</button>
             </span>
           </div>
@@ -109,7 +110,7 @@ function ProfileDialog({ p, onClose, onSaved }: { p: Pending; onClose: () => voi
             <div style={{ fontSize: 18, fontWeight: 800 }}>{p.occupant}</div>
             <div className="muted" style={{ fontSize: "var(--fs-12)" }}>{p.center} · Suite {p.suite} · <code style={{ fontSize: "var(--fs-11)" }}>{p.unitRef}</code></div>
           </div>
-          <button className="btn" onClick={onClose} title="Close" style={{ marginLeft: "auto" }}>✕</button>
+          <button className="btn" onClick={onClose} title="Close" style={{ marginLeft: "auto" }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -143,7 +144,7 @@ function ProfileDialog({ p, onClose, onSaved }: { p: Pending; onClose: () => voi
             <textarea value={f.blurb} onChange={set("blurb")} rows={2} maxLength={240} style={{ width: "100%" }} /></label>
         </div>
 
-        {err && <div style={{ color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600, marginTop: 10 }}>{err}</div>}
+        {err && <div style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600, marginTop: 10 }}>{err}</div>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn primary" disabled={!!busy} onClick={save}>{busy === "save" ? "Publishing…" : "Publish to the website"}</button>

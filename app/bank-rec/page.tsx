@@ -227,7 +227,7 @@ export default function BankAccTrackerPage() {
         <span className="muted small" style={{ marginLeft: 6 }}>
           Due {periodDeadline.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
         </span>
-        {error && <span style={{ color: "#b91c1c", fontSize: "var(--fs-12)", marginLeft: 6 }}>· {error}</span>}
+        {error && <span style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", marginLeft: 6 }}>· {error}</span>}
       </div>
 
       {/* ── Summary pills ────────────────────────────────────────────── */}
@@ -236,12 +236,12 @@ export default function BankAccTrackerPage() {
           <b>{totalAccounts}</b>
           <span className="muted small">Accounts</span>
         </div>
-        <div className="pill" style={{ borderColor: "#0b4a7d", background: "rgba(11,74,125,0.06)" }}>
-          <b style={{ color: "#0b4a7d" }}>{stmtDone}/{totalAccounts}</b>
+        <div className="pill" style={{ borderColor: "var(--c-0b4a7d)", background: "var(--tint-brand-bg, rgba(11,74,125,0.06))" }}>
+          <b style={{ color: "var(--c-0b4a7d)" }}>{stmtDone}/{totalAccounts}</b>
           <span className="muted small">Statements</span>
         </div>
-        <div className="pill" style={{ borderColor: "#16a34a", background: "rgba(22,163,74,0.06)" }}>
-          <b style={{ color: "#16a34a" }}>{recDone}/{totalAccounts}</b>
+        <div className="pill" style={{ borderColor: "var(--c-16a34a)", background: "var(--tint-green-bg, rgba(22,163,74,0.06))" }}>
+          <b style={{ color: "var(--c-16a34a)" }}>{recDone}/{totalAccounts}</b>
           <span className="muted small">Reconciled</span>
         </div>
         <div className="pill">
@@ -249,8 +249,8 @@ export default function BankAccTrackerPage() {
           <span className="muted small">Remaining</span>
         </div>
         {overdueCount > 0 && (
-          <div className="pill" style={{ borderColor: "#dc2626", background: "rgba(220,38,38,0.06)" }}>
-            <b style={{ color: "#dc2626" }}>{overdueCount}</b>
+          <div className="pill" style={{ borderColor: "var(--c-dc2626)", background: "var(--tint-red-bg, rgba(220,38,38,0.06))" }}>
+            <b style={{ color: "var(--c-dc2626)" }}>{overdueCount}</b>
             <span className="muted small">Overdue</span>
           </div>
         )}
@@ -292,7 +292,7 @@ export default function BankAccTrackerPage() {
                   style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
                     width: "100%", padding: "12px 16px",
-                    background: "rgba(11,74,125,0.05)",
+                    background: "var(--tint-brand-bg, rgba(11,74,125,0.05))",
                     borderBottom: open ? "1px solid var(--border)" : "none",
                     border: "none", cursor: "pointer", textAlign: "left",
                     fontFamily: "inherit",
@@ -339,7 +339,7 @@ export default function BankAccTrackerPage() {
                               checked={hasStmt}
                               onChange={() => toggleStatement(r.last4)}
                               aria-label={`Mark ${r.key} statement downloaded for ${bankRecPeriodLabel(period)}`}
-                              style={{ width: 18, height: 18, cursor: "pointer", accentColor: "#0b4a7d" }}
+                              style={{ width: 18, height: 18, cursor: "pointer", accentColor: "var(--c-0b4a7d)" }}
                             />
                           </td>
                           <td style={{ padding: "10px 14px", textAlign: "center" }}>
@@ -348,7 +348,7 @@ export default function BankAccTrackerPage() {
                               checked={hasRec}
                               onChange={() => toggleReconciled(r.last4)}
                               aria-label={`Mark ${r.key} reconciled for ${bankRecPeriodLabel(period)}`}
-                              style={{ width: 18, height: 18, cursor: "pointer", accentColor: "#16a34a" }}
+                              style={{ width: 18, height: 18, cursor: "pointer", accentColor: "var(--c-16a34a)" }}
                             />
                           </td>
                           <td style={{ padding: "10px 14px" }}>

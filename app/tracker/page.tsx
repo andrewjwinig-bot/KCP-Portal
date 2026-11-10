@@ -1,4 +1,5 @@
 "use client";
+import { Check, ChevronRight } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import InstructionWizard from "./InstructionWizard";
 import Link from "next/link";
@@ -293,13 +294,13 @@ export default function TrackerPage() {
     const d = effDay(t, viewYear, viewMonth);
     const name = dueName(t, viewYear, viewMonth);
     if (checked[t.id])
-      return { label: "✓ Done",    color: "#16a34a", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  };
+      return { label: "✓ Done",    color: "var(--c-16a34a)", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  };
     if (isCurrentMonth && isPast(d))
-      return { label: "Overdue",   color: "#dc2626", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" };
+      return { label: "Overdue",   color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" };
     if (isCurrentMonth && d === today.getDate())
-      return { label: "Due today", color: "#ea580c", bg: "rgba(234,88,12,0.08)", border: "rgba(234,88,12,0.2)" };
+      return { label: "Due today", color: "var(--c-ea580c)", bg: "rgba(234,88,12,0.08)", border: "rgba(234,88,12,0.2)" };
     if (isCurrentMonth && d > today.getDate() && d - today.getDate() <= 3)
-      return { label: "Due soon",  color: "#d97706", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.2)"  };
+      return { label: "Due soon",  color: "var(--c-d97706)", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.2)"  };
     return { label: `Due ${name}`, color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)" };
   }
 
@@ -355,7 +356,7 @@ export default function TrackerPage() {
           })}
         </div>
         {showMarie && marieError && (
-          <span style={{ color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600 }}>· {marieError}</span>
+          <span style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600 }}>· {marieError}</span>
         )}
       </div>
 
@@ -371,8 +372,8 @@ export default function TrackerPage() {
           <b>{total}</b>
           <span className="muted small">Tasks this month</span>
         </div>
-        <div className="pill" style={{ borderColor: "#16a34a", background: "rgba(22,163,74,0.06)" }}>
-          <b style={{ color: "#16a34a" }}>{done}</b>
+        <div className="pill" style={{ borderColor: "var(--c-16a34a)", background: "var(--tint-green-bg, rgba(22,163,74,0.06))" }}>
+          <b style={{ color: "var(--c-16a34a)" }}>{done}</b>
           <span className="muted small">Done</span>
         </div>
         <div className="pill">
@@ -380,8 +381,8 @@ export default function TrackerPage() {
           <span className="muted small">Remaining</span>
         </div>
         {overdue > 0 && (
-          <div className="pill" style={{ borderColor: "#dc2626", background: "rgba(220,38,38,0.06)" }}>
-            <b style={{ color: "#dc2626" }}>{overdue}</b>
+          <div className="pill" style={{ borderColor: "var(--c-dc2626)", background: "var(--tint-red-bg, rgba(220,38,38,0.06))" }}>
+            <b style={{ color: "var(--c-dc2626)" }}>{overdue}</b>
             <span className="muted small">Overdue</span>
           </div>
         )}
@@ -597,7 +598,7 @@ export default function TrackerPage() {
                               textDecoration: "none", flexShrink: 0,
                             }}
                           >
-                            Open →
+                            Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
                           </a>
                         )}
                       </div>
@@ -721,7 +722,7 @@ export default function TrackerPage() {
                               opacity: isDone ? 0.5 : 1,
                             }}
                           >
-                            Open →
+                            Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
                           </Link>
                         )}
                       </div>
@@ -746,7 +747,7 @@ export default function TrackerPage() {
               <div style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 padding: "10px 16px",
-                background: "rgba(11,74,125,0.05)",
+                background: "var(--tint-brand-bg, rgba(11,74,125,0.05))",
                 borderBottom: "1px solid var(--border)",
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -762,13 +763,13 @@ export default function TrackerPage() {
                   href="/tracker/taxes"
                   style={{
                     fontSize: "var(--fs-11)", fontWeight: 700,
-                    color: "var(--brand)", background: "rgba(11,74,125,0.07)",
-                    border: "1px solid rgba(11,74,125,0.18)",
+                    color: "var(--brand)", background: "var(--tint-brand-bg, rgba(11,74,125,0.07))",
+                    border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.18))",
                     borderRadius: 5, padding: "3px 9px",
                     textDecoration: "none",
                   }}
                 >
-                  View all →
+                  View all<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
                 </Link>
               </div>
 
@@ -786,13 +787,13 @@ export default function TrackerPage() {
 
                 const dateLabel = `${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][task.dueMonth - 1]} ${task.dueDay}`;
                 const status = isDone
-                  ? { label: "✓ Filed",                color: "#16a34a", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  }
+                  ? { label: "✓ Filed",                color: "var(--c-16a34a)", bg: "rgba(22,163,74,0.08)",  border: "rgba(22,163,74,0.2)"  }
                   : isOver
-                  ? { label: `Overdue · ${dateLabel}`, color: "#dc2626", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" }
+                  ? { label: `Overdue · ${dateLabel}`, color: "var(--c-dc2626)", bg: "rgba(220,38,38,0.08)", border: "rgba(220,38,38,0.2)" }
                   : isToday
-                  ? { label: "Due today",               color: "#ea580c", bg: "rgba(234,88,12,0.08)", border: "rgba(234,88,12,0.2)" }
+                  ? { label: "Due today",               color: "var(--c-ea580c)", bg: "rgba(234,88,12,0.08)", border: "rgba(234,88,12,0.2)" }
                   : isSoon
-                  ? { label: `Due soon · ${dateLabel}`,color: "#d97706", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.2)"  }
+                  ? { label: `Due soon · ${dateLabel}`,color: "var(--c-d97706)", bg: "rgba(217,119,6,0.08)",  border: "rgba(217,119,6,0.2)"  }
                   : { label: dateLabel,                  color: "var(--muted)", bg: "rgba(0,0,0,0.04)", border: "var(--border)" };
 
                 // K-1 toggle: check/uncheck all investors at once
@@ -849,7 +850,7 @@ export default function TrackerPage() {
                       </span>
                       {invCount > 0 && (
                         <div className="muted small" style={{ marginTop: 3 }}>
-                          {invDone}/{invCount} investors · <a href="/tracker/taxes" style={{ color: "var(--brand)", textDecoration: "none", fontWeight: 600 }}>manage →</a>
+                          {invDone}/{invCount} investors · <a href="/tracker/taxes" style={{ color: "var(--brand)", textDecoration: "none", fontWeight: 600 }}>manage<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></a>
                         </div>
                       )}
                       {task.notes && !invCount && (
@@ -868,7 +869,7 @@ export default function TrackerPage() {
           {/* Empty state — only when no regular tasks match (pinned always shows) */}
           {sortedVisible.length === 0 && total === 0 && (
             <div className="card" style={{ textAlign: "center", padding: 40 }}>
-              <div style={{ fontSize: 36, marginBottom: 10 }}>✓</div>
+              <div style={{ fontSize: 36, marginBottom: 10 }}><Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></div>
               <div style={{ fontWeight: 700, marginBottom: 4 }}>
                 {total === 0 ? "No tasks this month" : "No tasks match the current filter"}
               </div>
@@ -987,13 +988,13 @@ export default function TrackerPage() {
                                       style={{
                                         display: "inline-flex", alignItems: "center", gap: 3,
                                         fontSize: "var(--fs-11)", fontWeight: 700,
-                                        color: "var(--brand)", background: "rgba(11,74,125,0.08)",
-                                        border: "1px solid rgba(11,74,125,0.22)",
+                                        color: "var(--brand)", background: "var(--tint-brand-bg, rgba(11,74,125,0.08))",
+                                        border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.22))",
                                         borderRadius: 5, padding: "2px 8px",
                                         textDecoration: "none", flexShrink: 0,
                                       }}
                                     >
-                                      Open →
+                                      Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
                                     </Link>
                                   )}
                                 </div>
