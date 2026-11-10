@@ -187,7 +187,7 @@ export default function TrendsPage() {
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <h1 style={{ margin: 0 }}>Rent Roll Trend <span style={{ color: "#dc2626" }}>&ndash; DRAFT</span></h1>
-          <Link href="/rentroll" style={{ fontSize: 13, color: "#0b4a7d", textDecoration: "none" }}>← Rent roll</Link>
+          <Link href="/rentroll" style={{ fontSize: "var(--fs-13)", color: "#0b4a7d", textDecoration: "none" }}>← Rent roll</Link>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <label
@@ -207,7 +207,7 @@ export default function TrendsPage() {
 
       {/* Horizon toggle */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Window</span>
+        <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Window</span>
         <div role="tablist" style={{ display: "inline-flex", border: "1px solid var(--border)", borderRadius: 999, overflow: "hidden", background: "var(--card)" }}>
           {HORIZONS.map((h) => {
             const active = horizon === h.key;
@@ -218,7 +218,7 @@ export default function TrendsPage() {
                 role="tab"
                 aria-selected={active}
                 style={{
-                  padding: "5px 14px", fontSize: 12, fontWeight: 700,
+                  padding: "5px 14px", fontSize: "var(--fs-12)", fontWeight: 700,
                   background: active ? "var(--brand)" : "transparent",
                   color: active ? "#fff" : "var(--text)",
                   border: "none", cursor: "pointer", fontFamily: "inherit",
@@ -241,7 +241,7 @@ export default function TrendsPage() {
         <div style={{
           padding: "10px 14px",
           borderRadius: 8,
-          fontSize: 13,
+          fontSize: "var(--fs-13)",
           background: uploadError ? "rgba(220,38,38,0.06)" : "rgba(22,163,74,0.06)",
           border: `1px solid ${uploadError ? "rgba(220,38,38,0.3)" : "rgba(22,163,74,0.3)"}`,
           color: uploadError ? "#b91c1c" : "#166534",
@@ -263,7 +263,7 @@ export default function TrendsPage() {
                   key={k}
                   onClick={() => toggleGroup(k)}
                   style={{
-                    fontSize: 12, padding: "5px 12px", borderRadius: 999,
+                    fontSize: "var(--fs-12)", padding: "5px 12px", borderRadius: 999,
                     border: `1.5px solid ${active ? COLORS[k] : "var(--border)"}`,
                     background: active ? `${COLORS[k]}14` : "transparent",
                     color: active ? COLORS[k] : "var(--muted)",
@@ -394,7 +394,7 @@ export default function TrendsPage() {
               <thead>
                 <tr>
                   <th>Month</th>
-                  {TREND_GROUPS.map((g) => <th key={g.key} style={{ textAlign: "right" }}>{g.label}<br /><span style={{ fontWeight: 400, fontSize: 11, color: "var(--muted)" }}>occ % / sf</span></th>)}
+                  {TREND_GROUPS.map((g) => <th key={g.key} style={{ textAlign: "right" }}>{g.label}<br /><span style={{ fontWeight: 400, fontSize: "var(--fs-11)", color: "var(--muted)" }}>occ % / sf</span></th>)}
                   <th />
                 </tr>
               </thead>
@@ -405,11 +405,11 @@ export default function TrendsPage() {
                     {TREND_GROUPS.map((g) => {
                       const k = g.key as GroupKey;
                       const t = s.totals[k];
-                      if (!t || t.total === 0) return <td key={k} style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>—</td>;
+                      if (!t || t.total === 0) return <td key={k} style={{ textAlign: "right", fontSize: "var(--fs-13)", color: "var(--muted)" }}>—</td>;
                       return (
-                        <td key={k} style={{ textAlign: "right", fontSize: 13, cursor: "pointer" }} onClick={() => openDrill(s.month, k)}>
+                        <td key={k} style={{ textAlign: "right", fontSize: "var(--fs-13)", cursor: "pointer" }} onClick={() => openDrill(s.month, k)}>
                           <b style={{ color: COLORS[k] }}>{t.pct.toFixed(2)}%</b>
-                          <div style={{ fontSize: 11, color: "var(--muted)" }}>{sqftFmt(t.occupied)} / {sqftFmt(t.total)}</div>
+                          <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>{sqftFmt(t.occupied)} / {sqftFmt(t.total)}</div>
                         </td>
                       );
                     })}
@@ -417,7 +417,7 @@ export default function TrendsPage() {
                       <button
                         onClick={() => deleteSnapshot(s.month)}
                         title="Delete this snapshot"
-                        style={{ fontSize: 11, padding: "3px 9px", borderRadius: 6, border: "1px solid #b42318", background: "transparent", color: "#b42318", cursor: "pointer" }}
+                        style={{ fontSize: "var(--fs-11)", padding: "3px 9px", borderRadius: 6, border: "1px solid #b42318", background: "transparent", color: "#b42318", cursor: "pointer" }}
                       >
                         Delete
                       </button>
@@ -438,7 +438,7 @@ export default function TrendsPage() {
               Tenants — {fmtMonth(drilldown.month)} · {TREND_GROUPS.find((g) => g.key === drilldown.group)?.label}
             </b>
             <button onClick={() => { setDrilldown(null); setSelectedMonth(null); }}
-                    style={{ fontSize: 13, padding: "5px 14px", borderRadius: 7, border: "1px solid #1a1a1a", background: "transparent", cursor: "pointer", fontWeight: 500 }}>
+                    style={{ fontSize: "var(--fs-13)", padding: "5px 14px", borderRadius: 7, border: "1px solid #1a1a1a", background: "transparent", cursor: "pointer", fontWeight: 500 }}>
               Close
             </button>
           </div>
@@ -469,15 +469,15 @@ export default function TrendsPage() {
                   <tbody>
                     {allUnits.map(({ code, unit }, i) => (
                       <tr key={i} style={{ background: unit.isVacant ? "rgba(15,23,42,0.025)" : undefined }}>
-                        <td style={{ fontSize: 13, color: "var(--muted)" }}>{code}</td>
-                        <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: 12, whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
+                        <td style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>{code}</td>
+                        <td style={{ whiteSpace: "nowrap" }}><code style={{ fontSize: "var(--fs-12)", whiteSpace: "nowrap" }}>{unit.unitRef}</code></td>
                         <td style={{ fontWeight: unit.isVacant ? 400 : 600, color: unit.isVacant ? "var(--muted)" : "var(--text)", fontStyle: unit.isVacant ? "italic" : "normal" }}>
                           {unit.isVacant ? "Vacant" : unit.occupantName}
                         </td>
-                        <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
-                        <td style={{ fontSize: 13, color: "var(--muted)" }}>{unit.leaseFrom ?? "—"}</td>
-                        <td style={{ fontSize: 13 }}>{unit.leaseTo ?? "—"}</td>
-                        <td style={{ textAlign: "right", fontSize: 13 }}>{unit.baseRent ? `$${unit.baseRent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</td>
+                        <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{sqftFmt(unit.sqft)}</td>
+                        <td style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>{unit.leaseFrom ?? "—"}</td>
+                        <td style={{ fontSize: "var(--fs-13)" }}>{unit.leaseTo ?? "—"}</td>
+                        <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{unit.baseRent ? `$${unit.baseRent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -562,10 +562,10 @@ function KpiTiles({ last, yoy }: { last: RentRollSnapshotSummary; yoy: RentRollS
         }
         return (
           <div key={tile.label} className="card" style={{ padding: "12px 14px" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>{tile.label}</div>
+            <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>{tile.label}</div>
             <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4, lineHeight: 1.1 }}>{tile.value}</div>
-            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>{tile.sub}</div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: toneColor, marginTop: 6 }}>
+            <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", marginTop: 2 }}>{tile.sub}</div>
+            <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: toneColor, marginTop: 6 }}>
               {tile.delta == null ? "no YoY data" : `${tile.deltaFmt(tile.delta)} vs YoY`}
             </div>
           </div>
@@ -611,7 +611,7 @@ function MetricChart({
 
   return (
     <div className="card">
-      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: "var(--fs-14)", fontWeight: 700, marginBottom: 8 }}>{title}</div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }} onMouseLeave={() => setHover(null)}>
         {/* y-axis labels */}
         {[0, 0.25, 0.5, 0.75, 1].map((f) => {
@@ -677,7 +677,7 @@ function ExpirationsChart({ snapshots, activeGroups }: { snapshots: RentRollSnap
   return (
     <div className="card">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>Lease Expirations as of Snapshot</div>
+        <div style={{ fontSize: "var(--fs-14)", fontWeight: 700 }}>Lease Expirations as of Snapshot</div>
         <div className="muted small">Group: {TREND_GROUPS.find((g) => g.key === k)?.label}</div>
       </div>
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }} onMouseLeave={() => setHover(null)}>
@@ -727,7 +727,7 @@ function ExpirationsChart({ snapshots, activeGroups }: { snapshots: RentRollSnap
           );
         })()}
       </svg>
-      <div style={{ display: "flex", gap: 14, fontSize: 11, marginTop: 8, color: "var(--muted)" }}>
+      <div style={{ display: "flex", gap: 14, fontSize: "var(--fs-11)", marginTop: 8, color: "var(--muted)" }}>
         <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#dc2626", borderRadius: 2, marginRight: 4 }} />≤ 90 d</span>
         <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#d97706", borderRadius: 2, marginRight: 4 }} />90 – 180 d</span>
         <span><span style={{ display: "inline-block", width: 10, height: 10, background: "#0b4a7d", borderRadius: 2, marginRight: 4 }} />180 – 365 d</span>
@@ -753,8 +753,8 @@ function BuildingSparklines({ snapshots }: { snapshots: RentRollSnapshotSummary[
 
   return (
     <div className="card">
-      <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Per-Building Trajectory</div>
-      <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 12 }}>Occupancy % over the selected window. Hover for snapshot values.</div>
+      <div style={{ fontSize: "var(--fs-14)", fontWeight: 700, marginBottom: 8 }}>Per-Building Trajectory</div>
+      <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", marginBottom: 12 }}>Occupancy % over the selected window. Hover for snapshot values.</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
         {codes.map((code) => {
           const points = snapshots.map((s) => s.byProperty?.find((p) => p.propertyCode.toUpperCase() === code));
@@ -765,11 +765,11 @@ function BuildingSparklines({ snapshots }: { snapshots: RentRollSnapshotSummary[
           return (
             <div key={code} style={{ padding: 10, border: "1px solid var(--border)", borderRadius: 10, background: "var(--card)" }}>
               <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 6 }}>
-                <span style={{ fontWeight: 700, fontSize: 13 }}>{code}</span>
-                <span style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nameFor(code)}</span>
+                <span style={{ fontWeight: 700, fontSize: "var(--fs-13)" }}>{code}</span>
+                <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{nameFor(code)}</span>
               </div>
               <Sparkline values={occ} height={36} color="#0b4a7d" max={100} />
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginTop: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--fs-11)", marginTop: 4 }}>
                 <span style={{ color: "var(--muted)" }}>{last ? `${last.pct.toFixed(1)}%` : "—"}</span>
                 <span style={{ color: trendDelta > 0.05 ? "#16a34a" : trendDelta < -0.05 ? "#dc2626" : "var(--muted)", fontWeight: 600 }}>
                   {trendDelta === 0 ? "±0" : `${trendDelta > 0 ? "+" : ""}${trendDelta.toFixed(1)} pts`}

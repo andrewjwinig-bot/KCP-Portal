@@ -49,7 +49,7 @@ export default function ShadowLandDetail({ prop }: { prop: ShadowProperty }) {
                 {r.parcels.map((p) => (
                   <tr key={p.address}>
                     <td style={{ ...tdL, fontWeight: 600 }}>{p.address}</td>
-                    <td style={tdL}><code style={{ fontSize: 12 }}>{p.zip}</code></td>
+                    <td style={tdL}><code style={{ fontSize: "var(--fs-12)" }}>{p.zip}</code></td>
                     <td style={td}>
                       {p.acres != null ? acres(p.acres) : <span className="muted small">incl. above</span>}
                       {p.sharedWith && <div className="muted small">for {p.sharedWith}</div>}

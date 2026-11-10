@@ -234,7 +234,7 @@ export default function ExpirationChart({
   if (!rentroll) {
     return (
       <div className="card">
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Lease Expirations</div>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Lease Expirations</div>
         <div className="muted small">No rent roll loaded.</div>
       </div>
     );
@@ -244,7 +244,7 @@ export default function ExpirationChart({
     <div className="card">
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Lease Expirations</div>
+          <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Lease Expirations</div>
           <div className="muted small" style={{ marginTop: 2 }}>
             Stacked by building · {cfg.label} · {metric === "pct" ? "% of SF expiring" : "Annualized Gross Rent expiring"} · {horizon === "24m" ? "next 24 months" : "next 5 calendar years"}
           </div>
@@ -279,7 +279,7 @@ export default function ExpirationChart({
               type="button"
               onClick={() => { setScope(s); setHover(null); }}
               style={{
-                padding: "5px 12px", borderRadius: 999, fontSize: 12,
+                padding: "5px 12px", borderRadius: 999, fontSize: "var(--fs-12)",
                 fontWeight: active ? 700 : 500, cursor: "pointer",
                 border: `1.5px solid ${active ? "#0b4a7d" : "var(--border)"}`,
                 background: active ? "rgba(11,74,125,0.10)" : "transparent",
@@ -346,13 +346,13 @@ export default function ExpirationChart({
                     <div style={{
                       position: "absolute",
                       bottom: barH + 2,
-                      fontSize: 9, fontWeight: 700, color: "var(--text)",
+                      fontSize: "var(--fs-9)", fontWeight: 700, color: "var(--text)",
                       whiteSpace: "nowrap",
                     }}>{fmt(total)}</div>
                   )}
                   <div style={{
                     position: "absolute", bottom: -22,
-                    fontSize: 9, color: "var(--muted)",
+                    fontSize: "var(--fs-9)", color: "var(--muted)",
                     whiteSpace: "nowrap",
                     transform: barCount > 12 ? "rotate(-45deg)" : "none",
                     transformOrigin: "center",
@@ -372,7 +372,7 @@ export default function ExpirationChart({
                   color: "#fff",
                   padding: "8px 11px",
                   borderRadius: 6,
-                  fontSize: 12,
+                  fontSize: "var(--fs-12)",
                   fontWeight: 500,
                   pointerEvents: "none",
                   whiteSpace: "nowrap",
@@ -399,14 +399,14 @@ export default function ExpirationChart({
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
             {buildings.map((code) => (
-              <div key={code} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+              <div key={code} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-11)" }}>
                 <span style={{ width: 12, height: 12, background: BUILDING_COLOR[code] ?? "#94a3b8", borderRadius: 3 }} />
                 <span style={{ fontWeight: 600 }}>{code}</span>
               </div>
             ))}
           </div>
 
-          <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted)" }}>
+          <div style={{ marginTop: 10, fontSize: "var(--fs-12)", color: "var(--muted)" }}>
             Total expiring in window: <b style={{ color: "var(--text)" }}>{(grandTotal.sqft).toLocaleString()} sf</b> · <b style={{ color: "var(--text)" }}>{money(grandTotal.annualGross)} gross rent / yr</b>
             {totalScopeSqft > 0 && (
               <>{" "}· <b style={{ color: "var(--text)" }}>{pct(grandTotal.sqft / totalScopeSqft)}</b> of {cfg.phrase}</>
@@ -440,7 +440,7 @@ function SegToggle({
             role="tab"
             aria-selected={active}
             style={{
-              padding: "4px 11px", fontSize: 11, fontWeight: 700,
+              padding: "4px 11px", fontSize: "var(--fs-11)", fontWeight: 700,
               background: active ? "var(--brand)" : "transparent",
               color: active ? "#fff" : "var(--text)",
               border: "none", cursor: "pointer", fontFamily: "inherit",

@@ -46,7 +46,7 @@ export default function ServiceLandingPage() {
             />
           </div>
 
-          <p style={{ textAlign: "center", marginTop: 18, fontSize: 12, color: "#5a657a" }}>
+          <p style={{ textAlign: "center", marginTop: 18, fontSize: "var(--fs-12)", color: "#5a657a" }}>
             For after-hours emergencies (active leak, fire, security), call your property&apos;s emergency line.
           </p>
         </div>
@@ -81,8 +81,8 @@ function ServiceTile({ href, title, description }: { href: string; title: string
       }}
     >
       <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.01em" }}>{title}</span>
-      <span style={{ fontSize: 13, color: "#5a657a", lineHeight: 1.5 }}>{description}</span>
-      <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", marginTop: 8 }}>
+      <span style={{ fontSize: "var(--fs-13)", color: "#5a657a", lineHeight: 1.5 }}>{description}</span>
+      <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", marginTop: 8 }}>
         Start →
       </span>
     </Link>
@@ -119,7 +119,7 @@ function KormanFooter() {
       padding: "28px 24px 36px",
       display: "flex", flexDirection: "column", alignItems: "center", gap: 14,
       color: "#5a657a",
-      fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase",
+      fontSize: "var(--fs-11)", letterSpacing: "0.14em", textTransform: "uppercase",
     }}>
       <a href={SITE_URL} aria-label="Korman Commercial Properties home" style={{ display: "inline-flex", textDecoration: "none", color: "inherit" }}>
         <Wordmark color={NAVY} small />

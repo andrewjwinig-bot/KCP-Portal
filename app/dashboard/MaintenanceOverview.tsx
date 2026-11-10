@@ -162,7 +162,7 @@ export default function MaintenanceOverview() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
@@ -189,7 +189,7 @@ export default function MaintenanceOverview() {
             <option value="active">Active only</option>
           </select>
         </Field>
-        <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)", paddingBottom: 6 }}>
+        <div style={{ marginLeft: "auto", fontSize: "var(--fs-12)", color: "var(--muted)", paddingBottom: 6 }}>
           {requests == null ? "Loading…" : `${total} request${total === 1 ? "" : "s"}`}
         </div>
       </div>
@@ -282,7 +282,7 @@ function countBy(
 
 
 const sectionLabelStyle: React.CSSProperties = {
-  fontSize: 12,
+  fontSize: "var(--fs-12)",
   fontWeight: 700,
   textTransform: "uppercase",
   letterSpacing: "0.06em",
@@ -332,7 +332,7 @@ function HorizontalBars({ rows, accent }: { rows: SliceRow[]; accent: string }) 
             onClick={() => r.href && router.push(r.href)}
             style={{ cursor: r.href ? "pointer" : "default" }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 3 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--fs-13)", marginBottom: 3 }}>
               <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>
                 {r.label}
               </span>
@@ -362,7 +362,7 @@ function ChartTooltip({ hover }: { hover: HoverState }) {
         color: "#fff",
         padding: "6px 10px",
         borderRadius: 6,
-        fontSize: 12,
+        fontSize: "var(--fs-12)",
         fontWeight: 600,
         pointerEvents: "none",
         whiteSpace: "nowrap",
@@ -406,7 +406,7 @@ function PieWithLegend({ rows, donut }: { rows: SliceRow[]; donut: boolean }) {
       <ul style={{
         listStyle: "none", padding: 0, margin: 0,
         display: "flex", flexDirection: "column", gap: 5,
-        fontSize: 13, flex: 1, minWidth: 180, maxHeight: size, overflowY: "auto",
+        fontSize: "var(--fs-13)", flex: 1, minWidth: 180, maxHeight: size, overflowY: "auto",
       }}>
         {rows.map((r, i) => {
           const inner = (

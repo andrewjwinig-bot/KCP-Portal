@@ -129,7 +129,7 @@ export default function WeekCalendar({
         display: "flex", alignItems: "center", justifyContent: "space-between",
         gap: 12, padding: "10px 14px", borderBottom: "1px solid var(--border)", flexWrap: "wrap",
       }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>{rangeLabel}</div>
+        <div style={{ fontSize: "var(--fs-14)", fontWeight: 700 }}>{rangeLabel}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <button className="btn" style={navBtn} onClick={() => shiftWeek(-1)} title="Previous week">‹</button>
           <button className="btn" style={{ ...navBtn, width: "auto", padding: "5px 12px" }}
@@ -150,7 +150,7 @@ export default function WeekCalendar({
               borderLeft: "1px solid var(--border)",
               background: isToday ? "rgba(11,74,125,0.06)" : undefined,
             }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", color: "var(--muted)" }}>
+              <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.04em", color: "var(--muted)" }}>
                 {DAY_LABELS[d.getDay()]}
               </div>
               <div style={{
@@ -169,7 +169,7 @@ export default function WeekCalendar({
           {Array.from({ length: HOUR_END - HOUR_START }, (_, i) => (
             <div key={i} style={{
               position: "absolute", top: i * ROW_H, right: 6,
-              fontSize: 10, fontWeight: 600, color: "var(--muted)",
+              fontSize: "var(--fs-10)", fontWeight: 600, color: "var(--muted)",
               transform: "translateY(-50%)",
             }}>{i === 0 ? "" : hourLabel(HOUR_START + i)}</div>
           ))}
@@ -229,12 +229,12 @@ export default function WeekCalendar({
                     }}
                   >
                     <span style={{
-                      fontSize: 11, fontWeight: 700, color: tone.fg, lineHeight: 1.15,
+                      fontSize: "var(--fs-11)", fontWeight: 700, color: tone.fg, lineHeight: 1.15,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>{res.tenantCompany || "Reservation"}</span>
                     {height > 30 && (
                       <span style={{
-                        fontSize: 10, color: tone.fg, lineHeight: 1.15,
+                        fontSize: "var(--fs-10)", color: tone.fg, lineHeight: 1.15,
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                       }}>{prettyTime(res.startTime)} · {res.roomLabel}</span>
                     )}
@@ -250,6 +250,6 @@ export default function WeekCalendar({
 }
 
 const navBtn: React.CSSProperties = {
-  fontSize: 14, fontWeight: 700, width: 30, padding: "5px 0",
+  fontSize: "var(--fs-14)", fontWeight: 700, width: 30, padding: "5px 0",
   display: "inline-flex", alignItems: "center", justifyContent: "center",
 };

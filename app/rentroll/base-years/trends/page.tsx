@@ -11,7 +11,7 @@ import {
 import { ChartTooltip, HoverBands } from "@/app/components/ChartTooltip";
 
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11,
+  fontSize: "var(--fs-11)",
   fontWeight: 700,
   textTransform: "uppercase",
   letterSpacing: "0.06em",
@@ -261,7 +261,7 @@ function LineChart({
               }}
             >
               <span style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flexShrink: 0 }} />
-              <span style={{ fontSize: 12, fontWeight: 600, textDecoration: off ? "line-through" : undefined }}>
+              <span style={{ fontSize: "var(--fs-12)", fontWeight: 600, textDecoration: off ? "line-through" : undefined }}>
                 {s.label}
               </span>
             </button>

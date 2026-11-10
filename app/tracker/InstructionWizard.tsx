@@ -166,7 +166,7 @@ export default function InstructionWizard({
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 900, fontSize: 17, letterSpacing: "-0.02em" }}>{task.label}</div>
               {instr.intro && (
-                <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4, fontWeight: 500 }}>{instr.intro}</div>
+                <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 4, fontWeight: 500 }}>{instr.intro}</div>
               )}
             </div>
             <button
@@ -187,7 +187,7 @@ export default function InstructionWizard({
                   background: allDone ? GREEN : BRAND, transition: "width 160ms ease",
                 }} />
               </div>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", color: allDone ? GREEN_TEXT : "var(--muted)" }}>
+              <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.04em", color: allDone ? GREEN_TEXT : "var(--muted)" }}>
                 {doneCount} of {steps.length} steps
               </span>
               <div style={{ marginLeft: "auto", display: "flex", gap: 14 }}>
@@ -219,7 +219,7 @@ export default function InstructionWizard({
           ) : (
             <div>
               <div style={{
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+                fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em",
                 textTransform: "uppercase", color: "var(--muted)", marginBottom: 10,
               }}>
                 Step {at + 1} of {steps.length}
@@ -238,7 +238,7 @@ export default function InstructionWizard({
                     title={`${i + 1}. ${s.title}`}
                     style={{
                       width: 26, height: 26, borderRadius: 999, cursor: "pointer",
-                      fontSize: 11, fontWeight: 800,
+                      fontSize: "var(--fs-11)", fontWeight: 800,
                       border: i === at ? `2px solid ${BRAND}` : "1px solid var(--border)",
                       background: isDone(i) ? GREEN : i === at ? "rgba(11,74,125,0.10)" : "transparent",
                       color: isDone(i) ? "#fff" : i === at ? BRAND : "var(--muted)",
@@ -268,7 +268,7 @@ export default function InstructionWizard({
                   // Say what still has to happen. A wizard that ends on a
                   // triumphant button implies the task is finished, and for the
                   // month-end chain it is the GL import that finishes it.
-                  <span style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", maxWidth: 300, textAlign: "right" }}>
+                  <span style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--muted)", maxWidth: 300, textAlign: "right" }}>
                     {completedBy}
                   </span>
                 )}
@@ -279,7 +279,7 @@ export default function InstructionWizard({
                     // you work out why.
                     return (
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#b45309" }}>
+                        <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "#b45309" }}>
                           {open.length} left: {open.join(", ")}
                         </span>
                         {at < steps.length - 1 && (
@@ -316,7 +316,7 @@ export default function InstructionWizard({
 
 const linkBtn: React.CSSProperties = {
   background: "none", border: "none", cursor: "pointer", padding: 0,
-  fontSize: 11, fontWeight: 700, color: "var(--muted)", textDecoration: "underline",
+  fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", textDecoration: "underline",
 };
 
 /** The numbered badge + title. The NUMBER IS THE TICK where one applies — a
@@ -382,13 +382,13 @@ function StepImage({ image }: { image: NonNullable<InstructionStep["image"]> }) 
         <img src={image.src} alt={image.alt} style={{ display: "block", width: "100%", height: "auto" }} />
         <span style={{
           position: "absolute", right: 8, bottom: 8,
-          fontSize: 10, fontWeight: 800, letterSpacing: "0.04em",
+          fontSize: "var(--fs-10)", fontWeight: 800, letterSpacing: "0.04em",
           padding: "3px 8px", borderRadius: 999,
           background: "rgba(15,23,42,0.75)", color: "#fff",
         }}>CLICK TO ENLARGE</span>
       </button>
       {image.caption && (
-        <div style={{ fontSize: 11.5, color: "var(--muted)", marginTop: 6, fontStyle: "italic" }}>{image.caption}</div>
+        <div style={{ fontSize: "var(--fs-11-5)", color: "var(--muted)", marginTop: 6, fontStyle: "italic" }}>{image.caption}</div>
       )}
 
       {zoom && typeof document !== "undefined" && createPortal(
@@ -429,7 +429,7 @@ function PathChip({ text, kind }: { text: string; kind: "screen" | "save" }) {
       title="Copy"
       style={{
         display: "inline-flex", alignItems: "center", textAlign: "left",
-        fontSize: 12, fontWeight: 700, cursor: "pointer",
+        fontSize: "var(--fs-12)", fontWeight: 700, cursor: "pointer",
         color: isSave ? "#b45309" : BRAND,
         background: isSave ? "rgba(180,83,9,0.06)" : "rgba(11,74,125,0.07)",
         border: `1px solid ${isSave ? "rgba(180,83,9,0.25)" : "rgba(11,74,125,0.18)"}`,
@@ -448,7 +448,7 @@ function PathChip({ text, kind }: { text: string; kind: "screen" | "save" }) {
       )}
       {isSave && <span style={{ fontFamily: "inherit", opacity: 0.75, fontWeight: 800 }}>Save to</span>}
       <span style={{ overflowWrap: "anywhere" }}>{text}</span>
-      <span style={{ fontSize: 10, opacity: copied ? 1 : 0.45, flexShrink: 0, fontFamily: "system-ui" }}>
+      <span style={{ fontSize: "var(--fs-10)", opacity: copied ? 1 : 0.45, flexShrink: 0, fontFamily: "system-ui" }}>
         {copied ? "copied" : "copy"}
       </span>
     </button>
@@ -475,7 +475,7 @@ function StepBody({ step, runState, onToggleRun }: {
       {step.runs && step.runs.length > 0 && (
         <div style={{ margin: "12px 0 12px", paddingLeft: 8 }}>
           <div style={{
-            fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em",
+            fontSize: "var(--fs-10-5)", fontWeight: 700, letterSpacing: "0.06em",
             textTransform: "uppercase", color: "var(--muted)", marginBottom: 7,
           }}>
             Run once for each — {step.runs.filter((r) => runState?.[r]).length} of {step.runs.length} done
@@ -491,7 +491,7 @@ function StepBody({ step, runState, onToggleRun }: {
                   onClick={() => onToggleRun?.(r)}
                   style={{
                     display: "inline-flex", alignItems: "center", gap: 6,
-                    fontSize: 12, fontWeight: 800, fontFamily: "monospace",
+                    fontSize: "var(--fs-12)", fontWeight: 800, fontFamily: "monospace",
                     padding: "5px 11px", borderRadius: 999,
                     cursor: onToggleRun ? "pointer" : "default",
                     border: `1px solid ${on ? GREEN : "rgba(11,74,125,0.28)"}`,
@@ -500,7 +500,7 @@ function StepBody({ step, runState, onToggleRun }: {
                     transition: "background 140ms ease, border-color 140ms ease",
                   }}
                 >
-                  <span style={{ fontSize: 11 }}>{on ? "✓" : "○"}</span>{r}
+                  <span style={{ fontSize: "var(--fs-11)" }}>{on ? "✓" : "○"}</span>{r}
                 </button>
               );
             })}
@@ -513,8 +513,8 @@ function StepBody({ step, runState, onToggleRun }: {
       {step.items.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingLeft: 8 }}>
           {step.items.map((item, ii) => (
-            <div key={ii} style={{ display: "flex", gap: 10, fontSize: 13.5 }}>
-              <span style={{ color: BRAND, fontSize: 9, flexShrink: 0, marginTop: 5 }}>■</span>
+            <div key={ii} style={{ display: "flex", gap: 10, fontSize: "var(--fs-13-5)" }}>
+              <span style={{ color: BRAND, fontSize: "var(--fs-9)", flexShrink: 0, marginTop: 5 }}>■</span>
               <span style={{ color: "var(--text)", lineHeight: 1.5, fontWeight: 500 }}>{item}</span>
             </div>
           ))}
@@ -534,7 +534,7 @@ function StepBody({ step, runState, onToggleRun }: {
           display: "flex", flexDirection: "column", gap: 4,
         }}>
           {step.context.map((c, ci) => (
-            <div key={ci} style={{ fontSize: 12.5, lineHeight: 1.5, color: "var(--muted)" }}>{c}</div>
+            <div key={ci} style={{ fontSize: "var(--fs-12-5)", lineHeight: 1.5, color: "var(--muted)" }}>{c}</div>
           ))}
         </div>
       )}
@@ -551,7 +551,7 @@ function StepBody({ step, runState, onToggleRun }: {
           {step.settings.map((row, i) => (
             <div key={row.field} style={{
               display: "flex", gap: 12, alignItems: "baseline",
-              padding: "6px 11px", fontSize: 12.5,
+              padding: "6px 11px", fontSize: "var(--fs-12-5)",
               background: i % 2 ? "transparent" : "rgba(11,74,125,0.04)",
               borderTop: i ? "1px solid rgba(11,74,125,0.10)" : undefined,
             }}>
@@ -580,10 +580,10 @@ function StepBody({ step, runState, onToggleRun }: {
             style={{
               display: "inline-flex", alignItems: "center", gap: 6,
               background: "none", border: "none", padding: 0, cursor: "pointer",
-              fontSize: 12, fontWeight: 700, color: "#b45309",
+              fontSize: "var(--fs-12)", fontWeight: 700, color: "#b45309",
             }}
           >
-            <span style={{ fontSize: 10, transform: showFix ? "rotate(90deg)" : "none", transition: "transform 140ms ease", display: "inline-block" }}>▶</span>
+            <span style={{ fontSize: "var(--fs-10)", transform: showFix ? "rotate(90deg)" : "none", transition: "transform 140ms ease", display: "inline-block" }}>▶</span>
             If it reports errors
           </button>
           {showFix && (
@@ -593,7 +593,7 @@ function StepBody({ step, runState, onToggleRun }: {
               display: "flex", flexDirection: "column", gap: 6,
             }}>
               {step.troubleshooting.map((t, i) => (
-                <div key={i} style={{ display: "flex", gap: 9, fontSize: 12.5, lineHeight: 1.5 }}>
+                <div key={i} style={{ display: "flex", gap: 9, fontSize: "var(--fs-12-5)", lineHeight: 1.5 }}>
                   <span style={{ color: "#b45309", fontWeight: 900, flexShrink: 0 }}>·</span>
                   <span>{t}</span>
                 </div>
@@ -612,7 +612,7 @@ function StepBody({ step, runState, onToggleRun }: {
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700,
+                display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--fs-12)", fontWeight: 700,
                 color: BRAND, background: "rgba(11,74,125,0.07)",
                 border: "1px solid rgba(11,74,125,0.25)", borderRadius: 6, padding: "5px 10px",
                 textDecoration: "none",
@@ -635,7 +635,7 @@ function StepBody({ step, runState, onToggleRun }: {
         <div style={{
           marginTop: 12, padding: "9px 12px", borderRadius: 8,
           background: "rgba(220,38,38,0.07)", border: "1px solid rgba(220,38,38,0.30)",
-          fontSize: 12.5, fontWeight: 700, color: "#b91c1c",
+          fontSize: "var(--fs-12-5)", fontWeight: 700, color: "#b91c1c",
           display: "flex", gap: 8, alignItems: "flex-start", lineHeight: 1.45,
         }}>
           <span style={{ flexShrink: 0 }}>⚠</span>
@@ -643,7 +643,7 @@ function StepBody({ step, runState, onToggleRun }: {
         </div>
       ) : (
         <div style={{
-          marginTop: 10, paddingLeft: 8, fontSize: 12, fontStyle: "italic",
+          marginTop: 10, paddingLeft: 8, fontSize: "var(--fs-12)", fontStyle: "italic",
           color: "var(--muted)", display: "flex", gap: 6,
         }}>
           <span style={{ fontWeight: 700, fontStyle: "normal" }}>*</span>

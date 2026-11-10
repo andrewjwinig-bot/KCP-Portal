@@ -134,7 +134,7 @@ export function FloorplanViewer({ propId, propName }: { propId: string; propName
           padding: "6px 14px", borderRadius: 8,
           border: "1.5px solid rgba(11,74,125,0.3)",
           background: "rgba(11,74,125,0.06)",
-          color: "#0b4a7d", fontSize: 13, fontWeight: 600,
+          color: "#0b4a7d", fontSize: "var(--fs-13)", fontWeight: 600,
           cursor: "pointer",
         }}
       >
@@ -167,7 +167,7 @@ export function FloorplanViewer({ propId, propName }: { propId: string; propName
               display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: "12px 16px", borderBottom: "1px solid var(--border)", flexShrink: 0,
             }}>
-              <span style={{ fontWeight: 700, fontSize: 14 }}>{propName} — Floorplan</span>
+              <span style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>{propName} — Floorplan</span>
               <button
                 onClick={() => setOpen(false)}
                 style={{ background: "none", border: "none", fontSize: 18, cursor: "pointer", color: "var(--muted)", padding: "0 4px" }}
@@ -224,13 +224,13 @@ export function K1InvestorRow({
             width: 16, height: 16, borderRadius: 4,
             background: done ? "rgba(22,163,74,0.15)" : "var(--border)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 10, color: done ? "#16a34a" : "transparent",
+            fontSize: "var(--fs-10)", color: done ? "#16a34a" : "transparent",
             flexShrink: 0,
           }}>✓</span>
         )}
         {inv.vendorCode && (
           <span style={{
-            fontSize: 11, fontWeight: 600, letterSpacing: "0.04em",
+            fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.04em",
             padding: "2px 7px", borderRadius: 999,
             background: "rgba(15,23,42,0.05)", color: "var(--text)",
             border: "1px solid var(--border)",
@@ -238,15 +238,15 @@ export function K1InvestorRow({
           }}>{inv.vendorCode}</span>
         )}
         <span style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 14, fontWeight: done ? 700 : 500, color: done ? "#16a34a" : "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: "var(--fs-14)", fontWeight: done ? 700 : 500, color: done ? "#16a34a" : "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {inv.name}
           </span>
           {hasDetail && (
-            <span style={{ fontSize: 11, color: "var(--muted)" }}>ⓘ</span>
+            <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>ⓘ</span>
           )}
         </span>
         {ownership != null && (
-          <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600, flexShrink: 0 }}>
+          <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", fontWeight: 600, flexShrink: 0 }}>
             {pctFmt(ownership)}
           </span>
         )}
@@ -276,7 +276,7 @@ export function K1InvestorRow({
               <div>
                 <div style={{ fontSize: 17, fontWeight: 700 }}>{inv.name}</div>
                 {inv.detailedName && (
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3 }}>{inv.detailedName}</div>
+                  <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: 3 }}>{inv.detailedName}</div>
                 )}
               </div>
               <button
@@ -286,33 +286,33 @@ export function K1InvestorRow({
             </div>
 
             {inv.address && (
-              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Address</div>
+              <div style={{ fontSize: "var(--fs-13)", color: "var(--text)", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, fontSize: "var(--fs-11)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Address</div>
                 <div>{inv.address}</div>
                 <div>{inv.city}, {inv.state} {inv.zip}</div>
                 {inv.stateIfDifferent && (
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, fontStyle: "italic" }}>Also files in: {inv.stateIfDifferent}</div>
+                  <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: 2, fontStyle: "italic" }}>Also files in: {inv.stateIfDifferent}</div>
                 )}
               </div>
             )}
 
             {inv.phone && (
-              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Phone</div>
+              <div style={{ fontSize: "var(--fs-13)", color: "var(--text)", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, fontSize: "var(--fs-11)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Phone</div>
                 <div>{inv.phone}</div>
               </div>
             )}
 
             {inv.vendorCode && (
-              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Vendor Code</div>
+              <div style={{ fontSize: "var(--fs-13)", color: "var(--text)", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, fontSize: "var(--fs-11)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Vendor Code</div>
                 <div style={{ fontWeight: 700, letterSpacing: "0.04em" }}>{inv.vendorCode}</div>
               </div>
             )}
 
             {ownership != null && (
               <div>
-                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Ownership %</div>
+                <div style={{ fontWeight: 600, fontSize: "var(--fs-11)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Ownership %</div>
                 <div style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "#fafafa", textAlign: "center" }}>
                   <div style={{ fontSize: 18, fontWeight: 700 }}>{pctFmt(ownership)}</div>
                 </div>
@@ -352,7 +352,7 @@ export function OwnerSubRow({
           borderLeft: "2px solid var(--border)",
           marginBottom: 2,
           cursor: hasDetail ? "pointer" : "default",
-          fontSize: 12,
+          fontSize: "var(--fs-12)",
         }}
       >
         {showK1Check && (
@@ -360,13 +360,13 @@ export function OwnerSubRow({
             width: 13, height: 13, borderRadius: 3,
             background: done ? "rgba(22,163,74,0.18)" : "var(--border)",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 9, color: done ? "#16a34a" : "transparent",
+            fontSize: "var(--fs-9)", color: done ? "#16a34a" : "transparent",
             flexShrink: 0,
           }}>✓</span>
         )}
         {inv.vendorCode && (
           <span style={{
-            fontSize: 10, fontWeight: 600, letterSpacing: "0.04em",
+            fontSize: "var(--fs-10)", fontWeight: 600, letterSpacing: "0.04em",
             padding: "1px 6px", borderRadius: 999,
             background: "rgba(15,23,42,0.05)", color: "var(--text)",
             border: "1px solid var(--border)",
@@ -379,7 +379,7 @@ export function OwnerSubRow({
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
           {detail || "—"}
-          {hasDetail && <span style={{ marginLeft: 4, fontSize: 10 }}>ⓘ</span>}
+          {hasDetail && <span style={{ marginLeft: 4, fontSize: "var(--fs-10)" }}>ⓘ</span>}
         </span>
         {ownership != null && (
           <span style={{ fontWeight: 600, flexShrink: 0 }}>{pctFmt(ownership)}</span>
@@ -410,7 +410,7 @@ export function OwnerSubRow({
               <div>
                 <div style={{ fontSize: 17, fontWeight: 700 }}>{inv.name}</div>
                 {inv.detailedName && (
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 3 }}>{inv.detailedName}</div>
+                  <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: 3 }}>{inv.detailedName}</div>
                 )}
               </div>
               <button
@@ -420,33 +420,33 @@ export function OwnerSubRow({
             </div>
 
             {inv.address && (
-              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Address</div>
+              <div style={{ fontSize: "var(--fs-13)", color: "var(--text)", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, fontSize: "var(--fs-11)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Address</div>
                 <div>{inv.address}</div>
                 <div>{inv.city}, {inv.state} {inv.zip}</div>
                 {inv.stateIfDifferent && (
-                  <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2, fontStyle: "italic" }}>Also files in: {inv.stateIfDifferent}</div>
+                  <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: 2, fontStyle: "italic" }}>Also files in: {inv.stateIfDifferent}</div>
                 )}
               </div>
             )}
 
             {inv.phone && (
-              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Phone</div>
+              <div style={{ fontSize: "var(--fs-13)", color: "var(--text)", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, fontSize: "var(--fs-11)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Phone</div>
                 <div>{inv.phone}</div>
               </div>
             )}
 
             {inv.vendorCode && (
-              <div style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.5 }}>
-                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Vendor Code</div>
+              <div style={{ fontSize: "var(--fs-13)", color: "var(--text)", lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, fontSize: "var(--fs-11)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 3 }}>Vendor Code</div>
                 <div style={{ fontWeight: 700, letterSpacing: "0.04em" }}>{inv.vendorCode}</div>
               </div>
             )}
 
             {ownership != null && (
               <div>
-                <div style={{ fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Ownership %</div>
+                <div style={{ fontWeight: 600, fontSize: "var(--fs-11)", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Ownership %</div>
                 <div style={{ padding: "10px 12px", border: "1px solid var(--border)", borderRadius: 8, background: "#fafafa", textAlign: "center" }}>
                   <div style={{ fontSize: 18, fontWeight: 700 }}>{pctFmt(ownership)}</div>
                 </div>
@@ -464,7 +464,7 @@ export function OwnerSubRow({
 export function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div style={{
-      fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+      fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em",
       color: "var(--muted)", textTransform: "uppercase",
       marginBottom: 10, display: "flex", alignItems: "center", gap: 6,
     }}>
@@ -491,7 +491,7 @@ export function CollapsibleSection({ title, link, count, children }: {
           style={{
             display: "flex", alignItems: "center", gap: 6,
             background: "transparent", border: "none", padding: 0,
-            fontSize: 11, fontWeight: 900, letterSpacing: "0.08em",
+            fontSize: "var(--fs-11)", fontWeight: 900, letterSpacing: "0.08em",
             color: "var(--muted)", textTransform: "uppercase",
             cursor: "pointer", fontFamily: "inherit",
           }}
@@ -518,8 +518,8 @@ export function CollapsibleSection({ title, link, count, children }: {
 export function InfoField({ label, value }: { label: string; value: string; mono?: boolean }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>{label}</span>
-      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>{value}</span>
+      <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>{label}</span>
+      <span style={{ fontSize: "var(--fs-14)", fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>{value}</span>
     </div>
   );
 }
@@ -530,7 +530,7 @@ export function InfoField({ label, value }: { label: string; value: string; mono
 export function BigInfoField({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>{label}</span>
+      <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>{label}</span>
       <span style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>{value}</span>
     </div>
   );
@@ -720,7 +720,7 @@ export function PropertyDetailBody({
         {prop.notes && (
           <div className="card">
             <SectionLabel>Notes</SectionLabel>
-            <p style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>{prop.notes}</p>
+            <p style={{ fontSize: "var(--fs-13)", color: "var(--muted)", margin: 0 }}>{prop.notes}</p>
           </div>
         )}
 
@@ -746,43 +746,43 @@ export function PropertyDetailBody({
                 )}
                 {prop.ownerEntity && (
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Ownership Entity</div>
+                    <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Ownership Entity</div>
                     <div style={{
                       padding: "8px 12px",
                       background: "rgba(11,74,125,0.04)",
                       border: "1px solid rgba(11,74,125,0.12)",
                       borderRadius: 8,
-                      fontSize: 14, fontWeight: 700, color: "var(--text)",
+                      fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--text)",
                     }}>{prop.ownerEntity}</div>
                   </div>
                 )}
                 {prop.ein && (
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>{prop.einLabel ?? "EIN"}</div>
+                    <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>{prop.einLabel ?? "EIN"}</div>
                     <div style={{
                       padding: "8px 12px",
                       background: "rgba(11,74,125,0.04)",
                       border: "1px solid rgba(11,74,125,0.12)",
                       borderRadius: 8,
-                      fontSize: 14, fontWeight: 700, color: "var(--text)",
+                      fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--text)",
                     }}>{prop.ein}</div>
                   </div>
                 )}
                 {prop.ein2 && (
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>{prop.ein2Label ?? "EIN (2)"}</div>
+                    <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>{prop.ein2Label ?? "EIN (2)"}</div>
                     <div style={{
                       padding: "8px 12px",
                       background: "rgba(11,74,125,0.04)",
                       border: "1px solid rgba(11,74,125,0.12)",
                       borderRadius: 8,
-                      fontSize: 14, fontWeight: 700, color: "var(--text)",
+                      fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--text)",
                     }}>{prop.ein2}</div>
                   </div>
                 )}
                 {!isMaint && bankAccounts.length > 0 && (
                   <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Bank Accounts</div>
+                    <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Bank Accounts</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {bankAccounts.map((acct, i) => (
                         <div key={i} style={{
@@ -795,11 +795,11 @@ export function PropertyDetailBody({
                         }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <a href={acct.link} target="_blank" rel="noreferrer"
-                              style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                              style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
                               onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
                               onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
                             >{acct.bank} {acct.last4}</a>
-                            <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{acct.label}</span>
+                            <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)", fontWeight: 500 }}>{acct.label}</span>
                           </div>
                         </div>
                       ))}
@@ -810,7 +810,7 @@ export function PropertyDetailBody({
             )}
             {parcels.length > 0 && (
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Parcel Numbers</div>
+                <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Parcel Numbers</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {parcels.map((p, i) => (
                     <div key={i} style={{
@@ -823,16 +823,16 @@ export function PropertyDetailBody({
                     }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                         {p.link
-                          ? <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
+                          ? <a href={p.link} target="_blank" rel="noreferrer" style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}
                               onMouseEnter={e => (e.currentTarget.style.textDecoration = "underline")}
                               onMouseLeave={e => (e.currentTarget.style.textDecoration = "none")}
                             >{p.number}</a>
-                          : <code style={{ fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>{p.number}</code>
+                          : <code style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "#0b4a7d" }}>{p.number}</code>
                         }
-                        {p.label && <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>{p.label}</span>}
+                        {p.label && <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)", fontWeight: 500 }}>{p.label}</span>}
                       </div>
                       {PARCEL_ACRES[p.number] != null && (
-                        <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                        <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
                           {PARCEL_ACRES[p.number].toFixed(2)} ac
                         </span>
                       )}
@@ -843,7 +843,7 @@ export function PropertyDetailBody({
             )}
             {FLOORPLAN_IDS.has(prop.id) && (
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Floorplan</div>
+                <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>Floorplan</div>
                 <FloorplanViewer propId={prop.id} propName={prop.name} />
               </div>
             )}
@@ -853,8 +853,8 @@ export function PropertyDetailBody({
           {!isMaint && alloc && (
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)" }}>Portfolio PRS %</span>
-                <AllowedLink href="/allocated-invoicer" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
+                <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)" }}>Portfolio PRS %</span>
+                <AllowedLink href="/allocated-invoicer" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", textDecoration: "none" }}>
                   Open Allocated Invoicer →
                 </AllowedLink>
               </div>
@@ -874,7 +874,7 @@ export function PropertyDetailBody({
                     <div style={{ fontSize: 16, fontWeight: 900, lineHeight: 1, color: alloc[acct] > 0 ? "#0b4a7d" : "var(--muted)" }}>
                       {pct(alloc[acct])}
                     </div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", marginTop: 4 }}>
+                    <div style={{ fontSize: "var(--fs-10)", fontWeight: 700, color: "var(--muted)", marginTop: 4 }}>
                       {name} ({acct})
                     </div>
                   </div>
@@ -901,7 +901,7 @@ export function PropertyDetailBody({
             title="Ownership"
             count={ownershipEntry.owners.length}
             link={
-              <AllowedLink href="/investors" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+              <AllowedLink href="/investors" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
                 Open Investor Info →
               </AllowedLink>
             }
@@ -910,7 +910,7 @@ export function PropertyDetailBody({
               const allDone = t.investors?.every((inv) => effectiveChecked[inv.id]) ?? false;
               return (
                 <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>
+                  <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", fontWeight: 600 }}>
                     K-1 Distribution · Due {MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}
                   </span>
                   {allDone
@@ -942,8 +942,8 @@ export function PropertyDetailBody({
                     background: "#fafafa",
                     marginBottom: 4,
                   }}>
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>{g.owners[0].name}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>
+                    <span style={{ fontSize: "var(--fs-14)", fontWeight: 700 }}>{g.owners[0].name}</span>
+                    <span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>
                       {(g.total * 100).toFixed(4)}%
                     </span>
                   </div>
@@ -971,8 +971,8 @@ export function PropertyDetailBody({
             })}
             {ownershipTotal > 0 && (
               <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 12px", borderRadius: 8, background: "rgba(15,23,42,0.04)", border: "1px solid var(--border)", marginTop: 4 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--muted)" }}>Total</span>
-                <span style={{ fontSize: 12, fontWeight: 700 }}>{`${(ownershipTotal * 100).toFixed(4)}%`}</span>
+                <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--muted)" }}>Total</span>
+                <span style={{ fontSize: "var(--fs-12)", fontWeight: 700 }}>{`${(ownershipTotal * 100).toFixed(4)}%`}</span>
               </div>
             )}
           </CollapsibleSection>
@@ -994,7 +994,7 @@ export function PropertyDetailBody({
             title="Tax Filings"
             count={filingTasks.length}
             link={
-              <AllowedLink href="/tracker/taxes" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+              <AllowedLink href="/tracker/taxes" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
                 Open Filing Tracker →
               </AllowedLink>
             }
@@ -1024,10 +1024,10 @@ export function PropertyDetailBody({
                       border: `1px solid ${cat.border}`,
                       color: cat.text,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 9, fontWeight: 900,
+                      fontSize: "var(--fs-9)", fontWeight: 900,
                     }}>{cat.pill}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, fontWeight: 700, lineHeight: 1.3 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "var(--fs-14)", fontWeight: 700, lineHeight: 1.3 }}>
                         {filingLabel(t)}
                         {t.instructionSteps && (
                           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -1035,14 +1035,14 @@ export function PropertyDetailBody({
                           </svg>
                         )}
                       </div>
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                      <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                         Due {MONTHS_SHORT[t.dueMonth - 1]} {t.dueDay}
                         {t.notes && ` · ${t.notes}`}
                       </div>
                     </div>
                     <span style={{
                       flexShrink: 0,
-                      fontSize: 10, fontWeight: 800,
+                      fontSize: "var(--fs-10)", fontWeight: 800,
                       padding: "2px 8px", borderRadius: 999,
                       background: status.bg,
                       color: status.color,
@@ -1121,13 +1121,13 @@ export function PropertyDetailBody({
                         )}
                       </td>
                       <td style={{ whiteSpace: "nowrap" }}>
-                        <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{u.unitRef}</code>
+                        <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{u.unitRef}</code>
                       </td>
-                      <td style={{ textAlign: "right", fontSize: 13 }}>{u.sqft ? u.sqft.toLocaleString() : "—"}</td>
-                      <td style={{ fontSize: 13, color: "var(--muted)", whiteSpace: "nowrap" }}>{formatModalDate(u.leaseFrom)}</td>
-                      <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{formatModalDate(u.leaseTo)}</td>
-                      {!isMaint && <td style={{ textAlign: "right", fontSize: 13 }}>{u.baseRent ? `$${u.baseRent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</td>}
-                      {!isMaint && <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)" }}>{u.annualRentPerSqft ? `$${u.annualRentPerSqft.toFixed(2)}` : "—"}</td>}
+                      <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{u.sqft ? u.sqft.toLocaleString() : "—"}</td>
+                      <td style={{ fontSize: "var(--fs-13)", color: "var(--muted)", whiteSpace: "nowrap" }}>{formatModalDate(u.leaseFrom)}</td>
+                      <td style={{ fontSize: "var(--fs-13)", whiteSpace: "nowrap" }}>{formatModalDate(u.leaseTo)}</td>
+                      {!isMaint && <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{u.baseRent ? `$${u.baseRent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}</td>}
+                      {!isMaint && <td style={{ textAlign: "right", fontSize: "var(--fs-13)", color: "var(--muted)" }}>{u.annualRentPerSqft ? `$${u.annualRentPerSqft.toFixed(2)}` : "—"}</td>}
                     </tr>
                     );
                   })}
@@ -1145,7 +1145,7 @@ export function PropertyDetailBody({
             title="Maintenance Requests"
             count={propRequests.length}
             link={
-              <AllowedLink href={`/maintenance?property=${encodeURIComponent(prop.name)}`} style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+              <AllowedLink href={`/maintenance?property=${encodeURIComponent(prop.name)}`} style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
                 Open Maintenance →
               </AllowedLink>
             }
@@ -1177,10 +1177,10 @@ export function PropertyDetailBody({
                       }}
                     >
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <div style={{ fontSize: "var(--fs-14)", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {r.subject || "(no subject)"}
                         </div>
-                        <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                        <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                           {[r.tenantCompany, r.assignedTo ?? "Unassigned", formatModalDate(r.submittedDate)].filter(Boolean).join(" · ")}
                         </div>
                       </div>
@@ -1228,7 +1228,7 @@ export function PropertyDetailBody({
                   </svg>
                   <span style={{ fontSize: 16, fontWeight: 700 }}>{filingLabel(instructionsTask)}</span>
                 </div>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                   Due {MONTHS_SHORT[instructionsTask.dueMonth - 1]} {instructionsTask.dueDay}
                   {instructionsTask.notes && ` · ${instructionsTask.notes}`}
                 </div>
@@ -1240,12 +1240,12 @@ export function PropertyDetailBody({
             </div>
 
             <div>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
+              <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
                 Instructions
               </div>
               <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 10 }}>
                 {instructionsTask.instructionSteps!.map((step, i) => (
-                  <li key={i} style={{ fontSize: 13, lineHeight: 1.6, color: "var(--text)" }}>
+                  <li key={i} style={{ fontSize: "var(--fs-13)", lineHeight: 1.6, color: "var(--text)" }}>
                     {step.startsWith("Email ") ? (
                       <>
                         Email{" "}
@@ -1381,7 +1381,7 @@ function BuildingFacts({
     <section>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
         <span style={{
-          fontSize: 11, fontWeight: 900, letterSpacing: "0.08em",
+          fontSize: "var(--fs-11)", fontWeight: 900, letterSpacing: "0.08em",
           color: "var(--muted)", textTransform: "uppercase",
         }}>Building Facts</span>
         <Badge muted>{filledCount}</Badge>
@@ -1389,7 +1389,7 @@ function BuildingFacts({
           <button
             onClick={startEdit}
             style={{
-              fontSize: 11, fontWeight: 600, color: "var(--brand)",
+              fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)",
               marginLeft: 2, background: "transparent", border: "none",
               cursor: "pointer", padding: 0, fontFamily: "inherit",
             }}
@@ -1406,7 +1406,7 @@ function BuildingFacts({
             return (
               <Fragment key={f.key}>
               <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+                <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
                   {f.label}
                 </span>
                 <input
@@ -1425,15 +1425,15 @@ function BuildingFacts({
               onClick={save}
               disabled={busy}
               className="btn primary"
-              style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
+              style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}
             >{busy ? "Saving…" : "Save"}</button>
             <button
               onClick={cancelEdit}
               disabled={busy}
               className="btn"
-              style={{ fontSize: 13, padding: "8px 14px" }}
+              style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}
             >Cancel</button>
-            {error && <span style={{ fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</span>}
+            {error && <span style={{ fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>{error}</span>}
           </div>
         </div>
       ) : (

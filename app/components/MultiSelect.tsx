@@ -28,7 +28,7 @@ function Chip({
       style={{
         display: "inline-flex", alignItems: "center", gap: 5,
         padding: "2px 8px", borderRadius: 999,
-        fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
+        fontSize: "var(--fs-11)", fontWeight: 700, whiteSpace: "nowrap",
         background: tone.bg, color: tone.fg, border: `1px solid ${tone.border}`,
       }}
     >
@@ -43,7 +43,7 @@ function Chip({
             display: "inline-flex", alignItems: "center", justifyContent: "center",
             background: "transparent", border: "none", padding: 0, margin: 0,
             cursor: disabled ? "default" : "pointer", color: tone.fg,
-            fontSize: 12, lineHeight: 1, opacity: 0.8,
+            fontSize: "var(--fs-12)", lineHeight: 1, opacity: 0.8,
           }}
         >
           ✕
@@ -111,7 +111,7 @@ export function MultiSelect({
         }}
       >
         {selected.length === 0 && (
-          <span style={{ fontSize: 13, color: "var(--muted)" }}>{placeholder}</span>
+          <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>{placeholder}</span>
         )}
         {selected.map((v) => (
           <Chip
@@ -124,7 +124,7 @@ export function MultiSelect({
         ))}
         <span style={{
           position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
-          color: "var(--muted)", fontSize: 11, pointerEvents: "none",
+          color: "var(--muted)", fontSize: "var(--fs-11)", pointerEvents: "none",
         }}>▾</span>
       </div>
 
@@ -147,7 +147,7 @@ export function MultiSelect({
             style={{ boxSizing: "border-box" }}
           />
           {filtered.length === 0 && (
-            <div style={{ fontSize: 12, color: "var(--muted)", padding: "4px 6px" }}>
+            <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", padding: "4px 6px" }}>
               No matches
             </div>
           )}
@@ -172,7 +172,7 @@ export function MultiSelect({
                   border: `1.5px solid ${checked ? "#2563eb" : "var(--border)"}`,
                   background: checked ? "#2563eb" : "transparent",
                   display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  color: "#fff", fontSize: 11, fontWeight: 900, lineHeight: 1,
+                  color: "#fff", fontSize: "var(--fs-11)", fontWeight: 900, lineHeight: 1,
                 }}>
                   {checked ? "✓" : ""}
                 </span>

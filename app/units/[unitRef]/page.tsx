@@ -194,7 +194,7 @@ export default function UnitDetailPage() {
   if (loading) {
     return (
       <main style={{ display: "grid", gap: 14 }}>
-        <div style={{ color: "var(--muted)", fontSize: 13 }}>Loading…</div>
+        <div style={{ color: "var(--muted)", fontSize: "var(--fs-13)" }}>Loading…</div>
       </main>
     );
   }
@@ -211,12 +211,12 @@ export default function UnitDetailPage() {
           maxWidth: 480,
         }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Unit not found</div>
-          <div style={{ fontSize: 13, color: "var(--muted)" }}>
+          <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>
             No unit matches <code>{decodedUnitRef}</code>.
           </div>
           <Link
             href="/rentroll"
-            style={{ fontSize: 13, fontWeight: 600, color: "var(--brand)", textDecoration: "none", marginTop: 4 }}
+            style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--brand)", textDecoration: "none", marginTop: 4 }}
           >
             ← Rent roll
           </Link>
@@ -298,7 +298,7 @@ export default function UnitDetailPage() {
   const nextUnit = navIdx >= 0 && navIdx < propUnits.length - 1 ? propUnits[navIdx + 1] : null;
   const navName = (u: typeof unit) => (u.amenity ?? amenityFor(u.unitRef))?.label || u.occupantName || "Vacant";
   const navBtn: React.CSSProperties = {
-    display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600,
+    display: "inline-flex", alignItems: "center", gap: 4, fontSize: "var(--fs-12)", fontWeight: 600,
     padding: "4px 10px", borderRadius: 7, border: "1px solid var(--border)",
     background: "var(--card)", color: "var(--text)", textDecoration: "none", whiteSpace: "nowrap",
   };
@@ -319,7 +319,7 @@ export default function UnitDetailPage() {
     else router.push("/rentroll");
   };
   const backStyle: React.CSSProperties = {
-    fontSize: 12, fontWeight: 600, color: "var(--muted)", textDecoration: "none",
+    fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--muted)", textDecoration: "none",
     width: "fit-content", background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit",
   };
 
@@ -335,7 +335,7 @@ export default function UnitDetailPage() {
               {prevUnit
                 ? <Link href={`/units/${encodeURIComponent(prevUnit.unitRef)}${fromSuffix}`} title={`${prevUnit.unitRef} · ${navName(prevUnit)}`} style={navBtn}>‹ Prev</Link>
                 : <span style={navDisabled}>‹ Prev</span>}
-              <span style={{ fontSize: 11, color: "var(--muted)", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)", whiteSpace: "nowrap" }}>
                 {navIdx + 1} / {propUnits.length} · {propertyCode}
               </span>
               {nextUnit
@@ -349,18 +349,18 @@ export default function UnitDetailPage() {
           <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
             <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
             <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-            <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+            <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <code style={{
             background: "#0b1220", color: "#e0f0ff",
             padding: "2px 8px", borderRadius: 5,
-            fontSize: 11, fontWeight: 600, letterSpacing: "0.06em",
+            fontSize: "var(--fs-11)", fontWeight: 600, letterSpacing: "0.06em",
           }}>{unit.unitRef}</code>
           <Link
             href={`/properties/${encodeURIComponent(propertyCode)}`}
-            style={{ fontSize: 13, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}
+            style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}
             onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
             onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
           >
@@ -409,8 +409,8 @@ export default function UnitDetailPage() {
             value={
               <>
                 {baseYearVal != null ? baseYearVal : "—"}
-                {reset && <sup style={{ fontSize: 10, fontWeight: 800, color: "#b91c1c", lineHeight: 1 }}>※</sup>}
-                {snowExcl && <sup title={snowExclLabel ?? undefined} style={{ fontSize: 10, fontWeight: 800, color: "#0b4a7d", lineHeight: 1, marginLeft: 1 }}>❄</sup>}
+                {reset && <sup style={{ fontSize: "var(--fs-10)", fontWeight: 800, color: "#b91c1c", lineHeight: 1 }}>※</sup>}
+                {snowExcl && <sup title={snowExclLabel ?? undefined} style={{ fontSize: "var(--fs-10)", fontWeight: 800, color: "#0b4a7d", lineHeight: 1, marginLeft: 1 }}>❄</sup>}
               </>
             }
             accent={reset ? "#b91c1c" : undefined}
@@ -438,10 +438,10 @@ export default function UnitDetailPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 18px" }}>
               <span style={{
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+                fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em",
                 color: "var(--muted)", textTransform: "uppercase",
               }}>Lease Term</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>
+              <span style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--text)" }}>
                 {formatModalDate(unit.leaseFrom)}
                 <span style={{ color: "var(--muted)", fontWeight: 500, margin: "0 8px" }}>→</span>
                 {formatModalDate(unit.leaseTo)}
@@ -533,9 +533,9 @@ export default function UnitDetailPage() {
                     border: "1px solid var(--border)", borderRadius: 8,
                     background: "#fafafa",
                   }}>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{formatModalDate(esc.date)}</span>
-                    <span style={{ fontSize: 13, color: "var(--muted)" }}>→</span>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>{money(esc.amount)}/mo</span>
+                    <span style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>{formatModalDate(esc.date)}</span>
+                    <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>→</span>
+                    <span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>{money(esc.amount)}/mo</span>
                   </div>
                 ))}
               </div>
@@ -549,13 +549,13 @@ export default function UnitDetailPage() {
           title="Maintenance Requests for this Unit"
           count={unitRequests.length}
           link={
-            <AllowedLink href="/maintenance" style={{ fontSize: 11, fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
+            <AllowedLink href="/maintenance" style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--brand)", marginLeft: 8, textDecoration: "none" }}>
               Open Maintenance →
             </AllowedLink>
           }
         >
           {unitRequests.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--muted)" }}>No maintenance requests for this unit.</div>
+            <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>No maintenance requests for this unit.</div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {unitRequests.map((r) => {
@@ -576,10 +576,10 @@ export default function UnitDetailPage() {
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: "var(--fs-14)", fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {r.subject || "(no subject)"}
                       </div>
-                      <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                      <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                         {[r.tenantCompany, r.assignedTo ?? "Unassigned", formatModalDate(r.submittedDate)].filter(Boolean).join(" · ")}
                       </div>
                     </div>
@@ -630,21 +630,21 @@ function OtherChargesCard({
     <div style={{
       display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10,
     }}>
-      <span style={{ fontSize: 12, color: "var(--muted)" }}>{label}</span>
-      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>{fmt(value)}</span>
+      <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>{label}</span>
+      <span style={{ fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--text)" }}>{fmt(value)}</span>
     </div>
   );
   return (
     <div className="card" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <span style={{
-        fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+        fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em",
         color: "var(--muted)", textTransform: "uppercase",
         marginBottom: 2,
       }}>Other Charges</span>
       {opexMonth > 0 && <Row label="Est. CAM / mo" value={opexMonth} />}
       {reTaxMonth > 0 && <Row label="Est. RET / mo" value={reTaxMonth} />}
       {otherMonth > 0 && <Row label="Est. INS / mo" value={otherMonth} />}
-      <span style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, fontStyle: "italic" }}>
+      <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)", marginTop: 2, fontStyle: "italic" }}>
         2026 budget
       </span>
     </div>

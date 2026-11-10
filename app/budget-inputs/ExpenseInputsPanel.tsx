@@ -19,7 +19,7 @@ const OWNER: Record<ExpenseInputKind, string> = { ret: "Drew", insurance: "Drew"
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const num = (n: number) => (Math.round(n) === 0 ? "—" : Math.round(n).toLocaleString("en-US"));
 const sum = (a: number[]) => a.reduce((s, n) => s + (n || 0), 0);
-const cellIn: React.CSSProperties = { width: 64, textAlign: "right", padding: "3px 6px", fontSize: 12.5, fontVariantNumeric: "tabular-nums" };
+const cellIn: React.CSSProperties = { width: 64, textAlign: "right", padding: "3px 6px", fontSize: "var(--fs-12-5)", fontVariantNumeric: "tabular-nums" };
 
 type SaveBody = { annual?: number; months?: number[]; clear?: boolean; item?: { section: string; label: string; key: string; month: number | "all"; value: number | null } };
 type Resp = { year: number; basisYear: number; book: string; growthPct: number; user: string; properties: BudgetInputProperty[] };
@@ -93,7 +93,7 @@ export function ExpenseInputsPanel({ year, bookId, only, embedded = false, onSav
               <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: pi ? "2px solid var(--border)" : "none" }}>
                 <td style={{ ...tdL, paddingTop: 10, paddingBottom: 10, whiteSpace: "normal" }} colSpan={14}>
                   {!embedded && <span style={{ fontWeight: 800 }}>{p.code} — {p.name}</span>}
-                  {p.missingBasis && <span className="muted" style={{ fontSize: 12, marginLeft: embedded ? 0 : 10 }}>no {data?.basisYear} GL or budget loaded — nothing to measure against yet</span>}
+                  {p.missingBasis && <span className="muted" style={{ fontSize: "var(--fs-12)", marginLeft: embedded ? 0 : 10 }}>no {data?.basisYear} GL or budget loaded — nothing to measure against yet</span>}
                 </td>
               </tr>
             )}
@@ -185,9 +185,9 @@ function KeyedRows({ code, row, basisYear, year, onSave }: {
 
   const ref = (label: string, months: number[], note?: string) => (
     <tr style={{ color: "var(--muted)" }}>
-      <td style={{ ...tdL, fontSize: 12, paddingTop: 3, paddingBottom: 3, paddingLeft: 26 }}>{label}{note ? <span style={{ marginLeft: 6, fontSize: 11 }}>{note}</span> : null}</td>
-      {months.map((v, i) => <td key={i} style={{ ...td, fontSize: 12, paddingTop: 3, paddingBottom: 3 }}>{num(v)}</td>)}
-      <td style={{ ...td, fontSize: 12, paddingTop: 3, paddingBottom: 3, fontWeight: 700 }}>{money0(sum(months))}</td>
+      <td style={{ ...tdL, fontSize: "var(--fs-12)", paddingTop: 3, paddingBottom: 3, paddingLeft: 26 }}>{label}{note ? <span style={{ marginLeft: 6, fontSize: "var(--fs-11)" }}>{note}</span> : null}</td>
+      {months.map((v, i) => <td key={i} style={{ ...td, fontSize: "var(--fs-12)", paddingTop: 3, paddingBottom: 3 }}>{num(v)}</td>)}
+      <td style={{ ...td, fontSize: "var(--fs-12)", paddingTop: 3, paddingBottom: 3, fontWeight: 700 }}>{money0(sum(months))}</td>
     </tr>
   );
 
@@ -196,7 +196,7 @@ function KeyedRows({ code, row, basisYear, year, onSave }: {
       <tr style={{ borderTop: "1px solid var(--border)" }}>
         <td style={{ ...tdL, whiteSpace: "normal", minWidth: 210 }}>
           <div style={{ fontWeight: 700 }}>{EXPENSE_INPUT_LABEL[row.kind]} {status}</div>
-          <div className="muted" style={{ fontSize: 11.5 }}>
+          <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>
             {OWNER[row.kind]}{row.editable ? " · type any month or the total, or pick a spread" : " · read-only"}
             {row.lines.length > 1 ? ` · lands on ${row.lines.join(", ")}` : ""}
           </div>
@@ -215,16 +215,16 @@ function KeyedRows({ code, row, basisYear, year, onSave }: {
               </select>
               {dirty ? (
                 <>
-                  <button className="btn primary" disabled={busy} style={{ fontSize: 12, padding: "4px 12px" }} onClick={save}>{busy ? "Saving…" : "Save"}</button>
-                  <button className="btn" disabled={busy} style={{ fontSize: 12, padding: "4px 12px" }} onClick={cancel}>Cancel</button>
+                  <button className="btn primary" disabled={busy} style={{ fontSize: "var(--fs-12)", padding: "4px 12px" }} onClick={save}>{busy ? "Saving…" : "Save"}</button>
+                  <button className="btn" disabled={busy} style={{ fontSize: "var(--fs-12)", padding: "4px 12px" }} onClick={cancel}>Cancel</button>
                 </>
               ) : !row.entered ? (
                 // Accept the figure as it stands — the default IS the answer
                 // for most properties, and that should be one click.
-                <button className="btn" disabled={busy} style={{ fontSize: 12, padding: "4px 12px" }}
+                <button className="btn" disabled={busy} style={{ fontSize: "var(--fs-12)", padding: "4px 12px" }}
                   onClick={() => commit({ months: row.months })}>{busy ? "…" : "Accept as shown"}</button>
               ) : (
-                <button className="btn" disabled={busy} style={{ fontSize: 12, padding: "4px 12px" }}
+                <button className="btn" disabled={busy} style={{ fontSize: "var(--fs-12)", padding: "4px 12px" }}
                   onClick={() => commit({ clear: true })}>Reset to default</button>
               )}
             </div>
@@ -285,7 +285,7 @@ function ItemizedRows({ code, row, basisYear, year, onSave }: {
       <tr style={{ borderTop: "1px solid var(--border)" }}>
         <td style={{ ...tdL, whiteSpace: "normal", minWidth: 210 }} colSpan={1}>
           <div style={{ fontWeight: 700 }}>{EXPENSE_INPUT_LABEL[row.kind]} <Pill tone={TONE_BLUE}>ITEMIZED</Pill></div>
-          <div className="muted" style={{ fontSize: 11.5 }}>
+          <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>
             {OWNER[row.kind]}{row.editable ? " · budget each item by month, or type its total" : " · read-only"} · contracts and recurring carried from {basisYear} +3%, Big Projects from $0
           </div>
           {err && <div className="small" style={{ color: "#b91c1c", fontWeight: 700 }}>{err}</div>}
@@ -296,7 +296,7 @@ function ItemizedRows({ code, row, basisYear, year, onSave }: {
       {row.items!.map((line) => (
         <Fragment key={line.section + line.label}>
           {many && (
-            <tr><td colSpan={14} style={{ ...tdL, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", paddingTop: 8, paddingBottom: 4 }}>{line.label} · {line.section}</td></tr>
+            <tr><td colSpan={14} style={{ ...tdL, fontSize: "var(--fs-11)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", paddingTop: 8, paddingBottom: 4 }}>{line.label} · {line.section}</td></tr>
           )}
           {line.buckets.map((b) => (
             <Fragment key={b.key}>
@@ -330,8 +330,8 @@ function ItemRow({ depth, name, months, typed, prior, note, basisYear, year, edi
   const label = (
     <td style={{ ...tdL, paddingLeft: bucket ? 26 : 46, fontSize: bucket ? 12.5 : 12, fontWeight: bucket ? 700 : 400, color: bucket ? "var(--text)" : "var(--muted)", whiteSpace: "normal" }}>
       {name}
-      <span className="muted" style={{ fontSize: 11, marginLeft: 6, fontWeight: 400 }}>{basisYear}: {money0(prior)}</span>
-      {note && <div className="muted" style={{ fontSize: 11, fontWeight: 400 }}>{note}</div>}
+      <span className="muted" style={{ fontSize: "var(--fs-11)", marginLeft: 6, fontWeight: 400 }}>{basisYear}: {money0(prior)}</span>
+      {note && <div className="muted" style={{ fontSize: "var(--fs-11)", fontWeight: 400 }}>{note}</div>}
     </td>
   );
   return (

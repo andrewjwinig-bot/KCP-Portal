@@ -52,7 +52,7 @@ export function PayrollFlowCard({ doc, landing }: { doc: PayrollBudgetDoc; landi
           <tbody>
             {rows.map((r, i) => (
               <tr key={`${r.code}-${r.gl}-${r.label}-${i}`}>
-                <td style={tdL}>{r.code ? <><code style={{ fontSize: 12 }}>{r.code}</code> {NAME.get(r.code) ?? r.name}</> : r.name}</td>
+                <td style={tdL}>{r.code ? <><code style={{ fontSize: "var(--fs-12)" }}>{r.code}</code> {NAME.get(r.code) ?? r.name}</> : r.name}</td>
                 <td style={tdL}>{r.label} <span className="muted small">{r.gl}</span></td>
                 <td style={td}>{money0(r.annual)}</td>
                 <td style={{ ...td, color: "var(--muted)" }}>{money0(r.annual / 12)}</td>

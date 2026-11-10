@@ -142,7 +142,7 @@ export function RentReviewView({ api, headerExtra, initialGroup, onGroupChange }
                   <tr onClick={() => setOpen(isOpen ? null : p.key)} style={{ cursor: "pointer", background: isOpen ? "rgba(11,74,125,0.06)" : undefined }}>
                     <td style={{ ...tdL, fontWeight: 700 }}>
                       <span className="muted" style={{ marginRight: 6 }}>{isOpen ? "▾" : "▸"}</span>
-                      {p.name} <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", marginLeft: 6 }}>{p.code}</code>
+                      {p.name} <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", marginLeft: 6 }}>{p.code}</code>
                     </td>
                     <td style={td}>
                       {p.total === 0 ? <span className="muted">None needed</span>
@@ -220,12 +220,12 @@ function PropertyReview({ api, row, year, owner, confirmed, changed, onChanged, 
           </>
         ) : openCalls > 0 ? (
           <>
-            <button type="button" className="btn" disabled style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Rent &amp; assumptions look good</button>
+            <button type="button" className="btn" disabled style={{ fontSize: "var(--fs-13)", padding: "6px 14px", fontWeight: 700 }}>Rent &amp; assumptions look good</button>
             <span className="muted small">Make the {openCalls} open leasing call{openCalls === 1 ? "" : "s"} first — use <b>To decide</b> above.</span>
           </>
         ) : (
           <>
-            <button type="button" className="btn primary" style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }} onClick={() => onConfirm(true)}>
+            <button type="button" className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "6px 14px", fontWeight: 700 }} onClick={() => onConfirm(true)}>
               ✓ Rent &amp; assumptions look good
             </button>
             <span className="muted small">{changed ? "A decision changed since this was confirmed — confirm again." : `Confirms this property's ${draft.budgetYear} rent and leasing calls for the budget.`}</span>

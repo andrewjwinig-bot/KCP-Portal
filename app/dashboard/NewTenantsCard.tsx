@@ -19,8 +19,8 @@ type Pending = {
 };
 type Form = { tenant: string; use: string; url: string; order: string; orderLabel: string; logo: string; blurb: string };
 
-const SECTION: React.CSSProperties = { fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
-const FIELD: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 4, display: "block" };
+const SECTION: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const FIELD: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 4, display: "block" };
 
 export default function NewTenantsCard({ order = -1 }: { order?: number }) {
   const [pending, setPending] = useState<Pending[] | null>(null);
@@ -43,20 +43,20 @@ export default function NewTenantsCard({ order = -1 }: { order?: number }) {
         <div style={SECTION}>New Tenants on the Website</div>
         <Pill tone={TONE_AMBER}>{pending.length} to describe</Pill>
       </div>
-      <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
+      <div className="muted" style={{ fontSize: "var(--fs-12)", marginBottom: 10 }}>
         These tenants are on the rent roll but the public center page has nothing on them yet, so they read
         &ldquo;Coming soon&rdquo;. Add the store name, website and logo as they should appear to the public.
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {pending.map((p) => (
           <div key={`${p.code}-${p.suite}`} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 10 }}>
-            <span style={{ fontWeight: 700, fontSize: 14 }}>{p.occupant}</span>
-            <span className="muted" style={{ fontSize: 12 }}>
+            <span style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>{p.occupant}</span>
+            <span className="muted" style={{ fontSize: "var(--fs-12)" }}>
               {p.center} · Suite {p.suite} · {p.sf.toLocaleString("en-US")} SF
             </span>
             <span style={{ marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-              <a href={`/centers/${p.slug}`} target="_blank" rel="noopener" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 12 }}>View page ↗</a>
-              <button className="btn primary" style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }} onClick={() => setOpen(p)}>Add details</button>
+              <a href={`/centers/${p.slug}`} target="_blank" rel="noopener" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-12)" }}>View page ↗</a>
+              <button className="btn primary" style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }} onClick={() => setOpen(p)}>Add details</button>
             </span>
           </div>
         ))}
@@ -107,7 +107,7 @@ function ProfileDialog({ p, onClose, onSaved }: { p: Pending; onClose: () => voi
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
           <div>
             <div style={{ fontSize: 18, fontWeight: 800 }}>{p.occupant}</div>
-            <div className="muted" style={{ fontSize: 12 }}>{p.center} · Suite {p.suite} · <code style={{ fontSize: 11 }}>{p.unitRef}</code></div>
+            <div className="muted" style={{ fontSize: "var(--fs-12)" }}>{p.center} · Suite {p.suite} · <code style={{ fontSize: "var(--fs-11)" }}>{p.unitRef}</code></div>
           </div>
           <button className="btn" onClick={onClose} title="Close" style={{ marginLeft: "auto" }}>✕</button>
         </div>
@@ -130,7 +130,7 @@ function ProfileDialog({ p, onClose, onSaved }: { p: Pending; onClose: () => voi
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ width: 120, height: 60, border: "1px dashed var(--border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "var(--card)" }}>
                 {f.logo ? <img src={centerImageSrc(f.logo)} alt="Logo" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-                  : <span className="muted" style={{ fontSize: 11 }}>No logo</span>}
+                  : <span className="muted" style={{ fontSize: "var(--fs-11)" }}>No logo</span>}
               </div>
               <label className="btn" style={{ cursor: "pointer" }}>
                 {busy === "upload" ? "Uploading…" : f.logo ? "Replace" : "Upload logo"}
@@ -143,7 +143,7 @@ function ProfileDialog({ p, onClose, onSaved }: { p: Pending; onClose: () => voi
             <textarea value={f.blurb} onChange={set("blurb")} rows={2} maxLength={240} style={{ width: "100%" }} /></label>
         </div>
 
-        {err && <div style={{ color: "#b91c1c", fontSize: 12, fontWeight: 600, marginTop: 10 }}>{err}</div>}
+        {err && <div style={{ color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600, marginTop: 10 }}>{err}</div>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
           <button className="btn" onClick={onClose}>Cancel</button>
           <button className="btn primary" disabled={!!busy} onClick={save}>{busy === "save" ? "Publishing…" : "Publish to the website"}</button>

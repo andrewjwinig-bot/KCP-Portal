@@ -31,9 +31,9 @@ export default function NotificationsToggle() {
       title={on ? "Notifications: ON" : "Notifications: OFF"}
       aria-label="Toggle notifications"
       style={{
-        background: "rgba(255,255,255,0.10)",
+        background: "var(--sb-group-hover)",
         border: "1px solid rgba(255,255,255,0.18)",
-        color: "#bfdbfe",
+        color: "var(--sb-group-text)",
         cursor: "pointer",
         padding: 6,
         borderRadius: 6,

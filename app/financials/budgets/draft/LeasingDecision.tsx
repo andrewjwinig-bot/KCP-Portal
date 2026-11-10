@@ -45,7 +45,7 @@ export type LeasingCall = {
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 // No separate "Hold": a tenant staying is a RENEWAL, and the rent box starts at
 // today's $/SF — so a flat renewal is no typing, and holds today's rent to the
@@ -298,13 +298,13 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
   const field = (label: string, control: React.ReactNode, note?: React.ReactNode) => (
     <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", alignItems: "center", gap: 10, padding: "6px 0" }}>
       <span style={secLabel}>{label}</span>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>{control}{note && <span className="muted" style={{ fontSize: 12 }}>{note}</span>}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>{control}{note && <span className="muted" style={{ fontSize: "var(--fs-12)" }}>{note}</span>}</div>
     </div>
   );
   const fact = (label: string, value: React.ReactNode) => (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <span style={secLabel}>{label}</span>
-      <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{value}</span>
+      <span style={{ fontSize: "var(--fs-14)", fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{value}</span>
     </div>
   );
   const tone = contributorTone(owner.id);
@@ -317,15 +317,15 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
           <div>
             <div style={{ ...secLabel, color: tone.fg }}>{owner.label}&rsquo;s call · {mode === "vacant" ? "vacant space" : mode === "contracted" ? "lease in place" : holdover ? "holdover" : "expiring lease"}</div>
             <div style={{ fontSize: 17, fontWeight: 800, marginTop: 2 }}>
-              <code style={{ fontSize: 13, marginRight: 8 }}>{unitRef}</code>{call.title}
+              <code style={{ fontSize: "var(--fs-13)", marginRight: 8 }}>{unitRef}</code>{call.title}
             </div>
           </div>
           <button type="button" className="btn sm" onClick={onClose}>Done</button>
         </div>
         <div style={{ padding: "12px 18px", display: "flex", gap: 22, flexWrap: "wrap", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.025)" }}>
           {fact("SF", sqft > 0 ? sqft.toLocaleString() : "—")}
-          {mode === "contracted" && fact("Rent", currentRent > 0 ? <>{money0(currentRent)}/mo{curPsf != null && <span className="muted" style={{ fontWeight: 500, fontSize: 12 }}> · ${curPsf.toFixed(2)}/SF/yr</span>}</> : "—")}
-          {mode === "inplace" && fact("Expiring rent", currentRent > 0 ? <>{money0(currentRent)}/mo{curPsf != null && <span className="muted" style={{ fontWeight: 500, fontSize: 12 }}> · ${curPsf.toFixed(2)}/SF/yr</span>}</> : "—")}
+          {mode === "contracted" && fact("Rent", currentRent > 0 ? <>{money0(currentRent)}/mo{curPsf != null && <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}> · ${curPsf.toFixed(2)}/SF/yr</span>}</> : "—")}
+          {mode === "inplace" && fact("Expiring rent", currentRent > 0 ? <>{money0(currentRent)}/mo{curPsf != null && <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}> · ${curPsf.toFixed(2)}/SF/yr</span>}</> : "—")}
           {mode === "inplace" && fact("Expires", end ? <span style={{ color: holdover ? "#b45309" : undefined }}>{mmyy(end)}{holdover ? " (holdover)" : ""}</span> : "—")}
         </div>
         <div style={{ padding: "10px 18px 14px" }}>
@@ -409,8 +409,8 @@ export function DecisionModal({ call, owner, budgetYear, fromSchedule, onSave, o
             return field("Internal comm.", <span style={{ fontWeight: 700 }}>{internal > 0 ? money0(internal) : "—"}</span>,
               group === "SC" ? "$1.00/SF · to 6620-8501" : group === "BP" ? (internal > 0 ? "by term · to 6620-8501" : "set a term") : "none for this property");
           })()}
-          {error && <div role="alert" style={{ marginTop: 10, color: "#b91c1c", fontSize: 13, fontWeight: 700 }}>Not saved — {error}</div>}
-          <div style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: tone.bg, border: `1px solid ${tone.border}`, fontSize: 13 }}>
+          {error && <div role="alert" style={{ marginTop: 10, color: "#b91c1c", fontSize: "var(--fs-13)", fontWeight: 700 }}>Not saved — {error}</div>}
+          <div style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: tone.bg, border: `1px solid ${tone.border}`, fontSize: "var(--fs-13)" }}>
             <b>In {budgetYear}:</b> {effect}
             {saving > 0 ? <span className="muted"> · Saving…</span> : assumption?.updatedAt && (
               <span className="muted"> · ✓ {assumption.updatedBy ? `${assumption.updatedBy.charAt(0)}${assumption.updatedBy.slice(1).toLowerCase()}` : "Saved"} {new Date(assumption.updatedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>

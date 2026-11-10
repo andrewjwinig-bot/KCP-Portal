@@ -135,7 +135,7 @@ export default function ReprojectionsPage() {
   const osHref = key && year ? `/financials/operating-statements?key=${encodeURIComponent(key)}&year=${year}` : "#";
   const budgetHref = cur && year ? `/financials/budgets?property=${encodeURIComponent(cur.propertyCode)}&year=${year}` : "#";
   const noteFor = (lineKey: string) => (notes[lineKey] ? { note: notes[lineKey], ai: noteSources[lineKey] === "ai" } : null);
-  const crossLink: React.CSSProperties = { fontSize: 12, padding: "5px 11px", fontWeight: 700, textDecoration: "none" };
+  const crossLink: React.CSSProperties = { fontSize: "var(--fs-12)", padding: "5px 11px", fontWeight: 700, textDecoration: "none" };
 
   const pills = data ? (actuals ? [
     { key: "rev", label: "Actual Revenue", value: money(sum(data.rollups.totalRevenues.actual)) },
@@ -193,7 +193,7 @@ export default function ReprojectionsPage() {
         </div>
 
         {!actuals && (
-          <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11 }}>
+          <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--fs-11)" }}>
             <span style={{ width: 12, height: 12, background: ACTUAL_TINT, border: "1px solid rgba(21,128,61,0.4)", borderRadius: 2, display: "inline-block" }} /> Actual
             <span style={{ width: 12, height: 12, border: "1px solid var(--border)", borderRadius: 2, display: "inline-block", marginLeft: 8 }} /> Budget
             <span className="muted" style={{ marginLeft: 12 }}>📝 hover a line&apos;s note for the variance explanation (click → Operating Statements)</span>
@@ -234,7 +234,7 @@ export default function ReprojectionsPage() {
       {loading && <LoadingState status="Loading full-year figures…" columns={4} rows={4} />}
       {!loading && !data && <div className="card"><div className="muted small">Select a property and year.</div></div>}
       {!loading && data && <ReprojTable data={data} view={view} noteFor={noteFor} osHref={osHref} onDrill={setDetail} onEdit={canEdit ? saveEdit : undefined} />}
-      {editError && <div style={{ color: "#b91c1c", fontSize: 13, fontWeight: 600 }}>{editError}</div>}
+      {editError && <div style={{ color: "#b91c1c", fontSize: "var(--fs-13)", fontWeight: 600 }}>{editError}</div>}
       {detail && cur && (
         <LineDetailModal viewKey={key} property={cur.propertyCode} year={year} period={detail.period} monthLabel={detail.monthLabel}
           line={{ mask: detail.mask, label: detail.label, sign: detail.sign }} initialTab="gl" initialScope={detail.scope} onClose={() => setDetail(null)} />

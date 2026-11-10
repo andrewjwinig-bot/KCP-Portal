@@ -899,14 +899,14 @@ export default function GlobalSearch() {
       >
         <SparkleMark size={30} twinkle fast={chat.loading} />
         {inputEl}
-        <button type="button" onClick={() => askAi()} title="Ask the assistant" style={{ all: "unset", flex: "0 0 auto", cursor: "pointer", fontFamily: MONO, fontSize: 11, color: "var(--ai-text)", background: "var(--ai-soft)", border: "1px solid var(--ai-border)", borderBottomWidth: 2, borderRadius: 5, padding: "3px 7px" }}>{askKey} ask</button>
+        <button type="button" onClick={() => askAi()} title="Ask the assistant" style={{ all: "unset", flex: "0 0 auto", cursor: "pointer", fontFamily: MONO, fontSize: "var(--fs-11)", color: "var(--ai-text)", background: "var(--ai-soft)", border: "1px solid var(--ai-border)", borderBottomWidth: 2, borderRadius: 5, padding: "3px 7px" }}>{askKey} ask</button>
       </div>
     </div>
   ) : (
     <div style={{ display: "flex", alignItems: "center", gap: 13, padding: "16px 16px", borderBottom: "1px solid var(--border)" }}>
       <SparkleMark size={32} />
       {inputEl}
-      <span style={{ display: "flex", gap: 6, flex: "0 0 auto", fontFamily: MONO, fontSize: 11, color: "var(--kbd-color)" }}>
+      <span style={{ display: "flex", gap: 6, flex: "0 0 auto", fontFamily: MONO, fontSize: "var(--fs-11)", color: "var(--kbd-color)" }}>
         {hasQuery ? (
           <Kbd>↵ open</Kbd>
         ) : (
@@ -925,8 +925,8 @@ export default function GlobalSearch() {
       <input autoFocus value={teachText} onChange={(e) => setTeachText(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); savePref(teachText); } if (e.key === "Escape") setTeachFor(null); }}
         placeholder="e.g. 'keep answers to one sentence', 'always whole dollars', 'skip the links'"
-        style={{ flex: 1, fontSize: 12, padding: "6px 9px", borderRadius: 7, border: "1px solid var(--ai-border)", background: "var(--ai-modal)", color: "var(--text)", outline: "none" }} />
-      <button type="button" onClick={() => savePref(teachText)} style={{ fontSize: 12, fontWeight: 700, padding: "6px 11px", borderRadius: 7, border: "1px solid var(--ai-border)", background: "var(--ai-soft)", color: "var(--ai-text)", cursor: "pointer" }}>Save</button>
+        style={{ flex: 1, fontSize: "var(--fs-12)", padding: "6px 9px", borderRadius: 7, border: "1px solid var(--ai-border)", background: "var(--ai-modal)", color: "var(--text)", outline: "none" }} />
+      <button type="button" onClick={() => savePref(teachText)} style={{ fontSize: "var(--fs-12)", fontWeight: 700, padding: "6px 11px", borderRadius: 7, border: "1px solid var(--ai-border)", background: "var(--ai-soft)", color: "var(--ai-text)", cursor: "pointer" }}>Save</button>
     </div>
   );
 
@@ -934,11 +934,11 @@ export default function GlobalSearch() {
     <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
       {chat.turns.length > 0 && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -8 }}>
-          <button type="button" onClick={resetChat} style={{ all: "unset", cursor: "pointer", fontSize: 11, color: "var(--muted)" }}>Clear conversation</button>
+          <button type="button" onClick={resetChat} style={{ all: "unset", cursor: "pointer", fontSize: "var(--fs-11)", color: "var(--muted)" }}>Clear conversation</button>
         </div>
       )}
       {chat.turns.map((t, ti) => t.role === "user" ? (
-        <div key={ti} style={{ alignSelf: "flex-end", maxWidth: "78%", background: "var(--ai-bubble-bg)", color: "var(--ai-bubble-text)", fontSize: 14, lineHeight: 1.45, borderRadius: "12px 12px 4px 12px", padding: "9px 13px" }}>{t.text}</div>
+        <div key={ti} style={{ alignSelf: "flex-end", maxWidth: "78%", background: "var(--ai-bubble-bg)", color: "var(--ai-bubble-text)", fontSize: "var(--fs-14)", lineHeight: 1.45, borderRadius: "12px 12px 4px 12px", padding: "9px 13px" }}>{t.text}</div>
       ) : t.clarify ? (
         <ClarifyCard key={ti} clarify={t.clarify} onPick={(a) => askAi(a)} />
       ) : t.letter ? (
@@ -946,7 +946,7 @@ export default function GlobalSearch() {
           <div style={{ border: "1px solid var(--ai-border-card)", borderLeft: "3px solid var(--ai)", borderRadius: 11, background: "linear-gradient(180deg, var(--ai-tint-panel), var(--ai-modal))", padding: "15px 16px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
               <InlineSparkle />
-              <span style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>Assistant</span>
+              <span style={{ fontSize: "var(--fs-11)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ai-text)", fontWeight: 600 }}>Assistant</span>
             </div>
             <div style={{ fontSize: 16, lineHeight: 1.5, color: "var(--text)", fontWeight: 500 }}>{renderAiMarkdown(t.answer)}</div>
           </div>
@@ -975,36 +975,36 @@ export default function GlobalSearch() {
         </div>
       ))}
       {chat.loading && <ThinkingCard status={chat.status || "Reading live portal data…"} />}
-      {chat.error && <div style={{ color: "#b91c1c", fontSize: 13 }}>{chat.error}</div>}
+      {chat.error && <div style={{ color: "#b91c1c", fontSize: "var(--fs-13)" }}>{chat.error}</div>}
     </div>
   );
 
   const emptyBody = (
     <div>
       <div style={{ padding: "16px 18px 6px" }}>
-        <div style={{ fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 12 }}>
+        <div style={{ fontSize: "var(--fs-12)", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 12 }}>
           Search anything — properties · tenants · owners · vendor codes · tickets · parcels · banks
         </div>
       </div>
       <div style={{ padding: "2px 18px 18px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, color: "var(--ai-text)", fontSize: 12, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, color: "var(--ai-text)", fontSize: "var(--fs-12)", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>
           <GradientSparkle /> Or ask the brain of the portal
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 9 }}>
           {SAMPLE_SEARCHES.map((s) => (
             <button key={s} type="button" onClick={() => askSample(s)}
-              style={{ all: "unset", cursor: "pointer", padding: "9px 13px", borderRadius: 9, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", color: "var(--ai-text)", fontSize: 13, fontWeight: 500 }}>
+              style={{ all: "unset", cursor: "pointer", padding: "9px 13px", borderRadius: 9, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", color: "var(--ai-text)", fontSize: "var(--fs-13)", fontWeight: 500 }}>
               {s}
             </button>
           ))}
         </div>
-        {tenantsLoading && <div style={{ marginTop: 12, fontSize: 12, fontStyle: "italic", color: "var(--muted)" }}>Loading tenant data…</div>}
+        {tenantsLoading && <div style={{ marginTop: 12, fontSize: "var(--fs-12)", fontStyle: "italic", color: "var(--muted)" }}>Loading tenant data…</div>}
       </div>
     </div>
   );
 
   const searchBody = grouped.length === 0 ? (
-    <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: 13 }}>
+    <div style={{ padding: "20px 16px", color: "var(--muted)", fontSize: "var(--fs-13)" }}>
       No matches.
       {tenants === null && <div style={{ marginTop: 8, fontStyle: "italic" }}>Tenant data still loading…</div>}
     </div>
@@ -1018,7 +1018,7 @@ export default function GlobalSearch() {
             const moreCount = groupHits.length - shown.length;
             return (
               <div key={group} style={{ marginBottom: 4 }}>
-                <div style={{ padding: "10px 8px 4px", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)" }}>
+                <div style={{ padding: "10px 8px 4px", fontSize: "var(--fs-11)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)" }}>
                   {group}{groupHits.length > 1 ? ` · ${groupHits.length}` : ""}
                 </div>
                 {shown.map((h) => {
@@ -1038,20 +1038,20 @@ export default function GlobalSearch() {
                       }}
                     >
                       <span style={{
-                        width: 26, height: 26, borderRadius: 7, flexShrink: 0, fontSize: 11, fontWeight: 700,
+                        width: 26, height: 26, borderRadius: 7, flexShrink: 0, fontSize: "var(--fs-11)", fontWeight: 700,
                         display: "flex", alignItems: "center", justifyContent: "center",
                         background: isActive ? "var(--badge-match-bg)" : "var(--badge-neutral-bg)",
                         color: isActive ? "var(--search-blue)" : "var(--badge-neutral-text)",
                       }}>{GROUP_LETTER[h.group]}</span>
                       <span style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</span>
-                        {h.subtitle && <span style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.subtitle}</span>}
+                        <span style={{ fontSize: "var(--fs-14)", fontWeight: 500, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</span>
+                        {h.subtitle && <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.subtitle}</span>}
                       </span>
-                      {h.badge && <span style={{ flexShrink: 0, fontFamily: MONO, fontSize: 11, color: "var(--muted)" }}>{h.badge}</span>}
+                      {h.badge && <span style={{ flexShrink: 0, fontFamily: MONO, fontSize: "var(--fs-11)", color: "var(--muted)" }}>{h.badge}</span>}
                     </button>
                   );
                 })}
-                {moreCount > 0 && <div style={{ padding: "2px 10px 6px", fontSize: 11, color: "var(--muted)" }}>+ {moreCount} more</div>}
+                {moreCount > 0 && <div style={{ padding: "2px 10px 6px", fontSize: "var(--fs-11)", color: "var(--muted)" }}>+ {moreCount} more</div>}
               </div>
             );
           })}
@@ -1066,7 +1066,7 @@ export default function GlobalSearch() {
   let footer: React.ReactNode;
   if (chat.loading) {
     footer = (
-      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 18px", borderTop: "1px solid var(--ai-border-soft)", background: "var(--ai-header-grad)", fontFamily: MONO, fontSize: 11, color: "var(--muted)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "11px 18px", borderTop: "1px solid var(--ai-border-soft)", background: "var(--ai-header-grad)", fontFamily: MONO, fontSize: "var(--fs-11)", color: "var(--muted)" }}>
         <span style={{ color: "var(--ai)" }}>✦</span> {chat.status || "Thinking · querying live portal data"}
         <span style={{ marginLeft: "auto" }}>esc to cancel</span>
       </div>
@@ -1075,20 +1075,20 @@ export default function GlobalSearch() {
     footer = prefs.length > 0 ? (
       <MemoryStrip prefs={prefs} onForget={removePref} />
     ) : (
-      <div style={{ padding: "11px 18px", borderTop: "1px solid var(--ai-border-soft)", background: "var(--ai-header-grad)", fontSize: 10.5, color: "var(--muted)", fontStyle: "italic" }}>
+      <div style={{ padding: "11px 18px", borderTop: "1px solid var(--ai-border-soft)", background: "var(--ai-header-grad)", fontSize: "var(--fs-10-5)", color: "var(--muted)", fontStyle: "italic" }}>
         AI · grounded in live portal data — verify anything critical. Teach it a preference and it&apos;ll remember.
       </div>
     );
   } else if (hasQuery) {
     footer = (
       <button type="button" onClick={() => askAi()}
-        style={{ all: "unset", display: "flex", alignItems: "center", gap: 8, width: "100%", boxSizing: "border-box", cursor: "pointer", padding: "11px 18px", borderTop: "1px solid var(--border)", background: "var(--ai-tint-panel-2)", fontSize: 12.5, color: "var(--ai-text)" }}>
+        style={{ all: "unset", display: "flex", alignItems: "center", gap: 8, width: "100%", boxSizing: "border-box", cursor: "pointer", padding: "11px 18px", borderTop: "1px solid var(--border)", background: "var(--ai-tint-panel-2)", fontSize: "var(--fs-12-5)", color: "var(--ai-text)" }}>
         <GradientSparkle /> Ask the assistant about &ldquo;{query.trim()}&rdquo; instead <b style={{ fontFamily: MONO, marginLeft: "auto", opacity: 0.75 }}>{askKey}</b>
       </button>
     );
   } else {
     footer = (
-      <div style={{ display: "flex", gap: 18, padding: "11px 18px", borderTop: "1px solid var(--border)", background: "var(--footer-bg, var(--card))", fontFamily: MONO, fontSize: 11, color: "var(--kbd-color)" }}>
+      <div style={{ display: "flex", gap: 18, padding: "11px 18px", borderTop: "1px solid var(--border)", background: "var(--footer-bg, var(--card))", fontFamily: MONO, fontSize: "var(--fs-11)", color: "var(--kbd-color)" }}>
         <span>↑↓ navigate</span><span>↵ open</span><span>{askKey} ask</span><span style={{ marginLeft: "auto" }}>esc</span>
       </div>
     );
@@ -1171,12 +1171,12 @@ export function GlobalSearchTrigger({ collapsed }: { collapsed: boolean }) {
         boxShadow: restGlow,
         borderRadius: 10,
         color: "#EDE9FF", cursor: "pointer",
-        fontFamily: "inherit", fontSize: 13, fontWeight: 600, letterSpacing: "0.02em",
+        fontFamily: "inherit", fontSize: "var(--fs-13)", fontWeight: 600, letterSpacing: "0.02em",
         transition: "box-shadow 0.18s ease",
       }}
     >
       {/* Gradient sparkle — the AI signature indicator. */}
-      <span aria-hidden style={{ flexShrink: 0, lineHeight: 1, fontSize: 14, background: "linear-gradient(135deg, #B7A6FF, #E0A9FF)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>✦</span>
+      <span aria-hidden style={{ flexShrink: 0, lineHeight: 1, fontSize: "var(--fs-14)", background: "linear-gradient(135deg, #B7A6FF, #E0A9FF)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>✦</span>
       {!collapsed && <span>Ask AI</span>}
     </button>
   );

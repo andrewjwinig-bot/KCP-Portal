@@ -28,8 +28,8 @@ export default function CampusPlanCard({ campus, style }: { campus: CampusView; 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden", ...style }}>
       <div style={{ padding: "16px 20px 0" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>Campus Plan</div>
-        <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
+        <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>Campus Plan</div>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 4 }}>
           Neshaminy Interplex · live from the rent roll{campus.rollImportedAt ? ` imported ${new Date(campus.rollImportedAt).toLocaleDateString("en-US")}` : ""} · hover a building, click for its floor plans
         </div>
       </div>
@@ -74,7 +74,7 @@ export default function CampusPlanCard({ campus, style }: { campus: CampusView; 
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: "12px 20px 16px" }}>
         {OCC_BANDS.filter((x) => present.has(x.key)).map((x) => (
-          <span key={x.key} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--border)", fontSize: 12, fontWeight: 600 }}>
+          <span key={x.key} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "4px 10px", borderRadius: 999, border: "1px solid var(--border)", fontSize: "var(--fs-12)", fontWeight: 600 }}>
             <span style={{ width: 10, height: 10, borderRadius: 3, background: x.color }} />{x.label}
           </span>
         ))}

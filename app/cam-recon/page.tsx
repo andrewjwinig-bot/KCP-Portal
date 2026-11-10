@@ -53,7 +53,7 @@ function fmtRCD(d?: string | null): string {
 }
 
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 // Larger title for the main recon cards (Building Summary, Methodology, etc.).
 const CARD_TITLE: React.CSSProperties = {
@@ -62,7 +62,7 @@ const CARD_TITLE: React.CSSProperties = {
 // CAM / INS / RET column headers on the per-tenant statement — larger + centered
 // (no year), consistent across office + retail.
 const CAT_LABEL: React.CSSProperties = {
-  fontSize: 14, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em",
+  fontSize: "var(--fs-14)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em",
   textAlign: "center", marginBottom: 10,
 };
 const arrowBtn: React.CSSProperties = {
@@ -71,11 +71,11 @@ const arrowBtn: React.CSSProperties = {
   display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 0,
 };
 const th: React.CSSProperties = {
-  textAlign: "right", padding: "6px 10px", fontSize: 11, fontWeight: 700,
+  textAlign: "right", padding: "6px 10px", fontSize: "var(--fs-11)", fontWeight: 700,
   textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)",
   borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
 };
-const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: 14, whiteSpace: "nowrap" };
+const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: "var(--fs-14)", whiteSpace: "nowrap" };
 
 type Available = { propertyCode: string; name: string; years: number[]; kind?: "office" | "retail"; mixedOfficeCode?: string; quarterly?: boolean };
 
@@ -102,7 +102,7 @@ function HeaderSelect({
       <span style={{ fontSize: 22, fontWeight: 800, color: muted ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
         {displayLabel}
       </span>
-      <span aria-hidden style={{ fontSize: 11, lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
+      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -154,7 +154,7 @@ function KormanWordmark() {
     <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
       <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
       <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-      <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+      <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
     </div>
   );
 }
@@ -525,7 +525,7 @@ export default function OfficeCamReconPage() {
           <h1 style={{ margin: 0 }}>CAM / RET Reconciliation</h1>
           <Link
             href="/cam-recon/pro-rata-audit"
-            style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", padding: "5px 12px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.3)", background: "rgba(11,74,125,0.06)", whiteSpace: "nowrap" }}
+            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none", padding: "5px 12px", borderRadius: 999, border: "1px solid rgba(11,74,125,0.3)", background: "rgba(11,74,125,0.06)", whiteSpace: "nowrap" }}
             title="Audit stipulated pro-rata shares vs true SF share (office)"
           >
             Pro-rata Audit →
@@ -569,33 +569,33 @@ export default function OfficeCamReconPage() {
             {isQuarterly ? null : isRetail ? (
               rSelected ? (
                 <>
-                  <button onClick={() => downloadRetailTenantPdf(rSelected, year, `${property} — ${propName}`, contacts[rSelected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+                  <button onClick={() => downloadRetailTenantPdf(rSelected, year, `${property} — ${propName}`, contacts[rSelected.unitRef])} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
                   {!isMixed && <TenantShareLink property={property} unitRef={rSelected.unitRef} year={year} kind="retail" tenantName={rSelected.name} />}
                 </>
               ) : (
-                <button onClick={() => activeRetail && downloadAllRetailPdfs(activeRetail.tenants, year, `${property} — ${propName}`, contacts)} disabled={!activeRetail} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
+                <button onClick={() => activeRetail && downloadAllRetailPdfs(activeRetail.tenants, year, `${property} — ${propName}`, contacts)} disabled={!activeRetail} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
               )
             ) : (
               <>
                 {selected && (
                   <>
-                    <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+                    <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
                     <TenantShareLink property={property} unitRef={selected.unitRef} year={year} kind="office" tenantName={selected.name} />
                   </>
                 )}
                 {!selected && (
-                  <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
+                  <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
                 )}
               </>
             )}
             {isQuarterly ? null : isRetail ? (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <button onClick={downloadAllRetailYearEnd} disabled={compilingRetail} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{compilingRetail ? "Compiling…" : "SC Y/E Adjustments"}</button>
+                <button onClick={downloadAllRetailYearEnd} disabled={compilingRetail} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>{compilingRetail ? "Compiling…" : "SC Y/E Adjustments"}</button>
                 <InfoPopover><ImportInstructions /></InfoPopover>
               </span>
             ) : (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <button onClick={downloadAllYearEnd} disabled={compiling} className="btn" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>{compiling ? "Compiling…" : "BP Y/E Adjustments"}</button>
+                <button onClick={downloadAllYearEnd} disabled={compiling} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>{compiling ? "Compiling…" : "BP Y/E Adjustments"}</button>
                 <InfoPopover><ImportInstructions /></InfoPopover>
               </span>
             )}
@@ -639,7 +639,7 @@ export default function OfficeCamReconPage() {
             <Link
               href={unitInfoHref}
               className="btn"
-              style={{ marginLeft: "auto", fontSize: 12, padding: "5px 12px", fontWeight: 700, textDecoration: "none" }}
+              style={{ marginLeft: "auto", fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700, textDecoration: "none" }}
               title="Open this unit's information page to edit its inputs"
             >
               Unit Info
@@ -660,11 +660,11 @@ export default function OfficeCamReconPage() {
           background: "rgba(220,38,38,0.06)", border: "1px solid rgba(220,38,38,0.35)",
           display: "flex", flexDirection: "column", gap: 6,
         }}>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "#b91c1c" }}>
+          <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "#b91c1c" }}>
             {warnings.length} data {warnings.length === 1 ? "warning" : "warnings"} — review before billing
           </div>
           {warnings.map((w, i) => (
-            <div key={`${w.unitRef}-${i}`} style={{ fontSize: 12.5, color: "#7f1d1d", lineHeight: 1.5 }}>
+            <div key={`${w.unitRef}-${i}`} style={{ fontSize: "var(--fs-12-5)", color: "#7f1d1d", lineHeight: 1.5 }}>
               • {w.message}
             </div>
           ))}
@@ -716,7 +716,7 @@ function UnitChip({ unitRef, backTo }: { unitRef: string; backTo?: string }) {
   // monospace), 12px / 700, accent blue, underlined.
   return (
     <Link href={href} onClick={(e) => e.stopPropagation()} title="Open unit detail page" style={{ textDecoration: "none", whiteSpace: "nowrap" }}>
-      <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{unitRef}</code>
+      <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", whiteSpace: "nowrap", textDecoration: "underline", textUnderlineOffset: 2 }}>{unitRef}</code>
     </Link>
   );
 }
@@ -728,7 +728,7 @@ function InfoPopover({ children }: { children: React.ReactNode }) {
   return (
     <span style={{ position: "relative", display: "inline-flex" }}>
       <button type="button" onClick={() => setOpen((o) => !o)} aria-label="Import steps" title="Skyline import steps"
-        style={{ width: 22, height: 22, borderRadius: 999, border: "1px solid var(--border)", background: "var(--card)", color: "var(--muted)", cursor: "pointer", fontSize: 13, fontWeight: 800, lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>i</button>
+        style={{ width: 22, height: 22, borderRadius: 999, border: "1px solid var(--border)", background: "var(--card)", color: "var(--muted)", cursor: "pointer", fontSize: "var(--fs-13)", fontWeight: 800, lineHeight: 1, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>i</button>
       {open && (
         <>
           <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
@@ -753,7 +753,7 @@ function OccCallout({ occPct, year, rcd, vacatedISO }: {
   if (vacatedISO) rows.push({ label: "Vacated", value: new Date(vacatedISO + "T00:00:00").toLocaleDateString("en-US") });
   rows.push({ label: `Occupied in ${year}`, value: pct(occPct, 1) });
   return (
-    <HoverCard title="Partial-year occupancy" rows={rows} width={240} style={{ fontSize: 11, color: "#b45309", whiteSpace: "nowrap" }}>
+    <HoverCard title="Partial-year occupancy" rows={rows} width={240} style={{ fontSize: "var(--fs-11)", color: "#b45309", whiteSpace: "nowrap" }}>
       {" "}({pct(occPct, 0)} occ)
     </HoverCard>
   );
@@ -836,7 +836,7 @@ function RetailBuildingSummary({ result, onPick, onEditEscrow, footer }: {
             return (
             <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer", ...(t.grossLease ? { opacity: 0.5 } : {}) }} onClick={() => onPick(t.unitRef)}>
               <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-              <td style={{ ...td, textAlign: "left" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (Gross)</span> : t.capped ? <span style={{ fontSize: 11, color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: 11, color: "#b45309" }}> (own-parcel RET)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
+              <td style={{ ...td, textAlign: "left" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: "var(--fs-11)" }}> (Gross)</span> : t.capped ? <span style={{ fontSize: "var(--fs-11)", color: "#b45309" }}> (capped)</span> : t.flatRet != null ? <span style={{ fontSize: "var(--fs-11)", color: "#b45309" }}> (own-parcel RET)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
               <td style={td}>{pct(t.camPrs / 100)}</td>
               <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
               <td style={cam(true)}>{money0(t.camDue)}</td>
@@ -980,10 +980,10 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
   if (loading) return <div className="card"><div className="muted small">Loading…</div></div>;
   if (!def || !computed) return <div className="card"><div className="muted small">No quarterly billing on file.</div></div>;
 
-  const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
-  const std: React.CSSProperties = { ...td, fontSize: 14, padding: "6px 10px" };
+  const sth: React.CSSProperties = { ...th, fontSize: "var(--fs-12)", padding: "7px 10px" };
+  const std: React.CSSProperties = { ...td, fontSize: "var(--fs-14)", padding: "6px 10px" };
   const ytdTd: React.CSSProperties = { ...std, borderLeft: "2px solid var(--border)" };
-  const acctTd: React.CSSProperties = { ...std, textAlign: "left", color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontSize: 12 };
+  const acctTd: React.CSSProperties = { ...std, textAlign: "left", color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontSize: "var(--fs-12)" };
   const overridden = (label: string | null, q: Quarter, field: "cam" | "ret") =>
     field === "cam" ? manual.camCosts[label!]?.[q] != null : manual.retCosts[q] != null;
   // Eligible-cost cell: GL value by default, manual override shown in purple.
@@ -1029,7 +1029,7 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
         <tbody>
           {def.camLines.map((label) => (
             <tr key={label} style={{ borderBottom: "1px solid var(--border)" }}>
-              <td style={acctTd}><code style={{ fontSize: 11 }}>{def.camAccounts[label] ?? "—"}</code></td>
+              <td style={acctTd}><code style={{ fontSize: "var(--fs-11)" }}>{def.camAccounts[label] ?? "—"}</code></td>
               <td style={{ ...std, textAlign: "left" }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                   <span>{label}</span>
@@ -1060,7 +1060,7 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
             {QUARTERS.map((qq) => <td key={qq} style={std}>{money0(computed.camCostByQ[qq] * (1 + def.mgmtFeePct / 100))}</td>)}
           </tr>
           <tr style={{ borderTop: "2px solid var(--border)" }}>
-            <td style={acctTd}><code style={{ fontSize: 11 }}>{def.retAccount}</code></td>
+            <td style={acctTd}><code style={{ fontSize: "var(--fs-11)" }}>{def.retAccount}</code></td>
             <td style={{ ...std, textAlign: "left" }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                 <span>Total Taxes</span>
@@ -1074,7 +1074,7 @@ function QuarterlyBilling({ billingKey, year }: { billingKey: string; year: numb
       </table>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18, marginBottom: 6 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Quarterly Statement</div>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Quarterly Statement</div>
         <select value={billingQ} onChange={(e) => setBillingQ(e.target.value as Quarter)} className="select-brand select-sm">
           {QUARTERS.map((qq) => <option key={qq} value={qq}>{qq} {year}</option>)}
         </select>
@@ -1124,8 +1124,8 @@ function RetailFinalExpenseSummary({ data, property, year, onEdit, historyHref }
 }) {
   const backup = useCamBackup(property, year);
   const [openBackup, setOpenBackup] = useState<{ account: string; label: string } | null>(null);
-  const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
-  const std: React.CSSProperties = { ...td, fontSize: 14, padding: "7px 10px" };
+  const sth: React.CSSProperties = { ...th, fontSize: "var(--fs-12)", padding: "7px 10px" };
+  const std: React.CSSProperties = { ...td, fontSize: "var(--fs-14)", padding: "7px 10px" };
   const camSeedTotal = data.lines.reduce((a, l) => a + l.seed, 0);
   const camFinalTotal = data.lines.reduce((a, l) => a + l.amount, 0);
   // Moving expense-history window (years before the recon year). A vertical
@@ -1151,7 +1151,7 @@ function RetailFinalExpenseSummary({ data, property, year, onEdit, historyHref }
       </td>
       <td style={{ ...std, color: "var(--muted)" }}>{money0(r.seed)}</td>
       <td style={std} onClick={(e) => e.stopPropagation()}><EditableMoney value={r.amount} onCommit={(v) => onEdit(k, v)} /></td>
-      <td style={{ ...std, fontSize: 12, width: 70 }}>
+      <td style={{ ...std, fontSize: "var(--fs-12)", width: 70 }}>
         {r.overridden
           ? <button type="button" onClick={() => onEdit(k, null)} style={{ border: "none", background: "none", padding: 0, color: "#0b4a7d", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}>revert</button>
           : <span className="muted">—</span>}
@@ -1170,7 +1170,7 @@ function RetailFinalExpenseSummary({ data, property, year, onEdit, historyHref }
         <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
           <PackageButton property={property} year={year} total={backup.total} />
           {historyHref && (
-            <Link href={historyHref} style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
+            <Link href={historyHref} style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
               Full Expense History →
             </Link>
           )}
@@ -1246,7 +1246,7 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
             return (
               <tr key={t.unitRef} style={{ borderBottom: "1px solid var(--border)", ...(t.grossLease ? { opacity: 0.5 } : {}) }}>
                 <td style={{ ...td, textAlign: "left" }}><UnitChip unitRef={t.unitRef} backTo={`/cam-recon?property=${result.propertyCode}&year=${result.reconYear}`} /></td>
-                <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: 11 }}> (Gross)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
+                <td style={{ ...td, textAlign: "left", cursor: "pointer" }} onClick={() => onPick(t.unitRef)}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{t.portion && <PortionPill portion={t.portion} />}<span>{t.name}{t.grossLease ? <span className="muted" style={{ fontSize: "var(--fs-11)" }}> (Gross)</span> : null}<OccCallout occPct={t.occPct} year={result.reconYear} rcd={t.rcd} vacatedISO={t.vacatedISO} /></span></span></td>
                 <td style={td}>{t.adminFeePct ? `${t.adminFeePct}%` : "—"}</td>
                 <td style={td}>{t.grossLease ? "—" : pct(t.camPrs / 100)}</td>
                 <td style={td}>{t.grossLease ? "—" : pct(t.insPrs / 100)}</td>
@@ -1254,7 +1254,7 @@ function RetailConfigTable({ result, onPick }: { result: RetailBuildingResult; o
                 <td style={noteTd}>
                   {ex.length > 0 ? (
                     <ul style={{ margin: 0, paddingLeft: 16, display: "flex", flexDirection: "column", gap: 2 }}>
-                      {ex.map((e, i) => <li key={i} style={{ fontSize: 12, color: "#7c4a12", lineHeight: 1.4 }}>{e}</li>)}
+                      {ex.map((e, i) => <li key={i} style={{ fontSize: "var(--fs-12)", color: "#7c4a12", lineHeight: 1.4 }}>{e}</li>)}
                     </ul>
                   ) : <span style={{ color: "var(--muted)" }}>—</span>}
                 </td>
@@ -1279,12 +1279,12 @@ function AllocationBreakdown({ a }: { a: PropertyAllocation }) {
     const full = l.retail + l.office;
     return (
       <tr style={{ borderBottom: "1px solid var(--border)", fontWeight: bold ? 800 : 500 }}>
-        <td style={{ ...td, textAlign: "left", color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>{l.account ?? ""}</td>
+        <td style={{ ...td, textAlign: "left", color: "var(--muted)", whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontSize: "var(--fs-12)" }}>{l.account ?? ""}</td>
         <td style={{ ...td, textAlign: "left" }}>{l.label}</td>
         <td style={td}>{money(full)}</td>
-        <td style={td}>{money(l.retail)}<span className="muted" style={{ fontSize: 11 }}>{pctCell(l.retail, full)}</span></td>
-        <td style={td}>{money(l.office)}<span className="muted" style={{ fontSize: 11 }}>{pctCell(l.office, full)}</span></td>
-        <td style={{ ...td, textAlign: "left", color: "var(--muted)", fontSize: 12 }}>{bold ? "" : scope(l)}</td>
+        <td style={td}>{money(l.retail)}<span className="muted" style={{ fontSize: "var(--fs-11)" }}>{pctCell(l.retail, full)}</span></td>
+        <td style={td}>{money(l.office)}<span className="muted" style={{ fontSize: "var(--fs-11)" }}>{pctCell(l.office, full)}</span></td>
+        <td style={{ ...td, textAlign: "left", color: "var(--muted)", fontSize: "var(--fs-12)" }}>{bold ? "" : scope(l)}</td>
       </tr>
     );
   };
@@ -1329,8 +1329,8 @@ function ColumnSchedule({ rows, reconYear, total, footRows }: {
   total?: { label: string; amount: number };
   footRows?: { label: string; amount: number; strong?: boolean; amber?: boolean }[];
 }) {
-  const sth: React.CSSProperties = { ...th, fontSize: 11, padding: "5px 8px" };
-  const std: React.CSSProperties = { ...td, fontSize: 13.5, padding: "5px 8px" };
+  const sth: React.CSSProperties = { ...th, fontSize: "var(--fs-11)", padding: "5px 8px" };
+  const std: React.CSSProperties = { ...td, fontSize: "var(--fs-13-5)", padding: "5px 8px" };
   return (
     <table style={{ width: "100%", borderCollapse: "collapse" }}>
       <thead>
@@ -1458,9 +1458,9 @@ function RetailTenantStatement({ t, reconYear, contact }: {
       <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
         <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>Statement to</span>
         {contact?.email
-          ? <span style={{ fontSize: 13, fontWeight: 700, wordBreak: "break-all" }}>{contact.email}</span>
-          : <span style={{ fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>No CAM/RET recipient flagged — set one on the Contacts page</span>}
-        <a href={`/units/${encodeURIComponent(t.unitRef)}`} style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", marginLeft: "auto" }}>Edit contacts →</a>
+          ? <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, wordBreak: "break-all" }}>{contact.email}</span>
+          : <span style={{ fontSize: "var(--fs-13)", color: "#b91c1c", fontWeight: 600 }}>No CAM/RET recipient flagged — set one on the Contacts page</span>}
+        <a href={`/units/${encodeURIComponent(t.unitRef)}`} style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", marginLeft: "auto" }}>Edit contacts →</a>
       </div>
     </div>
   );
@@ -1500,7 +1500,7 @@ const CAM_TINT = "rgba(11,74,125,0.05)";
 const RET_TINT = "rgba(202,138,4,0.06)";
 const BLOCK_SEP = "2px solid rgba(15,23,42,0.18)";
 const groupTh: React.CSSProperties = {
-  textAlign: "center", padding: "5px 10px", fontSize: 11, fontWeight: 800,
+  textAlign: "center", padding: "5px 10px", fontSize: "var(--fs-11)", fontWeight: 800,
   textTransform: "uppercase", letterSpacing: "0.08em",
 };
 
@@ -1680,7 +1680,7 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, onPullGlF
               disabled={pulling || glDiffs.length === 0}
               title={glDiffs.length === 0 ? "FINAL already matches the GL actuals" : `Set FINAL to the GL actual on ${glDiffs.length} line${glDiffs.length !== 1 ? "s" : ""}`}
               style={{
-                fontSize: 12, fontWeight: 700, padding: "6px 12px", borderRadius: 999,
+                fontSize: "var(--fs-12)", fontWeight: 700, padding: "6px 12px", borderRadius: 999,
                 border: "1px solid rgba(11,74,125,0.35)",
                 background: glDiffs.length === 0 ? "rgba(15,23,42,0.04)" : "rgba(11,74,125,0.08)",
                 color: glDiffs.length === 0 ? "var(--muted)" : "#0b4a7d",
@@ -1692,7 +1692,7 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, onPullGlF
           )}
           <PackageButton property={property} year={year} total={backup.total} />
           {historyHref && (
-            <Link href={historyHref} style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
+            <Link href={historyHref} style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
               Full Expense History →
             </Link>
           )}
@@ -1744,7 +1744,7 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, onPullGlF
             const matchesAvid = Math.round(r.final) === Math.round(r.excelAvid);
             return (
               <tr key={r.account} style={{ borderBottom: "1px solid var(--border)", ...(isSep(r.account) ? { borderTop: "2px solid var(--border)" } : {}) }}>
-                <td style={{ ...td, textAlign: "left", color: "var(--muted)", fontSize: 12 }}>{r.account}</td>
+                <td style={{ ...td, textAlign: "left", color: "var(--muted)", fontSize: "var(--fs-12)" }}>{r.account}</td>
                 <td style={{ ...td, textAlign: "left" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                     <span>{r.label}</span>
@@ -1843,12 +1843,12 @@ function RecoveryByBaseYear({ result }: { result: BuildingReconResult }) {
               onMouseEnter={() => setHover(g.year)}
               style={{ flex: "1 0 56px", display: "flex", flexDirection: "column", alignItems: "center", minWidth: 56, cursor: "default", opacity: dim ? 0.5 : 1, transition: "opacity 0.12s" }}
             >
-              <div style={{ fontSize: 12, fontWeight: 800 }}>{money0(g.total)}</div>
+              <div style={{ fontSize: "var(--fs-12)", fontWeight: 800 }}>{money0(g.total)}</div>
               <div style={{ height: H, display: "flex", flexDirection: "column", justifyContent: "flex-end", width: 40, marginTop: 4, outline: hover === g.year ? "2px solid rgba(11,74,125,0.35)" : "none", outlineOffset: 2, borderRadius: 4 }}>
                 <div style={{ height: Math.max(0, retH), background: REC_RET, borderRadius: "4px 4px 0 0" }} />
                 <div style={{ height: Math.max(0, camH), background: REC_CAM, borderRadius: retH < 1 ? "4px 4px 0 0" : 0 }} />
               </div>
-              <div style={{ fontSize: 13, fontWeight: 700, marginTop: 6 }}>{g.year}</div>
+              <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, marginTop: 6 }}>{g.year}</div>
               <div className="small muted">{g.count} {g.count === 1 ? "tenant" : "tenants"}</div>
             </div>
           );
@@ -1897,7 +1897,7 @@ function ScheduleTable({ title, lines, baseYear, reconYear, totalLabel, aggregat
   // isn't meaningful — blank each line and show only the total over base.
   const incTotal = aggregate ? Math.max(0, actualTotal - baseTotal) : lines.reduce((s, l) => s + l.netIncrease, 0);
   // Slightly larger fonts + whole dollars for an easy-to-read statement.
-  const sth: React.CSSProperties = { ...th, fontSize: 12, padding: "7px 10px" };
+  const sth: React.CSSProperties = { ...th, fontSize: "var(--fs-12)", padding: "7px 10px" };
   const std: React.CSSProperties = { ...td, fontSize: 14.5, padding: "7px 10px" };
   return (
     // Fixed layout + shared column widths so the Op Ex and RET schedules
@@ -1986,7 +1986,7 @@ function EditableText({ value, placeholder, onCommit }: { value: string; placeho
       onBlur={(e) => { e.currentTarget.style.borderColor = "transparent"; e.currentTarget.style.background = EDIT_BG; if (text !== value) onCommit(text.trim()); }}
       onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); if (e.key === "Escape") { setText(value); e.currentTarget.blur(); } }}
       onFocus={(e) => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--card)"; }}
-      style={{ minWidth: 240, flex: 1, border: "1px solid transparent", borderRadius: 6, padding: "3px 6px", background: EDIT_BG, color: "inherit", font: "inherit", fontSize: 13 }}
+      style={{ minWidth: 240, flex: 1, border: "1px solid transparent", borderRadius: 6, padding: "3px 6px", background: EDIT_BG, color: "inherit", font: "inherit", fontSize: "var(--fs-13)" }}
     />
   );
 }
@@ -2062,15 +2062,15 @@ function TenantStatement({ t, reconYear, estimate, contact }: {
       <div className="card" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
         <span style={{ ...SECTION_LABEL, whiteSpace: "nowrap" }}>Statement to</span>
         {contact?.email ? (
-          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", wordBreak: "break-all" }}>{contact.email}</span>
+          <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "var(--text)", wordBreak: "break-all" }}>{contact.email}</span>
         ) : (
-          <span style={{ fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>
+          <span style={{ fontSize: "var(--fs-13)", color: "#b91c1c", fontWeight: 600 }}>
             No CAM/RET recipient flagged — set one on the Contacts page
           </span>
         )}
         <a
           href={`/units/${encodeURIComponent(t.unitRef)}`}
-          style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none", marginLeft: "auto" }}
+          style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", marginLeft: "auto" }}
         >
           Edit contacts →
         </a>

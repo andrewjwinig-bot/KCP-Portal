@@ -143,7 +143,7 @@ export default function HistoricalOpExPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
@@ -176,7 +176,7 @@ export default function HistoricalOpExPage() {
       {entries && entries.length > 0 && <SummaryTable entries={entries} budget={budget} />}
 
       {entries && entries.length > 0 && (
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginTop: 6 }}>
+        <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginTop: 6 }}>
           Property &amp; Line Detail
         </div>
       )}
@@ -262,32 +262,32 @@ function SummaryTable({ entries, budget }: { entries: HistoricalOpExEntry[]; bud
             {byr ? `${byr} budget` : "Budget"} vs. historical actuals — operating expenses, real estate taxes, and total per property. Showing the {shown.length} most recent actual years; download for the full history.
           </div>
         </div>
-        <button onClick={exportCSV} className="btn primary" style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}>Download CSV</button>
+        <button onClick={exportCSV} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>Download CSV</button>
       </div>
 
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, minWidth: 720 }}>
         <thead>
           <tr>
             <th style={{ textAlign: "left", padding: "6px 10px", borderBottom: "1px solid var(--border)" }} />
-            {byr && <th colSpan={3} style={{ textAlign: "center", padding: "4px 10px", fontSize: 13, fontWeight: 800, borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)", background: budTint, color: "#0b4a7d" }}>{byr} Budget</th>}
+            {byr && <th colSpan={3} style={{ textAlign: "center", padding: "4px 10px", fontSize: "var(--fs-13)", fontWeight: 800, borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)", background: budTint, color: "#0b4a7d" }}>{byr} Budget</th>}
             {shown.map((y) => (
-              <th key={y} colSpan={3} style={{ textAlign: "center", padding: "4px 10px", fontSize: 13, fontWeight: 800, borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>{y}</th>
+              <th key={y} colSpan={3} style={{ textAlign: "center", padding: "4px 10px", fontSize: "var(--fs-13)", fontWeight: 800, borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>{y}</th>
             ))}
           </tr>
-          <tr style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>
+          <tr style={{ fontSize: "var(--fs-11)", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>
             <th style={{ textAlign: "left", padding: "4px 10px", borderBottom: "1px solid var(--border)" }}>Property</th>
             {byr && (
               <Fragment>
-                <th style={{ ...grp, fontSize: 11, background: budTint }}>Op Ex</th>
-                <th style={{ ...num, fontSize: 11, background: budTint }}>RET</th>
-                <th style={{ ...num, fontSize: 11, fontWeight: 800, background: budTint }}>Total</th>
+                <th style={{ ...grp, fontSize: "var(--fs-11)", background: budTint }}>Op Ex</th>
+                <th style={{ ...num, fontSize: "var(--fs-11)", background: budTint }}>RET</th>
+                <th style={{ ...num, fontSize: "var(--fs-11)", fontWeight: 800, background: budTint }}>Total</th>
               </Fragment>
             )}
             {shown.map((y) => (
               <Fragment key={y}>
-                <th style={{ ...grp, fontSize: 11 }}>Op Ex</th>
-                <th style={{ ...num, fontSize: 11 }}>RET</th>
-                <th style={{ ...num, fontSize: 11, fontWeight: 800 }}>Total</th>
+                <th style={{ ...grp, fontSize: "var(--fs-11)" }}>Op Ex</th>
+                <th style={{ ...num, fontSize: "var(--fs-11)" }}>RET</th>
+                <th style={{ ...num, fontSize: "var(--fs-11)", fontWeight: 800 }}>Total</th>
               </Fragment>
             ))}
           </tr>
@@ -298,8 +298,8 @@ function SummaryTable({ entries, budget }: { entries: HistoricalOpExEntry[]; bud
             return (
             <tr key={r.code} style={{ borderBottom: "1px solid var(--border)" }}>
               <td style={{ textAlign: "left", padding: "6px 10px", whiteSpace: "nowrap" }}>
-                <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: 700, fontSize: 12 }}>{r.code}</span>
-                {r.name && <span className="muted" style={{ marginLeft: 8, fontSize: 12.5 }}>{r.name}</span>}
+                <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontWeight: 700, fontSize: "var(--fs-12)" }}>{r.code}</span>
+                {r.name && <span className="muted" style={{ marginLeft: 8, fontSize: "var(--fs-12-5)" }}>{r.name}</span>}
               </td>
               {byr && (
                 <Fragment>

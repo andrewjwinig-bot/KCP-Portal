@@ -90,7 +90,7 @@ function SendLink({ group, year }: { group: "SC" | "BP"; year: number }) {
 
   return (
     <div className="card" style={{ borderColor: "rgba(11,74,125,0.35)", background: "rgba(11,74,125,0.04)", display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+      <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
         Link to send {person}
       </div>
       <div className="muted small">
@@ -98,23 +98,23 @@ function SendLink({ group, year }: { group: "SC" | "BP"; year: number }) {
       </div>
       {link === undefined ? <div className="muted small">Getting the link…</div>
         : link === null ? (
-          <div><button type="button" className="btn primary" style={{ fontSize: 13, fontWeight: 700 }} onClick={() => load(true)}>Create {person}&rsquo;s link</button></div>
+          <div><button type="button" className="btn primary" style={{ fontSize: "var(--fs-13)", fontWeight: 700 }} onClick={() => load(true)}>Create {person}&rsquo;s link</button></div>
         ) : (
           <>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <input readOnly value={link.url ?? ""} onFocus={(e) => e.currentTarget.select()} aria-label={`${person}'s link`}
                 style={{ flex: "1 1 420px", minWidth: 0 }} />
-              <button type="button" className="btn primary" style={{ fontSize: 13, fontWeight: 700 }}
+              <button type="button" className="btn primary" style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}
                 onClick={() => { navigator.clipboard?.writeText(link.url ?? "").then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); }).catch(() => {}); }}>
                 {copied ? "Copied ✓" : "Copy"}
               </button>
-              <a className="btn" href={link.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+              <a className="btn" href={link.url ?? "#"} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--fs-13)", fontWeight: 700, textDecoration: "none" }}>
                 Open it as {person} sees it ↗
               </a>
             </div>
-            <div className="muted" style={{ fontSize: 12, display: "flex", gap: 12, alignItems: "center" }}>
+            <div className="muted" style={{ fontSize: "var(--fs-12)", display: "flex", gap: 12, alignItems: "center" }}>
               <span>{link.viewCount ? `Opened ${link.viewCount}×${link.lastViewedAt ? ` · last ${new Date(link.lastViewedAt).toLocaleDateString("en-US")}` : ""}` : "Not opened yet"}</span>
-              <button type="button" onClick={revoke} style={{ background: "none", border: "none", padding: 0, color: "#b91c1c", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Revoke</button>
+              <button type="button" onClick={revoke} style={{ background: "none", border: "none", padding: 0, color: "#b91c1c", fontWeight: 700, fontSize: "var(--fs-12)", cursor: "pointer" }}>Revoke</button>
             </div>
           </>
         )}

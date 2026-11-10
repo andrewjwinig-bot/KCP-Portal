@@ -48,7 +48,7 @@ export function BackupTrigger({ count, onClick }: { count: number; onClick: () =
     <button onClick={onClick} title={count ? `${count} backup file${count === 1 ? "" : "s"}` : "Attach backup"} style={{
       display: "inline-flex", alignItems: "center", gap: 4, border: "1px solid var(--border)", borderRadius: 6,
       padding: "2px 7px", background: count ? "rgba(11,74,125,0.08)" : "transparent", color: count ? BRAND : "var(--muted)",
-      cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700,
+      cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-12)", fontWeight: 700,
     }}>
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
       {count || ""}
@@ -62,7 +62,7 @@ export function PackageButton({ property, year, total }: { property: string; yea
     <a
       href={total ? `/api/cam-recon/attachments/package?property=${encodeURIComponent(property)}&year=${year}` : undefined}
       className="btn"
-      style={{ fontSize: 12, fontWeight: 700, opacity: total ? 1 : 0.5, pointerEvents: total ? "auto" : "none", display: "inline-flex", alignItems: "center", gap: 6 }}
+      style={{ fontSize: "var(--fs-12)", fontWeight: 700, opacity: total ? 1 : 0.5, pointerEvents: total ? "auto" : "none", display: "inline-flex", alignItems: "center", gap: 6 }}
       title={total ? "Download all backup invoices (Tax · Insurance · Operating) as one zip" : "No backup files uploaded yet"}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
@@ -88,7 +88,7 @@ export function MixedCamBackup({ retailProperty, officeProperty, year }: {
   const openRow = rows.find((r) => r.key === open);
   return (
     <div className="card">
-      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>CAM Backup · {year}</div>
+      <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>CAM Backup · {year}</div>
       <div className="muted small" style={{ marginTop: 2, marginBottom: 12, maxWidth: 640 }}>
         This is a mixed center — office and retail invoices are kept in two separate buckets so they don&rsquo;t get mixed up. Attach each portion&rsquo;s invoices below; download either as its own package.
       </div>
@@ -99,7 +99,7 @@ export function MixedCamBackup({ retailProperty, officeProperty, year }: {
               <div style={{ fontWeight: 700 }}>{r.title} portion</div>
               <div className="muted small">{r.b.total} file{r.b.total === 1 ? "" : "s"} attached</div>
             </div>
-            <button onClick={() => setOpen(r.key)} className="btn" style={{ fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <button onClick={() => setOpen(r.key)} className="btn" style={{ fontSize: "var(--fs-12)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
               Add / view
             </button>
@@ -202,8 +202,8 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
       <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 540, background: "var(--card)", borderRadius: 14, boxShadow: "0 20px 50px rgba(15,23,42,0.3)", padding: 22 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>Backup · {year}</div>
-            <div style={{ fontSize: 17, fontWeight: 800 }}>{label} <span className="muted" style={{ fontWeight: 500, fontSize: 13 }}>· {account}</span></div>
+            <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>Backup · {year}</div>
+            <div style={{ fontSize: 17, fontWeight: 800 }}>{label} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-13)" }}>· {account}</span></div>
           </div>
           <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4 }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -236,7 +236,7 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
                     <circle cx="31" cy="31" r="24" fill="none" stroke="var(--import-strip-div)" strokeWidth="5" />
                     <circle cx="31" cy="31" r="24" fill="none" stroke="var(--import-blue)" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${overallPct * RING_C} ${RING_C}`} style={{ transition: "stroke-dasharray .25s ease" }} />
                   </svg>
-                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800, color: "var(--import-blue)", fontVariantNumeric: "tabular-nums" }}>{Math.round(overallPct * 100)}%</div>
+                  <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-13)", fontWeight: 800, color: "var(--import-blue)", fontVariantNumeric: "tabular-nums" }}>{Math.round(overallPct * 100)}%</div>
                 </div>
                 <div style={{ textAlign: "left", minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: 14.5, ...SHIMMER }}>Uploading invoice{progress && progress.total > 1 ? "s" : ""}…</div>
@@ -250,7 +250,7 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
           ) : (
             <>
               <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke={dragOver ? BRAND : "var(--muted)"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>Drag &amp; drop invoices here</div>
+              <div style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>Drag &amp; drop invoices here</div>
               <div className="muted small">or <span style={{ color: BRAND, fontWeight: 700 }}>browse your files</span> · PDF, image, Excel, Word</div>
             </>
           )}
@@ -264,7 +264,7 @@ export function CamBackupModal({ property, year, account, label, items, blobEnab
           ) : mine.map((a) => (
             <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 8, background: "rgba(15,23,42,0.02)" }}>
               <a href={fileUrl(a)} target="_blank" rel="noopener noreferrer" style={{ flex: 1, minWidth: 0, textDecoration: "none", color: "var(--text)" }}>
-                <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
+                <div style={{ fontWeight: 600, fontSize: "var(--fs-13)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</div>
                 <div className="muted small">{fmtSize(a.size)} · {new Date(a.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}{a.uploadedBy ? ` · ${a.uploadedBy}` : ""}</div>
               </a>
               <label className="small muted" title="Include in the tenant package / zip" style={{ display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer", flexShrink: 0 }}>

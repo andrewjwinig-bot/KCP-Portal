@@ -63,7 +63,7 @@ const monthOfRow = (p: { period: string }) => { const r = p.period.match(/(\d{4}
 const money = (n: number | null | undefined) => n == null ? "—" : "$" + (Math.round(n * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
 const GREEN = "#15803d";
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth, onSent, toolbar }: {
   carryover: Record<string, PropertyCarry>;
@@ -154,7 +154,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
       case "sent": return <>{fmtDate(p.sentAt)}{p.sentBy ? <span className="muted"> · {p.sentBy}</span> : null}</>;
       case "sent-in-batch": return <>{fmtDate(p.sentAt)}<span className="muted"> · in the {p.batch} batch</span></>;
       case "finalized": return <HoverCard title="Finalized — no send on record" rows={[]} width={300}
-        body={<div style={{ fontSize: 12.5, lineHeight: 1.45 }}>Carryover closed, but no send on record — check AvidXchange.</div>}>
+        body={<div style={{ fontSize: "var(--fs-12-5)", lineHeight: 1.45 }}>Carryover closed, but no send on record — check AvidXchange.</div>}>
         <Pill tone={TONE_NEUTRAL}>FINALIZED · NO SEND RECORD</Pill></HoverCard>;
       case "not-sent": return <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}><Pill tone={TONE_AMBER}>NOT SENT</Pill>{sendBtn(p, false)}</span>;
       default: return <span className="muted">Processed — never staged to send</span>;
@@ -200,7 +200,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 24, fontWeight: 900, color: GREEN, lineHeight: 1.2 }}>{lastSent.label} has been sent to AvidXchange</div>
               <button type="button" onClick={() => setOpen(lastSent)}
-                style={{ marginTop: 4, padding: 0, border: "none", background: "none", cursor: "pointer", color: "var(--text)", fontSize: 13.5, textAlign: "left" }}>
+                style={{ marginTop: 4, padding: 0, border: "none", background: "none", cursor: "pointer", color: "var(--text)", fontSize: "var(--fs-13-5)", textAlign: "left" }}>
                 Sent {fmtDate(lastSent.sentAt)}{lastSent.sentBy ? ` by ${lastSent.sentBy}` : ""}{lastSent.batch ? ` in the ${lastSent.batch} batch` : ""}{lastSent.total != null ? <> · <b>{money(lastSent.total)}</b></> : null}
                 {lastSent.invoiceCount ? ` · ${lastSent.invoiceCount} invoice${lastSent.invoiceCount === 1 ? "" : "s"}` : ""}
                 <span style={{ color: "#0b4a7d", fontWeight: 700, marginLeft: 8 }}>View invoices →</span>
@@ -216,7 +216,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
         {staged.map((p) => (
           <div key={p.period} style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8, background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <Pill tone={TONE_AMBER}>NOT SENT</Pill>
-            <span style={{ fontSize: 13.5, flex: 1, minWidth: 220 }}><b>{p.label}</b> was prepared ({money(p.total)}{p.invoiceCount ? `, ${p.invoiceCount} invoice${p.invoiceCount === 1 ? "" : "s"}` : ""}) but hasn&rsquo;t gone to AvidXchange.</span>
+            <span style={{ fontSize: "var(--fs-13-5)", flex: 1, minWidth: 220 }}><b>{p.label}</b> was prepared ({money(p.total)}{p.invoiceCount ? `, ${p.invoiceCount} invoice${p.invoiceCount === 1 ? "" : "s"}` : ""}) but hasn&rsquo;t gone to AvidXchange.</span>
             {loadableMonth && periodKey(loadableMonth) === periodKey(p.period) && (
               <button type="button" className="btn sm" onClick={onLoadGl}>Review first</button>
             )}
@@ -244,7 +244,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                 <tr key={b.id} onClick={() => setOpenProp((p) => (p === b.id ? null : b.id))} style={{ cursor: "pointer" }}>
                   <td style={tdL}>
                     <span className="muted" style={{ display: "inline-block", width: 14 }}>{openProp === b.id ? "▾" : "▸"}</span>
-                    <code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{b.id}</code>{propName(b.id)}
+                    <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{b.id}</code>{propName(b.id)}
                   </td>
                   <td style={td}>{b.accounts.length}</td>
                   <td style={td}>{b.since ?? "—"}</td>
@@ -252,7 +252,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                 </tr>,
                 ...(openProp === b.id ? b.accounts.map((a) => (
                   <tr key={`${b.id}-${a.accountCode}`} style={{ background: "rgba(15,23,42,0.025)" }}>
-                    <td style={{ ...tdL, paddingLeft: 40 }}><code style={{ fontSize: 11.5 }}>{a.accountCode}</code> {a.accountName}</td>
+                    <td style={{ ...tdL, paddingLeft: 40 }}><code style={{ fontSize: "var(--fs-11-5)" }}>{a.accountCode}</code> {a.accountName}</td>
                     <td style={{ ...td, color: "var(--muted)" }}>{a.months.length} mo</td>
                     <td style={{ ...td, color: "var(--muted)" }}>{a.sinceMonth}</td>
                     <td style={td}>{money(a.heldTotal)}</td>
@@ -293,7 +293,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                   <td style={tdL}>{statusCell(p)}</td>
                   <td style={td}>
                     {p.reconstructed && <HoverCard title="Rebuilt from the GL" rows={[]} width={280}
-                      body={<div style={{ fontSize: 12.5, lineHeight: 1.45 }}>Originals not on file — rebuilt from the GL{p.reconstructedAt ? ` ${fmtDate(p.reconstructedAt)}` : ""}.</div>}>
+                      body={<div style={{ fontSize: "var(--fs-12-5)", lineHeight: 1.45 }}>Originals not on file — rebuilt from the GL{p.reconstructedAt ? ` ${fmtDate(p.reconstructedAt)}` : ""}.</div>}>
                       <span style={{ marginRight: 6 }}><Pill tone={TONE_AMBER}>REBUILT</Pill></span></HoverCard>}
                     {p.invoiceCount ?? p.invoices?.length ?? "—"}
                   </td>
@@ -330,7 +330,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
             {open.status === "not-sent" && (
               <div style={{ margin: "12px 18px 0", padding: "10px 12px", borderRadius: 8, background: "rgba(217,119,6,0.08)", border: "1px solid rgba(217,119,6,0.30)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                 <Pill tone={TONE_AMBER}>NOT SENT</Pill>
-                <span style={{ fontSize: 13.5, flex: 1 }}>This month hasn&rsquo;t gone to AvidXchange.</span>
+                <span style={{ fontSize: "var(--fs-13-5)", flex: 1 }}>This month hasn&rsquo;t gone to AvidXchange.</span>
                 {sendBtn(open)}
               </div>
             )}
@@ -350,7 +350,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                       const url = inv ? `/api/allocation/invoices?period=${encodeURIComponent(open.period)}&file=${encodeURIComponent(inv.fileName)}` : null;
                       return (
                         <tr key={`${b.code}-${i}`}>
-                          <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{b.code}</code>{b.name || propName(b.code)}</td>
+                          <td style={tdL}><code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{b.code}</code>{b.name || propName(b.code)}</td>
                           <td style={td}>{Number.isFinite(b.amount) ? money(b.amount) : "—"}</td>
                           {open.reconstructed && (
                             <td style={{ ...td, whiteSpace: "nowrap" }}>
@@ -429,7 +429,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                     <tbody>
                       {confirm.preview.byProperty.map((b) => (
                         <tr key={b.code}>
-                          <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{b.code}</code>{b.name || propName(b.code)}</td>
+                          <td style={tdL}><code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{b.code}</code>{b.name || propName(b.code)}</td>
                           <td style={td}>{money(b.amount)}</td>
                         </tr>
                       ))}

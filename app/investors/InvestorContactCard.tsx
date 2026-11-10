@@ -20,10 +20,10 @@ import type { OwnerContact } from "../../lib/properties/ownerContacts";
 const AUTOSAVE_MS = 700;
 
 const LABEL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+  fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em",
   textTransform: "uppercase", color: "var(--muted)",
 };
-const FIELD_LABEL: React.CSSProperties = { ...LABEL, fontSize: 10, marginBottom: 3, display: "block" };
+const FIELD_LABEL: React.CSSProperties = { ...LABEL, fontSize: "var(--fs-10)", marginBottom: 3, display: "block" };
 
 export type ContactForm = {
   address: string;
@@ -177,14 +177,14 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
                     // shift up onto the wrong address.
                     alsoName: f.alsoName.filter((_, n) => n !== i),
                   }))}
-                  style={{ fontSize: 12, padding: "5px 10px", color: "#b91c1c" }}>Remove</button>
+                  style={{ fontSize: "var(--fs-12)", padding: "5px 10px", color: "#b91c1c" }}>Remove</button>
               </div>
             ))}
             <div>
               <button type="button" className="btn"
                 onClick={() => setForm((f) => ({ ...f, alsoEmail: [...f.alsoEmail, ""], alsoName: [...f.alsoName, ""] }))}
-                style={{ fontSize: 12, padding: "5px 10px" }}>+ Add a recipient</button>
-              <span className="muted" style={{ fontSize: 11.5, marginLeft: 10 }}>
+                style={{ fontSize: "var(--fs-12)", padding: "5px 10px" }}>+ Add a recipient</button>
+              <span className="muted" style={{ fontSize: "var(--fs-11-5)", marginLeft: 10 }}>
                 An accountant or manager who should receive what {name} receives.
               </span>
             </div>
@@ -214,9 +214,9 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
             a button that would be a lie. Clear is the way back to nothing. */}
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <button type="button" className="btn primary" disabled={saving} onClick={commit}
-            style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Done"}</button>
+            style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }}>{saving ? "Saving…" : "Done"}</button>
           <span aria-live="polite" style={{
-            fontSize: 11.5, fontWeight: 700,
+            fontSize: "var(--fs-11-5)", fontWeight: 700,
             color: status === "error" ? "#b91c1c" : status === "saved" ? "#15803d" : "var(--muted)",
           }}>
             {status === "saving" ? "Saving…"
@@ -226,7 +226,7 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
           </span>
           {has && (
             <button type="button" className="btn" disabled={saving} onClick={clearIt}
-              style={{ fontSize: 12, padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Clear</button>
+              style={{ fontSize: "var(--fs-12)", padding: "6px 12px", marginLeft: "auto", color: "#b91c1c" }}>Clear</button>
           )}
         </div>
       </div>
@@ -237,7 +237,7 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
     if (!canEdit) return null;
     return (
       <button type="button" className="btn no-print" onClick={begin}
-        style={{ fontSize: 12, padding: "5px 10px" }}>+ Add contact info</button>
+        style={{ fontSize: "var(--fs-12)", padding: "5px 10px" }}>+ Add contact info</button>
     );
   }
 
@@ -279,13 +279,13 @@ export function InvestorContactCard({ name, contact, canEdit, onSave, compact }:
         <span style={LABEL}>Contact</span>
         {canEdit && (
           <button type="button" className="btn no-print" onClick={begin}
-            style={{ fontSize: 11, padding: "2px 9px", marginLeft: "auto" }}>Edit</button>
+            style={{ fontSize: "var(--fs-11)", padding: "2px 9px", marginLeft: "auto" }}>Edit</button>
         )}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "5px 14px", fontSize: 13, alignItems: "baseline" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "5px 14px", fontSize: "var(--fs-13)", alignItems: "baseline" }}>
         {rows.map((r) => (
           <React.Fragment key={r.label}>
-            <span style={{ ...LABEL, fontSize: 10 }}>{r.label}</span>
+            <span style={{ ...LABEL, fontSize: "var(--fs-10)" }}>{r.label}</span>
             <span style={{ minWidth: 0, wordBreak: "break-word" }}>{r.node}</span>
           </React.Fragment>
         ))}

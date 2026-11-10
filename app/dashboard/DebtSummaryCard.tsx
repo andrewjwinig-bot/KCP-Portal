@@ -33,10 +33,10 @@ export default function DebtSummaryCard({ order = -1 }: { order?: number }) {
   return (
     <div className="card" style={{ gridColumn: "1 / -1", order }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
           Debt Summary
         </div>
-        <Link href="/debt" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+        <Link href="/debt" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
           Debt tracker →
         </Link>
       </div>
@@ -83,7 +83,7 @@ function DebtTile({ loan, today }: { loan: Loan; today: string }) {
       }}
     >
       <div style={{
-        fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+        fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em",
         textTransform: "uppercase", color: "var(--muted)",
         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
       }}>
@@ -93,7 +93,7 @@ function DebtTile({ loan, today }: { loan: Loan; today: string }) {
         {compactMoney(s.projectedBalance)}
       </div>
       <div style={{
-        fontSize: 12, color: "var(--muted)",
+        fontSize: "var(--fs-12)", color: "var(--muted)",
         display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2,
       }}>
         <span><strong style={{ color: "var(--text)", fontWeight: 700 }}>{compactMoney(s.monthlyDebtService)}</strong>/mo</span>

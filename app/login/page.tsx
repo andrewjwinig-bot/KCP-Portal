@@ -15,14 +15,14 @@ function resolveUserId(input: string): UserId | null {
 }
 
 const labelStyle: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)",
   letterSpacing: "0.06em", textTransform: "uppercase",
 };
 const fieldStyle: React.CSSProperties = {
   padding: "10px 12px",
   border: "1px solid var(--border)", borderRadius: 8,
   background: "var(--card)", color: "var(--text)",
-  fontFamily: "inherit", fontSize: 14, outline: "none",
+  fontFamily: "inherit", fontSize: "var(--fs-14)", outline: "none",
 };
 
 function LoginFormInner() {
@@ -167,7 +167,7 @@ function LoginFormInner() {
 
         {error && (
           <div style={{
-            fontSize: 13, color: "#b91c1c",
+            fontSize: "var(--fs-13)", color: "#b91c1c",
             padding: "8px 10px",
             background: "rgba(220,38,38,0.06)",
             border: "1px solid rgba(220,38,38,0.25)",

@@ -57,7 +57,7 @@ function OccBar({ pct }: { pct: number }) {
   return (
     <div style={{ position: "relative", height: 22, borderRadius: 6, background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
       <div style={{ position: "absolute", inset: 0, width: `${p}%`, background: color, borderRadius: 6, transition: "width .3s" }} />
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", paddingLeft: 8, fontSize: 12, fontWeight: 800, color: p > 55 ? "#fff" : "var(--text)" }}>{p.toFixed(1)}%</div>
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", paddingLeft: 8, fontSize: "var(--fs-12)", fontWeight: 800, color: p > 55 ? "#fff" : "var(--text)" }}>{p.toFixed(1)}%</div>
     </div>
   );
 }
@@ -69,11 +69,11 @@ function NoiBars({ actual, budget }: { actual: number | null; budget: number | n
   const fav = budget == null ? null : actual >= budget;
   const Bar = ({ v, label, color }: { v: number; label: string; color: string }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <span className="muted" style={{ fontSize: 10, width: 42, flexShrink: 0 }}>{label}</span>
+      <span className="muted" style={{ fontSize: "var(--fs-10)", width: 42, flexShrink: 0 }}>{label}</span>
       <div style={{ flex: 1, height: 10, borderRadius: 4, background: "rgba(15,23,42,0.06)", overflow: "hidden" }}>
         <div style={{ width: `${(Math.abs(v) / max) * 100}%`, height: "100%", background: color, borderRadius: 4 }} />
       </div>
-      <span style={{ fontSize: 11, fontWeight: 700, width: 52, textAlign: "right", flexShrink: 0 }}>{moneyK(v)}</span>
+      <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, width: 52, textAlign: "right", flexShrink: 0 }}>{moneyK(v)}</span>
     </div>
   );
   return (
@@ -89,7 +89,7 @@ function Delta({ now, prior, suffix = "pt" }: { now: number; prior: number | nul
   const d = now - prior;
   if (Math.abs(d) < 0.05) return <span className="muted small"> · flat</span>;
   const up = d > 0;
-  return <span style={{ fontSize: 12, fontWeight: 700, color: up ? GREEN : RED, marginLeft: 6 }}>{up ? "▲" : "▼"} {Math.abs(d).toFixed(1)}{suffix}</span>;
+  return <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: up ? GREEN : RED, marginLeft: 6 }}>{up ? "▲" : "▼"} {Math.abs(d).toFixed(1)}{suffix}</span>;
 }
 
 const GROUP_ACCENT: Record<string, string> = { bp: "#0b4a7d", sc: "#0d9488", lik: "#6d28d9", other: "#b45309" };
@@ -128,12 +128,12 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
   const stepper = (
     <div className="noprint" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       <button className="btn" onClick={() => step(-1)} style={{ padding: "6px 12px", fontWeight: 900 }}>←</button>
-      <span style={{ fontWeight: 800, fontSize: 14, minWidth: 120, textAlign: "center" }}>{MONTHS[month - 1]} {year}</span>
+      <span style={{ fontWeight: 800, fontSize: "var(--fs-14)", minWidth: 120, textAlign: "center" }}>{MONTHS[month - 1]} {year}</span>
       <button className="btn" onClick={() => step(1)} style={{ padding: "6px 12px", fontWeight: 900 }}>→</button>
       {embedded ? (
-        <Link href="/reports/monthly" className="btn" style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700, textDecoration: "none" }}>Full view / Print →</Link>
+        <Link href="/reports/monthly" className="btn" style={{ fontSize: "var(--fs-13)", padding: "6px 14px", fontWeight: 700, textDecoration: "none" }}>Full view / Print →</Link>
       ) : (
-        <button className="btn primary" onClick={() => window.print()} style={{ fontSize: 13, padding: "6px 14px", fontWeight: 700 }}>Print / PDF</button>
+        <button className="btn primary" onClick={() => window.print()} style={{ fontSize: "var(--fs-13)", padding: "6px 14px", fontWeight: 700 }}>Print / PDF</button>
       )}
     </div>
   );
@@ -141,7 +141,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
   const header = embedded ? (
     <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>Monthly Review</div>
+        <div style={{ fontSize: "var(--fs-13)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND }}>Monthly Review</div>
         <div className="muted small">{report?.monthLabel ?? `${MONTHS[month - 1]} ${year}`} · company-wide snapshot</div>
       </div>
       {stepper}
@@ -149,7 +149,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
   ) : (
     <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
       <div>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: BRAND }}>Korman Commercial Properties</div>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: BRAND }}>Korman Commercial Properties</div>
         <h1 style={{ margin: "2px 0 0" }}>Monthly Review</h1>
         <div className="muted small">{report?.monthLabel ?? `${MONTHS[month - 1]} ${year}`}{report?.generatedAt ? ` · generated ${new Date(report.generatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}</div>
       </div>
@@ -183,7 +183,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
           {/* ── Financial | Operational side by side ── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
             <div className="card">
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND, marginBottom: 10 }}>Financial</div>
+              <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND, marginBottom: 10 }}>Financial</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                   <span className="muted small">Net Operating Income · YTD</span>
@@ -200,7 +200,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
             </div>
 
             <div className="card">
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND, marginBottom: 10 }}>Operations</div>
+              <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND, marginBottom: 10 }}>Operations</div>
               <div className="pills" style={{ justifyContent: "flex-start", marginBottom: 8 }}>
                 <StatPill label="Open Requests" value={p.openRequests} accent={p.openRequests > 0 ? AMBER : GREEN} />
                 <StatPill label="New this month" value={p.newRequestsThisMonth} />
@@ -217,7 +217,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
           </div>
 
           {/* ── By group ── */}
-          <div style={{ fontSize: 14, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text)", marginTop: 4 }}>By Group</div>
+          <div style={{ fontSize: "var(--fs-14)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text)", marginTop: 4 }}>By Group</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(270px, 1fr))", gap: 14 }}>
             {report.groups.filter((grp) => grp.units > 0).map((grp) => {
               const accent = GROUP_ACCENT[grp.key] ?? BRAND;
@@ -257,7 +257,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
           {/* ── Upcoming & seasonal ── */}
           {report.upcoming.length > 0 && (
             <div className="card" style={{ background: "rgba(11,74,125,0.04)", borderColor: "rgba(11,74,125,0.25)" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND, marginBottom: 10 }}>Upcoming — for our discussion</div>
+              <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: BRAND, marginBottom: 10 }}>Upcoming — for our discussion</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {report.upcoming.map((u, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -287,7 +287,7 @@ function HighlightCard({ title, accent, rows, empty, href, hrefLabel }: {
   return (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: accent }}>{title} {rows.length > 0 && <span className="muted">({rows.length})</span>}</span>
+        <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: accent }}>{title} {rows.length > 0 && <span className="muted">({rows.length})</span>}</span>
         {href && rows.length > 0 && <Link href={href} className="noprint muted small" style={{ color: BRAND, fontWeight: 600, textDecoration: "none" }}>{hrefLabel}</Link>}
       </div>
       {rows.length === 0 ? (
@@ -295,7 +295,7 @@ function HighlightCard({ title, accent, rows, empty, href, hrefLabel }: {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {rows.map((r, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: 13 }}>
+            <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 8, fontSize: "var(--fs-13)" }}>
               <span style={{ fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.left}</span>
               <span className="muted small" style={{ flexShrink: 0 }}>{r.mid}</span>
               <span style={{ flexShrink: 0, fontWeight: 700, color: accent }}>{r.right}</span>
@@ -413,16 +413,16 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
           )}
         </td>
         <td className="muted small">{r.propertyCode}</td>
-        <td><code style={{ fontSize: 11 }}>{r.unitRef}</code></td>
+        <td><code style={{ fontSize: "var(--fs-11)" }}>{r.unitRef}</code></td>
         <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.sqft ? sf(Math.round(r.sqft)) : "—"}</td>
         <td className="muted small" style={{ whiteSpace: "nowrap" }}>{r.leaseTo ?? "—"}</td>
-        <td style={{ textAlign: "center", fontSize: 13 }}>{baseYear2(tenantMeta[r.unitRef]?.baseYear)}</td>
+        <td style={{ textAlign: "center", fontSize: "var(--fs-13)" }}>{baseYear2(tenantMeta[r.unitRef]?.baseYear)}</td>
         <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}
           title={depositOwed[r.unitRef] ? "Security deposit held / owed back to the tenant" : "No security deposit on file"}>
           {dep(r.unitRef)}
         </td>
         <td style={{ textAlign: "right" }}>
-          {canOpenRecon && <Link href={stmtHref(r)} className="noprint" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 12, textDecoration: "none", whiteSpace: "nowrap" }}>
+          {canOpenRecon && <Link href={stmtHref(r)} className="noprint" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-12)", textDecoration: "none", whiteSpace: "nowrap" }}>
             {gone ? "Close out →" : "Statement →"}
           </Link>}
         </td>
@@ -434,7 +434,7 @@ function LeaseMovement({ report, reconYear }: { report: Report; reconYear: numbe
   return (
     <div className="card">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0b4a7d" }}>
           Vacating &amp; Expiring <span className="muted" style={{ fontWeight: 600, textTransform: "none", letterSpacing: 0 }}>· recently vacated (60d) + expiring (60d)</span>
         </div>
         <Link href="/rentroll/leasing" className="noprint muted small" style={{ color: "#0b4a7d", fontWeight: 600, textDecoration: "none" }}>Leasing activity →</Link>

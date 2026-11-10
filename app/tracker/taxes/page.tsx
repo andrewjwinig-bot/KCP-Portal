@@ -43,7 +43,7 @@ function InstructionsModal({ task, onClose }: { task: TaxTask; onClose: () => vo
               <div className="modalTitle" style={{ fontSize: 20, fontWeight: 800 }}>
                 {filingLabel(task)}
               </div>
-              <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3 }}>{task.entity}</div>
+              <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 3 }}>{task.entity}</div>
             </div>
             <button onClick={onClose}
               style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "var(--muted)", padding: "0 4px", lineHeight: 1 }}>
@@ -52,12 +52,12 @@ function InstructionsModal({ task, onClose }: { task: TaxTask; onClose: () => vo
           </div>
         </div>
         <div style={{ overflowY: "auto", padding: "20px" }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: "var(--muted)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          <p style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "var(--muted)", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>
             How to file online:
           </p>
           <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 14 }}>
             {(task.instructionSteps ?? []).map((step, i) => (
-              <li key={i} style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text)" }}>
+              <li key={i} style={{ fontSize: "var(--fs-14)", lineHeight: 1.6, color: "var(--text)" }}>
                 {renderStepText(step)}
               </li>
             ))}
@@ -222,7 +222,7 @@ export default function TaxTrackerPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </div>
 
@@ -256,7 +256,7 @@ export default function TaxTrackerPage() {
               <span style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: isActive ? tile.color : (tile.key === "overdue" && overdue > 0 ? "#dc2626" : "var(--text)") }}>
                 {tile.value}
               </span>
-              <span style={{ fontSize: 11, fontWeight: 600, color: isActive ? tile.color : "var(--muted)", letterSpacing: "0.02em" }}>
+              <span style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: isActive ? tile.color : "var(--muted)", letterSpacing: "0.02em" }}>
                 {tile.label}
               </span>
             </button>
@@ -280,13 +280,13 @@ export default function TaxTrackerPage() {
 
         {/* Row 1: Year */}
         <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.08em" }}>YEAR</div>
+          <div style={{ fontSize: "var(--fs-10)", fontWeight: 800, color: "var(--muted)", letterSpacing: "0.08em" }}>YEAR</div>
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <button className="btn" onClick={() => setViewYear(y => y - 1)} style={{ padding: "4px 9px", fontWeight: 900 }}>←</button>
             <span style={{ fontWeight: 800, fontSize: 15, minWidth: 40, textAlign: "center" }}>{viewYear}</span>
             <button className="btn" onClick={() => setViewYear(y => y + 1)} style={{ padding: "4px 9px", fontWeight: 900 }}>→</button>
             {viewYear !== today.getFullYear() && (
-              <button className="btn" onClick={() => setViewYear(today.getFullYear())} style={{ fontSize: 11, padding: "4px 9px" }}>
+              <button className="btn" onClick={() => setViewYear(today.getFullYear())} style={{ fontSize: "var(--fs-11)", padding: "4px 9px" }}>
                 Today
               </button>
             )}
@@ -298,7 +298,7 @@ export default function TaxTrackerPage() {
 
         {/* Row 2: Month */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, color: "var(--muted)", letterSpacing: "0.08em", marginRight: 4 }}>MONTH</div>
+          <div style={{ fontSize: "var(--fs-10)", fontWeight: 800, color: "var(--muted)", letterSpacing: "0.08em", marginRight: 4 }}>MONTH</div>
           {activeMonths.map(m => {
             const active = filterMonth === m;
             return (
@@ -307,7 +307,7 @@ export default function TaxTrackerPage() {
                 border: `1px solid ${active ? "var(--brand)" : "var(--border)"}`,
                 borderRadius: 999, cursor: "pointer",
                 background: active ? "rgba(11,74,125,0.08)" : "transparent",
-                fontFamily: "inherit", fontSize: 12, fontWeight: active ? 700 : 500,
+                fontFamily: "inherit", fontSize: "var(--fs-12)", fontWeight: active ? 700 : 500,
                 color: active ? "var(--brand)" : "var(--text)",
                 transition: "border-color 0.12s, background 0.12s",
               }}>
@@ -316,7 +316,7 @@ export default function TaxTrackerPage() {
             );
           })}
           {filterMonth !== "all" && (
-            <button className="btn" onClick={() => setFilterMonth("all")} style={{ fontSize: 11, padding: "4px 9px" }}>✕ Clear</button>
+            <button className="btn" onClick={() => setFilterMonth("all")} style={{ fontSize: "var(--fs-11)", padding: "4px 9px" }}>✕ Clear</button>
           )}
         </div>
 
@@ -328,9 +328,9 @@ export default function TaxTrackerPage() {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0b4a7d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
           </svg>
-          <span style={{ fontSize: 12, color: "#0b4a7d", fontWeight: 600 }}>RET bills are saved at:</span>
+          <span style={{ fontSize: "var(--fs-12)", color: "#0b4a7d", fontWeight: 600 }}>RET bills are saved at:</span>
           <code style={{
-            fontFamily: "monospace", fontWeight: 700, fontSize: 11,
+            fontFamily: "monospace", fontWeight: 700, fontSize: "var(--fs-11)",
             color: "#0b4a7d", background: "rgba(11,74,125,0.08)",
             border: "1px solid rgba(11,74,125,0.18)",
             borderRadius: 4, padding: "1px 7px",
@@ -338,9 +338,9 @@ export default function TaxTrackerPage() {
             Data\Shared\Real Estate Tax
           </code>
           {filterStatus !== "all" && (
-            <button className="btn" onClick={() => setFilterStatus("all")} style={{ marginLeft: "auto", fontSize: 11, padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }}>
+            <button className="btn" onClick={() => setFilterStatus("all")} style={{ marginLeft: "auto", fontSize: "var(--fs-11)", padding: "3px 10px", display: "flex", alignItems: "center", gap: 5 }}>
               <span style={{
-                fontSize: 10, fontWeight: 700,
+                fontSize: "var(--fs-10)", fontWeight: 700,
                 color: filterStatus === "done" ? "#16a34a" : filterStatus === "overdue" ? "#dc2626" : "var(--text)",
               }}>
                 ● {filterStatus === "done" ? "Filed" : filterStatus === "remaining" ? "Remaining" : "Overdue"} filter active
@@ -364,26 +364,26 @@ export default function TaxTrackerPage() {
               border: `1px solid ${active ? cat.border : "var(--border)"}`,
               borderRadius: 999, cursor: "pointer",
               background: active ? cat.bg : "var(--card)",
-              fontFamily: "inherit", fontSize: 12, fontWeight: active ? 700 : 500,
+              fontFamily: "inherit", fontSize: "var(--fs-12)", fontWeight: active ? 700 : 500,
               color: active ? cat.text : "var(--text)",
               transition: "border-color 0.12s, background 0.12s",
             }}>
               <span style={{
-                fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
+                fontSize: "var(--fs-9)", fontWeight: 800, letterSpacing: "0.05em",
                 color: active ? cat.text : "var(--card)",
                 background: active ? "#fff" : cat.dot,
                 border: `1px solid ${cat.border}`,
                 padding: "1px 5px", borderRadius: 999,
               }}>{cat.pill}</span>
               {cat.label}
-              <span style={{ fontSize: 11, color: active ? cat.text : "var(--muted)", opacity: 0.75 }}>
+              <span style={{ fontSize: "var(--fs-11)", color: active ? cat.text : "var(--muted)", opacity: 0.75 }}>
                 {catDone}/{count}
               </span>
             </button>
           );
         })}
         {filterCat !== "all" && (
-          <button className="btn" onClick={() => setFilterCat("all")} style={{ fontSize: 11, padding: "5px 11px" }}>✕ Clear</button>
+          <button className="btn" onClick={() => setFilterCat("all")} style={{ fontSize: "var(--fs-11)", padding: "5px 11px" }}>✕ Clear</button>
         )}
       </div>
 
@@ -413,13 +413,13 @@ export default function TaxTrackerPage() {
                   borderBottom: "1px solid var(--border)",
                 }}>
                   <span style={{
-                    fontWeight: 700, fontSize: 13,
+                    fontWeight: 700, fontSize: "var(--fs-13)",
                     color: allFiled ? "var(--muted)" : "var(--text)",
                     textDecoration: allFiled ? "line-through" : "none",
                   }}>
                     {propName}
                   </span>
-                  <span style={{ fontSize: 11, color: "var(--muted)", fontWeight: 600 }}>
+                  <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 600 }}>
                     {propDone}/{propTasks.length}
                   </span>
                 </div>
@@ -464,7 +464,7 @@ export default function TaxTrackerPage() {
                             style={{ width: 15, height: 15, accentColor: cat.dot, flexShrink: 0, cursor: "pointer", marginTop: 0 }}
                           />
                           <span style={{
-                            fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
+                            fontSize: "var(--fs-9)", fontWeight: 800, letterSpacing: "0.05em",
                             color: cat.text, background: cat.bg,
                             border: `1px solid ${cat.border}`,
                             padding: "2px 6px", borderRadius: 999, flexShrink: 0,
@@ -473,7 +473,7 @@ export default function TaxTrackerPage() {
                             {task.pillOverride ?? cat.pill}
                           </span>
                           <span style={{
-                            flex: 1, fontSize: 13, fontWeight: 500,
+                            flex: 1, fontSize: "var(--fs-13)", fontWeight: 500,
                             color: isDone ? "var(--muted)" : "var(--text)",
                             textDecoration: isDone ? "line-through" : "none",
                           }}>
@@ -533,7 +533,7 @@ export default function TaxTrackerPage() {
                                 style={{ width: 14, height: 14, accentColor: cat.dot, flexShrink: 0, cursor: autoSent ? "not-allowed" : "pointer" }}
                               />
                               <span style={{
-                                fontSize: 12, fontWeight: 500,
+                                fontSize: "var(--fs-12)", fontWeight: 500,
                                 color: invChecked ? "var(--muted)" : "var(--text)",
                                 textDecoration: invChecked ? "line-through" : "none",
                               }}>
@@ -542,7 +542,7 @@ export default function TaxTrackerPage() {
                               {autoSent ? (
                                 <span title="Delivered through the investor portal" style={{ marginLeft: "auto" }}><Pill tone={TONE_TEAL}>SENT</Pill></span>
                               ) : invChecked ? (
-                                <span style={{ fontSize: 10, color: "#16a34a", fontWeight: 700, marginLeft: "auto" }}>✓</span>
+                                <span style={{ fontSize: "var(--fs-10)", color: "#16a34a", fontWeight: 700, marginLeft: "auto" }}>✓</span>
                               ) : null}
                             </div>
                           );
@@ -569,7 +569,7 @@ export default function TaxTrackerPage() {
                         style={{ width: 15, height: 15, accentColor: cat.dot, flexShrink: 0, cursor: "pointer", marginTop: 2 }}
                       />
                       <span style={{
-                        fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
+                        fontSize: "var(--fs-9)", fontWeight: 800, letterSpacing: "0.05em",
                         color: cat.text, background: cat.bg,
                         border: `1px solid ${cat.border}`,
                         padding: "2px 6px", borderRadius: 999, flexShrink: 0,
@@ -583,7 +583,7 @@ export default function TaxTrackerPage() {
                             className="linkBtn left"
                             onClick={() => setInstructionsTask(task)}
                             style={{
-                              fontSize: 13, fontWeight: 600,
+                              fontSize: "var(--fs-13)", fontWeight: 600,
                               color: isDone ? "var(--muted)" : "var(--brand)",
                               textDecoration: isDone ? "line-through" : "underline",
                               textDecorationStyle: "dotted",
@@ -598,7 +598,7 @@ export default function TaxTrackerPage() {
                           </button>
                         ) : (
                           <span style={{
-                            fontSize: 13, fontWeight: 500,
+                            fontSize: "var(--fs-13)", fontWeight: 500,
                             color: isDone ? "var(--muted)" : "var(--text)",
                             textDecoration: isDone ? "line-through" : "none",
                           }}>
@@ -613,7 +613,7 @@ export default function TaxTrackerPage() {
                               {parcels.map((p, pi) => (
                                 <span key={pi} style={{
                                   display: "inline-flex", alignItems: "center", gap: 4,
-                                  fontSize: 10, fontWeight: 600,
+                                  fontSize: "var(--fs-10)", fontWeight: 600,
                                   color: "var(--muted)",
                                   background: "rgba(0,0,0,0.04)",
                                   border: "1px solid var(--border)",

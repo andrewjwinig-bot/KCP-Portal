@@ -35,7 +35,7 @@ function PropertyTable({ rows, total }: { rows: AvidProperty[]; total: number })
           )}
           {rows.map((b) => (
             <tr key={b.code}>
-              <td><code style={{ fontSize: 12 }}>{b.code}</code> {b.name}</td>
+              <td><code style={{ fontSize: "var(--fs-12)" }}>{b.code}</code> {b.name}</td>
               <td style={{ textAlign: "right" }}>{money(b.amount)}</td>
             </tr>
           ))}
@@ -94,7 +94,7 @@ export function AvidReviewModal(props: {
       <div className="card" style={{ maxWidth: 560, width: "100%", maxHeight: "88vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 4 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Review before sending</div>
+            <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Review before sending</div>
             <b style={{ fontSize: 17 }}>{title} — {period}</b>
           </div>
           <button className="btn" style={{ padding: "4px 10px" }} disabled={sending} onClick={onCancel}>✕</button>
@@ -102,7 +102,7 @@ export function AvidReviewModal(props: {
         <div className="small muted" style={{ marginBottom: 10 }}>
           Confirm the per-building allocation below. On send, {count ? <><b>{count}</b> invoice{count === 1 ? "" : "s"} </> : null}
           {count ? "and the summary " : "the summary "}
-          go to <b>AvidXchange</b> (<code style={{ fontSize: 11 }}>kormancommercial@avidbill.com</code>) for processing, cc Marie, Drew &amp; Harry. Nothing has been sent yet.
+          go to <b>AvidXchange</b> (<code style={{ fontSize: "var(--fs-11)" }}>kormancommercial@avidbill.com</code>) for processing, cc Marie, Drew &amp; Harry. Nothing has been sent yet.
         </div>
         {note && (
           <div className="small" style={{ marginBottom: 10, padding: "7px 10px", borderRadius: 8, background: "rgba(11,74,125,0.06)", border: "1px solid rgba(11,74,125,0.25)", color: "#0b4a7d", fontWeight: 600 }}>

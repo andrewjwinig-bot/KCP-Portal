@@ -6,6 +6,7 @@
 // an optional one-line description. Closes on outside click or Escape.
 
 import React, { useEffect, useRef, useState } from "react";
+import { ChevronDown, Download } from "lucide-react";
 
 // An item is either a download link (href) or a client-side action (onClick) —
 // e.g. a workbook/PDF generated in the browser.
@@ -36,12 +37,13 @@ export function DownloadMenu({ label = "Download", items, variant = "primary", d
         onClick={() => !disabled && setOpen((v) => !v)}
         disabled={disabled}
         className={variant === "primary" ? "btn primary" : "btn"}
-        style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
+        style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
         aria-haspopup="menu"
         aria-expanded={open}
       >
+        <Download size={16} strokeWidth={1.75} aria-hidden />
         {label}
-        <span aria-hidden style={{ fontSize: 10, opacity: 0.75, lineHeight: 1 }}>▾</span>
+        <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ opacity: 0.8 }} />
       </button>
       {open && (
         <div role="menu" style={{
@@ -55,8 +57,8 @@ export function DownloadMenu({ label = "Download", items, variant = "primary", d
             const onLeave = (e: React.MouseEvent<HTMLElement>) => { e.currentTarget.style.background = "transparent"; };
             const inner = (
               <>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>{item.label}</div>
-                {item.description && <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, lineHeight: 1.35 }}>{item.description}</div>}
+                <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "var(--text)" }}>{item.label}</div>
+                {item.description && <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", marginTop: 2, lineHeight: 1.35 }}>{item.description}</div>}
               </>
             );
             return item.onClick ? (

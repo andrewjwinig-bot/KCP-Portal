@@ -77,8 +77,8 @@ function UploadingState({ run, pct, done, total, onMinimize, onCancel }: { run: 
         <Ring pct={pct} done={done} total={total} />
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 15.5, fontWeight: 700, ...shimmer }}>Reading {run.kind === "ap" ? "AP selection reports" : "detailed general ledgers"}…</div>
-          <div className="muted" style={{ fontSize: 13, marginTop: 3, lineHeight: 1.45 }}>Parsing accounts, periods &amp; balances. Validating each file against its property before it posts.</div>
-          <div style={{ marginTop: 7, fontFamily: MONO, fontSize: 12, color: "var(--muted)" }}>
+          <div className="muted" style={{ fontSize: "var(--fs-13)", marginTop: 3, lineHeight: 1.45 }}>Parsing accounts, periods &amp; balances. Validating each file against its property before it posts.</div>
+          <div style={{ marginTop: 7, fontFamily: MONO, fontSize: "var(--fs-12)", color: "var(--muted)" }}>
             {active ? `Reading ${active.entity ?? active.filename}…` : `${done} of ${total} done`}
             {parsedCount > 0 && <> · {num(parsedCount)} accounts parsed</>}
           </div>
@@ -90,8 +90,8 @@ function UploadingState({ run, pct, done, total, onMinimize, onCancel }: { run: 
       {/* footer */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 18px", borderTop: "1px solid var(--border)" }}>
         <Dots />
-        <span className="muted" style={{ fontFamily: MONO, fontSize: 12, flex: 1 }}>Import continues in the background</span>
-        <button onClick={onCancel} className="btn" style={{ fontSize: 12.5, padding: "6px 12px", fontWeight: 700 }}>Cancel import</button>
+        <span className="muted" style={{ fontFamily: MONO, fontSize: "var(--fs-12)", flex: 1 }}>Import continues in the background</span>
+        <button onClick={onCancel} className="btn" style={{ fontSize: "var(--fs-12-5)", padding: "6px 12px", fontWeight: 700 }}>Cancel import</button>
       </div>
     </>
   );
@@ -108,7 +108,7 @@ function Ring({ pct, done, total }: { pct: number; done: number; total: number }
       </svg>
       <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
         <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 700, color: "var(--text)" }}>{done}<span style={{ color: "var(--muted)" }}>/{total}</span></div>
-        <div style={{ fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)" }}>files</div>
+        <div style={{ fontSize: "var(--fs-10)", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)" }}>files</div>
       </div>
     </div>
   );
@@ -134,14 +134,14 @@ function Row({ f, innerRef }: { f: ImportFile; innerRef?: React.Ref<HTMLDivEleme
       {reading && <span className="imp-anim" style={{ position: "absolute", inset: 0, animation: "impPulse 1.8s ease-in-out infinite", background: "var(--import-blue-soft)", pointerEvents: "none" }} />}
       <StatusDot status={f.status} />
       <div style={{ minWidth: 0, flex: 1, position: "relative" }}>
-        <div style={{ fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontSize: "var(--fs-13)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           <span style={{ fontFamily: MONO, color: f.status === "failed" ? "#b91c1c" : "var(--import-blue)" }}>{f.filename}</span>
           {f.entity && <span className="muted" style={{ marginLeft: 8 }}>{f.entity}{f.detail ? ` · ${f.detail}` : ""}</span>}
         </div>
-        {f.note && <div style={{ fontSize: 11.5, marginTop: 1, color: f.noteTone === "warn" ? "#b45309" : "var(--ok)" }}>{f.note}</div>}
-        {f.status === "failed" && f.error && <div style={{ fontSize: 11.5, marginTop: 1, color: "#b91c1c" }}>{f.error}</div>}
+        {f.note && <div style={{ fontSize: "var(--fs-11-5)", marginTop: 1, color: f.noteTone === "warn" ? "#b45309" : "var(--ok)" }}>{f.note}</div>}
+        {f.status === "failed" && f.error && <div style={{ fontSize: "var(--fs-11-5)", marginTop: 1, color: "#b91c1c" }}>{f.error}</div>}
       </div>
-      <div style={{ fontFamily: MONO, fontSize: 12, color: statusColor(f.status), position: "relative", whiteSpace: "nowrap" }}>
+      <div style={{ fontFamily: MONO, fontSize: "var(--fs-12)", color: statusColor(f.status), position: "relative", whiteSpace: "nowrap" }}>
         {f.status === "done" && f.count != null ? `${num(f.count)} ${f.countLabel ?? ""}`.trim()
           : f.status === "reading" ? "reading…"
           : f.status === "failed" ? "failed"
@@ -179,20 +179,20 @@ function ReportState({ run, done, failed, total, onClose, onDismissAutoExplain }
           {rep.stats.map((s, i) => (
             <div key={i} style={{ padding: "11px 14px", borderLeft: i ? "1px solid var(--import-strip-div)" : undefined }}>
               <div style={{ fontFamily: MONO, fontSize: 20, fontWeight: 700, color: "var(--text)" }}>{s.value}</div>
-              <div className="muted" style={{ fontSize: 11 }}>{s.label}</div>
+              <div className="muted" style={{ fontSize: "var(--fs-11)" }}>{s.label}</div>
             </div>
           ))}
         </div>
       )}
 
-      <div style={{ padding: "12px 18px 4px", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", fontWeight: 700 }}>Imported files</div>
+      <div style={{ padding: "12px 18px 4px", fontSize: "var(--fs-11)", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", fontWeight: 700 }}>Imported files</div>
       <div style={{ overflowY: "auto", maxHeight: 196, padding: "0 18px" }}>
         {run.files.map((f, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid var(--import-strip-div)" }}>
-            <span style={{ color: f.status === "failed" ? "#b91c1c" : "var(--ok)", fontSize: 13 }}>{f.status === "failed" ? "✕" : "✓"}</span>
-            <span style={{ fontFamily: MONO, fontSize: 12.5, color: f.status === "failed" ? "#b91c1c" : "var(--import-blue)", width: 150, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.filename}</span>
-            <span style={{ fontSize: 13, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.entity ?? (f.status === "failed" ? f.error : "")}</span>
-            <span className="muted" style={{ fontFamily: MONO, fontSize: 12 }}>{f.count != null ? num(f.count) : ""}</span>
+            <span style={{ color: f.status === "failed" ? "#b91c1c" : "var(--ok)", fontSize: "var(--fs-13)" }}>{f.status === "failed" ? "✕" : "✓"}</span>
+            <span style={{ fontFamily: MONO, fontSize: "var(--fs-12-5)", color: f.status === "failed" ? "#b91c1c" : "var(--import-blue)", width: 150, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.filename}</span>
+            <span style={{ fontSize: "var(--fs-13)", flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.entity ?? (f.status === "failed" ? f.error : "")}</span>
+            <span className="muted" style={{ fontFamily: MONO, fontSize: "var(--fs-12)" }}>{f.count != null ? num(f.count) : ""}</span>
           </div>
         ))}
       </div>
@@ -202,10 +202,10 @@ function ReportState({ run, done, failed, total, onClose, onDismissAutoExplain }
           <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid var(--ok-border)", background: "var(--ok-bg)", borderRadius: 12, padding: "12px 15px" }}>
             <span style={{ width: 28, height: 28, borderRadius: 8, background: "var(--ok)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, flexShrink: 0 }}>✓</span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ok-head)" }}>{u.title}</div>
-              <div className="muted" style={{ fontSize: 12.5 }}>{u.subtitle}</div>
+              <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 700, color: "var(--ok-head)" }}>{u.title}</div>
+              <div className="muted" style={{ fontSize: "var(--fs-12-5)" }}>{u.subtitle}</div>
             </div>
-            <a href={u.href} className="btn primary" style={{ fontSize: 12.5, padding: "7px 13px", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>{u.cta ?? "Open →"}</a>
+            <a href={u.href} className="btn primary" style={{ fontSize: "var(--fs-12-5)", padding: "7px 13px", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>{u.cta ?? "Open →"}</a>
           </div>
         ))}
 
@@ -215,7 +215,7 @@ function ReportState({ run, done, failed, total, onClose, onDismissAutoExplain }
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, padding: "11px 18px", borderTop: "1px solid var(--border)" }}>
-        <button onClick={onClose} className="btn primary" style={{ fontSize: 13, padding: "7px 16px", fontWeight: 700 }}>Done</button>
+        <button onClick={onClose} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "7px 16px", fontWeight: 700 }}>Done</button>
       </div>
     </>
   );
@@ -240,11 +240,11 @@ function AutoExplainCard({ state, outcome, spec, onDismiss }: { state: ImportRun
     <div style={{ display: "flex", alignItems: "center", gap: 12, border: "1px solid var(--ai-border)", background: "var(--ai-tint-panel-2)", borderRadius: 12, padding: "12px 15px" }}>
       <span className="imp-anim" style={{ animation: "impFloat 3.5s ease-in-out infinite", flexShrink: 0 }}><SparkleMark size={30} twinkle={running} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ai-text)" }}>{spec?.title ?? "Explaining the flagged lines"}</div>
-        <div className="muted" style={{ fontSize: 12.5 }}>{running ? "Reading the GL behind each line that looks off…" : doneState ? <span style={failed.length ? { color: "#b91c1c" } : undefined}>{doneText}</span> : (spec?.subtitle ?? "Reading the GL behind each line that looks off.")}</div>
+        <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 700, color: "var(--ai-text)" }}>{spec?.title ?? "Explaining the flagged lines"}</div>
+        <div className="muted" style={{ fontSize: "var(--fs-12-5)" }}>{running ? "Reading the GL behind each line that looks off…" : doneState ? <span style={failed.length ? { color: "#b91c1c" } : undefined}>{doneText}</span> : (spec?.subtitle ?? "Reading the GL behind each line that looks off.")}</div>
       </div>
       {doneState && (
-        <button onClick={onDismiss} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ai-hero-sub)", fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>Dismiss</button>
+        <button onClick={onDismiss} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--ai-hero-sub)", fontSize: "var(--fs-12-5)", fontWeight: 700, flexShrink: 0 }}>Dismiss</button>
       )}
       {running && <span className="imp-anim" style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--ai-border)", borderTopColor: "var(--ai)", animation: "spin .8s linear infinite", flexShrink: 0 }} />}
       {doneState && <span style={{ color: failed.length ? "#b91c1c" : "var(--ai-text)", fontWeight: 800, flexShrink: 0 }}>{failed.length ? "!" : "✓"}</span>}
@@ -268,8 +268,8 @@ function ImportPill({ run, done, total, onRestore }: { run: ImportRun; done: num
           <circle cx="11" cy="11" r="9" fill="none" stroke={uploading ? "var(--import-blue)" : "var(--ok)"} strokeWidth="3" strokeLinecap="round" strokeDasharray={`${pct * 2 * Math.PI * 9} ${2 * Math.PI * 9}`} />
         </svg>
       </span>
-      <span style={{ fontSize: 13, fontWeight: 700 }}>{uploading ? "Importing" : "Import done"}</span>
-      <span style={{ fontFamily: MONO, fontSize: 12, color: "var(--muted)" }}>{done}/{total}</span>
+      <span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>{uploading ? "Importing" : "Import done"}</span>
+      <span style={{ fontFamily: MONO, fontSize: "var(--fs-12)", color: "var(--muted)" }}>{done}/{total}</span>
     </button>
   );
 }
@@ -281,7 +281,7 @@ function Header({ icon, iconBg, iconBorder, iconSize = 34, title, subtitle, righ
       <span style={{ width: iconSize, height: iconSize, borderRadius: 9, background: iconBg, border: `1px solid ${iconBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text)" }}>{title}</div>
-        <div className="muted" style={{ fontSize: 12.5, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitle}</div>
+        <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitle}</div>
       </div>
       {right}
     </div>
@@ -297,7 +297,7 @@ function Dots() {
 }
 
 const ghostIcon: React.CSSProperties = { background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 20, lineHeight: 1, fontWeight: 700, padding: "0 4px" };
-const dotBase: React.CSSProperties = { width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, flexShrink: 0 };
+const dotBase: React.CSSProperties = { width: 18, height: 18, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-11)", fontWeight: 800, flexShrink: 0 };
 const shimmer: React.CSSProperties = { background: "linear-gradient(90deg, var(--text) 30%, var(--import-blue) 50%, var(--text) 70%)", backgroundSize: "200% auto", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", animation: "kcpShimmer 2.2s linear infinite" };
 
 function statusColor(s: ImportFile["status"]): string {

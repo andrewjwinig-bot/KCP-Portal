@@ -28,13 +28,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Hanken+Grotesk:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap"
           rel="stylesheet"
         />
         {/* Apply persisted theme before paint to avoid a light → dark flicker. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('kcp:theme');if(t==='dark')document.documentElement.dataset.theme='dark';}catch(e){}})();`,
+          }}
+        />
+        {/* The new look (data-skin="studio") — per browser, staff pages only.
+            ?skin=studio / ?skin=classic sets it. Public pages stay classic. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var q=new URLSearchParams(location.search).get('skin');if(q==='studio'||q==='classic')localStorage.setItem('kcp:skin',q);if(localStorage.getItem('kcp:skin')!=='studio')return;var h=location.hostname;if(!/^portal\\.|vercel\\.app$|^localhost$|^127\\./.test(h))return;if(/^\\/(site|centers|portal|statement|investor|budget-review|commissions-review|office-works|submit|service|reserve|login)(\\/|$)/.test(location.pathname))return;document.documentElement.dataset.skin='studio';}catch(e){}})();`,
           }}
         />
       </head>

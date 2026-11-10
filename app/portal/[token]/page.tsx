@@ -104,10 +104,10 @@ function PinGate({ token, onUnlocked }: { token: string; onUnlocked: () => void 
         </div>
         <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 19, color: BRAND, letterSpacing: "-0.5px" }}>KORMAN</div>
         <h1 style={{ fontSize: 22, lineHeight: 1.15, margin: "12px 0 6px" }}>Enter your access PIN</h1>
-        <p className="muted" style={{ fontSize: 14, marginBottom: 18 }}>This statement is protected. Enter the PIN Korman shared with you to continue.</p>
+        <p className="muted" style={{ fontSize: "var(--fs-14)", marginBottom: 18 }}>This statement is protected. Enter the PIN Korman shared with you to continue.</p>
         <input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 8))} inputMode="numeric" autoFocus placeholder="••••••"
           style={{ width: "100%", boxSizing: "border-box", textAlign: "center", fontSize: 26, letterSpacing: "0.4em", fontWeight: 800, padding: "12px 10px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--bg, #fff)", color: "var(--text)", outline: "none", fontFamily: "inherit" }} />
-        {err && <div style={{ color: "#b91c1c", fontSize: 13, fontWeight: 600, marginTop: 12 }}>{err}</div>}
+        {err && <div style={{ color: "#b91c1c", fontSize: "var(--fs-13)", fontWeight: 600, marginTop: 12 }}>{err}</div>}
         <button type="submit" disabled={busy || !pin.trim()} style={{ marginTop: 18, width: "100%", background: BRAND, color: "#fff", border: "none", borderRadius: 10, padding: "13px", fontSize: 15, fontWeight: 700, cursor: busy || !pin.trim() ? "default" : "pointer", opacity: busy || !pin.trim() ? 0.6 : 1, fontFamily: "inherit" }}>{busy ? "Checking…" : "View my statement"}</button>
       </form>
     </div>
@@ -151,11 +151,11 @@ function PortalContent({ token }: { token: string }) {
         const active = tab === x.id;
         return (
           <button key={x.id} onClick={() => { setTab(x.id); setNavOpen(false); }}
-            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", fontFamily: "inherit", fontSize: 14,
+            style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", fontFamily: "inherit", fontSize: "var(--fs-14)",
               fontWeight: active ? 700 : 500, color: active ? "#fff" : "#e0f0ff", background: active ? "rgba(255,255,255,0.18)" : "transparent" }}>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>{x.icon}</svg>
             <span style={{ flex: 1 }}>{x.label}</span>
-            {!x.ready && <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.05em", color: "#bfdbfe", opacity: 0.8 }}>SOON</span>}
+            {!x.ready && <span style={{ fontSize: "var(--fs-9)", fontWeight: 800, letterSpacing: "0.05em", color: "#bfdbfe", opacity: 0.8 }}>SOON</span>}
           </button>
         );
       })}
@@ -180,7 +180,7 @@ function PortalContent({ token }: { token: string }) {
           </button>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
-            <div style={{ fontSize: 11.5, color: "#bfdbfe", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{propertyName} · Suite {t.suite}</div>
+            <div style={{ fontSize: "var(--fs-11-5)", color: "#bfdbfe", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{propertyName} · Suite {t.suite}</div>
           </div>
         </header>
       )}
@@ -193,9 +193,9 @@ function PortalContent({ token }: { token: string }) {
       <aside style={asideStyle} className="portal-aside">
         <div>
           <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.2, letterSpacing: "-0.01em" }}>{t.name}</div>
-          <div style={{ fontSize: 12.5, color: "#bfdbfe", marginTop: 4 }}>{propertyName} · Suite {t.suite}</div>
+          <div style={{ fontSize: "var(--fs-12-5)", color: "#bfdbfe", marginTop: 4 }}>{propertyName} · Suite {t.suite}</div>
           {portal?.building && (portal.building.city || portal.building.address) && (
-            <div style={{ fontSize: 11.5, color: "#9dc3e6", marginTop: 2 }}>
+            <div style={{ fontSize: "var(--fs-11-5)", color: "#9dc3e6", marginTop: 2 }}>
               {[portal.building.city, portal.building.state].filter(Boolean).join(", ")}
             </div>
           )}
@@ -204,7 +204,7 @@ function PortalContent({ token }: { token: string }) {
         {/* Korman wordmark pinned to the bottom of the sidebar */}
         <div style={{ marginTop: "auto", borderTop: "1px solid rgba(255,255,255,0.15)", paddingTop: 14 }}>
           <div style={{ fontFamily: "'Arial Black', Arial, sans-serif", fontWeight: 900, fontSize: 20, letterSpacing: "-0.5px" }}>KORMAN</div>
-          <div style={{ fontSize: 9, letterSpacing: "0.18em", color: "#bfdbfe" }}>COMMERCIAL PROPERTIES</div>
+          <div style={{ fontSize: "var(--fs-9)", letterSpacing: "0.18em", color: "#bfdbfe" }}>COMMERCIAL PROPERTIES</div>
         </div>
       </aside>
 
@@ -245,7 +245,7 @@ function PageHeader({ title, sub, right }: { title: string; sub?: React.ReactNod
 }
 
 const YearPill = ({ year }: { year: number }) => (
-  <span style={{ fontSize: 14, fontWeight: 800, color: "#fff", background: BRAND, borderRadius: 999, padding: "3px 12px", lineHeight: 1.4 }}>{year}</span>
+  <span style={{ fontSize: "var(--fs-14)", fontWeight: 800, color: "#fff", background: BRAND, borderRadius: 999, padding: "3px 12px", lineHeight: 1.4 }}>{year}</span>
 );
 
 function formatAddress(b: Building): string {
@@ -269,7 +269,7 @@ function BuildingCard({ building, suite }: { building: Building; suite: string }
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 19, fontWeight: 800 }}>{building.name}</div>
           {address && (
-            <div className="muted" style={{ fontSize: 14, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
+            <div className="muted" style={{ fontSize: "var(--fs-14)", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
               {address}
             </div>
@@ -280,7 +280,7 @@ function BuildingCard({ building, suite }: { building: Building; suite: string }
         <div style={{ display: "flex", flexWrap: "wrap", borderTop: "1px solid var(--border)", background: "rgba(15,23,42,0.015)" }}>
           {facts.map((f, i) => (
             <div key={f.label} style={{ padding: "12px 18px", borderLeft: i ? "1px solid var(--border)" : "none", flex: "1 1 auto", minWidth: 112 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>{f.label}</div>
+              <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>{f.label}</div>
               <div style={{ fontSize: 15.5, fontWeight: 700, marginTop: 3 }}>{f.value}</div>
             </div>
           ))}
@@ -312,7 +312,7 @@ function LeaseTab({ terms, building, loading, suite, company }: { terms: LeaseTe
   const Stat = ({ label, value }: { label: string; value: string }) => (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "16px 18px", background: "var(--card)", boxShadow: "var(--shadow)" }}>
       <div style={{ fontSize: 22, fontWeight: 800 }}>{value}</div>
-      <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>{label}</div>
+      <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 3 }}>{label}</div>
     </div>
   );
   return (
@@ -320,22 +320,22 @@ function LeaseTab({ terms, building, loading, suite, company }: { terms: LeaseTe
       <PageHeader title="Lease Terms" sub={`${company} · Suite ${suite}`} />
       {building && <div style={{ marginBottom: 22 }}><BuildingCard building={building} suite={suite} /></div>}
       {loading ? (
-        <div className="muted" style={{ fontSize: 14 }}>Loading your lease…</div>
+        <div className="muted" style={{ fontSize: "var(--fs-14)" }}>Loading your lease…</div>
       ) : !terms ? (
-        <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: 14 }}>Lease details aren&rsquo;t available for your suite right now.</div>
+        <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: "var(--fs-14)" }}>Lease details aren&rsquo;t available for your suite right now.</div>
       ) : (
         <>
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", margin: "0 0 12px" }}>Your Lease</div>
+          <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", margin: "0 0 12px" }}>Your Lease</div>
           {(terms.leaseFrom || terms.leaseTo) && (
             <div style={{ marginBottom: 12, border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px", background: "var(--card)", boxShadow: "var(--shadow)", display: "flex", alignItems: "center", gap: 10, fontSize: 15, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Lease Term</span>
+              <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Lease Term</span>
               <span style={{ fontWeight: 700 }}>{terms.leaseFrom ?? "—"}</span>
               <span className="muted">→</span>
               <span style={{ fontWeight: 700 }}>{terms.leaseTo ?? "—"}</span>
             </div>
           )}
           {nearing && (
-            <div style={{ marginBottom: 12, borderRadius: 12, padding: "12px 16px", background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", color: "#b45309", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ marginBottom: 12, borderRadius: 12, padding: "12px 16px", background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.35)", color: "#b45309", fontSize: "var(--fs-14)", fontWeight: 600, display: "flex", alignItems: "center", gap: 10 }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
               <span>{expMsg} Please reach out to Korman Commercial Properties to discuss renewal.</span>
             </div>
@@ -347,7 +347,7 @@ function LeaseTab({ terms, building, loading, suite, company }: { terms: LeaseTe
             <Stat label="Gross Rent / mo" value={money(terms.grossRent)} />
             <Stat label="Annual Rent" value={money(terms.annualRent)} />
           </div>
-          <p className="muted" style={{ fontSize: 12, marginTop: 14 }}>
+          <p className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 14 }}>
             Figures reflect your current rent-roll record. Gross rent includes base rent plus estimated CAM, real estate tax, and other monthly charges. Questions? Contact Korman Commercial Properties.
           </p>
         </>
@@ -360,7 +360,7 @@ function FloorplanTab({ token, floorplan, loading }: { token: string; floorplan:
   const src = `/api/portal/${token}/floorplan`;
   const isImage = floorplan?.contentType.startsWith("image/");
   const download = !loading && floorplan ? (
-    <a href={`${src}?download=1`} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "9px 15px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+    <a href={`${src}?download=1`} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "9px 15px", fontSize: "var(--fs-13)", fontWeight: 700, whiteSpace: "nowrap" }}>
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
       Download floorplan
     </a>
@@ -369,9 +369,9 @@ function FloorplanTab({ token, floorplan, loading }: { token: string; floorplan:
     <>
       <PageHeader title="Floorplan" sub={floorplan ? floorplan.name : undefined} right={download} />
       {loading ? (
-        <div className="muted" style={{ fontSize: 14 }}>Loading…</div>
+        <div className="muted" style={{ fontSize: "var(--fs-14)" }}>Loading…</div>
       ) : !floorplan ? (
-        <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: 14 }}>
+        <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: "var(--fs-14)" }}>
           No floorplan is on file for your suite yet.
         </div>
       ) : isImage ? (
@@ -428,7 +428,7 @@ function StatementsTab({ token, data, years }: { token: string; data: Statement 
     return (
       <>
         <PageHeader title="Statements" sub="Your account statements and reconciliations." />
-        <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: 14 }}>
+        <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "40px 16px", textAlign: "center", color: "var(--muted)", fontSize: "var(--fs-14)" }}>
           No statements are available for your suite yet.
         </div>
       </>
@@ -449,7 +449,7 @@ function StatementsTab({ token, data, years }: { token: string; data: Statement 
 
       {active && (
         <div style={{ marginTop: 30, paddingTop: 26, borderTop: "1px solid var(--border)" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 14 }}>
+          <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 14 }}>
             {active.kind === "monthly" ? active.st.periodLabel : `${active.year} CAM / RET Reconciliation`}
           </div>
           {active.kind === "monthly" ? (
@@ -472,12 +472,12 @@ function StatementIndex({ rows, token, activeKey, onPick }: {
   const yearsInOrder = rows.reduce<number[]>((acc, r) => (acc.includes(r.year) ? acc : [...acc, r.year]), []);
   return (
     <section style={{ marginTop: 26 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 12 }}>All statements</div>
+      <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 12 }}>All statements</div>
       <div style={{ border: "1px solid var(--border)", borderRadius: 14, overflow: "hidden", background: "var(--card)", boxShadow: "var(--shadow)" }}>
         {yearsInOrder.map((year, yi) => (
           <div key={year}>
             <div style={{ padding: "8px 16px", background: "rgba(11,74,125,0.07)", borderTop: yi ? "1px solid var(--border)" : "none", borderBottom: "1px solid var(--border)",
-              fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", color: BRAND }}>{year}</div>
+              fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.05em", color: BRAND }}>{year}</div>
             {rows.filter((r) => r.year === year).map((r, i) => {
               const key = docKey(r);
               const on = key === activeKey;
@@ -490,7 +490,7 @@ function StatementIndex({ rows, token, activeKey, onPick }: {
                     <div style={{ fontWeight: on ? 800 : 700, fontSize: 14.5 }}>
                       {annual ? `${r.year} CAM / RET Reconciliation` : r.st.periodLabel}
                     </div>
-                    <div className="muted" style={{ fontSize: 12, marginTop: 1 }}>
+                    <div className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 1 }}>
                       {annual
                         ? "Year-end reconciliation"
                         : `${r.st.charges.length} open ${r.st.charges.length === 1 ? "charge" : "charges"}${r.st.summary.pastDue ? ` · ${money(r.st.summary.pastDueAmount)} past due` : ""}`}
@@ -502,11 +502,11 @@ function StatementIndex({ rows, token, activeKey, onPick }: {
                     </div>
                   )}
                   {openable && !on && (
-                    <button type="button" onClick={() => onPick(key)} className="btn" style={{ fontSize: 12.5, padding: "6px 12px", fontWeight: 700 }}>View</button>
+                    <button type="button" onClick={() => onPick(key)} className="btn" style={{ fontSize: "var(--fs-12-5)", padding: "6px 12px", fontWeight: 700 }}>View</button>
                   )}
                   <a href={annual ? `/api/portal/${token}/statement/pdf?year=${r.year}` : `/api/portal/${token}/monthly/pdf?period=${r.st.period}`}
                     aria-label={`Download the ${annual ? `${r.year} reconciliation` : r.st.periodLabel} statement`}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12.5, fontWeight: 700 }}>
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, background: BRAND, color: "#fff", textDecoration: "none", borderRadius: 8, padding: "6px 12px", fontSize: "var(--fs-12-5)", fontWeight: 700 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                     PDF
                   </a>
@@ -531,7 +531,7 @@ function contactInitials(name: string, email: string): string {
   return src.slice(0, 2).toUpperCase();
 }
 
-const contactInput: React.CSSProperties = { width: "100%", padding: "9px 11px", fontSize: 14, fontFamily: "inherit", border: "1px solid var(--border)", borderRadius: 8, background: "var(--card)", color: "var(--text)", outline: "none" };
+const contactInput: React.CSSProperties = { width: "100%", padding: "9px 11px", fontSize: "var(--fs-14)", fontFamily: "inherit", border: "1px solid var(--border)", borderRadius: 8, background: "var(--card)", color: "var(--text)", outline: "none" };
 
 // Tenants fully manage their suite's contact list — add, edit, delete — and pick
 // which contacts receive their statements. Writes to the same per-suite store the
@@ -573,11 +573,11 @@ function ContactsTab({ token, initial }: { token: string; initial: PortalContact
     <>
       <PageHeader title="Contacts" sub="People at your company we should reach for billing, service, and building matters. Anything you change here syncs to your property manager." />
       {contacts === null ? (
-        <div className="muted" style={{ fontSize: 14 }}>Loading contacts…</div>
+        <div className="muted" style={{ fontSize: "var(--fs-14)" }}>Loading contacts…</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {contacts.length === 0 && (
-            <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "34px 16px", textAlign: "center", color: "var(--muted)", fontSize: 14 }}>
+            <div style={{ border: "1px dashed var(--border)", borderRadius: 12, padding: "34px 16px", textAlign: "center", color: "var(--muted)", fontSize: "var(--fs-14)" }}>
               No contacts on file yet — add your first one below.
             </div>
           )}
@@ -592,25 +592,25 @@ function ContactsTab({ token, initial }: { token: string; initial: PortalContact
                     <input style={contactInput} placeholder="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    <button onClick={() => saveEdit(c.id)} disabled={busy} style={{ background: BRAND, color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
-                    <button onClick={() => setEditing(null)} disabled={busy} style={{ background: "none", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+                    <button onClick={() => saveEdit(c.id)} disabled={busy} style={{ background: BRAND, color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
+                    <button onClick={() => setEditing(null)} disabled={busy} style={{ background: "none", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 8, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
                   </div>
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 13 }}>
-                    <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 999, background: "rgba(11,74,125,0.10)", color: BRAND, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>{contactInitials(c.name, c.email)}</div>
+                    <div style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 999, background: "rgba(11,74,125,0.10)", color: BRAND, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: "var(--fs-14)" }}>{contactInitials(c.name, c.email)}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 15, fontWeight: 700 }}>{c.name || c.email || c.phone}</span>
-                        {c.camRecipient && <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", padding: "2px 8px", borderRadius: 999, background: "rgba(21,128,61,0.10)", color: "#15803d", border: "1px solid rgba(21,128,61,0.30)" }}>Gets statements</span>}
-                        {c.source === "tenant" && <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", padding: "2px 8px", borderRadius: 999, background: "rgba(11,74,125,0.08)", color: BRAND, border: "1px solid rgba(11,74,125,0.20)" }}>Added by you</span>}
+                        {c.camRecipient && <span style={{ fontSize: "var(--fs-10)", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", padding: "2px 8px", borderRadius: 999, background: "rgba(21,128,61,0.10)", color: "#15803d", border: "1px solid rgba(21,128,61,0.30)" }}>Gets statements</span>}
+                        {c.source === "tenant" && <span style={{ fontSize: "var(--fs-10)", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", padding: "2px 8px", borderRadius: 999, background: "rgba(11,74,125,0.08)", color: BRAND, border: "1px solid rgba(11,74,125,0.20)" }}>Added by you</span>}
                       </div>
-                      {c.title && <div className="muted" style={{ fontSize: 13, marginTop: 1 }}>{c.title}</div>}
+                      {c.title && <div className="muted" style={{ fontSize: "var(--fs-13)", marginTop: 1 }}>{c.title}</div>}
                       {(c.email || c.phone) && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", marginTop: 6 }}>
-                          {c.email && <a href={`mailto:${c.email}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: BRAND, textDecoration: "none" }}><MailIcon />{c.email}</a>}
-                          {c.phone && <a href={`tel:${c.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: BRAND, textDecoration: "none" }}><PhoneIcon />{c.phone}</a>}
+                          {c.email && <a href={`mailto:${c.email}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-13)", color: BRAND, textDecoration: "none" }}><MailIcon />{c.email}</a>}
+                          {c.phone && <a href={`tel:${c.phone}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-13)", color: BRAND, textDecoration: "none" }}><PhoneIcon />{c.phone}</a>}
                         </div>
                       )}
                     </div>
@@ -624,7 +624,7 @@ function ContactsTab({ token, initial }: { token: string; initial: PortalContact
                     </div>
                   </div>
                   {/* Statement-recipient toggle — who gets the year-end statement by email. */}
-                  <label title={c.email ? "" : "Add an email to receive statements"} style={{ display: "flex", alignItems: "center", gap: 9, borderTop: "1px solid var(--border)", paddingTop: 10, fontSize: 13, cursor: c.email && !busy ? "pointer" : "default", opacity: c.email ? 1 : 0.55 }}>
+                  <label title={c.email ? "" : "Add an email to receive statements"} style={{ display: "flex", alignItems: "center", gap: 9, borderTop: "1px solid var(--border)", paddingTop: 10, fontSize: "var(--fs-13)", cursor: c.email && !busy ? "pointer" : "default", opacity: c.email ? 1 : 0.55 }}>
                     <input type="checkbox" checked={c.camRecipient} disabled={!c.email || busy} onChange={() => toggleRecipient(c)} style={{ width: 16, height: 16, cursor: c.email && !busy ? "pointer" : "default" }} />
                     <span style={{ fontWeight: 600 }}>Receive statements by email</span>
                   </label>
@@ -632,21 +632,21 @@ function ContactsTab({ token, initial }: { token: string; initial: PortalContact
               )}
             </div>
           ))}
-          {contacts.length > 0 && <p className="muted" style={{ fontSize: 12, marginTop: 2 }}>If no one is marked to receive statements, we email everyone with an email on file.</p>}
+          {contacts.length > 0 && <p className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 2 }}>If no one is marked to receive statements, we email everyone with an email on file.</p>}
         </div>
       )}
 
       <form onSubmit={add} style={{ marginTop: 18, border: "1px solid var(--border)", borderRadius: 12, padding: "16px 18px", background: "var(--card)", boxShadow: "var(--shadow)" }}>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 12 }}>Add a contact</div>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 12 }}>Add a contact</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
           <input style={contactInput} placeholder="Full name" value={addForm.name} onChange={(e) => setAddForm({ ...addForm, name: e.target.value })} />
           <input style={contactInput} placeholder="Title / role (optional)" value={addForm.title} onChange={(e) => setAddForm({ ...addForm, title: e.target.value })} />
           <input style={contactInput} type="email" placeholder="Email" value={addForm.email} onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} />
           <input style={contactInput} placeholder="Phone" value={addForm.phone} onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })} />
         </div>
-        {err && <div style={{ color: "#b91c1c", fontSize: 12.5, fontWeight: 600, marginTop: 10 }}>{err}</div>}
+        {err && <div style={{ color: "#b91c1c", fontSize: "var(--fs-12-5)", fontWeight: 600, marginTop: 10 }}>{err}</div>}
         <div style={{ marginTop: 12 }}>
-          <button type="submit" disabled={busy} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: BRAND, color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13.5, fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, fontFamily: "inherit" }}>
+          <button type="submit" disabled={busy} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: BRAND, color: "#fff", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: "var(--fs-13-5)", fontWeight: 700, cursor: busy ? "default" : "pointer", opacity: busy ? 0.7 : 1, fontFamily: "inherit" }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
             {busy ? "Saving…" : "Add contact"}
           </button>
@@ -665,7 +665,7 @@ const TONE = {
   red: { bg: "rgba(185,28,28,0.10)", fg: "#b91c1c", bd: "rgba(185,28,28,0.30)" },
 };
 const StatusPill = ({ label, tone }: { label: string; tone: Tone }) => (
-  <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 999, background: tone.bg, color: tone.fg, border: `1px solid ${tone.bd}`, whiteSpace: "nowrap", flexShrink: 0 }}>{label}</span>
+  <span style={{ fontSize: "var(--fs-10-5)", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 999, background: tone.bg, color: tone.fg, border: `1px solid ${tone.bd}`, whiteSpace: "nowrap", flexShrink: 0 }}>{label}</span>
 );
 const fmtDate = (iso: string) => { if (!iso) return ""; const d = new Date(iso.length === 10 ? iso + "T00:00:00" : iso); return isNaN(+d) ? iso : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
 
@@ -694,19 +694,19 @@ const textareaStyle: React.CSSProperties = {
 const choosePhotosBtn: React.CSSProperties = {
   display: "inline-flex", alignItems: "center", gap: 10, padding: "9px 16px",
   border: "1px solid var(--border)", background: "transparent", color: BRAND,
-  fontSize: 12, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
+  fontSize: "var(--fs-12)", fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
   cursor: "pointer", marginTop: 8, alignSelf: "flex-start", borderRadius: 2,
 };
 const submitBtn = (busy: boolean): React.CSSProperties => ({
   background: BRAND, color: "#fff", border: "none", padding: "15px 46px", borderRadius: 2,
-  fontSize: 14, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
+  fontSize: "var(--fs-14)", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
   fontFamily: "inherit", cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.7 : 1,
 });
 const ghostBtn: React.CSSProperties = {
   background: "transparent", color: BRAND, border: `1px solid ${BRAND}`, padding: "12px 28px", borderRadius: 2,
-  fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "inherit", cursor: "pointer",
+  fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", fontFamily: "inherit", cursor: "pointer",
 };
-const hintStyle: React.CSSProperties = { display: "block", fontSize: 12, color: "var(--muted)", marginTop: 6, lineHeight: 1.5 };
+const hintStyle: React.CSSProperties = { display: "block", fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: 6, lineHeight: 1.5 };
 const caretSvg = () => {
   const c = encodeURIComponent(BRAND);
   return `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 7' fill='none' stroke='${c}' stroke-width='1.4'><polyline points='1 1 6 6 11 1'/></svg>")`;
@@ -717,7 +717,7 @@ function FormRow({ children }: { children: React.ReactNode }) {
 function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <label style={{ fontSize: 13, fontWeight: 500, color: "var(--text)" }}>
+      <label style={{ fontSize: "var(--fs-13)", fontWeight: 500, color: "var(--text)" }}>
         {label}{required && <span style={{ color: RED, marginLeft: 2 }}>*</span>}
       </label>
       {children}
@@ -757,7 +757,7 @@ const SuccessBox = ({ title, body, onAgain }: { title: string; body: string; onA
     <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(22,163,74,0.10)", color: "#15803d", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 700 }}>✓</div>
     <div>
       <h2 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 300, color: BRAND }}>{title}</h2>
-      <p style={{ marginTop: 10, color: "var(--muted)", lineHeight: 1.6, fontSize: 14 }}>{body}</p>
+      <p style={{ marginTop: 10, color: "var(--muted)", lineHeight: 1.6, fontSize: "var(--fs-14)" }}>{body}</p>
     </div>
     <button onClick={onAgain} style={ghostBtn}>Submit another</button>
   </div>
@@ -827,7 +827,7 @@ function ServiceTab({ token, company, property, propertyName, unitRef }: { token
             </label>
             {photos.length > 0 && <span style={{ ...hintStyle, marginTop: 8 }}>{photos.length} photo{photos.length === 1 ? "" : "s"} attached: {photos.map((p) => p.name).join(", ")}</span>}
           </Field>
-          {err && <div style={{ color: RED, fontSize: 13, fontWeight: 600 }}>{err}</div>}
+          {err && <div style={{ color: RED, fontSize: "var(--fs-13)", fontWeight: 600 }}>{err}</div>}
           <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
             <button type="submit" disabled={busy} style={submitBtn(busy)}>{busy ? "Submitting…" : "Submit Request"}</button>
           </div>
@@ -878,26 +878,26 @@ function SrHistoryRow({ r, token, first }: { r: SR; token: string; first: boolea
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.subject || r.categories[0] || "Service request"}</div>
-          <div className="muted" style={{ fontSize: 12.5, marginTop: 1 }}>{fmtDate(r.createdAt)}{r.categories.length ? ` · ${r.categories.join(", ")}` : ""}</div>
+          <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 1 }}>{fmtDate(r.createdAt)}{r.categories.length ? ` · ${r.categories.join(", ")}` : ""}</div>
         </div>
         <StatusPill label={r.status} tone={srTone(r.status)} />
       </div>
       <div style={{ padding: "0 16px 12px" }}>
         {sent ? (
-          <span style={{ fontSize: 12.5, fontWeight: 600, color: "#15803d" }}>✓ Update sent — the team has been notified.</span>
+          <span style={{ fontSize: "var(--fs-12-5)", fontWeight: 600, color: "#15803d" }}>✓ Update sent — the team has been notified.</span>
         ) : open ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder="Add more detail, a correction, or a question…"
-              style={{ ...textareaStyle, marginTop: 0, minHeight: 70, fontSize: 14 }}
+              style={{ ...textareaStyle, marginTop: 0, minHeight: 70, fontSize: "var(--fs-14)" }}
               onFocus={(e) => { e.currentTarget.style.borderColor = BRAND; }} onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }} />
-            {err && <span style={{ color: RED, fontSize: 12.5, fontWeight: 600 }}>{err}</span>}
+            {err && <span style={{ color: RED, fontSize: "var(--fs-12-5)", fontWeight: 600 }}>{err}</span>}
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={send} disabled={busy || !text.trim()} style={{ background: BRAND, color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 700, cursor: busy || !text.trim() ? "default" : "pointer", opacity: busy || !text.trim() ? 0.6 : 1, fontFamily: "inherit" }}>{busy ? "Sending…" : "Send update"}</button>
-              <button onClick={() => { setOpen(false); setErr(null); }} style={{ background: "transparent", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+              <button onClick={send} disabled={busy || !text.trim()} style={{ background: BRAND, color: "#fff", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, cursor: busy || !text.trim() ? "default" : "pointer", opacity: busy || !text.trim() ? 0.6 : 1, fontFamily: "inherit" }}>{busy ? "Sending…" : "Send update"}</button>
+              <button onClick={() => { setOpen(false); setErr(null); }} style={{ background: "transparent", color: "var(--muted)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
             </div>
           </div>
         ) : (
-          <button onClick={() => setOpen(true)} style={{ background: "none", border: "none", padding: 0, color: BRAND, fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <button onClick={() => setOpen(true)} style={{ background: "none", border: "none", padding: 0, color: BRAND, fontWeight: 700, fontSize: "var(--fs-12-5)", cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 5 }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
             Add an update
           </button>
@@ -947,7 +947,7 @@ function ReservationTab({ token, company }: { token: string; company: string }) 
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderTop: first ? "none" : "1px solid var(--border)" }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 14.5 }}>{v.roomLabel} <span className="muted" style={{ fontWeight: 500 }}>· {v.propertyName}</span></div>
-        <div className="muted" style={{ fontSize: 12.5, marginTop: 1 }}>{fmtDate(v.date)} · {fmtTime(v.startTime)}–{fmtTime(v.endTime)}{v.purpose ? ` · ${v.purpose}` : ""}</div>
+        <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 1 }}>{fmtDate(v.date)} · {fmtTime(v.startTime)}–{fmtTime(v.endTime)}{v.purpose ? ` · ${v.purpose}` : ""}</div>
       </div>
       <StatusPill label={v.status} tone={resTone(v.status)} />
     </div>
@@ -987,7 +987,7 @@ function ReservationTab({ token, company }: { token: string; company: string }) 
             <textarea style={{ ...textareaStyle, minHeight: 90 }} placeholder="What's the meeting for? Any setup needed (whiteboard, AV, water, etc.)?" value={form.purpose} onChange={(e) => setForm({ ...form, purpose: e.target.value })}
               onFocus={(e) => { e.currentTarget.style.borderColor = BRAND; }} onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border)"; }} />
           </Field>
-          {err && <div style={{ color: RED, fontSize: 13, fontWeight: 600 }}>{err}</div>}
+          {err && <div style={{ color: RED, fontSize: "var(--fs-13)", fontWeight: 600 }}>{err}</div>}
           <div style={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
             <button type="submit" disabled={busy} style={submitBtn(busy)}>{busy ? "Submitting…" : "Submit Request"}</button>
           </div>
@@ -1023,7 +1023,7 @@ function ComingSoon({ label }: { label: string }) {
   return (
     <div style={{ minHeight: "50vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 8 }}>
       <div style={{ fontSize: 18, fontWeight: 800, color: BRAND }}>{label}</div>
-      <p className="muted" style={{ maxWidth: 360, fontSize: 14 }}>This part of your portal is coming soon.</p>
+      <p className="muted" style={{ maxWidth: 360, fontSize: "var(--fs-14)" }}>This part of your portal is coming soon.</p>
     </div>
   );
 }

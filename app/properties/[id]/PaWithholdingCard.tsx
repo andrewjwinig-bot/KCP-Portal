@@ -99,8 +99,8 @@ export default function PaWithholdingCard({ code, style }: { code: string; style
     <div className="card" style={{ ...style }}>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>PA Nonresident Withholding</div>
-          <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
+          <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>PA Nonresident Withholding</div>
+          <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 4 }}>
             {year} distribution · each partner's {year - 1} PA NR payment + {year} estimate comes out of their share
           </div>
         </div>
@@ -112,15 +112,15 @@ export default function PaWithholdingCard({ code, style }: { code: string; style
         </div>
       </div>
 
-      {error && <div style={{ marginTop: 10, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      {error && <div style={{ marginTop: 10, fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
       {!result ? (
-        !error && <div style={{ marginTop: 12, fontSize: 13, color: "var(--muted)" }}>Loading…</div>
+        !error && <div style={{ marginTop: 12, fontSize: "var(--fs-13)", color: "var(--muted)" }}>Loading…</div>
       ) : (
         <>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>Total distribution</span>
+            <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", color: "var(--muted)", textTransform: "uppercase" }}>Total distribution</span>
             <MoneyInput value={doc!.distribution} width={140} bold onCommit={(n) => save({ ...doc!, distribution: n })} />
-            {status && <span style={{ fontSize: 12, color: "var(--muted)" }}>{status}</span>}
+            {status && <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>{status}</span>}
           </div>
           <div className="pills" style={{ marginTop: 12 }}>
             <StatPill label="Distribution" value={money0(result.distribution)} />
@@ -128,7 +128,7 @@ export default function PaWithholdingCard({ code, style }: { code: string; style
             <StatPill label="Net cash to partners" value={money(result.totals.net)} total />
           </div>
           {result.short.length > 0 && (
-            <div style={{ marginTop: 10, fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>
+            <div style={{ marginTop: 10, fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>
               {result.short.length} partner{result.short.length === 1 ? "'s" : "s'"} withholding is more than their distribution — the rest carries to the next one.
             </div>
           )}
@@ -154,7 +154,7 @@ export default function PaWithholdingCard({ code, style }: { code: string; style
                     <tr key={r.id}>
                       <td style={tdL}>
                         <div style={{ fontWeight: 600 }}>{r.name}</div>
-                        {r.heldAs && <div style={{ fontSize: 11, color: "var(--muted)" }}>{r.heldAs}</div>}
+                        {r.heldAs && <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>{r.heldAs}</div>}
                       </td>
                       <td style={{ ...tdL, color: "var(--muted)" }}>{r.state ?? "—"}</td>
                       <td style={td}>{pct(r.pct)}</td>

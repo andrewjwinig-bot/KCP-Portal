@@ -25,7 +25,7 @@ const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toL
 const num0 = (n: number) => (Math.abs(n) < 0.5 ? "–" : Math.round(n).toLocaleString("en-US"));
 const num2 = (n: number) => (Math.abs(n) < 0.005 ? "–" : n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const pct = (n: number, d = 0) => (Math.abs(n) < 0.0005 ? "–" : `${n.toFixed(d)}%`);
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const INPUT_BG = "var(--input-cell)";
 const codeBtn: React.CSSProperties = { background: "none", border: 0, padding: 0, font: "inherit", fontWeight: 700, color: "var(--brand)", cursor: "pointer", textDecoration: "underline dotted", textUnderlineOffset: 3 };
 const totalRow: React.CSSProperties = { fontWeight: 800, borderTop: "2px solid var(--border)" };

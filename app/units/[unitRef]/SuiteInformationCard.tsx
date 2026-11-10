@@ -39,11 +39,11 @@ function Row({
       alignItems: "start", padding: "12px 0",
       borderBottom: "1px solid var(--border)",
     }}>
-      <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", paddingTop: 8 }}>
+      <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "var(--text)", paddingTop: 8 }}>
         {label}
       </span>
       <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-        {hint && <span style={{ fontSize: 12, color: "var(--muted)" }}>{hint}</span>}
+        {hint && <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>{hint}</span>}
         {children}
       </div>
     </div>
@@ -78,7 +78,7 @@ function UploadBox({
         border: `1.5px dashed ${drag ? "#2563eb" : "var(--border)"}`,
         borderRadius: 10,
         background: drag ? "rgba(37,99,235,0.05)" : "rgba(15,23,42,0.015)",
-        fontSize: 13, color: "var(--muted)", textAlign: "center",
+        fontSize: "var(--fs-13)", color: "var(--muted)", textAlign: "center",
       }}
     >
       <input
@@ -197,7 +197,7 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
     return (
       <div className="card">
         <SectionLabel>Suite Information</SectionLabel>
-        <div style={{ fontSize: 13, color: "var(--muted)" }}>Loading…</div>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>Loading…</div>
       </div>
     );
   }
@@ -205,7 +205,7 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
     return (
       <div className="card">
         <SectionLabel>Suite Information</SectionLabel>
-        <div style={{ fontSize: 13, color: "var(--muted)" }}>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>
           Couldn’t load suite information.
         </div>
       </div>
@@ -223,7 +223,7 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
           <div style={{
             margin: "8px 0", padding: "8px 10px", borderRadius: 8,
             background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-            color: "#b91c1c", fontSize: 12, fontWeight: 600,
+            color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
           }}>{error}</div>
         )}
 
@@ -298,18 +298,18 @@ export default function SuiteInformationCard({ unitRef }: { unitRef: string }) {
                       borderRadius: 8, background: "rgba(15,23,42,0.015)",
                     }}>
                       <a href={blobSrc(a.url)} target="_blank" rel="noreferrer"
-                        style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600,
+                        style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-13)", fontWeight: 600,
                           color: "#0b4a7d", textDecoration: "none",
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {a.name}
                       </a>
-                      <span style={{ fontSize: 11, color: "var(--muted)", flexShrink: 0 }}>
+                      <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)", flexShrink: 0 }}>
                         {fmtBytes(a.size)}
                       </span>
                       <button type="button" onClick={() => removeFile("attachment", a.id)}
                         aria-label={`Remove ${a.name}`}
                         style={{ background: "transparent", border: "none", cursor: "pointer",
-                          color: "var(--muted)", fontSize: 13, flexShrink: 0 }}>✕</button>
+                          color: "var(--muted)", fontSize: "var(--fs-13)", flexShrink: 0 }}>✕</button>
                     </div>
                   ))}
                 </div>

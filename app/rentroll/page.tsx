@@ -125,27 +125,27 @@ function ChangeColumn({ title, tone, rows, actions, leftBorder }: {
   return (
     <div style={{ padding: "12px 16px", ...(leftBorder ? { borderLeft: "1px solid rgba(11,74,125,0.16)" } : {}) }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: tone }}>{title}</span>
-        <span style={{ fontSize: 11, fontWeight: 800, color: "#fff", background: tone, borderRadius: 999, padding: "1px 8px", minWidth: 20, textAlign: "center" }}>{rows.length}</span>
+        <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em", color: tone }}>{title}</span>
+        <span style={{ fontSize: "var(--fs-11)", fontWeight: 800, color: "#fff", background: tone, borderRadius: 999, padding: "1px 8px", minWidth: 20, textAlign: "center" }}>{rows.length}</span>
       </div>
       {rows.length === 0 ? (
-        <div className="muted" style={{ fontSize: 12.5 }}>None this period.</div>
+        <div className="muted" style={{ fontSize: "var(--fs-12-5)" }}>None this period.</div>
       ) : (
         <>
           <div style={{ maxHeight: 172, overflowY: "auto", marginBottom: 10, marginRight: -6, paddingRight: 6 }}>
             {rows.map((r, i) => (
               <div key={r.unitRef + i} style={{ display: "flex", justifyContent: "space-between", gap: 10, padding: "5px 0", borderTop: i ? "1px solid rgba(15,23,42,0.06)" : "none" }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.occupantName || "—"}</div>
-                  <div className="muted" style={{ fontSize: 11.5, marginTop: 1 }}><code style={{ fontSize: 11 }}>{r.unitRef}</code> · {propName(r.propertyCode)}</div>
+                  <div style={{ fontWeight: 600, fontSize: "var(--fs-13)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.occupantName || "—"}</div>
+                  <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 1 }}><code style={{ fontSize: "var(--fs-11)" }}>{r.unitRef}</code> · {propName(r.propertyCode)}</div>
                 </div>
-                {r.sqft ? <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap", flexShrink: 0 }}>{sqftFmt(r.sqft)} sf</div> : null}
+                {r.sqft ? <div className="muted" style={{ fontSize: "var(--fs-12)", whiteSpace: "nowrap", flexShrink: 0 }}>{sqftFmt(r.sqft)} sf</div> : null}
               </div>
             ))}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
             {actions.map((a) => (
-              <AllowedLink key={a.href + a.label} href={a.href} style={{ fontWeight: 700, fontSize: 12.5, color: "#0b4a7d", textDecoration: "none" }}>{a.label} →</AllowedLink>
+              <AllowedLink key={a.href + a.label} href={a.href} style={{ fontWeight: 700, fontSize: "var(--fs-12-5)", color: "#0b4a7d", textDecoration: "none" }}>{a.label} →</AllowedLink>
             ))}
           </div>
         </>
@@ -212,7 +212,7 @@ function StatPill({ label, value, sub }: { label: string; value: string; sub?: s
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", marginBottom: 10 }}>
+    <div style={{ fontSize: "var(--fs-11)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)", marginBottom: 10 }}>
       {children}
     </div>
   );
@@ -223,7 +223,7 @@ function AlertBadge({ label, color, bg, border, title }: { label: string; color:
   if (!title) return pill;
   return (
     <HoverCard title={label} rows={[]} width={300}
-      body={<div style={{ fontSize: 12.5, lineHeight: 1.45 }}>{title}</div>}>
+      body={<div style={{ fontSize: "var(--fs-12-5)", lineHeight: 1.45 }}>{title}</div>}>
       {pill}
     </HoverCard>
   );
@@ -261,7 +261,7 @@ function ImportInstructionsButton({ nextMonth }: { nextMonth?: { year: number; m
         style={{
           display: "inline-flex", alignItems: "center", justifyContent: "center",
           width: 16, height: 16, padding: 0,
-          fontSize: 10, fontWeight: 800, lineHeight: 1,
+          fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
           background: "rgba(11,74,125,0.10)",
           color: "#0b4a7d",
           border: "1px solid rgba(11,74,125,0.30)",
@@ -288,7 +288,7 @@ function ImportInstructionsModal({ onClose, nextMonth }: { onClose: () => void; 
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   const sectionLabelStyle: React.CSSProperties = {
-    fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
+    fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em",
     textTransform: "uppercase", color: "var(--muted)",
   };
   return (
@@ -317,7 +317,7 @@ function ImportInstructionsModal({ onClose, nextMonth }: { onClose: () => void; 
               Export from Skyline → Import here
             </div>
           </div>
-          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: 13, fontWeight: 700 }}>
+          <button onClick={onClose} className="btn" style={{ padding: "6px 12px", fontSize: "var(--fs-13)", fontWeight: 700 }}>
             Close
           </button>
         </div>
@@ -325,7 +325,7 @@ function ImportInstructionsModal({ onClose, nextMonth }: { onClose: () => void; 
         {/* Step 1: Skyline export */}
         <div>
           <div style={sectionLabelStyle}>1. Export Rent Roll from Skyline</div>
-          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: "var(--fs-14)" }}>
             <li>
               Skyline: <b>Property Management → Reports → Rent Roll Reports → Commercial Rent Roll</b>.
             </li>
@@ -352,7 +352,7 @@ function ImportInstructionsModal({ onClose, nextMonth }: { onClose: () => void; 
         {/* Step 2: Portal import */}
         <div>
           <div style={sectionLabelStyle}>2. Import Rent Roll into Portal</div>
-          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
+          <ol style={{ marginTop: 8, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontSize: "var(--fs-14)" }}>
             <li>
               Select <b>Import</b> in the upper left of the Rent Roll page.
             </li>
@@ -392,7 +392,7 @@ function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
   if (readOnly) {
     return (
       <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
-        <span style={{ fontSize: 12, fontWeight: reset ? 700 : 500, color: reset ? "#b91c1c" : "var(--text)" }}>
+        <span style={{ fontSize: "var(--fs-12)", fontWeight: reset ? 700 : 500, color: reset ? "#b91c1c" : "var(--text)" }}>
           {value != null && value !== "" ? value : <span style={{ color: "var(--muted)" }}>—</span>}
         </span>
         {reset && (
@@ -444,7 +444,7 @@ function BaseYearCell({ unitRef, isVacant, value, onChange, readOnly }: {
         style={{
           width: 66,
           padding: "3px 6px",
-          fontSize: 12,
+          fontSize: "var(--fs-12)",
           fontWeight: reset ? 700 : 400,
           textAlign: "center",
           border: reset ? "1.5px solid rgba(220,38,38,0.55)" : "1px solid var(--border)",
@@ -502,7 +502,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
             {!hideRent && (
               <tr>
                 <th colSpan={6 + (showBaseYear ? 1 : 0)} style={{ border: "none", background: "transparent" }} />
-                <th colSpan={hideNNN ? 2 : 5} style={{ textAlign: "center", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", paddingBottom: 3 }}>Monthly</th>
+                <th colSpan={hideNNN ? 2 : 5} style={{ textAlign: "center", fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", paddingBottom: 3 }}>Monthly</th>
               </tr>
             )}
             <tr>
@@ -593,7 +593,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                                 title={`Rent roll name: ${unit.occupantName}`}
                                 onClick={(e) => e.stopPropagation()}
                                 style={{
-                                  fontSize: 10, fontWeight: 800, color: "var(--muted)", cursor: "help",
+                                  fontSize: "var(--fs-10)", fontWeight: 800, color: "var(--muted)", cursor: "help",
                                   border: "1px solid var(--border)", borderRadius: 999,
                                   width: 14, height: 14, display: "inline-flex", alignItems: "center", justifyContent: "center",
                                   lineHeight: 1, flexShrink: 0,
@@ -608,16 +608,16 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                   </td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     <code style={{
-                      fontSize: 12, fontWeight: 700,
+                      fontSize: "var(--fs-12)", fontWeight: 700,
                       color: "#0b4a7d",
                       whiteSpace: "nowrap",
                       textDecoration: "underline",
                       textUnderlineOffset: 2,
                     }}>{unit.unitRef}</code>
                   </td>
-                  <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
-                  <td style={{ fontSize: 13, color: "var(--muted)" }}>{formatDate(unit.leaseFrom)}</td>
-                  <td style={{ fontSize: 13 }}>
+                  <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{sqftFmt(unit.sqft)}</td>
+                  <td style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>{formatDate(unit.leaseFrom)}</td>
+                  <td style={{ fontSize: "var(--fs-13)" }}>
                     {unit.leaseTo ? (
                       <span>{formatDate(unit.leaseTo)}</span>
                     ) : (
@@ -627,7 +627,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                   {showBaseYear && (
                     <td
                       onClick={(e) => e.stopPropagation()}
-                      style={{ textAlign: "center", fontSize: 13 }}
+                      style={{ textAlign: "center", fontSize: "var(--fs-13)" }}
                     >
                       <BaseYearCell
                         unitRef={unit.unitRef}
@@ -639,16 +639,16 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
                     </td>
                   )}
                   {!hideRent && (
-                    <td style={{ textAlign: "right", fontSize: 13, color: "var(--muted)", ...vacantCell(unit.annualRentPerSqft) }}>
+                    <td style={{ textAlign: "right", fontSize: "var(--fs-13)", color: "var(--muted)", ...vacantCell(unit.annualRentPerSqft) }}>
                       {unit.annualRentPerSqft ? charge(unit.annualRentPerSqft, "Rent $/SF", `$${unit.annualRentPerSqft.toFixed(2)}`) : "—"}
                     </td>
                   )}
-                  {!hideRent && <td style={{ textAlign: "right", fontSize: 13, ...vacantCell(unit.baseRent) }}>{unit.baseRent ? charge(unit.baseRent, "Base rent / mo", money(unit.baseRent)) : "—"}</td>}
-                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13, ...vacantCell(unit.opexMonth) }}>{unit.opexMonth ? charge(unit.opexMonth, "Operating expense / mo", money(unit.opexMonth)) : "—"}</td>}
-                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13, ...vacantCell(unit.otherMonth) }}>{unit.otherMonth ? charge(unit.otherMonth, "Other expense / mo", money(unit.otherMonth)) : "—"}</td>}
-                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: 13, ...vacantCell(unit.reTaxMonth) }}>{unit.reTaxMonth ? charge(unit.reTaxMonth, "Real estate tax / mo", money(unit.reTaxMonth)) : "—"}</td>}
+                  {!hideRent && <td style={{ textAlign: "right", fontSize: "var(--fs-13)", ...vacantCell(unit.baseRent) }}>{unit.baseRent ? charge(unit.baseRent, "Base rent / mo", money(unit.baseRent)) : "—"}</td>}
+                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: "var(--fs-13)", ...vacantCell(unit.opexMonth) }}>{unit.opexMonth ? charge(unit.opexMonth, "Operating expense / mo", money(unit.opexMonth)) : "—"}</td>}
+                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: "var(--fs-13)", ...vacantCell(unit.otherMonth) }}>{unit.otherMonth ? charge(unit.otherMonth, "Other expense / mo", money(unit.otherMonth)) : "—"}</td>}
+                  {!hideRent && !hideNNN && <td style={{ textAlign: "right", fontSize: "var(--fs-13)", ...vacantCell(unit.reTaxMonth) }}>{unit.reTaxMonth ? charge(unit.reTaxMonth, "Real estate tax / mo", money(unit.reTaxMonth)) : "—"}</td>}
                   {!hideRent && (
-                    <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, ...vacantCell(unit.grossRentTotal) }}>
+                    <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 600, ...vacantCell(unit.grossRentTotal) }}>
                       {unit.grossRentTotal ? charge(unit.grossRentTotal, "Gross / mo", money(unit.grossRentTotal)) : "—"}
                     </td>
                   )}
@@ -657,12 +657,12 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
             })}
           </tbody>
           <tfoot>
-            <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 700, fontSize: 13 }}>
-              <td colSpan={2} style={{ color: "var(--muted)", fontSize: 12 }}>Totals</td>
+            <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 700, fontSize: "var(--fs-13)" }}>
+              <td colSpan={2} style={{ color: "var(--muted)", fontSize: "var(--fs-12)" }}>Totals</td>
               <td style={{ textAlign: "right" }}>{sqftFmt(totSqft)}</td>
               <td colSpan={showBaseYear ? 3 : 2} />
               {!hideRent && (
-                <td style={{ textAlign: "right", color: "var(--muted)", fontWeight: 400, fontSize: 12 }}>
+                <td style={{ textAlign: "right", color: "var(--muted)", fontWeight: 400, fontSize: "var(--fs-12)" }}>
                   {avgPerSf != null ? `$${avgPerSf.toFixed(2)}` : "—"}
                 </td>
               )}
@@ -678,7 +678,7 @@ function UnitsTable({ units, propertyCode, hideNNN, tenantMeta, onBaseYearChange
       {units.length > 10 && (
         <button
           className="linkBtn left"
-          style={{ marginTop: 6, fontSize: 13, color: "var(--muted)" }}
+          style={{ marginTop: 6, fontSize: "var(--fs-13)", color: "var(--muted)" }}
           onClick={() => setShowAll(!showAll)}
         >
           {showAll ? "Show fewer" : `Show all ${units.length} units`}
@@ -760,7 +760,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <code style={{ fontSize: 12, color: "var(--muted)" }}>{prop.propertyCode}</code>
+              <code style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>{prop.propertyCode}</code>
               <span style={{ fontWeight: 700, fontSize: 16 }}>{name}</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -769,7 +769,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
                 padding: "3px 9px", borderRadius: 6,
                 background: `${occColor(occupancyPct)}1a`,
                 color: occColor(occupancyPct),
-                fontSize: 12, fontWeight: 800, letterSpacing: "0.04em",
+                fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.04em",
                 fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
               }}>
                 {Math.round(occupancyPct)}% OCC
@@ -789,11 +789,11 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
                   }} />
                 </div>
               </HoverCard>
-              <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", whiteSpace: "nowrap" }}>
                 {kSqft(prop.occupiedSqft)} / {kSqft(prop.totalSqft)} sf
               </span>
               {!hideRent && totalGross > 0 && (
-                <span style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", whiteSpace: "nowrap" }}>
                   · ${Math.round(totalGross).toLocaleString()}/mo
                 </span>
               )}
@@ -857,15 +857,15 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
           {prop.totalSqft > 0 && (
             <div style={{ marginTop: 16, marginBottom: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>Occupancy</span>
+                <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>Occupancy</span>
                 <span style={{
-                  fontSize: 13,
+                  fontSize: "var(--fs-13)",
                   fontWeight: 700,
                   color: occupancyPct >= 90 ? "#16a34a" : occupancyPct >= 70 ? "#0b4a7d" : "#d97706",
                 }}>
                   {occupancyPct.toFixed(1)}%
                 </span>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                   ({sqftFmt(prop.occupiedSqft)} / {sqftFmt(prop.totalSqft)} sf)
                 </span>
               </div>
@@ -880,7 +880,7 @@ function PropertyCard({ prop, tenantMeta, onBaseYearChange, vacatingUnitRefs }: 
             </div>
           )}
           <div style={{ marginTop: 16 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
+            <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
               Tenants · {prop.units.length} {prop.units.length === 1 ? "unit" : "units"}
             </div>
             <UnitsTable units={prop.units} propertyCode={prop.propertyCode} hideNNN={KH_CODES.has(prop.propertyCode.toUpperCase()) || prop.propertyCode.toUpperCase() === "4900"} tenantMeta={tenantMeta} onBaseYearChange={onBaseYearChange} vacatingUnitRefs={vacatingUnitRefs} />
@@ -978,7 +978,7 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
             style={{ padding: "14px 20px", textAlign: "left", width: "100%" }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ marginBottom: 0, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>
+              <div style={{ marginBottom: 0, fontSize: "var(--fs-11)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>
                 {expirations.some((e) => e.days < 0)
                   ? "Expired / Expiring within 90 Days"
                   : "Expiring within 90 Days"}
@@ -1007,16 +1007,16 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                       const status = leaseStatus(unit.leaseTo);
                       return (
                         <tr key={i} style={{ background: days < 0 || days <= 30 ? "rgba(220,38,38,0.10)" : days <= 60 ? "rgba(234,88,12,0.10)" : "rgba(217,119,6,0.10)" }}>
-                          <td style={{ fontSize: 13 }}>
+                          <td style={{ fontSize: "var(--fs-13)" }}>
                             <div style={{ fontWeight: 600 }}>{propName(propertyCode)}</div>
-                            <div style={{ fontSize: 11, color: "var(--muted)" }}>{propertyCode}</div>
+                            <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>{propertyCode}</div>
                           </td>
                           <td style={{ fontWeight: 600 }}>{unit.occupantName}</td>
-                          <td><code style={{ fontSize: 12 }}>{unit.unitRef}</code></td>
-                          <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
-                          <td style={{ fontSize: 13 }}>{formatDate(unit.leaseTo)}</td>
-                          <td style={{ textAlign: "right", fontSize: 13 }}>{unit.baseRent ? money(unit.baseRent) : "—"}</td>
-                          <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>{unit.grossRentTotal ? money(unit.grossRentTotal) : "—"}</td>
+                          <td><code style={{ fontSize: "var(--fs-12)" }}>{unit.unitRef}</code></td>
+                          <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{sqftFmt(unit.sqft)}</td>
+                          <td style={{ fontSize: "var(--fs-13)" }}>{formatDate(unit.leaseTo)}</td>
+                          <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{unit.baseRent ? money(unit.baseRent) : "—"}</td>
+                          <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 600 }}>{unit.grossRentTotal ? money(unit.grossRentTotal) : "—"}</td>
                           <td>
                             <AlertBadge label={days < 0 ? "Expired" : `${days}d`} color={status.color} bg={status.bg} border={status.border} />
                           </td>
@@ -1039,11 +1039,11 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
             style={{ padding: "14px 20px", textAlign: "left", width: "100%" }}
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>
+              <div style={{ fontSize: "var(--fs-11)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--muted)" }}>
                 Vacancy Summary
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                   {vacancies.length} unit{vacancies.length !== 1 ? "s" : ""} · {sqftFmt(totalVacantSqft)} sf vacant
                 </span>
                 <span style={{ color: "var(--muted)", fontSize: 18 }}>{vacOpen ? "▲" : "▼"}</span>
@@ -1085,8 +1085,8 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                         return (
                           <>
                             <tr key={`hdr-${label}`} style={{ background: "rgba(15,23,42,0.04)" }}>
-                              <td colSpan={3} style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", paddingTop: 6, paddingBottom: 6 }}>{label}</td>
-                              <td style={{ textAlign: "right", fontSize: 11, color: "var(--muted)", paddingTop: 6, paddingBottom: 6 }}>{rows.length} unit{rows.length !== 1 ? "s" : ""} · {sqftFmt(groupSqft)} sf</td>
+                              <td colSpan={3} style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", paddingTop: 6, paddingBottom: 6 }}>{label}</td>
+                              <td style={{ textAlign: "right", fontSize: "var(--fs-11)", color: "var(--muted)", paddingTop: 6, paddingBottom: 6 }}>{rows.length} unit{rows.length !== 1 ? "s" : ""} · {sqftFmt(groupSqft)} sf</td>
                             </tr>
                             {rows.map(({ propertyCode, unit }, i) => {
                               const fp = floorplans[unit.unitRef];
@@ -1097,13 +1097,13 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                                 style={{ background: "rgba(15,23,42,0.012)", cursor: "pointer" }}
                                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
-                                <td style={{ fontSize: 13, paddingLeft: 20 }}>{propName(propertyCode)}</td>
-                                <td><code style={{ fontSize: 12 }}>{unit.unitRef}</code></td>
+                                <td style={{ fontSize: "var(--fs-13)", paddingLeft: 20 }}>{propName(propertyCode)}</td>
+                                <td><code style={{ fontSize: "var(--fs-12)" }}>{unit.unitRef}</code></td>
                                 <td>
                                   {fp ? (
                                     <a href={blobSrc(fp.url)} target="_blank" rel="noreferrer" title={fp.name}
                                       onClick={(e) => e.stopPropagation()}
-                                      style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+                                      style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
                                       {fp.contentType.startsWith("image/") ? (
                                         <img src={blobSrc(fp.url)} alt="" loading="lazy"
                                           style={{ width: 34, height: 26, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
@@ -1111,10 +1111,10 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                                       View
                                     </a>
                                   ) : (
-                                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)" }}>+ Add</span>
+                                    <span style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--muted)" }}>+ Add</span>
                                   )}
                                 </td>
-                                <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
+                                <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{sqftFmt(unit.sqft)}</td>
                               </tr>
                               );
                             })}
@@ -1153,20 +1153,20 @@ function AlertsPanel({ rentroll }: { rentroll: RentRollData }) {
                   const change = esc.amount - unit.baseRent;
                   return (
                     <tr key={i} style={{ background: "rgba(217,119,6,0.03)" }}>
-                      <td style={{ fontSize: 13 }}>
+                      <td style={{ fontSize: "var(--fs-13)" }}>
                         <div style={{ fontWeight: 600 }}>{propName(propertyCode)}</div>
-                        <div style={{ fontSize: 11, color: "var(--muted)" }}>{propertyCode}</div>
+                        <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>{propertyCode}</div>
                       </td>
                       <td style={{ fontWeight: 600 }}>{unit.occupantName}</td>
-                      <td><code style={{ fontSize: 12 }}>{unit.unitRef}</code></td>
-                      <td style={{ textAlign: "right", fontSize: 13 }}>{sqftFmt(unit.sqft)}</td>
-                      <td style={{ fontSize: 13 }}>
+                      <td><code style={{ fontSize: "var(--fs-12)" }}>{unit.unitRef}</code></td>
+                      <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{sqftFmt(unit.sqft)}</td>
+                      <td style={{ fontSize: "var(--fs-13)" }}>
                         <div style={{ fontWeight: 600 }}>{formatDate(esc.date)}</div>
-                        <div style={{ fontSize: 11, color: "#d97706" }}>{days}d away</div>
+                        <div style={{ fontSize: "var(--fs-11)", color: "#d97706" }}>{days}d away</div>
                       </td>
-                      <td style={{ textAlign: "right", fontSize: 13 }}>{money(unit.baseRent)}</td>
-                      <td style={{ textAlign: "right", fontSize: 13, fontWeight: 700 }}>{money(esc.amount)}</td>
-                      <td style={{ textAlign: "right", fontSize: 13, color: change >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
+                      <td style={{ textAlign: "right", fontSize: "var(--fs-13)" }}>{money(unit.baseRent)}</td>
+                      <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 700 }}>{money(esc.amount)}</td>
+                      <td style={{ textAlign: "right", fontSize: "var(--fs-13)", color: change >= 0 ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
                         {change >= 0 ? "+" : ""}{money(change)}
                       </td>
                     </tr>
@@ -1301,7 +1301,7 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
                 type="button"
                 onClick={() => { setMetric(key); setHover(null); }}
                 style={{
-                  padding: "5px 14px", borderRadius: 999, fontSize: 12,
+                  padding: "5px 14px", borderRadius: 999, fontSize: "var(--fs-12)",
                   fontWeight: active ? 700 : 500, cursor: "pointer",
                   border: `1.5px solid ${active ? "#0b4a7d" : "var(--border)"}`,
                   background: active ? "rgba(11,74,125,0.10)" : "transparent",
@@ -1361,10 +1361,10 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
                       );
                     })}
                   </div>
-                  <div style={{ position: "absolute", bottom: barH + 3, fontSize: 9, fontWeight: 700, color: "var(--text)", whiteSpace: "nowrap" }}>
+                  <div style={{ position: "absolute", bottom: barH + 3, fontSize: "var(--fs-9)", fontWeight: 700, color: "var(--text)", whiteSpace: "nowrap" }}>
                     {topLabel}
                   </div>
-                  <div style={{ position: "absolute", bottom: -26, fontSize: 10, fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", textAlign: "center" }}>
+                  <div style={{ position: "absolute", bottom: -26, fontSize: "var(--fs-10)", fontWeight: 600, color: "var(--muted)", whiteSpace: "nowrap", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", textAlign: "center" }}>
                     {bar.label}
                   </div>
                 </div>
@@ -1376,7 +1376,7 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
                 left: Math.min(hover.x + 14, 540),
                 top: Math.max(hover.y - 8, 0),
                 background: "rgba(15,23,42,0.94)", color: "#fff",
-                padding: "8px 11px", borderRadius: 6, fontSize: 12, fontWeight: 500,
+                padding: "8px 11px", borderRadius: 6, fontSize: "var(--fs-12)", fontWeight: 500,
                 pointerEvents: "none", whiteSpace: "nowrap",
                 boxShadow: "0 4px 14px rgba(15,23,42,0.25)", zIndex: 30, lineHeight: 1.5,
               }}>
@@ -1395,7 +1395,7 @@ function OccupancyChart({ rentroll, categoryFilter }: { rentroll: RentRollData; 
           {/* Legend */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 14, marginTop: 12, paddingTop: 12, borderTop: "1px solid var(--border)" }}>
             {legend.map((seg) => (
-              <div key={seg.key} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+              <div key={seg.key} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-11)" }}>
                 <span style={{ width: 12, height: 12, background: seg.color, borderRadius: 3 }} />
                 <span style={{ fontWeight: 600 }}>{seg.label}</span>
               </div>
@@ -1427,10 +1427,10 @@ function PortfolioGroup({ name, props, tenantMeta, onBaseYearChange, vacatingUni
     <div>
       {/* Portfolio header */}
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16, marginBottom: 10, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 14, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text)" }}>
+        <div style={{ fontSize: "var(--fs-14)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text)" }}>
           {name} <span style={{ fontWeight: 600, color: "var(--muted)" }}>({props.length})</span>
         </div>
-        <div style={{ display: "flex", gap: 16, fontSize: 12, color: "var(--muted)", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 16, fontSize: "var(--fs-12)", color: "var(--muted)", flexWrap: "wrap" }}>
           <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(totalSqft)}</b> Total SF</span>
           <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(occupiedSqft)}</b> Occupied</span>
           {vacantSqft > 0 && <span><b style={{ fontWeight: 700, color: "var(--text)" }}>{sqftFmt(vacantSqft)}</b> Vacant</span>}
@@ -1818,7 +1818,7 @@ export default function RentRollPage() {
       >
         {dragging && (
           <div style={{ position: "absolute", inset: 0, zIndex: 5, borderRadius: 16, border: "2px dashed #0b4a7d", background: "rgba(11,74,125,0.06)", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14, fontWeight: 700, color: "#0b4a7d" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-14)", fontWeight: 700, color: "#0b4a7d" }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
               Drop the rent roll to import
             </div>
@@ -1837,13 +1837,13 @@ export default function RentRollPage() {
               className="btn"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              style={{ whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px" }}
+              style={{ whiteSpace: "nowrap", fontSize: "var(--fs-13)", padding: "8px 16px" }}
             >
               {uploading ? "Uploading…" : "Import"}
             </button>
             <button
               className="btn"
-              style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap", fontSize: 13, padding: "8px 16px" }}
+              style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap", fontSize: "var(--fs-13)", padding: "8px 16px" }}
               onClick={() => setRawRentroll(null)}
               disabled={!rentroll}
             >
@@ -1873,7 +1873,7 @@ export default function RentRollPage() {
                   style={{
                     background: generatingReport ? "rgba(11,74,125,0.4)" : "rgba(11,74,125,0.85)",
                     color: "#fff", borderRadius: 999, padding: "8px 16px",
-                    fontSize: 13, fontWeight: 700, border: "1px solid transparent",
+                    fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent",
                     display: "inline-flex", alignItems: "center", cursor: generatingReport ? "default" : "pointer",
                     whiteSpace: "nowrap",
                   }}
@@ -1882,7 +1882,7 @@ export default function RentRollPage() {
                 </button>
               </>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
+            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
         {reportMonth && Object.keys(carriedFrom).length > 0 && (() => {
@@ -1913,12 +1913,12 @@ export default function RentRollPage() {
           })()} />
         </p>
         <LastImported at={rentroll?.uploadedAt} by={rentroll?.uploadedBy} />
-        {uploadError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{uploadError}</div>}
-        {uploadNote && <div style={{ color: "#0b4a7d", fontSize: 13, marginTop: 6 }}>{uploadNote}</div>}
+        {uploadError && <div style={{ color: "#b42318", fontSize: "var(--fs-13)", marginTop: 6 }}>{uploadError}</div>}
+        {uploadNote && <div style={{ color: "#0b4a7d", fontSize: "var(--fs-13)", marginTop: 6 }}>{uploadNote}</div>}
         {uploadChanges && (uploadChanges.newTenants.length > 0 || uploadChanges.vacated.length > 0) && (
           <div style={{ marginTop: 12, border: "1px solid rgba(11,74,125,0.28)", borderRadius: 12, background: "var(--card)", overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 14px", borderBottom: "1px solid rgba(11,74,125,0.18)", background: "rgba(11,74,125,0.05)" }}>
-              <span style={{ fontWeight: 800, color: "#0b4a7d", fontSize: 13, letterSpacing: "0.02em" }}>Changes vs last roll</span>
+              <span style={{ fontWeight: 800, color: "#0b4a7d", fontSize: "var(--fs-13)", letterSpacing: "0.02em" }}>Changes vs last roll</span>
               <button onClick={() => setUploadChanges(null)} aria-label="Dismiss" style={{ background: "none", border: "none", cursor: "pointer", color: "#0b4a7d", fontSize: 18, fontWeight: 700, lineHeight: 1, padding: 0 }}>×</button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
@@ -1933,7 +1933,7 @@ export default function RentRollPage() {
             </div>
           </div>
         )}
-        {(loading || monthLoading) && <div style={{ color: "var(--muted)", fontSize: 13, marginTop: 10 }}>Loading…</div>}
+        {(loading || monthLoading) && <div style={{ color: "var(--muted)", fontSize: "var(--fs-13)", marginTop: 10 }}>Loading…</div>}
         {filteredRentroll && (
           <>
             {/* Category filter pills */}
@@ -1948,7 +1948,7 @@ export default function RentRollPage() {
                       flex: 1,
                       padding: "8px 4px",
                       borderRadius: 999,
-                      fontSize: 13,
+                      fontSize: "var(--fs-13)",
                       fontWeight: active ? 700 : 500,
                       cursor: "pointer",
                       border: `1.5px solid ${active ? activeColor : "var(--border)"}`,

@@ -110,7 +110,7 @@ function ReservationsPageInner() {
             onClick={reload}
             disabled={loading}
             className="btn"
-            style={{ fontSize: 13, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}
+            style={{ fontSize: "var(--fs-13)", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}
             title="Pull the latest reservations"
           >
             <svg
@@ -132,7 +132,7 @@ function ReservationsPageInner() {
             target="_blank"
             rel="noopener noreferrer"
             className="btn primary"
-            style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
+            style={{ fontSize: "var(--fs-13)", padding: "6px 12px", textDecoration: "none" }}
             title="Open the public conference-room reservation form in a new tab"
           >
             Reservation Form →
@@ -142,7 +142,7 @@ function ReservationsPageInner() {
             target="_blank"
             rel="noopener noreferrer"
             className="btn"
-            style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
+            style={{ fontSize: "var(--fs-13)", padding: "6px 12px", textDecoration: "none" }}
             title="Open the tenant Service Request landing in a new tab"
           >
             Tenant Flow →
@@ -174,7 +174,7 @@ function ReservationsPageInner() {
 
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", padding: "0 2px" }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Room</span>
+          <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Room</span>
           <select value={roomFilter} onChange={(e) => setRoomFilter(e.target.value)}>
             <option value="All">All rooms</option>
             {BOOKABLE_ROOMS.map((r) => (
@@ -183,7 +183,7 @@ function ReservationsPageInner() {
           </select>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>View</span>
+          <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>View</span>
           <div style={{ display: "inline-flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
             {(["list", "week"] as const).map((mode) => (
               <button
@@ -191,7 +191,7 @@ function ReservationsPageInner() {
                 onClick={() => setViewMode(mode)}
                 className="btn"
                 style={{
-                  fontSize: 13, padding: "7px 14px", border: "none", borderRadius: 0,
+                  fontSize: "var(--fs-13)", padding: "7px 14px", border: "none", borderRadius: 0,
                   fontWeight: viewMode === mode ? 700 : 500,
                   background: viewMode === mode ? "var(--brand)" : "transparent",
                   color: viewMode === mode ? "#fff" : "var(--text)",
@@ -200,7 +200,7 @@ function ReservationsPageInner() {
             ))}
           </div>
         </label>
-        <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)", paddingBottom: 6 }}>
+        <div style={{ marginLeft: "auto", fontSize: "var(--fs-12)", color: "var(--muted)", paddingBottom: 6 }}>
           {loading ? "Loading…" : `${filtered.length} of ${(reservations ?? []).length}`}
         </div>
       </div>
@@ -241,19 +241,19 @@ function ReservationsPageInner() {
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.filter = "brightness(0.97)"; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
                   >
-                    <td style={{ fontWeight: 600 }}>{r.roomLabel}<div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 400 }}>{r.propertyName}</div></td>
-                    <td style={{ fontSize: 13 }}>
+                    <td style={{ fontWeight: 600 }}>{r.roomLabel}<div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 400 }}>{r.propertyName}</div></td>
+                    <td style={{ fontSize: "var(--fs-13)" }}>
                       {r.tenantCompany}
-                      {r.typedCompany && <div style={{ fontSize: 11, color: "var(--muted)" }}>typed as &ldquo;{r.typedCompany}&rdquo;</div>}
+                      {r.typedCompany && <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>typed as &ldquo;{r.typedCompany}&rdquo;</div>}
                     </td>
-                    <td style={{ fontSize: 13 }}>
+                    <td style={{ fontSize: "var(--fs-13)" }}>
                       {r.contactFirstName} {r.contactLastName}
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>{r.contactEmail}</div>
+                      <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>{r.contactEmail}</div>
                     </td>
-                    <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{prettyDate(r.date)}</td>
-                    <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>{prettyTime(r.startTime)}–{prettyTime(r.endTime)}</td>
+                    <td style={{ fontSize: "var(--fs-13)", whiteSpace: "nowrap" }}>{prettyDate(r.date)}</td>
+                    <td style={{ fontSize: "var(--fs-13)", whiteSpace: "nowrap" }}>{prettyTime(r.startTime)}–{prettyTime(r.endTime)}</td>
                     <td><Pill tone={ss}>{r.status}</Pill></td>
-                    <td style={{ textAlign: "right", fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>
+                    <td style={{ textAlign: "right", fontSize: "var(--fs-12)", color: "var(--muted)", whiteSpace: "nowrap" }}>
                       {new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </td>
                   </tr>
@@ -471,8 +471,8 @@ function ReservationModal({
             background: "rgba(15,23,42,0.025)",
           }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Tenant</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
+              <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Tenant</span>
+              <span style={{ fontSize: "var(--fs-14)", fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
                 {reservation.tenantCompany || <span style={{ color: "var(--muted)" }}>—</span>}
               </span>
               {tenantSuggestion && (
@@ -485,7 +485,7 @@ function ReservationModal({
                     marginTop: 4, padding: "4px 8px", cursor: "pointer",
                     border: "1px solid rgba(37,99,235,0.45)", borderRadius: 6,
                     background: "rgba(37,99,235,0.08)", color: "#1d4ed8",
-                    fontFamily: "inherit", fontSize: 12, fontWeight: 700,
+                    fontFamily: "inherit", fontSize: "var(--fs-12)", fontWeight: 700,
                     textAlign: "left", lineHeight: 1.35,
                   }}
                 >
@@ -496,7 +496,7 @@ function ReservationModal({
                 </button>
               )}
               {reservation.typedCompany && (
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>typed as &ldquo;{reservation.typedCompany}&rdquo;</span>
+                <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>typed as &ldquo;{reservation.typedCompany}&rdquo;</span>
               )}
               <select
                   className="select-sm"
@@ -523,7 +523,7 @@ function ReservationModal({
 
           {reservation.purpose && (
             <Section title="Purpose">
-              <div style={{ fontSize: 14, whiteSpace: "pre-wrap", padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 10, background: "rgba(15,23,42,0.025)" }}>
+              <div style={{ fontSize: "var(--fs-14)", whiteSpace: "pre-wrap", padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 10, background: "rgba(15,23,42,0.025)" }}>
                 {reservation.purpose}
               </div>
             </Section>
@@ -531,7 +531,7 @@ function ReservationModal({
 
           {sameDay.length > 0 && (
             <Section title={`Other bookings on ${prettyDate(reservation.date)}`}>
-              <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: "var(--muted)" }}>
+              <ul style={{ margin: 0, paddingLeft: 18, fontSize: "var(--fs-13)", color: "var(--muted)" }}>
                 {sameDay.map((b) => (
                   <li key={b.id}>
                     {b.roomLabel} · {prettyTime(b.startTime)}–{prettyTime(b.endTime)} · {b.tenantCompany}
@@ -547,10 +547,10 @@ function ReservationModal({
               {reservation.notes.length === 0 && <div className="muted small">No notes yet.</div>}
               {reservation.notes.map((n) => (
                 <div key={n.id} style={{ padding: "10px 14px", border: "1px solid var(--border)", borderRadius: 10, background: "rgba(15,23,42,0.025)" }}>
-                  <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, marginBottom: 4 }}>
+                  <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 700, marginBottom: 4 }}>
                     {n.author} · {new Date(n.createdAt).toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{n.text}</div>
+                  <div style={{ fontSize: "var(--fs-14)", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{n.text}</div>
                 </div>
               ))}
             </div>
@@ -569,7 +569,7 @@ function ReservationModal({
             </div>
           )}
 
-          {error && <div style={{ fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+          {error && <div style={{ fontSize: "var(--fs-13)", color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
         </div>
 
         <div style={{
@@ -578,30 +578,30 @@ function ReservationModal({
           display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center", flexWrap: "wrap",
         }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={() => setComposer("custom")} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>
+            <button onClick={() => setComposer("custom")} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}>
               ✉ Email tenant
             </button>
-            <button onClick={() => openOutlookCalendar(reservation)} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>
+            <button onClick={() => openOutlookCalendar(reservation)} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}>
               📅 Add to Outlook
             </button>
-            <button onClick={() => downloadReservationICS(reservation)} className="btn" style={{ fontSize: 13, padding: "8px 14px" }} title="Download .ics for any calendar app">
+            <button onClick={() => downloadReservationICS(reservation)} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }} title="Download .ics for any calendar app">
               ⤓ .ics
             </button>
             {reservation.status !== "Declined" && (
-              <button onClick={() => setStatus("Declined")} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }}>
+              <button onClick={() => setStatus("Declined")} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }}>
                 Decline
               </button>
             )}
-            <button onClick={remove} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }} title="Delete this reservation">
+            <button onClick={remove} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", color: "#b91c1c", borderColor: "rgba(220,38,38,0.35)" }} title="Delete this reservation">
               🗑 Delete
             </button>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setComposer("modify")} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>
+            <button onClick={() => setComposer("modify")} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}>
               Modify (suggest alternates)
             </button>
             {reservation.status !== "Approved" && (
-              <button onClick={approve} disabled={busy} className="btn primary" style={{ fontSize: 14, padding: "10px 22px", fontWeight: 700 }}>
+              <button onClick={approve} disabled={busy} className="btn primary" style={{ fontSize: "var(--fs-14)", padding: "10px 22px", fontWeight: 700 }}>
                 {busy ? "Working…" : "✓ Approve"}
               </button>
             )}
@@ -660,13 +660,13 @@ function EmailComposer({
       display: "flex", flexDirection: "column", gap: 10,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#0b4a7d" }}>
+        <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#0b4a7d" }}>
           {mode === "modify" ? "Modify — propose alternates" : "Email tenant"} — {reservation.contactEmail}
         </span>
-        <button onClick={onCancel} disabled={busy} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 14 }}>×</button>
+        <button onClick={onCancel} disabled={busy} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "var(--fs-14)" }}>×</button>
       </div>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>From</span>
+        <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>From</span>
         <input value={author} onChange={(e) => setAuthor(e.target.value)} style={{ minWidth: 140 }} />
       </div>
       <input value={subject} onChange={(e) => setSubject(e.target.value)} style={{ width: "100%", fontWeight: 600 }} />
@@ -674,10 +674,10 @@ function EmailComposer({
         value={text} onChange={(e) => setText(e.target.value)} rows={12}
         style={{ width: "100%", minHeight: 220, resize: "vertical", lineHeight: 1.5 }}
       />
-      {error && <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      {error && <div style={{ fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <button onClick={onCancel} disabled={busy} className="btn" style={{ fontSize: 13, padding: "8px 14px" }}>Cancel</button>
-        <button onClick={send} disabled={busy} className="btn primary" style={{ fontSize: 13, padding: "8px 16px" }}>
+        <button onClick={onCancel} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}>Cancel</button>
+        <button onClick={send} disabled={busy} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 16px" }}>
           {busy ? "Sending…" : "Send email"}
         </button>
       </div>
@@ -756,9 +756,9 @@ function customEmailBody(r: Reservation, sender: string): string {
 function MetaCell({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>{label}</span>
-      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>{value || "—"}</span>
-      {sub && <span style={{ fontSize: 12, color: "var(--muted)", wordBreak: "break-word" }}>{sub}</span>}
+      <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>{label}</span>
+      <span style={{ fontSize: "var(--fs-14)", fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>{value || "—"}</span>
+      {sub && <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", wordBreak: "break-word" }}>{sub}</span>}
     </div>
   );
 }
@@ -766,7 +766,7 @@ function MetaCell({ label, value, sub }: { label: string; value: string; sub?: s
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>{title}</div>
+      <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>{title}</div>
       {children}
     </div>
   );

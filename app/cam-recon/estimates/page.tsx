@@ -20,13 +20,13 @@ function downloadCSV(filename: string, csv: string) {
 }
 
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 const th: React.CSSProperties = {
-  textAlign: "right", padding: "6px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+  textAlign: "right", padding: "6px 10px", fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase",
   letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
 };
-const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: 14, whiteSpace: "nowrap" };
+const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: "var(--fs-14)", whiteSpace: "nowrap" };
 
 function HeaderSelect({ value, onChange, displayLabel, ariaLabel, muted = false, children }: {
   value: string; onChange: (next: string) => void; displayLabel: string; ariaLabel: string; muted?: boolean; children: React.ReactNode;
@@ -34,7 +34,7 @@ function HeaderSelect({ value, onChange, displayLabel, ariaLabel, muted = false,
   return (
     <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
       <span style={{ fontSize: 22, fontWeight: 800, color: muted ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{displayLabel}</span>
-      <span aria-hidden style={{ fontSize: 11, lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
+      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
       <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={ariaLabel}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}>
         {children}
@@ -48,7 +48,7 @@ function KormanWordmark() {
     <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
       <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
       <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-      <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+      <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
     </div>
   );
 }
@@ -188,7 +188,7 @@ export default function CamEstimatesPage() {
           <p className="small muted" style={{ marginTop: 6 }}>
             New recurring monthly CAM / RET charges per tenant, effective 1/1/{newYear}.
           </p>
-          <button onClick={exportEstimate} className="btn primary" style={{ fontSize: 13, padding: "9px 14px", fontWeight: 700, marginTop: 12 }}>
+          <button onClick={exportEstimate} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "9px 14px", fontWeight: 700, marginTop: 12 }}>
             Download {newYear} Estimate CSV
           </button>
           <ImportInstructions stop />

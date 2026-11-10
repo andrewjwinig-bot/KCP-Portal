@@ -15,7 +15,7 @@ type Email = {
   testMode: boolean; attachmentName: string | null; respondByISO?: string | null; summary?: string | null;
 };
 
-const SECTION: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const longDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
@@ -58,7 +58,7 @@ export function SentEmailModal({ src, onClose }: { src: string; onClose: () => v
             {e.replyTo && row("Reply-To", e.replyTo)}
             {row("Subject", <b>{e.subject}</b>)}
             {e.respondByISO && row("Answer by", longDate(e.respondByISO))}
-            {row("Message ID", e.messageId ? <code style={{ fontSize: 12 }}>{e.messageId}</code> : <span className="muted">none on file</span>)}
+            {row("Message ID", e.messageId ? <code style={{ fontSize: "var(--fs-12)" }}>{e.messageId}</code> : <span className="muted">none on file</span>)}
             {row("Attached", e.attachmentName ? <a href={`${src}&format=pdf`} target="_blank" rel="noreferrer">{e.attachmentName}</a> : <span className="muted">nothing</span>)}
           </div>
         )}

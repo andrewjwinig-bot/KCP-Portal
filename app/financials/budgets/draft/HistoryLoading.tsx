@@ -53,7 +53,7 @@ export function HistoryLoading({ lastYear, years = 5 }: { lastYear: number; year
                 {bar(a, active ? "var(--brand)" : "rgba(11,74,125,0.7)", 0.08)}
               </div>
               <div className={active ? "imp-anim" : undefined} style={{
-                fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums",
+                fontSize: "var(--fs-11)", fontWeight: 800, letterSpacing: "0.04em", fontVariantNumeric: "tabular-nums",
                 padding: "1px 7px", borderRadius: 999,
                 color: active ? "#fff" : done ? "var(--text)" : "var(--muted)",
                 background: active ? "var(--brand)" : "transparent",
@@ -64,14 +64,14 @@ export function HistoryLoading({ lastYear, years = 5 }: { lastYear: number; year
           );
         })}
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 11.5 }} className="muted">
+      <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: "var(--fs-11-5)" }} className="muted">
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: "rgba(100,116,139,0.45)" }} /> Budget</span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: "rgba(11,74,125,0.7)" }} /> Actual</span>
       </div>
       <div style={{ textAlign: "center" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
           <span className="kcp-shimmer" style={{
-            fontSize: 14, fontWeight: 800,
+            fontSize: "var(--fs-14)", fontWeight: 800,
             background: "linear-gradient(90deg, var(--text) 0%, var(--brand) 45%, var(--text) 90%)", backgroundSize: "200% 100%",
             WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent",
             animation: "kcpShimmer 1.9s linear infinite", display: "inline-block",
@@ -82,7 +82,7 @@ export function HistoryLoading({ lastYear, years = 5 }: { lastYear: number; year
             ))}
           </span>
         </div>
-        <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>{sub}</div>
+        <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 3 }}>{sub}</div>
       </div>
       {/* the shape of what is coming: the suggestion card and the KPI row */}
       <div style={{ width: "100%", display: "grid", gap: 8, marginTop: 4 }}>

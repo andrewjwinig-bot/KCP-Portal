@@ -62,7 +62,7 @@ export function RecoverCard({ onApplied }: { onApplied?: () => void }) {
           <tbody>
             {plan.rows.map((r) => (
               <tr key={r.code}>
-                <td style={tdL}><code style={{ fontSize: 12, fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{r.code}</code>{r.name}</td>
+                <td style={tdL}><code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--brand)", marginRight: 6 }}>{r.code}</code>{r.name}</td>
                 <td style={{ ...td, color: "var(--muted)" }}>{money(r.now)}</td>
                 <td style={{ ...td, color: "var(--muted)" }}>{r.dropped2025 ? money(r.dropped2025) : "—"}</td>
                 <td style={{ ...td, fontWeight: 700 }}>

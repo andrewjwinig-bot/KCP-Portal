@@ -199,12 +199,12 @@ const tileStyle: React.CSSProperties = {
   background: "var(--card)",
 };
 const tileLabelStyle: React.CSSProperties = {
-  fontSize: 11, fontWeight: 600, color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--muted)",
   textTransform: "uppercase", letterSpacing: "0.04em",
   marginBottom: 2,
 };
 const tileSubStyle: React.CSSProperties = {
-  fontSize: 11, color: "var(--muted)",
+  fontSize: "var(--fs-11)", color: "var(--muted)",
 };
 function tileInputStyle(disabled: boolean | undefined, width: number): React.CSSProperties {
   return {
@@ -360,7 +360,7 @@ export default function CamConfigCard({
     return (
       <div className="card">
         <SectionLabel>CAM / INS / RET</SectionLabel>
-        <div style={{ fontSize: 13, color: "var(--muted)" }}>Loading…</div>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>Loading…</div>
       </div>
     );
   }
@@ -368,7 +368,7 @@ export default function CamConfigCard({
     return (
       <div className="card">
         <SectionLabel>CAM / INS / RET</SectionLabel>
-        <div style={{ fontSize: 13, color: "var(--muted)" }}>Couldn’t load CAM configuration.</div>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>Couldn’t load CAM configuration.</div>
       </div>
     );
   }
@@ -389,7 +389,7 @@ export default function CamConfigCard({
         <div style={{
           margin: "8px 0", padding: "8px 10px", borderRadius: 8,
           background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: 12, fontWeight: 600,
+          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
@@ -429,7 +429,7 @@ export default function CamConfigCard({
           <div style={{
             marginTop: 10,
             display: "flex", flexDirection: "column", gap: 4,
-            fontSize: 11, fontStyle: "italic", color: "var(--muted)",
+            fontSize: "var(--fs-11)", fontStyle: "italic", color: "var(--muted)",
             lineHeight: 1.5,
           }}>
             {CAM_CATEGORIES.map((cat) =>
@@ -445,7 +445,7 @@ export default function CamConfigCard({
         {CAM_CATEGORIES.some((c) => categoryMeta[c].excluded) && (
           <div style={{
             marginTop: 6,
-            fontSize: 11, fontStyle: "italic", color: "var(--muted)",
+            fontSize: "var(--fs-11)", fontStyle: "italic", color: "var(--muted)",
           }}>
             {CAM_CATEGORIES.filter((c) => categoryMeta[c].excluded)
               .map((c) => `${occupantName || "This tenant"} does not pay ${CAM_CATEGORY_LABELS[c]}.`)
@@ -464,7 +464,7 @@ export default function CamConfigCard({
         borderTop: "1px solid var(--border)",
         display: "flex", alignItems: "center", flexWrap: "wrap", gap: "8px 24px",
       }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-13)", cursor: "pointer" }}>
           <input
             type="checkbox"
             checked={isGross}
@@ -474,7 +474,7 @@ export default function CamConfigCard({
           <span style={{ fontWeight: 600, color: "var(--text)" }}>Gross Lease</span>
         </label>
         <label style={{
-          display: "flex", alignItems: "center", gap: 8, fontSize: 13,
+          display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-13)",
           cursor: isGross ? "not-allowed" : "pointer",
           opacity: isGross ? 0.5 : 1,
         }}>
@@ -488,7 +488,7 @@ export default function CamConfigCard({
           <span style={{ fontWeight: 600, color: "var(--text)" }}>Admin Fee Exclusions</span>
         </label>
         <label style={{
-          display: "flex", alignItems: "center", gap: 8, fontSize: 13,
+          display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-13)",
           cursor: isGross ? "not-allowed" : "pointer",
           opacity: isGross ? 0.5 : 1,
         }}>
@@ -502,7 +502,7 @@ export default function CamConfigCard({
           <span style={{ fontWeight: 600, color: "var(--text)" }}>Expense Pool Exclusions</span>
         </label>
         <label style={{
-          display: "flex", alignItems: "center", gap: 8, fontSize: 13,
+          display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-13)",
           cursor: isGross ? "not-allowed" : "pointer",
           opacity: isGross ? 0.5 : 1,
         }} title="Lease-level CAM cap">
@@ -546,7 +546,7 @@ export default function CamConfigCard({
           }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+                <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
                   CAM Cap
                 </div>
                 <div className="small muted" style={{ marginTop: 2 }}>
@@ -560,14 +560,14 @@ export default function CamConfigCard({
                 }}>
                   {capAmount.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })}
                 </div>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
+                <div style={{ fontSize: "var(--fs-10)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
                   Cap for {nextYear} reconciliation
                 </div>
               </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12, alignItems: "end" }}>
               <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                   Prior year
                 </span>
                 <input
@@ -582,13 +582,13 @@ export default function CamConfigCard({
                 />
               </label>
               <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                   Controllable expenses ({cap.priorYear})
                 </span>
                 <div style={{ position: "relative" }}>
                   <span style={{
                     position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
-                    fontSize: 13, color: "var(--muted)", pointerEvents: "none",
+                    fontSize: "var(--fs-13)", color: "var(--muted)", pointerEvents: "none",
                   }}>$</span>
                   <input
                     type="text"
@@ -605,7 +605,7 @@ export default function CamConfigCard({
                 </div>
               </label>
               <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                   Annual growth %
                 </span>
                 <input
@@ -622,7 +622,7 @@ export default function CamConfigCard({
               </label>
             </div>
             <label style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 12 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+              <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                 Notes
               </span>
               <textarea
@@ -638,7 +638,7 @@ export default function CamConfigCard({
                 marginTop: 10, padding: "8px 10px", borderRadius: 6,
                 background: "rgba(220,38,38,0.06)",
                 border: "1px solid rgba(220,38,38,0.35)",
-                color: "#b91c1c", fontSize: 12, fontWeight: 600,
+                color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
               }}>
                 Prior year is {cap.priorYear} — for a {currentYear} reconciliation the cap should be based on {currentYear - 1} controllable. Update before billing.
               </div>
@@ -661,11 +661,11 @@ export default function CamConfigCard({
         }}>
           {hasAdminFeeExclusions && (
             <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "6px 20px", alignItems: "start" }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", paddingTop: 6 }}>
+              <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "var(--text)", paddingTop: 6 }}>
                 Excluded from Admin Fee
               </span>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                   CAM lines this tenant’s admin fee does not apply to.
                 </span>
                 <MultiSelect
@@ -681,11 +681,11 @@ export default function CamConfigCard({
 
           {hasExpenseExclusions && (
             <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: "6px 20px", alignItems: "start" }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", paddingTop: 6 }}>
+              <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "var(--text)", paddingTop: 6 }}>
                 Excluded CAM lines
               </span>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <span style={{ fontSize: 12, color: "var(--muted)" }}>
+                <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                   CAM lines this tenant is not billed for under their lease.
                 </span>
                 {/* Quick toggles — e.g. an outparcel that pays no CAM excludes
@@ -695,7 +695,7 @@ export default function CamConfigCard({
                     type="button"
                     disabled={isGross}
                     onClick={() => update({ camExcludedLines: [...lineOptions] })}
-                    style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "#0b4a7d", cursor: isGross ? "not-allowed" : "pointer", opacity: isGross ? 0.5 : 1 }}
+                    style={{ fontSize: "var(--fs-12)", fontWeight: 600, padding: "3px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "#0b4a7d", cursor: isGross ? "not-allowed" : "pointer", opacity: isGross ? 0.5 : 1 }}
                   >
                     Exclude all CAM
                   </button>
@@ -703,7 +703,7 @@ export default function CamConfigCard({
                     type="button"
                     disabled={isGross || (config.camExcludedLines ?? []).length === 0}
                     onClick={() => update({ camExcludedLines: [] })}
-                    style={{ fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "var(--muted)", cursor: (isGross || (config.camExcludedLines ?? []).length === 0) ? "not-allowed" : "pointer", opacity: (isGross || (config.camExcludedLines ?? []).length === 0) ? 0.5 : 1 }}
+                    style={{ fontSize: "var(--fs-12)", fontWeight: 600, padding: "3px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--card)", color: "var(--muted)", cursor: (isGross || (config.camExcludedLines ?? []).length === 0) ? "not-allowed" : "pointer", opacity: (isGross || (config.camExcludedLines ?? []).length === 0) ? 0.5 : 1 }}
                   >
                     Clear
                   </button>
@@ -717,7 +717,7 @@ export default function CamConfigCard({
                 />
                 {/* "Other" — flat-$ exclusion for line items that aren't
                     in CAM_LINE_ITEMS and have no separate GL code. */}
-                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginTop: 4, cursor: isGross ? "not-allowed" : "pointer", opacity: isGross ? 0.5 : 1 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-13)", marginTop: 4, cursor: isGross ? "not-allowed" : "pointer", opacity: isGross ? 0.5 : 1 }}>
                   <input
                     type="checkbox"
                     checked={!!config.camExcludedOther}
@@ -748,7 +748,7 @@ export default function CamConfigCard({
                     <div style={{ position: "relative" }}>
                       <span style={{
                         position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
-                        fontSize: 13, color: "var(--muted)", pointerEvents: "none",
+                        fontSize: "var(--fs-13)", color: "var(--muted)", pointerEvents: "none",
                       }}>$</span>
                       <input
                         type="text"

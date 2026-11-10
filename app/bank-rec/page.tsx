@@ -188,7 +188,7 @@ export default function BankAccTrackerPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
             <div>COMMERCIAL</div><div>PROPERTIES</div>
           </div>
         </div>
@@ -199,7 +199,7 @@ export default function BankAccTrackerPage() {
         <button
           className="btn"
           onClick={() => setPeriod((p) => shiftPeriod(p, -1))}
-          style={{ padding: "5px 12px", fontWeight: 900, fontSize: 14 }}
+          style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}
           aria-label="Previous month"
         >
           ←
@@ -210,7 +210,7 @@ export default function BankAccTrackerPage() {
         <button
           className="btn"
           onClick={() => setPeriod((p) => shiftPeriod(p, 1))}
-          style={{ padding: "5px 12px", fontWeight: 900, fontSize: 14 }}
+          style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}
           aria-label="Next month"
         >
           →
@@ -219,7 +219,7 @@ export default function BankAccTrackerPage() {
           <button
             className="btn"
             onClick={() => setPeriod(bankRecPeriod())}
-            style={{ fontSize: 11, padding: "5px 9px" }}
+            style={{ fontSize: "var(--fs-11)", padding: "5px 9px" }}
           >
             Today
           </button>
@@ -227,7 +227,7 @@ export default function BankAccTrackerPage() {
         <span className="muted small" style={{ marginLeft: 6 }}>
           Due {periodDeadline.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
         </span>
-        {error && <span style={{ color: "#b91c1c", fontSize: 12, marginLeft: 6 }}>· {error}</span>}
+        {error && <span style={{ color: "#b91c1c", fontSize: "var(--fs-12)", marginLeft: 6 }}>· {error}</span>}
       </div>
 
       {/* ── Summary pills ────────────────────────────────────────────── */}
@@ -300,16 +300,16 @@ export default function BankAccTrackerPage() {
                   aria-expanded={open}
                 >
                   <span style={{ display: "inline-flex", alignItems: "baseline", gap: 10 }}>
-                    <span style={{ fontWeight: 800, fontSize: 14, letterSpacing: "0.02em" }}>{bank}</span>
+                    <span style={{ fontWeight: 800, fontSize: "var(--fs-14)", letterSpacing: "0.02em" }}>{bank}</span>
                     <span className="muted small">{groupStmt}/{accounts.length} Stmts · {groupRec}/{accounts.length} Rec</span>
                   </span>
                   <span style={{ color: "var(--muted)", fontSize: 18, flexShrink: 0 }}>{open ? "▲" : "▼"}</span>
                 </button>
 
                 {open && (
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
                   <thead>
-                    <tr style={{ textAlign: "left", color: "var(--muted)", fontSize: 11, letterSpacing: "0.04em" }}>
+                    <tr style={{ textAlign: "left", color: "var(--muted)", fontSize: "var(--fs-11)", letterSpacing: "0.04em" }}>
                       <th style={{ padding: "8px 14px", fontWeight: 700, width: 60, textAlign: "center" }}>STMT</th>
                       <th style={{ padding: "8px 14px", fontWeight: 700, width: 60, textAlign: "center" }}>REC</th>
                       <th style={{ padding: "8px 14px", fontWeight: 700 }}>ACCOUNT NAME</th>

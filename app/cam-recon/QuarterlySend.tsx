@@ -37,7 +37,7 @@ type Preview = {
 
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const when = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" };
 
 export default function QuarterlySend({ billingKey, year, quarter, record, name, onSent }: {
   billingKey: string; year: number; quarter: Quarter; name: string;
@@ -130,7 +130,7 @@ export default function QuarterlySend({ billingKey, year, quarter, record, name,
                     <div><span className="muted">Bcc</span> {preview.bcc} <span className="muted">(your copy)</span></div>
                     <div><span className="muted">Subject</span> {preview.subject}</div>
                   </div>
-                  <pre style={{ margin: 0, padding: "10px 12px", whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 13 }}>{preview.body}</pre>
+                  <pre style={{ margin: 0, padding: "10px 12px", whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "var(--fs-13)" }}>{preview.body}</pre>
                   <div className="small" style={{ padding: "8px 12px", borderTop: "1px solid var(--border)" }}>
                     📎 <a href={`/api/cam-recon/quarterly/send?${qs}&pdf=1`} target="_blank" rel="noreferrer" style={{ fontWeight: 600, color: "var(--brand)" }}>{preview.attachmentName}</a>
                     <span className="muted"> · backup if asked: </span>

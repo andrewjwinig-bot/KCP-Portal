@@ -215,14 +215,14 @@ function DonutChart({ data }: { data: PieSlice[] }) {
             style={{ cursor: "pointer", opacity: hovered !== null && hovered !== i ? 0.45 : 1, transition: "opacity 0.12s" }}
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />
         ))}
-        <text x={cx} y={cy - 16} textAnchor="middle" style={{ fontSize: 11, fill: "#64748b", fontFamily: "inherit" }}>
+        <text x={cx} y={cy - 16} textAnchor="middle" style={{ fontSize: "var(--fs-11)", fill: "#64748b", fontFamily: "inherit" }}>
           {trim(hov ? hov.label : "Total")}
         </text>
-        <text x={cx} y={cy + 5} textAnchor="middle" style={{ fontSize: 14, fontWeight: 700, fill: "#0f172a", fontFamily: "inherit" }}>
+        <text x={cx} y={cy + 5} textAnchor="middle" style={{ fontSize: "var(--fs-14)", fontWeight: 700, fill: "#0f172a", fontFamily: "inherit" }}>
           {hov ? toMoney(hov.value) : toMoney(total)}
         </text>
         {hov && (
-          <text x={cx} y={cy + 22} textAnchor="middle" style={{ fontSize: 12, fill: "#64748b", fontFamily: "inherit" }}>
+          <text x={cx} y={cy + 22} textAnchor="middle" style={{ fontSize: "var(--fs-12)", fill: "#64748b", fontFamily: "inherit" }}>
             {((hov.value / total) * 100).toFixed(1)}%
           </text>
         )}
@@ -230,7 +230,7 @@ function DonutChart({ data }: { data: PieSlice[] }) {
       <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto" }}>
         {slices.map((s, i) => (
           <div key={s.label} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
-            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "default",
+            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", cursor: "default",
               opacity: hovered !== null && hovered !== i ? 0.45 : 1, transition: "opacity 0.12s" }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flexShrink: 0 }} />
             <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.label}</span>
@@ -1241,7 +1241,7 @@ export default function ExpensesPage() {
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
@@ -1291,13 +1291,13 @@ export default function ExpensesPage() {
             <button
               className="btn"
               onClick={() => fileInputRef.current?.click()}
-              style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              style={{ fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
             >
               {ccDrop.dragging ? "Drop to import" : "Choose Statement File…"}
             </button>
             <button
               className="btn"
-              style={{ borderRadius: 999, fontWeight: 700, fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+              style={{ borderRadius: 999, fontWeight: 700, fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
               onClick={clearAll}
               disabled={!tx.length}
             >
@@ -1310,12 +1310,12 @@ export default function ExpensesPage() {
                 className="btn"
                 onClick={saveStatement}
                 disabled={!totals.coded || saving}
-                style={{ fontSize: 13, padding: "8px 16px", whiteSpace: "nowrap" }}
+                style={{ fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
               >
                 {saving ? "Saving…" : "Save to History"}
               </button>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: 13, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
+            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "8px 16px", fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
@@ -1331,7 +1331,7 @@ export default function ExpensesPage() {
           </div>
         )}
         {statementPeriodText && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Period:</b> {statementPeriodText}</div>}
-        {saveError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{saveError}</div>}
+        {saveError && <div style={{ color: "#b42318", fontSize: "var(--fs-13)", marginTop: 6 }}>{saveError}</div>}
       </div>
       )}
 
@@ -1339,7 +1339,7 @@ export default function ExpensesPage() {
       {!isMaint && tx.filter((t) => Number(t.amount) > 0).length > 0 && (
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setChartsOpen((o) => !o)} title={chartsOpen ? "Collapse" : "Expand"}>
+            <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setChartsOpen((o) => !o)} title={chartsOpen ? "Collapse" : "Expand"}>
               {chartsOpen ? "▲" : "▼"}
             </button>
             <b>Charts</b>
@@ -1347,12 +1347,12 @@ export default function ExpensesPage() {
           {chartsOpen && (
             <div style={{ display: "flex", gap: 40, marginTop: 20, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 340 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Property</div>
+                <div style={{ fontWeight: 700, fontSize: "var(--fs-13)", marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Property</div>
                 <DonutChart data={chartDataByProperty} />
               </div>
               <div style={{ width: 1, background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
               <div style={{ flex: 1, minWidth: 340 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Category</div>
+                <div style={{ fontWeight: 700, fontSize: "var(--fs-13)", marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Category</div>
                 <DonutChart data={chartDataByCategory} />
               </div>
             </div>
@@ -1368,7 +1368,7 @@ export default function ExpensesPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {!isMaint && (
-              <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setCodeTransOpen((o) => !o)} title={codeTransOpen ? "Collapse" : "Expand"}>
+              <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setCodeTransOpen((o) => !o)} title={codeTransOpen ? "Collapse" : "Expand"}>
                 {codeTransOpen ? "▲" : "▼"}
               </button>
             )}
@@ -1378,25 +1378,25 @@ export default function ExpensesPage() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+            <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "var(--fs-13)" }}>
               <input type="checkbox" checked={showOnlyUncoded} onChange={(e) => setShowOnlyUncoded(e.target.checked)} />
               Uncoded only
             </label>
-            <button className="btn" style={{ fontSize: 12, padding: "5px 10px", background: showColFilters ? "var(--navy)" : undefined, color: showColFilters ? "#fff" : undefined }} onClick={() => setShowColFilters((v) => !v)}>
+            <button className="btn" style={{ fontSize: "var(--fs-12)", padding: "5px 10px", background: showColFilters ? "var(--navy)" : undefined, color: showColFilters ? "#fff" : undefined }} onClick={() => setShowColFilters((v) => !v)}>
               {showColFilters ? "Hide Filters" : "Filters"}
             </button>
             {Object.values(colFilters).some((v) => v.trim()) && (
-              <button className="btn" style={{ fontSize: 12, padding: "5px 10px" }} onClick={() => setColFilters({})}>Clear Filters</button>
+              <button className="btn" style={{ fontSize: "var(--fs-12)", padding: "5px 10px" }} onClick={() => setColFilters({})}>Clear Filters</button>
             )}
             <input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 160 }} />
           </div>
         </div>
 
         {(codeTransOpen || isMaint) && <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: CODE_TABLE_MAX_HEIGHT, borderRadius: 12, border: "1px solid var(--border)" }}>
-          <table style={{ minWidth: 1200, width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table style={{ minWidth: 1200, width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
             <thead>
               {(() => {
-                const sortIcon = (col: string) => tableSortCol === col ? (tableSortDir === "asc" ? " ↑" : " ↓") : <span style={{ opacity: 0.35, fontSize: 10 }}> ⇅</span>;
+                const sortIcon = (col: string) => tableSortCol === col ? (tableSortDir === "asc" ? " ↑" : " ↓") : <span style={{ opacity: 0.35, fontSize: "var(--fs-10)" }}> ⇅</span>;
                 const thBase: React.CSSProperties = { ...stickyThStyle, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" };
                 const filterTh: React.CSSProperties = { ...stickyThStyle, top: 38, padding: "4px 6px", borderBottom: "1px solid var(--border)", background: "#f8fafc" };
                 const filterInput: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
@@ -1476,7 +1476,7 @@ export default function ExpensesPage() {
                       </select>
                     </td>
                     {!isMaint && (
-                      <td style={{ padding: "10px", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
+                      <td style={{ padding: "10px", fontVariantNumeric: "tabular-nums", fontSize: "var(--fs-12)" }}>
                         {acctText}
                         {(!t.category || !t.propertyId) && <div className="small muted">Select category + property</div>}
                       </td>
@@ -1492,13 +1492,13 @@ export default function ExpensesPage() {
                         const attached = attachments.get(t.id);
                         return attached ? (
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span title={attached.name} style={{ fontSize: 12, color: "var(--navy)", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
+                            <span title={attached.name} style={{ fontSize: "var(--fs-12)", color: "var(--navy)", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
                               📎 {attached.name}
                             </span>
                             <button
                               title="Remove attachment"
                               onClick={() => removeAttachment(t.id)}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 14, padding: "0 2px", lineHeight: 1 }}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "var(--fs-14)", padding: "0 2px", lineHeight: 1 }}
                             >✕</button>
                           </div>
                         ) : (
@@ -1512,7 +1512,7 @@ export default function ExpensesPage() {
                             />
                             <button
                               className="btn"
-                              style={{ fontSize: 11, padding: "4px 8px", whiteSpace: "nowrap" }}
+                              style={{ fontSize: "var(--fs-11)", padding: "4px 8px", whiteSpace: "nowrap" }}
                               onClick={() => attachInputRefs.current.get(t.id)?.click()}
                             >
                               + PDF
@@ -1537,7 +1537,7 @@ export default function ExpensesPage() {
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
+            <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
               {allocPreviewOpen ? "▲" : "▼"}
             </button>
             <div>
@@ -1661,7 +1661,7 @@ export default function ExpensesPage() {
               <button
                 key={g.propId}
                 className="btn"
-                style={{ fontSize: 12, padding: "5px 10px" }}
+                style={{ fontSize: "var(--fs-12)", padding: "5px 10px" }}
                 onClick={() => downloadSingleInvoicePdf(g)}
               >
                 {g.propId} — {propName(g.propId)}{" "}
@@ -1676,7 +1676,7 @@ export default function ExpensesPage() {
               className="btn"
               onClick={finalizeMonthAction}
               disabled={finalizing || alreadyFinalized || !statementMonth}
-              style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700, background: alreadyFinalized ? undefined : "rgba(22,163,74,0.9)", color: alreadyFinalized ? undefined : "#fff", border: "1px solid transparent" }}
+              style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700, background: alreadyFinalized ? undefined : "rgba(22,163,74,0.9)", color: alreadyFinalized ? undefined : "#fff", border: "1px solid transparent" }}
             >
               {finalizing ? "Finalizing…" : alreadyFinalized ? `✓ ${statementMonth} finalized` : "Finalize Month & Update Carryover"}
             </button>
@@ -1748,7 +1748,7 @@ export default function ExpensesPage() {
               <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setDrillModal(null)}>✕</button>
             </div>
             <div style={{ overflowY: "auto", borderRadius: 8, border: "1px solid var(--border)" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
                 <thead>
                   <tr style={{ background: "#f8fafc" }}>
                     <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>Date</th>
@@ -1771,7 +1771,7 @@ export default function ExpensesPage() {
                 </tbody>
                 <tfoot>
                   <tr style={{ background: "#f8fafc" }}>
-                    <td colSpan={drillModal.category === "TI" ? 4 : 3} style={{ padding: "8px 10px", fontWeight: 700, fontSize: 13 }}>Total ({drillModal.items.length} items)</td>
+                    <td colSpan={drillModal.category === "TI" ? 4 : 3} style={{ padding: "8px 10px", fontWeight: 700, fontSize: "var(--fs-13)" }}>Total ({drillModal.items.length} items)</td>
                     <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{toMoney(drillModal.items.reduce((a: number, t: any) => a + Number(t.amount), 0))}</td>
                   </tr>
                 </tfoot>
@@ -1885,7 +1885,7 @@ export default function ExpensesPage() {
             <b style={{ fontSize: 16 }}>Reminder</b>
             <div style={{ fontSize: 15, lineHeight: 1.5, marginTop: 8 }}>
               Save the files to the Accounting drive. <b>Don&rsquo;t email the ZIP to AvidXchange</b> — Avid can&rsquo;t open a ZIP and the send wouldn&rsquo;t be recorded. Use <b>Review &amp; Send to AvidXchange</b>, which sends one invoice per email and logs it.
-              <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 8 }}>
+              <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 8 }}>
                 The GL Journal Entry + TOP SHEET summary are emailed automatically to Marie Jaster.
               </div>
             </div>

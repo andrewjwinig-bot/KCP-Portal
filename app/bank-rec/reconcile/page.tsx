@@ -29,7 +29,7 @@ const money = (n: number | null | undefined) => n == null ? "—" : (n < 0 ? "($
 const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 const dateLabel = (iso: string) => { const [y, m, d] = iso.split("-"); return y && m && d ? `${Number(m)}/${Number(d)}/${y.slice(2)}` : iso; };
 const ageDays = (iso: string, periodEnd: string) => Math.round((Date.parse(periodEnd) - Date.parse(iso)) / 86400000);
-const SECTION: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const BANKS = ["M&T", "JPM-Chase", "Liberty Bank"];
 const BANK_LABEL: Record<string, string> = { "M&T": "M&T", "JPM-Chase": "Chase", "Liberty Bank": "Liberty" };
 
@@ -203,7 +203,7 @@ export default function BankRecPage() {
               <div style={{ fontWeight: 700 }}>Drop the {periodLabel(period)} folder here</div>
               <div className="muted small" style={{ marginTop: 3 }}>
                 The bank statements, Marie&rsquo;s Skyline recs and Skyline&rsquo;s <b>Checking Account Report</b> (.xls) — from
-                {" "}<code style={{ fontSize: 12 }}>!{period.slice(0, 4)} Year End / Bank Account Reconciliations / {period.slice(5)} {MONTHS[Number(period.slice(5)) - 1]} {period.slice(0, 4)}</code>.
+                {" "}<code style={{ fontSize: "var(--fs-12)" }}>!{period.slice(0, 4)} Year End / Bank Account Reconciliations / {period.slice(5)} {MONTHS[Number(period.slice(5)) - 1]} {period.slice(0, 4)}</code>.
                 Each file is matched by the account number inside it; names don&rsquo;t matter. Re-drop any time as the month fills in.
               </div>
             </div>
@@ -240,7 +240,7 @@ export default function BankRecPage() {
           </div>
         )}
         {busy && <div className="muted small">{busy}</div>}
-        {error && <div style={{ color: "#b91c1c", fontWeight: 600, fontSize: 13 }}>{error}</div>}
+        {error && <div style={{ color: "#b91c1c", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
       </div>
 
       {reconciling && <ReconcilingCard period={period} accounts={[...new Set((data?.files ?? []).map((f) => f.last4).filter(Boolean) as string[])].sort()} />}
@@ -255,7 +255,7 @@ export default function BankRecPage() {
         <div className="card" style={{ padding: 0 }}>
           <div style={{ padding: "14px 18px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <div style={{ fontSize: 18, fontWeight: 800 }}>Accounts</div>
-            <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+            <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: "var(--fs-13)", cursor: "pointer" }}>
               <input type="checkbox" checked={onlyIssues} onChange={(e) => setOnlyIssues(e.target.checked)} /> Only accounts needing attention
             </label>
           </div>
@@ -279,7 +279,7 @@ export default function BankRecPage() {
                   return (
                     <Fragment key={bank}>
                       <tr style={{ background: "rgba(11,74,125,0.07)" }}>
-                        <td style={{ ...tdL, fontWeight: 800 }} colSpan={7}>{BANK_LABEL[bank]} <span className="muted" style={{ fontWeight: 500, fontSize: 12 }}>· {rows.length} accounts</span></td>
+                        <td style={{ ...tdL, fontWeight: 800 }} colSpan={7}>{BANK_LABEL[bank]} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}>· {rows.length} accounts</span></td>
                       </tr>
                       {rows.map((a) => {
                         const isOpen = open === a.last4;
@@ -289,10 +289,10 @@ export default function BankRecPage() {
                           <Fragment key={a.last4}>
                             <tr onClick={() => setOpen(isOpen ? null : a.last4)} style={{ cursor: "pointer", borderTop: "1px solid var(--border)", background: isOpen ? "rgba(11,74,125,0.04)" : undefined }}>
                               <td style={{ ...tdL, whiteSpace: "normal" }}>
-                                <span aria-hidden className="muted" style={{ fontSize: 10, marginRight: 6 }}>{isOpen ? "▾" : "▸"}</span>
+                                <span aria-hidden className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? "▾" : "▸"}</span>
                                 <span style={{ fontWeight: 600 }}>{a.name}</span>{" "}
-                                <code className="muted" style={{ fontSize: 12 }}>{a.last4}</code>
-                                {rc?.issues.length && rc.status !== "ok" ? <div className={rc.status === "incomplete" ? "muted" : undefined} style={{ fontSize: 12, color: rc.status === "out" ? "#b91c1c" : rc.status === "incomplete" ? undefined : "#b45309", marginTop: 2, marginLeft: 16 }}>{rc.issues[0]}</div> : null}
+                                <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{a.last4}</code>
+                                {rc?.issues.length && rc.status !== "ok" ? <div className={rc.status === "incomplete" ? "muted" : undefined} style={{ fontSize: "var(--fs-12)", color: rc.status === "out" ? "#b91c1c" : rc.status === "incomplete" ? undefined : "#b45309", marginTop: 2, marginLeft: 16 }}>{rc.issues[0]}</div> : null}
                               </td>
                               <td style={td}>{money(rc?.statementBalance ?? null)}</td>
                               <td style={td}>{money(rc?.checkBookBalance ?? null)}</td>
@@ -325,13 +325,13 @@ export default function BankRecPage() {
           {r.unmappedSkyline.length > 0 && (
             <div>
               <div style={SECTION}>In Skyline, not on the account list</div>
-              {r.unmappedSkyline.map((u) => <div key={u.key} style={{ fontSize: 13, marginTop: 4 }}><code style={{ fontSize: 12 }}>{u.key}</code> {u.bankName} · {money(u.balance)}</div>)}
+              {r.unmappedSkyline.map((u) => <div key={u.key} style={{ fontSize: "var(--fs-13)", marginTop: 4 }}><code style={{ fontSize: "var(--fs-12)" }}>{u.key}</code> {u.bankName} · {money(u.balance)}</div>)}
             </div>
           )}
           {r.unmatchedFiles.length > 0 && (
             <div>
               <div style={SECTION}>Files that matched no account</div>
-              {r.unmatchedFiles.map((u) => <div key={u.name} style={{ fontSize: 13, marginTop: 4 }}>{u.name} <span className="muted">— {u.reason}</span></div>)}
+              {r.unmatchedFiles.map((u) => <div key={u.name} style={{ fontSize: "var(--fs-13)", marginTop: 4 }}>{u.name} <span className="muted">— {u.reason}</span></div>)}
             </div>
           )}
         </div>
@@ -347,8 +347,8 @@ export default function BankRecPage() {
               return (
                 <button key={h.period} type="button" onClick={() => setPeriod(h.period)}
                   style={{ flexShrink: 0, cursor: "pointer", fontFamily: "inherit", textAlign: "left", padding: "9px 14px", borderRadius: 10, border: `1px solid ${on ? "rgba(11,74,125,0.45)" : "var(--border)"}`, background: on ? "rgba(11,74,125,0.07)" : "var(--card)" }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 800, color: on ? "#0b4a7d" : "var(--text)" }}>{periodLabel(h.period)}</div>
-                  <div style={{ fontSize: 11.5, marginTop: 2, display: "flex", gap: 6, alignItems: "center" }}>
+                  <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 800, color: on ? "#0b4a7d" : "var(--text)" }}>{periodLabel(h.period)}</div>
+                  <div style={{ fontSize: "var(--fs-11-5)", marginTop: 2, display: "flex", gap: 6, alignItems: "center" }}>
                     <span className="muted">{h.counts.ok ?? 0} in balance</span>
                     {bad ? <Pill tone={TONE_RED}>{h.counts.out} OUT</Pill> : h.signedOff ? <Pill tone={TONE_GREEN}>SIGNED OFF</Pill> : <Pill tone={TONE_BLUE}>OPEN</Pill>}
                   </div>
@@ -374,7 +374,7 @@ function AccountDetail({ a, period, signed, resolvedById, onResolve }: {
   const sum = (xs: OpenItem[]) => xs.reduce((s, x) => s + x.amount, 0);
   const deposits = rc.openBook.filter((x) => x.amount > 0), checks = rc.openBook.filter((x) => x.amount < 0);
   const Line = ({ label, value, strong, tone }: { label: string; value: number | null; strong?: boolean; tone?: string }) => (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 13, padding: "3px 0", fontWeight: strong ? 800 : 400, borderTop: strong ? "1px solid var(--border)" : undefined, color: tone }}>
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: "var(--fs-13)", padding: "3px 0", fontWeight: strong ? 800 : 400, borderTop: strong ? "1px solid var(--border)" : undefined, color: tone }}>
       <span>{label}</span><span style={{ fontVariantNumeric: "tabular-nums" }}>{money(value)}</span>
     </div>
   );
@@ -382,7 +382,7 @@ function AccountDetail({ a, period, signed, resolvedById, onResolve }: {
     <div style={{ display: "grid", gap: 14, paddingTop: 8 }}>
       {rc.issues.length > 0 && (
         <div style={{ display: "grid", gap: 3 }}>
-          {rc.issues.map((s, i) => <div key={i} style={{ fontSize: 13, color: rc.status === "out" && i === 0 ? "#b91c1c" : "#b45309", fontWeight: 600 }}>• {s}</div>)}
+          {rc.issues.map((s, i) => <div key={i} style={{ fontSize: "var(--fs-13)", color: rc.status === "out" && i === 0 ? "#b91c1c" : "#b45309", fontWeight: 600 }}>• {s}</div>)}
         </div>
       )}
       <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
@@ -403,7 +403,7 @@ function AccountDetail({ a, period, signed, resolvedById, onResolve }: {
               ? <Pill tone={TONE_GREEN}>IN BALANCE</Pill>
               : <Pill tone={TONE_RED}>OUT OF BALANCE · {money(rc.difference)}</Pill>}
             {a.skylineRec && (
-              <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>
+              <span className="muted" style={{ fontSize: "var(--fs-12)", marginLeft: 8 }}>
                 Marie&rsquo;s Skyline rec: {a.skylineRec.inBalance ? "In Balance" : "NOT in balance"} · {a.skylineRec.unreconciled} unreconciled
               </span>
             )}
@@ -442,7 +442,7 @@ function AccountDetail({ a, period, signed, resolvedById, onResolve }: {
             ])} />
         )}
       </div>
-      <div className="muted" style={{ fontSize: 12 }}>
+      <div className="muted" style={{ fontSize: "var(--fs-12)" }}>
         Files: {a.files.length ? a.files.map((f) => f.name).join(" · ") : "none"}
         {a.carriedFrom === "skyline-rec" && " · Opening open items taken from Marie's prior-month Skyline rec"}
         {!rc.itemized && " · The statement could not be itemized, so only balances were compared"}
@@ -460,7 +460,7 @@ function OpenTable({ title, note, items, end, period, signed, resolvedById, onRe
   return (
     <div>
       <div style={{ ...SECTION, color: tone ?? SECTION.color }}>{title}</div>
-      <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{note}</div>
+      <div className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 2 }}>{note}</div>
       {!items.length ? <div className="muted small" style={{ marginTop: 6 }}>{empty}</div> : (
         <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 6 }}>
           <thead><tr>
@@ -473,7 +473,7 @@ function OpenTable({ title, note, items, end, period, signed, resolvedById, onRe
                 <Fragment key={x.id}>
                   <tr style={{ borderTop: "1px solid var(--border)" }}>
                     <td style={tdL}>{dateLabel(x.dateISO)}</td>
-                    <td style={tdL}><code style={{ fontSize: 12 }}>{x.ref || "—"}</code></td>
+                    <td style={tdL}><code style={{ fontSize: "var(--fs-12)" }}>{x.ref || "—"}</code></td>
                     <td style={{ ...tdL, whiteSpace: "normal" }}>{x.description}</td>
                     <td style={{ ...td, fontWeight: 600 }}>{money(x.amount)}</td>
                     <td style={td}>{age > 60 ? <Pill tone={TONE_AMBER}>{age} DAYS</Pill> : <span className="muted">{age}d</span>}</td>
@@ -485,7 +485,7 @@ function OpenTable({ title, note, items, end, period, signed, resolvedById, onRe
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                         <input value={why} onChange={(e) => setWhy(e.target.value)} placeholder="Why it is cleared — e.g. check voided 11/3, reversed in Skyline" style={{ flex: "1 1 320px" }} />
                         <button className="btn primary sm" disabled={!why.trim()} onClick={() => { onResolve(x, why.trim()); setClearing(null); }}>Clear it</button>
-                        <span className="muted" style={{ fontSize: 12 }}>It stops carrying forward; the note is kept.</span>
+                        <span className="muted" style={{ fontSize: "var(--fs-12)" }}>It stops carrying forward; the note is kept.</span>
                       </div>
                     </td></tr>
                   )}
@@ -511,7 +511,7 @@ function ItemTable({ title, head, rows, tone }: { title: string; head: string[];
         <thead><tr>{head.map((h, i) => <th key={i} style={i >= head.length - 1 || /Skyline$|Bank$|Amount|Difference/.test(h) ? th : thL}>{h}</th>)}</tr></thead>
         <tbody>{rows.map((r, i) => (
           <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
-            {r.map((c, j) => <td key={j} style={{ ...(j >= r.length - 1 || /Skyline$|Bank$|Amount|Difference/.test(head[j]) ? td : tdL), whiteSpace: "normal", fontSize: 13 }}>{c}</td>)}
+            {r.map((c, j) => <td key={j} style={{ ...(j >= r.length - 1 || /Skyline$|Bank$|Amount|Difference/.test(head[j]) ? td : tdL), whiteSpace: "normal", fontSize: "var(--fs-13)" }}>{c}</td>)}
           </tr>
         ))}</tbody>
       </table>
@@ -543,13 +543,13 @@ function GlCard({ gl, period }: { gl: GlCheck[]; period: string }) {
               return (
                 <Fragment key={g.company}>
                   <tr onClick={() => bad && setOpen(isOpen ? null : g.company)} style={{ borderTop: "1px solid var(--border)", cursor: bad ? "pointer" : "default" }}>
-                    <td style={tdL}><b>{g.company}</b>{g.glKey !== g.company && <span className="muted" style={{ fontSize: 12 }}> · GL {g.glKey}</span>}</td>
+                    <td style={tdL}><b>{g.company}</b>{g.glKey !== g.company && <span className="muted" style={{ fontSize: "var(--fs-12)" }}> · GL {g.glKey}</span>}</td>
                     <td style={td}>
                       <HoverCard title={`${g.company} in Skyline`} rows={g.accounts.slice(0, 9).map((a) => ({ label: a.key, value: money(a.amount) }))}>{money(g.skyline)}</HoverCard>
                     </td>
                     <td style={td}>{g.gl == null ? "—" : <HoverCard title={`${g.glKey} GL cash`} rows={g.glAccounts.slice(0, 9).map((a) => ({ label: `${a.code} ${a.name}`, value: money(a.balance) }))}>{money(g.gl)}</HoverCard>}</td>
                     <td style={{ ...td, fontWeight: 700, color: bad ? "#b91c1c" : undefined }}>{g.difference == null ? "—" : bad ? money(g.difference) : <Pill tone={TONE_GREEN}>TIES</Pill>}</td>
-                    <td style={{ ...tdL, whiteSpace: "normal", fontSize: 12.5 }} className="muted">{g.note ?? (bad ? `${g.glOnly.length + g.skylineOnly.length} lines don't match — open` : "")}</td>
+                    <td style={{ ...tdL, whiteSpace: "normal", fontSize: "var(--fs-12-5)" }} className="muted">{g.note ?? (bad ? `${g.glOnly.length + g.skylineOnly.length} lines don't match — open` : "")}</td>
                   </tr>
                   {isOpen && (
                     <tr><td colSpan={5} style={{ padding: "6px 18px 16px", maxWidth: 0, background: "rgba(11,74,125,0.025)" }}>
@@ -604,7 +604,7 @@ function ReconcilingCard({ period, accounts }: { period: string; accounts: strin
           <div style={{ fontSize: 17, fontWeight: 800, color: "#0b4a7d" }}>Reconciling every account for {periodLabel(period)}</div>
           <div className="muted small">{accounts.length ? `${accounts.length} accounts on file` : "Every account on file"} · usually under a minute — keep this page open</div>
         </div>
-        <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700, color: "var(--muted)", fontSize: 13 }}>{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}</div>
+        <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700, color: "var(--muted)", fontSize: "var(--fs-13)" }}>{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}</div>
       </div>
 
       <div style={{ position: "relative", height: 4, borderRadius: 999, background: "#e6eef6", overflow: "hidden" }}>
@@ -618,7 +618,7 @@ function ReconcilingCard({ period, accounts }: { period: string; accounts: strin
           return (
             <span key={i} style={{
               minWidth: 54, height: 26, padding: "0 8px", borderRadius: 999, display: "inline-flex", alignItems: "center", justifyContent: "center",
-              fontSize: 11.5, fontWeight: 700, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+              fontSize: "var(--fs-11-5)", fontWeight: 700, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
               border: `1px solid ${on ? "#0b4a7d" : "var(--border, #e5e7eb)"}`,
               background: on ? "#0b4a7d" : near ? "#dbe7f3" : "transparent",
               color: on ? "#fff" : "var(--muted)",
@@ -633,7 +633,7 @@ function ReconcilingCard({ period, accounts }: { period: string; accounts: strin
         {REC_STAGES.map((label, i) => {
           const done = i < stage, now = i === stage;
           return (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: done ? "var(--text)" : now ? "#0b4a7d" : "var(--muted)", fontWeight: now ? 700 : 500, opacity: done || now ? 1 : 0.55 }}>
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "var(--fs-13)", color: done ? "var(--text)" : now ? "#0b4a7d" : "var(--muted)", fontWeight: now ? 700 : 500, opacity: done || now ? 1 : 0.55 }}>
               <span aria-hidden style={{ width: 16, textAlign: "center", color: done ? "#15803d" : "#0b4a7d", fontWeight: 800 }}>
                 {done ? "✓" : now ? <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 999, background: "#0b4a7d", animation: "brPulse 1s ease-in-out infinite" }} /> : "·"}
               </span>

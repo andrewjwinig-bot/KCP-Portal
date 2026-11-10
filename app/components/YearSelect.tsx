@@ -25,7 +25,7 @@ import type { CSSProperties, ReactNode } from "react";
  * which would paint over the chevron the baseline draws.
  */
 export const SELECT_STYLE: CSSProperties = { fontWeight: 600, color: "var(--brand)" };
-export const SELECT_STYLE_SM: CSSProperties = { ...SELECT_STYLE, fontSize: 12 };
+export const SELECT_STYLE_SM: CSSProperties = { ...SELECT_STYLE, fontSize: "var(--fs-12)" };
 
 /** Class names for the same two things, which is usually the better hook. */
 export const SELECT_BRAND = "select-brand";

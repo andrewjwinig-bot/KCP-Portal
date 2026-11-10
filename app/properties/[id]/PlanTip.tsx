@@ -50,7 +50,7 @@ export default function PlanTip({ title, subtitle, rows, footer, accent, x, y, w
     }}>
       <div style={{ padding: "13px 16px 9px" }}>
         <div style={{ fontSize: 19, fontWeight: 800, lineHeight: 1.2 }}>{title}</div>
-        {subtitle && <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 3, fontWeight: 600 }}>{subtitle}</div>}
+        {subtitle && <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 3, fontWeight: 600 }}>{subtitle}</div>}
       </div>
       {rows.length > 0 && (
         <div style={{ padding: "2px 12px 12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
@@ -59,7 +59,7 @@ export default function PlanTip({ title, subtitle, rows, footer, accent, x, y, w
               gridColumn: r.wide ? "1 / -1" : undefined,
               background: "var(--hover, rgba(15,23,42,0.04))", borderRadius: 8, padding: "7px 10px",
             }}>
-              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>{r.label}</div>
+              <div style={{ fontSize: "var(--fs-10-5)", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>{r.label}</div>
               <div style={{ fontSize: r.strong ? 18 : 16, fontWeight: 800, color: r.color ?? "var(--text)", marginTop: 1, lineHeight: 1.2 }}>{r.value}</div>
             </div>
           ))}
@@ -67,7 +67,7 @@ export default function PlanTip({ title, subtitle, rows, footer, accent, x, y, w
       )}
       {footer && (
         <div style={{ borderTop: "1px solid var(--border)", padding: "9px 16px 11px", display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
-          <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>{footer.label}</span>
+          <span style={{ fontSize: "var(--fs-10-5)", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--muted)" }}>{footer.label}</span>
           <span style={{ fontSize: 17, fontWeight: 800, color: footer.color }}>{footer.value}</span>
         </div>
       )}

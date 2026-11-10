@@ -50,12 +50,12 @@ export function AccountListCard({
           cursor: "pointer", textAlign: "left", fontFamily: "inherit",
         }}
       >
-        <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: accent }}>
+        <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: accent }}>
           {title} ({rows.length})
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: accent, fontVariantNumeric: "tabular-nums" }}>{format(total)}</span>
-          <span style={{ color: accent, fontSize: 14 }}>{open ? "▲" : "▼"}</span>
+          <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: accent, fontVariantNumeric: "tabular-nums" }}>{format(total)}</span>
+          <span style={{ color: accent, fontSize: "var(--fs-14)" }}>{open ? "▲" : "▼"}</span>
         </span>
       </button>
 
@@ -74,7 +74,7 @@ export function AccountListCard({
             <tbody>
               {rows.map((r, i) => (
                 <tr key={`${r.account}-${i}`}>
-                  <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}><code style={{ fontSize: 12 }}>{r.account}</code></td>
+                  <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}><code style={{ fontSize: "var(--fs-12)" }}>{r.account}</code></td>
                   <td>{r.name || <span className="muted">—</span>}</td>
                   <td style={numCell}>{format(r.amount)}</td>
                   {action && <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{action(r)}</td>}

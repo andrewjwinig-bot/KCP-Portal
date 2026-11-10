@@ -73,29 +73,29 @@ export function TipCard({ title, rows, body, footer, width = 280, style }: {
     <div
       role="tooltip"
       style={{
-        pointerEvents: "none", width,
+        pointerEvents: "none", width: `calc(${width}px * var(--tip-scale, 1))`, maxWidth: "calc(100vw - 16px)",
         background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12,
         boxShadow: "0 10px 30px rgba(15,23,42,0.22)", padding: "12px 14px",
         font: "inherit", color: "var(--text)",
         ...style,
       }}
     >
-      {title && <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.25, marginBottom: shown.length || body ? 9 : 0 }}>{title}</div>}
+      {title && <div style={{ fontSize: "var(--tip-title, 15px)", fontWeight: 800, lineHeight: 1.25, marginBottom: shown.length || body ? 9 : 0 }}>{title}</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {shown.map((r, k) => (
-          <div key={k} style={{ display: "flex", alignItems: "baseline", gap: 10, fontSize: 13 }}>
+          <div key={k} style={{ display: "flex", alignItems: "baseline", gap: 10, fontSize: "var(--tip-row, 13px)" }}>
             {r.color && <span style={{ width: 9, height: 9, borderRadius: 3, background: r.color, flex: "0 0 auto", alignSelf: "center" }} />}
             <span style={{ color: "var(--muted)", minWidth: 0 }}>{r.label}</span>
-            <span style={{ marginLeft: "auto", fontWeight: 800, fontSize: 13.5, fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{r.value}</span>
+            <span style={{ marginLeft: "auto", fontWeight: 800, fontSize: "var(--tip-row, 13.5px)", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{r.value}</span>
           </div>
         ))}
-        {more > 0 && <div style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>+ {more} more</div>}
+        {more > 0 && <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", fontWeight: 600 }}>+ {more} more</div>}
       </div>
       {body}
       {footer && (
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 10, paddingTop: 9, borderTop: "1px solid var(--border)" }}>
-          <span style={{ color: "var(--muted)", fontSize: 13 }}>{footer.label}</span>
-          <span style={{ marginLeft: "auto", fontWeight: 800, fontSize: 15, color: footer.color ?? "var(--text)", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{footer.value}</span>
+          <span style={{ color: "var(--muted)", fontSize: "var(--tip-row, 13px)" }}>{footer.label}</span>
+          <span style={{ marginLeft: "auto", fontWeight: 800, fontSize: "var(--tip-footer, 15px)", color: footer.color ?? "var(--text)", fontVariantNumeric: "tabular-nums", textAlign: "right" }}>{footer.value}</span>
         </div>
       )}
     </div>

@@ -32,7 +32,7 @@ type Row = {
 const TOLERANCE = 0.01; // percentage points — matches the unit page's mismatch flag
 
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 
 function pct(n: number): string {
@@ -160,7 +160,7 @@ function ProRataAuditInner() {
 
           <div className="card" style={{ marginTop: 14 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-13)", fontWeight: 600, cursor: "pointer" }}>
                 <input type="checkbox" checked={onlyMismatches} onChange={(e) => setOnlyMismatches(e.target.checked)} style={{ width: 15, height: 15 }} />
                 Show only divergences
               </label>
@@ -189,7 +189,7 @@ function ProRataAuditInner() {
                     const off = Math.abs(r.delta) > TOLERANCE;
                     return (
                       <tr key={`${r.propertyCode}-${r.unitRef}`}>
-                        <td className="small"><code style={{ fontSize: 11, fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code> {r.propertyName}</td>
+                        <td className="small"><code style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code> {r.propertyName}</td>
                         <td className="small">{r.suite}</td>
                         <td>{r.name}</td>
                         <td style={{ textAlign: "right" }}>{r.sqft.toLocaleString("en-US")}</td>
@@ -206,7 +206,7 @@ function ProRataAuditInner() {
                             <Link
                               href={`/units/${encodeURIComponent(r.unitRef)}?from=${encodeURIComponent("/cam-recon/pro-rata-audit")}`}
                               className="btn"
-                              style={{ padding: "4px 10px", fontSize: 12, textDecoration: "none", whiteSpace: "nowrap" }}
+                              style={{ padding: "4px 10px", fontSize: "var(--fs-12)", textDecoration: "none", whiteSpace: "nowrap" }}
                             >
                               Open unit →
                             </Link>

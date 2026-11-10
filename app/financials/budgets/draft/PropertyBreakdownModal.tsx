@@ -20,9 +20,9 @@ const SERIES = [1, 2, 3, 4, 5, 6].map((i) => `var(--series-${i})`);
 const OTHER = "var(--series-other)";
 const money0 = (n: number) => (n < 0 ? "(" : "") + "$" + Math.abs(Math.round(n)).toLocaleString("en-US") + (n < 0 ? ")" : "");
 const pct = (n: number) => `${(n * 100).toFixed(1)}%`;
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const th: React.CSSProperties = { ...secLabel, padding: "7px 8px", textAlign: "right", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" };
-const td: React.CSSProperties = { padding: "7px 8px", fontSize: 13, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
+const td: React.CSSProperties = { padding: "7px 8px", fontSize: "var(--fs-13)", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", borderBottom: "1px solid var(--border)" };
 
 type Share = { code: string; name: string; total: number; months?: number[] };
 
@@ -104,14 +104,14 @@ export function PropertyBreakdownModal({ label, section, year, rows, onClose }: 
                   onMouseEnter={() => setActive(a.key)} onMouseLeave={() => setActive(null)} style={{ cursor: "default" }} />
               ))}
               {/* The readout sits in the hole: the hovered slice, else the total. */}
-              <text x={C} y={C - 6} textAnchor="middle" style={{ fontSize: 11, fill: "var(--muted)", fontWeight: 700 }}>
+              <text x={C} y={C - 6} textAnchor="middle" style={{ fontSize: "var(--fs-11)", fill: "var(--muted)", fontWeight: 700 }}>
                 {hover ? (hover.name.length > 22 ? hover.name.slice(0, 21) + "…" : hover.name) : "Total"}
               </text>
               <text x={C} y={C + 13} textAnchor="middle" style={{ fontSize: 15, fill: "var(--text)", fontWeight: 800 }}>
                 {money0(hover ? hover.value : total)}
               </text>
               {hover && pieTotal > 0 && (
-                <text x={C} y={C + 29} textAnchor="middle" style={{ fontSize: 11, fill: "var(--muted)" }}>{pct(hover.value / pieTotal)}</text>
+                <text x={C} y={C + 29} textAnchor="middle" style={{ fontSize: "var(--fs-11)", fill: "var(--muted)" }}>{pct(hover.value / pieTotal)}</text>
               )}
             </svg>
             <div className="tableWrap" style={{ marginTop: 0, flex: "1 1 360px", minWidth: 0 }}>

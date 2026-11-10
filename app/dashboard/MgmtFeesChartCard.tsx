@@ -29,10 +29,10 @@ export default function MgmtFeesChartCard({ order = 0 }: { order?: number }) {
   return (
     <div className="card" style={{ gridColumn: "1 / -1", order }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 6 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
           Management Fees · Actual vs Budget — by month
         </div>
-        <Link href="/financials/management-fees" style={{ fontSize: 12, fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
+        <Link href="/financials/management-fees" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none" }}>
           Full report →
         </Link>
       </div>
@@ -44,7 +44,7 @@ export default function MgmtFeesChartCard({ order = 0 }: { order?: number }) {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <ChartLegend series={series} />
             {tie && tie.through > 0 && (
-              <span style={{ fontSize: 12, fontWeight: 700, color: tieOk ? "#15803d" : "#b45309" }}>
+              <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: tieOk ? "#15803d" : "#b45309" }}>
                 {tieOk
                   ? `Intercompany ties through ${MONTHS_LONG[tie.through - 1]}`
                   : `Intercompany doesn’t tie — ${money(tie.varianceYtd)} ${tie.varianceYtd > 0 ? "over" : "under"} through ${MONTHS_LONG[tie.through - 1]}`}

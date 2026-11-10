@@ -223,9 +223,9 @@ export default function SecurityDepositsPage() {
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Security Deposits</h1>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <AllowedLink href="/tenants/past" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>Past Tenants →</AllowedLink>
+          <AllowedLink href="/tenants/past" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-13)" }}>Past Tenants →</AllowedLink>
           <button className="btn primary" onClick={startGlobalAdd}
-            style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}>
+            style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700 }}>
             + Add Deposit
           </button>
         </div>
@@ -242,7 +242,7 @@ export default function SecurityDepositsPage() {
 
       {!loading && dupIds.size > 0 && (
         <div style={{
-          padding: "10px 14px", borderRadius: 10, fontSize: 13, fontWeight: 600,
+          padding: "10px 14px", borderRadius: 10, fontSize: "var(--fs-13)", fontWeight: 600,
           background: "rgba(217,119,6,0.10)", border: "1px solid rgba(217,119,6,0.35)", color: "#b45309",
         }}>
           ⚠ {dupIds.size} deposit{dupIds.size === 1 ? "" : "s"} look like possible duplicates (same tenant &amp; check # or amount/date).
@@ -256,8 +256,8 @@ export default function SecurityDepositsPage() {
         shownAccounts.map((acct) => (
           <div key={acct} className="card" style={{ padding: 0 }}>
             <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ fontSize: 14, fontWeight: 700 }}>{DEPOSIT_ACCOUNTS[acct].label}</div>
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>
+              <div style={{ fontSize: "var(--fs-14)", fontWeight: 700 }}>{DEPOSIT_ACCOUNTS[acct].label}</div>
+              <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
                 {DEPOSIT_ACCOUNTS[acct].bank} · booked on {DEPOSIT_ACCOUNTS[acct].propertyCode}
               </div>
             </div>
@@ -288,9 +288,9 @@ export default function SecurityDepositsPage() {
                   {sortGroups(groupByTenant(byAccount[acct])).map((g) => {
                     const checkCell = (d: SecurityDeposit) => (
                       <>
-                        <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>{d.amount ? money(d.amount) : "—"}</td>
-                        <td style={{ fontSize: 13 }}>{prettyDate(d.checkDate)}</td>
-                        <td style={{ fontSize: 13 }}>{d.checkNumber ? `#${d.checkNumber}` : "—"}</td>
+                        <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 600 }}>{d.amount ? money(d.amount) : "—"}</td>
+                        <td style={{ fontSize: "var(--fs-13)" }}>{prettyDate(d.checkDate)}</td>
+                        <td style={{ fontSize: "var(--fs-13)" }}>{d.checkNumber ? `#${d.checkNumber}` : "—"}</td>
                       </>
                     );
                     // Single check → one ordinary row.
@@ -309,7 +309,7 @@ export default function SecurityDepositsPage() {
                               {dupIds.has(d.id) && <DupBadge />}
                             </div>
                           </td>
-                          <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
+                          <td><code style={{ fontSize: "var(--fs-12)" }}>{g.unitRef}</code></td>
                           {checkCell(d)}
                         </tr>
                       );
@@ -331,16 +331,16 @@ export default function SecurityDepositsPage() {
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
                           <td style={{ fontWeight: 600 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                              <span style={{ fontSize: 11, color: "var(--muted)", width: 10, display: "inline-block" }}>{isOpen ? "▾" : "▸"}</span>
+                              <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)", width: 10, display: "inline-block" }}>{isOpen ? "▾" : "▸"}</span>
                               <span>{g.tenant || "—"}</span>
                               {allRefunded && <RefundedBadge date="" />}
                               {hasDup && <DupBadge title="This tenant has checks that look like duplicates — expand to review and delete the extra." />}
                             </div>
                           </td>
-                          <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
-                          <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600 }}>{money(held)}</td>
-                          <td style={{ fontSize: 13, fontWeight: 600 }}>{g.checks.length} Checks</td>
-                          <td className="muted small" style={{ fontSize: 12 }}>{isOpen ? "Hide" : "Show checks"}</td>
+                          <td><code style={{ fontSize: "var(--fs-12)" }}>{g.unitRef}</code></td>
+                          <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 600 }}>{money(held)}</td>
+                          <td style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>{g.checks.length} Checks</td>
+                          <td className="muted small" style={{ fontSize: "var(--fs-12)" }}>{isOpen ? "Hide" : "Show checks"}</td>
                         </tr>
                         {isOpen && g.checks.map((d) => (
                           <tr key={d.id}
@@ -350,13 +350,13 @@ export default function SecurityDepositsPage() {
                             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}>
                             <td style={{ paddingLeft: 28 }}>
                               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                                <span style={{ color: "var(--muted)", fontSize: 12 }}>↳</span>
-                                <span style={{ fontSize: 13 }}>{g.tenant || "—"}</span>
+                                <span style={{ color: "var(--muted)", fontSize: "var(--fs-12)" }}>↳</span>
+                                <span style={{ fontSize: "var(--fs-13)" }}>{g.tenant || "—"}</span>
                                 {d.refunded && <RefundedBadge date={d.refundDate} />}
                                 {dupIds.has(d.id) && <DupBadge />}
                               </div>
                             </td>
-                            <td><code style={{ fontSize: 12 }}>{g.unitRef}</code></td>
+                            <td><code style={{ fontSize: "var(--fs-12)" }}>{g.unitRef}</code></td>
                             {checkCell(d)}
                           </tr>
                         ))}

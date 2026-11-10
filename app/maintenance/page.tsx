@@ -271,7 +271,7 @@ function MaintenancePageInner() {
             onClick={reload}
             disabled={loading}
             className="btn"
-            style={{ fontSize: 13, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}
+            style={{ fontSize: "var(--fs-13)", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}
             title="Pull the latest requests"
           >
             <svg
@@ -293,7 +293,7 @@ function MaintenancePageInner() {
             target="_blank"
             rel="noopener noreferrer"
             className="btn primary"
-            style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
+            style={{ fontSize: "var(--fs-13)", padding: "6px 12px", textDecoration: "none" }}
             title="Open the public maintenance request form in a new tab"
           >
             Maintenance Request Form →
@@ -303,7 +303,7 @@ function MaintenancePageInner() {
             target="_blank"
             rel="noopener noreferrer"
             className="btn"
-            style={{ fontSize: 13, padding: "6px 12px", textDecoration: "none" }}
+            style={{ fontSize: "var(--fs-13)", padding: "6px 12px", textDecoration: "none" }}
             title="Open the tenant Service Request landing in a new tab"
           >
             Tenant Flow →
@@ -400,7 +400,7 @@ function MaintenancePageInner() {
             via URL params from chart click-throughs). */}
         {(category || tenant || agingMin != null || agingMax != null) && (
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: "0 2px" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Filters</span>
+            <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>Filters</span>
             {category && <FilterChip label={`Category: ${category}`} onClear={() => setCategory("")} />}
             {tenant && <FilterChip label={`Tenant: ${tenant}`} onClear={() => setTenant("")} />}
             {(agingMin != null || agingMax != null) && (
@@ -453,7 +453,7 @@ function MaintenancePageInner() {
               style={{ minWidth: 240 }}
             />
           </Field>
-          <div style={{ marginLeft: "auto", fontSize: 12, color: "var(--muted)", paddingBottom: 6 }}>
+          <div style={{ marginLeft: "auto", fontSize: "var(--fs-12)", color: "var(--muted)", paddingBottom: 6 }}>
             {loading ? "Loading…" : `${filtered.length} of ${(visibleRequests ?? []).length}`}
           </div>
         </div>
@@ -517,7 +517,7 @@ function MaintenancePageInner() {
                               display: "inline-block",
                               padding: "1px 7px",
                               borderRadius: 999,
-                              fontSize: 10, fontWeight: 800, letterSpacing: "0.06em",
+                              fontSize: "var(--fs-10)", fontWeight: 800, letterSpacing: "0.06em",
                               background: "#0b4a7d", color: "#fff",
                               textTransform: "uppercase",
                               marginRight: 8,
@@ -530,14 +530,14 @@ function MaintenancePageInner() {
                         </div>
                         {r.attachments.length > 0 && (
                           <div style={{ marginTop: 3 }}>
-                            <span style={{ fontSize: 11, color: "var(--muted)" }}>📎 {r.attachments.length}</span>
+                            <span style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>📎 {r.attachments.length}</span>
                           </div>
                         )}
                       </td>
                       <td><Pill tone={sStyle}>{r.status}</Pill></td>
                       <td>{r.priority ? <Pill tone={pStyle}>{r.priority}</Pill> : <span className="muted small">—</span>}</td>
-                      <td style={{ fontSize: 12 }}>{r.categories.join(", ") || <span className="muted small">—</span>}</td>
-                      <td style={{ textAlign: "right", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
+                      <td style={{ fontSize: "var(--fs-12)" }}>{r.categories.join(", ") || <span className="muted small">—</span>}</td>
+                      <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 600, whiteSpace: "nowrap" }}>
                         {tab === "completed"
                           ? <span style={{ fontWeight: 500, color: "var(--muted)" }}>{formatDate(r.completedDate)}</span>
                           : age == null ? "—" : (
@@ -546,12 +546,12 @@ function MaintenancePageInner() {
                               </span>
                             )}
                       </td>
-                      <td style={{ fontSize: 13, whiteSpace: "nowrap" }}>
+                      <td style={{ fontSize: "var(--fs-13)", whiteSpace: "nowrap" }}>
                         {r.propertyCode ? (
-                          <code style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code>
+                          <code style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d" }}>{r.propertyCode}</code>
                         ) : <span className="muted small">—</span>}
                       </td>
-                      <td style={{ fontSize: 13 }}>
+                      <td style={{ fontSize: "var(--fs-13)" }}>
                         {companyOf(r) || <span className="muted small">—</span>}
                         {r.tenantResolved === false && (
                           <span title="Tenant name didn't match the rent roll — needs assignment" style={{ marginLeft: 6 }}><Pill tone={TONE_AMBER}>
@@ -559,19 +559,19 @@ function MaintenancePageInner() {
                           </Pill></span>
                         )}
                       </td>
-                      <td style={{ fontSize: 13 }}>
+                      <td style={{ fontSize: "var(--fs-13)" }}>
                         {r.tenantName || r.tenantEmail ? (
                           <>
                             <div>{r.tenantName || r.tenantEmail}</div>
                             {r.tenantName && r.tenantEmail && (
-                              <div style={{ fontSize: 11, color: "var(--muted)" }}>{r.tenantEmail}</div>
+                              <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)" }}>{r.tenantEmail}</div>
                             )}
                           </>
                         ) : <span className="muted small">—</span>}
                       </td>
                       <td
                         onClick={readOnly ? undefined : (e) => e.stopPropagation()}
-                        style={{ fontSize: 13, fontWeight: 600 }}
+                        style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}
                       >
                         {readOnly ? (
                           r.assignedTo
@@ -623,7 +623,7 @@ function MaintenancePageInner() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</span>
+      <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</span>
       {children}
     </label>
   );
@@ -636,7 +636,7 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
       padding: "4px 6px 4px 10px", borderRadius: 999,
       background: "rgba(11,74,125,0.10)", color: "#0b4a7d",
       border: "1px solid rgba(11,74,125,0.30)",
-      fontSize: 12, fontWeight: 600,
+      fontSize: "var(--fs-12)", fontWeight: 600,
     }}>
       {label}
       <button
@@ -645,7 +645,7 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
         style={{
           width: 18, height: 18, padding: 0, borderRadius: 999,
           border: "none", background: "transparent", color: "#0b4a7d",
-          cursor: "pointer", fontSize: 14, lineHeight: 1, fontWeight: 700,
+          cursor: "pointer", fontSize: "var(--fs-14)", lineHeight: 1, fontWeight: 700,
           display: "inline-flex", alignItems: "center", justifyContent: "center",
         }}
       >×</button>
@@ -705,7 +705,7 @@ function FilterTile({
     >
       <b style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: "var(--text)" }}>{value}</b>
       <span style={{
-        fontSize: 11, fontWeight: 600, color: "var(--muted)",
+        fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--muted)",
         textTransform: "uppercase", letterSpacing: "0.04em",
       }}>
         {label}
@@ -887,7 +887,7 @@ function RequestModal({
               <h2 style={{ margin: 0, fontSize: 26, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1.2 }}>
                 {request.subject}
               </h2>
-              <div className="muted small" style={{ marginTop: 6, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11 }}>
+              <div className="muted small" style={{ marginTop: 6, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: "var(--fs-11)" }}>
                 {request.id}
               </div>
             </div>
@@ -902,7 +902,7 @@ function RequestModal({
                       onClick={() => patch({ status: "In Progress" })}
                       disabled={busy}
                       className="btn"
-                      style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700, color: "#b45309", borderColor: "rgba(180,83,9,0.45)" }}
+                      style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, color: "#b45309", borderColor: "rgba(180,83,9,0.45)" }}
                     >
                       ▶ Mark In Progress
                     </button>
@@ -911,7 +911,7 @@ function RequestModal({
                     onClick={() => patch({ status: "Complete" })}
                     disabled={busy}
                     className="btn primary"
-                    style={{ fontSize: 13, padding: "8px 16px", fontWeight: 700 }}
+                    style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700 }}
                   >
                     ✓ Mark Complete
                   </button>
@@ -921,7 +921,7 @@ function RequestModal({
                   onClick={() => patch({ status: "In Progress" })}
                   disabled={busy}
                   className="btn"
-                  style={{ fontSize: 13, padding: "8px 14px", fontWeight: 700 }}
+                  style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}
                 >
                   Reopen
                 </button>
@@ -952,7 +952,7 @@ function RequestModal({
               ))}
             </div>
             <span style={{
-              fontSize: 12, color: "var(--muted)", fontWeight: 600,
+              fontSize: "var(--fs-12)", color: "var(--muted)", fontWeight: 600,
               whiteSpace: "nowrap", flexShrink: 0,
             }}>
               {submittedLabel}
@@ -974,8 +974,8 @@ function RequestModal({
           }}>
             <MetaCell label="Property" value={propertyOf(request)} />
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Tenant</span>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
+              <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>Tenant</span>
+              <span style={{ fontSize: "var(--fs-14)", fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
                 {companyOf(request) || <span style={{ color: "var(--muted)" }}>—</span>}
               </span>
               {request.tenantResolved === false && (
@@ -996,7 +996,7 @@ function RequestModal({
                     marginTop: 4, padding: "4px 8px", cursor: "pointer",
                     border: "1px solid rgba(37,99,235,0.45)", borderRadius: 6,
                     background: "rgba(37,99,235,0.08)", color: "#1d4ed8",
-                    fontFamily: "inherit", fontSize: 12, fontWeight: 700,
+                    fontFamily: "inherit", fontSize: "var(--fs-12)", fontWeight: 700,
                     textAlign: "left", lineHeight: 1.35,
                   }}
                 >
@@ -1072,7 +1072,7 @@ function RequestModal({
                         patch({ assignedToIds: next });
                       }}
                       style={{
-                        fontSize: 12, fontWeight: 700, padding: "4px 10px",
+                        fontSize: "var(--fs-12)", fontWeight: 700, padding: "4px 10px",
                         borderRadius: 999, cursor: busy || readOnly ? "default" : "pointer",
                         border: `1px solid ${on ? "rgba(11,74,125,0.4)" : "var(--border)"}`,
                         background: on ? "rgba(11,74,125,0.10)" : "transparent",
@@ -1086,7 +1086,7 @@ function RequestModal({
                 })}
               </div>
               {request.assignedToIds.length === 0 && (
-                <span style={{ fontSize: 11, color: "#b45309", fontWeight: 600, marginTop: 4 }}>
+                <span style={{ fontSize: "var(--fs-11)", color: "#b45309", fontWeight: 600, marginTop: 4 }}>
                   ⚠ Needs an assignee
                 </span>
               )}
@@ -1104,7 +1104,7 @@ function RequestModal({
                     onClick={() => patch({ categories: on ? request.categories.filter((x) => x !== c) : [...request.categories, c as RequestCategory] })}
                     disabled={busy || readOnly}
                     style={{
-                      fontSize: 12, fontWeight: 600, padding: "5px 12px", borderRadius: 999,
+                      fontSize: "var(--fs-12)", fontWeight: 600, padding: "5px 12px", borderRadius: 999,
                       border: on ? "1px solid rgba(11,74,125,0.55)" : "1px solid var(--border)",
                       background: on ? "rgba(11,74,125,0.10)" : "var(--card)",
                       color: on ? "#0b4a7d" : "var(--muted)",
@@ -1141,16 +1141,16 @@ function RequestModal({
                   background: "var(--card)",
                   display: "flex", flexDirection: "column", gap: 2,
                 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                  <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
                     Contact
                   </span>
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>
+                  <span style={{ fontSize: "var(--fs-14)", fontWeight: 600 }}>
                     {request.tenantName || request.tenantEmail}
                   </span>
                   {request.tenantName && request.tenantEmail && (
                     <a
                       href={`mailto:${request.tenantEmail}`}
-                      style={{ fontSize: 12, color: "var(--brand)", textDecoration: "none" }}
+                      style={{ fontSize: "var(--fs-12)", color: "var(--brand)", textDecoration: "none" }}
                     >
                       {request.tenantEmail}
                     </a>
@@ -1163,10 +1163,10 @@ function RequestModal({
                   border: "1px solid var(--border)", borderRadius: 10,
                   background: "rgba(15,23,42,0.025)",
                 }}>
-                  <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
+                  <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
                     {submissionNote.authorName} · {new Date(submissionNote.createdAt).toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{submissionNote.text}</div>
+                  <div style={{ fontSize: "var(--fs-14)", whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{submissionNote.text}</div>
                 </div>
               ) : (
                 <div className="muted small">No tenant submission recorded for this request.</div>
@@ -1194,10 +1194,10 @@ function RequestModal({
                     border: "1px solid rgba(11,74,125,0.25)", borderRadius: 10,
                     background: "rgba(11,74,125,0.04)",
                   }}>
-                    <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
+                    <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
                       {n.authorName} · {new Date(n.createdAt).toLocaleString()}
                     </div>
-                    <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{n.text}</div>
+                    <div style={{ fontSize: "var(--fs-14)", whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{n.text}</div>
                   </div>
                 ))}
               </div>
@@ -1216,10 +1216,10 @@ function RequestModal({
                   border: "1px solid var(--border)", borderRadius: 10,
                   background: "rgba(15,23,42,0.025)",
                 }}>
-                  <div style={{ fontSize: 11, color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
+                  <div style={{ fontSize: "var(--fs-11)", color: "var(--muted)", fontWeight: 700, marginBottom: 6, letterSpacing: "0.02em" }}>
                     {n.authorName} · {new Date(n.createdAt).toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 14, whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{n.text}</div>
+                  <div style={{ fontSize: "var(--fs-14)", whiteSpace: "pre-wrap", lineHeight: 1.55 }}>{n.text}</div>
                 </div>
               ))}
 
@@ -1233,10 +1233,10 @@ function RequestModal({
                 display: "flex", flexDirection: "column", gap: 10,
               }}>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+                  <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
                     Author
                   </span>
-                  <span style={{ fontSize: 14, fontWeight: 700 }}>{staffName(noteAuthor)}</span>
+                  <span style={{ fontSize: "var(--fs-14)", fontWeight: 700 }}>{staffName(noteAuthor)}</span>
                 </div>
                 <textarea
                   placeholder="Add an internal note…"
@@ -1250,7 +1250,7 @@ function RequestModal({
                     onClick={addNote}
                     disabled={busy || !draftNote.trim()}
                     className="btn primary"
-                    style={{ fontSize: 13, padding: "9px 18px" }}
+                    style={{ fontSize: "var(--fs-13)", padding: "9px 18px" }}
                   >
                     Add note
                   </button>
@@ -1282,7 +1282,7 @@ function RequestModal({
             onClick={remove}
             disabled={busy}
             style={{
-              fontSize: 12, fontWeight: 600, color: "#b91c1c", background: "transparent",
+              fontSize: "var(--fs-12)", fontWeight: 600, color: "#b91c1c", background: "transparent",
               border: "1px solid rgba(220,38,38,0.35)", borderRadius: 8,
               padding: "8px 14px", cursor: busy ? "default" : "pointer",
               fontFamily: "inherit",
@@ -1323,7 +1323,7 @@ function TenantBillbackEditor({
           date: new Date().toISOString().slice(0, 10),
         })}
         className="btn"
-        style={{ fontSize: 12, padding: "6px 12px", fontWeight: 600, opacity: disabled ? 0.5 : 1 }}
+        style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 600, opacity: disabled ? 0.5 : 1 }}
       >
         + Add billback
       </button>
@@ -1340,7 +1340,7 @@ function TenantBillbackEditor({
         <div style={{ position: "relative" }}>
           <span style={{
             position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)",
-            fontSize: 13, fontWeight: 700, color: "var(--muted)", pointerEvents: "none",
+            fontSize: "var(--fs-13)", fontWeight: 700, color: "var(--muted)", pointerEvents: "none",
           }}>$</span>
           <input
             type="number"
@@ -1378,7 +1378,7 @@ function TenantBillbackEditor({
         disabled={disabled}
         onClick={() => onChange(null)}
         className="btn"
-        style={{ fontSize: 12, padding: "8px 12px", fontWeight: 600, height: 38 }}
+        style={{ fontSize: "var(--fs-12)", padding: "8px 12px", fontWeight: 600, height: 38 }}
       >
         Remove
       </button>
@@ -1523,7 +1523,7 @@ function EmailTenantComposer({
         type="button"
         onClick={() => setOpen(true)}
         className="btn"
-        style={{ fontSize: 12, padding: "6px 12px", alignSelf: "flex-start" }}
+        style={{ fontSize: "var(--fs-12)", padding: "6px 12px", alignSelf: "flex-start" }}
       >
         ✉ Email tenant
       </button>
@@ -1538,20 +1538,20 @@ function EmailTenantComposer({
       display: "flex", flexDirection: "column", gap: 10,
     }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#0b4a7d" }}>
+        <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "#0b4a7d" }}>
           Email tenant — {request.tenantEmail}
         </span>
         <button
           onClick={() => setOpen(false)}
           disabled={busy}
-          style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 14 }}
+          style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "var(--fs-14)" }}
         >×</button>
       </div>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-        <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+        <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
           From
         </span>
-        <span style={{ fontSize: 14, fontWeight: 700 }}>{staffName(author)}</span>
+        <span style={{ fontSize: "var(--fs-14)", fontWeight: 700 }}>{staffName(author)}</span>
       </div>
       <input
         type="text"
@@ -1565,13 +1565,13 @@ function EmailTenantComposer({
         rows={9}
         style={{ width: "100%", minHeight: 180, resize: "vertical", lineHeight: 1.5 }}
       />
-      {error && <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
+      {error && <div style={{ fontSize: "var(--fs-12)", color: "#b91c1c", fontWeight: 600 }}>{error}</div>}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button
           onClick={() => setOpen(false)}
           disabled={busy}
           className="btn"
-          style={{ fontSize: 13, padding: "8px 14px" }}
+          style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}
         >
           Cancel
         </button>
@@ -1579,7 +1579,7 @@ function EmailTenantComposer({
           onClick={send}
           disabled={busy}
           className="btn primary"
-          style={{ fontSize: 13, padding: "8px 16px" }}
+          style={{ fontSize: "var(--fs-13)", padding: "8px 16px" }}
         >
           {busy ? "Sending…" : "Send email"}
         </button>
@@ -1591,14 +1591,14 @@ function EmailTenantComposer({
 function MetaCell({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-      <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+      <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
         {label}
       </span>
-      <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
+      <span style={{ fontSize: "var(--fs-14)", fontWeight: 600, color: "var(--text)", lineHeight: 1.4, wordBreak: "break-word" }}>
         {value || "—"}
       </span>
       {sub && (
-        <span style={{ fontSize: 12, color: "var(--muted)", lineHeight: 1.3, wordBreak: "break-word" }}>
+        <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", lineHeight: 1.3, wordBreak: "break-word" }}>
           {sub}
         </span>
       )}
@@ -1609,7 +1609,7 @@ function MetaCell({ label, value, sub }: { label: string; value: string; sub?: s
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div>
-      <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>{title}</div>
       {children}
     </div>
   );
@@ -1668,7 +1668,7 @@ function AttachmentsSection({
   return (
     <Section title={`Attachments (${request.attachments.length})`}>
       {error && (
-        <div style={{ fontSize: 12, color: "#b91c1c", marginBottom: 8 }}>{error}</div>
+        <div style={{ fontSize: "var(--fs-12)", color: "#b91c1c", marginBottom: 8 }}>{error}</div>
       )}
       <div style={{
         display: "grid",
@@ -1710,7 +1710,7 @@ function AttachmentsSection({
                   📄
                 </a>
               )}
-              <div style={{ padding: "6px 8px", fontSize: 11, display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{ padding: "6px 8px", fontSize: "var(--fs-11)", display: "flex", flexDirection: "column", gap: 2 }}>
                 <a
                   href={blobSrc(a.url)}
                   target="_blank"
@@ -1732,7 +1732,7 @@ function AttachmentsSection({
                     title="Delete attachment"
                     style={{
                       background: "transparent", border: "none", color: "#b91c1c",
-                      cursor: busy ? "default" : "pointer", padding: 0, fontSize: 11, fontWeight: 600,
+                      cursor: busy ? "default" : "pointer", padding: 0, fontSize: "var(--fs-11)", fontWeight: 600,
                     }}
                   >
                     Delete
@@ -1752,7 +1752,7 @@ function AttachmentsSection({
               display: "inline-flex", alignItems: "center", gap: 8,
               padding: "7px 12px", borderRadius: 6,
               border: "1px dashed var(--border)",
-              fontSize: 13, fontWeight: 600,
+              fontSize: "var(--fs-13)", fontWeight: 600,
               cursor: busy ? "default" : "pointer",
               color: "var(--muted)",
               background: "var(--card)",

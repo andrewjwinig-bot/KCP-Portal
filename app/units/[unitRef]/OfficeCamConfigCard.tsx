@@ -28,11 +28,11 @@ const tileStyle: React.CSSProperties = {
   background: "var(--card)",
 };
 const tileLabelStyle: React.CSSProperties = {
-  fontSize: 11, fontWeight: 600, color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--muted)",
   textTransform: "uppercase", letterSpacing: "0.04em",
   marginBottom: 2,
 };
-const tileSubStyle: React.CSSProperties = { fontSize: 11, color: "var(--muted)" };
+const tileSubStyle: React.CSSProperties = { fontSize: "var(--fs-11)", color: "var(--muted)" };
 function tileInputStyle(width: number): React.CSSProperties {
   return {
     width,
@@ -118,7 +118,7 @@ export default function OfficeCamConfigCard({
     return (
       <div className="card">
         <SectionLabel>CAM / RET (Office)</SectionLabel>
-        <div style={{ fontSize: 13, color: "var(--muted)" }}>Loading…</div>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>Loading…</div>
       </div>
     );
   }
@@ -126,7 +126,7 @@ export default function OfficeCamConfigCard({
     return (
       <div className="card">
         <SectionLabel>CAM / RET (Office)</SectionLabel>
-        <div style={{ fontSize: 13, color: "var(--muted)" }}>Couldn’t load CAM configuration.</div>
+        <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>Couldn’t load CAM configuration.</div>
       </div>
     );
   }
@@ -152,7 +152,7 @@ export default function OfficeCamConfigCard({
         <div style={{
           margin: "8px 0", padding: "8px 10px", borderRadius: 8,
           background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.3)",
-          color: "#b91c1c", fontSize: 12, fontWeight: 600,
+          color: "#b91c1c", fontSize: "var(--fs-12)", fontWeight: 600,
         }}>{error}</div>
       )}
 
@@ -261,7 +261,7 @@ export default function OfficeCamConfigCard({
         </div>
       </div>
 
-      <div style={{ marginTop: 10, fontSize: 11, color: "var(--muted)", lineHeight: 1.5 }}>
+      <div style={{ marginTop: 10, fontSize: "var(--fs-11)", color: "var(--muted)", lineHeight: 1.5 }}>
         Office tenants recover expenses over their base year. The pro-rata share and gross-up
         feed the CAM / RET reconciliation; edits here override the workbook seed and persist for
         future years.

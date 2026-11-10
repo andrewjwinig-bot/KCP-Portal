@@ -37,8 +37,8 @@ function depositStatus(d: Deposit): { label: string; tone: PillTone } {
   return { label: "Held", tone: TONE_AMBER };
 }
 
-const th: React.CSSProperties = { textAlign: "left", padding: "6px 10px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)" };
-const td: React.CSSProperties = { padding: "8px 10px", fontSize: 13, borderBottom: "1px solid var(--border)" };
+const th: React.CSSProperties = { textAlign: "left", padding: "6px 10px", fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)" };
+const td: React.CSSProperties = { padding: "8px 10px", fontSize: "var(--fs-13)", borderBottom: "1px solid var(--border)" };
 const numTd: React.CSSProperties = { ...td, textAlign: "right", fontVariantNumeric: "tabular-nums" };
 
 export default function PastTenantsPage() {
@@ -78,7 +78,7 @@ export default function PastTenantsPage() {
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Past Tenants</h1>
-        <Link href="/deposits" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>Security Deposits →</Link>
+        <Link href="/deposits" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-13)" }}>Security Deposits →</Link>
       </div>
       <p className="muted" style={{ marginTop: -6 }}>
         Former tenancies reconstructed from the monthly rent-roll history — look back at any departed tenant’s rent, charges, and security deposit. Pick one to see their full record.
@@ -113,7 +113,7 @@ export default function PastTenantsPage() {
                 onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(11,74,125,0.04)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                 <td style={{ ...td, fontWeight: 600 }}>{t.name}</td>
-                <td style={td}><code style={{ fontSize: 12 }}>{t.unitRef}</code></td>
+                <td style={td}><code style={{ fontSize: "var(--fs-12)" }}>{t.unitRef}</code></td>
                 <td style={td}>{t.propertyCode} · {t.propertyName}</td>
                 <td style={{ ...td, whiteSpace: "nowrap" }}>{fmtMonth(t.firstMonth)} – {fmtMonth(t.lastMonth)} <span className="muted">({t.monthsOccupied}mo)</span></td>
                 <td style={numTd}>{money(t.lastBaseRent)}</td>
@@ -142,12 +142,12 @@ function DetailModal({ tenancy, detail, loading, onClose }: { tenancy: PastTenan
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 6 }}>
           <div style={{ fontSize: 20, fontWeight: 800 }}>{tenancy.name}</div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <Link href={`/units/${encodeURIComponent(tenancy.unitRef)}`} style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 13 }}>Unit page →</Link>
+            <Link href={`/units/${encodeURIComponent(tenancy.unitRef)}`} style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-13)" }}>Unit page →</Link>
             <button onClick={onClose} aria-label="Close" style={{ border: "none", background: "none", cursor: "pointer", fontSize: 22, color: "var(--muted)" }}>×</button>
           </div>
         </div>
-        <div className="muted" style={{ marginBottom: 14, fontSize: 13 }}>
-          <code style={{ fontSize: 12 }}>{tenancy.unitRef}</code> · {tenancy.propertyCode} {tenancy.propertyName} · occupied {fmtMonth(tenancy.firstMonth)} – {fmtMonth(tenancy.lastMonth)} ({tenancy.monthsOccupied} months)
+        <div className="muted" style={{ marginBottom: 14, fontSize: "var(--fs-13)" }}>
+          <code style={{ fontSize: "var(--fs-12)" }}>{tenancy.unitRef}</code> · {tenancy.propertyCode} {tenancy.propertyName} · occupied {fmtMonth(tenancy.firstMonth)} – {fmtMonth(tenancy.lastMonth)} ({tenancy.monthsOccupied} months)
           {tenancy.leaseFrom || tenancy.leaseTo ? ` · lease ${tenancy.leaseFrom ?? "?"} → ${tenancy.leaseTo ?? "?"}` : ""}
         </div>
 
@@ -166,7 +166,7 @@ function DetailModal({ tenancy, detail, loading, onClose }: { tenancy: PastTenan
 
             {/* Security deposits */}
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Security Deposit</div>
+              <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Security Deposit</div>
               {d.deposits.length === 0 ? (
                 <div className="muted small">None on record for this unit — <Link href={`/deposits?unitRef=${encodeURIComponent(d.unitRef)}`} style={{ color: "#0b4a7d" }}>add one</Link>.</div>
               ) : (
@@ -174,14 +174,14 @@ function DetailModal({ tenancy, detail, loading, onClose }: { tenancy: PastTenan
                   {d.deposits.map((dep) => {
                     const st = depositStatus(dep);
                     return (
-                      <div key={dep.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 13 }}>
+                      <div key={dep.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: "var(--fs-13)" }}>
                         <Pill tone={st.tone}>{st.label}</Pill>
                         <b>{money(dep.amount)}</b>
                         {dep.checkNumber && <span className="muted">ck# {dep.checkNumber}</span>}
                         {dep.checkDate && <span className="muted">· {dep.checkDate}</span>}
                         {dep.partialRefund && dep.partialRefundAmount > 0 && <span className="muted">· refunded {money(dep.partialRefundAmount)}</span>}
                         {dep.refunded && dep.refundDate && <span className="muted">· on {dep.refundDate}</span>}
-                        <Link href={`/deposits?unitRef=${encodeURIComponent(d.unitRef)}`} style={{ color: "#0b4a7d", fontSize: 12, marginLeft: "auto" }}>Manage →</Link>
+                        <Link href={`/deposits?unitRef=${encodeURIComponent(d.unitRef)}`} style={{ color: "#0b4a7d", fontSize: "var(--fs-12)", marginLeft: "auto" }}>Manage →</Link>
                       </div>
                     );
                   })}
@@ -192,8 +192,8 @@ function DetailModal({ tenancy, detail, loading, onClose }: { tenancy: PastTenan
             {/* Final move-out close-out */}
             {d.closeOut && (
               <div style={{ marginBottom: 14, border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px", background: "rgba(15,23,42,0.02)" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Final Move-Out Close-Out · {d.closeOut.year}</div>
-                <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: 13 }}>
+                <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Final Move-Out Close-Out · {d.closeOut.year}</div>
+                <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: "var(--fs-13)" }}>
                   <span>Reconciliation: <b style={{ color: d.closeOut.balance >= 0 ? "#b45309" : "#15803d" }}>{money(Math.abs(d.closeOut.balance))} {d.closeOut.balance >= 0 ? "due" : "credit"}</b></span>
                   {d.closeOut.deposit != null && <span className="muted">Deposit {money(d.closeOut.deposit)}</span>}
                   {d.closeOut.net != null && <span>Net: <b style={{ color: d.closeOut.net >= 0 ? "#15803d" : "#b45309" }}>{money(Math.abs(d.closeOut.net))} {d.closeOut.net >= 0 ? "refund" : "still due"}</b></span>}
@@ -203,7 +203,7 @@ function DetailModal({ tenancy, detail, loading, onClose }: { tenancy: PastTenan
             )}
 
             {/* Charges / rent timeline */}
-            <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Rent &amp; Charges Timeline</div>
+            <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 6 }}>Rent &amp; Charges Timeline</div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
                 <thead>

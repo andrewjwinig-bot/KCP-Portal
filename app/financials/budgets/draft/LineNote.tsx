@@ -11,7 +11,7 @@ import { HoverCard } from "@/app/components/HoverCard";
 
 export type LineNote = { text: string; by: string; at: string };
 
-const secLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const secLabel: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const stamp = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
 
 /** The note glyph — a small speech bubble, drawn so it matches at any zoom. */
@@ -43,9 +43,9 @@ export function NoteMark({ label, note, auto, onOpen }: { label: string; note?: 
     // The line's name is the title; the note is the BODY, in normal weight —
     // a sentence set as a bold title read as a heading, not a note (owner).
     <HoverCard title={label} width={300} rows={[]}
-      body={<div style={{ fontSize: 13, lineHeight: 1.45 }}>
+      body={<div style={{ fontSize: "var(--fs-13)", lineHeight: 1.45 }}>
         <div style={{ whiteSpace: "pre-wrap" }}>{note ? note.text : auto}</div>
-        {note && auto && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Basis: {auto}</div>}
+        {note && auto && <div className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 6 }}>Basis: {auto}</div>}
       </div>}
       footer={note ? { label: note.by, value: stamp(note.at) } : { label: "Set by the draft", value: "click to add a note" }}>
       {btn}

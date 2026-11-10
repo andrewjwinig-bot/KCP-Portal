@@ -67,10 +67,10 @@ function UserBadge({ id, collapsed }: { id: UserId; collapsed: boolean }) {
     <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, padding: "6px 10px 6px 6px" }}>
       <Avatar id={id} size={26} />
       <div style={{ flex: 1, minWidth: 0, lineHeight: 1.1 }}>
-        <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.1em", color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>
+        <div style={{ fontSize: "var(--fs-9)", fontWeight: 600, letterSpacing: "0.1em", color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>
           User
         </div>
-        <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {USERS[id].label}
         </div>
       </div>
@@ -131,10 +131,10 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
       >
         <Avatar id={user.id} size={26} />
         <div style={{ flex: 1, minWidth: 0, lineHeight: 1.1 }}>
-          <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: "0.1em", color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>
+          <div style={{ fontSize: "var(--fs-9)", fontWeight: 600, letterSpacing: "0.1em", color: "rgba(255,255,255,0.6)", textTransform: "uppercase" }}>
             User
           </div>
-          <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {user.label}
           </div>
         </div>
@@ -184,7 +184,7 @@ export default function UserSwitcher({ collapsed }: { collapsed: boolean }) {
                 onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
                 <Avatar id={id} size={24} />
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{USERS[id].label}</span>
+                <span style={{ flex: 1, fontSize: "var(--fs-13)", fontWeight: 600 }}>{USERS[id].label}</span>
                 {isActive && (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0b4a7d" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />

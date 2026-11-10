@@ -14,7 +14,7 @@ export function TabButton({ active, onClick, children }: { active: boolean; onCl
         borderBottom: active ? "2px solid #0b4a7d" : "2px solid transparent",
         color: active ? "var(--text)" : "var(--muted)",
         fontWeight: active ? 700 : 500,
-        fontSize: 14,
+        fontSize: "var(--fs-14)",
         cursor: "pointer",
         marginBottom: -1,
       }}

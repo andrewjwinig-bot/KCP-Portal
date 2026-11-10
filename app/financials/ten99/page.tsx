@@ -19,13 +19,13 @@ import { SELECT_BRAND } from "@/app/components/YearSelect";
 
 const BRAND = "#0b4a7d";
 const SECTION_LABEL: React.CSSProperties = {
-  fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
+  fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
 };
 const th: React.CSSProperties = {
-  textAlign: "left", padding: "8px 12px", fontSize: 11, fontWeight: 700, textTransform: "uppercase",
+  textAlign: "left", padding: "8px 12px", fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase",
   letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
 };
-const td: React.CSSProperties = { textAlign: "left", padding: "9px 12px", fontSize: 14 };
+const td: React.CSSProperties = { textAlign: "left", padding: "9px 12px", fontSize: "var(--fs-14)" };
 const numTd: React.CSSProperties = { ...td, textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" };
 
 const money = (n: number) => (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -104,7 +104,7 @@ export default function Ten99Page() {
             {(data?.years ?? []).map((y) => <option key={y} value={y}>{y} tax year</option>)}
             {(data?.years ?? []).length === 0 && <option value="">No GLs uploaded</option>}
           </select>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--muted)" }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12-5)", color: "var(--muted)" }}>
             Threshold
             <input type="number" min={0} step={100} value={threshold}
               onChange={(e) => setThreshold(Math.max(0, Number(e.target.value) || 0))}
@@ -128,7 +128,7 @@ export default function Ten99Page() {
         the accountant&rsquo;s side; this is the payment side.
       </p>
 
-      {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "#b91c1c", fontWeight: 600, fontSize: 13 }}>{error}</div>}
+      {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "#b91c1c", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
       {loading && <div className="card muted">Loading…</div>}
 
       {data && !loading && (
@@ -144,7 +144,7 @@ export default function Ten99Page() {
               register is empty because the GL isn't there — not because nobody
               was paid. Say which, rather than showing a confident empty list. */}
           {totals.scanned === 0 && (
-            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: 13 }}>
+            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: "var(--fs-13)" }}>
               <b>No cash disbursements found for {data.year}.</b>{" "}
               {data.years.length === 0
                 ? "No general ledgers have been uploaded yet — import them on Operating Statements first."
@@ -153,7 +153,7 @@ export default function Ten99Page() {
           )}
 
           {totals.unnamed > 0 && (
-            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: 13 }}>
+            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: "var(--fs-13)" }}>
               <b>{totals.unnamed} payment{totals.unnamed === 1 ? " carries" : "s carry"} no vendor name</b> in the
               ledger and can&rsquo;t be attributed — {totals.unnamed === 1 ? "it is" : "they are"} counted in the
               scanned total but appear on no vendor&rsquo;s row. Worth a look if a vendor you expect is missing.
@@ -161,7 +161,7 @@ export default function Ten99Page() {
           )}
 
           {missingEin.length > 0 && (
-            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: 13 }}>
+            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: "var(--fs-13)" }}>
               <b>{missingEin.length} {missingEin.length === 1 ? "entity has" : "entities have"} no EIN on file</b> —{" "}
               {missingEin.map((e) => e.name).join(", ")}. The vendors are still listed; add the EIN on Property Info
               so the workbook carries it.
@@ -177,7 +177,7 @@ export default function Ten99Page() {
                   <div style={{ display: "inline-flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                     <span style={{ fontWeight: 800, fontSize: 16 }}>{e.name}</span>
                     {e.ein
-                      ? <code style={{ fontSize: 12, background: "#0b1220", color: "#e0f0ff", padding: "2px 8px", borderRadius: 5, letterSpacing: "0.04em" }}>{e.ein}</code>
+                      ? <code style={{ fontSize: "var(--fs-12)", background: "#0b1220", color: "#e0f0ff", padding: "2px 8px", borderRadius: 5, letterSpacing: "0.04em" }}>{e.ein}</code>
                       : <Pill tone={TONE_AMBER}>NO EIN ON FILE</Pill>}
                     <HoverCard title="What rolls into this filer" width={300}
                       rows={[
@@ -216,7 +216,7 @@ export default function Ten99Page() {
                             <tr style={{ borderTop: "1px solid var(--border)", background: open ? "rgba(11,74,125,0.04)" : undefined }}>
                               <td style={td}>
                                 <button type="button" onClick={() => setOpenVendor(open ? null : key)}
-                                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600, color: BRAND, textAlign: "left" }}>
+                                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-14)", fontWeight: 600, color: BRAND, textAlign: "left" }}>
                                   {v.name} <span className="muted" style={{ fontWeight: 500 }}>{open ? "▲" : "▼"}</span>
                                 </button>
                               </td>
@@ -224,13 +224,13 @@ export default function Ten99Page() {
                               <td style={{ ...numTd, fontWeight: 700 }}>{money(v.total)}</td>
                               <td style={{ ...numTd }}>
                                 <button className="btn" onClick={() => setMarking({ entityId: e.id, vendor: v })}
-                                  style={{ fontSize: 12, padding: "4px 9px" }}>Mark…</button>
+                                  style={{ fontSize: "var(--fs-12)", padding: "4px 9px" }}>Mark…</button>
                               </td>
                             </tr>
                             {open && (
                               <tr>
                                 <td colSpan={4} style={{ padding: "0 12px 12px", background: "rgba(11,74,125,0.04)" }}>
-                                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
                                     <thead>
                                       <tr>
                                         <th style={{ ...th, padding: "6px 8px" }}>Date</th>
@@ -244,9 +244,9 @@ export default function Ten99Page() {
                                       {v.payments.map((p, idx) => (
                                         <tr key={idx} style={{ borderTop: "1px solid var(--border)" }}>
                                           <td style={{ ...td, padding: "6px 8px" }}>{shortDate(p.date)}</td>
-                                          <td style={{ ...td, padding: "6px 8px" }}><code style={{ fontSize: 12 }}>{p.ref || "—"}</code></td>
+                                          <td style={{ ...td, padding: "6px 8px" }}><code style={{ fontSize: "var(--fs-12)" }}>{p.ref || "—"}</code></td>
                                           <td style={{ ...td, padding: "6px 8px" }}>{p.propertyName}</td>
-                                          <td style={{ ...td, padding: "6px 8px", color: "var(--muted)", fontSize: 12 }}>{p.account}{p.accountName ? ` · ${p.accountName}` : ""}</td>
+                                          <td style={{ ...td, padding: "6px 8px", color: "var(--muted)", fontSize: "var(--fs-12)" }}>{p.account}{p.accountName ? ` · ${p.accountName}` : ""}</td>
                                           <td style={{ ...numTd, padding: "6px 8px" }}>{money(p.amount)}</td>
                                         </tr>
                                       ))}
@@ -269,7 +269,7 @@ export default function Ten99Page() {
                       {belowOpen ? "▲" : "▼"} {e.below.length} vendor{e.below.length === 1 ? "" : "s"} below {money0(threshold)}
                     </button>
                     {belowOpen && (
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: 13 }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: "var(--fs-13)" }}>
                         <tbody>
                           {e.below.map((v) => (
                             <tr key={v.id} style={{ borderTop: "1px solid var(--border)" }}>
@@ -304,12 +304,12 @@ export default function Ten99Page() {
                       <tr key={id} style={{ borderTop: "1px solid var(--border)" }}>
                         <td style={td}>{x.name}</td>
                         <td style={td}><Pill tone={TONE_NEUTRAL}>{x.reason.toUpperCase()}</Pill></td>
-                        <td style={{ ...td, color: "var(--muted)", fontSize: 12.5 }}>
+                        <td style={{ ...td, color: "var(--muted)", fontSize: "var(--fs-12-5)" }}>
                           {new Date(x.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                           {x.by ? ` · ${x.by}` : ""}
                         </td>
                         <td style={{ ...numTd }}>
-                          <button className="btn" onClick={() => restore(id)} style={{ fontSize: 12, padding: "4px 9px" }}>Put back</button>
+                          <button className="btn" onClick={() => restore(id)} style={{ fontSize: "var(--fs-12)", padding: "4px 9px" }}>Put back</button>
                         </td>
                       </tr>
                     ))}
@@ -338,11 +338,11 @@ export default function Ten99Page() {
             <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 12 }}>
               {EXCLUSION_REASONS.map((r) => (
                 <button key={r} className="btn" onClick={() => exclude(marking.vendor, r)}
-                  style={{ fontSize: 12.5, padding: "6px 11px", fontWeight: 700 }}>{r}</button>
+                  style={{ fontSize: "var(--fs-12-5)", padding: "6px 11px", fontWeight: 700 }}>{r}</button>
               ))}
             </div>
             <div style={{ marginTop: 14, textAlign: "right" }}>
-              <button className="btn" onClick={() => setMarking(null)} style={{ fontSize: 12.5, padding: "6px 12px" }}>Cancel</button>
+              <button className="btn" onClick={() => setMarking(null)} style={{ fontSize: "var(--fs-12-5)", padding: "6px 12px" }}>Cancel</button>
             </div>
           </div>
         </div>

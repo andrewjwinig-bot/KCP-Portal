@@ -50,10 +50,10 @@ export default function NotPostedCard({ order = -1 }: { order?: number }) {
   return (
     <div className="card" style={{ order }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
+        <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>
           Not Posted to the GL
         </div>
-        <Link href="/financials/operating-statements/review" style={{ fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
+        <Link href="/financials/operating-statements/review" style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none", whiteSpace: "nowrap" }}>
           Flags to Investigate →
         </Link>
       </div>
@@ -74,17 +74,17 @@ export default function NotPostedCard({ order = -1 }: { order?: number }) {
                 href={`/financials/operating-statements?key=${encodeURIComponent(it.key)}&year=${year}&period=${it.period}`}
                 style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, textDecoration: "none", color: "var(--text)", background: "rgba(180,83,9,0.05)" }}
               >
-                <span style={{ fontSize: 13 }}>⚠️</span>
-                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
+                <span style={{ fontSize: "var(--fs-13)" }}>⚠️</span>
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "var(--fs-13)" }}>
                   <b style={{ fontWeight: 700 }}>{it.propertyCode}</b> · {it.line}
                   {it.type === "missing-debt" && <span className="muted"> (debt)</span>}
                 </span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#9a3412", whiteSpace: "nowrap" }}>~{money0(it.expected)}</span>
+                <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "#9a3412", whiteSpace: "nowrap" }}>~{money0(it.expected)}</span>
               </Link>
             ))}
           </div>
           {items.length > TOP && (
-            <Link href="/financials/operating-statements/review" style={{ display: "inline-block", marginTop: 8, fontSize: 12, fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>
+            <Link href="/financials/operating-statements/review" style={{ display: "inline-block", marginTop: 8, fontSize: "var(--fs-12)", fontWeight: 700, color: "#0b4a7d", textDecoration: "none" }}>
               + {items.length - TOP} more →
             </Link>
           )}

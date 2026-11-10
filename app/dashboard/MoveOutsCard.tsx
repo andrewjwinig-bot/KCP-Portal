@@ -26,7 +26,7 @@ type CloseOut = {
 type Send = { key: string; name: string; property: string; balance: number; net: number | null; finalizedAt: string; finalizedBy: string | null };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const SECTION: React.CSSProperties = { fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const SECTION: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 function money0(n: number): string {
   const v = Math.round(Number(n) || 0);
@@ -89,7 +89,7 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
     <div className="card" style={{ order }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
         <div style={SECTION}>Pending Close-Outs</div>
-        <Link href="/cam-recon/interim" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 12 }}>Open →</Link>
+        <Link href="/cam-recon/interim" style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-12)" }}>Open →</Link>
       </div>
 
       {/* READY — one click to finalize. */}
@@ -102,33 +102,33 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
               <div key={c.key} style={{ border: "1px solid rgba(22,163,74,0.30)", background: "rgba(22,163,74,0.05)", borderRadius: 10, padding: "10px 12px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <Pill tone={TONE_GREEN}>Ready</Pill>
-                  <span style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</span>
-                  <span className="muted" style={{ fontSize: 12 }}>{c.property} · <code style={{ fontSize: 11 }}>{c.unitRef}</code> · {c.kind === "retail" ? "Retail" : "Office"}</span>
-                  <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>moved out {movedOut(c)}</span>
+                  <span style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>{c.name}</span>
+                  <span className="muted" style={{ fontSize: "var(--fs-12)" }}>{c.property} · <code style={{ fontSize: "var(--fs-11)" }}>{c.unitRef}</code> · {c.kind === "retail" ? "Retail" : "Office"}</span>
+                  <span className="muted" style={{ fontSize: "var(--fs-12)", marginLeft: "auto" }}>moved out {movedOut(c)}</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", marginTop: 8 }}>
-                  <span style={{ fontSize: 13 }}>
+                  <span style={{ fontSize: "var(--fs-13)" }}>
                     Final: <b style={{ color: owed ? "#b45309" : "#15803d" }}>{money0(Math.abs(c.balance))} {owed ? "due" : "credit"}</b>
                   </span>
                   {c.deposit && c.deposit.net != null && (
-                    <span className="muted" style={{ fontSize: 12 }}>
+                    <span className="muted" style={{ fontSize: "var(--fs-12)" }}>
                       Deposit {money0(c.deposit.amount)} · net {money0(Math.abs(c.deposit.net))} {c.deposit.net >= 0 ? "refund" : "still due"}
                     </span>
                   )}
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-                    <Link href={interimHref(c)} style={{ color: "#0b4a7d", fontWeight: 600, fontSize: 12 }}>Review</Link>
+                    <Link href={interimHref(c)} style={{ color: "#0b4a7d", fontWeight: 600, fontSize: "var(--fs-12)" }}>Review</Link>
                     <button
                       className="btn primary"
                       disabled={busy === c.key || done}
                       onClick={() => approve(c)}
-                      style={{ fontSize: 12, padding: "6px 12px", fontWeight: 700 }}
+                      style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }}
                     >
                       {busy === c.key ? "Finalizing…" : done ? "✓ Finalized" : "Approve & finalize"}
                     </button>
                   </div>
                 </div>
                 {msg[c.key] && (
-                  <div style={{ fontSize: 12, marginTop: 6, color: msg[c.key].startsWith("✓") ? "#15803d" : "#b91c1c", fontWeight: 600 }}>{msg[c.key]}</div>
+                  <div style={{ fontSize: "var(--fs-12)", marginTop: 6, color: msg[c.key].startsWith("✓") ? "#15803d" : "#b91c1c", fontWeight: 600 }}>{msg[c.key]}</div>
                 )}
               </div>
             );
@@ -140,12 +140,12 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
           which property, and the month we're waiting on to post. */}
       {waiting.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {ready.length > 0 && <div style={{ ...SECTION, fontSize: 11, marginBottom: 4 }}>Waiting on the GL</div>}
+          {ready.length > 0 && <div style={{ ...SECTION, fontSize: "var(--fs-11)", marginBottom: 4 }}>Waiting on the GL</div>}
           {waiting.map((c) => (
-            <div key={c.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", fontSize: 13, flexWrap: "wrap" }}>
+            <div key={c.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", fontSize: "var(--fs-13)", flexWrap: "wrap" }}>
               <span style={{ fontWeight: 600 }}>{c.name}</span>
-              <span className="muted" style={{ fontSize: 12 }}>{c.property}</span>
-              <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>
+              <span className="muted" style={{ fontSize: "var(--fs-12)" }}>{c.property}</span>
+              <span className="muted" style={{ fontSize: "var(--fs-12)", marginLeft: "auto" }}>
                 waiting on {MONTHS[c.vacateMonth - 1]} {c.year} to post
               </span>
             </div>
@@ -156,10 +156,10 @@ export default function MoveOutsCard({ order = -1 }: { order?: number }) {
       {/* Recently finalized — the durable record. */}
       {sends.length > 0 && (
         <div style={{ marginTop: 12, borderTop: "1px solid var(--border)", paddingTop: 10 }}>
-          <div style={{ ...SECTION, fontSize: 11, marginBottom: 6 }}>Recently finalized</div>
+          <div style={{ ...SECTION, fontSize: "var(--fs-11)", marginBottom: 6 }}>Recently finalized</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {sends.slice(0, 4).map((s) => (
-              <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, padding: "3px 4px" }}>
+              <div key={s.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-12)", padding: "3px 4px" }}>
                 <Pill tone={TONE_NEUTRAL}>Done</Pill>
                 <span style={{ fontWeight: 600 }}>{s.name}</span>
                 <span className="muted">{s.property}</span>

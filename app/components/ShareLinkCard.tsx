@@ -43,7 +43,7 @@ const ICON_BTN: React.CSSProperties = {
 
 /** The one section label in the dialog — every block is introduced the same way. */
 const SECTION: React.CSSProperties = {
-  fontSize: 10.5, fontWeight: 700, letterSpacing: "0.06em",
+  fontSize: "var(--fs-10-5)", fontWeight: 700, letterSpacing: "0.06em",
   textTransform: "uppercase", color: "var(--muted)", marginBottom: 6,
 };
 
@@ -392,13 +392,13 @@ export function ShareLinkCard({
           gap: 14, padding: "18px 20px 14px", borderBottom: "1px solid var(--border)",
         }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase", color: BRAND }}>{title}</div>
+            <div style={{ fontSize: "var(--fs-11)", fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase", color: BRAND }}>{title}</div>
             {subject && (
               <div style={{ fontSize: 23, fontWeight: 800, lineHeight: 1.15, marginTop: 4, wordBreak: "break-word" }}>{subject}</div>
             )}
-            {description && <p className="muted" style={{ margin: "6px 0 0", fontSize: 13, lineHeight: 1.5 }}>{description}</p>}
+            {description && <p className="muted" style={{ margin: "6px 0 0", fontSize: "var(--fs-13)", lineHeight: 1.5 }}>{description}</p>}
           </div>
-          <button onClick={close} className="btn" style={{ fontSize: 12, padding: "6px 12px", flexShrink: 0 }}>Close</button>
+          <button onClick={close} className="btn" style={{ fontSize: "var(--fs-12)", padding: "6px 12px", flexShrink: 0 }}>Close</button>
         </div>
 
         <div style={{ padding: "16px 20px 20px" }}>
@@ -421,7 +421,7 @@ export function ShareLinkCard({
               that has something to add BEYOND that, and rendered plainly. */}
           {links.length === 0 ? (
             emptyNote ? (
-              <div className="muted" style={{ fontSize: 12.5, marginBottom: 12, lineHeight: 1.5 }}>{emptyNote}</div>
+              <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginBottom: 12, lineHeight: 1.5 }}>{emptyNote}</div>
             ) : null
           ) : links.map((l) => (
             <div key={l.id}>
@@ -431,8 +431,8 @@ export function ShareLinkCard({
                 <div style={SECTION}>Private link</div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <input readOnly value={l.url} onFocus={(e) => e.currentTarget.select()}
-                    style={{ flex: 1, minWidth: 0, fontSize: 13 }} />
-                  <button onClick={() => copy(l.url)} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "8px 14px", flexShrink: 0 }}>
+                    style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-13)" }} />
+                  <button onClick={() => copy(l.url)} className="btn" style={{ fontSize: "var(--fs-13)", fontWeight: 700, padding: "8px 14px", flexShrink: 0 }}>
                     {copied === l.url ? "Copied ✓" : "Copy"}
                   </button>
                 </div>
@@ -443,19 +443,19 @@ export function ShareLinkCard({
                   <div style={SECTION}>Access PIN</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                     <code style={{ fontSize: 26, fontWeight: 800, letterSpacing: "0.22em", color: BRAND, background: "rgba(11,74,125,0.08)", borderRadius: 10, padding: "7px 16px" }}>{l.pin}</code>
-                    <button onClick={() => copy(l.pin!)} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "8px 13px" }}>
+                    <button onClick={() => copy(l.pin!)} className="btn" style={{ fontSize: "var(--fs-13)", fontWeight: 700, padding: "8px 13px" }}>
                       {copied === l.pin ? "Copied ✓" : "Copy"}
                     </button>
                     {onManagePin && (
                       <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
-                        <button onClick={() => onManagePin(l.id, "reset")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: 12, fontWeight: 700, cursor: "pointer", color: "var(--muted)" }}>Reset</button>
+                        <button onClick={() => onManagePin(l.id, "reset")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: "var(--fs-12)", fontWeight: 700, cursor: "pointer", color: "var(--muted)" }}>Reset</button>
                         {pinOptional && (
-                          <button onClick={() => onManagePin(l.id, "remove")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: 12, fontWeight: 700, cursor: "pointer", color: "#b91c1c" }}>Remove</button>
+                          <button onClick={() => onManagePin(l.id, "remove")} disabled={busy} style={{ background: "none", border: "none", padding: 0, fontSize: "var(--fs-12)", fontWeight: 700, cursor: "pointer", color: "#b91c1c" }}>Remove</button>
                         )}
                       </div>
                     )}
                   </div>
-                  <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                  <div className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 6 }}>
                     {loadDraft
                       ? "Emailed to them automatically, as its own message just after the link."
                       : "Send this separately — never in the same email as the link."}
@@ -463,11 +463,11 @@ export function ShareLinkCard({
                 </div>
               ) : onManagePin && pinOptional ? (
                 <div style={{ marginBottom: 16 }}>
-                  <button onClick={() => onManagePin(l.id, "reset")} disabled={busy} className="btn" style={{ fontSize: 12.5, fontWeight: 700, padding: "7px 12px", color: BRAND }}>+ Add an access PIN</button>
+                  <button onClick={() => onManagePin(l.id, "reset")} disabled={busy} className="btn" style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, padding: "7px 12px", color: BRAND }}>+ Add an access PIN</button>
                 </div>
               ) : null}
 
-              <div className="muted" style={{ fontSize: 12, paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div className="muted" style={{ fontSize: "var(--fs-12)", paddingTop: 14, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span>{l.viewCount ? `${l.viewCount} view${l.viewCount === 1 ? "" : "s"}${l.lastViewedAt ? ` · last ${new Date(l.lastViewedAt).toLocaleDateString("en-US")}` : ""}` : "Not opened yet"}</span>
                 {/* One row of actions: look, send, revoke. The two safe ones
                     are icons — the label was carrying no information a mail
@@ -490,13 +490,13 @@ export function ShareLinkCard({
                   )}
                   {onRevoke && (
                     <button onClick={() => onRevoke(l.id)} disabled={busy} className="btn"
-                      style={{ fontSize: 12, fontWeight: 700, padding: "7px 12px", color: "#b91c1c" }}>Revoke</button>
+                      style={{ fontSize: "var(--fs-12)", fontWeight: 700, padding: "7px 12px", color: "#b91c1c" }}>Revoke</button>
                   )}
                 </div>
               </div>
 
               {sentTo && confirmSend === null && (
-                <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: "#15803d" }}>✓ Emailed to {sentTo.join(", ")}</div>
+                <div style={{ marginTop: 8, fontSize: "var(--fs-11-5)", fontWeight: 700, color: "#15803d" }}>✓ Emailed to {sentTo.join(", ")}</div>
               )}
             </div>
           ))}
@@ -545,7 +545,7 @@ export function ShareLinkCard({
                             : "Link created — not emailed"}
                         </div>
                         {outcome.sentTo.length > 0 && (
-                          <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>
+                          <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 3 }}>
                             {new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} · {" "}
                             {outcome.pinSentTo?.length ? "link and PIN, two emails" : "link only"}
                           </div>
@@ -555,7 +555,7 @@ export function ShareLinkCard({
                   )}
 
                   {outcome.error && (
-                    <div style={{ fontSize: 12.5, marginTop: 8, color: "var(--text)" }}>{outcome.error}</div>
+                    <div style={{ fontSize: "var(--fs-12-5)", marginTop: 8, color: "var(--text)" }}>{outcome.error}</div>
                   )}
 
                   {/* The receipt: every address, each half of the send, and the
@@ -567,12 +567,12 @@ export function ShareLinkCard({
                       background: "var(--card)", padding: "10px 12px", textAlign: "left",
                     }}>
                       {outcome.sentTo.map((r) => (
-                        <div key={r} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 700, marginBottom: 3 }}>
+                        <div key={r} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "var(--fs-13)", fontWeight: 700, marginBottom: 3 }}>
                           <span aria-hidden style={{ color: "#15803d" }}>✓</span>{r}
                         </div>
                       ))}
                       {outcome.pinSentTo && (
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 12.5, marginTop: 7, paddingTop: 7, borderTop: "1px solid var(--border)", fontWeight: 600, color: outcome.pinSentTo.length ? "var(--text)" : "#b91c1c" }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: "var(--fs-12-5)", marginTop: 7, paddingTop: 7, borderTop: "1px solid var(--border)", fontWeight: 600, color: outcome.pinSentTo.length ? "var(--text)" : "#b91c1c" }}>
                           <span aria-hidden style={{ color: outcome.pinSentTo.length ? "#15803d" : "#b91c1c" }}>{outcome.pinSentTo.length ? "✓" : "⚠"}</span>
                           {outcome.pinSentTo.length
                             ? "Their access PIN went as its own separate email."
@@ -580,7 +580,7 @@ export function ShareLinkCard({
                         </div>
                       )}
                       {outcome.copiedTo && outcome.copiedTo.length > 0 && (
-                        <div className="muted" style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 12, marginTop: 6 }}>
+                        <div className="muted" style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: "var(--fs-12)", marginTop: 6 }}>
                           <span aria-hidden style={{ color: "#15803d" }}>✓</span>
                           <span>Blind copy of both emails to <b>{outcome.copiedTo.join(", ")}</b> — check that inbox to see exactly what they received.</span>
                         </div>
@@ -590,8 +590,8 @@ export function ShareLinkCard({
                           and it is what you search for when someone says they
                           never got it. */}
                       {outcome.messageId && (
-                        <div className="muted" style={{ fontSize: 11.5, marginTop: 6, wordBreak: "break-all" }}>
-                          Postmark ID <code style={{ fontSize: 11 }}>{outcome.messageId}</code>
+                        <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 6, wordBreak: "break-all" }}>
+                          Postmark ID <code style={{ fontSize: "var(--fs-11)" }}>{outcome.messageId}</code>
                         </div>
                       )}
                     </div>
@@ -604,7 +604,7 @@ export function ShareLinkCard({
                     <div style={{
                       marginTop: 10, borderRadius: 9, padding: "10px 12px", textAlign: "left",
                       border: "1.5px solid rgba(220,38,38,0.45)", background: "rgba(220,38,38,0.07)",
-                      fontSize: 12.5, color: "#b91c1c", fontWeight: 600,
+                      fontSize: "var(--fs-12-5)", color: "#b91c1c", fontWeight: 600,
                     }}>
                       <b>Nothing was actually delivered.</b> Postmark is using its TEST token, which
                       accepts every message and sends none. Set a real <code>POSTMARK_SERVER_TOKEN</code>{" "}
@@ -614,27 +614,27 @@ export function ShareLinkCard({
                   )}
 
                   <div style={{ marginTop: 12, textAlign: outcome.error ? "left" : "center" }}>
-                    <button onClick={closeConfirm} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "8px 22px" }}>Done</button>
+                    <button onClick={closeConfirm} className="btn" style={{ fontSize: "var(--fs-13)", fontWeight: 700, padding: "8px 22px" }}>Done</button>
                   </div>
                 </div>
               )}
 
               {!outcome && (
                 <div style={{ marginTop: 12, border: "1.5px solid rgba(180,83,9,0.45)", background: "rgba(180,83,9,0.07)", borderRadius: 10, padding: "13px 15px" }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "#b45309", display: "flex", alignItems: "center", gap: 7 }}>
+                  <div style={{ fontSize: "var(--fs-14)", fontWeight: 800, color: "#b45309", display: "flex", alignItems: "center", gap: 7 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
                     This sends the email
                   </div>
                   {/* Say that the link is being created here, since there was
                       no "Create link" step to make that obvious. */}
                   {confirmSend === PENDING_LINK && (
-                    <div className="muted" style={{ fontSize: 12.5, marginTop: 7 }}>
+                    <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 7 }}>
                       This also creates their private link and access PIN — there is nothing to set up first.
                     </div>
                   )}
                   {recipients.length > 0 ? (
                     <div style={{ margin: "8px 0 12px" }}>
-                      <div style={{ fontSize: 12.5, color: "var(--text)" }}>
+                      <div style={{ fontSize: "var(--fs-12-5)", color: "var(--text)" }}>
                         This emails the private link — and the document it opens — to
                         {recipients.length === 1
                           ? ""
@@ -666,13 +666,13 @@ export function ShareLinkCard({
                             <label key={r} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", cursor: recipients.length > 1 ? "pointer" : "default" }}>
                               <input type="checkbox" checked={on} disabled={sending || recipients.length < 2}
                                 onChange={() => toggleRecipient(r)} />
-                              <span style={{ fontSize: 13, fontWeight: 700, color: on ? "var(--text)" : "var(--muted)", textDecoration: on ? undefined : "line-through" }}>
+                              <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: on ? "var(--text)" : "var(--muted)", textDecoration: on ? undefined : "line-through" }}>
                                 {recipientNames?.[r.toLowerCase()]
                                   ? <>{recipientNames[r.toLowerCase()]} <span className="muted" style={{ fontWeight: 400 }}>· {r}</span></>
                                   : r}
                               </span>
                               {on && secondaryRecipients.length > 0 && (
-                                <span className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.04em" }}>
+                                <span className="muted" style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.04em" }}>
                                   {isCc ? "CC" : "TO"}
                                 </span>
                               )}
@@ -681,7 +681,7 @@ export function ShareLinkCard({
                         })}
                       </div>
                       {picked.length === 0 && (
-                        <div style={{ fontSize: 12.5, fontWeight: 700, color: "#b91c1c", marginTop: 6 }}>
+                        <div style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, color: "#b91c1c", marginTop: 6 }}>
                           Nobody is selected, so there is no one to send to.
                         </div>
                       )}
@@ -690,7 +690,7 @@ export function ShareLinkCard({
                           address differently. */}
                       {picked.some((r) => secondaryRecipients.includes(r))
                         && picked.some((r) => !secondaryRecipients.includes(r)) && (
-                        <label style={{ display: "flex", alignItems: "flex-start", gap: 7, marginTop: 9, fontSize: 12.5, cursor: "pointer", color: "var(--text)" }}>
+                        <label style={{ display: "flex", alignItems: "flex-start", gap: 7, marginTop: 9, fontSize: "var(--fs-12-5)", cursor: "pointer", color: "var(--text)" }}>
                           <input type="checkbox" checked={ccSecondary} disabled={sending}
                             onChange={(e) => setCcSecondary(e.target.checked)} style={{ marginTop: 2 }} />
                           <span>
@@ -703,7 +703,7 @@ export function ShareLinkCard({
                         </label>
                       )}
                       {!loadDraft && (
-                        <div className="muted" style={{ fontSize: 12, marginTop: 7 }}>
+                        <div className="muted" style={{ fontSize: "var(--fs-12)", marginTop: 7 }}>
                           The PIN is not emailed — give it to them separately.
                         </div>
                       )}
@@ -742,7 +742,7 @@ export function ShareLinkCard({
                                 aria-label="Subject"
                                 disabled={sending}
                                 style={{
-                                  width: "100%", padding: "8px 12px", fontSize: 13, fontWeight: 700,
+                                  width: "100%", padding: "8px 12px", fontSize: "var(--fs-13)", fontWeight: 700,
                                   border: "none", borderBottom: "1px solid var(--border)", borderRadius: 0,
                                   background: "transparent", color: "var(--text)",
                                 }}
@@ -754,7 +754,7 @@ export function ShareLinkCard({
                                 rows={13}
                                 disabled={sending}
                                 style={{
-                                  width: "100%", padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55,
+                                  width: "100%", padding: "10px 12px", fontSize: "var(--fs-12-5)", lineHeight: 1.55,
                                   fontFamily: "inherit", border: "none", borderRadius: 0,
                                   background: "transparent", color: "var(--text)", resize: "vertical",
                                   display: "block",
@@ -782,7 +782,7 @@ export function ShareLinkCard({
                                   aria-label="PIN email subject"
                                   disabled={sending}
                                   style={{
-                                    width: "100%", padding: "8px 12px", fontSize: 13, fontWeight: 700,
+                                    width: "100%", padding: "8px 12px", fontSize: "var(--fs-13)", fontWeight: 700,
                                     border: "none", borderBottom: "1px solid var(--border)", borderRadius: 0,
                                     background: "transparent", color: "var(--text)",
                                   }}
@@ -794,7 +794,7 @@ export function ShareLinkCard({
                                   rows={9}
                                   disabled={sending}
                                   style={{
-                                    width: "100%", padding: "10px 12px", fontSize: 12.5, lineHeight: 1.55,
+                                    width: "100%", padding: "10px 12px", fontSize: "var(--fs-12-5)", lineHeight: 1.55,
                                     fontFamily: "inherit", border: "none", borderRadius: 0,
                                     background: "transparent", color: "var(--text)", resize: "vertical",
                                     display: "block",
@@ -816,11 +816,11 @@ export function ShareLinkCard({
                         whole point is that it was read first. */}
                     <button onClick={() => void runSend(confirmSend)}
                       disabled={busy || sending || picked.length === 0 || (!!loadDraft && !draft && !draftError)}
-                      className="btn primary" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px", display: "inline-flex", alignItems: "center", gap: 7, opacity: busy || sending || picked.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
+                      className="btn primary" style={{ fontSize: "var(--fs-13)", fontWeight: 700, padding: "9px 16px", display: "inline-flex", alignItems: "center", gap: 7, opacity: busy || sending || picked.length === 0 || (!!loadDraft && !draft && !draftError) ? 0.6 : 1 }}>
                       {(busy || sending) && <span className="spin-dot" aria-hidden />}
                       {busy || sending ? "Sending…" : `Yes, ${confirmLabel.charAt(0).toLowerCase()}${confirmLabel.slice(1)}`}
                     </button>
-                    <button onClick={closeConfirm} disabled={sending} className="btn" style={{ fontSize: 13, fontWeight: 700, padding: "9px 16px" }}>Cancel</button>
+                    <button onClick={closeConfirm} disabled={sending} className="btn" style={{ fontSize: "var(--fs-13)", fontWeight: 700, padding: "9px 16px" }}>Cancel</button>
 
                   </div>
 
@@ -846,7 +846,7 @@ export function ShareLinkCard({
                   {draft && onOpenInMail && confirmSend === PENDING_LINK && (
                     <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed rgba(180,83,9,0.35)" }}>
                       <div style={{ ...SECTION, marginBottom: 7 }}>Or send it yourself</div>
-                      <div className="muted" style={{ fontSize: 12.5 }}>
+                      <div className="muted" style={{ fontSize: "var(--fs-12-5)" }}>
                         Close this and choose <b>&ldquo;Just create the link&rdquo;</b> first — that is what
                         makes the K-1 readable and produces the real link. Then reopen this to get
                         the drafts.
@@ -863,7 +863,7 @@ export function ShareLinkCard({
                           disabled={sending || recipients.length === 0}
                           className="btn"
                           title="Opens a draft in your mail app — nothing is sent until you send it"
-                          style={{ fontSize: 12.5, fontWeight: 700, padding: "7px 13px", color: BRAND }}>
+                          style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, padding: "7px 13px", color: BRAND }}>
                           ✉ Link email
                         </button>
                         {draft.followUp && (
@@ -872,7 +872,7 @@ export function ShareLinkCard({
                             disabled={sending || recipients.length === 0}
                             className="btn"
                             title="Opens the PIN as its own draft — send it separately from the link"
-                            style={{ fontSize: 12.5, fontWeight: 700, padding: "7px 13px", color: BRAND }}>
+                            style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, padding: "7px 13px", color: BRAND }}>
                             ✉ PIN email
                           </button>
                         )}
@@ -882,12 +882,12 @@ export function ShareLinkCard({
                             disabled={sending}
                             className="btn"
                             title="Records the send on this link, so the roster stops reading LINK ONLY"
-                            style={{ fontSize: 12.5, fontWeight: 700, padding: "7px 13px", marginLeft: "auto" }}>
+                            style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, padding: "7px 13px", marginLeft: "auto" }}>
                             I&rsquo;ve sent them — mark as sent
                           </button>
                         )}
                       </div>
-                      <div className="muted" style={{ fontSize: 11.5, marginTop: 7 }}>
+                      <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 7 }}>
                         Each opens its own draft. Send them as two separate emails.
                       </div>
                     </div>
@@ -902,7 +902,7 @@ export function ShareLinkCard({
           {links.length === 0 && (onCreate || onSend) && confirmSend === null && (
             <>
               {pinOptional ? (
-                <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, marginBottom: 8, cursor: "pointer", color: "var(--text)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "var(--fs-12-5)", marginBottom: 8, cursor: "pointer", color: "var(--text)" }}>
                   <input type="checkbox" checked={requirePin} onChange={(e) => setRequirePin(e.target.checked)} />
                   Protect this link with an access PIN
                 </label>
@@ -918,7 +918,7 @@ export function ShareLinkCard({
               {onSend && canSendWithoutLink ? (
                 <>
                   <button onClick={() => openConfirm(PENDING_LINK)} disabled={busy || sending} className="btn primary"
-                    style={{ fontSize: 13, fontWeight: 700, width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                    style={{ fontSize: "var(--fs-13)", fontWeight: 700, width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 5L2 7" /></svg>
                     {sendLabel}
                   </button>
@@ -927,7 +927,7 @@ export function ShareLinkCard({
                       gets one. */}
                   {onCreate && (
                     <button onClick={() => onCreate(pinOptional ? requirePin : true)} disabled={busy} className="btn"
-                      style={{ fontSize: 12.5, fontWeight: 700, width: "100%", marginTop: 8 }}>
+                      style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, width: "100%", marginTop: 8 }}>
                       {busy ? "Working…" : "Just create the link — I'll send it myself"}
                     </button>
                   )}
@@ -940,7 +940,7 @@ export function ShareLinkCard({
                       anything is created. */}
                   {viewAsHref && (
                     <a href={viewAsHref} target="_blank" rel="noopener noreferrer" className="btn"
-                      style={{ fontSize: 12.5, fontWeight: 700, width: "100%", marginTop: 8, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+                      style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, width: "100%", marginTop: 8, textDecoration: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                       See their page first — creates nothing
                     </a>
@@ -948,7 +948,7 @@ export function ShareLinkCard({
                 </>
               ) : onCreate ? (
                 <button onClick={() => onCreate(pinOptional ? requirePin : true)} disabled={busy} className="btn primary"
-                  style={{ fontSize: 13, fontWeight: 700, width: "100%" }}>
+                  style={{ fontSize: "var(--fs-13)", fontWeight: 700, width: "100%" }}>
                   {busy ? "Working…" : "Create link"}
                 </button>
               ) : null}
@@ -965,8 +965,8 @@ export function ShareLinkCard({
     <>
       <button onClick={() => setOpen(true)} className="btn"
         style={small
-          ? { fontSize: 11.5, padding: "3px 9px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }
-          : { fontSize: 13, padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
+          ? { fontSize: "var(--fs-11-5)", padding: "3px 9px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }
+          : { fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
         <svg width={small ? 12 : 14} height={small ? 12 : 14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></svg>
         {buttonLabel}
       </button>

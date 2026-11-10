@@ -478,12 +478,12 @@ export default function OperatingStatementsReviewPage() {
                         <tr style={{ background: "rgba(11,74,125,0.07)", borderTop: mi ? "2px solid var(--border)" : "none" }}>
                           <td style={{ ...tdL, paddingTop: 10, paddingBottom: 10 }} colSpan={5}>
                             <span style={{ fontWeight: 800 }}>{MONTHS_LONG[period - 1]} {year}</span>
-                            <span className="muted" style={{ fontSize: 12, marginLeft: 10 }}>
+                            <span className="muted" style={{ fontSize: "var(--fs-12)", marginLeft: 10 }}>
                               {open === 0 ? "all dismissed" : `${open} open${rows.length !== open ? ` · ${rows.length - open} dismissed` : ""}`}
                             </span>
                           </td>
                           <td style={{ ...td, paddingTop: 10, paddingBottom: 10 }}>
-                            <Link href={statementHref(period)} style={{ color: "var(--brand)", fontWeight: 700, fontSize: 12.5, textDecoration: "none" }}>
+                            <Link href={statementHref(period)} style={{ color: "var(--brand)", fontWeight: 700, fontSize: "var(--fs-12-5)", textDecoration: "none" }}>
                               {MONTHS[period - 1]} statement ↗
                             </Link>
                           </td>
@@ -534,20 +534,20 @@ function ItemRow({ it, resolved, busy, editing, onEdit, onSaveNote, onResolve, h
     <tr style={{ borderTop: "1px solid var(--border)", opacity: resolved ? 0.45 : 1, verticalAlign: "top" }}>
       <td style={{ ...tdL, whiteSpace: "normal", minWidth: 180 }}>
         <Link href={href} style={{ color: "var(--text)", fontWeight: 700, textDecoration: resolved ? "line-through" : "none" }}>{it.line}</Link>
-        <div className="muted" style={{ fontSize: 11.5 }}>{it.section}</div>
+        <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>{it.section}</div>
       </td>
       <td style={td}>{money(it.actual)}</td>
       <td style={{ ...td, color: "var(--muted)" }}>{missing ? <span title="Budgeted or scheduled year to date">~{money(it.expected ?? null)}</span> : money(it.budget)}</td>
       <td style={{ ...td, fontWeight: 700, color: varColor }}>{missing ? "—" : money(it.variance)}</td>
-      <td style={{ ...tdL, whiteSpace: "normal", maxWidth: 520, fontSize: 13.5, lineHeight: 1.45 }}>
+      <td style={{ ...tdL, whiteSpace: "normal", maxWidth: 520, fontSize: "var(--fs-13-5)", lineHeight: 1.45 }}>
         {editing != null ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <textarea autoFocus value={editing} onChange={(e) => onEdit(e.target.value)} rows={3} style={{ width: "100%" }}
               onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) onSaveNote(editing); if (e.key === "Escape") onEdit(null); }} />
             <div style={{ display: "flex", gap: 6 }}>
-              <button className="btn primary" disabled={busy} onClick={() => onSaveNote(editing)} style={{ fontSize: 12, padding: "4px 12px" }}>{busy ? "Saving…" : "Save note"}</button>
-              <button className="btn" onClick={() => onEdit(null)} style={{ fontSize: 12, padding: "4px 12px" }}>Cancel</button>
-              <span className="muted" style={{ fontSize: 11.5, alignSelf: "center" }}>⌘/Ctrl+Enter to save</span>
+              <button className="btn primary" disabled={busy} onClick={() => onSaveNote(editing)} style={{ fontSize: "var(--fs-12)", padding: "4px 12px" }}>{busy ? "Saving…" : "Save note"}</button>
+              <button className="btn" onClick={() => onEdit(null)} style={{ fontSize: "var(--fs-12)", padding: "4px 12px" }}>Cancel</button>
+              <span className="muted" style={{ fontSize: "var(--fs-11-5)", alignSelf: "center" }}>⌘/Ctrl+Enter to save</span>
             </div>
           </div>
         ) : (
@@ -568,7 +568,7 @@ function ItemRow({ it, resolved, busy, editing, onEdit, onSaveNote, onResolve, h
               <div className="muted">No note yet.</div>
             )}
             {it.reasons.length > 0 && (
-              <div className="muted" style={{ fontSize: 12 }}>Flagged: {it.reasons.join("; ")}</div>
+              <div className="muted" style={{ fontSize: "var(--fs-12)" }}>Flagged: {it.reasons.join("; ")}</div>
             )}
           </div>
         )}
@@ -577,15 +577,15 @@ function ItemRow({ it, resolved, busy, editing, onEdit, onSaveNote, onResolve, h
         {editing == null && (
           <div style={{ display: "inline-flex", gap: 6 }}>
             {!missing && !resolved && (
-              <button className="btn" disabled={busy} onClick={() => onEdit(it.note ?? "")} style={{ fontSize: 12, padding: "4px 10px" }}
+              <button className="btn" disabled={busy} onClick={() => onEdit(it.note ?? "")} style={{ fontSize: "var(--fs-12)", padding: "4px 10px" }}
                 title={it.note ? "Edit the note — an edited note is yours, and auto-explain won't overwrite it" : "Write a note"}>
                 {it.note ? "Edit" : "Note"}
               </button>
             )}
             {resolved ? (
-              <button className="btn" disabled={busy} onClick={() => onResolve(false)} style={{ fontSize: 12, padding: "4px 10px" }}>Undo</button>
+              <button className="btn" disabled={busy} onClick={() => onResolve(false)} style={{ fontSize: "var(--fs-12)", padding: "4px 10px" }}>Undo</button>
             ) : (
-              <button className="btn primary" disabled={busy} onClick={() => onResolve(true)} style={{ fontSize: 12, padding: "4px 12px" }}
+              <button className="btn primary" disabled={busy} onClick={() => onResolve(true)} style={{ fontSize: "var(--fs-12)", padding: "4px 12px" }}
                 title={missing ? "Checked — it doesn't apply this month. Drops it off the list and the checklist" : "Investigated and fine — clears the ? on the statement and drops it off the checklist"}>
                 {busy ? "…" : "Dismiss"}
               </button>

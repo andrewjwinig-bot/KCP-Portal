@@ -161,8 +161,8 @@ export default function InsurancePage() {
         in the broker&rsquo;s own layout, ready to send. Nothing to upload.
       </p>
 
-      {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "#b91c1c", fontWeight: 600, fontSize: 13 }}>{error}</div>}
-      {notice && <div className="card" style={{ borderLeft: "4px solid #15803d", color: "#15803d", fontWeight: 600, fontSize: 13 }}>{notice}</div>}
+      {error && <div className="card" style={{ borderLeft: "4px solid #b91c1c", color: "#b91c1c", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
+      {notice && <div className="card" style={{ borderLeft: "4px solid #15803d", color: "#15803d", fontWeight: 600, fontSize: "var(--fs-13)" }}>{notice}</div>}
       {loading && !data && <div className="card muted">Loading…</div>}
 
       {data && !data.stored && (
@@ -213,7 +213,7 @@ export default function InsurancePage() {
                 )}
               </div>
               <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
-                <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+                <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: "var(--fs-13)" }}>
                   <input type="checkbox" checked={updateBi} onChange={(e) => setUpdateBi(e.target.checked)} />
                   <HoverCard title="BI values from the rent roll" width={300}
                     rows={[
@@ -224,7 +224,7 @@ export default function InsurancePage() {
                     <span>Update BI values from the rent roll</span>
                   </HoverCard>
                 </label>
-                <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+                <label style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: "var(--fs-13)" }}>
                   <input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} />
                   Only locations that change
                 </label>
@@ -238,7 +238,7 @@ export default function InsurancePage() {
           </div>
 
           {(unmatched.length > 0 || shared.length > 0) && (
-            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: 13 }}>
+            <div className="card" style={{ borderLeft: "4px solid #d97706", fontSize: "var(--fs-13)" }}>
               {unmatched.length > 0 && (
                 <div><b>{unmatched.length} location{unmatched.length === 1 ? "" : "s"} match no property</b> and {unmatched.length === 1 ? "is" : "are"} left as the form has {unmatched.length === 1 ? "it" : "them"}: {unmatched.map((r) => r.address || r.locationName).join("; ")}.</div>
               )}
@@ -270,7 +270,7 @@ export default function InsurancePage() {
                     <td style={tdL}>
                       {r.code ? (
                         <Link href={`/properties/${encodeURIComponent(r.code)}`} style={{ textDecoration: "none" }}>
-                          <code style={{ fontSize: 12 }}>{r.code}</code>{" "}
+                          <code style={{ fontSize: "var(--fs-12)" }}>{r.code}</code>{" "}
                           <span className="small">{r.propertyName}</span>
                         </Link>
                       ) : <Pill tone={TONE_AMBER}>NO MATCH</Pill>}

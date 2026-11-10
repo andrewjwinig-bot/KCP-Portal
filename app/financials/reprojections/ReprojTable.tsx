@@ -57,7 +57,7 @@ export function HeaderSelect({ value, onChange, displayLabel, ariaLabel, muted, 
   return (
     <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
       <span style={{ fontSize: 22, fontWeight: 800, color: muted ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{displayLabel}</span>
-      <span aria-hidden style={{ fontSize: 11, lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
+      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}>▾</span>
       <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={ariaLabel}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}>
         {children}
@@ -66,7 +66,7 @@ export function HeaderSelect({ value, onChange, displayLabel, ariaLabel, muted, 
   );
 }
 
-const segBase: React.CSSProperties = { fontSize: 11, fontWeight: 700, padding: "4px 10px", border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", cursor: "pointer", letterSpacing: "0.04em", textTransform: "uppercase" };
+const segBase: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px", border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", cursor: "pointer", letterSpacing: "0.04em", textTransform: "uppercase" };
 const segActive: React.CSSProperties = { background: BRAND, color: "#fff", borderColor: BRAND };
 export function SegToggle({ label, leftLabel, rightLabel, leftActive, onLeft, onRight, disabled }: {
   label: string; leftLabel: string; rightLabel: string; leftActive: boolean; onLeft: () => void; onRight: () => void; disabled?: boolean;
@@ -174,7 +174,7 @@ function Colgroup({ through, mode, plain }: { through: number; mode: Mode; plain
   );
 }
 
-const td: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 12.5 };
+const td: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: "var(--fs-12-5)" };
 
 /** A projected month that can be typed over: the figure, until clicked. */
 function EditCell({ value, typed, onSave, style, tip }: { value: number; typed: boolean; onSave: (v: number | null) => void; style: React.CSSProperties; tip?: { title: string; rows: { label: string; value: string }[] } }) {
@@ -195,7 +195,7 @@ function EditCell({ value, typed, onSave, style, tip }: { value: number; typed: 
     return (
       <td style={{ ...cell, padding: 2 }}>
         <input ref={ref} value={text} inputMode="decimal" aria-label="Reprojected month"
-          style={{ width: "100%", textAlign: "right", fontSize: 12.5, padding: "2px 4px", minWidth: 0 }}
+          style={{ width: "100%", textAlign: "right", fontSize: "var(--fs-12-5)", padding: "2px 4px", minWidth: 0 }}
           onChange={(e) => setText(e.target.value)} onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur(); if (e.key === "Escape") setEditing(false); }} />
       </td>
@@ -283,7 +283,7 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
   if (lines.length === 0 && view.hideEmpty) return null;
   return (
     <div className="card" style={{ padding: 0 }}>
-      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</div>
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "rgba(15,23,42,0.03)", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</div>
       <div className="tableWrap">
         <table style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
           <Colgroup through={view.through} mode={view.mode} plain={view.plain} />
@@ -305,9 +305,9 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
                     <button type="button" className="btn sm" aria-label="Clear typed months"
                       title="Hand the typed months back to the budget"
                       onClick={() => onEdit({ section: sec.name, label: l.label, month: "all", value: null })}
-                      style={{ marginLeft: 6, padding: "0 6px", fontSize: 11, lineHeight: "16px" }}>↺</button>
+                      style={{ marginLeft: 6, padding: "0 6px", fontSize: "var(--fs-11)", lineHeight: "16px" }}>↺</button>
                   )}
-                  {view.showGL && <div className="muted" style={{ fontSize: 10.5, fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
+                  {view.showGL && <div className="muted" style={{ fontSize: "var(--fs-10-5)", fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
                 {figureCells(l, view, {
                   ...(onDrill ? { drill: (period: number, scope: "month" | "ytd") => onDrill({ mask: l.mask, label: l.label, sign, period, scope, monthLabel: MONTHS[period - 1] }) } : {}),
@@ -317,7 +317,7 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
             );})}
             {!hideSubtotal && (
               <tr style={{ background: "rgba(11,74,125,0.06)" }}>
-                <td style={{ fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: BRAND, fontSize: 12.5 }}>{sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`}</td>
+                <td style={{ fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: BRAND, fontSize: "var(--fs-12-5)" }}>{sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`}</td>
                 {figureCells(sec.subtotal, view, { bold: true, color: BRAND })}
               </tr>
             )}
