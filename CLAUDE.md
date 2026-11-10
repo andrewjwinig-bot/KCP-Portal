@@ -1290,6 +1290,27 @@ charges"; `RESPOND_BUSINESS_DAYS`, `respondByFrom`); with no answer the record t
   iframe, the statement, and **Download .eml** (`toEml` in `receiptEml.ts`,
   `GET …/receipts?email=<id>&format=eml|pdf`) — opens in Outlook as the
   record. Pinned by `receiptEml.test.ts`.
+- **EVERY TENANT HAS A CORRESPONDENCE TIMELINE** (owner: "see on the tenants
+  page if they have open charges what our last correspondence to them was …
+  so we can send another email or just keep better data on when and what we
+  sent them"; `correspondence.ts` pure, `correspondenceStore.ts`,
+  `/api/tenant-statements/correspondence`). Merged from the log
+  (`tenant-correspondence` — written by the portal-link send, the payment
+  allocation request and the balance reminder, wording + Message ID kept; a
+  portal link's URL is stored as "[private portal link]", never the bearer
+  link), the receipt-email archive, and allocation requests sent before the
+  log (no wording kept). Shown as a **Last contact** column on the Monthly
+  Statements roster and on Tami's dashboard (amber "Never emailed" / a date
+  30+ days old when the tenant owes — `needsFollowUp`, `FOLLOW_UP_DAYS`; a
+  **Needs follow-up** filter on the roster, a "Longest since last contact"
+  sort on the dashboard), every email in the tenant's expanded row (View →
+  the shared `SentEmailModal`, .eml download), and a Last contact line in
+  Receipt Reconciliation. **Send balance reminder…** (a tenant who owes):
+  `balanceReminder.ts` — editable opening / closing around the open-charges
+  table re-rendered on the server from the stored statement, the statement
+  PDF attached, recipients tickable, FROM TAMI through the same
+  `tenantMail.ts` (`sendFromAr`, `statementPdf`, `arSigner`) the receipt
+  email uses. Pinned by `correspondence.test.ts`.
 
 # Management fees — the intercompany must tie exactly
 

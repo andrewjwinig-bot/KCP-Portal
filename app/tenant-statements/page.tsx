@@ -17,6 +17,8 @@ import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_R
 import { TenantShareLink } from "@/app/cam-recon/TenantShareLink";
 import { OpenCreditsCard, type CreditNote, type CreditApplication } from "./OpenCreditsCard";
 import { AgingScheduleCard } from "./AgingScheduleCard";
+import { CorrespondencePanel, LastContactCell, needsFollowUp } from "./Correspondence";
+import type { LastContact } from "@/lib/statements/correspondence";
 import { READ_ONLY_USERS } from "@/lib/users";
 import type { OpenCreditTracker, AgingSchedule } from "@/lib/statements/openCredits";
 import { AGING_LABEL, AGING_ORDER, CATEGORY_LABEL, CATEGORY_ORDER, type AgingBucket, type ChargeCategory, type StatementCharge } from "@/lib/statements/types";
@@ -116,6 +118,20 @@ export default function TenantStatementsPage() {
   const [sort, setSort] = useState<"statement" | "balance">("statement");
   const [onlyReview, setOnlyReview] = useState(false);
   const [onlyUnshared, setOnlyUnshared] = useState(false);
+  const [onlyFollowUp, setOnlyFollowUp] = useState(false);
+  // When each suite was last emailed — every receipt email, payment request,
+  // portal link and balance reminder (owner: "see … what our last
+  // correspondence to them was").
+  const [contacts, setContacts] = useState<Record<string, LastContact>>({});
+  const [contactNonce, setContactNonce] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/tenant-statements/correspondence", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (alive && j?.ok) setContacts(j.last); })
+      .catch(() => { /* the column reads "—" */ });
+    return () => { alive = false; };
+  }, [contactNonce]);
   // A month where every tenant reconciles publishes itself on import — always
   // (owner: "i dont think id ever uncheck that"; the per-browser opt-out is gone).
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -291,12 +307,13 @@ export default function TenantStatementsPage() {
     if (onlyOwing) list = list.filter((t) => t.summary.totalDue > 0.005);
     if (onlyReview) list = list.filter((t) => !t.tiesOut);
     if (onlyUnshared) list = list.filter((t) => !linkByUnit.get(t.unitRef)?.link);
+    if (onlyFollowUp) list = list.filter((t) => needsFollowUp(t.summary.totalDue, contacts[t.unitRef.toUpperCase()]));
     const q = search.trim().toLowerCase();
     if (q) list = list.filter((t) => t.tenantName.toLowerCase().includes(q) || t.unitRef.toLowerCase().includes(q));
     // "Statement order" is the sequence Skyline printed, so the roster can be
     // read down alongside the paper laser statements; balance is the chase list.
     return sort === "balance" ? [...list].sort((a, b) => b.summary.totalDue - a.summary.totalDue) : list;
-  }, [detail, property, onlyOwing, onlyReview, onlyUnshared, linkByUnit, search, sort]);
+  }, [detail, property, onlyOwing, onlyReview, onlyUnshared, onlyFollowUp, contacts, linkByUnit, search, sort]);
 
   const filteredTotals = useMemo(() => {
     const aging = new Map<AgingBucket, number>();
@@ -518,6 +535,11 @@ export default function TenantStatementsPage() {
                   <input type="checkbox" checked={onlyUnshared} onChange={(e) => setOnlyUnshared(e.target.checked)} />
                   Not shared yet
                 </label>
+                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}
+                  title="Owes, and nothing emailed from the portal in the last 30 days">
+                  <input type="checkbox" checked={onlyFollowUp} onChange={(e) => setOnlyFollowUp(e.target.checked)} />
+                  Needs follow-up
+                </label>
                 <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort tenants">
                   <option value="statement">Statement order</option>
                   <option value="balance">Largest balance first</option>
@@ -545,6 +567,7 @@ export default function TenantStatementsPage() {
                       <th style={th}>Past due</th>
                       <th style={th}>Total due</th>
                       <th style={th}>Statement</th>
+                      <th style={thL}>Last contact</th>
                       <th style={{ ...th, textAlign: "left" }}>Portal link</th>
                     </tr>
                   </thead>
@@ -570,19 +593,21 @@ export default function TenantStatementsPage() {
                               <td style={{ ...td, fontWeight: 700 }}>{money0(g.prior)}</td>
                               <td style={{ ...td, fontWeight: 700, color: g.pastDue > 0.005 ? "#b45309" : "var(--muted)" }}>{g.pastDue > 0.005 ? money0(g.pastDue) : "—"}</td>
                               <td style={{ ...td, fontWeight: 800 }}>{money0(g.total)}</td>
-                              <td colSpan={2} />
+                              <td colSpan={3} />
                             </tr>
                           )}
                           <TenantRows t={t} period={detail.period}
                             linkInfo={linkByUnit.get(t.unitRef) ?? null}
-                            onLinkChange={() => { setLinksNonce((n) => n + 1); reloadDetail(); }}
+                            contact={contacts[t.unitRef.toUpperCase()] ?? null}
+                            contactNonce={contactNonce} onContactChange={() => setContactNonce((n) => n + 1)}
+                            onLinkChange={() => { setLinksNonce((n) => n + 1); reloadDetail(); setContactNonce((n) => n + 1); }}
                             onCloseRequest={closeRequest}
                             open={expanded === t.unitRef} onToggle={() => setExpanded((x) => (x === t.unitRef ? null : t.unitRef))} />
                         </Fragment>
                       );
                     })}
                     {tenants.length === 0 && (
-                      <tr><td colSpan={8} style={{ ...tdL, padding: "22px 12px", color: "var(--muted)" }}>No tenants match those filters.</td></tr>
+                      <tr><td colSpan={9} style={{ ...tdL, padding: "22px 12px", color: "var(--muted)" }}>No tenants match those filters.</td></tr>
                     )}
                   </tbody>
                   {tenants.length > 0 && (
@@ -593,7 +618,7 @@ export default function TenantStatementsPage() {
                           {grouped && propertySubtotal.size > 1 ? ` · ${propertySubtotal.size} properties` : ""}
                         </td>
                         <td style={td}>{money2(filteredTotals.open)}</td>
-                        <td colSpan={2} />
+                        <td colSpan={3} />
                       </tr>
                     </tfoot>
                   )}
@@ -771,9 +796,10 @@ function RecordPayment({ t, period, onDone }: { t: TenantRow; period: string; on
 }
 
 /** One tenant row, expanding to their line-by-line charges. */
-function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onCloseRequest }: {
+function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onCloseRequest, contact, contactNonce, onContactChange }: {
   t: TenantRow; period: string; open: boolean; onToggle: () => void;
   linkInfo: LinkInfo | null; onLinkChange: () => void; onCloseRequest: (id: string) => void;
+  contact: LastContact | null; contactNonce: number; onContactChange: () => void;
 }) {
   const s = t.summary;
   // Defaults to the printed statement order; a third click on the active column
@@ -878,6 +904,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
           <a href={`/api/tenant-statements/${period}/pdf?unitRef=${encodeURIComponent(t.unitRef)}`} onClick={(e) => e.stopPropagation()}
             className="btn" style={{ fontSize: 12, padding: "4px 10px", textDecoration: "none" }}>PDF</a>
         </td>
+        <td style={{ ...tdL, whiteSpace: "nowrap" }}><LastContactCell contact={contact} owed={s.totalDue} /></td>
         {/* Minting, copying, emailing and revoking a tenant's portal link — the
             same control as the recon page, so there is one share flow, not two. */}
         <td style={{ ...tdL, whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
@@ -886,7 +913,7 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
       </tr>
       {open && (
         <tr>
-          <td colSpan={8} style={{ padding: "0 10px 14px", background: "rgba(11,74,125,0.03)" }}>
+          <td colSpan={9} style={{ padding: "0 10px 14px", background: "rgba(11,74,125,0.03)", maxWidth: 0 }}>
             {linkInfo && (
               <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 10px 6px", flexWrap: "wrap" }}>
                 <div style={{ minWidth: 0 }}>
@@ -910,6 +937,8 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
                 </div>
               </div>
             )}
+            <CorrespondencePanel unitRef={t.unitRef} period={period} tenantName={t.tenantName} owed={s.totalDue}
+              nonce={contactNonce} onSent={onContactChange} />
             <div className="muted" style={{ fontSize: 11.5, padding: "8px 10px 0" }}>
               {sort
                 ? <>Sorted by {sort.key === "charge" ? "description" : sort.key} — <button type="button" onClick={(e) => { e.stopPropagation(); setSort(null); }}

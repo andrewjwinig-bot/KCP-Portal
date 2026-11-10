@@ -19,6 +19,9 @@ import { Calendar } from "@/app/components/Calendar";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
 import { APPLICATION_LABEL, APPLICATION_ORDER, byHierarchy, creditUsage, renderReceiptEmail, type Account, type Explanation } from "@/lib/statements/receiptMatch";
 import { HoverCard } from "@/app/components/HoverCard";
+import { SentEmailModal } from "../SentEmailModal";
+import { ago, srcOf } from "../Correspondence";
+import { KIND_LABEL, type CorrespondenceEntry } from "@/lib/statements/correspondence";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const periodLabel = (p: string) => `${MONTHS[Number(p.slice(5, 7)) - 1]} ${p.slice(0, 4)}`;
@@ -138,6 +141,17 @@ export default function ReceiptReconciliationPage() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [period, unit, amountText, received, checkNo, effectivePlan, attach]);
+
+  // What we last sent this tenant — read before sending them another.
+  const [history, setHistory] = useState<CorrespondenceEntry[]>([]);
+  const [viewingEntry, setViewingEntry] = useState<CorrespondenceEntry | null>(null);
+  useEffect(() => {
+    if (!unit) { setHistory([]); return; }
+    let live = true;
+    fetch(`/api/tenant-statements/correspondence?unit=${encodeURIComponent(unit)}`, { cache: "no-store" })
+      .then((r) => r.json()).then((j) => { if (live) setHistory(j?.ok ? j.entries : []); }).catch(() => {});
+    return () => { live = false; };
+  }, [unit, receipts]);
 
   // A new reading of the payment resets the wording to the standard one.
   useEffect(() => { setEdited(false); }, [effectivePlan, unit, amountText, attach]);
@@ -404,6 +418,17 @@ export default function ReceiptReconciliationPage() {
             <div style={{ fontSize: 17, fontWeight: 800 }}>Open charges &amp; credits</div>
             {!applying && <div className="muted small">Type what they paid to see how it applies.</div>}
           </div>
+          <div className="small" style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+            <span style={SECTION}>Last contact</span>
+            {history.length ? (
+              <>
+                <span><b>{new Date(history[0].sentAt).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric" })}</b>
+                  {" "}({ago(history[0].sentAt)}) · {KIND_LABEL[history[0].kind]}{history[0].summary ? ` — ${history[0].summary}` : ""}</span>
+                <button className="btn sm" onClick={() => setViewingEntry(history[0])}>View</button>
+                {history.length > 1 && <span className="muted">· {history.length} emails on file — the full list is on Monthly Statements</span>}
+              </>
+            ) : <span className="muted">Nothing emailed to this suite from the portal yet.</span>}
+          </div>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>
@@ -663,71 +688,14 @@ export default function ReceiptReconciliationPage() {
         )}
       </section>
 
-      {viewing && <SentEmailModal id={viewing} onClose={() => setViewing(null)} />}
+      {viewingEntry && <SentEmailModal src={srcOf(viewingEntry)} onClose={() => setViewingEntry(null)} />}
+      {viewing && <SentEmailModal src={`/api/tenant-statements/receipts?email=${encodeURIComponent(viewing)}`} onClose={() => setViewing(null)} />}
 
       {confirming && detail && plan && (
         <ConfirmSend to={to} subject={subject} tenant={detail.tenant.tenantName} amount={amount} plan={plan} respondBy={detail.respondBy} busy={busy}
           onCancel={() => setConfirming(false)} onSend={() => save("send")} />
       )}
     </main>
-  );
-}
-
-/** One archived email, as it went: the headers, the rendered body, the
- *  attached statement, and an .eml download that opens in Outlook. */
-function SentEmailModal({ id, onClose }: { id: string; onClose: () => void }) {
-  const [e, setE] = useState<(SentEmail & { html: string; text: string }) | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  useEffect(() => {
-    let live = true;
-    fetch(`/api/tenant-statements/receipts?email=${encodeURIComponent(id)}`, { cache: "no-store" })
-      .then(async (r) => { const j = await r.json(); if (!live) return; if (!r.ok) setErr(j.error ?? "Could not open it."); else setE(j.email); })
-      .catch(() => live && setErr("Could not open it."));
-    return () => { live = false; };
-  }, [id]);
-  useEffect(() => {
-    const k = (ev: KeyboardEvent) => { if (ev.key === "Escape") onClose(); };
-    window.addEventListener("keydown", k);
-    return () => window.removeEventListener("keydown", k);
-  }, [onClose]);
-  if (typeof document === "undefined") return null;
-  const base = `/api/tenant-statements/receipts?email=${encodeURIComponent(id)}`;
-  const row = (label: string, value: React.ReactNode) => (
-    <div style={{ display: "grid", gridTemplateColumns: "92px 1fr", gap: 8, alignItems: "baseline" }}>
-      <span style={SECTION}>{label}</span><span className="small" style={{ wordBreak: "break-word" }}>{value}</span>
-    </div>
-  );
-  return createPortal(
-    <div role="dialog" aria-modal="true" onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "grid", placeItems: "center", zIndex: 1000, padding: 16 }}>
-      <div className="card" onClick={(ev) => ev.stopPropagation()} style={{ width: "min(820px, 100%)", maxHeight: "92vh", display: "grid", gridTemplateRows: "auto auto 1fr auto", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, flex: 1 }}>Sent email{e ? ` — ${e.tenantName}` : ""}</div>
-          {e?.testMode && <Pill tone={TONE_AMBER}>TEST MODE · NOT DELIVERED</Pill>}
-          <button className="btn sm" onClick={onClose} title="Close">✕</button>
-        </div>
-        {err ? <div className="small" style={{ color: "#b91c1c" }}>{err}</div> : !e ? <div className="muted small">Opening…</div> : (
-          <div style={{ display: "grid", gap: 4 }}>
-            {row("Sent", <>{new Date(e.sentAt).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", timeZoneName: "short" })}{e.sentBy ? ` · by ${e.sentBy}` : ""}</>)}
-            {row("From", e.from)}
-            {row("To", e.to.join(", "))}
-            {e.bcc && row("Bcc", e.bcc)}
-            {e.replyTo && row("Reply-To", e.replyTo)}
-            {row("Subject", <b>{e.subject}</b>)}
-            {row("Answer by", e.respondByISO ? longDate(e.respondByISO) : "—")}
-            {row("Message ID", e.messageId ? <code style={{ fontSize: 12 }}>{e.messageId}</code> : <span className="muted">none returned</span>)}
-            {row("Attached", e.attachmentName ? <a href={`${base}&format=pdf`} target="_blank" rel="noreferrer">{e.attachmentName}</a> : <span className="muted">no attachment</span>)}
-          </div>
-        )}
-        {e ? (
-          <iframe title="Email as sent" sandbox="" srcDoc={e.html} style={{ width: "100%", minHeight: 360, height: "100%", border: "1px solid var(--border)", borderRadius: 8, background: "#fff" }} />
-        ) : <div />}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span className="muted small">The archived copy — the exact HTML, recipients and statement that went. The Message ID finds it in Postmark&rsquo;s activity log.</span>
-          {e && <a className="btn primary" style={{ textDecoration: "none" }} href={`${base}&format=eml`}>Download .eml</a>}
-        </div>
-      </div>
-    </div>,
-    document.body,
   );
 }
 

@@ -9,7 +9,8 @@ import { camRecipientEmails } from "@/lib/suites/contacts";
 import { getRun } from "@/lib/statements/store";
 import { saveAllocationRequest, getAllocationRequest, allocationRequestsForPeriod } from "@/lib/statements/allocationRequestStore";
 import type { AllocationRequest } from "@/lib/statements/remittance";
-import { sendMail, isMailConfigured } from "@/lib/mail";
+import { sendMailDetailed, isMailConfigured } from "@/lib/mail";
+import { newCorrespondenceId, recordTenantEmail } from "@/lib/statements/correspondenceStore";
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
 
@@ -94,12 +95,13 @@ export async function POST(req: NextRequest) {
         ...(link.expiresAt ? { exp: Math.floor(new Date(link.expiresAt).getTime() / 1000) } : {}),
       });
       const url = `${linkOrigin(req)}/portal/${token}`;
-      const sent = await sendMail({
+      const subject = `We received your payment of ${money(amount)} — which charges should it cover?`;
+      const sent = await sendMailDetailed({
         to: recipients.join(", "),
       // The tenant must see the portal's own domain, not a tracking
       // redirector — see `noLinkTracking`.
       noLinkTracking: true,
-        subject: `We received your payment of ${money(amount)} — which charges should it cover?`,
+        subject,
         textBody: [
           statement.tenantName ? `Hi ${statement.tenantName},` : "Hello,",
           "",
@@ -116,7 +118,16 @@ export async function POST(req: NextRequest) {
           "— Korman Commercial Properties",
         ].join("\n"),
       });
-      if (sent) { rec.askedAt = new Date().toISOString(); rec.askedTo = recipients; }
+      if (sent.ok) {
+        rec.askedAt = new Date().toISOString(); rec.askedTo = recipients;
+        await recordTenantEmail({
+          id: newCorrespondenceId(statement.unitRef), kind: "allocation-request", unitRef: statement.unitRef, propertyCode: statement.propertyCode,
+          tenantName: statement.tenantName, sentAt: rec.askedAt, sentBy: rec.createdBy, from: null, to: recipients, bcc: null, replyTo: null,
+          subject, text: `Asked the tenant to allocate a payment of ${money(amount)}${rec.paymentRef ? ` (${rec.paymentRef})` : ""} through their portal.${rec.note ? `\n\n${rec.note}` : ""}`,
+          html: null, messageId: sent.messageId ?? null, testMode: !!sent.testMode, attachment: null,
+          summary: `${money(amount)} received${rec.paymentRef ? ` (${rec.paymentRef})` : ""}`, refId: rec.id, balance: null,
+        });
+      }
       else mailError = "The email failed to send. The payment is recorded — try asking again.";
     }
   }

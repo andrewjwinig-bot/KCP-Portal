@@ -6,7 +6,9 @@ import { linkSecret, signTenantToken } from "@/lib/cam/tenantLink/token";
 import { getTenantLink } from "@/lib/cam/tenantLink/store";
 import { getOrEmptySuiteContacts } from "@/lib/suites/contactsStorage";
 import { camRecipientEmails } from "@/lib/suites/contacts";
-import { isMailConfigured, sendMail } from "@/lib/mail";
+import { isMailConfigured, sendMailDetailed } from "@/lib/mail";
+import { newCorrespondenceId, recordTenantEmail } from "@/lib/statements/correspondenceStore";
+import { USERS } from "@/lib/users";
 import { linkOrigin } from "@/lib/linkOrigin";
 
 // Admin action: EMAIL a tenant's private portal link to their statement
@@ -75,15 +77,27 @@ export async function POST(req: NextRequest) {
   });
   const url = `${linkOrigin(req)}/portal/${token}`;
 
-  const sent = await sendMail({
+  const subject = `Your ${link.year} CAM / RET statement — Korman Commercial Properties`;
+  const textBody = emailBody(tenantName, link.year, url);
+  const sent = await sendMailDetailed({
     to: recipients.join(", "),
     // The tenant must see the portal's own domain, not a tracking
     // redirector — see `noLinkTracking`.
     noLinkTracking: true,
-    subject: `Your ${link.year} CAM / RET statement — Korman Commercial Properties`,
-    textBody: emailBody(tenantName, link.year, url),
+    subject,
+    textBody,
   });
-  if (!sent) return NextResponse.json({ error: "The email failed to send. Please try again." }, { status: 502 });
+  if (sent.ok) {
+    // On the tenant's correspondence timeline — the link itself is a bearer
+    // credential, so the kept wording carries a placeholder, not the URL.
+    await recordTenantEmail({
+      id: newCorrespondenceId(link.unitRef), kind: "portal-link", unitRef: link.unitRef, propertyCode: link.property, tenantName,
+      sentAt: new Date().toISOString(), sentBy: USERS[user]?.label ?? user, from: null, to: recipients, bcc: null, replyTo: null,
+      subject, text: textBody.replace(url, "[private portal link]"), html: null, messageId: sent.messageId ?? null, testMode: !!sent.testMode,
+      attachment: null, summary: `${link.year} CAM / RET statement`, refId: link.id, balance: null,
+    });
+  }
+  if (!sent.ok) return NextResponse.json({ error: "The email failed to send. Please try again." }, { status: 502 });
 
   return NextResponse.json({ ok: true, recipients });
 }

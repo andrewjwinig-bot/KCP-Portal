@@ -14,6 +14,8 @@ import Link from "next/link";
 import { StatPill, Pill, TONE_AMBER } from "@/app/components/Pill";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
 import type { OpenCreditTracker } from "@/lib/statements/openCredits";
+import type { LastContact } from "@/lib/statements/correspondence";
+import { LastContactCell, needsFollowUp } from "@/app/tenant-statements/Correspondence";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const periodLabel = (p: string) => `${MONTHS[Number(p.slice(5, 7)) - 1]} ${p.slice(0, 4)}`;
@@ -35,7 +37,17 @@ const receiptLink = (period: string, unit: string) => `/tenant-statements/receip
 export default function ReceivablesOverview() {
   const [data, setData] = useState<Period | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [arSort, setArSort] = useState<"pastDue" | "total" | "property">("pastDue");
+  const [arSort, setArSort] = useState<"pastDue" | "total" | "property" | "contact">("pastDue");
+  // When each suite was last emailed from the portal — so a tenant who owes
+  // and has heard nothing reads at a glance.
+  const [contacts, setContacts] = useState<Record<string, LastContact>>({});
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/tenant-statements/correspondence", { cache: "no-store" }).then((r) => r.json())
+      .then((j) => { if (alive && j?.ok) setContacts(j.last); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const contactOf = (u: string) => contacts[u.toUpperCase()] ?? null;
 
   useEffect(() => {
     let alive = true;
@@ -57,8 +69,14 @@ export default function ReceivablesOverview() {
     const sorted = [...rows];
     if (arSort === "pastDue") sorted.sort((a, b) => b.summary.pastDueAmount - a.summary.pastDueAmount || b.summary.totalDue - a.summary.totalDue);
     else if (arSort === "total") sorted.sort((a, b) => b.summary.totalDue - a.summary.totalDue);
+    else if (arSort === "contact") {
+      // Longest since we last wrote first; never written to, first of all.
+      const at = (u: string) => contacts[u.toUpperCase()]?.last.sentAt ?? "";
+      sorted.sort((a, b) => at(a.unitRef).localeCompare(at(b.unitRef)) || b.summary.totalDue - a.summary.totalDue);
+    }
     return sorted; // "property" keeps the laser statement's own (property) order
-  }, [data, arSort]);
+  }, [data, arSort, contacts]);
+  const followUps = useMemo(() => owing.filter((t) => needsFollowUp(t.summary.totalDue, contacts[t.unitRef.toUpperCase()])).length, [owing, contacts]);
   const credits = useMemo(() => (data?.credits.groups ?? []).flatMap((g) => g.rows.map((r) => ({ ...r, group: g.group }))), [data]);
   const totals = useMemo(() => ({
     open: owing.reduce((a, t) => a + t.summary.totalDue, 0),
@@ -142,10 +160,12 @@ export default function ReceivablesOverview() {
           {/* ── Open A/R ── */}
           <section className="card" style={{ padding: 0 }}>
             <div style={{ padding: "14px 18px 6px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 17, fontWeight: 800 }}>Tenants with open A/R <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>· {owing.length}</span></div>
+              <div style={{ fontSize: 17, fontWeight: 800 }}>Tenants with open A/R <span className="muted" style={{ fontSize: 13, fontWeight: 600 }}>· {owing.length}</span>
+                {followUps > 0 && <span style={{ marginLeft: 8 }}><Pill tone={TONE_AMBER}>{`${followUps} ${followUps === 1 ? "NEEDS" : "NEED"} FOLLOW-UP`}</Pill></span>}</div>
               <select className="select-sm" value={arSort} onChange={(e) => setArSort(e.target.value as typeof arSort)} aria-label="Sort">
                 <option value="pastDue">Most past due first</option>
                 <option value="total">Largest balance first</option>
+                <option value="contact">Longest since last contact</option>
                 <option value="property">Statement order</option>
               </select>
             </div>
@@ -153,7 +173,7 @@ export default function ReceivablesOverview() {
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr>
-                    <th style={thL}>Tenant</th><th style={thL}>Property</th><th style={thL}>Oldest</th><th style={th}>Current</th><th style={th}>Past due</th><th style={th}>Credit</th><th style={th}>Balance due</th>
+                    <th style={thL}>Tenant</th><th style={thL}>Property</th><th style={thL}>Oldest</th><th style={th}>Current</th><th style={th}>Past due</th><th style={th}>Credit</th><th style={th}>Balance due</th><th style={thL}>Last contact</th>
                   </tr></thead>
                   <tbody>
                     {owing.map((t) => (
@@ -168,6 +188,7 @@ export default function ReceivablesOverview() {
                         <td style={{ ...td, fontWeight: t.summary.pastDueAmount > 0.005 ? 700 : 400, color: t.summary.pastDueAmount > 0.005 ? "#b91c1c" : "var(--muted)" }}>{t.summary.pastDueAmount > 0.005 ? money(t.summary.pastDueAmount) : "—"}</td>
                         <td style={{ ...td, color: t.summary.credits > 0.005 ? "#15803d" : "var(--muted)" }}>{t.summary.credits > 0.005 ? `(${money(t.summary.credits)})` : "—"}</td>
                         <td style={{ ...td, fontWeight: 800 }}>{money(t.summary.totalDue)}</td>
+                        <td style={{ ...tdL, whiteSpace: "nowrap" }}><LastContactCell contact={contactOf(t.unitRef)} owed={t.summary.totalDue} /></td>
                       </tr>
                     ))}
                     <tr style={{ borderTop: "2px solid var(--border)" }}>
@@ -175,6 +196,7 @@ export default function ReceivablesOverview() {
                       <td style={{ ...td, fontWeight: 800, color: "#b91c1c" }}>{money(totals.pastDue)}</td>
                       <td style={td} />
                       <td style={{ ...td, fontWeight: 800 }}>{money(totals.open)}</td>
+                      <td />
                     </tr>
                   </tbody>
                 </table>
