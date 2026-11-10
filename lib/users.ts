@@ -49,6 +49,14 @@ const RESIDENTIAL_INDIVIDUAL = new Set(["9800", "9820", "9840", "9860"]);
 // Harry's deposit scope — shopping centers + residential (Korman Homes).
 const SC_AND_RESIDENTIAL = new Set([...SC_INDIVIDUAL, ...RESIDENTIAL_INDIVIDUAL]);
 
+
+/** The Open Credits page — granted on its own to people who VIEW it (Harry,
+ *  Alison, Nancy) without the rest of Monthly Statements. */
+export const OPEN_CREDITS_PAGE = "/tenant-statements/credits";
+
+/** Works Open Credits (import, email, notes) — the Monthly Statements grant;
+ *  anyone else with the page only reads it. */
+export const canWorkCredits = (userId: UserId) => isPathAllowed(userId, "/tenant-statements");
 const universalNav = new Set(["dashboard", "properties", "rentroll"]);
 
 // SERVICE-tier access — maintenance, expenses, reservations. Shared by the
@@ -168,10 +176,10 @@ export const USERS: Record<UserId, UserDef> = {
   nancy: {
     id: "nancy",
     label: "NANCY",
-    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets"]),
+    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets", "open-credits"]),
     // Financials is limited to Budgets only — no Operating Statements,
     // Reprojections, or Cash Sheet.
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials/budgets", "/cam-recon"],
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials/budgets", "/cam-recon", OPEN_CREDITS_PAGE],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
@@ -193,10 +201,10 @@ export const USERS: Record<UserId, UserDef> = {
     // "financials-budgets": Harry owns the shopping centres' leasing
     // assumptions, which live on the master budget page — without the grant
     // he could not open the page, or save a decision, on work assigned to him.
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets", "bank-balances"]),
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets", "bank-balances", "open-credits"]),
     // "/financials/cash-analysis" is Bank Balances — VIEW ONLY for Harry
     // (owner): `canEditCashSheet` keeps the import and reserves to Drew/admin.
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/financials/budgets", "/financials/cash-analysis", "/"],
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/financials/budgets", "/financials/cash-analysis", OPEN_CREDITS_PAGE, "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
@@ -230,9 +238,9 @@ export const USERS: Record<UserId, UserDef> = {
     label: "ALISON",
     // President — a high-level view: dashboard, properties, investors,
     // rent roll, debt. No operational tools or action items.
-    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "bank-balances", "investor-k1"]),
+    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "bank-balances", "investor-k1", "open-credits"]),
     allowedPathPrefixes: [
-      "/dashboard", "/properties", "/rentroll", "/units", "/investors", "/debt",
+      "/dashboard", "/properties", "/rentroll", "/units", "/investors", "/debt", OPEN_CREDITS_PAGE,
       "/bank-transfers", "/financials", "/cam-recon", "/reports", "/insurance",
       // Capability key, not a page — the K-1 tooling renders inside /investors.
       // Granted by the owner in full knowledge that Alison is herself a
@@ -435,6 +443,13 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   ["/api/financials", "/financials"],
   // Tenant portal links are minted from Monthly Statements as well as the recon.
   ["/api/cam-recon/tenant-link", ["/cam-recon", "/tenant-statements"]],
+  // Open Credits reads these two (the list + the last email sent); a VIEW-only
+  // grant of the page (Harry, Alison, Nancy) reads them — writes are refused by
+  // VIEW_ONLY_API below. Everything else under /api/tenant-statements is the
+  // Monthly Statements' (it was open to any signed-in login).
+  ["/api/tenant-statements/aging", ["/tenant-statements", OPEN_CREDITS_PAGE]],
+  ["/api/tenant-statements/correspondence", ["/tenant-statements", OPEN_CREDITS_PAGE]],
+  ["/api/tenant-statements", "/tenant-statements"],
   ["/api/cam-recon", "/cam-recon"],
   ["/api/cam-config", "/cam-recon"],
   ["/api/reports", "/reports"],
@@ -450,6 +465,11 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
 const API_AUTHZ_EXEMPT = ["/api/financials/budgets/kpis"];
 
 const underPrefix = (pathname: string, p: string) => pathname === p || pathname.startsWith(p + "/");
+
+/** A WRITE under these APIs needs the full page, not a view grant: Open
+ *  Credits is VIEW-ONLY for anyone without Monthly Statements (owner: "give
+ *  harry, alison, and nancy viewing access") — no import, email or note. */
+const VIEW_ONLY_API: [apiPrefix: string, writePage: string][] = [["/api/tenant-statements", "/tenant-statements"]];
 
 /** Server-side authorization for a request path. Pages use isPathAllowed;
  *  sensitive API groups map to their governing page; everything else stays
@@ -473,6 +493,8 @@ export function authorizeRequest(userId: UserId, pathname: string, method = "GET
   if (pathname === "/security" || pathname.startsWith("/security/") || pathname.startsWith("/api/2fa")) return true;
   if (pathname.startsWith("/api/")) {
     if (API_AUTHZ_EXEMPT.some((p) => underPrefix(pathname, p))) return true;
+    const viewOnly = VIEW_ONLY_API.find(([api]) => underPrefix(pathname, api));
+    if (viewOnly && !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase()) && !isPathAllowed(userId, viewOnly[1])) return false;
     const match = SENSITIVE_API_PREFIXES.find(([api]) => underPrefix(pathname, api));
     if (!match) return true;
     const pages = Array.isArray(match[1]) ? match[1] : [match[1]];

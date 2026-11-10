@@ -1,4 +1,5 @@
 "use client";
+import { MIN_OPEN_CREDIT } from "@/lib/statements/aging";
 import { ChevronRight } from "lucide-react";
 
 // Tami's dashboard — the receivables, and nothing else (owner, 11/2026: "can
@@ -78,7 +79,16 @@ export default function ReceivablesOverview() {
     return sorted; // "property" keeps the Laser Statement's own (property) order
   }, [data, arSort, contacts]);
   const followUps = useMemo(() => owing.filter((t) => needsFollowUp(t.summary.totalDue, contacts[t.unitRef.toUpperCase()])).length, [owing, contacts]);
-  const credits = useMemo(() => (data?.credits.groups ?? []).flatMap((g) => g.rows.map((r) => ({ ...r, group: g.group }))), [data]);
+  // A credit under $5 isn't worth chasing (owner) — left off here as on Open Credits.
+  const creditView = useMemo(() => {
+    const groups = (data?.credits.groups ?? [])
+      .map((g) => { const rows = g.rows.filter((r) => r.credit >= MIN_OPEN_CREDIT); return { ...g, rows, count: rows.length, credit: rows.reduce((a, r) => a + r.credit, 0) }; })
+      .filter((g) => g.rows.length);
+    const rows = groups.flatMap((g) => g.rows);
+    const owed = rows.filter((r) => r.net < -0.005);
+    return { groups, total: rows.reduce((a, r) => a + r.credit, 0), count: rows.length, netCreditTotal: owed.reduce((a, r) => a - r.net, 0), netCreditCount: owed.length };
+  }, [data]);
+  const credits = useMemo(() => creditView.groups.flatMap((g) => g.rows.map((r) => ({ ...r, group: g.group }))), [creditView]);
   const totals = useMemo(() => ({
     open: owing.reduce((a, t) => a + t.summary.totalDue, 0),
     pastDue: owing.reduce((a, t) => a + t.summary.pastDueAmount, 0),
@@ -115,8 +125,8 @@ export default function ReceivablesOverview() {
           <div className="pills" style={{ justifyContent: "flex-start", margin: 0 }}>
             <StatPill label="Open A/R" value={money0(totals.open)} sub={plural(owing.length, "tenant")} total />
             <StatPill label="Past due" value={money0(totals.pastDue)} sub={plural(totals.pastDueCount, "tenant")} accent={totals.pastDue > 0.5 ? "var(--c-b91c1c)" : undefined} />
-            <StatPill label="Open credits" value={money0(data.credits.total)} sub={plural(data.credits.count, "tenant")} accent={data.credits.count ? "var(--c-15803d)" : undefined} />
-            <StatPill label="Net credit" value={money0(data.credits.netCreditTotal)} sub={`${data.credits.netCreditCount} owed a refund or credit`} />
+            <StatPill label="Open credits" value={money0(creditView.total)} sub={plural(creditView.count, "tenant")} accent={creditView.count ? "var(--c-15803d)" : undefined} />
+            <StatPill label="Net credit" value={money0(creditView.netCreditTotal)} sub={`${creditView.netCreditCount} owed a refund or credit`} />
           </div>
 
           {/* ── Open credits ── */}
@@ -132,7 +142,7 @@ export default function ReceivablesOverview() {
                     <th style={thL}>Tenant</th><th style={thL}>Property</th><th style={th}>Credit</th><th style={th}>Open charges</th><th style={th}>Net</th><th style={thL}>Since</th>
                   </tr></thead>
                   <tbody>
-                    {data.credits.groups.map((g) => (
+                    {creditView.groups.map((g) => (
                       <Fragment key={g.group}>
                         <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))" }}>
                           <td colSpan={6} style={{ ...tdL, fontWeight: 800 }}>{g.group} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}>· {g.count} · {money0(g.credit)}</span></td>

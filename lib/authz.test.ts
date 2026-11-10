@@ -144,3 +144,37 @@ describe("Tami — tenant receipts, a narrow view", () => {
     for (const u of ["drew", "harry", "nancy", "randy"] as const) expect(authorizeRequest(u, "/reports")).toBe(true);
   });
 });
+
+describe("Open Credits — Harry, Alison and Nancy VIEW it", () => {
+  const viewers = ["harry", "alison", "nancy"] as const;
+  it("open the page and read its data", () => {
+    for (const u of viewers) {
+      expect(authorizeRequest(u, "/tenant-statements/credits")).toBe(true);
+      expect(authorizeRequest(u, "/api/tenant-statements/aging")).toBe(true);
+      expect(authorizeRequest(u, "/api/tenant-statements/correspondence")).toBe(true);
+    }
+  });
+  it("cannot import, email or note — writes are Monthly Statements'", () => {
+    for (const u of viewers) {
+      expect(authorizeRequest(u, "/api/tenant-statements/aging", "POST")).toBe(false);
+      expect(authorizeRequest(u, "/api/tenant-statements/credit-notes", "POST")).toBe(false);
+      expect(authorizeRequest(u, "/api/tenant-statements/correspondence", "POST")).toBe(false);
+    }
+  });
+  it("get nothing else of Monthly Statements", () => {
+    for (const u of viewers) {
+      expect(authorizeRequest(u, "/tenant-statements")).toBe(false);
+      expect(authorizeRequest(u, "/tenant-statements/receipts")).toBe(false);
+      expect(authorizeRequest(u, "/api/tenant-statements/2026-11")).toBe(false);
+      expect(authorizeRequest(u, "/api/tenant-statements/receipts")).toBe(false);
+    }
+  });
+  it("tenant A/R is no longer open to every login", () => {
+    expect(authorizeRequest("maint", "/api/tenant-statements/2026-11")).toBe(false);
+    expect(authorizeRequest("maint", "/api/tenant-statements/aging")).toBe(false);
+  });
+  it("Tami still works it", () => {
+    expect(authorizeRequest("tami", "/api/tenant-statements/aging", "POST")).toBe(true);
+    expect(authorizeRequest("tami", "/api/tenant-statements/credit-notes", "POST")).toBe(true);
+  });
+});

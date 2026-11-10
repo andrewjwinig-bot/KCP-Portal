@@ -1522,6 +1522,17 @@ variant="credit-balance"`. Its title prints "Aging Report (Detailed)".
 - **A credit under $5 is not listed** (`MIN_OPEN_CREDIT`; owner: "we dont
   need to bother emailing the tenant for something that small") — the page
   says how many were left off. Receipt Reconciliation still applies them.
+  Tami's dashboard ("Tenants with open credits" and its tiles) leaves them off
+  too.
+- **Harry, Alison and Nancy VIEW Open Credits** (owner; `OPEN_CREDITS_PAGE`
+  on their profiles, the `open-credits` nav key): the list, the lines, the
+  last email — no import, Email or note (`canWorkCredits` = the Monthly
+  Statements grant). The server enforces it: `/api/tenant-statements/aging`
+  and `/correspondence` answer to `/tenant-statements` OR the Open Credits
+  page, every other `/api/tenant-statements` route to Monthly Statements
+  alone, and `VIEW_ONLY_API` refuses a write from anyone without Monthly
+  Statements. `/api/tenant-statements` had NO gate before this — any signed-in
+  login could read tenant A/R through it. Pinned by `authz.test.ts`.
 - **The report imports from BOTH pages** — Open Credits and Receipt
   Reconciliation's header (`useCreditBalanceImport`, one flow; the SAME white `.btn` on both) — and the
   Skyline steps sit behind an ⓘ (`InfoPopover`, `app/components/`, shared with
