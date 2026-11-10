@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
+import { IMPORT_REMINDERS, reminderStatus, reminderPeriodLabel, type ImportCoverage, type ImportEvent } from "@/lib/tracker/imports";
+import { HoverCard } from "./HoverCard";
 import { openThisWeekCount, type Todo } from "@/lib/todos/types";
 import { accessGroup, NO_REPORT_CENTER } from "@/lib/users";
 import { useUser } from "./UserProvider";
@@ -905,6 +907,46 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     }).length;
   }, []);
 
+  // IMPORTS DUE: a badge on the page that takes the import (owner: "if GLs need
+  // to be posted in operating statements page … or if i need to run the bank
+  // balance report"). The viewer's own reminders only, judged by the same
+  // `reminderStatus` the dashboard and Task Tracker use; a multi-file import
+  // (the GL) counts the properties still owed. Hover the badge for what.
+  const importOwner = user.id === "admin" ? "drew" : user.id;
+  const [importsDue, setImportsDue] = useState<Record<string, { n: number; rows: { label: string; value: string }[] }>>({});
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      fetch("/api/tracker/import-events", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j: { events?: Record<string, ImportEvent>; coverage?: Record<string, ImportCoverage> } | null) => {
+          if (!alive || !j) return;
+          const now = new Date();
+          const out: Record<string, { n: number; rows: { label: string; value: string }[] }> = {};
+          for (const r of IMPORT_REMINDERS) {
+            if ((r.owner ?? "drew") !== importOwner) continue;
+            const cov = j.coverage?.[r.id];
+            const st = reminderStatus(r, j.events?.[r.id]?.at, now, cov);
+            if (st !== "due" && st !== "overdue") continue;
+            const n = cov && cov.total > 1 ? Math.max(1, cov.behind.length) : 1;
+            const period = reminderPeriodLabel(r, now);
+            const cur = out[r.link] ?? { n: 0, rows: [] };
+            cur.n += n;
+            cur.rows.push({
+              label: `${r.label}${period ? ` · ${period}` : ""}`,
+              value: cov && cov.total > 1 ? `${cov.behind.length} of ${cov.total} to import` : st === "overdue" ? "Overdue" : "Due now",
+            });
+            out[r.link] = cur;
+          }
+          setImportsDue(out);
+        })
+        .catch(() => { /* ignore */ });
+    };
+    load();
+    const timer = setInterval(load, 120000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [importOwner, pathname]);
+
   function isActive(item: (typeof NAV)[number]) {
     if (item.external) return false;
     if (item.href === "/") return pathname === "/";
@@ -943,6 +985,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     if (item.label === "Reservations") return reservationPending;
     if (item.label === "Requests") return maintenancePending;
     if (item.label === "Task Tracker") return tasksThisWeek + todoBadge;
+    if (!item.external && importsDue[item.href]) return importsDue[item.href].n;
     return 0;
   }
 
@@ -965,47 +1008,49 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
         borderRight: "1px solid var(--sb-line)",
       }}
     >
-      {/* User switcher + toggle button */}
+      {/* Logo (new look) over the user switcher + toggle button */}
       <div
         style={{
           display: "flex",
-          alignItems: "center",
-          gap: 8,
-          justifyContent: open ? "space-between" : "center",
+          flexDirection: "column",
+          gap: 10,
           padding: open ? "14px 12px 14px 12px" : "14px 0",
           borderBottom: "1px solid var(--sb-head-line)",
           background: "var(--sb-head-bg)",
           flexShrink: 0,
         }}
       >
-        {open && (
-          <div className="sb-head-main" style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, flex: 1 }}>
-            {/* The real Korman logo — shown by the new look only. */}
-            <img className="sb-logo" src="/site/Korman_CORPORATE_logo_WHT.png" alt="Korman Commercial Properties" width={1391} height={172} style={{ display: "none", height: 20, width: "auto", maxWidth: "100%", alignSelf: "flex-start", objectFit: "contain", flexShrink: 0 }} />
-            <UserSwitcher collapsed={false} />
-          </div>
-        )}
-        <button
-          onClick={onToggle}
-          title={open ? "Collapse sidebar" : "Expand sidebar"}
-          style={{
-            background: "none",
-            border: "none",
-            color: "var(--sb-head-icon)",
-            cursor: "pointer",
-            padding: 4,
-            borderRadius: 6,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <polyline points="3 6 21 6" />
-            <polyline points="3 18 21 18" />
-          </svg>
-        </button>
+        {/* The real Korman logo — shown by the new look only, the full width
+            of the sidebar (owner: "make the logo bigger to fill the width"). */}
+        {open && <img className="sb-logo" src="/site/Korman_CORPORATE_logo_WHT.png" alt="Korman Commercial Properties" width={1391} height={172} style={{ display: "none", width: "100%", height: "auto", objectFit: "contain", flexShrink: 0, padding: "2px 4px" }} />}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: open ? "space-between" : "center" }}>
+          {open && (
+            <div className="sb-head-main" style={{ minWidth: 0, flex: 1 }}>
+              <UserSwitcher collapsed={false} />
+            </div>
+          )}
+          <button
+            onClick={onToggle}
+            title={open ? "Collapse sidebar" : "Expand sidebar"}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--sb-head-icon)",
+              cursor: "pointer",
+              padding: 4,
+              borderRadius: 6,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <polyline points="3 6 21 6" />
+              <polyline points="3 18 21 18" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Global search trigger */}
@@ -1113,14 +1158,20 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                     )}
                   </span>
                 )}
-                {open && badge > 0 && (
-                  <span style={{
-                    marginLeft: "auto", minWidth: 18, height: 18, padding: "0 5px",
-                    borderRadius: 999, background: "var(--c-dc2626)", color: "#fff",
-                    fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>{badge}</span>
-                )}
+                {open && badge > 0 && (() => {
+                  const dot = (
+                    <span style={{
+                      minWidth: 18, height: 18, padding: "0 5px",
+                      borderRadius: 999, background: "var(--c-dc2626)", color: "#fff",
+                      fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                    }}>{badge}</span>
+                  );
+                  const due = !item.external ? importsDue[item.href] : undefined;
+                  return due
+                    ? <HoverCard title="Files to import" rows={due.rows} width={260} help={false} style={{ marginLeft: "auto", display: "flex" }}>{dot}</HoverCard>
+                    : <span style={{ marginLeft: "auto", display: "flex" }}>{dot}</span>;
+                })()}
                 {!open && badge > 0 && (
                   <span style={{
                     position: "absolute", top: 3, right: 6,
