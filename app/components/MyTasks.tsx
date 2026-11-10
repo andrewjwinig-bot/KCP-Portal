@@ -1,5 +1,8 @@
 "use client";
 
+import { RoundCheck } from "./RoundCheck";
+import { Plus } from "lucide-react";
+
 // Personal to-do list — a private, per-user task list. Not a page of its own:
 // it's embedded in the dashboard "Tasks This Week" card (compact) and on the
 // Task Tracker page (full). New tasks are added through a modal (text, due date,
@@ -221,18 +224,12 @@ export default function MyTasks({ compact = false, title }: { compact?: boolean;
     const dueInfo = t.due ? formatDue(t.due, now) : null;
     const p = priorityOf(t);
     return (
-      <div className="mytask-row" style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "rgba(15,23,42,0.02)", borderLeft: p === "high" ? `3px solid ${RED}` : undefined }}>
-        <button onClick={() => toggleDone(t)} aria-label={t.done ? "Mark not done" : "Mark done"} style={{
-          flexShrink: 0, marginTop: 1, width: 18, height: 18, borderRadius: 5, cursor: "pointer", padding: 0,
-          border: `2px solid ${t.done ? GREEN : "var(--border)"}`, background: t.done ? GREEN : "transparent",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          {t.done && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
-        </button>
+      <div className="mytask-row task-row" style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "11px 2px", borderBottom: "1px solid var(--hairline, var(--border))" }}>
+        <RoundCheck done={!!t.done} onToggle={() => toggleDone(t)} label={t.done ? `Mark ${t.text} not done` : `Mark ${t.text} done`} />
         <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setModal({ edit: t })}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <PriorityFlag p={p} />
-            <span style={{ fontSize: "var(--fs-13)", fontWeight: 600, textDecoration: t.done ? "line-through" : "none", color: t.done ? "var(--muted)" : "var(--text)", wordBreak: "break-word" }}>{t.text}</span>
+            <span style={{ fontSize: "var(--fs-14)", fontWeight: 600, textDecoration: t.done ? "line-through" : "none", color: t.done ? "var(--muted)" : "var(--text)", wordBreak: "break-word" }}>{t.text}</span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: t.note && !compact ? 2 : 0 }}>
             {t.repeat && t.repeat !== "none" && (
@@ -272,8 +269,8 @@ export default function MyTasks({ compact = false, title }: { compact?: boolean;
           {title && <span style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" }}>{title}</span>}
           {openCount > 0 && <span className="small muted" style={{ fontWeight: 700 }}>{openCount}</span>}
         </div>
-        <button className="btn primary" onClick={() => setModal({})} style={{ fontSize: "var(--fs-12)", fontWeight: 700, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 5 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+        <button className="btn sm" onClick={() => setModal({})}>
+          <Plus size={16} strokeWidth={1.75} aria-hidden />
           New task
         </button>
       </div>

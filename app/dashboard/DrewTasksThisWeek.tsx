@@ -1,5 +1,7 @@
 "use client";
 
+import { ChevronRight, CircleCheck, Flag, Plus } from "lucide-react";
+import { RoundCheck } from "@/app/components/RoundCheck";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CATEGORIES, taskOccurrencesBetween, type TaskOccurrence, type TaskOwner } from "../../lib/tracker/taskDefs";
@@ -36,29 +38,16 @@ function dateBadge(date: Date, now: Date): { text: string; color: string; bold: 
 type Item = { key: string; label: string; date: Date | null; dot: string; flag: boolean; onToggle: () => void };
 function TaskRow({ item, now }: { item: Item; now: Date }) {
   const b = item.date ? dateBadge(item.date, now) : null;
-  const isToday = b?.text === "Today";
   const overdue = b?.color === RED;
+  // One row style: a round check on the left, the task, its date on the right.
+  // No box, no tint — a hairline between rows; red only when it is overdue.
   return (
-    <label
-      style={{
-        display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8,
-        border: "1px solid", borderColor: isToday ? "rgba(11,74,125,0.35)" : "rgba(15,23,42,0.12)",
-        borderLeft: item.flag ? `3px solid ${RED}` : undefined,
-        background: overdue ? "rgba(185,28,28,0.05)" : isToday ? "rgba(11,74,125,0.06)" : "rgba(15,23,42,0.025)",
-        cursor: "pointer",
-      }}
-    >
-      {item.flag ? (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill={RED} stroke={RED} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" />
-        </svg>
-      ) : (
-        <span style={{ width: 9, height: 9, borderRadius: 999, background: item.dot, flexShrink: 0 }} />
-      )}
-      <div style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-13)", fontWeight: 600, wordBreak: "break-word" }}>{item.label}</div>
-      {b && <div className="small" style={{ flexShrink: 0, color: b.color, fontWeight: b.bold ? 700 : 400 }}>{b.text}</div>}
-      <input type="checkbox" checked={false} onChange={item.onToggle} style={{ width: 16, height: 16, flexShrink: 0, cursor: "pointer" }} />
-    </label>
+    <div className="task-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 2px", borderBottom: "1px solid var(--hairline, var(--border))" }}>
+      <RoundCheck done={false} onToggle={item.onToggle} label={`Mark ${item.label} done`} />
+      {item.flag && <Flag size={16} strokeWidth={1.75} color={RED} fill={RED} aria-label="High priority" style={{ flexShrink: 0 }} />}
+      <div style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-14)", fontWeight: 600, wordBreak: "break-word", lineHeight: 1.3 }}>{item.label}</div>
+      {b && <div style={{ flexShrink: 0, fontSize: "var(--fs-12-5)", color: overdue ? RED : "var(--muted)", fontWeight: overdue ? 700 : 500, whiteSpace: "nowrap" }}>{b.text}</div>}
+    </div>
   );
 }
 
@@ -189,18 +178,18 @@ export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwne
           Tasks This Week{doneCount > 0 && <span style={{ marginLeft: 8, color: GREEN, letterSpacing: 0 }}>· {doneCount} done</span>}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={() => setModalOpen(true)} className="btn primary" style={{ fontSize: "var(--fs-12)", fontWeight: 700, padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 5 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+          <button onClick={() => setModalOpen(true)} className="btn sm">
+            <Plus size={16} strokeWidth={1.75} aria-hidden />
             New task
           </button>
-          {trackerLink && <Link href="/tracker" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: BRAND, textDecoration: "none" }}>Tracker →</Link>}
+          {trackerLink && <Link href="/tracker" className="text-link">Tracker<ChevronRight size={16} strokeWidth={1.75} aria-hidden /></Link>}
         </div>
       </div>
 
       {weekList.length === 0 ? (
         <div className="muted small">No tasks due this week.</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
           {weekList.map((it) => <TaskRow key={it.key} item={it} now={now} />)}
         </div>
       )}
@@ -218,7 +207,7 @@ export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwne
               Files to Import This Week{outstanding.length ? ` · ${outstanding.length} outstanding` : ""}
             </div>
             {outstanding.length === 0 ? (
-              <div className="small" style={{ color: GREEN, fontWeight: 600 }}>✓ All files imported this week.</div>
+              <div className="small" style={{ color: GREEN, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}><CircleCheck size={16} strokeWidth={1.75} aria-hidden />All files imported this week.</div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {outstanding.map((r) => (
@@ -242,7 +231,7 @@ export default function DrewTasksThisWeek({ owner = "drew" }: { owner?: TaskOwne
           <div style={{ fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 8 }}>
             Open Tasks <span style={{ fontWeight: 400, textTransform: "none" }}>· no due date</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column" }}>
             {openTaskItems.map((it) => <TaskRow key={it.key} item={it} now={now} />)}
           </div>
         </div>

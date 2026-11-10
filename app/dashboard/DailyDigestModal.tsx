@@ -213,9 +213,8 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
                     <div key={o.id} style={{
                       display: "flex", alignItems: "center", gap: 10,
                       padding: "8px 10px", borderRadius: 8,
-                      border: "1px solid",
-                      borderColor: isToday ? "rgba(11,74,125,0.35)" : "rgba(15,23,42,0.12)",
-                      background: isToday ? "rgba(11,74,125,0.06)" : "rgba(15,23,42,0.025)",
+                      border: "1px solid var(--border)",
+                      background: "var(--card)",
                     }}>
                       <span style={{ width: 9, height: 9, borderRadius: 999, background: dot, flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0, fontSize: "var(--fs-13)", fontWeight: 600 }}>{o.label}</div>

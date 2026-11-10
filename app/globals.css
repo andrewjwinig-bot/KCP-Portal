@@ -1346,10 +1346,32 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 /* Status tags: quiet, one shape. */
 [data-skin="studio"] .tag { border-radius: 999px; font-size: 13px; font-weight: 700; padding: 2px 9px; }
 
-/* Checkboxes and radios in the accent. */
-[data-skin="studio"] input[type="checkbox"], [data-skin="studio"] input[type="radio"] {
-  accent-color: var(--brand); width: 18px; height: 18px;
+/* Checkboxes: the ONE check — a grey circle, filled green with a white tick
+   when ticked (same as RoundCheck). Radios keep their own dot, in navy. */
+[data-skin="studio"] input[type="checkbox"]:where(:not(.kcs *)) {
+  appearance: none; -webkit-appearance: none;
+  width: 20px !important; height: 20px !important; min-height: 0; margin: 0 2px; padding: 0;
+  border: 2px solid #98a2b3; border-radius: 999px; background: transparent;
+  display: inline-grid; place-content: center; flex-shrink: 0; cursor: pointer; vertical-align: middle;
+  transition: background .12s, border-color .12s;
 }
+[data-skin="studio"] input[type="checkbox"]:where(:not(.kcs *))::after {
+  content: ""; width: 10px; height: 6px; margin-top: -2px;
+  border-left: 2.5px solid #fff; border-bottom: 2.5px solid #fff;
+  transform: rotate(-45deg); opacity: 0;
+}
+[data-skin="studio"] input[type="checkbox"]:where(:not(.kcs *)):checked { background: #067647; border-color: #067647; }
+[data-skin="studio"] input[type="checkbox"]:where(:not(.kcs *)):checked::after { opacity: 1; }
+[data-skin="studio"] input[type="checkbox"]:where(:not(.kcs *)):indeterminate { background: #067647; border-color: #067647; }
+[data-skin="studio"] input[type="checkbox"]:where(:not(.kcs *)):focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+[data-skin="studio"] input[type="checkbox"]:where(:not(.kcs *)):disabled { opacity: 0.45; cursor: not-allowed; }
+[data-skin="studio"] input[type="radio"] { accent-color: var(--brand); width: 18px; height: 18px; }
+
+/* A text link with a chevron (e.g. "Tracker ›"). */
+.text-link { display: inline-flex; align-items: center; gap: 2px; font-size: var(--fs-13); font-weight: 700; color: var(--brand); text-decoration: none; }
+.text-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* Last row of a hairline list has no rule under it. */
+.task-row:last-child, .outbox-row:last-child { border-bottom: 0 !important; }
 
 /* Phone width, new look: two tiles to a row, figures that fit. */
 @media (max-width: 720px) {
@@ -1376,5 +1398,4 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
   margin-left: 0 !important;
 }
 [data-skin="studio"] .sb-open .sb-link.sb-sub { padding-left: 22px !important; }
-[data-skin="studio"] .sb-open .sb-link.sb-active { box-shadow: inset 3px 0 0 var(--brand); }
 [data-skin="studio"] .sb-rail .sb-group { padding: 11px 0 !important; }

@@ -1,4 +1,5 @@
 "use client";
+import { CircleCheck } from "lucide-react";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -1785,7 +1786,7 @@ export default function RentRollPage() {
             color: "#15803d", fontWeight: 700,
           }}
         >
-          <span style={{ fontSize: 20 }}>✅</span>
+          <CircleCheck size={20} strokeWidth={1.75} color="#067647" aria-hidden style={{ flexShrink: 0 }} />
           <span style={{ flex: 1 }}>{importedFlash}</span>
           <span className="small" style={{ fontWeight: 600, opacity: 0.75 }}>Dismiss ✕</span>
         </div>

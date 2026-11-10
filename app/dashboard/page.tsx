@@ -1,4 +1,5 @@
 "use client";
+import { ChevronRight , X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -766,9 +767,8 @@ function DashboardInner() {
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
-                border: "1px solid",
-                borderColor: rrFreshness.status === "stale" ? "rgba(217,119,6,0.3)" : "rgba(220,38,38,0.35)",
-                background: rrFreshness.status === "stale" ? "rgba(217,119,6,0.06)" : "rgba(220,38,38,0.06)",
+                border: "1px solid var(--border)",
+                background: "var(--card)",
                 borderRadius: 8,
               }}>
                 <span style={{
@@ -780,7 +780,7 @@ function DashboardInner() {
                   <div className="muted small" style={{ marginTop: 2 }}>{rrFreshness.message}</div>
                 </div>
                 <Link href="/rentroll" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                  Open →
+                  Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
               </div>
@@ -794,9 +794,8 @@ function DashboardInner() {
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
-                border: "1px solid",
-                borderColor: nextPayroll.status === "today" ? "rgba(11,74,125,0.35)" : nextPayroll.status === "soon" ? "rgba(217,119,6,0.3)" : "rgba(15,23,42,0.12)",
-                background: nextPayroll.status === "today" ? "rgba(11,74,125,0.07)" : nextPayroll.status === "soon" ? "rgba(217,119,6,0.06)" : "rgba(15,23,42,0.025)",
+                border: "1px solid var(--border)",
+                background: "var(--card)",
                 borderRadius: 8,
               }}>
                 <span style={{
@@ -812,7 +811,7 @@ function DashboardInner() {
                   </div>
                 </div>
                 <Link href="/" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                  Open →
+                  Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
               </div>
@@ -826,9 +825,8 @@ function DashboardInner() {
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
-                border: "1px solid",
-                borderColor: ccExpensesDue.status === "today" ? "rgba(220,38,38,0.35)" : ccExpensesDue.status === "soon" ? "rgba(217,119,6,0.3)" : "rgba(15,23,42,0.12)",
-                background: ccExpensesDue.status === "today" ? "rgba(220,38,38,0.06)" : ccExpensesDue.status === "soon" ? "rgba(217,119,6,0.06)" : "rgba(15,23,42,0.025)",
+                border: "1px solid var(--border)",
+                background: "var(--card)",
                 borderRadius: 8,
               }}>
                 <span style={{
@@ -844,7 +842,7 @@ function DashboardInner() {
                   </div>
                 </div>
                 <Link href="/expenses" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                  Open →
+                  Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
               </div>
@@ -866,17 +864,8 @@ function DashboardInner() {
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
-                border: "1px solid",
-                borderColor: bankStmt.status === "done" ? "rgba(22,163,74,0.30)"
-                  : bankStmt.status === "overdue" ? "rgba(220,38,38,0.35)"
-                  : bankStmt.status === "today" ? "rgba(220,38,38,0.30)"
-                  : bankStmt.status === "soon" ? "rgba(217,119,6,0.30)"
-                  : "rgba(15,23,42,0.12)",
-                background: bankStmt.status === "done" ? "rgba(22,163,74,0.06)"
-                  : bankStmt.status === "overdue" ? "rgba(220,38,38,0.06)"
-                  : bankStmt.status === "today" ? "rgba(220,38,38,0.04)"
-                  : bankStmt.status === "soon" ? "rgba(217,119,6,0.06)"
-                  : "rgba(15,23,42,0.025)",
+                border: "1px solid var(--border)",
+                background: "var(--card)",
                 borderRadius: 8,
               }}>
                 <span style={{
@@ -903,7 +892,7 @@ function DashboardInner() {
                   </div>
                 </div>
                 <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                  Open →
+                  Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
               </div>
@@ -917,17 +906,8 @@ function DashboardInner() {
               <div style={{
                 display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
                 padding: "10px 12px",
-                border: "1px solid",
-                borderColor: bankRec.status === "done" ? "rgba(22,163,74,0.30)"
-                  : bankRec.status === "overdue" ? "rgba(220,38,38,0.35)"
-                  : bankRec.status === "today" ? "rgba(220,38,38,0.30)"
-                  : bankRec.status === "soon" ? "rgba(217,119,6,0.30)"
-                  : "rgba(15,23,42,0.12)",
-                background: bankRec.status === "done" ? "rgba(22,163,74,0.06)"
-                  : bankRec.status === "overdue" ? "rgba(220,38,38,0.06)"
-                  : bankRec.status === "today" ? "rgba(220,38,38,0.04)"
-                  : bankRec.status === "soon" ? "rgba(217,119,6,0.06)"
-                  : "rgba(15,23,42,0.025)",
+                border: "1px solid var(--border)",
+                background: "var(--card)",
                 borderRadius: 8,
               }}>
                 <span style={{
@@ -954,7 +934,7 @@ function DashboardInner() {
                   </div>
                 </div>
                 <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                  Open →
+                  Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
               </div>
@@ -982,7 +962,7 @@ function DashboardInner() {
                   </div>
                 </div>
                 <Link href="/tracker" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                  Open →
+                  Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                 </Link>
                 <DismissBtn onClick={() => dismissNotice(id)} />
               </div>
@@ -995,8 +975,8 @@ function DashboardInner() {
                   const overdue = n.daysUntil < 0;
                   const urgent  = n.daysUntil >= 0 && n.daysUntil <= 7;
                   const accent = overdue ? "#b91c1c" : urgent ? "#b91c1c" : "#d97706";
-                  const bg     = overdue ? "rgba(220,38,38,0.06)" : urgent ? "rgba(220,38,38,0.04)" : "rgba(217,119,6,0.06)";
-                  const border = overdue ? "rgba(220,38,38,0.35)" : urgent ? "rgba(220,38,38,0.30)" : "rgba(217,119,6,0.30)";
+                  const bg     = "var(--card)";
+                  const border = "var(--border)";
                   const relative = overdue ? `${Math.abs(n.daysUntil)} day${Math.abs(n.daysUntil) === 1 ? "" : "s"} ago` : n.daysUntil === 0 ? "today" : `in ${n.daysUntil} day${n.daysUntil === 1 ? "" : "s"}`;
                   return (
                     <div
@@ -1024,7 +1004,7 @@ function DashboardInner() {
                         </div>
                       </div>
                       <Link href="/rentroll/leasing" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                        Open →
+                        Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                       </Link>
                       <button
                         onClick={() => dismissNotice(n.id)}
@@ -1103,7 +1083,7 @@ function DashboardInner() {
                     </div>
                   </div>
                   <Link href="/bank-transfers" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "#0b4a7d", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                    Open →
+                    Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
                   </Link>
                   <DismissBtn onClick={() => dismissNotice(n.id)} />
                 </div>
@@ -1293,18 +1273,14 @@ function DismissBtn({ onClick }: { onClick: () => void }) {
       title="Dismiss"
       aria-label="Dismiss action item"
       style={{
-        width: 22, height: 22, padding: 0, marginTop: 1, marginLeft: 4,
-        borderRadius: 4,
-        border: "1px solid rgba(15,23,42,0.18)",
-        background: "rgba(255,255,255,0.6)",
-        color: "var(--muted)",
-        cursor: "pointer",
-        fontSize: "var(--fs-13)", lineHeight: 1, fontWeight: 700,
+        width: 28, height: 28, padding: 0, marginLeft: 2,
+        borderRadius: 8, border: 0, background: "transparent",
+        color: "#98A2B3", cursor: "pointer",
         display: "inline-flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0,
       }}
     >
-      ×
+      <X size={16} strokeWidth={1.75} aria-hidden />
     </button>
   );
 }

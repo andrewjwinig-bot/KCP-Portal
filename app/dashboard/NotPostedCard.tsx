@@ -1,4 +1,5 @@
 "use client";
+import { CircleCheck } from "lucide-react";
 
 // Dashboard callout: what isn't posted to the GL yet across the portfolio.
 //
@@ -60,7 +61,7 @@ export default function NotPostedCard({ order = -1 }: { order?: number }) {
 
       {items.length === 0 ? (
         <div className="small" style={{ display: "flex", alignItems: "center", gap: 8, color: "#15803d", fontWeight: 600 }}>
-          <span style={{ fontSize: 15 }}>✅</span> Taxes, insurance, management fees and debt are all posted on the latest statements.
+          <CircleCheck size={18} strokeWidth={1.75} color="#067647" aria-hidden style={{ flexShrink: 0 }} /> Taxes, insurance, management fees and debt are all posted on the latest statements.
         </div>
       ) : (
         <>

@@ -1,4 +1,5 @@
 "use client";
+import { Circle, CircleCheck } from "lucide-react";
 
 // At-a-glance status of the recurring data imports (Rent Roll, GL, AP, 2000
 // G&A GL, CC statement). Reads the source-of-truth list in lib/tracker/imports
@@ -43,7 +44,7 @@ export default function ImportsToDoCard({ owner }: { owner?: TaskOwner } = {}) {
       <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 12 }}>
         Data Imports
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
         {/* WORST FIRST, not most-recent-first. The card is asking "am I on top
             of these", and recency is the opposite of that signal: newest-first
             puts what you just did at the top and buries what you forgot at the
@@ -63,7 +64,11 @@ export default function ImportsToDoCard({ owner }: { owner?: TaskOwner } = {}) {
 /** Three states, not two: a thing whose day has not come is not a thing you
  *  are behind on, and it must not wear the same colour as one you are. */
 const DOT: Record<ReminderStatus, string> = {
-  overdue: "#dc2626", due: "#d97706", "not-yet-due": "#64748b", done: "#16a34a",
+  overdue: "#B42318", due: "#B54708", "not-yet-due": "#475467", done: "#067647",
+};
+/** Status is said in words, in the row's meta column — not by tinting the row. */
+const STATUS_WORD: Record<ReminderStatus, string> = {
+  overdue: "Overdue", due: "Due", "not-yet-due": "Not due yet", done: "Imported",
 };
 const EDGE: Record<ReminderStatus, { border: string; bg: string }> = {
   overdue:       { border: "rgba(220,38,38,0.40)",  bg: "rgba(220,38,38,0.06)" },
@@ -106,7 +111,7 @@ function Row({
       // timestamp, so make it.
       ? `All ${coverage.total} in${ev?.at ? ` · ${fmtDate(ev.at)}` : ""}`
       : ev?.at
-        ? `Imported ${fmtDate(ev.at)}${ev?.by ? ` · by ${String(ev.by).toUpperCase()}` : ""}`
+        ? `Imported ${fmtDate(ev.at)}${ev?.by ? ` · by ${String(ev.by).replace(/^./, (c: string) => c.toUpperCase())}` : ""}`
         // In the store with no logged import (it predates the log) — still in.
         : `${period ? `${period[0].toUpperCase()}${period.slice(1)} is` : "Imported,"} in`
     : status === "not-yet-due"
@@ -114,17 +119,14 @@ function Row({
       ? `Due ${when.toLowerCase()}`
       : `Import ${period ?? when.toLowerCase()}`;
   return (
-    <div style={{
-      display: "flex", alignItems: "flex-start", gap: 10,
-      padding: "10px 12px", borderRadius: 8,
-      border: "1px solid",
-      borderColor: EDGE[status].border,
-      background: EDGE[status].bg,
+    <div className="task-row" style={{
+      display: "flex", alignItems: "center", gap: 12,
+      padding: "11px 2px",
+      borderBottom: "1px solid var(--hairline, var(--border))",
     }}>
-      <span style={{
-        width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
-        background: DOT[status],
-      }} />
+      {done
+        ? <CircleCheck size={20} strokeWidth={1.75} color={DOT.done} aria-hidden style={{ flexShrink: 0 }} />
+        : <Circle size={20} strokeWidth={1.75} color={status === "not-yet-due" ? "#98A2B3" : DOT[status]} aria-hidden style={{ flexShrink: 0 }} />}
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* The TITLE is the link. A row whose whole point is "go here" does
             not need a separate "Open →" to say so — and the bold text is the
@@ -152,7 +154,7 @@ function Row({
             <span style={{
               marginLeft: 8, fontSize: "var(--fs-10)", fontWeight: 700, padding: "2px 7px", borderRadius: 999,
               letterSpacing: "0.04em", whiteSpace: "nowrap", cursor: "default",
-              background: EDGE[status].border, color: DOT[status],
+              background: "#F2F4F7", color: "#344054",
             }}>{coverage.done}/{coverage.total}</span>
           </HoverCard>
         )}
@@ -160,6 +162,11 @@ function Row({
           {loading ? "Loading…" : sub}
         </div>
       </div>
+      {!loading && (
+        <span style={{ flexShrink: 0, fontSize: "var(--fs-12-5)", fontWeight: status === "not-yet-due" ? 500 : 700, color: DOT[status], whiteSpace: "nowrap" }}>
+          {STATUS_WORD[status]}
+        </span>
+      )}
     </div>
   );
 }

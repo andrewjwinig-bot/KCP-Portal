@@ -145,9 +145,8 @@ function Row({
     <div style={{
       display: "flex", alignItems: "flex-start", gap: 10,
       padding: "10px 12px", borderRadius: 8,
-      border: "1px solid",
-      borderColor: saved ? "rgba(22,163,74,0.30)" : "rgba(15,23,42,0.12)",
-      background: saved ? "rgba(22,163,74,0.05)" : "rgba(15,23,42,0.025)",
+      border: "1px solid var(--border)",
+      background: "var(--card)",
     }}>
       <span style={{
         width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,

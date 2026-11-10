@@ -1,4 +1,5 @@
 "use client";
+import { CircleCheck } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import JSZip from "jszip";
@@ -774,7 +775,7 @@ export default function AllocatedInvoicerPage() {
       {pendingGl && !pendingDismissed && !glResult && !pendingGl.alreadyProcessed && !liveReview && (
         <div className="card" style={{ borderColor: "rgba(22,163,74,0.5)", background: "rgba(22,163,74,0.07)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 20 }}>✅</span>
+            <CircleCheck size={20} strokeWidth={1.75} color="#067647" aria-hidden style={{ flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 220 }}>
               <div style={{ fontWeight: 800, color: "#15803d" }}>
                 {loadingPending

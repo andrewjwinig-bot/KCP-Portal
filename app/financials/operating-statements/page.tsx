@@ -1,4 +1,5 @@
 "use client";
+import { CircleCheck } from "lucide-react";
 
 // Operating Statements — the actuals twin of Operating Budgets. Upload a
 // property's Skyline GL export; the page renders the Comparative Income
@@ -1617,7 +1618,7 @@ function figureCells(t: StatementTotals, opts: { bold?: boolean; color?: string;
     : undefined;
   const paidIcon = (
     <span aria-label={paidMonthLabel ? `Paid in ${paidMonthLabel}` : "Paid year to date"} style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", lineHeight: 1.05 }}>
-      <span style={{ fontSize: 16 }}>✅</span>
+      <CircleCheck size={20} strokeWidth={1.75} color="#067647" aria-hidden style={{ flexShrink: 0 }} />
       {paidMonthLabel && <span style={{ fontSize: "var(--fs-9)", fontWeight: 700 }}>paid {paidMonthLabel}</span>}
     </span>
   );

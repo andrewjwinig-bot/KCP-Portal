@@ -1,4 +1,5 @@
 "use client";
+import { CircleCheck, FileText } from "lucide-react";
 
 // Shared "Review before send to AvidXchange" gate + success confirmation, used
 // by all three invoicers (Allocated, Credit Card, Payroll) so the review popup
@@ -157,7 +158,7 @@ export function AvidSuccessModal(props: {
     <div style={overlay} onClick={onClose}>
       <div className="card" style={{ maxWidth: 520, width: "100%", maxHeight: "88vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ textAlign: "center", marginBottom: 8 }}>
-          <div style={{ fontSize: 44, lineHeight: 1 }}>{mailSent ? "✅" : "📄"}</div>
+          <div style={{ display: "flex", justifyContent: "center" }}>{mailSent ? <CircleCheck size={44} strokeWidth={1.5} color="#067647" aria-hidden /> : <FileText size={44} strokeWidth={1.5} color="#475467" aria-hidden />}</div>
           <b style={{ fontSize: 18, display: "block", marginTop: 8 }}>
             {mailSent ? "Sent to AvidXchange" : "Prepared — mail not configured"}
           </b>
