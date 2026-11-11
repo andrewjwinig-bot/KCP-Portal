@@ -1336,7 +1336,7 @@ export default function ExpensesPage() {
           Import the <b>American Express</b> Excel file (.xls or .xlsx).
           {fileName && <span style={{ marginLeft: 8 }}>· {fileName}</span>}
         </p>
-        <LastImported at={importedAt} by={importedBy} label="Statement last imported" />
+        <LastImported at={importedAt} by={importedBy} label="Statement imported" />
         {tx.length > 0 && (
           <div className="pills">
             <div className="pill"><b>{totals.count}</b><span className="small muted">Transactions</span></div>

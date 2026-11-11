@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, ChevronUp, CircleCheck, FileText, X, Upload } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleCheck, FileText, Info, X, Upload } from "lucide-react";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -10,7 +10,7 @@ import { amenityFor } from "../../lib/rentroll/amenities";
 import { useUser } from "../components/UserProvider";
 import AllowedLink from "../components/AllowedLink";
 import { isPathAllowed } from "@/lib/users";
-import { LastImported } from "../components/LastImported";
+import { MetaLine } from "../components/LastImported";
 import { blobSrc } from "../../lib/blobProxy";
 import { normName } from "../../lib/centers/registry";
 import { Pill, TONE_RED, TONE_TEAL } from "@/app/components/Pill";
@@ -259,18 +259,9 @@ function ImportInstructionsButton({ nextMonth }: { nextMonth?: { year: number; m
         onClick={(e) => { e.stopPropagation(); setOpen(true); }}
         title="How to export the rent roll from Skyline and import it here"
         aria-label="Import instructions"
-        style={{
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-          width: 16, height: 16, padding: 0,
-          fontSize: "var(--fs-10)", fontWeight: 800, lineHeight: 1,
-          background: "var(--tint-brand-bg, rgba(11,74,125,0.10))",
-          color: "var(--c-0b4a7d)",
-          border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.30))",
-          borderRadius: "50%",
-          cursor: "pointer",
-        }}
+        style={{ display: "inline-flex", alignItems: "center", padding: 0, border: 0, background: "none", color: "var(--brand)", cursor: "pointer" }}
       >
-        i
+        <Info size={16} strokeWidth={1.75} aria-hidden />
       </button>
       {open && <ImportInstructionsModal onClose={() => setOpen(false)} nextMonth={nextMonth} />}
     </>
@@ -1793,7 +1784,7 @@ export default function RentRollPage() {
       )}
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Rent Roll</h1>
-        {periodLabel && (
+        {periodLabel && snapshotList.length === 0 && (
           <span style={{ fontSize: 20, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>{periodLabel}</span>
         )}
       </div>
@@ -1825,8 +1816,24 @@ export default function RentRollPage() {
             </div>
           </div>
         )}
+        {/* ONE row of controls: the month (the page's driving control), then
+            the import beside it; the report on the right. */}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            {snapshotList.length > 0 && (
+              <select
+                value={reportMonth}
+                onChange={(e) => setReportMonth(e.target.value)}
+                aria-label="Month"
+                className="select-brand"
+              >
+                {snapshotList.slice().reverse().map((s) => {
+                  const [yy, mm] = s.month.split("-");
+                  const label = `${new Date(2000, parseInt(mm) - 1, 1).toLocaleString("en-US", { month: "long" })} ${yy}`;
+                  return <option key={s.month} value={s.month}>{label}</option>;
+                })}
+              </select>
+            )}
             <input
               ref={fileInputRef}
               type="file"
@@ -1842,50 +1849,33 @@ export default function RentRollPage() {
             >
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{uploading ? "Importing" : "Import Rent Roll"}
             </button>
+          </div>
+          {((filteredRentroll && categoryRentroll) || snapshotList.length > 0) && (
             <button
               className="btn"
-              style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap", fontSize: "var(--fs-13)", padding: "8px 16px" }}
-              onClick={() => setRawRentroll(null)}
-              disabled={!rentroll}
+              onClick={handleStatusReport}
+              disabled={generatingReport || (!reportMonth && (!filteredRentroll || !categoryRentroll))}
+              style={{ whiteSpace: "nowrap" }}
             >
-              Clear
+              <FileText size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
+              {generatingReport ? "Building Status Report" : "Status Report"}
             </button>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {((filteredRentroll && categoryRentroll) || snapshotList.length > 0) && (
-              <>
-                {snapshotList.length > 0 && (
-                  <select
-                    value={reportMonth}
-                    onChange={(e) => setReportMonth(e.target.value)}
-                    title="View period — switches the rent roll, pills and graphs to this month"
-                    className="select-brand"
-                  >
-                    {snapshotList.slice().reverse().map((s) => {
-                      const [yy, mm] = s.month.split("-");
-                      const label = `${MONTHS_SHORT[parseInt(mm) - 1]} ${yy}`;
-                      return <option key={s.month} value={s.month}>{label}</option>;
-                    })}
-                  </select>
-                )}
-                <button
-                  onClick={handleStatusReport}
-                  disabled={generatingReport || (!reportMonth && (!filteredRentroll || !categoryRentroll))}
-                  style={{
-                    background: generatingReport ? "rgba(11,74,125,0.4)" : "rgba(11,74,125,0.85)",
-                    color: "#fff", borderRadius: 999, padding: "8px 16px",
-                    fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent",
-                    display: "inline-flex", alignItems: "center", cursor: generatingReport ? "default" : "pointer",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {generatingReport ? "Generating…" : "Status Report"}
-                </button>
-              </>
-            )}
-            <span className="muted" style={{ fontSize: "var(--fs-13)", fontWeight: 600, alignSelf: "center" }}>Monthly</span>
-          </div>
+          )}
         </div>
+        <MetaLine at={rentroll?.uploadedAt} by={rentroll?.uploadedBy}>
+          <ImportInstructionsButton nextMonth={(() => {
+            // Next month to import = the month after the latest snapshot (or the
+            // current calendar month when nothing has been imported yet).
+            if (latestMonth) {
+              const [y, m] = latestMonth.split("-").map(Number);
+              const d = new Date(y, m, 1); // m is 1-based: first of the next month
+              return { year: d.getFullYear(), month: d.getMonth() + 1 };
+            }
+            const now = new Date();
+            return { year: now.getFullYear(), month: now.getMonth() + 1 };
+          })()} />
+          {!rentroll?.uploadedAt && <span>Import the Commercial Rent Roll, or drop the file on this card.</span>}
+        </MetaLine>
         {reportMonth && Object.keys(carriedFrom).length > 0 && (() => {
           const byMonth = new Map<string, string[]>();
           for (const [c, m] of Object.entries(carriedFrom)) byMonth.set(m, [...(byMonth.get(m) ?? []), c]);
@@ -1899,21 +1889,6 @@ export default function RentRollPage() {
             </p>
           );
         })()}
-        <p className="muted small" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6 }}>
-          <span>Import the <b>Commercial Rent Roll</b> Excel file (.xls or .xlsx) — click Import Rent Roll or drag the file onto this card.</span>
-          <ImportInstructionsButton nextMonth={(() => {
-            // Next month to import = the month after the latest snapshot (or the
-            // current calendar month when nothing has been imported yet).
-            if (latestMonth) {
-              const [y, m] = latestMonth.split("-").map(Number);
-              const d = new Date(y, m, 1); // m is 1-based → first of the next month
-              return { year: d.getFullYear(), month: d.getMonth() + 1 };
-            }
-            const now = new Date();
-            return { year: now.getFullYear(), month: now.getMonth() + 1 };
-          })()} />
-        </p>
-        <LastImported at={rentroll?.uploadedAt} by={rentroll?.uploadedBy} />
         {uploadError && <div style={{ color: "var(--c-b42318)", fontSize: "var(--fs-13)", marginTop: 6 }}>{uploadError}</div>}
         {uploadNote && <div style={{ color: "var(--c-0b4a7d)", fontSize: "var(--fs-13)", marginTop: 6 }}>{uploadNote}</div>}
         {uploadChanges && (uploadChanges.newTenants.length > 0 || uploadChanges.vacated.length > 0) && (

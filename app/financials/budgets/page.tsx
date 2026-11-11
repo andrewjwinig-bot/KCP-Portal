@@ -217,7 +217,7 @@ export default function BudgetsPage() {
             <h1 style={{ margin: 0 }}>Operating Budgets</h1>
             {liveStatus && <Pill tone={liveStatus === "final" ? TONE_GREEN : TONE_AMBER}>{liveStatus === "final" ? "Final" : "Draft"}</Pill>}
           </div>
-          {workbook && workbook.kind !== "live" && <LastImported at={workbook.uploadedAt} by={workbook.uploadedBy} label="Budget last imported" />}
+          {workbook && workbook.kind !== "live" && <LastImported at={workbook.uploadedAt} by={workbook.uploadedBy} label="Budget imported" />}
           {liveStatus && canUpload && (
             <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
               {liveStatus === "draft" ? (

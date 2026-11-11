@@ -12,7 +12,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { StatPill, Pill, TONE_AMBER } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { useFileDrop } from "@/app/components/useFileDrop";
-import { formatImportedAt } from "@/app/components/LastImported";
+import { formatImportedAt, titleName } from "@/app/components/LastImported";
+import { InfoPopover } from "@/app/components/InfoPopover";
 import { th, thL, td as tdBase, tdL as tdLBase } from "@/app/components/tableStyles";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { useImport } from "@/app/components/import/ImportProvider";
@@ -197,48 +198,49 @@ export default function BankBalancesView() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      <header {...drop.dropHandlers}
+        style={drop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: 6, borderRadius: 12 } : undefined}>
         <h1 style={{ margin: 0 }}>Bank Balances</h1>
-        {asOf && <span style={{ fontSize: 20, fontWeight: 700, color: "var(--muted)" }}>Bank balances as of {dateLabel(asOf)}</span>}
-      </div>
-
-      <div className="card" {...drop.dropHandlers}
-        style={drop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" } : undefined}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 15 }}>Bank Balances</div>
-            <div className="muted small">Save each bank&apos;s accounts page as a PDF — Chase, Liberty and M&amp;T — and drop them here. Each import updates only that bank&apos;s accounts.</div>
+        <div style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {data?.canEdit && (
+              <>
+                <button className="btn import" disabled={busy} onClick={() => fileRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
+                  <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{busy ? "Importing" : drop.dragging ? "Drop to import" : "Import Bank Balances"}
+                </button>
+                <input ref={fileRef} type="file" multiple style={{ display: "none" }}
+                  onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; importFiles(f); }} />
+              </>
+            )}
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {data && data.byBank.length > 0 && (
-            <DownloadMenu variant="default" items={[
+            <DownloadMenu label="Export" items={[
               { label: "PDF", description: "The cash position to send ownership", href: "/api/financials/bank-balances/export?format=pdf" },
               { label: "Excel (.xlsx)", description: "Live totals, plus every account behind them", href: "/api/financials/bank-balances/export?format=xlsx" },
             ]} />
           )}
-          {data?.canEdit && (
-            <>
-              <button className="btn import" disabled={busy} onClick={() => fileRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
-                <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{busy ? "Importing" : drop.dragging ? "Drop to import" : "Import Bank Balances"}
-              </button>
-              <input ref={fileRef} type="file" multiple style={{ display: "none" }}
-                onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; importFiles(f); }} />
-            </>
-          )}
-          </div>
         </div>
-        {(data?.byBank ?? []).length > 0 && (
-          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", marginTop: 10 }}>
-            {data!.byBank.map((b) => (
-              <span key={b.bank} className="muted small">
-                <b style={{ color: "var(--text)" }}>{BANK_LABEL[b.bank] ?? b.bank}</b> · as of {dateLabel(b.asOf)} · imported {b.importedAt ? formatImportedAt(b.importedAt) : "—"}{b.importedBy ? ` by ${b.importedBy}` : ""}
-              </span>
-            ))}
-          </div>
-        )}
-        {notice && <div className="small" style={{ marginTop: 8, color: "var(--c-15803d)", fontWeight: 600 }}>{notice}</div>}
-        {error && <div className="small" style={{ marginTop: 8, color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}
-      </div>
+        <div className="muted" style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: "var(--fs-14)" }}>
+          {asOf && <span>Balances as of {dateLabel(asOf)}</span>}
+          {(data?.byBank ?? []).map((b) => (
+            <HoverCard key={b.bank} title={BANK_LABEL[b.bank] ?? b.bank}
+              rows={[
+                { label: "Balances as of", value: dateLabel(b.asOf) },
+                { label: "Imported", value: b.importedAt ? formatImportedAt(b.importedAt) : "—" },
+                ...(b.importedBy ? [{ label: "By", value: titleName(b.importedBy) }] : []),
+              ]}>
+              <span>· {BANK_LABEL[b.bank] ?? b.bank} {shortDate(b.asOf)}</span>
+            </HoverCard>
+          ))}
+          <InfoPopover label="How to import" align="left">
+            <div style={{ paddingTop: 12, fontSize: "var(--fs-14)" }}>
+              Save each bank&apos;s accounts page as a PDF — Chase, Liberty and M&amp;T — and drop them here. Each import updates only that bank&apos;s accounts.
+            </div>
+          </InfoPopover>
+        </div>
+        {notice && <div style={{ marginTop: 8, color: "var(--c-15803d)", fontWeight: 600, fontSize: "var(--fs-14)" }}>{notice}</div>}
+        {error && <div style={{ marginTop: 8, color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-14)" }}>{error}</div>}
+      </header>
 
       {data && (
         <div className="pills">
