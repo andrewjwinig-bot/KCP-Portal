@@ -64,6 +64,9 @@ export type CommunicationSend = {
   from: string;
   lines: SendLine[];
   testMode: boolean;
+  /** Sent by Greg from Outlook to his own distribution lists (the portal
+   *  only builds the draft) — recorded by "Mark as sent", no suites. */
+  viaOutlook?: boolean;
 };
 
 const store = createCollectionStore<CommunicationSend>({ prefix: "tenant-communications", keyOf: (r) => r.id });

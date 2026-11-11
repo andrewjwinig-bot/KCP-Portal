@@ -3939,6 +3939,22 @@ only, nothing from the budget**.
   (`buildT12Xlsx`): the trailing month headings, a live `=SUM` T-12 column,
   no Ann Bud / Var. Pinned by `t12/export.test.ts` reading the file back.
 
+# Tenant Communications — Greg's Interplex tenant emails (/communications)
+
+**The portal does NOT send them — it builds an OUTLOOK DRAFT** (owner,
+11/2026: "dont let greg send the emails from the portal but make it a draft
+email in his outlook to add his custom distribution lists to send from
+there"). "Draft in Outlook" downloads an `.eml` carrying `X-Unsent: 1`
+(`draftEml` in `lib/communications/draftEml.ts`, built in the browser from the
+SAME `renderTenantEmail` HTML the preview shows): Outlook opens it as a NEW
+email with the subject and graphic, an empty To and no From, so it goes from
+his own mailbox to his distribution lists. Afterwards he clicks "I sent it —
+mark sent" (`POST /api/communications { action: "sent" }`), recorded as
+`viaOutlook` so the seasonal dashboard prompt clears and the history keeps it.
+The API refuses any other action — there is no send or test path any more.
+Pinned by `draftEml.test.ts`. Tenant Emails sits in the sidebar's Service
+group.
+
 # Security deposits — check images
 
 - **PARTIAL REFUNDS ARE A DATED TIMELINE AND COME OFF WHAT WE HOLD** (Nancy,
