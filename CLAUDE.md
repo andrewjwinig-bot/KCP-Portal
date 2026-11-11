@@ -261,6 +261,11 @@ touched UI to it.
   their own slider. **A column with nothing in it shrinks**: Operating
   Statements' Notes column collapses to an add-note icon when no line has a
   note, and the tables' sideways floor drops from 1000px to 760px with it.
+- **ONE LOADER: `LoadingState`** (`app/components/LoadingState.tsx` — the
+  skyline + skeleton; owner: "bank rec loading state is different… should it
+  be"). Every page's first load and every long run show it; a long one-request
+  run passes its likely stage as `status` and a clock in `context` (Bank Recs'
+  `ReconcilingCard`). AI work is the exception (`AnalyzingBar` / `ThinkingCard`).
 - **The ratchet** (`lib/ui/noDrift.test.ts`): counts of emoji, text arrows,
   inline hex colours and tinted fills may only go DOWN. When a sweep removes
   some, lower the baseline in that test in the same change.
