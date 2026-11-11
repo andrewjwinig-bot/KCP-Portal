@@ -481,6 +481,13 @@ export default function OperatingStatementsPage() {
         const ok = rows.filter((r) => r.status === "done");
         const raws = ok.flatMap((r) => ((r.raw as { pall?: boolean; imported?: unknown[] })?.pall ? ((r.raw as { imported: unknown[] }).imported) : [r.raw])).map((x) => x as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean; years?: number[]; perYear?: { year: number; maxPeriodInFile: number }[]; notPosted?: { count: number } | null; allocated?: { ok: boolean; total?: number; byProperty?: unknown[]; staged?: boolean; invoiceCount?: number; autoSent?: boolean; autoHeld?: string } | null });
         const notPostedTotal = raws.reduce((a, r) => a + (r.notPosted?.count ?? 0), 0);
+        // Every file has landed: send the import's ONE "not posted to the GL"
+        // email (each property staged its lines as it imported). `keepalive`
+        // so closing the tab right after doesn't cancel it; the daily cron
+        // sends anything left staged anyway.
+        if (ok.length) {
+          void fetch("/api/financials/operating-statements/not-posted/email", { method: "POST", keepalive: true }).catch(() => {});
+        }
         const alloc = raws.map((r) => r.allocated as ({ ok: boolean; total?: number; byProperty?: unknown[]; staged?: boolean; invoiceCount?: number; autoSent?: boolean; autoHeld?: string } | null | undefined)).find((a) => a?.ok && (a.total ?? 0) > 0) ?? null;
         const pall = ok.map((r) => r.raw as { pall?: boolean; unplaced?: { index: number; accounts: number; cash: number | null; note: string }[]; failed?: { key: string; error: string }[]; notInFile?: { key: string; name: string }[] }).filter((x) => x?.pall);
         const unplaced = pall.flatMap((x) => x.unplaced ?? []);

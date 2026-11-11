@@ -2073,6 +2073,16 @@ time — and the team does not have time to open the GL over $80.
   each showed every budgeted line. One signal meaning two things depending on
   where it is read is the defect; the rule now lives at the point the finding is
   MADE, and `isSignificantNotPosted` delegates to it.
+- **THE "NOT POSTED TO THE GL" ALERT IS ONE EMAIL PER IMPORT** (owner,
+  11/2026: "i imported and got a bunch of Not posted to the GL emails … roll
+  this up into one email"; `notPostedEmail.ts`, words in `notPostedDigest.ts`,
+  pinned by its test). A GL import is one request per FILE, so each import only
+  STAGES its property's significant lines (`stageNotPosted`, `not-posted-pending`,
+  deduped by content against `not-posted-emailed`); the Operating Statements
+  page calls `POST …/not-posted/email` once the last file lands and
+  `sendNotPostedDigest` mails every staged property as ONE message to Marie, cc
+  Drew — biggest dollars first. A tab closed mid-import is caught by the daily
+  cron `/api/cron/not-posted` (13:15 UTC), which sends entries over 30 minutes old.
 - **DEBT THAT IS SCHEDULED BUT NOT POSTED IS FILLED IN, STILL MARKED**
   (owner: "its just misleading to look at the income when we know theres
   debt"). `markMissingDebt` puts the Debt Tracker's payment for the month on

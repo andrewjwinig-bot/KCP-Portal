@@ -24,6 +24,10 @@
     {
       "path": "/api/cron/quarterly-cam",
       "schedule": "45 12 * * *"
+    },
+    {
+      "path": "/api/cron/not-posted",
+      "schedule": "15 13 * * *"
     }
   ]
 }
