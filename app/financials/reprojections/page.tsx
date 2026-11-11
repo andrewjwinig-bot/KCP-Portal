@@ -11,6 +11,9 @@ import LoadingState from "@/app/components/LoadingState";
 import React, { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { DisplayMenu, ToggleRow } from "@/app/components/DisplayMenu";
+import { InfoPopover } from "@/app/components/InfoPopover";
+import { MetaLine } from "@/app/components/LastImported";
 import { ReprojTable, HeaderSelect, SegToggle, MONTHS, ACTUAL_TINT, money, varColor, sum, type Mode, type ViewOpts, type Reprojection, type OnDrill, type OnEdit } from "./ReprojTable";
 import { useUser } from "@/app/components/UserProvider";
 import { isBudgetAuthor } from "@/lib/financials/budgets/contributors";
@@ -138,96 +141,102 @@ export default function ReprojectionsPage() {
   const noteFor = (lineKey: string) => (notes[lineKey] ? { note: notes[lineKey], ai: noteSources[lineKey] === "ai" } : null);
   const crossLink: React.CSSProperties = { fontSize: "var(--fs-12)", padding: "5px 11px", fontWeight: 700, textDecoration: "none" };
 
+  const noiVar = data?.rollups.netOperatingIncome.variance ?? null;
   const pills = data ? (actuals ? [
     { key: "rev", label: "Actual Revenue", value: money(sum(data.rollups.totalRevenues.actual)) },
     { key: "noi", label: "Actual NOI", value: money(sum(data.rollups.netOperatingIncome.actual)) },
     { key: "cf", label: "Actual Cash Flow", value: money(sum(data.rollups.cashFlowAfterDebtService.actual)) },
-    { key: "thru", label: through >= 12 ? "Full Year" : "Actuals Through", value: through > 0 ? (through >= 12 ? "Jan–Dec" : `Jan–${MONTHS[through - 1]}`) : "—" },
   ] : [
     { key: "rev", label: "Reprojected Revenue", value: money(data.rollups.totalRevenues.reprojTotal) },
-    { key: "noi", label: "Reprojected NOI", value: money(data.rollups.netOperatingIncome.reprojTotal) },
+    // The comparison is said in words under the figure (header rule), not as
+    // its own tile.
+    { key: "noi", label: "Reprojected NOI", value: money(data.rollups.netOperatingIncome.reprojTotal),
+      sub: noiVar == null || !budgetYear ? undefined : Math.round(noiVar) === 0 ? "On budget" : `${money(Math.abs(noiVar))} ${noiVar > 0 ? "better" : "worse"} than budget` },
     { key: "cf", label: "Reprojected Cash Flow", value: money(data.rollups.cashFlowAfterDebtService.reprojTotal) },
-    { key: "noivar", label: "NOI vs Budget", value: money(data.rollups.netOperatingIncome.variance ?? 0), accent: varColor(data.rollups.netOperatingIncome.variance) },
-    { key: "thru", label: "Actuals Through", value: through > 0 ? MONTHS[through - 1] : "—" },
-  ]) : [];
+  ]) as { key: string; label: string; value: string; sub?: string }[] : [];
+  const coverageText = actuals
+    ? (through > 0 ? `Actuals Jan–${MONTHS[Math.min(through, 12) - 1]}${through < 12 ? ` · ${MONTHS[through]}–Dec not yet imported` : ""}` : "No actuals yet")
+    : (through > 0 ? `Actuals Jan–${MONTHS[through - 1]}${through < 12 ? ` · budget ${MONTHS[Math.min(through, 11)]}–Dec` : ""}` : "Budget only, no actuals yet");
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <h1>{actuals ? "Full-Year Actuals" : "Reprojections"}</h1>
 
-      {/* Header card — title selectors + meta + toggles + KPI pills, like Budgets. */}
+      {/* Header: ONE row of controls and ONE meta line, like Operating Statements. */}
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
-            <HeaderSelect value={String(year)} onChange={(v) => setYear(Number(v))} displayLabel={String(year)} ariaLabel="Year" muted>
-              {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
-            </HeaderSelect>
-            <HeaderSelect value={key} onChange={setKey} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+            <select className="select-brand" aria-label="Property" style={{ maxWidth: 320 }} value={key} onChange={(e) => setKey(e.target.value)}>
+              {!cur && <option value="">Choose a property</option>}
               {groupStatementOptions(available).map((grp) => (
                 <optgroup key={grp.label} label={grp.label}>
-                  {grp.items.map((a) => <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>)}
+                  {grp.items.map((a) => <option key={a.key} value={a.key}>{a.propertyCode} · {a.name}{a.years.length ? "" : " (no GL)"}</option>)}
                 </optgroup>
               ))}
-            </HeaderSelect>
+            </select>
+            <select aria-label="Year" value={String(year)} onChange={(e) => setYear(Number(e.target.value))}>
+              {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
           </div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            {data && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <DisplayMenu>
+              <ToggleRow label="Show" left="Reproject" right="Actuals" active={actuals ? "right" : "left"} onLeft={() => setMode("reproject")} onRight={() => setMode("actuals")} />
+              <ToggleRow label="Amounts" left="Total" right="$/SF" active={psf ? "right" : "left"} onLeft={() => setPsf(false)} onRight={() => setPsf(true)} disabled={sqft <= 0} />
+              <ToggleRow label="Empty rows" left="Hide" right="Show" active={hideEmpty ? "left" : "right"} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
+              <ToggleRow label="GL accounts" left="Hide" right="Show" active={showGL ? "right" : "left"} onLeft={() => setShowGL(false)} onRight={() => setShowGL(true)} />
+            </DisplayMenu>
+            {cur && (
               <DownloadMenu
+                label="Open"
+                variant="default"
                 items={[
-                  { label: "Excel (.xlsx)", description: "Full-year blended reprojection by month", href: `/api/financials/reprojections/download?key=${encodeURIComponent(key)}&year=${year}` },
-                  { label: "PDF", description: "Presentation-ready reprojection summary", href: `/api/financials/reprojections/download/pdf?key=${encodeURIComponent(key)}&year=${year}` },
-                  // A whole portfolio group in one workbook, a sheet per
-                  // property — the alternative was opening each building and
-                  // pasting the tabs together. Same sheet writer as the single
-                  // download above, so the figures cannot differ.
-                  ...(groupDownloads.map((g) => ({
-                    label: `All ${g.label} (.xlsx)`,
-                    description: `${g.count} propert${g.count === 1 ? "y" : "ies"}, one sheet each`,
-                    href: `/api/financials/reprojections/download/group?group=${encodeURIComponent(g.label)}&year=${year}`,
-                  }))),
+                  { label: "Operating Statement", description: `${cur.propertyCode}'s statement for ${year}`, href: osHref },
+                  { label: "Budget", description: `${cur.propertyCode}'s operating budget`, href: budgetHref },
                 ]}
               />
             )}
-            <a className="btn" href={osHref} style={crossLink} title="Open this property's Operating Statement">Operating Statements<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></a>
-            <a className="btn" href={budgetHref} style={crossLink} title="Open this property's Operating Budget">Budget<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></a>
+            <DownloadMenu
+              label="Export"
+              variant="default"
+              disabled={!data}
+              items={[
+                { label: "Excel (.xlsx)", description: "Full-year blended reprojection by month", href: `/api/financials/reprojections/download?key=${encodeURIComponent(key)}&year=${year}` },
+                { label: "PDF", description: "Presentation-ready reprojection summary", href: `/api/financials/reprojections/download/pdf?key=${encodeURIComponent(key)}&year=${year}` },
+                // A whole portfolio group in one workbook, a sheet per
+                // property — same sheet writer as the single download above,
+                // so the figures cannot differ.
+                ...(groupDownloads.map((g) => ({
+                  label: `All ${g.label} (.xlsx)`,
+                  description: `${g.count} propert${g.count === 1 ? "y" : "ies"}, one sheet each`,
+                  href: `/api/financials/reprojections/download/group?group=${encodeURIComponent(g.label)}&year=${year}`,
+                }))),
+              ]}
+            />
           </div>
         </div>
 
-        {!actuals && (
-          <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 5, fontSize: "var(--fs-11)" }}>
-            <span style={{ width: 12, height: 12, background: ACTUAL_TINT, border: "1px solid var(--tint-green-line, rgba(21,128,61,0.4))", borderRadius: 2, display: "inline-block" }} /> Actual
-            <span style={{ width: 12, height: 12, border: "1px solid var(--border)", borderRadius: 2, display: "inline-block", marginLeft: 8 }} /> Budget
-            <span className="muted" style={{ marginLeft: 12 }}>📝 hover a line&apos;s note for the variance explanation (click → Operating Statements)</span>
-          </div>
-        )}
-
-        <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div className="muted small">
-            {actuals ? (
-              <>
-                Every month&apos;s actual GL figure {through > 0 ? <>(Jan–{MONTHS[Math.min(through, 12) - 1]})</> : "(none yet)"} + a Full Year total.
-                {through < 12 && through > 0 && <> {MONTHS[through]}–Dec not yet imported.</>}
-                {!hasGl && <> No GL uploaded for this property/year yet.</>}
-              </>
-            ) : (
-              <>
-                Blends actuals {through > 0 ? <>(Jan–{MONTHS[through - 1]})</> : "(none yet)"} with budget{through < 12 ? <> ({MONTHS[Math.min(through, 11)]}–Dec)</> : ""} for the full year.{canEdit && " Click a projected (blue) month to type over it."}
-                {budgetYear ? <> Budget: FY {budgetYear}{budgetFallback ? " (nearest)" : ""}.</> : <> No budget for this property.</>}
-                {!hasGl && <> No GL uploaded — projecting from budget.</>}
-              </>
-            )}
-          </div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <SegToggle label="Show" leftLabel="Reproject" rightLabel="Actuals" leftActive={!actuals} onLeft={() => setMode("reproject")} onRight={() => setMode("actuals")} />
-            <SegToggle label="View" leftLabel="Total" rightLabel="$/SF" leftActive={!psf} onLeft={() => setPsf(false)} onRight={() => setPsf(true)} disabled={sqft <= 0} />
-            <SegToggle label="Empty rows" leftLabel="Hide" rightLabel="Show" leftActive={hideEmpty} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
-            <SegToggle label="GL" leftLabel="Hide" rightLabel="Show" leftActive={!showGL} onLeft={() => setShowGL(false)} onRight={() => setShowGL(true)} />
-          </div>
-        </div>
+        <MetaLine>
+          {data && <span>{coverageText}</span>}
+          {data && !actuals && <span>· {budgetYear ? <>Budget FY {budgetYear}{budgetFallback ? " (nearest)" : ""}</> : "No budget for this property"}</span>}
+          {data && !hasGl && <span>· No GL imported{actuals ? "" : ", projecting from budget"}</span>}
+          <InfoPopover label="How to read this page" align="left">
+            <div style={{ paddingTop: 12, display: "grid", gap: 8, fontSize: "var(--fs-14)" }}>
+              {!actuals && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 12, height: 12, background: ACTUAL_TINT, border: "1px solid var(--tint-green-line, rgba(21,128,61,0.4))", borderRadius: 2, display: "inline-block" }} /> Actual
+                  <span style={{ width: 12, height: 12, border: "1px solid var(--border)", borderRadius: 2, display: "inline-block", marginLeft: 10 }} /> Budget
+                </div>
+              )}
+              <div>{actuals ? "Every month's actual GL figure, plus a Full Year total." : "Actuals for the months posted, the budget for the rest, totalled for the full year."}</div>
+              {!actuals && canEdit && <div>Click a projected (blue) month to type over it.</div>}
+              <div>Hover a line&apos;s note for its variance explanation; click it to open the Operating Statement.</div>
+            </div>
+          </InfoPopover>
+        </MetaLine>
 
         {pills.length > 0 && (
           <div className="pills">
-            {pills.map((p) => <StatPill key={p.key} label={p.label} value={p.value} accent={p.accent} />)}
+            {pills.map((p) => <StatPill key={p.key} label={p.label} value={p.value} sub={p.sub} />)}
           </div>
         )}
       </div>

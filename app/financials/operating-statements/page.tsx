@@ -13,6 +13,7 @@ import { expectedPostedThroughFor } from "@/lib/financials/operating-statements/
 import { useUser } from "@/app/components/UserProvider";
 import { useImport } from "@/app/components/import/ImportProvider";
 import { Abbr } from "@/app/components/Abbr";
+import { DisplayMenu, ToggleRow, toggleLabel } from "@/app/components/DisplayMenu";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { Pill, StatPill, tiesTone } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
@@ -251,31 +252,6 @@ function investigateCount(s: PropertyStatement, dismissed: Set<string>): number 
 }
 
 // Segmented two-button toggle, matching the Operating Budgets controls.
-const toggleBtn: React.CSSProperties = {
-  fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px",
-  border: "1px solid var(--border)", background: "var(--card)",
-  color: "var(--text)", cursor: "pointer", letterSpacing: "0.04em", textTransform: "uppercase",
-};
-const toggleActive: React.CSSProperties = { background: "var(--c-0b4a7d)", color: "#fff", borderColor: "var(--c-0b4a7d)" };
-const toggleLabel: React.CSSProperties = { fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" };
-
-// A single segmented two-button control. Rendered as a labeled row (label left,
-// buttons right) so a stack of them reads like a settings menu.
-function ToggleRow({ label, left, right, active, onLeft, onRight, disabled }: {
-  label: string; left: string; right: string; active: "left" | "right";
-  onLeft: () => void; onRight: () => void; disabled?: boolean;
-}) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, width: "100%" }}>
-      <span className="muted small" style={toggleLabel}>{label}</span>
-      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden", opacity: disabled ? 0.5 : 1 }}>
-        <button type="button" disabled={disabled} onClick={() => !disabled && onLeft()} style={{ ...toggleBtn, cursor: disabled ? "not-allowed" : "pointer", borderRadius: "6px 0 0 6px", ...(active === "left" ? toggleActive : {}) }}>{left}</button>
-        <button type="button" disabled={disabled} onClick={() => !disabled && onRight()} style={{ ...toggleBtn, cursor: disabled ? "not-allowed" : "pointer", borderLeft: "none", borderRadius: "0 6px 6px 0", ...(active === "right" ? toggleActive : {}) }}>{right}</button>
-      </div>
-    </div>
-  );
-}
-
 // Consolidated "View ▾" popover — the four display toggles (Amounts, Variance,
 // Empty rows, GL) in one menu instead of cluttering the toolbar. Closes on
 // outside click or Escape, mirroring the Download menu.
@@ -289,35 +265,8 @@ function ViewMenu({ leanImport, setLeanImport, psf, setPsf, psfDisabled, varMode
   hideEmpty: boolean; setHideEmpty: (v: boolean) => void;
   showGL: boolean; setShowGL: (v: boolean) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e: MouseEvent) => { if (!wrapRef.current?.contains(e.target as Node)) setOpen(false); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onDocClick); document.removeEventListener("keydown", onKey); };
-  }, [open]);
   return (
-    <div ref={wrapRef} style={{ position: "relative", display: "inline-flex" }}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="btn"
-        style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
-        Display
-        <span aria-hidden style={{ fontSize: "var(--fs-10)", opacity: 0.75, lineHeight: 1 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
-      </button>
-      {open && (
-        <div role="menu" style={{
-          position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 40, minWidth: 290,
-          background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10,
-          boxShadow: "0 8px 24px rgba(15,23,42,0.18)", padding: 14, display: "flex", flexDirection: "column", gap: 12,
-        }}>
+    <DisplayMenu>
           <ToggleRow label="Amounts" left="Total" right="$/SF" active={psf ? "right" : "left"} onLeft={() => setPsf(false)} onRight={() => setPsf(true)} disabled={psfDisabled} />
           <ToggleRow label="Variance" left="%" right="$" active={varMode === "dollar" ? "right" : "left"} onLeft={() => setVarMode("pct")} onRight={() => setVarMode("dollar")} />
           <ToggleRow label="Empty rows" left="Hide" right="Show" active={hideEmpty ? "left" : "right"} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
@@ -344,9 +293,7 @@ function ViewMenu({ leanImport, setLeanImport, psf, setPsf, psfDisabled, varMode
             <input type="checkbox" checked={leanImport} onChange={(e) => setLeanImport(e.target.checked)} style={{ marginTop: 2 }} />
             <span>Import monthly totals only<span className="muted" style={{ display: "block", fontSize: "var(--fs-13)" }}>Skips transaction detail, for backfilling past years</span></span>
           </label>
-        </div>
-      )}
-    </div>
+    </DisplayMenu>
   );
 }
 

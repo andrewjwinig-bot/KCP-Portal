@@ -140,7 +140,7 @@ function writeReprojSheet(wb: ExcelJS.Workbook, tabName: string, r: Reprojection
   const edge = (cell: ExcelJS.Cell, col: number) => { if (boundaryCols.has(col)) cell.border = { ...(cell.border ?? {}), right: { style: "thin", color: { argb: BORDER } } }; };
 
   const hdr = ws.getRow(4);
-  (t12 ? ["Line", ...t12.labels, "T-12"] : ["Line", ...MONTHS, "Full Year", "Ann Bud", "Var"]).forEach((h, i) => {
+  (t12 ? ["Line", ...t12.labels, "T-12"] : ["Line", ...MONTHS, "Reproj", "Ann Bud", "Var"]).forEach((h, i) => {
     const cell = hdr.getCell(i + 1);
     cell.value = h;
     cell.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
@@ -390,7 +390,7 @@ export async function buildReprojPdf(r: Reprojection, meta: ReprojMeta, notes: N
       page.drawRectangle({ x: MARGIN, y: PAGE_H - (y + 14), width: PAGE_W - MARGIN * 2, height: 16, color: NAVY });
       leftText("Line", LINE_X + 2, y + 11, 7.5, bold, WHITE);
       MONTHS.forEach((m, i) => rightText(m, MON_X + MON_W * (i + 1) - 2, y + 11, 7, bold, WHITE));
-      rightText("Full Yr", FULL_X + FULL_W - 2, y + 11, 7.5, bold, WHITE);
+      rightText("Reproj", FULL_X + FULL_W - 2, y + 11, 7.5, bold, WHITE);
       rightText("Ann Bud", BUD_X + BUD_W - 2, y + 11, 7, bold, WHITE);
       rightText("Var", VAR_X + VAR_W - 2, y + 11, 7.5, bold, WHITE);
       y += 18;
