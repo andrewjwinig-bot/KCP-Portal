@@ -1,68 +1,92 @@
-// Email the "not posted to the GL" summary to the controller the moment a GL is
-// imported, so Marie (cc Drew) immediately knows what's still missing without
-// opening the portal. Deduped by content: re-importing the IDENTICAL statement
-// won't resend, but any change to the missing set (e.g. after something is
-// posted and re-imported) sends a fresh summary.
+// The "not posted to the GL" alert: ONE email per import, not one per property
+// (owner, 11/2026: "i imported and got a bunch of Not posted to the GL emails
+// … roll this up into one email instead of one per property").
+//
+// A GL import is one request PER FILE, so no single request knows the whole
+// batch. Each import STAGES its property's significant not-posted lines
+// (`stageNotPosted`, no mail); the page asks for the digest once every file
+// has landed (`POST /api/financials/operating-statements/not-posted/email`),
+// and a daily cron sends anything a closed tab left staged. The digest groups
+// every staged property into one message, biggest dollars first.
+//
+// Deduped by content per property: re-importing the IDENTICAL statement stages
+// nothing, but any change to a property's missing set (something posted, or a
+// new month) stages a fresh entry.
 
 import "server-only";
 import { sendMail, isMailConfigured } from "@/lib/mail";
-import { getJSON, storeJSON } from "@/lib/storage";
+import { deleteJSON, getJSON, listJSON, storeJSON } from "@/lib/storage";
 import crypto from "node:crypto";
-import { significantNotPosted, type NotPostedSummary } from "./notPosted";
+import { significantNotPosted, type NotPostedItem, type NotPostedSummary } from "./notPosted";
+import { composeNotPostedDigest, type StagedNotPosted } from "./notPostedDigest";
 
 const TO = "mjaster@kormancommercial.com";
 const CC = "dwinig@kormancommercial.com";
 const FROM = "dwinig@kormancommercial.com"; // verified sender
-const PREFIX = "not-posted-emailed";
+/** Last emailed content per property-year — the dedupe. */
+const SENT = "not-posted-emailed";
+/** Waiting for the batch's digest. */
+const PENDING = "not-posted-pending";
 
-function money0(n: number): string {
-  return "$" + Math.round(Number(n) || 0).toLocaleString("en-US");
-}
+const idOf = (key: string, year: number) => `${key}-${year}`.replace(/[^0-9A-Za-z]+/g, "-") || "unknown";
 
-export async function emailNotPostedSummary(
-  np: NotPostedSummary,
-  opts: { key: string; propertyName: string; year: number; importedBy?: string | null },
-): Promise<{ sent: boolean; reason?: string }> {
-  if (!np.items.length) return { sent: false, reason: "nothing-missing" };
-  // Only alert on the big, easy-to-miss postings (management fees, insurance,
-  // real estate taxes, debt service) — not routine monthly CAM lines briefly
-  // reading $0, which would just be noise.
-  const items = significantNotPosted(np.items);
-  if (!items.length) return { sent: false, reason: "nothing-significant" };
-  if (!isMailConfigured()) return { sent: false, reason: "mail-not-configured" };
-
-  // Content signature — skip only an exact-duplicate re-send.
-  const sig = crypto
+function signature(key: string, year: number, items: NotPostedItem[]): string {
+  return crypto
     .createHash("sha1")
     .update(JSON.stringify({
-      key: opts.key, year: opts.year,
+      key, year,
       items: items.map((i) => `${i.period}|${i.section}|${i.line}|${i.type}|${Math.round(i.expected)}`).sort(),
     }))
     .digest("hex")
     .slice(0, 16);
-  const id = `${opts.key}-${opts.year}`.replace(/[^0-9A-Za-z]+/g, "-") || "unknown";
-  const prev = (await getJSON(PREFIX, id)) as { sig?: string } | null;
-  if (prev?.sig === sig) return { sent: false, reason: "unchanged" };
+}
 
-  const monthLabel = items[0]?.monthLabel ?? "";
-  const labelW = Math.max(0, ...items.map((i) => `${i.section} · ${i.line}`.length));
-  const rows = items
-    .map((i) => `  ${`${i.section} · ${i.line}`.padEnd(labelW)}   ${money0(i.expected).padStart(12)}${i.type === "missing-debt" ? "  (debt service)" : ""}`)
-    .join("\n");
-  const total = items.reduce((s, i) => s + (Number(i.expected) || 0), 0);
+/** Stage one property's significant not-posted lines for the import's digest.
+ *  Sends nothing. A property whose set is unchanged since it was last emailed
+ *  (or now empty) clears any stale staged entry instead. */
+export async function stageNotPosted(
+  np: NotPostedSummary,
+  opts: { key: string; propertyName: string; year: number; importedBy?: string | null },
+): Promise<{ staged: boolean; reason?: string }> {
+  const id = idOf(opts.key, opts.year);
+  // Only the big, easy-to-miss postings (management fees, insurance, real
+  // estate taxes, debt service) — not routine lines briefly reading $0.
+  const items = significantNotPosted(np.items);
+  if (!items.length) {
+    await deleteJSON(PENDING, id).catch(() => false);
+    return { staged: false, reason: "nothing-significant" };
+  }
+  const sig = signature(opts.key, opts.year, items);
+  const prev = (await getJSON(SENT, id)) as { sig?: string } | null;
+  if (prev?.sig === sig) {
+    await deleteJSON(PENDING, id).catch(() => false);
+    return { staged: false, reason: "unchanged" };
+  }
+  const entry: StagedNotPosted = {
+    id, key: opts.key, propertyName: opts.propertyName, year: opts.year,
+    items, sig, importedBy: opts.importedBy ?? null, stagedAt: new Date().toISOString(),
+  };
+  await storeJSON(PENDING, id, entry);
+  return { staged: true };
+}
 
-  const ok = await sendMail({
-    to: TO,
-    cc: CC,
-    from: FROM,
-    subject: `Not posted to the GL — ${opts.propertyName} ${monthLabel} ${opts.year} (${items.length})`,
-    textBody:
-      `${items.length} line${items.length === 1 ? "" : "s"} still not posted to the GL for ${opts.propertyName} (${monthLabel} ${opts.year})` +
-      `${opts.importedBy ? `, from the GL just imported by ${opts.importedBy}` : ""}:\n\n` +
-      `${rows}\n  ${"— expected total".padEnd(labelW)}   ${money0(total).padStart(12)}\n\n` +
-      `These are budgeted or scheduled figures still reading $0 — post them or confirm they don't apply for this month.\n\n` +
-      `— KCP Portal`,
-  });
-  if (ok) await storeJSON(PREFIX, id, { sig, sentAt: new Date().toISOString() });
-  return { sent: ok };
+/** Send every staged property as ONE email. `olderThanMs` lets the cron leave
+ *  alone an import still in progress. */
+export async function sendNotPostedDigest(opts: { olderThanMs?: number } = {}): Promise<{ sent: boolean; properties: number; lines: number; reason?: string }> {
+  const all = ((await listJSON(PENDING, { fresh: true })) as StagedNotPosted[]).filter((e) => e && Array.isArray(e.items) && e.items.length);
+  const cutoff = opts.olderThanMs ? Date.now() - opts.olderThanMs : Infinity;
+  const due = all.filter((e) => Date.parse(e.stagedAt) <= cutoff);
+  if (!due.length) return { sent: false, properties: 0, lines: 0, reason: "nothing-staged" };
+  if (!isMailConfigured()) return { sent: false, properties: due.length, lines: 0, reason: "mail-not-configured" };
+
+  const mail = composeNotPostedDigest(due);
+  const ok = await sendMail({ to: TO, cc: CC, from: FROM, subject: mail.subject, textBody: mail.text });
+  if (!ok) return { sent: false, properties: due.length, lines: mail.lines, reason: "send-failed" };
+
+  const at = new Date().toISOString();
+  for (const e of due) {
+    await storeJSON(SENT, e.id, { sig: e.sig, sentAt: at });
+    await deleteJSON(PENDING, e.id).catch(() => false);
+  }
+  return { sent: true, properties: due.length, lines: mail.lines };
 }
