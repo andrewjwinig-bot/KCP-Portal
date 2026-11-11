@@ -1,3 +1,4 @@
+import { Abbr } from "./Abbr";
 /**
  * Canonical Pill + Badge primitives.
  *
@@ -73,7 +74,7 @@ export function StatPill({
     <div className={total ? "pill pill-total" : "pill"}
       {...(onClick ? { role: "button", tabIndex: 0, title: hint, onClick, onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }, style: { cursor: "pointer" } } : {})}>
       <b style={accent ? { color: accent } : undefined}>{value}</b>
-      <span className="small muted">{label}</span>
+      <span className="small muted"><Abbr text={label} /></span>
       {sub && <span className="small muted">{sub}</span>}
     </div>
   );

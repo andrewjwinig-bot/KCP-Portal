@@ -8,6 +8,7 @@ import { useUser } from "./UserProvider";
 import { isPathAllowed } from "../../lib/users";
 import { applySkin, isSkinReviewer, readSkin } from "./SkinToggle";
 import TitleTips from "./TitleTips";
+import { ScrollSync } from "./ScrollSync";
 
 // Routes that render without the portal chrome (no sidebar, no auth gate).
 // These are exempt from the site-cookie check in middleware too, so anyone
@@ -67,6 +68,7 @@ export default function AppShell({ children, website = false }: { children: Reac
   return (
     <div style={{ paddingLeft: sidebarW, transition: "padding-left 0.2s ease", minHeight: "100vh", overflowX: "hidden" }}>
       <TitleTips enabled={tipsOn} />
+      <ScrollSync />
       {isNarrow && (
         <button
           type="button"

@@ -1,4 +1,5 @@
 "use client";
+import { abbrev } from "@/lib/ui/abbrev"; // the grid always uses the short forms
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 // The draft budget, laid out as a FULL-YEAR OPERATING STATEMENT.
@@ -127,7 +128,6 @@ function subName(y: { account: string; name?: string | null }, siblings: { name?
 /** Display only — "Reimbursements" / "Reimbursable" read as "Reimb." and
  *  "Maintenance" as "Maint." so the line column stays narrow. Keys, saves and
  *  notes keep the full label. */
-const abbrev = (s: string) => s.replace(/\breimburs(?:ements?|able)\b/gi, "Reimb.").replace(/\bmaintenance\b/gi, "Maint.");
 
 /** "$1,200", "1200", "(1,200)", "-1200" → a number; blank → null. */
 function parseTyped(s: string): number | null | undefined {
@@ -414,7 +414,7 @@ function RollupCard({ label, months, total, basis, favorableUp, tip }: {
   const cell: React.CSSProperties = { ...num, fontSize: "var(--fs-13)", fontWeight: 800, borderBottom: "none" };
   return (
     <div className="card" style={{ padding: 0, borderColor: COLOR_BRAND, background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" }}>
-      <div className="tableWrap" style={{ marginTop: 0 }}>
+      <div className="tableWrap quiet-scroll" data-scroll-group="statement" style={{ marginTop: 0 }}>
         <table className="grid-dense" style={TABLE}>
           <Colgroup />
           <tbody>
@@ -802,7 +802,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
             </button>
           )}
         </div>
-        <div className="tableWrap" style={{ marginTop: 0 }}>
+        <div className="tableWrap" data-scroll-group="statement" style={{ marginTop: 0 }}>
           <table className="grid-dense" style={TABLE}>
             <Colgroup />
             {head}
@@ -1003,7 +1003,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   if (topRows.length) {
     body.push(
       <div key="top" className="card" style={{ padding: 0 }}>
-        <div className="tableWrap" style={{ marginTop: 0 }}>
+        <div className="tableWrap" data-scroll-group="statement" style={{ marginTop: 0 }}>
           <table className="grid-dense" style={TABLE}>
             <Colgroup />
             <thead>
@@ -1095,7 +1095,7 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
             {mayDist && cash.openingTyped && !openingEdit && <button type="button" className="btn btn-sm" style={{ padding: "1px 8px", fontSize: "var(--fs-11)" }} title={cash.bank ? "Back to the bank balance" : "Back to the GL"} onClick={() => onEdit!(distSec, distLine(OPENING_LABEL), 0, null)}>↺</button>}
           </span>}
         </div>
-        {showDist && <div className="tableWrap" style={{ marginTop: 0 }}>
+        {showDist && <div className="tableWrap" data-scroll-group="statement" style={{ marginTop: 0 }}>
           <table className="grid-dense" style={TABLE}>
             <Colgroup />
             <thead>

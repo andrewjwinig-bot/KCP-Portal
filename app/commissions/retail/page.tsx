@@ -517,13 +517,13 @@ export default function RetailCommissionsPage() {
       </header>
 
       {/* ── Add / Edit form ── */}
-      <div className="card">
+      <div className="card entry-form">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
           <b style={{ fontSize: 17 }}>{form.id ? "Edit Commission Entry" : "New Commission Entry"}</b>
           {error && <span style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-12)" }}>{error}</span>}
         </div>
 
-        <div style={{
+        <div className="entry-grid" style={{
           display: "grid",
           gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 2.2fr) minmax(0, 0.9fr) minmax(0, 0.7fr) minmax(0, 0.9fr) minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr)",
           gap: 12,

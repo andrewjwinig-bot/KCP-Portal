@@ -1,6 +1,6 @@
 "use client";
 import { FilePath } from "@/app/components/FilePath";
-import { ChevronDown, ChevronRight, CircleCheck, Clock, Receipt, Sparkles, TriangleAlert, Upload } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, Clock, Receipt, Sparkles, TriangleAlert, Upload, MessageSquarePlus } from "lucide-react";
 
 // Operating Statements — the actuals twin of Operating Budgets. Upload a
 // property's Skyline GL export; the page renders the Comparative Income
@@ -12,6 +12,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { expectedPostedThroughFor } from "@/lib/financials/operating-statements/postingSchedule";
 import { useUser } from "@/app/components/UserProvider";
 import { useImport } from "@/app/components/import/ImportProvider";
+import { Abbr } from "@/app/components/Abbr";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { Pill, StatPill, tiesTone } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
@@ -143,7 +144,10 @@ function varPct(variance: number | null, budget: number | null): number | null {
 }
 
 type VarMode = "pct" | "dollar";
-type ViewOpts = { psf: boolean; sqft: number; hideEmpty: boolean; showGL: boolean; varMode: VarMode };
+type ViewOpts = { psf: boolean; sqft: number; hideEmpty: boolean; showGL: boolean; varMode: VarMode;
+  /** Any line on this statement carries a note. With none, the Notes column
+   *  shrinks to an add-note icon, so the figures fit without a sideways scroll. */
+  notesCol?: boolean };
 
 // Dollar amount in the active view — total $ or $/SF.
 function fmtAmt(v: number | null, psf: boolean, sqft: number): string {
@@ -1110,17 +1114,23 @@ function fmtNoteEdited(iso: string): string {
 const lineKeyOf = (sectionName: string, label: string) => `${sectionName}::${label}`;
 
 // Shared fixed-width columns so every section/subtotal card lines up.
-function StatementColgroup() {
+function StatementColgroup({ notes = true }: { notes?: boolean }) {
+  // With no notes on the statement the Notes column is just an add-note icon,
+  // and the line + figures take the room it held.
+  const label = notes ? "20%" : "24%";
+  const fig = notes ? "8%" : "10%";
   return (
     <colgroup>
-      <col style={{ width: "20%" }} />
-      <col style={{ width: "8%" }} /><col style={{ width: "8%" }} /><col style={{ width: "8%" }} />
-      <col style={{ width: "8%" }} /><col style={{ width: "8%" }} /><col style={{ width: "8%" }} />
-      <col style={{ width: "8%" }} />
-      <col style={{ width: "24%" }} />
+      <col style={{ width: label }} />
+      <col style={{ width: fig }} /><col style={{ width: fig }} /><col style={{ width: fig }} />
+      <col style={{ width: fig }} /><col style={{ width: fig }} /><col style={{ width: fig }} />
+      <col style={{ width: fig }} />
+      <col style={{ width: notes ? "24%" : "6%" }} />
     </colgroup>
   );
 }
+/** The statement tables' floor before they scroll sideways. */
+const statementMinWidth = (notes?: boolean) => (notes ? 1000 : 760);
 
 // Group header bar above a band of section cards — matches the Budgets page.
 function GroupHeader({ label }: { label: string }) {
@@ -1131,7 +1141,7 @@ function GroupHeader({ label }: { label: string }) {
   );
 }
 
-function HeaderRow({ monthLabel, varMode }: { monthLabel: string; varMode: VarMode }) {
+function HeaderRow({ monthLabel, varMode, notes = true }: { monthLabel: string; varMode: VarMode; notes?: boolean }) {
   const varSuffix = varMode === "dollar" ? "Var $" : "Var %";
   return (
     <tr>
@@ -1143,7 +1153,7 @@ function HeaderRow({ monthLabel, varMode }: { monthLabel: string; varMode: VarMo
       <th style={headStyle}>YTD Bud</th>
       <th style={headStyle}>YTD {varSuffix}</th>
       <th style={{ ...headStyle, borderLeft: GROUP_DIV }}>Ann Bud</th>
-      <th style={{ ...headStyle, borderLeft: GROUP_DIV, textAlign: "left" }}>Notes</th>
+      <th style={{ ...headStyle, borderLeft: GROUP_DIV, textAlign: notes ? "left" : "center" }}>{notes ? "Notes" : ""}</th>
     </tr>
   );
 }
@@ -1166,6 +1176,7 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
   const showCapital = capitalSecs.length > 0 && (!view.hideEmpty || groupHasActivity(capitalSecs));
   const showDebt = debtSecs.length > 0 && (!view.hideEmpty || groupHasActivity(debtSecs));
   const nf: NoteFns = { notes, noteSources, noteMeta, editorLabel, onSaveNote, dismissedFlags, onDismissFlag };
+  view = { ...view, notesCol: s.sections.some((sec) => sec.lines.some((l) => !!notes[lineKeyOf(sec.name, l.label)])) };
   const monthLabel = MONTHS[s.period - 1];
   // Line drill-down — Budget detail ⇄ GL transactions, opened from a cell.
   const [detail, setDetail] = useState<{ mask: string; label: string; sign: 1 | -1; tab: "gl" | "budget"; scope: "month" | "ytd" | "annual" } | null>(null);
@@ -1521,15 +1532,15 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
       <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
         {sec.name}
       </div>
-      <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
-          <StatementColgroup />
-          <thead><HeaderRow monthLabel={monthLabel} varMode={view.varMode} /></thead>
+      <div className="tableWrap abbr-scope" data-scroll-group="statement" style={{ marginTop: 0 }}>
+        <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: statementMinWidth(view.notesCol) }}>
+          <StatementColgroup notes={view.notesCol} />
+          <thead><HeaderRow monthLabel={monthLabel} varMode={view.varMode} notes={view.notesCol} /></thead>
           <tbody>
             {lines.map((l) => (
               <tr key={l.label}>
                 <td style={labelStyle}>
-                  {l.label}
+                  <Abbr text={l.label} />
                   {l.flags?.length && !l.fullyFundedYtd && !l.expectedMissing && !nf.dismissedFlags.has(lineKeyOf(sec.name, l.label)) ? (
                     <button
                       type="button"
@@ -1551,12 +1562,12 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
                   {view.showGL && <div className="muted" style={{ fontSize: "var(--fs-11)", fontVariantNumeric: "tabular-nums", marginTop: 1 }}>{l.mask}</div>}
                 </td>
                 {figureCells(l, { psf: view.psf, sqft: view.sqft, varMode: view.varMode, flag: thresh, drill: (tab, scope) => onOpenDetail(sec, l, tab, scope), expectedMissing: nf.dismissedFlags.has(lineKeyOf(sec.name, l.label)) ? null : l.expectedMissing, fullyFunded: l.fullyFundedYtd })}
-                <NoteCell lineKey={lineKeyOf(sec.name, l.label)} {...nf} />
+                <NoteCell lineKey={lineKeyOf(sec.name, l.label)} compact={!view.notesCol} {...nf} />
               </tr>
             ))}
             {!hideSubtotal && !filterClass && (
               <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", borderTop: "2px solid var(--tint-brand-line, rgba(11,74,125,0.30))" }}>
-                <td style={{ ...labelStyle, fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-13-5)" }}>{subtotalLabel(sec)}</td>
+                <td style={{ ...labelStyle, fontWeight: 800, color: COLOR_BRAND, textTransform: "uppercase", letterSpacing: "0.04em", fontSize: "var(--fs-13-5)" }}><Abbr text={subtotalLabel(sec)} /></td>
                 {figureCells(sec.subtotal, { bold: true, color: COLOR_BRAND, psf: view.psf, sqft: view.sqft, varMode: view.varMode })}
                 <td style={{ borderLeft: GROUP_DIV }} />
               </tr>
@@ -1571,12 +1582,12 @@ function SectionCard({ sec, nf, monthLabel, view, thresh, onOpenDetail, filterCl
 function RollupCard({ label, t, view, strong }: { label: string; t: StatementTotals; view: ViewOpts; strong?: boolean }) {
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden", borderColor: COLOR_BRAND, background: strong ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : "var(--tint-brand-faint, rgba(11,74,125,0.035))" }}>
-      <div className="tableWrap" style={{ marginTop: 0 }}>
-        <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: 1000 }}>
-          <StatementColgroup />
+      <div className="tableWrap quiet-scroll abbr-scope" data-scroll-group="statement" style={{ marginTop: 0 }}>
+        <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: statementMinWidth(view.notesCol) }}>
+          <StatementColgroup notes={view.notesCol} />
           <tbody>
             <tr>
-              <td style={{ ...labelStyle, fontSize: strong ? 15 : 13.5, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND, borderBottom: "none" }}>{label}</td>
+              <td style={{ ...labelStyle, fontSize: strong ? 15 : 13.5, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: COLOR_BRAND, borderBottom: "none" }}><Abbr text={label} /></td>
               {figureCells(t, { bold: true, color: COLOR_BRAND, noBorder: true, psf: view.psf, sqft: view.sqft, varMode: view.varMode })}
               <td style={{ borderLeft: GROUP_DIV, borderBottom: "none" }} />
             </tr>
@@ -1671,12 +1682,12 @@ function ClickablePill({ active, activeColor, onClick, title, children }: { acti
   );
 }
 
-function NoteCell({ lineKey, notes, noteSources, noteMeta, editorLabel, onSaveNote }: { lineKey: string } & NoteFns) {
+function NoteCell({ lineKey, compact, notes, noteSources, noteMeta, editorLabel, onSaveNote }: { lineKey: string; compact?: boolean } & NoteFns) {
   const value = notes[lineKey] ?? "";
   const isAi = !!value && noteSources[lineKey] === "ai";
   const [open, setOpen] = useState(false);
   return (
-    <td style={{ ...labelStyle, borderLeft: GROUP_DIV, padding: "4px 8px" }}>
+    <td style={{ ...labelStyle, borderLeft: GROUP_DIV, padding: compact ? "4px 2px" : "4px 8px" }}>
       <button
         type="button"
         className="os-cell"
@@ -1689,8 +1700,12 @@ function NoteCell({ lineKey, notes, noteSources, noteMeta, editorLabel, onSaveNo
           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block",
         }}
       >
-        {isAi && <Sparkles size={16} strokeWidth={1.75} color="var(--ai)" aria-label="Written by AI" style={{ marginRight: 4, verticalAlign: "-3px" }} />}
-        {value || "Add a note…"}
+        {compact && !value
+          ? <MessageSquarePlus className="os-note-add" size={16} strokeWidth={1.75} aria-label="Add a note" style={{ display: "block", margin: "0 auto" }} />
+          : <>
+              {isAi && <Sparkles size={16} strokeWidth={1.75} color="var(--ai)" aria-label="Written by AI" style={{ marginRight: 4, verticalAlign: "-3px" }} />}
+              {value || "Add a note…"}
+            </>}
       </button>
       {open && (
         <NoteModal
