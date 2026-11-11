@@ -64,8 +64,12 @@ const universalNav = new Set(["dashboard", "properties", "rentroll"]);
 // 2FA on their own phone and are individually accountable in the audit log)
 // while keeping identical access + visibility. Cloned via `serviceUser` so the
 // profiles never drift — change the access once, here.
-const SERVICE_NAV = new Set([...universalNav, "maintenance", "expenses", "reservations"]);
-const SERVICE_PATHS = ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/maintenance", "/reservations"];
+// No CC Expense Coder for the service logins (owner: Greg "doesnt need a full
+// credit card expense coder page"): his charges come to the Charges to Code
+// card on his dashboard. The page also meant FULL statement access on
+// /api/expenses/working, which hid that card from him.
+const SERVICE_NAV = new Set([...universalNav, "maintenance", "reservations"]);
+const SERVICE_PATHS = ["/dashboard", "/properties", "/rentroll", "/units", "/maintenance", "/reservations"];
 const serviceUser = (id: UserId, label: string): UserDef => ({
   id,
   label,

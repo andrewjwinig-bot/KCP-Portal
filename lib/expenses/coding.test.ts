@@ -31,3 +31,15 @@ describe("credit-card charges go to the cardholder who codes them", () => {
     expect(isRowCoded(tx("G", { category: "TI", propertyId: "4050", suite: "105" }))).toBe(true);
   });
 });
+
+describe("who codes where", () => {
+  it("Greg codes on his dashboard, not the Credit Card page", async () => {
+    const { isPathAllowed, USERS } = await import("../users");
+    for (const u of ["greg", "charles", "jay", "maint"] as const) {
+      expect(isPathAllowed(u, "/expenses")).toBe(false);
+      expect(USERS[u].navKeys.has("expenses")).toBe(false);
+    }
+    expect(isPathAllowed("harry", "/expenses")).toBe(true);
+    expect(isPathAllowed("greg", "/communications")).toBe(true);
+  });
+});
