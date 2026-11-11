@@ -5,7 +5,7 @@
 // dropdown to be more clean and simple"). Operating Statements and
 // Reprojections share it; a page adds its rows as children.
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 
 export const toggleLabel: React.CSSProperties = { fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" };
 const toggleBtn: React.CSSProperties = {
@@ -45,10 +45,9 @@ export function DisplayMenu({ children, label = "Display" }: { children: React.R
   }, [open]);
   return (
     <div ref={wrapRef} style={{ position: "relative", display: "inline-flex" }}>
-      <button type="button" onClick={() => setOpen((v) => !v)} className="btn icon-tip" aria-haspopup="menu" aria-expanded={open} aria-label={label} data-tip={label}>
+      <button type="button" onClick={() => setOpen((v) => !v)} className="btn icon-tip" style={{ padding: "8px 12px" }} aria-haspopup="menu" aria-expanded={open} aria-label={label} data-tip={label}>
         <SlidersHorizontal size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
         <span className="menu-btn-label" style={{ marginLeft: 6 }}>{label}</span>
-        <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ marginLeft: 6, verticalAlign: "-3px", flexShrink: 0 }} />
       </button>
       {open && (
         <div role="menu" style={{

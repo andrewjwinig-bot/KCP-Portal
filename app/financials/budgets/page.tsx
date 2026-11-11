@@ -2740,7 +2740,7 @@ function ButtonMenu({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={`${variant === "primary" ? "btn primary" : "btn"} icon-tip`}
-        style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
+        style={{ fontSize: "var(--fs-13)", padding: "8px 12px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}
@@ -2748,7 +2748,6 @@ function ButtonMenu({
       >
         {label === "Export" ? <Download size={16} strokeWidth={1.75} aria-hidden /> : label === "Actions" ? <Ellipsis size={16} strokeWidth={1.75} aria-hidden /> : null}
         <span className="menu-btn-label">{label}</span>
-        <span aria-hidden style={{ fontSize: "var(--fs-10)", opacity: 0.75, lineHeight: 1 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
       </button>
       {open && (
         <div
