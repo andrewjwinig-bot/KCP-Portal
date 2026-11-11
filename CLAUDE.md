@@ -164,9 +164,9 @@ until he approves it for everyone; build EVERY new or touched UI to it.
   not "HARRY").
 - **A page header is ONE row of controls and ONE meta line** (Operating
   Statements, 11/2026; owner: "the header hero is a little busy and
-  cluttered"). Row: the brand `select` for the page's driving control, plain
-  `select`s for year / month, then Display, Open, Export and the import
-  button on the right. Meta line, muted 14px: "Imported <when> by <Name>",
+  cluttered"). Row: the page's pickers — PROPERTY FIRST, then the period —
+  as `HeaderSelect`, then the import button, and Display, Open, Export on
+  the right. Meta line, muted 14px: "Imported <when> by <Name>",
   any check that passed in words with its icon ("GL ties" + CircleCheck, a
   `HoverCard` for the detail), and the (i) for import steps. A check never
   floats as a pill in the tile row.
@@ -179,8 +179,15 @@ until he approves it for everyone; build EVERY new or touched UI to it.
   straight after the property / period pickers it imports for; Display, Open
   and Export go right. Navy `.btn.primary` is for the page's one forward
   action, never an upload.
-- **The page's driving `select-brand` reads at 17px** (card-title size; its
-  options stay 15px) — owner: the property name read too small.
+- **A page's property / period pickers are `HeaderSelect`**
+  (`app/components/HeaderSelect.tsx`; owner: "feels more crisp since its a
+  good size without the boxes … put property first before the period"):
+  22px / 800 borderless text with a chevron over an invisible native select
+  (`.header-select` in globals), the property in ink, the period muted.
+  Operating Statements (property · month · year), Reprojections (property ·
+  year), Rent Roll and Monthly Statements (month). A boxed `select-brand` is
+  for a picker inside a card or form, not the page header. Reprojections has
+  no link to Operating Statements (owner).
 - **Settings someone rarely changes live in the Display menu** (`DisplayMenu` +
   `ToggleRow`, `app/components/DisplayMenu.tsx` — Operating Statements and
   Reprojections share it), not on the page: the variance-highlight thresholds, "Import monthly totals only".

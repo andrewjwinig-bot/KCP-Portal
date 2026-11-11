@@ -53,20 +53,8 @@ function fmtVarPct(v: number | null, budget: number): string {
 export const varColor = (v: number | null) => (v == null ? "var(--muted)" : v >= 0 ? "var(--c-15803d)" : "var(--c-b91c1c)");
 
 // ── Budget-matching chrome ───────────────────────────────────────────────────
-export function HeaderSelect({ value, onChange, displayLabel, ariaLabel, muted, children }: {
-  value: string; onChange: (v: string) => void; displayLabel: string; ariaLabel: string; muted?: boolean; children: React.ReactNode;
-}) {
-  return (
-    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
-      <span style={{ fontSize: 22, fontWeight: 800, color: muted ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{displayLabel}</span>
-      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={ariaLabel}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}>
-        {children}
-      </select>
-    </span>
-  );
-}
+// The header picker is shared app-wide now; re-exported for existing imports.
+export { HeaderSelect } from "@/app/components/HeaderSelect";
 
 const segBase: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px", border: "1px solid var(--border)", background: "var(--card)", color: "var(--text)", cursor: "pointer", letterSpacing: "0.04em", textTransform: "uppercase" };
 const segActive: React.CSSProperties = { background: BRAND, color: "#fff", borderColor: BRAND };
