@@ -165,8 +165,9 @@ until he approves it for everyone; build EVERY new or touched UI to it.
 - **A page header is ONE row of controls and ONE meta line** (Operating
   Statements, 11/2026; owner: "the header hero is a little busy and
   cluttered"). Row: the page's pickers — PROPERTY FIRST, then the period —
-  as `HeaderSelect`, then the import button, and Display, Open, Export on
-  the right. Meta line, muted 14px: "Imported <when> by <Name>",
+  as `HeaderSelect` on the LEFT; every action on the RIGHT — the import
+  button first, then Display, Open, Export (owner: "grouped with the
+  display button"). Meta line, muted 14px: "Imported <when> by <Name>",
   any check that passed in words with its icon ("GL ties" + CircleCheck, a
   `HoverCard` for the detail), and the (i) for import steps. A check never
   floats as a pill in the tile row.
@@ -175,9 +176,10 @@ until he approves it for everyone; build EVERY new or touched UI to it.
   Import Credit Balance Report): a SOFT NAVY TINT, so it reads apart from the
   white dropdowns and menus without competing with a primary action (owner:
   "if all the dropdowns are white then should the import button be a color?
-  … more subtle but still some sort of contrast"). It sits on the LEFT,
-  straight after the property / period pickers it imports for; Display, Open
-  and Export go right. Navy `.btn.primary` is for the page's one forward
+  … more subtle but still some sort of contrast"). It sits on the RIGHT,
+  FIRST in the action group, before Display, Open and Export — the pickers
+  alone on the left read as the page's title (owner, 11/2026, reversing the
+  earlier "beside the pickers"). Navy `.btn.primary` is for the page's one forward
   action, never an upload.
 - **A page's property / period pickers are `HeaderSelect`**
   (`app/components/HeaderSelect.tsx`; owner: "feels more crisp since its a
