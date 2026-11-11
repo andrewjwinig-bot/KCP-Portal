@@ -68,7 +68,7 @@ function UserBadge({ id, collapsed }: { id: UserId; collapsed: boolean }) {
     <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0, padding: "6px 10px 6px 6px" }}>
       <Avatar id={id} size={26} />
       <div style={{ flex: 1, minWidth: 0, lineHeight: 1.1 }}>
-        <div style={{ fontSize: 17, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: "var(--sb-head-icon)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {titleName(USERS[id].label)}
         </div>
       </div>

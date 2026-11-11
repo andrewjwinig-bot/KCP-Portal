@@ -116,9 +116,11 @@ each tenant opens in Receipt Reconciliation (`?period=&unit=`). Pinned by
 
 Owner, 11/2026: "every page needs a big cleanup and needs to work together";
 "restrained and meaningful". The reference is the design canvas "KCP Portal —
-Cohesive Dashboard & Style System" (claude.ai artifact 825e41d9-…). It is live
-for Drew + admin only (`SKIN_REVIEWERS` in `app/components/SkinToggle.tsx`)
-until he approves it for everyone; build EVERY new or touched UI to it.
+Cohesive Dashboard & Style System" (claude.ai artifact 825e41d9-…). It is LIVE
+FOR EVERY STAFF LOGIN (owner, 11/2026: "roll this out to everyone";
+`isSkinReviewer` in `app/components/SkinToggle.tsx`), each with the switch
+back to classic in the sidebar; public pages stay classic. Build EVERY new or
+touched UI to it.
 
 - **Color**: navy `#0B4A7D` is the ONLY accent. Green `#067647` / red
   `#B42318` / amber `#B54708` mean done / wrong / needs attention and nothing

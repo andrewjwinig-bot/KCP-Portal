@@ -12,12 +12,11 @@ import { useUser } from "./UserProvider";
 export const SKIN_KEY = "kcp:skin";
 export type Skin = "classic" | "studio";
 
-/** Who sees the new look while it is under review (owner: "just for me to
- *  review and approve before rolling out to everybody"). Everyone else gets
- *  the classic look and no switch. To roll out: return true for everyone. */
-export const SKIN_REVIEWERS = new Set(["drew", "admin"]);
+/** The new look is live for EVERY staff login (owner, 11/2026: "roll this
+ *  out to everyone"), and everyone keeps the switch back to classic. Public
+ *  pages stay classic (applySkin). */
 export function isSkinReviewer(loggedInUser: string | null | undefined): boolean {
-  return !!loggedInUser && SKIN_REVIEWERS.has(loggedInUser);
+  return !!loggedInUser;
 }
 
 export function readSkin(reviewer = true): Skin {
