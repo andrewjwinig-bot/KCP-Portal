@@ -838,7 +838,7 @@ export default function Page() {
           Import the <b>Payroll Register</b> Excel file (.xls or .xlsx). Allocation is fixed on the backend.
           {fileName && <span style={{ marginLeft: 8 }}>· {fileName}</span>}
         </p>
-        <LastImported at={importedAt} by={importedBy} label="Register last imported" />
+        <LastImported at={importedAt} by={importedBy} label="Register imported" />
         {employees.length > 0 && (
           <div className="pills">
             {employeeTotals.salary   > 0 && <span className="pill" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("Salary",      employeeTotals.salary,   "salaryAmt"  )}><b>{money(employeeTotals.salary)}</b><span className="muted small">Salary</span></span>}

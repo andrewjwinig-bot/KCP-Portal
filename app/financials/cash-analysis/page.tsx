@@ -527,8 +527,8 @@ function CashSheetPage() {
           <b>Snapshot · {ytd ? "Year to date" : MONTHS[period - 1] + " " + year}</b>
           {" "}— every property and entity bank account with its cash position.
         </p>
-        <LastImported at={data?.lastImport?.at} by={data?.lastImport?.by} label="GL last imported" style={{ marginTop: 4, marginBottom: 0 }} />
-        <LastImported at={data?.apImport?.at} by={data?.apImport?.by} label="AP Report last imported" />
+        <LastImported at={data?.lastImport?.at} by={data?.lastImport?.by} label="GL imported" style={{ marginTop: 4, marginBottom: 0 }} />
+        <LastImported at={data?.apImport?.at} by={data?.apImport?.by} label="AP Report imported" />
         {error && <div style={{ color: "var(--c-b42318)", fontSize: "var(--fs-13)", marginTop: 6 }}>{error}</div>}
       </div>
 

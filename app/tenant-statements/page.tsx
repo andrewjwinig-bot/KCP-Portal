@@ -1,5 +1,5 @@
 "use client";
-import { X, Upload } from "lucide-react";
+import { X, Upload, CircleCheck } from "lucide-react";
 
 // Monthly Statements — import Skyline's tenant Statement report, review every
 // tenant's open balance, then publish the month to the tenant portal.
@@ -13,6 +13,8 @@ import { useUser } from "@/app/components/UserProvider";
 import { useImport } from "@/app/components/import/ImportProvider";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { InfoPopover } from "@/app/components/InfoPopover";
+import { MetaLine } from "@/app/components/LastImported";
 import { HoverCard } from "@/app/components/HoverCard";
 import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 import { TenantShareLink } from "@/app/cam-recon/TenantShareLink";
@@ -364,32 +366,57 @@ export default function TenantStatementsPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Monthly Statements</h1>
-          <div className="muted small" style={{ marginTop: 6 }}>
-            Skyline&rsquo;s open charges, turned into a statement each tenant can read and pay from.
+      <header>
+        <h1 style={{ margin: 0 }}>Monthly Statements</h1>
+        <div className="muted" style={{ marginTop: 6, fontSize: "var(--fs-14)" }}>
+          Skyline&rsquo;s open charges, turned into a statement each tenant can read and pay from.
+        </div>
+        <input ref={fileRef} type="file" accept=".pdf,.xls,.xlsx" multiple style={{ display: "none" }}
+          onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void processFiles(f); }} />
+        <div style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {periods && periods.length > 0 && (
+              <select className="select-brand" value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="Statement month">
+                {periods.map((p) => (
+                  <option key={p.period} value={p.period}>{periodLabel(p.period)}{p.published ? "" : " (not published)"}</option>
+                ))}
+              </select>
+            )}
+            <button className="btn import" onClick={() => fileRef.current?.click()}>
+              <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import Laser Statement
+            </button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            {row && (
+              <button className={row.published ? "btn" : "btn primary"} disabled={busy} onClick={togglePublish}>
+                {busy ? "Saving…" : row.published ? "Unpublish" : "Publish to Portal"}
+              </button>
+            )}
+            <button className="btn" onClick={() => setShowPayment((v) => !v)}>Payment Instructions</button>
+            {row && (
+              <DownloadMenu
+                label="Export"
+                items={[
+                  { label: "All statements (PDF)", description: `Every tenant on ${periodLabel(row.period)}, one page each`, href: `/api/tenant-statements/${row.period}/pdf` },
+                  ...(property !== "All" ? [{ label: `${property} statements (PDF)`, description: "Just this property", href: `/api/tenant-statements/${row.period}/pdf?property=${property}` }] : []),
+                ]}
+              />
+            )}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <input ref={fileRef} type="file" accept=".pdf,.xls,.xlsx" multiple style={{ display: "none" }}
-            onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void processFiles(f); }} />
-          <button className="btn" onClick={() => setShowPayment((v) => !v)} style={{ fontSize: "var(--fs-13)", padding: "6px 12px" }}>
-            Payment Instructions
-          </button>
-          {row && (
-            <DownloadMenu
-              label="Download"
-              items={[
-                { label: "All statements (PDF)", description: `Every tenant on ${periodLabel(row.period)}, one page each`, href: `/api/tenant-statements/${row.period}/pdf` },
-                ...(property !== "All" ? [{ label: `${property} statements (PDF)`, description: "Just this property", href: `/api/tenant-statements/${row.period}/pdf?property=${property}` }] : []),
-              ]}
-            />
-          )}
-          <button className="btn import" onClick={() => fileRef.current?.click()}>
-            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import Laser Statement
-          </button>
-        </div>
+        {row && (() => {
+          const last = [...row.sources].sort((a, b) => b.importedAt.localeCompare(a.importedAt))[0];
+          return (
+            <MetaLine at={last?.importedAt ?? row.updatedAt} by={last?.importedBy ?? null}>
+              <span>· {row.tenants} tenants · {row.properties} propert{row.properties === 1 ? "y" : "ies"}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: row.published ? "var(--c-067647)" : undefined }}>
+                {row.published ? <CircleCheck size={16} strokeWidth={1.75} aria-hidden /> : null}
+                {row.published ? "Visible to tenants" : "Not published"}
+              </span>
+              <InfoPopover align="left"><ImportInstructions variant="statements" /></InfoPopover>
+            </MetaLine>
+          );
+        })()}
       </header>
 
       {error && (
@@ -414,27 +441,8 @@ export default function TenantStatementsPage() {
         <div className="card muted small">Loading statements…</div>
       ) : (
         <>
-          <PeriodBar periods={periods} active={period} onPick={setPeriod} />
-
           {row && (
             <div className="card" style={{ display: "grid", gap: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
-                <div>
-                  <div style={{ fontSize: 22, fontWeight: 800 }}>{periodLabel(row.period)}</div>
-                  <div className="muted small" style={{ marginTop: 3 }}>
-                    {row.tenants} tenants · {row.properties} propert{row.properties === 1 ? "y" : "ies"} ·
-                    {" "}last import {new Date(row.updatedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <Pill tone={row.published ? TONE_GREEN : TONE_NEUTRAL}>{row.published ? "VISIBLE TO TENANTS" : "NOT PUBLISHED"}</Pill>
-                  <button className={row.published ? "btn" : "btn primary"} disabled={busy} onClick={togglePublish}
-                    style={{ fontSize: "var(--fs-13)", padding: "6px 12px", fontWeight: 700 }}>
-                    {busy ? "Saving…" : row.published ? "Unpublish" : "Publish to portal"}
-                  </button>
-                </div>
-              </div>
-
               <div className="pills" style={{ flexWrap: "wrap", justifyContent: "flex-start" }}>
                 <StatPill label="Open balance" value={money0(row.openBalance)} />
                 <StatPill label="Past due" value={money0(row.pastDue)} accent={row.pastDue > 0 ? "var(--c-b45309)" : undefined} />
@@ -639,28 +647,6 @@ export default function TenantStatementsPage() {
 }
 
 /** Period switcher — newest first, publish state visible at a glance. */
-function PeriodBar({ periods, active, onPick }: { periods: PeriodRow[]; active: string; onPick: (p: string) => void }) {
-  return (
-    <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "2px 2px 6px" }}>
-      {periods.map((p) => {
-        const on = p.period === active;
-        return (
-          <button key={p.period} type="button" onClick={() => onPick(p.period)}
-            style={{ flexShrink: 0, cursor: "pointer", fontFamily: "inherit", textAlign: "left", padding: "9px 14px", borderRadius: 10,
-              border: `1px solid ${on ? "var(--tint-brand-line, rgba(11,74,125,0.45))" : "var(--border)"}`, background: on ? "var(--tint-brand-bg, rgba(11,74,125,0.07))" : "var(--card)" }}>
-            <div style={{ fontSize: "var(--fs-13-5)", fontWeight: 800, color: on ? "var(--c-0b4a7d)" : "var(--text)" }}>{periodLabel(p.period)}</div>
-            <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
-              {money0(p.openBalance)}
-              <span style={{ width: 6, height: 6, borderRadius: 999, background: p.published ? "var(--c-15803d)" : "rgba(15,23,42,0.25)" }} />
-              {p.published ? "live" : "draft"}
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 /** Sort state for a tenant's expanded charge list. `null` = the order Skyline
  *  printed, which is what the tenant's own statement shows. */
 type ChargeSortKey = "date" | "charge" | "type" | "amount";

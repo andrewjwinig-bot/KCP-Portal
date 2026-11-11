@@ -1161,7 +1161,7 @@ function RetailFinalExpenseSummary({ data, property, year, onEdit, historyHref }
       <p className="small muted" style={{ marginTop: 4, marginBottom: 4, maxWidth: 760 }}>
         The operating-expense lines, property insurance, and real-estate-tax pool used in this reconciliation. {data.fromGl ? <>The CAM lines + RET <b>pull live from the property GL</b> by account; edit a FINAL to back out anything that doesn&rsquo;t apply.</> : <>Edit a FINAL to override the workbook amount for this property/year.</>} Every tenant&rsquo;s CAM/INS/RET recomputes.{years.length > 0 ? " The columns past the divider are the prior years’ actuals (trend at a glance)." : ""}
       </p>
-      {data.glImport && <LastImported at={data.glImport.at} by={data.glImport.by} label="GL last imported" style={{ marginTop: 0 }} />}
+      {data.glImport && <LastImported at={data.glImport.at} by={data.glImport.by} label="GL imported" style={{ marginTop: 0 }} />}
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: 560 }}>
         <thead>
           <tr>
@@ -1699,7 +1699,7 @@ function FinalExpenseSummary({ rows, editable, year, property, onEdit, onPullGlF
           {year} uses the operating-expense history as the final — these are the booked figures that drive every tenant&rsquo;s CAM/RET calc. GL/Avid adjustments become available from 2026.
         </p>
       )}
-      {glImport && <LastImported at={glImport.at} by={glImport.by} label="GL last imported" style={{ marginTop: 4 }} />}
+      {glImport && <LastImported at={glImport.at} by={glImport.by} label="GL imported" style={{ marginTop: 4 }} />}
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 10, minWidth: editable ? 860 : 420 }}>
         <thead>
           <tr>
