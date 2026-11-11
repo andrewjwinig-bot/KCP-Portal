@@ -728,6 +728,8 @@ async function importPall(split: PallSplit, fileName: string, form: FormData, re
     }
   }
 
+  // In the logs too, so "why didn't X read?" can be answered after the fact.
+  console.log(`[gl/pall] ${fileName}: ${imported.length} imported · ${unplaced.map((u) => `section ${u.index + 1} unplaced (${u.note})`).join("; ") || "none unplaced"}${failed.length ? ` · failed: ${failed.map((f) => `${f.key} (${f.error})`).join("; ")}` : ""}`);
   const got = new Set(imported.map((r) => String(r.key)));
   const notInFile = (await monthlyStatements()).filter((m) => !got.has(m.key)).map((m) => ({ key: m.key, name: propertyName(m.key, m.entityName) }));
   await logAudit({ event: "gl.upload-pall", user: String(form.get("uploadedBy") ?? "") || null, ip: auditIp(req),
