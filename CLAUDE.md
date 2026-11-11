@@ -3939,6 +3939,21 @@ only, nothing from the budget**.
 
 # Security deposits — check images
 
+- **PARTIAL REFUNDS ARE A DATED TIMELINE AND COME OFF WHAT WE HOLD** (Nancy,
+  10/2026: Data Systems Analysts 4070-209, $12,615.45 with $4,405.45 returned
+  per the 5th Amendment still read $12,615 on the NI LLC table). Each deposit
+  carries `refunds` (date / amount / note, oldest first; the form's "Partial
+  Refunds" list with "Add partial refund"); `partialRefund` /
+  `partialRefundAmount` are kept in step (true when any, the sum) for older
+  readers, and a record saved before the timeline is read as one undated
+  refund (`refundsOf`). **What is held is `heldAmount`** — the check less every
+  refund, $0 once refunded in full or forfeited — and EVERY reader uses it: the
+  page's AMOUNT column ("$7,710.00 / of $12,615.45", refunds on hover) and
+  tiles, the unit card, the status report, Drew's dashboard and the Monthly
+  Review (which had read a partly refunded deposit as $0 held), and the
+  move-out settlement (which had applied the FULL check). Money boxes format
+  with commas on blur. Pinned by `deposits.test.ts`.
+
 - **The Office Works' tenants (4900) are their OWN section** (owner: "nancy
   records their tenants security deposits so need to have a section"):
   `office-works` in `DEPOSIT_ACCOUNTS` (M&T x3777, the Office Works

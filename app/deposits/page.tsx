@@ -12,6 +12,9 @@ import {
   accountForProperty,
   depositAccountOf,
   duplicateDepositIds,
+  heldAmount,
+  refundedTotal,
+  refundsOf,
   type DepositAccount,
   type SecurityDeposit,
 } from "@/lib/deposits/deposits";
@@ -19,6 +22,7 @@ import { Pill, StatPill, TONE_AMBER, TONE_GREEN } from "@/app/components/Pill";
 import { useUser } from "@/app/components/UserProvider";
 import DepositForm, { type UnitOption } from "./DepositForm";
 import AllowedLink from "@/app/components/AllowedLink";
+import { HoverCard } from "@/app/components/HoverCard";
 
 function money(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -52,7 +56,32 @@ function groupByTenant(deposits: SecurityDeposit[]): TenantGroup[] {
 }
 
 function heldTotal(checks: SecurityDeposit[]): number {
-  return checks.filter((c) => !c.refunded).reduce((s, c) => s + c.amount, 0);
+  return checks.reduce((s, c) => s + heldAmount(c), 0);
+}
+
+/** The AMOUNT cell: what we still hold. A deposit with partial refunds reads
+ *  the held figure, "of $12,615.45" under it, and the refunds on hover —
+ *  it used to show the full check after a refund. */
+function HeldCell({ d }: { d: SecurityDeposit }) {
+  if (!d.amount) return <>—</>;
+  const refunds = refundsOf(d);
+  if (!refunds.length || d.refunded || d.tenantDefaulted) return <>{money(d.amount)}</>;
+  const held = heldAmount(d);
+  return (
+    <HoverCard
+      title="Partial refunds"
+      rows={[
+        { label: "Check", value: money(d.amount) },
+        ...refunds.map((r) => ({ label: r.date ? prettyDate(r.date) : "Undated", value: `(${money(r.amount)})` })),
+        { label: "Held", value: money(held) },
+      ]}
+    >
+      <span style={{ display: "inline-grid", justifyItems: "end" }}>
+        <span>{money(held)}</span>
+        <span className="muted" style={{ fontSize: "var(--fs-12)", fontWeight: 500 }}>of {money(d.amount)}</span>
+      </span>
+    </HoverCard>
+  );
 }
 
 const DupBadge = ({ title }: { title?: string }) => (
@@ -215,7 +244,7 @@ export default function SecurityDepositsPage() {
 
   // "Held" totals exclude deposits that have been refunded to the tenant.
   const heldDeposits = (visibleDeposits ?? []).filter((d) => !d.refunded);
-  const total = heldDeposits.reduce((s, d) => s + d.amount, 0);
+  const total = heldDeposits.reduce((s, d) => s + heldAmount(d), 0);
   const heldByAccount = Object.fromEntries(DEPOSIT_ACCOUNT_ORDER.map((a) => [a, heldDeposits.filter((d) => depositAccountOf(d) === a)])) as Record<DepositAccount, SecurityDeposit[]>;
   // A section shows when the viewer's scope reaches it (Harry's centres never
   // see Office Works or NI LLC) or it already holds a deposit.
@@ -236,7 +265,7 @@ export default function SecurityDepositsPage() {
         <StatPill label="Total Held" value={money(total)} />
         {shownAccounts.map((a) => (
           <StatPill key={a} label={DEPOSIT_ACCOUNTS[a].bank}
-            value={money(heldByAccount[a].reduce((s, d) => s + d.amount, 0))}
+            value={money(heldByAccount[a].reduce((s, d) => s + heldAmount(d), 0))}
             sub={`${a === "ni-llc" ? "NI LLC" : a === "office-works" ? "The Office Works" : "All but NI LLC"} · ${heldByAccount[a].length} checks`} />
         ))}
       </div>
@@ -289,7 +318,7 @@ export default function SecurityDepositsPage() {
                   {sortGroups(groupByTenant(byAccount[acct])).map((g) => {
                     const checkCell = (d: SecurityDeposit) => (
                       <>
-                        <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 600 }}>{d.amount ? money(d.amount) : "—"}</td>
+                        <td style={{ textAlign: "right", fontSize: "var(--fs-13)", fontWeight: 600 }}><HeldCell d={d} /></td>
                         <td style={{ fontSize: "var(--fs-13)" }}>{prettyDate(d.checkDate)}</td>
                         <td style={{ fontSize: "var(--fs-13)" }}>{d.checkNumber ? `#${d.checkNumber}` : "—"}</td>
                       </>

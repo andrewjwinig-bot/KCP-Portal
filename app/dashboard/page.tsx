@@ -1,4 +1,5 @@
 "use client";
+import { heldAmount } from "@/lib/deposits/deposits";
 import { ChevronRight, X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -268,9 +269,10 @@ function DashboardInner() {
     fetch("/api/tenant-meta").then((r) => (r.ok ? r.json() : null)).then((j) => setTenantMeta(j?.tenantMeta ?? {})).catch(() => {});
     fetch("/api/deposits", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((j) => {
       const owed: Record<string, number> = {};
-      for (const d of (j?.deposits ?? []) as { unitRef?: string; amount?: number; refunded?: boolean; tenantDefaulted?: boolean; partialRefund?: boolean }[]) {
+      for (const d of (j?.deposits ?? []) as { unitRef?: string; amount?: number; refunded?: boolean; tenantDefaulted?: boolean; partialRefund?: boolean; partialRefundAmount?: number }[]) {
         if (!d.unitRef) continue;
-        const held = d.refunded || d.tenantDefaulted || d.partialRefund ? 0 : (d.amount ?? 0);
+        // What is still held: the check less any partial refunds.
+        const held = heldAmount(d);
         owed[d.unitRef] = (owed[d.unitRef] ?? 0) + held;
       }
       setDepositOwed(owed);

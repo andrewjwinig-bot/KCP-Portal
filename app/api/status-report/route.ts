@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { heldAmount, refundedTotal } from "@/lib/deposits/deposits";
 import { accountForProperty } from "@/lib/deposits/deposits";
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from "pdf-lib";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
@@ -1446,7 +1447,7 @@ export async function POST(req: Request) {
         dY = M + 40;
         // "Held" excludes any deposits that have been refunded to the tenant.
         const heldDeposits = deposits.filter((d) => !d.refunded);
-        const grandTotal = heldDeposits.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+        const grandTotal = heldDeposits.reduce((s, d) => s + heldAmount(d), 0);
         dPage.drawText(`Total held: ${fmtMoney(grandTotal)} across ${heldDeposits.length} deposit check${heldDeposits.length === 1 ? "" : "s"}`,
           { x: M, y: py(dY), size: 9, font, color: C_MUTED });
         dY += 22;
@@ -1466,7 +1467,7 @@ export async function POST(req: Request) {
           if (rows.length === 0) continue;
           if (dY > PH - M - 90) ({ page: dPage, curY: dY } = newPage());
 
-          const acctTotal = rows.filter((d) => !d.refunded).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+          const acctTotal = rows.reduce((s, d) => s + heldAmount(d), 0);
           dPage.drawText(`${acct.label}  ·  ${acct.bank}`, { x: M, y: py(dY + 11), size: 9.5, font: fontBold, color: C_BRAND });
           const atW = fontBold.widthOfTextAtSize(fmtMoney(acctTotal), 9.5);
           dPage.drawText(fmtMoney(acctTotal), { x: PW - M - atW, y: py(dY + 11), size: 9.5, font: fontBold, color: C_DARK });
@@ -1494,7 +1495,7 @@ export async function POST(req: Request) {
             drawCell(tenantLabel, DCOLS[0], true);
             drawCell(String(d.unitRef || ""), DCOLS[1], false);
             drawCell(String(d.checkNumber || ""), DCOLS[2], false);
-            drawCell(d.amount ? fmtMoney(Number(d.amount)) : "—", DCOLS[3], false);
+            drawCell(d.amount ? fmtMoney(refundedTotal(d) > 0 && !d.refunded && !d.tenantDefaulted ? heldAmount(d) : Number(d.amount)) : "—", DCOLS[3], false);
             drawCell(fmtDate(d.checkDate), DCOLS[4], false);
             drawCell(d.checkImage ? "On file" : "—", DCOLS[5], false);
             dY += ROW_H;

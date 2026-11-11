@@ -1,4 +1,5 @@
 "use client";
+import { heldAmount, refundedTotal } from "@/lib/deposits/deposits";
 import { ChevronRight } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -126,7 +127,7 @@ export default function DepositCard({
       ) : (deposits && deposits.length > 0) ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
           {deposits.length > 1 && (() => {
-            const held = deposits.filter((d) => !d.refunded).reduce((s, d) => s + d.amount, 0);
+            const held = deposits.reduce((s, d) => s + heldAmount(d), 0);
             return (
               <div style={{
                 display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10,
@@ -157,7 +158,10 @@ export default function DepositCard({
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: "var(--fs-14)", fontWeight: 700, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  <span>{d.amount ? money(d.amount) : "—"}</span>
+                  <span>{d.amount ? money(refundedTotal(d) > 0 && !d.refunded && !d.tenantDefaulted ? heldAmount(d) : d.amount) : "—"}</span>
+                  {d.amount > 0 && refundedTotal(d) > 0 && !d.refunded && !d.tenantDefaulted && (
+                    <span style={{ fontSize: "var(--fs-12)", fontWeight: 500, color: "var(--muted)" }}>held, of {money(d.amount)} · {money(refundedTotal(d))} refunded</span>
+                  )}
                   <span style={{ fontSize: "var(--fs-12)", fontWeight: 500, color: "var(--muted)" }}>
                     {d.checkNumber ? `Check #${d.checkNumber}` : ""}
                   </span>
