@@ -32,6 +32,8 @@ export default function ReprojectionsPage() {
   const [budgetYear, setBudgetYear] = useState<number | null>(null);
   const [budgetFallback, setBudgetFallback] = useState(false);
   const [hasGl, setHasGl] = useState(true);
+  const [bank, setBank] = useState<{ balance: number; asOf: string; cashFlowRest: number; distributionsRest: number; yearEnd: number } | null>(null);
+  const [banksThrough, setBanksThrough] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [noteSources, setNoteSources] = useState<Record<string, "user" | "ai">>({});
   const [loading, setLoading] = useState(false);
@@ -78,6 +80,8 @@ export default function ReprojectionsPage() {
       setBudgetYear(j.budgetYear ?? null);
       setBudgetFallback(!!j.budgetFallback);
       setHasGl(!!j.hasGl);
+      setBank(j.bank ?? null);
+      setBanksThrough(j.banksThrough ?? null);
       setNotes(j.notes ?? {});
       setNoteSources(j.noteSources ?? {});
     } finally {
@@ -153,6 +157,12 @@ export default function ReprojectionsPage() {
     { key: "noi", label: "Reprojected NOI", value: money(data.rollups.netOperatingIncome.reprojTotal),
       sub: noiVar == null || !budgetYear ? undefined : Math.round(noiVar) === 0 ? "On budget" : `${money(Math.abs(noiVar))} ${noiVar > 0 ? "better" : "worse"} than budget` },
     { key: "cf", label: "Reprojected Cash Flow", value: money(data.rollups.cashFlowAfterDebtService.reprojTotal) },
+    // Today's bank balance rolled to Dec 31 on this reprojection's cash flow,
+    // less the distributions still planned — the budget draft's own roll.
+    ...(bank && year === Number(bank.asOf.slice(0, 4)) ? [{
+      key: "bank", label: "Bank Balance · Dec 31", value: money(bank.yearEnd),
+      sub: `${money(bank.balance)} on ${new Date(`${bank.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}${bank.cashFlowRest ? ` ${bank.cashFlowRest >= 0 ? "+" : "−"} ${money(Math.abs(bank.cashFlowRest))} cash flow` : ""}${bank.distributionsRest ? ` − ${money(bank.distributionsRest)} distributions` : ""}`,
+    }] : banksThrough ? [{ key: "bank", label: "Bank Balance · Dec 31", value: "—", sub: `Banks through ${banksThrough === "PJV3" ? "JV III" : "NI LLC"}` }] : []),
   ]) as { key: string; label: string; value: string; sub?: string }[] : [];
   const coverageText = actuals
     ? (through > 0 ? `Actuals Jan–${MONTHS[Math.min(through, 12) - 1]}${through < 12 ? ` · ${MONTHS[through]}–Dec not yet imported` : ""}` : "No actuals yet")
