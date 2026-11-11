@@ -5,7 +5,8 @@ import { HeaderSelect } from "@/app/components/HeaderSelect";
 import { MetaLine } from "@/app/components/LastImported";
 import { FilePath } from "@/app/components/FilePath";
 import LoadingState from "@/app/components/LoadingState";
-import { Check, ChevronDown, ChevronRight, CircleCheck } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, CircleCheck, Upload } from "lucide-react";
+import { InfoPopover } from "@/app/components/InfoPopover";
 
 // Bank Recs — every bank account, every month, reconciled by the portal
 // (owner: "build an automated bank rec to let me know if all are in balance
@@ -183,57 +184,52 @@ export default function BankRecPage() {
   return (
     <main style={{ display: "grid", gap: 14 }}>
       <PageHeader title="Bank Reconciliation"
+        // The month's folder can be dropped anywhere on the header, as on every
+        // import page (owner: "the drop … folder here is different than the
+        // other import buttons on other pages").
+        dropHandlers={signed ? undefined : {
+          onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragOver(true); },
+          onDragLeave: () => setDragOver(false),
+          onDrop: async (e: React.DragEvent) => { e.preventDefault(); setDragOver(false); importFiles(await filesFromDrop(e.dataTransfer)); },
+        }}
+        dragging={dragOver}
         pickers={<>
           <HeaderSelect value={period} onChange={setPeriod} ariaLabel="Month" displayLabel={periodLabel(period)}>
             {months.map((p) => <option key={p} value={p}>{periodLabel(p)}</option>)}
           </HeaderSelect>
         </>}
         actions={<>
+          {!signed && <>
+            <button className="btn import" disabled={!!busy || reconciling} onClick={() => pickInto(fileInput.current, "bank-recs")}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Bank Rec Files</button>
+            <InfoPopover>
+              <div style={{ display: "grid", gap: 8, maxWidth: 520 }}>
+                <div style={{ fontWeight: 700 }}>The {periodLabel(period)} folder</div>
+                <div className="small">The bank statements, Marie&rsquo;s Skyline recs and Skyline&rsquo;s Checking Account Report (.xls). Each file is matched by the account number inside it, so names don&rsquo;t matter. Import again any time as the month fills in, or drop the folder on the header.</div>
+                <FilePath label="Find them in" path={`Data\\Accounting\\!${period.slice(0, 4)} Year End\\Bank Account Reconciliations\\${period.slice(5)} ${MONTHS[Number(period.slice(5)) - 1]} ${period.slice(0, 4)}`} />
+                <div><button className="btn sm" onClick={() => folderInput.current?.click()}>Choose the whole folder instead</button></div>
+              </div>
+            </InfoPopover>
+            <input ref={folderInput} type="file" hidden multiple {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+              onChange={(e) => { importFiles([...(e.target.files ?? [])]); e.target.value = ""; }} />
+            <input ref={fileInput} type="file" hidden multiple accept=".pdf,.xls,.xlsx"
+              onChange={(e) => { importFiles([...(e.target.files ?? [])]); e.target.value = ""; }} />
+          </>}
           {r && !signed && <button className="btn" disabled={!!busy || reconciling} onClick={() => run()}>Re-run</button>}
           {r && (signed
             ? <button className="btn" disabled={!!busy || reconciling} onClick={() => signOff(false)}>Reopen month</button>
             : <button className="btn primary" disabled={!!busy || reconciling || counts.out > 0 || counts.incomplete > 0} onClick={() => signOff(true)}
                 title={counts.out || counts.incomplete ? "Every account must be filed and in balance first" : undefined}>Sign off {shortPeriod(period)}</button>)}
         </>}
-        meta={signed ? <MetaLine>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--c-067647)" }}>
+        meta={(signed || data) ? <MetaLine>
+          {signed && <><span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--c-067647)" }}>
             <CircleCheck size={16} strokeWidth={1.75} aria-hidden />Signed off{r?.signedOff?.by ? ` by ${r.signedOff.by}` : ""} {new Date(r!.signedOff!.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-          </span>
+          </span></>}
+          {data && <><span>{data.files.filter((f) => f.kind === "stmt").length} statements · {data.files.filter((f) => f.kind.startsWith("rec")).length} Skyline recs on file</span>
+            <span>{data.report ? <>Checking Account Report as of {data.report.asOf ? dateLabel(data.report.asOf) : "?"}</> : <b style={{ color: "var(--c-b45309)" }}>No Checking Account Report for {periodLabel(period)} yet</b>}</span>
+            {r && <span>Last run {new Date(r.computedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.by ? ` · ${r.by}` : ""}</span>}</>}
         </MetaLine> : undefined} />
 
-      <div className="card" style={{ display: "grid", gap: 14 }}>
-        {!signed && (
-          <div
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={async (e) => { e.preventDefault(); setDragOver(false); importFiles(await filesFromDrop(e.dataTransfer)); }}
-            style={{ border: `2px dashed ${dragOver ? "var(--c-0b4a7d)" : "var(--border)"}`, borderRadius: 12, padding: "16px 18px", background: dragOver ? "var(--tint-brand-bg, rgba(11,74,125,0.05))" : "transparent", display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-            <div style={{ flex: "1 1 320px" }}>
-              <div style={{ fontWeight: 700 }}>Drop the {periodLabel(period)} folder here</div>
-              <div className="muted small" style={{ marginTop: 3 }}>
-                The bank statements, Marie&rsquo;s Skyline recs and Skyline&rsquo;s <b>Checking Account Report</b> (.xls) — from
-                <span style={{ display: "block", marginTop: 6, maxWidth: 640 }}><FilePath path={`Data\\Accounting\\!${period.slice(0, 4)} Year End\\Bank Account Reconciliations\\${period.slice(5)} ${MONTHS[Number(period.slice(5)) - 1]} ${period.slice(0, 4)}`} /></span>
-                Each file is matched by the account number inside it; names don&rsquo;t matter. Re-drop any time as the month fills in.
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button className="btn" onClick={() => folderInput.current?.click()}>Choose folder</button>
-              <button className="btn" onClick={() => pickInto(fileInput.current, "bank-recs")}>Choose files</button>
-            </div>
-            <input ref={folderInput} type="file" hidden multiple {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
-              onChange={(e) => { importFiles([...(e.target.files ?? [])]); e.target.value = ""; }} />
-            <input ref={fileInput} type="file" hidden multiple accept=".pdf,.xls,.xlsx"
-              onChange={(e) => { importFiles([...(e.target.files ?? [])]); e.target.value = ""; }} />
-          </div>
-        )}
-
-        {data && (
-          <div className="muted small" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            <span>{data.files.filter((f) => f.kind === "stmt").length} statements · {data.files.filter((f) => f.kind.startsWith("rec")).length} Skyline recs on file</span>
-            <span>{data.report ? <>Checking Account Report as of {data.report.asOf ? dateLabel(data.report.asOf) : "?"}</> : <b style={{ color: "var(--c-b45309)" }}>No Checking Account Report for {periodLabel(period)} yet</b>}</span>
-            {r && <span>Last run {new Date(r.computedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.by ? ` · ${r.by}` : ""}</span>}
-          </div>
-        )}
+      {(r || busy || error) && <div className="card" style={{ display: "grid", gap: 14 }}>
 
         {r && (
           <div className="pills" style={{ flexWrap: "wrap", justifyContent: "flex-start", marginTop: 0 }}>
@@ -250,14 +246,14 @@ export default function BankRecPage() {
         )}
         {busy && <div className="muted small">{busy}</div>}
         {error && <div style={{ color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
-      </div>
+      </div>}
 
       {!reconciling && !data && !error && <LoadingState status="Loading bank recs…" context={periodLabel(period)} columns={5} rows={6} />}
 
       {reconciling && <ReconcilingCard period={period} accounts={[...new Set((data?.files ?? []).map((f) => f.last4).filter(Boolean) as string[])].sort()} />}
 
       {!reconciling && data && !r && (
-        <div className="card muted small">Nothing reconciled for {periodLabel(period)} yet — drop the month&rsquo;s folder above.
+        <div className="card muted small">Nothing reconciled for {periodLabel(period)} yet — Import Bank Rec Files above, or drop the month&rsquo;s folder on the header.
           {data.files.length > 0 && <> {data.files.length} files are on file — <button className="btn sm" onClick={() => run()}>Run the rec</button></>}
         </div>
       )}
