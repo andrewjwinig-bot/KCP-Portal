@@ -228,8 +228,9 @@ export const USERS: Record<UserId, UserDef> = {
   // revenue, and never taxes or insurance, which stay Drew's.
   greg: {
     ...serviceUser("greg", "GREG"),
-    navKeys: new Set([...SERVICE_NAV, "financials-budgets"]),
-    allowedPathPrefixes: [...SERVICE_PATHS, "/financials/budgets"],
+    // "communications": the Interplex tenant emails (Tenant Emails, /communications).
+    navKeys: new Set([...SERVICE_NAV, "financials-budgets", "communications"]),
+    allowedPathPrefixes: [...SERVICE_PATHS, "/financials/budgets", "/communications"],
   },
   charles: serviceUser("charles", "CHARLES"),
   jay: serviceUser("jay", "JAY"),
@@ -414,6 +415,8 @@ export function isPathAllowed(userId: UserId, pathname: string): boolean {
 // properties, dashboard, search, maintenance, reservations, tracker, …) and
 // stay available to any signed-in user — gating them would break shared flows.
 const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]][] = [
+  // Tenant Communications — sends to every Interplex tenant; Greg (and admin / Drew).
+  ["/api/communications", "/communications"],
   ["/api/commissions/retail", "/commissions/retail"],
   // The quarter's sent-log (dates only) — Harry's retail reminder reads it too.
   ["/api/commissions/avidbill-sent", ["/commissions", "/commissions/retail"]],
