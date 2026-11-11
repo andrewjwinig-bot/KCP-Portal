@@ -1,1137 +1,808 @@
 "use client";
 import { pickInto } from "@/app/components/pickFiles";
-import { X, Upload, CircleCheck } from "lucide-react";
+import { UnitSelect } from "@/app/components/UnitSelect";
+import { ChevronDown, ChevronRight, ChevronUp, TriangleAlert, Upload, X } from "lucide-react";
 
-// Monthly Statements — import Skyline's tenant Statement report, review every
-// tenant's open balance, then publish the month to the tenant portal.
+// Receivables (owner, 11/2026: Monthly Statements and Receipt Reconciliation
+// folded into one page — "i dont really think i do anything with the monthly
+// statements page itself aside from store the data"). Both imports live here;
+// the statements roster and the tenant portal moved to
+// /tenant-statements/statements, under Open.
 //
-// The import is the whole point: Skyline already knows what each tenant owes,
-// but that lives in a report nobody outside the office ever sees. Parsing it
-// turns it into a statement the tenant can read, age, and pay from.
+// Receipt Reconciliation — a tenant paid an amount that doesn't line up with
+// their statement; work out what they MEANT, tell them how it will be applied,
+// and apply it by the hierarchy if they don't answer (owner, 11/2026: "get in
+// the brain of the tenant and figure out what charges they meant to apply to
+// … provide transparency via email"). Tami's page.
+//
+// Pick a tenant → their open charges, credit and net due (the laser statement,
+// lib/statements) → type what they paid → the explanations, best first
+// (lib/statements/receiptMatch.ts) → the standard email, typed in place → send.
+// The tenant has two business days to answer; with no answer the plan stands
+// and the receipt moves to "Ready to apply" — the entries to key in Skyline.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useUser } from "@/app/components/UserProvider";
-import { useImport } from "@/app/components/import/ImportProvider";
-import { ImportInstructions } from "@/app/components/ImportInstructions";
-import { DownloadMenu } from "@/app/components/DownloadMenu";
-import { InfoPopover } from "@/app/components/InfoPopover";
-import { PageHeader } from "@/app/components/PageHeader";
-import { HeaderSelect } from "@/app/components/HeaderSelect";
-import { DisplayMenu, ToggleRow, CheckRow, MenuSection } from "@/app/components/DisplayMenu";
-import { MetaLine } from "@/app/components/LastImported";
+import { createPortal } from "react-dom";
+import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
+import { Calendar } from "@/app/components/Calendar";
+import { th, td, thL, tdL } from "@/app/components/tableStyles";
+import { signatureHtml, type EmailSignature } from "@/lib/emailSignature";
+import { APPLICATION_LABEL, APPLICATION_ORDER, byHierarchy, creditUsage, renderReceiptEmail, type Account, type Explanation } from "@/lib/statements/receiptMatch";
 import { HoverCard } from "@/app/components/HoverCard";
-import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
-import { TenantShareLink } from "@/app/cam-recon/TenantShareLink";
-import { OpenCreditsCard, type CreditNote, type CreditApplication } from "./OpenCreditsCard";
-import { AgingScheduleCard } from "./AgingScheduleCard";
-import { CorrespondencePanel, LastContactCell, needsFollowUp } from "./Correspondence";
-import type { LastContact } from "@/lib/statements/correspondence";
-import { READ_ONLY_USERS } from "@/lib/users";
-import type { OpenCreditTracker, AgingSchedule } from "@/lib/statements/openCredits";
-import { AGING_LABEL, AGING_ORDER, CATEGORY_LABEL, CATEGORY_ORDER, type AgingBucket, type ChargeCategory, type StatementCharge } from "@/lib/statements/types";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { PageHeader } from "@/app/components/PageHeader";
+import { InfoPopover } from "@/app/components/InfoPopover";
+import { ImportInstructions } from "@/app/components/ImportInstructions";
+import { useCreditBalanceImport } from "./useCreditBalanceImport";
+import { useLaserStatementImport } from "./useLaserStatementImport";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { SentEmailModal } from "./SentEmailModal";
+import { ago, srcOf, CorrespondencePanel, ReminderModal } from "./Correspondence";
+import { KIND_LABEL, type CorrespondenceEntry } from "@/lib/statements/correspondence";
 
-const money0 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(Math.round(n)).toLocaleString("en-US");
-const money2 = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const periodLabel = (p: string) => {
-  const [y, m] = p.split("-").map(Number);
-  return `${new Date(Date.UTC(y, m - 1, 1)).toLocaleString("en-US", { month: "long", timeZone: "UTC" })} ${y}`;
-};
-const dateLabel = (iso: string | null) => {
-  if (!iso) return "—";
-  const [y, m, d] = iso.split("-").map(Number);
-  return `${new Date(Date.UTC(y, m - 1, d)).toLocaleString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}, ${y}`;
-};
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const periodLabel = (p: string) => `${MONTHS[Number(p.slice(5, 7)) - 1]} ${p.slice(0, 4)}`;
+const money = (n: number) => (n < 0 ? "-$" : "$") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const dateLabel = (iso: string | null) => (iso ? `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}/${iso.slice(2, 4)}` : "—");
+const longDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+const todayISO = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
-const SECTION_LABEL: React.CSSProperties = {
-  fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)",
+type AgingRun = { asOf: string; runAt: string | null };
+type DataDates = { dataThrough: string | null; importedOn: string | null; stampRead?: boolean; source?: "aging" | "statement" };
+const etStamp = (iso: string, withTime: boolean) => new Date(iso).toLocaleString("en-US", {
+  timeZone: "America/New_York", weekday: "long", month: "long", day: "numeric", year: "numeric", ...(withTime ? { hour: "numeric", minute: "2-digit" } : {}),
+});
+type TenantRow = { unitRef: string; tenantName: string; propertyCode: string; propertyName: string; gross: number; credit: number; net: number };
+type Status = "draft" | "waiting" | "apply" | "posted";
+type Receipt = {
+  id: string; period: string; unitRef: string; tenantName: string; propertyCode: string; amount: number; receivedISO: string; checkNo: string | null;
+  plan: Explanation; email: { to: string[]; subject: string; sentAt: string; sentBy: string | null; from?: string; archiveId?: string } | null; respondByISO: string | null;
+  emailIds?: string[];
+  reply: { at: string; by: string | null; note: string } | null; postedAt: string | null; postedBy: string | null; createdAt: string; createdBy: string | null;
+  status: Status;
 };
-const th: React.CSSProperties = {
-  textAlign: "right", padding: "6px 10px", fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase",
-  letterSpacing: "0.04em", color: "var(--muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap",
+/** One email in the sent archive (the bytes are fetched when it is opened). */
+type SentEmail = {
+  id: string; receiptId: string; period: string; unitRef: string; tenantName: string; propertyCode: string; amount: number; planTitle: string;
+  respondByISO: string | null; sentAt: string; sentBy: string | null; from: string; to: string[]; bcc: string | null; replyTo: string | null;
+  subject: string; messageId: string | null; testMode: boolean; attachmentName: string | null;
 };
-const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: "var(--fs-14)", whiteSpace: "nowrap" };
-const thL: React.CSSProperties = { ...th, textAlign: "left" };
-const tdL: React.CSSProperties = { ...td, textAlign: "left" };
-
-type PeriodRow = {
-  period: string; published: boolean; publishedAt: string | null; updatedAt: string;
-  tenants: number; properties: number; openBalance: number; pastDue: number; tenantsOwing: number; untied: number;
-  sources: { filename: string; importedAt: string; importedBy: string | null; tenantCount: number }[];
-};
-type Summary = {
-  totalDue: number; currentCharges: number; priorBalance: number; credits: number;
-  byCategory: { category: ChargeCategory; amount: number; count: number }[];
-  byAging: { bucket: AgingBucket; amount: number }[];
-  pastDue: boolean; pastDueAmount: number; oldestISO: string | null;
-};
-type Declared = {
-  id: string; reference: string; submittedAt: string; method: "check" | "ach" | "other";
-  amount: number; statementTotal: number; note: string;
-  /** Set when this answered a payment we already held — the amount received. */
-  receivedAmount?: number;
-  paying: { dateISO: string | null; description: string; amount: number }[];
-  holding: { dateISO: string | null; description: string; amount: number }[];
-};
-const METHOD_LABEL: Record<Declared["method"], string> = { check: "Check", ach: "ACH or wire", other: "Other" };
-
-type PendingPayment = {
-  id: string; amount: number; paymentRef: string; receivedOn: string | null;
-  note: string; createdAt: string; createdBy: string | null; askedAt: string | null; askedTo: string[];
-};
-
-type TenantRow = {
-  unitRef: string; propertyCode: string; suite: string; tenantName: string; address: string[];
-  charges: StatementCharge[]; reportedBalance: number; chargeTotal: number; tiesOut: boolean; summary: Summary;
-  importedAt?: string; sourceFile?: string; carriedOver?: boolean;
-  declared?: Declared | null;
-  pendingPayment?: PendingPayment | null;
-};
-type PaymentInstructions = {
-  payableTo: string; remitTo: string[]; achNote: string;
-  contactName: string; contactEmail: string; contactPhone: string; note: string;
-};
-type LinkInfo = {
-  unitRef: string; year: number; kind: "retail" | "office";
-  link: { id: string; url: string | null; createdAt: string; createdBy: string | null;
-    viewCount: number; lastViewedAt: string | null; hasPin: boolean; expiresAt: string | null } | null;
-};
-type LinksPayload = { ok: true; configured: boolean; shared: number; viewed: number; tenants: LinkInfo[] };
-
 type Detail = {
-  ok: true; period: string; published: boolean; publishedAt: string | null; updatedAt: string;
-  sources: PeriodRow["sources"];
-  declaredCount: number;
-  declaredAmount: number;
-  pendingPaymentCount: number;
-  pendingPaymentAmount: number;
-  properties: { code: string; name: string }[];
-  payment: Record<string, PaymentInstructions>;
-  tenants: TenantRow[];
-  credits?: OpenCreditTracker;
-  creditNotes?: Record<string, CreditNote>;
-  creditApplications?: Record<string, CreditApplication>;
-  aging?: AgingSchedule;
+  period: string; asOf: string | null; dates: DataDates; aging?: AgingRun | null;
+  tenant: { unitRef: string; tenantName: string; propertyCode: string; propertyName: string; suite: string; tiesOut: boolean };
+  account: Account; explanations: Explanation[]; plan: Explanation | null; recipients: string[];
+  draft: { subject: string; opening: string; closing: string; tableHtml: string; signature?: EmailSignature } | null; respondBy: string;
 };
 
-export default function TenantStatementsPage() {
-  const { user } = useUser();
-  const { startImport } = useImport();
-  const [periods, setPeriods] = useState<PeriodRow[] | null>(null);
-  const [period, setPeriod] = useState<string>("");
-  const [detail, setDetail] = useState<Detail | null>(null);
-  const [property, setProperty] = useState("All");
-  const [search, setSearch] = useState("");
-  const [onlyOwing, setOnlyOwing] = useState(false);
-  const [sort, setSort] = useState<"statement" | "balance">("statement");
-  const [onlyReview, setOnlyReview] = useState(false);
-  const [onlyUnshared, setOnlyUnshared] = useState(false);
-  const [onlyFollowUp, setOnlyFollowUp] = useState(false);
-  // When each suite was last emailed — every receipt email, payment request,
-  // portal link and balance reminder (owner: "see … what our last
-  // correspondence to them was").
-  const [contacts, setContacts] = useState<Record<string, LastContact>>({});
-  const [contactNonce, setContactNonce] = useState(0);
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/tenant-statements/correspondence", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (alive && j?.ok) setContacts(j.last); })
-      .catch(() => { /* the column reads "—" */ });
-    return () => { alive = false; };
-  }, [contactNonce]);
-  // A month where every tenant reconciles publishes itself on import — always
-  // (owner: "i dont think id ever uncheck that"; the per-browser opt-out is gone).
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [links, setLinks] = useState<LinksPayload | null>(null);
+const STATUS_PILL: Record<Status, React.ReactNode> = {
+  apply: <Pill tone={TONE_GREEN}>READY TO APPLY</Pill>,
+  waiting: <Pill tone={TONE_AMBER}>WAITING ON TENANT</Pill>,
+  draft: <Pill tone={TONE_NEUTRAL}>DRAFT · NOT SENT</Pill>,
+  posted: <Pill tone={TONE_BLUE}>POSTED</Pill>,
+};
+const STATUS_ORDER: Status[] = ["apply", "waiting", "draft", "posted"];
+const STATUS_BAND: Record<Status, string> = { apply: "Ready to apply in Skyline", waiting: "Waiting on the tenant", draft: "Drafts", posted: "Posted" };
+
+function confidenceTone(e: Explanation) {
+  if (e.fallback) return <Pill tone={TONE_NEUTRAL}>STANDARD ORDER</Pill>;
+  if (e.confidence >= 85) return <Pill tone={TONE_GREEN}>MOST LIKELY</Pill>;
+  if (e.exact) return <Pill tone={TONE_BLUE}>EXACT MATCH</Pill>;
+  return <Pill tone={TONE_AMBER}>CLOSE</Pill>;
+}
+
+export default function ReceiptReconciliationPage() {
+  const [period, setPeriod] = useState<string | null>(null);
+  const [periods, setPeriods] = useState<string[]>([]);
+  const [monthDates, setMonthDates] = useState<DataDates | null>(null);
+  const [monthAging, setMonthAging] = useState<AgingRun | null>(null);
+  const [tenants, setTenants] = useState<TenantRow[]>([]);
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [sentEmails, setSentEmails] = useState<SentEmail[]>([]);
+  const [viewing, setViewing] = useState<string | null>(null);
+  const [sentQuery, setSentQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // The payment being worked.
+  const [unit, setUnit] = useState<string>("");
+  const [amountText, setAmountText] = useState("");
+  const [received, setReceived] = useState(todayISO());
+  const [checkNo, setCheckNo] = useState("");
+  const [planId, setPlanId] = useState<string | null>(null);
+  const [custom, setCustom] = useState<{ on: boolean; idx: Set<number>; credit: boolean }>({ on: false, idx: new Set(), credit: false });
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [subject, setSubject] = useState("");
+  const [opening, setOpening] = useState("");
+  const [closing, setClosing] = useState("");
+  const [edited, setEdited] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [attach, setAttach] = useState(true);
+  const [excluded, setExcluded] = useState<Set<string>>(new Set());
+  const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [showPayment, setShowPayment] = useState(false);
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const [answering, setAnswering] = useState<Receipt | null>(null);
+  /** A saved draft re-opened: sending it replaces the draft, not a second record. */
+  const [draftId, setDraftId] = useState<string | null>(null);
+  const [openRow, setOpenRow] = useState<string | null>(null);
+  // The header tiles open their receipts: who was emailed, when, and the email.
+  const [statusFilter, setStatusFilter] = useState<Status | null>(null);
+  const receiptsRef = useRef<HTMLElement>(null);
+  const showStatus = (st: Status) => {
+    setStatusFilter((cur) => (cur === st ? null : st));
+    setOpenRow(null);
+    requestAnimationFrame(() => receiptsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
 
-  const loadPeriods = useCallback(async () => {
-    try {
-      const j = await fetch("/api/tenant-statements", { cache: "no-store" }).then((r) => r.json());
-      if (!j.ok) throw new Error(j.error ?? "Could not load statements.");
-      setPeriods(j.periods);
-      setPeriod((p) => p || j.periods[0]?.period || "");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load statements.");
-      setPeriods([]);
-    }
+  const amount = Number(amountText.replace(/[$,\s]/g, ""));
+  const validAmount = Number.isFinite(amount) && amount > 0;
+  const effectivePlan = custom.on && custom.idx.size ? `custom${custom.credit ? "-net" : ""}:${[...custom.idx].sort((a, b) => a - b).join(",")}` : planId;
+
+  const loadList = useCallback(async (p?: string | null) => {
+    const r = await fetch(`/api/tenant-statements/receipts${p ? `?period=${p}` : ""}`, { cache: "no-store" }).catch(() => null);
+    const j = r ? await r.json().catch(() => null) : null;
+    if (!j?.ok) { setError(j?.error ?? "Could not load the statements."); return; }
+    setPeriod(j.period); setPeriods(j.periods); setMonthDates(j.dates ?? null); setMonthAging(j.aging ?? null); setTenants(j.tenants); setReceipts(j.receipts); setSentEmails(j.sentEmails ?? []);
   }, []);
-  useEffect(() => { void loadPeriods(); }, [loadPeriods]);
+  // The Credit Balance report, imported right here (owner: "tami should be
+  // able to import that file on Receipt Reconciliation page as well").
+  const creditFileRef = useRef<HTMLInputElement>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const importCredits = useCreditBalanceImport(useCallback(async () => { await loadList(period); setReloadKey((k) => k + 1); }, [loadList, period]));
+  // The Laser Statement — the month every figure here reads — imports here too.
+  const laserFileRef = useRef<HTMLInputElement>(null);
+  const importLaser = useLaserStatementImport(useCallback(async () => { await loadList(null); setReloadKey((k) => k + 1); }, [loadList]));
 
-  // Bumping this re-pulls link status after a share popover mints or revokes.
-  const [linksNonce, setLinksNonce] = useState(0);
+  // ?period=&unit= (from the Receivables dashboard) opens straight on a tenant.
   useEffect(() => {
-    if (!period) { setLinks(null); return; }
-    let alive = true;
-    fetch(`/api/tenant-statements/links?period=${period}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (alive) setLinks(j?.ok ? j : null); })
-      .catch(() => { if (alive) setLinks(null); });
-    return () => { alive = false; };
-  }, [period, linksNonce]);
+    const q = new URLSearchParams(window.location.search);
+    const p = q.get("period"), u = q.get("unit");
+    loadList(p && /^\d{4}-\d{2}$/.test(p) ? p : null);
+    if (u) setUnit(u);
+  }, [loadList]);
 
+  // Re-read the tenant + explanations + draft whenever the inputs move.
+  const seq = useRef(0);
   useEffect(() => {
-    if (!period) { setDetail(null); return; }
-    let alive = true;
-    setDetail(null);
-    fetch(`/api/tenant-statements/${period}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => { if (alive && j.ok) setDetail(j); })
-      .catch(() => { /* the header still renders from the period row */ });
-    return () => { alive = false; };
-  }, [period]);
+    if (!period || !unit) { setDetail(null); return; }
+    const my = ++seq.current;
+    const t = setTimeout(async () => {
+      const q = new URLSearchParams({ period, unit, received, ...(validAmount ? { amount: String(amount) } : {}), ...(checkNo ? { check: checkNo } : {}), ...(effectivePlan ? { plan: effectivePlan } : {}), attach: attach ? "1" : "0" });
+      const r = await fetch(`/api/tenant-statements/receipts?${q}`, { cache: "no-store" }).catch(() => null);
+      const j = r ? await r.json().catch(() => null) : null;
+      if (my !== seq.current) return;
+      if (!j?.ok) { setError(j?.error ?? "Could not read that tenant."); return; }
+      setError(null); setDetail(j);
+      if (!edited && j.draft) { setSubject(j.draft.subject); setOpening(j.draft.opening); setClosing(j.draft.closing); }
+    }, 250);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, unit, amountText, received, checkNo, effectivePlan, attach, reloadKey]);
 
-  const row = periods?.find((p) => p.period === period) ?? null;
+  // What we last sent this tenant — read before sending them another.
+  const [history, setHistory] = useState<CorrespondenceEntry[]>([]);
+  const [viewingEntry, setViewingEntry] = useState<CorrespondenceEntry | null>(null);
+  // The tenant's correspondence and the balance reminder, here since Monthly
+  // Statements folded into this page.
+  const [showAllMail, setShowAllMail] = useState(false);
+  const [reminding, setReminding] = useState(false);
+  const [mailNonce, setMailNonce] = useState(0);
+  useEffect(() => {
+    if (!unit) { setHistory([]); return; }
+    let live = true;
+    fetch(`/api/tenant-statements/correspondence?unit=${encodeURIComponent(unit)}`, { cache: "no-store" })
+      .then((r) => r.json()).then((j) => { if (live) setHistory(j?.ok ? j.entries : []); }).catch(() => {});
+    return () => { live = false; };
+  }, [unit, receipts, mailNonce]);
 
-  async function processFiles(files: File[]) {
-    if (!files.length) return;
-    setError(null);
-    await startImport({
-      kind: "tenant-statements",
-      title: (n) => `Importing ${n} Laser Statement${n === 1 ? "" : "s"}`,
-      subtitle: "Skyline Laser Statement · PDF or Excel · you can keep working while this runs",
-      files,
-      by: user.label,
-      concurrency: 1,
-      upload: async (file) => {
-        const fd = new FormData();
-        fd.append("file", file);
-        fd.append("uploadedBy", user.label);
-        const j = await fetch("/api/tenant-statements", { method: "POST", body: fd }).then((r) => r.json());
-        if (!j.ok) return { status: "failed", error: j.error ?? "Import failed" };
-        const untied: number = j.untied?.length ?? j.mismatched.length;
-        const mg = j.merge as { replaced: number; added: number; carriedOver: number; cleared?: number } | undefined;
-        const paidOff = mg?.cleared ? ` · ${mg.cleared} paid in full` : "";
-        const merged = (mg && mg.carriedOver > 0
-          ? ` · ${mg.replaced} replaced, ${mg.carriedOver} kept`
-          : mg && mg.replaced > 0 && mg.added === 0 ? ` · ${mg.replaced} replaced` : "") + paidOff;
-        const note = untied
-          ? `${untied} tenant${untied === 1 ? "" : "s"} don't reconcile — held back from the portal`
-          : j.autoPublished ? "every tenant ties out · published to the portal"
-          : j.published ? "every tenant ties out · the month was already live"
-          : "every tenant ties out · publish when you're ready";
-        return {
-          status: "done" as const,
-          entity: `${periodLabel(j.period)} · ${j.properties.length} propert${j.properties.length === 1 ? "y" : "ies"}`,
-          detail: `${money0(j.openBalance)} open${merged}`,
-          count: j.tenants,
-          countLabel: "tenants",
-          note,
-          noteTone: untied ? ("warn" as const) : ("ok" as const),
-          raw: j,
-        };
-      },
-      report: (rows) => {
-        const ok = rows.filter((r) => r.status === "done")
-          .map((r) => r.raw as { period: string; tenants: number; totalTenants: number; openBalance: number; mismatched: string[]; untied?: string[]; published: boolean; autoPublished: boolean;
-            merge?: { replaced: number; added: number; carriedOver: number; changed: number; netChange: number; cleared?: number } });
-        const last = ok[ok.length - 1];
-        const p = last?.period;
-        const open = ok.reduce((a, r) => a + r.openBalance, 0);
-        // The final import's view of the month is the authoritative one.
-        const untied = last?.untied?.length ?? ok.reduce((a, r) => a + r.mismatched.length, 0);
-        const live = !!last?.published;
-        const m = last?.merge;
-        return {
-          stats: [
-            { value: String(last?.totalTenants ?? 0), label: "tenants on the month" },
-            ...(m && (m.replaced || m.carriedOver)
-              // A re-import: what matters is what moved, not the gross total.
-              ? [
-                  { value: String(m.replaced), label: m.replaced === 1 ? "statement replaced" : "statements replaced" },
-                  { value: String(m.carriedOver), label: "kept as they were" },
-                  ...(m.cleared ? [{ value: String(m.cleared), label: "paid in full · now $0" }] : []),
-                  { value: m.changed ? `${m.netChange >= 0 ? "+" : "−"}${money0(Math.abs(m.netChange))}` : "no change",
-                    label: m.changed ? `net across ${m.changed} ${m.changed === 1 ? "balance" : "balances"}` : "to any balance" },
-                ]
-              : [{ value: money0(open), label: "open balance imported" }]),
-            { value: untied ? String(untied) : "All", label: untied ? (untied === 1 ? "tenant to review" : "tenants to review") : "tie out to Skyline" },
-          ],
-          unlocks: p ? [live
-            ? {
-                id: "live", title: `${periodLabel(p)} is live for tenants`,
-                subtitle: untied
-                  ? `Every statement is on the portal, but ${untied} are flagged "under review" — fix those and re-import.`
-                  : "Every tenant reconciled, so the month published itself. Tenants can see and pay from it now.",
-                href: "/tenant-statements", cta: "Open",
-              }
-            : {
-                id: "publish", title: untied ? `${periodLabel(p)} is held back for review` : `Publish ${periodLabel(p)}`,
-                subtitle: untied
-                  ? `${untied} tenant${untied === 1 ? " doesn't" : "s don't"} reconcile to Skyline's balance. Fix the export and re-import — the month publishes itself once they all tie.`
-                  : "Auto-publish is off, so the month stays hidden until you publish it.",
-                href: "/tenant-statements", cta: "Review",
-              }] : [],
-        };
-      },
-    });
-    await loadPeriods();
-    setPeriod(""); // fall back to newest
-  }
+  // A new reading of the payment resets the wording to the standard one.
+  useEffect(() => { setEdited(false); }, [effectivePlan, unit, amountText, attach]);
 
-  const reloadDetail = useCallback(() => {
-    if (!period) return;
-    fetch(`/api/tenant-statements/${period}`, { cache: "no-store" })
-      .then((r) => r.json()).then((j) => { if (j.ok) setDetail(j); }).catch(() => {});
-  }, [period]);
+  const pickTenant = (u: string) => {
+    setUnit(u); setPlanId(null); setCustom({ on: false, idx: new Set(), credit: false }); setExcluded(new Set()); setAnswering(null); setDraftId(null); setEdited(false);
+  };
+  const resetWork = () => { pickTenant(""); setAmountText(""); setCheckNo(""); setReceived(todayISO()); };
 
-  const closeRequest = useCallback(async (id: string) => {
-    await fetch("/api/tenant-statements/allocation-request", {
-      method: "PATCH", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action: "close" }),
-    }).catch(() => {});
-    reloadDetail();
-  }, [reloadDetail]);
+  // The tenant dropdown: grouped by property in statement order, A–Z within.
 
-  async function togglePublish() {
-    if (!row) return;
-    setBusy(true); setError(null);
+  const plan = detail?.plan ?? null;
+  // Each charge's place in THIS tenant's application sequence (1 = first to
+  // take a payment) under the master order — by type, oldest first within it.
+  const orderSeq = useMemo(() => new Map(byHierarchy(detail?.account.charges ?? []).map((c, i) => [c.idx, i + 1])), [detail]);
+  const [chSort, setChSort] = useState<ChSort>({ key: "date", dir: 1 });
+  const sortedCharges = useMemo(() => {
+    const xs = [...(detail?.account.charges ?? [])];
+    const ap = new Map((detail?.plan?.lines ?? []).map((l) => [l.idx, l]));
+    const val = (c: (typeof xs)[number]): number | string => {
+      const a = ap.get(c.idx);
+      switch (chSort.key) {
+        case "date": return c.idx; // the Laser Statement's printed order (oldest first)
+        case "charge": return c.description.toLowerCase();
+        case "order": return orderSeq.get(c.idx) ?? 999;
+        case "open": return c.amount;
+        case "pay": return a?.fromPayment ?? 0;
+        case "credit": return a?.fromCredit ?? 0;
+        case "left": return c.amount - (a?.fromPayment ?? 0) - (a?.fromCredit ?? 0);
+      }
+    };
+    return xs.sort((p, q) => { const x = val(p), y = val(q); return (x < y ? -1 : x > y ? 1 : p.idx - q.idx) * chSort.dir; });
+  }, [detail, chSort, orderSeq]);
+  /** The tenant's own data dates once one is picked, else the month's. */
+  const dataDates: DataDates | null = detail?.dates ?? monthDates;
+  /** The newer of the laser statement and the Credit Balance report. */
+  const freshness = useMemo(() => {
+    const opts: { label: string; at: string; exact: boolean }[] = [];
+    const laserAt = dataDates?.dataThrough ?? dataDates?.importedOn;
+    if (laserAt) opts.push({ label: dataDates?.source === "aging" ? "Credit Balance Report" : "Laser Statement", at: laserAt, exact: !!dataDates?.dataThrough });
+    const ag = detail ? detail.aging : monthAging;
+    if (ag) opts.push({ label: "Credit Balance Report", at: ag.runAt ?? `${ag.asOf}T12:00:00`, exact: !!ag.runAt });
+    if (!opts.length) return null;
+    const best = opts.sort((x, y) => new Date(y.at).getTime() - new Date(x.at).getTime())[0];
+    const dayOf = (d: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(d);
+    const days = Math.max(0, Math.round((Date.parse(dayOf(new Date())) - Date.parse(dayOf(new Date(best.at)))) / 86_400_000));
+    return { ...best, days };
+  }, [dataDates, detail, monthAging]);
+  /** A payment is typed and read — show what it covers. */
+  const applying = !!(detail && validAmount && plan);
+  const appliedByIdx = useMemo(() => new Map((plan?.lines ?? []).map((l) => [l.idx, l])), [plan]);
+  const to = (detail?.recipients ?? []).filter((e) => !excluded.has(e.toLowerCase()));
+
+  /** Copy the email WITH its table — as HTML for Outlook, text as fallback. */
+  async function copyEmail() {
+    if (!detail || !plan) return;
+    const { html, text } = renderReceiptEmail({ acct: detail.account, plan, asOfISO: detail.asOf }, opening, closing, detail.draft?.signature);
     try {
-      const res = await fetch(`/api/tenant-statements/${row.period}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ published: !row.published, by: user.label }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Could not update.");
-      await loadPeriods();
-      setDetail((d) => (d ? { ...d, published: j.published, publishedAt: j.publishedAt } : d));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not update.");
-    } finally { setBusy(false); }
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([`${subject}\n\n${text}`], { type: "text/plain" }) })]);
+      } else {
+        await navigator.clipboard.writeText(`${subject}\n\n${text}`);
+      }
+      setCopied(true); setTimeout(() => setCopied(false), 1800);
+    } catch { /* clipboard blocked */ }
   }
 
-  const linkByUnit = useMemo(
-    () => new Map((links?.tenants ?? []).map((l) => [l.unitRef, l])),
-    [links],
-  );
+  async function save(action: "send" | "draft") {
+    if (!detail || !plan || !validAmount || !period) return;
+    setBusy(true); setError(null);
+    const r = await fetch("/api/tenant-statements/receipts", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, id: draftId ?? undefined, period, unitRef: detail.tenant.unitRef, amount, receivedISO: received, checkNo, plan: plan.id, subject, opening, closing, exclude: [...excluded], attachStatement: attach }),
+    }).catch(() => null);
+    const j = r ? await r.json().catch(() => null) : null;
+    setBusy(false); setConfirming(false);
+    if (!j?.ok) { setError(j?.error ?? "That did not save."); return; }
+    resetWork(); await loadList(period);
+  }
 
-  const tenants = useMemo(() => {
-    let list = detail?.tenants ?? [];
-    if (property !== "All") list = list.filter((t) => t.propertyCode === property);
-    if (onlyOwing) list = list.filter((t) => t.summary.totalDue > 0.005);
-    if (onlyReview) list = list.filter((t) => !t.tiesOut);
-    if (onlyUnshared) list = list.filter((t) => !linkByUnit.get(t.unitRef)?.link);
-    if (onlyFollowUp) list = list.filter((t) => needsFollowUp(t.summary.totalDue, contacts[t.unitRef.toUpperCase()]));
-    const q = search.trim().toLowerCase();
-    if (q) list = list.filter((t) => t.tenantName.toLowerCase().includes(q) || t.unitRef.toLowerCase().includes(q));
-    // "Statement order" is the sequence Skyline printed, so the roster can be
-    // read down alongside the paper laser statements; balance is the chase list.
-    return sort === "balance" ? [...list].sort((a, b) => b.summary.totalDue - a.summary.totalDue) : list;
-  }, [detail, property, onlyOwing, onlyReview, onlyUnshared, onlyFollowUp, contacts, linkByUnit, search, sort]);
+  async function act(id: string, action: "confirm" | "posted" | "unposted", extra: Record<string, unknown> = {}) {
+    setBusy(true);
+    const r = await fetch("/api/tenant-statements/receipts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, id, ...extra }) }).catch(() => null);
+    const j = r ? await r.json().catch(() => null) : null;
+    setBusy(false);
+    if (!j?.ok) { setError(j?.error ?? "That did not save."); return; }
+    await loadList(period);
+  }
+  async function remove(id: string) {
+    if (!window.confirm("Delete this receipt record? Nothing has been posted from it.")) return;
+    await fetch("/api/tenant-statements/receipts", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) }).catch(() => null);
+    await loadList(period);
+  }
 
-  const filteredTotals = useMemo(() => {
-    const aging = new Map<AgingBucket, number>();
-    let open = 0;
-    for (const t of tenants) {
-      open += t.summary.totalDue;
-      for (const b of t.summary.byAging) aging.set(b.bucket, (aging.get(b.bucket) ?? 0) + b.amount);
-    }
-    return { open, aging };
-  }, [tenants]);
+  // "The tenant answered" — open the payment in the worker with that record's
+  // tenant and amount, and save the chosen plan as the confirmed one.
+  function answer(rec: Receipt, asDraft = false) {
+    if (rec.period !== period) setPeriod(rec.period);
+    pickTenant(rec.unitRef);
+    if (asDraft) setDraftId(rec.id); else setAnswering(rec);
+    setAmountText(String(rec.amount)); setReceived(rec.receivedISO); setCheckNo(rec.checkNo ?? "");
+    setPlanId(rec.plan.id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
-  // Open A/R per property, over the WHOLE month (not the current filter) — this
-  // is the portfolio view, and it's what the strip filters down from. Property
-  // order follows the statement, so it reads like the report's sections.
-  const byProperty = useMemo(() => {
-    const map = new Map<string, { code: string; tenants: number; owing: number; open: number; pastDue: number }>();
-    for (const t of detail?.tenants ?? []) {
-      const g = map.get(t.propertyCode) ?? { code: t.propertyCode, tenants: 0, owing: 0, open: 0, pastDue: 0 };
-      g.tenants += 1;
-      if (t.summary.totalDue > 0.005) g.owing += 1;
-      g.open += t.summary.totalDue;
-      g.pastDue += t.summary.pastDueAmount;
-      map.set(t.propertyCode, g);
-    }
-    return [...map.values()];
-  }, [detail]);
-
-  // Subtotals for the property bands inside the table, over the filtered rows.
-  const propertySubtotal = useMemo(() => {
-    const map = new Map<string, { tenants: number; current: number; prior: number; pastDue: number; total: number }>();
-    for (const t of tenants) {
-      const g = map.get(t.propertyCode) ?? { tenants: 0, current: 0, prior: 0, pastDue: 0, total: 0 };
-      g.tenants += 1;
-      g.current += t.summary.currentCharges;
-      g.prior += t.summary.priorBalance;
-      g.pastDue += t.summary.pastDueAmount;
-      g.total += t.summary.totalDue;
-      map.set(t.propertyCode, g);
-    }
-    return map;
-  }, [tenants]);
-
-  // Bands only make sense while rows are in statement (property) order — a
-  // largest-balance chase list is deliberately flat.
-  const grouped = sort === "statement";
-
+  const counts = useMemo(() => {
+    const c: Record<Status, number> = { apply: 0, waiting: 0, draft: 0, posted: 0 };
+    for (const r of receipts) c[r.status]++;
+    return c;
+  }, [receipts]);
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <PageHeader title="Monthly Statements"
-        info={<>Skyline&rsquo;s open charges, turned into a statement each tenant can read and pay from.</>}
-        pickers={periods && periods.length > 0 ? (
-              <HeaderSelect value={period} onChange={setPeriod} ariaLabel="Statement month" displayLabel={period ? periodLabel(period) : "Month"}>
-                {periods.map((p) => (
-                  <option key={p.period} value={p.period}>{periodLabel(p.period)}{p.published ? "" : " (not published)"}</option>
-                ))}
-              </HeaderSelect>
-          ) : undefined}
+      <PageHeader title="Receivables"
+        info={<>Every tenant&rsquo;s open charges and credits, from the Laser Statement. Pick a tenant to work a payment that doesn&rsquo;t match their statement: find what they meant, tell them how it will be applied, and apply it if they don&rsquo;t answer.</>}
+        pickers={period ? (
+          <HeaderSelect value={period} onChange={(v) => { setPeriod(v); resetWork(); loadList(v); }} ariaLabel="Statement month" displayLabel={`${periodLabel(period)} statement`}>
+            {periods.map((p) => <option key={p} value={p}>{periodLabel(p)} statement</option>)}
+          </HeaderSelect>
+        ) : undefined}
         actions={<>
-            <button className="btn import" onClick={() => pickInto(fileRef.current, "laser-statement")}>
-              <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import Laser Statement
-            </button>
-            {row && (
-              <button className={row.published ? "btn" : "btn primary"} disabled={busy} onClick={togglePublish}>
-                {busy ? "Saving…" : row.published ? "Unpublish" : "Publish to Portal"}
-              </button>
-            )}
-            <button className="btn" onClick={() => setShowPayment((v) => !v)}>Payment Instructions</button>
-            {row && (
-              <DownloadMenu
-                label="Export"
-                items={[
-                  { label: "All statements (PDF)", description: `Every tenant on ${periodLabel(row.period)}, one page each`, href: `/api/tenant-statements/${row.period}/pdf` },
-                  ...(property !== "All" ? [{ label: `${property} statements (PDF)`, description: "Just this property", href: `/api/tenant-statements/${row.period}/pdf?property=${property}` }] : []),
-                ]}
-              />
-            )}
-          </>}
-        meta={row && (() => {
-          const last = [...row.sources].sort((a, b) => b.importedAt.localeCompare(a.importedAt))[0];
-          return (
-            <MetaLine at={last?.importedAt ?? row.updatedAt} by={last?.importedBy ?? null}>
-              <span>· {row.tenants} tenants · {row.properties} propert{row.properties === 1 ? "y" : "ies"}</span>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: row.published ? "var(--c-067647)" : undefined }}>
-                {row.published ? <CircleCheck size={16} strokeWidth={1.75} aria-hidden /> : null}
-                {row.published ? "Visible to tenants" : "Not published"}
-              </span>
-              <InfoPopover align="left"><ImportInstructions variant="statements" /></InfoPopover>
-            </MetaLine>
-          );
-        })()}>
-        <input ref={fileRef} type="file" accept=".pdf,.xls,.xlsx" multiple style={{ display: "none" }}
-          onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void processFiles(f); }} />
-      </PageHeader>
+          <input ref={laserFileRef} type="file" accept=".pdf,.xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importLaser(f); }} />
+          <button className="btn import" onClick={() => pickInto(laserFileRef.current, "laser-statement")}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Laser Statement</button>
+          <InfoPopover><ImportInstructions variant="statements" /></InfoPopover>
+          <input ref={creditFileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importCredits(f); }} />
+          <button className="btn import" onClick={() => pickInto(creditFileRef.current, "credit-balance")}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Credit Balance Report</button>
+          <InfoPopover><ImportInstructions variant="credit-balance" /></InfoPopover>
+          <DownloadMenu label="Open" items={[
+            { label: "Statements & Tenant Portal", description: "Every tenant's statement, A/R aging, portal links, payment instructions", href: "/tenant-statements/statements" },
+            { label: "Open Credits", description: "Itemized credits from the Credit Balance Report", href: "/tenant-statements/credits" },
+          ]} />
+        </>} />
 
-      {error && (
-        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
-          <div style={{ fontWeight: 700, color: "var(--c-b91c1c)", marginBottom: 4 }}>Something went wrong</div>
-          <div className="muted small">{error}</div>
+      <div className="pills" style={{ margin: 0 }}>
+        <StatPill label="Ready to apply" value={counts.apply} accent={counts.apply ? "var(--c-15803d)" : undefined} onClick={counts.apply ? () => showStatus("apply") : undefined} hint="Show who was emailed and what" />
+        <StatPill label="Waiting on tenant" value={counts.waiting} accent={counts.waiting ? "var(--c-b45309)" : undefined} onClick={counts.waiting ? () => showStatus("waiting") : undefined} hint="Show who was emailed and what" />
+      </div>
+
+      {error && <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
+
+      {/* How current the page is: the NEWER of the laser statement and the
+          Credit Balance Report (owner: "whichever was imported last should
+          be the most recent data"). Tight on purpose — one line, one action. */}
+      {freshness && (
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))", background: "var(--tint-amber-bg, rgba(217,119,6,0.08))", borderRadius: 12, padding: "12px 16px" }}>
+          <TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ marginTop: 3, flexShrink: 0 }} />
+          <div style={{ display: "grid", gap: 2 }}>
+            <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
+              Most recent data: the {freshness.label}, {freshness.exact ? "run" : "imported"} {etStamp(freshness.at, freshness.exact)} · {freshness.days === 0 ? "today" : `${freshness.days} day${freshness.days === 1 ? "" : "s"} old`}
+            </div>
+            <div className="small">
+              To get current, import a fresh Credit Balance Report. Every tenant with a credit: <a className="text-link" href="/tenant-statements/credits">Open Credits</a>.
+            </div>
+          </div>
         </div>
       )}
 
-      {showPayment && <PaymentCard properties={detail?.properties ?? []} onClose={() => setShowPayment(false)} by={user.label} />}
-
-      {periods && periods.length === 0 ? (
-        <div className="card">
-          <div style={{ fontWeight: 800, fontSize: 17 }}>No statements imported yet</div>
-          <div className="muted small" style={{ marginTop: 6, maxWidth: 620 }}>
-            Import Skyline&rsquo;s Laser Statement and every tenant&rsquo;s open charges become a portal statement —
-            aged, categorized, and downloadable as a branded PDF.
-          </div>
-          <ImportInstructions variant="statements" />
+      {/* ── 1. The payment ───────────────────────────────────────────── */}
+      <section className="card" style={{ display: "grid", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>{answering ? `The tenant answered — ${answering.tenantName}` : "Work a payment"}</div>
+          {(unit || answering) && <button className="btn sm" onClick={resetWork}>Clear</button>}
         </div>
-      ) : !periods ? (
-        <div className="card muted small">Loading statements…</div>
-      ) : (
-        <>
-          {row && (
-            <div className="card" style={{ display: "grid", gap: 14 }}>
-              <div className="pills" style={{ flexWrap: "wrap", justifyContent: "flex-start" }}>
-                <StatPill label="Open balance" value={money0(row.openBalance)} />
-                <StatPill label="Past due" value={money0(row.pastDue)} accent={row.pastDue > 0 ? "var(--c-b45309)" : undefined} />
-                <StatPill label="Tenants owing" value={row.tenantsOwing} sub={`of ${row.tenants}`} />
-                <StatPill label="To review" value={row.untied} accent={row.untied > 0 ? "var(--c-b91c1c)" : undefined}
-                  sub={row.untied ? "don't tie to Skyline" : "all tie out"} />
-                {links && (
-                  <StatPill label="Portal links shared" value={links.shared} sub={`${links.viewed} opened · of ${row.tenants}`}
-                    accent={links.shared === 0 ? "var(--c-b45309)" : undefined} />
-                )}
-                {!!detail?.pendingPaymentCount && (
-                  <StatPill label="Unapplied payments" value={money0(detail.pendingPaymentAmount)}
-                    sub={`${detail.pendingPaymentCount} waiting on the tenant`} accent="var(--c-b45309)" />
-                )}
-                {!!detail?.declaredCount && (
-                  <StatPill label="Payments declared" value={money0(detail.declaredAmount)}
-                    sub={`${detail.declaredCount} ${detail.declaredCount === 1 ? "tenant" : "tenants"} told us`} accent="var(--c-15803d)" />
-                )}
+        {answering && (
+          <div className="small" style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.2))", borderRadius: 10, padding: "8px 12px" }}>
+            Pick the application they asked for (or keep ours), add what they said, and confirm. Nothing is emailed.
+          </div>
+        )}
+
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "end" }}>
+          <label style={{ display: "grid", gap: 4, flex: "1 1 320px", minWidth: 0 }}>
+            <span style={SECTION}>Tenant</span>
+            {unit && detail ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 36 }}>
+                <span style={{ fontWeight: 700 }}>{detail.tenant.tenantName}</span>
+                <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{detail.tenant.unitRef}</code>
+                {!answering && <button className="btn sm" onClick={() => pickTenant("")}>Change</button>}
               </div>
+            ) : (
+              <UnitSelect brand value="" onChange={(u) => { if (u) pickTenant(u); }}
+                units={tenants.map((t) => ({ unitRef: t.unitRef, tenant: t.tenantName, group: `${t.propertyCode} · ${t.propertyName}`, meta: t.net < 0 ? `(${money(-t.net)})` : money(t.net) }))} />
+            )}
+          </label>
+          <label style={{ display: "grid", gap: 4, flex: "0 0 160px" }}>
+            <span style={SECTION}>Amount paid</span>
+            <input inputMode="decimal" placeholder="$0.00" value={amountText} disabled={!!answering} onChange={(e) => { setAmountText(e.target.value); setPlanId(null); setCustom((c) => ({ ...c, on: false })); }} style={{ fontWeight: 700, fontSize: 15 }} />
+          </label>
+          <div style={{ display: "grid", gap: 4, flex: "0 0 auto" }}>
+            <span style={SECTION}>Received</span>
+            <Calendar value={received} onChange={setReceived} variant="card" maxISO={todayISO()} />
+          </div>
+          <label style={{ display: "grid", gap: 4, flex: "0 0 130px" }}>
+            <span style={SECTION}>Check #</span>
+            <input value={checkNo} onChange={(e) => setCheckNo(e.target.value)} placeholder="optional" />
+          </label>
+        </div>
 
-              {row.untied > 0 && (
-                <div style={{ borderRadius: 10, padding: "10px 13px", background: "var(--tint-red-bg, rgba(220,38,38,0.06))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))", fontSize: "var(--fs-13)", color: "var(--c-b91c1c)", fontWeight: 600, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ flex: 1, minWidth: 260 }}>
-                    {row.untied} tenant{row.untied === 1 ? "'s charges don't" : "s' charges don't"} sum to the balance Skyline printed.
-                    Those statements are flagged &ldquo;under review&rdquo; on the portal — fix the export and re-import before publishing.
-                  </span>
-                  <button className="btn" onClick={() => { setOnlyReview((v) => !v); setProperty("All"); }}
-                    style={{ fontSize: "var(--fs-12-5)", padding: "5px 11px", fontWeight: 700, flexShrink: 0 }}>
-                    {onlyReview ? "Show all tenants" : `Show the ${row.untied}`}
-                  </button>
-                </div>
-              )}
+        {detail && (
+          <>
+            <div className="pills" style={{ justifyContent: "flex-start", margin: 0 }}>
+              <StatPill label="Open charges" value={money(detail.account.gross)} sub={`${detail.account.charges.length} charge${detail.account.charges.length === 1 ? "" : "s"}`} />
+              <StatPill label="Open credit" value={detail.account.credit ? `(${money(detail.account.credit)})` : "—"} accent={detail.account.credit ? "var(--c-15803d)" : undefined} />
+              <StatPill label="Net due" value={money(detail.account.net)} total />
+              {validAmount && <StatPill label="They paid" value={money(amount)} sub={amount === detail.account.net ? "exactly the balance" : `${money(amount - detail.account.net)} vs balance`} accent={Math.abs(amount - detail.account.net) < 0.005 ? "var(--c-15803d)" : "var(--c-b45309)"} />}
+            </div>
+            {!detail.tenant.tiesOut && <div className="small" style={{ color: "var(--c-b45309)", fontWeight: 600 }}>This tenant&rsquo;s statement did not tie out on import — check the charges below against Skyline before sending.</div>}
+          </>
+        )}
+      </section>
 
-              <div>
-                <div style={SECTION_LABEL}>Files imported</div>
-                <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
-                  {row.sources.map((s, i) => (
-                    <div key={`${s.filename}-${i}`} className="muted" style={{ fontSize: "var(--fs-12-5)" }}>
-                      <code style={{ fontSize: "var(--fs-12)" }}>{s.filename}</code> · {s.tenantCount} tenants ·
-                      {" "}{new Date(s.importedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                      {s.importedBy ? ` · ${s.importedBy}` : ""}
+      {/* ── 2. What did they mean? ───────────────────────────────────── */}
+      {detail && validAmount && (
+        <section className="card" style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 17, fontWeight: 800 }}>What they most likely meant</div>
+            <label className="small" style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              <input type="checkbox" checked={custom.on} onChange={(e) => setCustom((c) => ({ ...c, on: e.target.checked }))} /> Pick the charges myself
+            </label>
+          </div>
+          {!custom.on && (
+            <div style={{ display: "grid", gap: 8 }}>
+              {detail.explanations.map((e) => {
+                const on = (plan?.id ?? null) === e.id;
+                return (
+                  <button key={e.id} type="button" onClick={() => setPlanId(e.id)} style={{
+                    textAlign: "left", cursor: "pointer", borderRadius: 12, padding: "10px 14px", display: "grid", gap: 4,
+                    border: `1.5px solid ${on ? "var(--c-0b4a7d)" : "var(--border)"}`, background: on ? "var(--tint-brand-bg, rgba(11,74,125,0.05))" : "var(--card)",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span aria-hidden style={{ width: 14, height: 14, borderRadius: 999, border: `2px solid ${on ? "var(--c-0b4a7d)" : "var(--muted)"}`, background: on ? "radial-gradient(#0b4a7d 45%, transparent 50%)" : "transparent", flex: "none" }} />
+                      <span style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>{e.title}</span>
+                      {confidenceTone(e)}
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="small" style={{ color: "var(--text)", marginLeft: 22 }}>{e.why}</div>
+                    <div className="muted small" style={{ marginLeft: 22 }}>
+                      {e.lines.length} charge{e.lines.length === 1 ? "" : "s"}
+                      {e.creditUsed > 0 && <> · uses {money(e.creditUsed)} of the credit</>}
+                      {e.unapplied > 0.005 && <> · {money(e.unapplied)} held as a credit</>}
+                      {" · "}balance after {e.balanceAfter < 0 ? `${money(-e.balanceAfter)} credit` : money(e.balanceAfter)}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
-
-          {detail && (
-            <>
-              {detail.credits && (
-                <OpenCreditsCard tracker={detail.credits} notes={detail.creditNotes ?? {}} applications={detail.creditApplications ?? {}}
-                  period={detail.period} readOnly={READ_ONLY_USERS.has(user.id)} onChanged={reloadDetail} />
-              )}
-
-              {detail.aging && detail.aging.rows.length > 0 && (
-                <AgingScheduleCard schedule={detail.aging} active={property} onPick={setProperty}
-                  nameOf={(c) => detail.properties.find((x) => x.code === c)?.name ?? ""} />
-              )}
-
-              {byProperty.length > 1 && !detail.aging && (
-                <div className="card">
-                  <div style={SECTION_LABEL}>Open A/R by property</div>
-                  <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(146px, 1fr))", marginTop: 10 }}>
-                    {byProperty.map((g) => {
-                      const on = property === g.code;
-                      const name = detail.properties.find((x) => x.code === g.code)?.name ?? g.code;
-                      return (
-                        <button key={g.code} type="button" onClick={() => setProperty(on ? "All" : g.code)}
-                          title={on ? "Show all properties" : `Filter to ${g.code} — ${name}`}
-                          style={{ cursor: "pointer", fontFamily: "inherit", textAlign: "left", padding: "11px 13px", borderRadius: 10,
-                            border: `1.5px solid ${on ? "var(--tint-brand-line, rgba(11,74,125,0.5))" : "var(--border)"}`,
-                            background: on ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : "var(--card)" }}>
-                          <div style={{ fontSize: 19, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: on ? "var(--c-0b4a7d)" : "var(--text)" }}>{money0(g.open)}</div>
-                          <div style={{ fontSize: "var(--fs-12)", fontWeight: 700, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.code}</div>
-                          <div className="muted" style={{ fontSize: "var(--fs-11)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
-                          <div style={{ fontSize: "var(--fs-11)", marginTop: 3, color: g.pastDue > 0.005 ? "var(--c-b45309)" : "var(--muted)", fontWeight: g.pastDue > 0.005 ? 700 : 500 }}>
-                            {g.pastDue > 0.005 ? `${money0(g.pastDue)} past due` : "nothing past due"}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <div className="card" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <select value={property} onChange={(e) => setProperty(e.target.value)}>
-                  <option value="All">All properties</option>
-                  {detail.properties.map((p) => <option key={p.code} value={p.code}>{p.code} — {p.name}</option>)}
-                </select>
-                <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tenant or unit…"
-                  style={{ minWidth: 220, flex: "1 1 220px" }} />
-                <DisplayMenu>
-                  <MenuSection label="Show only">
-                    <CheckRow label="Tenants with a balance" checked={onlyOwing} onChange={setOnlyOwing} />
-                    <CheckRow label="Not shared yet" checked={onlyUnshared} onChange={setOnlyUnshared} />
-                    <CheckRow label="Needs follow-up" hint="Owes, and nothing emailed in the last 30 days" checked={onlyFollowUp} onChange={setOnlyFollowUp} />
-                  </MenuSection>
-                  <ToggleRow label="Order" left="Statement" right="Balance" active={sort === "balance" ? "right" : "left"} onLeft={() => setSort("statement")} onRight={() => setSort("balance")} />
-                </DisplayMenu>
-                {onlyReview && (
-                  <button type="button" onClick={() => setOnlyReview(false)}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-12-5)", fontWeight: 700,
-                      padding: "5px 10px", borderRadius: 999, border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))", background: "var(--tint-red-bg, rgba(220,38,38,0.08))", color: "var(--c-b91c1c)" }}>
-                    Only tenants to review <span aria-hidden style={{ opacity: 0.7 }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
-                  </button>
-                )}
-                <div className="muted small" style={{ marginLeft: "auto" }}>
-                  {tenants.length} shown · {money0(filteredTotals.open)} open
-                </div>
-              </div>
-
-              <div className="card" style={{ padding: 0, overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
-                  <thead>
-                    <tr>
-                      <th style={thL}>Unit</th>
-                      <th style={thL}>Tenant</th>
-                      <th style={th}>This month</th>
-                      <th style={th}>Prior</th>
-                      <th style={th}>Past due</th>
-                      <th style={th}>Total due</th>
-                      <th style={th}>Statement</th>
-                      <th style={thL}>Last contact</th>
-                      <th style={{ ...th, textAlign: "left" }}>Portal link</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tenants.map((t, i) => {
-                      // Statement order already groups by property, so a band
-                      // opens each block and carries that property's subtotals.
-                      const band = grouped && (i === 0 || tenants[i - 1].propertyCode !== t.propertyCode);
-                      const g = propertySubtotal.get(t.propertyCode);
-                      return (
-                        <Fragment key={t.unitRef}>
-                          {band && g && (
-                            <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))", borderTop: i ? "2px solid var(--border)" : "none" }}>
-                              {/* wraps rather than nowrap — a long centre name
-                                  must not widen the table into a scroll */}
-                              <td style={{ ...tdL, paddingTop: 10, paddingBottom: 10, whiteSpace: "normal" }} colSpan={2}>
-                                <div style={{ fontWeight: 800 }}>
-                                  {t.propertyCode} — {detail.properties.find((x) => x.code === t.propertyCode)?.name ?? t.propertyCode}
-                                </div>
-                                <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>{g.tenants} {g.tenants === 1 ? "tenant" : "tenants"}</div>
-                              </td>
-                              <td style={{ ...td, fontWeight: 700 }}>{money0(g.current)}</td>
-                              <td style={{ ...td, fontWeight: 700 }}>{money0(g.prior)}</td>
-                              <td style={{ ...td, fontWeight: 700, color: g.pastDue > 0.005 ? "var(--c-b45309)" : "var(--muted)" }}>{g.pastDue > 0.005 ? money0(g.pastDue) : "—"}</td>
-                              <td style={{ ...td, fontWeight: 800 }}>{money0(g.total)}</td>
-                              <td colSpan={3} />
-                            </tr>
-                          )}
-                          <TenantRows t={t} period={detail.period}
-                            linkInfo={linkByUnit.get(t.unitRef) ?? null}
-                            contact={contacts[t.unitRef.toUpperCase()] ?? null}
-                            contactNonce={contactNonce} onContactChange={() => setContactNonce((n) => n + 1)}
-                            onLinkChange={() => { setLinksNonce((n) => n + 1); reloadDetail(); setContactNonce((n) => n + 1); }}
-                            onCloseRequest={closeRequest}
-                            open={expanded === t.unitRef} onToggle={() => setExpanded((x) => (x === t.unitRef ? null : t.unitRef))} />
-                        </Fragment>
-                      );
-                    })}
-                    {tenants.length === 0 && (
-                      <tr><td colSpan={9} style={{ ...tdL, padding: "22px 12px", color: "var(--muted)" }}>No tenants match those filters.</td></tr>
-                    )}
-                  </tbody>
-                  {tenants.length > 0 && (
-                    <tfoot>
-                      <tr style={{ borderTop: "2px solid var(--border)", fontWeight: 800 }}>
-                        <td style={tdL} colSpan={5}>
-                          Total — {tenants.length} tenants
-                          {grouped && propertySubtotal.size > 1 ? ` · ${propertySubtotal.size} properties` : ""}
-                        </td>
-                        <td style={td}>{money2(filteredTotals.open)}</td>
-                        <td colSpan={3} />
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
-              </div>
-
-            </>
+          {custom.on && detail.account.credit > 0 && (
+            <label className="small" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <input type="checkbox" checked={custom.credit} onChange={(e) => setCustom((c) => ({ ...c, credit: e.target.checked }))} /> Use their {money(detail.account.credit)} credit first
+            </label>
           )}
 
-          <div className="card">
-            <ImportInstructions variant="statements" />
+        </section>
+      )}
+
+      {/* ── Open charges & credits — as soon as a tenant is picked; once a
+          payment is typed, what it covers is highlighted line by line. ── */}
+      {detail && (
+        <section className="card" style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 17, fontWeight: 800 }}>Open charges &amp; credits</div>
+            {!applying && <div className="muted small">Type what they paid to see how it applies.</div>}
           </div>
-        </>
+          <div className="small" style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+            <span style={SECTION}>Last contact</span>
+            {history.length ? (
+              <>
+                <span><b>{new Date(history[0].sentAt).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric" })}</b>
+                  {" "}({ago(history[0].sentAt)}) · {KIND_LABEL[history[0].kind]}{history[0].summary ? ` — ${history[0].summary}` : ""}</span>
+                <button className="btn sm" onClick={() => setViewingEntry(history[0])}>View</button>
+                {history.length > 1 && <button className="btn sm" onClick={() => setShowAllMail((v) => !v)}>{showAllMail ? "Hide" : "All"} {history.length} emails</button>}
+              </>
+            ) : <span className="muted">Nothing emailed to this suite from the portal yet.</span>}
+            {detail.account.net > 0.005 && <button className="btn sm" style={{ marginLeft: "auto" }} onClick={() => setReminding(true)}>Send balance reminder…</button>}
+          </div>
+          {showAllMail && <CorrespondencePanel unitRef={detail.tenant.unitRef} period={period} tenantName={detail.tenant.tenantName} owed={0} nonce={mailNonce} onSent={() => setMailNonce((n) => n + 1)} />}
+          {reminding && <ReminderModal unitRef={detail.tenant.unitRef} period={period} tenantName={detail.tenant.tenantName} onClose={() => setReminding(false)} onSent={() => { setReminding(false); setMailNonce((n) => n + 1); }} />}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>
+                {custom.on && applying && <th style={thL} />}
+                <SortTh k="date" sort={chSort} setSort={setChSort} left>Date</SortTh>
+                <SortTh k="charge" sort={chSort} setSort={setChSort} left>Charge</SortTh>
+                <th style={{ ...thL, cursor: "pointer", whiteSpace: "nowrap" }} onClick={() => setChSort((x) => nextSort(x, "order"))}>
+                  <HoverCard title="Master order of application" width={300} rows={[]} body={
+                    <ol style={{ margin: 0, paddingLeft: 20, fontSize: "var(--fs-12-5)", lineHeight: 1.6, textTransform: "none", letterSpacing: 0, fontWeight: 500 }}>
+                      {APPLICATION_ORDER.map((x) => <li key={x.key}>{x.label}{x.code ? <span className="muted"> · {x.code}</span> : null}</li>)}
+                      <li style={{ listStyle: "none", marginLeft: -20, marginTop: 4 }} className="muted">Oldest first within each.</li>
+                    </ol>
+                  }>
+                    <span style={{ cursor: "help", borderBottom: "1px dotted currentColor" }}>Order</span>
+                  </HoverCard>{sortMark(chSort, "order")}
+                </th>
+                <SortTh k="open" sort={chSort} setSort={setChSort}>Open</SortTh>
+                {applying && <>
+                  <SortTh k="pay" sort={chSort} setSort={setChSort}>From payment</SortTh>
+                  <SortTh k="credit" sort={chSort} setSort={setChSort}>From credit</SortTh>
+                  <SortTh k="left" sort={chSort} setSort={setChSort}>Still open</SortTh>
+                </>}
+              </tr></thead>
+              <tbody>
+                {sortedCharges.map((ch) => {
+                  const a = appliedByIdx.get(ch.idx);
+                  const left = ch.amount - (a?.fromPayment ?? 0) - (a?.fromCredit ?? 0);
+                  return (
+                    <tr key={ch.idx} style={{ borderTop: "1px solid var(--border)", background: a ? "var(--tint-green-bg, rgba(22,163,74,0.06))" : undefined }}>
+                      {custom.on && applying && <td style={tdL}><input type="checkbox" checked={custom.idx.has(ch.idx)} onChange={(e) => setCustom((c) => { const s = new Set(c.idx); if (e.target.checked) s.add(ch.idx); else s.delete(ch.idx); return { ...c, idx: s }; })} /></td>}
+                      <td style={tdL}>{dateLabel(ch.dateISO)}</td>
+                      <td style={{ ...tdL, whiteSpace: "normal" }}>{ch.description}</td>
+                      <td style={{ ...tdL, whiteSpace: "nowrap" }}>
+                        {/* THIS tenant's sequence: the order its charges take a payment under the master order. */}
+                        <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 22, height: 22, padding: "0 6px", borderRadius: 999, background: a ? "var(--c-15803d)" : "var(--tint-brand-bg, rgba(11,74,125,0.10))", color: a ? "#fff" : "var(--c-0b4a7d)", fontSize: "var(--fs-12)", fontWeight: 800, marginRight: 8 }}>{orderSeq.get(ch.idx)}</span>
+                        <span className="muted small">{APPLICATION_LABEL[ch.appClass]}</span>
+                      </td>
+                      <td style={td}>{money(ch.amount)}</td>
+                      {applying && <>
+                      <td style={{ ...td, fontWeight: a?.fromPayment ? 700 : 400, color: a?.fromPayment ? "var(--c-15803d)" : "var(--muted)" }}>{a?.fromPayment ? money(a.fromPayment) : "—"}</td>
+                      <td style={{ ...td, color: a?.fromCredit ? "var(--c-15803d)" : "var(--muted)" }}>{a?.fromCredit ? money(a.fromCredit) : "—"}</td>
+                      <td style={{ ...td, color: left > 0.005 ? "var(--text)" : "var(--muted)" }}>{left > 0.005 ? money(left) : "—"}</td>
+                      </>}
+                    </tr>
+                  );
+                })}
+                {detail.account.creditLines.map((cl, i) => (
+                  <tr key={`c${i}`} style={{ borderTop: "1px solid var(--border)" }}>
+                    {custom.on && applying && <td />}
+                    <td style={tdL}>{dateLabel(cl.dateISO)}</td>
+                    <td style={tdL}>{cl.description}</td>
+                    <td style={tdL}><span className="muted small">Credit{cl.dateISO && detail.asOf ? ` · open ${Math.max(0, Math.round((Date.parse(`${detail.asOf}T12:00:00Z`) - Date.parse(`${cl.dateISO}T12:00:00Z`)) / 86_400_000))} days` : ""}</span></td>
+                    <td style={{ ...td, color: "var(--c-15803d)" }}>({money(cl.amount)})</td>
+                    {applying && plan && (() => {
+                      // How much of this credit the plan applies, and what is LEFT on account.
+                      const u = creditUsage(detail.account, plan.creditUsed)[i];
+                      return <>
+                        <td style={td} />
+                        <td style={{ ...td, fontWeight: u.used ? 700 : 400, color: u.used ? "var(--c-15803d)" : "var(--muted)" }}>{u.used ? `${money(u.used)} applied` : "—"}</td>
+                        <td style={{ ...td, fontWeight: u.left ? 700 : 400, color: u.left ? "var(--c-15803d)" : "var(--muted)" }}>{u.left ? `(${money(u.left)}) left` : "fully applied"}</td>
+                      </>;
+                    })()}
+                  </tr>
+                ))}
+                <tr style={{ borderTop: "2px solid var(--border)" }}>
+                  {custom.on && applying && <td />}
+                  <td style={tdL} /><td style={{ ...tdL, fontWeight: 700 }}>{applying ? "Total" : "Balance due"}</td><td style={tdL} />
+                  <td style={{ ...td, fontWeight: 800 }}>{money(detail.account.net)}</td>
+                  {applying && plan && (() => {
+                    const fromPay = plan.lines.reduce((a, l) => a + l.fromPayment, 0);
+                    const fromCredit = plan.lines.reduce((a, l) => a + l.fromCredit, 0);
+                    // Nets the credit left on account — negative = a credit the account keeps.
+                    const stillOpen = detail.account.gross - fromPay - fromCredit - (detail.account.credit - plan.creditUsed);
+                    return <>
+                      <td style={{ ...td, fontWeight: 800, color: "var(--c-15803d)" }}>{money(fromPay)}</td>
+                      <td style={{ ...td, fontWeight: 800, color: fromCredit ? "var(--c-15803d)" : "var(--muted)" }}>{fromCredit ? money(fromCredit) : "—"}</td>
+                      <td style={{ ...td, fontWeight: 800, color: stillOpen < -0.005 ? "var(--c-15803d)" : undefined }}>{stillOpen > 0.005 ? money(stillOpen) : stillOpen < -0.005 ? `(${money(-stillOpen)}) credit` : "—"}</td>
+                    </>;
+                  })()}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* The email step is visible from the moment a tenant is picked, so it
+          is never a mystery where the draft is — it fills in once a payment is typed. */}
+      {detail && !applying && !answering && (
+        <section className="card" style={{ display: "grid", gap: 6 }}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Draft email to the tenant</div>
+          <div className="muted small">Type the amount they paid above — the email drafts itself from how the payment applies, ready to edit and send.</div>
+        </section>
+      )}
+
+      {/* ── 3. Tell the tenant ───────────────────────────────────────── */}
+      {detail && validAmount && plan && !answering && (
+        <section className="card" style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 17, fontWeight: 800 }}>Draft email to the tenant</div>
+            <div className="muted small">They have until <b>{longDate(detail.respondBy)}</b> to answer; after that it applies as shown.</div>
+          </div>
+          <div style={{ display: "grid", gap: 6 }}>
+            <span style={SECTION}>To</span>
+            {detail.recipients.length ? detail.recipients.map((e) => (
+              <label key={e} className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" checked={!excluded.has(e.toLowerCase())} onChange={(ev) => setExcluded((s) => { const n = new Set(s); if (ev.target.checked) n.delete(e.toLowerCase()); else n.add(e.toLowerCase()); return n; })} />
+                {e}
+              </label>
+            )) : <div className="small" style={{ color: "var(--c-b45309)", fontWeight: 600 }}>No email on file for this suite — add a contact on the <a href={`/units/${detail.tenant.unitRef}`}>unit page</a>, or save it as a draft.</div>}
+          </div>
+          <label className="small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="checkbox" checked={attach} onChange={(e) => setAttach(e.target.checked)} />
+            Attach their {period ? periodLabel(period) : ""} statement (PDF)
+            <a href={`/api/tenant-statements/receipts?period=${period}&unit=${encodeURIComponent(detail.tenant.unitRef)}&pdf=1`} target="_blank" rel="noreferrer">Preview</a>
+          </label>
+          <div style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+            <input value={subject} onChange={(e) => { setSubject(e.target.value); setEdited(true); }} aria-label="Subject"
+              style={{ width: "100%", border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, padding: "10px 14px", fontWeight: 700, background: "transparent" }} />
+            <textarea value={opening} onChange={(e) => { setOpening(e.target.value); setEdited(true); }} aria-label="Opening" rows={Math.max(5, opening.split("\n").length + 1)}
+              style={{ width: "100%", border: 0, borderRadius: 0, padding: "12px 14px", fontFamily: "inherit", fontSize: "var(--fs-13-5)", lineHeight: 1.55, resize: "vertical", background: "transparent" }} />
+            {/* The table is generated from the plan (the server re-renders it
+                on send) — what the tenant reads, exactly; not editable. */}
+            {detail.draft && (
+              <div style={{ padding: "0 14px", background: "var(--c-ffffff)", color: "var(--c-111827)", overflowX: "auto" }} title="Generated from the charges above — not editable"
+                dangerouslySetInnerHTML={{ __html: detail.draft.tableHtml }} />
+            )}
+            <textarea value={closing} onChange={(e) => { setClosing(e.target.value); setEdited(true); }} aria-label="Closing" rows={Math.max(8, closing.split("\n").length + 4)}
+              style={{ width: "100%", border: 0, borderRadius: 0, padding: "12px 14px", fontFamily: "inherit", fontSize: "var(--fs-13-5)", lineHeight: 1.55, resize: "vertical", background: "transparent" }} />
+            {/* The signature is added on send — shown as it goes, not editable. */}
+            {detail.draft?.signature && (
+              <div style={{ padding: "0 14px 12px", background: "var(--c-ffffff)", color: "var(--c-111827)" }}
+                dangerouslySetInnerHTML={{ __html: signatureHtml(detail.draft.signature) }} />
+            )}
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <div className="muted small">
+              The standard wording, with this tenant&rsquo;s figures. Edit freely{edited && <> · <button className="btn sm" onClick={() => setEdited(false)}>Reset to standard wording</button></>}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn" onClick={() => copyEmail()}>{copied ? "Copied" : "Copy email"}</button>
+              <button className="btn" disabled={busy} onClick={() => save("draft")}>Save draft</button>
+              <button className="btn primary" disabled={busy || !to.length} onClick={() => setConfirming(true)} title={!to.length ? "No email on file for this suite" : undefined}>Send email…</button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {answering && detail && plan && validAmount && (
+        <AnswerCard rec={answering} plan={plan} busy={busy} onConfirm={async (note) => { await act(answering.id, "confirm", { plan: plan.id, note }); resetWork(); }} />
+      )}
+
+      {/* ── Receipts in progress ─────────────────────────────────────── */}
+      <section ref={receiptsRef} className="card" style={{ padding: 0, scrollMarginTop: 16 }}>
+        <div style={{ padding: "14px 18px 6px", display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Receipts</div>
+          {statusFilter && <>
+            <span className="muted small">Showing {STATUS_BAND[statusFilter]}</span>
+            <button className="btn sm" onClick={() => setStatusFilter(null)}>Show all</button>
+          </>}
+        </div>
+        {!receipts.length ? <div className="muted small" style={{ padding: "6px 18px 16px" }}>None yet — work a payment above.</div> : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>
+                <th style={thL}>Tenant</th><th style={thL}>Received</th><th style={th}>Paid</th><th style={thL}>Applied as</th><th style={thL}>Status</th><th style={thL} />
+              </tr></thead>
+              <tbody>
+                {STATUS_ORDER.filter((s) => !statusFilter || s === statusFilter).map((s) => {
+                  const rows = receipts.filter((r) => r.status === s);
+                  if (!rows.length) return null;
+                  return (
+                    <Fragment key={s}>
+                      <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))" }}><td colSpan={6} style={{ ...tdL, fontWeight: 800 }}>{STATUS_BAND[s]} <span className="muted" style={{ fontWeight: 500, fontSize: "var(--fs-12)" }}>· {rows.length}</span></td></tr>
+                      {rows.map((r) => {
+                        const isOpen = openRow === r.id;
+                        return (
+                          <Fragment key={r.id}>
+                            <tr style={{ borderTop: "1px solid var(--border)", cursor: "pointer" }} onClick={() => setOpenRow(isOpen ? null : r.id)}>
+                              <td style={{ ...tdL, whiteSpace: "normal" }}><span className="muted" style={{ fontSize: "var(--fs-10)", marginRight: 6 }}>{isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span><b>{r.tenantName}</b> <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{r.unitRef}</code>
+                                {r.email && <div className="muted small" style={{ marginTop: 2 }}>Emailed {new Date(r.email.sentAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.email.sentBy ? ` by ${r.email.sentBy}` : ""} to {r.email.to.join(", ")}</div>}</td>
+                              <td style={tdL}>{dateLabel(r.receivedISO)}{r.checkNo ? <span className="muted small"> · #{r.checkNo}</span> : null}</td>
+                              <td style={{ ...td, fontWeight: 700 }}>{money(r.amount)}</td>
+                              <td style={{ ...tdL, whiteSpace: "normal" }}>{r.plan.title}</td>
+                              <td style={tdL}>
+                                {STATUS_PILL[r.status]}
+                                {r.status === "waiting" && r.respondByISO && <div className="muted small" style={{ marginTop: 2 }}>answer by {longDate(r.respondByISO)}</div>}
+                                {r.status === "apply" && <div className="muted small" style={{ marginTop: 2 }}>{r.reply ? `tenant answered ${dateLabel(r.reply.at.slice(0, 10))}` : "no answer — applies as emailed"}</div>}
+                              </td>
+                              <td style={{ ...td, whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
+                                {(r.emailIds?.length ?? 0) > 0 && <><button className="btn sm" onClick={() => setViewing(r.emailIds![r.emailIds!.length - 1])}>View email</button>{" "}</>}
+                                {r.status === "waiting" && <button className="btn sm" onClick={() => answer(r)}>Tenant answered…</button>}
+                                {r.status === "draft" && <button className="btn sm" onClick={() => answer(r, true)}>Open</button>}{" "}
+                                {r.status === "apply" && <button className="btn sm primary" disabled={busy} onClick={() => act(r.id, "posted")}>Mark posted</button>}
+                                {r.status === "posted" && <button className="btn sm" disabled={busy} onClick={() => act(r.id, "unposted")}>Undo</button>}
+                                {r.status !== "posted" && <> <button className="btn sm" onClick={() => remove(r.id)} title="Delete"><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button></>}
+                              </td>
+                            </tr>
+                            {isOpen && (
+                              <tr><td colSpan={6} style={{ padding: "4px 18px 16px", background: "var(--tint-brand-faint, rgba(11,74,125,0.025))", maxWidth: 0 }}>
+                                <div style={{ display: "grid", gap: 8 }}>
+                                  <div style={SECTION}>Key in Skyline</div>
+                                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                    <thead><tr><th style={thL}>Charge date</th><th style={thL}>Charge</th><th style={th}>Payment</th><th style={th}>Credit</th></tr></thead>
+                                    <tbody>{r.plan.lines.map((l, i) => (
+                                      <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
+                                        <td style={tdL}>{dateLabel(l.dateISO)}</td><td style={tdL}>{l.description}</td>
+                                        <td style={td}>{l.fromPayment ? money(l.fromPayment) : "—"}</td><td style={td}>{l.fromCredit ? money(l.fromCredit) : "—"}</td>
+                                      </tr>
+                                    ))}
+                                    {r.plan.unapplied > 0.005 && <tr style={{ borderTop: "1px solid var(--border)" }}><td style={tdL} /><td style={tdL}>Held as a credit on account</td><td style={td}>{money(r.plan.unapplied)}</td><td style={td} /></tr>}
+                                    </tbody>
+                                  </table>
+                                  <div className="muted small">
+                                    {(r.emailIds?.length ?? 0) > 0 && (
+                                      <span style={{ marginRight: 8 }}>
+                                        {r.emailIds!.map((eid, i) => <button key={eid} className="btn sm" style={{ marginRight: 6 }} onClick={() => setViewing(eid)}>{r.emailIds!.length > 1 ? `View sent email ${i + 1}` : "View sent email"}</button>)}
+                                      </span>
+                                    )}
+                                    {r.email ? <>Emailed {new Date(r.email.sentAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.email.sentBy ? ` by ${r.email.sentBy}` : ""}{r.email.from ? ` from ${r.email.from}` : ""} to {r.email.to.join(", ")}.</> : "Not emailed."}
+                                    {r.reply && <> Tenant&rsquo;s answer recorded by {r.reply.by ?? "—"}{r.reply.note ? `: “${r.reply.note}”` : ""}.</>}
+                                    {r.postedAt && <> Posted {dateLabel(r.postedAt.slice(0, 10))}{r.postedBy ? ` by ${r.postedBy}` : ""}.</>}
+                                  </div>
+                                </div>
+                              </td></tr>
+                            )}
+                          </Fragment>
+                        );
+                      })}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* ── The sent-email archive — proof each tenant was asked ─────── */}
+      <section className="card" style={{ padding: 0 }}>
+        <div style={{ padding: "14px 18px 6px", display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>Sent Emails</div>
+          <div className="muted small" style={{ flex: 1, minWidth: 220 }}>Every receipt email, kept exactly as it went — kept even if its receipt is deleted.</div>
+          {sentEmails.length > 8 && <input type="search" placeholder="Search tenant, suite, recipient…" value={sentQuery} onChange={(e) => setSentQuery(e.target.value)} style={{ width: 240 }} />}
+        </div>
+        {!sentEmails.length ? <div className="muted small" style={{ padding: "6px 18px 16px" }}>None sent yet.</div> : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr><th style={thL}>Sent</th><th style={thL}>Tenant</th><th style={th}>Payment</th><th style={thL}>To</th><th style={thL}>Answer by</th><th style={thL} /></tr></thead>
+              <tbody>
+                {sentEmails.filter((e) => {
+                  const q = sentQuery.trim().toLowerCase();
+                  return !q || [e.tenantName, e.unitRef, e.subject, ...e.to].some((x) => x.toLowerCase().includes(q));
+                }).map((e) => (
+                  <tr key={e.id} style={{ borderTop: "1px solid var(--border)", cursor: "pointer" }} onClick={() => setViewing(e.id)}>
+                    <td style={tdL}>{new Date(e.sentAt).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}{e.sentBy ? <span className="muted small"> · {e.sentBy}</span> : null}</td>
+                    <td style={{ ...tdL, whiteSpace: "normal" }}><b>{e.tenantName}</b> <code className="muted" style={{ fontSize: "var(--fs-12)" }}>{e.unitRef}</code></td>
+                    <td style={{ ...td, fontWeight: 700 }}>{money(e.amount)}</td>
+                    <td style={{ ...tdL, whiteSpace: "normal" }} className="small">{e.to.join(", ")}</td>
+                    <td style={tdL}>{e.respondByISO ? longDate(e.respondByISO) : "—"}</td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {e.testMode && <Pill tone={TONE_AMBER}>TEST</Pill>}{" "}
+                      <button className="btn sm" onClick={(ev) => { ev.stopPropagation(); setViewing(e.id); }}>View</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {viewingEntry && <SentEmailModal src={srcOf(viewingEntry)} onClose={() => setViewingEntry(null)} />}
+      {viewing && <SentEmailModal src={`/api/tenant-statements/receipts?email=${encodeURIComponent(viewing)}`} onClose={() => setViewing(null)} />}
+
+      {confirming && detail && plan && (
+        <ConfirmSend to={to} subject={subject} tenant={detail.tenant.tenantName} amount={amount} plan={plan} respondBy={detail.respondBy} busy={busy}
+          onCancel={() => setConfirming(false)} onSend={() => save("send")} />
       )}
     </main>
   );
 }
 
-/** Period switcher — newest first, publish state visible at a glance. */
-/** Sort state for a tenant's expanded charge list. `null` = the order Skyline
- *  printed, which is what the tenant's own statement shows. */
-type ChargeSortKey = "date" | "charge" | "type" | "amount";
-type ChargeSort = { key: ChargeSortKey; dir: "asc" | "desc" } | null;
-
-/** Undated rows (the aggregate "Open Credits" line) have nothing to sort on, so
- *  they stay pinned to the end whatever the sort — same as the statement. */
-function sortCharges(charges: StatementCharge[], sort: ChargeSort): StatementCharge[] {
-  if (!sort) return charges;
-  const sign = sort.dir === "asc" ? 1 : -1;
-  const dated = charges.filter((c) => c.dateISO);
-  const undated = charges.filter((c) => !c.dateISO);
-  const cmp = (a: StatementCharge, b: StatementCharge): number => {
-    switch (sort.key) {
-      case "date": return sign * (a.dateISO ?? "").localeCompare(b.dateISO ?? "");
-      case "charge": return sign * a.description.localeCompare(b.description);
-      case "amount": return sign * (a.amount - b.amount);
-      case "type": {
-        // Group by the statement's own category order, then oldest first inside
-        // each type so a type block still reads like a ledger.
-        const d = CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category);
-        return d !== 0 ? sign * d : (a.dateISO ?? "").localeCompare(b.dateISO ?? "");
-      }
-    }
-  };
-  return [...dated].sort(cmp).concat(undated);
-}
-
-
-/** Portal-link status for one tenant, plus the share control itself.
- *
- * Status is read from the bulk endpoint so 67 rows don't fire 67 requests; the
- * popover does its own per-tenant fetch when opened, which is where mint /
- * copy / email / PIN / revoke live. `onChange` re-pulls the bulk status after
- * an action so the row reflects it without a page refresh. */
-function PortalLinkCell({ info }: { info: LinkInfo | null }) {
-  const link = info?.link ?? null;
-  const viewed = link?.viewCount ?? 0;
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-      {link ? (
-        <HoverCard title="Portal link" width={262}
-          rows={[
-            { label: "Shared", value: new Date(link.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) },
-            ...(link.createdBy ? [{ label: "By", value: link.createdBy }] : []),
-            { label: "Access PIN", value: link.hasPin ? "Required" : "None" },
-          ]}
-          footer={{ label: "Last opened", value: link.lastViewedAt ? new Date(link.lastViewedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—" }}>
-          <Pill tone={viewed ? TONE_GREEN : TONE_BLUE}>{viewed ? `OPENED ${viewed}×` : "SHARED"}</Pill>
-        </HoverCard>
-      ) : (
-        <Pill tone={TONE_NEUTRAL}>NOT SHARED</Pill>
-      )}
-    </div>
-  );
-}
-
-
-/** Record a payment we've received but can't apply, and ask the tenant where it
- *  goes. The email carries their portal link; they answer on the same statement
- *  they'd otherwise pay from, which is the only place the charges are legible. */
-function RecordPayment({ t, period, onDone }: { t: TenantRow; period: string; onDone: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [paymentRef, setPaymentRef] = useState("");
-  const [receivedOn, setReceivedOn] = useState("");
+function AnswerCard({ rec, plan, busy, onConfirm }: { rec: Receipt; plan: Explanation; busy: boolean; onConfirm: (note: string) => void }) {
   const [note, setNote] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  async function submit(send: boolean) {
-    const amt = Number(amount.replace(/[$,\s]/g, ""));
-    if (!Number.isFinite(amt) || amt <= 0) { setMsg("Enter the amount you received."); return; }
-    setBusy(true); setMsg(null);
-    try {
-      const res = await fetch("/api/tenant-statements/allocation-request", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ period, unitRef: t.unitRef, amount: amt, paymentRef, receivedOn, note, send }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Could not record that.");
-      if (j.mailError) { setMsg(j.mailError); onDone(); return; }
-      setOpen(false); onDone();
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Could not record that.");
-    } finally { setBusy(false); }
-  }
-
-  const field = (label: string, value: string, set: (v: string) => void, placeholder: string, width: number) => (
-    <label style={{ display: "block", width }}>
-      <div style={SECTION_LABEL}>{label}</div>
-      <input value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder}
-        style={{ width: "100%", marginTop: 4, boxSizing: "border-box" }} />
-    </label>
-  );
-
   return (
-    <div style={{ position: "relative", display: "inline-block" }}>
-      <button className="btn" onClick={() => setOpen((o) => !o)} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>
-        Record a payment
-      </button>
-      {open && (
-        <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 50, width: 430, maxWidth: "90vw",
-          background: "var(--card)", border: "1px solid var(--border)", borderRadius: 12, boxShadow: "0 16px 40px rgba(15,23,42,0.22)", padding: 16 }}>
-          <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-0b4a7d)" }}>Payment we can&rsquo;t apply</div>
-          <p className="muted small" style={{ marginTop: 4, marginBottom: 12 }}>
-            Record what came in from <b>{t.tenantName}</b> and ask them which of their {t.charges.length} open charges it covers.
-            They answer on their statement; you&rsquo;ll see the application here.
-          </p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {field("Amount", amount, setAmount, "6,200.00", 130)}
-            {field("Check / ref", paymentRef, setPaymentRef, "Check 10482", 150)}
-            {field("Received", receivedOn, setReceivedOn, "2026-09-12", 120)}
-          </div>
-          <label style={{ display: "block", marginTop: 10 }}>
-            <div style={SECTION_LABEL}>Note to the tenant (optional)</div>
-            <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2}
-              style={{ width: "100%", marginTop: 4, boxSizing: "border-box", resize: "vertical" }} />
-          </label>
-          {msg && <div style={{ color: "var(--c-b45309)", fontSize: "var(--fs-12-5)", fontWeight: 600, marginTop: 10 }}>{msg}</div>}
-          <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-            <button className="btn primary" disabled={busy} onClick={() => submit(true)} style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 700 }}>
-              {busy ? "Sending…" : "Record and ask the tenant"}
-            </button>
-            <button className="btn" disabled={busy} onClick={() => submit(false)} style={{ fontSize: "var(--fs-13)", padding: "7px 14px" }}>
-              Record only
-            </button>
-            <button className="btn" onClick={() => setOpen(false)} style={{ fontSize: "var(--fs-13)", padding: "7px 14px", marginLeft: "auto" }}>Cancel</button>
-          </div>
-        </div>
-      )}
-    </div>
+    <section className="card" style={{ display: "grid", gap: 10 }}>
+      <div style={{ fontSize: 17, fontWeight: 800 }}>Record the tenant&rsquo;s answer</div>
+      <div className="small">Apply {money(rec.amount)} as: <b>{plan.title}</b>{plan.id !== rec.plan.id ? <span className="muted"> (emailed: {rec.plan.title})</span> : null}</div>
+      <textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What they said, e.g. “Apply it to the September CAM — we dispute the late fee.”" />
+      <div><button className="btn primary" disabled={busy} onClick={() => onConfirm(note)}>Confirm — ready to apply</button></div>
+    </section>
   );
 }
 
-/** One tenant row, expanding to their line-by-line charges. */
-function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onCloseRequest, contact, contactNonce, onContactChange }: {
-  t: TenantRow; period: string; open: boolean; onToggle: () => void;
-  linkInfo: LinkInfo | null; onLinkChange: () => void; onCloseRequest: (id: string) => void;
-  contact: LastContact | null; contactNonce: number; onContactChange: () => void;
+function ConfirmSend({ to, subject, tenant, amount, plan, respondBy, busy, onCancel, onSend }: {
+  to: string[]; subject: string; tenant: string; amount: number; plan: Explanation; respondBy: string; busy: boolean; onCancel: () => void; onSend: () => void;
 }) {
-  const s = t.summary;
-  // Defaults to the printed statement order; a third click on the active column
-  // returns to it, so staff can always get back to the paper statement's order.
-  const [sort, setSort] = useState<ChargeSort>(null);
-  const charges = useMemo(() => sortCharges(t.charges, sort), [t.charges, sort]);
-  const cycle = (key: ChargeSortKey) =>
-    setSort((cur) => (cur?.key !== key ? { key, dir: key === "amount" ? "desc" : "asc" }
-      : cur.dir === (key === "amount" ? "desc" : "asc") ? { key, dir: key === "amount" ? "asc" : "desc" }
-      : null));
-  const SortHead = ({ label, k, style }: { label: string; k: ChargeSortKey; style: React.CSSProperties }) => {
-    const active = sort?.key === k;
-    return (
-      <th style={{ ...style, cursor: "pointer", userSelect: "none" }} onClick={(e) => { e.stopPropagation(); cycle(k); }}
-        title={active ? "Sort the other way, then back to statement order" : `Sort by ${label.toLowerCase()}`}
-        aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}>
-        {label}
-        <span aria-hidden style={{ marginLeft: 4, opacity: active ? 0.85 : 0.25, fontSize: "var(--fs-9)" }}>
-          {active ? (sort!.dir === "asc" ? "\u25b2" : "\u25bc") : "\u25b4\u25be"}
-        </span>
-      </th>
-    );
-  };
-  return (
-    <>
-      <tr onClick={onToggle} style={{ borderTop: "1px solid var(--border)", cursor: "pointer", background: open ? "var(--tint-brand-bg, rgba(11,74,125,0.04))" : undefined }}>
-        <td style={tdL}><code style={{ fontSize: "var(--fs-12)" }}>{t.unitRef}</code></td>
-        <td style={{ ...tdL, whiteSpace: "normal" }}>
-          <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-            {t.tenantName}
-            {/* Tying out is the norm, so it isn't worth a column — only the
-                exception is called out, on the row it applies to. */}
-            {!t.tiesOut && (
-              <HoverCard title="Doesn't reconcile to Skyline" width={250}
-                rows={[{ label: "Charges parsed", value: money2(t.chargeTotal) }, { label: "Skyline balance", value: money2(t.reportedBalance) }]}
-                footer={{ label: "Difference", value: money2(t.chargeTotal - t.reportedBalance) }}>
-                <Pill tone={TONE_RED}>REVIEW</Pill>
-              </HoverCard>
-            )}
-            {/* Kept from an earlier upload because the newest export didn't
-                mention them — never dropped, but worth being able to see. */}
-            {t.pendingPayment && (
-              <HoverCard title={`Unapplied ${money2(t.pendingPayment.amount)}`} width={280}
-                rows={[
-                  ...(t.pendingPayment.paymentRef ? [{ label: "Reference", value: t.pendingPayment.paymentRef }] : []),
-                  ...(t.pendingPayment.receivedOn ? [{ label: "Received", value: t.pendingPayment.receivedOn }] : []),
-                  { label: "Tenant asked", value: t.pendingPayment.askedAt
-                    ? `${new Date(t.pendingPayment.askedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · waiting`
-                    : "Not yet", color: t.pendingPayment.askedAt ? undefined : "var(--c-b45309)" },
-                ]}>
-                <Pill tone={TONE_AMBER}>{`UNAPPLIED ${money0(t.pendingPayment.amount)}`}</Pill>
-              </HoverCard>
-            )}
-            {t.declared && (
-              <HoverCard title={t.declared.receivedAmount != null ? `Allocated ${money2(t.declared.amount)}` : `Paying ${money2(t.declared.amount)}`} width={290}
-                rows={[
-                  ...(t.declared.receivedAmount != null
-                    ? [{ label: "Received", value: money2(t.declared.receivedAmount), color: "var(--c-b45309)" }]
-                    : [{ label: "Reference", value: t.declared.reference }]),
-                  { label: "Method", value: METHOD_LABEL[t.declared.method] },
-                  { label: "Told us", value: new Date(t.declared.submittedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }) },
-                  { label: "Applying to", value: `${t.declared.paying.length} of ${t.declared.paying.length + t.declared.holding.length} charges` },
-                ]}
-                footer={t.declared.receivedAmount != null
-                  ? { label: "Still unapplied", value: money2(t.declared.receivedAmount - t.declared.amount) }
-                  : { label: "Leaving open", value: money2(t.declared.statementTotal - t.declared.amount) }}>
-                <Pill tone={TONE_GREEN}>{`${t.declared.receivedAmount != null ? "APPLIED" : "PAYING"} ${money0(t.declared.amount)}`}</Pill>
-              </HoverCard>
-            )}
-            {t.carriedOver && (
-              <HoverCard title="Carried over" width={272}
-                rows={[
-                  { label: "From", value: t.sourceFile ?? "an earlier import" },
-                  { label: "Imported", value: t.importedAt ? new Date(t.importedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—" },
-                ]}
-                footer={{ label: "Kept", value: "not in the latest export" }}>
-                <Pill tone={TONE_NEUTRAL}>CARRIED OVER</Pill>
-              </HoverCard>
-            )}
-          </div>
-          <div className="muted" style={{ fontSize: "var(--fs-11-5)" }}>{t.charges.length} open {t.charges.length === 1 ? "charge" : "charges"}</div>
-        </td>
-        <td style={td}>{money2(s.currentCharges)}</td>
-        <td style={td}>{money2(s.priorBalance)}</td>
-        <td style={{ ...td, color: s.pastDueAmount > 0.005 ? "var(--c-b45309)" : "var(--muted)", fontWeight: s.pastDueAmount > 0.005 ? 700 : 400 }}>
-          {s.pastDueAmount > 0.005 ? (
-            <HoverCard title="Past due" width={240}
-              rows={s.byAging.filter((b) => b.bucket !== "current").map((b) => ({ label: AGING_LABEL[b.bucket], value: money2(b.amount), color: "var(--c-b45309)" }))}
-              footer={{ label: "Oldest charge", value: dateLabel(s.oldestISO) }}>
-              {money2(s.pastDueAmount)}
-            </HoverCard>
-          ) : "—"}
-        </td>
-        <td style={{ ...td, fontWeight: 800, color: s.totalDue > 0.005 ? "var(--c-b45309)" : s.totalDue < -0.005 ? "var(--c-15803d)" : "var(--text)" }}>
-          <HoverCard title={t.tenantName} width={270}
-            rows={s.byCategory.map((c) => ({ label: `${CATEGORY_LABEL[c.category]} (${c.count})`, value: money2(c.amount) }))}
-            footer={{ label: "Total due", value: money2(s.totalDue) }}>
-            {money2(s.totalDue)}
-          </HoverCard>
-        </td>
-        <td style={td}>
-          <a href={`/api/tenant-statements/${period}/pdf?unitRef=${encodeURIComponent(t.unitRef)}`} onClick={(e) => e.stopPropagation()}
-            className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 10px", textDecoration: "none" }}>PDF</a>
-        </td>
-        <td style={{ ...tdL, whiteSpace: "nowrap" }}><LastContactCell contact={contact} owed={s.totalDue} /></td>
-        {/* Minting, copying, emailing and revoking a tenant's portal link — the
-            same control as the recon page, so there is one share flow, not two. */}
-        <td style={{ ...tdL, whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
-          <PortalLinkCell info={linkInfo} />
-        </td>
-      </tr>
-      {open && (
-        <tr>
-          <td colSpan={9} style={{ padding: "0 10px 14px", background: "var(--tint-brand-faint, rgba(11,74,125,0.03))", maxWidth: 0 }}>
-            {linkInfo && (
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 10px 6px", flexWrap: "wrap" }}>
-                <div style={{ minWidth: 0 }}>
-                  <div style={SECTION_LABEL}>Tenant portal</div>
-                  <div className="muted" style={{ fontSize: "var(--fs-12-5)", marginTop: 3 }}>
-                    {linkInfo.link
-                      ? <>Shared {new Date(linkInfo.link.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                          {linkInfo.link.createdBy ? ` by ${linkInfo.link.createdBy}` : ""} ·{" "}
-                          {linkInfo.link.viewCount ? `opened ${linkInfo.link.viewCount}×` : "not opened yet"}
-                          {linkInfo.link.hasPin ? " · PIN required" : ""}</>
-                      : <>No link yet — {t.tenantName} can&rsquo;t see their statement until you share one.</>}
-                  </div>
-                </div>
-                <div style={{ marginLeft: "auto", display: "inline-flex", gap: 8, alignItems: "center" }}>
-                  {!t.pendingPayment && !t.declared && (
-                    <RecordPayment t={t} period={period} onDone={onLinkChange} />
-                  )}
-                  <span onClick={onLinkChange}>
-                    <TenantShareLink property={t.propertyCode} unitRef={t.unitRef} year={linkInfo.year} kind={linkInfo.kind} tenantName={t.tenantName} />
-                  </span>
-                </div>
-              </div>
-            )}
-            <CorrespondencePanel unitRef={t.unitRef} period={period} tenantName={t.tenantName} owed={s.totalDue}
-              nonce={contactNonce} onSent={onContactChange} />
-            <div className="muted" style={{ fontSize: "var(--fs-11-5)", padding: "8px 10px 0" }}>
-              {sort
-                ? <>Sorted by {sort.key === "charge" ? "description" : sort.key} — <button type="button" onClick={(e) => { e.stopPropagation(); setSort(null); }}
-                    style={{ padding: 0, border: "none", background: "none", font: "inherit", color: "var(--c-0b4a7d)", fontWeight: 700, cursor: "pointer" }}>back to statement order</button></>
-                : "In the order Skyline's statement prints them. Click a column to sort."}
-            </div>
-            {t.pendingPayment && (
-              <HoverCard title={`Unapplied ${money2(t.pendingPayment.amount)}`} width={280}
-                rows={[
-                  ...(t.pendingPayment.paymentRef ? [{ label: "Reference", value: t.pendingPayment.paymentRef }] : []),
-                  ...(t.pendingPayment.receivedOn ? [{ label: "Received", value: t.pendingPayment.receivedOn }] : []),
-                  { label: "Tenant asked", value: t.pendingPayment.askedAt
-                    ? `${new Date(t.pendingPayment.askedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · waiting`
-                    : "Not yet", color: t.pendingPayment.askedAt ? undefined : "var(--c-b45309)" },
-                ]}>
-                <Pill tone={TONE_AMBER}>{`UNAPPLIED ${money0(t.pendingPayment.amount)}`}</Pill>
-              </HoverCard>
-            )}
-            {t.pendingPayment ? (
-              <div style={{ margin: "10px 10px 14px", border: "1.5px solid var(--tint-amber-line, rgba(217,119,6,0.45))", borderRadius: 10, background: "var(--tint-amber-bg, rgba(217,119,6,0.06))", padding: "12px 14px" }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-b45309)" }}>Payment we can&rsquo;t apply</span>
-                  <span style={{ fontSize: 17, fontWeight: 800 }}>{money2(t.pendingPayment.amount)}</span>
-                  <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>
-                    {t.pendingPayment.paymentRef ? `${t.pendingPayment.paymentRef} · ` : ""}
-                    {t.pendingPayment.receivedOn ? `received ${t.pendingPayment.receivedOn} · ` : ""}
-                    {t.pendingPayment.askedAt
-                      ? `asked ${t.pendingPayment.askedTo.join(", ")}`
-                      : "not sent to the tenant yet"}
-                  </span>
-                  <button className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 10px", marginLeft: "auto" }}
-                    onClick={() => onCloseRequest(t.pendingPayment!.id)}>Close it</button>
-                </div>
-              </div>
-            ) : null}
-            {t.declared && (
-              <div style={{ margin: "10px 10px 14px", border: "1.5px solid var(--tint-green-line, rgba(22,163,74,0.4))", borderRadius: 10, background: "var(--tint-green-bg, rgba(22,163,74,0.05))", padding: "12px 14px" }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-15803d)" }}>
-                    {t.declared.receivedAmount != null ? "Tenant allocated their payment" : "Tenant says they\u2019re paying"}
-                  </span>
-                  <span style={{ fontSize: 17, fontWeight: 800 }}>{money2(t.declared.amount)}</span>
-                  <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>
-                    by {METHOD_LABEL[t.declared.method]} · ref <code style={{ fontSize: "var(--fs-12)", fontWeight: 700 }}>{t.declared.reference}</code> ·
-                    {" "}{new Date(t.declared.submittedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                  </span>
-                  {t.declared.receivedAmount != null && Math.abs(t.declared.receivedAmount - t.declared.amount) >= 0.011 && (
-                    <span style={{ fontSize: "var(--fs-12-5)", fontWeight: 800, color: "var(--c-b45309)", padding: "2px 8px", borderRadius: 999,
-                      background: "var(--tint-amber-bg, rgba(217,119,6,0.12))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))" }}>
-                      {money2(t.declared.receivedAmount - t.declared.amount)} of the {money2(t.declared.receivedAmount)} received is still unapplied
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", marginTop: 10 }}>
-                  <div>
-                    <div style={SECTION_LABEL}>Apply to</div>
-                    {t.declared.paying.map((l, i) => (
-                      <div key={i} style={{ display: "flex", gap: 10, fontSize: "var(--fs-13)", padding: "3px 0" }}>
-                        <span className="muted" style={{ width: 92, flexShrink: 0 }}>{dateLabel(l.dateISO)}</span>
-                        <span style={{ flex: 1, minWidth: 0 }}>{l.description}</span>
-                        <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 600 }}>{money2(l.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {t.declared.holding.length > 0 && (
-                    <div>
-                      <div style={SECTION_LABEL}>Not paying — {money2(t.declared.statementTotal - t.declared.amount)} left open</div>
-                      {t.declared.holding.map((l, i) => (
-                        <div key={i} style={{ display: "flex", gap: 10, fontSize: "var(--fs-13)", padding: "3px 0", color: "var(--muted)" }}>
-                          <span style={{ width: 92, flexShrink: 0 }}>{dateLabel(l.dateISO)}</span>
-                          <span style={{ flex: 1, minWidth: 0 }}>{l.description}</span>
-                          <span style={{ fontVariantNumeric: "tabular-nums" }}>{money2(l.amount)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {t.declared.note && (
-                  <div style={{ marginTop: 10, fontSize: "var(--fs-13)", fontStyle: "italic", color: "var(--muted)" }}>&ldquo;{t.declared.note}&rdquo;</div>
-                )}
-              </div>
-            )}
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <SortHead label="Date" k="date" style={{ ...thL, width: 120 }} />
-                  <SortHead label="Charge" k="charge" style={thL} />
-                  <SortHead label="Type" k="type" style={{ ...thL, width: 140 }} />
-                  <SortHead label="Amount" k="amount" style={{ ...th, width: 130 }} />
-                </tr>
-              </thead>
-              <tbody>
-                {charges.map((c, i) => (
-                  <tr key={`${c.dateISO}-${c.description}-${i}`} style={{ borderTop: "1px solid var(--border)" }}>
-                    <td style={{ ...tdL, color: "var(--muted)", fontSize: "var(--fs-12-5)" }}>{dateLabel(c.dateISO)}</td>
-                    <td style={{ ...tdL, whiteSpace: "normal" }}>{c.description}</td>
-                    <td style={{ ...tdL, fontSize: "var(--fs-12-5)", color: "var(--muted)" }}>{CATEGORY_LABEL[c.category]}</td>
-                    <td style={{ ...td, color: c.amount < 0 ? "var(--c-15803d)" : "var(--text)" }}>{money2(c.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </td>
-        </tr>
-      )}
-    </>
-  );
-}
-
-/** Remit-to / contact details the portal's "How to pay" card reads from. */
-function PaymentCard({ properties, onClose, by }: { properties: { code: string; name: string }[]; onClose: () => void; by: string }) {
-  const [key, setKey] = useState("default");
-  const [defaults, setDefaults] = useState<PaymentInstructions | null>(null);
-  const [overrides, setOverrides] = useState<Record<string, Partial<PaymentInstructions>>>({});
-  const [draft, setDraft] = useState<PaymentInstructions | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/tenant-statements/payment", { cache: "no-store" }).then((r) => r.json()).then((j) => {
-      if (j.ok) { setDefaults(j.defaults); setOverrides(j.overrides ?? {}); }
-    }).catch(() => {});
-  }, []);
-
-  // Effective value for the selected scope: defaults < global < property.
-  useEffect(() => {
-    if (!defaults) return;
-    const layer = (base: PaymentInstructions, patch?: Partial<PaymentInstructions>) => {
-      if (!patch) return base;
-      const out = { ...base };
-      for (const [k, v] of Object.entries(patch)) {
-        if (Array.isArray(v) ? v.length : String(v ?? "").trim()) (out as Record<string, unknown>)[k] = v;
-      }
-      return out;
-    };
-    const base = key === "default" ? defaults : layer(defaults, overrides["default"]);
-    setDraft(layer(base, overrides[key]));
-  }, [key, defaults, overrides]);
-
-  async function save(value: Partial<PaymentInstructions> | null) {
-    setBusy(true); setSaved(null);
-    try {
-      const res = await fetch("/api/tenant-statements/payment", {
-        method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key, value, by }),
-      });
-      const j = await res.json();
-      if (!res.ok) throw new Error(j.error ?? "Could not save.");
-      setOverrides((o) => {
-        const next = { ...o };
-        if (value === null) delete next[key]; else next[key] = j.value;
-        return next;
-      });
-      setSaved(value === null ? "Reset to the defaults." : "Saved.");
-    } catch (e) {
-      setSaved(e instanceof Error ? e.message : "Could not save.");
-    } finally { setBusy(false); }
-  }
-
-  const Field = ({ label, value, onChange, rows }: { label: string; value: string; onChange: (v: string) => void; rows?: number }) => (
-    <label style={{ display: "block" }}>
-      <div style={SECTION_LABEL}>{label}</div>
-      {rows ? (
-        <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={rows}
-          style={{ width: "100%", marginTop: 5, boxSizing: "border-box", resize: "vertical" }} />
-      ) : (
-        <input value={value} onChange={(e) => onChange(e.target.value)}
-          style={{ width: "100%", marginTop: 5, boxSizing: "border-box" }} />
-      )}
-    </label>
-  );
-
-  return (
-    <div className="card" style={{ display: "grid", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>Payment instructions</div>
-          <div className="muted small" style={{ marginTop: 3 }}>
-            What every tenant sees under &ldquo;How to pay&rdquo; on their statement — on the portal and in the PDF.
-          </div>
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div role="dialog" aria-modal="true" onClick={onCancel} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", display: "grid", placeItems: "center", zIndex: 1000, padding: 16 }}>
+      <div className="card" onClick={(e) => e.stopPropagation()} style={{ width: "min(520px, 100%)", display: "grid", gap: 12 }}>
+        <div style={{ fontSize: 18, fontWeight: 800 }}>Send to {tenant}?</div>
+        <div className="pills" style={{ justifyContent: "flex-start", margin: 0 }}>
+          <StatPill label="Payment" value={money(amount)} />
+          <StatPill label="Applied as" value={plan.lines.length} sub={`charge${plan.lines.length === 1 ? "" : "s"}`} />
+          <StatPill label="Answer by" value={longDate(respondBy)} />
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <select value={key} onChange={(e) => setKey(e.target.value)}>
-            <option value="default">All properties</option>
-            {properties.map((p) => <option key={p.code} value={p.code}>{p.code} — {p.name}</option>)}
-          </select>
-          <button className="btn" onClick={onClose} style={{ fontSize: "var(--fs-13)", padding: "6px 12px" }}>Close</button>
+        <div className="small"><b>{plan.title}</b></div>
+        <div style={{ display: "grid", gap: 4 }}>
+          <span style={SECTION}>To</span>
+          {to.map((e) => <div key={e} className="small">{e}</div>)}
+        </div>
+        <div className="small"><span style={SECTION}>Subject</span><div>{subject}</div></div>
+        <div className="muted small">From Tami Tomlinson (ttomlinson@kormancommercial.com); replies come back to her, and she gets a blind copy for the record. If they don&rsquo;t answer by {longDate(respondBy)}, the receipt moves to Ready to apply.</div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <button className="btn" onClick={onCancel} disabled={busy}>Cancel</button>
+          <button className="btn primary" onClick={onSend} disabled={busy}>{busy ? "Sending…" : `Send to ${to.length} recipient${to.length === 1 ? "" : "s"}`}</button>
         </div>
       </div>
+    </div>,
+    document.body,
+  );
+}
 
-      {!draft ? <div className="muted small">Loading…</div> : (
-        <>
-          {key !== "default" && !overrides[key] && (
-            <div className="muted small" style={{ fontStyle: "italic" }}>
-              {properties.find((p) => p.code === key)?.name ?? key} currently uses the shared instructions. Edit and save to override just this property.
-            </div>
-          )}
-          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-            <Field label="Checks payable to" value={draft.payableTo} onChange={(v) => setDraft({ ...draft, payableTo: v })} />
-            <Field label="Remit-to address" value={draft.remitTo.join("\n")} onChange={(v) => setDraft({ ...draft, remitTo: v.split("\n") })} rows={3} />
-            <Field label="ACH / wire note" value={draft.achNote} onChange={(v) => setDraft({ ...draft, achNote: v })} rows={3} />
-            <Field label="Contact name" value={draft.contactName} onChange={(v) => setDraft({ ...draft, contactName: v })} />
-            <Field label="Contact email" value={draft.contactEmail} onChange={(v) => setDraft({ ...draft, contactEmail: v })} />
-            <Field label="Contact phone" value={draft.contactPhone} onChange={(v) => setDraft({ ...draft, contactPhone: v })} />
-            <Field label="Footnote" value={draft.note} onChange={(v) => setDraft({ ...draft, note: v })} rows={2} />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <button className="btn primary" disabled={busy} onClick={() => void save({ ...draft, remitTo: draft.remitTo.filter((l) => l.trim()) })}
-              style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 700 }}>{busy ? "Saving…" : "Save"}</button>
-            {overrides[key] && (
-              <button className="btn" disabled={busy} onClick={() => void save(null)} style={{ fontSize: "var(--fs-13)", padding: "7px 14px" }}>
-                Reset {key === "default" ? "to built-in defaults" : "to the shared instructions"}
-              </button>
-            )}
-            {saved && <span className="muted small">{saved}</span>}
-          </div>
-        </>
-      )}
-    </div>
+type ChSortKey = "date" | "charge" | "order" | "open" | "pay" | "credit" | "left";
+type ChSort = { key: ChSortKey; dir: 1 | -1 };
+/** Click a column: sort by it; click again: reverse. */
+const nextSort = (s: ChSort, key: ChSortKey): ChSort => (s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: key === "open" || key === "pay" || key === "credit" || key === "left" ? -1 : 1 });
+const sortMark = (s: ChSort, key: ChSortKey) => (s.key === key ? <span style={{ marginLeft: 4, fontSize: "var(--fs-10)" }}>{s.dir === 1 ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}</span> : null);
+function SortTh({ k, sort, setSort, left, children }: { k: ChSortKey; sort: ChSort; setSort: (f: (s: ChSort) => ChSort) => void; left?: boolean; children: React.ReactNode }) {
+  return (
+    <th style={{ ...(left ? thL : th), cursor: "pointer", whiteSpace: "nowrap", userSelect: "none" }} onClick={() => setSort((s) => nextSort(s, k))}>
+      {children}{sortMark(sort, k)}
+    </th>
   );
 }

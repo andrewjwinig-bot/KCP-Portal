@@ -88,8 +88,8 @@ invoicers. To give him real work: widen his profile and take him out of
 "she really just needs a constrained narrow view into this process"; "do not
 give her access to operating statements or reports either"; "hide rent roll
 property info for tami too"). Her profile (`tami` in `lib/users.ts`, access
-group `accounting`) reaches ONLY: her dashboard, Monthly Statements and Receipt
-Reconciliation (which she WORKS — payments, credits, the laser import, tenant
+group `accounting`) reaches ONLY: her dashboard, Receivables (formerly Monthly Statements and Receipt
+Reconciliation, which she WORKS — payments, credits, the laser import, tenant
 links, receipt emails), and unit pages read-only (for a tenant's contacts). No
 Rent Roll, Property Info, Operating Statements or Report Center
 (`NO_REPORT_CENTER` — the `/reports` landing is otherwise open to everyone,
@@ -1457,6 +1457,27 @@ how-to-pay instructions. Sources of truth:
 - Admin page `/tenant-statements`; portal view `app/portal/[token]/MonthlyStatements.tsx`;
   tenant APIs `/api/portal/[token]/monthly[/pdf]` (published periods only, scoped
   to the token's one unit).
+
+# Receivables — Monthly Statements + Receipt Reconciliation, ONE page
+
+Owner, 11/2026: "i dont really think i do anything with the monthly statements
+page itself aside from store the data and feed into the other pages". So
+`/tenant-statements` IS Receivables (the old Receipt Reconciliation page,
+renamed): both imports in its header (Import Laser Statement —
+`useLaserStatementImport`, shared — and Import Credit Balance Report), the
+tenant picker, work a payment, the queue, and per tenant the last contact,
+**All n emails** (`CorrespondencePanel`) and **Send balance reminder…**. The
+old Monthly Statements roster (aging, portal links / publishing, payment
+instructions) is **Statements & Tenant Portal** at `/tenant-statements/
+statements`, off the sidebar, under Receivables' Open menu — the portal is not
+announced to tenants yet. `/tenant-statements/receipts` redirects with its
+query. Open Credits stays its own page. Access is unchanged (same
+`/tenant-statements` grant). **A tenant's ACCOUNT is on their unit page**
+(`app/units/[unitRef]/AccountCard.tsx`; owner: "pull the tenant statements
+from the unit info pages … and the A/R"): open charges / credits / net due
+from `statementOf` (via the receipts GET), the Statement PDF, correspondence +
+reminder, and Work a payment — for Receivables users only. NEXT (owner): the
+unit page becomes the tenant's full hub ("house everything for that tenant").
 
 # Receipt Reconciliation — a payment that doesn't match the statement
 

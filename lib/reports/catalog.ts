@@ -86,7 +86,7 @@ export const REPORTS: ReportEntry[] = [
     formats: ["PDF"], href: "/rentroll/leasing" },
   { id: "tenant-statements", category: "Tenants & leasing", name: "Tenant Statements (open A/R)",
     description: "Each tenant's open charges, aged, as sent to the tenant portal.",
-    formats: ["PDF"], href: "/tenant-statements" },
+    formats: ["PDF"], href: "/tenant-statements/statements" },
   { id: "security-deposits", category: "Tenants & leasing", name: "Security Deposits",
     description: "Deposits held, by tenant and property.",
     formats: ["On screen"], href: "/deposits" },
