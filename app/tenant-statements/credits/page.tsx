@@ -7,6 +7,7 @@
 // each credit itemized with its description, date and how long it has been
 // open, the last time we asked, and a one-click email that asks.
 
+import { pickInto } from "@/app/components/pickFiles";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, ChevronRight, Upload, X } from "lucide-react";
@@ -102,7 +103,7 @@ export default function OpenCreditsPage() {
         info={<>Every tenant carrying a credit, what each credit is and how long it has been open — and an email asking how they want it applied.</>}
         actions={canWork ? <>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
-          <button className="btn import" onClick={() => fileRef.current?.click()}><Upload {...ICON} /> Import Credit Balance Report</button>
+          <button className="btn import" onClick={() => pickInto(fileRef.current, "credit-balance")}><Upload {...ICON} /> Import Credit Balance Report</button>
           <InfoPopover><ImportInstructions variant="credit-balance" /></InfoPopover>
         </> : undefined} />
 

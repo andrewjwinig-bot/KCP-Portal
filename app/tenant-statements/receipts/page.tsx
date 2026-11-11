@@ -1,4 +1,5 @@
 "use client";
+import { pickInto } from "@/app/components/pickFiles";
 import { UnitSelect } from "@/app/components/UnitSelect";
 import { ChevronDown, ChevronRight, ChevronUp, TriangleAlert, Upload, X } from "lucide-react";
 
@@ -298,7 +299,7 @@ export default function ReceiptReconciliationPage() {
         ) : undefined}
         actions={<>
           <input ref={creditFileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importCredits(f); }} />
-          <button className="btn import" onClick={() => creditFileRef.current?.click()}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Credit Balance Report</button>
+          <button className="btn import" onClick={() => pickInto(creditFileRef.current, "credit-balance")}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Credit Balance Report</button>
           <InfoPopover><ImportInstructions variant="credit-balance" /></InfoPopover>
         </>} />
 

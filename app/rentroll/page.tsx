@@ -1,4 +1,5 @@
 "use client";
+import { pickInto } from "@/app/components/pickFiles";
 import { ChevronDown, ChevronUp, CircleCheck, FileText, Info, X, Upload } from "lucide-react";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -1846,7 +1847,7 @@ export default function RentRollPage() {
             />
             <button
               className="btn import"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => pickInto(fileInputRef.current, "rent-roll")}
               disabled={uploading}
               style={{ whiteSpace: "nowrap" }}
             >

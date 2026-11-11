@@ -1,4 +1,5 @@
 "use client";
+import { pickInto } from "@/app/components/pickFiles";
 import { FilePath } from "@/app/components/FilePath";
 import { ChevronDown, ChevronRight, CircleCheck, Clock, Receipt, Sparkles, TriangleAlert, Upload, MessageSquarePlus } from "lucide-react";
 
@@ -818,7 +819,7 @@ export default function OperatingStatementsPage() {
                 Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
               </div>
             </div>
-            <button className="btn import" style={{ flexShrink: 0 }} onClick={() => fileRef.current?.click()}>
+            <button className="btn import" style={{ flexShrink: 0 }} onClick={() => pickInto(fileRef.current, "general-ledger")}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import GL
             </button>
           </div>
@@ -877,7 +878,7 @@ export default function OperatingStatementsPage() {
           {/* Actions on the right, Import first (owner: "grouped with the display button"). */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" multiple style={{ display: "none" }} onChange={onUpload} />
-            <button className="btn import" onClick={() => fileRef.current?.click()}>
+            <button className="btn import" onClick={() => pickInto(fileRef.current, "general-ledger")}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
               {glDrop.dragging ? "Drop to import" : "Import GL"}
             </button>

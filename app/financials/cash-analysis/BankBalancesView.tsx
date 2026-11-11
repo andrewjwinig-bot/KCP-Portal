@@ -1,4 +1,5 @@
 "use client";
+import { pickInto } from "@/app/components/pickFiles";
 import { ChevronDown, ChevronRight, ChevronUp, Upload } from "lucide-react";
 
 // Bank Balances — the bank-balance view (owner: "pivot from our more complex
@@ -204,7 +205,7 @@ export default function BankBalancesView() {
         actions={<>
           {data?.canEdit && (
             <>
-              <button className="btn import" disabled={busy} onClick={() => fileRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
+              <button className="btn import" disabled={busy} onClick={() => pickInto(fileRef.current, "bank-balances")} style={{ whiteSpace: "nowrap" }}>
                 <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{busy ? "Importing" : drop.dragging ? "Drop to import" : "Import Bank Balances"}
               </button>
               <input ref={fileRef} type="file" multiple style={{ display: "none" }}

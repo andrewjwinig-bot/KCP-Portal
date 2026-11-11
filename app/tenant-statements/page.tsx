@@ -1,4 +1,5 @@
 "use client";
+import { pickInto } from "@/app/components/pickFiles";
 import { X, Upload, CircleCheck } from "lucide-react";
 
 // Monthly Statements — import Skyline's tenant Statement report, review every
@@ -379,7 +380,7 @@ export default function TenantStatementsPage() {
               </HeaderSelect>
           ) : undefined}
         actions={<>
-            <button className="btn import" onClick={() => fileRef.current?.click()}>
+            <button className="btn import" onClick={() => pickInto(fileRef.current, "laser-statement")}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import Laser Statement
             </button>
             {row && (
