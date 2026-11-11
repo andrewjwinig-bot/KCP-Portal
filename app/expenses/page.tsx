@@ -9,6 +9,7 @@ import { PDFDocument } from "pdf-lib";
 import { buildInvoicePdf, buildReimbursementInvoicePdf, makeInvoiceId, recoverableSuffix, CategoryGroup } from "../../lib/expenses/invoice";
 import { buildTopSheetXlsx, TopSheetTx } from "../../lib/expenses/topSheet";
 import { groupBy, normalizeAmount, toMoney } from "../../lib/expenses/utils";
+import { CATEGORIES, PROPERTIES, isRowCoded, codingProgress, CARDHOLDER_NAME, type Tx } from "../../lib/expenses/coding";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import {
   CARRYOVER_THRESHOLD,
@@ -28,21 +29,6 @@ import { AvidReviewModal, AvidSuccessModal, sendToAvid, type AvidProperty } from
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  "MARKETING NR",
-  "BUILDING MAINT.",
-  "TI",
-  "OFFICE SUPPLIES",
-  "AUTO",
-  "TELEPHONE",
-  "COMP & IT",
-  "MEALS & ENT.",
-  "TRAINING & EDU",
-  "G&A",
-  "LANDSCAPING",
-  "EQUIPMENT (CAP)",
-  "BUILDINGS (CAP)",
-] as const;
 
 const TOP_SHEET_CATEGORIES = [
   "MARKETING NR",
@@ -70,49 +56,6 @@ const CATEGORY_ACC: Record<(typeof CATEGORIES)[number], string> = {
   "BUILDINGS (CAP)": "1430",
 };
 
-const PROPERTIES = [
-  { id: "BP & SC", name: "All BP & SC" },
-  { id: "BP", name: "All BP" },
-  { id: "SC", name: "All SC" },
-  { id: "PJV3", name: "JV III — All Buildings (by SF)" },
-  { id: "PNIPLX", name: "NI LLC — All Buildings (by SF)" },
-  { id: "PIIICO", name: "JV III Condo" },
-  { id: "1100", name: "Parkwood Professional Building" },
-  { id: "1500", name: "Eastwick JV I" },
-  { id: "2000", name: "Clearing Account" },
-  { id: "2010", name: "LIK Management, Inc." },
-  { id: "2040", name: "KF Nockamixon LLC" },
-  { id: "2070", name: "Kosano Associates LP" },
-  { id: "2080", name: "LKF Nock LP" },
-  { id: "2300", name: "Brookwood Shopping Center" },
-  { id: "3610", name: "Building 1" },
-  { id: "3620", name: "Building 2" },
-  { id: "3640", name: "Building 4" },
-  { id: "4050", name: "Building 5" },
-  { id: "4060", name: "Building 6" },
-  { id: "4070", name: "Building 7" },
-  { id: "4080", name: "Building 8" },
-  { id: "40A0", name: "Building A" },
-  { id: "40B0", name: "Building B" },
-  { id: "40C0", name: "Building C" },
-  { id: "4500", name: "Grays Ferry Shopping Ctr" },
-  { id: "4900", name: "The Office Works" },
-  { id: "5600", name: "Hyman Korman Co" },
-  { id: "7010", name: "Parkwood Joint Venture" },
-  { id: "7200", name: "Elbridge Shopping Center" },
-  { id: "7300", name: "Revere Shopping Center" },
-  { id: "8200", name: "Trust # 4" },
-  { id: "9000", name: "Butler & Main" },
-  { id: "9200", name: "Eastwick JV XII" },
-  { id: "9510", name: "Shops of Lafayette Hill" },
-  { id: "9800", name: "KH Bellaire" },
-  { id: "9820", name: "KH Spring Garden" },
-  { id: "9840", name: "KH Joshua" },
-  { id: "9860", name: "KH Fort Washington" },
-  { id: "0200", name: "TKD - Neshaminy, LLC" },
-  { id: "0300", name: "Airport Interplex Two, Inc." },
-  { id: "0800", name: "Interstate Business Park" },
-] as const;
 
 const PROPERTY_ACC2: Record<(typeof PROPERTIES)[number]["id"], string[]> = {
   "BP & SC": ["9301", "9302"],
@@ -246,17 +189,6 @@ function DonutChart({ data }: { data: PieSlice[] }) {
   );
 }
 
-type Tx = {
-  id: string;
-  date: string;
-  cardMember: string;
-  description: string;
-  amount: number;
-  category: string;
-  propertyId: string;
-  suite: string;
-  codedDescription: string;
-};
 
 // ── Pure functions ────────────────────────────────────────────────────────────
 
@@ -274,11 +206,6 @@ function newTx(partial: Partial<Tx>): Tx {
   };
 }
 
-function isRowCoded(t: Tx) {
-  if (!t.category || !t.propertyId) return false;
-  if (t.category === "TI" && !String(t.suite || "").trim()) return false;
-  return true;
-}
 
 function toTitleCaseFirstName(name: string) {
   const first = String(name || "").trim().split(/\s+/)[0] || "";
@@ -518,6 +445,54 @@ export default function ExpensesPage() {
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, JSON.stringify({ tx, statementPeriodText, importedAt, importedBy })); } catch { /* ignore */ }
   }, [tx, statementPeriodText, importedAt, importedBy]);
+
+  // THE STATEMENT LIVES IN THE PORTAL (`/api/expenses/working`), so Greg and
+  // Drew can code the charges on their own cards from their dashboards. This
+  // page reads it on load and whenever the tab comes back into focus (to pick
+  // up their coding), sends each edit as its own patch (never the whole list,
+  // which would write over their work), and moves a statement still sitting in
+  // this browser up to the portal once.
+  const pendingPatches = useRef<Map<string, Record<string, unknown>>>(new Map());
+  const patchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [serverSync, setServerSync] = useState<"loading" | "ok" | "error">("loading");
+  async function pullWorking(migrate: boolean) {
+    try {
+      const j = await fetch("/api/expenses/working", { cache: "no-store" }).then((r) => r.json());
+      if (!j.ok || !j.full) { setServerSync("error"); return; }
+      if (Array.isArray(j.tx) && j.tx.length) {
+        if (pendingPatches.current.size) return;   // our own edits are still going up
+        setTx(j.tx);
+        if (j.statementPeriodText) setStatementPeriodText(j.statementPeriodText);
+        if (j.importedAt) setImportedAt(j.importedAt);
+        if (j.importedBy) setImportedBy(j.importedBy);
+        if (j.fileName) setFileName(j.fileName);
+      } else if (migrate && tx.length) {
+        await fetch("/api/expenses/working", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "replace", tx, statementPeriodText, importedAt, importedBy }),
+        });
+      }
+      setServerSync("ok");
+    } catch { setServerSync("error"); }
+  }
+  useEffect(() => {
+    if (!hydrated) return;
+    void pullWorking(true);
+    const onFocus = () => { void pullWorking(false); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+  function flushPatches() {
+    const all = [...pendingPatches.current.entries()];
+    pendingPatches.current.clear();
+    for (const [id, patch] of all) {
+      void fetch("/api/expenses/working", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, patch }), keepalive: true,
+      }).catch(() => setServerSync("error"));
+    }
+  }
 
   useEffect(() => {
     if (statementPeriodText) return;
@@ -789,8 +764,13 @@ export default function ExpensesPage() {
     }).filter((t) => Number(t.amount) > 0);
     upsertTx(imported);
     setFileName(file.name);
-    setImportedAt(new Date().toISOString());
+    const at = new Date().toISOString();
+    setImportedAt(at);
     setImportedBy(user.label);
+    fetch("/api/expenses/working", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "import", tx: imported, statementPeriodText: parsedPeriod.text || undefined, fileName: file.name, importedAt: at, importedBy: user.label }),
+    }).then((r) => setServerSync(r.ok ? "ok" : "error")).catch(() => setServerSync("error"));
     // Record the CC-statement import server-side so the weekly digest / dashboard
     // can mark that reminder done (this coder is otherwise browser-local).
     fetch("/api/tracker/import-events", {
@@ -801,12 +781,17 @@ export default function ExpensesPage() {
 
   function updateTx(id: string, patch: Partial<Tx>) {
     setTx((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    pendingPatches.current.set(id, { ...(pendingPatches.current.get(id) ?? {}), ...patch });
+    if (patchTimer.current) clearTimeout(patchTimer.current);
+    patchTimer.current = setTimeout(flushPatches, 600);
   }
 
   function clearAll() {
     if (!confirm("Clear all imported transactions?")) return;
     setTx([]); setStatementPeriodText(""); setStatementStart(null); setStatementEnd(null);
     setFileName("");
+    pendingPatches.current.clear();
+    fetch("/api/expenses/working", { method: "DELETE" }).catch(() => {});
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -1390,6 +1375,17 @@ export default function ExpensesPage() {
             <div>
               <b>{isMaint ? "Code Gregory's Transactions" : "Code Transactions"}</b>
               <div className="small muted">Category + Property required. Suite required only if Category = TI.</div>
+              {!isMaint && (() => {
+                // Greg's and Drew's charges are coded from their own dashboards.
+                const prog = codingProgress(tx);
+                const parts = (["greg", "drew"] as const).filter((h) => prog[h].total > 0)
+                  .map((h) => `${CARDHOLDER_NAME[h]}: ${prog[h].coded === prog[h].total ? "done" : `${prog[h].coded} of ${prog[h].total} coded`}`);
+                return (parts.length > 0 || serverSync === "error") ? (
+                  <div className="small" style={{ marginTop: 2, color: serverSync === "error" ? "var(--c-b42318)" : "var(--muted)" }}>
+                    {serverSync === "error" ? "Couldn't reach the portal — coding is saved in this browser only until it reconnects." : `${parts.join(" · ")} · on their dashboards`}
+                  </div>
+                ) : null;
+              })()}
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>

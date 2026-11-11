@@ -33,6 +33,20 @@ Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the bill
   read LIKM1, which Credit Card invoices still use.
 - **CREDIT CARD (and Payroll) INVOICES ARE ARCHIVED AS SENT** (owner: "i see the charges history but i need to see the actual invoices history as well"; `lib/invoicing/sentInvoiceArchive.ts`, written by `/api/avid-send`). Expense History's statement opens with an **Invoices** list — invoice # (`makeInvoiceId`), property, billed, sent, View PDF / download, all as a ZIP (`GET /api/statements/invoices?period=[&file=|&zip=1]`, never for Greg). A month sent before the archive lists the file names the send ledger kept and says the PDFs are not here. No rebuild: saved history keeps the un-split charges, so a rebuilt CC invoice would be wrong.
 - **HARRY'S REIMBURSEMENT IS THIS STATEMENT'S CHARGES, ONCE** (`reimbursementForBatch`): every charge on his card, properties held under $100 included — he paid them. A held property's balance bills to the PROPERTY in a later batch as a prior balance and is never in a later reimbursement (`invoiceGroups` only, never priors), so nothing is repaid twice; the held part is LIK's to collect, tracked by the carryover ledger. Held lines read "held, bills property next batch" and the invoice prints the held total under the table (`heldTotal`).
+- **CREDIT-CARD CHARGES ARE ROUTED TO THEIR CARDHOLDER** (owner: "greg
+  should see his charges and drew should see the charges from Andrew … assigns
+  the right work to the right user"). The statement Harry imports lives on the
+  SERVER (`cc-working/current`, `lib/expenses/workingStore.ts`) — it was only in
+  his browser. `cardholderOf` (`lib/expenses/coding.ts`) routes each charge by
+  Card Member: Greg → Greg, Andrew / Drew → Drew, everyone else → Harry.
+  `/api/expenses/working` gives the full statement to anyone with the Credit
+  Card page and ONLY their own charges to anyone else (a PATCH on another
+  person's charge is 403). Greg and Drew code theirs in the **Charges to Code**
+  card at the TOP of their dashboard (`ChargesToCodeCard.tsx`) — no Credit Card
+  page for them. Harry's page sends per-row patches (never the whole list, so
+  it cannot overwrite theirs), re-reads on focus, says "Greg: x of y coded",
+  and moves a browser-held statement up to the server once. Pinned by
+  `coding.test.ts`.
 - Supporting **xlsx workbooks** (allocation summary, GL Journal Entry, TOP SHEET) are internal references for the cc'd controller/Drew only — they are NOT the Avid invoice. They ride only on the team summary email, never as the thing Avid processes.
 - Current invoice PDF builders: `lib/allocated-invoicer/invoice.ts` (`buildAllocInvoicePdf`), `lib/expenses/invoice.ts` (`buildInvoicePdf`), `lib/pdf/renderInvoicePdf.ts` (payroll), `lib/pdf/renderCommissionInvoicePdf.ts`. These should share one consistent look; if they drift, reconcile them rather than adding a fourth style.
 

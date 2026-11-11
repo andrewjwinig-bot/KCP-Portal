@@ -35,6 +35,7 @@ import MgmtFeesChartCard from "./MgmtFeesChartCard";
 import MonthCloseCard from "./MonthCloseCard";
 import LeaseMovementCard from "./LeaseMovementCard";
 import WorkQueue from "./WorkQueue";
+import ChargesToCodeCard from "./ChargesToCodeCard";
 import { useStudioSkin } from "@/app/components/SkinToggle";
 import { Pill, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 
@@ -664,6 +665,9 @@ function DashboardInner() {
           only, so switching back to classic brings the old layout back. It
           absorbs Tasks This Week, Data Imports, the Month Close card and
           Pending Close-Outs; the rest of the dashboard follows below it. */}
+      {/* The credit-card charges on THIS person's card (Greg, Drew) — first
+          thing on the page, gone when there is nothing to code. */}
+      <ChargesToCodeCard />
       {queueOn && <WorkQueue firstName={isAdmin ? "Admin" : "Drew"} />}
       {!queueOn && <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <h1>Dashboard</h1>
