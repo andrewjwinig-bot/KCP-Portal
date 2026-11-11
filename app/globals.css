@@ -1503,3 +1503,23 @@ html:not([data-skin="studio"]) .btn > svg:first-child { margin-right: 6px; verti
   border-color: rgba(96, 165, 250, 0.4);
   color: #93c5fd;
 }
+
+/* Drew's work queue (app/dashboard/WorkQueue.tsx). The list and the side panel
+   sit side by side on a wide screen and STACK when the window narrows; a row's
+   due date / action drops under its title when the list itself gets narrow
+   (a container query, so it follows the card, not the window). Owner: "my
+   dashboard is cluttered when the window size is smaller". */
+.queue-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 400px); gap: 20px; align-items: start; }
+@media (max-width: 1280px) { .queue-grid { grid-template-columns: minmax(0, 1fr); } }
+.queue-list { container-type: inline-size; }
+.queue-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.queue-row-side { display: flex; align-items: center; gap: 12px; }
+.queue-row-due { display: grid; justify-items: end; gap: 1px; }
+@container (max-width: 560px) {
+  .queue-row { grid-template-columns: 34px minmax(0, 1fr); row-gap: 6px; align-items: start; }
+  .queue-row-side { grid-column: 2; justify-content: space-between; }
+  .queue-row-due { justify-items: start; grid-auto-flow: column; gap: 8px; align-items: baseline; }
+}
+.queue-aside { display: grid; gap: 20px; align-content: start; }
+@media (max-width: 1280px) { .queue-aside { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; } }
+@media (max-width: 1280px) { .queue-detail { display: none !important; } }

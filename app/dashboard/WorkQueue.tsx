@@ -317,8 +317,8 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
         })}
       </div>
 
-      <div className="queue-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(300px, 400px)", gap: 20, alignItems: "start" }}>
-        <section className="card" style={{ padding: "8px 22px 14px" }}>
+      <div className="queue-grid">
+        <section className="card queue-list" style={{ padding: "8px 22px 14px" }}>
           {groups.length === 0 && (
             <div style={{ padding: "40px 0", textAlign: "center", display: "grid", justifyItems: "center", gap: 8, color: "var(--muted)" }}>
               <CircleCheck size={24} strokeWidth={1.75} color="var(--c-067647)" />
@@ -336,8 +336,8 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
                 const t = TONE[q.tone];
                 const Icon = q.icon;
                 return (
-                  <div key={q.id} className="task-row" onClick={() => setSel(q.id)}
-                    style={{ display: "grid", gridTemplateColumns: "34px minmax(0,1fr) auto", gap: 14, alignItems: "center", padding: "11px 10px", margin: "0 -10px", borderBottom: "1px solid var(--hairline)", borderRadius: 8, cursor: "pointer", background: on ? "var(--tint-brand-bg, #EEF3F8)" : undefined, opacity: q.done ? 0.6 : 1 }}>
+                  <div key={q.id} className="task-row queue-row" onClick={() => setSel(q.id)}
+                    style={{ padding: "11px 10px", margin: "0 -10px", borderBottom: "1px solid var(--hairline)", borderRadius: 8, cursor: "pointer", background: on ? "var(--tint-brand-bg, #EEF3F8)" : undefined, opacity: q.done ? 0.6 : 1 }}>
                     {q.toggle
                       ? <span style={{ display: "flex", justifyContent: "center" }}><RoundCheck done={!!q.done} onToggle={q.toggle} label={`Mark ${q.title} done`} /></span>
                       : <span style={{ width: 34, height: 34, borderRadius: 999, background: t.bg, color: t.fg, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={16} strokeWidth={1.75} /></span>}
@@ -348,8 +348,8 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
                       </span>
                       {q.meta && <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>{q.meta}</span>}
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ display: "grid", justifyItems: "end", gap: 1 }}>
+                    <div className="queue-row-side">
+                      <div className="queue-row-due">
                         <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: q.done ? "var(--c-067647)" : q.bucket === "overdue" ? "var(--c-b42318)" : "var(--text)", whiteSpace: "nowrap" }}>{q.done ? "Done" : q.dueText}</span>
                         <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", whiteSpace: "nowrap" }}>{q.source}</span>
                       </div>
@@ -364,9 +364,9 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
           ))}
         </section>
 
-        <aside style={{ display: "grid", gap: 20 }}>
+        <aside className="queue-aside">
           {selected && (
-            <section className="card" style={{ display: "grid", gap: 14 }}>
+            <section className="card queue-detail" style={{ display: "grid", gap: 14 }}>
               <div style={{ display: "grid", gap: 4 }}>
                 <span style={{ ...SECTION, color: TONE[selected.tone].fg === "var(--muted)" ? "var(--muted)" : TONE[selected.tone].fg }}>{selected.kind}</span>
                 <span style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.25 }}>{selected.title}</span>
