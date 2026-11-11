@@ -47,7 +47,17 @@ export default function MonthCloseCard({ close }: { close?: MonthClose | null } 
           {it.done
             ? <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" aria-label="Done" />
             : <Circle size={20} strokeWidth={1.75} color="var(--c-98a2b3)" aria-label="Open" />}
-          <span style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: "var(--fs-14)" }}>{it.label}{CLOSE_ITEM_STEPS[it.id] && <ImportStepsButton id={CLOSE_ITEM_STEPS[it.id]} />}</span>
+          <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: "var(--fs-14)" }}>{it.label}{CLOSE_ITEM_STEPS[it.id] && <ImportStepsButton id={CLOSE_ITEM_STEPS[it.id]} />}</span>
+            {/* What is left, by name — "33 of 37 in" alone left the owner
+                guessing which four (11/2026). */}
+            {!it.done && it.detail.length > 0 && (
+              <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)", lineHeight: 1.4 }}>
+                Still to {it.id === "gl" ? "import" : "do"}: {it.detail.slice(0, 6).map((d) => d.meta ? `${d.text} (${d.meta})` : d.text).join(" · ")}
+                {it.detail.length > 6 ? ` · +${it.detail.length - 6} more` : ""}
+              </span>
+            )}
+          </span>
           <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: it.done ? "var(--c-067647)" : "var(--c-b54708)", textAlign: "right" }}>{it.status}</span>
         </Link>
       ))}
