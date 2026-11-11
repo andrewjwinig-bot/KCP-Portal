@@ -8,6 +8,8 @@
 
 import { useState } from "react";
 import { Check, Copy, Folder } from "lucide-react";
+import { useUser } from "@/app/components/UserProvider";
+import { fullSharePath } from "@/lib/sharePath";
 
 /** Fill `{year}` with the given year (default this year). */
 export function fillPath(path: string, year = new Date().getFullYear()): string {
@@ -15,7 +17,8 @@ export function fillPath(path: string, year = new Date().getFullYear()): string 
 }
 
 export function FilePath({ path, year, label }: { path: string; year?: number; label?: string }) {
-  const full = fillPath(path, year);
+  const { user } = useUser();
+  const full = fullSharePath(fillPath(path, year), user?.id);
   const [copied, setCopied] = useState(false);
   const sep = full.includes("/") && !full.includes("\\") ? "/" : "\\";
   const parts = full.split(/[\\/]/).filter(Boolean);

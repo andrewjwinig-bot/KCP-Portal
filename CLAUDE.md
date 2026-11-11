@@ -331,7 +331,12 @@ owner: "file paths should have a format too"): a quiet chip with a folder icon,
 the path in navy mono, `{year}` filled in, any part still to choose
 (`<NN Month YYYY>`) in muted italics, and a Copy button so it pastes straight
 into Explorer. Never type a path into a sentence, bold it or put it in a bare
-`<code>`. In the import steps a path is the entry's `path` field
+`<code>`. **A path written from the share's top (`Data\\…`) is shown IN FULL from
+the C: drive** (owner: "you are missing the full file path"; `fullSharePath` in
+`lib/sharePath.ts`): `C:\\Users\\Drew Winig\\OneDrive - Korman Commercial
+Properties\\KCP - Documents\\Data\\…` for Drew (`WINDOWS_PROFILE`), and
+`%USERPROFILE%\\…` for anyone else, which Explorer expands. Bank recs live in
+`Data\\Accounting\\!<year> Year End\\Bank Account Reconciliations\\<NN Month YYYY>`. In the import steps a path is the entry's `path` field
 (`{ label: "Save to" | "Find them in", value }`), never step text. Used by the
 steps popover, the GL import modal and the Bank Recs drop zone.
 
