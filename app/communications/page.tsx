@@ -2,31 +2,29 @@
 // Tenant Communications — Greg's page for the Interplex tenant emails (owner,
 // 11/2026). Each email is a designed graphic with a live "Submit a request" /
 // "Report a problem" button and nothing else; Greg picks one, sets the subject
-// (weather alerts get their dates), checks who it goes to, sends a test if he
-// likes, and sends — one email per suite, to the contacts on its unit page.
-// The seasonal ones carry their timing and prompt on his dashboard when due.
+// (weather alerts get their dates) and opens it as a DRAFT IN OUTLOOK
+// (`draftEml.ts`) — the portal never sends it (owner: "make it a draft email
+// in his outlook to add his custom distribution lists to send from there").
+// He sends from Outlook, then marks it sent here. The seasonal ones carry
+// their timing and prompt on his dashboard when due.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { CircleCheck, Eye, Send, TriangleAlert, X } from "lucide-react";
+import { CircleCheck, Eye, Mail, TriangleAlert, X } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import LoadingState from "../components/LoadingState";
-import { RoundCheck } from "../components/RoundCheck";
 import { renderTenantEmail, scheduleLabel, type TenantTemplate } from "@/lib/communications/templates";
-import { useUser } from "../components/UserProvider";
+import { draftEml, draftFileName } from "@/lib/communications/draftEml";
 
-type Recipient = { unitRef: string; propertyCode: string; building: string; suite: string; tenant: string; emails: string[] };
-type SendSummary = { id: string; templateId: string; subject: string; sentAt: string; sentBy: string | null; testMode: boolean; suites: number; delivered: number };
+type SendSummary = { id: string; templateId: string; subject: string; sentAt: string; sentBy: string | null; testMode: boolean; viaOutlook: boolean; suites: number; delivered: number };
 type Due = { id: string; name: string; dueISO: string; overdue: boolean };
 type Data = {
-  templates: TenantTemplate[]; recipients: Recipient[]; lastSent: Record<string, string>; due: Due[];
-  from: string; mailReady: boolean; testMode: boolean; sends: SendSummary[];
+  templates: TenantTemplate[]; lastSent: Record<string, string>; due: Due[]; sends: SendSummary[];
 };
 
 const SECTION: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const fmtDate = (iso: string) => new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 const titleName = (s: string | null) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : "");
-const STAFF_EMAIL: Record<string, string> = { greg: "gmasciantonio@kormancommercial.com", drew: "dwinig@kormancommercial.com" };
 
 export default function CommunicationsPage() {
   const [data, setData] = useState<Data | null>(null);
@@ -43,17 +41,16 @@ export default function CommunicationsPage() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const withEmail = data?.recipients.filter((r) => r.emails.length).length ?? 0;
-
   return (
     <main>
       <PageHeader
         title="Tenant Communications"
         info={<>
-          Emails to every tenant at the Neshaminy Interplex. Each one is a designed graphic with a button to the
-          service request page — the subject line and the graphic, nothing else. It goes to every contact with an
-          email on each occupied suite&apos;s unit page, one email per suite. Seasonal tips have a send-by date and
-          remind you on your dashboard; weather alerts are sent when the forecast calls for them.
+          Emails to the tenants at the Neshaminy Interplex. Each one is a designed graphic with a button to the
+          service request page — the subject line and the graphic, nothing else. Draft in Outlook opens it as a new
+          email in Outlook: add your distribution lists in To (or Bcc) and send it from there, then mark it sent
+          here. Seasonal tips have a send-by date and remind you on your dashboard; weather alerts are sent when
+          the forecast calls for them.
         </>}
       />
       {error && <div className="card" style={{ color: "var(--c-b42318)" }}>{error}</div>}
@@ -68,7 +65,7 @@ export default function CommunicationsPage() {
                   <span style={{ fontWeight: 700 }}>{d.name}</span>
                   <span className="muted">{d.overdue ? "was due" : "is due"} {fmtDate(d.dueISO)}</span>
                   <button className="btn primary sm" style={{ marginLeft: "auto" }}
-                    onClick={() => setSending(data.templates.find((t) => t.id === d.id) ?? null)}>Send {d.name}</button>
+                    onClick={() => setSending(data.templates.find((t) => t.id === d.id) ?? null)}>Draft {d.name}</button>
                 </div>
               ))}
             </div>
@@ -95,7 +92,7 @@ export default function CommunicationsPage() {
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
                       <button className="btn sm" onClick={() => setPreview(t)}><Eye size={16} strokeWidth={1.75} /> Preview</button>
-                      <button className="btn primary sm" onClick={() => setSending(t)}><Send size={16} strokeWidth={1.75} /> Send</button>
+                      <button className="btn primary sm" onClick={() => setSending(t)}><Mail size={16} strokeWidth={1.75} /> Draft in Outlook</button>
                     </div>
                   </div>
                 );
@@ -104,23 +101,16 @@ export default function CommunicationsPage() {
           ))}
 
           <div className="card">
-            <div style={{ ...SECTION, marginBottom: 4 }}>Recipients</div>
-            <div className="muted" style={{ fontSize: "var(--fs-13)" }}>
-              {withEmail} of {data.recipients.length} occupied suites have an email on file. Add a tenant&apos;s contacts on their unit page to include them.
-            </div>
-          </div>
-
-          <div className="card">
             <div style={{ ...SECTION, marginBottom: 8 }}>Sent</div>
-            {data.sends.length === 0 && <div className="muted">Nothing sent from here yet.</div>}
+            {data.sends.length === 0 && <div className="muted">Nothing marked sent yet.</div>}
             {data.sends.map((s) => (
               <div key={s.id} className="task-row" style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 2px", borderBottom: "1px solid var(--hairline)", flexWrap: "wrap" }}>
-                {s.delivered === s.suites
+                {s.viaOutlook || s.delivered === s.suites
                   ? <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" />
                   : <TriangleAlert size={20} strokeWidth={1.75} color="var(--c-b54708)" />}
                 <div style={{ flex: "1 1 280px", fontWeight: 600 }}>{s.subject}</div>
                 <div className="muted" style={{ fontSize: "var(--fs-13)" }}>
-                  {fmtDate(s.sentAt)}{s.sentBy ? ` by ${titleName(s.sentBy)}` : ""} · {s.delivered} of {s.suites} suites{s.testMode ? " · test mode, not delivered" : ""}
+                  {fmtDate(s.sentAt)}{s.sentBy ? ` by ${titleName(s.sentBy)}` : ""} · {s.viaOutlook ? "from Outlook" : `${s.delivered} of ${s.suites} suites${s.testMode ? " · test mode, not delivered" : ""}`}
                 </div>
               </div>
             ))}
@@ -130,7 +120,7 @@ export default function CommunicationsPage() {
 
       {mounted && preview && createPortal(<PreviewModal t={preview} onClose={() => setPreview(null)} />, document.body)}
       {mounted && sending && data && createPortal(
-        <SendModal t={sending} data={data} onClose={() => setSending(null)} onSent={load} />, document.body)}
+        <DraftModal t={sending} onClose={() => setSending(null)} onSent={load} />, document.body)}
     </main>
   );
 }
@@ -159,62 +149,48 @@ function PreviewModal({ t, onClose }: { t: TenantTemplate; onClose: () => void }
   );
 }
 
-function SendModal({ t, data, onClose, onSent }: { t: TenantTemplate; data: Data; onClose: () => void; onSent: () => void }) {
-  const { user } = useUser();
+function DraftModal({ t, onClose, onSent }: { t: TenantTemplate; onClose: () => void; onSent: () => void }) {
   const [subject, setSubject] = useState(t.subject);
-  const [excluded, setExcluded] = useState<Set<string>>(new Set());
-  const [testTo, setTestTo] = useState(STAFF_EMAIL[user.id] ?? "");
-  const [busy, setBusy] = useState<"test" | "send" | null>(null);
+  const [drafted, setDrafted] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const [result, setResult] = useState<{ delivered: number; failed: number; testMode: boolean; failures: { unitRef: string; tenant: string; error?: string }[] } | null>(null);
+  const [marked, setMarked] = useState(false);
 
-  const reachable = data.recipients.filter((r) => r.emails.length);
-  const missing = data.recipients.filter((r) => !r.emails.length);
-  const picked = reachable.filter((r) => !excluded.has(r.unitRef));
-  const byBuilding = useMemo(() => {
-    const m = new Map<string, Recipient[]>();
-    for (const r of reachable) m.set(r.building, [...(m.get(r.building) ?? []), r]);
-    return [...m.entries()];
-  }, [reachable]);
-  const toggle = (u: string) => setExcluded((s) => { const n = new Set(s); n.has(u) ? n.delete(u) : n.add(u); return n; });
-  const toggleBuilding = (rs: Recipient[]) => setExcluded((s) => {
-    const n = new Set(s); const allOn = rs.every((r) => !n.has(r.unitRef));
-    rs.forEach((r) => (allOn ? n.add(r.unitRef) : n.delete(r.unitRef))); return n;
-  });
+  // The draft is built here from the preview's own HTML and handed to the
+  // browser as an .eml — Outlook opens it as a new, unsent email.
+  const openDraft = () => {
+    const blob = new Blob([draftEml(t, subject.trim() || t.subject)], { type: "message/rfc822" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = draftFileName(subject.trim() || t.subject);
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setDrafted(true);
+  };
 
-  const post = async (action: "test" | "send") => {
-    setBusy(action); setNote(null);
+  const markSent = async () => {
+    setBusy(true); setNote(null);
     try {
       const r = await fetch("/api/communications", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, templateId: t.id, subject, to: testTo, excluded: [...excluded] }),
+        body: JSON.stringify({ action: "sent", templateId: t.id, subject }),
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j?.error ?? "That did not send.");
-      if (action === "test") setNote(j.testMode ? `Accepted in test mode — nothing was delivered.` : `Test sent to ${testTo}.`);
-      else { setResult(j); onSent(); }
+      if (!r.ok) throw new Error(j?.error ?? "Could not mark it sent.");
+      setMarked(true); onSent();
     } catch (e) { setNote(String((e as Error).message ?? e)); }
-    finally { setBusy(null); }
+    finally { setBusy(false); }
   };
 
-  if (result) {
+  if (marked) {
     return (
-      <div className="modalOverlay">
-        <div className="modal" style={{ width: "min(620px, 100%)" }}>
-          <div className="modalHeader"><div className="modalTitle">{result.failed ? "Sent, with problems" : "Sent"}</div></div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+      <div className="modalOverlay" onClick={onClose}>
+        <div className="modal" style={{ width: "min(560px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+          <div className="modalHeader"><div className="modalTitle">Marked sent</div></div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" />
-            <span><b>{subject}</b> went to {result.delivered} suite{result.delivered === 1 ? "" : "s"}.{result.testMode ? " Test mode: nothing was delivered." : ""}</span>
+            <span><b>{subject}</b> is recorded as sent today.</span>
           </div>
-          {result.failures.length > 0 && (
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                <TriangleAlert size={20} strokeWidth={1.75} color="var(--c-b42318)" />
-                <span>{result.failed} did not send:</span>
-              </div>
-              {result.failures.map((f) => <div key={f.unitRef} className="muted" style={{ fontSize: "var(--fs-13)", paddingLeft: 30 }}>{f.tenant} ({f.unitRef}) — {f.error}</div>)}
-            </div>
-          )}
           <div style={{ display: "flex", justifyContent: "flex-end" }}><button className="btn primary" onClick={onClose}>Done</button></div>
         </div>
       </div>
@@ -223,64 +199,32 @@ function SendModal({ t, data, onClose, onSent }: { t: TenantTemplate; data: Data
 
   return (
     <div className="modalOverlay" onClick={busy ? undefined : onClose}>
-      <div className="modal wide" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" style={{ width: "min(720px, 100%)" }} onClick={(e) => e.stopPropagation()}>
         <div className="modalHeader">
           <div>
-            <div className="modalTitle">Send {t.name}</div>
-            <div className="muted">From {data.from}</div>
+            <div className="modalTitle">Draft {t.name} in Outlook</div>
+            <div className="muted">Opens as a new email from your Outlook. Add your distribution lists, then send it there.</div>
           </div>
-          <button className="btn sm" aria-label="Close" onClick={onClose} disabled={!!busy}><X size={16} strokeWidth={1.75} /></button>
+          <button className="btn sm" aria-label="Close" onClick={onClose} disabled={busy}><X size={16} strokeWidth={1.75} /></button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 18 }} className="queue-grid">
-          <div style={{ minWidth: 0 }}>
-            <label style={{ ...SECTION, display: "block", marginBottom: 4 }}>Subject</label>
-            <input value={subject} onChange={(e) => setSubject(e.target.value)} style={{ width: "100%" }} />
-            {t.kind === "weather" && <div className="muted" style={{ fontSize: "var(--fs-13)", marginTop: 4 }}>Add the dates, e.g. &ldquo;{t.subject}: Tuesday through Thursday&rdquo;.</div>}
-            <div style={{ marginTop: 12 }}><EmailFrame t={t} /></div>
+        <label style={{ ...SECTION, display: "block", marginBottom: 4 }}>Subject</label>
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} style={{ width: "100%" }} />
+        {t.kind === "weather" && <div className="muted" style={{ fontSize: "var(--fs-13)", marginTop: 4 }}>Add the dates, e.g. &ldquo;{t.subject}: Tuesday through Thursday&rdquo;.</div>}
+        <div style={{ marginTop: 12 }}><EmailFrame t={t} /></div>
+
+        {drafted && (
+          <div className="muted" style={{ fontSize: "var(--fs-14)", marginTop: 10 }}>
+            The draft downloaded — open it and Outlook shows it as a new email. Put your distribution lists in To or Bcc
+            and send. Once it has gone, mark it sent so your dashboard stops reminding you.
           </div>
-
-          <div style={{ minWidth: 0 }}>
-            <div style={{ ...SECTION, marginBottom: 4 }}>Recipients · {picked.length} of {reachable.length} suites</div>
-            <div style={{ maxHeight: 420, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 12, padding: "4px 12px" }}>
-              {byBuilding.map(([b, rs]) => (
-                <div key={b}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0 4px" }}>
-                    <RoundCheck size={20} done={rs.every((r) => !excluded.has(r.unitRef))} onToggle={() => toggleBuilding(rs)} label={`Include all of ${b}`} />
-                    <span style={{ fontWeight: 700 }}>{b}</span>
-                  </div>
-                  {rs.map((r) => (
-                    <div key={r.unitRef} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "6px 0 6px 18px", borderBottom: "1px solid var(--hairline)" }}>
-                      <RoundCheck size={20} done={!excluded.has(r.unitRef)} onToggle={() => toggle(r.unitRef)} label={`Include ${r.tenant}`} />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>{r.tenant} <span className="muted" style={{ fontWeight: 400 }}>· Suite {r.suite}</span></div>
-                        <div className="muted" style={{ fontSize: "var(--fs-13)", overflowWrap: "anywhere" }}>{r.emails.join(", ")}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-            {missing.length > 0 && (
-              <div className="muted" style={{ fontSize: "var(--fs-13)", marginTop: 6 }}>
-                {missing.length} suite{missing.length === 1 ? " has" : "s have"} no email on file and won&apos;t get it: {missing.slice(0, 6).map((m) => m.tenant).join(", ")}{missing.length > 6 ? `, and ${missing.length - 6} more` : ""}.
-              </div>
-            )}
-
-            <div style={{ ...SECTION, margin: "14px 0 4px" }}>Send a test first</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input value={testTo} onChange={(e) => setTestTo(e.target.value)} placeholder="you@kormancommercial.com" style={{ flex: 1, minWidth: 0 }} />
-              <button className="btn" disabled={!!busy || !testTo.trim()} onClick={() => post("test")}>{busy === "test" ? "Sending…" : "Send test"}</button>
-            </div>
-          </div>
-        </div>
-
-        {note && <div style={{ marginTop: 10 }}>{note}</div>}
-        {!data.mailReady && <div style={{ marginTop: 10, color: "var(--c-b42318)" }}>Email is not set up on this server.</div>}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14 }}>
-          <button className="btn" onClick={onClose} disabled={!!busy}>Cancel</button>
-          <button className="btn primary" disabled={!!busy || !picked.length || !subject.trim() || !data.mailReady} onClick={() => post("send")}>
-            {busy === "send" ? `Sending to ${picked.length} suites…` : `Send to ${picked.length} suite${picked.length === 1 ? "" : "s"}`}
+        )}
+        {note && <div style={{ marginTop: 10, color: "var(--c-b42318)" }}>{note}</div>}
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+          <button className="btn" onClick={onClose} disabled={busy}>Close</button>
+          {drafted && <button className="btn" disabled={busy || !subject.trim()} onClick={markSent}>{busy ? "Saving…" : "I sent it — mark sent"}</button>}
+          <button className={drafted ? "btn" : "btn primary"} disabled={!subject.trim()} onClick={openDraft}>
+            <Mail size={16} strokeWidth={1.75} /> {drafted ? "Download the draft again" : "Open draft in Outlook"}
           </button>
         </div>
       </div>

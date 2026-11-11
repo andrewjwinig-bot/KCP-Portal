@@ -30,7 +30,7 @@ export default function TenantEmailsDueCard({ order = -1 }: { order?: number }) 
           <TriangleAlert size={20} strokeWidth={1.75} color="var(--c-b54708)" />
           <span style={{ fontWeight: 600, fontSize: "var(--fs-15)" }}>{d.name}</span>
           <span className="muted" style={{ fontSize: "var(--fs-13)" }}>{d.overdue ? "Was due" : "Send by"} {fmt(d.dueISO)}</span>
-          <a className="text-link" href="/communications" style={{ marginLeft: "auto" }}>Send it<ChevronRight size={16} strokeWidth={1.75} /></a>
+          <a className="text-link" href="/communications" style={{ marginLeft: "auto" }}>Draft it<ChevronRight size={16} strokeWidth={1.75} /></a>
         </div>
       ))}
     </div>
