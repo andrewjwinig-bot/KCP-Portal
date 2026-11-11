@@ -270,7 +270,7 @@ function HeaderRow({ through, mode, labels, totalLabel }: { through: number; mod
       {(labels ?? MONTHS).map((m, i) => (
         <th key={i} style={{ textAlign: "right", borderLeft: i === through && through > 0 ? ACTUAL_EDGE : undefined }}>{m}</th>
       ))}
-      <th style={{ textAlign: "right", borderLeft: "1px solid var(--border)", color: BRAND }}>{totalLabel ?? "Full Year"}</th>
+      <th style={{ textAlign: "right", borderLeft: "1px solid var(--border)", color: BRAND }}>{totalLabel ?? (mode === "actuals" ? "Full Year" : "Reproj")}</th>
       {!actuals && <th style={{ textAlign: "right" }}>Ann Bud</th>}
       {!actuals && <th style={{ textAlign: "right" }}>Var</th>}
     </tr>

@@ -181,8 +181,9 @@ until he approves it for everyone; build EVERY new or touched UI to it.
   action, never an upload.
 - **The page's driving `select-brand` reads at 17px** (card-title size; its
   options stay 15px) — owner: the property name read too small.
-- **Settings someone rarely changes live in the Display menu**, not on the
-  page: the variance-highlight thresholds, "Import monthly totals only".
+- **Settings someone rarely changes live in the Display menu** (`DisplayMenu` +
+  `ToggleRow`, `app/components/DisplayMenu.tsx` — Operating Statements and
+  Reprojections share it), not on the page: the variance-highlight thresholds, "Import monthly totals only".
   How-to text ("Import the Detailed General Ledger…") lives in the (i).
 - **A tile says the figure, and the comparison in words under it**: "NOI ·
   Sep" / "$7,543" / "$6,173 better than budget". Abbreviate a label that
@@ -198,7 +199,7 @@ until he approves it for everyone; build EVERY new or touched UI to it.
 - **ABBREVIATIONS ARE ONE LIST: `lib/ui/abbrev.ts`** (owner: "abbreviate
   Year to Date as YTD to prevent wrapping … NOI, Bud Ann … Maint. … Op Ex …
   TI … LC"). YTD, NOI, CAM, Op Ex, TI, LC, G&A, RE Taxes, Ann. Bud, Reproj,
-  Var, Reimb., Maint., Admin, SF, Avg, Debt Svc, and "and" → "&". Use them only where space
+  Var, Reimb., Maint., Admin, SF, Avg, Debt Svc, Rev. (revenue), TTL (total), Reproj. (reprojected), and "and" → "&". Use them only where space
   is tight — column headers, tile labels, a statement's line column on a
   narrow window — through `<Abbr text=…>` (`app/components/Abbr.tsx`),
   which renders both forms and shows the short one when its `abbr-scope`
