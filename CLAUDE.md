@@ -45,7 +45,9 @@ Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the bill
   card at the TOP of their dashboard (`ChargesToCodeCard.tsx`) — no Credit Card
   page for them. Harry's page sends per-row patches (never the whole list, so
   it cannot overwrite theirs), re-reads on focus, says "Greg: x of y coded",
-  and moves a browser-held statement up to the server once. Pinned by
+  and moves a browser-held statement up to the server once. The service logins (Greg, Charles, Jay, the
+  shared Service one) do NOT have the CC Expense Coder page — it gave them
+  FULL statement access and hid Greg's card. Pinned by
   `coding.test.ts`.
 - Supporting **xlsx workbooks** (allocation summary, GL Journal Entry, TOP SHEET) are internal references for the cc'd controller/Drew only — they are NOT the Avid invoice. They ride only on the team summary email, never as the thing Avid processes.
 - Current invoice PDF builders: `lib/allocated-invoicer/invoice.ts` (`buildAllocInvoicePdf`), `lib/expenses/invoice.ts` (`buildInvoicePdf`), `lib/pdf/renderInvoicePdf.ts` (payroll), `lib/pdf/renderCommissionInvoicePdf.ts`. These should share one consistent look; if they drift, reconcile them rather than adding a fourth style.
