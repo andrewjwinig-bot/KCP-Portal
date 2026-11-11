@@ -30,7 +30,7 @@ export default function AppShell({ children, website = false }: { children: Reac
 
   // The new look applies to staff pages only — never the public website,
   // tenant portal or forms, even when a staff member opens one.
-  // While it is under review only the reviewers get it (see SKIN_REVIEWERS);
+  // Every signed-in staff login gets it (classic stays one click away);
   // until we know who is signed in, keep whatever the pre-paint script set.
   useEffect(() => {
     if (!hydrated) return;
