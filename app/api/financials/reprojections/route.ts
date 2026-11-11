@@ -6,6 +6,20 @@ import { assembledGlConsolidated, listGls, mergeAccountNames, getNotesBundle } f
 import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { getReprojOverrides } from "@/lib/financials/reprojections/overrideStore";
+import { reprojectedBank } from "@/lib/financials/reprojections/bankRoll";
+import { bankCashFor } from "@/lib/financials/bank-balances/lineCashStore";
+import { fundLineOf } from "@/lib/financials/bank-balances/lineCash";
+import { plannedDistributions, distributionsOnGl } from "@/lib/financials/budgets/cashForecast";
+import { ALL_USERS, isPathAllowed, type UserId } from "@/lib/users";
+import { cookies } from "next/headers";
+import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
+
+async function viewerId(): Promise<UserId | null> {
+  const secret = process.env.SITE_AUTH_SECRET;
+  if (!secret) return null;
+  const id = await verifySiteToken((await cookies()).get(SITE_COOKIE)?.value, secret);
+  return id && (ALL_USERS as readonly string[]).includes(id) ? (id as UserId) : null;
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,9 +93,32 @@ export async function GET(req: Request) {
   const noteSources: Record<string, "user" | "ai"> = {};
   for (const lk of Object.keys(notes)) noteSources[lk] = sources[lk] ?? "ai";
 
+  // The year-end bank balance: today's imported balance for this line, rolled
+  // to Dec 31 on the reprojection's cash flow. Only for those who may see Bank
+  // Balances, and only for a line that banks on its own — a building inside a
+  // fund banks through the fund's account, so it names the fund instead.
+  let bank: ReturnType<typeof reprojectedBank> = null;
+  let banksThrough: string | null = null;
+  const viewer = await viewerId().catch(() => null);
+  if (viewer && isPathAllowed(viewer, "/financials/cash-analysis")) {
+    const line = (await bankCashFor(key).catch(() => null)) ?? (await bankCashFor(mapping.propertyCode).catch(() => null));
+    if (line) {
+      bank = reprojectedBank({
+        line, year,
+        cashFlow: reprojection.rollups.cashFlowAfterDebtService.blended,
+        plan: plannedDistributions(mapping.propertyCode),
+        paidOnGl: distributionsOnGl(stored as never),
+      });
+    } else {
+      banksThrough = fundLineOf(mapping.propertyCode);
+    }
+  }
+
   return NextResponse.json({
     available,
     reprojection,
+    bank,
+    banksThrough,
     budgetYear: budget?.budgetYear ?? null,
     budgetFallback: budget?.fallback ?? false,
     hasGl: !!stored,
