@@ -187,6 +187,7 @@ touched UI to it.
   Credits, Receipt Reconciliation, 1099, Insurance, Management Fees, Flags to
   Investigate, Debt Tracker, Security Deposits, Month-End Close, Bank
   Reconciliation; the rest move as they are touched.
+- **NO DROP-ZONE CARDS** (owner: "the drop the october 2026 folder here is different than the other import buttons"): an import is the header's `.btn.import` + its (i) (where the files live, as a `FilePath`), and drag-and-drop lands on the header (`PageHeader`'s `dropHandlers` / `dragging`). Bank Recs' dashed "Drop the folder here" box went for this; its folder picker is a button inside the (i).
 - **Imports are `.btn.import` with the Lucide `Upload` icon, labelled
   "Import <thing>"** (Import GL, Import Rent Roll, Import Laser Statement,
   Import Credit Balance Report): a SOFT NAVY TINT, so it reads apart from the
