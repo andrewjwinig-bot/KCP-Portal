@@ -16,6 +16,7 @@
 // from each tenant's CAM methodology on the budget's own pools), which is why
 // those lines cannot be typed over in the grid. One TIES mark says so.
 
+import { DisplayMenu, ToggleRow, MenuSection } from "@/app/components/DisplayMenu";
 import { Fragment, useState } from "react";
 import { Pill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_BLUE, tiesTone, contributorTone, PortionPill } from "@/app/components/Pill";
 import { HoverCard, type TipRow } from "@/app/components/HoverCard";
@@ -188,15 +189,16 @@ export function RevenueByTenantCard({ rows: allRows, year, fromSchedule, est, ti
             <button type="button" className={toDecide ? "btn sm primary" : "btn sm"} onClick={() => setToDecide((t) => !t)} aria-pressed={toDecide}>To decide · {calls.length - decided.length}</button>
           )}
           <span style={{ display: "inline-flex", gap: 4 }}>{views.map((v) => seg(view, v, VIEW_LABEL[v], setView))}</span>
-          <span style={{ display: "inline-flex", gap: 4, paddingLeft: 10, borderLeft: "1px solid var(--border)" }}>
-            {seg(unit, "usd", "$", setUnit)}
-            {seg(unit, "psf", "$/SF", setUnit)}
-          </span>
-          <span style={{ display: "inline-flex", gap: 4, paddingLeft: 10, borderLeft: "1px solid var(--border)" }}>
-            {seg(sure, "all", "All", setSure)}
-            {seg(sure, "contracted", "Contracted", setSure)}
-            {seg(sure, "assumed", "Speculative", setSure)}
-          </span>
+          <DisplayMenu>
+            <ToggleRow label="Amounts" left="$" right="$/SF" active={unit === "psf" ? "right" : "left"} onLeft={() => setUnit("usd")} onRight={() => setUnit("psf")} />
+            <MenuSection label="Leases">
+              {([["all", "All"], ["contracted", "Contracted only"], ["assumed", "Speculative only"]] as const).map(([v, l]) => (
+                <label key={v} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-14)", cursor: "pointer" }}>
+                  <input type="radio" name="rbt-sure" checked={sure === v} onChange={() => setSure(v)} />{l}
+                </label>
+              ))}
+            </MenuSection>
+          </DisplayMenu>
         </div>
       </div>
       <div style={{ overflowX: "auto" }}>

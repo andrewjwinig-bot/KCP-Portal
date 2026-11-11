@@ -188,9 +188,17 @@ until he approves it for everyone; build EVERY new or touched UI to it.
   year), Rent Roll and Monthly Statements (month). A boxed `select-brand` is
   for a picker inside a card or form, not the page header. Reprojections has
   no link to Operating Statements (owner).
-- **Settings someone rarely changes live in the Display menu** (`DisplayMenu` +
-  `ToggleRow`, `app/components/DisplayMenu.tsx` — Operating Statements and
-  Reprojections share it), not on the page: the variance-highlight thresholds, "Import monthly totals only".
+- **EVERY page's display controls live in ONE Display menu** (`DisplayMenu`
+  + `ToggleRow` / `CheckRow` / `MenuSection`, `app/components/DisplayMenu.tsx`;
+  owner: "nesting the display controls in a menu to declutter … should apply
+  to all pages"): Operating Statements, Reprojections, T-12, Budgets, the
+  Move-Out Close-Out, Monthly Statements (show-only filters + order), Units
+  (vacant only + columns), Revenue by Tenant ($ · $/SF, contracted /
+  speculative). Never a row of segmented toggles across a header. **On a
+  window under 1100px the header menus read as their ICONS** (sliders for
+  Display, external-link for Open, download for Export, ⋯ for Actions —
+  `.menu-btn-label` hides the word; the label stays as aria-label / title).
+  Settings someone rarely changes go in it too, not on the page: the variance-highlight thresholds, "Import monthly totals only".
   How-to text ("Import the Detailed General Ledger…") lives in the (i).
 - **A tile says the figure, and the comparison in words under it**: "NOI ·
   Sep" / "$7,543" / "$6,173 better than budget". Abbreviate a label that

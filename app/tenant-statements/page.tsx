@@ -15,6 +15,7 @@ import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { InfoPopover } from "@/app/components/InfoPopover";
 import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { DisplayMenu, ToggleRow, CheckRow, MenuSection } from "@/app/components/DisplayMenu";
 import { MetaLine } from "@/app/components/LastImported";
 import { HoverCard } from "@/app/components/HoverCard";
 import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
@@ -537,23 +538,14 @@ export default function TenantStatementsPage() {
                 </select>
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tenant or unit…"
                   style={{ minWidth: 220, flex: "1 1 220px" }} />
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-13)", cursor: "pointer" }}>
-                  <input type="checkbox" checked={onlyOwing} onChange={(e) => setOnlyOwing(e.target.checked)} />
-                  Only tenants with a balance
-                </label>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-13)", cursor: "pointer" }}>
-                  <input type="checkbox" checked={onlyUnshared} onChange={(e) => setOnlyUnshared(e.target.checked)} />
-                  Not shared yet
-                </label>
-                <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-13)", cursor: "pointer" }}
-                  title="Owes, and nothing emailed from the portal in the last 30 days">
-                  <input type="checkbox" checked={onlyFollowUp} onChange={(e) => setOnlyFollowUp(e.target.checked)} />
-                  Needs follow-up
-                </label>
-                <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort tenants">
-                  <option value="statement">Statement order</option>
-                  <option value="balance">Largest balance first</option>
-                </select>
+                <DisplayMenu>
+                  <MenuSection label="Show only">
+                    <CheckRow label="Tenants with a balance" checked={onlyOwing} onChange={setOnlyOwing} />
+                    <CheckRow label="Not shared yet" checked={onlyUnshared} onChange={setOnlyUnshared} />
+                    <CheckRow label="Needs follow-up" hint="Owes, and nothing emailed in the last 30 days" checked={onlyFollowUp} onChange={setOnlyFollowUp} />
+                  </MenuSection>
+                  <ToggleRow label="Order" left="Statement" right="Balance" active={sort === "balance" ? "right" : "left"} onLeft={() => setSort("statement")} onRight={() => setSort("balance")} />
+                </DisplayMenu>
                 {onlyReview && (
                   <button type="button" onClick={() => setOnlyReview(false)}
                     style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontFamily: "inherit", fontSize: "var(--fs-12-5)", fontWeight: 700,

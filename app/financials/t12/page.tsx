@@ -1,4 +1,5 @@
 "use client";
+import { DisplayMenu, ToggleRow } from "@/app/components/DisplayMenu";
 import LoadingState from "@/app/components/LoadingState";
 
 // T-12 — the TRAILING TWELVE MONTHS of actuals, ending at a posted month (Sep 25
@@ -108,9 +109,11 @@ export default function T12Page() {
             {data ? <>Actuals only, {data.span} — every month off the GL, nothing from the budget.</> : cur && !cur.latest ? "No GL uploaded for this property yet." : null}
           </div>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <SegToggle label="View" leftLabel="Total" rightLabel="$/SF" leftActive={!psf} onLeft={() => setPsf(false)} onRight={() => setPsf(true)} disabled={sqft <= 0} />
-            <SegToggle label="Empty rows" leftLabel="Hide" rightLabel="Show" leftActive={hideEmpty} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
-            <SegToggle label="GL" leftLabel="Hide" rightLabel="Show" leftActive={!showGL} onLeft={() => setShowGL(false)} onRight={() => setShowGL(true)} />
+            <DisplayMenu>
+              <ToggleRow label="Amounts" left="Total" right="$/SF" active={psf ? "right" : "left"} onLeft={() => setPsf(false)} onRight={() => setPsf(true)} disabled={sqft <= 0} />
+              <ToggleRow label="Empty rows" left="Hide" right="Show" active={hideEmpty ? "left" : "right"} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
+              <ToggleRow label="GL accounts" left="Hide" right="Show" active={showGL ? "right" : "left"} onLeft={() => setShowGL(false)} onRight={() => setShowGL(true)} />
+            </DisplayMenu>
           </div>
         </div>
 
