@@ -106,6 +106,7 @@ export function BalanceCallout({ st, token }: { st: MonthlyStatement; token: str
         <div style={{ marginTop: 10 }}>
           <DownloadMenu
             label="Download"
+            showLabel
             items={[{ label: "Statement PDF", description: `${st.periodLabel} statement of account`, href: `/api/portal/${token}/monthly/pdf?period=${st.period}` }]}
             variant="primary"
           />

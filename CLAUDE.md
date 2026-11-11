@@ -194,10 +194,14 @@ until he approves it for everyone; build EVERY new or touched UI to it.
   to all pages"): Operating Statements, Reprojections, T-12, Budgets, the
   Move-Out Close-Out, Monthly Statements (show-only filters + order), Units
   (vacant only + columns), Revenue by Tenant ($ · $/SF, contracted /
-  speculative). Never a row of segmented toggles across a header. **On a
-  window under 1100px the header menus read as their ICONS** (sliders for
-  Display, external-link for Open, download for Export, ⋯ for Actions —
-  `.menu-btn-label` hides the word; the label stays as aria-label / title).
+  speculative). Never a row of segmented toggles across a header. **The header menus
+  read as their ICONS at every width** (owner: "only show the text on hover …
+  universal decluttering"): sliders for Display, external-link for Open,
+  download for Export, ⋯ for Actions — `.menu-btn-label` hides the word and
+  `.icon-tip` (`data-tip`) shows the name on hover at once; the label stays as
+  aria-label. Only the tenant portal keeps the word (`showLabel` on
+  `DownloadMenu`). Import buttons and the page's one primary action keep
+  their words.
   Settings someone rarely changes go in it too, not on the page: the variance-highlight thresholds, "Import monthly totals only".
   How-to text ("Import the Detailed General Ledger…") lives in the (i).
 - **A tile says the figure, and the comparison in words under it**: "NOI ·
@@ -3671,6 +3675,20 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   position emailed — "Sent to n" or "Not sent · <reason>" (it waits for every
   bank this week, once a week). It had its own inline "Importing…" button text
   and a green line, so an import gave no animation and no confirmation (owner).
+- **THE CASH FORECAST · DEC 31 card** (`CashForecastCard.tsx`, `GET
+  /api/financials/bank-balances/forecast`, `lib/financials/cash-forecast/`;
+  owner: "how much can we distribute, and when"): every bank line's balance
+  today rolled MONTH BY MONTH to Dec 31 on its reprojection's cash flow after
+  debt service, less the distributions still planned — the Reprojections
+  tile's roll (`rollFromDate`) kept by month, one row per line with the
+  remaining month-ends, distributions and Dec 31. A fund line reads its
+  consolidated statement, Eastwick sums 1500 + 9200, 3610A reads CONDO;
+  clearing, the parent, TKD and the hands-off trust are carried FLAT and say
+  why (italic, hover); security deposits are left out. A reprojection that
+  fails to read is retried once, then the line says so — never a silent flat.
+  Needs Reprojections as well as Bank Balances (403 hides the card — Harry
+  does not see it). Pinned by `forecast.test.ts` (ties to `rollFromDate`).
+  NEXT: payables waiting in AvidXchange.
 - **Downloads** (`export.ts`, `GET /api/financials/bank-balances/export?format=pdf|xlsx`,
   the page's `DownloadMenu`) are built from the SAME `buildBalanceView` the page
   renders. Excel is on the shared theme: each line's Net available is a live
