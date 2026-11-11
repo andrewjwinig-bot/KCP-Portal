@@ -1,5 +1,6 @@
 "use client";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { PageHeader } from "@/app/components/PageHeader";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
 import { useEffect, useMemo, useState, Fragment } from "react";
@@ -223,16 +224,13 @@ export default function SecurityDepositsPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Security Deposits</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <AllowedLink href="/tenants/past" style={{ color: "var(--c-0b4a7d)", fontWeight: 600, fontSize: "var(--fs-13)" }}>Past Tenants<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></AllowedLink>
-          <button className="btn primary" onClick={startGlobalAdd}
-            style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700 }}>
-            + Add Deposit
+      <PageHeader title="Security Deposits"
+        actions={<>
+          <AllowedLink href="/tenants/past" className="text-link">Past Tenants<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /></AllowedLink>
+          <button className="btn primary" onClick={startGlobalAdd}>
+            <Plus size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Add Deposit
           </button>
-        </div>
-      </header>
+        </>} />
 
       <div className="pills" style={{ marginTop: 0 }}>
         <StatPill label="Total Held" value={money(total)} />

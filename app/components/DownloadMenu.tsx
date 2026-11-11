@@ -12,7 +12,7 @@ import { ChevronDown, Download, ExternalLink } from "lucide-react";
 // e.g. a workbook/PDF generated in the browser.
 export type DownloadItem = { label: string; description?: string; href?: string; onClick?: () => void };
 
-export function DownloadMenu({ label = "Download", items, variant = "primary", disabled, showLabel }: {
+export function DownloadMenu({ label = "Download", items, variant = "default", disabled, showLabel }: {
   label?: string;
   /** Keep the word beside the icon (the tenant portal); everywhere else the
    *  menu reads as its icon with the name on hover. */

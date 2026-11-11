@@ -1,4 +1,7 @@
 "use client";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { MetaLine } from "@/app/components/LastImported";
 
 // MONTH-END CLOSE (owner, 11/2026: "i like the closing checklist … i like to
 // know when i need to import which files … pending close out progress as
@@ -84,25 +87,21 @@ export default function MonthClosePage() {
   }
 
   return (
-    <main style={{ display: "grid", gap: 16, maxWidth: 980 }}>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div style={{ display: "grid", gap: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <h1 style={{ margin: 0 }}>Month-End Close</h1>
-            <select className="select-brand" value={month} onChange={(e) => setMonth(e.target.value)} aria-label="Month">
-              {months.map((m) => <option key={m} value={m}>{label(m)}</option>)}
-            </select>
-          </div>
-          <span style={{ color: "var(--muted)", fontSize: "var(--fs-14)" }}>
-            {!data ? "Reading the month…" : signed
-              ? `Signed off ${new Date(signed.at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${signed.by ? ` by ${signed.by}` : ""}`
-              : left ? `${left} item${left === 1 ? "" : "s"} still open · ticks itself as the work lands` : "Everything is in"}
-          </span>
-        </div>
-        {data && (signed
+    <main style={{ display: "grid", gap: 16 }}>
+      <PageHeader title="Month-End Close"
+        pickers={
+          <HeaderSelect value={month} onChange={setMonth} ariaLabel="Month" displayLabel={label(month)}>
+            {months.map((m) => <option key={m} value={m}>{label(m)}</option>)}
+          </HeaderSelect>
+        }
+        actions={data ? (signed
           ? <button className="btn" disabled={busy} onClick={() => sign(false)}>Reopen {MONTHS[Number(month.slice(5)) - 1]}</button>
-          : <button className="btn primary" disabled={busy || !canSign} onClick={() => sign(true)}>Sign off {MONTHS[Number(month.slice(5)) - 1]}</button>)}
-      </div>
+          : <button className="btn primary" disabled={busy || !canSign} onClick={() => sign(true)}>Sign off {MONTHS[Number(month.slice(5)) - 1]}</button>) : undefined}
+        meta={<MetaLine>
+          {!data ? "Reading the month…" : signed
+            ? `Signed off ${new Date(signed.at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${signed.by ? ` by ${signed.by}` : ""}`
+            : left ? `${left} item${left === 1 ? "" : "s"} still open · ticks itself as the work lands` : "Everything is in"}
+        </MetaLine>} />
 
       {error && <div className="card" style={{ color: "var(--c-b42318)" }}>{error}</div>}
 

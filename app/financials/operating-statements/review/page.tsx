@@ -19,7 +19,9 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { jsPDF } from "jspdf";
 import { StatPill, Pill, TONE_RED, TONE_AMBER, TONE_PURPLE, TONE_GREEN } from "@/app/components/Pill";
-import { Select, YearSelect } from "@/app/components/YearSelect";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { Select } from "@/app/components/YearSelect";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
 import LoadingState from "@/app/components/LoadingState";
@@ -354,17 +356,17 @@ export default function OperatingStatementsReviewPage() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ marginBottom: 4 }}>Flags to Investigate</h1>
-          <p className="muted small" style={{ margin: 0 }}>
-            Work through one property at a time. Each row is a line that looks off that month — what posted, what was budgeted, and why it&rsquo;s on the list.{" "}
-            <b>Dismiss</b> it once you&rsquo;ve checked it, or write a note — the goal is an empty list.{" "}
-            <Link href="/financials/operating-statements" style={{ color: "var(--brand)", fontWeight: 600 }}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />Operating Statements</Link>
-          </p>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <YearSelect value={year} years={[thisYear - 2, thisYear - 1, thisYear]} onChange={(y) => { setYear(y); setPropKey(null); setResolved(new Set()); }} suffix="" tone="neutral" aria-label="Year" />
+      <PageHeader title="Flags to Investigate"
+        info={<>
+          Work through one property at a time. Each row is a line that looks off that month — what posted, what was budgeted, and why it&rsquo;s on the list.{" "}
+          <b>Dismiss</b> it once you&rsquo;ve checked it, or write a note — the goal is an empty list.
+        </>}
+        pickers={
+          <HeaderSelect value={String(year)} onChange={(v) => { setYear(Number(v)); setPropKey(null); setResolved(new Set()); }} ariaLabel="Year" displayLabel={String(year)}>
+            {[thisYear - 2, thisYear - 1, thisYear].map((y) => <option key={y} value={y}>{y}</option>)}
+          </HeaderSelect>
+        }
+        actions={<>
           <button className="btn ai" onClick={() => runExplain(pairsFor(flat))} disabled={!portfolioOpen || !!explaining}
             title="Write an AI note for every flagged line across every property (skips lines already explained unless re-explain is ticked)">
             <Sparkles size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0, verticalAlign: "-3px", marginRight: 4 }} />Explain All Properties
@@ -384,8 +386,7 @@ export default function OperatingStatementsReviewPage() {
               { label: "Checklist (PDF)", description: "Every property, grouped like the rent roll", onClick: () => data && exportPdf(data, ordered.map((g) => ({ group: g.group, rows: g.rows }))) },
             ]}
           />
-        </div>
-      </div>
+        </>} />
 
       {error && <div className="small" style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>· {error}</div>}
       {emailMsg && <div className="muted small">{emailMsg}</div>}

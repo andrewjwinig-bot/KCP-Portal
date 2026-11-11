@@ -22,6 +22,8 @@ import { th, td, thL, tdL } from "@/app/components/tableStyles";
 import { signatureHtml, type EmailSignature } from "@/lib/emailSignature";
 import { APPLICATION_LABEL, APPLICATION_ORDER, byHierarchy, creditUsage, renderReceiptEmail, type Account, type Explanation } from "@/lib/statements/receiptMatch";
 import { HoverCard } from "@/app/components/HoverCard";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { PageHeader } from "@/app/components/PageHeader";
 import { InfoPopover } from "@/app/components/InfoPopover";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { useCreditBalanceImport } from "../useCreditBalanceImport";
@@ -287,30 +289,23 @@ export default function ReceiptReconciliationPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <h1 style={{ margin: 0 }}>Receipt Reconciliation</h1>
-            {period && (
-              <select className="select-brand" value={period} onChange={(e) => { setPeriod(e.target.value); resetWork(); loadList(e.target.value); }} aria-label="Statement month">
-                {periods.map((p) => <option key={p} value={p}>{periodLabel(p)} statement</option>)}
-              </select>
-            )}
-          </div>
-          <div className="muted small" style={{ marginTop: 6 }}>
-            A payment that doesn&rsquo;t match the statement: find what the tenant meant, tell them how it will be applied, and apply it if they don&rsquo;t answer.
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <PageHeader title="Receipt Reconciliation"
+        info={<>A payment that doesn&rsquo;t match the statement: find what the tenant meant, tell them how it will be applied, and apply it if they don&rsquo;t answer.</>}
+        pickers={period ? (
+          <HeaderSelect value={period} onChange={(v) => { setPeriod(v); resetWork(); loadList(v); }} ariaLabel="Statement month" displayLabel={`${periodLabel(period)} statement`}>
+            {periods.map((p) => <option key={p} value={p}>{periodLabel(p)} statement</option>)}
+          </HeaderSelect>
+        ) : undefined}
+        actions={<>
           <input ref={creditFileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importCredits(f); }} />
-          <button className="btn import" onClick={() => creditFileRef.current?.click()}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> Import Credit Balance Report</button>
-          <InfoPopover align="left"><ImportInstructions variant="credit-balance" /></InfoPopover>
-        </div>
-        <div className="pills" style={{ margin: 0 }}>
-          <StatPill label="Ready to apply" value={counts.apply} accent={counts.apply ? "var(--c-15803d)" : undefined} onClick={counts.apply ? () => showStatus("apply") : undefined} hint="Show who was emailed and what" />
-          <StatPill label="Waiting on tenant" value={counts.waiting} accent={counts.waiting ? "var(--c-b45309)" : undefined} onClick={counts.waiting ? () => showStatus("waiting") : undefined} hint="Show who was emailed and what" />
-        </div>
-      </header>
+          <button className="btn import" onClick={() => creditFileRef.current?.click()}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Credit Balance Report</button>
+          <InfoPopover><ImportInstructions variant="credit-balance" /></InfoPopover>
+        </>} />
+
+      <div className="pills" style={{ margin: 0 }}>
+        <StatPill label="Ready to apply" value={counts.apply} accent={counts.apply ? "var(--c-15803d)" : undefined} onClick={counts.apply ? () => showStatus("apply") : undefined} hint="Show who was emailed and what" />
+        <StatPill label="Waiting on tenant" value={counts.waiting} accent={counts.waiting ? "var(--c-b45309)" : undefined} onClick={counts.waiting ? () => showStatus("waiting") : undefined} hint="Show who was emailed and what" />
+      </div>
 
       {error && <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
 

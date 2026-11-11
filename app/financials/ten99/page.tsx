@@ -13,6 +13,9 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Pill, StatPill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { MetaLine } from "@/app/components/LastImported";
 import { exportTen99Xlsx } from "@/lib/financials/ten99/export";
 import { EXCLUSION_REASONS, type ExclusionReason, type VendorExclusion } from "@/lib/financials/ten99/exclusions";
 import type { Ten99Entity, Ten99Vendor } from "@/lib/financials/ten99/register";
@@ -97,21 +100,26 @@ export default function Ten99Page() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1200, width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>1099 Register</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <select value={year ?? ""} onChange={(e) => setYear(Number(e.target.value))}
-            className={SELECT_BRAND}>
+      <PageHeader title="1099 Register"
+        info={<>
+          Vendors paid <b>{money0(threshold)} or more</b> during the calendar year, grouped by the entity that
+          files the form. Built from <b>cash disbursements</b> in the posted GL — what actually went out the door
+          in {data?.year ?? year}, not what was expensed. Taxpayer IDs, addresses and the corporation exemption are
+          the accountant&rsquo;s side; this is the payment side.
+        </>}
+        pickers={(data?.years ?? []).length > 0 ? (
+          <HeaderSelect value={String(year ?? "")} onChange={(v) => setYear(Number(v))} ariaLabel="Tax year" displayLabel={`${year ?? ""} tax year`}>
             {(data?.years ?? []).map((y) => <option key={y} value={y}>{y} tax year</option>)}
-            {(data?.years ?? []).length === 0 && <option value="">No GLs uploaded</option>}
-          </select>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12-5)", color: "var(--muted)" }}>
+          </HeaderSelect>
+        ) : undefined}
+        actions={<>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--fs-14)", color: "var(--muted)" }}>
             Threshold
             <input type="number" min={0} step={100} value={threshold}
               onChange={(e) => setThreshold(Math.max(0, Number(e.target.value) || 0))}
               style={{ width: 88, fontVariantNumeric: "tabular-nums" }} />
           </label>
-          <DownloadMenu
+          <DownloadMenu label="Export"
             items={[{
               label: "Excel workbook",
               description: "Register by filing entity + every payment behind it, with live totals",
@@ -119,15 +127,8 @@ export default function Ten99Page() {
             }]}
             disabled={!data || totals.reportable === 0}
           />
-        </div>
-      </div>
-
-      <p className="muted" style={{ marginTop: -6, maxWidth: 860 }}>
-        Vendors paid <b>{money0(threshold)} or more</b> during the calendar year, grouped by the entity that
-        files the form. Built from <b>cash disbursements</b> in the posted GL — what actually went out the door
-        in {data?.year ?? year}, not what was expensed. Taxpayer IDs, addresses and the corporation exemption are
-        the accountant&rsquo;s side; this is the payment side.
-      </p>
+        </>}
+        meta={(data?.years ?? []).length === 0 && data ? <MetaLine>No General Ledger uploaded yet.</MetaLine> : undefined} />
 
       {error && <div className="card" style={{  color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
       {loading && <div className="card muted">Loading…</div>}
