@@ -408,7 +408,7 @@ export default function TrackerPage() {
       )}
 
       {/* ── Two-column layout ────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "290px 1fr", gap: 18, alignItems: "start" }}>
+      <div className="tracker-layout" style={{ display: "grid", gridTemplateColumns: "290px minmax(0, 1fr)", gap: 18, alignItems: "start" }}>
 
         {/* ─ Calendar card ─────────────────────────────────────────────── */}
         <div className="card" style={{ padding: 16, position: "sticky", top: 20 }}>

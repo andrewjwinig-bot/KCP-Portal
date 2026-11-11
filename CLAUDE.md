@@ -195,6 +195,31 @@ until he approves it for everyone; build EVERY new or touched UI to it.
 - **Names are Title Case wherever a record stored them in caps**:
   `titleName` (`app/components/LastImported.tsx`) — "by DREW" read as a
   shout.
+- **ABBREVIATIONS ARE ONE LIST: `lib/ui/abbrev.ts`** (owner: "abbreviate
+  Year to Date as YTD to prevent wrapping … NOI, Bud Ann … Maint. … Op Ex …
+  TI … LC"). YTD, NOI, CAM, Op Ex, TI, LC, G&A, RE Taxes, Ann. Bud, Reproj,
+  Var, Reimb., Maint., Admin, SF, Avg, Debt Svc. Use them only where space
+  is tight — column headers, tile labels, a statement's line column on a
+  narrow window — through `<Abbr text=…>` (`app/components/Abbr.tsx`),
+  which renders both forms and shows the short one when its `abbr-scope`
+  card (under 1100px) or KPI tile (under 230px) is narrow, the full name on
+  hover. Titles, section headings at full width and hovers keep the full
+  name. Never type a short form inline — add it to the list.
+- **EVERY PAGE WORKS IN A NARROWER WINDOW** (owner: "important to be ready to
+  function at different size windows"). Check a page at ~900px wide before
+  shipping it. The rules that make that hold: KPI tile rows WRAP and their
+  figures scale with the tile (`.pills` above 720px); a two-column layout
+  stacks rather than squeezing (`.queue-grid`, `.tracker-layout` under
+  1280 / 1180px); a form row of many fields drops to four, then two, to a
+  row (`.entry-form` / `.entry-grid` container queries); a `display: grid`
+  holding a wide table needs `gridTemplateColumns: "minmax(0, 1fr)"` or the
+  table pushes it off the page; the header wordmark hides under 1280px.
+  **Stacked statement cards scroll TOGETHER**: give each scroller
+  `data-scroll-group="statement"` (`ScrollSync` in AppShell keeps them in
+  step) and a totals strip `quiet-scroll`, so Total Op Ex / NOI never carry
+  their own slider. **A column with nothing in it shrinks**: Operating
+  Statements' Notes column collapses to an add-note icon when no line has a
+  note, and the tables' sideways floor drops from 1000px to 760px with it.
 - **The ratchet** (`lib/ui/noDrift.test.ts`): counts of emoji, text arrows,
   inline hex colours and tinted fills may only go DOWN. When a sweep removes
   some, lower the baseline in that test in the same change.

@@ -645,7 +645,7 @@ export default function CommissionsPage() {
       })()}
 
       {/* ── Add / Edit form ─────────────────────────────────────────── */}
-      <div className="card">
+      <div className="card entry-form">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
           <b style={{ fontSize: 17 }}>{form.id ? "Edit Commission Entry" : "New Commission Entry"}</b>
           {error && <span style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-12)" }}>{error}</span>}
@@ -654,7 +654,7 @@ export default function CommissionsPage() {
         {/* Explicit fractional columns so the inputs stretch to fill the full row
             instead of auto-fit leaving empty tracks at the end. 8 columns: the
             wider Tenant column gets ~2.4fr, others scale to fit. */}
-        <div style={{
+        <div className="entry-grid" style={{
           display: "grid",
           gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 2.4fr) minmax(0, 0.95fr) minmax(0, 0.75fr) minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1.05fr) minmax(0, 0.9fr)",
           gap: 12,

@@ -1409,6 +1409,18 @@ tr:hover .budget-note, .budget-note:focus-visible { opacity: 0.7; }
 /* Last row of a hairline list has no rule under it. */
 .task-row:last-child, .outbox-row:last-child { border-bottom: 0 !important; }
 
+/* KPI tile rows on a NARROWER WINDOW (owner: "ready to function at different
+   size windows"). Tiles WRAP onto another row before they squeeze, and each
+   figure scales with its own tile (a container query on the tile), so a
+   $230,721,053 never runs into the tile beside it. Phone width keeps its own
+   two-column grid in the block at the end. */
+@media (min-width: 721px) {
+  .pills { flex-wrap: wrap; overflow-x: visible; }
+  .pills > .pill { flex: 1 1 170px; min-width: 150px; container-type: inline-size; }
+  .pills > .pill b { font-size: clamp(20px, 15cqi, 28px); max-width: 100%; }
+  [data-skin="studio"] .pills > .pill b { font-size: clamp(20px, 15cqi, 32px); }
+}
+
 /* Phone width, new look: two tiles to a row, figures that fit. */
 @media (max-width: 720px) {
   [data-skin="studio"] .pill { padding: 12px 12px; }
@@ -1523,3 +1535,37 @@ html:not([data-skin="studio"]) .btn > svg:first-child { margin-right: 6px; verti
 .queue-aside { display: grid; gap: 20px; align-content: start; }
 @media (max-width: 1280px) { .queue-aside { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; } }
 @media (max-width: 1280px) { .queue-detail { display: none !important; } }
+
+
+/* A totals strip that scrolls WITH the statement above it (ScrollSync) shows no
+   scrollbar of its own — the section's bar already moves it. */
+.quiet-scroll { scrollbar-width: none; }
+.quiet-scroll::-webkit-scrollbar { display: none; }
+/* Operating Statements: the add-note icon stays quiet until its row is hovered. */
+.os-note-add { opacity: 0.35; transition: opacity 0.15s; }
+tr:hover .os-note-add, .os-cell:focus-visible .os-note-add { opacity: 1; }
+
+/* <Abbr>: the full name, or its shared short form (lib/ui/abbrev.ts) when the
+   statement card or KPI tile holding it is narrow. */
+.ab-short { display: none; }
+.abbr-scope { container-name: abbr; container-type: inline-size; }
+@container abbr (max-width: 1100px) { .ab-full { display: none; } .ab-short { display: inline; } }
+@media (min-width: 721px) { .pills > .pill { container-name: tile; } }
+@container tile (max-width: 230px) { .ab-full { display: none; } .ab-short { display: inline; } }
+/* The page header's KORMAN | COMMERCIAL PROPERTIES wordmark gives way first on
+   a narrower window — the sidebar already carries the logo, and the wordmark
+   was squeezing the title or dropping under it. */
+@media (max-width: 1280px) { .brand-wordmark { display: none !important; } }
+
+/* Commission entry forms: eight or nine fields on one row on a wide window;
+   four, then two, to a row as the card narrows (each field keeps room for its
+   label and value). */
+.entry-form { container-type: inline-size; }
+@container (max-width: 980px) { .entry-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; } }
+@container (max-width: 560px) { .entry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+
+/* Task Tracker: the calendar sits above the list when there is no room beside it. */
+@media (max-width: 1180px) {
+  .tracker-layout { grid-template-columns: minmax(0, 1fr) !important; }
+  .tracker-layout > .card:first-child { position: static !important; max-width: 420px; }
+}

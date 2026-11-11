@@ -1,4 +1,5 @@
 "use client";
+import { Abbr } from "@/app/components/Abbr";
 import { ChevronDown, StickyNote } from "lucide-react";
 
 // The Reprojections grid — section cards, subtotal cards and the group
@@ -285,7 +286,7 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
   return (
     <div className="card" style={{ padding: 0 }}>
       <div style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", background: "var(--tint-neutral-faint, rgba(15,23,42,0.03))", fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>{sec.name}</div>
-      <div className="tableWrap">
+      <div className="tableWrap abbr-scope" data-scroll-group="statement">
         <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
           <Colgroup through={view.through} mode={view.mode} plain={view.plain} />
           <thead><HeaderRow through={view.through} mode={view.mode} labels={view.labels} totalLabel={view.totalLabel} /></thead>
@@ -295,7 +296,7 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
               return (
               <tr key={l.label}>
                 <td style={{ textAlign: "left" }}>
-                  {l.label}
+                  <Abbr text={l.label} />
                   {n && (
                     <a href={osHref} title={`${n.ai ? "AI note: " : ""}${n.note}\n\n(click → Operating Statements)`}
                       aria-label="Variance note" style={{ marginLeft: 6, textDecoration: "none", cursor: "pointer" }}>
@@ -318,7 +319,7 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
             );})}
             {!hideSubtotal && (
               <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.06))" }}>
-                <td style={{ fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: BRAND, fontSize: "var(--fs-12-5)" }}>{sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`}</td>
+                <td style={{ fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: BRAND, fontSize: "var(--fs-12-5)" }}><Abbr text={sec.role === "revenue" ? "Total Revenue and Other" : `Total ${sec.name}`} /></td>
                 {figureCells(sec.subtotal, view, { bold: true, color: BRAND })}
               </tr>
             )}
@@ -332,12 +333,12 @@ function SectionCard({ sec, view, noteFor, osHref, hideSubtotal, onDrill, onEdit
 function SubtotalCard({ label, t, view, strong }: { label: string; t: Totals; view: ViewOpts; strong?: boolean }) {
   return (
     <div className="card" style={{ padding: 0, borderColor: BRAND, background: strong ? "var(--tint-brand-bg, rgba(11,74,125,0.06))" : "var(--tint-brand-bg, rgba(11,74,125,0.04))" }}>
-      <div className="tableWrap" style={{ marginTop: 0 }}>
+      <div className="tableWrap quiet-scroll abbr-scope" data-scroll-group="statement" style={{ marginTop: 0 }}>
         <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%", minWidth: 1180 }}>
           <Colgroup through={view.through} mode={view.mode} plain={view.plain} />
           <tbody>
             <tr style={{ fontWeight: 800 }}>
-              <td style={{ fontSize: strong ? 14 : 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: BRAND, verticalAlign: "middle", borderBottom: "none" }}>{label}</td>
+              <td style={{ fontSize: strong ? 14 : 13, fontWeight: 900, letterSpacing: "0.04em", textTransform: "uppercase", color: BRAND, verticalAlign: "middle", borderBottom: "none" }}><Abbr text={label} /></td>
               {figureCells(t, view, { bold: true, color: BRAND })}
             </tr>
           </tbody>

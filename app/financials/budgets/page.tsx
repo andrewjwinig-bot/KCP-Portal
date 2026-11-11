@@ -1467,7 +1467,7 @@ function TenantRecoveryModal({
         )}
         {units && (
           <div className="card" style={{ padding: 0 }}>
-            <div className="tableWrap" style={{ marginTop: 0 }}>
+            <div className="tableWrap" data-scroll-group="statement" style={{ marginTop: 0 }}>
               <table>
                 <thead>
                   <tr>
@@ -2753,7 +2753,7 @@ function SubtotalCard({ rollup, sqft, psf }: {
       {/* margin-top: 0 overrides the default .tableWrap margin so the
           single subtotal row sits at the optical center of the card
           instead of getting pushed down by the wrapper's top margin. */}
-      <div className="tableWrap" style={{ marginTop: 0 }}>
+      <div className="tableWrap quiet-scroll" data-scroll-group="statement" style={{ marginTop: 0 }}>
         <table className="grid-dense" style={{ tableLayout: "fixed", width: "100%" }}>
           <BudgetTableColgroup />
           <tbody>

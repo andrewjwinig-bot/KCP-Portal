@@ -1563,7 +1563,7 @@ export default function InvestorInfoPage() {
           estimates editor and the per-entity editor come with them, so nothing
           is lost by the tab going. */}
       {view === "property" && (
-        <div style={{ display: "grid", gap: 10 }}>
+        <div style={{ display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr)" }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
             <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" }}>
               Entity values
