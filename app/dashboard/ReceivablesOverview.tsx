@@ -34,7 +34,7 @@ type Tenant = {
 };
 type Period = { period: string; properties: { code: string; name: string }[]; credits: OpenCreditTracker; tenants: Tenant[] };
 
-const receiptLink = (period: string, unit: string) => `/tenant-statements/receipts?period=${period}&unit=${encodeURIComponent(unit)}`;
+const receiptLink = (period: string, unit: string) => `/tenant-statements?period=${period}&unit=${encodeURIComponent(unit)}`;
 
 export default function ReceivablesOverview() {
   const [data, setData] = useState<Period | null>(null);
@@ -112,8 +112,7 @@ export default function ReceivablesOverview() {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Link className="btn" href="/tenant-statements" style={{ textDecoration: "none" }}>Monthly Statements</Link>
-          <Link className="btn primary" href="/tenant-statements/receipts" style={{ textDecoration: "none" }}>Receipt Reconciliation<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
+          <Link className="btn primary" href="/tenant-statements" style={{ textDecoration: "none" }}>Receivables<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
         </div>
       </header>
 

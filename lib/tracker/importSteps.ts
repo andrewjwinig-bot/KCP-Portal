@@ -59,7 +59,7 @@ export const IMPORT_STEPS: Record<string, ImportSteps> = {
       "Tanya saves the month's Laser Statements as PDFs in the folder below — or run the Laser Statement in Skyline to Excel.",
       "In the portal: Monthly Statements, Import, and select every PDF in the folder at once. They merge into one month; a one-tenant re-run updates only that tenant.",
     ],
-    importAt: { label: "Monthly Statements", href: "/tenant-statements" },
+    importAt: { label: "Receivables", href: "/tenant-statements" },
     note: "Upload the files as saved — every tenant is checked against the Total Amount Due Skyline printed.",
   },
   "imp-bank": {

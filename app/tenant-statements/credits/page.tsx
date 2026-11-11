@@ -266,7 +266,7 @@ function Detail({ t, onView, onNote, canWork }: { t: Row; onView: (src: string) 
       <div className="small muted">
         {t.contact ? <>Contact {t.contact}{t.phone ? ` · ${t.phone}` : ""} · </> : null}
         Deposit held {usd(t.depositsHeld)}
-        {canWork && <> · <a className="text-link" href={`/tenant-statements/receipts?unit=${encodeURIComponent(t.unitRef)}`}>Work a payment <ChevronRight {...ICON} /></a></>}
+        {canWork && <> · <a className="text-link" href={`/tenant-statements?unit=${encodeURIComponent(t.unitRef)}`}>Work a payment <ChevronRight {...ICON} /></a></>}
         {t.lastNotice && <> · <a href="#" className="text-link" onClick={(e) => { e.preventDefault(); onView(`/api/tenant-statements/correspondence?source=${t.lastNotice!.source}&id=${encodeURIComponent(t.lastNotice!.id)}`); }}>View the last email <ChevronRight {...ICON} /></a></>}
       </div>
       {!canWork ? (t.note && <div className="small"><span style={SECTION}>Follow-up</span> {t.note.text} <span className="muted">· {t.note.by ? `${t.note.by} · ` : ""}{new Date(t.note.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></div>) : <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>

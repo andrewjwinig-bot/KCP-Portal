@@ -17,6 +17,7 @@ import { Pill, StatPill, maintenanceStatusTone, priorityTone } from "@/app/compo
 import SuiteInformationCard from "./SuiteInformationCard";
 import ContactsCard from "./ContactsCard";
 import DepositCard from "./DepositCard";
+import AccountCard from "./AccountCard";
 import CamConfigCard from "./CamConfigCard";
 import OfficeCamConfigCard from "./OfficeCamConfigCard";
 import DisplayNameCard from "./DisplayNameCard";
@@ -498,6 +499,11 @@ export default function UnitDetailPage() {
             buildingSqft={buildingSqft}
             baseYear={baseYearVal}
           />
+        )}
+
+        {/* ── Account: open A/R, the statement, correspondence (Receivables users only — the card hides itself otherwise) ── */}
+        {!isMaint && !isAmenity && !unit.isVacant && isPathAllowed(user.id, "/tenant-statements") && (
+          <AccountCard unitRef={unit.unitRef} />
         )}
 
         {/* ── Contacts (occupied suites only) ── */}
