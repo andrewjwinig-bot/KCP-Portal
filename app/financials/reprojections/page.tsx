@@ -166,17 +166,17 @@ export default function ReprojectionsPage() {
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
-            <select className="select-brand" aria-label="Property" style={{ maxWidth: 320 }} value={key} onChange={(e) => setKey(e.target.value)}>
+            <HeaderSelect ariaLabel="Property" maxWidth={420} value={key} onChange={setKey} displayLabel={cur ? `${cur.propertyCode} · ${cur.name}` : "Choose a property"}>
               {!cur && <option value="">Choose a property</option>}
               {groupStatementOptions(available).map((grp) => (
                 <optgroup key={grp.label} label={grp.label}>
                   {grp.items.map((a) => <option key={a.key} value={a.key}>{a.propertyCode} · {a.name}{a.years.length ? "" : " (no GL)"}</option>)}
                 </optgroup>
               ))}
-            </select>
-            <select aria-label="Year" value={String(year)} onChange={(e) => setYear(Number(e.target.value))}>
+            </HeaderSelect>
+            <HeaderSelect ariaLabel="Year" muted value={String(year)} onChange={(v) => setYear(Number(v))} displayLabel={year ? String(year) : "Year"}>
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
+            </HeaderSelect>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <DisplayMenu>
@@ -185,16 +185,6 @@ export default function ReprojectionsPage() {
               <ToggleRow label="Empty rows" left="Hide" right="Show" active={hideEmpty ? "left" : "right"} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
               <ToggleRow label="GL accounts" left="Hide" right="Show" active={showGL ? "right" : "left"} onLeft={() => setShowGL(false)} onRight={() => setShowGL(true)} />
             </DisplayMenu>
-            {cur && (
-              <DownloadMenu
-                label="Open"
-                variant="default"
-                items={[
-                  { label: "Operating Statement", description: `${cur.propertyCode}'s statement for ${year}`, href: osHref },
-                  { label: "Budget", description: `${cur.propertyCode}'s operating budget`, href: budgetHref },
-                ]}
-              />
-            )}
             <DownloadMenu
               label="Export"
               variant="default"

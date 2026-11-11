@@ -1569,3 +1569,13 @@ tr:hover .os-note-add, .os-cell:focus-visible .os-note-add { opacity: 1; }
   .tracker-layout { grid-template-columns: minmax(0, 1fr) !important; }
   .tracker-layout > .card:first-child { position: static !important; max-width: 420px; }
 }
+
+/* HeaderSelect (app/components/HeaderSelect.tsx): a page's property / period
+   picker as large borderless text with a chevron. The native select is laid
+   invisibly over it, so it is excluded from the global select styling. */
+.header-select { position: relative; display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; margin-left: -6px; border-radius: 8px; cursor: pointer; min-width: 0; }
+.header-select:hover { background-color: var(--tint-neutral-faint, rgba(15, 23, 42, 0.04)); }
+.header-select-label { font-size: 22px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; letter-spacing: -0.01em; }
+select.header-select-native { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; min-width: 0; max-width: none; box-shadow: none; opacity: 0; cursor: pointer; border: 0; padding: 0; margin: 0; appearance: auto; background-color: transparent; background-image: none; }
+.header-select:focus-within { outline: 2px solid var(--brand); outline-offset: 1px; }
+@media (max-width: 720px) { .header-select-label { font-size: 18px; } }

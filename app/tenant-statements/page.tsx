@@ -14,6 +14,7 @@ import { useImport } from "@/app/components/import/ImportProvider";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { InfoPopover } from "@/app/components/InfoPopover";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
 import { MetaLine } from "@/app/components/LastImported";
 import { HoverCard } from "@/app/components/HoverCard";
 import { StatPill, Pill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
@@ -376,11 +377,11 @@ export default function TenantStatementsPage() {
         <div style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {periods && periods.length > 0 && (
-              <select className="select-brand" value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="Statement month">
+              <HeaderSelect value={period} onChange={setPeriod} ariaLabel="Statement month" displayLabel={period ? periodLabel(period) : "Month"}>
                 {periods.map((p) => (
                   <option key={p.period} value={p.period}>{periodLabel(p.period)}{p.published ? "" : " (not published)"}</option>
                 ))}
-              </select>
+              </HeaderSelect>
             )}
             <button className="btn import" onClick={() => fileRef.current?.click()}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import Laser Statement

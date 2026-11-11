@@ -11,6 +11,7 @@ import { useUser } from "../components/UserProvider";
 import AllowedLink from "../components/AllowedLink";
 import { isPathAllowed } from "@/lib/users";
 import { MetaLine } from "../components/LastImported";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
 import { blobSrc } from "../../lib/blobProxy";
 import { normName } from "../../lib/centers/registry";
 import { Pill, TONE_RED, TONE_TEAL } from "@/app/components/Pill";
@@ -1821,18 +1822,18 @@ export default function RentRollPage() {
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             {snapshotList.length > 0 && (
-              <select
+              <HeaderSelect
                 value={reportMonth}
-                onChange={(e) => setReportMonth(e.target.value)}
-                aria-label="Month"
-                className="select-brand"
+                onChange={setReportMonth}
+                ariaLabel="Month"
+                displayLabel={reportMonth ? ((m: string) => { const [yy, mm] = m.split("-"); return `${new Date(2000, parseInt(mm) - 1, 1).toLocaleString("en-US", { month: "long" })} ${yy}`; })(reportMonth) : "Month"}
               >
                 {snapshotList.slice().reverse().map((s) => {
                   const [yy, mm] = s.month.split("-");
                   const label = `${new Date(2000, parseInt(mm) - 1, 1).toLocaleString("en-US", { month: "long" })} ${yy}`;
                   return <option key={s.month} value={s.month}>{label}</option>;
                 })}
-              </select>
+              </HeaderSelect>
             )}
             <input
               ref={fileInputRef}

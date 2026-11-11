@@ -14,6 +14,7 @@ import { useUser } from "@/app/components/UserProvider";
 import { useImport } from "@/app/components/import/ImportProvider";
 import { Abbr } from "@/app/components/Abbr";
 import { DisplayMenu, ToggleRow, toggleLabel } from "@/app/components/DisplayMenu";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { Pill, StatPill, tiesTone } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
@@ -71,29 +72,6 @@ function varColor(v: number | null): string {
   return v > 0 ? "var(--c-15803d)" : "var(--c-b91c1c)";
 }
 
-// Big-label dropdown (label + chevron over an invisible native select) — the
-// same pattern the CAM recon + budget headers use.
-function HeaderSelect({
-  value, onChange, displayLabel, ariaLabel, muted, children,
-}: {
-  value: string; onChange: (v: string) => void; displayLabel: string;
-  ariaLabel: string; muted?: boolean; children: React.ReactNode;
-}) {
-  return (
-    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
-      <span style={{ fontSize: muted ? 20 : 24, fontWeight: 800, color: muted ? "var(--muted)" : "inherit", whiteSpace: "nowrap" }}>{displayLabel}</span>
-      <span style={{ color: "var(--muted)", fontSize: "var(--fs-14)" }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
-      <select
-        aria-label={ariaLabel}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%" }}
-      >
-        {children}
-      </select>
-    </span>
-  );
-}
 
 const COLOR_BRAND = "var(--c-0b4a7d)";
 const GROUP_DIV = "1px solid var(--border)"; // vertical divider between Period / YTD / Annual / Notes
@@ -835,7 +813,8 @@ export default function OperatingStatementsPage() {
             {/* Property + Year are always rendered and kept first so the
                 conditional Month select never reflows them. The property is
                 the control the page is driven by, so it is the brand select. */}
-            <select className="select-brand" aria-label="Property" style={{ maxWidth: 320 }} value={key} onChange={(e) => { setKey(e.target.value); setPeriod(0); setFlagFilter(null); }}>
+            <HeaderSelect ariaLabel="Property" maxWidth={420} value={key} onChange={(v) => { setKey(v); setPeriod(0); setFlagFilter(null); }}
+              displayLabel={cur ? `${cur.propertyCode} · ${cur.name}` : "Choose a property"}>
               {!cur && <option value="">Choose a property</option>}
               {groupStatementOptions(available).map((grp) => (
                 <optgroup key={grp.label} label={grp.label}>
@@ -844,18 +823,19 @@ export default function OperatingStatementsPage() {
                   ))}
                 </optgroup>
               ))}
-            </select>
-            <select aria-label="Year" value={String(year)} onChange={(e) => { setYear(Number(e.target.value)); setPeriod(0); setFlagFilter(null); }}>
-              {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
+            </HeaderSelect>
             {statement && (
-              <select aria-label="Month" value={String(period || statement.period)} onChange={(e) => setPeriod(Number(e.target.value))}>
+              <HeaderSelect ariaLabel="Month" muted value={String(period || statement.period)} onChange={(v) => setPeriod(Number(v))}
+                displayLabel={(period || statement.period) === FULL_YEAR ? (maxPeriod >= 12 ? "Full Year" : "Year to Date") : MONTHS_LONG[(period || statement.period) - 1] ?? ""}>
                 {Array.from({ length: maxPeriod }, (_, i) => i + 1).map((p) => (
                   <option key={p} value={p}>{MONTHS_LONG[p - 1]}</option>
                 ))}
                 <option value={FULL_YEAR}>{maxPeriod >= 12 ? "Full Year" : "Year to Date"}</option>
-              </select>
+              </HeaderSelect>
             )}
+            <HeaderSelect ariaLabel="Year" muted value={String(year)} onChange={(v) => { setYear(Number(v)); setPeriod(0); setFlagFilter(null); }} displayLabel={year ? String(year) : "Year"}>
+              {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+            </HeaderSelect>
             {/* Import sits beside the pickers it imports for (owner). */}
             <button className="btn import" onClick={() => fileRef.current?.click()}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
