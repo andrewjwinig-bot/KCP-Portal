@@ -198,7 +198,7 @@ until he approves it for everyone; build EVERY new or touched UI to it.
 - **ABBREVIATIONS ARE ONE LIST: `lib/ui/abbrev.ts`** (owner: "abbreviate
   Year to Date as YTD to prevent wrapping … NOI, Bud Ann … Maint. … Op Ex …
   TI … LC"). YTD, NOI, CAM, Op Ex, TI, LC, G&A, RE Taxes, Ann. Bud, Reproj,
-  Var, Reimb., Maint., Admin, SF, Avg, Debt Svc. Use them only where space
+  Var, Reimb., Maint., Admin, SF, Avg, Debt Svc, and "and" → "&". Use them only where space
   is tight — column headers, tile labels, a statement's line column on a
   narrow window — through `<Abbr text=…>` (`app/components/Abbr.tsx`),
   which renders both forms and shows the short one when its `abbr-scope`

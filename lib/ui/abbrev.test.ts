@@ -10,6 +10,8 @@ describe("abbrev", () => {
     expect(abbrev("Tenant Improvements")).toBe("TI");
     expect(abbrev("Outside Leasing Commissions")).toBe("Outside LC");
     expect(abbrev("NOI · Year to Date")).toBe("NOI · YTD");
+    expect(abbrev("Total Revenue and Other")).toBe("Total Revenue & Other");
+    expect(abbrev("TOTAL REVENUE AND OTHER")).toBe("TOTAL REVENUE & OTHER");
   });
   it("keeps uppercase text uppercase", () => {
     expect(abbrev("CASH FLOW AFTER DEBT SERVICE")).toBe("CASH FLOW AFTER DEBT SVC");

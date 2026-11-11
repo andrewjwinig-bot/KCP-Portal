@@ -24,6 +24,7 @@ export const ABBREVIATIONS: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bsquare (?:feet|foot)\b/gi, "SF"],
   [/\baverage\b/gi, "Avg"],
   [/\bdebt service\b/gi, "Debt Svc"],
+  [/\band\b/gi, "&"],
 ];
 
 /** `text` with every abbreviation applied, keeping UPPERCASE text uppercase. */
