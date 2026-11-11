@@ -23,6 +23,7 @@ import ApOutboxCard from "./ApOutboxCard";
 import MoveOutsCard from "./MoveOutsCard";
 import NewTenantsCard from "./NewTenantsCard";
 import DrewTasksThisWeek from "./DrewTasksThisWeek";
+import TenantEmailsDueCard from "./TenantEmailsDueCard";
 import CommissionsReminder from "./CommissionsReminder";
 import AnnualStatementReminder from "./AnnualStatementReminder";
 import DailyDigestModal from "./DailyDigestModal";
@@ -1070,6 +1071,7 @@ function DashboardInner() {
         {(user.id === "drew" || user.id === "harry" || user.id === "marie" || isAdmin) && <ApOutboxCard order={-1} />}
         {!(queueOn) && (user.id === "drew" || user.id === "harry" || user.id === "nancy" || user.id === "marie" || isAdmin) && <MoveOutsCard order={-1} />}
         {(user.id === "harry" || isAdmin) && <NewTenantsCard order={-1} />}
+        {(user.id === "greg" || isAdmin) && <TenantEmailsDueCard order={-1} />}
 
         {/* ── New Bank Transfers — surface recent transfers for admin /
              drew / harry / marie. Each card is dismissible. ── */}
