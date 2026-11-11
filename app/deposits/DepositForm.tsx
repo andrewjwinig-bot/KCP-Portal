@@ -2,14 +2,24 @@
 
 import { UnitSelect } from "@/app/components/UnitSelect";
 import { useEffect, useRef, useState } from "react";
+import { Plus, X } from "lucide-react";
 import { Calendar } from "@/app/components/Calendar";
 import { upload as blobUpload } from "@vercel/blob/client";
-import { accountForProperty, DEPOSIT_ACCOUNTS, depositDupKey, type SecurityDeposit } from "@/lib/deposits/deposits";
+import { accountForProperty, DEPOSIT_ACCOUNTS, depositDupKey, refundsOf, type SecurityDeposit } from "@/lib/deposits/deposits";
 
 /** The typed amount as dollars. "25,496" and "$25,496.00" are what people
  *  type; bare Number() read them as NaN → $0, which saved SEOM's $25,496
  *  deposit (3640-300) as $0 and dropped it from the move-out settlement. */
 const amountNum = (v: string) => { const n = Number(String(v ?? "").replace(/[$,\s]/g, "")); return Number.isFinite(n) ? n : 0; };
+/** A figure as it should read in a money box: "12,615.45" (owner: the
+ *  amount showed as 12615.45). Blank stays blank. */
+const moneyText = (n: number) => (n ? n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "");
+const reformat = (v: string) => (String(v ?? "").trim() ? moneyText(amountNum(v)) : "");
+const dollars = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** One partial refund in the form — the amount kept as typed text. */
+type RefundRow = { id: string; date: string; amount: string; note: string };
+const newRefundId = () => `rf_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
 export type UnitOption = {
   unitRef: string;
@@ -97,15 +107,23 @@ export default function DepositForm({
   // after "Save & add another check" it clears so the next check is a new record.
   const [editId, setEditId] = useState<string | undefined>(deposit?.id);
   const [checkNumber, setCheckNumber] = useState(deposit?.checkNumber ?? "");
-  const [amount, setAmount] = useState(deposit?.amount ? String(deposit.amount) : "");
+  const [amount, setAmount] = useState(deposit?.amount ? moneyText(deposit.amount) : "");
   const [checkDate, setCheckDate] = useState(deposit?.checkDate ?? "");
   const [notes, setNotes] = useState(deposit?.notes ?? "");
   const [refunded, setRefunded] = useState(deposit?.refunded ?? false);
   const [refundDate, setRefundDate] = useState(deposit?.refundDate ?? "");
   const [tenantDefaulted, setTenantDefaulted] = useState(deposit?.tenantDefaulted ?? false);
-  const [partialRefund, setPartialRefund] = useState(deposit?.partialRefund ?? false);
-  const [partialRefundAmount, setPartialRefundAmount] = useState(deposit?.partialRefundAmount ? String(deposit.partialRefundAmount) : "");
-  const [partialRefundNote, setPartialRefundNote] = useState(deposit?.partialRefundNote ?? "");
+  // Partial refunds as a dated timeline; each one comes off what we hold.
+  const [refunds, setRefunds] = useState<RefundRow[]>(() =>
+    (deposit ? refundsOf(deposit) : []).map((r) => ({
+      id: r.id === "legacy" ? newRefundId() : r.id,
+      // A refund recorded before refunds were dated takes the deposit's refund
+      // date if it had one; otherwise it is dated here.
+      date: r.date || deposit?.refundDate || "",
+      amount: moneyText(r.amount), note: r.note,
+    })));
+  const setRefund = (id: string, patch: Partial<RefundRow>) =>
+    setRefunds((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
   const [stagedFile, setStagedFile] = useState<File | null>(null);
   const [stagedPreview, setStagedPreview] = useState<string | null>(null);
   const [existingImage, setExistingImage] = useState(deposit?.checkImage ?? null);
@@ -200,9 +218,7 @@ export default function DepositForm({
       refunded,
       refundDate: refunded ? refundDate : "",
       tenantDefaulted,
-      partialRefund,
-      partialRefundAmount: partialRefund ? (Number(partialRefundAmount) || 0) : 0,
-      partialRefundNote: partialRefund ? partialRefundNote : "",
+      refunds: refunds.map((r) => ({ id: r.id, date: r.date, amount: amountNum(r.amount), note: r.note })),
     };
     const res = await fetch(id ? `/api/deposits/${id}` : "/api/deposits", {
       method: id ? "PUT" : "POST",
@@ -285,7 +301,7 @@ export default function DepositForm({
     saveTimer.current = setTimeout(() => { void autosave(); }, 500);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unitRef, checkNumber, amount, checkDate, notes, refunded, refundDate, tenantDefaulted, partialRefund, partialRefundAmount, partialRefundNote]);
+  }, [unitRef, checkNumber, amount, checkDate, notes, refunded, refundDate, tenantDefaulted, refunds]);
 
   // Persist immediately when a field loses focus, so tabbing/clicking away saves
   // right then instead of waiting out the debounce.
@@ -323,9 +339,7 @@ export default function DepositForm({
         setRefunded(false);
         setRefundDate("");
         setTenantDefaulted(false);
-        setPartialRefund(false);
-        setPartialRefundAmount("");
-        setPartialRefundNote("");
+        setRefunds([]);
         setStagedFile(null);
         setStagedPreview(null);
         setExistingImage(null);
@@ -477,7 +491,7 @@ export default function DepositForm({
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={labelStyle}>Amount</span>
           <input style={inputStyle} value={amount} inputMode="decimal" placeholder="0.00"
-            onChange={(e) => setAmount(e.target.value)} onBlur={flushSave} />
+            onChange={(e) => setAmount(e.target.value)} onBlur={() => { setAmount(reformat(amount)); flushSave(); }} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <span style={labelStyle}>Check Date</span>
@@ -501,7 +515,7 @@ export default function DepositForm({
               onChange={(e) => setRefunded(e.target.checked)}
               style={{ width: 16, height: 16, cursor: "pointer" }}
             />
-            <span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>Refunded to tenant</span>
+            <span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>Refunded in full</span>
           </label>
           <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
             <input
@@ -512,15 +526,6 @@ export default function DepositForm({
             />
             <span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>Tenant Defaulted</span>
           </label>
-          <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={partialRefund}
-              onChange={(e) => setPartialRefund(e.target.checked)}
-              style={{ width: 16, height: 16, cursor: "pointer" }}
-            />
-            <span style={{ fontSize: "var(--fs-13)", fontWeight: 700 }}>Partial Refund</span>
-          </label>
         </div>
         {refunded && (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 260 }}>
@@ -528,20 +533,16 @@ export default function DepositForm({
             <Calendar value={refundDate} onChange={setRefundDate} variant="card" />
           </div>
         )}
-        {partialRefund && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, maxWidth: 200 }}>
-              <span style={labelStyle}>Amount Refunded</span>
-              <input style={inputStyle} value={partialRefundAmount} inputMode="decimal" placeholder="0.00"
-                onChange={(e) => setPartialRefundAmount(e.target.value)} onBlur={flushSave} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={labelStyle}>Partial Application Note</span>
-              <input style={inputStyle} value={partialRefundNote} placeholder="Describe how the withheld portion was applied (e.g. damages, unpaid rent)"
-                onChange={(e) => setPartialRefundNote(e.target.value)} onBlur={flushSave} />
-            </div>
-          </div>
-        )}
+        <RefundTimeline
+          rows={refunds}
+          checkAmount={amountNum(amount)}
+          fullyRefunded={refunded}
+          forfeited={tenantDefaulted}
+          onChange={setRefund}
+          onAdd={() => setRefunds((prev) => [...prev, { id: newRefundId(), date: "", amount: "", note: "" }])}
+          onRemove={(id) => setRefunds((prev) => prev.filter((r) => r.id !== id))}
+          onBlur={flushSave}
+        />
       </div>
 
       {/* Running tally of checks added this session (multi-check deposits). */}
@@ -589,6 +590,64 @@ export default function DepositForm({
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The deposit's partial refunds, oldest first, each dated, with what is
+ *  still held under them — the check less every refund. */
+function RefundTimeline({ rows, checkAmount, fullyRefunded, forfeited, onChange, onAdd, onRemove, onBlur }: {
+  rows: RefundRow[];
+  checkAmount: number;
+  fullyRefunded: boolean;
+  forfeited: boolean;
+  onChange: (id: string, patch: Partial<RefundRow>) => void;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onBlur: () => void;
+}) {
+  const sorted = [...rows].sort((a, b) => (a.date || "9999").localeCompare(b.date || "9999"));
+  const refundedSum = rows.reduce((s, r) => s + amountNum(r.amount), 0);
+  const held = fullyRefunded || forfeited ? 0 : Math.max(0, checkAmount - refundedSum);
+  const label: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+  return (
+    <div style={{ display: "grid", gap: 6, marginTop: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <span style={label}>Partial Refunds</span>
+        <button type="button" className="btn sm" onClick={onAdd}>
+          <Plus size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Add partial refund
+        </button>
+      </div>
+      {sorted.length > 0 && (
+        <div>
+          {sorted.map((r) => (
+            <div key={r.id} className="task-row" style={{ display: "grid", gridTemplateColumns: "190px 150px minmax(0, 1fr) 36px", gap: 8, alignItems: "center", padding: "8px 2px", borderBottom: "1px solid var(--hairline)" }}>
+              <Calendar value={r.date} onChange={(v) => onChange(r.id, { date: v })} variant="card" />
+              <input value={r.amount} inputMode="decimal" placeholder="Amount" aria-label="Amount refunded"
+                style={{ width: "100%", textAlign: "right" }}
+                onChange={(e) => onChange(r.id, { amount: e.target.value })}
+                onBlur={() => { onChange(r.id, { amount: reformat(r.amount) }); onBlur(); }} />
+              <input value={r.note} placeholder="Why, e.g. per 5th Amendment" aria-label="Note"
+                style={{ width: "100%" }}
+                onChange={(e) => onChange(r.id, { note: e.target.value })} onBlur={onBlur} />
+              <button type="button" className="btn sm" aria-label="Remove this refund" onClick={() => onRemove(r.id)}
+                style={{ padding: 0, width: 36, justifyContent: "center" }}>
+                <X size={16} strokeWidth={1.75} aria-hidden />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {(sorted.length > 0 || fullyRefunded || forfeited) && checkAmount > 0 && (
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: "var(--fs-14)", paddingTop: 2 }}>
+          <span className="muted">
+            Check {dollars(checkAmount)}
+            {refundedSum > 0 ? ` less ${dollars(refundedSum)} refunded` : ""}
+            {fullyRefunded ? " · refunded in full" : forfeited ? " · forfeited" : ""}
+          </span>
+          <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>Held {dollars(held)}</span>
+        </div>
+      )}
     </div>
   );
 }

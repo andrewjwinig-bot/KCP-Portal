@@ -84,3 +84,34 @@ describe("The Office Works section", () => {
     expect(depositAccountOf({ propertyCode: "4900" })).toBe("office-works");
   });
 });
+
+describe("partial refunds", () => {
+  it("held = the check less every partial refund", async () => {
+    const { heldAmount, sanitizeDeposit } = await import("./deposits");
+    const d = sanitizeDeposit({
+      propertyCode: "4070", unitRef: "4070-209", amount: "12,615.45",
+      refunds: [
+        { date: "2026-03-01", amount: "1,000", note: "second" },
+        { date: "2025-06-30", amount: 4405.45, note: "Partial Return of SD per 5th Amendment 2025" },
+      ],
+    });
+    expect(d.amount).toBe(12615.45);
+    expect(d.refunds!.map((r) => r.date)).toEqual(["2025-06-30", "2026-03-01"]);
+    expect(d.partialRefund).toBe(true);
+    expect(d.partialRefundAmount).toBe(5405.45);
+    expect(heldAmount(d)).toBe(7210);
+  });
+  it("reads a record saved before the timeline as one undated refund", async () => {
+    const { heldAmount, refundsOf } = await import("./deposits");
+    const old = dep({ amount: 12615.45 });
+    old.partialRefund = true; old.partialRefundAmount = 4405.45;
+    expect(refundsOf(old)).toHaveLength(1);
+    expect(heldAmount(old)).toBe(8210);
+  });
+  it("holds nothing once refunded or forfeited, never below zero", async () => {
+    const { heldAmount } = await import("./deposits");
+    expect(heldAmount({ ...dep({ amount: 500 }), refunded: true })).toBe(0);
+    expect(heldAmount({ ...dep({ amount: 500 }), tenantDefaulted: true })).toBe(0);
+    expect(heldAmount({ ...dep({ amount: 500 }), refunds: [{ id: "a", date: "", amount: 900, note: "" }] })).toBe(0);
+  });
+});

@@ -3,7 +3,7 @@
 
 import "server-only";
 import { listDeposits } from "@/lib/deposits/storage";
-import type { SecurityDeposit } from "@/lib/deposits/deposits";
+import { heldAmount, type SecurityDeposit } from "@/lib/deposits/deposits";
 import type { CloseOutDeposit } from "./queue";
 import { sameTenant } from "@/lib/leasing/confirmedMoveouts";
 import { allRuns } from "@/lib/statements/store";
@@ -36,8 +36,10 @@ export function depositSettlement(d: SecurityDeposit | null, balance: number): C
   if (!d) return null;
   const status = d.refunded ? "refunded" : d.tenantDefaulted ? "forfeited" : d.partialRefund ? "partial" : "held";
   // A deposit on file with no amount keyed applies nothing — never a $0 credit.
-  const applies = (status === "held" || status === "partial") && d.amount > 0;
-  return { amount: d.amount, status, net: applies ? d.amount - balance : null };
+  // A partial refund comes off what is applied: only what is still held.
+  const amount = status === "partial" ? heldAmount(d) : d.amount;
+  const applies = (status === "held" || status === "partial") && amount > 0;
+  return { amount, status, net: applies ? amount - balance : null };
 }
 
 

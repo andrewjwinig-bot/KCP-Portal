@@ -1,5 +1,6 @@
 "use client";
 import { pickInto } from "@/app/components/pickFiles";
+import { heldAmount } from "@/lib/deposits/deposits";
 import { DisplayMenu, ToggleRow } from "@/app/components/DisplayMenu";
 import { TriangleAlert, X, Upload, Sparkles } from "lucide-react";
 
@@ -45,12 +46,13 @@ type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresIn
 type Candidate = { propertyCode: string; propertyName: string; unitRef: string; name: string; leaseTo: string | null; kind: "vacated" | "expiring"; days: number | null; year: number | null; month: number | null };
 type DepositStatus = "held" | "refunded" | "forfeited" | "partial";
 type RawDeposit = { amount: number; checkNumber: string; refunded: boolean; tenantDefaulted: boolean; partialRefund: boolean; partialRefundAmount?: number };
-type DepositInfo = { amount: number; checkNumber: string; status: DepositStatus; partialRefundAmount: number; raw?: Record<string, unknown> & { id?: string } };
+type DepositInfo = { amount: number; checkNumber: string; status: DepositStatus; partialRefundAmount: number; /** What is still held: the check less any partial refunds. */ held: number; raw?: Record<string, unknown> & { id?: string } };
 const toDepositInfo = (pick: RawDeposit): DepositInfo => ({
   amount: pick.amount,
   checkNumber: pick.checkNumber,
   status: pick.refunded ? "refunded" : pick.tenantDefaulted ? "forfeited" : pick.partialRefund ? "partial" : "held",
   partialRefundAmount: pick.partialRefundAmount ?? 0,
+  held: heldAmount(pick),
   raw: pick as unknown as DepositInfo["raw"],
 });
 /** "25,496" / "$25,496.00" → dollars (Number alone reads a comma as NaN). */
@@ -604,13 +606,13 @@ export default function InterimReconPage() {
   const [showPicker, setShowPicker] = useState(false);
   const pickerOpen = showPicker || candidates.length === 0 || isManual || !!error;
   const grandTotal = totalDueOf(totalBalance, openAr);
-  const depositAppliesNow = deposit != null && (deposit.status === "held" || deposit.status === "partial") && deposit.amount > 0;
+  const depositAppliesNow = deposit != null && (deposit.status === "held" || deposit.status === "partial") && deposit.held > 0;
   // The settlement page the downloads append — the SAME page the final PDF carries.
   const settlementFor = useCallback(() => ({
     reconBalance: totalBalance,
     openAr,
     totalDue: grandTotal,
-    deposit: deposit ? { amount: deposit.amount, status: deposit.status, net: depositAppliesNow ? deposit.amount - grandTotal : null } : null,
+    deposit: deposit ? { amount: deposit.held, status: deposit.status, net: depositAppliesNow ? deposit.held - grandTotal : null } : null,
   }), [totalBalance, openAr, grandTotal, deposit, depositAppliesNow]);
 
   // ONE PDF for the whole close-out (owner: "shouldnt it be one download PDF
@@ -844,7 +846,7 @@ export default function InterimReconPage() {
   // bill: the CAM/RET true-up (the statement below is its working), every
   // unpaid charge still on the account, less the deposit = what is left. The
   // tenant's final Skyline statement is imported right on its line.
-  const depAmt = deposit && depositApplies && deposit.amount > 0 ? deposit.amount : 0;
+  const depAmt = deposit && depositApplies && deposit.held > 0 ? deposit.held : 0;
   const finalNet = grandTotal - depAmt; // >0 owed by the tenant, <0 refund
   const lineRow = (label: React.ReactNode, value: React.ReactNode, sub?: React.ReactNode) => (
     <div style={{ padding: "9px 0", borderTop: "1px solid var(--border)" }}>
