@@ -18,6 +18,7 @@ import { th, thL, td as tdBase, tdL as tdLBase } from "@/app/components/tableSty
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { useImport } from "@/app/components/import/ImportProvider";
 import { useUser } from "@/app/components/UserProvider";
+import { CashForecastCard } from "./CashForecastCard";
 import { BalanceTrendModal, type PortfolioPoint, type TrendMetric } from "./BalanceTrendModal";
 
 type Account = { id: string; bank: string; last4: string; name: string; link: string | null; balance: number | null; available: number | null; asOf: string | null; prior: { balance: number; asOf: string } | null };
@@ -400,6 +401,8 @@ export default function BankBalancesView() {
           </table>
         </div>
       )}
+
+      {data && data.byBank.length > 0 && <CashForecastCard />}
 
       {data && data.unmatched.length > 0 && (
         <div className="card">

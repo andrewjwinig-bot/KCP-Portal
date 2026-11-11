@@ -2739,12 +2739,12 @@ function ButtonMenu({
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={variant === "primary" ? "btn primary" : "btn"}
+        className={`${variant === "primary" ? "btn primary" : "btn"} icon-tip`}
         style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}
-        title={label}
+        data-tip={label}
       >
         {label === "Export" ? <Download size={16} strokeWidth={1.75} aria-hidden /> : label === "Actions" ? <Ellipsis size={16} strokeWidth={1.75} aria-hidden /> : null}
         <span className="menu-btn-label">{label}</span>

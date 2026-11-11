@@ -12,8 +12,11 @@ import { ChevronDown, Download, ExternalLink } from "lucide-react";
 // e.g. a workbook/PDF generated in the browser.
 export type DownloadItem = { label: string; description?: string; href?: string; onClick?: () => void };
 
-export function DownloadMenu({ label = "Download", items, variant = "primary", disabled }: {
+export function DownloadMenu({ label = "Download", items, variant = "primary", disabled, showLabel }: {
   label?: string;
+  /** Keep the word beside the icon (the tenant portal); everywhere else the
+   *  menu reads as its icon with the name on hover. */
+  showLabel?: boolean;
   items: DownloadItem[];
   variant?: "default" | "primary";
   disabled?: boolean;
@@ -36,16 +39,15 @@ export function DownloadMenu({ label = "Download", items, variant = "primary", d
         type="button"
         onClick={() => !disabled && setOpen((v) => !v)}
         disabled={disabled}
-        className={variant === "primary" ? "btn primary" : "btn"}
+        className={`${variant === "primary" ? "btn primary" : "btn"}${showLabel ? "" : " icon-tip"}`}
         style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}
-        title={label}
+        data-tip={label}
       >
         {/^open$/i.test(label) ? <ExternalLink size={16} strokeWidth={1.75} aria-hidden /> : <Download size={16} strokeWidth={1.75} aria-hidden />}
-        {/* On a narrower window the header menus read as their icons. */}
-        <span className="menu-btn-label">{label}</span>
+        <span className={showLabel ? "menu-btn-label keep" : "menu-btn-label"}>{label}</span>
         <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ opacity: 0.8 }} />
       </button>
       {open && (

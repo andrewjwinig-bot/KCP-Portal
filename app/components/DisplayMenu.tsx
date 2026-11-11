@@ -45,7 +45,7 @@ export function DisplayMenu({ children, label = "Display" }: { children: React.R
   }, [open]);
   return (
     <div ref={wrapRef} style={{ position: "relative", display: "inline-flex" }}>
-      <button type="button" onClick={() => setOpen((v) => !v)} className="btn" aria-haspopup="menu" aria-expanded={open} aria-label={label} title={label}>
+      <button type="button" onClick={() => setOpen((v) => !v)} className="btn icon-tip" aria-haspopup="menu" aria-expanded={open} aria-label={label} data-tip={label}>
         <SlidersHorizontal size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
         <span className="menu-btn-label" style={{ marginLeft: 6 }}>{label}</span>
         <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ marginLeft: 6, verticalAlign: "-3px", flexShrink: 0 }} />
