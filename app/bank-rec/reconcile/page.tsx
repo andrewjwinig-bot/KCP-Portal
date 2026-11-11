@@ -2,7 +2,7 @@
 import { pickInto } from "@/app/components/pickFiles";
 import { PageHeader } from "@/app/components/PageHeader";
 import { HeaderSelect } from "@/app/components/HeaderSelect";
-import { MetaLine } from "@/app/components/LastImported";
+import { MetaLine, titleName } from "@/app/components/LastImported";
 import { FilePath } from "@/app/components/FilePath";
 import LoadingState from "@/app/components/LoadingState";
 import { Check, ChevronDown, ChevronRight, CircleCheck, Upload } from "lucide-react";
@@ -183,22 +183,25 @@ export default function BankRecPage() {
 
   return (
     <main style={{ display: "grid", gap: 14 }}>
-      <PageHeader title="Bank Reconciliation"
-        // The month's folder can be dropped anywhere on the header, as on every
-        // import page (owner: "the drop … folder here is different than the
-        // other import buttons on other pages").
-        dropHandlers={signed ? undefined : {
+      <PageHeader title="Bank Reconciliation" />
+
+      {/* ONE card carries the period, every action and the month's tiles, as
+          Operating Statements' does (owner: "shouldnt the card with the pills
+          at the top include the import, rerun, sign off, and period?"). The
+          month's folder can be dropped anywhere on it. */}
+      <div className="card" style={{ display: "grid", gap: 14, ...(dragOver ? { outline: "2px dashed var(--brand)", outlineOffset: 4 } : {}) }}
+        {...(signed ? {} : {
           onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragOver(true); },
           onDragLeave: () => setDragOver(false),
           onDrop: async (e: React.DragEvent) => { e.preventDefault(); setDragOver(false); importFiles(await filesFromDrop(e.dataTransfer)); },
-        }}
-        dragging={dragOver}
-        pickers={<>
+        })}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", flexShrink: 0 }}>
           <HeaderSelect value={period} onChange={setPeriod} ariaLabel="Month" displayLabel={periodLabel(period)}>
             {months.map((p) => <option key={p} value={p}>{periodLabel(p)}</option>)}
           </HeaderSelect>
-        </>}
-        actions={<>
+        </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {!signed && <>
             <button className="btn import" disabled={!!busy || reconciling} onClick={() => pickInto(fileInput.current, "bank-recs")}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Bank Rec Files</button>
             <InfoPopover>
@@ -219,18 +222,16 @@ export default function BankRecPage() {
             ? <button className="btn" disabled={!!busy || reconciling} onClick={() => signOff(false)}>Reopen month</button>
             : <button className="btn primary" disabled={!!busy || reconciling || counts.out > 0 || counts.incomplete > 0} onClick={() => signOff(true)}
                 title={counts.out || counts.incomplete ? "Every account must be filed and in balance first" : undefined}>Sign off {shortPeriod(period)}</button>)}
-        </>}
-        meta={(signed || data) ? <MetaLine>
+        </div>
+        </div>
+        {(signed || data) && <MetaLine>
           {signed && <><span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--c-067647)" }}>
-            <CircleCheck size={16} strokeWidth={1.75} aria-hidden />Signed off{r?.signedOff?.by ? ` by ${r.signedOff.by}` : ""} {new Date(r!.signedOff!.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+            <CircleCheck size={16} strokeWidth={1.75} aria-hidden />Signed off{r?.signedOff?.by ? ` by ${titleName(r.signedOff.by)}` : ""} {new Date(r!.signedOff!.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
           </span></>}
           {data && <><span>{data.files.filter((f) => f.kind === "stmt").length} statements · {data.files.filter((f) => f.kind.startsWith("rec")).length} Skyline recs on file</span>
             <span>{data.report ? <>Checking Account Report as of {data.report.asOf ? dateLabel(data.report.asOf) : "?"}</> : <b style={{ color: "var(--c-b45309)" }}>No Checking Account Report for {periodLabel(period)} yet</b>}</span>
-            {r && <span>Last run {new Date(r.computedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.by ? ` · ${r.by}` : ""}</span>}</>}
-        </MetaLine> : undefined} />
-
-      {(r || busy || error) && <div className="card" style={{ display: "grid", gap: 14 }}>
-
+            {r && <span>Last run {new Date(r.computedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.by ? ` by ${titleName(r.by)}` : ""}</span>}</>}
+        </MetaLine>}
         {r && (
           <div className="pills" style={{ flexWrap: "wrap", justifyContent: "flex-start", marginTop: 0 }}>
             <StatPill label="In balance" value={`${counts.ok} of ${counts.total}`} total />
@@ -246,14 +247,14 @@ export default function BankRecPage() {
         )}
         {busy && <div className="muted small">{busy}</div>}
         {error && <div style={{ color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
-      </div>}
+      </div>
 
       {!reconciling && !data && !error && <LoadingState status="Loading bank recs…" context={periodLabel(period)} columns={5} rows={6} />}
 
       {reconciling && <ReconcilingCard period={period} accounts={[...new Set((data?.files ?? []).map((f) => f.last4).filter(Boolean) as string[])].sort()} />}
 
       {!reconciling && data && !r && (
-        <div className="card muted small">Nothing reconciled for {periodLabel(period)} yet — Import Bank Rec Files above, or drop the month&rsquo;s folder on the header.
+        <div className="card muted small">Nothing reconciled for {periodLabel(period)} yet — Import Bank Rec Files above, or drop the month&rsquo;s folder on that card.
           {data.files.length > 0 && <> {data.files.length} files are on file — <button className="btn sm" onClick={() => run()}>Run the rec</button></>}
         </div>
       )}
