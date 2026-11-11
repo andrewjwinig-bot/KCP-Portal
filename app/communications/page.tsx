@@ -125,11 +125,13 @@ export default function CommunicationsPage() {
   );
 }
 
-function EmailFrame({ t }: { t: TenantTemplate }) {
+// The preview fills the window (owner: "make the winter tips window longer") —
+// `room` is what the modal's header and controls take above and below it.
+function EmailFrame({ t, room = 180 }: { t: TenantTemplate; room?: number }) {
   // The send's own HTML, with the images from wherever the portal is served.
   const html = useMemo(() => renderTenantEmail(t, `${window.location.origin}/site/email/tenant`).html, [t]);
   return <iframe title={`${t.name} preview`} srcDoc={html} sandbox="allow-popups"
-    style={{ width: "100%", height: 560, border: "1px solid var(--border)", borderRadius: 12, background: "#fff" }} />;
+    style={{ width: "100%", height: `max(420px, calc(100vh - ${room}px))`, border: "1px solid var(--border)", borderRadius: 12, background: "#fff" }} />;
 }
 
 function PreviewModal({ t, onClose }: { t: TenantTemplate; onClose: () => void }) {
@@ -211,7 +213,7 @@ function DraftModal({ t, onClose, onSent }: { t: TenantTemplate; onClose: () => 
         <label style={{ ...SECTION, display: "block", marginBottom: 4 }}>Subject</label>
         <input value={subject} onChange={(e) => setSubject(e.target.value)} style={{ width: "100%" }} />
         {t.kind === "weather" && <div className="muted" style={{ fontSize: "var(--fs-13)", marginTop: 4 }}>Add the dates, e.g. &ldquo;{t.subject}: Tuesday through Thursday&rdquo;.</div>}
-        <div style={{ marginTop: 12 }}><EmailFrame t={t} /></div>
+        <div style={{ marginTop: 12 }}><EmailFrame t={t} room={370} /></div>
 
         {drafted && (
           <div className="muted" style={{ fontSize: "var(--fs-14)", marginTop: 10 }}>
