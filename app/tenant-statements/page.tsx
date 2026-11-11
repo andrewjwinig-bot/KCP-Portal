@@ -384,11 +384,11 @@ export default function TenantStatementsPage() {
                 ))}
               </HeaderSelect>
             )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <button className="btn import" onClick={() => fileRef.current?.click()}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import Laser Statement
             </button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {row && (
               <button className={row.published ? "btn" : "btn primary"} disabled={busy} onClick={togglePublish}>
                 {busy ? "Saving…" : row.published ? "Unpublish" : "Publish to Portal"}

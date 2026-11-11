@@ -202,7 +202,7 @@ export default function BankBalancesView() {
       <header {...drop.dropHandlers}
         style={drop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: 6, borderRadius: 12 } : undefined}>
         <h1 style={{ margin: 0 }}>Bank Balances</h1>
-        <div style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             {data?.canEdit && (
               <>

@@ -836,14 +836,14 @@ export default function OperatingStatementsPage() {
             <HeaderSelect ariaLabel="Year" muted value={String(year)} onChange={(v) => { setYear(Number(v)); setPeriod(0); setFlagFilter(null); }} displayLabel={year ? String(year) : "Year"}>
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
-            {/* Import sits beside the pickers it imports for (owner). */}
+          </div>
+          {/* Actions on the right, Import first (owner: "grouped with the display button"). */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" multiple style={{ display: "none" }} onChange={onUpload} />
             <button className="btn import" onClick={() => fileRef.current?.click()}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
               {glDrop.dragging ? "Drop to import" : "Import GL"}
             </button>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" multiple style={{ display: "none" }} onChange={onUpload} />
             {cur && (
               <ViewMenu
                 leanImport={leanImport} setLeanImport={setLeanImport}

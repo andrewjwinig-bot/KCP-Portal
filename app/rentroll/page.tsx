@@ -1817,8 +1817,8 @@ export default function RentRollPage() {
             </div>
           </div>
         )}
-        {/* ONE row of controls: the month (the page's driving control), then
-            the import beside it; the report on the right. */}
+        {/* ONE row of controls: the month on the left; the actions — import
+            first, then the report — grouped on the right. */}
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             {snapshotList.length > 0 && (
@@ -1835,6 +1835,8 @@ export default function RentRollPage() {
                 })}
               </HeaderSelect>
             )}
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
             <input
               ref={fileInputRef}
               type="file"
@@ -1850,7 +1852,6 @@ export default function RentRollPage() {
             >
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{uploading ? "Importing" : "Import Rent Roll"}
             </button>
-          </div>
           {((filteredRentroll && categoryRentroll) || snapshotList.length > 0) && (
             <button
               className="btn"
@@ -1862,6 +1863,7 @@ export default function RentRollPage() {
               {generatingReport ? "Building Status Report" : "Status Report"}
             </button>
           )}
+          </div>
         </div>
         <MetaLine at={rentroll?.uploadedAt} by={rentroll?.uploadedBy}>
           <ImportInstructionsButton nextMonth={(() => {
