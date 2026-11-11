@@ -1,4 +1,5 @@
 "use client";
+import { DisplayMenu, CheckRow, MenuSection } from "@/app/components/DisplayMenu";
 import { ChevronDown, ChevronUp, FileText } from "lucide-react";
 import LoadingState from "@/app/components/LoadingState";
 
@@ -320,40 +321,14 @@ export default function UnitInfoIndexPage() {
             placeholder="Search by tenant, unit, or property…"
             style={{ flex: "1 1 260px", maxWidth: 420 }}
           />
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-13)", color: "var(--text)", cursor: "pointer", whiteSpace: "nowrap" }}>
-            <input type="checkbox" checked={vacantOnly} onChange={(e) => setVacantOnly(e.target.checked)} />
-            Vacant only
-          </label>
-          <div style={{ position: "relative" }}>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setColMenu((v) => !v)}
-              style={{ fontSize: "var(--fs-13)", padding: "7px 12px", fontWeight: 600 }}
-            >
-              Columns <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
-            </button>
-            {colMenu && (
-              <>
-                <div onClick={() => setColMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 20 }} />
-                <div style={{
-                  position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 21,
-                  background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10,
-                  padding: "8px 6px", minWidth: 180, boxShadow: "0 8px 24px rgba(15,23,42,0.16)",
-                }}>
-                  {COLUMNS.map((c) => (
-                    <label key={c.key} style={{
-                      display: "flex", alignItems: "center", gap: 8, padding: "6px 10px",
-                      fontSize: "var(--fs-13)", cursor: "pointer", borderRadius: 6, whiteSpace: "nowrap",
-                    }}>
-                      <input type="checkbox" checked={cols.has(c.key)} onChange={() => toggleCol(c.key)} />
-                      {c.label}
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          <DisplayMenu>
+            <CheckRow label="Vacant only" checked={vacantOnly} onChange={setVacantOnly} />
+            <MenuSection label="Columns">
+              {COLUMNS.map((c) => (
+                <CheckRow key={c.key} label={c.label} checked={cols.has(c.key)} onChange={() => toggleCol(c.key)} />
+              ))}
+            </MenuSection>
+          </DisplayMenu>
         </div>
       </header>
 

@@ -6,7 +6,7 @@
 // an optional one-line description. Closes on outside click or Escape.
 
 import React, { useEffect, useRef, useState } from "react";
-import { ChevronDown, Download } from "lucide-react";
+import { ChevronDown, Download, ExternalLink } from "lucide-react";
 
 // An item is either a download link (href) or a client-side action (onClick) —
 // e.g. a workbook/PDF generated in the browser.
@@ -40,9 +40,12 @@ export function DownloadMenu({ label = "Download", items, variant = "primary", d
         style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={label}
+        title={label}
       >
-        <Download size={16} strokeWidth={1.75} aria-hidden />
-        {label}
+        {/^open$/i.test(label) ? <ExternalLink size={16} strokeWidth={1.75} aria-hidden /> : <Download size={16} strokeWidth={1.75} aria-hidden />}
+        {/* On a narrower window the header menus read as their icons. */}
+        <span className="menu-btn-label">{label}</span>
         <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ opacity: 0.8 }} />
       </button>
       {open && (

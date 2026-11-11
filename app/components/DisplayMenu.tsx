@@ -5,7 +5,7 @@
 // dropdown to be more clean and simple"). Operating Statements and
 // Reprojections share it; a page adds its rows as children.
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
 
 export const toggleLabel: React.CSSProperties = { fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" };
 const toggleBtn: React.CSSProperties = {
@@ -45,8 +45,9 @@ export function DisplayMenu({ children, label = "Display" }: { children: React.R
   }, [open]);
   return (
     <div ref={wrapRef} style={{ position: "relative", display: "inline-flex" }}>
-      <button type="button" onClick={() => setOpen((v) => !v)} className="btn" aria-haspopup="menu" aria-expanded={open}>
-        {label}
+      <button type="button" onClick={() => setOpen((v) => !v)} className="btn" aria-haspopup="menu" aria-expanded={open} aria-label={label} title={label}>
+        <SlidersHorizontal size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
+        <span className="menu-btn-label" style={{ marginLeft: 6 }}>{label}</span>
         <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ marginLeft: 6, verticalAlign: "-3px", flexShrink: 0 }} />
       </button>
       {open && (
@@ -58,6 +59,26 @@ export function DisplayMenu({ children, label = "Display" }: { children: React.R
           {children}
         </div>
       )}
+    </div>
+  );
+}
+
+/** A yes / no option in the menu ("Only tenants with a balance", a column). */
+export function CheckRow({ label, checked, onChange, hint }: { label: string; checked: boolean; onChange: (v: boolean) => void; hint?: string }) {
+  return (
+    <label style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: "var(--fs-14)", cursor: "pointer" }}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ marginTop: 2 }} />
+      <span>{label}{hint && <span className="muted" style={{ display: "block", fontSize: "var(--fs-13)" }}>{hint}</span>}</span>
+    </label>
+  );
+}
+
+/** A small heading over a group of rows inside the menu. */
+export function MenuSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      <span className="muted small" style={toggleLabel}>{label}</span>
+      {children}
     </div>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
-import { ChevronDown, ChevronRight, X, Upload } from "lucide-react";
+import { DisplayMenu, ToggleRow } from "@/app/components/DisplayMenu";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { ChevronDown, ChevronRight, X, Upload, Download, Ellipsis } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
 import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -849,17 +851,6 @@ function BudgetTable({
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
             <HeaderSelect
-              value={String(workbook.year)}
-              onChange={(v) => handleYearChange(Number(v))}
-              displayLabel={String(workbook.year)}
-              ariaLabel="Year"
-              muted
-            >
-              {allYears.map((y) => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </HeaderSelect>
-            <HeaderSelect
               value={`${workbook.id}|${property.propertyCode}`}
               onChange={handlePropertyChange}
               displayLabel={property.propertyCode === "CONSOLIDATED" ? property.propertyName : `${property.propertyCode} — ${property.propertyName}`}
@@ -875,23 +866,36 @@ function BudgetTable({
                 </optgroup>
               ))}
             </HeaderSelect>
+            <HeaderSelect
+              value={String(workbook.year)}
+              onChange={(v) => handleYearChange(Number(v))}
+              displayLabel={String(workbook.year)}
+              ariaLabel="Year"
+              muted
+            >
+              {allYears.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </HeaderSelect>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {property.propertyCode !== "CONSOLIDATED" && (
-              <>
-                {isPathAllowed(user.id, "/financials/operating-statements") && <a className="btn" href={`/financials/operating-statements?property=${encodeURIComponent(property.propertyCode)}&year=${workbook.year}`}
-                  title={`Open ${property.propertyCode}'s operating statement`} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}>
-                  Statements
-                </a>}
-                {isPathAllowed(user.id, "/financials/reprojections") && <a className="btn" href={`/financials/reprojections?property=${encodeURIComponent(property.propertyCode)}&year=${workbook.year}`}
-                  title={`Open ${property.propertyCode}'s full-year reprojection`} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, textDecoration: "none" }}>
-                  Reprojection
-                </a>}
-              </>
+            <DisplayMenu>
+              <ToggleRow label="Amounts" left="Total" right="$/SF" active={psf ? "right" : "left"} onLeft={() => setPsf(false)} onRight={() => setPsf(true)} disabled={sqft <= 0} />
+              <ToggleRow label="Empty rows" left="Hide" right="Show" active={hideEmpty ? "left" : "right"} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
+              <ToggleRow label="GL accounts" left="Hide" right="Show" active={showGL ? "right" : "left"} onLeft={() => setShowGL(false)} onRight={() => setShowGL(true)} />
+            </DisplayMenu>
+            {property.propertyCode !== "CONSOLIDATED" && (isPathAllowed(user.id, "/financials/operating-statements") || isPathAllowed(user.id, "/financials/reprojections")) && (
+              <DownloadMenu
+                label="Open"
+                variant="default"
+                items={[
+                  ...(isPathAllowed(user.id, "/financials/operating-statements") ? [{ label: "Operating Statement", description: `${property.propertyCode}'s statement for ${workbook.year}`, href: `/financials/operating-statements?property=${encodeURIComponent(property.propertyCode)}&year=${workbook.year}` }] : []),
+                  ...(isPathAllowed(user.id, "/financials/reprojections") ? [{ label: "Reprojection", description: `${property.propertyCode}'s full-year reprojection`, href: `/financials/reprojections?property=${encodeURIComponent(property.propertyCode)}&year=${workbook.year}` }] : []),
+                ]}
+              />
             )}
             <ButtonMenu
-              label="Download"
-              variant="primary"
+              label="Export"
               items={[
                 { label: "Excel (.xlsx)", description: "Full budget + rent roll, allocations, CIP detail tabs", href: downloadHref },
                 { label: "PDF",           description: "Presentation-ready single-property summary",           href: downloadPdfHref },
@@ -982,11 +986,6 @@ function BudgetTable({
             {workbook.kind === "live" && workbook.source?.opExGrowthPct != null && (
               <> · OpEx defaulted at {workbook.source.opExGrowthPct}% over prior</>
             )}
-          </div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <ViewToggle psf={psf} onChange={setPsf} disabled={sqft <= 0} />
-            <EmptyRowsToggle hide={hideEmpty} onChange={setHideEmpty} />
-            <GLToggle show={showGL} onChange={setShowGL} />
           </div>
         </div>
 
@@ -1116,116 +1115,6 @@ function GroupHeader({ label }: { label: string }) {
   );
 }
 
-function GLToggle({ show, onChange }: {
-  show: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  const baseBtn: React.CSSProperties = {
-    fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px",
-    border: "1px solid var(--border)", background: "var(--card)",
-    color: "var(--text)", cursor: "pointer",
-    letterSpacing: "0.04em", textTransform: "uppercase",
-  };
-  const active: React.CSSProperties = {
-    background: "var(--c-0b4a7d)", color: "#fff", borderColor: "var(--c-0b4a7d)",
-  };
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-      <span className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>GL</span>
-      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
-        <button
-          type="button"
-          onClick={() => onChange(false)}
-          style={{ ...baseBtn, borderRadius: "6px 0 0 6px", ...(show ? {} : active) }}
-        >
-          Hide
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(true)}
-          style={{ ...baseBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(show ? active : {}) }}
-        >
-          Show
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function EmptyRowsToggle({ hide, onChange }: {
-  hide: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  const baseBtn: React.CSSProperties = {
-    fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px",
-    border: "1px solid var(--border)", background: "var(--card)",
-    color: "var(--text)", cursor: "pointer",
-    letterSpacing: "0.04em", textTransform: "uppercase",
-  };
-  const active: React.CSSProperties = {
-    background: "var(--c-0b4a7d)", color: "#fff", borderColor: "var(--c-0b4a7d)",
-  };
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-      <span className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>Empty rows</span>
-      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
-        <button
-          type="button"
-          onClick={() => onChange(true)}
-          style={{ ...baseBtn, borderRadius: "6px 0 0 6px", ...(hide ? active : {}) }}
-        >
-          Hide
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(false)}
-          style={{ ...baseBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(hide ? {} : active) }}
-        >
-          Show
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ViewToggle({ psf, onChange, disabled }: {
-  psf: boolean;
-  onChange: (v: boolean) => void;
-  disabled: boolean;
-}) {
-  const baseBtn: React.CSSProperties = {
-    fontSize: "var(--fs-11)", fontWeight: 700, padding: "4px 10px",
-    border: "1px solid var(--border)", background: "var(--card)",
-    color: "var(--text)", cursor: disabled ? "not-allowed" : "pointer",
-    letterSpacing: "0.04em", textTransform: "uppercase",
-  };
-  const active: React.CSSProperties = {
-    background: "var(--c-0b4a7d)", color: "#fff", borderColor: "var(--c-0b4a7d)",
-  };
-  return (
-    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-      <span className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>View</span>
-      <div style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden", opacity: disabled ? 0.5 : 1 }}>
-        <button
-          type="button"
-          onClick={() => !disabled && onChange(false)}
-          disabled={disabled}
-          style={{ ...baseBtn, borderRadius: "6px 0 0 6px", ...(psf ? {} : active) }}
-        >
-          Total
-        </button>
-        <button
-          type="button"
-          onClick={() => !disabled && onChange(true)}
-          disabled={disabled}
-          style={{ ...baseBtn, borderLeft: "none", borderRadius: "0 6px 6px 0", ...(psf ? active : {}) }}
-        >
-          $/SF
-        </button>
-      </div>
-    </div>
-  );
-}
 
 /** Big cross-section subtotal row (TOTAL REVENUES, NET OPERATING INCOME,
  *  CASH FLOW…). Sits between section cards with heavier styling than the
@@ -2854,8 +2743,11 @@ function ButtonMenu({
         style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={label}
+        title={label}
       >
-        {label}
+        {label === "Export" ? <Download size={16} strokeWidth={1.75} aria-hidden /> : label === "Actions" ? <Ellipsis size={16} strokeWidth={1.75} aria-hidden /> : null}
+        <span className="menu-btn-label">{label}</span>
         <span aria-hidden style={{ fontSize: "var(--fs-10)", opacity: 0.75, lineHeight: 1 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
       </button>
       {open && (

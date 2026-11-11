@@ -1,4 +1,5 @@
 "use client";
+import { DisplayMenu, ToggleRow } from "@/app/components/DisplayMenu";
 import { TriangleAlert, X, Upload, Sparkles } from "lucide-react";
 
 // Interim ("as-of month") CAM/RET reconciliation — for a mid-year move-out.
@@ -592,7 +593,9 @@ export default function InterimReconPage() {
   const toggleAcct = (v: boolean) => { setShowAcct(v); try { localStorage.setItem("kcp.interim.showAcct", v ? "1" : "0"); } catch { /* private mode */ } };
   // The SAME control Reprojections uses for its GL codes — not a checkbox.
   const acctToggle = (
-    <SegToggle label="GL" leftLabel="Hide" rightLabel="Show" leftActive={!showAcct} onLeft={() => toggleAcct(false)} onRight={() => toggleAcct(true)} />
+    <DisplayMenu>
+      <ToggleRow label="GL accounts" left="Hide" right="Show" active={showAcct ? "right" : "left"} onLeft={() => toggleAcct(false)} onRight={() => toggleAcct(true)} />
+    </DisplayMenu>
   );
   // ONE way to pick a tenant: the move-out candidate list. Building / Year /
   // Tenant / As of (and manual entry) open only on request — or when there
