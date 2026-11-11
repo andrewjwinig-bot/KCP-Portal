@@ -13,6 +13,7 @@
 // Replacing the form is a quiet link, for the rare year the broker changes it;
 // it must never read as the first step.
 
+import { pickInto } from "@/app/components/pickFiles";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Pill, StatPill, TONE_AMBER, TONE_BLUE, TONE_NEUTRAL } from "@/app/components/Pill";
@@ -191,7 +192,7 @@ export default function InsurancePage() {
                 {data.stored.builtIn ? (
                   <p className="muted small" style={{ margin: "2px 0 0" }}>
                     The broker&rsquo;s form, kept in the portal.{" "}
-                    <button type="button" disabled={!!busy} onClick={() => fileRef.current?.click()}
+                    <button type="button" disabled={!!busy} onClick={() => pickInto(fileRef.current, "insurance-sov")}
                       style={{ background: "none", border: "none", padding: 0, color: "var(--brand)", cursor: "pointer", font: "inherit", fontWeight: 600 }}>
                       {busy === "upload" ? "Replacing…" : "Broker changed their form? Replace it"}
                     </button>

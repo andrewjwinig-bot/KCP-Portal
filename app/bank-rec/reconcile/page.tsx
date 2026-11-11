@@ -1,4 +1,5 @@
 "use client";
+import { pickInto } from "@/app/components/pickFiles";
 import { PageHeader } from "@/app/components/PageHeader";
 import { HeaderSelect } from "@/app/components/HeaderSelect";
 import { MetaLine } from "@/app/components/LastImported";
@@ -216,7 +217,7 @@ export default function BankRecPage() {
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button className="btn" onClick={() => folderInput.current?.click()}>Choose folder</button>
-              <button className="btn" onClick={() => fileInput.current?.click()}>Choose files</button>
+              <button className="btn" onClick={() => pickInto(fileInput.current, "bank-recs")}>Choose files</button>
             </div>
             <input ref={folderInput} type="file" hidden multiple {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
               onChange={(e) => { importFiles([...(e.target.files ?? [])]); e.target.value = ""; }} />

@@ -1,4 +1,5 @@
 "use client";
+import { pickInto } from "@/app/components/pickFiles";
 import { DisplayMenu, ToggleRow } from "@/app/components/DisplayMenu";
 import { TriangleAlert, X, Upload, Sparkles } from "lucide-react";
 
@@ -924,7 +925,7 @@ export default function InterimReconPage() {
             </span>
             <input ref={stmtFileRef} type="file" accept=".pdf,.xls,.xlsx" style={{ display: "none" }}
               onChange={(e) => { const f = e.target.files?.[0]; if (f) importFinalStatement(f); }} />
-            <button className="btn sm import" disabled={stmtBusy} onClick={() => stmtFileRef.current?.click()}>
+            <button className="btn sm import" disabled={stmtBusy} onClick={() => pickInto(stmtFileRef.current, "laser-statement")}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{stmtBusy ? "Importing" : openAr ? "Re-import Final Statement" : "Import Final Statement"}
             </button>
           </span>,

@@ -315,6 +315,17 @@ without one), and a new import prompt anywhere takes the icon. The Credit Card
 (AmEx) and Payroll Register entries are a first pass — confirm the source
 system's menus with Harry and correct them there.
 
+**EVERY IMPORT BUTTON OPENS IN THE FOLDER IT WAS LAST USED FROM**
+(`pickInto(inputRef.current, "<id>")`, `app/components/pickFiles.ts`; owner:
+"so it opens to the right folder each time"). A site cannot name a folder
+path for the picker, but Chrome / Edge's file picker remembers the last folder
+PER id, so each import keeps its own (laser-statement, credit-balance,
+rent-roll, general-ledger, bank-balances, credit-card, rent-schedule,
+insurance-sov, bank-recs, budget-workbook). The picked files go back through
+the page's own hidden input, so its onChange runs unchanged; Firefox / Safari
+get the ordinary picker. A new import button calls `pickInto`, never
+`ref.current.click()`.
+
 **A FILE OR FOLDER PATH IS ALWAYS `FilePath`** (`app/components/FilePath.tsx`;
 owner: "file paths should have a format too"): a quiet chip with a folder icon,
 the path in navy mono, `{year}` filled in, any part still to choose

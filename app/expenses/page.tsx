@@ -1,4 +1,5 @@
 "use client";
+import { pickInto } from "@/app/components/pickFiles";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -1304,7 +1305,7 @@ export default function ExpensesPage() {
             />
             <button
               className="btn"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => pickInto(fileInputRef.current, "credit-card")}
               style={{ fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
             >
               {ccDrop.dragging ? "Drop to import" : "Choose Statement File…"}

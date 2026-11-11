@@ -1,4 +1,5 @@
 "use client";
+import { pickInto } from "@/app/components/pickFiles";
 import { DisplayMenu, ToggleRow } from "@/app/components/DisplayMenu";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { ChevronDown, ChevronRight, X, Upload, Download, Ellipsis } from "lucide-react";
@@ -276,7 +277,7 @@ export default function BudgetsPage() {
           </div>
           {canUpload && (
             <button
-              onClick={() => fileRef.current?.click()}
+              onClick={() => pickInto(fileRef.current, "budget-workbook")}
               disabled={uploading}
               className="btn import"
             >
