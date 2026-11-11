@@ -31,7 +31,7 @@ export const IMPORT_STEPS: Record<string, ImportSteps> = {
     where: ["Skyline", "General Ledger", "Reports", "Detailed General Ledger"],
     steps: [
       "Set Beginning Date and End Date to the month being imported (the first to the last day).",
-      "Run it for the property (or every property you are importing).",
+      "Run it for PALL (every property in one file) — or for one property.",
       XLS,
       "Save it to the Monthly GLs folder below. The file name does not matter.",
       "In the portal: Operating Statements, Upload GL, and pick the files.",

@@ -451,7 +451,7 @@ export default function OperatingStatementsPage() {
     await startImport({
       kind: "gl",
       title: (n) => `Importing ${n} general ledger${n === 1 ? "" : "s"}`,
-      subtitle: "Detailed GL · .xls / .xlsx · you can keep working while this runs",
+      subtitle: "Detailed GL · one property or all (PALL) · you can keep working while this runs",
       files,
       by: user.label,
       concurrency: 1, // sequential → the file list resolves top-down
@@ -480,6 +480,23 @@ export default function OperatingStatementsPage() {
             noteTone: newMonths.size && j.balanced ? "ok" : "warn",
             count: props,
             countLabel: "properties",
+          };
+        }
+        // A multi-property GL (Skyline's PALL list) imports every property it
+        // carries; the row is the file, the report below works per property.
+        if (j.pall) {
+          const imported = (j.imported ?? []) as { key: string; year: number }[];
+          const un = (j.unplaced ?? []).length, failed = (j.failed ?? []).length;
+          if (imported[0]) last = { key: imported[0].key, year: imported[0].year };
+          return {
+            status: "done" as const,
+            entity: `All properties · ${imported.length} of ${j.sections} sections imported`,
+            detail: j.maxPeriodInFile ? `through ${MONTHS[j.maxPeriodInFile - 1]}` : undefined,
+            count: imported.length,
+            countLabel: "properties",
+            note: [un ? `${un} section${un === 1 ? "" : "s"} not identified` : "", failed ? `${failed} failed` : "", (j.notInFile ?? []).length ? `${j.notInFile.length} not in this file` : ""].filter(Boolean).join(" · ") || "every section identified",
+            noteTone: un || failed ? ("warn" as const) : ("ok" as const),
+            raw: j,
           };
         }
         last = { key: j.key, year: j.year };
@@ -511,10 +528,14 @@ export default function OperatingStatementsPage() {
       },
       report: (rows) => {
         const ok = rows.filter((r) => r.status === "done");
-        const raws = ok.map((r) => r.raw as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean; years?: number[]; perYear?: { year: number; maxPeriodInFile: number }[]; notPosted?: { count: number } | null; allocated?: { ok: boolean; total?: number; byProperty?: unknown[]; staged?: boolean; invoiceCount?: number; autoSent?: boolean; autoHeld?: string } | null });
+        const raws = ok.flatMap((r) => ((r.raw as { pall?: boolean; imported?: unknown[] })?.pall ? ((r.raw as { imported: unknown[] }).imported) : [r.raw])).map((x) => x as { key: string; year: number; maxPeriodInFile: number; allocatedGlReady?: boolean; years?: number[]; perYear?: { year: number; maxPeriodInFile: number }[]; notPosted?: { count: number } | null; allocated?: { ok: boolean; total?: number; byProperty?: unknown[]; staged?: boolean; invoiceCount?: number; autoSent?: boolean; autoHeld?: string } | null });
         const notPostedTotal = raws.reduce((a, r) => a + (r.notPosted?.count ?? 0), 0);
         const alloc = raws.map((r) => r.allocated as ({ ok: boolean; total?: number; byProperty?: unknown[]; staged?: boolean; invoiceCount?: number; autoSent?: boolean; autoHeld?: string } | null | undefined)).find((a) => a?.ok && (a.total ?? 0) > 0) ?? null;
-        const entities = new Set(ok.map((r) => r.entity)).size;
+        const pall = ok.map((r) => r.raw as { pall?: boolean; unplaced?: { index: number; accounts: number; cash: number | null; note: string }[]; failed?: { key: string; error: string }[]; notInFile?: { key: string; name: string }[] }).filter((x) => x?.pall);
+        const unplaced = pall.flatMap((x) => x.unplaced ?? []);
+        const failedSections = pall.flatMap((x) => x.failed ?? []);
+        const notInFile = pall.flatMap((x) => x.notInFile ?? []);
+        const entities = new Set(raws.map((r) => r.key)).size;
         const accounts = ok.reduce((a, r) => a + (r.count ?? 0), 0);
         const years = [...new Set(raws.flatMap((r) => r.years ?? [r.year]).filter(Boolean))].sort((a, b) => a - b);
         const targets = raws.flatMap((r) => (r.perYear ?? [{ year: r.year, maxPeriodInFile: r.maxPeriodInFile }]).map((p) => ({ key: r.key, year: p.year, period: p.maxPeriodInFile }))).filter((t) => t.key && t.year && t.period);
@@ -526,6 +547,15 @@ export default function OperatingStatementsPage() {
             { value: years.length ? (years.length === 1 ? String(years[0]) : `${years[0]}–${years[years.length - 1]}`) : "—", label: years.length > 1 ? "years" : "year" },
           ],
           unlocks: [
+            ...(failedSections.length
+              ? [{ id: "pall-failed", title: `${failedSections.length} propert${failedSections.length === 1 ? "y" : "ies"} did not import`, subtitle: failedSections.map((f) => `${f.key}: ${f.error}`).join(" · "), href: "/financials/operating-statements", cta: "Review" }]
+              : []),
+            ...(unplaced.length
+              ? [{ id: "pall-unplaced", title: `${unplaced.length} section${unplaced.length === 1 ? "" : "s"} not identified — not imported`, subtitle: unplaced.map((u) => `Section ${u.index + 1} (${u.accounts} accounts${u.cash != null ? `, cash ${Math.round(u.cash).toLocaleString("en-US")}` : ""}): ${u.note}`).join(" · "), href: "/financials/operating-statements", cta: "Review" }]
+              : []),
+            ...(notInFile.length
+              ? [{ id: "pall-missing", title: `${notInFile.length} propert${notInFile.length === 1 ? "y" : "ies"} not in this file`, subtitle: `${notInFile.map((m) => m.key).join(", ")} — import their General Ledgers on their own.`, href: "/financials/operating-statements", cta: "Import" }]
+              : []),
             ...(notPostedTotal > 0
               ? [{ id: "notposted", title: `${notPostedTotal} line${notPostedTotal === 1 ? "" : "s"} not posted`, subtitle: "A budgeted or scheduled figure still reads $0 — post it or confirm it doesn't apply.", href: "/financials/operating-statements/review", cta: "Review" }]
               : []),

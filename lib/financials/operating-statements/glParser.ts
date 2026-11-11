@@ -476,6 +476,12 @@ function monthlyByYearFromDebitCredit(rows: Row[], defaultYear: number | null): 
  *  Detailed single-month report) returns a one-element array; a Multi-Year GL
  *  spanning several years returns one entry per year, each ready to store on its
  *  own so every year's statements/history populate from a single upload. */
+/** The Detailed GL layout (one signed Amount column, no Debit/Credit) — the
+ *  report a multi-property PALL export comes in. */
+export function isDetailedGl(rows: Row[]): boolean {
+  return headerCol(rows, "amount") != null && headerCol(rows, "debit") == null;
+}
+
 export function parseGeneralLedgerByYear(rows: Row[]): GlMonthly[] {
   const { propertyCode, endYear, endMonth } = parseHeader(rows);
   const amountCol = headerCol(rows, "amount");
