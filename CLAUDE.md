@@ -1782,6 +1782,29 @@ The rules the audit put in place — keep them:
   the single-month Excel and PDF. An account active this month that nets to
   zero for the year is listed too.
 
+# Operating statements — ONE GL FILE FOR EVERY PROPERTY (PALL)
+
+**The month's Detailed GL can be run for Skyline's PALL list and imported as
+ONE file** (owner: "import all the detail general ledgers in one file … rather
+than running each property individually"; run for the MONTH being posted, not
+YTD — the file is big). Crystal prints "Property/Company : …" only on the FIRST
+page, so every later property is just the next run of accounts. `splitPall`
+(`pallSplit.ts`, pure) cuts where the account number goes back down;
+`placeSections` names each section by EVIDENCE, never position: its opening
+balances to the cent against the portal's own month-end balances for each
+property (`balancesThrough` / `balanceFingerprint` — decisive, wins), the one
+printed header (section 1), else the codes in its own activity (suite refs, our
+PR / AE / TU / CC invoice numbers ×5 — a suite ref can name a landlord), which
+are refused where that property's balances contradict them. Disagreement, or
+two sections on one property, leaves a section UNPLACED and reported. Each
+placed section is laid out as its own file (`sectionAsFile`) and runs the
+one-property import (`importGlRows` in the route), so ties-out, the 2000
+Allocated send and the 9510 quarterly CAM all fire as before. The report lists
+sections not identified and monthly statements NOT IN THE FILE. Pinned by `pallSplit.test.ts`. **The G&A ledger is 2000, or a GL
+carrying 10+ -9301/-9302/-9303 accounts** (`ALLOC_LEDGER_MIN_ACCOUNTS`): 4500
+carries two -9301 lines, and "any one" read Gray's Ferry as the G&A ledger and
+staged an allocation from its books.
+
 # Operating statements — which properties are run monthly
 
 **`monthlyStatements()` (`mappingStore.ts`) is the list of statements run each

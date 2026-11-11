@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { parseGeneralLedgerMonthly, parseGeneralLedgerByYear, summaryForPeriod, reconcileGl, type GlReconciliation } from "@/lib/financials/operating-statements/glParser";
+import { parseGeneralLedgerMonthly, parseGeneralLedgerByYear, summaryForPeriod, reconcileGl, isDetailedGl, type GlReconciliation } from "@/lib/financials/operating-statements/glParser";
+import { splitPall, headerCode, activityCodes, placeSections, sectionAsFile, balancesThrough, type PallSplit } from "@/lib/financials/operating-statements/pallSplit";
+import { loadMappings } from "@/lib/financials/operating-statements/mappingStore";
+import { resolveKeyIn } from "@/lib/financials/operating-statements/resolveKey";
 import { computeStatement } from "@/lib/financials/operating-statements/compute";
 import { monthlyStatements, getMapping, resolveStatementKey } from "@/lib/financials/operating-statements/mappingStore";
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
@@ -37,6 +40,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 // A 2000 G&A import now also builds and emails the allocated invoices.
 export const maxDuration = 300;
+
+/** Allocation (-9301/-9302/-9303) accounts it takes to read a GL as the G&A ledger. */
+const ALLOC_LEDGER_MIN_ACCOUNTS = 10;
 
 function propertyName(key: string, fallback: string): string {
   return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
@@ -468,172 +474,264 @@ export async function POST(req: Request) {
       return await importPostingReport(rows, file, form, req);
     }
 
-    // Split into one GlMonthly PER YEAR the file covers — a Multi-Year GL
-    // spanning several years imports each year on its own; a single-year file
-    // yields a one-element array (unchanged behaviour). The range's END year is
-    // the primary (used for header/key resolution + the month-close hooks).
-    const parsedYears = parseGeneralLedgerByYear(rows);
-    const primary = parsedYears[parsedYears.length - 1];
-    // The GL header's Property/Company code is authoritative; fall back to the
-    // viewing selection only if the header had none.
-    const keyRaw = form.get("key");
-    const rawCode = primary.propertyCode || (typeof keyRaw === "string" && keyRaw.trim() ? keyRaw.trim() : null);
-    if (!rawCode) {
-      return NextResponse.json({ error: "Could not determine the property — the GL header had no Property/Company code." }, { status: 400 });
-    }
-    if (!primary.year) {
-      return NextResponse.json({ error: "Could not read the reporting year from the GL header." }, { status: 400 });
-    }
-    // Resolve the GL's property code to the canonical mapping key (handles fund
-    // ledgers whose header code differs, e.g. FJVIII → PJV3, PIIICO → CONDO).
-    const key = await resolveStatementKey(rawCode);
-    if (!key) {
-      return NextResponse.json({ error: `No statement mapping exists for property ${rawCode}.` }, { status: 400 });
-    }
-
-    const uploadedByRaw = form.get("uploadedBy");
-    const uploadedBy = typeof uploadedByRaw === "string" ? uploadedByRaw : undefined;
-    // "Monthly totals only" — skip storing the (storage-heavy) transaction
-    // detail. The monthly nets that power every statement/comparison are still
-    // saved; only the per-line drill-down is unavailable for this import.
-    const leanRaw = form.get("lean");
-    const lean = leanRaw === "1" || leanRaw === "true";
-    const ts = new Date().toISOString();
-
-    // Store each year separately + reconcile each; aggregate the tie-out.
-    const savedYears: { year: number; maxPeriodInFile: number; accounts: number; reconciliation: { checked: number; reconciled: number; mismatchCount: number; mismatches: GlReconciliation["mismatches"] } }[] = [];
-    let aggChecked = 0, aggReconciled = 0;
-    const aggMismatches: GlReconciliation["mismatches"] = [];
-    for (const py of parsedYears) {
-      if (!py.year) continue;
-      const rec = reconcileGl(py);
-      aggChecked += rec.checked; aggReconciled += rec.reconciled; aggMismatches.push(...rec.mismatches);
-      const id = `gl-${key}-${py.year}-${Date.now()}`;
-      await saveGl({
-        id, key, propertyCode: py.propertyCode, year: py.year, uploadedAt: ts, uploadedBy,
-        fileName: file.name, maxPeriodInFile: py.maxPeriodInFile,
-        monthly: py.monthly, beginning: py.beginning, ytdTotal: py.ytdTotal, names: py.names,
-        transactionsStored: !lean,
-      });
-      if (!lean) await saveTransactions(id, py.transactions);
-      savedYears.push({ year: py.year, maxPeriodInFile: py.maxPeriodInFile, accounts: Object.keys(py.monthly).length, reconciliation: { checked: rec.checked, reconciled: rec.reconciled, mismatchCount: rec.mismatches.length, mismatches: rec.mismatches.slice(0, 8) } });
-    }
-    const recon = { checked: aggChecked, reconciled: aggReconciled, mismatchCount: aggMismatches.length, mismatches: aggMismatches.slice(0, 8) };
-    await logAudit({ event: "gl.upload", user: uploadedBy ?? key, ip: auditIp(req), detail: `${key} ${savedYears.map((s) => s.year).join(",")} · ${file.name}` });
-
-    // Exporting a month's Detailed GL from Skyline is only possible AFTER posting
-    // + closing that period, so a complete import is proof the month's Skyline
-    // work is done: Post PM & AP, Close Prior Month, and Operating Statements
-    // all cross off together (idempotent).
-    //
-    // COMPLETE, NOT FIRST. This used to fire on the first file that reached the
-    // expected period, so importing 1 property of 37 crossed off all three —
-    // and the owner's actual sequence is "post PM & AP, THEN import all the
-    // GLs", which leaves the task reading done with a morning's work still to
-    // do. The month is done when every mapped property is posted through the
-    // expected period, which `outstandingGlUploads` already answers for the
-    // dashboard and the weekly digest. Read AFTER the save so this upload
-    // counts toward it.
-    let tasksCompleted: string[] = [];
-    let glBehind: number | null = null;
-    try {
-      const now = new Date();
-      const expected = expectedPostedThrough(now);
-      if (primary.year === expected.year && primary.maxPeriodInFile === expected.period) {
-        const { behind } = await outstandingGlUploads(now);
-        glBehind = behind.length;
-        if (behind.length === 0) {
-          tasksCompleted = ["m-post", "m-close"];
-          for (const taskId of tasksCompleted) {
-            await markTaskComplete(now.getFullYear(), now.getMonth(), taskId, { at: now.toISOString(), source: "gl-upload" });
-          }
-        }
-      }
-    } catch { /* best-effort — the statement upload still succeeds */ }
-
-    // Mark the GL import reminder satisfied (2000 is one of the GLs it counts —
-    // it's the G&A entity) for the weekly digest / dashboard.
-    const importedBy = typeof uploadedByRaw === "string" ? uploadedByRaw : null;
-    try { await recordImport("imp-gl", { at: ts, by: importedBy }); } catch { /* best-effort */ }
-
-    // The G&A ledger is the only one carrying the 9301/9302/9303 allocation
-    // accounts, so detect it by content too — not just a literal "2000" code
-    // (the header company code can differ). This is what the Allocated Expense
-    // Invoicer runs on, so a match hands the file off to it.
-    const hasAllocAccounts = Object.keys(primary.monthly).some((a) => /-(9301|9302|9303)$/.test(a));
-    const isGandA = rawCode === "2000" || primary.propertyCode === "2000" || key === "2000" || hasAllocAccounts;
-    let allocated: Awaited<ReturnType<typeof prepareAllocation>> | null = null;
-    if (isGandA) {
-      try {
-        await savePendingGl({
-          fileBase64: buf.toString("base64"),
-          fileName: file.name,
-          propertyCode: primary.propertyCode || "2000",
-          year: primary.year,
-          month: primary.maxPeriodInFile,
-          uploadedAt: ts,
-          uploadedBy: typeof uploadedByRaw === "string" ? uploadedByRaw : null,
-        });
-      } catch { /* best-effort — the statement upload still succeeds */ }
-      // Prepare the allocated invoices (allocate + carryover + per-building
-      // summary, staged), then SEND them to AvidXchange straight away — no
-      // review step (owner). `autoSendAllocation` holds a split that doesn't
-      // tie to the GL, and the daily cron retries a send that fails here.
-      try { allocated = await prepareAllocation(buf, importedBy); } catch { /* best-effort */ }
-      if (allocated?.ok && allocated.staged && allocated.statementMonth) {
-        try {
-          const auto = await autoSendAllocation(allocated.statementMonth, importedBy);
-          allocated = { ...allocated, autoSent: auto.sent, autoHeld: auto.held };
-        } catch { /* best-effort — the cron retries */ }
+    // A Detailed GL run for MANY properties at once (Skyline's PALL list):
+    // split it, place each section by evidence, import each as its own file.
+    if (isDetailedGl(rows)) {
+      const split = splitPall(rows);
+      if (split.sections.length > 1) {
+        return NextResponse.json(await importPall(split, file.name, form, req));
       }
     }
 
-    // A quarter-billed tenant's quarterly CAM (Wawa @ 9510) sends itself once
-    // its parent property's GL reaches the quarter's last month (owner: "similarly
-    // to allocated expenses that should trigger this"); a jump is held and Drew
-    // told. The daily cron retries. Best-effort — the import still succeeds.
-    let quarterlyCam: Awaited<ReturnType<typeof autoSendQuarterly>> | null = null;
-    if (Object.values(QUARTERLY_BILLINGS).some((d) => d.parentProperty === key)) {
-      try { quarterlyCam = await autoSendQuarterly(key, importedBy); } catch { /* the cron retries */ }
-    }
-
-    // On-import "things to check": scan THIS property's just-imported latest
-    // month for budgeted/scheduled lines still reading $0, so the importer sees
-    // right away whether the statement is complete. Best-effort.
-    let notPosted: { count: number; items: { line: string; section: string; type: string; expected: number }[] } | null = null;
-    try {
-      const np = await collectNotPosted(primary.year, key);
-      notPosted = { count: np.items.length, items: np.items.slice(0, 8).map((i) => ({ line: i.line, section: i.section, type: i.type, expected: i.expected })) };
-      // Email the not-posted summary to the controller (cc Drew) on import so
-      // they immediately know what's still missing. Deduped by content, best-effort.
-      try { await emailNotPostedSummary(np, { key, propertyName: propertyName(key, key), year: primary.year, importedBy }); } catch { /* best-effort */ }
-    } catch { /* best-effort — the import still succeeds */ }
-
-    return NextResponse.json({
-      ok: true,
-      key,
-      year: primary.year,
-      maxPeriodInFile: primary.maxPeriodInFile,
-      accounts: Object.keys(primary.monthly).length,
-      allocatedGlReady: isGandA,
-      quarterlyCam,
-      // Auto-processed allocated-invoicer result (2000 G&A GL only).
-      allocated,
-      tasksCompleted,
-      glBehind,
-      // Import health: aggregate tie-out across every year stored.
-      reconciliation: recon,
-      // What still isn't posted on this property's latest statement.
-      notPosted,
-      // Every calendar year imported from this file (a Multi-Year GL yields
-      // several); single-year files return one.
-      years: savedYears.map((s) => s.year).sort((a, b) => a - b),
-      perYear: savedYears,
-    });
+    const one = await importGlRows(rows, buf, file.name, form, req, { allowFallbackKey: true });
+    return NextResponse.json(one.body, { status: one.status });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Failed to parse GL" },
       { status: 500 }
     );
   }
+}
+
+/** Import ONE property's GL rows — a single-property file, or one section of a
+ *  multi-property (PALL) export laid out as its own file (`sectionAsFile`). */
+async function importGlRows(
+  rows: (string | number | null)[][], buf: Buffer, fileName: string, form: FormData, req: Request,
+  opts: { allowFallbackKey: boolean },
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  // Split into one GlMonthly PER YEAR the file covers — a Multi-Year GL
+  // spanning several years imports each year on its own; a single-year file
+  // yields a one-element array (unchanged behaviour). The range's END year is
+  // the primary (used for header/key resolution + the month-close hooks).
+  const parsedYears = parseGeneralLedgerByYear(rows);
+  const primary = parsedYears[parsedYears.length - 1];
+  // The GL header's Property/Company code is authoritative; fall back to the
+  // viewing selection only if the header had none.
+  const keyRaw = opts.allowFallbackKey ? form.get("key") : null;
+  const rawCode = primary.propertyCode || (typeof keyRaw === "string" && keyRaw.trim() ? keyRaw.trim() : null);
+  if (!rawCode) {
+    return { status: 400, body: { error: "Could not determine the property — the GL header had no Property/Company code." } };
+  }
+  if (!primary.year) {
+    return { status: 400, body: { error: "Could not read the reporting year from the GL header." } };
+  }
+  // Resolve the GL's property code to the canonical mapping key (handles fund
+  // ledgers whose header code differs, e.g. FJVIII → PJV3, PIIICO → CONDO).
+  const key = await resolveStatementKey(rawCode);
+  if (!key) {
+    return { status: 400, body: { error: `No statement mapping exists for property ${rawCode}.` } };
+  }
+
+  const uploadedByRaw = form.get("uploadedBy");
+  const uploadedBy = typeof uploadedByRaw === "string" ? uploadedByRaw : undefined;
+  // "Monthly totals only" — skip storing the (storage-heavy) transaction
+  // detail. The monthly nets that power every statement/comparison are still
+  // saved; only the per-line drill-down is unavailable for this import.
+  const leanRaw = form.get("lean");
+  const lean = leanRaw === "1" || leanRaw === "true";
+  const ts = new Date().toISOString();
+
+  // Store each year separately + reconcile each; aggregate the tie-out.
+  const savedYears: { year: number; maxPeriodInFile: number; accounts: number; reconciliation: { checked: number; reconciled: number; mismatchCount: number; mismatches: GlReconciliation["mismatches"] } }[] = [];
+  let aggChecked = 0, aggReconciled = 0;
+  const aggMismatches: GlReconciliation["mismatches"] = [];
+  for (const py of parsedYears) {
+    if (!py.year) continue;
+    const rec = reconcileGl(py);
+    aggChecked += rec.checked; aggReconciled += rec.reconciled; aggMismatches.push(...rec.mismatches);
+    const id = `gl-${key}-${py.year}-${Date.now()}`;
+    await saveGl({
+      id, key, propertyCode: py.propertyCode, year: py.year, uploadedAt: ts, uploadedBy,
+      fileName: fileName, maxPeriodInFile: py.maxPeriodInFile,
+      monthly: py.monthly, beginning: py.beginning, ytdTotal: py.ytdTotal, names: py.names,
+      transactionsStored: !lean,
+    });
+    if (!lean) await saveTransactions(id, py.transactions);
+    savedYears.push({ year: py.year, maxPeriodInFile: py.maxPeriodInFile, accounts: Object.keys(py.monthly).length, reconciliation: { checked: rec.checked, reconciled: rec.reconciled, mismatchCount: rec.mismatches.length, mismatches: rec.mismatches.slice(0, 8) } });
+  }
+  const recon = { checked: aggChecked, reconciled: aggReconciled, mismatchCount: aggMismatches.length, mismatches: aggMismatches.slice(0, 8) };
+  await logAudit({ event: "gl.upload", user: uploadedBy ?? key, ip: auditIp(req), detail: `${key} ${savedYears.map((s) => s.year).join(",")} · ${fileName}` });
+
+  // Exporting a month's Detailed GL from Skyline is only possible AFTER posting
+  // + closing that period, so a complete import is proof the month's Skyline
+  // work is done: Post PM & AP, Close Prior Month, and Operating Statements
+  // all cross off together (idempotent).
+  //
+  // COMPLETE, NOT FIRST. This used to fire on the first file that reached the
+  // expected period, so importing 1 property of 37 crossed off all three —
+  // and the owner's actual sequence is "post PM & AP, THEN import all the
+  // GLs", which leaves the task reading done with a morning's work still to
+  // do. The month is done when every mapped property is posted through the
+  // expected period, which `outstandingGlUploads` already answers for the
+  // dashboard and the weekly digest. Read AFTER the save so this upload
+  // counts toward it.
+  let tasksCompleted: string[] = [];
+  let glBehind: number | null = null;
+  try {
+    const now = new Date();
+    const expected = expectedPostedThrough(now);
+    if (primary.year === expected.year && primary.maxPeriodInFile === expected.period) {
+      const { behind } = await outstandingGlUploads(now);
+      glBehind = behind.length;
+      if (behind.length === 0) {
+        tasksCompleted = ["m-post", "m-close"];
+        for (const taskId of tasksCompleted) {
+          await markTaskComplete(now.getFullYear(), now.getMonth(), taskId, { at: now.toISOString(), source: "gl-upload" });
+        }
+      }
+    }
+  } catch { /* best-effort — the statement upload still succeeds */ }
+
+  // Mark the GL import reminder satisfied (2000 is one of the GLs it counts —
+  // it's the G&A entity) for the weekly digest / dashboard.
+  const importedBy = typeof uploadedByRaw === "string" ? uploadedByRaw : null;
+  try { await recordImport("imp-gl", { at: ts, by: importedBy }); } catch { /* best-effort */ }
+
+  // The G&A ledger is the only one carrying the 9301/9302/9303 allocation
+  // accounts, so detect it by content too — not just a literal "2000" code
+  // (the header company code can differ). This is what the Allocated Expense
+  // Invoicer runs on, so a match hands the file off to it.
+  // A FEW such accounts are a property's mis-coding, not the G&A ledger: 4500
+  // carries two -9301 lines, and reading that as 2000 staged an October
+  // allocation from Gray's Ferry's books over the real one. The G&A ledger
+  // carries dozens (2000: 37 in October 2026).
+  const hasAllocAccounts = Object.keys(primary.monthly).filter((a) => /-(9301|9302|9303)$/.test(a)).length >= ALLOC_LEDGER_MIN_ACCOUNTS;
+  const isGandA = rawCode === "2000" || primary.propertyCode === "2000" || key === "2000" || hasAllocAccounts;
+  let allocated: Awaited<ReturnType<typeof prepareAllocation>> | null = null;
+  if (isGandA) {
+    try {
+      await savePendingGl({
+        fileBase64: buf.toString("base64"),
+        fileName: fileName,
+        propertyCode: primary.propertyCode || "2000",
+        year: primary.year,
+        month: primary.maxPeriodInFile,
+        uploadedAt: ts,
+        uploadedBy: typeof uploadedByRaw === "string" ? uploadedByRaw : null,
+      });
+    } catch { /* best-effort — the statement upload still succeeds */ }
+    // Prepare the allocated invoices (allocate + carryover + per-building
+    // summary, staged), then SEND them to AvidXchange straight away — no
+    // review step (owner). `autoSendAllocation` holds a split that doesn't
+    // tie to the GL, and the daily cron retries a send that fails here.
+    try { allocated = await prepareAllocation(buf, importedBy); } catch { /* best-effort */ }
+    if (allocated?.ok && allocated.staged && allocated.statementMonth) {
+      try {
+        const auto = await autoSendAllocation(allocated.statementMonth, importedBy);
+        allocated = { ...allocated, autoSent: auto.sent, autoHeld: auto.held };
+      } catch { /* best-effort — the cron retries */ }
+    }
+  }
+
+  // A quarter-billed tenant's quarterly CAM (Wawa @ 9510) sends itself once
+  // its parent property's GL reaches the quarter's last month (owner: "similarly
+  // to allocated expenses that should trigger this"); a jump is held and Drew
+  // told. The daily cron retries. Best-effort — the import still succeeds.
+  let quarterlyCam: Awaited<ReturnType<typeof autoSendQuarterly>> | null = null;
+  if (Object.values(QUARTERLY_BILLINGS).some((d) => d.parentProperty === key)) {
+    try { quarterlyCam = await autoSendQuarterly(key, importedBy); } catch { /* the cron retries */ }
+  }
+
+  // On-import "things to check": scan THIS property's just-imported latest
+  // month for budgeted/scheduled lines still reading $0, so the importer sees
+  // right away whether the statement is complete. Best-effort.
+  let notPosted: { count: number; items: { line: string; section: string; type: string; expected: number }[] } | null = null;
+  try {
+    const np = await collectNotPosted(primary.year, key);
+    notPosted = { count: np.items.length, items: np.items.slice(0, 8).map((i) => ({ line: i.line, section: i.section, type: i.type, expected: i.expected })) };
+    // Email the not-posted summary to the controller (cc Drew) on import so
+    // they immediately know what's still missing. Deduped by content, best-effort.
+    try { await emailNotPostedSummary(np, { key, propertyName: propertyName(key, key), year: primary.year, importedBy }); } catch { /* best-effort */ }
+  } catch { /* best-effort — the import still succeeds */ }
+
+  return { status: 200, body: {
+    ok: true,
+    key,
+    year: primary.year,
+    maxPeriodInFile: primary.maxPeriodInFile,
+    accounts: Object.keys(primary.monthly).length,
+    allocatedGlReady: isGandA,
+    quarterlyCam,
+    // Auto-processed allocated-invoicer result (2000 G&A GL only).
+    allocated,
+    tasksCompleted,
+    glBehind,
+    // Import health: aggregate tie-out across every year stored.
+    reconciliation: recon,
+    // What still isn't posted on this property's latest statement.
+    notPosted,
+    // Every calendar year imported from this file (a Multi-Year GL yields
+    // several); single-year files return one.
+    years: savedYears.map((s) => s.year).sort((a, b) => a - b),
+    perYear: savedYears,
+  } };
+}
+
+/**
+ * A multi-property Detailed GL (PALL). Each section is placed by evidence
+ * (`placeSections` — opening balances against the portal's own month-end
+ * balances, its charges' codes, the one printed header) and imported through
+ * `importGlRows` exactly as a one-property file. Sections it cannot place, and
+ * monthly statements the file did not carry, are reported — never guessed.
+ */
+async function importPall(split: PallSplit, fileName: string, form: FormData, req: Request) {
+  const mappings = await loadMappings();
+  const resolve = (code: string) => resolveKeyIn(mappings, code);
+  const parsed = split.sections.map((s) => parseGeneralLedgerMonthly([...split.preamble, ...s.rows]));
+  const year = parsed.find((p) => p.year)?.year ?? null;
+  const range = parsed[0];
+  // The month BEFORE the file starts — what each section's openings are.
+  const startMonth = (() => {
+    for (const r of split.preamble) for (const v of r) {
+      const m = typeof v === "string" ? v.match(/(\d{1,2})\/\d{1,2}\/(\d{4})\s+To\s+/i) : null;
+      if (m) return Number(m[1]);
+    }
+    return 1;
+  })();
+
+  // What the portal holds for every statement, through that month.
+  const all = await listFullGls();
+  const candidates = Object.keys(mappings).map((key) => {
+    const gl = year ? assembleGls(all.filter((g) => g.key === key && g.year === year)) : null;
+    return { key, balances: gl && (gl.beginning || startMonth > 1) ? balancesThrough(gl, startMonth - 1) : null };
+  });
+  const placements = placeSections(
+    split.sections.map((s, i) => ({ index: s.index, opening: parsed[i].beginning, activity: activityCodes(s.rows) })),
+    candidates, resolve, headerCode(split.preamble),
+  );
+
+  const imported: Record<string, unknown>[] = [];
+  const failed: { index: number; key: string; error: string }[] = [];
+  const unplaced: { index: number; accounts: number; cash: number | null; note: string }[] = [];
+  for (const p of placements) {
+    const sec = split.sections[p.index];
+    if (!p.key) {
+      const g = parsed[p.index];
+      const cash = g.ytdTotal["0110-0000"] ?? g.beginning["0110-0000"] ?? null;
+      unplaced.push({ index: p.index, accounts: sec.accounts, cash, note: p.note });
+      continue;
+    }
+    const m = mappings[p.key];
+    const rows = sectionAsFile(split.preamble, sec, m?.propertyCode ?? p.key, m?.entityName ?? p.key) as (string | number | null)[][];
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    const buf = Buffer.from(XLSX.write(wb, { type: "buffer", bookType: "xlsx" }));
+    try {
+      const one = await importGlRows(rows, buf, `${fileName} · ${p.key}`, form, req, { allowFallbackKey: false });
+      if (one.status === 200) imported.push({ ...one.body, placedBy: p.how, placedNote: p.note, section: p.index });
+      else failed.push({ index: p.index, key: p.key, error: String(one.body.error ?? "Import failed") });
+    } catch (e) {
+      failed.push({ index: p.index, key: p.key, error: e instanceof Error ? e.message : "Import failed" });
+    }
+  }
+
+  const got = new Set(imported.map((r) => String(r.key)));
+  const notInFile = (await monthlyStatements()).filter((m) => !got.has(m.key)).map((m) => ({ key: m.key, name: propertyName(m.key, m.entityName) }));
+  await logAudit({ event: "gl.upload-pall", user: String(form.get("uploadedBy") ?? "") || null, ip: auditIp(req),
+    detail: `${fileName} · ${split.sections.length} sections · ${imported.length} imported · ${unplaced.length} unplaced · ${failed.length} failed` });
+  return {
+    ok: true, pall: true, year, maxPeriodInFile: range?.maxPeriodInFile ?? null,
+    sections: split.sections.length, imported, unplaced, failed, notInFile,
+  };
 }
