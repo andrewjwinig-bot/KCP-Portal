@@ -160,9 +160,9 @@ export default function ReprojectionsPage() {
     // Today's bank balance rolled to Dec 31 on this reprojection's cash flow,
     // less the distributions still planned — the budget draft's own roll.
     ...(bank && year === Number(bank.asOf.slice(0, 4)) ? [{
-      key: "bank", label: "Bank Balance · Dec 31", value: money(bank.yearEnd),
+      key: "bank", label: "Proj. Bank Balance · Dec 31", value: money(bank.yearEnd),
       sub: `${money(bank.balance)} on ${new Date(`${bank.asOf}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })}${bank.cashFlowRest ? ` ${bank.cashFlowRest >= 0 ? "+" : "−"} ${money(Math.abs(bank.cashFlowRest))} cash flow` : ""}${bank.distributionsRest ? ` − ${money(bank.distributionsRest)} distributions` : ""}`,
-    }] : banksThrough ? [{ key: "bank", label: "Bank Balance · Dec 31", value: "—", sub: `Banks through ${banksThrough === "PJV3" ? "JV III" : "NI LLC"}` }] : []),
+    }] : banksThrough ? [{ key: "bank", label: "Proj. Bank Balance · Dec 31", value: "—", sub: `Banks through ${banksThrough === "PJV3" ? "JV III" : "NI LLC"}` }] : []),
   ]) as { key: string; label: string; value: string; sub?: string }[] : [];
   const coverageText = actuals
     ? (through > 0 ? `Actuals Jan–${MONTHS[Math.min(through, 12) - 1]}${through < 12 ? ` · ${MONTHS[through]}–Dec not yet imported` : ""}` : "No actuals yet")
