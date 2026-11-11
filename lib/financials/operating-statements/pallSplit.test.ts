@@ -85,4 +85,30 @@ describe("multi-property GL (PALL)", () => {
   it("compares only accounts carrying a balance", () => {
     expect(balanceFingerprint({ a: 0, b: 5, c: 9 }, { a: 0.4, b: 5, c: 8 })).toEqual({ compared: 2, matched: 1 });
   });
+
+  it("places a quiet section (one balance) when only one property agrees", () => {
+    const ev = [{ index: 0, opening: { "0110-0000": 1234.56 }, activity: new Map() }];
+    const p = placeSections(ev, [{ key: "9860", balances: { "0110-0000": 1234.56 } }, { key: "9820", balances: { "0110-0000": 50 } }], resolve, null);
+    expect(p[0]).toMatchObject({ key: "9860", how: "balances" });
+    // Two properties agreeing is not an answer.
+    const tie = placeSections(ev, [{ key: "9860", balances: { "0110-0000": 1234.56 } }, { key: "9820", balances: { "0110-0000": 1234.56 } }], resolve, null);
+    expect(tie[0].key).toBeNull();
+  });
+
+  it("places a ledger with late prior-month postings when no other property comes close", () => {
+    const opening: Record<string, number> = {}, stored: Record<string, number> = {};
+    for (let a = 1; a <= 10; a++) { opening[`01${a}0-0000`] = a * 100; stored[`01${a}0-0000`] = a <= 6 ? a * 100 : a * 100 + 7; }
+    const p = placeSections([{ index: 0, opening, activity: new Map([["4500", 25]]) }], [{ key: "2000", balances: stored }, { key: "4500", balances: { "0110-0000": 1 } }], resolve, null);
+    expect(p[0]).toMatchObject({ key: "2000", how: "balances" });
+  });
+
+  it("a section placed by its balances keeps the property another only names in its charges", () => {
+    const ev = [
+      { index: 0, opening: { "0110-0000": 10, "0120-0000": 20 }, activity: new Map() },
+      { index: 1, opening: {}, activity: new Map([["3610", 9]]) },
+    ];
+    const p = placeSections(ev, [{ key: "3610", balances: { "0110-0000": 10, "0120-0000": 20 } }], resolve, null);
+    expect(p[0]).toMatchObject({ key: "3610", how: "balances" });
+    expect(p[1].key).toBeNull();
+  });
 });

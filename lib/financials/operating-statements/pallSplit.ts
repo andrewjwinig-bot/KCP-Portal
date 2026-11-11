@@ -221,10 +221,45 @@ export function placeSections(
     return { index: s.index, key, how, note };
   });
 
-  // One property, one section: a property claimed twice is placed nowhere.
-  const claims = new Map<string, number>();
-  for (const p of out) if (p.key) claims.set(p.key, (claims.get(p.key) ?? 0) + 1);
-  return out.map((p) => (p.key && (claims.get(p.key) ?? 0) > 1
-    ? { ...p, key: null, how: null, note: `two sections look like ${p.key}` }
+  // One property, one section. Two sections claiming one property: if exactly
+  // one of them is placed by its BALANCES it keeps it (the other only named it
+  // in its charges — 2000's G&A ledger names the properties it bills);
+  // otherwise neither is placed.
+  const byKey = new Map<string, Placement[]>();
+  for (const p of out) if (p.key) byKey.set(p.key, [...(byKey.get(p.key) ?? []), p]);
+  const first = out.map((p) => {
+    const rivals = p.key ? byKey.get(p.key)! : [];
+    if (rivals.length <= 1) return p;
+    const proven = rivals.filter((r) => r.how === "balances");
+    if (proven.length === 1 && proven[0] === p) return p;
+    return { ...p, key: null, how: null, note: `two sections look like ${p.key}` };
+  });
+
+  // Second pass, over what is left: a section whose balances agree with ONE
+  // property nobody else took. The first pass asks for 2+ accounts and 80% —
+  // a quiet property (one cash account) or a busy clearing ledger with a few
+  // late postings to the prior month fell short and went unplaced, though no
+  // other property came close (2000 and 9860, October 2026).
+  const taken = new Set(first.filter((p) => p.key).map((p) => p.key!));
+  const second = first.map((p) => {
+    if (p.key) return p;
+    const s = sections.find((x) => x.index === p.index)!;
+    const scored = candidates
+      .filter((c) => c.balances && !taken.has(c.key))
+      .map((c) => ({ key: c.key, ...balanceFingerprint(s.opening, c.balances!) }))
+      .filter((c) => c.matched > 0)
+      .sort((a, b) => b.matched - a.matched);
+    const [best, next] = scored;
+    if (!best) return p;
+    const agrees = best.matched === best.compared || (best.matched >= 3 && best.matched >= best.compared * 0.5);
+    const clear = !next || next.matched * 2 <= best.matched;
+    if (!agrees || !clear) return p;
+    return { index: p.index, key: best.key, how: "balances" as const, note: `opening balances match ${best.matched} of ${best.compared} accounts, and no other property's do` };
+  });
+  // The second pass can itself land two sections on one property.
+  const counts = new Map<string, number>();
+  for (const p of second) if (p.key) counts.set(p.key, (counts.get(p.key) ?? 0) + 1);
+  return second.map((p, i) => (p.key && counts.get(p.key)! > 1 && !first[i].key
+    ? { ...first[i] }
     : p));
 }
