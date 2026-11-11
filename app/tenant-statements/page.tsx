@@ -14,6 +14,7 @@ import { useImport } from "@/app/components/import/ImportProvider";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { InfoPopover } from "@/app/components/InfoPopover";
+import { PageHeader } from "@/app/components/PageHeader";
 import { HeaderSelect } from "@/app/components/HeaderSelect";
 import { DisplayMenu, ToggleRow, CheckRow, MenuSection } from "@/app/components/DisplayMenu";
 import { MetaLine } from "@/app/components/LastImported";
@@ -368,24 +369,16 @@ export default function TenantStatementsPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header>
-        <h1 style={{ margin: 0 }}>Monthly Statements</h1>
-        <div className="muted" style={{ marginTop: 6, fontSize: "var(--fs-14)" }}>
-          Skyline&rsquo;s open charges, turned into a statement each tenant can read and pay from.
-        </div>
-        <input ref={fileRef} type="file" accept=".pdf,.xls,.xlsx" multiple style={{ display: "none" }}
-          onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void processFiles(f); }} />
-        <div style={{ marginTop: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {periods && periods.length > 0 && (
+      <PageHeader title="Monthly Statements"
+        info={<>Skyline&rsquo;s open charges, turned into a statement each tenant can read and pay from.</>}
+        pickers={periods && periods.length > 0 ? (
               <HeaderSelect value={period} onChange={setPeriod} ariaLabel="Statement month" displayLabel={period ? periodLabel(period) : "Month"}>
                 {periods.map((p) => (
                   <option key={p.period} value={p.period}>{periodLabel(p.period)}{p.published ? "" : " (not published)"}</option>
                 ))}
               </HeaderSelect>
-            )}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          ) : undefined}
+        actions={<>
             <button className="btn import" onClick={() => fileRef.current?.click()}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import Laser Statement
             </button>
@@ -404,9 +397,8 @@ export default function TenantStatementsPage() {
                 ]}
               />
             )}
-          </div>
-        </div>
-        {row && (() => {
+          </>}
+        meta={row && (() => {
           const last = [...row.sources].sort((a, b) => b.importedAt.localeCompare(a.importedAt))[0];
           return (
             <MetaLine at={last?.importedAt ?? row.updatedAt} by={last?.importedBy ?? null}>
@@ -418,8 +410,10 @@ export default function TenantStatementsPage() {
               <InfoPopover align="left"><ImportInstructions variant="statements" /></InfoPopover>
             </MetaLine>
           );
-        })()}
-      </header>
+        })()}>
+        <input ref={fileRef} type="file" accept=".pdf,.xls,.xlsx" multiple style={{ display: "none" }}
+          onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void processFiles(f); }} />
+      </PageHeader>
 
       {error && (
         <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>

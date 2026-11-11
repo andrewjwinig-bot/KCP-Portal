@@ -13,6 +13,9 @@ import { StatPill } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { LineChart, ChartLegend, feeChartSeries } from "./FeeChart";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { MetaLine } from "@/app/components/LastImported";
 import { exportManagementFeesXlsx } from "@/lib/financials/management-fees/export";
 import type { MgmtFeeData, MgmtFeeDetail } from "@/lib/financials/management-fees/compute";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
@@ -91,23 +94,20 @@ export default function ManagementFeesPage() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1440, width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Management Fees</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <select value={year} onChange={(e) => setYear(Number(e.target.value))}
-            className={SELECT_BRAND}>
+      <PageHeader title="Management Fees"
+        info={<>Pulled from the posted GL — account <b>6610</b> — per building each month, compared to budget.</>}
+        pickers={
+          <HeaderSelect value={String(year)} onChange={(v) => setYear(Number(v))} ariaLabel="Year" displayLabel={String(year)}>
             {[now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2].map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-          <DownloadMenu
+          </HeaderSelect>
+        }
+        actions={
+          <DownloadMenu label="Export"
             items={[{ label: "Excel workbook", description: "A building per row, months across, to the full-year reprojection vs budget — live totals", onClick: () => { if (data) void exportManagementFeesXlsx(data); } }]}
             disabled={!data || !data.buildings.length}
           />
-        </div>
-      </div>
-      <p className="muted" style={{ marginTop: -6 }}>
-        Pulled from the posted GL — account <b>6610</b> — per building each month, compared to budget.
-        {data?.completeThrough ? ` Posted through ${MONTHS_LONG[data.completeThrough - 1]} ${year}.` : ""}
-      </p>
+        }
+        meta={data?.completeThrough ? <MetaLine>Posted through {MONTHS_LONG[data.completeThrough - 1]} {year}</MetaLine> : undefined} />
 
       {loading && <div className="card muted">Loading…</div>}
 

@@ -13,6 +13,7 @@ import { ChevronDown, ChevronRight, Upload, X } from "lucide-react";
 import { StatPill } from "@/app/components/Pill";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
 import { ImportInstructions } from "@/app/components/ImportInstructions";
+import { PageHeader } from "@/app/components/PageHeader";
 import { InfoPopover } from "@/app/components/InfoPopover";
 import { useCreditBalanceImport } from "../useCreditBalanceImport";
 import { SentEmailModal } from "../SentEmailModal";
@@ -97,19 +98,13 @@ export default function OpenCreditsPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Open Credits</h1>
-          <div className="muted small" style={{ marginTop: 6 }}>
-            Every tenant carrying a credit, what each credit is and how long it has been open — and an email asking how they want it applied.
-          </div>
-        </div>
-        {canWork && <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <PageHeader title="Open Credits"
+        info={<>Every tenant carrying a credit, what each credit is and how long it has been open — and an email asking how they want it applied.</>}
+        actions={canWork ? <>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
           <button className="btn import" onClick={() => fileRef.current?.click()}><Upload {...ICON} /> Import Credit Balance Report</button>
-          <InfoPopover align="left"><ImportInstructions variant="credit-balance" /></InfoPopover>
-        </div>}
-      </header>
+          <InfoPopover><ImportInstructions variant="credit-balance" /></InfoPopover>
+        </> : undefined} />
 
       {error && <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}
 

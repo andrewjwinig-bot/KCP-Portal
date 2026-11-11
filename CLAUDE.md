@@ -173,6 +173,20 @@ touched UI to it.
   any check that passed in words with its icon ("GL ties" + CircleCheck, a
   `HoverCard` for the detail), and the (i) for import steps. A check never
   floats as a pill in the tile row.
+- **EVERY PAGE HEADER IS `PageHeader`** (`app/components/PageHeader.tsx`;
+  owner, 11/2026: "keep refining some pages heros … consistent"): the title
+  with an (i) holding the page's description (`info` — the paragraph that used
+  to sit under the title), the pickers (`HeaderSelect`, property first) on the
+  left of the controls row, the `actions` on the right (import first, menus,
+  the one primary action last — on the title's row when there are no pickers),
+  then ONE `MetaLine`. Never a paragraph under a title, a boxed `select-brand`
+  beside it, a row of buttons on its own line, or a text "+" on a button (the
+  Lucide `Plus`). The KORMAN wordmark is hidden in the new look (the sidebar
+  carries it). An Export `DownloadMenu` is a white menu, not navy — `variant`
+  defaults to `default`. Moved so far: Bank Balances, Monthly Statements, Open
+  Credits, Receipt Reconciliation, 1099, Insurance, Management Fees, Flags to
+  Investigate, Debt Tracker, Security Deposits, Month-End Close, Bank
+  Reconciliation; the rest move as they are touched.
 - **Imports are `.btn.import` with the Lucide `Upload` icon, labelled
   "Import <thing>"** (Import GL, Import Rent Roll, Import Laser Statement,
   Import Credit Balance Report): a SOFT NAVY TINT, so it reads apart from the

@@ -1,5 +1,6 @@
 "use client";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { PageHeader } from "@/app/components/PageHeader";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -182,21 +183,13 @@ function DebtPageInner() {
 
   return (
     <main>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <h1>Debt Tracker</h1>
-          <p className="muted" style={{ marginTop: 8, fontSize: 15 }}>
-            Schedule of Debt Outstanding. Balances project live.
-          </p>
-        </div>
-        <button
-          className="btn primary"
-          onClick={() => setEditLoan(emptyLoan())}
-          style={{ flexShrink: 0 }}
-        >
-          + Add Loan
-        </button>
-      </div>
+      <PageHeader title="Debt Tracker"
+        info={<>Schedule of Debt Outstanding. Balances project live from each loan&rsquo;s terms.</>}
+        actions={
+          <button className="btn primary" onClick={() => setEditLoan(emptyLoan())}>
+            <Plus size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Add Loan
+          </button>
+        } />
 
       {error && (
         <div className="card" style={{ marginTop: 16, borderColor: "var(--tint-red-line, rgba(220,38,38,0.4))", color: "var(--c-b91c1c)" }}>

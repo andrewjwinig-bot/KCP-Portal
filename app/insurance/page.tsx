@@ -18,6 +18,9 @@ import Link from "next/link";
 import { Pill, StatPill, TONE_AMBER, TONE_BLUE, TONE_NEUTRAL } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { MetaLine } from "@/app/components/LastImported";
 import { LastImported } from "@/app/components/LastImported";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
@@ -137,10 +140,12 @@ export default function InsurancePage() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1400, width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Insurance — Schedule of Values</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <DownloadMenu
+      <PageHeader title="Insurance — Schedule of Values"
+        info={<>The Statement of Values the broker asks for with the insurance applications, already filled with
+        today&rsquo;s data — construction, occupancy, stories, sprinklers and the rest from each property&rsquo;s
+        <b> Building Facts</b>, floor area and units from the <b>rent roll</b>. <b>Export</b> gives you the Excel file
+        in the broker&rsquo;s own layout, ready to send. Nothing to upload.</>}
+        actions={<DownloadMenu
             label="Export"
             disabled={!data?.stored}
             items={[{
@@ -150,16 +155,7 @@ export default function InsurancePage() {
                 : "The broker's workbook with property info and rent-roll area / suites written in",
               href: `/api/insurance/sov/download?bi=${updateBi ? 1 : 0}`,
             }]}
-          />
-        </div>
-      </div>
-
-      <p className="muted" style={{ marginTop: -6, maxWidth: 900 }}>
-        The Statement of Values the broker asks for with the insurance applications, already filled with
-        today&rsquo;s data — construction, occupancy, stories, sprinklers and the rest from each property&rsquo;s
-        <b> Building Facts</b>, floor area and units from the <b>rent roll</b>. <b>Export</b> gives you the Excel file
-        in the broker&rsquo;s own layout, ready to send. Nothing to upload.
-      </p>
+          />} />
 
       {error && <div className="card" style={{  color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
       {notice && <div className="card" style={{  color: "var(--c-15803d)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{notice}</div>}

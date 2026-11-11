@@ -1,4 +1,7 @@
 "use client";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { MetaLine } from "@/app/components/LastImported";
 import { FilePath } from "@/app/components/FilePath";
 import { Check, ChevronDown, ChevronRight, CircleCheck } from "lucide-react";
 
@@ -177,24 +180,26 @@ export default function BankRecPage() {
 
   return (
     <main style={{ display: "grid", gap: 14 }}>
-      <div className="card" style={{ display: "grid", gap: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <h1 style={{ margin: 0 }}>Bank Reconciliation</h1>
-            <select className="select-brand" value={period} onChange={(e) => setPeriod(e.target.value)} aria-label="Month">
-              {months.map((p) => <option key={p} value={p}>{periodLabel(p)}</option>)}
-            </select>
-            {signed && <Pill tone={TONE_GREEN}>SIGNED OFF {r?.signedOff?.by ? `· ${r.signedOff.by}` : ""} · {new Date(r!.signedOff!.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</Pill>}
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {r && !signed && <button className="btn" disabled={!!busy || reconciling} onClick={() => run()}>Re-run</button>}
-            {r && (signed
-              ? <button className="btn" disabled={!!busy || reconciling} onClick={() => signOff(false)}>Reopen month</button>
-              : <button className="btn primary" disabled={!!busy || reconciling || counts.out > 0 || counts.incomplete > 0} onClick={() => signOff(true)}
-                  title={counts.out || counts.incomplete ? "Every account must be filed and in balance first" : undefined}>Sign off {shortPeriod(period)}</button>)}
-          </div>
-        </div>
+      <PageHeader title="Bank Reconciliation"
+        pickers={<>
+          <HeaderSelect value={period} onChange={setPeriod} ariaLabel="Month" displayLabel={periodLabel(period)}>
+            {months.map((p) => <option key={p} value={p}>{periodLabel(p)}</option>)}
+          </HeaderSelect>
+        </>}
+        actions={<>
+          {r && !signed && <button className="btn" disabled={!!busy || reconciling} onClick={() => run()}>Re-run</button>}
+          {r && (signed
+            ? <button className="btn" disabled={!!busy || reconciling} onClick={() => signOff(false)}>Reopen month</button>
+            : <button className="btn primary" disabled={!!busy || reconciling || counts.out > 0 || counts.incomplete > 0} onClick={() => signOff(true)}
+                title={counts.out || counts.incomplete ? "Every account must be filed and in balance first" : undefined}>Sign off {shortPeriod(period)}</button>)}
+        </>}
+        meta={signed ? <MetaLine>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--c-067647)" }}>
+            <CircleCheck size={16} strokeWidth={1.75} aria-hidden />Signed off{r?.signedOff?.by ? ` by ${r.signedOff.by}` : ""} {new Date(r!.signedOff!.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          </span>
+        </MetaLine> : undefined} />
 
+      <div className="card" style={{ display: "grid", gap: 14 }}>
         {!signed && (
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
