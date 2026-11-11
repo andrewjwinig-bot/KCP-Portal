@@ -40,7 +40,7 @@ export function DownloadMenu({ label = "Download", items, variant = "primary", d
         onClick={() => !disabled && setOpen((v) => !v)}
         disabled={disabled}
         className={`${variant === "primary" ? "btn primary" : "btn"}${showLabel ? "" : " icon-tip"}`}
-        style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}
+        style={{ fontSize: "var(--fs-13)", padding: showLabel ? "8px 14px" : "8px 12px", fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6 }}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label}
@@ -48,7 +48,8 @@ export function DownloadMenu({ label = "Download", items, variant = "primary", d
       >
         {/^open$/i.test(label) ? <ExternalLink size={16} strokeWidth={1.75} aria-hidden /> : <Download size={16} strokeWidth={1.75} aria-hidden />}
         <span className={showLabel ? "menu-btn-label keep" : "menu-btn-label"}>{label}</span>
-        <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ opacity: 0.8 }} />
+        {/* Icon-only menus carry no chevron (owner: "do we need these down arrows") — the icon is the button. */}
+        {showLabel && <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ opacity: 0.8 }} />}
       </button>
       {open && (
         <div role="menu" style={{

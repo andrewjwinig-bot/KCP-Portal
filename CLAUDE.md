@@ -197,7 +197,10 @@ until he approves it for everyone; build EVERY new or touched UI to it.
   speculative). Never a row of segmented toggles across a header. **The header menus
   read as their ICONS at every width** (owner: "only show the text on hover …
   universal decluttering"): sliders for Display, external-link for Open,
-  download for Export, ⋯ for Actions — `.menu-btn-label` hides the word and
+  download for Export, ⋯ for Actions — square icon buttons with NO chevron
+  (owner: "do we need these down arrows"), opened by a CLICK, never on hover
+  (a hover menu opens by accident and closes as you reach for an item);
+  `.menu-btn-label` hides the word and
   `.icon-tip` (`data-tip`) shows the name on hover at once; the label stays as
   aria-label. Only the tenant portal keeps the word (`showLabel` on
   `DownloadMenu`). Import buttons and the page's one primary action keep
