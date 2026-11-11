@@ -4,6 +4,7 @@ import { PageHeader } from "@/app/components/PageHeader";
 import { HeaderSelect } from "@/app/components/HeaderSelect";
 import { MetaLine } from "@/app/components/LastImported";
 import { FilePath } from "@/app/components/FilePath";
+import LoadingState from "@/app/components/LoadingState";
 import { Check, ChevronDown, ChevronRight, CircleCheck } from "lucide-react";
 
 // Bank Recs — every bank account, every month, reconciled by the portal
@@ -250,6 +251,8 @@ export default function BankRecPage() {
         {busy && <div className="muted small">{busy}</div>}
         {error && <div style={{ color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
       </div>
+
+      {!reconciling && !data && !error && <LoadingState status="Loading bank recs…" context={periodLabel(period)} columns={5} rows={6} />}
 
       {reconciling && <ReconcilingCard period={period} accounts={[...new Set((data?.files ?? []).map((f) => f.last4).filter(Boolean) as string[])].sort()} />}
 
@@ -592,65 +595,20 @@ const REC_STAGES = [
   "Writing the month's record",
 ];
 function ReconcilingCard({ period, accounts }: { period: string; accounts: string[] }) {
+  // The portal's one loader (owner, 11/2026: "bank rec loading state is
+  // different… should it be"), with the stage it is likely on and a clock —
+  // the run is one long request, so the stages advance on time and the last
+  // one holds.
   const [t, setT] = useState(0);
-  useEffect(() => { const start = Date.now(); const id = setInterval(() => setT((Date.now() - start) / 1000), 200); return () => clearInterval(id); }, []);
+  useEffect(() => { const start = Date.now(); const id = setInterval(() => setT((Date.now() - start) / 1000), 500); return () => clearInterval(id); }, []);
   const stage = Math.min(REC_STAGES.length - 1, Math.floor(t / 3.5));
-  const tiles = accounts.length ? accounts : Array.from({ length: 24 }, () => "");
-  const lit = Math.floor(t * 4) % tiles.length;
   const secs = Math.floor(t);
+  const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
   return (
-    <div className="card" style={{ padding: "22px 22px 18px", display: "grid", gap: 16, overflow: "hidden" }} role="status" aria-live="polite">
-      <style>{`
-        @keyframes brScan { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-        @keyframes brPulse { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
-        @keyframes brSpin { to { transform: rotate(360deg); } }
-        @keyframes brPop { 0% { transform: scale(.92); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
-      `}</style>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span aria-hidden style={{ width: 22, height: 22, borderRadius: 999, border: "3px solid #dbe7f3", borderTopColor: "var(--c-0b4a7d)", animation: "brSpin .8s linear infinite", flex: "none" }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: "var(--c-0b4a7d)" }}>Reconciling every account for {periodLabel(period)}</div>
-          <div className="muted small">{accounts.length ? `${accounts.length} accounts on file` : "Every account on file"} · usually under a minute — keep this page open</div>
-        </div>
-        <div style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700, color: "var(--muted)", fontSize: "var(--fs-13)" }}>{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}</div>
-      </div>
-
-      <div style={{ position: "relative", height: 4, borderRadius: 999, background: "var(--c-e6eef6)", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, width: "40%", background: "linear-gradient(90deg, transparent, #0b4a7d, transparent)", animation: "brScan 1.4s ease-in-out infinite" }} />
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {tiles.map((a, i) => {
-          const on = i === lit;
-          const near = !on && (i === (lit - 1 + tiles.length) % tiles.length);
-          return (
-            <span key={i} style={{
-              minWidth: 54, height: 26, padding: "0 8px", borderRadius: 999, display: "inline-flex", alignItems: "center", justifyContent: "center",
-              fontSize: "var(--fs-11-5)", fontWeight: 700, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-              border: `1px solid ${on ? "var(--c-0b4a7d)" : "var(--border, var(--c-e5e7eb))"}`,
-              background: on ? "var(--c-0b4a7d)" : near ? "var(--c-dbe7f3)" : "transparent",
-              color: on ? "#fff" : "var(--muted)",
-              transition: "background .25s, color .25s, border-color .25s",
-              animation: on ? "brPop .3s ease-out" : undefined,
-            }}>{a || "\u00a0"}</span>
-          );
-        })}
-      </div>
-
-      <div style={{ display: "grid", gap: 6 }}>
-        {REC_STAGES.map((label, i) => {
-          const done = i < stage, now = i === stage;
-          return (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "var(--fs-13)", color: done ? "var(--text)" : now ? "var(--c-0b4a7d)" : "var(--muted)", fontWeight: now ? 700 : 500, opacity: done || now ? 1 : 0.55 }}>
-              <span aria-hidden style={{ width: 16, textAlign: "center", color: done ? "var(--c-15803d)" : "var(--c-0b4a7d)", fontWeight: 800 }}>
-                {done ? <Check size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : now ? <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 999, background: "var(--c-0b4a7d)", animation: "brPulse 1s ease-in-out infinite" }} /> : "·"}
-              </span>
-              {label}{now && i === REC_STAGES.length - 1 && t > 30 ? " — big month, still going" : ""}
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <LoadingState
+      status={`${REC_STAGES[stage]}${stage === REC_STAGES.length - 1 && t > 30 ? " — big month, still going" : ""}…`}
+      context={`Reconciling ${accounts.length ? `${accounts.length} accounts` : "every account"} for ${periodLabel(period)} · ${clock} · usually under a minute`}
+      columns={5} rows={6} />
   );
 }
 
