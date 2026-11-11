@@ -272,7 +272,9 @@ import which files … pending close out progress as well". `/close?month=`
 (default last month, Eastern) and a **Month Close** card on Drew's dashboard
 (`MonthCloseCard.tsx`). NOTHING IS KEYED: `buildMonthClose`
 (`lib/close/monthClose.ts`) reads the GL schedule (`outstandingGlUploads` as of
-the 25th of the month after — names each property still owed), the rent-roll
+the 25th of the month after — names each property still owed; a FUND — PJV3 /
+PNIPLX, a Skyline portfolio with no GL to export — is posted as far as all its
+buildings are), the rent-roll
 history, the next month's laser statement, the bank-rec run, the AvidXchange
 send log (Allocated, Credit Card, Payroll by pay date — 2 needed —, Commissions
 at a quarter end; a `partial` send is not a send) and the move-out queue

@@ -11,6 +11,7 @@ export { expectedPostedThrough, expectedPostedThroughFor };
 import { listFullGls, type StoredGl } from "./statementStore";
 import { assembleGls, closedThrough } from "./glAssemble";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 
 export type OutstandingGl = {
   key: string;
@@ -48,8 +49,20 @@ export async function outstandingGlUploads(now = new Date()): Promise<{
   }
 
   const behind: OutstandingGl[] = [];
+  const earlier = (a: { year: number; period: number } | null, b: { year: number; period: number } | null) =>
+    !a || !b ? null : (a.year < b.year || (a.year === b.year && a.period < b.period) ? a : b);
   for (const m of mappings) {
-    const latest = latestByKey.get(m.key) ?? null;
+    // A fund (JV III, NI LLC) is a Skyline PORTFOLIO — there is no GL of its
+    // own to export (owner, 11/2026). It is posted as far as its buildings
+    // all are, as the GL Import Coverage grid has always read it; a shell GL
+    // that happens to be on file counts if it is further along.
+    const parts = FUND_BUILDINGS[m.key];
+    const own = latestByKey.get(m.key) ?? null;
+    const viaParts = parts?.length ? parts.map((k) => latestByKey.get(k) ?? null).reduce((a, b) => earlier(a, b)) : null;
+    const latest = !parts ? own
+      : !own ? viaParts
+      : !viaParts ? own
+      : (earlier(own, viaParts) === own ? viaParts : own);
     const owed = expectedPostedThroughFor(m.propertyCode || m.key, now);
     const isBehind = !latest
       || latest.year < owed.year
