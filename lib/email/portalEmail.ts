@@ -45,11 +45,17 @@ export type PortalEmail = {
   link?: { label: string; path: string };
   /** Who did it, for the footer ("Logged by Drew"). */
   footer?: string;
+  /** Beside KORMAN in the masthead: "PORTAL" for the team, "COMMERCIAL
+   *  PROPERTIES" for a report that goes to ownership. */
+  brand?: string;
+  /** "Sent by the KCP Portal" in the footer (default on; off to ownership). */
+  systemFooter?: boolean;
 };
 
 export function portalEmail(e: PortalEmail): { subject: string; html: string; text: string } {
   const url = e.link ? `${portalOrigin()}${e.link.path}` : "";
   const rows = e.rows.filter((r) => r.value !== "");
+  const footerLine = [e.footer, e.systemFooter === false ? "" : "Sent by the KCP Portal"].filter(Boolean).join(" \u00b7 ");
   const valueStyle = (r: PortalRow) =>
     r.code ? `font-family:${MONO};font-size:14px;color:${NAVY};`
       : `font-family:${FONT};font-size:15px;font-weight:600;color:${r.tone ? TONE[r.tone] : INK};`;
@@ -61,7 +67,7 @@ export function portalEmail(e: PortalEmail): { subject: string; html: string; te
 <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px;max-width:560px;border-collapse:separate;background:#ffffff;border:1px solid ${BORDER};border-radius:12px;">
 <tr><td style="padding:22px 32px 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>
-<td style="font-family:${FONT};font-size:13px;font-weight:800;letter-spacing:2px;color:${NAVY};">KORMAN <span style="font-weight:500;letter-spacing:1px;color:${FAINT};">&nbsp;|&nbsp; PORTAL</span></td>
+<td style="font-family:${FONT};font-size:13px;font-weight:800;letter-spacing:2px;color:${NAVY};">KORMAN <span style="font-weight:500;letter-spacing:1px;color:${FAINT};">&nbsp;|&nbsp; ${esc(e.brand ?? "PORTAL")}</span></td>
 <td align="right" style="font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${FAINT};">${esc(e.eyebrow)}</td>
 </tr></table></td></tr>
 <tr><td style="padding:22px 32px 0;">
@@ -92,7 +98,7 @@ ${url ? `<tr><td style="padding:24px 32px 0;">
 <a href="${esc(url)}" target="_blank" style="color:#ffffff;text-decoration:none;font-family:${FONT};font-size:14px;font-weight:700;line-height:42px;display:block;"><font color="#ffffff">${esc(e.link!.label)}</font></a>
 </td></tr></table></td></tr>` : ""}
 <tr><td style="padding:24px 32px 22px;">
-<div style="border-top:1px solid ${HAIR};padding-top:14px;font-family:${FONT};font-size:12.5px;color:${FAINT};">${esc([e.footer, "Sent by the KCP Portal"].filter(Boolean).join(" · "))}</div>
+<div style="border-top:1px solid ${HAIR};padding-top:14px;font-family:${FONT};font-size:12.5px;color:${FAINT};">${esc(footerLine)}</div>
 </td></tr>
 </table>
 </td></tr></table></body></html>`;
@@ -107,7 +113,7 @@ ${url ? `<tr><td style="padding:24px 32px 0;">
     ...(e.note ? ["", `${e.note.label}:`, e.note.text] : []),
     ...(url ? ["", `${e.link!.label}: ${url}`] : []),
     "",
-    [e.footer, "Sent by the KCP Portal"].filter(Boolean).join(" · "),
+    footerLine,
   ].filter((l, i, a) => !(l === "" && a[i - 1] === "")).join("\n").trim();
 
   return { subject: e.subject, html, text };
