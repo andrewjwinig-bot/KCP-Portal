@@ -241,3 +241,28 @@ export function inboundAutoReplyEmail(fromName: string): { html: string; text: s
   };
   return { html: shell(s), text: textOf(s, first) };
 }
+
+// ─── A tenant's private portal link ──────────────────────────────────────────
+
+/** "Your 2025 statement is ready": the link as a button (never shown as a
+ *  long URL), what's in the portal, and a word on keeping it private. */
+export function portalLinkEmail(a: { propertyCode: string; propertyName: string; unitRef: string; tenantName: string; year: number; url: string }): { subject: string; html: string; text: string } {
+  const s: Shell = {
+    propertyCode: a.propertyCode,
+    subject: `Your ${a.year} CAM / RET statement is ready — Korman Commercial Properties`,
+    eyebrow: "Tenant Portal",
+    hello: `Your ${a.year} statement`, accent: "is ready.",
+    sub: `Your ${a.year} CAM / RET reconciliation is ready to view in your private tenant portal.`,
+    details: [["Tenant", a.tenantName], ["Location", [a.propertyName, a.unitRef].filter(Boolean).join(" · ")], ["Statement", `${a.year} CAM / RET reconciliation`]],
+    boxLabel: "In your portal",
+    boxText: "Review the statement line by line, with backup invoices\nDownload it as a PDF\nSee your lease terms\nSubmit a service request or reserve a conference room",
+    emergency: false,
+    button: { label: "Open your tenant portal", url: a.url },
+  };
+  const footNote = `This link is private to your suite. Please don't forward it outside your company. Questions about the statement? Call our office at ${OFFICE_PHONE}.`;
+  const html = shell(s).replace(
+    `<tr><td style="padding:24px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>`,
+    `<tr><td style="padding:16px 36px 0;font-family:${BODY};font-size:12.5px;line-height:1.5;color:#6c7890;">${esc(footNote)}</td></tr>\n<tr><td style="padding:24px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>`,
+  );
+  return { subject: s.subject, html, text: `${textOf(s, "")}\n\n${footNote}` };
+}
