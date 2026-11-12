@@ -12,6 +12,7 @@ import {
 } from "@/lib/maintenance/requests";
 import { saveRequest } from "@/lib/maintenance/requestsStorage";
 import { sendMail, NEW_REQUEST_NOTIFY } from "@/lib/mail";
+import { confirmationEmail } from "@/lib/maintenance/confirmationEmail";
 import { upsertContact } from "@/lib/maintenance/tenants";
 import { upsertSuiteContact } from "@/lib/suites/contactsStorage";
 import { classify } from "@/lib/maintenance/triage";
@@ -290,47 +291,17 @@ export async function POST(req: NextRequest) {
     try {
       await sendMail({
         to: tenantEmail,
-        subject: `Service request received — ${propertyName || "KCP"}`,
-        textBody: confirmationBody({
-          firstName,
-          propertyName,
-          tenantSuite,
-          description,
-          requestId: r.id,
-        }),
+        // The designed confirmation (lib/maintenance/confirmationEmail.ts).
+        ...(() => {
+          const m = confirmationEmail({ firstName, propertyCode, propertyName, tenantSuite, description, requestId: r.id, submittedAt: new Date() });
+          return { subject: m.subject, htmlBody: m.html, textBody: m.text };
+        })(),
         isAutoReply: true,
       });
     } catch { /* ignore */ }
   }
 
   return NextResponse.json({ ok: true, id: r.id }, { status: 201 });
-}
-
-function confirmationBody(args: {
-  firstName: string;
-  propertyName: string;
-  tenantSuite: string;
-  description: string;
-  requestId: string;
-}): string {
-  const greet = args.firstName ? `Hi ${args.firstName},` : "Hi,";
-  const where = [args.propertyName, args.tenantSuite].filter(Boolean).join(" · ");
-  const lines = [
-    greet,
-    "",
-    "Thanks for submitting a service request to Korman Commercial Properties. We've received it and the service team has been notified.",
-    "",
-    where ? `Property: ${where}` : null,
-    `Reference ID: ${args.requestId}`,
-    "",
-    "Your description:",
-    args.description.split("\n").map((l) => `  ${l}`).join("\n"),
-    "",
-    "Someone from the team will follow up shortly. For after-hours emergencies (active leak, fire, security), please call your property's emergency line.",
-    "",
-    "— KCP Maintenance",
-  ].filter((l) => l !== null) as string[];
-  return lines.join("\n");
 }
 
 function teamNotificationBody(args: {
