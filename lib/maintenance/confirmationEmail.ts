@@ -38,7 +38,7 @@ export function submittedLabel(d: Date): string {
 const placeOf = (propertyName: string, suite: string) =>
   [propertyName, suite ? `Suite ${suite}` : ""].filter(Boolean).join(" · ");
 
-type Shell = {
+export type Shell = {
   propertyCode: string | null;
   subject: string;
   eyebrow: string;
@@ -50,9 +50,14 @@ type Shell = {
   boxLabel: string;
   boxText: string;
   emergency: boolean;
+  /** A message a person wrote (staff to a tenant), shown under the band as
+   *  plain paragraphs, with the sender's name under it. */
+  letter?: { body: string; signedBy: string };
+  /** One call to action under the details. */
+  button?: { label: string; url: string };
 };
 
-function shell(s: Shell): string {
+export function shell(s: Shell): string {
   const cap = (t: string, color = "#6c7890") =>
     `<div style="font-family:${HEAD};font-size:11px;font-weight:bold;letter-spacing:3px;text-transform:uppercase;color:${color};">${esc(t)}</div>`;
   const logo = isInterplex(s.propertyCode)
@@ -65,17 +70,23 @@ function shell(s: Shell): string {
 <body style="margin:0;padding:0;background:#ffffff;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" align="center" style="width:600px;max-width:600px;border-collapse:collapse;background:#ffffff;">
 <tr><td style="padding:20px 36px 18px;">${logo}</td></tr>
-<tr><td style="background:#0a1f40;padding:24px 36px 22px;">
+<tr><td style="background:#0a1f40;padding:${s.letter ? "18px 36px" : "24px 36px 22px"};">
 ${cap(s.eyebrow, "#b9be4a")}
-<div style="font-family:${HEAD};font-size:30px;font-weight:bold;line-height:1.1;color:#ffffff;margin-top:10px;">${esc(s.hello)} <span style="color:#b9be4a;">${esc(s.accent)}</span></div>
-<div style="font-family:${BODY};font-size:14px;line-height:1.5;color:#c9d4e6;margin-top:10px;">${esc(s.sub)}</div>
+${s.hello ? `<div style="font-family:${HEAD};font-size:30px;font-weight:bold;line-height:1.1;color:#ffffff;margin-top:10px;">${esc(s.hello)} <span style="color:#b9be4a;">${esc(s.accent)}</span></div>` : ""}
+${s.sub ? `<div style="font-family:${BODY};font-size:14px;line-height:1.5;color:#c9d4e6;margin-top:10px;">${esc(s.sub)}</div>` : ""}
 </td></tr>
 <tr><td style="padding:0;"><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;border-collapse:collapse;"><tr>${band}</tr></table></td></tr>
 
-<tr><td style="padding:20px 36px 0;">
+${s.letter ? `
+<tr><td style="padding:24px 36px 4px;font-family:${BODY};font-size:14.5px;line-height:1.6;color:#13213a;">
+${esc(s.letter.body).split(/\r?\n\s*\r?\n/).map((p) => `<p style="margin:0 0 14px;">${p.replace(/\r?\n/g, "<br>")}</p>`).join("")}
+<p style="margin:4px 0 0;font-weight:bold;color:#0e2c5a;">${esc(s.letter.signedBy)}</p>
+<p style="margin:0;font-size:12.5px;color:#6c7890;">Korman Commercial Properties</p>
+</td></tr>` : ""}
+${details.length ? `<tr><td style="padding:20px 36px 0;">
 <table role="presentation" width="528" cellpadding="0" cellspacing="0" border="0" style="width:528px;border-collapse:collapse;">
 ${details.map(([k, v]) => `<tr><td width="100" style="width:100px;padding:8px 0;border-bottom:1px solid #eaecf0;font-family:${BODY};font-size:13px;color:#6c7890;">${esc(k)}</td><td style="padding:8px 0;border-bottom:1px solid #eaecf0;font-family:${BODY};${k === "Reference" ? "font-family:Consolas,Menlo,monospace;font-size:12px;color:#6c7890;" : "font-size:14px;font-weight:bold;color:#13213a;"}">${esc(v)}</td></tr>`).join("")}
-</table></td></tr>
+</table></td></tr>` : ""}
 ${s.boxText ? `
 <tr><td style="padding:16px 36px 0;">
 <table role="presentation" width="528" cellpadding="0" cellspacing="0" border="0" style="width:528px;border-collapse:collapse;"><tr>
@@ -83,6 +94,12 @@ ${s.boxText ? `
 <td style="background:#f1f3d6;padding:14px 18px;">
 ${cap(s.boxLabel, "#6d7205")}
 <div style="font-family:${BODY};font-size:14px;color:#13213a;line-height:1.5;margin-top:6px;">${esc(s.boxText).replace(/\r?\n/g, "<br>")}</div>
+</td></tr></table></td></tr>` : ""}
+${s.button ? `
+<tr><td style="padding:18px 36px 0;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>
+<td height="40" bgcolor="#18468b" align="center" valign="middle" style="height:40px;background:#18468b;padding:0 20px;mso-line-height-rule:exactly;line-height:40px;">
+<a href="${esc(s.button.url)}" target="_blank" style="color:#ffffff;text-decoration:none;font-family:${BODY};font-size:14px;font-weight:bold;line-height:40px;display:block;"><font color="#ffffff">${esc(s.button.label)} &rarr;</font></a>
 </td></tr></table></td></tr>` : ""}
 ${s.emergency ? `
 <tr><td style="padding:18px 36px 0;">
@@ -101,11 +118,16 @@ ${s.emergency ? `
 </table></body></html>`;
 }
 
-function textOf(s: Shell, firstName: string): string {
+export function textOf(s: Shell, firstName: string): string {
+  if (s.letter) {
+    return [s.letter.body, "", s.letter.signedBy, "Korman Commercial Properties", "",
+      ...s.details.filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`)].join("\n").trim();
+  }
   return [
     firstName ? `Hi ${firstName},` : "Hi,",
     "",
     s.sub,
+    ...(s.button ? ["", `${s.button.label}: ${s.button.url}`] : []),
     "",
     ...s.details.filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`),
     ...(s.boxText ? ["", `${s.boxLabel}:`, s.boxText] : []),
@@ -188,4 +210,34 @@ export function statusEmail(a: StatusArgs): { subject: string; html: string; tex
       emergency: true,
     };
   return { subject: s.subject, html: shell(s), text: textOf(s, first) };
+}
+
+// ─── A message staff write to a tenant from a request ────────────────────────
+
+/** The staff member's own words in the letter layout: logo, a slim band
+ *  naming what it is about, the message, their name, then the details. */
+export function staffMessageEmail(a: {
+  propertyCode: string | null; subject: string; eyebrow: string; body: string; signedBy: string; details: [string, string][];
+}): { html: string; text: string } {
+  const s: Shell = {
+    propertyCode: a.propertyCode, subject: a.subject, eyebrow: a.eyebrow, hello: "", accent: "", sub: "",
+    details: a.details, boxLabel: "", boxText: "", emergency: false, letter: { body: a.body, signedBy: a.signedBy },
+  };
+  return { html: shell(s), text: textOf(s, "") };
+}
+
+// ─── Email sent to service@ ──────────────────────────────────────────────────
+
+/** The auto-reply to an email sent to service@: requests come in through the
+ *  form, so point them at it (a real link — the old reply linked "/submit"). */
+export function inboundAutoReplyEmail(fromName: string): { html: string; text: string } {
+  const first = fromName.trim().split(/\s+/)[0] ?? "";
+  const s: Shell = {
+    propertyCode: null, subject: "Service requests", eyebrow: "Service Requests",
+    hello: first ? `Thanks, ${first}.` : "Thanks for reaching out.", accent: "Please use our request form.",
+    sub: "Service requests come in through a quick form, so we get your building, suite, photos and contact details in one place and can send the right person faster.",
+    details: [], boxLabel: "", boxText: "", emergency: true,
+    button: { label: "Submit a service request", url: SUBMIT_URL },
+  };
+  return { html: shell(s), text: textOf(s, first) };
 }

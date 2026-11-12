@@ -7,6 +7,7 @@ import {
 import { getRequest, saveRequest } from "@/lib/maintenance/requestsStorage";
 import { isStaffId, staffName } from "@/lib/maintenance/staff";
 import { isMailConfigured, sendMail } from "@/lib/mail";
+import { staffMessageEmail } from "@/lib/maintenance/confirmationEmail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,7 +46,12 @@ export async function POST(
   if (!subject) return NextResponse.json({ error: "Subject is required" }, { status: 400 });
   if (!text) return NextResponse.json({ error: "Message body is required" }, { status: 400 });
 
-  const sent = await sendMail({ to: r.tenantEmail, subject, textBody: text });
+  const m = staffMessageEmail({
+    propertyCode: r.propertyCode, subject, eyebrow: "Your Service Request", body: text,
+    signedBy: isStaffId(fromId) ? staffName(fromId) : "The Service Team",
+    details: [["Location", [r.propertyName, r.tenantSuite ? `Suite ${r.tenantSuite}` : ""].filter(Boolean).join(" · ")], ["Request", r.subject], ["Reference", r.id]],
+  });
+  const sent = await sendMail({ to: r.tenantEmail, subject, textBody: m.text, htmlBody: m.html });
   if (!sent) {
     return NextResponse.json({ error: "Email send failed" }, { status: 502 });
   }

@@ -5,6 +5,8 @@ import {
   saveReservation,
 } from "@/lib/reservations/storage";
 import { isMailConfigured, sendMail } from "@/lib/mail";
+import { staffMessageEmail } from "@/lib/maintenance/confirmationEmail";
+import { prettyDate } from "@/lib/reservations/emails";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +38,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   if (!subject) return NextResponse.json({ error: "Subject is required" }, { status: 400 });
   if (!text) return NextResponse.json({ error: "Message body is required" }, { status: 400 });
 
-  const sent = await sendMail({ to: r.contactEmail, subject, textBody: text });
+  const m = staffMessageEmail({
+    propertyCode: r.propertyCode, subject, eyebrow: "Conference Room Reservation", body: text, signedBy: author,
+    details: [["Room", [r.roomLabel, r.propertyName].filter(Boolean).join(" · ")], ["Date", prettyDate(r.date)], ["Reference", r.id]],
+  });
+  const sent = await sendMail({ to: r.contactEmail, subject, textBody: m.text, htmlBody: m.html });
   if (!sent) return NextResponse.json({ error: "Email send failed" }, { status: 502 });
 
   const now = new Date().toISOString();

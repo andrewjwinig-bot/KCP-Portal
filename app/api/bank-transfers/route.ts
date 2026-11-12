@@ -9,6 +9,9 @@ import {
 } from "@/lib/bankTransfers/storage";
 import { sendMail, type MailAttachment } from "@/lib/mail";
 import { get } from "@vercel/blob";
+import { portalEmail, titleCase } from "@/lib/email/portalEmail";
+import { budgetUser } from "@/lib/financials/budgets/currentUser";
+import { USERS } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -27,24 +30,23 @@ function fmtMoney(n: number): string {
   return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
 }
 
-function buildTransferEmail(t: BankTransfer): { subject: string; textBody: string } {
-  const lines = [
-    `A new bank transfer was logged in the KCP Portal.`,
-    ``,
-    `Date:        ${prettyDate(t.date)}`,
-    `Bank:        ${t.bankName || "—"}`,
-    `From:        ${t.fromLabel}`,
-    `To:          ${t.toLabel}`,
-    `Amount:      ${fmtMoney(t.amount)}`,
-    `Confirmation:${t.pdfUrl ? " Attached (see PDF)" : t.pdfSaved ? " In shared folder" : " Not yet"}`,
-  ];
-  if (t.description?.trim()) {
-    lines.push("", "Details:", t.description.trim());
-  }
-  return {
-    subject: "New Bank Transfer",
-    textBody: lines.join("\n"),
-  };
+function buildTransferEmail(t: BankTransfer, by: string | null) {
+  const confirmation = t.pdfUrl ? "Attached" : t.pdfSaved ? "In the shared folder" : "Not yet uploaded";
+  return portalEmail({
+    subject: `Bank transfer — ${fmtMoney(t.amount)} · ${t.fromLabel} to ${t.toLabel}`,
+    eyebrow: "Bank Transfer",
+    title: "New bank transfer",
+    figure: { value: fmtMoney(t.amount), label: prettyDate(t.date) },
+    rows: [
+      { label: "From", value: t.fromLabel },
+      { label: "To", value: t.toLabel },
+      { label: "Bank", value: t.bankName },
+      { label: "Confirmation", value: confirmation, tone: t.pdfUrl || t.pdfSaved ? "good" : "warn" },
+    ],
+    note: t.description?.trim() ? { label: "Details", text: t.description.trim() } : undefined,
+    link: { label: "Open Bank Transfers", path: "/bank-transfers" },
+    footer: by ? `Logged by ${by}` : undefined,
+  });
 }
 
 /** Fetch a private Blob's bytes for emailing as an attachment. Best-effort. */
@@ -104,13 +106,14 @@ export async function POST(req: Request) {
     // false silently if Postmark isn't configured. When a confirmation PDF was
     // uploaded, attach it so the confirmation lands in the same email.
     if (isNew) {
-      const { subject, textBody } = buildTransferEmail(t);
+      const who = await budgetUser();
+      const { subject, html, text: textBody } = buildTransferEmail(t, who ? titleCase(USERS[who]?.label ?? who) : null);
       const attachments: MailAttachment[] = [];
       if (t.pdfUrl) {
         const bytes = await fetchBlobBytes(t.pdfUrl);
         if (bytes) attachments.push({ name: t.pdfName || `Transfer ${t.date}.pdf`, content: bytes, contentType: "application/pdf" });
       }
-      sendMail({ to: NEW_TRANSFER_NOTIFY, subject, textBody, attachments: attachments.length ? attachments : undefined }).catch(() => { /* swallow */ });
+      sendMail({ to: NEW_TRANSFER_NOTIFY, subject, textBody, htmlBody: html, attachments: attachments.length ? attachments : undefined }).catch(() => { /* swallow */ });
     }
 
     return NextResponse.json({ transfer: t });

@@ -12,6 +12,7 @@ import { upsertContact } from "@/lib/maintenance/tenants";
 import { companiesForProperty } from "@/lib/tenants/companies";
 import { bestTenantMatch } from "@/lib/tenants/match";
 import { sendMail, NEW_REQUEST_NOTIFY } from "@/lib/mail";
+import { reservationReceivedEmail } from "@/lib/reservations/emails";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { portalOrigin } from "@/lib/linkOrigin";
 
@@ -202,32 +203,12 @@ export async function POST(req: NextRequest) {
   try {
     await sendMail({
       to: email,
-      subject: `Reservation request received — ${room.label}, ${room.propertyName}`,
-      textBody: confirmationBody(r),
+      ...(() => { const m = reservationReceivedEmail(r); return { subject: m.subject, htmlBody: m.html, textBody: m.text }; })(),
       isAutoReply: true,
     });
   } catch { /* ignore */ }
 
   return NextResponse.json({ ok: true, id: r.id }, { status: 201 });
-}
-
-function confirmationBody(r: Reservation): string {
-  const greet = r.contactFirstName ? `Hi ${r.contactFirstName},` : "Hi,";
-  return [
-    greet,
-    "",
-    `Thanks for submitting a reservation request for the ${r.roomLabel} at ${r.propertyName}. Our team will review and confirm shortly.`,
-    "",
-    `Room:    ${r.roomLabel} (${r.propertyName})`,
-    `Date:    ${prettyDate(r.date)}`,
-    `Time:    ${prettyTime(r.startTime)} – ${prettyTime(r.endTime)}`,
-    r.purpose ? `Purpose: ${r.purpose}` : null,
-    `Reference ID: ${r.id}`,
-    "",
-    "Your reservation is currently PENDING. You'll receive another email once it's approved.",
-    "",
-    "— KCP Property Management",
-  ].filter((l) => l !== null).join("\n");
 }
 
 function teamNotificationBody(r: Reservation): string {
