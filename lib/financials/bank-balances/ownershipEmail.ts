@@ -11,6 +11,8 @@
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
 import { sendMail, isMailConfigured, VERIFIED_FROM } from "@/lib/mail";
+import { portalEmail } from "@/lib/email/portalEmail";
+import { cell, cellSigned, headline, headlineSigned, total, totalSigned } from "./compact";
 import { buildBalanceView, type BalanceView } from "./view";
 import { asOfOf, buildBalancePdf } from "./export";
 import { todayET } from "./store";
@@ -84,6 +86,7 @@ const money0 = (n: number) => {
   const s = Math.abs(v).toLocaleString("en-US");
   return v < 0 ? `($${s})` : `$${s}`;
 };
+const shortDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const longDate = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
 export function composeCashPosition(view: BalanceView, now = new Date()) {
@@ -102,6 +105,42 @@ export function composeCashPosition(view: BalanceView, now = new Date()) {
   const asOf = asOfOf(view);
   const week = longDate(weekOf(now));
   const subject = `Cash Position — Week of ${week}`;
+  const signed = headlineSigned;
+  const big = headline;
+  // By group, in the page's order: what each part of the portfolio holds.
+  const groups = [...new Set(rows.map((r) => r.group))].map((g) => {
+    const rs = rows.filter((r) => r.group === g && r.balance != null);
+    const cmp = rs.filter((r) => r.change != null);
+    const restricted = rs.length > 0 && rs.every((r) => r.restricted);
+    return {
+      g, n: rs.length,
+      bal: rs.reduce((t, r) => t + num(r.balance), 0),
+      chg: cmp.length ? cmp.reduce((t, r) => t + num(r.change), 0) : null,
+      net: restricted ? null : rs.filter((r) => !r.restricted).reduce((t, r) => t + num(r.netAvailable), 0),
+    };
+  }).filter((x) => x.n);
+  const email = portalEmail({
+    subject,
+    brand: "COMMERCIAL PROPERTIES",
+    systemFooter: false,
+    eyebrow: "Cash Position",
+    title: `Week of ${week}`,
+    lead: `Balances as of ${asOf ? longDate(asOf) : "the latest import"}. The full report is attached.`,
+    figure: { value: big(net), label: "Net available: cash in bank less reserves and security deposits" },
+    rows: [
+      { label: "Cash in bank", value: big(cash) },
+      ...(change != null ? [{ label: "Week over week", value: `${signed(change)}${priorAsOf ? ` since ${longDate(priorAsOf)}` : ""}`, tone: (change >= 0 ? "good" : "bad") as "good" | "bad" }] : []),
+      { label: "Security deposits", value: `${big(deposits)} held for tenants` },
+      { label: "Reserves", value: big(reserves) },
+      { label: "Debt service", value: `${big(debtService)} a month` },
+    ],
+    table: {
+      columns: ["", "Cash", "Change", "Net available"],
+      rows: groups.map((x) => [x.g, cell(x.bal), cellSigned(x.chg), cell(x.net)]),
+      total: ["Total", total(cash), totalSigned(change), total(net)],
+    },
+    footer: view.byBank.map((b) => `${b.bank.replace("JPM-", "")} as of ${b.asOf ? shortDate(b.asOf) : "\u2014"}`).join(" · "),
+  });
   const lines = [
     `Cash position as of ${asOf ? longDate(asOf) : "the latest import"} — the full report is attached.`,
     "",
@@ -117,7 +156,7 @@ export function composeCashPosition(view: BalanceView, now = new Date()) {
     "Korman Commercial Properties",
   ];
   const file = `Cash Position ${asOf ?? weekOf(now)}.pdf`;
-  return { subject, textBody: lines.join("\n"), file };
+  return { subject, textBody: email.text || lines.join("\n"), htmlBody: email.html, file };
 }
 
 export type SendOutcome = { sent: boolean; reason?: string; to?: string[]; week?: string };
@@ -132,9 +171,9 @@ export async function sendCashPosition(opts: { by: string | null; force?: boolea
   if (!isMailConfigured()) return { sent: false, reason: "Mail is not configured" };
   const view = await buildBalanceView(now);
   if (!view.byBank.length) return { sent: false, reason: "No bank balances imported" };
-  const { subject, textBody, file } = composeCashPosition(view, now);
+  const { subject, textBody, htmlBody, file } = composeCashPosition(view, now);
   const ok = await sendMail({
-    to: doc.recipients.join(", "), from: VERIFIED_FROM, subject, textBody,
+    to: doc.recipients.join(", "), from: VERIFIED_FROM, subject, textBody, htmlBody,
     // No blind copy to someone already on the To line.
     ...(COPY_TO && !doc.recipients.includes(COPY_TO.toLowerCase()) ? { bcc: COPY_TO } : {}),
     attachments: [{ name: file, content: new Uint8Array(buildBalancePdf(view)), contentType: "application/pdf" }],
