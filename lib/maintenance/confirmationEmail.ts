@@ -55,12 +55,18 @@ export type Shell = {
   letter?: { body: string; signedBy: string };
   /** One call to action under the details. */
   button?: { label: string; url: string };
+  /** A short muted line under the button (a privacy note, an office line). */
+  footNote?: string;
+  /** One code to read off — a PIN — set large in its own box. */
+  code?: { label: string; value: string };
+  /** Never the Interplex logo (an investor email). */
+  kormanLogo?: boolean;
 };
 
 export function shell(s: Shell): string {
   const cap = (t: string, color = "#6c7890") =>
     `<div style="font-family:${HEAD};font-size:11px;font-weight:bold;letter-spacing:3px;text-transform:uppercase;color:${color};">${esc(t)}</div>`;
-  const logo = isInterplex(s.propertyCode)
+  const logo = !s.kormanLogo && isInterplex(s.propertyCode)
     ? `<img src="${IMG}/logo-interplex.png" width="200" height="55" alt="The Neshaminy Interplex Business Center" style="display:block;width:200px;height:55px;border:0;">`
     : `<img src="${IMG}/korman-signature.png" width="230" height="28" alt="Korman Commercial Properties" style="display:block;width:230px;height:28px;border:0;">`;
   const band = ["#18468b", "#838906", "#b9be4a", "#0e2c5a"].map((c) => `<td width="150" height="5" style="width:150px;height:5px;background:${c};font-size:0;line-height:0;">&nbsp;</td>`).join("");
@@ -95,6 +101,13 @@ ${s.boxText ? `
 ${cap(s.boxLabel, "#6d7205")}
 <div style="font-family:${BODY};font-size:14px;color:#13213a;line-height:1.5;margin-top:6px;">${esc(s.boxText).replace(/\r?\n/g, "<br>")}</div>
 </td></tr></table></td></tr>` : ""}
+${s.code ? `
+<tr><td style="padding:18px 36px 0;">
+<table role="presentation" width="528" cellpadding="0" cellspacing="0" border="0" style="width:528px;border-collapse:collapse;"><tr>
+<td align="center" style="background:#f1f3d6;border:1px solid #b9be4a;padding:18px 22px;">
+${cap(s.code.label, "#6d7205")}
+<div style="font-family:Consolas,Menlo,'Courier New',monospace;font-size:34px;font-weight:bold;letter-spacing:8px;color:#0e2c5a;margin-top:8px;">${esc(s.code.value)}</div>
+</td></tr></table></td></tr>` : ""}
 ${s.button ? `
 <tr><td style="padding:18px 36px 0;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>
@@ -109,6 +122,7 @@ ${s.emergency ? `
 <div style="font-family:${BODY};font-size:13.5px;color:#dbe3f0;line-height:1.5;margin-top:7px;">For an active leak, a fire or a security issue, call our office at <b style="color:#ffffff;">${OFFICE_PHONE}</b>. If anyone is in danger, call 911 first.</div>
 </td></tr></table></td></tr>` : ""}
 
+${s.footNote ? `<tr><td style="padding:16px 36px 0;font-family:${BODY};font-size:12.5px;line-height:1.5;color:#6c7890;">${esc(s.footNote)}</td></tr>` : ""}
 <tr><td style="padding:24px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>
 <tr><td style="padding:0;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;border-collapse:collapse;background:#0a1f40;"><tr>
@@ -131,6 +145,8 @@ export function textOf(s: Shell, firstName: string): string {
     "",
     ...s.details.filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`),
     ...(s.boxText ? ["", `${s.boxLabel}:`, s.boxText] : []),
+    ...(s.code ? ["", `${s.code.label}: ${s.code.value}`] : []),
+    ...(s.footNote ? ["", s.footNote] : []),
     ...(s.emergency ? ["", `An emergency? For an active leak, a fire or a security issue, call our office at ${OFFICE_PHONE}. If anyone is in danger, call 911 first.`] : []),
     "",
     "Korman Commercial Properties · Property Management",
@@ -261,10 +277,6 @@ export function portalLinkEmail(a: { propertyCode: string; propertyName: string;
     emergency: false,
     button: { label: "View your statement", url: a.url },
   };
-  const footNote = `This link is private to your suite. Please don't forward it outside your company. Questions about the statement? Call our office at ${OFFICE_PHONE}.`;
-  const html = shell(s).replace(
-    `<tr><td style="padding:24px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>`,
-    `<tr><td style="padding:16px 36px 0;font-family:${BODY};font-size:12.5px;line-height:1.5;color:#6c7890;">${esc(footNote)}</td></tr>\n<tr><td style="padding:24px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>`,
-  );
-  return { subject: s.subject, html, text: `${textOf(s, "")}\n\n${footNote}` };
+  s.footNote = `This link is private to your suite. Please don't forward it outside your company. Questions about the statement? Call our office at ${OFFICE_PHONE}.`;
+  return { subject: s.subject, html: shell(s), text: textOf(s, "") };
 }
