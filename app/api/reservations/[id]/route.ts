@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isMailConfigured, sendMail } from "@/lib/mail";
+import { reservationDecisionEmail } from "@/lib/reservations/emails";
 import {
   getReservation,
   newNoteId,
@@ -71,6 +73,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   try {
     await saveReservation(next);
+    // Tell the tenant when staff approve or decline (the confirmation
+    // promises it). Only on an actual change, and only with an email.
+    if (next.status !== r.status && next.status !== "Pending" && next.contactEmail && isMailConfigured()) {
+      try {
+        const m = reservationDecisionEmail(next);
+        await sendMail({ to: next.contactEmail, subject: m.subject, htmlBody: m.html, textBody: m.text, isAutoReply: true });
+      } catch { /* the decision still saves */ }
+    }
     return NextResponse.json({ reservation: next });
   } catch (e) {
     return NextResponse.json(

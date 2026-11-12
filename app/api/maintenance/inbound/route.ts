@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { normalizeInbound, type ParsedEmail } from "@/lib/maintenance/emails";
+import { inboundAutoReplyEmail } from "@/lib/maintenance/confirmationEmail";
 
 // Inbound parsed-email webhook.
 //
@@ -80,25 +81,13 @@ function shouldSkipReply(email: ParsedEmail): boolean {
 async function sendAutoReply(email: ParsedEmail): Promise<boolean> {
   const token = process.env.POSTMARK_SERVER_TOKEN;
   const from = process.env.MAINTENANCE_REPLY_FROM;
-  const submitUrl = process.env.PORTAL_SUBMIT_URL ?? "/submit";
-  if (!token || !from) return false;
-
-  const firstName = email.fromName.split(/\s+/)[0] || "there";
+  const firstName = email.fromName.split(/\s+/)[0] || "";
   const subject = email.subject
     ? `Re: ${email.subject.replace(/^Re:\s*/i, "")}`
     : "Re: Service request";
-
-  const body = [
-    `Hi ${firstName},`,
-    "",
-    "Thanks for contacting KCP Maintenance. We've moved to a quick web form so we can capture your building, unit, photos, and contact info in one place and get a technician dispatched faster.",
-    "",
-    `Please submit your request here: ${submitUrl}`,
-    "",
-    "If this is an after-hours emergency (active leak, fire, security), please call your property's emergency line.",
-    "",
-    "— KCP Maintenance",
-  ].join("\n");
+  // The designed reply (lib/maintenance/confirmationEmail.ts), with a real
+  // link to the form — the old one linked a bare "/submit".
+  const { html, text: body } = inboundAutoReplyEmail(firstName);
 
   try {
     const res = await fetch("https://api.postmarkapp.com/email", {
@@ -113,6 +102,7 @@ async function sendAutoReply(email: ParsedEmail): Promise<boolean> {
         To: email.fromEmail,
         Subject: subject,
         TextBody: body,
+        HtmlBody: html,
         MessageStream: "outbound",
         Headers: [
           // Mark our own message as an auto-reply so other systems skip
