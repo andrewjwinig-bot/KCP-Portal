@@ -13,7 +13,7 @@ export default function QuickLinks({ card = false }: { card?: boolean }) {
   const links = quickLinksFor(user.id);
   if (!links.length) return null;
   const row = (
-    <nav aria-label="Quick links" style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+    <nav aria-label="Quick links" className={card ? "quick-links-compact" : undefined} style={{ display: "flex", flexWrap: card ? "nowrap" : "wrap", gap: card ? 8 : 10 }}>
       {links.map((l) => (
         <a key={l.id} href={l.href} target="_blank" rel="noopener noreferrer" className="quick-link" aria-label={l.name} data-tip={l.name}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -24,7 +24,7 @@ export default function QuickLinks({ card = false }: { card?: boolean }) {
   );
   if (!card) return row;
   return (
-    <section className="card" style={{ display: "grid", gap: 12 }}>
+    <section className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 16px" }}>
       <span style={SECTION}>Quick Links</span>
       {row}
     </section>
