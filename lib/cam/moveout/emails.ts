@@ -143,7 +143,8 @@ export function chargesEmail(i: MoveoutEmailInput & {
       ? { title: "Charges to post", columns: ["Charge", "Code", "Amount"], rows: i.charges.map((c) => [c.description, c.code, plain(c.amount)]), total: ["Total", "", plain(total)], align: ["left", "left", "right"] }
       : undefined,
     note: i.charges.length ? undefined : { label: "Nothing to post", text: `The ${i.cats} true-up nets to $0.` },
-    link: { label: "Open the close-out", path: i.path },
-    footer: `Attached: the Final Bill PDF${i.hasCsv ? " and the Skyline charge import (CSV)" : ""}`,
+    // No button: Tanya has no portal login — she posts in Skyline from this
+    // email and its attachments alone.
+    footer: `Post these in Skyline · attached: the Final Bill PDF${i.hasCsv ? " and the Skyline charge import (CSV)" : ""}`,
   });
 }
