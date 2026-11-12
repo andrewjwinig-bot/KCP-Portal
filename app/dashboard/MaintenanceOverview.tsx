@@ -1,5 +1,6 @@
 "use client";
 
+import QuickLinks from "./QuickLinks";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -165,6 +166,7 @@ export default function MaintenanceOverview() {
           <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
+      <QuickLinks />
 
       {error && (
         <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>

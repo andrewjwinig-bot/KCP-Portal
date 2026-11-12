@@ -37,6 +37,7 @@ import MgmtFeesChartCard from "./MgmtFeesChartCard";
 import MonthCloseCard from "./MonthCloseCard";
 import LeaseMovementCard from "./LeaseMovementCard";
 import WorkQueue from "./WorkQueue";
+import QuickLinks from "./QuickLinks";
 import ChargesToCodeCard from "./ChargesToCodeCard";
 import { useStudioSkin } from "@/app/components/SkinToggle";
 import { Pill, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
@@ -680,6 +681,7 @@ function DashboardInner() {
           <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>}
+      {!queueOn && <QuickLinks />}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
         {/* ── Pending reservation requests (anyone with reservations access) ── */}

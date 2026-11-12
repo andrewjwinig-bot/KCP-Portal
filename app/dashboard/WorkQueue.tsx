@@ -9,6 +9,7 @@
 // ticking a task. Approving / commenting in place comes with the shared queue
 // store; until then each row opens the page where the action lives.
 
+import QuickLinks from "./QuickLinks";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -303,6 +304,8 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
         </div>
         <button className="btn" onClick={() => setModal(true)}><Plus size={16} strokeWidth={1.75} aria-hidden /> New task</button>
       </div>
+      {/* The outside systems — right under the greeting, above the queue. */}
+      <QuickLinks />
 
       <div role="tablist" style={{ display: "flex", flexWrap: "wrap", gap: 28, borderBottom: "1px solid var(--border)" }}>
         {([["me", "Needs me", counts.me], ["waiting", "Waiting on others", counts.waiting], ["everyone", "Everyone", counts.everyone], ["done", "Done", counts.done]] as const).map(([k, label, n]) => {
