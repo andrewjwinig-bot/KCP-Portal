@@ -1615,3 +1615,7 @@ select.header-select-native { position: absolute; inset: 0; width: 100%; height:
   background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
   padding: 5px 10px; font-size: 13px; font-weight: 700; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.14);
 }
+
+/* The Quick Links card fits its label and the tiles on ONE row in the Work Queue's right column. */
+.quick-links-compact .quick-link { width: 40px; height: 40px; }
+.quick-links-compact .quick-link img { width: 26px; height: 26px; }
