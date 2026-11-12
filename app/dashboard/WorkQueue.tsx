@@ -304,8 +304,6 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
         </div>
         <button className="btn" onClick={() => setModal(true)}><Plus size={16} strokeWidth={1.75} aria-hidden /> New task</button>
       </div>
-      {/* The outside systems — right under the greeting, above the queue. */}
-      <QuickLinks />
 
       <div role="tablist" style={{ display: "flex", flexWrap: "wrap", gap: 28, borderBottom: "1px solid var(--border)" }}>
         {([["me", "Needs me", counts.me], ["waiting", "Waiting on others", counts.waiting], ["everyone", "Everyone", counts.everyone], ["done", "Done", counts.done]] as const).map(([k, label, n]) => {
@@ -368,6 +366,8 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
         </section>
 
         <aside className="queue-aside">
+          {/* The outside systems, at the top of the right column (owner). */}
+          <QuickLinks card />
           {selected && (
             <section className="card queue-detail" style={{ display: "grid", gap: 14 }}>
               <div style={{ display: "grid", gap: 4 }}>
