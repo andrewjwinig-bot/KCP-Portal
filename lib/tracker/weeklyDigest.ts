@@ -4,14 +4,14 @@
 // (lib/email/portalEmail.ts), every item a link to the page that does it.
 // Pure — the cron route gathers the data and sends.
 
-import { CATEGORIES, type TaskOccurrence } from "@/lib/tracker/taskDefs";
+import { type TaskOccurrence } from "@/lib/tracker/taskDefs";
 import { completionKey } from "@/lib/tracker/completionStore";
 import { importsForWeek } from "@/lib/tracker/imports";
-import { reminderSatisfied, reminderOutstanding, type ImportEvent } from "@/lib/tracker/importEvents";
+import { reminderOutstanding, type ImportEvent } from "@/lib/tracker/importEvents";
 import type { OutstandingGl } from "@/lib/financials/operating-statements/outstanding";
 import type { VacatedTenant } from "@/lib/leasing/recentlyVacated";
 import type { NotPostedItem } from "@/lib/financials/operating-statements/notPosted";
-import { portalEmail, titleCase, type PortalItem, type PortalSection } from "@/lib/email/portalEmail";
+import { portalEmail, type PortalSection } from "@/lib/email/portalEmail";
 
 export function weekBounds(now: Date): { start: Date; end: Date } {
   const sinceMon = (now.getDay() + 6) % 7; // 0=Sun → week starts Monday
@@ -45,68 +45,43 @@ export function buildDigest(
 
   const range = `${fmtDate(start)} – ${fmtDate(end)}`;
   const year = now.getFullYear();
-  const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
   const sections: PortalSection[] = [];
+  // Kept short (owner: "its still pretty busy"): one line per item, the
+  // counts once (in the figures up top), no notes, no repeats.
 
-  // ── Tasks due this week — each opens its page ────────────────────────────
+  // ── This week: the open tasks, plus any import that isn't already a task ─
+  const imports = importsForWeek(start, end).filter((r) => (r.owner ?? "drew") === "drew");
+  const outstandingImports = imports.filter((r) => reminderOutstanding(r, importEvents[r.id]?.at, now));
+  const taskNames = new Set(open.map((o) => o.label.toLowerCase()));
   sections.push({
-    title: "Tasks this week",
-    count: open.length ? `${open.length} open${doneCount ? ` · ${doneCount} done` : ""}` : tasks.length ? "all done" : "",
-    countTone: open.length ? undefined : "good",
-    items: open.map((o) => ({ title: o.label, meta: fmtDate(o.date), sub: CATEGORIES[o.category]?.label, path: o.link ?? "/tracker" })),
-    empty: tasks.length ? `All ${tasks.length} done.` : "Nothing scheduled.",
+    title: "This week",
+    items: [
+      ...open.map((o) => ({ title: o.label, meta: fmtDate(o.date), path: o.link ?? "/tracker" })),
+      ...outstandingImports.filter((r) => !taskNames.has(r.label.toLowerCase()))
+        .map((r) => ({ title: `Import ${r.label}`, meta: r.when, path: r.link })),
+    ],
+    empty: tasks.length ? `All ${tasks.length} tasks done.` : "Nothing scheduled.",
   });
 
-  // ── Files to import (Drew's only — the CC statement and payroll are Harry's) ─
-  const imports = importsForWeek(start, end).filter((r) => (r.owner ?? "drew") === "drew");
-  // Not-yet-due is not outstanding: the AP report covers bills paid on
-  // Wednesday, so it cannot be missing on a Monday.
-  const outstandingImports = imports.filter((r) => reminderOutstanding(r, importEvents[r.id]?.at, now));
-  const doneImports = imports.filter((r) => reminderSatisfied(r, importEvents[r.id]?.at, now));
-  if (imports.length) {
+  // ── GL uploads: one line, plus any property further behind than the rest ─
+  const behind = outstanding?.behind ?? [];
+  if (outstanding && behind.length) {
+    const exp = `${MON_SHORT[outstanding.expected.period - 1]} ${outstanding.expected.year}`;
+    const label = (b: OutstandingGl) => (b.latest ? `${MON_SHORT[b.latest.period - 1]} ${b.latest.year}` : "No GL yet");
+    const counts = new Map<string, number>();
+    for (const b of behind) counts.set(label(b), (counts.get(label(b)) ?? 0) + 1);
+    const usual = [...counts.entries()].sort((x, y) => y[1] - x[1])[0][0];
+    const odd = behind.filter((b) => label(b) !== usual);
     sections.push({
-      title: "Files to import",
-      count: outstandingImports.length ? `${outstandingImports.length} outstanding` : "all done",
-      countTone: outstandingImports.length ? undefined : "good",
+      title: `GL uploads due through ${exp}`,
       items: [
-        ...outstandingImports.map((r) => ({ title: r.label, meta: r.when, sub: `Feeds ${r.feeds}`, path: r.link })),
-        ...doneImports.map((r) => {
-          const ev = importEvents[r.id];
-          const when = ev ? new Date(ev.at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
-          return { title: r.label, meta: `Imported ${when}${ev?.by ? ` by ${titleCase(ev.by)}` : ""}`, tone: "good" as const, path: r.link };
-        }),
+        { title: `${counts.get(usual)} properties`, meta: usual === "No GL yet" ? usual : `Posted through ${usual}`, path: "/financials/operating-statements" },
+        ...odd.map((b) => ({ title: b.name, meta: b.latest ? `Posted through ${label(b)}` : "No GL yet", tone: "warn" as const, path: `/financials/operating-statements?key=${encodeURIComponent(b.propertyCode)}` })),
       ],
     });
   }
 
-  // ── GL uploads behind — grouped by how far each has posted ───────────────
-  const behind = outstanding?.behind ?? [];
-  if (outstanding && behind.length) {
-    const exp = `${MON_SHORT[outstanding.expected.period - 1]} ${outstanding.expected.year}`;
-    const groups = new Map<string, OutstandingGl[]>();
-    for (const b of behind) {
-      const k = b.latest ? `Through ${MON_SHORT[b.latest.period - 1]} ${b.latest.year}` : "No GL yet";
-      groups.set(k, [...(groups.get(k) ?? []), b]);
-    }
-    const items: PortalItem[] = [];
-    for (const [k, list] of groups) {
-      // A few properties: one row each, straight to its statement. Many: one
-      // row for the group, the codes underneath.
-      if (list.length <= 4) for (const b of list) items.push({ title: `${b.propertyCode} · ${b.name}`, meta: k, path: `/financials/operating-statements?key=${encodeURIComponent(b.propertyCode)}` });
-      else items.push({ title: `${list.length} properties`, meta: k, sub: list.map((b) => b.propertyCode).join(" · "), path: "/financials/operating-statements" });
-    }
-    sections.push({
-      title: `GL uploads due through ${exp}`,
-      count: `${behind.length} behind`,
-      countTone: "warn",
-      items,
-      note: "Post PM & AP, close the month, then upload each GL.",
-      link: { label: "Open Operating Statements", path: "/financials/operating-statements" },
-    });
-  }
-
-  // ── Not posted to the GL — a property's interest + amortization read as one
-  //    debt payment ───────────────────────────────────────────────────────────
+  // ── Not posted: one line per property ────────────────────────────────────
   if (notPosted.length) {
     const byKey = new Map<string, NotPostedItem[]>();
     for (const i of notPosted) {
@@ -115,41 +90,34 @@ export function buildDigest(
     }
     const rows = [...byKey.values()].map((list) => {
       const f = list[0];
-      const debt = f.type === "missing-debt";
+      const amount = list.reduce((t, i) => t + i.expected, 0);
+      const what = f.type === "missing-debt" ? "Debt service" : f.line;
       return {
-        amount: list.reduce((t, i) => t + i.expected, 0),
+        amount,
         item: {
-          title: `${f.propertyCode} · ${f.propertyName}`,
-          sub: `${debt ? `Debt service (${list.map((i) => i.line).join(" + ")})` : f.line} · ${f.monthLabel}`,
-          meta: `~${money0(list.reduce((t, i) => t + i.expected, 0))}`,
+          title: f.propertyName,
+          meta: `${what} · ${f.monthLabel.slice(0, 3)} · ${money0(amount)}`,
           tone: "warn" as const,
           path: `/financials/operating-statements?key=${encodeURIComponent(f.key)}&year=${year}&period=${f.period}`,
         },
       };
-    }).sort((a, b) => b.amount - a.amount);
-    const propCount = new Set(notPosted.map((i) => i.key)).size;
+    }).sort((x, y) => y.amount - x.amount);
     sections.push({
       title: "Not posted to the GL",
-      count: plural(propCount, "property", "properties"),
-      countTone: "warn",
-      items: rows.slice(0, 15).map((r) => r.item),
-      note: `A scheduled payment or a budgeted tax, insurance or fee line still reads $0${rows.length > 15 ? `; ${rows.length - 15} more on the review page` : ""}. Post it, or dismiss it if it doesn't apply.`,
-      link: { label: "Open Flags to Investigate", path: "/financials/operating-statements/review" },
+      items: rows.slice(0, 10).map((r) => r.item),
+      link: rows.length > 10 ? { label: `${rows.length - 10} more on Flags to Investigate`, path: "/financials/operating-statements/review" } : undefined,
     });
   }
 
-  // ── Tenants to close out — each opens its close-out ──────────────────────
+  // ── Tenants to close out: one line each ──────────────────────────────────
   if (vacated.length) {
     sections.push({
       title: "Tenants to close out",
-      count: `${vacated.length} vacated`,
-      countTone: "warn",
       items: vacated.map((v) => ({
         title: v.occupantName,
-        sub: `${v.unitRef}${v.sqft ? ` · ${v.sqft.toLocaleString()} SF` : ""}`,
+        meta: v.unitRef,
         path: `/cam-recon/interim?property=${encodeURIComponent(v.propertyCode)}&unitRef=${encodeURIComponent(v.unitRef)}`,
       })),
-      note: "Left the rent roll in the last ~60 days.",
     });
   }
 
@@ -166,7 +134,7 @@ export function buildDigest(
     ],
     rows: [],
     sections,
-    link: { label: "Open the Task Tracker", path: "/tracker" },
+    systemFooter: false,
   });
 
   const parts: string[] = [];
