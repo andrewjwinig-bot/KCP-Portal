@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
-import { taskOccurrencesBetween, CATEGORIES, type TaskOccurrence } from "@/lib/tracker/taskDefs";
-import { getCompletions, completionKey } from "@/lib/tracker/completionStore";
-import { importsForWeek } from "@/lib/tracker/imports";
-import { getImportEvents, reminderSatisfied, reminderOutstanding, type ImportEvent } from "@/lib/tracker/importEvents";
+import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
+import { getCompletions } from "@/lib/tracker/completionStore";
+import { getImportEvents, type ImportEvent } from "@/lib/tracker/importEvents";
 import { outstandingGlUploads, type OutstandingGl } from "@/lib/financials/operating-statements/outstanding";
 import { recentlyVacatedTenants, type VacatedTenant } from "@/lib/leasing/recentlyVacated";
 import { collectNotPosted, significantNotPosted, type NotPostedItem } from "@/lib/financials/operating-statements/notPosted";
-import { portalOrigin } from "@/lib/linkOrigin";
+import { buildDigest, weekBounds } from "@/lib/tracker/weeklyDigest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,130 +52,6 @@ async function authorized(req: Request): Promise<boolean> {
 }
 
 /** Monday 00:00 → Sunday 23:59:59 of the week containing `now`. */
-function weekBounds(now: Date): { start: Date; end: Date } {
-  const sinceMon = (now.getDay() + 6) % 7; // 0=Sun → week starts Monday
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - sinceMon);
-  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59);
-  return { start, end };
-}
-
-function fmtDate(d: Date): string {
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-}
-
-const MON_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function buildDigest(
-  now: Date,
-  tasks: TaskOccurrence[],
-  completions: Record<string, unknown>,
-  outstanding: { expected: { year: number; period: number }; behind: OutstandingGl[] } | null,
-  vacated: VacatedTenant[],
-  importEvents: Record<string, ImportEvent>,
-  notPosted: NotPostedItem[],
-) {
-  const { start, end } = weekBounds(now);
-  const money0 = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
-
-  const open = tasks.filter(
-    (o) => !completions[completionKey(o.date.getFullYear(), o.date.getMonth(), o.id)],
-  );
-  const doneCount = tasks.length - open.length;
-
-  const range = `${fmtDate(start)} – ${fmtDate(end)}`;
-  const lines: string[] = [];
-  lines.push(`Good morning Drew,`);
-  lines.push("");
-  lines.push(`Here's your week at a glance — ${range}.`);
-  lines.push("");
-
-  // ── Tasks due this week ──────────────────────────────────────────────
-  if (open.length === 0) {
-    lines.push(
-      tasks.length === 0
-        ? `TASKS THIS WEEK — nothing scheduled.`
-        : `TASKS THIS WEEK — ✓ all ${tasks.length} done. Nice.`,
-    );
-  } else {
-    lines.push(`TASKS THIS WEEK (${open.length} open${doneCount ? `, ${doneCount} done` : ""})`);
-    for (const o of open) {
-      const cat = CATEGORIES[o.category]?.label ?? "";
-      lines.push(`  • ${fmtDate(o.date)} — ${o.label}${cat ? `  [${cat}]` : ""}`);
-    }
-  }
-  lines.push("");
-
-  // ── Files to import (with what's already been imported this period) ──────
-  // Drew's digest: his imports only — the CC statement and payroll report are
-  // Harry's (owner), the same split as the dashboard.
-  const imports = importsForWeek(start, end).filter((r) => (r.owner ?? "drew") === "drew");
-  // Not-yet-due is not outstanding: the AP report covers bills paid on
-  // Wednesday, so it cannot be missing on a Monday.
-  const outstandingImports = imports.filter((r) => reminderOutstanding(r, importEvents[r.id]?.at, now));
-  const doneImports = imports.filter((r) => reminderSatisfied(r, importEvents[r.id]?.at, now));
-  if (imports.length) {
-    lines.push(outstandingImports.length ? `FILES TO IMPORT (${outstandingImports.length} outstanding)` : `FILES TO IMPORT — ✓ all done`);
-    for (const r of outstandingImports) {
-      lines.push(`  • ${r.label} — ${r.when}  (feeds ${r.feeds})`);
-    }
-    for (const r of doneImports) {
-      const ev = importEvents[r.id];
-      const when = ev ? new Date(ev.at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
-      lines.push(`  ✓ ${r.label} — imported ${when}${ev?.by ? ` by ${ev.by}` : ""}`);
-    }
-    lines.push("");
-  }
-
-  // ── Outstanding GL uploads (operating statements behind the prior month) ──
-  const behind = outstanding?.behind ?? [];
-  if (outstanding && behind.length) {
-    const exp = `${MON_SHORT[outstanding.expected.period - 1]} ${outstanding.expected.year}`;
-    lines.push(`OUTSTANDING GL UPLOADS — not yet posted through ${exp} (${behind.length})`);
-    for (const b of behind) {
-      const through = b.latest ? `through ${MON_SHORT[b.latest.period - 1]} ${b.latest.year}` : "no GL yet";
-      lines.push(`  • ${b.propertyCode} — ${b.name}  (${through})`);
-    }
-    lines.push(`  → Post PM & AP, close the month, then upload each GL: ${portalOrigin()}/financials/operating-statements`);
-    lines.push("");
-  }
-
-  // ── Not posted to the GL (budgeted/scheduled lines still reading $0) ──────
-  if (notPosted.length) {
-    const propCount = new Set(notPosted.map((i) => i.key)).size;
-    lines.push(`NOT POSTED TO THE GL — a budgeted or scheduled line still reads $0 (${notPosted.length} line${notPosted.length === 1 ? "" : "s"}, ${propCount} propert${propCount === 1 ? "y" : "ies"})`);
-    for (const i of notPosted.slice(0, 25)) {
-      const tag = i.type === "missing-debt" ? " [debt]" : "";
-      lines.push(`  • ${i.propertyCode} ${i.propertyName} — ${i.line} (${i.monthLabel}): ~${money0(i.expected)} expected${tag}`);
-    }
-    if (notPosted.length > 25) lines.push(`  … and ${notPosted.length - 25} more`);
-    lines.push(`  → Post them (or confirm they don't apply): ${portalOrigin()}/financials/operating-statements/review`);
-    lines.push("");
-  }
-
-  // ── Tenants to close out (recently vacated) ──────────────────────────────
-  if (vacated.length) {
-    lines.push(`TENANTS TO CLOSE OUT — vacated in the last ~60 days (${vacated.length})`);
-    for (const v of vacated) {
-      lines.push(`  • ${v.occupantName} — ${v.propertyCode} · ${v.unitRef}${v.sqft ? ` · ${v.sqft.toLocaleString()} sf` : ""}`);
-    }
-    lines.push(`  → Run each move-out CAM/RET close-out: ${portalOrigin()}/cam-recon/interim`);
-    lines.push("");
-  }
-
-  lines.push(`Open the tracker: ${portalOrigin()}/tracker`);
-  lines.push("");
-  lines.push(`— KCP Portal`);
-
-  const parts: string[] = [];
-  if (open.length) parts.push(`${open.length} task${open.length === 1 ? "" : "s"}`);
-  if (behind.length) parts.push(`${behind.length} GL upload${behind.length === 1 ? "" : "s"} behind`);
-  if (notPosted.length) parts.push(`${notPosted.length} not posted`);
-  if (vacated.length) parts.push(`${vacated.length} to close out`);
-  const subject = parts.length ? `Your week — ${parts.join(", ")} (${range})` : `Your week — all clear (${range})`;
-
-  return { subject, textBody: lines.join("\n"), open, doneCount, imports, behind, vacated, notPosted };
-}
-
 async function runDigest(req: Request) {
   const now = new Date();
   const { start, end } = weekBounds(now);
@@ -199,7 +74,7 @@ async function runDigest(req: Request) {
   // debt) — not routine monthly CAM lines briefly reading $0.
   try { notPosted = significantNotPosted((await collectNotPosted(now.getFullYear())).items); } catch { /* best-effort */ }
 
-  const { subject, textBody, open, doneCount, imports, behind } = buildDigest(now, tasks, completions, outstanding, vacated, importEvents, notPosted);
+  const { subject, textBody, htmlBody, open, doneCount, imports, behind } = buildDigest(now, tasks, completions, outstanding, vacated, importEvents, notPosted);
 
   const url = new URL(req.url);
   const toOverride = url.searchParams.get("to");
@@ -207,10 +82,11 @@ async function runDigest(req: Request) {
 
   if (!isMailConfigured()) {
     // Return the digest so a dev/manual call can still preview it.
-    return NextResponse.json({ sent: false, reason: "mail-not-configured", subject, textBody });
+    return NextResponse.json({ sent: false, reason: "mail-not-configured", subject, textBody, htmlBody });
   }
 
-  const ok = await sendMail({ to, from: DIGEST_FROM, subject, textBody });
+  // Clean links: no Postmark click-tracking wrapper on every portal URL.
+  const ok = await sendMail({ to, from: DIGEST_FROM, subject, textBody, htmlBody, noLinkTracking: true });
   return NextResponse.json({
     sent: ok,
     to,
