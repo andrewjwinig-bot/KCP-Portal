@@ -10,6 +10,8 @@ import { isMailConfigured, sendMailDetailed } from "@/lib/mail";
 import { newCorrespondenceId, recordTenantEmail } from "@/lib/statements/correspondenceStore";
 import { USERS } from "@/lib/users";
 import { linkOrigin } from "@/lib/linkOrigin";
+import { portalLinkEmail } from "@/lib/maintenance/confirmationEmail";
+import { propertyLabel } from "@/lib/statements/tenantMail";
 
 // Admin action: EMAIL a tenant's private portal link to their statement
 // recipients. Deliberately separate from minting/copying — the "Share with
@@ -25,24 +27,6 @@ async function currentUser(): Promise<UserId | null> {
   return id && (ALL_USERS as readonly string[]).includes(id) && (isPathAllowed(id as UserId, "/cam-recon") || isPathAllowed(id as UserId, "/tenant-statements")) ? (id as UserId) : null;
 }
 
-
-function emailBody(tenantName: string, year: number, url: string): string {
-  const greet = tenantName ? `Hi ${tenantName},` : "Hello,";
-  return [
-    greet,
-    "",
-    `Your ${year} CAM / RET reconciliation statement from Korman Commercial Properties is ready to view online.`,
-    "",
-    "Open your private tenant portal here:",
-    url,
-    "",
-    "From the portal you can review the statement line by line (with backup invoices), download a PDF, see your lease terms, submit a service request, and reserve a conference room.",
-    "",
-    "This link is private to your suite — please don't forward it outside your company. If you have questions about the statement, just reply to this email.",
-    "",
-    "— Korman Commercial Properties",
-  ].join("\n");
-}
 
 /** POST { id, tenantName? } → email the portal link for that minted link's
  *  suite to the suite's statement recipients (CAM-recipient contacts, falling
@@ -77,8 +61,11 @@ export async function POST(req: NextRequest) {
   });
   const url = `${linkOrigin(req)}/portal/${token}`;
 
-  const subject = `Your ${link.year} CAM / RET statement — Korman Commercial Properties`;
-  const textBody = emailBody(tenantName, link.year, url);
+  // The designed email (lib/maintenance/confirmationEmail.ts): the link is a
+  // button, not a raw URL.
+  const m = portalLinkEmail({ propertyCode: link.property, propertyName: propertyLabel(link.property), unitRef: link.unitRef, tenantName, year: link.year, url });
+  const subject = m.subject;
+  const textBody = m.text;
   const sent = await sendMailDetailed({
     to: recipients.join(", "),
     // The tenant must see the portal's own domain, not a tracking
@@ -86,6 +73,7 @@ export async function POST(req: NextRequest) {
     noLinkTracking: true,
     subject,
     textBody,
+    htmlBody: m.html,
   });
   if (sent.ok) {
     // On the tenant's correspondence timeline — the link itself is a bearer
@@ -93,7 +81,7 @@ export async function POST(req: NextRequest) {
     await recordTenantEmail({
       id: newCorrespondenceId(link.unitRef), kind: "portal-link", unitRef: link.unitRef, propertyCode: link.property, tenantName,
       sentAt: new Date().toISOString(), sentBy: USERS[user]?.label ?? user, from: null, to: recipients, bcc: null, replyTo: null,
-      subject, text: textBody.replace(url, "[private portal link]"), html: null, messageId: sent.messageId ?? null, testMode: !!sent.testMode,
+      subject, text: textBody.split(url).join("[private portal link]"), html: m.html.split(url).join("#private-portal-link"), messageId: sent.messageId ?? null, testMode: !!sent.testMode,
       attachment: null, summary: `${link.year} CAM / RET statement`, refId: link.id, balance: null,
     });
   }

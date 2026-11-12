@@ -241,3 +241,30 @@ export function inboundAutoReplyEmail(fromName: string): { html: string; text: s
   };
   return { html: shell(s), text: textOf(s, first) };
 }
+
+// ─── A tenant's private portal link ──────────────────────────────────────────
+
+/** "Your 2025 statement is ready": the link as a button (never shown as a
+ *  long URL), what's in the portal, and a word on keeping it private. */
+export function portalLinkEmail(a: { propertyCode: string; propertyName: string; unitRef: string; tenantName: string; year: number; url: string }): { subject: string; html: string; text: string } {
+  // One name for it throughout — "your 2025 CAM / RET statement" — said once
+  // in the headline, never repeated in the details or a list (owner: "it
+  // feels inconsistent").
+  const s: Shell = {
+    propertyCode: a.propertyCode,
+    subject: `Your ${a.year} CAM / RET statement is ready — Korman Commercial Properties`,
+    eyebrow: `${a.year} CAM / RET Statement`,
+    hello: `Your ${a.year} statement`, accent: "is ready.",
+    sub: "View it online, with the invoices behind each expense, and download a copy for your records.",
+    details: [["Tenant", a.tenantName], ["Location", [a.propertyName, a.unitRef].filter(Boolean).join(" · ")]],
+    boxLabel: "", boxText: "",
+    emergency: false,
+    button: { label: "View your statement", url: a.url },
+  };
+  const footNote = `This link is private to your suite. Please don't forward it outside your company. Questions about the statement? Call our office at ${OFFICE_PHONE}.`;
+  const html = shell(s).replace(
+    `<tr><td style="padding:24px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>`,
+    `<tr><td style="padding:16px 36px 0;font-family:${BODY};font-size:12.5px;line-height:1.5;color:#6c7890;">${esc(footNote)}</td></tr>\n<tr><td style="padding:24px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>`,
+  );
+  return { subject: s.subject, html, text: `${textOf(s, "")}\n\n${footNote}` };
+}
