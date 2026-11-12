@@ -14,6 +14,7 @@ import { k1sForOwner, saveK1 } from "@/lib/investors/k1Store";
 import { sendMail, sendMailDetailed, isMailConfigured, isMailTestMode, VERIFIED_FROM } from "@/lib/mail";
 import { logAudit, auditIp } from "@/lib/audit";
 import { linkOrigin } from "@/lib/linkOrigin";
+import { k1LinkHtml, k1PinHtml } from "@/lib/investors/k1EmailHtml";
 import { coveredOwnerIds } from "@/lib/investors/linkCoverage";
 import { composeK1ShareEmail, composeK1PinEmail, applyK1EmailEdit,
   applyK1PinEdit, PREVIEW_URL_PLACEHOLDER, type K1ShareEmail } from "@/lib/investors/k1ShareEmail";
@@ -280,12 +281,13 @@ async function shareOne(
       // and "your 6 Schedule K-1s" to someone who holds none of them is the
       // sentence that makes a recipient check whether the mail is real.
       const addressedTo = addressedAs(owner.name, recipients, names);
-      const canonical = composeK1ShareEmail({
+      const shareInput = {
         ownerName: owner.name, propertyName: propName(ownerProperty),
         documentCount: published.length, taxYear: published[0].taxYear, url,
         propertyCodes: published.map((d) => d.propertyCode),
         ...addressedTo,
-      });
+      };
+      const canonical = composeK1ShareEmail(shareInput);
       const { email: draftEmail, edited } = applyK1EmailEdit(canonical, draft, url);
       wasEdited = edited;
       const copyTo = shareCopyTo();
@@ -301,7 +303,9 @@ async function shareOne(
         // The investor must see portal.kormancommercial.com, not a tracking
         // redirector — see `noLinkTracking`.
         noLinkTracking: true,
-        ...(edited ? {} : canonical.html ? { htmlBody: canonical.html } : {}),
+        // The designed HTML (k1EmailHtml.ts) — the same words in the tenant
+        // emails' look, Korman logo.
+        ...(edited ? {} : { htmlBody: k1LinkHtml(shareInput) }),
         ...(copyTo ? { bcc: copyTo } : {}),
       });
       const ok = res.ok;
@@ -342,6 +346,7 @@ async function shareOne(
         const pinOk = link.pin
           ? await sendMail({
               ...headers(), from: VERIFIED_FROM, subject: pinMail.subject, textBody: pinMail.body,
+              ...(pinEdited ? {} : { htmlBody: k1PinHtml({ ownerName: owner.name, pin: link.pin ?? "", ...addressedTo }) }),
               noLinkTracking: true,
               ...(copyTo ? { bcc: copyTo } : {}),
             })
