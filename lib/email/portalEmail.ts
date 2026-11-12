@@ -42,6 +42,15 @@ export type PortalSection = {
   empty?: string;
 };
 
+/** One step of a workflow chain (a move-out close-out: moved out → sent →
+ *  approved → posted), drawn as a row of segments across the email's top. */
+export type PortalStep = {
+  label: string;
+  state: "done" | "current" | "todo";
+  /** Who / when, under the label ("Drew · Nov 12", "Nancy"). */
+  sub?: string;
+};
+
 export type PortalEmail = {
   subject: string;
   /** What it is, small caps above the title ("Bank Transfer"). */
@@ -57,10 +66,12 @@ export type PortalEmail = {
   /** Titled lists — a digest. Each item a hairline row: the title (a link
    *  into the portal when it has a path), meta on the right. */
   sections?: PortalSection[];
+  /** Where this sits in a chain of hand-offs, above the title. */
+  steps?: PortalStep[];
   /** A free-text note someone typed ("Details"). */
   note?: { label: string; text: string };
   /** A small table (invoices, lines) under the rows. */
-  table?: { columns: string[]; rows: string[][]; total?: string[]; align?: ("left" | "right")[] };
+  table?: { columns: string[]; rows: string[][]; total?: string[]; align?: ("left" | "right")[]; title?: string; note?: string };
   /** The page that has it, path within the portal ("/bank-transfers"). */
   link?: { label: string; path: string };
   /** Who did it, for the footer ("Logged by Drew"). */
@@ -92,6 +103,18 @@ export function portalEmail(e: PortalEmail): { subject: string; html: string; te
 <td style="font-family:${FONT};font-size:13px;font-weight:800;letter-spacing:2px;color:${NAVY};">KORMAN <span style="font-weight:500;letter-spacing:1px;color:${FAINT};">&nbsp;|&nbsp; ${esc(e.brand ?? "PORTAL")}</span></td>
 <td align="right" style="font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${FAINT};">${esc(e.eyebrow)}</td>
 </tr></table></td></tr>
+${e.steps?.length ? `<tr><td style="padding:22px 32px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;table-layout:fixed;"><tr>
+${e.steps.map((st, i) => {
+    const c = st.state === "done" ? TONE.good : st.state === "current" ? NAVY : BORDER;
+    const word = st.state === "done" ? "Done" : st.state === "current" ? "Now" : "Next";
+    return `<td valign="top" style="padding:0 ${i < e.steps!.length - 1 ? "8px" : "0"} 0 0;">
+<div style="height:4px;line-height:4px;font-size:0;background:${c};border-radius:2px;">&nbsp;</div>
+<div style="font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${st.state === "todo" ? FAINT : c};margin-top:8px;">${word}</div>
+<div style="font-family:${FONT};font-size:13.5px;font-weight:700;line-height:1.3;color:${st.state === "todo" ? MUTED : INK};margin-top:2px;">${esc(st.label)}</div>
+${st.sub ? `<div style="font-family:${FONT};font-size:12.5px;color:${FAINT};margin-top:2px;">${esc(st.sub)}</div>` : ""}</td>`;
+  }).join("")}
+</tr></table></td></tr>` : ""}
 <tr><td style="padding:22px 32px 0;">
 <div style="font-family:${FONT};font-size:24px;font-weight:800;line-height:1.2;color:${INK};">${esc(e.title)}</div>
 ${e.lead ? `<div style="font-family:${FONT};font-size:15px;line-height:1.5;color:${MUTED};margin-top:6px;">${esc(e.lead)}</div>` : ""}
@@ -124,11 +147,14 @@ ${sec.note ? `<div style="font-family:${FONT};font-size:13px;color:${FAINT};marg
 ${sec.link ? `<div style="margin-top:8px;"><a href="${esc(link(sec.link.path))}" target="_blank" style="font-family:${FONT};font-size:13.5px;font-weight:700;color:${NAVY};text-decoration:none;">${esc(sec.link.label)} &rsaquo;</a></div>` : ""}
 </td></tr>`).join("")}
 ${e.table ? `<tr><td style="padding:20px 32px 0;">
+${e.table.title ? `<div style="font-family:${FONT};font-size:16px;font-weight:800;color:${INK};margin-bottom:10px;">${esc(e.table.title)}</div>` : ""}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
 <tr>${e.table.columns.map((c, i) => `<td align="${align(i)}" style="padding:0 0 8px;border-bottom:1px solid ${BORDER};font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:${FAINT};">${esc(c)}</td>`).join("")}</tr>
 ${e.table.rows.map((row) => `<tr>${row.map((v, i) => `<td align="${align(i)}" style="padding:10px 0;border-bottom:1px solid ${HAIR};font-family:${FONT};font-size:14px;color:${INK};">${esc(v)}</td>`).join("")}</tr>`).join("")}
 ${e.table.total ? `<tr>${e.table.total.map((v, i) => `<td align="${align(i)}" style="padding:10px 0;border-top:2px solid ${INK};font-family:${FONT};font-size:14px;font-weight:800;color:${INK};">${esc(v)}</td>`).join("")}</tr>` : ""}
-</table></td></tr>` : ""}
+</table>
+${e.table.note ? `<div style="font-family:${FONT};font-size:13px;line-height:1.5;color:${FAINT};margin-top:8px;">${esc(e.table.note)}</div>` : ""}
+</td></tr>` : ""}
 ${e.note ? `<tr><td style="padding:20px 32px 0;">
 <div style="font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${FAINT};">${esc(e.note.label)}</div>
 <div style="font-family:${FONT};font-size:15px;line-height:1.55;color:${INK};margin-top:6px;">${esc(e.note.text).replace(/\r?\n/g, "<br>")}</div>
@@ -145,6 +171,7 @@ ${footerLine ? `<tr><td style="padding:24px 32px 22px;">
 </td></tr></table></body></html>`;
 
   const text = [
+    ...(e.steps?.length ? [e.steps.map((st) => `${st.state === "done" ? "[x]" : st.state === "current" ? "[>]" : "[ ]"} ${st.label}`).join("  "), ""] : []),
     e.title,
     e.lead ?? "",
     e.figure ? `${e.figure.label ? `${e.figure.label}: ` : ""}${e.figure.value}` : "",
@@ -155,7 +182,7 @@ ${footerLine ? `<tr><td style="padding:24px 32px 22px;">
       ...(sec.items.length ? sec.items.map((it) => `  • ${it.title}${it.meta ? ` — ${it.meta}` : ""}${it.path ? `  ${link(it.path)}` : ""}`) : [`  ${sec.empty ?? "Nothing this week"}`]),
       ...(sec.note ? [`  ${sec.note}`] : []),
       ...(sec.link ? [`  ${sec.link.label}: ${link(sec.link.path)}`] : [])]),
-    ...(e.table ? ["", e.table.columns.join(" | "), ...e.table.rows.map((r) => r.join(" | ")), ...(e.table.total ? [e.table.total.join(" | ")] : [])] : []),
+    ...(e.table ? ["", ...(e.table.title ? [e.table.title.toUpperCase()] : []), e.table.columns.join(" | "), ...e.table.rows.map((r) => r.join(" | ")), ...(e.table.total ? [e.table.total.join(" | ")] : []), ...(e.table.note ? [e.table.note] : [])] : []),
     ...(e.note ? ["", `${e.note.label}:`, e.note.text] : []),
     ...(url ? ["", `${e.link!.label}: ${url}`] : []),
     "",

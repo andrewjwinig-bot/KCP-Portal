@@ -7,7 +7,7 @@ import { getCloseOut, markApproved, upsertCloseOut, closeOutKey } from "@/lib/ca
 import { computeMoveoutStatement, moveoutBalance, moveoutOk } from "@/lib/cam/moveout/compute";
 import { buildMoveoutPdf, buildMoveoutGlCsv, moveoutGlRows, moveoutEffectiveDate, moveoutFileBase } from "@/lib/cam/moveout/artifacts";
 import { moveoutSettlement } from "@/lib/cam/moveout/deposit";
-import { settlementLines } from "@/lib/cam/moveout/settlementText";
+import { chargesEmail } from "@/lib/cam/moveout/emails";
 import { recordMoveoutSend } from "@/lib/cam/moveout/sendLog";
 import { isConfirmedGone } from "@/lib/leasing/recentlyVacated";
 import { APPROVER, MOVEOUT_CHARGES_NAME, moveoutChargesTo } from "@/lib/cam/moveout/recipients";
@@ -17,7 +17,6 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const FROM = "dwinig@kormancommercial.com";
-const money0 = (n: number) => "$" + Math.abs(Math.round(Number(n) || 0)).toLocaleString("en-US");
 
 async function currentUserLabel(): Promise<string | undefined> {
   const secret = process.env.SITE_AUTH_SECRET;
@@ -92,36 +91,23 @@ export async function POST(req: Request) {
   const glRows = moveoutGlRows(c, effectiveDate).filter((r) => r.amount !== 0);
   const base = moveoutFileBase(c);
   const cats = c.kind === "retail" ? "CAM/INS/RET" : "CAM/RET";
-  // The subject leads with what is left after the deposit, else the total due.
-  const bottom = dep?.net != null ? -dep.net : settlement.totalDue;
-  const owed = bottom >= 0;
 
   // Once approved, the CHARGES go to Tanya, who posts them to the tenant's
   // account in Skyline (owner: "tanya processes the charges once approved");
   // the approver is cc'd so she has the record of what she approved.
   const chargesTo = moveoutChargesTo();
-  const money2 = (n: number) => (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   let emailed = false;
   if (isMailConfigured()) {
-    const lines: string[] = [];
-    lines.push(`Hi ${MOVEOUT_CHARGES_NAME},`);
-    lines.push("");
-    lines.push(`${c.meta.name} (Suite ${c.result.suite}, ${c.meta.property} — ${c.meta.propertyName}) moved out — their final bill was ${by ? `approved by ${by}` : "approved"}. Please post these charges to their account (${c.meta.unitRef}):`);
-    lines.push("");
-    if (glRows.length) {
-      for (const r of glRows) lines.push(`  • ${r.chargeDescription} (${r.chargeCode}) — ${money2(r.amount)}, effective ${effectiveDate}`);
-      lines.push("");
-      lines.push(`The attached CSV is the same charges as a Skyline import.`);
-    } else {
-      lines.push(`  • No reconciliation charge to post — the ${cats} true-up nets to $0.`);
-    }
-    lines.push("");
-    lines.push(`The final bill:`);
-    lines.push(...settlementLines(settlement, cats));
-    lines.push("");
-    lines.push(`Attached: the Final Bill PDF${glRows.length ? " and the Skyline charge import" : ""}.`);
-    lines.push("");
-    lines.push(`— KCP Portal`);
+    const mail = chargesEmail({
+      name: c.meta.name, suite: c.result.suite, unitRef: c.meta.unitRef, propertyName: c.meta.propertyName,
+      leaseTo: c.meta.leaseTo, asOfMonth: c.meta.asOfMonth, year: c.meta.year, cats, settlement,
+      approverFirst: APPROVER[c.kind].first, chargesName: MOVEOUT_CHARGES_NAME,
+      path: `/cam-recon/interim?property=${encodeURIComponent(property)}&unitRef=${encodeURIComponent(unitRef)}&year=${year}&asOf=${c.meta.asOfMonth}`,
+      sentBy: already?.notifiedBy ?? undefined, sentAt: already?.notifiedAt ? new Date(already.notifiedAt) : undefined,
+      approvedBy: by, approvedAt: new Date(),
+      charges: glRows.map((r) => ({ description: r.chargeDescription, code: r.chargeCode, amount: r.amount })),
+      effectiveDate, hasCsv: glRows.length > 0,
+    });
 
     const attachments = [{ name: `${base}.pdf`, content: pdf, contentType: "application/pdf" }];
     if (glRows.length) attachments.push({ name: `${base}_GL.csv`, content: Buffer.from(glCsv, "utf8"), contentType: "text/csv" });
@@ -129,8 +115,10 @@ export async function POST(req: Request) {
       to: chargesTo,
       cc: APPROVER[c.kind].email,
       from: FROM,
-      subject: `Post move-out charges — ${c.meta.name} (${c.meta.property} ${c.meta.unitRef}) — ${money0(bottom)} ${owed ? "due" : dep?.net != null ? "refund" : "credit"}`,
-      textBody: lines.join("\n"),
+      subject: mail.subject,
+      textBody: mail.text,
+      htmlBody: mail.html,
+      noLinkTracking: true,
       attachments,
     }).catch(() => false);
   }
