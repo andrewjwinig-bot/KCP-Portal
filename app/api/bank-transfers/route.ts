@@ -38,13 +38,12 @@ function buildTransferEmail(t: BankTransfer, by: string | null) {
     title: "New bank transfer",
     figure: { value: fmtMoney(t.amount), label: prettyDate(t.date) },
     rows: [
+      { label: "Bank", value: t.bankName },
       { label: "From", value: t.fromLabel },
       { label: "To", value: t.toLabel },
-      { label: "Bank", value: t.bankName },
       { label: "Confirmation", value: confirmation, tone: t.pdfUrl || t.pdfSaved ? "good" : "warn" },
     ],
     note: t.description?.trim() ? { label: "Details", text: t.description.trim() } : undefined,
-    link: { label: "Open Bank Transfers", path: "/bank-transfers" },
     footer: by ? `Logged by ${by}` : undefined,
   });
 }
