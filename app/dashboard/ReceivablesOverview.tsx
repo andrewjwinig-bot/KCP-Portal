@@ -1,4 +1,5 @@
 "use client";
+import QuickLinks from "./QuickLinks";
 import { MIN_OPEN_CREDIT } from "@/lib/statements/aging";
 import { ChevronRight } from "lucide-react";
 
@@ -115,6 +116,7 @@ export default function ReceivablesOverview() {
           <Link className="btn primary" href="/tenant-statements" style={{ textDecoration: "none" }}>Receivables<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
         </div>
       </header>
+      <QuickLinks />
 
       {error && <div className="card muted small">{error}</div>}
       {!data && !error && <div className="card muted small">Loading…</div>}

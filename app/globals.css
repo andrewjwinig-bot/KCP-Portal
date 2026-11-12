@@ -1602,3 +1602,9 @@ select.header-select-native { position: absolute; inset: 0; width: 100%; height:
 /* A picker in the shared page header never shrinks to "October 20…" — the
  * actions wrap below it instead. */
 .page-header .header-select { flex-shrink: 0; min-width: max-content; }
+
+/* Dashboard quick links (app/dashboard/QuickLinks.tsx): control-height
+   tiles — logo mark + name — 8px radius, 1px border, a brand border on hover. */
+.quick-link { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 16px 0 9px; border: 1px solid var(--border); border-radius: 8px; background-color: var(--card); color: var(--text); font-weight: 600; text-decoration: none; transition: border-color 0.15s, box-shadow 0.15s; }
+.quick-link:hover { border-color: var(--brand); box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06); }
+.quick-link img { width: 26px; height: 26px; border-radius: 6px; object-fit: contain; flex-shrink: 0; }

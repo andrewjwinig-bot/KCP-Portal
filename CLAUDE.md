@@ -287,6 +287,20 @@ touched UI to it.
   inline hex colours and tinted fills may only go DOWN. When a sweep removes
   some, lower the baseline in that test in the same change.
 
+# Quick links — the outside systems, on every dashboard
+
+`lib/quickLinks.ts` (`QUICK_LINKS`, `quickLinksFor`; owner, 11/2026: "especially
+helpful for Randy to get started"): Skyline (the SS&C Workspace Citrix page),
+AvidXchange (invoices), and the bank logins — Chase, M&T, Liberty Bank — which
+show ONLY for Drew, Randy, Harry, Alison and admin (`BANKING_USERS`; owner:
+"tami, nancy, greg, jay, charles dont need to see bank links"). Drawn by
+`app/dashboard/QuickLinks.tsx` as control-height tiles (`.quick-link`: the
+SHORT logo mark, 128px squares in `public/quick-links/`, + the name), new tab:
+under the greeting in Drew's Work Queue, under the header on the classic
+dashboard, Tami's Receivables and the service dashboard. A new link is ONE
+entry in that list (`quickLinks.test.ts` checks the bank audience and that
+every icon exists). The long wordmarks are not used — a tile is too small.
+
 # Month-End Close — /close (Drew + admin while he reviews it)
 
 Owner, 11/2026: "i like the closing checklist … i like to know when i need to
