@@ -27,6 +27,21 @@ export type PortalRow = {
   tone?: keyof typeof TONE;
 };
 
+export type PortalItem = { title: string; meta?: string; path?: string; tone?: keyof typeof TONE; sub?: string };
+export type PortalSection = {
+  title: string;
+  /** "3 open", "all done" — said in words beside the title. */
+  count?: string;
+  countTone?: keyof typeof TONE;
+  items: PortalItem[];
+  /** A short line under the list. */
+  note?: string;
+  /** The page that does it, a text link under the list. */
+  link?: { label: string; path: string };
+  /** When the list is empty, the one line to show instead. */
+  empty?: string;
+};
+
 export type PortalEmail = {
   subject: string;
   /** What it is, small caps above the title ("Bank Transfer"). */
@@ -37,6 +52,11 @@ export type PortalEmail = {
   /** One line under the title. */
   lead?: string;
   rows: PortalRow[];
+  /** A row of figures under the title, each optionally linked. */
+  stats?: { label: string; value: string; tone?: keyof typeof TONE; path?: string }[];
+  /** Titled lists — a digest. Each item a hairline row: the title (a link
+   *  into the portal when it has a path), meta on the right. */
+  sections?: PortalSection[];
   /** A free-text note someone typed ("Details"). */
   note?: { label: string; text: string };
   /** A small table (invoices, lines) under the rows. */
@@ -53,7 +73,9 @@ export type PortalEmail = {
 };
 
 export function portalEmail(e: PortalEmail): { subject: string; html: string; text: string } {
-  const url = e.link ? `${portalOrigin()}${e.link.path}` : "";
+  const origin = portalOrigin();
+  const link = (path: string) => (/^https?:/.test(path) ? path : `${origin}${path}`);
+  const url = e.link ? link(e.link.path) : "";
   const rows = e.rows.filter((r) => r.value !== "");
   const footerLine = [e.footer, e.systemFooter === false ? "" : "Sent by the KCP Portal"].filter(Boolean).join(" \u00b7 ");
   const valueStyle = (r: PortalRow) =>
@@ -82,6 +104,25 @@ ${rows.length ? `<tr><td style="padding:20px 32px 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-top:1px solid ${HAIR};">
 ${rows.map((r) => `<tr><td width="130" style="width:130px;padding:12px 0;border-bottom:1px solid ${HAIR};font-family:${FONT};font-size:14px;color:${FAINT};vertical-align:top;">${esc(r.label)}</td><td style="padding:12px 0;border-bottom:1px solid ${HAIR};${valueStyle(r)}">${esc(r.value)}</td></tr>`).join("")}
 </table></td></tr>` : ""}
+${e.stats?.length ? `<tr><td style="padding:20px 32px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>
+${e.stats.map((st, i) => `<td valign="top" style="padding:12px 12px 12px ${i ? "14px" : "0"};${i ? `border-left:1px solid ${HAIR};` : ""}">
+${st.path ? `<a href="${esc(link(st.path))}" target="_blank" style="text-decoration:none;">` : ""}<div style="font-family:${FONT};font-size:26px;font-weight:800;line-height:1;color:${st.tone ? TONE[st.tone] : INK};">${esc(st.value)}</div>
+<div style="font-family:${FONT};font-size:12.5px;font-weight:600;color:${FAINT};margin-top:6px;">${esc(st.label)}</div>${st.path ? "</a>" : ""}</td>`).join("")}
+</tr></table></td></tr>` : ""}
+${(e.sections ?? []).map((sec) => `<tr><td style="padding:26px 32px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>
+<td style="padding:0 0 8px;border-bottom:1px solid ${BORDER};font-family:${FONT};font-size:16px;font-weight:800;color:${INK};">${esc(sec.title)}</td>
+<td align="right" style="padding:0 0 8px;border-bottom:1px solid ${BORDER};font-family:${FONT};font-size:13px;font-weight:700;color:${sec.countTone ? TONE[sec.countTone] : FAINT};">${esc(sec.count ?? "")}</td>
+</tr>
+${sec.items.length ? sec.items.map((it) => `<tr>
+<td valign="top" style="padding:10px 12px 10px 0;border-bottom:1px solid ${HAIR};font-family:${FONT};font-size:14.5px;font-weight:600;line-height:1.35;">${it.path ? `<a href="${esc(link(it.path))}" target="_blank" style="color:${NAVY};text-decoration:none;">${esc(it.title)}</a>` : `<span style="color:${INK};">${esc(it.title)}</span>`}${it.sub ? `<div style="font-family:${FONT};font-size:12.5px;font-weight:400;color:${FAINT};margin-top:2px;">${esc(it.sub)}</div>` : ""}</td>
+<td valign="top" align="right" style="padding:10px 0;border-bottom:1px solid ${HAIR};font-family:${FONT};font-size:13.5px;font-weight:600;white-space:nowrap;color:${it.tone ? TONE[it.tone] : FAINT};">${esc(it.meta ?? "")}</td>
+</tr>`).join("") : `<tr><td colspan="2" style="padding:10px 0;border-bottom:1px solid ${HAIR};font-family:${FONT};font-size:14px;color:${TONE.good};font-weight:600;">${esc(sec.empty ?? "Nothing this week")}</td></tr>`}
+</table>
+${sec.note ? `<div style="font-family:${FONT};font-size:13px;color:${FAINT};margin-top:8px;">${esc(sec.note)}</div>` : ""}
+${sec.link ? `<div style="margin-top:8px;"><a href="${esc(link(sec.link.path))}" target="_blank" style="font-family:${FONT};font-size:13.5px;font-weight:700;color:${NAVY};text-decoration:none;">${esc(sec.link.label)} &rsaquo;</a></div>` : ""}
+</td></tr>`).join("")}
 ${e.table ? `<tr><td style="padding:20px 32px 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
 <tr>${e.table.columns.map((c, i) => `<td align="${align(i)}" style="padding:0 0 8px;border-bottom:1px solid ${BORDER};font-family:${FONT};font-size:12px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:${FAINT};">${esc(c)}</td>`).join("")}</tr>
@@ -109,6 +150,11 @@ ${url ? `<tr><td style="padding:24px 32px 0;">
     e.figure ? `${e.figure.label ? `${e.figure.label}: ` : ""}${e.figure.value}` : "",
     "",
     ...rows.map((r) => `${r.label}: ${r.value}`),
+    ...(e.stats?.length ? ["", e.stats.map((st) => `${st.label}: ${st.value}`).join(" · ")] : []),
+    ...(e.sections ?? []).flatMap((sec) => ["", `${sec.title.toUpperCase()}${sec.count ? ` (${sec.count})` : ""}`,
+      ...(sec.items.length ? sec.items.map((it) => `  • ${it.title}${it.meta ? ` — ${it.meta}` : ""}${it.path ? `  ${link(it.path)}` : ""}`) : [`  ${sec.empty ?? "Nothing this week"}`]),
+      ...(sec.note ? [`  ${sec.note}`] : []),
+      ...(sec.link ? [`  ${sec.link.label}: ${link(sec.link.path)}`] : [])]),
     ...(e.table ? ["", e.table.columns.join(" | "), ...e.table.rows.map((r) => r.join(" | ")), ...(e.table.total ? [e.table.total.join(" | ")] : [])] : []),
     ...(e.note ? ["", `${e.note.label}:`, e.note.text] : []),
     ...(url ? ["", `${e.link!.label}: ${url}`] : []),
