@@ -20,13 +20,12 @@ import { computeMoveoutStatement, moveoutBalance, moveoutOk, type MoveoutOk } fr
 import { buildMoveoutPdf, moveoutFileBase } from "./artifacts";
 import { closeOutKey, upsertCloseOut, getCloseOut, pruneCloseOuts } from "./queue";
 import { moveoutSettlement, type MoveoutSettlement } from "./deposit";
-import { settlementLines } from "./settlementText";
+import { approvalEmail } from "./emails";
 import { APPROVER, MOVEOUT_CHARGES_NAME } from "./recipients";
 
 const GL_FROM_YEAR = 2026; // interim recon sources actuals from the imported GL
 const PORTAL_BASE = portalOrigin();
 const FROM = "dwinig@kormancommercial.com"; // verified Postmark sender
-const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 
 type Ok = MoveoutOk;
@@ -37,37 +36,21 @@ type Ok = MoveoutOk;
 export async function sendApproval(c: Ok, settlement: MoveoutSettlement, by?: string): Promise<boolean> {
   const { meta, result } = c;
   const to = APPROVER[c.kind];
-  const cats = c.kind === "retail" ? "CAM/INS/RET" : "CAM/RET";
-  const movedOut = meta.leaseTo ? `on ${meta.leaseTo}` : `in ${MONTHS[meta.asOfMonth - 1]} ${meta.year}`;
-  const lines: string[] = [];
-  lines.push(`Hi ${to.first},`);
-  lines.push("");
-  lines.push(`${meta.name} (Suite ${result.suite}, ${meta.property} — ${meta.propertyName}) moved out ${movedOut}. ${by ? `${by} sent you their final bill` : `Their final bill is ready`} — please review and approve it.`);
-  lines.push("");
-  lines.push(...settlementLines(settlement, cats));
-  lines.push("");
-  const link = `${PORTAL_BASE}/cam-recon/interim?property=${encodeURIComponent(meta.property)}&unitRef=${encodeURIComponent(meta.unitRef)}&year=${meta.year}&asOf=${meta.asOfMonth}`;
-  // A standing close-out step: the tenant's FINAL Skyline statement (owner).
-  lines.push(settlement.openAr
-    ? `Their final statement is in as of ${settlement.openAr.asOf ? new Date(settlement.openAr.asOf).toLocaleDateString("en-US") : "the last import"} — if charges have posted since (the final electric), re-import it on the close-out page first.`
-    : `Before approving: import their final Skyline Laser Statement on the close-out page (Final Bill → Import final statement) so their unpaid charges are on the final bill. A moved-out tenant is listed in Skyline as ${meta.unitRef}-FO.`);
-  lines.push("");
-  if (result.unpostedMonths > 0) {
-    lines.push(`Note: the GL is posted through ${MONTHS[(meta.maxPosted ?? 1) - 1] ?? "an earlier month"} — ${result.unpostedMonths} occupied month(s) are not posted yet, so the reconciliation can be approved once they are.`);
-    lines.push("");
-  }
-  lines.push(`Review the attached statement and approve it here:`);
-  lines.push(link);
-  lines.push("");
-  lines.push(`Once you approve, the charges go to ${MOVEOUT_CHARGES_NAME} to post to the tenant's account — nothing else needs to be done.`);
-  lines.push("");
-  lines.push(`— KCP Portal`);
-
+  const path = `/cam-recon/interim?property=${encodeURIComponent(meta.property)}&unitRef=${encodeURIComponent(meta.unitRef)}&year=${meta.year}&asOf=${meta.asOfMonth}`;
+  const mail = approvalEmail({
+    name: meta.name, suite: result.suite, unitRef: meta.unitRef, propertyName: meta.propertyName,
+    leaseTo: meta.leaseTo, asOfMonth: meta.asOfMonth, year: meta.year,
+    cats: c.kind === "retail" ? "CAM/INS/RET" : "CAM/RET", settlement,
+    approverFirst: to.first, chargesName: MOVEOUT_CHARGES_NAME, path: `${PORTAL_BASE}${path}`,
+    sentBy: by, sentAt: new Date(), unpostedMonths: result.unpostedMonths, postedThrough: meta.maxPosted,
+  });
   return sendMail({
     to: to.email,
     from: FROM,
-    subject: `Approve final move-out statement — ${meta.name} (${meta.property} ${meta.unitRef})`,
-    textBody: lines.join("\n"),
+    subject: mail.subject,
+    textBody: mail.text,
+    htmlBody: mail.html,
+    noLinkTracking: true,
     attachments: [{ name: `${moveoutFileBase(c)}.pdf`, content: buildMoveoutPdf(c, settlement), contentType: "application/pdf" }],
   });
 }
