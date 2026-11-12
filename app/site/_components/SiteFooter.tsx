@@ -43,7 +43,7 @@ export default function SiteFooter() {
             <ul className="space-y-3">
               <li><a href="https://www.rentpayment.com/pay/login.html" target="_blank" rel="noopener noreferrer" className={link}>Pay Rent</a></li>
               <li><Link className={link} href={sitePath("/available-space")}>Available Space</Link></li>
-              <li><Link className={link} href={sitePath("/maintenance")}>Maintenance</Link></li>
+              <li><Link className={link} href={sitePath("/maintenance")}>Service Requests</Link></li>
             </ul>
           </div>
         </div>

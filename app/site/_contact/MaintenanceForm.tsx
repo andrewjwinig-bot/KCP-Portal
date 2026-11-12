@@ -167,7 +167,7 @@ export default function MaintenanceForm() {
           </div>
         </div>
         <div className="space-y-2">
-          <label htmlFor="maintenanceNeeds" className={LABEL}>Please describe your maintenance needs<Req /></label>
+          <label htmlFor="maintenanceNeeds" className={LABEL}>Please describe your request<Req /></label>
           <textarea id="maintenanceNeeds" name="description" required rows={6} className={TEXTAREA_CLASS} disabled={s.submitting} />
         </div>
         <div className="flex justify-center">
