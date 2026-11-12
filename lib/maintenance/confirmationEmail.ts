@@ -83,9 +83,12 @@ ${cap("Your request", "#6d7205")}
 <div style="font-family:${BODY};font-size:14px;color:#13213a;line-height:1.5;margin-top:6px;">${esc(a.description).replace(/\r?\n/g, "<br>")}</div>
 </td></tr></table></td></tr>
 
-<tr><td style="padding:18px 36px 0;font-family:${BODY};font-size:13px;color:#43506a;line-height:1.55;">
-<b style="color:#0e2c5a;">An emergency?</b> For an active leak, a fire or a security issue, call our office at <b style="color:#0e2c5a;">${OFFICE_PHONE}</b>. If anyone is in danger, call 911 first.
-</td></tr>
+<tr><td style="padding:18px 36px 0;">
+<table role="presentation" width="528" cellpadding="0" cellspacing="0" border="0" style="width:528px;border-collapse:collapse;"><tr>
+<td style="background:#18468b;padding:18px 22px;">
+<div style="font-family:${HEAD};font-size:21px;font-weight:bold;color:#ffffff;line-height:1.15;">An emergency? Call, don&rsquo;t wait.</div>
+<div style="font-family:${BODY};font-size:13.5px;color:#dbe3f0;line-height:1.5;margin-top:7px;">For an active leak, a fire or a security issue, call our office at <b style="color:#ffffff;">${OFFICE_PHONE}</b>. If anyone is in danger, call 911 first.</div>
+</td></tr></table></td></tr>
 
 <tr><td style="padding:16px 36px 24px;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>
