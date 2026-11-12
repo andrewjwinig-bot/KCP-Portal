@@ -90,11 +90,7 @@ ${cap("Your request", "#6d7205")}
 <div style="font-family:${BODY};font-size:13.5px;color:#dbe3f0;line-height:1.5;margin-top:7px;">For an active leak, a fire or a security issue, call our office at <b style="color:#ffffff;">${OFFICE_PHONE}</b>. If anyone is in danger, call 911 first.</div>
 </td></tr></table></td></tr>
 
-<tr><td style="padding:16px 36px 24px;">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>
-<td height="38" bgcolor="#18468b" align="center" valign="middle" style="height:38px;background:#18468b;padding:0 18px;mso-line-height-rule:exactly;line-height:38px;">
-<a href="${SUBMIT_URL}" target="_blank" style="color:#ffffff;text-decoration:none;font-family:${BODY};font-size:13px;font-weight:bold;line-height:38px;display:block;"><font color="#ffffff">Submit another request &rarr;</font></a>
-</td></tr></table></td></tr>
+<tr><td style="padding:24px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr>
 
 <tr><td style="padding:0;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;border-collapse:collapse;background:#0a1f40;"><tr>
@@ -112,8 +108,6 @@ ${cap("Your request", "#6d7205")}
     "",
     "Your request:",
     a.description,
-    "",
-    `Something else come up? Submit another request: ${SUBMIT_URL}`,
     "",
     `An emergency? For an active leak, a fire or a security issue, call our office at ${OFFICE_PHONE}. If anyone is in danger, call 911 first.`,
     "",
