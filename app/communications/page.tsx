@@ -2,7 +2,8 @@
 // Tenant Communications — Greg's page for the Interplex tenant emails (owner,
 // 11/2026). Each email is a designed graphic with a live "Submit a request" /
 // "Report a problem" button and nothing else; Greg picks one, sets the subject
-// (weather alerts get their dates) and opens it as a DRAFT IN OUTLOOK
+// (weather alerts get their dates; a building notice gets its buildings and
+// dates, laid into the email as a table) and opens it as a DRAFT IN OUTLOOK
 // (`draftEml.ts`) — the portal never sends it (owner: "make it a draft email
 // in his outlook to add his custom distribution lists to send from there").
 // He sends from Outlook, then marks it sent here. The seasonal ones carry
@@ -10,11 +11,19 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { CircleCheck, Eye, Mail, TriangleAlert, X } from "lucide-react";
+import { CircleCheck, Eye, Mail, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import LoadingState from "../components/LoadingState";
 import { renderTenantEmail, scheduleLabel, type TenantTemplate } from "@/lib/communications/templates";
 import { draftEml, draftFileName } from "@/lib/communications/draftEml";
+import { Calendar } from "../components/Calendar";
+import { ALL_BUILDINGS, BUILDINGS, TIME_OPTIONS, scheduleSubject, type ScheduleRow, type ScheduleSpec } from "@/lib/communications/schedule";
+
+type Work = { rows: ScheduleRow[]; building?: string };
+const startRows = (spec: ScheduleSpec): ScheduleRow[] =>
+  (spec.defaultBuildings?.length ? spec.defaultBuildings : [BUILDINGS[0].code]).map((building) => ({
+    building, cells: spec.columns.map((c) => (c.kind === "time" ? TIME_OPTIONS[0] : "")),
+  }));
 
 type SendSummary = { id: string; templateId: string; subject: string; sentAt: string; sentBy: string | null; testMode: boolean; viaOutlook: boolean; suites: number; delivered: number };
 type Due = { id: string; name: string; dueISO: string; overdue: boolean };
@@ -71,11 +80,11 @@ export default function CommunicationsPage() {
             </div>
           )}
 
-          {(["seasonal", "weather"] as const).map((kind) => (
+          {(["seasonal", "weather", "notice"] as const).map((kind) => (
             <div className="card" key={kind}>
-              <div style={{ ...SECTION, marginBottom: 4 }}>{kind === "seasonal" ? "Seasonal Tips" : "Weather Alerts"}</div>
+              <div style={{ ...SECTION, marginBottom: 4 }}>{kind === "seasonal" ? "Seasonal Tips" : kind === "weather" ? "Weather Alerts" : "Building Notices"}</div>
               <div className="muted" style={{ fontSize: "var(--fs-13)", marginBottom: 8 }}>
-                {kind === "seasonal" ? "Sent once a season. Your dashboard reminds you when one is due." : "Keep these ready. Send one when a forecast calls for it, with the dates in the subject."}
+                {kind === "seasonal" ? "Sent once a season. Your dashboard reminds you when one is due." : kind === "weather" ? "Keep these ready. Send one when a forecast calls for it, with the dates in the subject." : "Scheduled work, and alerts for a building. Pick the buildings and dates; they go into the email as a table."}
               </div>
               {data.templates.filter((t) => t.kind === kind).map((t) => {
                 const last = data.lastSent[t.id];
@@ -127,9 +136,9 @@ export default function CommunicationsPage() {
 
 // The preview fills the window (owner: "make the winter tips window longer") —
 // `room` is what the modal's header and controls take above and below it.
-function EmailFrame({ t, room = 180 }: { t: TenantTemplate; room?: number }) {
-  // The send's own HTML, with the images from wherever the portal is served.
-  const html = useMemo(() => renderTenantEmail(t, `${window.location.origin}/site/email/tenant`).html, [t]);
+function EmailFrame({ t, room = 180, work }: { t: TenantTemplate; room?: number; work?: Work }) {
+  // The draft's own HTML, with the images from wherever the portal is served.
+  const html = useMemo(() => renderTenantEmail(t, `${window.location.origin}/site/email/tenant`, work ?? (t.work ? { rows: startRows(t.work) } : undefined)).html, [t, work]);
   return <iframe title={`${t.name} preview`} srcDoc={html} sandbox="allow-popups"
     style={{ width: "100%", height: `max(420px, calc(100vh - ${room}px))`, border: "1px solid var(--border)", borderRadius: 12, background: "#fff" }} />;
 }
@@ -153,6 +162,13 @@ function PreviewModal({ t, onClose }: { t: TenantTemplate; onClose: () => void }
 
 function DraftModal({ t, onClose, onSent }: { t: TenantTemplate; onClose: () => void; onSent: () => void }) {
   const [subject, setSubject] = useState(t.subject);
+  // A building notice: the rows Greg enters, and an optional building to
+  // highlight (for a draft going to one building's distribution list).
+  const [rows, setRows] = useState<ScheduleRow[]>(() => (t.work ? startRows(t.work) : []));
+  const [highlight, setHighlight] = useState("");
+  const [subjectTyped, setSubjectTyped] = useState(false);
+  const work: Work | undefined = t.work ? { rows: rows.filter((r) => r.cells.some((c, i) => c && t.work!.columns[i].kind !== "time")), building: highlight || undefined } : undefined;
+  useEffect(() => { if (t.work && !subjectTyped) setSubject(scheduleSubject(t.work, work!.rows)); }, [rows]); // eslint-disable-line react-hooks/exhaustive-deps
   const [drafted, setDrafted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -161,7 +177,7 @@ function DraftModal({ t, onClose, onSent }: { t: TenantTemplate; onClose: () => 
   // The draft is built here from the preview's own HTML and handed to the
   // browser as an .eml — Outlook opens it as a new, unsent email.
   const openDraft = () => {
-    const blob = new Blob([draftEml(t, subject.trim() || t.subject)], { type: "message/rfc822" });
+    const blob = new Blob([draftEml(t, subject.trim() || t.subject, work)], { type: "message/rfc822" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = draftFileName(subject.trim() || t.subject);
@@ -211,9 +227,10 @@ function DraftModal({ t, onClose, onSent }: { t: TenantTemplate; onClose: () => 
         </div>
 
         <label style={{ ...SECTION, display: "block", marginBottom: 4 }}>Subject</label>
-        <input value={subject} onChange={(e) => setSubject(e.target.value)} style={{ width: "100%" }} />
+        <input value={subject} onChange={(e) => { setSubject(e.target.value); setSubjectTyped(true); }} style={{ width: "100%" }} />
         {t.kind === "weather" && <div className="muted" style={{ fontSize: "var(--fs-13)", marginTop: 4 }}>Add the dates, e.g. &ldquo;{t.subject}: Tuesday through Thursday&rdquo;.</div>}
-        <div style={{ marginTop: 12 }}><EmailFrame t={t} room={370} /></div>
+        {t.work && <ScheduleEditor spec={t.work} rows={rows} setRows={setRows} highlight={highlight} setHighlight={setHighlight} />}
+        <div style={{ marginTop: 12 }}><EmailFrame t={t} room={370} work={work} /></div>
 
         {drafted && (
           <div className="muted" style={{ fontSize: "var(--fs-14)", marginTop: 10 }}>
@@ -229,6 +246,65 @@ function DraftModal({ t, onClose, onSent }: { t: TenantTemplate; onClose: () => 
             <Mail size={16} strokeWidth={1.75} /> {drafted ? "Download the draft again" : "Open draft in Outlook"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// The notice's rows: a building, then its dates / time / details. The subject
+// follows the rows until Greg types his own.
+function ScheduleEditor({ spec, rows, setRows, highlight, setHighlight }: {
+  spec: ScheduleSpec; rows: ScheduleRow[]; setRows: (r: ScheduleRow[]) => void; highlight: string; setHighlight: (b: string) => void;
+}) {
+  const set = (i: number, patch: Partial<ScheduleRow>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+  const setCell = (i: number, c: number, v: string) => set(i, { cells: rows[i].cells.map((x, k) => (k === c ? v : x)) });
+  const blank = (): ScheduleRow => ({ building: BUILDINGS[0].code, cells: spec.columns.map((c) => (c.kind === "time" ? TIME_OPTIONS[0] : "")) });
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ ...SECTION, marginBottom: 6 }}>{spec.title === "Building" ? "Buildings" : spec.title}</div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr>
+            <th style={{ textAlign: "left", padding: "0 8px 6px 0" }}>Building</th>
+            {spec.columns.map((c) => <th key={c.label} style={{ textAlign: "left", padding: "0 8px 6px 0" }}>{c.label}{c.kind === "week" ? " (week of)" : ""}</th>)}
+            <th />
+          </tr></thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} style={{ borderBottom: "1px solid var(--hairline)" }}>
+                <td style={{ padding: "6px 8px 6px 0" }}>
+                  <select value={r.building} onChange={(e) => set(i, { building: e.target.value })}>
+                    {BUILDINGS.map((b) => <option key={b.code} value={b.code}>{b.label}</option>)}
+                    <option value={ALL_BUILDINGS}>All buildings</option>
+                  </select>
+                </td>
+                {spec.columns.map((c, k) => (
+                  <td key={c.label} style={{ padding: "6px 8px 6px 0", minWidth: c.kind === "time" ? 120 : 150 }}>
+                    {c.kind === "time"
+                      ? <select value={r.cells[k]} onChange={(e) => setCell(i, k, e.target.value)}>{TIME_OPTIONS.map((o) => <option key={o}>{o}</option>)}</select>
+                      : c.kind === "text"
+                        ? <input value={r.cells[k]} placeholder={c.label === "Elevator" ? "e.g. Main lobby" : "e.g. Today, 2 PM"} onChange={(e) => setCell(i, k, e.target.value)} style={{ width: "100%" }} />
+                        : <Calendar variant="card" value={r.cells[k]} disableWeekends={c.kind === "week"} placeholder={c.kind === "week" ? "Pick the Monday" : "Pick a date"} onChange={(v) => setCell(i, k, v)} />}
+                  </td>
+                ))}
+                <td style={{ padding: "6px 0", width: 40 }}>
+                  <button className="btn sm" aria-label="Remove row" onClick={() => setRows(rows.filter((_, j) => j !== i))}><Trash2 size={16} strokeWidth={1.75} /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
+        <button className="btn sm" onClick={() => setRows([...rows, blank()])}><Plus size={16} strokeWidth={1.75} /> Add a row</button>
+        <span className="muted" style={{ fontSize: "var(--fs-13)", marginLeft: "auto" }}>Highlight a building</span>
+        <select value={highlight} onChange={(e) => setHighlight(e.target.value)}>
+          <option value="">None, the whole park</option>
+          {BUILDINGS.filter((b) => rows.some((r) => r.building === b.code)).map((b) => <option key={b.code} value={b.code}>{b.label}</option>)}
+        </select>
+      </div>
+      <div className="muted" style={{ fontSize: "var(--fs-13)", marginTop: 4 }}>
+        Rows left blank are left out. Highlighting a building opens the email with its own dates. Use it when this draft goes to one building&rsquo;s list.
       </div>
     </div>
   );

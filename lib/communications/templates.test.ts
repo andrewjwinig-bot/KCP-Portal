@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TENANT_TEMPLATES, dueTemplates, renderTenantEmail, templateById } from "./templates";
+import { scheduleSubject } from "./schedule";
 
 const ids = (d: ReturnType<typeof dueTemplates>) => d.map((x) => x.template.id);
 
@@ -43,5 +44,25 @@ describe("tenant email", () => {
     expect(html).toContain("Submit a request");
     expect(html).not.toMatch(/Dear|Thank you/);
     expect(text).toContain("https://kormancommercial.com/site/maintenance");
+  });
+});
+
+describe("building notices", () => {
+  it("prompts for window cleaning in spring AND fall, fire alarm in April", () => {
+    expect(dueTemplates("2027-03-05", {}).map((d) => d.template.id)).toContain("window-cleaning");
+    expect(dueTemplates("2027-09-20", {}).find((d) => d.template.id === "window-cleaning")?.dueISO).toBe("2027-10-01");
+    // a spring send does not clear the fall prompt
+    expect(dueTemplates("2027-09-20", { "window-cleaning": "2027-03-10T12:00:00Z" }).map((d) => d.template.id)).toContain("window-cleaning");
+    expect(dueTemplates("2027-04-05", {}).find((d) => d.template.id === "fire-alarm")?.dueISO).toBe("2027-04-20");
+  });
+  it("names the buildings in an outage subject", () => {
+    const spec = templateById("power-outage")!.work!;
+    expect(scheduleSubject(spec, [{ building: "4050", cells: ["Today, 2 PM", ""] }])).toBe("Power Outage: Building 5");
+  });
+  it("lays a text column into the email", () => {
+    const t = templateById("elevator")!;
+    const { html } = renderTenantEmail(t, undefined, { rows: [{ building: "4060", cells: ["Main lobby", "2027-01-11", "Friday"] }], building: "4060" });
+    expect(html).toContain("Main lobby");
+    expect(html).toContain("Your building");
   });
 });
