@@ -138,9 +138,9 @@ ${url ? `<tr><td style="padding:24px 32px 0;">
 <td height="42" bgcolor="${NAVY}" align="center" valign="middle" style="height:42px;background:${NAVY};border-radius:8px;padding:0 20px;mso-line-height-rule:exactly;line-height:42px;">
 <a href="${esc(url)}" target="_blank" style="color:#ffffff;text-decoration:none;font-family:${FONT};font-size:14px;font-weight:700;line-height:42px;display:block;"><font color="#ffffff">${esc(e.link!.label)}</font></a>
 </td></tr></table></td></tr>` : ""}
-<tr><td style="padding:24px 32px 22px;">
+${footerLine ? `<tr><td style="padding:24px 32px 22px;">
 <div style="border-top:1px solid ${HAIR};padding-top:14px;font-family:${FONT};font-size:12.5px;color:${FAINT};">${esc(footerLine)}</div>
-</td></tr>
+</td></tr>` : `<tr><td style="padding:0 0 22px;font-size:0;line-height:0;">&nbsp;</td></tr>`}
 </table>
 </td></tr></table></body></html>`;
 
