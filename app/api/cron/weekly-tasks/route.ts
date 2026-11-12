@@ -61,7 +61,11 @@ async function runDigest(req: Request) {
   try { completions = await getCompletions(); } catch { /* best-effort */ }
 
   let outstanding: { expected: { year: number; period: number }; behind: OutstandingGl[] } | null = null;
-  try { outstanding = await outstandingGlUploads(now); } catch { /* best-effort */ }
+  // Only what is actually OUTSTANDING (owner): a month's GL is due by the 25th
+  // of the next month — the Month-End Close's rule — so before the 25th the
+  // month just ended is not late yet and is left off.
+  const glAsOf = now.getDate() >= 25 ? now : new Date(now.getFullYear(), now.getMonth() - 1, 25, 12);
+  try { outstanding = await outstandingGlUploads(glAsOf); } catch { /* best-effort */ }
 
   let vacated: VacatedTenant[] = [];
   try { vacated = await recentlyVacatedTenants(now); } catch { /* best-effort */ }

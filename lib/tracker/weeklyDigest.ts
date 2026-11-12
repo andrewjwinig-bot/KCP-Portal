@@ -63,21 +63,18 @@ export function buildDigest(
     empty: tasks.length ? `All ${tasks.length} tasks done.` : "Nothing scheduled.",
   });
 
-  // ── GL uploads: one line, plus any property further behind than the rest ─
+  // ── GL uploads past due: each one, straight to its statement ────────────
   const behind = outstanding?.behind ?? [];
   if (outstanding && behind.length) {
     const exp = `${MON_SHORT[outstanding.expected.period - 1]} ${outstanding.expected.year}`;
-    const label = (b: OutstandingGl) => (b.latest ? `${MON_SHORT[b.latest.period - 1]} ${b.latest.year}` : "No GL yet");
-    const counts = new Map<string, number>();
-    for (const b of behind) counts.set(label(b), (counts.get(label(b)) ?? 0) + 1);
-    const usual = [...counts.entries()].sort((x, y) => y[1] - x[1])[0][0];
-    const odd = behind.filter((b) => label(b) !== usual);
     sections.push({
-      title: `GL uploads due through ${exp}`,
-      items: [
-        { title: `${counts.get(usual)} properties`, meta: usual === "No GL yet" ? usual : `Posted through ${usual}`, path: "/financials/operating-statements" },
-        ...odd.map((b) => ({ title: b.name, meta: b.latest ? `Posted through ${label(b)}` : "No GL yet", tone: "warn" as const, path: `/financials/operating-statements?key=${encodeURIComponent(b.propertyCode)}` })),
-      ],
+      title: `GL uploads past due · ${exp}`,
+      items: behind.map((b) => ({
+        title: b.name,
+        meta: b.latest ? `Posted through ${MON_SHORT[b.latest.period - 1]} ${b.latest.year}` : "No GL yet",
+        tone: "warn" as const,
+        path: `/financials/operating-statements?key=${encodeURIComponent(b.propertyCode)}`,
+      })),
     });
   }
 
@@ -128,7 +125,7 @@ export function buildDigest(
     lead: range,
     stats: [
       { label: "Tasks open", value: String(open.length), tone: open.length ? undefined : "good", path: "/tracker" },
-      { label: "GLs behind", value: String(behind.length), tone: behind.length ? "warn" : "good", path: "/financials/operating-statements" },
+      { label: "GLs past due", value: String(behind.length), tone: behind.length ? "warn" : "good", path: "/financials/operating-statements" },
       { label: "Not posted", value: String(new Set(notPosted.map((i) => i.key)).size), tone: notPosted.length ? "warn" : "good", path: "/financials/operating-statements/review" },
       { label: "To close out", value: String(vacated.length), tone: vacated.length ? "warn" : "good", path: "/cam-recon/interim" },
     ],
@@ -139,7 +136,7 @@ export function buildDigest(
 
   const parts: string[] = [];
   if (open.length) parts.push(`${open.length} task${open.length === 1 ? "" : "s"}`);
-  if (behind.length) parts.push(`${behind.length} GL upload${behind.length === 1 ? "" : "s"} behind`);
+  if (behind.length) parts.push(`${behind.length} GL${behind.length === 1 ? "" : "s"} past due`);
   if (notPosted.length) parts.push(`${new Set(notPosted.map((i) => i.key)).size} not posted`);
   if (vacated.length) parts.push(`${vacated.length} to close out`);
   const subject = parts.length ? `Your week — ${parts.join(", ")} (${range})` : `Your week — all clear (${range})`;
