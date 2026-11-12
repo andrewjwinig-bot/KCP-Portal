@@ -9,6 +9,7 @@
 // same `renderTenantEmail` HTML the preview shows.
 
 import { renderTenantEmail, type TenantTemplate } from "./templates";
+import type { ScheduleRow } from "./schedule";
 
 const b64 = (s: string): string => {
   const bytes = new TextEncoder().encode(s);
@@ -24,8 +25,8 @@ const header = (s: string): string => {
   return /^[\x20-\x7e]*$/.test(clean) ? clean : `=?UTF-8?B?${btoa(String.fromCharCode(...new TextEncoder().encode(clean)))}?=`;
 };
 
-export function draftEml(t: TenantTemplate, subject: string): string {
-  const { html, text } = renderTenantEmail(t);
+export function draftEml(t: TenantTemplate, subject: string, work?: { rows: ScheduleRow[]; building?: string }): string {
+  const { html, text } = renderTenantEmail(t, undefined, work);
   const boundary = `kcp-draft-${t.id}`;
   return [
     "X-Unsent: 1",
