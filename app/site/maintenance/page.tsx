@@ -5,7 +5,7 @@ import MaintenanceForm from "../_contact/MaintenanceForm";
 // service-request queue (see MaintenanceForm for what changed and why).
 
 export const metadata: Metadata = {
-  title: { absolute: "Maintenance | Korman Commercial Properties" },
+  title: { absolute: "Service Requests | Korman Commercial Properties" },
   description: "Get in touch with Korman Commercial Properties for inquiries about our maintenance services.",
 };
 
@@ -16,7 +16,7 @@ export default function MaintenancePage() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center text-center gap-2">
             <div className="bg-slate-800 h-1 w-16 mb-4" />
-            <h1 className="text-5xl md:text-6xl font-light text-slate-800 leading-tight">Maintenance</h1>
+            <h1 className="text-5xl md:text-6xl font-light text-slate-800 leading-tight">Service Requests</h1>
           </div>
         </div>
       </section>
