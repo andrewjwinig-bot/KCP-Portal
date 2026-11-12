@@ -12,7 +12,7 @@ import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
 import { sendMail, isMailConfigured, VERIFIED_FROM } from "@/lib/mail";
 import { portalEmail } from "@/lib/email/portalEmail";
-import { cell, cellSigned, headline, headlineSigned, total, totalSigned } from "./compact";
+import { LOW_BALANCE, cell, cellSigned, headline, headlineSigned, isLow, total, totalSigned } from "./compact";
 import { buildBalanceView, type BalanceView } from "./view";
 import { asOfOf, buildBalancePdf } from "./export";
 import { todayET } from "./store";
@@ -119,6 +119,8 @@ export function composeCashPosition(view: BalanceView, now = new Date()) {
       net: restricted ? null : rs.filter((r) => !r.restricted).reduce((t, r) => t + num(r.netAvailable), 0),
     };
   }).filter((x) => x.n);
+  // Operating accounts running low: watch them or transfer funds.
+  const lowRows = rows.filter(isLow);
   const email = portalEmail({
     subject,
     brand: "COMMERCIAL PROPERTIES",
@@ -133,6 +135,7 @@ export function composeCashPosition(view: BalanceView, now = new Date()) {
       { label: "Security deposits", value: `${big(deposits)} held for tenants` },
       { label: "Reserves", value: big(reserves) },
       { label: "Debt service", value: `${big(debtService)} a month` },
+      ...(lowRows.length ? [{ label: `Below ${big(LOW_BALANCE)}`, value: lowRows.map((r) => `${r.name} ${cell(r.balance)}`).join(" · "), tone: "warn" as const }] : []),
     ],
     table: {
       columns: ["", "Cash", "Change", "Net available"],

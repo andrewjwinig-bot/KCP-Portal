@@ -9,9 +9,10 @@
 
 import "server-only";
 import { jsPDF } from "jspdf";
+import { useHanken } from "@/lib/pdf/fonts/hankenGrotesk";
 import { COLOR, FMT, FONT_NAME, PRINT_TALL, footNote, freezeAbove, headerBand, liveAdd, liveFormula, liveSum, newWorkbook, repeatHeader, sectionBar, titleBlock, totalEmphasis } from "@/lib/excel/theme";
 import type { BalanceView, ViewRow } from "./view";
-import { cell as kCell, cellSigned, headline, total, totalSigned } from "./compact";
+import { LOW_BALANCE, cell as kCell, cellSigned, headline, isLow, total, totalSigned } from "./compact";
 
 const BANK: Record<string, string> = { "JPM-Chase": "Chase", "Liberty Bank": "Liberty", "M&T": "M&T" };
 
@@ -21,6 +22,12 @@ export const BASIS_NOTE =
   "tenants' money and are held back in full. The Leonard Korman Trust (Liberty x9245) is LIK money, hands off: not imported weekly, its balance is the last statement accrued at its rate (compounded daily, less the monthly charge) and it is held back in full. Debt service is each loan's next monthly payment including escrow, per the Debt Tracker, shown for " +
   "context and not deducted from net available cash. Week over week compares each account with its balance from the import at least five days earlier; " +
   "a line is compared only when every one of its accounts has that figure. Unaudited.";
+
+/** The PDF's short version of BASIS_NOTE (the Excel keeps the full one). */
+export const PDF_NOTE =
+  "Each bank's ledger balance on the date shown. Reserves are the budgeted big projects for this month and the next two. Security deposits " +
+  "(tenants' money) and the Leonard Korman Trust are held back in full. Debt service is each loan's next payment including escrow, shown for " +
+  "context, not deducted. Week over week compares the import at least five days earlier. $10K and up rounded to the nearest thousand. Unaudited.";
 
 export function asOfOf(v: BalanceView): string | null {
   return v.byBank.map((b) => b.asOf).filter((d): d is string => !!d).sort().pop() ?? null;
@@ -160,13 +167,14 @@ const fmt0 = (n: number | null) => {
 // cell, negatives in (parens), zero as a dash, totals bold under a 2pt rule.
 export function buildBalancePdf(v: BalanceView): Buffer {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  useHanken(doc);
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const m = 36;
   const W = pageW - m * 2;
   const NAVY: [number, number, number] = [11, 74, 125], INK: [number, number, number] = [16, 24, 40], MUTED: [number, number, number] = [102, 112, 133];
   const HAIR: [number, number, number] = [234, 236, 240], BORDER: [number, number, number] = [228, 231, 236], BAND: [number, number, number] = [244, 246, 249];
-  const GOOD: [number, number, number] = [6, 118, 71], BAD: [number, number, number] = [180, 35, 24];
+  const GOOD: [number, number, number] = [6, 118, 71], BAD: [number, number, number] = [180, 35, 24], WARN: [number, number, number] = [181, 71, 8];
   const color = (c: [number, number, number]) => doc.setTextColor(c[0], c[1], c[2]);
   const nameW = 196;
   const heads = ["Balance", "Wk / Wk", "Reserves", "Net Available", "Debt Svc / Mo"];
@@ -185,27 +193,28 @@ export function buildBalancePdf(v: BalanceView): Buffer {
   // Letter-spaced caps: jsPDF leaves charSpace out of a text's width, so the
   // spacing is added by hand and right-aligned text is placed from its left.
   const spaced = (t: string, x: number, yy: number, cs: number, right = false) => {
-    doc.setCharSpace(cs);
+    doc.setCharSpace(0);
     const w = doc.getTextWidth(t) + cs * (t.length - 1);
+    doc.setCharSpace(cs);
     doc.text(t, right ? x - w : x, yy);
     doc.setCharSpace(0);
     return w;
   };
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); color(NAVY);
+  doc.setFont("Hanken", "bold"); doc.setFontSize(9.5); color(NAVY);
   const kw = spaced("KORMAN", m, y + 8, 1.6);
-  doc.setFont("helvetica", "normal"); color(MUTED);
-  doc.setDrawColor(...MUTED); doc.setLineWidth(0.6); doc.line(m + kw + 9, y + 0.5, m + kw + 9, y + 9.5);
-  spaced("COMMERCIAL PROPERTIES", m + kw + 17, y + 8, 1.2);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); spaced("CASH POSITION", pageW - m, y + 8, 1.2, true);
+  doc.setFont("Hanken", "normal"); color(MUTED);
+  doc.setDrawColor(...MUTED); doc.setLineWidth(0.6); doc.line(m + kw + 7, y + 0.5, m + kw + 7, y + 9.5);
+  spaced("COMMERCIAL PROPERTIES", m + kw + 14, y + 8, 1.2);
+  doc.setFont("Hanken", "bold"); doc.setFontSize(8); spaced("CASH POSITION", pageW - m, y + 8, 1.2, true);
   y += 30;
 
   // Title and meta.
   const monday = (() => { if (!asOf) return null; const d = new Date(`${asOf}T12:00:00`); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; })();
-  doc.setFont("helvetica", "bold"); doc.setFontSize(20); color(INK);
+  doc.setFont("HankenXB", "normal"); doc.setFontSize(20); color(INK);
   doc.text(monday ? `Week of ${monday.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "Cash Position", m, y);
   y += 16;
   const prior = v.rows.map((x) => x.priorAsOf).filter((d): d is string => !!d).sort()[0] ?? null;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(9); color(MUTED);
+  doc.setFont("Hanken", "normal"); doc.setFontSize(9); color(MUTED);
   doc.text([`Balances as of ${longDate(asOf)}`, v.byBank.map((b) => `${BANK[b.bank] ?? b.bank} ${short(b.asOf)}`).join(" · "), prior ? `Week over week vs ${short(prior)}` : ""].filter(Boolean).join("   ·   "), m, y);
   y += 20;
 
@@ -220,8 +229,8 @@ export function buildBalancePdf(v: BalanceView): Buffer {
   const change = compared.length ? compared.reduce((t, r) => t + num(r.change), 0) : null;
   doc.setDrawColor(...HAIR); doc.setLineWidth(0.8); doc.line(m, y, pageW - m, y);
   y += 22;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(28); color(NAVY); doc.text(dollars(net), m, y + 6);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); color(MUTED); doc.text("Net available", m, y + 20);
+  doc.setFont("HankenXB", "normal"); doc.setFontSize(28); color(NAVY); doc.text(dollars(net), m, y + 6);
+  doc.setFont("Hanken", "bold"); doc.setFontSize(8); color(MUTED); doc.text("Net available", m, y + 20);
   const stats: [string, string, [number, number, number]][] = [
     ["Cash in bank", dollars(totalCash), INK],
     ["Week over week", change == null ? "—" : change < 0 ? dollars(change) : `+${dollars(change)}`, change == null ? INK : change < 0 ? BAD : GOOD],
@@ -233,13 +242,25 @@ export function buildBalancePdf(v: BalanceView): Buffer {
   stats.forEach(([label, val, c], i) => {
     const x = sx0 + i * sw;
     doc.setDrawColor(...HAIR); doc.line(x, y - 14, x, y + 22);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(11); color(c); doc.text(val, x + 9, y + 2);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7.5); color(MUTED); doc.text(label, x + 9, y + 15);
+    doc.setFont("Hanken", "bold"); doc.setFontSize(11); color(c); doc.text(val, x + 9, y + 2);
+    doc.setFont("Hanken", "normal"); doc.setFontSize(7.5); color(MUTED); doc.text(label, x + 9, y + 15);
   });
   y += 34;
+  const low = v.rows.filter(isLow);
+  if (low.length) {
+    doc.setFont("Hanken", "bold"); doc.setFontSize(8.5); color(WARN);
+    const lead = `Below ${headline(LOW_BALANCE)}, watch or transfer: `;
+    doc.text(lead, m, y);
+    doc.setFont("Hanken", "normal");
+    const lw = doc.getTextWidth(lead) + 4;
+    const lines = doc.splitTextToSize(low.map((r) => `${r.name} ${cell(r.balance)}`).join(" · "), W - lw);
+    doc.text(lines, m + lw, y);
+    color(INK);
+    y += 6 + lines.length * 10;
+  }
 
   const drawHead = () => {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(7); color(MUTED);
+    doc.setFont("Hanken", "bold"); doc.setFontSize(7); color(MUTED);
     spaced("PROPERTY / ENTITY", m, y + 9, 0.5);
     heads.forEach((h, i) => spaced(h.toUpperCase(), colX(i), y + 9, 0.5, true));
     doc.setDrawColor(...BORDER); doc.setLineWidth(0.8); doc.line(m, y + 14, pageW - m, y + 14);
@@ -247,7 +268,7 @@ export function buildBalancePdf(v: BalanceView): Buffer {
   };
   const ensure = (h: number) => { if (y + h > pageH - m) { doc.addPage(); y = m; drawHead(); } };
   const nums = (vals: (number | null)[], bold: boolean, rowH: number) => {
-    doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(8.5);
+    doc.setFont("Hanken", bold ? "bold" : "normal"); doc.setFontSize(9.5);
     vals.forEach((val, i) => {
       color(INK);
       let text = cell(val);
@@ -261,10 +282,10 @@ export function buildBalancePdf(v: BalanceView): Buffer {
 
   drawHead();
   for (const { g, rows } of grouped(v)) {
-    ensure(15 + 13);
+    ensure(16 + 14);
     y += 3;
-    doc.setFillColor(...BAND); doc.rect(m, y, W, 15, "F");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); color(INK); doc.text(g, m + 6, y + 10.5);
+    doc.setFillColor(...BAND); doc.rect(m, y, W, 16, "F");
+    doc.setFont("Hanken", "bold"); doc.setFontSize(9.5); color(INK); doc.text(g, m + 6, y + 11);
     const restricted = rows.every((r) => r.restricted);
     nums([
       rows.reduce((t, r) => t + num(r.balance), 0),
@@ -272,32 +293,41 @@ export function buildBalancePdf(v: BalanceView): Buffer {
       rows.reduce((t, r) => t + (r.balance == null ? 0 : r.reserves), 0),
       restricted ? null : rows.reduce((t, r) => t + num(r.netAvailable), 0),
       rows.some((r) => r.debtService != null) ? rows.reduce((t, r) => t + num(r.debtService), 0) : null,
-    ], true, 15);
-    y += 15;
+    ], true, 16);
+    y += 16;
     for (const r of rows) {
-      ensure(13);
-      doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); color(INK);
-      doc.text(r.name.length > 40 ? r.name.slice(0, 39) + "…" : r.name, m + 12, y + 9.3);
-      nums([r.balance, r.change, r.balance == null ? null : r.reserves, r.restricted ? null : r.netAvailable, r.debtService], false, 12.6);
-      doc.setDrawColor(...HAIR); doc.setLineWidth(0.5); doc.line(m, y + 13, pageW - m, y + 13);
-      y += 13;
+      ensure(13.5);
+      doc.setFont("Hanken", "normal"); doc.setFontSize(9.5); color(INK);
+      const nm = r.name.length > 40 ? r.name.slice(0, 39) + "…" : r.name;
+      doc.text(nm, m + 12, y + 9.7);
+      nums([r.balance, r.change, r.balance == null ? null : r.reserves, r.restricted ? null : r.netAvailable, r.debtService], false, 13);
+      if (isLow(r)) {
+        // Status in words beside the name, the balance in amber.
+        const nw = doc.getTextWidth(nm);
+        doc.setFont("Hanken", "bold"); doc.setFontSize(7.5); color(WARN);
+        doc.text("LOW", m + 12 + nw + 6, y + 9.7);
+        doc.setFontSize(9.5); doc.text(cell(r.balance), colX(0), y + 13 / 2 + 3, { align: "right" });
+        color(INK);
+      }
+      doc.setDrawColor(...HAIR); doc.setLineWidth(0.5); doc.line(m, y + 13.5, pageW - m, y + 13.5);
+      y += 13.5;
     }
   }
   ensure(26);
   y += 6;
   doc.setDrawColor(...INK); doc.setLineWidth(1.6); doc.line(m, y, pageW - m, y);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); color(INK); doc.text("Total", m, y + 13);
+  doc.setFont("Hanken", "bold"); doc.setFontSize(10); color(INK); doc.text("Total", m, y + 14);
   const tot: (number | null)[] = [totalCash, changeSum(v.rows), reserves + deposits, net, debt];
   tot.forEach((val, i) => {
     color(i === 1 && val != null && Math.round(val) !== 0 ? (val < 0 ? BAD : GOOD) : i === 4 ? MUTED : INK);
     const t = i === 1 ? totalSigned(val) : total(val);
-    doc.text(t, colX(i), y + 13, { align: "right" });
+    doc.text(t, colX(i), y + 14, { align: "right" });
   });
   y += 26;
 
-  ensure(40);
-  doc.setFont("helvetica", "normal"); doc.setFontSize(6.8); color(MUTED);
-  doc.text(doc.splitTextToSize(BASIS_NOTE, W), m, y);
+  ensure(30);
+  doc.setFont("Hanken", "normal"); doc.setFontSize(7.5); color(MUTED);
+  doc.text(doc.splitTextToSize(PDF_NOTE, W), m, y);
   color(INK);
   return Buffer.from(doc.output("arraybuffer"));
 }

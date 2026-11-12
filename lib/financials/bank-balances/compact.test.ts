@@ -16,3 +16,14 @@ describe("big-picture money", () => {
     expect(headlineSigned(-62_419)).toBe("($62K)");
   });
 });
+
+import { isLow } from "./compact";
+describe("low balance flag", () => {
+  it("flags operating accounts under $5K, never deposits or the trust", () => {
+    expect(isLow({ balance: 1_019, restricted: false })).toBe(true);
+    expect(isLow({ balance: 26_885, restricted: false })).toBe(false);
+    expect(isLow({ balance: 1_000, restricted: true })).toBe(false);
+    expect(isLow({ balance: 1_000, restricted: false, handsOff: {} })).toBe(false);
+    expect(isLow({ balance: null, restricted: false })).toBe(false);
+  });
+});
