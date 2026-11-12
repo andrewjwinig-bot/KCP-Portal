@@ -36,3 +36,11 @@ export function total(n: number | null): string {
   return n < 0 ? `(${t})` : t;
 }
 export const totalSigned = (n: number | null) => (n == null || Math.round(n) === 0 ? "\u2014" : n < 0 ? total(n) : `+${total(n)}`);
+
+/** An operating account under this is flagged to watch or fund (owner,
+ *  11/2026: "if a property falls below $5K … flag it to monitor or
+ *  transfer"). Security deposits and the hands-off trust are never flagged. */
+export const LOW_BALANCE = 5_000;
+export function isLow(r: { balance: number | null; restricted: boolean; handsOff?: unknown }): boolean {
+  return !r.restricted && !r.handsOff && r.balance != null && r.balance < LOW_BALANCE;
+}
