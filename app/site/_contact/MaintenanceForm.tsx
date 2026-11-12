@@ -45,7 +45,6 @@ export default function MaintenanceForm() {
     if (!picked) { setS({ submitted: false, submitting: false, error: "Please choose your property." }); return; }
     const v = (n: string) => String(new FormData(form).get(n) ?? "").trim();
     setS((x) => ({ ...x, submitting: true }));
-    const building = v("buildingNumber");
     const fd = new FormData();
     fd.append("firstName", v("firstName"));
     fd.append("lastName", v("lastName"));
@@ -55,7 +54,7 @@ export default function MaintenanceForm() {
     fd.append("propertyCode", picked.id);
     fd.append("propertyName", picked.name);
     fd.append("tenantSuite", v("suiteNumber"));
-    fd.append("description", building ? `${v("description")}\n\nBuilding: ${building}` : v("description"));
+    fd.append("description", v("description"));
     fd.append("website", v("website"));
     try {
       const res = await fetch("/api/maintenance/submit", { method: "POST", body: fd });
@@ -156,15 +155,11 @@ export default function MaintenanceForm() {
             </div>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label htmlFor="buildingNumber" className={LABEL}>Building Number (if applicable)</label>
-            <input id="buildingNumber" name="buildingNumber" className={INPUT_CLASS} disabled={s.submitting} />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="suiteNumber" className={LABEL}>Suite Number (if applicable)</label>
-            <input id="suiteNumber" name="suiteNumber" className={INPUT_CLASS} disabled={s.submitting} />
-          </div>
+        {/* No Building Number: the property list already names each building
+            (Building 1 … Building 8, Kor Center A/B/C), owner 11/2026. */}
+        <div className="space-y-2">
+          <label htmlFor="suiteNumber" className={LABEL}>Suite Number (if applicable)</label>
+          <input id="suiteNumber" name="suiteNumber" className={INPUT_CLASS} disabled={s.submitting} />
         </div>
         <div className="space-y-2">
           <label htmlFor="maintenanceNeeds" className={LABEL}>Please describe your request<Req /></label>
