@@ -8,34 +8,10 @@ import {
 import { getRequest, removeRequest, saveRequest } from "@/lib/maintenance/requestsStorage";
 import { isStaffId, staffName } from "@/lib/maintenance/staff";
 import { isMailConfigured, sendMail } from "@/lib/mail";
+import { statusEmail } from "@/lib/maintenance/confirmationEmail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-// Tenant-facing note when staff advance a request. Closes the loop so a tenant
-// who submitted through the portal hears back on progress + completion.
-function statusEmailBody(r: MaintenanceRequest): string {
-  const greet = r.tenantName ? `Hi ${r.tenantName.split(/\s+/)[0]},` : "Hi,";
-  const where = [r.propertyName, r.tenantSuite].filter(Boolean).join(" · ");
-  const lines = [
-    greet,
-    "",
-    r.status === "Complete"
-      ? "Good news — your service request has been completed."
-      : "An update on your service request: our team has started work on it.",
-    "",
-    where ? `Property: ${where}` : null,
-    r.subject ? `Request: ${r.subject}` : null,
-    `Reference ID: ${r.id}`,
-    "",
-    r.status === "Complete"
-      ? "If anything still needs attention, reply to this email or submit a new request from your tenant portal."
-      : "We'll let you know when it's complete. You can check status anytime in your tenant portal.",
-    "",
-    "— KCP Maintenance",
-  ].filter((l): l is string => l !== null);
-  return lines.join("\n");
-}
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const r = await getRequest(params.id);
@@ -81,14 +57,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const statusAdvanced = !!body.status && next.status !== r.status && (next.status === "In Progress" || next.status === "Complete");
   if (statusAdvanced && next.tenantEmail && isMailConfigured()) {
     try {
-      await sendMail({
-        to: next.tenantEmail,
-        subject: next.status === "Complete"
-          ? `Your service request is complete — ${next.propertyName || "KCP"}`
-          : `Update on your service request — ${next.propertyName || "KCP"}`,
-        textBody: statusEmailBody(next),
-        isAutoReply: true,
+      // Tenant-facing note when staff advance a request, in the designed
+      // look (lib/maintenance/confirmationEmail.ts).
+      const m = statusEmail({
+        status: next.status as "In Progress" | "Complete",
+        tenantName: next.tenantName,
+        propertyCode: next.propertyCode,
+        propertyName: next.propertyName,
+        tenantSuite: next.tenantSuite,
+        summary: next.subject,
+        requestId: next.id,
+        submittedAt: next.submittedDate ? new Date(next.submittedDate) : null,
+        completedAt: next.status === "Complete" ? new Date(next.completedDate ?? Date.now()) : null,
       });
+      await sendMail({ to: next.tenantEmail, subject: m.subject, htmlBody: m.html, textBody: m.text, isAutoReply: true });
     } catch { /* ignore — the status change still saves */ }
   }
 
