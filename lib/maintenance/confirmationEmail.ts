@@ -247,17 +247,19 @@ export function inboundAutoReplyEmail(fromName: string): { html: string; text: s
 /** "Your 2025 statement is ready": the link as a button (never shown as a
  *  long URL), what's in the portal, and a word on keeping it private. */
 export function portalLinkEmail(a: { propertyCode: string; propertyName: string; unitRef: string; tenantName: string; year: number; url: string }): { subject: string; html: string; text: string } {
+  // One name for it throughout — "your 2025 CAM / RET statement" — said once
+  // in the headline, never repeated in the details or a list (owner: "it
+  // feels inconsistent").
   const s: Shell = {
     propertyCode: a.propertyCode,
     subject: `Your ${a.year} CAM / RET statement is ready — Korman Commercial Properties`,
-    eyebrow: "Tenant Portal",
+    eyebrow: `${a.year} CAM / RET Statement`,
     hello: `Your ${a.year} statement`, accent: "is ready.",
-    sub: `Your ${a.year} CAM / RET reconciliation is ready to view in your private tenant portal.`,
-    details: [["Tenant", a.tenantName], ["Location", [a.propertyName, a.unitRef].filter(Boolean).join(" · ")], ["Statement", `${a.year} CAM / RET reconciliation`]],
-    boxLabel: "In your portal",
-    boxText: "Review the statement line by line, with backup invoices\nDownload it as a PDF\nSee your lease terms\nSubmit a service request or reserve a conference room",
+    sub: "View it online, with the invoices behind each expense, and download a copy for your records.",
+    details: [["Tenant", a.tenantName], ["Location", [a.propertyName, a.unitRef].filter(Boolean).join(" · ")]],
+    boxLabel: "", boxText: "",
     emergency: false,
-    button: { label: "Open your tenant portal", url: a.url },
+    button: { label: "View your statement", url: a.url },
   };
   const footNote = `This link is private to your suite. Please don't forward it outside your company. Questions about the statement? Call our office at ${OFFICE_PHONE}.`;
   const html = shell(s).replace(
