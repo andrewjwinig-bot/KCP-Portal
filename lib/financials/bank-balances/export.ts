@@ -9,8 +9,10 @@
 
 import "server-only";
 import { jsPDF } from "jspdf";
+import { useHanken } from "@/lib/pdf/fonts/hankenGrotesk";
 import { COLOR, FMT, FONT_NAME, PRINT_TALL, footNote, freezeAbove, headerBand, liveAdd, liveFormula, liveSum, newWorkbook, repeatHeader, sectionBar, titleBlock, totalEmphasis } from "@/lib/excel/theme";
 import type { BalanceView, ViewRow } from "./view";
+import { cell as kCell, cellSigned, headline, total, totalSigned } from "./compact";
 
 const BANK: Record<string, string> = { "JPM-Chase": "Chase", "Liberty Bank": "Liberty", "M&T": "M&T" };
 
@@ -20,6 +22,12 @@ export const BASIS_NOTE =
   "tenants' money and are held back in full. The Leonard Korman Trust (Liberty x9245) is LIK money, hands off: not imported weekly, its balance is the last statement accrued at its rate (compounded daily, less the monthly charge) and it is held back in full. Debt service is each loan's next monthly payment including escrow, per the Debt Tracker, shown for " +
   "context and not deducted from net available cash. Week over week compares each account with its balance from the import at least five days earlier; " +
   "a line is compared only when every one of its accounts has that figure. Unaudited.";
+
+/** The PDF's short version of BASIS_NOTE (the Excel keeps the full one). */
+export const PDF_NOTE =
+  "Each bank's ledger balance on the date shown. Reserves are the budgeted big projects for this month and the next two. Security deposits " +
+  "(tenants' money) and the Leonard Korman Trust are held back in full. Debt service is each loan's next payment including escrow, shown for " +
+  "context, not deducted. Week over week compares the import at least five days earlier. $10K and up rounded to the nearest thousand. Unaudited.";
 
 export function asOfOf(v: BalanceView): string | null {
   return v.byBank.map((b) => b.asOf).filter((d): d is string => !!d).sort().pop() ?? null;
@@ -151,106 +159,154 @@ const fmt0 = (n: number | null) => {
   return v < 0 ? `($${s})` : `$${s}`;
 };
 
+// The PDF is the attachment to the Monday Cash Position email, so it reads
+// as the same document (owner, 11/2026: "make both look good and together"):
+// the portal's look — the KORMAN | COMMERCIAL PROPERTIES masthead, the title,
+// net available big in navy with the other figures beside it, then the table
+// with caps grey headings, hairline rows, a light band per group, no $ in a
+// cell, negatives in (parens), zero as a dash, totals bold under a 2pt rule.
 export function buildBalancePdf(v: BalanceView): Buffer {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
+  useHanken(doc);
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const m = 36;
-  const nameW = 186;
-  const heads = ["Current Balance", "Wk / Wk Change", "Reserves", "Net Available", "Debt Svc / Mo"];
-  const numW = (pageW - m * 2 - nameW) / heads.length;
-  const colX = (i: number) => m + nameW + (i + 1) * numW - 4;
+  const W = pageW - m * 2;
+  const NAVY: [number, number, number] = [11, 74, 125], INK: [number, number, number] = [16, 24, 40], MUTED: [number, number, number] = [102, 112, 133];
+  const HAIR: [number, number, number] = [234, 236, 240], BORDER: [number, number, number] = [228, 231, 236], BAND: [number, number, number] = [244, 246, 249];
+  const GOOD: [number, number, number] = [6, 118, 71], BAD: [number, number, number] = [180, 35, 24];
+  const color = (c: [number, number, number]) => doc.setTextColor(c[0], c[1], c[2]);
+  const nameW = 196;
+  const heads = ["Balance", "Wk / Wk", "Reserves", "Net Available", "Debt Svc / Mo"];
+  const numW = (W - nameW) / heads.length;
+  const colX = (i: number) => m + nameW + (i + 1) * numW;
   const asOf = asOfOf(v);
+  const short = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—");
+  // Cells: no $, (parens), dash for zero. Totals and figures: with $.
+  // Big picture: K from $10,000, M on the headline figures (compact.ts).
+  const cell = kCell;
+  const dollars = headline;
+  const signedCell = cellSigned;
   let y = m;
 
-  doc.setFillColor(11, 74, 125); doc.rect(m, y, pageW - m * 2, 16, "F");
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(255);
-  doc.text("KORMAN  COMMERCIAL PROPERTIES", m + 6, y + 11);
-  y += 26; doc.setTextColor(0);
-  doc.setFontSize(15); doc.text("Cash Position — Bank Balances", m, y + 4); y += 16;
-  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5); doc.setTextColor(100);
-  doc.text(`${asOf ? `As of ${longDate(asOf)}` : ""}   ·   ${v.byBank.map((b) => `${BANK[b.bank] ?? b.bank} ${longDate(b.asOf)}`).join("   ·   ")}`, m, y + 4);
-  const priorDates = v.rows.map((x) => x.priorAsOf).filter((d): d is string => !!d).sort();
-  if (priorDates.length) { y += 11; doc.text(`Week over week vs ${longDate(priorDates[0])}`, m, y + 4); }
-  doc.setTextColor(0); y += 18;
+  // Masthead.
+  // Letter-spaced caps: jsPDF leaves charSpace out of a text's width, so the
+  // spacing is added by hand and right-aligned text is placed from its left.
+  const spaced = (t: string, x: number, yy: number, cs: number, right = false) => {
+    doc.setCharSpace(0);
+    const w = doc.getTextWidth(t) + cs * (t.length - 1);
+    doc.setCharSpace(cs);
+    doc.text(t, right ? x - w : x, yy);
+    doc.setCharSpace(0);
+    return w;
+  };
+  doc.setFont("Hanken", "bold"); doc.setFontSize(9.5); color(NAVY);
+  const kw = spaced("KORMAN", m, y + 8, 1.6);
+  doc.setFont("Hanken", "normal"); color(MUTED);
+  doc.setDrawColor(...MUTED); doc.setLineWidth(0.6); doc.line(m + kw + 7, y + 0.5, m + kw + 7, y + 9.5);
+  spaced("COMMERCIAL PROPERTIES", m + kw + 14, y + 8, 1.2);
+  doc.setFont("Hanken", "bold"); doc.setFontSize(8); spaced("CASH POSITION", pageW - m, y + 8, 1.2, true);
+  y += 30;
 
-  // KPI line.
+  // Title and meta.
+  const monday = (() => { if (!asOf) return null; const d = new Date(`${asOf}T12:00:00`); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d; })();
+  doc.setFont("HankenXB", "normal"); doc.setFontSize(20); color(INK);
+  doc.text(monday ? `Week of ${monday.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : "Cash Position", m, y);
+  y += 16;
+  const prior = v.rows.map((x) => x.priorAsOf).filter((d): d is string => !!d).sort()[0] ?? null;
+  doc.setFont("Hanken", "normal"); doc.setFontSize(9); color(MUTED);
+  doc.text([`Balances as of ${longDate(asOf)}`, v.byBank.map((b) => `${BANK[b.bank] ?? b.bank} ${short(b.asOf)}`).join(" · "), prior ? `Week over week vs ${short(prior)}` : ""].filter(Boolean).join("   ·   "), m, y);
+  y += 20;
+
+  // Figures: net available big, the rest in a row beside it.
   const ops = v.rows.filter((r) => !r.restricted);
-  const totalCash = v.rows.reduce((s, r) => s + num(r.balance), 0);
-  const deposits = v.rows.filter((r) => r.restricted).reduce((s, r) => s + num(r.balance), 0);
-  const reserves = ops.reduce((s, r) => s + (r.balance == null ? 0 : r.reserves), 0);
-  const net = ops.reduce((s, r) => s + num(r.netAvailable), 0);
-  const debt = v.rows.reduce((s, r) => s + num(r.debtService), 0) + (v.unplacedDebtService ?? 0);
-  const tiles: [string, number][] = [["Cash in Bank", totalCash], ["Security Deposits", deposits], ["Reserves", reserves], ["Net Available", net], ["Debt Service / Mo", debt]];
-  const tw = (pageW - m * 2 - 4 * 6) / 5;
-  tiles.forEach(([label, val], i) => {
-    const x = m + i * (tw + 6);
-    doc.setDrawColor(i === 3 ? 11 : 200, i === 3 ? 74 : 208, i === 3 ? 125 : 218); doc.setLineWidth(i === 3 ? 1.2 : 0.6);
-    doc.roundedRect(x, y, tw, 38, 4, 4, "S");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text(fmt0(val), x + tw / 2, y + 18, { align: "center" });
-    doc.setFont("helvetica", "normal"); doc.setFontSize(7); doc.setTextColor(100); doc.text(label, x + tw / 2, y + 30, { align: "center" }); doc.setTextColor(0);
+  const totalCash = v.rows.reduce((t, r) => t + num(r.balance), 0);
+  const deposits = v.rows.filter((r) => r.restricted).reduce((t, r) => t + num(r.balance), 0);
+  const reserves = ops.reduce((t, r) => t + (r.balance == null ? 0 : r.reserves), 0);
+  const net = ops.reduce((t, r) => t + num(r.netAvailable), 0);
+  const debt = v.rows.reduce((t, r) => t + num(r.debtService), 0) + (v.unplacedDebtService ?? 0);
+  const compared = v.rows.filter((r) => r.change != null);
+  const change = compared.length ? compared.reduce((t, r) => t + num(r.change), 0) : null;
+  doc.setDrawColor(...HAIR); doc.setLineWidth(0.8); doc.line(m, y, pageW - m, y);
+  y += 22;
+  doc.setFont("HankenXB", "normal"); doc.setFontSize(28); color(NAVY); doc.text(dollars(net), m, y + 6);
+  doc.setFont("Hanken", "bold"); doc.setFontSize(8); color(MUTED); doc.text("Net available", m, y + 20);
+  const stats: [string, string, [number, number, number]][] = [
+    ["Cash in bank", dollars(totalCash), INK],
+    ["Week over week", change == null ? "—" : change < 0 ? dollars(change) : `+${dollars(change)}`, change == null ? INK : change < 0 ? BAD : GOOD],
+    ["Security deposits", dollars(deposits), INK],
+    ["Reserves", dollars(reserves), INK],
+    ["Debt service / mo", dollars(debt), INK],
+  ];
+  const sx0 = m + 170, sw = (pageW - m - sx0) / stats.length;
+  stats.forEach(([label, val, c], i) => {
+    const x = sx0 + i * sw;
+    doc.setDrawColor(...HAIR); doc.line(x, y - 14, x, y + 22);
+    doc.setFont("Hanken", "bold"); doc.setFontSize(11); color(c); doc.text(val, x + 9, y + 2);
+    doc.setFont("Hanken", "normal"); doc.setFontSize(7.5); color(MUTED); doc.text(label, x + 9, y + 15);
   });
-  y += 50;
+  y += 34;
 
   const drawHead = () => {
-    doc.setFillColor(11, 74, 125); doc.rect(m, y, pageW - m * 2, 16, "F");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(7.5); doc.setTextColor(255);
-    doc.text("Property / Entity", m + 5, y + 11);
-    heads.forEach((h, i) => doc.text(h, colX(i), y + 11, { align: "right" }));
-    doc.setTextColor(0); y += 16;
+    doc.setFont("Hanken", "bold"); doc.setFontSize(7); color(MUTED);
+    spaced("PROPERTY / ENTITY", m, y + 9, 0.5);
+    heads.forEach((h, i) => spaced(h.toUpperCase(), colX(i), y + 9, 0.5, true));
+    doc.setDrawColor(...BORDER); doc.setLineWidth(0.8); doc.line(m, y + 14, pageW - m, y + 14);
+    y += 14;
   };
-  const ensure = (h: number) => { if (y + h > pageH - m - 40) { doc.addPage(); y = m; drawHead(); } };
-  // Column 1 is the week-over-week change: signed, green up / red down.
-  const nums = (vals: (number | null)[], bold: boolean) => {
-    doc.setFont("helvetica", bold ? "bold" : "normal"); doc.setFontSize(8);
+  const ensure = (h: number) => { if (y + h > pageH - m) { doc.addPage(); y = m; drawHead(); } };
+  const nums = (vals: (number | null)[], bold: boolean, rowH: number) => {
+    doc.setFont("Hanken", bold ? "bold" : "normal"); doc.setFontSize(9.5);
     vals.forEach((val, i) => {
-      let text = fmt0(val);
-      if (i === 1 && val != null) {
-        const n = Math.round(val);
-        if (n > 0) { doc.setTextColor(21, 128, 61); text = `+${fmt0(n)}`; }
-        else if (n < 0) doc.setTextColor(185, 28, 28);
-      }
-      if (i === 4) doc.setTextColor(110);
-      doc.text(text, colX(i), y + 9.5, { align: "right" });
-      doc.setTextColor(0);
+      color(INK);
+      let text = cell(val);
+      if (i === 1) { text = signedCell(val); if (val != null && Math.round(val) !== 0) color(val < 0 ? BAD : GOOD); }
+      if (i === 4) color(MUTED);
+      doc.text(text, colX(i), y + rowH / 2 + 3, { align: "right" });
     });
+    color(INK);
   };
   const changeSum = (rs: ViewRow[]) => (rs.some((x) => x.change != null) ? rs.reduce((t, x) => t + num(x.change), 0) : null);
 
   drawHead();
   for (const { g, rows } of grouped(v)) {
-    ensure(15);
-    doc.setFillColor(230, 238, 245); doc.rect(m, y, pageW - m * 2, 14, "F");
-    doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.text(g.toUpperCase(), m + 5, y + 9.5);
+    ensure(16 + 14);
+    y += 3;
+    doc.setFillColor(...BAND); doc.rect(m, y, W, 16, "F");
+    doc.setFont("Hanken", "bold"); doc.setFontSize(9.5); color(INK); doc.text(g, m + 6, y + 11);
     const restricted = rows.every((r) => r.restricted);
     nums([
-      rows.reduce((s, r) => s + num(r.balance), 0),
+      rows.reduce((t, r) => t + num(r.balance), 0),
       changeSum(rows),
-      rows.reduce((s, r) => s + (r.balance == null ? 0 : r.reserves), 0),
-      restricted ? null : rows.reduce((s, r) => s + num(r.netAvailable), 0),
-      rows.some((r) => r.debtService != null) ? rows.reduce((s, r) => s + num(r.debtService), 0) : null,
-    ], true);
-    y += 14;
+      rows.reduce((t, r) => t + (r.balance == null ? 0 : r.reserves), 0),
+      restricted ? null : rows.reduce((t, r) => t + num(r.netAvailable), 0),
+      rows.some((r) => r.debtService != null) ? rows.reduce((t, r) => t + num(r.debtService), 0) : null,
+    ], true, 16);
+    y += 16;
     for (const r of rows) {
-      ensure(13);
-      doc.setFont("helvetica", "normal"); doc.setFontSize(8);
-      doc.text(r.name.length > 38 ? r.name.slice(0, 37) + "…" : r.name, m + 10, y + 9.5);
-      nums([r.balance, r.change, r.balance == null ? null : r.reserves, r.restricted ? null : r.netAvailable, r.debtService], false);
-      doc.setDrawColor(230); doc.setLineWidth(0.4); doc.line(m, y + 13, pageW - m, y + 13);
-      y += 13;
+      ensure(14);
+      doc.setFont("Hanken", "normal"); doc.setFontSize(9.5); color(INK);
+      doc.text(r.name.length > 40 ? r.name.slice(0, 39) + "…" : r.name, m + 12, y + 10);
+      nums([r.balance, r.change, r.balance == null ? null : r.reserves, r.restricted ? null : r.netAvailable, r.debtService], false, 13.6);
+      doc.setDrawColor(...HAIR); doc.setLineWidth(0.5); doc.line(m, y + 14, pageW - m, y + 14);
+      y += 14;
     }
   }
-  ensure(20);
-  doc.setDrawColor(11, 74, 125); doc.setLineWidth(1); doc.line(m, y + 2, pageW - m, y + 2);
-  y += 5;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Total — All Properties", m + 5, y + 9.5);
-  nums([totalCash, changeSum(v.rows), reserves + deposits, net, debt], true);
-  y += 22;
+  ensure(26);
+  y += 6;
+  doc.setDrawColor(...INK); doc.setLineWidth(1.6); doc.line(m, y, pageW - m, y);
+  doc.setFont("Hanken", "bold"); doc.setFontSize(10); color(INK); doc.text("Total", m, y + 14);
+  const tot: (number | null)[] = [totalCash, changeSum(v.rows), reserves + deposits, net, debt];
+  tot.forEach((val, i) => {
+    color(i === 1 && val != null && Math.round(val) !== 0 ? (val < 0 ? BAD : GOOD) : i === 4 ? MUTED : INK);
+    const t = i === 1 ? totalSigned(val) : total(val);
+    doc.text(t, colX(i), y + 14, { align: "right" });
+  });
+  y += 26;
 
   ensure(40);
-  doc.setFont("helvetica", "italic"); doc.setFontSize(6.8); doc.setTextColor(110);
-  doc.text(doc.splitTextToSize(BASIS_NOTE, pageW - m * 2), m, y);
-  doc.setTextColor(0);
-
+  doc.setFont("Hanken", "normal"); doc.setFontSize(7.5); color(MUTED);
+  doc.text(doc.splitTextToSize(PDF_NOTE, W), m, y);
+  color(INK);
   return Buffer.from(doc.output("arraybuffer"));
 }
