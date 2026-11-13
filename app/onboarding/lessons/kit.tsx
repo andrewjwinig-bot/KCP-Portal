@@ -143,7 +143,7 @@ export function LessonShell({ scenes }: { scenes: Scene[] }) {
           <div style={SECTION}>{sc.kicker} · {i + 1} of {scenes.length}</div>
           <h3 style={{ margin: 0, fontSize: 26, lineHeight: 1.15 }}>{sc.title}</h3>
           <div style={{ lineHeight: 1.65, fontSize: 16 }}>{sc.body}</div>
-          {sc.doThis && <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--brand)", fontWeight: 700 }}><ArrowRight size={16} strokeWidth={1.75} /> {sc.doThis}</div>}
+          {sc.doThis && <div style={{ color: "var(--muted)", fontSize: "var(--fs-14)" }}>{sc.doThis}</div>}
         </div>
         <div key={i} className="lesson-stage">{sc.stage}</div>
       </div>

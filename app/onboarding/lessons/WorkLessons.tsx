@@ -5,7 +5,7 @@
 // Example figures are labelled as examples.
 
 import { useState } from "react";
-import { Building2, CalendarDays, CircleCheck, FileText, Gauge, Landmark, ShieldCheck, Upload, Users } from "lucide-react";
+import { Building2, CircleCheck, FileText, ShieldCheck, Upload } from "lucide-react";
 import { AMBER, Arrow, Bar, Facts, GREEN, ICON, LessonShell, Node, Note, Panel, Pick, RED, Recap, SECTION, Toggle, money, soft, type LessonProps, type Scene } from "./kit";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -91,7 +91,7 @@ export function Role({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>The 90-Day Plan tab on this page is your checklist — tick items off with Drew as you go.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["You own the recurring accounting", "Recs, payroll and allocation entries, workpapers, year-end support and 1099s."],
@@ -201,7 +201,7 @@ export function Rhythm({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>The rhythm in three lines.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["The 20th is close", "Your in-balance check comes first, then the close and every GL import."],
@@ -230,7 +230,6 @@ const BUDGET_SOURCES: Record<string, { from: string; who: string }> = {
 };
 
 export function Reporting({ onFinish, done }: LessonProps) {
-  const [imported, setImported] = useState(false);
   const [mark, setMark] = useState<Mark>("flag");
   const [posted, setPosted] = useState(8);
   const [src, setSrc] = useState("Base rent");
@@ -244,17 +243,16 @@ export function Reporting({ onFinish, done }: LessonProps) {
     {
       kicker: "The import", title: "One GL import builds every report",
       body: <>After the close (around the 20th), each property's <strong>Detailed GL</strong> — January to the latest month — is exported from Skyline and imported into the portal. That single import builds everything else.</>,
-      doThis: imported ? undefined : "Import the GL",
       stage: (
         <div style={{ display: "grid", gap: 14 }}>
-          <button type="button" className="btn import" disabled={imported} onClick={() => setImported(true)} style={{ justifySelf: "start" }}><Upload size={16} strokeWidth={1.75} /> {imported ? "GL imported" : "Import GL"}</button>
-          <Arrow down on={imported} />
+          <Node lit icon={<Upload {...ICON} />} title="Detailed GL · January to the latest month" sub="Exported from Skyline after the close, imported once" />
+          <Arrow down />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 8 }}>
-            {REPORTS.map((r, k) => (
-              <div key={r} style={{ transition: `all .4s ${k * 0.12}s` }}><Node lit={imported} icon={<FileText {...ICON} />} title={r} /></div>
+            {REPORTS.map((r) => (
+              <Node key={r} lit icon={<FileText {...ICON} />} title={r} />
             ))}
           </div>
-          {imported && <Note tone={GREEN}>Six reports from one file. Re-import and they all update together.</Note>}
+          <Note>Six reports from one file; a re-import updates them together.</Note>
         </div>
       ),
     },
@@ -314,7 +312,7 @@ export function Reporting({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>Reporting in three lines.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Import the GL, everything follows", "Statement, flags, reprojection, T-12, balance sheet and management fees."],
@@ -417,7 +415,7 @@ export function Tenants({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>Special cases to remember: Parkwood (<code>7010</code>) has two CAM pools, retail and the upstairs office; Wawa at Lafayette Hill (<code>9510</code>) is billed quarterly; Butler &amp; Main (<code>9000</code>) tenants are gross.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Rent plus estimates", "The rent roll is the one source for who is where, the SF and the charges."],
@@ -514,7 +512,7 @@ export function Taxes({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>Taxes and insurance in three lines.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Pay early, take the discount", "Philadelphia by end of February (1%); Bucks and Montgomery early (2%)."],
@@ -539,10 +537,6 @@ const CYCLE = [
 const OUT_OF_SCOPE = ["Budgeting", "Lender and investor reporting", "Cash management", "Financial statements and tax returns", "Historical cleanup", "Audit support", "System changes and new entities"];
 
 export function Eisner({ onFinish, done }: LessonProps) {
-  const [step, setStep] = useState(0);
-  const [late, setLate] = useState(false);
-  const [told, setTold] = useState(false);
-  const [ask, setAsk] = useState<string | null>(null);
 
   const scenes: Scene[] = [
     {
@@ -567,56 +561,30 @@ export function Eisner({ onFinish, done }: LessonProps) {
     {
       kicker: "The cycle", title: "Every quarter, four steps",
       body: <>The quarterly workpaper cycle is the backbone of working with them. You'll start it, and it ends with finalized workpapers.</>,
-      doThis: "Advance the cycle",
+      stage: (
+        <div>
+          {CYCLE.map((c, k) => (
+            <div key={c.t} className="task-row" style={{ display: "grid", gridTemplateColumns: "36px minmax(0,1fr)", gap: 12, padding: "12px 2px", borderBottom: "1px solid var(--hairline)" }}>
+              <span style={{ width: 32, height: 32, borderRadius: 999, border: "1px solid var(--brand)", color: "var(--brand)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>{k + 1}</span>
+              <div><div style={{ fontWeight: 800 }}>{c.t}</div><div style={{ color: "var(--muted)", lineHeight: 1.5 }}>{c.d}</div></div>
+            </div>
+          ))}
+        </div>
+      ),
+    },
+    {
+      kicker: "Scope", title: "Late changes and scope",
+      body: <>Two working rules. An entry that touches a period they have already worked means <strong>redoing workpapers</strong>, so tell EisnerAmper promptly. And work outside their engagement is <strong>billed hourly</strong> and needs <strong>Drew's written OK</strong> before it is requested.</>,
       stage: (
         <div style={{ display: "grid", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 8 }}>
-            {CYCLE.map((c, k) => <Node key={c.t} lit={k <= step} onClick={() => setStep(k)} icon={k < step ? <CircleCheck {...ICON} /> : <Gauge {...ICON} />} title={`${k + 1}. ${c.t}`} />)}
-          </div>
-          <Panel title={CYCLE[step].t}><div style={{ lineHeight: 1.55 }}>{CYCLE[step].d}</div></Panel>
-          {step < CYCLE.length - 1
-            ? <button type="button" className="btn primary" style={{ justifySelf: "start" }} onClick={() => setStep(step + 1)}>Next step</button>
-            : <Note tone={GREEN}><CircleCheck size={16} strokeWidth={1.75} style={{ verticalAlign: "-3px" }} /> Quarter finalized.</Note>}
+          <div style={SECTION}>Outside the engagement</div>
+          <div>{OUT_OF_SCOPE.map((o) => <div key={o} className="task-row" style={{ padding: "9px 2px", borderBottom: "1px solid var(--hairline)" }}>{o}</div>)}</div>
+          <Note>Recs, entries, workpapers and year-end tax support are inside scope.</Note>
         </div>
       ),
     },
     {
-      kicker: "One rule", title: "Tell them about a late change",
-      body: <>An entry that touches a period they've already worked means <strong>redoing workpapers</strong>. Tell EisnerAmper promptly — before they find it.</>,
-      doThis: late ? (told ? undefined : "Tell EisnerAmper") : "Post an entry to last quarter",
-      stage: (
-        <div style={{ display: "grid", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 12, alignItems: "center" }}>
-            <Node big lit={late} tone={late && !told ? AMBER : undefined} icon={<FileText {...ICON} />} title="Q3 workpapers" sub={late ? (told ? "They know — rework scheduled" : "Out of date, and they don't know") : "Finalized"} />
-            <Arrow on={told} />
-            <Node big lit={told} icon={<Users {...ICON} />} title="EisnerAmper" sub={told ? "Updating the workpapers" : "Unaware"} />
-          </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button type="button" className="btn" disabled={late} onClick={() => setLate(true)}>Post a September entry in November</button>
-            <button type="button" className="btn primary" disabled={!late || told} onClick={() => setTold(true)}>Tell EisnerAmper</button>
-            {late && <button type="button" className="btn" onClick={() => { setLate(false); setTold(false); }}>Reset</button>}
-          </div>
-          {late && !told && <Note tone={AMBER}>Their finalized Q3 workpapers no longer tie to the GL.</Note>}
-          {told && <Note tone={GREEN}>Right. A quick note now saves a surprise at review.</Note>}
-        </div>
-      ),
-    },
-    {
-      kicker: "Scope", title: "What needs Drew's OK first",
-      body: <>Some work is outside their engagement and <strong>billed hourly</strong>. Before asking EisnerAmper for any of it, get <strong>Drew's written OK</strong>.</>,
-      doThis: "Click an item",
-      stage: (
-        <div style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {OUT_OF_SCOPE.map((o) => <button key={o} type="button" className={ask === o ? "btn primary lesson-toggle" : "btn lesson-toggle"} onClick={() => setAsk(o)}>{o}</button>)}
-          </div>
-          {ask && <Note tone={AMBER}><Landmark size={16} strokeWidth={1.75} style={{ verticalAlign: "-3px" }} /> {ask}: outside scope, billed hourly — ask Drew first, in writing.</Note>}
-          <Note><CalendarDays size={16} strokeWidth={1.75} style={{ verticalAlign: "-3px" }} /> Inside scope — recs, entries, workpapers, tax support — just goes ahead.</Note>
-        </div>
-      ),
-    },
-    {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>That's the last module. The handbook has everything in more depth.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["You prepare, they review", "Written comments, weekly status, the quarterly review."],

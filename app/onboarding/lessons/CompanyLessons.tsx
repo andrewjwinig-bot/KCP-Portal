@@ -6,7 +6,7 @@
 // examples; no EINs and no account lists (the handbook carries those).
 
 import { useMemo, useState } from "react";
-import { Building2, CalendarClock, FileText, KeyRound, Landmark, Link2, Lock, Mail, Search, ShieldCheck, TriangleAlert, User, Users, Wallet } from "lucide-react";
+import { Building2, CalendarClock, FileText, KeyRound, Landmark, Link2, Search, ShieldCheck, TriangleAlert, User, Users, Wallet } from "lucide-react";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { AMBER, Arrow, Bar, BIG_ICON, Facts, GREEN, ICON, LessonShell, Node, Note, Panel, Pick, RED, Recap, SECTION, Toggle, money, soft, type LessonProps, type Scene } from "./kit";
 
@@ -39,29 +39,16 @@ const PEOPLE: { id: string; name: string; role: string; owns: string[] }[] = [
   { id: "greg", name: "Greg Masciantonio", role: "Maintenance", owns: ["Building maintenance budgets", "Maintenance requests"] },
   { id: "tami", name: "Tami Tomlinson", role: "Deposits", owns: ["Lockbox and ACH rent deposits", "The tenant credit schedule"] },
 ];
-const ASK: { q: string; who: string; why: string }[] = [
-  { q: "I don't know where to start on something", who: "drew", why: "Drew is the first stop for every question while you settle in." },
-  { q: "A tenant charge looks wrong in Skyline", who: "tanya", why: "Tanya posts tenant charges, so she can tell you how it got there." },
-  { q: "A credit card charge isn't coded", who: "harry", why: "Harry codes the card statement each month." },
-  { q: "A rent deposit is missing from the bank", who: "tami", why: "Tami runs the lockbox and ACH deposits." },
-  { q: "The payroll GL import doesn't tie", who: "marie", why: "Marie receives the payroll GL import." },
-  { q: "An office tenant moved out — who approves the final bill?", who: "nancy", why: "Nancy approves office move-outs; Harry approves retail." },
-  { q: "A maintenance invoice seems high", who: "greg", why: "Greg budgets and requests building maintenance." },
-  { q: "A management fee question for the year", who: "alison", why: "Alison reviews management fees and the budgets." },
-];
-
 export function Welcome({ onFinish, done }: LessonProps) {
   const [face, setFace] = useState<"world" | "books">("world");
   const [person, setPerson] = useState("drew");
-  const [ask, setAsk] = useState<number | null>(null);
   const p = PEOPLE.find((x) => x.id === person)!;
-  const target = ask != null ? ASK[ask].who : null;
 
   const scenes: Scene[] = [
     {
       kicker: "Welcome", title: "Two names, one company",
       body: <>Korman Commercial Properties is a family-owned commercial real estate company — five generations in the Philadelphia market. We own and manage business parks and shopping centers, plus a few homes and some land. <strong>In the books, the company is LIK Management, Inc. (<code>2010</code>).</strong> Same people, two names.</>,
-      doThis: "Switch between the two views",
+      doThis: "Toggle between the two views.",
       stage: (
         <div style={{ display: "grid", gap: 16 }}>
           <Toggle value={face} onChange={setFace} options={[{ id: "world", label: "How the world sees us" }, { id: "books", label: "How the books see us" }]} />
@@ -87,7 +74,7 @@ export function Welcome({ onFinish, done }: LessonProps) {
     {
       kicker: "The team", title: "Who does what",
       body: <>It's a small team, so each process has one owner. Knowing who owns what tells you who to ask — and whose numbers you're checking. <strong>Greg reports to both Harry and Drew; Tami to both Nancy and Marie.</strong></>,
-      doThis: "Click a person",
+      doThis: "Select a name for their area of ownership.",
       stage: (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1.1fr)", gap: 16, alignItems: "start" }}>
           <div style={{ display: "grid", gap: 6 }}>
@@ -110,36 +97,12 @@ export function Welcome({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Practice", title: "Who would you ask?",
-      body: <>Pick a situation and see who it goes to. You'll meet most of these in your first month.</>,
-      doThis: "Pick a situation",
-      stage: (
-        <div style={{ display: "grid", gap: 14 }}>
-          <div style={{ display: "grid", gap: 6 }}>
-            {ASK.map((a, k) => (
-              <Pick key={a.q} on={ask === k} onClick={() => setAsk(k)}><span>{a.q}</span></Pick>
-            ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 6 }}>
-            {PEOPLE.map((x) => (
-              <div key={x.id} style={{ border: `1px solid ${target === x.id ? "var(--brand)" : "var(--hairline)"}`, background: target === x.id ? soft(9) : "transparent",
-                opacity: target && target !== x.id ? 0.45 : 1, borderRadius: 8, padding: "7px 9px", transition: "all .3s" }}>
-                <div style={{ fontWeight: 700, fontSize: "var(--fs-14)" }}>{x.name.split(" ")[0]}</div>
-                <div style={{ color: "var(--muted)", fontSize: "var(--fs-12)" }}>{x.role.split(",")[0]}</div>
-              </div>
-            ))}
-          </div>
-          {ask != null && <Note tone="var(--brand)">{ASK[ask].why}</Note>}
-        </div>
-      ),
-    },
-    {
-      kicker: "Recap", title: "What to carry with you",
-      body: <>Three things to keep in mind as you meet the team.</>,
+      kicker: "Summary", title: "Summary",
+      body: <>The company and team in brief.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Korman Commercial is LIK Management", "One company: the name we go by, and 2010 in the books. 2000 pays shared costs and bills them back."],
         ["Every process has an owner", "Credit cards and payroll are Harry's, office leasing Nancy's, tenant charges Tanya's, deposits Tami's."],
-        ["Questions go to Drew first", "Especially early on — nothing is too small to ask."],
+        ["Drew is the first point of contact", "For process, systems and where anything lives in the portal."],
       ]} />,
     },
   ];
@@ -321,7 +284,7 @@ export function Portfolio({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>The portfolio in three lines. Not budgeted by design: <code>0800</code>, <code>0300</code>, WHIT and CWD — don't flag them as gaps.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Books first, then codes", "Every property belongs to a book, and everyone refers to it by its four-character code."],
@@ -393,7 +356,7 @@ export function CashDebt({ onFinish, done }: LessonProps) {
     {
       kicker: "Deposits", title: "Security deposits are never our cash",
       body: <>A tenant's security deposit is <strong>their money</strong>, held in its own Liberty accounts — <code>x7448</code> for NI LLC, <code>x7216</code> for everyone else, plus the <code>x8276</code> money market. It's never counted as available cash, and you'll reconcile those accounts on an ongoing basis.</>,
-      doThis: "Try counting the deposits as cash",
+      doThis: "Toggle the deposits to see the effect on available cash.",
       stage: (
         <div style={{ display: "grid", gap: 14 }}>
           <div style={{ ...SECTION }}>Example balances</div>
@@ -407,7 +370,7 @@ export function CashDebt({ onFinish, done }: LessonProps) {
           </div>
           {countSd
             ? <Note tone={RED}><TriangleAlert size={16} strokeWidth={1.75} style={{ verticalAlign: "-3px" }} /> Overstated by {money(sd)} — that's money owed back to tenants when they leave.</Note>
-            : <Note tone={GREEN}><ShieldCheck size={16} strokeWidth={1.75} style={{ verticalAlign: "-3px" }} /> Right. Bank Balances keeps deposits in their own group and out of Net available.</Note>}
+            : <Note tone={GREEN}><ShieldCheck size={16} strokeWidth={1.75} style={{ verticalAlign: "-3px" }} /> Bank Balances keeps deposits in their own group, outside Net available.</Note>}
         </div>
       ),
     },
@@ -441,7 +404,7 @@ export function CashDebt({ onFinish, done }: LessonProps) {
     {
       kicker: "Your check", title: "Does the mortgage post correctly?",
       body: <>Each payment is part <strong>interest</strong> (an expense, <code>9210</code>) and part <strong>principal</strong> (it reduces the loan, <code>27xx</code>). The Debt Tracker gives the split. Your monthly check: the loan balance in the GL matches the lender's statement.</>,
-      doThis: "Post it both ways",
+      doThis: "Compare the two postings.",
       stage: (
         <div style={{ display: "grid", gap: 14 }}>
           <div style={SECTION}>Example payment · {money(pay)}</div>
@@ -461,7 +424,7 @@ export function CashDebt({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>Cash and debt in three lines.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Three banks, last four", "Chase for operations, Liberty for most loans and the deposits, M&T for The Office Works and a few others."],
@@ -481,7 +444,6 @@ export function Owners({ onFinish, done }: LessonProps) {
   const [open, setOpen] = useState(false);
   const [inner, setInner] = useState(5);
   const [form, setForm] = useState<"k1" | "e">("k1");
-  const [sent, setSent] = useState(0);
   const [dist, setDist] = useState(300_000);
   const [pct, setPct] = useState(10);
   const [paTax, setPaTax] = useState(1_200);
@@ -532,28 +494,16 @@ export function Owners({ onFinish, done }: LessonProps) {
     {
       kicker: "Delivery", title: "A link and a separate PIN",
       body: <>A K-1 carries taxpayer IDs and capital accounts, so it's <strong>never attached to an email</strong>. It's uploaded onto the partner's row in the portal and sent as a secure link — then a <strong>second email</strong> carries the PIN. Neither email alone opens it.</>,
-      doThis: sent < 3 ? "Send it, one step at a time" : undefined,
       stage: (
         <div style={{ display: "grid", gap: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr auto 1fr", gap: 8, alignItems: "center" }}>
-            <Node lit={sent >= 0} icon={<FileText {...ICON} />} title="Uploaded" sub="Onto the partner's row" />
-            <Arrow on={sent >= 1} />
-            <Node lit={sent >= 1} icon={<Link2 {...ICON} />} title="Email 1" sub="The link" />
-            <Arrow on={sent >= 2} />
-            <Node lit={sent >= 2} icon={<KeyRound {...ICON} />} title="Email 2" sub="The PIN" />
+            <Node lit icon={<FileText {...ICON} />} title="Uploaded" sub="Onto the partner's row" />
+            <Arrow on />
+            <Node lit icon={<Link2 {...ICON} />} title="Email 1" sub="The link" />
+            <Arrow on />
+            <Node lit icon={<KeyRound {...ICON} />} title="Email 2" sub="The PIN" />
           </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-            <button type="button" className="btn primary" disabled={sent >= 3} onClick={() => setSent((s) => s + 1)}>
-              <Mail size={16} strokeWidth={1.75} /> {["Send the link", "Send the PIN", "Partner opens it", "Opened"][sent]}
-            </button>
-            {sent > 0 && <button type="button" className="btn" onClick={() => setSent(0)}>Start over</button>}
-          </div>
-          <Panel title="The partner">
-            {sent === 0 && <Note>Nothing yet.</Note>}
-            {sent === 1 && <Note tone={AMBER}><Lock size={16} strokeWidth={1.75} style={{ verticalAlign: "-3px" }} /> Has the link, but it asks for a PIN.</Note>}
-            {sent === 2 && <Note>Has both — the link and the PIN.</Note>}
-            {sent >= 3 && <Note tone={GREEN}><ShieldCheck size={16} strokeWidth={1.75} style={{ verticalAlign: "-3px" }} /> Opened the K-1. A forwarded link alone would not have.</Note>}
-          </Panel>
+          <Note>Either email on its own opens nothing — a forwarded link still asks for the PIN. The portal records when each was sent and when the partner opened it.</Note>
         </div>
       ),
     },
@@ -600,7 +550,7 @@ export function Owners({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>Owners in three lines.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Look through the tiers", "A partner can be an entity with partners of its own; the roster in Investor Info is the source."],

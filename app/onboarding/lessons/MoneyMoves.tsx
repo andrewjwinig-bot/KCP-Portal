@@ -256,7 +256,7 @@ export default function MoneyMoves({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>That's the whole loop. When you reconcile <code>2000</code> or an intercompany balance, these three facts are what you're checking.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Paid once, billed back", "2000 pays shared costs and payroll; every property gets an invoice and pays it through AvidXchange."],

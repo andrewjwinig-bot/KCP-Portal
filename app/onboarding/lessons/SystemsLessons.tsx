@@ -24,21 +24,9 @@ const SYS: Record<Sys, { name: string; does: string; icon: React.ReactNode }> = 
   avid: { name: "AvidXchange", does: "Pays the bills", icon: <Banknote {...BIG_ICON} /> },
 };
 
-const ROUTES: { q: string; path: string[]; note: string }[] = [
-  { q: "A vendor emails us an invoice", path: ["Vendor", "AvidXchange", "Approved", "Skyline"], note: "Forwarded to kormancommercial@avidbill.com, approved in Avid, then imported into Skyline. Paid on Wednesday." },
-  { q: "The month closes and statements are needed", path: ["Skyline", "Detailed GL", "Portal"], note: "Export the Detailed GL from Skyline and import it — one import builds every monthly report." },
-  { q: "A building owes its share of payroll", path: ["Portal", "PR invoice", "AvidXchange"], note: "The Payroll Invoicer sends one invoice per building to Avid; the building pays it like any bill." },
-  { q: "You need a bank statement for a rec", path: ["Bank website", "Bank Recs"], note: "Chase, Liberty and M&T online banking; the statements go into the month's bank rec folder." },
-  { q: "Paychecks need to go out", path: ["Harry", "ADP"], note: "Harry runs payroll in ADP. You won't use it directly — you'll book what it produces." },
-  { q: "EisnerAmper needs support for a workpaper", path: ["SharePoint", "EisnerAmper portal"], note: "Support lives in SharePoint; it goes to them through their shared portal and comes back the same way." },
-  { q: "January: file the 1099s", path: ["Portal 1099 Register", "track1099.com"], note: "Build the vendor list in the 1099 Register, then file through track1099.com." },
-];
-
 export function Systems({ onFinish, done }: LessonProps) {
   const [leg, setLeg] = useState<Leg | null>(null);
-  const [route, setRoute] = useState(0);
   const lit = (s: Sys) => !leg || LEGS[leg].from === s || LEGS[leg].to === s;
-  const r = ROUTES[route];
 
   const scenes: Scene[] = [
     {
@@ -66,28 +54,27 @@ export function Systems({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Practice", title: "Where does this go?",
-      body: <>Beyond the big three there's ADP for payroll, the banks' sites for statements, SharePoint for support, EisnerAmper's portal, and track1099.com. Pick a situation and follow the path.</>,
-      doThis: "Pick a situation",
+      kicker: "Systems", title: "The supporting systems",
+      body: <>Around the core three, a handful of outside systems handle payroll, banking, filings and the work with EisnerAmper.</>,
       stage: (
-        <div style={{ display: "grid", gap: 14 }}>
-          <div style={{ display: "grid", gap: 6 }}>
-            {ROUTES.map((x, k) => <Pick key={x.q} on={k === route} onClick={() => setRoute(k)}><span>{x.q}</span></Pick>)}
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            {r.path.map((p, k) => (
-              <span key={p + k} style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
-                <span style={{ border: "1px solid var(--brand)", background: soft(8), borderRadius: 8, padding: "8px 12px", fontWeight: 700 }}>{p}</span>
-                {k < r.path.length - 1 && <Arrow />}
-              </span>
-            ))}
-          </div>
-          <Note>{r.note}</Note>
+        <div>
+          {[
+            ["ADP", "Payroll, run by Harry. You book what it produces; you won't work in it directly."],
+            ["Chase, Liberty, M&T online banking", "Statements for the bank reconciliations; weekly balances for Bank Balances."],
+            ["Microsoft 365 / SharePoint", "Workpapers, support and the property and unit folders."],
+            ["EisnerAmper shared portal", "Support out, workpapers back."],
+            ["track1099.com", "Filing the 1099s in January."],
+            ["PA myPATH · Philadelphia tax center · Berkheimer", "PA payments; BIRT, NPT and Philadelphia real estate tax; the 9510 / 9840 collector."],
+          ].map(([k, v]) => (
+            <div key={k} className="task-row" style={{ display: "grid", gridTemplateColumns: "minmax(0,0.8fr) minmax(0,1.2fr)", gap: 14, padding: "11px 2px", borderBottom: "1px solid var(--hairline)" }}>
+              <strong>{k}</strong><span style={{ color: "var(--muted)" }}>{v}</span>
+            </div>
+          ))}
         </div>
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>The systems in three lines.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Skyline is the books", "The GL, rent roll and tenant statements come out of it and into the portal."],
@@ -218,7 +205,7 @@ export function PortalTour({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>The portal in three habits.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Click through to the GL", "Every statement line opens its transactions; hover for breakdowns."],
@@ -288,9 +275,9 @@ export function Accounts({ onFinish, done }: LessonProps) {
 
   const cost = 20_000, share = 0.85;
   const effect = {
-    "8502": { noi: -cost + cost * share, tenants: cost * share, verdict: "Wrong — tenants are billed for a capital item at year-end CAM.", tone: RED },
-    "8501": { noi: -cost, tenants: 0, verdict: "Not quite — it's the owner's cost, but a repave is capital, not a repair. NOI is understated.", tone: AMBER },
-    "14xx": { noi: 0, tenants: 0, verdict: "Right — capital sits below NOI, and tenants aren't billed for it.", tone: GREEN },
+    "8502": { noi: -cost + cost * share, tenants: cost * share, verdict: "Tenants are billed for a capital item at year-end CAM — an overbilling.", tone: RED },
+    "8501": { noi: -cost, tenants: 0, verdict: "The owner's cost, but a repave is capital rather than a repair, so NOI is understated.", tone: AMBER },
+    "14xx": { noi: 0, tenants: 0, verdict: "Correct treatment: capital sits below NOI and is not billed to tenants.", tone: GREEN },
   }[coding];
 
   const scenes: Scene[] = [
@@ -348,7 +335,7 @@ export function Accounts({ onFinish, done }: LessonProps) {
     {
       kicker: "The call that matters", title: "Coding decides who pays",
       body: <>A <code>-8502</code> coded where <code>-8501</code> belongs overbills tenants at year-end CAM; the reverse leaves money on the table. And <strong>capital work — repaving, roofs, HVAC replacement — goes in <code>14xx</code></strong>, never a repair line.</>,
-      doThis: "Code this example repave three ways",
+      doThis: "Compare the three codings.",
       stage: (
         <div style={{ display: "grid", gap: 14 }}>
           <Panel title="Example invoice"><div style={{ display: "flex", justifyContent: "space-between", fontWeight: 800, fontSize: 18 }}><span>Repave the north lot</span><span>{money(cost)}</span></div><Note>Tenants pay 85% of this building's CAM pool.</Note></Panel>
@@ -366,7 +353,7 @@ export function Accounts({ onFinish, done }: LessonProps) {
       ),
     },
     {
-      kicker: "Recap", title: "What to carry with you",
+      kicker: "Summary", title: "Summary",
       body: <>At 2010 you'll also see <code>4510</code> (management fee revenue), <code>8000-9900</code> (payroll and benefits) and <code>8110</code> (office rent).</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Major is what, suffix is who pays", "-8502 tenants through CAM, -8501 the owner, -930x an allocation from 2000."],
