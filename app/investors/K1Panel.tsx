@@ -15,6 +15,7 @@
 // a family member who is herself an owner. The API enforces the same rule
 // server-side, so the gate here is about not showing a control.
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { useState } from "react";
 import { Pill, TONE_AMBER, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
@@ -70,14 +71,10 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
           above read "28/15" at 0800: more K-1s in than partners to receive
           them, while rows underneath still said MISSING. */}
       {k1.orphans.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "var(--tint-amber-bg, rgba(217,119,6,0.07))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))" }} className="no-print">
-          <div style={{ fontSize: "var(--fs-12-5)", fontWeight: 700, color: "var(--c-b45309)" }}>
-            {k1.orphans.length} uploaded K-1{k1.orphans.length === 1 ? "" : "s"} no longer match a partner on this roster
-          </div>
-          <div className="muted" style={{ fontSize: "var(--fs-11-5)", marginTop: 3 }}>
-            They were dropped on a row that has since changed or been removed, so nobody can see them —
-            not the investor, not the roster above. Re-upload each onto the right partner, then delete it here.
-          </div>
+        <StatusBanner compact tone="warning" className="no-print" style={{ marginTop: 10 }}
+          title={<>{k1.orphans.length} uploaded K-1{k1.orphans.length === 1 ? "" : "s"} no longer match a partner on this roster</>}>
+          They were dropped on a row that has since changed or been removed, so nobody can see them —
+          not the investor, not the roster above. Re-upload each onto the right partner, then delete it here.
           <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
             {k1.orphans.map((o) => (
               <div key={o.id} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, fontSize: "var(--fs-12)" }}>
@@ -92,13 +89,13 @@ export function K1Header({ k1 }: { k1: K1Slice }) {
               </div>
             ))}
           </div>
-        </div>
+        </StatusBanner>
       )}
 
       {k1.data && k1.data.blockers.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 10, padding: "10px 13px", background: "var(--tint-red-bg, rgba(220,38,38,0.06))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))", fontSize: "var(--fs-12-5)", color: "var(--c-b91c1c)", fontWeight: 600 }}>
+        <StatusBanner compact tone="danger" style={{ marginTop: 10 }} title="Can't send yet">
           {k1.data.blockers.map((b, i) => <div key={i} style={{ marginTop: i ? 4 : 0 }}>{b}</div>)}
-        </div>
+        </StatusBanner>
       )}
 
       {/* Bulk send. Only offered once something is publishable, because a link
@@ -748,22 +745,21 @@ export function K1ShareResults({ batch, onClose }: { batch: ShareBatch; onClose:
       </div>
 
       {failed.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "var(--tint-red-bg, rgba(220,38,38,0.06))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))", fontSize: "var(--fs-12-5)", color: "var(--c-b91c1c)" }}>
-          <b>{failed.length} could not be sent.</b> {failed.map((r) => r.error).join(" ")}
-        </div>
+        <StatusBanner compact tone="danger" style={{ marginTop: 10 }} title={<>{failed.length} could not be sent</>}>
+          {failed.map((r) => r.error).join(" ")}
+        </StatusBanner>
       )}
       {unsent.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "var(--tint-amber-bg, rgba(217,119,6,0.07))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))", fontSize: "var(--fs-12-5)", color: "var(--c-7c3d06)" }}>
-          <b>{unsent.length} link{unsent.length === 1 ? "" : "s"} created but not emailed.</b>{" "}
+        <StatusBanner compact tone="warning" style={{ marginTop: 10 }} title={<>{unsent.length} link{unsent.length === 1 ? "" : "s"} created but not emailed</>}>
           {[...new Set(unsent.map((r) => r.mailError))].join(" ")}
-        </div>
+        </StatusBanner>
       )}
 
       {pinStuck.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 9, padding: "9px 12px", background: "var(--tint-red-bg, rgba(220,38,38,0.06))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))", fontSize: "var(--fs-12-5)", color: "var(--c-b91c1c)" }}>
-          <b>{pinStuck.length} PIN{pinStuck.length === 1 ? "" : "s"} did not go out</b> — {pinStuck.map((r) => r.ownerName).join(", ")}{" "}
+        <StatusBanner compact tone="danger" style={{ marginTop: 10 }} title={<>{pinStuck.length} PIN{pinStuck.length === 1 ? "" : "s"} did not go out</>}>
+          {pinStuck.map((r) => r.ownerName).join(", ")}{" "}
           {pinStuck.length === 1 ? "has" : "have"} the link but cannot open it. Give them the PIN from the table below.
-        </div>
+        </StatusBanner>
       )}
 
       <div style={{ marginTop: 11, border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--card)" }}>

@@ -1,7 +1,8 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { FilePath } from "@/app/components/FilePath";
-import { ChevronDown, ChevronRight, CircleCheck, Clock, Receipt, Sparkles, TriangleAlert, Upload, MessageSquarePlus } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleCheck, Sparkles, TriangleAlert, Upload, MessageSquarePlus } from "lucide-react";
 
 // Operating Statements — the actuals twin of Operating Budgets. Upload a
 // property's Skyline GL export; the page renders the Comparative Income
@@ -797,52 +798,29 @@ export default function OperatingStatementsPage() {
       </header>
 
       {error && (
-        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
-          <div style={{ fontWeight: 700, color: "var(--c-b91c1c)" }}>Error</div>
-          <div className="muted small">{error}</div>
-        </div>
+        <StatusBanner tone="danger" title="Error">{error}</StatusBanner>
       )}
 
       {behindPosting && (
-        <div className="card" style={{ borderColor: "var(--tint-amber-line, rgba(180,83,9,0.45))", background: "var(--tint-amber-bg, rgba(217,119,6,0.08))" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <Clock size={20} strokeWidth={1.75} color="var(--c-b45309)" aria-hidden style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
-                Time to post {MONTHS[expectedPost.period - 1]} {expectedPost.year}
-              </div>
-              <div className="muted small" style={{ marginTop: 2 }}>
-                <b>{cur?.propertyCode} — {cur?.name}</b>{" "}
-                {latestPost
-                  ? <>is posted through <b>{MONTHS[latestPost.period - 1]} {latestPost.year}</b>. </>
-                  : <>has <b>no GL imported yet</b>. </>}
-                Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
-              </div>
-            </div>
-            <button className="btn import" style={{ flexShrink: 0 }} onClick={() => pickInto(fileRef.current, "general-ledger")}>
-              <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import GL
-            </button>
-          </div>
-        </div>
+        <StatusBanner tone="warning" icon="clock" title={<>Time to post {MONTHS[expectedPost.period - 1]} {expectedPost.year}</>}
+          actions={<button className="btn import" onClick={() => pickInto(fileRef.current, "general-ledger")}>
+            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import GL
+          </button>}>
+          <b>{cur?.propertyCode} — {cur?.name}</b>{" "}
+          {latestPost
+            ? <>is posted through <b>{MONTHS[latestPost.period - 1]} {latestPost.year}</b>. </>
+            : <>has <b>no GL imported yet</b>. </>}
+          Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
+        </StatusBanner>
       )}
 
       {isGandA && pendingAlloc && !pendingAlloc.alreadyProcessed && (
-        <div className="card" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.5))", background: "var(--tint-green-bg, rgba(22,163,74,0.07))" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <Receipt size={20} strokeWidth={1.75} color="var(--c-15803d)" aria-hidden style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontWeight: 800, color: "var(--c-15803d)" }}>
-                Allocated invoices for {pendingAlloc.statementMonth} are ready to process
-              </div>
-              <div className="muted small" style={{ marginTop: 2 }}>
-                This is the same 2000 G&amp;A GL the Allocated Expense Invoicer runs on. Generate the property invoices there, then send.
-              </div>
-            </div>
-            <a href="/allocated-invoicer" className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, textDecoration: "none", flexShrink: 0 }}>
-              Go to Allocated Invoicer<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
-            </a>
-          </div>
-        </div>
+        <StatusBanner tone="warning" title={<>Allocated invoices for {pendingAlloc.statementMonth} are ready to process</>}
+          actions={<a href="/allocated-invoicer" className="btn primary" style={{ textDecoration: "none" }}>
+            Go to Allocated Invoicer<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
+          </a>}>
+          This is the same 2000 G&amp;A GL the Allocated Expense Invoicer runs on. Generate the property invoices there, then send.
+        </StatusBanner>
       )}
 
       <div className="card">
@@ -1038,9 +1016,9 @@ export default function OperatingStatementsPage() {
           apply" the ! on the line records. */}
       {!loading && statement && debtCheck?.missing && !isFullYear
         && statement.sections.some((sec) => sec.role === "debt-service" && sec.lines.some((l) => l.expectedMissing && !dismissedFlags.has(lineKeyOf(sec.name, l.label)))) && (
-        <div style={{ margin: "0 0 12px", padding: "10px 14px", borderRadius: 10, background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))", color: "var(--c-b91c1c)", fontSize: "var(--fs-13)", fontWeight: 600 }}>
-          Debt service not posted — scheduled P&amp;I is <b>${money0(debtCheck.scheduled)}/mo</b>. Post the mortgage charge.
-        </div>
+        <StatusBanner tone="danger" style={{ margin: "0 0 12px" }} title="Debt service not posted">
+          Scheduled P&amp;I is <b>${money0(debtCheck.scheduled)}/mo</b>. Post the mortgage charge.
+        </StatusBanner>
       )}
       {!loading && statement && isFullYear && fullYear && (
         <FullYearTable fy={fullYear} year={year} viewKey={key} propertyCode={cur?.propertyCode ?? ""} view={{ hideEmpty, showGL, varMode }} budgetYear={budgetYear} budgetFallback={budgetFallback} />

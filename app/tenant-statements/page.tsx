@@ -1,7 +1,8 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { UnitSelect } from "@/app/components/UnitSelect";
-import { ChevronDown, ChevronRight, ChevronUp, TriangleAlert, Upload, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, Upload, X } from "lucide-react";
 
 // Receivables (owner, 11/2026: Monthly Statements and Receipt Reconciliation
 // folded into one page — "i dont really think i do anything with the monthly
@@ -331,23 +332,16 @@ export default function ReceiptReconciliationPage() {
         <StatPill label="Waiting on tenant" value={counts.waiting} accent={counts.waiting ? "var(--c-b45309)" : undefined} onClick={counts.waiting ? () => showStatus("waiting") : undefined} hint="Show who was emailed and what" />
       </div>
 
-      {error && <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
+      {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
 
       {/* How current the page is: the NEWER of the laser statement and the
           Credit Balance Report (owner: "whichever was imported last should
           be the most recent data"). Tight on purpose — one line, one action. */}
       {freshness && (
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))", background: "var(--tint-amber-bg, rgba(217,119,6,0.08))", borderRadius: 12, padding: "12px 16px" }}>
-          <TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ marginTop: 3, flexShrink: 0 }} />
-          <div style={{ display: "grid", gap: 2 }}>
-            <div style={{ fontWeight: 800, color: "var(--c-b45309)" }}>
-              Most recent data: the {freshness.label}, {freshness.exact ? "run" : "imported"} {etStamp(freshness.at, freshness.exact)} · {freshness.days === 0 ? "today" : `${freshness.days} day${freshness.days === 1 ? "" : "s"} old`}
-            </div>
-            <div className="small">
-              To get current, import a fresh Credit Balance Report. Every tenant with a credit: <a className="text-link" href="/tenant-statements/credits">Open Credits</a>.
-            </div>
-          </div>
-        </div>
+        <StatusBanner tone="warning" icon="clock"
+          title={<>Most recent data: the {freshness.label}, {freshness.exact ? "run" : "imported"} {etStamp(freshness.at, freshness.exact)} · {freshness.days === 0 ? "today" : `${freshness.days} day${freshness.days === 1 ? "" : "s"} old`}</>}>
+          To get current, import a fresh Credit Balance Report. Every tenant with a credit: <a className="text-link" href="/tenant-statements/credits">Open Credits</a>.
+        </StatusBanner>
       )}
 
       {/* ── 1. The payment ───────────────────────────────────────────── */}

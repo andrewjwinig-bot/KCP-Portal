@@ -311,6 +311,22 @@ touched UI to it.
   their own slider. **A column with nothing in it shrinks**: Operating
   Statements' Notes column collapses to an add-note icon when no line has a
   note, and the tables' sideways floor drops from 1000px to 760px with it.
+- **EVERY STATUS CALLOUT IS `StatusBanner`** (`app/components/StatusBanner.tsx`,
+  `.status-banner` in globals; owner, 11/2026, holding up "October 2026 has been
+  sent to AvidXchange": "i love … the big checkmark its clear what happened …
+  the warning card should be the same format … consistent for all warning
+  prompts like its time to import the GLs … with the clock icon"). A big
+  filled disc, the headline in the tone's colour, ONE meta line (who / when /
+  how much, or what to do), actions on the right. `success` (check) = done —
+  sent, signed off, ties; `warning` (triangle) = needs attention — not sent,
+  ready to send, to review; `warning` + `icon="clock"` = it's TIME to do
+  something — post a month, import a fresher file; `danger` = wrong — doesn't
+  tie, not posted, failed, an error; `info` = a neutral fact. `compact` is the
+  same shape inside a card or modal. Never hand-build a tinted callout box
+  again — the Allocated invoicer, Payroll / CC "ready to send", Operating
+  Statements (time to post, debt not posted, errors), Receivables freshness,
+  T-12 missing months, Bank Recs and Month-End Close sign-off, the move-out
+  close-out's GL notices and the K-1 send results all use it.
 - **ONE LOADER: `LoadingState`** (`app/components/LoadingState.tsx` — the
   skyline + skeleton; owner: "bank rec loading state is different… should it
   be"). Every page's first load and every long run show it; a long one-request

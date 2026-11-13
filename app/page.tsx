@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronDown, ChevronRight, ChevronUp, X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -721,23 +722,16 @@ export default function Page() {
 
       {/* ── Payroll tie-out — does the allocation add back up to the register? ── */}
       {tieOut && invoices.length > 0 && (
-        <div className="card" style={{ padding: "14px 16px", borderColor: tieOut.ties ? "var(--tint-green-line, rgba(22,163,74,0.45))" : "var(--tint-red-line, rgba(220,38,38,0.6))", background: tieOut.ties ? "var(--tint-green-bg, rgba(22,163,74,0.06))" : "var(--tint-red-bg, rgba(220,38,38,0.07))" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ fontWeight: 800, fontSize: 15, color: tieOut.ties ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>
-              {tieOut.ties ? "Allocation ties to the register" : "Allocation does not tie to the register"}
-            </div>
-            <div className="muted small">
-              Register <b style={{ color: "var(--fg)" }}>{money(tieOut.sourceTotal)}</b> · Allocated <b style={{ color: "var(--fg)" }}>{money(tieOut.allocatedTotal)}</b>
-              {tieOut.excludedTotal ? <> · Excluded <b style={{ color: "var(--fg)" }}>{money(tieOut.excludedTotal)}</b></> : null}
-            </div>
-          </div>
+        <StatusBanner tone={tieOut.ties ? "success" : "danger"} title={tieOut.ties ? "Allocation ties to the register" : "Allocation does not tie to the register"}>
+          Register <b>{money(tieOut.sourceTotal)}</b> · Allocated <b>{money(tieOut.allocatedTotal)}</b>
+          {tieOut.excludedTotal ? <> · Excluded <b>{money(tieOut.excludedTotal)}</b></> : null}
           {!tieOut.ties && (
-            <div className="small" style={{ marginTop: 8, color: "var(--c-b91c1c)", fontWeight: 700 }}>
+            <div style={{ marginTop: 6, color: "var(--c-b91c1c)", fontWeight: 700 }}>
               {money(Math.abs(tieOut.unexplained))} of payroll isn’t allocated to any building and isn’t explained — fix the allocation before sending to Avid.
             </div>
           )}
           {tieOut.unmatched.length > 0 && (
-            <div className="small" style={{ marginTop: 8 }}>
+            <div style={{ marginTop: 6 }}>
               <b style={{ color: "var(--c-b91c1c)" }}>Not matched to an allocation row ({tieOut.unmatched.length}) — their pay lands nowhere:</b>
               <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
                 {tieOut.unmatched.map((u) => <li key={u.name + (u.employeeId ?? "")}>{u.name}{u.employeeId ? ` (#${u.employeeId})` : ""} — <b>{money(u.amount)}</b> unallocated</li>)}
@@ -745,7 +739,7 @@ export default function Page() {
             </div>
           )}
           {tieOut.offAllocation.filter((o) => !o.accepted).length > 0 && (
-            <div className="small" style={{ marginTop: 8 }}>
+            <div style={{ marginTop: 6 }}>
               <b style={{ color: "var(--c-b45309)" }}>Allocation doesn’t sum to 100%:</b>
               <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
                 {tieOut.offAllocation.filter((o) => !o.accepted).map((o) => (
@@ -755,11 +749,11 @@ export default function Page() {
             </div>
           )}
           {tieOut.offAllocation.some((o) => o.accepted) && (
-            <div className="muted small" style={{ marginTop: 6 }}>
+            <div className="muted" style={{ marginTop: 4 }}>
               Accepted variance: {tieOut.offAllocation.filter((o) => o.accepted).map((o) => `${o.name} (${(o.pctSum * 100).toFixed(1)}%)`).join(", ")} — known Middletown gap, not tracked.
             </div>
           )}
-        </div>
+        </StatusBanner>
       )}
 
       {/* ── Review & Send to AvidXchange — prominent, up top (mirrors Allocated & CC) ── */}
@@ -767,24 +761,12 @@ export default function Page() {
         const billing = invoices.filter((i: any) => (Number(i.total) || 0) > 0);
         const billTotal = billing.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0);
         return (
-          <div className="card" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.5))", background: "var(--tint-green-bg, rgba(22,163,74,0.07))", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 17 }}>
-                {payroll?.payDate ? `Payroll ${payroll.payDate}` : "Payroll"} — ready to send
-              </div>
-              <div className="muted small" style={{ marginTop: 4 }}>
-                <b style={{ color: "var(--fg)" }}>{money(billTotal)}</b> across <b style={{ color: "var(--fg)" }}>{billing.length}</b> propert{billing.length === 1 ? "y" : "ies"} · property-level figures only
-              </div>
-            </div>
-            <button
-              className="btn"
-              style={{ background: "var(--c-16a34a)", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10 }}
-              disabled={!payroll || !!busy}
-              onClick={reviewPayrollAndSend}
-            >
+          <StatusBanner tone="warning" title={<>{payroll?.payDate ? `Payroll ${payroll.payDate}` : "Payroll"} is ready to send</>}
+            actions={<button className="btn primary" disabled={!payroll || !!busy} onClick={reviewPayrollAndSend}>
               Review &amp; Send to AvidXchange<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
-            </button>
-          </div>
+            </button>}>
+            <b>{money(billTotal)}</b> across <b>{billing.length}</b> propert{billing.length === 1 ? "y" : "ies"} · property-level figures only · not sent yet
+          </StatusBanner>
         );
       })()}
 

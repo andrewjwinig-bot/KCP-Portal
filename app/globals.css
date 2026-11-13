@@ -1633,3 +1633,26 @@ select.header-select-native { position: absolute; inset: 0; width: 100%; height:
 .lesson-toggle code { color: inherit; background: transparent; border: 0; padding: 0; }
 .lesson-stage { border: 1px solid var(--border); border-radius: 12px; padding: 20px; animation: lesson-in .35s ease; }
 @keyframes lesson-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* THE STATUS BANNER (app/components/StatusBanner.tsx) — one look for every
+   done / needs-attention / wrong callout: a big filled disc, the headline in
+   the tone's colour, one meta line, actions on the right (owner: the Allocated
+   invoicer's "has been sent to AvidXchange" is the reference). */
+.status-banner { --sb: var(--c-067647, #067647); display: flex; align-items: center; gap: 16px; padding: 18px 20px; border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--sb) 32%, transparent); background: color-mix(in srgb, var(--sb) 7%, var(--card, #fff)); }
+.status-banner.warning { --sb: var(--c-b54708, #B54708); }
+.status-banner.danger { --sb: var(--c-b42318, #B42318); }
+.status-banner.info { --sb: var(--brand, #0B4A7D); }
+.status-banner .stb-icon { width: 44px; height: 44px; border-radius: 999px; background: var(--sb); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.status-banner .stb-body { min-width: 0; flex: 1 1 260px; }
+.status-banner .stb-title { font-size: 22px; font-weight: 900; line-height: 1.2; color: var(--sb); }
+.status-banner .stb-title-btn { padding: 0; border: 0; background: none; cursor: pointer; text-align: left; font-family: inherit; }
+.status-banner .stb-meta { margin-top: 4px; font-size: var(--fs-14, 14px); color: var(--text); line-height: 1.5; }
+.status-banner .stb-meta .text-link { font-weight: 700; }
+.status-banner .stb-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-left: auto; }
+.status-banner.compact { gap: 12px; padding: 12px 14px; }
+.status-banner.compact .stb-icon { width: 32px; height: 32px; }
+.status-banner.compact .stb-title { font-size: 16px; font-weight: 800; }
+.status-banner.compact .stb-meta { margin-top: 2px; }
+@media (max-width: 720px) { .status-banner { flex-wrap: wrap; } .status-banner .stb-title { font-size: 18px; } }
+.status-banner .stb-link { padding: 0; border: 0; background: none; cursor: pointer; text-align: left; font: inherit; color: inherit; }

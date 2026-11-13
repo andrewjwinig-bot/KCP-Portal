@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 
@@ -1247,25 +1248,13 @@ export default function ExpensesPage() {
 
       {/* ── Review & Send to AvidXchange — prominent, up top (mirrors Allocated) ── */}
       {!isMaint && billingGroups.length > 0 && !alreadyFinalized && (
-        <div className="card" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.5))", background: "var(--tint-green-bg, rgba(22,163,74,0.07))", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 17 }}>
-              {statementMonth || statementPeriodText || "Credit card expenses"} — ready to send
-            </div>
-            <div className="muted small" style={{ marginTop: 4 }}>
-              <b style={{ color: "var(--fg)" }}>{toMoney(ccBillTotal)}</b> across <b style={{ color: "var(--fg)" }}>{billingGroups.length}</b> propert{billingGroups.length === 1 ? "y" : "ies"}
-              {onHoldGroups.length ? ` · ${onHoldGroups.length} held under $${CARRYOVER_THRESHOLD}` : ""}
-            </div>
-          </div>
-          <button
-            className="btn"
-            style={{ background: "var(--c-16a34a)", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10, opacity: ccBuilding ? 0.75 : 1 }}
-            disabled={ccBuilding}
-            onClick={reviewCcAndSend}
-          >
+        <StatusBanner tone="warning" title={<>{statementMonth || statementPeriodText || "Credit card expenses"} is ready to send</>}
+          actions={<button className="btn primary" disabled={ccBuilding} onClick={reviewCcAndSend}>
             {ccBuilding ? "Preparing…" : "Review & Send to AvidXchange"}
-          </button>
-        </div>
+          </button>}>
+          <b>{toMoney(ccBillTotal)}</b> across <b>{billingGroups.length}</b> propert{billingGroups.length === 1 ? "y" : "ies"}
+          {onHoldGroups.length ? ` · ${onHoldGroups.length} held under $${CARRYOVER_THRESHOLD}` : ""} · not sent yet
+        </StatusBanner>
       )}
 
       {/* Import bar — same shape as Payroll Invoicer / Rent Roll: a

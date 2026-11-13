@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronRight } from "lucide-react";
 
 // Two-factor (TOTP) enrollment — admin tier first. Scan the QR (or type the
@@ -68,9 +69,7 @@ export default function SecurityPage() {
       <h1>Security</h1>
 
       {status?.required && !status?.enabled && !status?.disabled && (
-        <div style={{ padding: "10px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(180,83,9,0.08))", border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.35))", fontSize: "var(--fs-14)", fontWeight: 600, color: "var(--c-b45309)" }}>
-          Two-factor authentication is required for your account. Set it up below to continue using the portal.
-        </div>
+        <StatusBanner tone="warning" title="Two-factor authentication is required">Set it up below to continue using the portal.</StatusBanner>
       )}
 
       <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -85,9 +84,9 @@ export default function SecurityPage() {
         </div>
 
         {status?.disabled && (
-          <div className="muted small" style={{ padding: "8px 10px", background: "var(--tint-amber-bg, rgba(180,83,9,0.08))", border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.3))", borderRadius: 8 }}>
-            2FA is globally disabled via the <code>SITE_2FA_DISABLED</code> env var — enrollment won&apos;t be enforced until that&apos;s removed.
-          </div>
+          <StatusBanner compact tone="info" title="2FA is globally disabled">
+            Set by the <code>SITE_2FA_DISABLED</code> env var — enrollment won&apos;t be enforced until that&apos;s removed.
+          </StatusBanner>
         )}
 
         {msg && <div className="small" style={{ color: "var(--c-15803d)", fontWeight: 700 }}>{msg}</div>}

@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { heldAmount } from "@/lib/deposits/deposits";
 import { DisplayMenu, ToggleRow } from "@/app/components/DisplayMenu";
@@ -1156,17 +1157,18 @@ export default function InterimReconPage() {
           {sanityCard}
 
           {r.unpostedMonths > 0 && (
-            <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid #d9770655", color: "var(--c-b45309)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>
-              {r.unpostedMonths} occupied month{r.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL (posted through {MONTHS[meta.maxPosted - 1] ?? "—"}). Expenses are computed through the latest posted month; re-run once the remaining month{r.unpostedMonths > 1 ? "s" : ""} post for the final figure.
-            </div>
+            <StatusBanner compact tone="warning" icon="clock" style={{ marginBottom: 10 }}
+              title={<>{r.unpostedMonths} occupied month{r.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL</>}>
+              Posted through {MONTHS[meta.maxPosted - 1] ?? "—"}. Expenses are computed through the latest posted month; re-run once the remaining month{r.unpostedMonths > 1 ? "s" : ""} post for the final figure.
+            </StatusBanner>
           )}
           {r.futureBaseYear && (
-            <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-green-bg, rgba(21,128,61,0.08))", border: "1px solid #15803d55", color: "var(--c-15803d)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>
-              Base year is after {meta.year} — no recovery is due (the base stop hasn&apos;t been set yet).
-            </div>
+            <StatusBanner compact tone="success" style={{ marginBottom: 10 }} title="No recovery is due">
+              Base year is after {meta.year} — the base stop hasn&apos;t been set yet.
+            </StatusBanner>
           )}
           {(r.dataWarnings ?? []).map((w, i) => (
-            <div key={i} style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid #dc262655", color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>{w}</div>
+            <StatusBanner compact tone="danger" key={i} style={{ marginBottom: 10 }} title={w} />
           ))}
 
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
@@ -1204,9 +1206,10 @@ export default function InterimReconPage() {
           </div>
           {sanityCard}
           {retail.unpostedMonths > 0 && (
-            <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid #d9770655", color: "var(--c-b45309)", fontSize: "var(--fs-12)", fontWeight: 600, marginBottom: 10 }}>
-              {retail.unpostedMonths} occupied month{retail.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL (posted through {MONTHS[meta.maxPosted - 1] ?? "—"}). CAM is computed through the latest posted month; re-run once the rest post.
-            </div>
+            <StatusBanner compact tone="warning" icon="clock" style={{ marginBottom: 10 }}
+              title={<>{retail.unpostedMonths} occupied month{retail.unpostedMonths > 1 ? "s" : ""} not yet posted to the GL</>}>
+              Posted through {MONTHS[meta.maxPosted - 1] ?? "—"}. CAM is computed through the latest posted month; re-run once the rest post.
+            </StatusBanner>
           )}
           {retail.grossLease && <div className="muted small" style={{ marginBottom: 10 }}>Gross lease — no reconciliation is due.</div>}
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
