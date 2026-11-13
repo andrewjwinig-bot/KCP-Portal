@@ -117,15 +117,19 @@ export async function buildBatch(opts: { by: string | null; origin: string; noti
     month, nextYM: nextMonthOf(month), builtAt: new Date().toISOString(), builtBy: opts.by, dataAsOf,
     origin: opts.origin, items: buildItems(accounts, prev?.items ?? []),
     approverNotifiedAt: prev?.approverNotifiedAt ?? null, approvedAt: null, approvedBy: null, summarySentAt: prev?.summarySentAt ?? null,
-    remindOn: prev?.remindOn ?? addBusinessDays(today, REMIND_AFTER_BUSINESS_DAYS),
-    autoSendOn: prev?.autoSendOn ?? addBusinessDays(today, AUTO_SEND_AFTER_BUSINESS_DAYS),
+    // The reminder / automatic-send clock starts when Greg is EMAILED, not at
+    // a preview build (the page's Build Notices Now) — set below.
+    remindOn: prev?.remindOn ?? null,
+    autoSendOn: prev?.autoSendOn ?? null,
     approverRemindedAt: prev?.approverRemindedAt ?? null,
   };
   if (opts.notify !== false && !batch.approverNotifiedAt) {
+    batch.remindOn = addBusinessDays(today, REMIND_AFTER_BUSINESS_DAYS);
+    batch.autoSendOn = addBusinessDays(today, AUTO_SEND_AFTER_BUSINESS_DAYS);
     const mail = approvalRequestEmail({ month, nextYM: batch.nextYM, counts: batchCounts(batch.items), dataAsOf, autoSendOn: batch.autoSendOn ?? null });
     const r = await sendMailDetailed({ to: NOTICE_APPROVER_TO, subject: mail.subject, textBody: mail.text, htmlBody: mail.html });
     if (r.ok) batch.approverNotifiedAt = new Date().toISOString();
-    else console.error(`[tenant-notices] could not email the approver: ${r.error}`);
+    else { batch.remindOn = null; batch.autoSendOn = null; console.error(`[tenant-notices] could not email the approver: ${r.error}`); }
   }
   await saveBatch(batch);
   return batch;
