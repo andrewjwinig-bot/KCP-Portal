@@ -11,6 +11,7 @@ import { buildStatementOfValuesPdf } from "@/lib/properties/statementPdf";
 import { STATEMENT_AS_OF } from "@/lib/properties/entityValues";
 import { isMailConfigured, sendMail, type MailAttachment } from "@/lib/mail";
 import { logAudit, auditIp } from "@/lib/audit";
+import { statementEmail } from "@/lib/properties/statementEmail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,23 +81,15 @@ export async function POST(req: Request) {
     content: pdf,
     contentType: "application/pdf",
   };
-  const money = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
-  const textBody = [
-    `Dear ${contact.name ?? beneficiary},`,
-    "",
-    `Attached is your Statement of Values as of ${asOfYearEnd}${asOfEstimate ? ` (with an estimated value as of ${asOfEstimate})` : ""}.`,
-    "",
-    `Total equity value: ${money(totals.yearEnd)}`,
-    "",
-    "Please contact us with any questions.",
-    "",
-    "— Korman Commercial Properties",
-  ].join("\n");
+  const mail = statementEmail({
+    name: contact.name ?? beneficiary, asOfYearEnd, asOfEstimate, totalEquity: totals.yearEnd,
+  });
 
   const sent = await sendMail({
     to: email,
-    subject: `Korman Commercial — Your Statement of Values (${asOfYearEnd})`,
-    textBody,
+    subject: mail.subject,
+    textBody: mail.text,
+    htmlBody: mail.html,
     attachments: [attachment],
   });
   if (!sent) return NextResponse.json({ error: "Send failed." }, { status: 502 });
