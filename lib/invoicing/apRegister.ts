@@ -35,9 +35,9 @@ export function registerEmail(o: { label?: string; periodLabel: string; rows: Re
   const n = o.rows.length;
   return portalEmail({
     subject: `${label} register: ${o.periodLabel} · ${n} invoice${n === 1 ? "" : "s"} · ${money(total)}`,
-    eyebrow: label,
-    title: `${o.periodLabel} sent to AvidXchange`,
-    lead: `${n} invoice${n === 1 ? "" : "s"}, each sent as its own email to AvidXchange. Match each one below.`,
+    eyebrow: "AvidXchange register",
+    title: label,
+    lead: `${o.periodLabel} · ${n} invoice${n === 1 ? "" : "s"}, each sent as its own email to AvidXchange. Match each one below.`,
     figure: { value: money(total), label: "Total billed" },
     rows: [],
     table: {
@@ -95,10 +95,13 @@ export function registerPdf(label: string, periodLabel: string, rows: RegisterRo
     doc.setFont("Hanken", "bold"); doc.setFontSize(10); col(NAVY);
     doc.text("KORMAN", m, y);
     doc.setFont("Hanken", "normal"); col(MUTED);
-    doc.text(`|  ${label.toUpperCase()} · AVIDXCHANGE REGISTER`, m + 52, y);
-    y += 30;
+    doc.text(first ? "|  AVIDXCHANGE REGISTER" : `|  ${label.toUpperCase()} · AVIDXCHANGE REGISTER`, m + 52, y);
+    y += first ? 40 : 30;
     if (first) {
-      doc.setFont("HankenXB", "normal"); doc.setFontSize(22); col(INK);
+      doc.setFont("HankenXB", "normal"); doc.setFontSize(30); col(NAVY);
+      doc.text(label, m, y);
+      y += 24;
+      doc.setFont("Hanken", "bold"); doc.setFontSize(15); col(INK);
       doc.text(`${periodLabel} sent to AvidXchange`, m, y);
       y += 20;
       doc.setFont("Hanken", "normal"); doc.setFontSize(11); col(MUTED);
