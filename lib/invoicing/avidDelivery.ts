@@ -13,6 +13,7 @@ import { getAvidSent, saveAvidSent } from "./avidSentStore";
 import { recordAvidSend, type AvidSource } from "./avidSendLog";
 import { getJSON, storeJSON, deleteJSON } from "@/lib/storage";
 import { randomUUID } from "node:crypto";
+import { teamSummaryEmail } from "./teamSummaryEmail";
 
 // ONE delivery per (source, period) at a time. The sent-ledger is read once and
 // then every invoice not on it is mailed, so two runs at once — a double-click
@@ -154,12 +155,6 @@ async function deliverLocked(opts: DeliverOpts): Promise<DeliverResult> {
   // once all invoices are out and it hasn't gone yet, or when new invoices went
   // out this call (so the summary reflects the latest send).
   const bp = opts.byProperty;
-  const nameW = Math.max(0, ...bp.map((b) => `${b.code} — ${b.name}`.length));
-  const amtW = Math.max(money(opts.total).length, ...bp.map((b) => money(b.amount).length));
-  const rowLine = (l: string, a: string) => `  ${l.padEnd(nameW)}   ${a.padStart(amtW)}`;
-  const summaryBody = bp.length
-    ? bp.map((b) => rowLine(`${b.code} — ${b.name}`, money(b.amount))).join("\n") + `\n  ${"TOTAL".padEnd(nameW)}   ${money(opts.total).padStart(amtW)}`
-    : "  (no property detail)";
   const teamAttachments = [...(opts.references ?? [])];
   if (opts.archiveZip) teamAttachments.push({ name: `${shown} - ${opts.label} Invoices.zip`, content: opts.archiveZip, contentType: "application/zip" });
   const cc = opts.teamCc.filter((x) => x && x !== CONTROLLER).join(", ");
@@ -170,17 +165,19 @@ async function deliverLocked(opts: DeliverOpts): Promise<DeliverResult> {
   const needSummary = (allInvoicesSent && !sent.teamSummaryAt) || avidSent > 0;
   let teamOk = !!sent.teamSummaryAt;
   if (needSummary) {
+    const summaryMail = teamSummaryEmail({
+      label: opts.label, periodLabel: shown,
+      sent: Object.keys(sent.invoices).length, invoiceCount,
+      byProperty: bp, total: opts.total, by: opts.by,
+      privacyNote: opts.privacyNote, attached: teamAttachments.map((a) => a.name),
+    });
     teamOk = await sendMail({
       to: CONTROLLER,
       ...(cc ? { cc } : {}),
       from: REPORT_FROM,
-      subject: `${opts.label} sent to AvidXchange — ${shown}`,
-      textBody:
-        `${Object.keys(sent.invoices).length}${Object.keys(sent.invoices).length === invoiceCount ? "" : ` of ${invoiceCount}`} ${opts.label.toLowerCase()} invoice${invoiceCount === 1 ? "" : "s"} ` +
-        `${opts.by ? `released by ${opts.by} ` : ""}to AvidXchange for ${shown} — sent as one email per invoice (Avid can't take a zip).\n\n` +
-        `Allocation by building:\n${summaryBody}\n\n` +
-        `${opts.privacyNote ? "These figures are property-level only — no employee payroll detail is included.\n\n" : ""}` +
-        `— KCP Portal`,
+      subject: summaryMail.subject,
+      textBody: summaryMail.text,
+      htmlBody: summaryMail.html,
       attachments: teamAttachments.map((a) => ({ name: a.name, content: a.content, contentType: a.contentType })),
     });
     if (teamOk && !sent.teamSummaryAt) {
