@@ -232,21 +232,42 @@ function DraftModal({ t, onClose, onSent }: { t: TenantTemplate; onClose: () => 
         {t.work && <ScheduleEditor spec={t.work} rows={rows} setRows={setRows} highlight={highlight} setHighlight={setHighlight} />}
         <div style={{ marginTop: 12 }}><EmailFrame t={t} room={370} work={work} /></div>
 
-        {drafted && (
-          <div className="muted" style={{ fontSize: "var(--fs-14)", marginTop: 10 }}>
-            The draft downloaded — open it and Outlook shows it as a new email. Put your distribution lists in To or Bcc
-            and send. Once it has gone, mark it sent so your dashboard stops reminding you.
-          </div>
-        )}
+        <DraftSteps drafted={drafted} needsDetails={!!t.work || t.kind === "weather"} />
         {note && <div style={{ marginTop: 10, color: "var(--c-b42318)" }}>{note}</div>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
           <button className="btn" onClick={onClose} disabled={busy}>Close</button>
-          {drafted && <button className="btn" disabled={busy || !subject.trim()} onClick={markSent}>{busy ? "Saving…" : "I sent it — mark sent"}</button>}
           <button className={drafted ? "btn" : "btn primary"} disabled={!subject.trim()} onClick={openDraft}>
             <Mail size={16} strokeWidth={1.75} /> {drafted ? "Download the draft again" : "Open draft in Outlook"}
           </button>
+          {drafted && <button className="btn primary" disabled={busy || !subject.trim()} onClick={markSent}>{busy ? "Saving…" : "I sent it — mark sent"}</button>}
         </div>
       </div>
+    </div>
+  );
+}
+
+// The four steps, numbered, so it is plain what to do and what comes next
+// (owner: "as long as he has the steps clear"). Done steps tick green; the
+// step he is on is bold.
+function DraftSteps({ drafted, needsDetails }: { drafted: boolean; needsDetails: boolean }) {
+  const steps = [
+    { title: needsDetails ? "Check the subject and fill in the details above" : "Check the subject", done: drafted },
+    { title: "Click Open draft in Outlook, then open the file that downloads", done: drafted },
+    { title: "In Outlook, add your distribution lists in To or Bcc, then click Send", done: false },
+    { title: "Come back here and click I sent it — mark sent", done: false },
+  ];
+  const current = steps.findIndex((s) => !s.done);
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ ...SECTION, marginBottom: 6 }}>Steps</div>
+      {steps.map((st, i) => (
+        <div key={i} className="task-row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 2px" }}>
+          {st.done
+            ? <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" />
+            : <span style={{ width: 20, height: 20, borderRadius: "50%", border: "1.5px solid var(--border)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "var(--fs-12)", fontWeight: 700, color: i === current ? "var(--brand)" : "var(--muted)", borderColor: i === current ? "var(--brand)" : "var(--border)" }}>{i + 1}</span>}
+          <span style={{ fontSize: "var(--fs-14)", fontWeight: i === current ? 700 : 500, color: st.done ? "var(--muted)" : "var(--text)" }}>{st.title}</span>
+        </div>
+      ))}
     </div>
   );
 }
