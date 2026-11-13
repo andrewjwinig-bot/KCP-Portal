@@ -63,6 +63,9 @@ export type PortalEmail = {
   rows: PortalRow[];
   /** A row of figures under the title, each optionally linked. */
   stats?: { label: string; value: string; tone?: keyof typeof TONE; path?: string }[];
+  /** Draw the stats right under the title (where a `figure` would sit),
+   *  before the rows — when the figures ARE the email's headline. */
+  statsFirst?: boolean;
   /** Titled lists — a digest. Each item a hairline row: the title (a link
    *  into the portal when it has a path), meta on the right. */
   sections?: PortalSection[];
@@ -92,6 +95,12 @@ export function portalEmail(e: PortalEmail): { subject: string; html: string; te
   const valueStyle = (r: PortalRow) =>
     r.code ? `font-family:${MONO};font-size:14px;color:${NAVY};`
       : `font-family:${FONT};font-size:15px;font-weight:600;color:${r.tone ? TONE[r.tone] : INK};`;
+  const statsHtml = e.stats?.length ? `<tr><td style="padding:20px 32px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>
+${e.stats.map((st, i) => `<td valign="top" style="padding:12px 12px 12px ${i ? "14px" : "0"};${i ? `border-left:1px solid ${HAIR};` : ""}">
+${st.path ? `<a href="${esc(link(st.path))}" target="_blank" style="text-decoration:none;">` : ""}<div style="font-family:${FONT};font-size:26px;font-weight:800;line-height:1;color:${st.tone ? TONE[st.tone] : INK};">${esc(st.value)}</div>
+<div style="font-family:${FONT};font-size:12.5px;font-weight:600;color:${FAINT};margin-top:6px;">${esc(st.label)}</div>${st.path ? "</a>" : ""}</td>`).join("")}
+</tr></table></td></tr>` : "";
   const align = (i: number) => e.table?.align?.[i] ?? (i === 0 ? "left" : "right");
 
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(e.subject)}</title></head>
@@ -123,16 +132,13 @@ ${e.figure ? `<tr><td style="padding:18px 32px 0;">
 <div style="font-family:${FONT};font-size:40px;font-weight:800;line-height:1;color:${NAVY};letter-spacing:-0.5px;">${esc(e.figure.value)}</div>
 ${e.figure.label ? `<div style="font-family:${FONT};font-size:13px;font-weight:600;color:${FAINT};margin-top:6px;">${esc(e.figure.label)}</div>` : ""}
 </td></tr>` : ""}
+${e.statsFirst ? statsHtml : ""}
 ${rows.length ? `<tr><td style="padding:20px 32px 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-top:1px solid ${HAIR};">
 ${rows.map((r) => `<tr><td width="130" style="width:130px;padding:12px 0;border-bottom:1px solid ${HAIR};font-family:${FONT};font-size:14px;color:${FAINT};vertical-align:top;">${esc(r.label)}</td><td style="padding:12px 0;border-bottom:1px solid ${HAIR};${valueStyle(r)}">${esc(r.value)}</td></tr>`).join("")}
 </table></td></tr>` : ""}
-${e.stats?.length ? `<tr><td style="padding:20px 32px 0;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>
-${e.stats.map((st, i) => `<td valign="top" style="padding:12px 12px 12px ${i ? "14px" : "0"};${i ? `border-left:1px solid ${HAIR};` : ""}">
-${st.path ? `<a href="${esc(link(st.path))}" target="_blank" style="text-decoration:none;">` : ""}<div style="font-family:${FONT};font-size:26px;font-weight:800;line-height:1;color:${st.tone ? TONE[st.tone] : INK};">${esc(st.value)}</div>
-<div style="font-family:${FONT};font-size:12.5px;font-weight:600;color:${FAINT};margin-top:6px;">${esc(st.label)}</div>${st.path ? "</a>" : ""}</td>`).join("")}
-</tr></table></td></tr>` : ""}
+
+${e.statsFirst ? "" : statsHtml}
 ${(e.sections ?? []).map((sec) => `<tr><td style="padding:26px 32px 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr>
 <td style="padding:0 0 8px;border-bottom:1px solid ${BORDER};font-family:${FONT};font-size:16px;font-weight:800;color:${INK};">${esc(sec.title)}</td>
