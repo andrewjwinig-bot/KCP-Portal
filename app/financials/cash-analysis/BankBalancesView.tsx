@@ -80,7 +80,9 @@ function ChangeCell({ change, prior, priorAsOf, now, bold }: { change: number | 
 /** The rows that can be compared, and their figures. */
 /** The reserve hover: the Big Projects part and the tenants' net credits,
  *  the largest five tenants named (owner: "on a hover show breakdown between
- *  credits and capex items"). */
+ *  credits and capex items"). The total leads, in the title (owner: "so it
+ *  stands out vs the itemized components").
+ */
 function reserveRows(r: Row): { label: string; value: string; color?: string }[] {
   const capex = r.reservesCapex ?? r.reserves;
   const out: { label: string; value: string; color?: string }[] = [
@@ -91,7 +93,6 @@ function reserveRows(r: Row): { label: string; value: string; color?: string }[]
     out.push({ label: `Tenant credits${tc.asOf ? ` · as of ${shortDate(tc.asOf)}` : ""}`, value: money0(tc.total) });
     for (const t of tc.tenants.slice(0, 5)) out.push({ label: `  ${t.tenantName}`, value: money0(t.credit), color: "var(--muted)" });
     if (tc.tenants.length > 5) out.push({ label: `  ${tc.tenants.length - 5} others`, value: money0(tc.tenants.slice(5).reduce((a, t) => a + t.credit, 0)), color: "var(--muted)" });
-    out.push({ label: "Total reserve", value: money0(r.reserves) });
   }
   return out;
 }
@@ -361,7 +362,7 @@ export default function BankBalancesView() {
                                   <span>{money0(r.balance)}</span>
                                 </HoverCard>
                               ) : data.canEdit ? (
-                                <HoverCard title="Reserve" rows={reserveRows(r)}
+                                <HoverCard title={`Reserve · ${money0(r.reserves)}`} rows={reserveRows(r)}
                                   footer={{ label: "Blank it to go back to the budget", value: "" }}>
                                   <input value={draft[r.key] ?? (r.reserves ? Math.round(r.reserves).toLocaleString("en-US") : "")} placeholder="—"
                                     onChange={(e) => setDraft((d) => ({ ...d, [r.key]: e.target.value }))}
@@ -370,7 +371,7 @@ export default function BankBalancesView() {
                                     style={{ ...reserveInput, fontWeight: r.reservesOverridden ? 700 : 400, color: r.reservesOverridden ? "var(--input-typed)" : undefined }} />
                                 </HoverCard>
                               ) : r.tenantCredits ? (
-                                <HoverCard title="Reserve" rows={reserveRows(r)}><span>{money0(r.reserves)}</span></HoverCard>
+                                <HoverCard title={`Reserve · ${money0(r.reserves)}`} rows={reserveRows(r)}><span>{money0(r.reserves)}</span></HoverCard>
                               ) : money0(r.reserves)}
                             </td>
                             <td style={netCol}>{r.restricted ? "—" : money0(r.netAvailable)}</td>
