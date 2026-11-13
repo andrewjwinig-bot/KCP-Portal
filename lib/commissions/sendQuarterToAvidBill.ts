@@ -13,6 +13,8 @@ import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
 import { isMailConfigured } from "@/lib/mail";
 import { deliverInvoicesToAvid } from "@/lib/invoicing/avidDelivery";
+import { sendApRegister } from "@/lib/invoicing/apRegister";
+import { createHash } from "node:crypto";
 import { getAvidSent } from "@/lib/invoicing/avidSentStore";
 import { recordSentInvoices } from "./history";
 import { renderCommissionInvoicePdf, invoiceNumberFor, commissionInvoiceNumber, priorInvoiceNumbers, COMMISSION_VENDOR_CODE } from "@/lib/pdf/renderCommissionInvoicePdf";
@@ -242,8 +244,26 @@ export async function sendQuarterToAvidBill(opts: {
     const out = res.avidSent + res.alreadySent;
     return {
       ok: false, quarterLabel, count: out, total,
-      reason: `${out} of ${rows.length} invoices reached AvidXchange${res.teamNotified ? "" : " and the team summary did not go"} — send again to finish; nothing already sent goes twice`,
+      reason: `${out} of ${rows.length} invoices reached AvidXchange — send again to finish; nothing already sent goes twice, and the team gets their emails once it is all out`,
     };
+  }
+
+  // AP's register — every invoice # and amount, to match against Avid, as
+  // the other three flows send it. A quarter goes out in pieces (office, retail,
+  // a single retail entry), so each set of invoices is its own register.
+  {
+    const regRows = rows.map((r) => ({
+      invoiceNumber: commissionInvoiceNumber(r.entry),
+      code: r.entry.building ?? "",
+      name: [r.entry.tenant, r.entry.suite ? `Suite ${r.entry.suite}` : ""].filter(Boolean).join(" · "),
+      amount: Math.round(r.amount * 100) / 100,
+    }));
+    const key = createHash("sha1").update(regRows.map((r) => r.invoiceNumber).sort().join("|")).digest("hex").slice(0, 10);
+    const kindLabel = kind === "office" ? " · Office" : kind === "retail" ? " · Retail" : "";
+    await sendApRegister({
+      source: "commissions", label: "Leasing Commissions", period: `${code}-${key}`,
+      periodLabel: `${quarterLabel}${kindLabel}`, rows: regRows, by,
+    }).catch(() => {});
   }
 
   // The record of what was sent, for looking back at past quarters.

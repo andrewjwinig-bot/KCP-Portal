@@ -159,10 +159,12 @@ async function deliverLocked(opts: DeliverOpts): Promise<DeliverResult> {
   if (opts.archiveZip) teamAttachments.push({ name: `${shown} - ${opts.label} Invoices.zip`, content: opts.archiveZip, contentType: "application/zip" });
   const cc = opts.teamCc.filter((x) => x && x !== CONTROLLER).join(", ");
 
-  // Send the summary once all invoices are out and it hasn't gone yet, OR when
-  // new invoices went out this call (so a first send always notifies; a retry
-  // that only finished stragglers re-sends an updated summary).
-  const needSummary = (allInvoicesSent && !sent.teamSummaryAt) || avidSent > 0;
+  // ONE summary per batch, and only once EVERY invoice in it has reached Avid
+  // (owner: Marie books the JE from it, so it must never describe a partial
+  // send). A partial send emails no one — the sender sees it and the AP Outbox
+  // flags it; the retry that finishes the batch sends the one summary. A later
+  // send under the same period (another quarter's commission) gets its own.
+  const needSummary = allInvoicesSent && (!sent.teamSummaryAt || avidSent > 0);
   let teamOk = !!sent.teamSummaryAt;
   if (needSummary) {
     const summaryMail = teamSummaryEmail({
