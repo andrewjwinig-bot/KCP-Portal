@@ -24,12 +24,20 @@ const FROM = "dwinig@kormancommercial.com"; // verified sender
 export type RegisterFlow = { source: "allocated" | "credit-card" | "payroll"; label: string };
 
 export type RegisterRow = { invoiceNumber: string; code: string; name: string; amount: number };
+/** A property held under the $100 floor this time — no invoice in Avid for it
+ *  (or, `partial`, only part of its charges held). It bills with a later batch. */
+export type HeldRow = { code: string; name: string; amount: number; partial?: boolean };
+
+const heldLine = (h: HeldRow) => `${`${h.code} ${h.name}`.trim()} · ${money(h.amount)}${h.partial ? " (part held — the rest is invoiced above)" : ""}`;
+const HELD_LABEL = "Held under $100 — no invoice this time";
+const HELD_NOTE = "These carry forward and bill with a later batch, so you won't find them in AvidXchange yet.";
 
 const money = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const plain = (n: number) => money(n).slice(1);
 
 /** The email (pure — exported for the preview / test). */
-export function registerEmail(o: { label?: string; periodLabel: string; rows: RegisterRow[]; by?: string | null }) {
+export function registerEmail(o: { label?: string; periodLabel: string; rows: RegisterRow[]; held?: HeldRow[]; by?: string | null }) {
+  const held = (o.held ?? []).filter((h) => h.amount > 0);
   const label = o.label ?? "Allocated Expenses";
   const total = o.rows.reduce((t, r) => t + r.amount, 0);
   const n = o.rows.length;
@@ -46,11 +54,12 @@ export function registerEmail(o: { label?: string; periodLabel: string; rows: Re
       total: ["Total", `${n} invoices`, plain(total)],
       align: ["left", "left", "right"],
     },
+    ...(held.length ? { note: { label: HELD_LABEL, text: [...held.map(heldLine), "", HELD_NOTE].join("\n") } } : {}),
     footer: [o.by ? `Released by ${o.by}` : "", "PDF to print and tick off, and Excel, attached"].filter(Boolean).join(" · "),
   });
 }
 
-async function registerXlsx(label: string, periodLabel: string, rows: RegisterRow[]): Promise<Buffer> {
+async function registerXlsx(label: string, periodLabel: string, rows: RegisterRow[], held: HeldRow[] = []): Promise<Buffer> {
   const wb = newWorkbook();
   const ws = wb.addWorksheet("Register", { pageSetup: PRINT_TALL });
   ws.columns = [{ width: 18 }, { width: 10 }, { width: 38 }, { width: 16 }];
@@ -75,16 +84,32 @@ async function registerXlsx(label: string, periodLabel: string, rows: RegisterRo
   tot.value = rows.length ? liveSum(`D${first}:D${last}`, total, rows.map((x) => x.amount)) : 0;
   tot.numFmt = FMT.moneyCents;
   for (let k = 1; k <= 4; k++) totalEmphasis(ws.getCell(r, k), { grand: true });
+  if (held.length) {
+    r += 2;
+    ws.getCell(r, 1).value = HELD_LABEL;
+    ws.getCell(r, 1).font = { name: FONT_NAME, size: 11, bold: true };
+    for (const h of held) {
+      r++;
+      ws.getCell(r, 2).value = h.code;
+      ws.getCell(r, 3).value = h.name + (h.partial ? " (part held)" : "");
+      const c = ws.getCell(r, 4);
+      c.value = h.amount; c.numFmt = FMT.moneyCents;
+      for (let k = 1; k <= 4; k++) ws.getCell(r, k).font = { name: FONT_NAME, size: 10, italic: true };
+    }
+    r++;
+    ws.getCell(r, 1).value = HELD_NOTE;
+    ws.getCell(r, 1).font = { name: FONT_NAME, size: 9, italic: true };
+  }
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
 /** The same register as a printable PDF — a tick box per invoice, so it
  *  can be checked off on paper against Avid. */
-export function registerPdf(label: string, periodLabel: string, rows: RegisterRow[], by?: string | null): Buffer {
+export function registerPdf(label: string, periodLabel: string, rows: RegisterRow[], by?: string | null, held: HeldRow[] = []): Buffer {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
   useHanken(doc);
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), m = 48;
-  const NAVY = [11, 74, 125] as const, INK = [16, 24, 40] as const, MUTED = [102, 112, 133] as const, HAIR = [228, 231, 236] as const;
+  const NAVY = [11, 74, 125] as const, INK = [16, 24, 40] as const, MUTED = [102, 112, 133] as const, HAIR = [228, 231, 236] as const, AMBER = [181, 71, 8] as const;
   const col = (c: readonly number[]) => doc.setTextColor(c[0], c[1], c[2]);
   const total = rows.reduce((t, r) => t + r.amount, 0);
   const xBox = m, xInv = m + 26, xProp = m + 140, xAmt = W - m;
@@ -137,6 +162,25 @@ export function registerPdf(label: string, periodLabel: string, rows: RegisterRo
   doc.text("Total", xInv, y);
   doc.text(`${rows.length} invoices`, xProp, y);
   doc.text(money(total), xAmt, y, { align: "right" });
+  if (held.length) {
+    y += 40;
+    if (y + 40 + held.length * 18 > H - m - 40) { doc.addPage(); y = m + 30; }
+    doc.setFont("Hanken", "bold"); doc.setFontSize(12); col(AMBER);
+    doc.text(HELD_LABEL, m, y);
+    y += 16;
+    doc.setFont("Hanken", "normal"); doc.setFontSize(10); col(MUTED);
+    doc.text(HELD_NOTE, m, y);
+    y += 8;
+    doc.setFontSize(10.5);
+    for (const h of held) {
+      if (y + 18 > H - m - 40) { doc.addPage(); y = m + 30; }
+      y += 18;
+      col(INK);
+      const prop = doc.splitTextToSize(`${`${h.code} ${h.name}`.trim()}${h.partial ? " (part held)" : ""}`, xAmt - 80 - xInv)[0] as string;
+      doc.text(prop, xInv, y);
+      doc.text(plain(h.amount), xAmt, y, { align: "right" });
+    }
+  }
   const pages = doc.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i); doc.setFont("Hanken", "normal"); doc.setFontSize(8.5); col(MUTED);
@@ -148,14 +192,15 @@ export function registerPdf(label: string, periodLabel: string, rows: RegisterRo
 
 /** Send the register for a send, once. Never throws — the send has already
  *  happened; a failed register is logged and retried on the next run. */
-export async function sendApRegister(o: RegisterFlow & { period: string; periodLabel: string; rows: RegisterRow[]; by?: string | null }): Promise<boolean> {
+export async function sendApRegister(o: RegisterFlow & { period: string; periodLabel: string; rows: RegisterRow[]; held?: HeldRow[]; by?: string | null }): Promise<boolean> {
   const dedup = `${o.source}-register`;
   try {
     if (!o.rows.length || !isMailConfigured()) return false;
     if (await reportAlreadySent(dedup, o.period)) return true;
     const mail = registerEmail(o);
-    const xlsx = await registerXlsx(o.label, o.periodLabel, o.rows);
-    const pdf = registerPdf(o.label, o.periodLabel, o.rows, o.by);
+    const held = (o.held ?? []).filter((h) => h.amount > 0);
+    const xlsx = await registerXlsx(o.label, o.periodLabel, o.rows, held);
+    const pdf = registerPdf(o.label, o.periodLabel, o.rows, o.by, held);
     const ok = await sendMail({
       to: AP_REGISTER_TO, from: FROM, subject: mail.subject, textBody: mail.text, htmlBody: mail.html, noLinkTracking: true,
       attachments: [
