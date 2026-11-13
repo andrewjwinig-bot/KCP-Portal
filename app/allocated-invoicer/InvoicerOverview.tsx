@@ -34,6 +34,7 @@ import { periodKey } from "@/lib/invoicing/unsent";
 import { RepairCard } from "./RepairCard";
 import { RecoverCard } from "./RecoverCard";
 import { SeptemberCheckCard } from "./SeptemberCheckCard";
+import { ThresholdWhatIfCard } from "./ThresholdWhatIfCard";
 
 type HistoryPeriod = {
   period: string; label: string; sentAt: string | null; sentBy: string | null;
@@ -262,6 +263,8 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
           </table>
         )}
       </div>
+
+      <ThresholdWhatIfCard />
 
       {/* 3 — EVERY PRIOR MONTH */}
       <div className="card" style={{ padding: 0 }}>

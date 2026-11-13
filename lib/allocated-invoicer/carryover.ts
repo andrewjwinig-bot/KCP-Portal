@@ -179,9 +179,9 @@ export function priorForProperty(ledger: CarryoverLedger, propertyId: string): n
 }
 
 /** Whether an account bills given its accrued balance and the statement month. */
-export function isAccountBilled(accrued: number, statementMonth: string): boolean {
+export function isAccountBilled(accrued: number, statementMonth: string, threshold: number = CARRYOVER_THRESHOLD): boolean {
   if (isYearEndMonth(statementMonth)) return true; // year-end: flush everything
-  return round2(accrued) >= CARRYOVER_THRESHOLD;
+  return round2(accrued) >= threshold;
 }
 
 /** This month's allocation for one base account of one property. */
@@ -228,6 +228,8 @@ export function finalizeMonth(
   statementMonth: string,
   expenses: MonthExpense[],
   nowISO: string,
+  /** What-if only — the live send always holds at CARRYOVER_THRESHOLD. */
+  threshold: number = CARRYOVER_THRESHOLD,
 ): FinalizeResult {
   const yearEnd = isYearEndMonth(statementMonth) || !!ledger.billAllOnNextSend;
   const next: CarryoverLedger = {
@@ -251,7 +253,7 @@ export function finalizeMonth(
     next.recognized![recognizedKey(pid, acct, statementMonth)] = thisMonth;
     const prior = priorForAccount(ledger, pid, acct);
     const accrued = round2(thisMonth + prior);
-    const billed = yearEnd || isAccountBilled(accrued, statementMonth);
+    const billed = yearEnd || isAccountBilled(accrued, statementMonth, threshold);
     decisions.push({ propertyId: pid, accountCode: acct, accountName: e.accountName, thisMonth, prior, accrued, billed });
 
     if (!next.balances[pid]) next.balances[pid] = { propertyId: pid, accounts: {}, updatedAt: nowISO };
