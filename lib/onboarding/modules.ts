@@ -31,7 +31,7 @@ export type Module = {
    *  place of the text blocks — owner: "an interactive click through module
    *  where the goal is to actually get him to understand … visual and
    *  graphical and engaging". No quizzes. */
-  interactive?: "money-moves";
+  interactive?: boolean;
 };
 
 export type PartId = "company" | "systems" | "role" | "work";
@@ -48,6 +48,7 @@ export const MODULES: Module[] = [
   // ── Part 1 · The Company ────────────────────────────────────────────────
   {
     id: "welcome",
+    interactive: true,
     part: "company",
     title: "Welcome to Korman",
     minutes: 5,
@@ -73,6 +74,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "portfolio",
+    interactive: true,
     part: "company",
     title: "The Portfolio",
     minutes: 8,
@@ -103,6 +105,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "cash-debt",
+    interactive: true,
     part: "company",
     title: "Banks, Loans and Deposits",
     minutes: 6,
@@ -128,6 +131,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "investors",
+    interactive: true,
     part: "company",
     title: "Owners, K-1s and Distributions",
     minutes: 5,
@@ -149,6 +153,7 @@ export const MODULES: Module[] = [
   // ── Part 2 · Systems ─────────────────────────────────────────────────────
   {
     id: "systems",
+    interactive: true,
     part: "systems",
     title: "Skyline, the Portal and AvidXchange",
     minutes: 7,
@@ -175,6 +180,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "portal",
+    interactive: true,
     part: "systems",
     title: "Working in the Portal",
     minutes: 6,
@@ -204,6 +210,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "accounts",
+    interactive: true,
     part: "systems",
     title: "Reading an Account Number",
     minutes: 8,
@@ -292,7 +299,7 @@ export const MODULES: Module[] = [
     part: "work",
     title: "How Money Moves Between Entities",
     minutes: 7,
-    interactive: "money-moves",
+    interactive: true,
     summary: "The 2000 clearing loop, payroll, credit cards and management fees",
     handbook: "5.2",
     blocks: [

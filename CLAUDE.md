@@ -315,8 +315,11 @@ finishing marks it done. The sample is **How Money Moves Between Entities**
 (`MoneyMoves.tsx`): pay a bill from 2000, pick the suffix and watch the
 buildings light up, slide the amount through the REAL `ALLOC_PCT` with the
 $100 hold, build an `AE` invoice, pay 2000 back to zero, the other flows
-(6610 vs 4510 tips the scale). Text-block modules carry "Mark as Done" until
-they are converted the same way.
+(6610 vs 4510 tips the scale). Every lesson runs in ONE shell (`app/onboarding/lessons/kit.tsx` — `LessonShell`,
+`Node`, `Toggle`, `Pick`, `Panel`, `Recap`) and is registered by module id in
+`lessons/index.ts` (`interactive: true` on the module; `modules.test.ts` checks
+the registry). Example figures inside a lesson are labelled "Example". A module
+not yet converted keeps its text blocks and "Mark as Done".
 
 **`/quick-links/` is PUBLIC in the middleware matcher**: the logos were gated
 like pages, so every login but Drew and admin got a redirect instead of the

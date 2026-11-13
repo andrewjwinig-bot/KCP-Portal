@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { MODULES, PARTS, CHECKLIST } from "./modules";
 import { authorizeRequest, isPathAllowed } from "@/lib/users";
@@ -13,6 +13,10 @@ describe("orientation modules", () => {
   });
   it("every module teaches something — a lesson or written blocks", () => {
     for (const m of MODULES) expect(m.interactive || m.blocks.length > 0, m.id).toBeTruthy();
+  });
+  it("every interactive module has its lesson registered", () => {
+    const reg = readFileSync(path.join(process.cwd(), "app/onboarding/lessons/index.ts"), "utf8");
+    for (const m of MODULES.filter((x) => x.interactive)) expect(reg.includes(`${/^[a-z]+$/.test(m.id) ? m.id : `"${m.id}"`}:`), m.id).toBe(true);
   });
   it("every portal link is a real page Randy can open", () => {
     for (const m of MODULES) for (const l of m.portal) {
