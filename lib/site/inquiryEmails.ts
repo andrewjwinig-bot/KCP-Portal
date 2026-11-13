@@ -25,7 +25,7 @@ const reply = (name: string, email: string, subject: string) => ({
 });
 
 function build(e: {
-  subject: string; eyebrow: string; title: string; lead: string; rows: PortalRow[];
+  subject: string; eyebrow: string; title: string; lead: string; leadBold?: string; rows: PortalRow[];
   note?: string; noteLabel?: string; name: string; email: string; source: string;
 }): Mail {
   return portalEmail({
@@ -34,6 +34,7 @@ function build(e: {
     brand: "WEBSITE",
     title: e.title,
     lead: e.lead,
+    leadBold: e.leadBold,
     rows: e.rows,
     ...(e.note ? { note: { label: e.noteLabel ?? "Message", text: e.note } } : {}),
     link: reply(e.name, e.email, e.subject),
@@ -48,6 +49,7 @@ export function contactEmail(v: Omit<ContactInput, "website">): Mail {
     eyebrow: "Contact Form",
     title: v.name,
     lead: "Sent a message through the kormancommercial.com contact form.",
+    leadBold: "kormancommercial.com",
     rows: contactRows(v),
     note: v.message,
     name: v.name, email: v.email,
@@ -61,6 +63,7 @@ export function leasingInquiryEmail(v: LeasingValue): Mail {
     eyebrow: "Leasing Inquiry",
     title: v.name,
     lead: "Asked about space at the Neshaminy Interplex Business Center.",
+    leadBold: "Neshaminy Interplex Business Center",
     rows: [
       { label: "Space needed", value: v.size || "Not given" },
       { label: "Building", value: v.building || "No preference" },
@@ -78,6 +81,7 @@ export function tourRequestEmail(v: TourValue): Mail {
     eyebrow: "Tour Request",
     title: v.name,
     lead: "Asked to tour The Office Works.",
+    leadBold: "The Office Works",
     rows: [
       { label: "Program", value: v.program },
       { label: "Office", value: v.office ? `Office ${v.office}` : "No preference" },
@@ -99,6 +103,7 @@ export function centerLeasingEmail(v: {
     eyebrow: "Leasing Inquiry",
     title: v.name,
     lead: `Asked about space at ${v.centerName}${v.address ? ` (${v.address})` : ""}.`,
+    leadBold: v.centerName,
     rows: [{ label: "Space", value: suite || "Not given" }, ...contactRows(v)],
     note: v.message,
     name: v.name, email: v.email,
