@@ -483,6 +483,11 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
             rows={l.pool.map((p) => ({ label: `${p.label} · ${p.gl}`, value: money0(p.amount) }))} footer={{ label: "Click to open it", value: "↗" }} />
         : <SourceIcon title="Source: Payroll Budget" rows={[{ label: "This property's share of", value: "the 2010 LIK Payroll Budget" }]} label="Source: Payroll Budget" />;
     }
+    if (l.source === "office-lease" && l.sharedOffice) return <SourceIcon title="Shared Leasing & Maintenance Office" label="How Rent Reimbursement is figured"
+      rows={[{ label: "Shared SF (leasing, maintenance, conference)", value: `${l.sharedOffice.sharedSqft.toLocaleString()} SF` },
+        { label: "Of the office", value: `${l.sharedOffice.officeSqft.toLocaleString()} SF` },
+        { label: "Share of Office Rental, by month", value: `${(l.sharedOffice.sharedSqft / l.sharedOffice.officeSqft * 100).toFixed(1)}%` }]}
+      footer={{ label: "Year", value: money0(l.total), color: COLOR_BRAND }} />;
     if (l.source === "office-lease" && l.officeLease) return <SourceIcon title="LIK's Office Lease at Building 8" label="How Office Rental is figured"
       rows={[{ label: "Suite", value: `${l.officeLease.unitRef} · ${l.officeLease.sqft.toLocaleString()} SF` },
         { label: "Rent from", value: l.officeLease.fromSchedule ? "Building 8's rent schedule" : "the rent roll, held flat" }]}

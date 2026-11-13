@@ -26,7 +26,7 @@ import { PROPERTY_DEFS, ALLOC_PCT } from "@/lib/properties/data";
 import { FUND_BUILDINGS } from "@/lib/financials/cash-analysis/funds";
 import { buildFullYearPayload, combineGls, type FullYearPayload } from "@/lib/financials/operating-statements/fullYear";
 import { logAudit, auditIp } from "@/lib/audit";
-import { savePendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
+import { savePendingGl, getPendingGl } from "@/lib/allocated-invoicer/pendingGlStore";
 import { prepareAllocation, prepareAllocationFromGl, autoSendAllocation } from "@/lib/allocated-invoicer/autoProcess";
 import { autoSendQuarterly } from "@/lib/cam/retail/quarterlySend";
 import { QUARTERLY_BILLINGS } from "@/lib/cam/retail/quarterly";
@@ -621,6 +621,21 @@ async function importGlRows(
         allocated = { ...allocated, autoSent: auto.sent, autoHeld: auto.held };
       } catch { /* best-effort — the cron retries */ }
     }
+  } else if (key === "2010") {
+    // 2010's Office Rental feeds the Shared Leasing & Maintenance Office line
+    // of the Allocated Expenses (`sharedOffice.ts`). Re-run the allocation on
+    // the 2000 G&A GL already imported: a month still to send picks it up, and
+    // a month already sent gets it as a late-charge true-up — never twice.
+    try {
+      const stash = await getPendingGl();
+      if (stash?.fileBase64 && Number(stash.year) === primary.year) {
+        allocated = await prepareAllocation(Buffer.from(stash.fileBase64, "base64"), importedBy);
+        if (allocated?.ok && allocated.staged && allocated.statementMonth) {
+          const auto = await autoSendAllocation(allocated.statementMonth, importedBy);
+          allocated = { ...allocated, autoSent: auto.sent, autoHeld: auto.held };
+        } else allocated = null;
+      }
+    } catch { /* best-effort — the next 2000 import catches it up */ }
   }
 
   // A quarter-billed tenant's quarterly CAM (Wawa @ 9510) sends itself once
@@ -705,7 +720,10 @@ async function importPall(split: PallSplit, fileName: string, form: FormData, re
   const imported: Record<string, unknown>[] = [];
   const failed: { index: number; key: string; error: string }[] = [];
   const unplaced: { index: number; accounts: number; cash: number | null; note: string }[] = [];
-  for (const p of placements) {
+  // 2010 before 2000: 2010's Office Rental feeds the 2000 allocation's Shared
+  // Leasing & Maintenance Office, so it must be on file when 2000 sends.
+  const rank = (k: string | null) => (k === "2010" ? 0 : k === "2000" ? 2 : 1);
+  for (const p of [...placements].sort((a, b) => rank(a.key) - rank(b.key))) {
     const sec = split.sections[p.index];
     if (!p.key) {
       const g = parsed[p.index];
