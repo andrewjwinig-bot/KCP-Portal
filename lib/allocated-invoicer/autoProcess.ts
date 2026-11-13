@@ -65,6 +65,8 @@ import { billedOf, shortMonth } from "./billedLabel";
 export { billedOf };
 import { getPendingGl } from "./pendingGlStore";
 import { deliverInvoicesToAvid, type AvidInvoicePdf } from "@/lib/invoicing/avidDelivery";
+import { totalsKey } from "./sharedOffice";
+import { withSharedOfficeLoaded } from "./sharedOfficeLoad";
 
 // Invoices go to AP (Avid) for processing; the team summary ccs Drew + Harry
 // (matching CC & Payroll for one consistent recipient set across all flows).
@@ -114,9 +116,10 @@ function lastDayOfMonth(ym: string): string {
 function accountTotalsFor(txs: GLTransaction[]): Map<string, GLAccountTotal> {
   const m = new Map<string, GLAccountTotal>();
   for (const tx of txs) {
-    const e = m.get(tx.accountCode);
+    const k = totalsKey(tx.accountCode, tx.accountName);
+    const e = m.get(k);
     if (e) e.netTotal += tx.net;
-    else m.set(tx.accountCode, { accountCode: tx.accountCode, accountName: tx.accountName, accountSuffix: tx.accountSuffix, netTotal: tx.net });
+    else m.set(k, { accountCode: tx.accountCode, accountName: tx.accountName, accountSuffix: tx.accountSuffix, netTotal: tx.net });
   }
   return m;
 }
@@ -498,7 +501,9 @@ export type PrepareResult = {
 /** Stage a computed allocation for review. `stash` carries the source to
  *  recompute at send time — an Excel `fileBase64` (a GL upload) or a serialized
  *  `glJson` (a posting-report-derived GL). Shared by both prepare entry points. */
-async function prepareStaged(gl: GLParseResult, stash: { fileBase64?: string; glJson?: string }, by?: string | null): Promise<PrepareResult> {
+async function prepareStaged(gl0: GLParseResult, stash: { fileBase64?: string; glJson?: string }, by?: string | null): Promise<PrepareResult> {
+  // The Shared Leasing & Maintenance Office rides in with the 2000 accounts.
+  const gl = await withSharedOfficeLoaded(gl0);
   const ledger = await getAllocLedger();
   const res = computeMonths(gl, ledger);
   if ("error" in res) return { ok: false, reason: res.error };
@@ -582,7 +587,7 @@ export async function loadSendGl(period: string, pending: Awaited<ReturnType<typ
   if (pending?.glJson) {
     try { gl = deserializeGl(pending.glJson); } catch { /* fall through */ }
   }
-  if (gl) return gl;
+  if (gl) return withSharedOfficeLoaded(gl);
   let buf: Buffer | null = null;
   try {
     const stash = await getPendingGl();
@@ -594,7 +599,7 @@ export async function loadSendGl(period: string, pending: Awaited<ReturnType<typ
   } catch { /* fall back to the staged snapshot */ }
   if (!buf && pending?.fileBase64) buf = Buffer.from(pending.fileBase64, "base64");
   if (!buf) return null;
-  return parseGLExcel(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+  return withSharedOfficeLoaded(parseGLExcel(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength)));
 }
 
 export type SendPreview = {

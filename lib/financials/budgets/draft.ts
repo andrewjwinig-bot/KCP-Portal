@@ -9,6 +9,7 @@
 // lease-based revenue projection and CAM/RET estimate sync replace them in the
 // next Phase-1 increments.
 
+import { SHARED_SQFT, LIK_OFFICE_UNIT } from "@/lib/allocated-invoicer/sharedOffice";
 import { assessedTaxInput } from "./assessedTaxes";
 import "server-only";
 import { loadReprojection } from "@/lib/financials/reprojections/load";
@@ -131,6 +132,9 @@ export type BudgetDraftLine = {
   pool?: { key: string; label: string; gl: string; sharePct: number; annual: number; entered: boolean; amount: number; payrollBudget?: boolean }[];
   /** 2010's Office Rental: the lease it reads (source `office-lease`). */
   officeLease?: { unitRef: string; tenant: string; sqft: number; fromSchedule: boolean };
+  /** 2010's Rent Reimbursement: the shared office's square feet billed back
+   *  to the properties each month (`sharedOffice.ts`). */
+  sharedOffice?: { sharedSqft: number; officeSqft: number };
 };
 
 export type BudgetSubLine = {
@@ -709,7 +713,7 @@ export const LIK_BUSINESS_TAXES: { name: string; month: number; amount: number }
 ];
 
 /** LIK's own office: suite 4080-400 at Building 8. */
-export const LIK_OFFICE_SUITE = "4080-400";
+export const LIK_OFFICE_SUITE = LIK_OFFICE_UNIT;
 /** Its electric, a month — the 2026 workbook's input (rates fixed for three years). */
 export const LIK_OFFICE_ELECTRIC = 500;
 /** The 2026 workbook's May bump on the office's base rent ($13,724 in May
@@ -1127,6 +1131,25 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
         const subtotal = new Array(12).fill(0);
         for (const x of sec.lines) addInto(subtotal, x.months);
         sec.subtotal = subtotal.map(r0); sec.total = r0(sum(subtotal));
+        // RENT REIMBURSEMENT is the Shared Leasing & Maintenance Office billed
+        // back each month (owner, 11/2026: "replace it as a monthly
+        // reimbursement") — its 602 SF of the office's Office Rental, the same
+        // figure the Allocated Expenses bill the properties. It replaced the
+        // once-a-year December reimbursement.
+        const officeSqft = office.lease.sqft;
+        if (officeSqft > 0) {
+          for (const rs of sections) {
+            if (rs.role !== "revenue") continue;
+            const ri = rs.lines.findIndex((x) => /rent\s*reimbursement/i.test(x.label));
+            if (ri < 0) continue;
+            const rm = months.map((v) => r0(v * SHARED_SQFT / officeSqft));
+            rs.lines[ri] = { ...rs.lines[ri], months: rm, total: r0(sum(rm)), source: "office-lease", officeLease: office.lease, sharedOffice: { sharedSqft: SHARED_SQFT, officeSqft }, subLines: undefined };
+            const st = new Array(12).fill(0);
+            for (const x of rs.lines) addInto(st, x.months);
+            rs.subtotal = st.map(r0); rs.total = r0(sum(st));
+            break;
+          }
+        }
         break;
       }
     }

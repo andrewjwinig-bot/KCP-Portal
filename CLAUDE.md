@@ -17,6 +17,27 @@ Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the bill
 - **`getAllocLedger` KEEPS `recognized` / `recognizedMonths`.** It returned only balances and committed periods, so every committed month read un-baselined, was backfilled and skipped — the late-charge catch-up (TU invoices) NEVER ran. The 10/19 send saved baselines at that GL's figures, so the first catch-up after the fix bills only charges posted since 10/19.
 - **A FULL-YEAR GL READS AS THE MONTH IT BILLS** (owner: "i run the full year GL just to capture any new postings but its generally just the last months GL that we need to label it as"). The 2000 GL is imported Jan → latest month every time, so late postings to finalized months are always in it; `computeMonths` bills only the months never finalized plus the DELTA on finalized ones (the catch-up), never a month twice. So a send is labelled by `billedOf` (`billedLabel.ts`): "July 2026", "August 2026 + late charges (Mar, Jun)" — stored on the pending send (`billedLabel` / `billedMonths`), used for the Avid and team emails (`periodLabel` on `deliverInvoicesToAvid`; `period` stays the dedup key) and the confirm. The history files every send under its GL's LAST month (`monthOf`), one row per month — never a "Jan – Jul" row. A staged send is "not sent" only if its dry run has something to bill.
 - **A MONTH SENT BEFORE THE ARCHIVE CAN BE REBUILT FROM THE GL — AS A MARKED COPY** (owner: "something better than nothing … indicate they have been rebuilt … exact invoices are not there"). `reconstructMonth` (`autoProcess.ts`, `POST /api/allocation/invoices/rebuild { months }`) replays the imported full-year 2000 GL from JANUARY through the month from an EMPTY carryover (`replayThrough` — December bills every held balance, so each year starts clean; it refuses a GL that doesn't start in January) through the same compute + $100 hold the send runs, builds the PDFs with `reconstructed: true` (an amber "RECONSTRUCTED FROM THE GL — NOT THE ORIGINAL" band on every page), and saves the archive flagged `reconstructed` with `checks` — each building rebuilt beside what the original RUN recorded (`listAllocationRuns`, catch-up runs excluded). It NEVER overwrites a real archive. The history marks the row **REBUILT**, the modal's table adds an "Original run" column (MATCHES / the original figure in amber with the difference on hover / No record) and an amber note; "Rebuild missing invoices (n)" in the Monthly History header and "Rebuild from the GL" in a month's modal (`rebuildable`: no PDFs, billed, inside the imported GL's year). Differences are expected where a late posting landed in the month since it was sent; the original random invoice numbers can't be recovered. Pinned by `reconstruct.test.ts` (a replay equals month-by-month sends, carry-forward included).
+- **THE SHARED LEASING & MAINTENANCE OFFICE RIDES IN WITH THE ALLOCATED
+  EXPENSES** (owner, 11/2026: "a portion of our office is leasing and
+  maintenance office shared for all the properties … allocate and bill back
+  the properties for that space"; `sharedOffice.ts`, `sharedOfficeLoad.ts`).
+  Each month, 2010's Office Rental (8110-*: the 4080-400 rent AND its
+  electric) × each shared space's SF ÷ suite 4080-400's SF on the rent roll,
+  by WHOSE space it is (owner's option b): Nancy's 116 SF → the business parks
+  (9301), Harry's 180 → the shopping centres (9302), Greg's 210 and the 96 SF
+  conference room → every property (9303). It is laid into the month's GL as
+  9301 / 9302 / 9303 lines named "Shared Leasing & Maintenance Office" on
+  account 8990, so each property is billed 8990-8501 (Other G&A — on every
+  building's General & Administrative line) through the SAME $100 hold,
+  invoice, Avid send and late-charge true-up; kept apart from any 2000 8990
+  account (`totalsKey`). Months from `SHARED_OFFICE_FROM` (2026-10) only —
+  earlier months were billed by the old year-end reimbursement, and adding
+  them would true up every finalized month. A PALL import posts 2010 BEFORE
+  2000; a 2010 imported on its own re-runs the allocation on the stashed 2000
+  GL, so a month already sent gets it as a TU true-up — never twice. 2010's
+  budget books it as **Rent Reimbursement (4230-8501) MONTHLY**, the same
+  602 SF of the budgeted Office Rental (locked, ⓘ), replacing the $9,500
+  December lump. Pinned by `sharedOffice.test.ts` and `draft.test.ts`.
 - **"Processed" is not "sent" — the AP Outbox flags the difference** (`unsentBatches` in `lib/invoicing/unsent.ts`, `unsent` on `/api/avid-sends`). The Allocated Invoicer logs a run when its zip or Excel is DOWNLOADED, and a CC statement / payroll period is logged when SAVED; the dashboard read "Allocated Expenses · Processed Sep 24" while nothing had gone to Avid. Each flow's newest processed batch with no send at or after it (2-day grace) shows in amber, "not sent to AvidXchange". Only batches since the send log began (`SEND_LOG_START`). Drew's Allocated Expenses status card was removed for this — the outbox is the record.
 - **No zips, one invoice per email.** AvidXchange cannot open a ZIP and ingests one invoice per email, so NEVER send Avid a `.zip` (or multiple invoices in one file/email). Each invoice PDF goes to `kormancommercial@avidbill.com` as its OWN email with a single PDF attachment. The cc'd team (Marie/Drew/Harry) get ONE separate summary email instead of being copied on every invoice — that email carries the per-building summary + the xlsx references (and may include the full zip, which is fine for them since only Avid can't open it). Shared helper: `lib/invoicing/avidDelivery.ts` (`deliverInvoicesToAvid`) — all four flows (Allocated, Credit Card, Payroll, Commissions) send through it. **Commissions were the holdout** — every quarter's PDFs rode ONE email, so Avid processed only the first; now `sendQuarterToAvidBill` delivers through the helper (cc Drew + Harry on Marie's summary; the memo + GL files still go to Marie separately).
 - **BP COMMISSION TERMS ARE KEYED IN MONTHS** (owner: "nancy need to be able to put in months … like 6 months, or 38 months"). The form's Term is a months field plus quick picks (6 mo, 1–5 yr) that set Lease To from Lease From (`renewalEndISOMonths`); picking Lease To by hand sets the months (`termMonthsBetween`). Stored as `termYears` = months ÷ 12 so nothing downstream changes; shown everywhere by `formatTerm` ("3 yr", "38 mo"). A term between the standard ones takes the HIGHEST TIER REACHED (`incentiveTier` — 38 months earns the 3-year rate; under 6 months none), the rule `internalCommission` already budgets by — it used to give "non-standard term, no rate", which left a 38-month deal with no incentive. The shared `Calendar` now follows its value when it changes from outside, so a Lease To set five years out opens on that month. Pinned by `commissions.term.test.ts`.
@@ -1831,7 +1852,8 @@ buildings may be managed by a third party" as an explanation for a gap.
   `export.test.ts` reading the file back.
 - **`2010`'s "Management Fees" is `4510-*` alone; Rent Reimbursement
   (`4230-8501`, the properties billed for LIK's leasing space — $9,500 in
-  December in the 2026 budget) is its OWN line.** It used to ride inside
+  December in the 2026 budget, MONTHLY from 2027 as the Shared Leasing &
+  Maintenance Office) is its OWN line.** It used to ride inside
   Management Fees, which was cosmetic until the budget replaced that line
   with the buildings' fees (`fee-rollup`) and would have dropped it. `2000`
   (Clearing) still carries the old combined mask.

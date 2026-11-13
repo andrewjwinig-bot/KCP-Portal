@@ -325,6 +325,30 @@ describe("2010's Office Rental is its own lease at Building 8", () => {
   });
 });
 
+describe("2010's Rent Reimbursement is the shared office, monthly", () => {
+  it("602 SF of the office's Office Rental, every month — not a December lump", async () => {
+    const r = fakeReproj();
+    r.reprojection.propertyCode = "2010"; r.meta.propertyCode = "2010";
+    r.reprojection.sections = [
+      section("Revenues", "revenue", [line("Rent Reimbursement", "4230-8501", 9500)]),
+      section("Expenses", "non-reimbursable-expense", [line("Office Rental", "8110-*", 6424)]),
+    ] as any;
+    loadReprojection.mockResolvedValue(r);
+    const rent = new Array(12).fill(5924);
+    projectLeaseRevenue.mockImplementation(async (codes: string[]) => codes[0] === "4080"
+      ? { ...noLeases, hasData: true, rows: [{ unitRef: "4080-400", tenant: "LIK Management", sqft: 4000, months: rent, assumed: rent.map(() => false), status: "contracted" }] }
+      : noLeases);
+    const d = (await buildBudgetDraft("2010", 2027, 3))!;
+    const rr = d.sections.find((x) => x.role === "revenue")!.lines.find((x) => x.label === "Rent Reimbursement")!;
+    const office = d.sections.find((x) => x.role !== "revenue")!.lines.find((x) => x.label === "Office Rental")!;
+    expect(rr.months).toEqual(office.months.map((v) => Math.round(v * 602 / 4000)));
+    expect(rr.months[0]).toBe(Math.round(6424 * 602 / 4000));
+    expect(rr.source).toBe("office-lease");
+    expect(rr.sharedOffice).toEqual({ sharedSqft: 602, officeSqft: 4000 });
+    projectLeaseRevenue.mockReset();
+  });
+});
+
 describe("2010's Business Taxes are its four filings", () => {
   it("E-collect + NJ Revenue in April, PA State in August, NJ Taxation in December — each typeable", async () => {
     const r = fakeReproj();
