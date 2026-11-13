@@ -3,6 +3,11 @@ import { computeMonths } from "./autoProcess";
 import { emptyLedger, finalizeMonth, applyRecognized, type CarryoverLedger } from "./carryover";
 import type { GLParseResult, GLTransaction } from "./glParser";
 
+// These pin the carry-forward / catch-up LOGIC at a $100 hold (the figures
+// below were written for it); the live hold is CARRYOVER_THRESHOLD ($250).
+const T = 100;
+
+
 // The owner's routine (10/20/26): "every month im going to run the YTD General
 // Ledger and import it … in case any prior period charges come through … i
 // dont want to double count things". A Jan → latest GL each month must bill
@@ -20,10 +25,10 @@ const ytd = (through: number, extra: GLTransaction[] = []): GLParseResult => {
 };
 /** What a send commits (sendAllocation's commit, without the mail). */
 function send(ledger: CarryoverLedger, gl: GLParseResult): { ledger: CarryoverLedger; months: string[]; catchup: number; catchup4080: number; total: number } {
-  const r = computeMonths(gl, ledger);
+  const r = computeMonths(gl, ledger, T);
   if ("error" in r) throw new Error(r.error);
   let led = ledger;
-  for (const m of r.months) led = finalizeMonth(led, m.statementMonth, m.expenses, "T").ledger;
+  for (const m of r.months) led = finalizeMonth(led, m.statementMonth, m.expenses, "T", T).ledger;
   led = applyRecognized(led, r.recognizedUpdates, "T");
   return { ledger: led, months: r.months.map((m) => m.statementMonth), catchup: r.catchup?.total ?? 0, catchup4080: r.catchup?.byProperty.find((b) => b.code === "4080")?.amount ?? 0, total: r.total };
 }

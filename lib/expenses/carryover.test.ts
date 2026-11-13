@@ -43,10 +43,10 @@ describe("carryover threshold", () => {
     ({ ledger } = finalizeMonth(ledger, "2026-02", [{ propertyId: "4500", tx: [tx("4500", 30, "2026-02")] }], "now"));
     expect(priorBalance(ledger, "4500")).toBe(42);
 
-    const res = finalizeMonth(ledger, "2026-03", [{ propertyId: "4500", tx: [tx("4500", 65, "2026-03")] }], "now");
+    const res = finalizeMonth(ledger, "2026-03", [{ propertyId: "4500", tx: [tx("4500", 215, "2026-03")] }], "now");
     const d = res.decisions.find((x) => x.propertyId === "4500")!;
     expect(d.prior).toBe(42);
-    expect(d.accrued).toBe(107);
+    expect(d.accrued).toBe(257);
     expect(d.billed).toBe(true);
     // billed → balance resets to $0
     expect(priorBalance(res.ledger, "4500")).toBe(0);

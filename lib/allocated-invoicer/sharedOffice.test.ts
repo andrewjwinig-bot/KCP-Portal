@@ -7,6 +7,11 @@ import { SHARED_OFFICE_NAME, SHARED_SQFT, monthsOfPeriod, sharedOfficeAmounts, w
 import { officeRentalFor } from "./sharedOfficeLoad";
 import { ALLOC_PCT } from "@/lib/properties/data";
 
+// These pin the carry-forward / catch-up LOGIC at a $100 hold (the figures
+// below were written for it); the live hold is CARRYOVER_THRESHOLD ($250).
+const T = 100;
+
+
 // Owner, 11/2026: Nancy's 116 SF (business parks), Harry's 180 (shopping
 // centres), Greg's 210 and the 96 SF conference room (every property) of LIK's
 // office are shared, so that share of 2010's Office Rental (rent + electric)
@@ -25,10 +30,10 @@ const ytd = (through: number): GLParseResult => {
   return { statementMonth: `2026-01_to_2026-${String(through).padStart(2, "0")}`, periodText: "", periodEndDate: "", transactions: txs, accountTotals: new Map() };
 };
 function send(ledger: CarryoverLedger, gl: GLParseResult) {
-  const r = computeMonths(gl, ledger);
+  const r = computeMonths(gl, ledger, T);
   if ("error" in r) throw new Error(r.error);
   let led = ledger;
-  for (const m of r.months) led = finalizeMonth(led, m.statementMonth, m.expenses, "T").ledger;
+  for (const m of r.months) led = finalizeMonth(led, m.statementMonth, m.expenses, "T", T).ledger;
   led = applyRecognized(led, r.recognizedUpdates, "T");
   return { ledger: led, r };
 }

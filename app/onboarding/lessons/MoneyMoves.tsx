@@ -19,7 +19,7 @@ const SUFFIX: Record<Suffix, { label: string; who: string }> = {
   "9302": { label: "Shopping centers", who: "the shopping centers" },
   "9303": { label: "All properties", who: "every property — about 75% centers, 25% parks" },
 };
-const HOLD = 100;
+const HOLD = 250;
 const nameOf = (id: string) => PROPERTY_DEFS.find((p) => p.id === id)?.name ?? id;
 const PROPS = Object.keys(ALLOC_PCT).filter((id) => Object.values(ALLOC_PCT[id]).some((v) => v > 0));
 const isBP = (id: string) => ALLOC_PCT[id]["9301"] > 0;
@@ -110,7 +110,7 @@ export default function MoneyMoves({ onFinish, done }: LessonProps) {
     },
     {
       kicker: "Step 3", title: "The split",
-      body: <>Each property's share is a fixed percentage kept in the portal (<code>ALLOC_PCT</code>) — Building 8 carries 23.8% of a <code>-9301</code> bill, Gray's Ferry 29.9% of a <code>-9302</code> one. <strong>A share under $100 isn't invoiced</strong>; it's held and rides along with next month's, so nobody gets a $14 invoice. In December every held balance bills.</>,
+      body: <>Each property's share is a fixed percentage kept in the portal (<code>ALLOC_PCT</code>) — Building 8 carries 23.8% of a <code>-9301</code> bill, Gray's Ferry 29.9% of a <code>-9302</code> one. <strong>A share under $250 isn't invoiced</strong>; it's held and rides along with next month's, so nobody gets a $14 invoice. In December every held balance bills.</>,
       doThis: "Drag the amount and switch suffixes",
       stage: (
         <div style={{ display: "grid", gap: 14 }}>
@@ -260,7 +260,7 @@ export default function MoneyMoves({ onFinish, done }: LessonProps) {
       body: <>That's the whole loop. When you reconcile <code>2000</code> or an intercompany balance, these three facts are what you're checking.</>,
       stage: <Recap onFinish={onFinish} done={done} items={[
         ["Paid once, billed back", "2000 pays shared costs and payroll; every property gets an invoice and pays it through AvidXchange."],
-        ["The suffix decides who shares", "-9301 business parks, -9302 centers, -9303 everyone — split by fixed percentages, under $100 held."],
+        ["The suffix decides who shares", "-9301 business parks, -9302 centers, -9303 everyone — split by fixed percentages, under $250 held."],
         ["Everything should tie", "2000 nets to zero apart from held balances, and 6610 at the buildings equals 4510 at 2010 every month."],
       ]} />,
     },

@@ -4,6 +4,11 @@ import { emptyLedger, type CarryoverLedger } from "./carryover";
 import type { GLParseResult, GLTransaction } from "./glParser";
 import { ALLOC_PCT } from "@/lib/properties/data";
 
+// These pin the carry-forward / catch-up LOGIC at a $100 hold (the figures
+// below were written for it); the live hold is CARRYOVER_THRESHOLD ($250).
+const T = 100;
+
+
 // A single 9303 G&A account, $400 net in each of Jan + Feb 2026. Property 4500's
 // 9303 share is 0.2244 → $89.76/month, under the $100 hold threshold, so it holds
 // in January and bills in February once the accrued balance crosses $100.
@@ -37,7 +42,7 @@ describe("multi-month range allocation", () => {
   });
 
   it("chains carryover across months: 4500 holds in Jan, bills the accrued sum in Feb", () => {
-    const res = computeMonths(rangeGl(), emptyLedger());
+    const res = computeMonths(rangeGl(), emptyLedger(), T);
     if ("error" in res) throw new Error(res.error);
     expect(res.months.map((m) => m.statementMonth)).toEqual(["2026-01", "2026-02"]);
     expect(res.skipped).toEqual([]);
@@ -65,7 +70,7 @@ describe("multi-month range allocation", () => {
         },
       },
     };
-    const res = computeMonths(rangeGl(), ledger);
+    const res = computeMonths(rangeGl(), ledger, T);
     if ("error" in res) throw new Error(res.error);
     // January is not reprocessed; only February remains.
     expect(res.skipped).toEqual(["2026-01"]);
