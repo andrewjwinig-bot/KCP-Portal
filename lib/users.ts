@@ -272,8 +272,10 @@ export const USERS: Record<UserId, UserDef> = {
   randy: {
     id: "randy",
     label: "RANDY",
-    navKeys: new Set([...universalNav, "financials-statements", "financials-budgets", "bank-balances", "tenant-statements"]),
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/financials", "/tenant-statements", "/reports"],
+    navKeys: new Set([...universalNav, "onboarding", "financials-statements", "financials-budgets", "bank-balances", "tenant-statements"]),
+    // /onboarding: his orientation (modules built from the New Accountant
+    // Handbook, the 90-day checklist, the handbook itself).
+    allowedPathPrefixes: ["/dashboard", "/onboarding", "/properties", "/rentroll", "/units", "/financials", "/tenant-statements", "/reports"],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
     dashboardScope: "groups",
@@ -319,7 +321,8 @@ export const WRITE_SCOPE: Partial<Record<UserId, string[]>> = {
  *  every non-GET API call is refused in `authorizeRequest`, whatever the page
  *  grant. Signing in / out, 2FA and asking the assistant still work. */
 export const READ_ONLY_USERS: ReadonlySet<UserId> = new Set<UserId>(["randy"]);
-const READ_ONLY_WRITES_ALLOWED = ["/api/site", "/api/2fa", "/api/search/agent", "/api/search/ask"];
+// /api/onboarding: a read-only learner still records his own orientation progress.
+const READ_ONLY_WRITES_ALLOWED = ["/api/site", "/api/2fa", "/api/search/agent", "/api/search/ask", "/api/onboarding"];
 
 // Access groups — users who share a role / access tier belong to one group, so
 // related logins can be shown "grouped" (e.g. one avatar color per group). The
@@ -466,6 +469,8 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   ["/api/debt", "/debt"],
   ["/api/insurance", "/insurance"],
   ["/api/close", "/close"],
+  // The orientation and the handbook (EINs, bank details) answer to its page.
+  ["/api/onboarding", "/onboarding"],
 ];
 // Cross-cutting endpoints under a sensitive prefix that must stay open (used by
 // global search / dashboard for everyone). Aggregate, low-detail.

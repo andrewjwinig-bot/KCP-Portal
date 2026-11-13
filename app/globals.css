@@ -1619,3 +1619,8 @@ select.header-select-native { position: absolute; inset: 0; width: 100%; height:
 /* The Quick Links card fits its label and the tiles on ONE row in the Work Queue's right column. */
 .quick-links-compact .quick-link { width: 40px; height: 40px; }
 .quick-links-compact .quick-link img { width: 26px; height: 26px; }
+
+/* Orientation: the module list beside the reader; stacked on a narrower window. */
+.onboarding-grid { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.onboarding-grid > nav { position: sticky; top: 16px; }
+@media (max-width: 1100px) { .onboarding-grid { grid-template-columns: minmax(0, 1fr); } .onboarding-grid > nav { position: static; } }

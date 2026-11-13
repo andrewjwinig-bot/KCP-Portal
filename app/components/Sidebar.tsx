@@ -18,6 +18,7 @@ import { GlobalSearchTrigger } from "./GlobalSearch";
 // Maps each NAV label to a role key. Items in this map are gated; items not in it are always visible.
 const NAV_ROLE_KEY: Record<string, string> = {
   "Dashboard":          "dashboard",
+  "Orientation":        "onboarding",
   "Property Info":      "properties",
   "Investor Info":      "investors",
   "Debt Tracker":       "debt",
@@ -188,6 +189,22 @@ const NAV = [
         <rect x="14" y="3" width="7" height="5" />
         <rect x="14" y="12" width="7" height="9" />
         <rect x="3" y="16" width="7" height="5" />
+      </svg>
+    ),
+  },
+  // Randy's orientation — shown only to a learner (the explicit key), not to
+  // every "all" profile; Drew follows along by viewing as Randy.
+  {
+    label: "Orientation",
+    href: "/onboarding",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" />
+        <path d="M22 10v6" />
+        <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
       </svg>
     ),
   },
@@ -974,6 +991,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
       // Open Credits alone answers to its own key (Harry, Alison, Nancy view it).
       || (item.label === "Open Credits" && user.navKeys.has("open-credits"));
     if (!passesRole) return false;
+    if (item.label === "Orientation" && !user.navKeys.has("onboarding")) return false;
     if (item.label === "Reports" && NO_REPORT_CENTER.has(user.id)) return false;
 
 

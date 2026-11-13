@@ -287,6 +287,30 @@ touched UI to it.
   inline hex colours and tinted fills may only go DOWN. When a sweep removes
   some, lower the baseline in that test in the same change.
 
+# Orientation — Randy's onboarding (/onboarding)
+
+Owner, 11/2026: "take this handbook and make like an onboarding orientation
+thing that has different modules for him to click through … nothing too
+complex or too beginner". Built from the New Accountant Handbook: fourteen
+short modules in four parts (`lib/onboarding/modules.ts` — lesson blocks, the
+portal pages to open, a three-question check), the handbook's 90-day checklist
+(ticked with Drew) and its glossary (searchable). Progress is on the server
+(`onboarding-progress/<user>`, `/api/onboarding`) so Drew follows along by
+viewing as Randy; `/api/onboarding` is in `READ_ONLY_WRITES_ALLOWED` so Randy,
+read-only, can still record it. **The handbook .docx carries EINs and bank
+details**, so it lives in `data/onboarding/` and is served by
+`/api/onboarding/handbook` behind the `/onboarding` grant — never from
+`/public`. Randy's dashboard leads with `OrientationCard`; the sidebar's
+Orientation item shows only to a profile with the explicit `onboarding` key.
+A new hire = add them to `ONBOARDING_LEARNERS` and give their profile the key
+and path. A module's content changes in `modules.ts` only; `modules.test.ts`
+checks every portal link is a page the learner can open. **Lessons carry no
+EINs or full account lists** — the handbook does.
+
+**`/quick-links/` is PUBLIC in the middleware matcher**: the logos were gated
+like pages, so every login but Drew and admin got a redirect instead of the
+images.
+
 # Quick links — the outside systems, on every dashboard
 
 `lib/quickLinks.ts` (`QUICK_LINKS`, `quickLinksFor`; owner, 11/2026: "especially

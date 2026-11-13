@@ -29,6 +29,7 @@ import AnnualStatementReminder from "./AnnualStatementReminder";
 import DailyDigestModal from "./DailyDigestModal";
 import MaintenanceOverview from "./MaintenanceOverview";
 import ReceivablesOverview from "./ReceivablesOverview";
+import OrientationCard from "./OrientationCard";
 import PendingReservationsCard from "./PendingReservationsCard";
 import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
 import MonthlyReviewPanel from "../reports/monthly/MonthlyReviewPanel";
@@ -682,6 +683,7 @@ function DashboardInner() {
         </div>
       </header>}
       {!queueOn && <QuickLinks />}
+      {user.id === "randy" && <OrientationCard />}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
         {/* ── Pending reservation requests (anyone with reservations access) ── */}
