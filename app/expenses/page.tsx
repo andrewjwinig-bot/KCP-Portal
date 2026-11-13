@@ -407,6 +407,7 @@ export default function ExpensesPage() {
     archiveZip: Blob | null;
     attachmentNames: string[];
     register: { invoiceNumber: string; code: string; name: string; amount: number }[];
+    held: { code: string; name: string; amount: number }[];
   } | null>(null);
   const [ccBuilding, setCcBuilding] = useState(false);
   const [ccSending, setCcSending] = useState(false);
@@ -870,6 +871,7 @@ export default function ExpensesPage() {
     total: number;
     filenameMonth: string;
     register: { invoiceNumber: string; code: string; name: string; amount: number }[];
+    held: { code: string; name: string; amount: number }[];
   } | null> {
     if (!billingGroups.length) return null;
     const zip = new JSZip();
@@ -970,7 +972,11 @@ export default function ExpensesPage() {
       ...byProperty.map((b) => ({ invoiceNumber: makeInvoiceId(b.code, statementMonth), code: b.code, name: b.name, amount: b.amount })),
       ...(isHarry && invoiceGroups.length ? [{ invoiceNumber: makeInvoiceId("REIMB", statementMonth), code: "", name: "Harry Feldman reimbursement", amount: Math.round(reimb.total * 100) / 100 }] : []),
     ];
-    return { zipBlob, invoicePdfs, summaryBlob, gl, byProperty, total, filenameMonth, register };
+    // Held under $100 — no invoice in Avid this time; the register says so.
+    const held = onHoldGroups
+      .map((g) => ({ code: g.propId, name: propName(g.propId), amount: Math.round(g.accrued * 100) / 100 }))
+      .filter((h) => h.amount > 0);
+    return { zipBlob, invoicePdfs, summaryBlob, gl, byProperty, total, filenameMonth, register, held };
   }
 
   async function generateAllPdfsZip() {
@@ -1008,7 +1014,7 @@ export default function ExpensesPage() {
       if (a.gl) references.push({ name: a.gl.filename, blob: a.gl.blob, contentType: XLSX_CONTENT_TYPE });
       if (a.summaryBlob) references.push({ name: `${a.filenameMonth} - TOP SHEET.xlsx`, blob: a.summaryBlob, contentType: XLSX_CONTENT_TYPE });
       const attachmentNames = [...a.invoicePdfs.map((i) => i.fileName), ...references.map((r) => r.name)];
-      setCcReview({ period: statementMonth, byProperty: a.byProperty, total: a.total, invoices: a.invoicePdfs, references, archiveZip: a.zipBlob, attachmentNames, register: a.register });
+      setCcReview({ period: statementMonth, byProperty: a.byProperty, total: a.total, invoices: a.invoicePdfs, references, archiveZip: a.zipBlob, attachmentNames, register: a.register, held: a.held });
     } catch (e: any) {
       alert("Failed to prepare the invoices: " + (e?.message ?? String(e)));
     } finally {
@@ -1029,6 +1035,7 @@ export default function ExpensesPage() {
         references: ccReview.references,
         archiveZip: ccReview.archiveZip,
         register: ccReview.register,
+        held: ccReview.held,
       });
       setCcReview(null);
       setCcSent({ period: ccReview.period, byProperty: r.byProperty, total: r.total, invoiceCount: r.invoiceCount, sentAt: r.sentAt, mailSent: r.sent });

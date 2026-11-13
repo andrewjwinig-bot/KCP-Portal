@@ -55,6 +55,7 @@ const BodySchema = z.object({
   archiveZipBase64: z.string().optional(),
   // AP's register (Tanya): each invoice's number and amount, as printed on it.
   register: z.array(z.object({ invoiceNumber: z.string().max(40), code: z.string().max(20), name: z.string().max(160), amount: z.number() })).max(300).optional(),
+  held: z.array(z.object({ code: z.string().max(20), name: z.string().max(160), amount: z.number() })).max(300).optional(),
   force: z.boolean().optional(),
 });
 
@@ -125,7 +126,8 @@ export async function POST(req: Request) {
       if (body.register?.length) {
         await sendApRegister({
           source: body.source, label, period: body.period, periodLabel: monthLabel(body.period),
-          rows: body.register.map((r) => ({ invoiceNumber: String(r.invoiceNumber), code: String(r.code), name: String(r.name), amount: Number(r.amount) })), by: sender ? USERS[sender]?.label ?? sender : null,
+          rows: body.register.map((r) => ({ invoiceNumber: String(r.invoiceNumber), code: String(r.code), name: String(r.name), amount: Number(r.amount) })),
+          held: (body.held ?? []).map((h) => ({ code: String(h.code), name: String(h.name), amount: Number(h.amount) })), by: sender ? USERS[sender]?.label ?? sender : null,
         });
       }
     }

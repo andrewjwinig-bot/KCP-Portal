@@ -65,7 +65,7 @@ import { billedOf, shortMonth } from "./billedLabel";
 export { billedOf };
 import { getPendingGl } from "./pendingGlStore";
 import { deliverInvoicesToAvid, type AvidInvoicePdf } from "@/lib/invoicing/avidDelivery";
-import { sendApRegister, type RegisterRow } from "@/lib/invoicing/apRegister";
+import { sendApRegister, type RegisterRow, type HeldRow } from "@/lib/invoicing/apRegister";
 import { totalsKey } from "./sharedOffice";
 import { withSharedOfficeLoaded } from "./sharedOfficeLoad";
 
@@ -434,6 +434,25 @@ function registerRows(c: ComputedAllocation): RegisterRow[] {
   return out;
 }
 
+/** Properties with charges held under the $100 floor in this batch — no
+ *  invoice for them (or only part), so AP's register says why. */
+/** Across a range send, a property's held amount is what is held after its
+ *  LAST month (each later month carries the earlier hold forward). */
+function heldRowsFor(batches: ComputedAllocation[]): HeldRow[] {
+  const fresh = batches.filter((b) => !b.supplemental);
+  return fresh.length ? heldRows(fresh[fresh.length - 1]) : [];
+}
+
+function heldRows(c: ComputedAllocation): HeldRow[] {
+  const out: HeldRow[] = [];
+  for (const [id, decs] of c.decByProp) {
+    const amount = round2(decs.filter((a) => !a.billed).reduce((s, a) => s + a.accrued, 0));
+    if (amount <= 0) continue;
+    out.push({ code: id, name: propName(id), amount, partial: decs.some((a) => a.billed && a.accrued > 0) });
+  }
+  return out.sort((a, b) => a.code.localeCompare(b.code));
+}
+
 async function buildMonthInvoices(c: ComputedAllocation, prefix: string, opts: { reconstructed?: boolean } = {}): Promise<(AvidInvoicePdf & { zipPath: string })[]> {
   const { gl, statementMonth, decByProp } = c;
   const invDate = gl.periodEndDate || new Date().toISOString().slice(0, 10);
@@ -744,7 +763,7 @@ export async function sendAllocation(period: string, by?: string | null): Promis
         if (result.allDelivered) {
           await markReportSent("allocated", period, AVID_TO);
           // AP's register — every invoice # and amount, to match against Avid.
-          await sendApRegister({ source: "allocated", label: "Allocated Expenses", period, periodLabel: billedOf(res).billedLabel || period, rows: batches.flatMap(registerRows), by });
+          await sendApRegister({ source: "allocated", label: "Allocated Expenses", period, periodLabel: billedOf(res).billedLabel || period, rows: batches.flatMap(registerRows), held: heldRowsFor(batches), by });
         }
       }
     } catch { /* best-effort */ }

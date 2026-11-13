@@ -15,4 +15,11 @@ describe("Allocated Expenses register to AP", () => {
     expect(mail.text).toContain("1,234.56");
     expect(mail.text).toContain("2,000.00");
   });
+
+  it("notes properties held under $100, so AP knows not to look for them", () => {
+    const m = registerEmail({ periodLabel: "October 2026", rows, held: [{ code: "9840", name: "Joshua Rd", amount: 42.18 }], by: "Drew" });
+    expect(m.text).toContain("Held under $100");
+    expect(m.text).toContain("9840 Joshua Rd · $42.18");
+    expect(mail.text).not.toContain("Held under $100");
+  });
 });
