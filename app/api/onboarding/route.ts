@@ -30,7 +30,7 @@ export async function GET(req: Request) {
   }
 }
 
-// POST { user?, module, score, of } — a module finished (or { module, undo: true })
+// POST { user?, module } — a module finished (or { module, undo: true })
 // POST { user?, item, done }        — a 90-day checklist item ticked / unticked
 export async function POST(req: Request) {
   const me = await budgetUser();
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       if (!mod) return NextResponse.json({ error: "Unknown module." }, { status: 400 });
       const progress = await updateProgress(who, (p) => {
         if (b.undo) delete p.modules[mod.id];
-        else p.modules[mod.id] = { doneAt: new Date().toISOString(), score: Math.max(0, Math.min(Number(b.score) || 0, mod.quiz.length)), of: mod.quiz.length };
+        else p.modules[mod.id] = { doneAt: new Date().toISOString() };
       });
       return NextResponse.json({ ok: true, progress });
     }

@@ -1,11 +1,11 @@
 // Orientation progress, one document per learner (`onboarding-progress/<user>`):
-// the modules finished (with the check's score) and the 90-day checklist items
+// the modules finished and the 90-day checklist items
 // ticked, each stamped with who and when. Drew opens the same page to follow
 // along, so the record is on the server, never in a browser.
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
 
-export type ModuleRecord = { doneAt: string; score: number; of: number };
+export type ModuleRecord = { doneAt: string };
 export type CheckRecord = { doneAt: string; by: string };
 export type Progress = { modules: Record<string, ModuleRecord>; checklist: Record<string, CheckRecord>; startedAt?: string };
 

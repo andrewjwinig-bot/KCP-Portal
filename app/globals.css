@@ -1624,3 +1624,12 @@ select.header-select-native { position: absolute; inset: 0; width: 100%; height:
 .onboarding-grid { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
 .onboarding-grid > nav { position: sticky; top: 16px; }
 @media (max-width: 1100px) { .onboarding-grid { grid-template-columns: minmax(0, 1fr); } .onboarding-grid > nav { position: static; } }
+
+/* Orientation lessons: the explanation beside the stage he plays with; stacked on a narrow window. */
+.lesson-host { container-type: inline-size; }
+.lesson-scene { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.lesson-scene > :first-child { max-width: 760px; }
+@container (min-width: 1150px) { .lesson-scene { grid-template-columns: minmax(280px, 0.7fr) minmax(0, 1.5fr); gap: 28px; } }
+.lesson-toggle code { color: inherit; background: transparent; border: 0; padding: 0; }
+.lesson-stage { border: 1px solid var(--border); border-radius: 12px; padding: 20px; animation: lesson-in .35s ease; }
+@keyframes lesson-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

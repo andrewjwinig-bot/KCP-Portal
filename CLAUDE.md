@@ -292,8 +292,8 @@ touched UI to it.
 Owner, 11/2026: "take this handbook and make like an onboarding orientation
 thing that has different modules for him to click through … nothing too
 complex or too beginner". Built from the New Accountant Handbook: fourteen
-short modules in four parts (`lib/onboarding/modules.ts` — lesson blocks, the
-portal pages to open, a three-question check), the handbook's 90-day checklist
+short modules in four parts (`lib/onboarding/modules.ts` — lesson blocks and
+the portal pages to open), the handbook's 90-day checklist
 (ticked with Drew) and its glossary (searchable). Progress is on the server
 (`onboarding-progress/<user>`, `/api/onboarding`) so Drew follows along by
 viewing as Randy; `/api/onboarding` is in `READ_ONLY_WRITES_ALLOWED` so Randy,
@@ -305,7 +305,18 @@ Orientation item shows only to a profile with the explicit `onboarding` key.
 A new hire = add them to `ONBOARDING_LEARNERS` and give their profile the key
 and path. A module's content changes in `modules.ts` only; `modules.test.ts`
 checks every portal link is a page the learner can open. **Lessons carry no
-EINs or full account lists** — the handbook does.
+EINs or full account lists** — the handbook does. **NO QUIZZES** (owner: "i
+dont think we need to quiz him but make it an interactive click through
+module where the goal is to actually get him to understand … visual and
+graphical and engaging"): a module is a STEP-THROUGH LESSON
+(`app/onboarding/lessons/`, `interactive` on the module) — a short
+explanation beside a stage he plays with, Back / Next, progress segments,
+finishing marks it done. The sample is **How Money Moves Between Entities**
+(`MoneyMoves.tsx`): pay a bill from 2000, pick the suffix and watch the
+buildings light up, slide the amount through the REAL `ALLOC_PCT` with the
+$100 hold, build an `AE` invoice, pay 2000 back to zero, the other flows
+(6610 vs 4510 tips the scale). Text-block modules carry "Mark as Done" until
+they are converted the same way.
 
 **`/quick-links/` is PUBLIC in the middleware matcher**: the logos were gated
 like pages, so every login but Drew and admin got a redirect instead of the

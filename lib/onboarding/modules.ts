@@ -2,8 +2,8 @@
 // (owner, 11/2026: "make like an onboarding orientation thing that has
 // different modules for him to click through and learn to get acclimated …
 // nothing too complex or too beginner"). The handbook is the reference; this
-// is the guided path through it: four parts, a short lesson per module, the
-// portal pages to open, and three questions to check it landed.
+// is the guided path through it: four parts, a short lesson per module and the
+// portal pages to open. No quizzes (owner) — a module is a walkthrough.
 //
 // Client-safe data only. Deliberately NO EINs and no full account list — the
 // handbook (downloadable from the page) carries those; a lesson teaches the
@@ -16,8 +16,6 @@ export type Block =
   | { t: "table"; head: string[]; rows: string[][] }
   | { t: "steps"; items: { title: string; text: string }[] };
 
-export type Question = { q: string; options: string[]; answer: number; why: string };
-
 export type Module = {
   id: string;
   part: PartId;
@@ -29,7 +27,11 @@ export type Module = {
   handbook: string;
   blocks: Block[];
   portal: { label: string; href: string }[];
-  quiz: Question[];
+  /** An interactive, step-through lesson (app/onboarding/lessons) shown in
+   *  place of the text blocks — owner: "an interactive click through module
+   *  where the goal is to actually get him to understand … visual and
+   *  graphical and engaging". No quizzes. */
+  interactive?: "money-moves";
 };
 
 export type PartId = "company" | "systems" | "role" | "work";
@@ -68,11 +70,6 @@ export const MODULES: Module[] = [
       { t: "p", text: "Greg reports to both Harry and Drew; Tami reports to both Nancy and Marie." },
     ],
     portal: [{ label: "Your dashboard", href: "/dashboard" }],
-    quiz: [
-      { q: "What is LIK Management, Inc. (2010)?", options: ["A property management firm we hire", "The entity Korman Commercial Properties is in the books", "The holding entity for the business park funds", "Our outside accounting firm"], answer: 1, why: "Same company: Korman Commercial is the trade name, LIK Management the entity that employs the team." },
-      { q: "Which account pays payroll and shared costs before they're billed to the properties?", options: ["2010 LIK Management", "4000 NI LLC", "2000 LIK Clearing", "3600 JV III"], answer: 2, why: "2000 pays once, then bills each property its share through AvidXchange." },
-      { q: "A tenant's charge needs posting in Skyline. Who does that?", options: ["Tanya", "Harry", "Greg", "Alison"], answer: 0, why: "Tanya runs accounts receivable and posts tenant charges, including approved move-out charges." },
-    ],
   },
   {
     id: "portfolio",
@@ -103,11 +100,6 @@ export const MODULES: Module[] = [
       { t: "p", text: "Not budgeted, by design: `0800`, `0300`, WHIT, CWD. Don't flag them as gaps." },
     ],
     portal: [{ label: "Property Info", href: "/properties" }, { label: "Rent Roll", href: "/rentroll" }],
-    quiz: [
-      { q: "Where does the NI LLC mortgage sit?", options: ["Spread across each building's books", "4000, the holding entity", "2000 LIK Clearing", "4050 Building 5"], answer: 1, why: "Each fund holds its mortgage at the holding entity (3600 for JV III, 4000 for NI LLC) and allocates it to the buildings in the budgets." },
-      { q: "You open the PJV3 statement. What are you looking at?", options: ["The JV III condo's CAM", "Building 1 only", "JV III's buildings consolidated", "The holding entity's cash only"], answer: 2, why: "A portfolio key (PJV3, PNIPLX) is the fund's buildings rolled into one statement." },
-      { q: "Building 3 (3630) shows up in the condo. Do we manage it?", options: ["Yes, it's in JV III", "No — Jefferson owns it; it only pays condo fees", "Yes, through NI LLC", "Only its CAM"], answer: 1, why: "It's in the condo, not the portfolio." },
-    ],
   },
   {
     id: "cash-debt",
@@ -133,11 +125,6 @@ export const MODULES: Module[] = [
       { t: "p", text: "The full account list, by bank, is in the handbook (2.4)." },
     ],
     portal: [{ label: "Bank Balances", href: "/financials/cash-analysis" }],
-    quiz: [
-      { q: "Bank Balances shows a large balance in Liberty x7216. Can it fund a distribution?", options: ["Yes, it's LIK cash", "No — it's security deposits, tenants' money", "Only after year end", "Only for NI LLC"], answer: 1, why: "x7216 holds security deposits for every property but NI LLC. Never available cash." },
-      { q: "Which two loans mature first?", options: ["JV III and NI LLC", "Gray's Ferry and Butler & Main", "Brookwood and Parkwood (9/2027)", "The two Korman Homes loans"], answer: 2, why: "Brookwood and Parkwood mature 9/2027, then JV III and NI LLC in 3/2028." },
-      { q: "Where do the JV III buildings' operating cash and mortgage payments run?", options: ["Each building's own account", "The fund account, which pays the mortgage", "2000 LIK Clearing", "The condo account"], answer: 1, why: "Fund buildings sweep cash to the fund account; the fund pays the mortgage, allocated to the buildings by share." },
-    ],
   },
   {
     id: "investors",
@@ -157,11 +144,6 @@ export const MODULES: Module[] = [
       { t: "key", text: "The Statement of Values is a market-value view of each interest, prepared on request at year end. It is not a balance sheet and is never sent to a lender as one." },
     ],
     portal: [{ label: "Property Info", href: "/properties" }],
-    quiz: [
-      { q: "How does a partner receive their K-1?", options: ["PDF attached to an email", "A secure link, with the PIN in a separate email", "Mailed by EisnerAmper", "Through AvidXchange"], answer: 1, why: "Link plus a separate PIN email — a K-1 is never attached." },
-      { q: "Why do 0900's owners get Schedule Es?", options: ["It's land", "It's held directly, not through a partnership", "It's in New Jersey", "It doesn't distribute"], answer: 1, why: "No partnership, so no K-1." },
-      { q: "A lender asks for a balance sheet. Can you send the Statement of Values?", options: ["Yes, it's more current", "Yes, if Drew approves", "No — it's market value, not a balance sheet", "Only for the funds"], answer: 2, why: "Different basis entirely. The portal's Balance Sheet (Report Center) is the GL-based one." },
-    ],
   },
 
   // ── Part 2 · Systems ─────────────────────────────────────────────────────
@@ -190,11 +172,6 @@ export const MODULES: Module[] = [
       ] },
     ],
     portal: [{ label: "Report Center", href: "/reports" }],
-    quiz: [
-      { q: "A vendor emails you an invoice. Where should it go?", options: ["Skyline AP directly", "kormancommercial@avidbill.com", "Marie", "The portal"], answer: 1, why: "Every bill comes through Avid; vendor invoices are emailed to the Avid inbox." },
-      { q: "Which system is the book of record?", options: ["The portal", "AvidXchange", "Skyline", "ADP"], answer: 2, why: "Skyline keeps the books; the portal reads from it and builds the work on top." },
-      { q: "What day are bills paid?", options: ["Monday", "Wednesday", "Friday", "The 20th"], answer: 1, why: "Avid bills are paid Wednesdays." },
-    ],
   },
   {
     id: "portal",
@@ -224,11 +201,6 @@ export const MODULES: Module[] = [
       { t: "key", text: "If something is missing or wrong, or a feature would help, tell Drew. The portal is built for how we work and changes with the team." },
     ],
     portal: [{ label: "Operating Statements", href: "/financials/operating-statements" }, { label: "Report Center", href: "/reports" }],
-    quiz: [
-      { q: "You want the transactions behind a statement line. What do you do?", options: ["Run a GL in Skyline", "Click the line", "Export to Excel", "Ask Drew"], answer: 1, why: "Clicking a line opens the GL detail right on the page." },
-      { q: "Where are step-by-step instructions for a recurring task?", options: ["The handbook only", "Task Tracker", "Report Center", "Skyline"], answer: 1, why: "Most recurring tasks carry their steps in the Task Tracker." },
-      { q: "You edit a line in an exported operating statement. Will the totals follow?", options: ["No, they're static", "Yes — totals are live formulas", "Only the NOI", "Only in the PDF"], answer: 1, why: "Every portal Excel export writes its totals as formulas." },
-    ],
   },
   {
     id: "accounts",
@@ -258,11 +230,6 @@ export const MODULES: Module[] = [
       { t: "p", text: "At 2010: `4510` is management fee revenue, `8000-9900` payroll and benefits, `8110` office rent." },
     ],
     portal: [{ label: "Operating Statements", href: "/financials/operating-statements" }, { label: "Balance Sheet", href: "/financials/balance-sheet" }],
-    quiz: [
-      { q: "What is 6380-8502?", options: ["Landscaping we absorb", "Landscaping tenants pay through CAM", "A capital landscaping project", "Landscaping revenue"], answer: 1, why: "6380 is landscaping; -8502 means it's in the CAM pool." },
-      { q: "A $40,000 parking lot repaving is coded to 6360-8502. What's wrong?", options: ["Nothing", "It should be -8501", "It's capital — it belongs in 14xx", "It should be 4910"], answer: 2, why: "Repaving is capital. Left on a -8502 line it overstates the CAM pool and overbills tenants." },
-      { q: "Where does 9210 interest sit on the operating statement?", options: ["Above NOI, in G&A", "Below NOI, in debt service", "In reimbursements", "It's balance sheet"], answer: 1, why: "Capital and debt service both sit below NOI." },
-    ],
   },
 
   // ── Part 3 · Your Role ───────────────────────────────────────────────────
@@ -285,11 +252,6 @@ export const MODULES: Module[] = [
       { t: "p", text: "Phases can move faster, or run longer on specific entities. Year-end close and the start of tax season fall inside this window. The 90-Day Plan tab on this page is your checklist — tick items off with Drew as you go." },
     ],
     portal: [],
-    quiz: [
-      { q: "Who prepares the recurring work by day 90?", options: ["EisnerAmper", "You, with EisnerAmper reviewing", "Marie", "Drew"], answer: 1, why: "The prep moves in-house to you; EisnerAmper keeps reviewing with written comments." },
-      { q: "Which of these is yours to own?", options: ["Paying Avid bills", "The 1099 process", "Running payroll in ADP", "Leasing calls"], answer: 1, why: "You run the full annual 1099 process, along with recs, JEs and workpapers." },
-      { q: "What happens at day 30, 60 and 90?", options: ["Access is removed", "A sit-down review with Drew before the next phase", "EisnerAmper audits you", "Nothing fixed"], answer: 1, why: "Each phase ends in a check with Drew." },
-    ],
   },
 
   // ── Part 4 · The Recurring Work ──────────────────────────────────────────
@@ -324,17 +286,13 @@ export const MODULES: Module[] = [
       { t: "key", text: "The year has its fixed points: CAM recs and year-end adjustments by 4/30, distributions in April and October, budgets from 9/1, insurance renews in November, 1099s in January. The full calendar is in the handbook (5.1)." },
     ],
     portal: [{ label: "Balance Sheet", href: "/financials/balance-sheet" }, { label: "Flags to Investigate", href: "/financials/operating-statements/review" }],
-    quiz: [
-      { q: "What do you confirm on the 20th, before the close?", options: ["Every property is in balance", "Every tenant has paid", "Avid bills are paid", "The rent roll is imported"], answer: 0, why: "Skyline TB and the portal's Balance Sheet (assets = liabilities + capital) for every property." },
-      { q: "When do Laser Statements run?", options: ["The 20th", "The 1st–2nd", "Mid-month", "Quarterly"], answer: 1, why: "Run on the 1st–2nd, before payments come in, so statements go out by the 5th." },
-      { q: "From day 31, who leads the weekly EisnerAmper status meeting?", options: ["Drew", "Marie", "You", "EisnerAmper"], answer: 2, why: "You lead it, working off the open-items list." },
-    ],
   },
   {
     id: "intercompany",
     part: "work",
     title: "How Money Moves Between Entities",
     minutes: 7,
+    interactive: "money-moves",
     summary: "The 2000 clearing loop, payroll, credit cards and management fees",
     handbook: "5.2",
     blocks: [
@@ -357,11 +315,6 @@ export const MODULES: Module[] = [
       { t: "key", text: "6610 across the buildings must equal 4510 at 2010 every month. When they don't, the buildings' 6610 is the evidence and 4510 is corrected to it." },
     ],
     portal: [{ label: "Management Fees", href: "/financials/management-fees" }],
-    quiz: [
-      { q: "What does -9302 on a 2000 expense mean?", options: ["Business parks only", "Shopping centers, by each center's share", "All properties", "Not allocated"], answer: 1, why: "-9301 business parks, -9302 shopping centers, -9303 everything." },
-      { q: "An invoice reads AE45000826. What is it?", options: ["Payroll for 4500, August 2026", "Allocated expenses billed to 4500 for August 2026", "A credit card invoice", "A true-up"], answer: 1, why: "AE = allocated expenses, then property code, then MMYY." },
-      { q: "In August, the buildings' 6610 total $58,200 and 2010's 4510 shows $61,000. Which side gets fixed?", options: ["6610 at the buildings", "4510 at 2010", "Split the difference", "Neither — timing"], answer: 1, why: "The buildings' postings are the evidence; the hand-keyed 4510 entry is corrected to their sum." },
-    ],
   },
   {
     id: "reporting",
@@ -388,11 +341,6 @@ export const MODULES: Module[] = [
       { t: "p", text: "Budgets are built September–December in the Budget Draft: rent from the rent roll and the leasing calls (Harry for shopping centers, Nancy for business parks), recoveries from each tenant's CAM methodology, taxes from public assessments, debt from the loans, payroll from the payroll budget, and everything else from the last twelve months + 3%. A published budget is what the statements compare against from January 1." },
     ],
     portal: [{ label: "Operating Statements", href: "/financials/operating-statements" }, { label: "Reprojections", href: "/financials/reprojections" }, { label: "T-12", href: "/financials/t12" }],
-    quiz: [
-      { q: "The insurance line reads Not posted. What does that mean?", options: ["Insurance came in under budget", "A known obligation reads $0 — likely missing", "The policy lapsed", "It's below NOI"], answer: 1, why: "Taxes, insurance, the management fee and the mortgage get billed regardless. A $0 means something didn't post." },
-      { q: "What's the goal on Flags to Investigate each month?", options: ["Explain the top five", "An empty list", "Under $500 total", "Export it to EisnerAmper"], answer: 1, why: "Every flag is resolved or dismissed until the list is empty." },
-      { q: "A reprojection for August shows…", options: ["Budget for all twelve months", "Actuals Jan–Aug, budget Sep–Dec", "The last twelve months", "Actuals only"], answer: 1, why: "Actual to date plus budget for the rest of the year." },
-    ],
   },
   {
     id: "tenants",
@@ -419,11 +367,6 @@ export const MODULES: Module[] = [
       { t: "key", text: "Special cases: Parkwood (`7010`) has two CAM pools, retail and the upstairs office. Wawa at Lafayette Hill (`9510`) is billed quarterly. Butler & Main (`9000`) tenants are gross — no CAM." },
     ],
     portal: [{ label: "Rent Roll", href: "/rentroll" }, { label: "Unit Info", href: "/units" }, { label: "Receivables", href: "/tenant-statements" }],
-    quiz: [
-      { q: "An office tenant's base year is 2019. What do they pay for CAM?", options: ["Their full pro rata share", "Increases over their 2019 expenses", "Nothing", "A flat admin fee"], answer: 1, why: "Base-year leases pay the increase over the base year — for most tenants, line by line." },
-      { q: "Where is a tenant's PRS, admin fee and exclusions set?", options: ["The rent roll", "Skyline only", "The unit page", "The CAM recon page"], answer: 2, why: "The unit page is the source for each tenant's methodology." },
-      { q: "When do the year-end CAM adjustments post?", options: ["December 31", "January 15", "April 30 of the following year", "With the November estimates"], answer: 2, why: "Recs run March / April; the SC and BP adjustments post 4/30." },
-    ],
   },
   {
     id: "taxes",
@@ -444,11 +387,6 @@ export const MODULES: Module[] = [
       { t: "p", text: "Insurance renews in November. The broker's Statement of Values goes out in August, filled from Building Facts and the rent roll. The property premium sits in the INS pool (retail) or CAM (office); liability is a CAM line." },
     ],
     portal: [{ label: "1099 Register", href: "/financials/ten99" }],
-    quiz: [
-      { q: "A 1099 is based on…", options: ["Invoices dated in the year", "Cash paid in the calendar year", "Expense accounts", "Avid approvals"], answer: 1, why: "Cash paid. An accrued-but-unpaid invoice doesn't count; a prior-year invoice paid this year does." },
-      { q: "A vendor is paid $300 each by Buildings 5, 6 and 7. Reportable?", options: ["No, each is under $600", "Yes — one filer (NI LLC), $900 total", "Only for Building 5", "Only if it's an LLC"], answer: 1, why: "The NI LLC buildings share one EIN, so payments total per filer." },
-      { q: "When are Philadelphia RE taxes paid?", options: ["By 3/31", "By the end of February, for the 1% discount", "In April", "In September"], answer: 1, why: "Due 3/31, but paid by end of February to take the discount." },
-    ],
   },
   {
     id: "eisner",
@@ -475,11 +413,6 @@ export const MODULES: Module[] = [
       { t: "p", text: "Out of scope without Drew's written OK (billed hourly): budgeting, lender and investor reporting, cash management, financial statements and tax returns, historical cleanup, audit support, system changes and new entities." },
     ],
     portal: [],
-    quiz: [
-      { q: "You find an error in a quarter EisnerAmper already worked. What do you do?", options: ["Fix it quietly next quarter", "Post it and tell EisnerAmper promptly", "Leave it", "Wait for year end"], answer: 1, why: "A late change means redoing workpapers, so they need to know right away." },
-      { q: "After day 90, who prepares the workpapers?", options: ["EisnerAmper", "You", "Marie", "Drew"], answer: 1, why: "You prepare; they review." },
-      { q: "Can you ask EisnerAmper to help with a budget?", options: ["Yes, it's in scope", "Only with Drew's written OK — it's billed hourly", "Never", "Only in September"], answer: 1, why: "Budgeting is out of scope and needs Drew's sign-off." },
-    ],
   },
 ];
 
