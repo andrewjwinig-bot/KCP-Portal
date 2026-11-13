@@ -19,10 +19,12 @@ export type StatementEmailInput = {
   addressedTo?: string;
   asOfYearEnd: string;
   asOfEstimate?: string;
-  totalEquity: number;
+  /** Kept for callers; NOT printed — the figure stays in the attached PDF
+   *  (owner: "i dont think we should include the equity value in the email
+   *  itself"). */
+  totalEquity?: number;
 };
 
-const money = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
 /** "CAROLYN JACOBS" → "Carolyn Jacobs"; a name already in mixed case is kept. */
 const proper = (s: string) =>
   s === s.toUpperCase() ? s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : s;
@@ -52,7 +54,6 @@ export function statementEmail(i: StatementEmailInput): { subject: string; html:
     sub: `${Their} interests as of ${i.asOfYearEnd}, attached as a PDF.`,
     details: [
       ...(onBehalf ? [["Investor", investor] as [string, string]] : []),
-      ["Equity value", money(i.totalEquity)],
       ["As of", i.asOfYearEnd],
       ...(i.asOfEstimate ? [["Estimate as of", i.asOfEstimate] as [string, string]] : []),
     ],
@@ -63,8 +64,6 @@ export function statementEmail(i: StatementEmailInput): { subject: string; html:
     hello,
     "",
     `Attached is ${their} Statement of Values as of ${i.asOfYearEnd}${i.asOfEstimate ? ` (with an estimated value as of ${i.asOfEstimate})` : ""}.`,
-    "",
-    `Total equity value: ${money(i.totalEquity)}`,
     "",
     "Questions? Just reply to this email.",
     "",
