@@ -80,7 +80,7 @@ export async function sendNotPostedDigest(opts: { olderThanMs?: number } = {}): 
   if (!isMailConfigured()) return { sent: false, properties: due.length, lines: 0, reason: "mail-not-configured" };
 
   const mail = composeNotPostedDigest(due);
-  const ok = await sendMail({ to: TO, cc: CC, from: FROM, subject: mail.subject, textBody: mail.text });
+  const ok = await sendMail({ to: TO, cc: CC, from: FROM, subject: mail.subject, textBody: mail.text, htmlBody: mail.html, noLinkTracking: true });
   if (!ok) return { sent: false, properties: due.length, lines: mail.lines, reason: "send-failed" };
 
   const at = new Date().toISOString();
