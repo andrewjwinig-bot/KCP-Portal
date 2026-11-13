@@ -35,18 +35,20 @@ Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the bill
   them would true up every finalized month. A PALL import posts 2010 BEFORE
   2000; a 2010 imported on its own re-runs the allocation on the stashed 2000
   GL, so a month already sent gets it as a TU true-up — never twice. 2010's
-  **2026's earlier months go out ONCE as a YEAR-TO-DATE TRUE-UP**
-  (`sharedOfficeTrueUp.ts`; owner: "when i posted november … true up the year
-  to date … then itll be month by month after that"): once 2010's GL reaches
-  November (run on the 2010 import and the daily Allocated cron), January –
-  September — plus October when October's send went out WITHOUT the shared
-  office (read off the PDFs archived since 11/13/26) — are summed (`trueUpGl`)
-  into ONE invoice per property, `TU<prop>YTD26`, billed in full (no $100 hold,
-  no held balances), one PDF per email to Avid, archived under
-  `shared-office-ytd-2026` (its own Monthly History row). Sent once
-  (`alloc-repairs/shared-office-trueup-2026`); when it bills October, October's
-  recognized 8990 baseline takes the amount so a later YTD 2000 import never
-  bills it again. 2010's
+  **2026's earlier months ride ONCE on NOVEMBER'S invoices as a
+  YEAR-TO-DATE TRUE-UP LINE** (`sharedOfficeTrueUp.ts` decides the months,
+  `sharedOfficeLoad.ts` lays them in; owner: "true up the year to date … then
+  itll be month by month after that" and "minimize the # of invoices … roll up
+  into 2000 allocated invoices"): no invoice of its own. January – September —
+  plus October when October's send went out WITHOUT the shared office (read off
+  the PDFs archived since 11/13/26) — are decided ONCE, the first time a GL
+  covering November is computed, and kept (`alloc-repairs/shared-office-trueup-2026`).
+  They are laid into November's GL as "Shared Leasing & Maintenance Office
+  (January – September 2026 true-up)" EVERY time November is computed
+  (`TRUEUP_INTO`), so November's baseline always carries it and a later YTD
+  import never bills it again; a month in the true-up never also gets its own
+  month line. Shared-office lines are told apart by name prefix
+  (`isSharedName`, `totalsKey`). 2010's
   budget books it as **Rent Reimbursement (4230-8501) MONTHLY**, the same
   602 SF of the budgeted Office Rental (locked, ⓘ), replacing the $9,500
   December lump. Pinned by `sharedOffice.test.ts` and `draft.test.ts`.

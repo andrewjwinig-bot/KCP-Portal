@@ -23,6 +23,8 @@
 import type { GLParseResult, GLTransaction, GLAccountTotal } from "./glParser";
 
 export const SHARED_OFFICE_NAME = "Shared Leasing & Maintenance Office";
+/** Any shared-office line — the month's own and the year-to-date true-up's. */
+export const isSharedName = (name: string) => String(name ?? "").startsWith(SHARED_OFFICE_NAME);
 /** The account each property books it to — Other G&A, on every property's
  *  General & Administrative line. */
 export const SHARED_OFFICE_BASE = "8990";
@@ -53,7 +55,7 @@ const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
  *  space's SF ÷ the office's SF. Empty when either is missing. */
 /** The account-totals key for an allocated line: the shared office keeps its
  *  own entry so a 2000 account of the same number never absorbs it. */
-export const totalsKey = (accountCode: string, accountName: string) => (accountName === SHARED_OFFICE_NAME ? `${accountCode}|shared` : accountCode);
+export const totalsKey = (accountCode: string, accountName: string) => (isSharedName(accountName) ? `${accountCode}|${accountName}` : accountCode);
 
 export function sharedOfficeAmounts(officeRental: number, officeSqft: number): { suffix: "9301" | "9302" | "9303"; amount: number }[] {
   if (!officeRental || !(officeSqft > 0)) return [];
@@ -64,7 +66,6 @@ export function sharedOfficeAmounts(officeRental: number, officeSqft: number): {
 
 export type SharedOfficeMonth = { month: string; officeRental: number; officeSqft: number };
 
-const isShared = (name: string) => name === SHARED_OFFICE_NAME;
 
 function lastDay(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
@@ -76,8 +77,8 @@ function lastDay(ym: string): string {
  *  Idempotent: a GL already carrying them (a stashed copy) is returned as is.
  *  A single-month GL gets account totals; a range GL gets transactions, which
  *  `splitIntoMonths` totals by month. */
-export function withSharedOffice(gl: GLParseResult, months: SharedOfficeMonth[]): GLParseResult {
-  if (gl.transactions.some((t) => isShared(t.accountName)) || [...gl.accountTotals.values()].some((a) => isShared(a.accountName))) return gl;
+export function withSharedOffice(gl: GLParseResult, months: SharedOfficeMonth[], trueUp?: SharedOfficeTrueUp | null): GLParseResult {
+  if (gl.transactions.some((t) => isSharedName(t.accountName)) || [...gl.accountTotals.values()].some((a) => isSharedName(a.accountName))) return gl;
   const txs: GLTransaction[] = [];
   for (const m of months) {
     for (const a of sharedOfficeAmounts(m.officeRental, m.officeSqft)) {
@@ -86,6 +87,22 @@ export function withSharedOffice(gl: GLParseResult, months: SharedOfficeMonth[])
         date: lastDay(m.month), jrn: "", ref: "SHARED-OFFICE",
         debit: a.amount > 0 ? a.amount : 0, credit: a.amount < 0 ? -a.amount : 0, net: a.amount,
         description: `${SHARED_SQFT} of ${m.officeSqft.toLocaleString("en-US")} SF of 2010 Office Rental`,
+      });
+    }
+  }
+  // The year-to-date true-up rides on ONE month's invoices as its own line —
+  // no invoices of its own (owner: "minimize the # of invoices").
+  if (trueUp && trueUp.months.length) {
+    const label = `${SHARED_OFFICE_NAME} (${trueUpLabel(trueUp.months.map((m) => m.month))} true-up)`;
+    const by = new Map<"9301" | "9302" | "9303", number>();
+    for (const m of trueUp.months) for (const a of sharedOfficeAmounts(m.officeRental, m.officeSqft)) by.set(a.suffix, r2((by.get(a.suffix) ?? 0) + a.amount));
+    for (const [suffix, amount] of by) {
+      if (Math.abs(amount) < 0.005) continue;
+      txs.push({
+        accountCode: `${SHARED_OFFICE_BASE}-${suffix}`, accountName: label, accountSuffix: suffix,
+        date: lastDay(trueUp.intoMonth), jrn: "", ref: "SHARED-OFFICE-YTD",
+        debit: amount > 0 ? amount : 0, credit: amount < 0 ? -amount : 0, net: amount,
+        description: `${SHARED_SQFT} SF of 2010 Office Rental, ${trueUpLabel(trueUp.months.map((m) => m.month))}`,
       });
     }
   }
@@ -115,24 +132,24 @@ export function monthsOfPeriod(period: string): string[] {
   return out;
 }
 
-// ─── 2026 YEAR-TO-DATE TRUE-UP (owner, 11/2026: "when i posted november can
-// you true up the year to date reimbursement for the office rent and
-// electric … then itll be month by month after that") ──────────────────────
+// ─── 2026 YEAR-TO-DATE TRUE-UP (owner, 11/2026: "when i posted november …
+// true up the year to date reimbursement for the office rent and electric …
+// then itll be month by month after that"; "we want to minimize the # of
+// invoices so they should roll up into 2000 allocated invoices").
 //
-// Billing month by month starts at SHARED_OFFICE_FROM. The months of 2026
-// before it — and October too when it went out before this existed — are
-// billed ONCE, as one true-up invoice per property, after November is posted
-// (`sharedOfficeTrueUp.ts`). Every property bills in full: a catch-up of a
-// year is not held under $100.
+// The months of 2026 billed before the shared office existed — January –
+// September, and October when October went out without it — ride on
+// NOVEMBER's Allocated Expense invoices as one more line,
+// "Shared Leasing & Maintenance Office (January – September 2026 true-up)".
+// No invoice of its own. It is laid into November's GL EVERY time November is
+// computed (`sharedOfficeLoad.ts`), so November's recognized baseline always
+// carries it and a later year-to-date 2000 import never bills it again; a
+// month in the true-up is never also given its own month line.
 
-export const TRUEUP_YEAR = 2026;
-/** The true-up waits for 2010's November — the owner's trigger. */
-export const TRUEUP_AFTER_MONTH = 11;
+/** The month whose invoices carry the true-up. */
+export const TRUEUP_INTO = "2026-11";
 
-/** "TU4080YTD26" — a true-up, property, the year to date. Deterministic, so
- *  AvidXchange's duplicate check catches a resend. */
-export const trueUpInvoiceId = (propertyId: string, year = TRUEUP_YEAR) =>
-  `TU${String(propertyId).replace(/[^A-Z0-9]/gi, "").toUpperCase()}YTD${String(year).slice(2)}`;
+export type SharedOfficeTrueUp = { intoMonth: string; months: SharedOfficeMonth[] };
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -142,33 +159,4 @@ export function trueUpLabel(months: string[]): string {
   if (!s.length) return "";
   const name = (m: string) => MONTH_NAMES[Number(m.slice(5, 7)) - 1];
   return s.length === 1 ? `${name(s[0])} ${s[0].slice(0, 4)}` : `${name(s[0])} – ${name(s[s.length - 1])} ${s[s.length - 1].slice(0, 4)}`;
-}
-
-/** The months' shared office summed into ONE GL dated the last of them, ready
- *  for `computeOneMonth`. Each suffix's line says the months it covers. Pure. */
-export function trueUpGl(months: SharedOfficeMonth[]): GLParseResult | null {
-  const sorted = [...months].sort((a, b) => a.month.localeCompare(b.month));
-  if (!sorted.length) return null;
-  const by = new Map<"9301" | "9302" | "9303", number>();
-  for (const m of sorted) for (const a of sharedOfficeAmounts(m.officeRental, m.officeSqft)) by.set(a.suffix, r2((by.get(a.suffix) ?? 0) + a.amount));
-  if (![...by.values()].some((v) => Math.abs(v) >= 0.005)) return null;
-  const last = sorted[sorted.length - 1].month;
-  const label = trueUpLabel(sorted.map((m) => m.month));
-  const date = lastDay(last);
-  const accountTotals = new Map<string, GLAccountTotal>();
-  const transactions: GLTransaction[] = [];
-  for (const [suffix, amount] of by) {
-    const accountCode = `${SHARED_OFFICE_BASE}-${suffix}`;
-    accountTotals.set(totalsKey(accountCode, SHARED_OFFICE_NAME), { accountCode, accountName: SHARED_OFFICE_NAME, accountSuffix: suffix, netTotal: amount });
-    transactions.push({
-      accountCode, accountName: SHARED_OFFICE_NAME, accountSuffix: suffix, date, jrn: "", ref: "SHARED-OFFICE-YTD",
-      debit: amount > 0 ? amount : 0, credit: amount < 0 ? -amount : 0, net: amount, description: `${label} true-up`,
-    });
-  }
-  return {
-    statementMonth: last,
-    periodText: `${SHARED_OFFICE_NAME} — ${label} true-up`,
-    periodEndDate: `${last}-${date.slice(3, 5)}`,
-    transactions, accountTotals,
-  };
 }

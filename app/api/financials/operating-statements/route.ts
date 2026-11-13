@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { trueUpSharedOffice } from "@/lib/allocated-invoicer/sharedOfficeTrueUp";
 import * as XLSX from "xlsx";
 import { parseGeneralLedgerMonthly, parseGeneralLedgerByYear, summaryForPeriod, reconcileGl, isDetailedGl, type GlReconciliation } from "@/lib/financials/operating-statements/glParser";
 import { splitPall, headerCode, activityCodes, placeSections, sectionAsFile, balancesThrough, type PallSplit } from "@/lib/financials/operating-statements/pallSplit";
@@ -637,10 +636,6 @@ async function importGlRows(
         } else allocated = null;
       }
     } catch { /* best-effort — the next 2000 import catches it up */ }
-    // Once 2010 reaches November, the months of 2026 billed before the shared
-    // office existed go out once as a year-to-date true-up (owner). The daily
-    // Allocated cron retries.
-    try { await trueUpSharedOffice(importedBy); } catch { /* the cron retries */ }
   }
 
   // A quarter-billed tenant's quarterly CAM (Wawa @ 9510) sends itself once
