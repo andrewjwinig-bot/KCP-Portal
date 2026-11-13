@@ -6,6 +6,7 @@ import type { LessonProps } from "./kit";
 import MoneyMoves from "./MoneyMoves";
 import { CashDebt, Owners, Portfolio, Welcome } from "./CompanyLessons";
 import { Accounts, PortalTour, Systems } from "./SystemsLessons";
+import { Eisner, Reporting, Rhythm, Role, Taxes, Tenants } from "./WorkLessons";
 
 export const LESSONS: Record<string, ComponentType<LessonProps>> = {
   welcome: Welcome,
@@ -16,4 +17,10 @@ export const LESSONS: Record<string, ComponentType<LessonProps>> = {
   portal: PortalTour,
   accounts: Accounts,
   intercompany: MoneyMoves,
+  role: Role,
+  rhythm: Rhythm,
+  reporting: Reporting,
+  tenants: Tenants,
+  taxes: Taxes,
+  eisner: Eisner,
 };

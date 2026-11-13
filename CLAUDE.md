@@ -339,8 +339,11 @@ $100 hold, build an `AE` invoice, pay 2000 back to zero, the other flows
 (6610 vs 4510 tips the scale). Every lesson runs in ONE shell (`app/onboarding/lessons/kit.tsx` — `LessonShell`,
 `Node`, `Toggle`, `Pick`, `Panel`, `Recap`) and is registered by module id in
 `lessons/index.ts` (`interactive: true` on the module; `modules.test.ts` checks
-the registry). Example figures inside a lesson are labelled "Example". A module
-not yet converted keeps its text blocks and "Mark as Done".
+the registry). ALL FOURTEEN are interactive (11/2026); the Portfolio lesson
+shows the Interplex campus map and building photos and each designed centre's
+photo and site plan, from the public website assets. Example figures inside a
+lesson are labelled "Example". A module's text blocks stay as the fallback
+(and "Mark as Done") if its lesson is ever removed from the registry.
 
 **`/quick-links/` is PUBLIC in the middleware matcher**: the logos were gated
 like pages, so every login but Drew and admin got a redirect instead of the

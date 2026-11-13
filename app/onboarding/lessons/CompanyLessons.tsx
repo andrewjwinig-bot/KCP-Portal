@@ -174,11 +174,29 @@ const COUNTIES: Record<County, { label: string; ids: string[]; tax: string }> = 
   nj: { label: "New Jersey", ids: ["0800"], tax: "Bellmawr land — its own municipal bill, plus a quarterly Net Profits Tax." },
 };
 
+const IP_BUILDINGS: { key: string; code: string; label: string }[] = [
+  { key: "1", code: "3610", label: "Building 1" }, { key: "2", code: "3620", label: "Building 2" }, { key: "4", code: "3640", label: "Building 4" },
+  { key: "5", code: "4050", label: "Building 5" }, { key: "6", code: "4060", label: "Building 6" }, { key: "7", code: "4070", label: "Building 7" },
+  { key: "8", code: "4080", label: "Building 8" }, { key: "A", code: "40A0", label: "Kor Center A" }, { key: "B", code: "40B0", label: "Kor Center B" }, { key: "C", code: "40C0", label: "Kor Center C" },
+];
+type CenterId = "grays-ferry" | "parkwood" | "brookwood" | "lafayette-hill" | "parkwood-commons";
+const CENTERS: Record<CenterId, { code: string; name: string; photo: string; plan: string; note: string }> = {
+  "grays-ferry": { code: "4500", name: "Gray's Ferry", photo: "/centers/grays-ferry/assets/hero.jpg", plan: "/centers/grays-ferry/assets/siteplan.webp", note: "The largest center — anchored by the Fresh Grocer, in South Philadelphia." },
+  parkwood: { code: "7010", name: "Parkwood", photo: "/centers/parkwood/assets/hero.jpg", plan: "/centers/parkwood/assets/siteplan.webp", note: "Retail with an office center upstairs — which is why it has two CAM pools." },
+  brookwood: { code: "2300", name: "Brookwood", photo: "/centers/brookwood/assets/hero.jpg", plan: "/centers/brookwood/assets/siteplan.webp", note: "On Street Road in Bensalem, Bucks County." },
+  "lafayette-hill": { code: "9510", name: "Lafayette Hill", photo: "/centers/lafayette-hill/assets/hero.jpg", plan: "/centers/lafayette-hill/assets/siteplan-tight.webp", note: "The Shops of Lafayette Hill, Montgomery County. Wawa here is billed quarterly." },
+  "parkwood-commons": { code: "1100", name: "Parkwood Commons", photo: "/centers/parkwood-commons/assets/g-corner.jpg", plan: "/centers/parkwood-commons/assets/siteplan.webp", note: "The small professional building on Academy Road, next to Parkwood." },
+};
+const IMG: React.CSSProperties = { width: "100%", borderRadius: 10, border: "1px solid var(--border)", display: "block", objectFit: "cover", background: "var(--hairline)" };
+
 export function Portfolio({ onFinish, done }: LessonProps) {
   const [book, setBook] = useState<Book>("bp");
   const [q, setQ] = useState("");
   const [fund, setFund] = useState<Fund>("jv3");
   const [county, setCounty] = useState<County>("bucks");
+  const [bldg, setBldg] = useState("8");
+  const [center, setCenter] = useState<CenterId>("grays-ferry");
+  const [centerView, setCenterView] = useState<"photo" | "plan">("photo");
   const b = BOOKS.find((x) => x.id === book)!;
   const bookSf = b.ids.reduce((s, id) => s + sfOf(id), 0);
   const hits = useMemo(() => {
@@ -230,6 +248,41 @@ export function Portfolio({ onFinish, done }: LessonProps) {
               ))}
             </div>
           ) : <Note>{q ? "No match — try part of a name." : "Type to search the portfolio."}</Note>}
+        </div>
+      ),
+    },
+    {
+      kicker: "See it", title: "The Neshaminy Interplex",
+      body: <>The business parks are one campus in Trevose — the <strong>Neshaminy Interplex</strong>: Buildings 1–8 and the three Kor Centers along Interplex Drive. (Building 3 is in the middle of it, but isn't ours.) Every office building's floor plans are on its property page, colored by the rent roll.</>,
+      doThis: "Click a building",
+      stage: (
+        <div style={{ display: "grid", gap: 12 }}>
+          <img src="/site/interplex/assets/campus-map.png" alt="Neshaminy Interplex campus map" style={{ ...IMG, objectFit: "contain", background: "var(--card)" }} />
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {IP_BUILDINGS.map((x) => <button key={x.key} type="button" className={bldg === x.key ? "btn sm primary lesson-toggle" : "btn sm lesson-toggle"} onClick={() => setBldg(x.key)}>{x.label}</button>)}
+          </div>
+          {(() => { const x = IP_BUILDINGS.find((y) => y.key === bldg)!; return (
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.3fr) minmax(0,1fr)", gap: 12, alignItems: "start" }}>
+              <img key={x.key} src={`/site/interplex/assets/b-${x.key}.jpg`} alt={x.label} style={{ ...IMG, aspectRatio: "4 / 3" }} />
+              <Panel title={<><code>{x.code}</code> {x.label}</>}>
+                <Facts rows={[["Fund", (def(x.code) as { fundGroup?: string } | undefined)?.fundGroup ?? "—"], ["Size", `${sfOf(x.code).toLocaleString()} SF`], ["Built", String((def(x.code) as { yearBuilt?: number } | undefined)?.yearBuilt ?? "—")]]} />
+              </Panel>
+            </div>
+          ); })()}
+        </div>
+      ),
+    },
+    {
+      kicker: "See it", title: "The shopping centers",
+      body: <>Five of the centers have their own designed pages with an <strong>interactive site plan</strong> — and the same plan, colored by lease expiry, rent or A/R, sits on each property page in the portal. Worth a look at each before your first statement review.</>,
+      doThis: "Pick a center, then flip to its site plan",
+      stage: (
+        <div style={{ display: "grid", gap: 12 }}>
+          <Toggle value={center} onChange={setCenter} options={(Object.keys(CENTERS) as CenterId[]).map((k) => ({ id: k, label: CENTERS[k].name }))} />
+          <Toggle value={centerView} onChange={setCenterView} options={[{ id: "photo", label: "Photo" }, { id: "plan", label: "Site plan" }]} />
+          <img key={center + centerView} src={centerView === "photo" ? CENTERS[center].photo : CENTERS[center].plan} alt={`${CENTERS[center].name} ${centerView === "photo" ? "photo" : "site plan"}`}
+            style={{ ...IMG, aspectRatio: centerView === "photo" ? "16 / 9" : undefined, objectFit: centerView === "photo" ? "cover" : "contain", background: "var(--card)" }} />
+          <Note><code>{CENTERS[center].code}</code> · {CENTERS[center].note}</Note>
         </div>
       ),
     },
