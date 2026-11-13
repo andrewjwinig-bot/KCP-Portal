@@ -26,10 +26,11 @@ describe("not-posted digest — one email for the whole import", () => {
   });
 
   it("lists every property, biggest dollars first, with the total", () => {
-    expect(mail.text.indexOf("Gray's Ferry")).toBeLessThan(mail.text.indexOf("Parkwood Professional"));
-    expect(mail.text).toContain("$32,100 expected in all");
-    expect(mail.text).toContain("(debt service)");
+    expect(mail.html.indexOf("Gray's Ferry")).toBeLessThan(mail.html.indexOf("Parkwood Professional"));
+    expect(mail.text).toContain("Expected, not yet posted: $32,100");
+    expect(mail.html).toContain("Scheduled loan payment");
     expect(mail.text).toContain("imported by Drew");
+    expect(mail.html).toContain("period=10");
   });
 
   it("names the one property when only one is staged", () => {

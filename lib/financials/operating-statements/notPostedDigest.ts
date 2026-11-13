@@ -4,6 +4,7 @@
 // its lines under it.
 
 import type { NotPostedItem } from "./notPosted";
+import { portalEmail, titleCase } from "@/lib/email/portalEmail";
 
 export type StagedNotPosted = {
   id: string;
@@ -34,39 +35,44 @@ function periodLabel(entries: StagedNotPosted[]): string {
   return `${sorted[0]} – ${sorted[sorted.length - 1]}`;
 }
 
-export function composeNotPostedDigest(entries: StagedNotPosted[]): { subject: string; text: string; lines: number } {
+export function composeNotPostedDigest(entries: StagedNotPosted[]): { subject: string; text: string; html: string; lines: number } {
   const props = [...entries].sort((a, b) => sumOf(b.items) - sumOf(a.items) || a.propertyName.localeCompare(b.propertyName));
   const lines = props.reduce((n, e) => n + e.items.length, 0);
   const total = props.reduce((s, e) => s + sumOf(e.items), 0);
   const period = periodLabel(props);
-  // Names arrive as stored ("drew", "DREW") — Title Case them for the mail.
-  const title = (n: string) => n.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-  const who = [...new Set(props.map((e) => e.importedBy).filter(Boolean).map((n) => title(n as string)))];
+  const who = [...new Set(props.map((e) => e.importedBy).filter(Boolean).map((n) => titleCase(n as string)))];
 
   const subject =
     `Not posted to the GL — ${lines} line${lines === 1 ? "" : "s"}` +
     (props.length > 1 ? ` across ${props.length} properties` : ` · ${props[0]?.propertyName ?? ""}`) +
     (period ? ` · ${period}` : "");
 
-  const labelW = Math.max(24, ...props.flatMap((e) => e.items.map((i) => `${i.section} · ${i.line}`.length)));
-  const blocks = props.map((e) => {
-    const months = [...new Set(e.items.map((i) => i.monthLabel))].join(", ");
-    const head = `${e.propertyName} — ${months} ${e.year} · ${money0(sumOf(e.items))}`;
-    const rows = [...e.items]
-      .sort((a, b) => b.expected - a.expected)
-      .map((i) => `  ${`${i.section} · ${i.line}`.padEnd(labelW)}   ${money0(i.expected).padStart(12)}${i.type === "missing-debt" ? "  (debt service)" : ""}`);
-    return [head, ...rows].join("\n");
+  // The portal's look (owner, 11/2026): the total big, then a section per
+  // property — each line linked to its month on the statement.
+  const mail = portalEmail({
+    subject,
+    eyebrow: "Not Posted to the GL",
+    title: `${lines} line${lines === 1 ? "" : "s"} still reading $0`,
+    lead: `${props.length > 1 ? `Across ${props.length} properties` : props[0]?.propertyName ?? ""}${period ? `, ${period}` : ""}${who.length ? ` · General Ledger imported by ${who.join(" and ")}` : ""}`,
+    figure: { value: money0(total), label: "Expected, not yet posted" },
+    rows: [],
+    sections: props.map((e) => {
+      const months = [...new Set(e.items.map((i) => i.monthLabel.slice(0, 3)))].join(", ");
+      return {
+        title: e.propertyName,
+        // The month only when the batch spans months — the lead already says it.
+        count: period.includes("–") ? `${money0(sumOf(e.items))} · ${months}` : money0(sumOf(e.items)),
+        items: [...e.items].sort((a, b) => b.expected - a.expected).map((i) => ({
+          title: i.line,
+          sub: i.type === "missing-debt" ? "Scheduled loan payment" : undefined,
+          meta: money0(i.expected),
+          path: `/financials/operating-statements?key=${encodeURIComponent(e.key)}&year=${e.year}&period=${i.period}`,
+        })),
+      };
+    }),
+    note: { label: "What to do", text: "Post each one, or dismiss it on the statement if it doesn't apply this month." },
+    link: { label: "Open Flags to Investigate", path: "/financials/operating-statements/review" },
   });
 
-  const text = [
-    `${lines} line${lines === 1 ? " is" : "s are"} still not posted to the GL across ${props.length} propert${props.length === 1 ? "y" : "ies"} — ${money0(total)} expected in all` +
-      (who.length ? `, from the General Ledger just imported by ${who.join(" and ")}.` : "."),
-    "",
-    ...blocks.flatMap((b) => [b, ""]),
-    "These are budgeted or scheduled figures still reading $0 — real estate taxes, insurance, the management fee and debt service. Post them, or confirm they don't apply for the month. Flags to Investigate in the portal lists them all.",
-    "",
-    "— KCP Portal",
-  ].join("\n");
-
-  return { subject, text, lines };
+  return { subject, text: mail.text, html: mail.html, lines };
 }
