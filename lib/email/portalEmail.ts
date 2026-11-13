@@ -60,6 +60,8 @@ export type PortalEmail = {
   figure?: { value: string; label?: string };
   /** One line under the title. */
   lead?: string;
+  /** A part of the lead to set in bold (the property an inquiry is for). */
+  leadBold?: string;
   rows: PortalRow[];
   /** A row of figures under the title, each optionally linked. */
   stats?: { label: string; value: string; tone?: keyof typeof TONE; path?: string }[];
@@ -85,6 +87,12 @@ export type PortalEmail = {
   /** "Sent by the KCP Portal" in the footer (default on; off to ownership). */
   systemFooter?: boolean;
 };
+
+function leadHtml(lead: string, bold?: string): string {
+  const i = bold ? lead.indexOf(bold) : -1;
+  if (i < 0) return esc(lead);
+  return `${esc(lead.slice(0, i))}<strong style="color:${INK};font-weight:700;">${esc(bold!)}</strong>${esc(lead.slice(i + bold!.length))}`;
+}
 
 export function portalEmail(e: PortalEmail): { subject: string; html: string; text: string } {
   const origin = portalOrigin();
@@ -126,7 +134,7 @@ ${st.sub ? `<div style="font-family:${FONT};font-size:12.5px;color:${FAINT};marg
 </tr></table></td></tr>` : ""}
 <tr><td style="padding:22px 32px 0;">
 <div style="font-family:${FONT};font-size:24px;font-weight:800;line-height:1.2;color:${INK};">${esc(e.title)}</div>
-${e.lead ? `<div style="font-family:${FONT};font-size:15px;line-height:1.5;color:${MUTED};margin-top:6px;">${esc(e.lead)}</div>` : ""}
+${e.lead ? `<div style="font-family:${FONT};font-size:15px;line-height:1.5;color:${MUTED};margin-top:6px;">${leadHtml(e.lead, e.leadBold)}</div>` : ""}
 </td></tr>
 ${e.figure ? `<tr><td style="padding:18px 32px 0;">
 <div style="font-family:${FONT};font-size:40px;font-weight:800;line-height:1;color:${NAVY};letter-spacing:-0.5px;">${esc(e.figure.value)}</div>
